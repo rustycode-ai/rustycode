@@ -31,12 +31,29 @@ impl BrutalistRenderer<'_> {
         if self.session_input_tokens > 0 || self.session_output_tokens > 0 {
             let in_fmt = format_tokens_compact(self.session_input_tokens);
             let out_fmt = format_tokens_compact(self.session_output_tokens);
+            let cache_fmt = if self.session_cache_read_tokens > 0 {
+                let total_input = self.session_input_tokens + self.session_cache_read_tokens;
+                let pct = (self.session_cache_read_tokens * 100)
+                    .checked_div(total_input)
+                    .unwrap_or(0);
+                format!(" {}%", pct)
+            } else {
+                String::new()
+            };
             info_spans.push(Span::styled(
                 format!("↑{} ↓{} ", in_fmt, out_fmt),
                 Style::default()
                     .fg(Color::Rgb(100, 120, 150))
                     .add_modifier(Modifier::DIM),
             ));
+            if !cache_fmt.is_empty() {
+                info_spans.push(Span::styled(
+                    format!("c:{} ", cache_fmt.trim_start()),
+                    Style::default()
+                        .fg(Color::Rgb(80, 200, 120))
+                        .add_modifier(Modifier::DIM),
+                ));
+            }
         }
 
         // Session cost

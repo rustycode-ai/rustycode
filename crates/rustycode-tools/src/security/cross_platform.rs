@@ -2,7 +2,7 @@
 //!
 //! Handles:
 //! - Path normalization (Windows, WSL, Cygwin paths)
-//! - Platform-specific command allowlists (bash, PowerShell, cmd.exe)
+//! - Platform-specific command allowlists (bash, `PowerShell`, `cmd.exe`)
 //! - Platform-specific dangerous command blocklists
 
 use anyhow::{anyhow, Result};
@@ -22,7 +22,12 @@ impl ShellType {
         let lower = shell.to_lowercase();
         if lower.contains("powershell") {
             ShellType::PowerShell
-        } else if lower.contains("cmd") || lower.ends_with(".exe") && lower.contains("cmd") {
+        } else if lower.contains("cmd")
+            || Path::new(shell)
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
+                && lower.contains("cmd")
+        {
             ShellType::Cmd
         } else {
             ShellType::Bash

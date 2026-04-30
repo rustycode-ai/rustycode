@@ -17,7 +17,7 @@ use std::time::Duration;
 
 use crate::context::prune_messages;
 use crate::intelligence::CodeIntelligence;
-use crate::tool_exec::{execute_tool, is_error_output, truncate_tool_output};
+use crate::tool_exec::{execute_tool, truncate_tool_output};
 use crate::turn::{collect_completion_turn, collect_stream_turn};
 use rustycode_guard::hooks_expanded::{ExpandedHookDispatcher, LifecycleEvent, LifecycleHook};
 use rustycode_tools_api::tiers::{ToolActivationManager, ToolTier};
@@ -403,7 +403,7 @@ async fn run_loop(
             let (raw_output, exec_error) =
                 execute_tool(cwd, &tool.name, &tool.input_json, tool_registry);
             let truncated = truncate_tool_output(&raw_output, config.max_tool_result_bytes);
-            let error_flag = exec_error || is_error_output(&truncated);
+            let error_flag = exec_error;
 
             // Record usage
             activation.record_use(&tool.name, !error_flag);

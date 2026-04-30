@@ -90,22 +90,18 @@ async fn run_bench(
     println!("Agent: {agent} (model: {model}, provider: {provider})");
     println!("Concurrency: {n_concurrent}");
 
+    let tasks = rustycode_bench::ResolvedTask::discover(&dataset_dir)?;
+    println!("Tasks: {}", tasks.len());
+
     async_run(
-        &dataset_dir,
-        agent,
-        model,
-        provider,
-        job_config,
-        max_turns,
-        max_tokens,
-        timeout,
+        &tasks, agent, model, provider, job_config, max_turns, max_tokens, timeout,
     )
     .await
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn async_run(
-    dataset_dir: &std::path::Path,
+    tasks: &[rustycode_bench::ResolvedTask],
     agent_name: String,
     model: String,
     provider: String,
@@ -129,9 +125,7 @@ async fn async_run(
                     ))
                 };
 
-            let results = job
-                .run(dataset_dir, &agent_factory, &verifier_factory)
-                .await?;
+            let results = job.run(tasks, &agent_factory, &verifier_factory).await?;
             println!("\n{}", results.summary());
         }
         "nop" => {
@@ -146,9 +140,7 @@ async fn async_run(
                     ))
                 };
 
-            let results = job
-                .run(dataset_dir, &agent_factory, &verifier_factory)
-                .await?;
+            let results = job.run(tasks, &agent_factory, &verifier_factory).await?;
             println!("\n{}", results.summary());
         }
         "code" => {
@@ -161,7 +153,6 @@ async fn async_run(
                         provider: provider.clone(),
                         max_turns,
                         max_tokens,
-                        command_timeout_secs: timeout,
                         ..Default::default()
                     };
                     match rustycode_bench::CodeAgent::auto(config) {
@@ -185,9 +176,7 @@ async fn async_run(
                     ))
                 };
 
-            let results = job
-                .run(dataset_dir, &agent_factory, &verifier_factory)
-                .await?;
+            let results = job.run(tasks, &agent_factory, &verifier_factory).await?;
             println!("\n{}", results.summary());
         }
         other => {

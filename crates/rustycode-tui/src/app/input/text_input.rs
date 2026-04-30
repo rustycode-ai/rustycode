@@ -435,7 +435,6 @@ impl TUI {
                 self.showing_command_palette = true;
                 self.command_palette.show();
                 self.command_palette.state_mut().clear_query();
-                self.input_handler.state.clear();
                 self.dirty = true;
                 return Ok(());
             }
@@ -621,31 +620,6 @@ impl TUI {
             }
             InputAction::Consumed => {
                 self.input_mode = self.input_handler.state.mode;
-
-                // Auto-open command palette when user types '/' as first character
-                let input_text = self.input_handler.state.all_text();
-                if let Some(query) = input_text.strip_prefix('/') {
-                    if query.contains(' ') || query.contains('\n') {
-                        // User is past the command name (typing arguments) — close palette
-                        if self.showing_command_palette {
-                            self.showing_command_palette = false;
-                            self.command_palette.hide();
-                        }
-                    } else {
-                        self.showing_command_palette = true;
-                        // Sync palette query from input text (don't call show() which resets)
-                        let state = self.command_palette.state_mut();
-                        if !state.visible {
-                            state.visible = true;
-                        }
-                        state.set_query(query.to_string());
-                    }
-                } else if self.showing_command_palette {
-                    // Close palette if input no longer starts with /
-                    self.showing_command_palette = false;
-                    self.command_palette.hide();
-                }
-
                 self.dirty = true;
             }
             InputAction::Ignored => {
@@ -705,5 +679,24 @@ mod tests {
             tui.input_handler.state.images.is_empty(),
             "image attachments should be drained when sending"
         );
+    }
+
+    #[test]
+    fn test_command_palette_launcher_shortcuts_open_palette() {
+        let mut tui = TUI::new_for_test();
+
+        tui.handle_global_shortcut(KeyCode::Char('k'), KeyModifiers::CONTROL)
+            .unwrap();
+        assert!(tui.showing_command_palette);
+        assert!(tui.command_palette.is_visible());
+
+        tui.dismiss_any_overlay();
+        assert!(!tui.showing_command_palette);
+        assert!(!tui.command_palette.is_visible());
+
+        tui.handle_global_shortcut(KeyCode::Char('P'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)
+            .unwrap();
+        assert!(tui.showing_command_palette);
+        assert!(tui.command_palette.is_visible());
     }
 }

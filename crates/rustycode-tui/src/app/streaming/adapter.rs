@@ -409,17 +409,25 @@ mod tests {
                 is_error: false,
             })
             .await;
-        assert_eq!(
-            rx.recv().unwrap(),
+        let chunk = rx.recv().unwrap();
+        match chunk {
             StreamChunk::ToolComplete {
-                tool_name: "bash".into(),
-                tool_id: "t1".into(),
-                duration_ms: 0,
-                success: true,
-                output_size: 2,
-                output: Some("ok".into()),
+                tool_name,
+                tool_id,
+                duration_ms,
+                success,
+                output_size,
+                output,
+            } => {
+                assert_eq!(tool_name, "bash");
+                assert_eq!(tool_id, "t1");
+                assert!(duration_ms < 100, "duration_ms should be near zero, got {duration_ms}");
+                assert!(success);
+                assert_eq!(output_size, 2);
+                assert_eq!(output, Some("ok".into()));
             }
-        );
+            other => panic!("expected ToolComplete, got {:?}", other),
+        }
     }
 
     #[tokio::test]

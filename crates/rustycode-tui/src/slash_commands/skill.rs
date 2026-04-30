@@ -175,21 +175,21 @@ fn cmd_run_skill(
         )
     })?;
 
-    // For now, just show what would happen
-    // In a full implementation, this would invoke the skill with args
     Ok(Some(format!(
-        "📋 Running skill: {}\n\
+        "⚠️ Skill execution is not yet implemented.\n\n\
+         Skill: {}\n\
          Description: {}\n\
          Args: {}\n\
          \n\
-         (Skill execution not yet implemented)",
+         Use /skill info {} for details about this skill.",
         skill.base.name,
         skill.base.description,
         if args.is_empty() {
             "(none)".to_string()
         } else {
             args.join(" ")
-        }
+        },
+        name
     )))
 }
 

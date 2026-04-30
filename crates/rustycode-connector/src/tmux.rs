@@ -399,8 +399,7 @@ impl TmuxConnector {
             .unwrap_or_else(|| "-100".to_string());
         let end_flag = options
             .end
-            .map(|n| n.to_string())
-            .unwrap_or_else(|| "-".to_string());
+            .map_or_else(|| "-".to_string(), |n| n.to_string());
 
         let mut args = vec![
             "capture-pane",

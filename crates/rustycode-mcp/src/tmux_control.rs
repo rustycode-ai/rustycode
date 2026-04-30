@@ -97,15 +97,15 @@ impl TerminalBackend {
         Self::Tmux(TmuxConnector::new(&config.session_prefix))
     }
 
-    fn it2() -> Self {
+    const fn it2() -> Self {
         Self::It2(It2Connector::new())
     }
 
-    fn iterm2_native() -> Self {
+    const fn iterm2_native() -> Self {
         Self::Iterm2Native(ITerm2NativeConnector::new())
     }
 
-    fn kind(&self) -> TerminalBackendKind {
+    const fn kind(&self) -> TerminalBackendKind {
         match self {
             Self::Tmux(_) => TerminalBackendKind::Tmux,
             Self::It2(_) => TerminalBackendKind::It2,
@@ -244,7 +244,7 @@ impl TmuxMcpServer {
                 ];
                 candidates
                     .into_iter()
-                    .find(|backend| backend.is_available())
+                    .find(TerminalBackend::is_available)
                     .unwrap_or_else(|| TerminalBackend::tmux(config))
             }
         }
@@ -577,8 +577,7 @@ impl TmuxMcpServer {
     pub fn backend_kind(&self) -> TerminalBackendKind {
         self.backend
             .lock()
-            .map(|backend| backend.kind())
-            .unwrap_or(TerminalBackendKind::Tmux)
+            .map_or(TerminalBackendKind::Tmux, |backend| backend.kind())
     }
 
     fn dispatch(&self, tool_name: &str, args: serde_json::Value) -> McpResult<McpToolResult> {
@@ -607,7 +606,7 @@ impl TmuxMcpServer {
         let name = required_str(&args, "name")?;
         let ttl_secs = args
             .get("ttl_secs")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(self.config.default_ttl_secs);
         let session_id = self.with_backend_mut(|backend| backend.create_session(name))?;
 
@@ -636,7 +635,7 @@ impl TmuxMcpServer {
     }
 
     fn list_sessions(&self) -> McpResult<McpToolResult> {
-        let sessions = self.with_backend_ref(|backend| backend.list_sessions())?;
+        let sessions = self.with_backend_ref(TerminalBackend::list_sessions)?;
         Ok(ok_result(json!({
             "sessions": sessions.into_iter().map(session_to_json).collect::<Vec<_>>()
         })))
@@ -706,15 +705,15 @@ impl TmuxMcpServer {
     fn capture_pane(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
         let session_id = SessionId(required_str(&args, "session_id")?.to_string());
         let pane_index = required_usize(&args, "pane_index")?;
-        let start = args.get("start").and_then(|v| v.as_i64());
-        let end = args.get("end").and_then(|v| v.as_i64());
+        let start = args.get("start").and_then(serde_json::Value::as_i64);
+        let end = args.get("end").and_then(serde_json::Value::as_i64);
         let include_escape_sequences = args
             .get("include_escape_sequences")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
         let join_wrapped_lines = args
             .get("join_wrapped_lines")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(true);
         let content = self.with_backend_ref(|backend| {
             backend.capture_pane(
@@ -745,7 +744,7 @@ impl TmuxMcpServer {
         let command = required_str(&args, "command")?;
         let track_result = args
             .get("track_result")
-            .and_then(|v| v.as_bool())
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(true);
         let command_id = format!("cmd_{}", uuid::Uuid::new_v4().simple());
 
@@ -808,29 +807,30 @@ impl TmuxMcpServer {
 
         if matches!(record.origin, CommandOrigin::Tmux)
             && record.status == "running"
-            && record.session_id.is_some()
-            && record.pane_index.is_some()
         {
-            let session_id = SessionId(record.session_id.clone().unwrap());
-            let pane_index = record.pane_index.unwrap();
-            let capture = self.with_backend_ref(|backend| {
-                backend.capture_pane(
-                    &session_id,
-                    pane_index,
-                    CapturePaneOptions {
-                        start: Some(-(self.config.capture_lines as i64)),
-                        end: None,
-                        include_escape_sequences: false,
-                        join_wrapped_lines: true,
-                        max_lines: Some(self.config.capture_lines),
-                    },
-                )
-            })?;
+            if let (Some(session_id_str), Some(pane_index)) =
+                (&record.session_id, record.pane_index)
+            {
+                let session_id = SessionId(session_id_str.clone());
+                let capture = self.with_backend_ref(|backend| {
+                    backend.capture_pane(
+                        &session_id,
+                        pane_index,
+                        CapturePaneOptions {
+                            start: Some(-(self.config.capture_lines as i64)),
+                            end: None,
+                            include_escape_sequences: false,
+                            join_wrapped_lines: true,
+                            max_lines: Some(self.config.capture_lines),
+                        },
+                    )
+                })?;
 
-            payload["stdout"] = json!(capture.text);
+                payload["stdout"] = json!(capture.text);
 
-            if capture.text.contains("$ ") || capture.text.ends_with('\n') {
-                record.finished_at = Some(Utc::now().to_rfc3339());
+                if capture.text.contains("$ ") || capture.text.ends_with('\n') {
+                    record.finished_at = Some(Utc::now().to_rfc3339());
+                }
             }
         } else {
             payload["stdout"] = json!(record.stdout.clone().unwrap_or_default());
@@ -846,7 +846,7 @@ impl TmuxMcpServer {
         let pattern = required_str(&args, "pattern")?.to_string();
         let timeout_secs = args
             .get("timeout_secs")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(30);
         let content = self.with_backend_ref(|backend| {
             backend.wait_for_output(&session_id, pane_index, &pattern, Some(timeout_secs))
@@ -872,7 +872,7 @@ impl TmuxMcpServer {
         let command = required_str(&args, "command")?;
         let timeout_secs = args
             .get("timeout_secs")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(self.config.command_timeout_secs);
         let command_id = format!("cmd_{}", uuid::Uuid::new_v4().simple());
         let started_at = Utc::now().to_rfc3339();
@@ -915,9 +915,9 @@ impl TmuxMcpServer {
     fn workspace_run_tests(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
         let timeout_secs = args
             .get("timeout_secs")
-            .and_then(|v| v.as_u64())
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(self.config.command_timeout_secs);
-        let filter = args.get("filter").and_then(|v| v.as_str()).unwrap_or("");
+        let filter = args.get("filter").and_then(serde_json::Value::as_str).unwrap_or("");
         let mut command = String::from("cargo test");
         if !filter.is_empty() {
             command.push(' ');
@@ -1027,7 +1027,7 @@ fn required_str<'a>(args: &'a serde_json::Value, key: &str) -> McpResult<&'a str
 
 fn required_usize(args: &serde_json::Value, key: &str) -> McpResult<usize> {
     args.get(key)
-        .and_then(|v| v.as_u64())
+        .and_then(serde_json::Value::as_u64)
         .map(|n| n as usize)
         .ok_or_else(|| McpError::InvalidRequest(format!("'{key}' is required")))
 }

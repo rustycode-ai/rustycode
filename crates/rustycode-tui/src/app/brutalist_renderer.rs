@@ -68,6 +68,7 @@ pub struct BrutalistRendererConfig<'a> {
     pub current_model: &'a str,
     pub session_input_tokens: usize,
     pub session_output_tokens: usize,
+    pub session_cache_read_tokens: usize,
     pub last_turn_input_tokens: usize,
     pub git_branch: &'a str,
     pub reverse_search_query: String,
@@ -169,12 +170,14 @@ impl<'a> BrutalistRendererBuilder<'a> {
         cost: f64,
         input_tokens: usize,
         output_tokens: usize,
+        cache_read_tokens: usize,
         last_turn_input: usize,
         model: &'a str,
     ) -> Self {
         self.config.session_cost = cost;
         self.config.session_input_tokens = input_tokens;
         self.config.session_output_tokens = output_tokens;
+        self.config.session_cache_read_tokens = cache_read_tokens;
         self.config.last_turn_input_tokens = last_turn_input;
         self.config.current_model = model;
         self
@@ -326,6 +329,8 @@ pub struct BrutalistRenderer<'a> {
     pub session_input_tokens: usize,
     /// Output tokens used this session (for context bar split display)
     pub session_output_tokens: usize,
+    /// Cache hit tokens this session (prompt caching savings)
+    pub session_cache_read_tokens: usize,
     /// Input tokens from last API call (actual current context size)
     pub last_turn_input_tokens: usize,
     /// Cached git branch name (avoids running git rev-parse per frame)
@@ -395,6 +400,7 @@ impl<'a> BrutalistRenderer<'a> {
             current_model: config.current_model,
             session_input_tokens: config.session_input_tokens,
             session_output_tokens: config.session_output_tokens,
+            session_cache_read_tokens: config.session_cache_read_tokens,
             last_turn_input_tokens: config.last_turn_input_tokens,
             git_branch: config.git_branch,
             reverse_search_query: config.reverse_search_query,

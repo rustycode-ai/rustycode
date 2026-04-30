@@ -685,7 +685,7 @@ impl TUI {
                         }
                     };
                     let result = rt.block_on(crate::marketplace::updates::update_item(
-                        &[item.clone()],
+                        std::slice::from_ref(&item),
                         &item.id,
                     ));
                     match result {

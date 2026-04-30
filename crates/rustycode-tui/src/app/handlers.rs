@@ -198,7 +198,8 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
             // auto-continue or queued message send. The flag is properly
             // reset in the Done/Error handlers.
         }
-        StreamChunk::Thinking(thinking) => {
+        StreamChunk::Thinking(mut thinking) => {
+            const MAX_THINKING_BYTES: usize = 50 * 1024;
             tui.thinking_chunks_received += 1;
             let assistant_msg = tui
                 .messages
@@ -207,8 +208,17 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
                 .find(|m| m.role == MessageRole::Assistant);
             if let Some(last_msg) = assistant_msg {
                 if let Some(existing) = &mut last_msg.thinking {
-                    existing.push_str(&thinking);
+                    if existing.len() + thinking.len() > MAX_THINKING_BYTES {
+                        existing.truncate(MAX_THINKING_BYTES.saturating_sub(3));
+                        existing.push_str("...");
+                    } else {
+                        existing.push_str(&thinking);
+                    }
                 } else {
+                    if thinking.len() > MAX_THINKING_BYTES {
+                        thinking.truncate(MAX_THINKING_BYTES.saturating_sub(3));
+                        thinking.push_str("...");
+                    }
                     last_msg.thinking = Some(thinking);
                 }
             }
@@ -1222,13 +1232,48 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
         } => {
             // Determine tool type based on tool name
             let tool_type = classify_tool_type(&tool_name);
-            let command = diff.unwrap_or_else(|| format!("Execute {}", tool_name));
+            let command = diff.clone().unwrap_or_else(|| format!("Execute {}", tool_name));
             let risk_level = risk::classify_tool_risk(&tool_type, &command);
 
             if tui.services.ai_mode() == crate::agent_mode::AiMode::Yolo {
                 tui.services.send_approval_response(true);
                 tui.dirty = true;
                 return;
+            }
+
+            // Plan mode gate: reject tools that are not allowed during planning
+            if tui.plan_mode.current_phase() == "planning" {
+                let plan_blocked = match tui.plan_mode.is_tool_allowed(&tool_name) {
+                    Ok(()) => false,
+                    Err(_reason) => {
+                        // Allow write_file for doc extensions even in plan mode
+                        const DOC_EXTENSIONS: &[&str] =
+                            &[".md", ".txt", ".rst", ".adoc", ".doc", ".docx"];
+                        if tool_name == "write_file" {
+                            if let Some(path) = diff.as_ref().and_then(|d| {
+                                // Try to extract path from diff string like "write_file: path=..."
+                                d.split("path=").nth(1).and_then(|s| s.split_whitespace().next())
+                            }) {
+                                let lower = path.to_lowercase();
+                                !DOC_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
+                            } else {
+                                true
+                            }
+                        } else {
+                            true
+                        }
+                    }
+                };
+
+                if plan_blocked {
+                    tui.services.send_approval_response(false);
+                    tui.add_system_message(format!(
+                        "Plan mode blocked tool: {}",
+                        tool_name
+                    ));
+                    tui.dirty = true;
+                    return;
+                }
             }
 
             if !tui.tool_approval.requires_approval(&tool_name, risk_level) {

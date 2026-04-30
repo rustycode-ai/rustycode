@@ -354,6 +354,22 @@ impl BenchEnvironment for DockerEnvironment {
         self.compose_exec(command, Some(timeout_secs)).await
     }
 
+    async fn exec_script(
+        &self,
+        script_path: &Path,
+        timeout_secs: u64,
+    ) -> anyhow::Result<ExecResult> {
+        let file_name = script_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        let container_dest = format!("/tmp/{file_name}");
+        self.upload_file(script_path, &container_dest).await?;
+        self.exec(&format!("chmod +x {container_dest}")).await?;
+        self.exec_with_timeout(&format!("bash {container_dest}"), timeout_secs)
+            .await
+    }
+
     async fn upload_file(&self, src: &Path, dest: &str) -> anyhow::Result<()> {
         let project_name = Self::sanitize_project_name(&self.session_id);
         let compose_file = self.trial_paths.trial_dir.join("docker-compose.yaml");

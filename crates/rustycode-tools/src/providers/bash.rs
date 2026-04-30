@@ -1860,9 +1860,9 @@ fn canonicalize_existing_or_parent(path: &Path) -> Result<PathBuf> {
     }
 }
 
-/// Tool for PowerShell commands (Windows).
+/// Tool for `PowerShell` commands (Windows).
 ///
-/// Shares the same session and execution logic as BashTool,
+/// Shares the same session and execution logic as `BashTool`,
 /// but validates against PowerShell-specific allowed/blocked commands.
 #[derive(Default)]
 pub struct PowerShellTool;
@@ -1976,7 +1976,7 @@ impl ToolStreaming for PowerShellTool {
 
 /// Tool for cmd.exe commands (Windows batch shell).
 ///
-/// Shares the same session and execution logic as BashTool,
+/// Shares the same session and execution logic as `BashTool`,
 /// but validates against cmd.exe-specific allowed/blocked commands.
 #[derive(Default)]
 pub struct CmdTool;

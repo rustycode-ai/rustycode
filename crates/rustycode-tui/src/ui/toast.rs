@@ -272,9 +272,26 @@ impl ToastManager {
     }
 
     /// Add a toast notification
+    ///
+    /// If the number of active toasts exceeds `max_toasts`, the oldest
+    /// visible toast is immediately dismissed (forced into exit animation).
     pub fn add(&mut self, toast: Toast) -> usize {
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1);
+
+        // Enforce capacity: force-exit oldest toasts if we'd exceed the cap.
+        // We count non-exiting toasts as "visible" slots.
+        while self.toasts.iter().filter(|t| t.phase != ToastPhase::Exiting).count() >= self.max_toasts {
+            if let Some(oldest_visible) = self
+                .toasts
+                .iter_mut()
+                .find(|t| t.phase != ToastPhase::Exiting)
+            {
+                oldest_visible.dismiss();
+            } else {
+                break;
+            }
+        }
 
         let mut toast = toast;
         toast.id = id;

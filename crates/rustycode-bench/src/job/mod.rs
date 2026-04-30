@@ -5,7 +5,7 @@ mod result;
 pub use result::{BenchmarkResults, TaskResult};
 
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -47,30 +47,29 @@ impl Job {
         Self { config }
     }
 
-    /// Run all tasks from a dataset directory with the given agent and verifier.
+    /// Run pre-discovered tasks with the given agent and verifier.
     ///
     /// If resuming, skips tasks that already have completed trial results
     /// in the job directory.
     pub async fn run(
         &self,
-        dataset_dir: &Path,
+        tasks: &[ResolvedTask],
         agent_factory: &(dyn Fn(PathBuf) -> Box<dyn BenchAgent> + Send + Sync),
         verifier_factory: &(dyn Fn(PathBuf, u64) -> Box<dyn Verifier> + Send + Sync),
     ) -> anyhow::Result<BenchmarkResults> {
-        // Discover tasks
-        let tasks = ResolvedTask::discover(dataset_dir)?;
         if tasks.is_empty() {
-            anyhow::bail!("No tasks found in {}", dataset_dir.display());
+            anyhow::bail!("No tasks provided");
         }
 
-        tracing::info!("Found {} tasks in {}", tasks.len(), dataset_dir.display());
+        tracing::info!("Running {} tasks", tasks.len());
 
         // Find already-completed tasks (for resume)
         let completed = self.find_completed_tasks()?;
         let total_tasks = tasks.len();
         let remaining: Vec<ResolvedTask> = tasks
-            .into_iter()
+            .iter()
             .filter(|t| !completed.contains(&t.name))
+            .cloned()
             .collect();
 
         tracing::info!(

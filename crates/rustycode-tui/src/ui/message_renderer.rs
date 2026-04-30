@@ -542,7 +542,7 @@ impl MessageRenderer {
                     let first_line_capacity = width;
                     let continuation_width = width.saturating_sub(gutter_indent).max(1);
                     let remaining = display_width.saturating_sub(first_line_capacity);
-                    (remaining + continuation_width - 1) / continuation_width
+                    remaining.div_ceil(continuation_width)
                 }
             })
             .sum::<usize>();

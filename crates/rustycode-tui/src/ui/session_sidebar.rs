@@ -262,16 +262,6 @@ pub enum McpServerState {
 }
 
 impl McpServerState {
-    fn icon(&self) -> &'static str {
-        match self {
-            McpServerState::Connected => "🔌",
-            McpServerState::Configured => "⚡",
-            McpServerState::Remote => "🌐",
-            McpServerState::Disabled => "⏸",
-            McpServerState::Disconnected => "✕",
-        }
-    }
-
     fn color(&self) -> Color {
         match self {
             McpServerState::Connected => Color::Green,
@@ -279,16 +269,6 @@ impl McpServerState {
             McpServerState::Remote => Color::Cyan,
             McpServerState::Disabled => Color::DarkGray,
             McpServerState::Disconnected => Color::Red,
-        }
-    }
-
-    fn label(&self) -> &'static str {
-        match self {
-            McpServerState::Connected => "Connected",
-            McpServerState::Configured => "Configured",
-            McpServerState::Remote => "Remote",
-            McpServerState::Disabled => "Disabled",
-            McpServerState::Disconnected => "Disconnected",
         }
     }
 }
@@ -314,7 +294,6 @@ struct LspDiagnosticCounts {
 pub struct SessionSidebar {
     state: SessionSidebarState,
     visible: bool,
-    session_start: Instant,
     message_count: usize,
     active_tools: usize,
     workspace_name: Option<String>,
@@ -349,7 +328,6 @@ impl SessionSidebar {
         Self {
             state: SessionSidebarState::default(),
             visible: true, // Show by default so status sections are immediately visible
-            session_start: Instant::now(),
             message_count: 0,
             active_tools: 0,
             workspace_name: None,
@@ -713,7 +691,7 @@ impl SessionSidebar {
 
     /// Render the sidebar
     pub fn render(&mut self, frame: &mut Frame, area: Rect) {
-        if !self.visible || area.width < 20 || area.height < 5 {
+        if !self.visible || area.width < 24 || area.height < 5 {
             return;
         }
 
@@ -1053,48 +1031,19 @@ impl SessionSidebar {
             });
         }
 
-        // Current session info section
-        let elapsed = self.session_start.elapsed();
-        let elapsed_mins = elapsed.as_secs() / 60;
-        let elapsed_secs = elapsed.as_secs() % 60;
-
+        // Current session info section (time shown in header bar)
         sections.push(SidebarSection {
             key: "session",
-            title: "Current Session",
-            lines: vec![
-                Line::from(vec![
-                    Span::styled("Time    ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(
-                        format!("{}m {}s", elapsed_mins, elapsed_secs),
-                        Style::default().fg(Color::White),
-                    ),
-                ]),
-                Line::from(vec![
-                    Span::styled("Messages", Style::default().fg(Color::DarkGray)),
-                    Span::styled(
-                        format!(" {}", self.message_count),
-                        Style::default().fg(Color::White),
-                    ),
-                ]),
-            ],
+            title: "Session",
+            lines: vec![Line::from(vec![
+                Span::styled("Messages ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("{}", self.message_count),
+                    Style::default().fg(Color::White),
+                ),
+            ])],
             collapsible: false,
         });
-
-        // Active tools section
-        if self.active_tools > 0 {
-            sections.push(SidebarSection {
-                key: "tools",
-                title: "Active Tools",
-                lines: vec![Line::from(vec![
-                    Span::styled("🔄 ", Style::default().fg(Color::Yellow)),
-                    Span::styled(
-                        format!("{} tools running", self.active_tools),
-                        Style::default().fg(Color::White),
-                    ),
-                ])],
-                collapsible: true,
-            });
-        }
 
         // Workspace section
         if let Some(ref workspace) = self.workspace_name {
@@ -1115,28 +1064,8 @@ impl SessionSidebar {
             });
         }
 
-        // Status section
-        let mut status_lines = Vec::new();
-        if self.rate_limited {
-            status_lines.push(Line::from(vec![
-                Span::styled("⏱️ ", Style::default().fg(Color::Red)),
-                Span::styled("Rate limited", Style::default().fg(Color::Red)),
-            ]));
-        } else {
-            status_lines.push(Line::from(vec![
-                Span::styled("✓ ", Style::default().fg(Color::Green)),
-                Span::styled("Ready", Style::default().fg(Color::Green)),
-            ]));
-        }
-
-        sections.push(SidebarSection {
-            key: "status",
-            title: "Status",
-            lines: status_lines,
-            collapsible: false,
-        });
-
-        // Tool calls summary section
+        // Tool calls summary section (replaces both old "Active Tools" and "Status" —
+        // status is already shown in the header bar, active tool count in header ⚡N)
         if self.tool_calls_running > 0 || self.tool_calls_recent.is_some() {
             let mut tool_lines = Vec::new();
 
@@ -1176,27 +1105,18 @@ impl SessionSidebar {
 
             if self.lsp_connected {
                 let has_running = self.lsp_servers.iter().any(|s| s.starts_with("✓ "));
-                let (icon, label, color) = if has_running {
-                    ("●", "LSP Running", Color::Green)
+                let color = if has_running {
+                    Color::Green
                 } else {
-                    ("⚡", "LSP Available", Color::Yellow)
+                    Color::Yellow
                 };
                 lsp_lines.push(Line::from(vec![
-                    Span::styled(format!("{icon} "), Style::default().fg(color)),
-                    Span::styled(label, Style::default().fg(color)),
+                    Span::styled("● ", Style::default().fg(color)),
+                    Span::styled(self.lsp_servers.join(", "), Style::default().fg(Color::DarkGray)),
                 ]));
             } else {
                 lsp_lines.push(Line::from(vec![
-                    Span::styled("⚡ ", Style::default().fg(Color::DarkGray)),
-                    Span::styled("LSP Disconnected", Style::default().fg(Color::DarkGray)),
-                ]));
-            }
-
-            if !self.lsp_servers.is_empty() {
-                let servers_str = self.lsp_servers.join(", ");
-                lsp_lines.push(Line::from(vec![
-                    Span::styled("  ", Style::default()),
-                    Span::styled(servers_str, Style::default().fg(Color::DarkGray)),
+                    Span::styled("● ", Style::default().fg(Color::DarkGray)),
                 ]));
             }
 
@@ -1206,7 +1126,6 @@ impl SessionSidebar {
                 + self.lsp_diagnostics.hints
                 + self.lsp_diagnostics.information;
             if total_diagnostics > 0 {
-                // Add breakdown by severity
                 let mut severity_parts = Vec::new();
                 if self.lsp_diagnostics.errors > 0 {
                     severity_parts.push(format!("{}E", self.lsp_diagnostics.errors));
@@ -1223,7 +1142,7 @@ impl SessionSidebar {
 
                 if !severity_parts.is_empty() {
                     lsp_lines.push(Line::from(vec![
-                        Span::styled("    ", Style::default()),
+                        Span::styled("  ", Style::default()),
                         Span::styled(
                             severity_parts.join(" "),
                             Style::default().fg(Color::DarkGray),
@@ -1234,7 +1153,7 @@ impl SessionSidebar {
 
             sections.push(SidebarSection {
                 key: "lsp",
-                title: "Language Server",
+                title: "LSP",
                 lines: lsp_lines,
                 collapsible: true,
             });
@@ -1244,48 +1163,22 @@ impl SessionSidebar {
         if !self.mcp_servers.is_empty() || self.mcp_connected {
             let mut mcp_lines = Vec::new();
 
-            if self.mcp_connected {
-                mcp_lines.push(Line::from(vec![
-                    Span::styled("🔌 ", Style::default().fg(Color::Green)),
-                    Span::styled("MCP Connected", Style::default().fg(Color::Green)),
-                ]));
-            } else {
-                mcp_lines.push(Line::from(vec![
-                    Span::styled("⚡ ", Style::default().fg(Color::Yellow)),
-                    Span::styled("MCP Available", Style::default().fg(Color::Yellow)),
-                ]));
-            }
-
-            let connected_count = self
-                .mcp_servers
-                .iter()
-                .filter(|server| matches!(server.state, McpServerState::Connected))
-                .count();
-            mcp_lines.push(Line::from(vec![
-                Span::styled("    ", Style::default()),
-                Span::styled(
-                    format!(
-                        "{} connected / {} total",
-                        connected_count,
-                        self.mcp_servers.len()
-                    ),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ]));
-
             for server in &self.mcp_servers {
+                // Truncate server name to fit sidebar (width 24-34 minus "● " prefix)
+                let max_name_width = 20;
+                let display_name = if crate::unicode::display_width(&server.name) > max_name_width {
+                    crate::unicode::truncate_display(&server.name, max_name_width.saturating_sub(3)) + "..."
+                } else {
+                    server.name.clone()
+                };
                 let mut line = vec![
                     Span::styled(
-                        format!("    {} ", server.state.icon()),
+                        "● ",
                         Style::default().fg(server.state.color()),
                     ),
                     Span::styled(
-                        format!("{} ", server.name),
+                        display_name,
                         Style::default().fg(server.state.color()),
-                    ),
-                    Span::styled(
-                        format!("[{}]", server.state.label()),
-                        Style::default().fg(Color::DarkGray),
                     ),
                 ];
 

@@ -352,7 +352,7 @@ impl PolishedRenderer {
 
         let mut message_area = chunks[2];
         let mut sidebar_area = None;
-        if tui.session_sidebar.is_visible() && message_area.width > 40 {
+        if tui.session_sidebar.is_visible() && message_area.width > 100 {
             let sidebar_width = (message_area.width / 3).clamp(24, 34);
             if message_area.width > sidebar_width {
                 let split = Layout::default()

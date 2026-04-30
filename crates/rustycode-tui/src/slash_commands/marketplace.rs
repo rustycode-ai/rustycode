@@ -234,7 +234,7 @@ async fn cmd_update_items(parts: &[&str]) -> Result<Option<String>, String> {
     }
 }
 
-/// List installed items
+/// List marketplace items
 async fn cmd_list_items(parts: &[&str]) -> Result<Option<String>, String> {
     let items = fetch_marketplace_index()
         .await
@@ -242,12 +242,13 @@ async fn cmd_list_items(parts: &[&str]) -> Result<Option<String>, String> {
 
     let (items_to_show, label) = if parts.len() > 2 {
         match parts[2] {
+            "all" => (items.clone(), "All"),
             "installed" => (get_installed_items(&items), "Installed"),
             "updates" => (get_updatable_items(&items), "Updates Available"),
             category => (filter_by_category(&items, category), category),
         }
     } else {
-        (get_installed_items(&items), "Installed")
+        (items.clone(), "All")
     };
 
     if items_to_show.is_empty() {
@@ -399,4 +400,34 @@ fn format_marketplace_item(item: &crate::marketplace::index::MarketplaceItem) ->
         item.format_downloads(),
         item.version
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_handle_marketplace_command_list_default_shows_items() {
+        let result = handle_marketplace_command("/marketplace list")
+            .await
+            .unwrap();
+        let output = result.expect("marketplace list should return output");
+
+        assert!(output.contains("Marketplace") || output.contains("Items"));
+        assert!(
+            output.contains("code-review") || output.contains("tdd-guide"),
+            "expected built-in marketplace items in output, got: {}",
+            output
+        );
+    }
+
+    #[tokio::test]
+    async fn test_handle_marketplace_command_list_installed_is_valid() {
+        let result = handle_marketplace_command("/marketplace list installed")
+            .await
+            .unwrap();
+        let output = result.expect("marketplace list installed should return output");
+
+        assert!(!output.trim().is_empty());
+    }
 }

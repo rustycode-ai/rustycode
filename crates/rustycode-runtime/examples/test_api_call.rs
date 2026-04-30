@@ -37,6 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         output_config: None,
         container: None,
         tool_choice: None,
+        parallel_tool_calls: None,
+        session_id: None,
     };
 
     println!("\nSending test request...");

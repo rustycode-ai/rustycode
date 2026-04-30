@@ -121,6 +121,7 @@ impl TUI {
                 self.session_cost_usd,
                 self.session_input_tokens,
                 self.session_output_tokens,
+                self.session_cache_read_tokens,
                 self.last_turn_input_tokens,
                 &self.current_model,
             )

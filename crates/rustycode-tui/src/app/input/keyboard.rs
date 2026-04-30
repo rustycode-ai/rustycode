@@ -17,6 +17,65 @@ impl TUI {
         let input_is_empty = self.input_handler.state.lines.len() == 1
             && self.input_handler.state.lines[0].is_empty();
 
+        if (key_code == KeyCode::Char('k') && modifiers.contains(KeyModifiers::CONTROL))
+            || (key_code == KeyCode::Char('P')
+                && modifiers.contains(KeyModifiers::CONTROL)
+                && modifiers.contains(KeyModifiers::SHIFT))
+        {
+            if !self.wizard.showing_wizard
+                && self.pending_approval_request.is_empty()
+                && !self.error_manager.is_showing()
+                && !self.awaiting_clarification
+                && !self.showing_compaction_preview
+            {
+                self.showing_command_palette = true;
+                self.showing_skill_palette = false;
+                self.showing_plugin_manager = false;
+                self.showing_marketplace_browser = false;
+                self.command_palette.show();
+                self.command_palette.state_mut().clear_query();
+                self.dirty = true;
+            }
+            return Ok(());
+        }
+
+        if key_code == KeyCode::Char('M')
+            && modifiers.contains(KeyModifiers::CONTROL)
+            && modifiers.contains(KeyModifiers::SHIFT)
+        {
+            self.showing_command_palette = false;
+            self.command_palette.hide();
+            self.showing_skill_palette = false;
+            self.skill_palette.close();
+            self.showing_plugin_manager = true;
+            self.plugin_manager_ui.show();
+            {
+                let mut manager = self
+                    .plugin_manager
+                    .write()
+                    .unwrap_or_else(|e| e.into_inner());
+                let _ = manager.reload_from_disk();
+            }
+            self.dirty = true;
+            return Ok(());
+        }
+
+        if key_code == KeyCode::Char('M')
+            && modifiers.contains(KeyModifiers::CONTROL)
+            && modifiers.contains(KeyModifiers::ALT)
+        {
+            self.showing_command_palette = false;
+            self.command_palette.hide();
+            self.showing_skill_palette = false;
+            self.skill_palette.close();
+            self.showing_plugin_manager = false;
+            self.plugin_manager_ui.hide();
+            self.showing_marketplace_browser = true;
+            self.marketplace_browser.open();
+            self.dirty = true;
+            return Ok(());
+        }
+
         match (key_code, modifiers) {
             // Ctrl+U when input is empty: half-page scroll up (Vim Ctrl+U convention).
             // Must come before Ctrl+Shift+U (undo extraction) to match the simpler pattern.
@@ -61,7 +120,6 @@ impl TUI {
                 }
                 self.running = false;
             }
-            // Ctrl+K handling moved to central input loop to ensure proper overlay rendering
             // Ctrl+Shift+C: Copy selected message (moved from Ctrl+C to match industry convention)
             (KeyCode::Char('C'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 if let Err(e) = self.copy_selected_message() {
@@ -598,33 +656,6 @@ impl TUI {
             (KeyCode::Char('p'), KeyModifiers::ALT) => {
                 // Show model selector
                 self.model_selector.show();
-                self.dirty = true;
-            }
-            (KeyCode::Char('P'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.showing_skill_palette = false;
-                self.skill_palette.close();
-                self.showing_plugin_manager = true;
-                self.plugin_manager_ui.show();
-                {
-                    let mut manager = self
-                        .plugin_manager
-                        .write()
-                        .unwrap_or_else(|e| e.into_inner());
-                    let _ = manager.reload_from_disk();
-                }
-                self.dirty = true;
-            }
-            (KeyCode::Char('M'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.showing_skill_palette = false;
-                self.skill_palette.close();
-                self.showing_plugin_manager = false;
-                self.plugin_manager_ui.hide();
-                self.showing_marketplace_browser = true;
-                self.marketplace_browser.open();
                 self.dirty = true;
             }
             // Message collapse/expand shortcuts

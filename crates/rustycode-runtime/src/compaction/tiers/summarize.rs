@@ -204,9 +204,9 @@ impl SummarizeTier {
         if to_summarize.is_empty() {
             return Ok(TierResult {
                 messages: to_summarize
-                    .to_vec()
-                    .into_iter()
-                    .chain(to_preserve.to_vec())
+                    .iter()
+                    .cloned()
+                    .chain(to_preserve.iter().cloned())
                     .collect(),
                 tokens_removed: 0,
             });

@@ -319,48 +319,76 @@ impl FuzzyMatcher {
         matches
     }
 
-    /// Highlight matching characters in text
+    /// Highlight matching characters in text (Unicode-safe)
     pub fn highlight_matches(&self, text: &str, query: &str) -> Line<'_> {
-        let query_lower = query.to_lowercase();
-        let text_lower = text.to_lowercase();
-
         if query.is_empty() {
             return Line::from(text.to_string());
         }
 
-        let mut spans = Vec::new();
-        let mut last_idx = 0;
+        let query_lower: Vec<char> = query.to_lowercase().chars().collect();
+        let query_len = query_lower.len();
+        let text_lower_chars: Vec<char> = text.to_lowercase().chars().collect();
 
-        // Find all matches
-        while let Some(idx) = text_lower[last_idx..].find(&query_lower) {
-            let absolute_idx = last_idx + idx;
-
-            // Add text before match
-            if absolute_idx > last_idx {
-                let before = &text[last_idx..absolute_idx];
-                spans.push(Span::raw(before.to_string()));
+        // Map each char in text_lower back to the char index in original text.
+        // to_lowercase() can expand one char into multiple, so we build a forward map.
+        let mut lower_to_text = Vec::with_capacity(text_lower_chars.len());
+        for (text_idx, ch) in text.chars().enumerate() {
+            for _ in ch.to_lowercase() {
+                lower_to_text.push(text_idx);
             }
-
-            // Add highlighted match
-            let match_end = absolute_idx + query.len();
-            let matched = &text[absolute_idx..match_end];
-            spans.push(Span::styled(
-                matched.to_string(),
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ));
-
-            last_idx = match_end;
         }
 
-        // Add remaining text
-        if last_idx < text.len() {
-            let remaining = &text[last_idx..];
-            spans.push(Span::raw(remaining.to_string()));
+        // Byte offsets for each char position in original text
+        let byte_offsets: Vec<usize> = text.char_indices().map(|(i, _)| i).collect();
+        let text_len = text.len();
+
+        let mut spans = Vec::new();
+        let mut last_text_char = 0; // last processed char index in text
+        let mut i = 0;
+
+        while i + query_len <= text_lower_chars.len() {
+            if text_lower_chars[i..i + query_len] == query_lower[..] {
+                // Match at text_lower char positions [i..i+query_len)
+                let text_start_char = lower_to_text[i];
+                // The match may span multiple original chars; find the last one
+                let text_end_char = lower_to_text[i + query_len - 1];
+
+                let byte_start = byte_offsets.get(text_start_char).copied().unwrap_or(text_len);
+                // End byte is the start of the char AFTER the last matched char
+                let byte_end = byte_offsets
+                    .get(text_end_char + 1)
+                    .copied()
+                    .unwrap_or(text_len);
+
+                // Text before match
+                let prev_byte = byte_offsets.get(last_text_char).copied().unwrap_or(text_len);
+                if byte_start > prev_byte {
+                    spans.push(Span::raw(text[prev_byte..byte_start].to_string()));
+                }
+
+                // Highlighted match
+                if byte_start < byte_end {
+                    spans.push(Span::styled(
+                        text[byte_start..byte_end].to_string(),
+                        Style::default()
+                            .fg(Color::Yellow)
+                            .add_modifier(Modifier::BOLD),
+                    ));
+                }
+
+                last_text_char = text_end_char + 1;
+                i += query_len;
+            } else {
+                i += 1;
+            }
         }
 
-        // If no matches found, return original text
+        // Remaining text
+        let remaining_byte = byte_offsets.get(last_text_char).copied().unwrap_or(text_len);
+        if remaining_byte < text_len {
+            spans.push(Span::raw(text[remaining_byte..].to_string()));
+        }
+
         if spans.is_empty() {
             Line::from(text.to_string())
         } else {
@@ -387,6 +415,9 @@ pub struct CommandPaletteState {
 
     /// Available commands
     pub commands: Vec<Command>,
+
+    /// Recently used command names, newest first.
+    pub recent_commands: Vec<String>,
 
     /// Filtered and ranked command indices (index into commands)
     pub filtered_indices: Vec<usize>,
@@ -418,6 +449,7 @@ impl CommandPaletteState {
         Self {
             query: String::new(),
             commands,
+            recent_commands: Vec::new(),
             filtered_indices,
             selected_index: 0,
             visible: false,
@@ -445,6 +477,13 @@ impl CommandPaletteState {
         self.selected_index = 0;
         self.scroll_offset = 0;
         self.update_filtered();
+    }
+
+    /// Mark a command as recently used.
+    fn record_recent(&mut self, command_name: &str) {
+        self.recent_commands.retain(|name| name != command_name);
+        self.recent_commands.insert(0, command_name.to_string());
+        self.recent_commands.truncate(5);
     }
 
     /// Toggle palette visibility
@@ -587,6 +626,10 @@ impl CommandPaletteState {
             .and_then(|&idx| self.commands.get(idx))
     }
 
+    fn selected_command_index(&self) -> Option<usize> {
+        self.filtered_indices.get(self.selected_index).copied()
+    }
+
     /// Add a character to the query
     pub fn insert_char(&mut self, c: char) {
         self.query.push(c);
@@ -618,6 +661,14 @@ impl CommandPaletteState {
     /// Get number of filtered commands
     pub fn filtered_count(&self) -> usize {
         self.filtered_indices.len()
+    }
+
+    /// Register the current selection as recently used.
+    pub fn mark_selected_recent(&mut self) {
+        if let Some(command) = self.selected_command() {
+            let name = command.name.clone();
+            self.record_recent(&name);
+        }
     }
 
     /// Update the current viewport size.
@@ -743,7 +794,7 @@ impl CommandPaletteRenderer {
             Command::with_hint("/model", "Switch LLM model", "<model-name>", || {
                 CommandResult::Close
             }),
-            Command::with_hint("/model", "Switch to a numbered model", "<number>", || {
+            Command::new("/model list", "List available models with numbers", || {
                 CommandResult::Close
             }),
             Command::with_hint(
@@ -752,7 +803,7 @@ impl CommandPaletteRenderer {
                 "anthropic|openai|ollama|local",
                 || CommandResult::Close,
             ),
-            Command::new("/provider", "Show available providers", || {
+            Command::new("/provider list", "Show available providers", || {
                 CommandResult::Close
             }),
             Command::with_hint(
@@ -865,7 +916,7 @@ impl CommandPaletteRenderer {
             Command::new("/plugin open", "Open the plugin browser", || {
                 CommandResult::Close
             }),
-            Command::new("/plugins", "List installed plugins", || {
+            Command::new("/plugins", "Alias for /plugin list", || {
                 CommandResult::Close
             }),
             Command::new("/plugin list", "List installed plugins", || {
@@ -910,11 +961,9 @@ impl CommandPaletteRenderer {
             Command::new("/marketplace search", "Search the marketplace", || {
                 CommandResult::Close
             }),
-            Command::new(
-                "/marketplace list",
-                "List installed marketplace items",
-                || CommandResult::Close,
-            ),
+            Command::new("/marketplace list", "List marketplace items", || {
+                CommandResult::Close
+            }),
             Command::new("/marketplace info", "Show marketplace item details", || {
                 CommandResult::Close
             }),
@@ -1131,9 +1180,10 @@ impl CommandPaletteRenderer {
 
     /// Take the selected command (removes it from state)
     pub fn take_selected_command(&mut self) -> Option<Command> {
-        if let Some(_cmd) = self.state.selected_command() {
-            let idx = self.state.filtered_indices[self.state.selected_index];
-            Some(self.state.commands[idx].clone())
+        if let Some(idx) = self.state.selected_command_index() {
+            let command = self.state.commands[idx].clone();
+            self.state.mark_selected_recent();
+            Some(command)
         } else {
             None
         }
@@ -1150,9 +1200,9 @@ impl CommandPaletteRenderer {
             return; // Terminal too small to show palette
         }
 
-        let width = ((area.width as f32) * 0.86).round() as u16;
-        let width = width.clamp(48, area.width.saturating_sub(2));
-        let height = ((area.height as f32) * 0.72).round() as u16;
+        let width = ((area.width as f32) * 0.82).round() as u16;
+        let width = width.clamp(54, area.width.saturating_sub(2));
+        let height = ((area.height as f32) * 0.64).round() as u16;
         let height = height.clamp(14, area.height.saturating_sub(2));
         let x = area.x + (area.width.saturating_sub(width)) / 2;
         let y = area.y + (area.height.saturating_sub(height)) / 2;
@@ -1162,9 +1212,9 @@ impl CommandPaletteRenderer {
 
         let outer = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
+            .border_style(Style::default().fg(Color::Rgb(80, 200, 220)))
             .title(Line::from(vec![
-                Span::styled(" Command Palette ", Style::default().fg(Color::Cyan)),
+                Span::styled(" Command Dialog ", Style::default().fg(Color::Rgb(80, 200, 220))),
                 Span::styled(
                     format!("{} results", count),
                     Style::default().fg(Color::DarkGray),
@@ -1178,56 +1228,22 @@ impl CommandPaletteRenderer {
         }
 
         self.state
-            .set_viewport_rows(inner.height.saturating_sub(5) as usize);
+            .set_viewport_rows(inner.height.saturating_sub(7) as usize);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
+                Constraint::Length(2),
                 Constraint::Length(1),
-                Constraint::Length(3),
                 Constraint::Min(4),
                 Constraint::Length(2),
             ])
             .split(inner);
 
-        self.render_tabs(f, chunks[0]);
-        self.render_search(f, chunks[1]);
+        self.render_search(f, chunks[0]);
+        self.render_recent(f, chunks[1]);
         self.render_body(f, chunks[2]);
         self.render_footer(f, chunks[3]);
-    }
-
-    fn render_tabs(&self, f: &mut Frame, area: Rect) {
-        let tabs: Vec<Span<'_>> = PaletteTab::all()
-            .iter()
-            .flat_map(|tab| {
-                let is_active = *tab == self.state.active_tab;
-                let style = if is_active {
-                    Style::default()
-                        .fg(Color::Black)
-                        .bg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD)
-                } else {
-                    Style::default().fg(Color::Gray)
-                };
-
-                [
-                    Span::styled(format!(" {} ", tab.icon()), style),
-                    Span::styled(
-                        format!("{} ", tab.label()),
-                        if is_active {
-                            style
-                        } else {
-                            Style::default().fg(Color::Gray)
-                        },
-                    ),
-                ]
-            })
-            .collect();
-
-        let tabs_line = Paragraph::new(Line::from(tabs))
-            .alignment(Alignment::Left)
-            .wrap(Wrap { trim: true });
-        f.render_widget(tabs_line, area);
     }
 
     fn render_search(&self, f: &mut Frame, area: Rect) {
@@ -1252,12 +1268,45 @@ impl CommandPaletteRenderer {
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" Query ")
+                .title(" Search ")
                 .border_style(Style::default().fg(Color::DarkGray)),
         )
         .wrap(Wrap { trim: false });
 
         f.render_widget(search, area);
+    }
+
+    fn render_recent(&self, f: &mut Frame, area: Rect) {
+        let mut spans = vec![Span::styled(
+            "Recent: ",
+            Style::default().fg(Color::DarkGray),
+        )];
+
+        if self.state.recent_commands.is_empty() {
+            spans.push(Span::styled(
+                "none yet",
+                Style::default().fg(Color::DarkGray),
+            ));
+        } else {
+            for (idx, name) in self.state.recent_commands.iter().enumerate() {
+                if idx > 0 {
+                    spans.push(Span::styled(
+                        "  ",
+                        Style::default().fg(Color::DarkGray),
+                    ));
+                }
+                spans.push(Span::styled(
+                    format!("[{}]", name),
+                    Style::default()
+                        .fg(Color::Rgb(80, 200, 220))
+                        .add_modifier(Modifier::BOLD),
+                ));
+            }
+        }
+
+        let recent = Paragraph::new(Line::from(spans))
+            .wrap(Wrap { trim: true });
+        f.render_widget(recent, area);
     }
 
     fn render_body(&self, f: &mut Frame, area: Rect) {
@@ -1268,11 +1317,15 @@ impl CommandPaletteRenderer {
                     Style::default().fg(Color::DarkGray),
                 )),
                 Line::from(Span::styled(
-                    "Try a different tab or clear the search with Ctrl+U.",
+                    "Try a different query or clear the search with Ctrl+U.",
                     Style::default().fg(Color::DarkGray),
                 )),
             ])
-            .block(Block::default().borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            )
             .alignment(Alignment::Center)
             .wrap(Wrap { trim: true });
             f.render_widget(empty, area);
@@ -1350,7 +1403,7 @@ impl CommandPaletteRenderer {
             )
             .highlight_style(
                 Style::default()
-                    .bg(Color::DarkGray)
+                    .bg(Color::Rgb(50, 60, 68))
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD),
             );
@@ -1369,21 +1422,25 @@ impl CommandPaletteRenderer {
 
         let Some(command) = self.state.selected_command() else {
             let empty = Paragraph::new("No command selected")
-                .block(Block::default().borders(Borders::ALL).title(" Details "));
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(" Details ")
+                        .border_style(Style::default().fg(Color::DarkGray)),
+                );
             f.render_widget(empty, area);
             return;
         };
 
-        let tab = command_tab(command);
         let mut lines = vec![
             Line::from(vec![Span::styled(
                 command.name.clone(),
                 Style::default()
-                    .fg(Color::Cyan)
+                    .fg(Color::Rgb(80, 200, 220))
                     .add_modifier(Modifier::BOLD),
             )]),
             Line::from(vec![Span::styled(
-                format!("{} · {}", tab.label(), command.description),
+                command.description.clone(),
                 Style::default().fg(Color::White),
             )]),
             Line::from(""),
@@ -1404,21 +1461,13 @@ impl CommandPaletteRenderer {
             Span::styled("insert into prompt", Style::default().fg(Color::Gray)),
         ]));
         lines.push(Line::from(vec![
-            Span::styled("Ctrl+Tab: ", Style::default().fg(Color::DarkGray)),
-            Span::styled("next tab", Style::default().fg(Color::Gray)),
+            Span::styled("Ctrl+K / Ctrl+P: ", Style::default().fg(Color::DarkGray)),
+            Span::styled("open dialog", Style::default().fg(Color::Gray)),
         ]));
         lines.push(Line::from(vec![
             Span::styled("PgUp/PgDn: ", Style::default().fg(Color::DarkGray)),
             Span::styled("page results", Style::default().fg(Color::Gray)),
         ]));
-
-        if lines.len() as u16 + 2 < area.height {
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::styled("Category: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(tab.label(), Style::default().fg(Color::Gray)),
-            ]));
-        }
 
         let details = Paragraph::new(lines)
             .block(
@@ -1438,8 +1487,6 @@ impl CommandPaletteRenderer {
             Span::raw(" close  "),
             Span::styled("Enter", Style::default().fg(Color::DarkGray)),
             Span::raw(" insert  "),
-            Span::styled("Ctrl+Tab", Style::default().fg(Color::DarkGray)),
-            Span::raw(" switch tab  "),
             Span::styled("PgUp/PgDn", Style::default().fg(Color::DarkGray)),
             Span::raw(" scroll  "),
             Span::styled("Ctrl+U", Style::default().fg(Color::DarkGray)),
@@ -1730,5 +1777,22 @@ mod tests {
             // All palette commands return Close (actual execution goes through slash dispatch)
             assert!(matches!(result, CommandResult::Close));
         }
+    }
+
+    #[test]
+    fn test_recent_commands_tracking() {
+        let commands = vec![
+            Command::new("help", "Show help", || CommandResult::Success),
+            Command::new("clear", "Clear history", || CommandResult::Success),
+        ];
+
+        let mut palette = CommandPalette::with_commands(commands);
+        palette.show();
+
+        palette.state_mut().set_query("help");
+        let _ = palette.take_selected();
+
+        assert_eq!(palette.state().recent_commands.len(), 1);
+        assert_eq!(palette.state().recent_commands[0], "help");
     }
 }

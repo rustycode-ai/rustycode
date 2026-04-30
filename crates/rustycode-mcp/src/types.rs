@@ -134,7 +134,7 @@ pub struct McpAnnotations {
 /// MCP resource template (for dynamic resource access, 2025-11-25)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpResourceTemplate {
-    /// URI template (e.g., "file://{path}", "mcp://files/{filename}")
+    /// URI template (e.g., `"file://{path}"`, `"mcp://files/{filename}"`)
     #[serde(rename = "uriTemplate")]
     pub uri_template: String,
     /// Human-readable title (for display)

@@ -198,12 +198,12 @@ pub fn find_unique<'a>(
     match matches.len() {
         0 => Err(anyhow!(
             "symbol not found: {}",
-            path.components.join(&std::path::MAIN_SEPARATOR.to_string())
+            path.components.join(std::path::MAIN_SEPARATOR_STR)
         )),
         1 => Ok(matches[0].symbol),
         _ => {
             // Try to disambiguate by exact path match
-            let pattern_str = path.components.join(&std::path::MAIN_SEPARATOR.to_string());
+            let pattern_str = path.components.join(std::path::MAIN_SEPARATOR_STR);
             let exact_matches: Vec<_> = matches
                 .iter()
                 .filter(|m| m.qualified_path == pattern_str)

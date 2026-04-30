@@ -121,7 +121,7 @@ impl BrutalistRenderer<'_> {
                     .fg(Color::Rgb(100, 140, 180))
                     .add_modifier(Modifier::BOLD),
             ),
-            Span::styled(" palette", Style::default().fg(colors.muted)),
+            Span::styled(" / Ctrl+Shift+P palette", Style::default().fg(colors.muted)),
         ]));
 
         welcome.push(Line::from(""));

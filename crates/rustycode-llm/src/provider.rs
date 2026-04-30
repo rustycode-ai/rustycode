@@ -318,6 +318,10 @@ pub struct CompletionRequest {
     /// Enable parallel tool calls — model may emit multiple tool_use blocks per turn.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parallel_tool_calls: Option<bool>,
+    /// Session identifier for prompt cache routing (OpenAI prompt_cache_key).
+    /// Requests with the same session_id share a cache prefix for higher hit rates.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
 }
 
 impl CompletionRequest {
@@ -335,6 +339,7 @@ impl CompletionRequest {
             container: None,
             tool_choice: None,
             parallel_tool_calls: None,
+            session_id: None,
         }
     }
 

@@ -84,8 +84,132 @@ pub mod detection;
 pub mod install;
 pub mod it2;
 pub mod iterm;
-pub mod iterm2_native;
 pub mod tmux;
+
+#[cfg(target_os = "macos")]
+pub mod iterm2_native;
+
+#[cfg(not(target_os = "macos"))]
+pub mod iterm2_native {
+    use crate::{
+        ConnectorError, ConnectorResult, PaneContent, SessionId, SessionInfo, SplitDirection,
+        TerminalConnector,
+    };
+
+    #[derive(Debug, Clone, Default)]
+    pub struct ITerm2NativeConnector;
+
+    impl ITerm2NativeConnector {
+        pub const fn new() -> Self {
+            Self
+        }
+
+        pub fn check_available() -> bool {
+            false
+        }
+    }
+
+    impl TerminalConnector for ITerm2NativeConnector {
+        fn name(&self) -> &'static str {
+            "iTerm2-Native"
+        }
+
+        fn is_available(&self) -> bool {
+            false
+        }
+
+        fn create_session(&mut self, _name: &str) -> ConnectorResult<SessionId> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn close_session(&mut self, _session: &SessionId) -> ConnectorResult<()> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn session_info(&self, _session: &SessionId) -> ConnectorResult<SessionInfo> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn list_sessions(&self) -> ConnectorResult<Vec<SessionInfo>> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn split_pane(
+            &mut self,
+            _session: &SessionId,
+            _pane_index: usize,
+            _direction: SplitDirection,
+        ) -> ConnectorResult<usize> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn send_keys(
+            &mut self,
+            _session: &SessionId,
+            _pane_index: usize,
+            _keys: &str,
+        ) -> ConnectorResult<()> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn capture_output(
+            &self,
+            _session: &SessionId,
+            _pane_index: usize,
+        ) -> ConnectorResult<PaneContent> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn set_pane_title(
+            &mut self,
+            _session: &SessionId,
+            _pane_index: usize,
+            _title: &str,
+        ) -> ConnectorResult<()> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn select_pane(&mut self, _session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn kill_pane(&mut self, _session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+
+        fn wait_for_output(
+            &self,
+            _session: &SessionId,
+            _pane_index: usize,
+            _pattern: &str,
+            _timeout_secs: Option<u64>,
+        ) -> ConnectorResult<PaneContent> {
+            Err(ConnectorError::NotAvailable(
+                "iTerm2 native connector is only available on macOS".into(),
+            ))
+        }
+    }
+}
 
 use std::error::Error;
 use std::fmt;

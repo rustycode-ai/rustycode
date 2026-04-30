@@ -58,6 +58,9 @@ struct OpenAiRequest {
     /// Request usage stats in final streaming chunk
     #[serde(skip_serializing_if = "Option::is_none")]
     stream_options: Option<serde_json::Value>,
+    /// Cache routing key — groups related requests for higher prompt cache hit rates.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prompt_cache_key: Option<String>,
 }
 
 /// Content part for structured OpenAI messages (text, image, etc.)
@@ -209,6 +212,7 @@ impl OpenAiProvider {
             request.output_config.as_ref(),
             request.tool_choice.clone(),
             request.parallel_tool_calls,
+            request.session_id.as_ref(),
         );
 
         // HTTP trace dump for debugging (before send so we capture body even if send hangs)
@@ -316,20 +320,33 @@ impl OpenAiProvider {
             }
         }
 
-        Ok(CompletionResponse {
-            content,
-            model: resp.model,
-            usage: resp.usage.map(|u| Usage {
+        let usage = resp.usage.map(|u| {
+            let cached = u
+                .prompt_tokens_details
+                .as_ref()
+                .map_or(0, |d| d.cached_tokens);
+            if cached > 0 {
+                let hit_pct = (cached * 100).checked_div(u.prompt_tokens).unwrap_or(0);
+                tracing::info!(
+                    "Cache: {hit_pct}% hit ({cached}/{} prompt tokens), total={}",
+                    u.prompt_tokens,
+                    u.total_tokens
+                );
+            }
+            Usage {
                 input_tokens: u.prompt_tokens,
                 output_tokens: u.completion_tokens,
                 total_tokens: u.total_tokens,
-                cache_read_input_tokens: u
-                    .prompt_tokens_details
-                    .as_ref()
-                    .map_or(0, |d| d.cached_tokens),
+                cache_read_input_tokens: cached,
                 cache_creation_input_tokens: 0,
                 reasoning_tokens: None,
-            }),
+            }
+        });
+
+        Ok(CompletionResponse {
+            content,
+            model: resp.model,
+            usage,
             stop_reason: crate::provider::normalize_stop_reason(choice.finish_reason.as_deref()),
             citations: None,
             thinking_blocks: choice.message.reasoning_content.map(|rc| {
@@ -851,6 +868,7 @@ impl OpenAiProvider {
         output_config: Option<&crate::provider::OutputConfig>,
         tool_choice: Option<serde_json::Value>,
         parallel_tool_calls: Option<bool>,
+        session_id: Option<&String>,
     ) -> OpenAiRequest {
         let (max_tokens, max_completion_tokens) = if Self::is_reasoning_model(&model) {
             // o-series models require max_completion_tokens (max_tokens is not supported)
@@ -909,6 +927,7 @@ impl OpenAiProvider {
             response_format,
             thinking,
             stream_options,
+            prompt_cache_key: session_id.cloned(),
         }
     }
 
@@ -1059,16 +1078,22 @@ impl OpenAiProvider {
                                     let input_tokens = u.get("prompt_tokens")?.as_u64()? as u32;
                                     let output_tokens =
                                         u.get("completion_tokens")?.as_u64()? as u32;
+                                    let cached_tokens: u32 = u
+                                        .get("prompt_tokens_details")
+                                        .and_then(|d| d.get("cached_tokens"))
+                                        .and_then(|t| t.as_u64())
+                                        .unwrap_or(0) as u32;
+                                    if cached_tokens > 0 {
+                                        let hit_pct = (cached_tokens * 100).checked_div(input_tokens).unwrap_or(0);
+                                        tracing::info!(
+                                            "Cache: {hit_pct}% hit ({cached_tokens}/{input_tokens} prompt tokens)"
+                                        );
+                                    }
                                     Some(Usage {
                                         input_tokens,
                                         output_tokens,
                                         total_tokens: input_tokens.saturating_add(output_tokens),
-                                        cache_read_input_tokens: u
-                                            .get("prompt_tokens_details")
-                                            .and_then(|d| d.get("cached_tokens"))
-                                            .and_then(|t| t.as_u64())
-                                            .unwrap_or(0)
-                                            as u32,
+                                        cache_read_input_tokens: cached_tokens,
                                         cache_creation_input_tokens: 0,
                                         reasoning_tokens: None,
                                     })
@@ -1222,16 +1247,22 @@ impl OpenAiProvider {
                                     let input_tokens = u.get("prompt_tokens")?.as_u64()? as u32;
                                     let output_tokens =
                                         u.get("completion_tokens")?.as_u64()? as u32;
+                                    let cached_tokens: u32 = u
+                                        .get("prompt_tokens_details")
+                                        .and_then(|d| d.get("cached_tokens"))
+                                        .and_then(|t| t.as_u64())
+                                        .unwrap_or(0) as u32;
+                                    if cached_tokens > 0 {
+                                        let hit_pct = (cached_tokens * 100).checked_div(input_tokens).unwrap_or(0);
+                                        tracing::info!(
+                                            "Cache: {hit_pct}% hit ({cached_tokens}/{input_tokens} prompt tokens)"
+                                        );
+                                    }
                                     Some(Usage {
                                         input_tokens,
                                         output_tokens,
                                         total_tokens: input_tokens.saturating_add(output_tokens),
-                                        cache_read_input_tokens: u
-                                            .get("prompt_tokens_details")
-                                            .and_then(|d| d.get("cached_tokens"))
-                                            .and_then(|t| t.as_u64())
-                                            .unwrap_or(0)
-                                            as u32,
+                                        cache_read_input_tokens: cached_tokens,
                                         cache_creation_input_tokens: 0,
                                         reasoning_tokens: None,
                                     })
@@ -1339,6 +1370,7 @@ impl OpenAiProvider {
             request.output_config.as_ref(),
             request.tool_choice.clone(),
             request.parallel_tool_calls,
+            request.session_id.as_ref(),
         );
 
         // Build request with per-request headers
@@ -1490,6 +1522,7 @@ impl UnifiedLLMProvider for OpenAiProvider {
             container: None,
             tool_choice: None,
             parallel_tool_calls: None,
+            session_id: None,
         };
 
         // Call provider complete
@@ -1670,6 +1703,7 @@ mod tests {
             response_format: None,
             thinking: None,
             stream_options: None,
+            prompt_cache_key: None,
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"model\":\"gpt-4o\""));
@@ -1704,6 +1738,7 @@ mod tests {
             response_format: None,
             thinking: None,
             stream_options: None,
+            prompt_cache_key: None,
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"tools\""));
@@ -1737,6 +1772,7 @@ mod tests {
             response_format: None,
             thinking: None,
             stream_options: None,
+            prompt_cache_key: None,
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"model\":\"o4-mini\""));
@@ -1764,6 +1800,7 @@ mod tests {
             response_format: None,
             thinking: None,
             stream_options: Some(serde_json::json!({"include_usage": true})),
+            prompt_cache_key: None,
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"stream_options\""));
@@ -1772,6 +1809,7 @@ mod tests {
         let request_no_stream = OpenAiRequest {
             stream: Some(false),
             stream_options: None,
+            prompt_cache_key: None,
             ..request
         };
         let json_no_stream = serde_json::to_string(&request_no_stream).unwrap();
@@ -1808,6 +1846,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         assert_eq!(body.max_tokens, Some(2048));
         assert_eq!(body.max_completion_tokens, None);
@@ -1825,6 +1864,7 @@ mod tests {
             Some(4096),
             None,
             Some(&crate::provider::EffortLevel::High),
+            None,
             None,
             None,
             None,
@@ -1847,6 +1887,7 @@ mod tests {
             None,
             None,
             Some(true),
+            None,
             None,
             None,
             None,
@@ -1874,6 +1915,7 @@ mod tests {
             None,
             None,
             Some(true),
+            None,
             None,
             None,
             None,
@@ -2190,6 +2232,7 @@ mod tests {
             response_format: None,
             thinking: None,
             stream_options: None,
+            prompt_cache_key: None,
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"tool_choice\":\"auto\""));
@@ -3045,6 +3088,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             None,
             None,
             None,
+            None,
         );
         assert_eq!(body.max_tokens, Some(1024));
         assert_eq!(body.max_completion_tokens, None);
@@ -3075,6 +3119,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             None,
             Some(&crate::provider::EffortLevel::Max),
             Some(false),
+            None,
             None,
             None,
             None,
@@ -3113,6 +3158,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
                 None,
                 None,
                 None,
+                None,
             );
             assert_eq!(
                 body.reasoning_effort,
@@ -3135,6 +3181,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             Some(2048),
             Some(0.5),
             Some(&crate::provider::EffortLevel::High),
+            None,
             None,
             None,
             None,
@@ -3178,6 +3225,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             None,
             None,
             None,
+            None,
         );
         assert!(body.tools.is_some());
         let tools_val = body.tools.as_ref().unwrap();
@@ -3195,6 +3243,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             "gpt-4o".to_string(),
             vec![],
             vec![],
+            None,
             None,
             None,
             None,
@@ -3222,6 +3271,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
                 name: None,
             }],
             vec![],
+            None,
             None,
             None,
             None,

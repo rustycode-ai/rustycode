@@ -12,7 +12,11 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
-fastembed = "5"
+fastembed = { version = "5", optional = true }
+
+[features]
+default = ["embedding"]
+embedding = ["fastembed"]
 
 [dev-dependencies]
 tempfile = { workspace = true }

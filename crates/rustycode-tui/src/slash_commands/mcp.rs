@@ -172,27 +172,11 @@ async fn handle_mcp_allowlist(parts: &[&str]) -> Result<Option<String>, String> 
                 return Ok(Some("Usage: /mcp allowlist add <server> [tool] [--persistent]\n\nExample: /mcp allowlist add filesystem --persistent".to_string()));
             }
 
-            let server_id = parts[3];
-            let tool = parts.get(4).copied().filter(|t| *t != "--persistent");
-            let persistent = parts.contains(&"--persistent");
-
-            // For now, just report what would happen (actual integration requires McpMode context)
-            let target = if persistent {
-                "persistently"
-            } else {
-                "for this session"
-            };
-            if let Some(t) = tool {
-                Ok(Some(format!(
-                    "Would allow tool '{}' from server '{}' {}",
-                    t, server_id, target
-                )))
-            } else {
-                Ok(Some(format!(
-                    "Would allow all tools from server '{}' {}",
-                    server_id, target
-                )))
-            }
+            Ok(Some(
+                "⚠️ Allowlist add is not yet implemented.\n\n\
+                 Use /mcp open to manage tool permissions interactively."
+                    .to_string(),
+            ))
         }
         "remove" => {
             if parts.len() < 4 {
@@ -201,20 +185,11 @@ async fn handle_mcp_allowlist(parts: &[&str]) -> Result<Option<String>, String> 
                 ));
             }
 
-            let server_id = parts[3];
-            let tool = parts.get(4);
-
-            if let Some(t) = tool {
-                Ok(Some(format!(
-                    "Would remove tool '{}' from server '{}' allowlist",
-                    t, server_id
-                )))
-            } else {
-                Ok(Some(format!(
-                    "Would remove all tools from server '{}' allowlist",
-                    server_id
-                )))
-            }
+            Ok(Some(
+                "⚠️ Allowlist remove is not yet implemented.\n\n\
+                 Use /mcp open to manage tool permissions interactively."
+                    .to_string(),
+            ))
         }
         "list" => {
             // For now, return a placeholder message

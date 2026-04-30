@@ -259,8 +259,8 @@ impl TeamPanel {
         let mut lines = Vec::new();
 
         // Task title (truncated)
-        let task_display = if self.task.len() > 28 {
-            format!("{}...", crate::unicode::truncate_bytes(&self.task, 25))
+        let task_display = if crate::unicode::display_width(&self.task) > 28 {
+            format!("{}...", crate::unicode::truncate_display(&self.task, 25))
         } else if self.task.is_empty() {
             "No task".to_string()
         } else {
@@ -404,8 +404,8 @@ impl TeamPanel {
                 &agent.detail
             };
 
-            let detail_truncated = if detail_display.len() > 20 {
-                format!("{}...", crate::unicode::truncate_bytes(detail_display, 17))
+            let detail_truncated = if crate::unicode::display_width(detail_display) > 20 {
+                format!("{}...", crate::unicode::truncate_display(detail_display, 17))
             } else {
                 detail_display.to_string()
             };

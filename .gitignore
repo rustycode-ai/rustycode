@@ -5,10 +5,12 @@ Thumbs.db
 
 # Backup files
 *.bak
+*.bak*
 *.backup
 *.old
 *.tmp
 **/*.bak
+**/*.bak*
 **/*.backup
 **/*.tmp
 *~

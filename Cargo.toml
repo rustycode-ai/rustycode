@@ -101,7 +101,7 @@ syntect = "5.1"
 crossterm = "0.29.0"
 ratatui = { version = "0.30", default-features = false }
 tempfile = "3"
-reqwest = { version = "0.13.2", default-features = false, features = ["form", "json", "stream", "rustls", "http2"] }
+reqwest = { version = "0.13.2", default-features = false, features = ["form", "json", "stream", "native-tls", "http2"] }
 async-trait = "0.1"
 base64 = "0.22"
 parking_lot = "0.12"

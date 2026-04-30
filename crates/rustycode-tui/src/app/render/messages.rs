@@ -1,11 +1,6 @@
 impl PolishedRenderer {
     /// Render messages area with line-based auto-scrolling
-    pub fn render_messages(
-        &self,
-        tui: &mut TUI,
-        frame: &mut Frame,
-        area: Rect,
-    ) {
+    pub fn render_messages(&self, tui: &mut TUI, frame: &mut Frame, area: Rect) {
         let debug_enabled = crate::logging::is_debug_enabled();
         let render_start = std::time::Instant::now();
         use ratatui::layout::Alignment;
@@ -44,10 +39,7 @@ impl PolishedRenderer {
                         .fg(Color::Cyan)
                         .add_modifier(ratatui::style::Modifier::BOLD),
                 ),
-                ratatui::text::Span::styled(
-                    " v0.1",
-                    Style::default().fg(Color::DarkGray),
-                ),
+                ratatui::text::Span::styled(" v0.1", Style::default().fg(Color::DarkGray)),
             ]));
             lines.push(Line::raw(""));
 
@@ -58,43 +50,12 @@ impl PolishedRenderer {
                 .file_name()
                 .and_then(|n: &std::ffi::OsStr| n.to_str())
                 .unwrap_or("unknown");
-            let branch_info = tui.git_branch.as_deref().unwrap_or("detached");
             // Stable per-session index derived from project name
             let greeting_idx = project_name
                 .bytes()
                 .fold(0u8, |a: u8, b: u8| a.wrapping_add(b))
                 as usize;
 
-            lines.push(Line::from(vec![
-                ratatui::text::Span::styled(
-                    "  Model  ",
-                    Style::default().fg(Color::DarkGray),
-                ),
-                ratatui::text::Span::styled(
-                    tui.current_model.clone(),
-                    Style::default().fg(Color::Gray),
-                ),
-            ]));
-            lines.push(Line::from(vec![
-                ratatui::text::Span::styled(
-                    "  Project ",
-                    Style::default().fg(Color::DarkGray),
-                ),
-                ratatui::text::Span::styled(
-                    project_name.to_string(),
-                    Style::default().fg(Color::Gray),
-                ),
-            ]));
-            lines.push(Line::from(vec![
-                ratatui::text::Span::styled(
-                    "  Branch ",
-                    Style::default().fg(Color::DarkGray),
-                ),
-                ratatui::text::Span::styled(
-                    branch_info.to_string(),
-                    Style::default().fg(Color::Gray),
-                ),
-            ]));
             lines.push(Line::raw(""));
             {
                 // Rotating greeting messages (goose pattern)
@@ -122,7 +83,7 @@ impl PolishedRenderer {
                     // Rotate through different tips for discoverability
                     // Changes every ~5 seconds based on animation frame
                     const TIPS: &[&str] = &[
-                        "? help  ·  / commands  ·  ! bash  ·  Ctrl+K palette",
+                        "? help  ·  / commands  ·  ! bash  ·  Ctrl+K / Ctrl+Shift+P palette",
                         "Ctrl+X editor  ·  Ctrl+S stash  ·  Ctrl+R search history",
                         "Shift+Up/Down = turn jump  ·  Alt+E/W expand/collapse all",
                         "Tab = toggle tools  ·  Ctrl+P tool panel  ·  Ctrl+B sessions",
@@ -153,11 +114,15 @@ impl PolishedRenderer {
         let theme = MessageTheme::default();
 
         // Render all messages with vertical border (using MessageRenderer)
-        let mut render_chunks: Vec<(usize, Color, Vec<Line>, bool)> =
-            Vec::new();
+        let mut render_chunks: Vec<(usize, Color, Vec<Line>, bool)> = Vec::new();
 
         // Pre-estimate total lines to determine which messages are visible.
         // This avoids expensive markdown rendering for messages entirely off-screen.
+        //
+        // When the user is manually browsing history, prefer correctness over
+        // the skip-ahead optimization. The approximation can undershoot on
+        // complex markdown/tool content and accidentally skip every visible
+        // message, producing a blank viewport.
         let safe_viewport_height = viewport_height.max(1);
         // Content width for wrapped line estimation (border column + space prefix)
         let est_content_width = area.width.saturating_sub(1).max(1) as usize;
@@ -183,6 +148,7 @@ impl PolishedRenderer {
         // Track cumulative estimated lines to skip messages above viewport
         let mut est_cumulative: usize = 0;
         let mut all_above_viewport = true;
+        let use_fast_skip = !tui.user_scrolled;
         // Estimate viewport end to skip messages below it
         let estimated_viewport_end = estimated_auto_scroll_start + safe_viewport_height + 10; // +10 buffer
         let mut estimated_msg_lines = Vec::with_capacity(tui.messages.len());
@@ -213,16 +179,16 @@ impl PolishedRenderer {
             };
             est_cumulative += separator + est_msg_lines;
 
-            if all_above_viewport && est_cumulative < estimated_auto_scroll_start {
+            if use_fast_skip && all_above_viewport && est_cumulative < estimated_auto_scroll_start {
                 // This message is entirely above the viewport — skip expensive rendering
                 continue;
             }
-            if est_cumulative >= estimated_auto_scroll_start {
+            if use_fast_skip && est_cumulative >= estimated_auto_scroll_start {
                 all_above_viewport = false;
             }
 
             // Skip messages well below the viewport to avoid expensive markdown rendering
-            if est_cumulative > estimated_viewport_end {
+            if use_fast_skip && est_cumulative > estimated_viewport_end {
                 break;
             }
 
@@ -260,7 +226,7 @@ impl PolishedRenderer {
                             crate::ui::message::MessageRole::System => "(system)".to_string(),
                         }
                     }
-                } else if first_line.len() > 60 {
+                } else if unicode_width::UnicodeWidthStr::width(first_line) > 60 {
                     // floor_char_boundary ensures we don't slice mid-UTF-8
                     let end = first_line.floor_char_boundary(57);
                     format!("{}...", &first_line[..end])
@@ -273,10 +239,7 @@ impl PolishedRenderer {
                         format!("{} ", pipe_char),
                         Style::default().fg(pipe_color),
                     ),
-                    ratatui::text::Span::styled(
-                        preview,
-                        Style::default().fg(Color::DarkGray),
-                    ),
+                    ratatui::text::Span::styled(preview, Style::default().fg(Color::DarkGray)),
                     ratatui::text::Span::styled(
                         " (collapsed)",
                         Style::default().fg(Color::DarkGray),
@@ -324,17 +287,14 @@ impl PolishedRenderer {
                     if !tools.is_empty() {
                         lines.push(Line::from(""));
                         if msg.content.trim().is_empty() {
-                            lines.push(Line::from(vec![
-                                ratatui::text::Span::styled(
-                                    format!(
-                                        "  🔧 {} tool{} executed",
-                                        tools.len(),
-                                        if tools.len() > 1 { "s" } else { "" }
-                                    ),
-                                    Style::default()
-                                        .fg(Color::Gray),
+                            lines.push(Line::from(vec![ratatui::text::Span::styled(
+                                format!(
+                                    "  🔧 {} tool{} executed",
+                                    tools.len(),
+                                    if tools.len() > 1 { "s" } else { "" }
                                 ),
-                            ]));
+                                Style::default().fg(Color::Gray),
+                            )]));
                         }
                         lines.extend(render_tool_summary(tools));
                     }
@@ -417,7 +377,11 @@ impl PolishedRenderer {
                 // Account for line wrapping — each rendered line may occupy
                 // multiple terminal rows, matching how total_lines is computed.
                 for line in lines {
-                    let wrapped_rows = line.width().saturating_add(1).div_ceil(available_width).max(1);
+                    let wrapped_rows = line
+                        .width()
+                        .saturating_add(1)
+                        .div_ceil(available_width)
+                        .max(1);
                     acc += wrapped_rows;
                 }
             }
@@ -430,15 +394,16 @@ impl PolishedRenderer {
                 break;
             }
 
-            let msg_height: usize = estimated_msg_lines
-                .get(*msg_idx)
-                .copied()
-                .unwrap_or_else(|| {
-                    lines
-                        .iter()
-                        .map(|l| l.width().saturating_add(1).div_ceil(available_width).max(1))
-                        .sum()
-                });
+            let msg_height: usize =
+                estimated_msg_lines
+                    .get(*msg_idx)
+                    .copied()
+                    .unwrap_or_else(|| {
+                        lines
+                            .iter()
+                            .map(|l| l.width().saturating_add(1).div_ceil(available_width).max(1))
+                            .sum()
+                    });
             let prev_is_system =
                 chunk_idx > 0 && render_chunks.get(chunk_idx - 1).is_some_and(|c| c.3);
             let separator = if chunk_idx > 0 && !(prev_is_system && *is_system) {
@@ -559,8 +524,12 @@ impl PolishedRenderer {
                             .chars()
                             .take_while(|c| {
                                 let cw = unicode_width::UnicodeWidthChar::width(*c).unwrap_or(0);
-                                if width + cw > MAX_PREVIEW_WIDTH - 3 { false }
-                                else { width += cw; true }
+                                if width + cw > MAX_PREVIEW_WIDTH - 3 {
+                                    false
+                                } else {
+                                    width += cw;
+                                    true
+                                }
                             })
                             .collect();
                         (truncated, "...")
@@ -570,8 +539,7 @@ impl PolishedRenderer {
                     let queued_line = Line::from(vec![
                         ratatui::text::Span::styled(
                             " ⏳ ",
-                            Style::default()
-                                .fg(Color::Rgb(180, 180, 255)),
+                            Style::default().fg(Color::Rgb(180, 180, 255)),
                         ),
                         ratatui::text::Span::styled(
                             format!("Queued: {}{}", preview, ellipsis),
@@ -882,15 +850,13 @@ fn extract_tool_detail(tool: &crate::ui::message::ToolExecution) -> Option<Strin
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
         });
-        
+
         let path = path_from_input
             .or_else(|| detailed.and_then(extract_file_path))
             .or_else(|| extract_file_path(summary));
-        
-        let line_count = detailed
-            .map(estimate_line_count)
-            .unwrap_or(0);
-        
+
+        let line_count = detailed.map(estimate_line_count).unwrap_or(0);
+
         if let Some(p) = path {
             return Some(if line_count > 0 {
                 format!("{} ({} lines)", shorten_path(&p), line_count)
@@ -898,7 +864,7 @@ fn extract_tool_detail(tool: &crate::ui::message::ToolExecution) -> Option<Strin
                 shorten_path(&p)
             });
         }
-        return Some(summary.clone());
+        return Some(safe_truncate(summary, 80));
     }
     if lower.contains("write") || lower.contains("create") {
         // Try input_json for path first
@@ -909,15 +875,13 @@ fn extract_tool_detail(tool: &crate::ui::message::ToolExecution) -> Option<Strin
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
         });
-        
+
         let path = path_from_input
             .or_else(|| detailed.and_then(extract_file_path))
             .or_else(|| extract_file_path(summary));
-        
-        let line_count = detailed
-            .map(estimate_line_count)
-            .unwrap_or(0);
-        
+
+        let line_count = detailed.map(estimate_line_count).unwrap_or(0);
+
         if let Some(p) = path {
             return Some(if line_count > 0 {
                 format!("{} ({} lines)", shorten_path(&p), line_count)
@@ -925,21 +889,26 @@ fn extract_tool_detail(tool: &crate::ui::message::ToolExecution) -> Option<Strin
                 shorten_path(&p)
             });
         }
-        return Some(summary.clone());
+        return Some(safe_truncate(summary, 80));
     }
     if lower.contains("edit") || lower.contains("patch") || lower.contains("replace") {
-        return Some(extract_file_path(summary).unwrap_or_else(|| summary.clone()));
+        return Some(safe_truncate(
+            &extract_file_path(summary).unwrap_or_else(|| summary.clone()),
+            80,
+        ));
     }
     // Bash/shell: show the command that was run
     if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
-        if let Some(cmd) = tool.input_json.as_ref().and_then(|json| {
-            json.get("command").and_then(|v| v.as_str())
-        }) {
+        if let Some(cmd) = tool
+            .input_json
+            .as_ref()
+            .and_then(|json| json.get("command").and_then(|v| v.as_str()))
+        {
             return Some(safe_truncate(cmd, 60));
         }
         if let Some(output) = &tool.detailed_output {
             let first_line = output.lines().next().unwrap_or("");
-            if !first_line.is_empty() && first_line.len() < 80 {
+            if !first_line.is_empty() && unicode_width::UnicodeWidthStr::width(first_line) < 80 {
                 return Some(first_line.to_string());
             }
         }

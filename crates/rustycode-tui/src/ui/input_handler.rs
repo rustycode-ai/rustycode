@@ -215,7 +215,7 @@ impl InputHandler {
 
                     // Note: '/' and '@' are inserted as normal characters so users can type
                     // slash commands like /help, /quit, etc. directly. Command/skill palettes
-                    // are opened via keyboard shortcuts (Ctrl+Shift+P, Ctrl+Shift+S) or by
+                    // are opened via keyboard shortcuts (Ctrl+K / Ctrl+Shift+P, Ctrl+Shift+S) or by
                     // submitting a bare "/" on Enter.
 
                     if c == 'x' && !self.state.images.is_empty() {

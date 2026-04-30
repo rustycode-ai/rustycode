@@ -14,7 +14,6 @@ impl PolishedRenderer {
         let anim_frame = tui.animator.current_frame();
         let width = area.width as usize;
 
-        let show_agent_mode = width >= 60;
         let show_context_bar = width >= 70;
         let show_cost = width >= 85;
         let show_git_branch = width >= 90;
@@ -276,20 +275,7 @@ impl PolishedRenderer {
             }
         }
 
-        let mode_text = match tui.input_mode {
-            crate::ui::input::InputMode::SingleLine => "📝 Single-line",
-            crate::ui::input::InputMode::MultiLine => "📄 Multi-line",
-        };
-        spans.push(Span::styled(mode_text, Style::default().fg(Color::Blue)));
-
-        if show_agent_mode {
-            let mode = tui.services.agent_mode();
-            spans.push(Span::raw(" | "));
-            spans.push(Span::styled(
-                format!("🔧 {}", mode.display_name()),
-                Style::default().fg(Color::Magenta),
-            ));
-        }
+        // Input mode and agent mode are already shown in the input area — skip here
 
         let agents = tui.agent_manager.get_agents();
         let running_agents: Vec<_> = agents

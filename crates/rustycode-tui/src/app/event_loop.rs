@@ -2158,34 +2158,60 @@ impl TUI {
         }
 
         if parts[0] == "/plan" {
-            let current = self.plan_mode.current_phase();
-            match current {
-                "planning" => {
-                    if let Err(e) = self.plan_mode.approve() {
-                        tracing::warn!("Plan approval failed: {}", e);
-                        self.add_system_message(format!("Plan approval failed: {}", e));
-                        return Ok(());
+            let task_text = if parts.len() > 1 {
+                Some(parts[1..].join(" "))
+            } else {
+                None
+            };
+
+            if task_text.is_none() {
+                let current = self.plan_mode.current_phase();
+                match current {
+                    "planning" => {
+                        if let Err(e) = self.plan_mode.approve() {
+                            tracing::warn!("Plan approval failed: {}", e);
+                            self.add_system_message(format!("Plan approval failed: {}", e));
+                            return Ok(());
+                        }
+                        self.plan_mode
+                            .set_role(rustycode_protocol::AgentRole::Worker);
+                        self.services
+                            .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
+                        self.clear_plan_mode_banner();
+                        self.add_system_message(
+                            "Plan mode: switched to implementation phase".to_string(),
+                        );
                     }
-                    self.plan_mode
-                        .set_role(rustycode_protocol::AgentRole::Worker);
-                    self.services
-                        .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
-                    self.clear_plan_mode_banner();
-                    self.add_system_message(
-                        "Plan mode: switched to implementation phase".to_string(),
-                    );
+                    _ => {
+                        self.plan_mode.reset();
+                        self.plan_mode
+                            .set_role(rustycode_protocol::AgentRole::Planner);
+                        self.services
+                            .set_ai_mode(crate::services::agent_mode::AiMode::Plan);
+                        self.show_planning_banner("Manual");
+                        self.add_system_message(
+                            "Plan mode: switched to planning phase".to_string(),
+                        );
+                    }
                 }
-                _ => {
-                    self.plan_mode.reset();
-                    self.plan_mode
-                        .set_role(rustycode_protocol::AgentRole::Planner);
-                    self.services
-                        .set_ai_mode(crate::services::agent_mode::AiMode::Plan);
-                    self.show_planning_banner("Manual");
-                    self.add_system_message("Plan mode: switched to planning phase".to_string());
-                }
+                self.dirty = true;
+                return Ok(());
+            }
+
+            let task = task_text.unwrap_or_default();
+            let current = self.plan_mode.current_phase();
+            if current != "planning" {
+                self.plan_mode.reset();
+                self.plan_mode
+                    .set_role(rustycode_protocol::AgentRole::Planner);
+                self.services
+                    .set_ai_mode(crate::services::agent_mode::AiMode::Plan);
+                self.show_planning_banner("Manual");
+                self.add_system_message("Plan mode: switched to planning phase".to_string());
             }
             self.dirty = true;
+            self.auto_scroll();
+            self.services.send_message(task)?;
             return Ok(());
         }
 
@@ -2310,7 +2336,7 @@ impl TUI {
             height: main_height,
         };
         let mut sidebar_area = None;
-        if self.session_sidebar.is_visible() && message_area.width > 40 {
+        if self.session_sidebar.is_visible() && message_area.width > 100 {
             let sidebar_width = (message_area.width / 3).clamp(24, 34);
             if message_area.width > sidebar_width {
                 let content_width = message_area.width - sidebar_width;
@@ -2515,7 +2541,7 @@ impl TUI {
             self.theme_preview.render(frame, size);
         }
 
-        // Overlay: command palette (Ctrl+K)
+        // Overlay: command palette (Ctrl+K / Ctrl+Shift+P)
         if self.command_palette.is_visible() {
             self.command_palette.render(frame, size);
         }

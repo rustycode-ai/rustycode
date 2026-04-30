@@ -475,6 +475,7 @@ impl RealExecutor {
             container: None,
             tool_choice: None,
             parallel_tool_calls: None,
+            session_id: None,
         };
 
         let response = self
@@ -526,6 +527,7 @@ impl RealExecutor {
             container: None,
             tool_choice: None,
             parallel_tool_calls: None,
+            session_id: None,
         };
 
         let response = self

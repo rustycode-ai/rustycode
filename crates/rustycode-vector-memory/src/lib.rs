@@ -29,18 +29,34 @@
 //! let results = memory.search("where are tests?", MemoryType::Learnings, 5);
 //! ```
 
-// Re-export fastembed for downstream users
+#[cfg(feature = "embedding")]
 pub use fastembed;
 
 use anyhow::{Context, Result};
 use chrono::Utc;
+#[cfg(feature = "embedding")]
 use fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+#[cfg(feature = "embedding")]
 use std::sync::Mutex;
 use uuid::Uuid;
+
+#[cfg(not(feature = "embedding"))]
+struct Embedder;
+
+#[cfg(not(feature = "embedding"))]
+impl Embedder {
+    fn new() -> Result<Self> {
+        Ok(Self)
+    }
+
+    fn embed(&self, _text: &str) -> Vec<f32> {
+        Vec::new()
+    }
+}
 
 /// Types of memories that can be stored
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -136,10 +152,12 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 }
 
 /// Embedder using BGE-Small model via fastembed
+#[cfg(feature = "embedding")]
 struct Embedder {
     model: Mutex<TextEmbedding>,
 }
 
+#[cfg(feature = "embedding")]
 impl Embedder {
     fn new() -> Result<Self> {
         let model = TextEmbedding::try_new(
@@ -152,7 +170,6 @@ impl Embedder {
     }
 
     fn embed(&self, text: &str) -> Vec<f32> {
-        // Use interior mutability via Mutex
         let mut guard = self
             .model
             .lock()

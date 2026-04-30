@@ -17,7 +17,7 @@
 //! let output = cmd.output().await?;
 //! ```
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use std::process::Command as StdCommand;
 use std::process::Stdio;
 use tokio::process::Command as TokioCommand;
@@ -29,7 +29,7 @@ pub struct ShellInfo {
     pub is_powershell: bool,
 }
 
-pub static SHELL_INFO: Lazy<ShellInfo> = Lazy::new(|| {
+pub static SHELL_INFO: LazyLock<ShellInfo> = LazyLock::new(|| {
     #[cfg(windows)]
     {
         if which_sh("powershell") {

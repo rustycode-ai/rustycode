@@ -94,8 +94,11 @@ impl TUI {
 
         match event {
             Ok(CrosstermEvent::Key(key)) => {
-                if key.code == KeyCode::Char('k')
-                    && key.modifiers.contains(KeyModifiers::CONTROL)
+                if ((key.code == KeyCode::Char('k')
+                    && key.modifiers.contains(KeyModifiers::CONTROL))
+                    || (key.code == KeyCode::Char('P')
+                        && key.modifiers.contains(KeyModifiers::CONTROL)
+                        && key.modifiers.contains(KeyModifiers::SHIFT)))
                     && !self.wizard.showing_wizard
                     && self.pending_approval_request.is_empty()
                     && !self.error_manager.is_showing()
@@ -104,6 +107,8 @@ impl TUI {
                 {
                     self.showing_command_palette = true;
                     self.showing_skill_palette = false;
+                    self.showing_plugin_manager = false;
+                    self.showing_marketplace_browser = false;
                     self.command_palette.show();
                     self.command_palette.state_mut().clear_query();
                     self.dirty = true;

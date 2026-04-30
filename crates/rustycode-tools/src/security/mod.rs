@@ -8,7 +8,7 @@
 //! - sandbox.rs (~593 LOC) — Sandbox, `SandboxLevel`
 //! - trust.rs (~518 LOC) — `DirectoryTrust`, `TrustEntry`
 //! - approve.rs (~732 LOC) — `SmartApprove`
-//! - cross_platform.rs — cross-platform path and command validation for Windows/WSL/Cygwin
+//! - `cross_platform.rs` — cross-platform path and command validation for Windows/WSL/Cygwin
 
 pub mod approve;
 pub mod cross_platform;

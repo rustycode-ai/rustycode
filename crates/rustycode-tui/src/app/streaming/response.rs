@@ -1757,7 +1757,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
             );
         }
         _ => send_chunk(&stream_tx, StreamChunk::Done),
-    };
+    }
     Ok(())
 }
 

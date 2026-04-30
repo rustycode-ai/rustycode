@@ -6,6 +6,7 @@ mod oracle;
 #[cfg(feature = "real-agent")]
 pub mod real_agent;
 pub mod registry;
+pub mod tools;
 
 pub use code_agent::{CodeAgent, CodeAgentConfig};
 pub use nop::NopAgent;

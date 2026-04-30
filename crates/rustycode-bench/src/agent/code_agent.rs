@@ -1,15 +1,19 @@
-//! Code agent — uses an LLM to solve benchmark tasks with tool access.
+//! Code agent — uses an LLM to solve benchmark tasks with real tool access.
 //!
-//! Minimal implementation: system prompt → LLM call → parse tool_uses →
-//! execute → feed results back → repeat. No steering, nudges, or
-//! auto-corrections. Measures raw model capability.
+//! Uses the same real tool implementations as the TUI via ToolRegistry.
+//! Requires `workspace_path()` from the environment (native mode).
 
+use std::path::Path;
 use std::sync::Arc;
 
+use anyhow::Context;
 use rustycode_llm::provider::{ContentBlock, MessageContent, MessageRole};
 use rustycode_protocol::intent::classify_intent;
+use rustycode_tools::{ToolContext, ToolRegistry};
+use serde_json::Value;
 
 use super::BenchAgent;
+use crate::agent::tools::build_bench_registry;
 use crate::environment::BenchEnvironment;
 
 /// Configuration for the code agent.
@@ -25,8 +29,6 @@ pub struct CodeAgentConfig {
     pub max_tokens: u32,
     /// System prompt for the agent.
     pub system_prompt: String,
-    /// Timeout for each command execution in seconds.
-    pub command_timeout_secs: u64,
     /// Approximate max characters of conversation context before pruning.
     pub max_context_chars: usize,
 }
@@ -41,7 +43,6 @@ impl Default for CodeAgentConfig {
             max_turns: 30,
             max_tokens: 8192,
             system_prompt: DEFAULT_SYSTEM_PROMPT.to_string(),
-            command_timeout_secs: 300,
             max_context_chars: 200_000,
         }
     }
@@ -84,11 +85,7 @@ impl CodeAgent {
         let provider =
             rustycode_llm::AnthropicProvider::new(provider_config, config.model.clone())?;
 
-        Ok(Self {
-            config,
-            provider: Arc::new(provider),
-            recent_commands: Vec::new(),
-        })
+        Ok(Self::new(config, Arc::new(provider)))
     }
 
     /// Create using the OpenAI provider.
@@ -106,11 +103,7 @@ impl CodeAgent {
 
         let provider = rustycode_llm::OpenAiProvider::new(provider_config, config.model.clone())?;
 
-        Ok(Self {
-            config,
-            provider: Arc::new(provider),
-            recent_commands: Vec::new(),
-        })
+        Ok(Self::new(config, Arc::new(provider)))
     }
 
     /// Create auto-detected from the config's provider field.
@@ -124,168 +117,66 @@ impl CodeAgent {
         }
     }
 
-    // ── Tool schemas ──────────────────────────────────────────────────
+    // ── Tool schema generation ──────────────────────────────────────────
 
-    fn bash_tool_schema() -> serde_json::Value {
-        serde_json::json!({
-            "name": "bash",
-            "description": "Execute a bash command. Use for running scripts, installing packages, listing files, \
-                checking test results, and any shell operations. Commands run in the workspace directory.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "command": {
-                        "type": "string",
-                        "description": "The bash command to execute"
-                    },
-                    "timeout": {
-                        "type": "integer",
-                        "description": "Optional timeout in seconds (default: 300, max: 600)"
-                    }
-                },
-                "required": ["command"]
-            }
-        })
+    /// Build tool schemas from the registry for LLM tool definitions.
+    fn build_tool_schemas() -> Vec<Value> {
+        let registry = build_bench_registry();
+        registry
+            .list()
+            .into_iter()
+            .map(|info| {
+                serde_json::json!({
+                    "name": info.name,
+                    "description": info.description,
+                    "input_schema": info.parameters_schema,
+                })
+            })
+            .collect()
     }
 
-    fn read_file_tool_schema() -> serde_json::Value {
-        serde_json::json!({
-            "name": "read_file",
-            "description": "Read the contents of a file. Use offset and limit for large files. \
-                Always read a file before editing it to ensure exact string matching.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "File path relative to workspace root"
-                    },
-                    "offset": {
-                        "type": "integer",
-                        "description": "Starting line number (1-based). Omit to read from beginning."
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Maximum number of lines to read. Omit to read entire file."
-                    }
-                },
-                "required": ["path"]
-            }
-        })
+    // ── Tool execution ────────────────────────────────────────────────
+
+    /// Normalize tool name from various LLM naming conventions.
+    fn normalize_tool_name(name: &str) -> &str {
+        match name {
+            "Edit" | "edit" => "edit_file",
+            "Read" | "read" => "read_file",
+            "Write" | "Create" => "write_file",
+            "Bash" | "Shell" | "shell" => "bash",
+            "Grep" | "Search" => "grep",
+            "Glob" | "Find" | "ListFiles" => "glob",
+            "ListDir" | "ls" => "list_dir",
+            other => other,
+        }
     }
 
-    fn edit_file_tool_schema() -> serde_json::Value {
-        serde_json::json!({
-            "name": "edit_file",
-            "description": "Make a surgical edit to an existing file by replacing exact text. \
-                The old_string must match exactly (including whitespace and indentation). \
-                Prefer this over write_file for existing files.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "File path relative to workspace root"
-                    },
-                    "old_string": {
-                        "type": "string",
-                        "description": "Exact text to find and replace"
-                    },
-                    "new_string": {
-                        "type": "string",
-                        "description": "Text to replace it with"
-                    },
-                    "replace_all": {
-                        "type": "boolean",
-                        "description": "Replace all occurrences (default: false, replaces first only)"
-                    }
-                },
-                "required": ["path", "old_string", "new_string"]
-            }
-        })
-    }
+    /// Execute a tool via the registry with real tool implementations.
+    fn execute_tool(
+        registry: &ToolRegistry,
+        tool_use: &ToolUse,
+        ctx: &ToolContext,
+    ) -> String {
+        let normalized_name = Self::normalize_tool_name(&tool_use.name);
 
-    fn write_file_tool_schema() -> serde_json::Value {
-        serde_json::json!({
-            "name": "write_file",
-            "description": "Write content to a file, creating it if it doesn't exist. \
-                For existing files, prefer edit_file to make surgical changes.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "File path relative to workspace root"
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "File content to write"
-                    }
-                },
-                "required": ["path", "content"]
+        if let Some(tool) = registry.get(normalized_name) {
+            match tool.execute(tool_use.input.clone(), ctx) {
+                Ok(output) => output.text,
+                Err(e) => format!("ERROR: {e}"),
             }
-        })
-    }
-
-    fn grep_tool_schema() -> serde_json::Value {
-        serde_json::json!({
-            "name": "grep",
-            "description": "Search for a pattern in files. Returns matching lines with file paths.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "pattern": {
-                        "type": "string",
-                        "description": "Search pattern (regex or literal string)"
-                    },
-                    "path": {
-                        "type": "string",
-                        "description": "Directory or file to search in (default: workspace root)"
-                    },
-                    "include": {
-                        "type": "string",
-                        "description": "File glob pattern to include (e.g. '*.py', '*.rs')"
-                    },
-                    "ignore_case": {
-                        "type": "boolean",
-                        "description": "Case-insensitive search (default: false)"
-                    }
-                },
-                "required": ["pattern"]
+        } else if tool_use.input.get("command").is_some() {
+            // Fallback: unknown tool with "command" field → bash
+            if let Some(bash) = registry.get("bash") {
+                match bash.execute(tool_use.input.clone(), ctx) {
+                    Ok(output) => output.text,
+                    Err(e) => format!("ERROR: {e}"),
+                }
+            } else {
+                format!("ERROR: Unknown tool: {}", tool_use.name)
             }
-        })
-    }
-
-    fn glob_tool_schema() -> serde_json::Value {
-        serde_json::json!({
-            "name": "glob",
-            "description": "Find files matching a glob pattern.",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "pattern": {
-                        "type": "string",
-                        "description": "Glob pattern (e.g. '**/*.py', 'src/**/*.rs')"
-                    },
-                    "path": {
-                        "type": "string",
-                        "description": "Directory to search in (default: workspace root)"
-                    }
-                },
-                "required": ["pattern"]
-            }
-        })
-    }
-
-    fn all_tool_schemas() -> Vec<serde_json::Value> {
-        vec![
-            Self::bash_tool_schema(),
-            Self::read_file_tool_schema(),
-            Self::edit_file_tool_schema(),
-            Self::write_file_tool_schema(),
-            Self::grep_tool_schema(),
-            Self::glob_tool_schema(),
-        ]
+        } else {
+            format!("ERROR: Unknown tool: {}", tool_use.name)
+        }
     }
 
     // ── Parsing ───────────────────────────────────────────────────────
@@ -303,7 +194,7 @@ impl CodeAgent {
         }
 
         // Format 2/3/4: direct JSON array
-        if let Ok(blocks) = serde_json::from_str::<Vec<serde_json::Value>>(content) {
+        if let Ok(blocks) = serde_json::from_str::<Vec<Value>>(content) {
             for (i, block) in blocks.iter().enumerate() {
                 let block_type = block.get("type").and_then(|t| t.as_str()).unwrap_or("");
                 if block_type == "tool_use"
@@ -326,7 +217,7 @@ impl CodeAgent {
                         let args = func
                             .get("arguments")
                             .and_then(|v| v.as_str())
-                            .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+                            .and_then(|s| serde_json::from_str::<Value>(s).ok())
                             .unwrap_or(serde_json::json!({}));
                         (n, args)
                     } else {
@@ -343,16 +234,7 @@ impl CodeAgent {
                         (n, inp)
                     };
 
-                    let has_valid_command = input
-                        .get("command")
-                        .and_then(|c| c.as_str())
-                        .is_some_and(|c| !c.is_empty());
-                    if matches!(
-                        name.as_str(),
-                        "write_file" | "read_file" | "edit_file" | "grep" | "glob"
-                    ) || (name == "bash" && has_valid_command)
-                        || (!name.is_empty() && has_valid_command)
-                    {
+                    if !name.is_empty() {
                         tool_uses.push(ToolUse { id, name, input });
                     }
                 }
@@ -372,25 +254,13 @@ impl CodeAgent {
                 };
                 if let Some(end) = content[json_start..].find("```") {
                     let json_str = &content[json_start..json_start + end];
-                    if let Ok(obj) = serde_json::from_str::<serde_json::Value>(json_str) {
+                    if let Ok(obj) = serde_json::from_str::<Value>(json_str) {
                         let name = obj
                             .get("name")
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
                             .to_string();
-                        if matches!(
-                            name.as_str(),
-                            "write_file"
-                                | "read_file"
-                                | "edit_file"
-                                | "grep"
-                                | "glob"
-                                | "bash"
-                                | "Bash"
-                                | "Read"
-                                | "Edit"
-                                | "Write"
-                        ) {
+                        if !name.is_empty() {
                             let id = obj
                                 .get("id")
                                 .and_then(|v| v.as_str())
@@ -428,14 +298,13 @@ impl CodeAgent {
 
             if let Some(end) = content[json_start..].find("```") {
                 let json_str = &content[json_start..json_start + end];
-                if let Ok(calls) = serde_json::from_str::<Vec<serde_json::Value>>(json_str) {
+                if let Ok(calls) = serde_json::from_str::<Vec<Value>>(json_str) {
                     for (i, call) in calls.iter().enumerate() {
                         let id = call
                             .get("id")
                             .and_then(|v| v.as_str())
                             .unwrap_or(&format!("tool_{i}_{abs_start}"))
                             .to_string();
-                        // Handle OpenAI function wrapper: {"function": {"name": ..., "arguments": ...}}
                         let (name, input) = if let Some(func) = call.get("function") {
                             let n = func
                                 .get("name")
@@ -445,7 +314,7 @@ impl CodeAgent {
                             let args = func
                                 .get("arguments")
                                 .and_then(|v| v.as_str())
-                                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+                                .and_then(|s| serde_json::from_str::<Value>(s).ok())
                                 .unwrap_or(serde_json::json!({}));
                             (n, args)
                         } else {
@@ -462,16 +331,7 @@ impl CodeAgent {
                             (n, inp)
                         };
 
-                        let has_valid_command = input
-                            .get("command")
-                            .and_then(|c| c.as_str())
-                            .is_some_and(|c| !c.is_empty());
-                        if matches!(
-                            name.as_str(),
-                            "write_file" | "read_file" | "edit_file" | "grep" | "glob"
-                        ) || (name == "bash" && has_valid_command)
-                            || (!name.is_empty() && has_valid_command)
-                        {
+                        if !name.is_empty() {
                             tools.push(ToolUse { id, name, input });
                         }
                     }
@@ -491,7 +351,7 @@ impl CodeAgent {
 
     /// Extract text content from response, stripping tool fences.
     fn extract_text(content: &str) -> String {
-        if let Ok(blocks) = serde_json::from_str::<Vec<serde_json::Value>>(content) {
+        if let Ok(blocks) = serde_json::from_str::<Vec<Value>>(content) {
             let text_parts: Vec<&str> = blocks
                 .iter()
                 .filter(|b| b.get("type").and_then(|t| t.as_str()) == Some("text"))
@@ -512,590 +372,6 @@ impl CodeAgent {
             }
         }
         result.trim().to_string()
-    }
-
-    // ── Path normalization ───────────────────────────────────────────
-
-    fn normalize_path(path: &str) -> String {
-        let p = path.trim();
-        if p.starts_with("/app/") {
-            p.strip_prefix("/app/").unwrap_or(p).to_string()
-        } else if p == "/app" {
-            ".".to_string()
-        } else {
-            p.to_string()
-        }
-    }
-
-    // ── Tool execution ────────────────────────────────────────────────
-
-    /// Read-only tools: safe to execute concurrently since they have no side effects.
-    fn is_readonly_tool(name: &str) -> bool {
-        matches!(name, "read_file" | "grep" | "glob")
-    }
-
-    async fn execute_tool(&self, tool_use: &ToolUse, env: &dyn BenchEnvironment) -> String {
-        let normalized_name = match tool_use.name.as_str() {
-            "Edit" | "edit" => "edit_file",
-            "Read" | "read" => "read_file",
-            "Write" | "Create" => "write_file",
-            "Bash" | "Shell" | "shell" => "bash",
-            "Grep" | "Search" => "grep",
-            "Glob" | "Find" | "ListFiles" => "glob",
-            other => other,
-        };
-        match normalized_name {
-            "write_file" => self.exec_write_file(tool_use, env).await,
-            "read_file" => self.exec_read_file(tool_use, env).await,
-            "edit_file" => self.exec_edit_file(tool_use, env).await,
-            "grep" => self.exec_grep(tool_use, env).await,
-            "glob" => self.exec_glob(tool_use, env).await,
-            "bash" => self.exec_bash(tool_use, env).await,
-            _ => self.exec_bash(tool_use, env).await,
-        }
-    }
-
-    async fn exec_bash(&self, tool_use: &ToolUse, env: &dyn BenchEnvironment) -> String {
-        let raw_command = tool_use
-            .input
-            .get("command")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-
-        if raw_command.is_empty() {
-            return "ERROR: bash requires 'command' parameter".to_string();
-        }
-
-        // Normalize /app/ paths to relative
-        let mut command = raw_command.to_string();
-        if command.starts_with("/app/") {
-            command = format!("./{}", &command[5..]);
-        } else if command.starts_with("/app ") {
-            command = format!(". {}", &command[5..]);
-        }
-        for boundary in [" ", "|", ";", "&", "(", "`", "$"] {
-            command = command.replace(&format!("{boundary}/app/"), &format!("{boundary}./"));
-            command = command.replace(&format!("{boundary}/app "), &format!("{boundary}. "));
-        }
-        command = command.replace("\n/app/", "\n./");
-
-        let timeout = tool_use
-            .input
-            .get("timeout")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(self.config.command_timeout_secs)
-            .min(600);
-
-        tracing::info!("[code] Executing: {}", truncate(&command, 100));
-
-        let result = env.exec_with_timeout(&command, timeout).await;
-
-        match result {
-            Ok(r) => {
-                let stdout = r.stdout.trim();
-                let stderr = r.stderr.trim();
-                let mut out = String::new();
-                if !stdout.is_empty() {
-                    out.push_str(stdout);
-                }
-                if !stderr.is_empty() {
-                    if !out.is_empty() {
-                        out.push('\n');
-                    }
-                    out.push_str("STDERR: ");
-                    out.push_str(stderr);
-                }
-                if out.is_empty() {
-                    out = "(no output)".to_string();
-                }
-
-                out = strip_ansi(&out);
-
-                if !r.success() {
-                    out.push_str(&format!("\n[exit code: {}]", r.exit_code));
-                }
-
-                // Truncate very long outputs
-                if out.len() > 6_000 {
-                    let head: String = out.chars().take(4_500).collect();
-                    let tail_start = out.len().saturating_sub(1_500);
-                    let tail: String = out.chars().skip(tail_start).collect();
-                    out = format!(
-                        "{head}\n\n... [{} chars truncated] ...\n\n{tail}",
-                        out.len() - 6_000
-                    );
-                }
-
-                out
-            }
-            Err(e) => format!("ERROR: {e}"),
-        }
-    }
-
-    async fn exec_write_file(&self, tool_use: &ToolUse, env: &dyn BenchEnvironment) -> String {
-        let raw_path = tool_use
-            .input
-            .get("path")
-            .or_else(|| tool_use.input.get("file_path"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let path = Self::normalize_path(raw_path);
-        let content = tool_use
-            .input
-            .get("content")
-            .or_else(|| tool_use.input.get("text"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-
-        if path.is_empty() {
-            return "ERROR: write_file requires 'path' parameter".to_string();
-        }
-
-        tracing::info!("[code] Writing file: {} ({} bytes)", path, content.len());
-
-        // Create parent directory if needed
-        if let Some(slash) = path.rfind('/') {
-            let dir = &path[..slash];
-            if !dir.is_empty() {
-                let esc_dir = dir.replace('\'', "'\\''");
-                if let Err(e) = env
-                    .exec_with_timeout(&format!("mkdir -p '{esc_dir}'"), 5)
-                    .await
-                {
-                    return format!("ERROR: Could not create directory {dir}: {e}");
-                }
-            }
-        }
-
-        let escaped_path = path.replace('\'', "'\\''");
-        let encoded = base64_encode(content);
-
-        // Chunked write for large files to avoid ARG_MAX
-        let write_result = if encoded.len() > 1_000_000 {
-            let chunk_size = 500_000;
-            let mut chunks = Vec::new();
-            let mut pos = 0;
-            while pos < encoded.len() {
-                let end = (pos + chunk_size).min(encoded.len());
-                chunks.push(&encoded[pos..end]);
-                pos = end;
-            }
-            let mut success = true;
-            for (i, chunk) in chunks.iter().enumerate() {
-                let redirect = if i == 0 { ">" } else { ">>" };
-                let cmd = format!("echo '{chunk}' | base64 -d {redirect} '{escaped_path}'");
-                match env.exec_with_timeout(&cmd, 30).await {
-                    Ok(r) if r.success() => {}
-                    _ => {
-                        success = false;
-                        break;
-                    }
-                }
-            }
-            if success {
-                env.exec_with_timeout("true", 1).await
-            } else {
-                env.exec_with_timeout("false", 1).await
-            }
-        } else {
-            let cmd = format!("echo '{encoded}' | base64 -d > '{escaped_path}'");
-            env.exec_with_timeout(&cmd, 30).await
-        };
-
-        match write_result {
-            Ok(r) if r.success() => {
-                let verify = env
-                    .exec_with_timeout(&format!("wc -l < '{escaped_path}'"), 5)
-                    .await;
-                let size_info = match verify {
-                    Ok(v) if v.success() => format!(" ({} lines)", v.stdout.trim()),
-                    _ => String::new(),
-                };
-                format!("Successfully wrote to {path}{size_info}")
-            }
-            Ok(r) => {
-                let err = r.stderr.trim();
-                format!("ERROR writing file: {err}")
-            }
-            Err(e) => format!("ERROR: {e}"),
-        }
-    }
-
-    async fn exec_read_file(&self, tool_use: &ToolUse, env: &dyn BenchEnvironment) -> String {
-        let raw_path = tool_use
-            .input
-            .get("path")
-            .or_else(|| tool_use.input.get("file_path"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let path = Self::normalize_path(raw_path);
-        let escaped_path = path.replace('\'', "'\\''");
-
-        if path.is_empty() {
-            return "ERROR: read_file requires 'path' parameter".to_string();
-        }
-
-        let offset = tool_use
-            .input
-            .get("offset")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
-        let limit = tool_use
-            .input
-            .get("limit")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
-
-        let cmd = if offset > 0 || limit > 0 {
-            let start = if offset > 0 { offset } else { 1 };
-            if limit > 0 {
-                let end = start + limit - 1;
-                format!(
-                    "awk 'NR>={start}&&NR<={end} {{printf \"%6d  %s\\n\", NR, $0}}' '{escaped_path}'"
-                )
-            } else {
-                format!("awk 'NR>={start} {{printf \"%6d  %s\\n\", NR, $0}}' '{escaped_path}'")
-            }
-        } else {
-            format!("cat -n '{escaped_path}'")
-        };
-
-        tracing::info!("[code] Reading file: {path}");
-
-        match env.exec_with_timeout(&cmd, 15).await {
-            Ok(r) if r.success() => {
-                let out = r.stdout.trim().to_string();
-                if out.is_empty() {
-                    format!("(file is empty: {path})")
-                } else if out.len() > 6_000 {
-                    let head: String = out.chars().take(5_000).collect();
-                    let tail_start = out.len().saturating_sub(1_000);
-                    let tail: String = out.chars().skip(tail_start).collect();
-                    format!(
-                        "{head}\n\n... [truncated, use offset/limit to read more] ...\n\n{tail}"
-                    )
-                } else {
-                    out
-                }
-            }
-            Ok(r) => {
-                let err = if !r.stderr.trim().is_empty() {
-                    r.stderr.trim().to_string()
-                } else {
-                    "file not found or unreadable".to_string()
-                };
-                format!("ERROR reading {path}: {err}")
-            }
-            Err(e) => format!("ERROR: {e}"),
-        }
-    }
-
-    async fn exec_edit_file(&self, tool_use: &ToolUse, env: &dyn BenchEnvironment) -> String {
-        let raw_path = tool_use
-            .input
-            .get("path")
-            .or_else(|| tool_use.input.get("file_path"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let path = Self::normalize_path(raw_path);
-        let escaped_path = path.replace('\'', "'\\''");
-        let old_string = tool_use
-            .input
-            .get("old_string")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let new_string = tool_use
-            .input
-            .get("new_string")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let replace_all = tool_use
-            .input
-            .get("replace_all")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        if path.is_empty() || old_string.is_empty() {
-            return "ERROR: edit_file requires 'path' and 'old_string' parameters".to_string();
-        }
-
-        tracing::info!(
-            "[code] Editing file: {path} (replacing {} bytes with {} bytes)",
-            old_string.len(),
-            new_string.len()
-        );
-
-        let path_b64 = base64_encode(&path);
-        let old_b64 = base64_encode(old_string);
-        let new_b64 = base64_encode(new_string);
-
-        // Count occurrences via python3
-        let count_cmd = format!(
-            "python3 -c \"\
-import base64, sys; \
-p = base64.b64decode('{path_b64}').decode(); \
-old = base64.b64decode('{old_b64}').decode(); \
-data = open(p).read(); \
-count = data.count(old); \
-sys.stdout.write(str(count)); \
-\""
-        );
-
-        let mut count: usize = 0;
-        let mut python_available = true;
-
-        match env.exec_with_timeout(&count_cmd, 10).await {
-            Ok(r) if r.success() => {
-                count = r.stdout.trim().parse().unwrap_or(0);
-            }
-            _ => {
-                python_available = false;
-            }
-        }
-
-        // Try CRLF→LF normalization if not found
-        if count == 0 && python_available {
-            let norm_old = base64_encode(&old_string.replace("\r\n", "\n"));
-            let norm_cmd = format!(
-                "python3 -c \"\
-import base64, sys; \
-p = base64.b64decode('{path_b64}').decode(); \
-old = base64.b64decode('{norm_old}').decode(); \
-data = open(p).read().replace(chr(13)+chr(10), chr(10)); \
-count = data.count(old); \
-sys.stdout.write(str(count)); \
-\""
-            );
-            if let Ok(r) = env.exec_with_timeout(&norm_cmd, 10).await {
-                if r.success() {
-                    let norm_count: usize = r.stdout.trim().parse().unwrap_or(0);
-                    if norm_count > 0 {
-                        let normalize_cmd = format!(
-                            "python3 -c \"\
-p = base64.b64decode('{path_b64}').decode(); \
-data = open(p).read(); \
-open(p, 'w').write(data.replace(chr(13)+chr(10), chr(10))); \
-print('ok')\""
-                        );
-                        let _ = env.exec_with_timeout(&normalize_cmd, 5).await;
-                        if let Ok(r2) = env.exec_with_timeout(&count_cmd, 10).await {
-                            if r2.success() {
-                                count = r2.stdout.trim().parse().unwrap_or(0);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Fallback to sed for simple single-line edits when python3 unavailable
-        if !python_available {
-            let exists = env
-                .exec_with_timeout(&format!("test -f '{escaped_path}' && echo exists"), 5)
-                .await
-                .map(|r| r.stdout.trim().to_string())
-                .unwrap_or_default();
-            if exists != "exists" {
-                return format!("ERROR: File not found: {path}");
-            }
-            let escaped_old = old_string.replace('\'', "'\\''").replace('/', "\\/");
-            let escaped_new = new_string.replace('\'', "'\\''").replace('/', "\\/");
-            if !escaped_old.contains('\n') && !escaped_new.contains('\n') {
-                let sed_flag = if replace_all { "g" } else { "" };
-                let sed_cmd =
-                    format!("sed -i 's/{escaped_old}/{escaped_new}/{sed_flag}' '{escaped_path}'");
-                return match env.exec_with_timeout(&sed_cmd, 10).await {
-                    Ok(r) if r.success() => "Replaced with sed".to_string(),
-                    _ => format!("ERROR: Could not edit {path} (python3 and sed both failed)"),
-                };
-            }
-            return format!(
-                "ERROR: python3 unavailable and sed cannot handle multi-line edits for {path}"
-            );
-        }
-
-        // Fuzzy match: compare lines with whitespace stripped
-        if count == 0 && python_available {
-            let norm_old: String = old_string
-                .lines()
-                .map(|l| l.trim())
-                .collect::<Vec<_>>()
-                .join("\n");
-            let norm_old_b64 = base64_encode(&norm_old);
-            let new_norm: String = new_string
-                .lines()
-                .map(|l| l.trim())
-                .collect::<Vec<_>>()
-                .join("\n");
-            let new_norm_b64 = base64_encode(&new_norm);
-            let fuzzy_replace = format!(
-                "python3 -c \"\
-import base64, sys; \
-p = base64.b64decode('{path_b64}').decode(); \
-old = base64.b64decode('{norm_old_b64}').decode(); \
-new = base64.b64decode('{new_norm_b64}').decode(); \
-lines = open(p).read().split(chr(10)); \
-old_t = old.split(chr(10)); \
-for i in range(len(lines) - len(old_t) + 1): \
-    chunk = [l.strip() for l in lines[i:i+len(old_t)]]; \
-    if chr(10).join(chunk) == old: \
-        lines[i:i+len(old_t)] = new.split(chr(10)); \
-        open(p, 'w').write(chr(10).join(lines)); \
-        print('Replaced (whitespace-normalized match at line ' + str(i+1) + ')'); \
-        sys.exit(0); \
-sys.exit(1)\
-\""
-            );
-            if let Ok(r) = env.exec_with_timeout(&fuzzy_replace, 10).await {
-                if r.success() {
-                    return r.stdout.trim().to_string();
-                }
-            }
-        }
-
-        if count == 0 {
-            return format!(
-                "ERROR: old_string not found in {path}. \
-                 The exact text must match including whitespace and indentation. \
-                 Use read_file to see current contents."
-            );
-        }
-
-        // Perform the replacement
-        let replace_py = if count > 1 && !replace_all {
-            format!(
-                "python3 -c \"\
-import base64; \
-p = base64.b64decode('{path_b64}').decode(); \
-old = base64.b64decode('{old_b64}').decode(); \
-new = base64.b64decode('{new_b64}').decode(); \
-data = open(p).read(); \
-data = data.replace(old, new, 1); \
-open(p, 'w').write(data); \
-print('Replaced 1 of {count} occurrences')\
-\""
-            )
-        } else {
-            format!(
-                "python3 -c \"\
-import base64; \
-p = base64.b64decode('{path_b64}').decode(); \
-old = base64.b64decode('{old_b64}').decode(); \
-new = base64.b64decode('{new_b64}').decode(); \
-data = open(p).read(); \
-actual = data.count(old); \
-data = data.replace(old, new); \
-open(p, 'w').write(data); \
-print('Replaced ' + str(actual) + ' occurrence(s)')\
-\""
-            )
-        };
-
-        match env.exec_with_timeout(&replace_py, 10).await {
-            Ok(r) if r.success() => r.stdout.trim().to_string(),
-            Ok(r) => format!("ERROR: {}", r.stderr.trim()),
-            Err(e) => format!("ERROR: {e}"),
-        }
-    }
-
-    async fn exec_grep(&self, tool_use: &ToolUse, env: &dyn BenchEnvironment) -> String {
-        let pattern = tool_use
-            .input
-            .get("pattern")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let path = tool_use
-            .input
-            .get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or(".");
-        let include = tool_use.input.get("include").and_then(|v| v.as_str());
-        let ignore_case = tool_use
-            .input
-            .get("ignore_case")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-
-        if pattern.is_empty() {
-            return "ERROR: grep requires 'pattern' parameter".to_string();
-        }
-
-        let mut cmd = String::from("grep -rn --binary-files=without-match");
-        if ignore_case {
-            cmd.push_str(" -i");
-        }
-        if let Some(inc) = include {
-            cmd.push_str(&format!(" --include='{inc}'"));
-        }
-        let escaped_pattern = pattern.replace('\'', "'\\''");
-        let escaped_path = path.replace('\'', "'\\''");
-        let quoted_path = if path == "." {
-            ".".to_string()
-        } else {
-            format!("'{escaped_path}'")
-        };
-        cmd.push_str(&format!(" '{escaped_pattern}' {quoted_path}"));
-
-        tracing::info!("[code] Grepping: {cmd}");
-
-        match env.exec_with_timeout(&cmd, 15).await {
-            Ok(r) if r.success() => {
-                let out = r.stdout.trim().to_string();
-                if out.len() > 6_000 {
-                    let head: String = out.chars().take(5_000).collect();
-                    format!("{head}\n\n... [truncated, use more specific pattern or path]")
-                } else {
-                    out
-                }
-            }
-            Ok(_) => "No matches found.".to_string(),
-            Err(e) => format!("ERROR: {e}"),
-        }
-    }
-
-    async fn exec_glob(&self, tool_use: &ToolUse, env: &dyn BenchEnvironment) -> String {
-        let pattern = tool_use
-            .input
-            .get("pattern")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let path = tool_use
-            .input
-            .get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or(".");
-
-        if pattern.is_empty() {
-            return "ERROR: glob requires 'pattern' parameter".to_string();
-        }
-
-        let escaped_pattern = pattern.replace('\'', "'\\''");
-        let escaped_path = path.replace('\'', "'\\''");
-        let quoted_path = if path == "." {
-            ".".to_string()
-        } else {
-            format!("'{escaped_path}'")
-        };
-        let cmd = if pattern.contains("**") {
-            let clean_pattern = escaped_pattern.trim_start_matches("./");
-            format!("find {quoted_path} -path '*/{clean_pattern}' -type f 2>/dev/null | head -50")
-        } else {
-            format!("find {quoted_path} -name '{escaped_pattern}' -type f 2>/dev/null | head -50")
-        };
-
-        tracing::info!("[code] Glob: {cmd}");
-
-        match env.exec_with_timeout(&cmd, 10).await {
-            Ok(r) => {
-                let out = r.stdout.trim().to_string();
-                if out.is_empty() {
-                    "No files found matching pattern.".to_string()
-                } else {
-                    out
-                }
-            }
-            Err(e) => format!("ERROR: {e}"),
-        }
     }
 
     // ── Context management ────────────────────────────────────────────
@@ -1203,50 +479,22 @@ print('Replaced ' + str(actual) + ' occurrence(s)')\
         );
     }
 
-    async fn write_trace(&self, trace: &str, env: &dyn BenchEnvironment) {
-        if let Ok(r) = env.exec("pwd").await {
-            if r.success() {
-                let trace_path = format!("{}/conversation_trace.md", r.stdout.trim());
-                let _ = tokio::fs::write(&trace_path, trace).await;
-            }
-        }
+    async fn write_trace(&self, trace: &str, cwd: &Path) {
+        let trace_path = cwd.join("conversation_trace.md");
+        let _ = tokio::fs::write(&trace_path, trace).await;
     }
 }
 
 // ── Free functions ────────────────────────────────────────────────────
 
-fn base64_encode(input: &str) -> String {
-    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let bytes = input.as_bytes();
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let b0 = u32::from(chunk[0]);
-        let b1 = chunk.get(1).map_or(0, |&b| u32::from(b));
-        let b2 = chunk.get(2).map_or(0, |&b| u32::from(b));
-        let triple = (b0 << 16) | (b1 << 8) | b2;
-        out.push(char::from(TABLE[((triple >> 18) & 0x3F) as usize]));
-        out.push(char::from(TABLE[((triple >> 12) & 0x3F) as usize]));
-        out.push(if chunk.len() > 1 {
-            char::from(TABLE[((triple >> 6) & 0x3F) as usize])
-        } else {
-            '='
-        });
-        out.push(if chunk.len() > 2 {
-            char::from(TABLE[(triple & 0x3F) as usize])
-        } else {
-            '='
-        });
-    }
-    out
-}
-
 struct ToolUse {
     #[allow(dead_code)]
     id: String,
     name: String,
-    input: serde_json::Value,
+    input: Value,
 }
 
+#[cfg(test)]
 fn strip_ansi(s: &str) -> String {
     let mut result = String::with_capacity(s.len());
     let bytes = s.as_bytes();
@@ -1299,7 +547,13 @@ impl BenchAgent for CodeAgent {
         instruction: &str,
         env: &mut dyn BenchEnvironment,
     ) -> anyhow::Result<()> {
-        let tools = Self::all_tool_schemas();
+        let cwd = env
+            .workspace_path()
+            .context("workspace_path required for CodeAgent — use native runner")?;
+
+        let ctx = ToolContext::new(&cwd);
+        let registry = build_bench_registry();
+        let tools = Self::build_tool_schemas();
 
         let task_prompt = format!(
             "You have {} turns total. Use them wisely.\n\n{instruction}",
@@ -1386,25 +640,7 @@ impl BenchAgent for CodeAgent {
                             .map(|s| truncate(s, 500))
                             .unwrap_or_default()
                             .to_string(),
-                        "write_file" => {
-                            let p = tu
-                                .input
-                                .get("path")
-                                .or(tu.input.get("file_path"))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("?");
-                            format!("path={p}")
-                        }
-                        "edit_file" => {
-                            let p = tu
-                                .input
-                                .get("path")
-                                .or(tu.input.get("file_path"))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("?");
-                            format!("path={p}")
-                        }
-                        "read_file" => {
+                        "write_file" | "read_file" | "edit_file" => {
                             let p = tu
                                 .input
                                 .get("path")
@@ -1447,33 +683,11 @@ impl BenchAgent for CodeAgent {
                 content: MessageContent::Blocks(blocks),
             });
 
-            // Execute tool calls in order. Consecutive read-only calls are
-            // batched and run concurrently. Write calls act as barriers —
-            // they flush any pending reads, execute, then the next batch starts.
-            let mut raw_outputs: Vec<String> = Vec::with_capacity(tool_uses.len());
-            let mut i = 0;
-            while i < tool_uses.len() {
-                // Collect a run of consecutive read-only calls.
-                let read_start = i;
-                while i < tool_uses.len() && Self::is_readonly_tool(&tool_uses[i].name) {
-                    i += 1;
-                }
-                let read_end = i;
-
-                if read_end > read_start {
-                    // Execute consecutive read-only calls concurrently.
-                    let batch_futures = tool_uses[read_start..read_end]
-                        .iter()
-                        .map(|t| self.execute_tool(t, env));
-                    raw_outputs.extend(futures::future::join_all(batch_futures).await);
-                }
-
-                if i < tool_uses.len() && !Self::is_readonly_tool(&tool_uses[i].name) {
-                    // Execute write call sequentially.
-                    raw_outputs.push(self.execute_tool(&tool_uses[i], env).await);
-                    i += 1;
-                }
-            }
+            // Execute all tool calls sequentially via the registry.
+            let raw_outputs: Vec<String> = tool_uses
+                .iter()
+                .map(|t| Self::execute_tool(&registry, t, &ctx))
+                .collect();
 
             // Process results: repetition detection, truncation, error detection.
             let mut tool_result_blocks: Vec<ContentBlock> = Vec::new();
@@ -1552,11 +766,11 @@ impl BenchAgent for CodeAgent {
             });
 
             // Write trace incrementally so it survives timeouts
-            self.write_trace(&conversation_trace, env).await;
+            self.write_trace(&conversation_trace, &cwd).await;
         }
 
         // Write conversation trace (final write)
-        self.write_trace(&conversation_trace, env).await;
+        self.write_trace(&conversation_trace, &cwd).await;
 
         Ok(())
     }
@@ -1637,8 +851,16 @@ mod tests {
     }
 
     #[test]
-    fn parse_tool_fence_skips_empty_commands() {
-        let content = "```tool\n[{\"name\": \"bash\", \"arguments\": {\"command\": \"\"}}]\n```";
+    fn parse_tool_fence_accepts_any_tool_name() {
+        let content = "```tool\n[{\"name\": \"search_replace\", \"arguments\": {\"pattern\": \"old\", \"replacement\": \"new\"}}]\n```";
+        let tools = CodeAgent::parse_tool_uses(content);
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].name, "search_replace");
+    }
+
+    #[test]
+    fn parse_tool_fence_skips_empty_names() {
+        let content = "```tool\n[{\"name\": \"\", \"arguments\": {\"command\": \"ls\"}}]\n```";
         let tools = CodeAgent::parse_tool_uses(content);
         assert!(tools.is_empty());
     }
@@ -1737,23 +959,6 @@ mod tests {
     }
 
     #[test]
-    fn base64_encoding() {
-        assert_eq!(base64_encode(""), "");
-        assert_eq!(base64_encode("f"), "Zg==");
-        assert_eq!(base64_encode("fo"), "Zm8=");
-        assert_eq!(base64_encode("foo"), "Zm9v");
-        assert_eq!(base64_encode("Hello, World!"), "SGVsbG8sIFdvcmxkIQ==");
-    }
-
-    #[test]
-    fn base64_encoding_special_chars() {
-        let input = "line1\nline2\ttab's \"quote\"";
-        let encoded = base64_encode(input);
-        let decoded = String::from_utf8(base64_decode_for_test(&encoded)).unwrap();
-        assert_eq!(decoded, input);
-    }
-
-    #[test]
     fn strip_ansi_removes_color_codes() {
         assert_eq!(strip_ansi("\x1b[31mFAILED\x1b[0m"), "FAILED");
         assert_eq!(strip_ansi("\x1b[32mPASSED\x1b[0m test"), "PASSED test");
@@ -1789,16 +994,6 @@ mod tests {
     }
 
     #[test]
-    fn normalize_path_strips_app_prefix() {
-        assert_eq!(CodeAgent::normalize_path("/app/solution.py"), "solution.py");
-        assert_eq!(CodeAgent::normalize_path("/app/src/main.py"), "src/main.py");
-        assert_eq!(CodeAgent::normalize_path("/app"), ".");
-        assert_eq!(CodeAgent::normalize_path("solution.py"), "solution.py");
-        assert_eq!(CodeAgent::normalize_path("./solution.py"), "./solution.py");
-        assert_eq!(CodeAgent::normalize_path("  /app/test.py  "), "test.py");
-    }
-
-    #[test]
     fn parse_json_fence_single_tool() {
         let content = "I'll run the tests.\n```json\n{\"name\": \"bash\", \"input\": {\"command\": \"pytest\"}}\n```\nLet me check.";
         let tools = CodeAgent::parse_tool_uses(content);
@@ -1813,39 +1008,49 @@ mod tests {
         assert!(tools.is_empty());
     }
 
-    fn base64_decode_for_test(input: &str) -> Vec<u8> {
-        const TABLE: &[u8; 64] =
-            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-        let mut result = Vec::new();
-        let bytes = input.as_bytes();
-        let mut i = 0;
-        while i < bytes.len() {
-            let b0 = TABLE.iter().position(|&b| b == bytes[i]).unwrap_or(0) as u32;
-            let b1 = if i + 1 < bytes.len() && bytes[i + 1] != b'=' {
-                TABLE.iter().position(|&b| b == bytes[i + 1]).unwrap_or(0) as u32
-            } else {
-                0
-            };
-            let b2 = if i + 2 < bytes.len() && bytes[i + 2] != b'=' {
-                TABLE.iter().position(|&b| b == bytes[i + 2]).unwrap_or(0) as u32
-            } else {
-                0
-            };
-            let b3 = if i + 3 < bytes.len() && bytes[i + 3] != b'=' {
-                TABLE.iter().position(|&b| b == bytes[i + 3]).unwrap_or(0) as u32
-            } else {
-                0
-            };
-            let triple = (b0 << 18) | (b1 << 12) | (b2 << 6) | b3;
-            result.push(((triple >> 16) & 0xFF) as u8);
-            if i + 2 < bytes.len() && bytes[i + 2] != b'=' {
-                result.push(((triple >> 8) & 0xFF) as u8);
-            }
-            if i + 3 < bytes.len() && bytes[i + 3] != b'=' {
-                result.push((triple & 0xFF) as u8);
-            }
-            i += 4;
-        }
-        result
+    #[test]
+    fn build_tool_schemas_has_core_tools() {
+        let schemas = CodeAgent::build_tool_schemas();
+        let names: Vec<&str> = schemas
+            .iter()
+            .filter_map(|s| s.get("name").and_then(|n| n.as_str()))
+            .collect();
+        // File tools
+        assert!(names.contains(&"read_file"), "missing read_file");
+        assert!(names.contains(&"write_file"), "missing write_file");
+        assert!(names.contains(&"edit_file"), "missing edit_file");
+        assert!(names.contains(&"list_dir"), "missing list_dir");
+        // Search tools
+        assert!(names.contains(&"grep"), "missing grep");
+        assert!(names.contains(&"glob"), "missing glob");
+        assert!(names.contains(&"search_replace"), "missing search_replace");
+        // Bash
+        assert!(names.contains(&"bash"), "missing bash");
+        // Git (read-only)
+        assert!(names.contains(&"git_status"), "missing git_status");
+        assert!(names.contains(&"git_diff"), "missing git_diff");
+        assert!(names.contains(&"git_log"), "missing git_log");
+        // No interactive tools
+        assert!(
+            !names.contains(&"question"),
+            "question should not be registered"
+        );
+        assert!(
+            !names.contains(&"ask_user"),
+            "ask_user should not be registered"
+        );
+    }
+
+    #[test]
+    fn normalize_tool_name_maps_common_aliases() {
+        assert_eq!(CodeAgent::normalize_tool_name("Edit"), "edit_file");
+        assert_eq!(CodeAgent::normalize_tool_name("Read"), "read_file");
+        assert_eq!(CodeAgent::normalize_tool_name("Write"), "write_file");
+        assert_eq!(CodeAgent::normalize_tool_name("Bash"), "bash");
+        assert_eq!(CodeAgent::normalize_tool_name("Grep"), "grep");
+        assert_eq!(CodeAgent::normalize_tool_name("Glob"), "glob");
+        assert_eq!(CodeAgent::normalize_tool_name("bash"), "bash");
+        assert_eq!(CodeAgent::normalize_tool_name("edit_file"), "edit_file");
+        assert_eq!(CodeAgent::normalize_tool_name("unknown"), "unknown");
     }
 }

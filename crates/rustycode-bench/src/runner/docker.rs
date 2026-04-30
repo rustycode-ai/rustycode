@@ -57,7 +57,10 @@ impl DockerRunner {
         let create_agent = Arc::new(create_agent);
 
         let agent_factory = move |solution_dir: PathBuf| -> Box<dyn BenchAgent> {
-            create_agent(&agent_name, &model, solution_dir).expect("Failed to create agent")
+            create_agent(&agent_name, &model, solution_dir).unwrap_or_else(|e| {
+                tracing::error!("Failed to create agent: {e}");
+                Box::new(crate::agent::NopAgent) as Box<dyn BenchAgent>
+            })
         };
 
         let verifier_factory = move |tests_dir: PathBuf, timeout_secs: u64| -> Box<dyn Verifier> {
@@ -68,7 +71,7 @@ impl DockerRunner {
 
         tracing::info!("Running {} tasks in Docker mode...", tasks.len());
         let results = Job::new(job_config)
-            .run(dataset_path, &agent_factory, &verifier_factory)
+            .run(tasks, &agent_factory, &verifier_factory)
             .await
             .with_context(|| "Benchmark run failed")?;
 

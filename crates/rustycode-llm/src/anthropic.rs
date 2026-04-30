@@ -163,6 +163,8 @@ pub(crate) enum ContentBlock {
         #[serde(rename = "type")]
         content_type: &'static str,
         text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<CacheControl>,
     },
     Image {
         #[serde(rename = "type")]
@@ -175,6 +177,8 @@ pub(crate) enum ContentBlock {
         id: String,
         name: String,
         input: serde_json::Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<CacheControl>,
     },
     ToolResult {
         #[serde(rename = "type")]
@@ -183,6 +187,8 @@ pub(crate) enum ContentBlock {
         content: String,
         #[serde(skip_serializing_if = "Option::is_none")]
         is_error: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        cache_control: Option<CacheControl>,
     },
     SearchResult {
         #[serde(rename = "type")]
@@ -301,6 +307,54 @@ fn normalize_thinking_for_model(
     serde_json::to_value(thinking).unwrap_or_default()
 }
 
+/// Apply `cache_control: { type: "ephemeral" }` to the last N messages' content blocks.
+///
+/// Anthropic allows up to 4 cache breakpoints per request. This function targets
+/// the last `count` messages, adding cache_control to their final content block.
+/// Matches the opencode `cc()` pattern for optimal prefix caching.
+fn apply_cache_to_last_messages(messages: &mut [AnthropicMessage], count: usize) {
+    let cc = CacheControl {
+        cache_type: "ephemeral",
+    };
+
+    let start = messages.len().saturating_sub(count);
+    for msg in &mut messages[start..] {
+        match &mut msg.content {
+            AnthropicRequestContent::Blocks(blocks) => {
+                if let Some(last_block) = blocks.last_mut() {
+                    match last_block {
+                        ContentBlock::Text { cache_control, .. } => {
+                            *cache_control = Some(cc.clone());
+                        }
+                        ContentBlock::ToolUse { cache_control, .. } => {
+                            *cache_control = Some(cc.clone());
+                        }
+                        ContentBlock::ToolResult { cache_control, .. } => {
+                            *cache_control = Some(cc.clone());
+                        }
+                        ContentBlock::SearchResult { cache_control, .. } => {
+                            *cache_control = Some(cc.clone());
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            AnthropicRequestContent::Text(_) => {
+                // Convert simple text to a cached content block
+                let text = match &msg.content {
+                    AnthropicRequestContent::Text(t) => t.clone(),
+                    _ => unreachable!(),
+                };
+                msg.content = AnthropicRequestContent::Blocks(vec![ContentBlock::Text {
+                    content_type: "text",
+                    text,
+                    cache_control: Some(cc.clone()),
+                }]);
+            }
+        }
+    }
+}
+
 impl AnthropicProvider {
     /// Internal implementation of complete without retry logic
     pub async fn complete_internal(
@@ -315,7 +369,7 @@ impl AnthropicProvider {
         let parsed_messages = self.parse_conversation_messages(&request.messages);
 
         // Filter out empty or invalid messages that could cause error 1214
-        let messages: Vec<AnthropicMessage> = parsed_messages
+        let mut messages: Vec<AnthropicMessage> = parsed_messages
             .into_iter()
             .filter(|msg| {
                 // Filter out messages with empty content
@@ -373,14 +427,15 @@ impl AnthropicProvider {
                 matches!(f.format_type, crate::provider::OutputFormatType::JsonSchema)
             });
 
-        // Only use cache_control with the real Anthropic API.
-        // Third-party proxies (z.ai, etc.) may mishandle the blocks format or
-        // cache_control fields, silently corrupting the system prompt.
-        let use_cache_control = self
-            .config
-            .base_url
-            .as_deref()
-            .map_or(true, |url| url.contains("api.anthropic.com"));
+        // Enable prompt caching for all Anthropic-compatible endpoints.
+        // Most proxies (OpenRouter, z.ai, etc.) support cache_control correctly.
+        let use_cache_control = true;
+
+        // Apply cache_control to last 2 conversation messages.
+        // Combined with system prompt (1) and tools (1), this uses all 4 allowed breakpoints.
+        if use_cache_control {
+            apply_cache_to_last_messages(&mut messages, 2);
+        }
 
         let system = request.system_prompt.map(|text| {
             if use_cache_control {
@@ -633,14 +688,8 @@ impl AnthropicProvider {
         };
 
         let usage = if cache_read > 0 || cache_creation > 0 {
-            let total_cacheable = cache_read + cache_creation;
-            let hit_pct = if total_cacheable > 0 {
-                cache_read * 100 / total_cacheable
-            } else {
-                0
-            };
             tracing::info!(
-                "Cache: {hit_pct}% hit ({cache_read}/{total_cacheable} tokens), input={input_tokens}, output={output_tokens}"
+                "Cache: {cache_read} read, {cache_creation} written, input={input_tokens}, output={output_tokens}"
             );
             Usage::with_cache(input_tokens, output_tokens, cache_read, cache_creation)
         } else {
@@ -890,6 +939,7 @@ impl AnthropicProvider {
                                 tool_use_id: tool_use_id.clone(),
                                 content: content.clone(),
                                 is_error: if *is_error { Some(true) } else { None },
+                                cache_control: None,
                             },
                             rustycode_protocol::ContentBlock::ToolUse { id, name, input } => {
                                 ContentBlock::ToolUse {
@@ -897,12 +947,14 @@ impl AnthropicProvider {
                                     id: id.clone(),
                                     name: name.clone(),
                                     input: input.clone(),
+                                    cache_control: None,
                                 }
                             }
                             rustycode_protocol::ContentBlock::Text { text, .. } => {
                                 ContentBlock::Text {
                                     content_type: "text",
                                     text: text.clone(),
+                                    cache_control: None,
                                 }
                             }
                             rustycode_protocol::ContentBlock::Image { source, .. } => {
@@ -919,11 +971,13 @@ impl AnthropicProvider {
                                 ContentBlock::Text {
                                     content_type: "text",
                                     text: format!("[thinking: {}]", thinking),
+                                    cache_control: None,
                                 }
                             }
                             _ => ContentBlock::Text {
                                 content_type: "text",
                                 text: "[unsupported block]".to_string(),
+                                cache_control: None,
                             },
                         })
                         .collect();
@@ -969,6 +1023,7 @@ impl AnthropicProvider {
                                         .unwrap_or("")
                                         .to_string(),
                                     is_error: if is_error { Some(true) } else { None },
+                                    cache_control: None,
                                 },
                             ]),
                         };
@@ -1078,6 +1133,7 @@ impl AnthropicProvider {
                                             blocks.push(ContentBlock::Text {
                                                 content_type: "text",
                                                 text: text.to_string(),
+                                                cache_control: None,
                                             });
                                         }
                                     }
@@ -1089,6 +1145,7 @@ impl AnthropicProvider {
                                             blocks.push(ContentBlock::Text {
                                                 content_type: "text",
                                                 text: text.to_string(),
+                                                cache_control: None,
                                             });
                                         }
                                     }
@@ -1307,7 +1364,7 @@ impl AnthropicProvider {
         let url = self.endpoint();
 
         // Convert ChatMessage to AnthropicMessage
-        let messages = self.parse_conversation_messages(&request.messages);
+        let mut messages = self.parse_conversation_messages(&request.messages);
 
         // Use intelligent tool selection if tools not explicitly provided
         let mut tools = match request.tools {
@@ -1349,14 +1406,15 @@ impl AnthropicProvider {
                 matches!(f.format_type, crate::provider::OutputFormatType::JsonSchema)
             });
 
-        // Only use cache_control with the real Anthropic API.
-        // Third-party proxies (z.ai, etc.) may mishandle the blocks format or
-        // cache_control fields, silently corrupting the system prompt.
-        let use_cache_control = self
-            .config
-            .base_url
-            .as_deref()
-            .map_or(true, |url| url.contains("api.anthropic.com"));
+        // Enable prompt caching for all Anthropic-compatible endpoints.
+        // Most proxies (OpenRouter, z.ai, etc.) support cache_control correctly.
+        let use_cache_control = true;
+
+        // Apply cache_control to last 2 conversation messages.
+        // Combined with system prompt (1) and tools (1), this uses all 4 allowed breakpoints.
+        if use_cache_control {
+            apply_cache_to_last_messages(&mut messages, 2);
+        }
 
         let system = request.system_prompt.map(|text| {
             if use_cache_control {
@@ -1711,6 +1769,15 @@ impl AnthropicProvider {
                                         && (usage.cache_read_input_tokens > 0
                                             || usage.cache_creation_input_tokens > 0)
                                     {
+                                        let cache_read = usage.cache_read_input_tokens;
+                                        let cache_creation = usage.cache_creation_input_tokens;
+                                        tracing::info!(
+                                            "Cache: {} read, {} written, input={}, output={}",
+                                            cache_read,
+                                            cache_creation,
+                                            usage.input_tokens,
+                                            usage.output_tokens
+                                        );
                                         events.push(Ok(StreamEvent::CacheUsage {
                                             cache_read_tokens: u64::from(
                                                 usage.cache_read_input_tokens,
@@ -1871,6 +1938,7 @@ impl UnifiedLLMProvider for AnthropicProvider {
             container: None,
             tool_choice: None,
             parallel_tool_calls: None,
+            session_id: None,
         };
 
         // Call provider complete

@@ -962,6 +962,7 @@ impl UnifiedLLMProvider for AzureProvider {
             container: None,
             tool_choice: None,
             parallel_tool_calls: None,
+            session_id: None,
         };
 
         // Call provider complete

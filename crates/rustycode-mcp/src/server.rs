@@ -487,7 +487,7 @@ impl McpServer {
         &self,
         params: Option<serde_json::Value>,
     ) -> McpResult<serde_json::Value> {
-        let _params = params;
+        let _ = params;
         // Completion support requires handler registration; return empty by default
         Ok(json!({ "completion": { "values": [], "total": 0, "hasMore": false } }))
     }
@@ -813,6 +813,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[allow(clippy::expect_used)]
     async fn test_server_handle_list_tools_includes_lsp_executor_tools() {
         let workspace = tempdir().expect("temp workspace");
         let mut server = McpServer::default_config("test");
