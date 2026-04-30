@@ -245,7 +245,7 @@ fn command_tab(command: &Command) -> PaletteTab {
         || name.starts_with("/model ")
         || name == "/provider"
         || name.starts_with("/provider ")
-        || matches!(name, "/theme" | "/copilot-login")
+        || matches!(name, "/theme" | "/copilot-login" | "/model list" | "/provider list")
     {
         PaletteTab::Settings
     } else {
@@ -1664,6 +1664,27 @@ mod tests {
         let line = matcher.highlight_matches("xyz", "help");
         // Should return original text as single span
         assert_eq!(line.spans.len(), 1);
+    }
+
+    #[test]
+    fn test_highlight_matches_unicode() {
+        let matcher = FuzzyMatcher::new();
+
+        // Case-insensitive match with multi-byte chars (Ü → ü, same byte length)
+        let line = matcher.highlight_matches("über", "ÜBER");
+        assert!(line.spans.len() >= 2); // Should have highlighted portion
+
+        // Match that expands across char boundaries (İ → i̇, different byte count)
+        let line = matcher.highlight_matches("i", "İstanbul");
+        assert!(!line.spans.is_empty());
+
+        // Pure ASCII match still works
+        let line = matcher.highlight_matches("test", "test_command");
+        assert!(line.spans.len() >= 2);
+
+        // CJK characters
+        let line = matcher.highlight_matches("東京", "東京都");
+        assert!(line.spans.len() >= 2);
     }
 
     #[test]
