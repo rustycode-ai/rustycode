@@ -1,0 +1,40 @@
+● rustycode ─ main rustycode ● 40 tasks T:1
+✓ Ready 1 turn | 📝 Single-line | 🔧 Code | ☐39 | ╌╌╌╌╌╌╌╌╌╌ 92/200k | main           │Current Session
+│ Found recoverable session (5 messages, 8788 min ago). Use /resume to load it.       │Time    0m 5s
+│                                                                                     │Messages 6
+│ ⚠️ Tmux focus-events is off. TUI may not detect when you switch windows. Recommend: │
+│                                                                                     │Status
+│ 💡 Inside tmux: Use Ctrl+L as an alternative to Ctrl+B for toggling the sidebar.    │✓ Ready
+│                                                                                     │
+                                                                                      │▼ Language Server
+│ /model openai/gpt-4o                                                                │🔌 LSP Connected
+│                                                                                     │  rust-analyzer, clangd
+                                                                                      │
+│ Workspace loaded (326 files indexed)                                                │▼ MCP
+│                                                                                     │⚡ MCP Available
+│ Loaded instruction.md from the workspace root                                       │
+│                                                                                     │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                                                      │
+                                                          ┌──────────────────────────────────────────────────────────┐
+                                                          │✓ Success                                                 │
+                                                          │                                                          │
+                                                          └──────────────────────────────────────────────────────────┘
+                                                                                      │
+                                                                                      │
+                                                                                      │
+│ 📝 Single-line                                                                      │
+❯ ▏ Message...                                                                        │
+│ Ctrl+A/E nav · Ctrl+U/D scroll · Ctrl+X edit · Ctrl+R search                        │
+ 5s  │ ✓1 ☐39                                                                         │

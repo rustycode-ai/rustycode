@@ -1,0 +1,37 @@
+[package]
+name = "rustycode-config"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+schema-validation = ["jsonschema"]
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+dirs = { workspace = true }
+shellexpand.workspace = true
+tempfile = { workspace = true }
+jsonschema = { version = "0.18", optional = true }
+tokio = { workspace = true, features = ["full"] }
+tracing = { workspace = true }
+rustycode-lsp = { path = "../rustycode-lsp" }
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "config_performance"
+harness = false
+
+[lints]
+workspace = true
+

@@ -1,0 +1,27 @@
+[package]
+name = "rustycode-bus"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["sync", "rt"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber.workspace = true
+regex = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+rustycode-protocol = { path = "../rustycode-protocol" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "test-util", "rt-multi-thread"] }
+
+[lints]
+workspace = true
+

@@ -1,0 +1,22 @@
+# Plugin Manifest for Text Statistics Tool
+# This file declares the plugin metadata, dependencies, permissions, and configuration
+
+# Plugin metadata (top level, no [package] wrapper)
+name = "text-statistics"
+version = "1.0.0"
+description = "Text analysis tool that provides word count, line count, character count, and token estimation"
+authors = ["RustyCode Contributors"]
+entry_point = "./text_statistics"
+
+# Permissions required by this plugin
+permissions = ["process_info"]
+
+# Dependencies on other plugins (if any)
+# This plugin has no external dependencies
+[dependencies]
+
+# Configuration schema for this plugin (JSON Schema format)
+[config_schema]
+type = "object"
+properties = { verbose = { type = "boolean" }, output_format = { type = "string", enum = ["text", "json"] } }
+required = []

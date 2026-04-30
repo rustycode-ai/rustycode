@@ -1,0 +1,48 @@
+[package]
+name = "rustycode-mcp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+base64.workspace = true
+chrono.workspace = true
+clap.workspace = true
+dirs.workspace = true
+fastrand = "2.0"
+futures.workspace = true
+regex.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+urlencoding.workspace = true
+uuid.workspace = true
+tempfile.workspace = true
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-connector = { path = "../rustycode-connector", default-features = false }
+rustycode-tools = { path = "../rustycode-tools", default-features = false }
+rustycode-thread-guard = { path = "../rustycode-thread-guard" }
+rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
+
+[dev-dependencies]
+tempfile.workspace = true
+tracing-subscriber.workspace = true
+
+[[example]]
+name = "mcp_client_example"
+path = "examples/mcp_client_example.rs"
+
+[[example]]
+name = "mcp_server_example"
+path = "examples/mcp_server_example.rs"
+
+[lints]
+workspace = true

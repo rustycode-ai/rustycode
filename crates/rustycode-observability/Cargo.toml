@@ -1,0 +1,25 @@
+[package]
+name = "rustycode-observability"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+uuid.workspace = true
+anyhow.workspace = true
+parking_lot.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+
+[lints]
+workspace = true
+

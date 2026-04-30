@@ -1,0 +1,25 @@
+[package]
+name = "rustycode-integration"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
+tracing.workspace = true
+regex.workspace = true
+
+# Internal dependencies
+rustycode-orchestration = { path = "../rustycode-orchestration" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+
+[lints]
+workspace = true
+

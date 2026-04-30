@@ -1,0 +1,32 @@
+[package]
+name = "rustycode-plugins"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+parking_lot.workspace = true
+toml = { workspace = true, optional = true }
+rustycode-tools = { path = "../rustycode-tools" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+
+[dev-dependencies]
+tokio.workspace = true
+tempfile.workspace = true
+serial_test = "3"
+
+[features]
+default = ["toml"]
+toml = ["dep:toml"]
+
+[lints]
+workspace = true
+

@@ -1,0 +1,11 @@
+You are in the {{phase}} phase.
+
+Task:
+{{task}}
+
+State the implementation plan clearly.
+Describe the approach, trade-offs, and validation steps.
+Keep this phase write-free until the plan is approved.
+
+Plan summary:
+{{plan_summary}}

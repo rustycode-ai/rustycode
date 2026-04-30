@@ -1,0 +1,735 @@
+//! Plan Templates - Predefined plan structures for common tasks
+//!
+//! This module provides templates for creating plans for common development tasks,
+//! reducing the time needed to create plans from scratch.
+
+use chrono::Utc;
+use rustycode_protocol::{Plan, PlanId, PlanStatus, PlanStep, SessionId};
+
+/// Template types for common development tasks
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum PlanTemplate {
+    /// Implement a new feature
+    NewFeature,
+    /// Fix a bug
+    BugFix,
+    /// Refactor code
+    Refactor,
+    /// Add tests
+    AddTests,
+    /// Performance optimization
+    Performance,
+    /// Documentation
+    Documentation,
+    /// Security fix
+    SecurityFix,
+    /// Dependency update
+    DependencyUpdate,
+}
+
+impl PlanTemplate {
+    /// Get a human-readable description of this template
+    #[allow(dead_code)] // Kept for future use
+    pub const fn description(&self) -> &str {
+        match self {
+            Self::NewFeature => "Implement a new feature from scratch",
+            Self::BugFix => "Fix a reported bug",
+            Self::Refactor => "Refactor existing code for better structure",
+            Self::AddTests => "Add test coverage for existing code",
+            Self::Performance => "Optimize performance of existing code",
+            Self::Documentation => "Add or update documentation",
+            Self::SecurityFix => "Fix a security vulnerability",
+            Self::DependencyUpdate => "Update project dependencies",
+        }
+    }
+
+    /// Create a plan from this template
+    pub fn create_plan(
+        &self,
+        session_id: SessionId,
+        task: String,
+        summary: String,
+        files_to_modify: Vec<String>,
+    ) -> Plan {
+        Plan {
+            id: PlanId::new(),
+            session_id,
+            task,
+            created_at: Utc::now(),
+            status: PlanStatus::Draft,
+            summary,
+            approach: self.approach(),
+            steps: self.steps(),
+            files_to_modify,
+            risks: self.risks(),
+            current_step_index: None,
+            execution_started_at: None,
+            execution_completed_at: None,
+            execution_error: None,
+            task_profile: None,
+        }
+    }
+
+    /// Helper to create a `PlanStep` with reduced boilerplate
+    fn step(
+        order: usize,
+        title: &str,
+        description: &str,
+        tools: &[&str],
+        expected_outcome: &str,
+        rollback_hint: &str,
+    ) -> PlanStep {
+        PlanStep {
+            order,
+            title: title.to_string(),
+            description: description.to_string(),
+            tools: tools.iter().map(|&s| s.to_string()).collect(),
+            expected_outcome: expected_outcome.to_string(),
+            rollback_hint: rollback_hint.to_string(),
+            execution_status: Default::default(),
+            tool_calls: vec![],
+            tool_executions: vec![],
+            results: vec![],
+            errors: vec![],
+            started_at: None,
+            completed_at: None,
+        }
+    }
+
+    /// Get the approach description for this template
+    fn approach(&self) -> String {
+        let steps = match self {
+            Self::NewFeature => &[
+                "Research existing codebase patterns",
+                "Design the feature architecture",
+                "Implement core functionality",
+                "Add error handling",
+                "Write tests",
+                "Update documentation",
+                "Code review and cleanup",
+            ],
+            Self::BugFix => &[
+                "Reproduce the bug",
+                "Identify root cause",
+                "Write failing test",
+                "Implement fix",
+                "Verify test passes",
+                "Check for regressions",
+                "Update documentation if needed",
+            ],
+            Self::Refactor => &[
+                "Analyze current implementation",
+                "Identify refactoring opportunities",
+                "Write tests for existing behavior",
+                "Apply refactoring changes",
+                "Verify tests still pass",
+                "Update documentation",
+                "Code review",
+            ],
+            Self::AddTests => &[
+                "Identify untested code paths",
+                "Design test cases",
+                "Write unit tests",
+                "Write integration tests",
+                "Verify coverage",
+                "Document test approach",
+                "Review test quality",
+            ],
+            Self::Performance => &[
+                "Profile and identify bottlenecks",
+                "Set performance benchmarks",
+                "Implement optimizations",
+                "Measure improvements",
+                "Add performance tests",
+                "Document findings",
+                "Monitor in production",
+            ],
+            Self::Documentation => &[
+                "Identify documentation gaps",
+                "Structure documentation",
+                "Write content",
+                "Add examples",
+                "Review for clarity",
+                "Update table of contents",
+                "Publish documentation",
+            ],
+            Self::SecurityFix => &[
+                "Understand vulnerability",
+                "Identify affected code",
+                "Write security test",
+                "Implement fix",
+                "Verify fix works",
+                "Check for similar issues",
+                "Update security documentation",
+            ],
+            Self::DependencyUpdate => &[
+                "Check for breaking changes",
+                "Update dependencies",
+                "Fix compilation issues",
+                "Run tests",
+                "Update documentation",
+                "Test in staging environment",
+                "Monitor for issues",
+            ],
+        };
+        steps
+            .iter()
+            .enumerate()
+            .map(|(i, s)| format!("{}. {}", i + 1, s))
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    /// Get the default steps for this template
+    fn steps(&self) -> Vec<PlanStep> {
+        match self {
+            Self::NewFeature => vec![
+                Self::step(
+                    0,
+                    "Research and Analysis",
+                    "Analyze existing codebase patterns and related features",
+                    &["read_file", "grep", "glob"],
+                    "Understanding of existing patterns and where to integrate new feature",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Design Feature Architecture",
+                    "Design the structure and interfaces for the new feature",
+                    &["write_file"],
+                    "Design document or architecture plan",
+                    "Delete design document if not needed",
+                ),
+                Self::step(
+                    2,
+                    "Implement Core Functionality",
+                    "Implement the main feature logic",
+                    &["write_file", "edit"],
+                    "Working implementation of the feature",
+                    "Revert changes or delete new files",
+                ),
+                Self::step(
+                    3,
+                    "Add Error Handling",
+                    "Add comprehensive error handling and validation",
+                    &["edit"],
+                    "Robust error handling in place",
+                    "Revert error handling changes",
+                ),
+                Self::step(
+                    4,
+                    "Write Tests",
+                    "Write unit and integration tests for the feature",
+                    &["write_file", "bash"],
+                    "Tests passing with good coverage",
+                    "Delete test files if not needed",
+                ),
+                Self::step(
+                    5,
+                    "Update Documentation",
+                    "Update relevant documentation and add examples",
+                    &["edit", "write_file"],
+                    "Documentation updated with feature details",
+                    "Revert documentation changes",
+                ),
+            ],
+            Self::BugFix => vec![
+                Self::step(
+                    0,
+                    "Reproduce the Bug",
+                    "Create a minimal reproduction of the bug",
+                    &["read_file", "bash"],
+                    "Clear understanding of how to reproduce the bug",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Identify Root Cause",
+                    "Debug to find the root cause of the bug",
+                    &["read_file", "grep", "lsp_definition"],
+                    "Identification of the code causing the bug",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    2,
+                    "Write Failing Test",
+                    "Write a test that reproduces the bug",
+                    &["write_file"],
+                    "Test that fails due to the bug",
+                    "Delete the test file",
+                ),
+                Self::step(
+                    3,
+                    "Implement Fix",
+                    "Fix the bug in the code",
+                    &["edit"],
+                    "Test now passes, bug is fixed",
+                    "Revert the fix",
+                ),
+                Self::step(
+                    4,
+                    "Check for Regressions",
+                    "Run all tests to ensure no regressions",
+                    &["bash"],
+                    "All tests passing",
+                    "No changes made in this step",
+                ),
+            ],
+            Self::Refactor => vec![
+                Self::step(
+                    0,
+                    "Analyze Current Implementation",
+                    "Understand the current code structure",
+                    &["read_file", "lsp_document_symbols"],
+                    "Understanding of current implementation",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Identify Refactoring Opportunities",
+                    "Identify areas for improvement",
+                    &["grep"],
+                    "List of refactoring opportunities",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    2,
+                    "Write Tests for Existing Behavior",
+                    "Ensure current behavior is captured in tests",
+                    &["write_file"],
+                    "Tests covering current behavior",
+                    "Delete test files if not needed",
+                ),
+                Self::step(
+                    3,
+                    "Apply Refactoring",
+                    "Refactor the code",
+                    &["edit", "multiedit"],
+                    "Refactored code with same behavior",
+                    "Revert refactoring changes",
+                ),
+                Self::step(
+                    4,
+                    "Verify Tests Still Pass",
+                    "Ensure refactoring didn't break anything",
+                    &["bash"],
+                    "All tests passing",
+                    "No changes made in this step",
+                ),
+            ],
+            Self::AddTests => vec![
+                Self::step(
+                    0,
+                    "Identify Untested Code",
+                    "Find code paths that need tests",
+                    &["read_file", "grep"],
+                    "List of untested code paths",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Design Test Cases",
+                    "Plan test cases for coverage",
+                    &[],
+                    "Test case design document",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    2,
+                    "Write Unit Tests",
+                    "Write unit tests for individual functions",
+                    &["write_file"],
+                    "Unit tests covering main functionality",
+                    "Delete test files if not needed",
+                ),
+                Self::step(
+                    3,
+                    "Write Integration Tests",
+                    "Write integration tests for component interactions",
+                    &["write_file"],
+                    "Integration tests covering interactions",
+                    "Delete test files if not needed",
+                ),
+                Self::step(
+                    4,
+                    "Verify Coverage",
+                    "Check test coverage metrics",
+                    &["bash"],
+                    "Coverage report showing good coverage",
+                    "No changes made in this step",
+                ),
+            ],
+            Self::Performance => vec![
+                Self::step(
+                    0,
+                    "Profile and Identify Bottlenecks",
+                    "Profile the code to find slow spots",
+                    &["bash"],
+                    "List of performance bottlenecks",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Set Performance Benchmarks",
+                    "Create benchmarks to measure performance",
+                    &["write_file"],
+                    "Benchmark tests for measuring performance",
+                    "Delete benchmark files if not needed",
+                ),
+                Self::step(
+                    2,
+                    "Implement Optimizations",
+                    "Apply performance optimizations",
+                    &["edit"],
+                    "Optimized code",
+                    "Revert optimization changes",
+                ),
+                Self::step(
+                    3,
+                    "Measure Improvements",
+                    "Run benchmarks to verify improvements",
+                    &["bash"],
+                    "Performance improvement metrics",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    4,
+                    "Add Performance Tests",
+                    "Add tests to ensure performance doesn't regress",
+                    &["write_file"],
+                    "Performance tests in place",
+                    "Delete test files if not needed",
+                ),
+            ],
+            Self::Documentation => vec![
+                Self::step(
+                    0,
+                    "Identify Documentation Gaps",
+                    "Find areas that need documentation",
+                    &["read_file", "glob"],
+                    "List of documentation gaps",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Structure Documentation",
+                    "Plan documentation structure",
+                    &[],
+                    "Documentation structure outline",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    2,
+                    "Write Content",
+                    "Write the documentation content",
+                    &["write_file", "edit"],
+                    "Complete documentation",
+                    "Revert documentation changes",
+                ),
+                Self::step(
+                    3,
+                    "Add Examples",
+                    "Add usage examples",
+                    &["write_file"],
+                    "Working examples",
+                    "Delete example files if not needed",
+                ),
+                Self::step(
+                    4,
+                    "Review for Clarity",
+                    "Review documentation for clarity and completeness",
+                    &["read_file"],
+                    "Reviewed and polished documentation",
+                    "No changes made in this step",
+                ),
+            ],
+            Self::SecurityFix => vec![
+                Self::step(
+                    0,
+                    "Understand Vulnerability",
+                    "Research and understand the security vulnerability",
+                    &["web_fetch"],
+                    "Understanding of the vulnerability",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Identify Affected Code",
+                    "Find all code affected by the vulnerability",
+                    &["grep", "glob"],
+                    "List of affected code locations",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    2,
+                    "Write Security Test",
+                    "Write a test that demonstrates the vulnerability",
+                    &["write_file"],
+                    "Test that exposes the vulnerability",
+                    "Delete test file if not needed",
+                ),
+                Self::step(
+                    3,
+                    "Implement Fix",
+                    "Fix the security vulnerability",
+                    &["edit"],
+                    "Vulnerability is fixed",
+                    "Revert the fix",
+                ),
+                Self::step(
+                    4,
+                    "Verify Fix Works",
+                    "Run the security test to verify the fix",
+                    &["bash"],
+                    "Security test passes",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    5,
+                    "Check for Similar Issues",
+                    "Search codebase for similar vulnerabilities",
+                    &["grep"],
+                    "List of similar issues to fix",
+                    "No changes made in this step",
+                ),
+            ],
+            Self::DependencyUpdate => vec![
+                Self::step(
+                    0,
+                    "Check for Breaking Changes",
+                    "Review release notes for breaking changes",
+                    &["web_fetch"],
+                    "List of breaking changes to handle",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    1,
+                    "Update Dependencies",
+                    "Update the dependency versions",
+                    &["edit"],
+                    "Dependencies updated to new versions",
+                    "Revert dependency version changes",
+                ),
+                Self::step(
+                    2,
+                    "Fix Compilation Issues",
+                    "Fix any compilation errors from API changes",
+                    &["edit", "bash"],
+                    "Code compiles successfully",
+                    "Revert compilation fixes",
+                ),
+                Self::step(
+                    3,
+                    "Run Tests",
+                    "Run all tests to ensure compatibility",
+                    &["bash"],
+                    "All tests passing",
+                    "No changes made in this step",
+                ),
+                Self::step(
+                    4,
+                    "Update Documentation",
+                    "Update documentation if API changed",
+                    &["edit"],
+                    "Documentation updated",
+                    "Revert documentation changes",
+                ),
+                Self::step(
+                    5,
+                    "Test in Staging",
+                    "Deploy to staging and test",
+                    &["bash"],
+                    "Staging tests pass",
+                    "No changes made in this step",
+                ),
+            ],
+        }
+    }
+
+    /// Get common risks for this template
+    fn risks(&self) -> Vec<String> {
+        let risks: &[&str] = match self {
+            Self::NewFeature => &[
+                "Feature may not integrate well with existing code",
+                "May introduce unexpected bugs in related functionality",
+                "Performance may be worse than expected",
+                "User interface may need iteration",
+            ],
+            Self::BugFix => &[
+                "Fix may break other functionality",
+                "Root cause may be deeper than initially thought",
+                "Fix may introduce performance regressions",
+            ],
+            Self::Refactor => &[
+                "Refactoring may introduce subtle bugs",
+                "Tests may not cover all edge cases",
+                "Refactoring may take longer than estimated",
+            ],
+            Self::AddTests => &[
+                "Tests may not cover all edge cases",
+                "Tests may be slow or flaky",
+                "May need to refactor code to make it testable",
+            ],
+            Self::Performance => &[
+                "Optimization may make code harder to maintain",
+                "Performance improvements may be less than expected",
+                "May need to change APIs for better performance",
+            ],
+            Self::Documentation => &[
+                "Documentation may become outdated quickly",
+                "Examples may not cover all use cases",
+                "Documentation may be unclear or incomplete",
+            ],
+            Self::SecurityFix => &[
+                "Fix may break existing functionality",
+                "Similar vulnerabilities may exist elsewhere",
+                "Fix may introduce performance overhead",
+            ],
+            Self::DependencyUpdate => &[
+                "New version may have breaking changes",
+                "New version may have new bugs",
+                "May introduce unexpected compatibility issues",
+            ],
+        };
+        risks.iter().map(|&s| s.to_string()).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_template_descriptions() {
+        assert_eq!(
+            PlanTemplate::NewFeature.description(),
+            "Implement a new feature from scratch"
+        );
+        assert_eq!(PlanTemplate::BugFix.description(), "Fix a reported bug");
+    }
+
+    #[test]
+    fn test_create_plan_from_template() {
+        let template = PlanTemplate::BugFix;
+        let session_id = SessionId::new();
+        let task = "Fix login bug".to_string();
+        let summary = "Fix the login authentication bug".to_string();
+        let files = vec!["src/auth.rs".to_string()];
+
+        let plan = template.create_plan(session_id, task, summary, files);
+
+        assert_eq!(plan.task, "Fix login bug");
+        assert_eq!(plan.summary, "Fix the login authentication bug");
+        assert_eq!(plan.files_to_modify.len(), 1);
+        assert_eq!(plan.status, PlanStatus::Draft);
+        assert!(!plan.steps.is_empty());
+        assert!(!plan.risks.is_empty());
+    }
+
+    #[test]
+    fn test_new_feature_template_steps() {
+        let template = PlanTemplate::NewFeature;
+        let plan = template.create_plan(
+            SessionId::new(),
+            "Add feature".to_string(),
+            "Summary".to_string(),
+            vec![],
+        );
+
+        assert_eq!(plan.steps.len(), 6);
+        assert_eq!(plan.steps[0].title, "Research and Analysis");
+        assert_eq!(plan.steps[1].title, "Design Feature Architecture");
+        assert_eq!(plan.steps[2].title, "Implement Core Functionality");
+    }
+
+    #[test]
+    fn test_bug_fix_template_steps() {
+        let template = PlanTemplate::BugFix;
+        let plan = template.create_plan(
+            SessionId::new(),
+            "Fix bug".to_string(),
+            "Summary".to_string(),
+            vec![],
+        );
+
+        assert_eq!(plan.steps.len(), 5);
+        assert_eq!(plan.steps[0].title, "Reproduce the Bug");
+        assert_eq!(plan.steps[1].title, "Identify Root Cause");
+        assert_eq!(plan.steps[2].title, "Write Failing Test");
+    }
+
+    #[test]
+    fn test_template_has_risks() {
+        let template = PlanTemplate::NewFeature;
+        let plan = template.create_plan(
+            SessionId::new(),
+            "Add feature".to_string(),
+            "Summary".to_string(),
+            vec![],
+        );
+
+        assert!(!plan.risks.is_empty());
+        assert!(plan.risks.iter().any(|r| r.contains("integrate well")));
+    }
+
+    #[test]
+    fn test_template_has_approach() {
+        let template = PlanTemplate::BugFix;
+        let plan = template.create_plan(
+            SessionId::new(),
+            "Fix bug".to_string(),
+            "Summary".to_string(),
+            vec![],
+        );
+
+        assert!(!plan.approach.is_empty());
+        assert!(plan.approach.contains("Reproduce"));
+        assert!(plan.approach.contains("Identify"));
+    }
+
+    #[test]
+    fn test_all_templates_have_steps() {
+        let templates = [
+            PlanTemplate::NewFeature,
+            PlanTemplate::BugFix,
+            PlanTemplate::Refactor,
+            PlanTemplate::AddTests,
+            PlanTemplate::Performance,
+            PlanTemplate::Documentation,
+            PlanTemplate::SecurityFix,
+            PlanTemplate::DependencyUpdate,
+        ];
+
+        for template in templates {
+            let plan = template.create_plan(
+                SessionId::new(),
+                "Test task".to_string(),
+                "Test summary".to_string(),
+                vec![],
+            );
+            assert!(!plan.steps.is_empty(), "{:?} should have steps", template);
+            assert!(!plan.risks.is_empty(), "{:?} should have risks", template);
+            assert!(
+                !plan.approach.is_empty(),
+                "{:?} should have approach",
+                template
+            );
+        }
+    }
+
+    #[test]
+    fn test_step_orders_are_sequential() {
+        let template = PlanTemplate::NewFeature;
+        let plan = template.create_plan(
+            SessionId::new(),
+            "Test".to_string(),
+            "Test".to_string(),
+            vec![],
+        );
+
+        for (i, step) in plan.steps.iter().enumerate() {
+            assert_eq!(step.order, i, "Step order should be sequential");
+        }
+    }
+}

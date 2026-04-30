@@ -1,0 +1,9 @@
+# RustyCode Ignore File
+# Add patterns here to exclude files/directories from workspace scans
+# Lines starting with # are comments
+
+# Example patterns (uncomment to use):
+# *.min.js
+# *.map
+# coverage/
+# .nyc_output/

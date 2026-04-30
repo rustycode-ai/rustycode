@@ -1,0 +1,21 @@
+[package]
+name = "rustycode-tool-server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+axum.workspace = true
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+num_cpus = { workspace = true }
+futures-util.workspace = true
+rustycode-tools = { path = "../rustycode-tools" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+tracing = { workspace = true }
+tracing-subscriber.workspace = true
+tower-http.workspace = true
+
+[lints]
+workspace = true
+

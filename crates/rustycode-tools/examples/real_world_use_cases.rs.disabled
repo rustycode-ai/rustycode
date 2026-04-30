@@ -1,0 +1,743 @@
+//! Real-World Use Cases
+//!
+//! This example demonstrates practical applications of rustycode-tools:
+//! - Automated code refactoring assistant
+//! - Log analysis and monitoring tool
+//! - Automated testing helper
+//! - Documentation generator
+//!
+//! Run with: cargo run --example real_world_use_cases
+
+use rustycode_protocol::{ToolCall, ToolResult};
+use rustycode_tools::ToolExecutor;
+use serde_json::json;
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+fn execute_from_json(
+    executor: &ToolExecutor,
+    call_id: &str,
+    name: &str,
+    arguments: serde_json::Value,
+) -> ToolResult {
+    let call = ToolCall {
+        call_id: call_id.to_string(),
+        name: name.to_string(),
+        arguments,
+    };
+    executor.execute(&call)
+}
+
+// ===========================================================================
+// USE CASE 1: Code Refactoring Assistant
+// ===========================================================================
+
+struct CodeRefactoringAssistant<'a> {
+    executor: &'a ToolExecutor,
+}
+
+impl<'a> CodeRefactoringAssistant<'a> {
+    fn new(executor: &'a ToolExecutor) -> Self {
+        Self { executor }
+    }
+
+    /// Find all functions matching a pattern
+    fn find_functions(&self, pattern: &str, path: &str) -> Vec<String> {
+        let result = execute_from_json(
+            self.executor,
+            "refactor-find",
+            "grep",
+            json!({
+                "pattern": pattern,
+                "path": path,
+                "case_insensitive": false
+            }),
+        );
+
+        if result.error.is_none() {
+            result
+                .output
+                .lines()
+                .filter(|line| line.contains("fn ") || line.contains("pub fn "))
+                .map(|line| line.split(':').nth(0).unwrap_or("").to_string())
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Extract function signature from file
+    #[allow(dead_code)]
+    fn extract_function(&self, file_path: &str, function_name: &str) -> Option<String> {
+        let result = execute_from_json(
+            self.executor,
+            "refactor-extract",
+            "read_file",
+            json!({
+                "path": file_path
+            }),
+        );
+
+        if result.error.is_none() {
+            let content = result.output;
+            // Find function definition
+            content
+                .lines()
+                .filter(|line| line.contains(function_name) && line.contains("fn "))
+                .nth(0)
+                .map(|line| line.to_string())
+        } else {
+            None
+        }
+    }
+
+    /// Rename function across codebase
+    fn rename_function(&self, old_name: &str, new_name: &str, workspace: &str) -> Vec<String> {
+        let mut modified_files = Vec::new();
+
+        // Search for all occurrences
+        let result = execute_from_json(
+            self.executor,
+            "refactor-search",
+            "grep",
+            json!({
+                "pattern": old_name,
+                "path": workspace
+            }),
+        );
+
+        if result.error.is_none() {
+            let files: Vec<String> = result
+                .output
+                .lines()
+                .filter_map(|line| line.split(':').nth(0))
+                .map(|s| s.to_string())
+                .collect::<std::collections::HashSet<_>>()
+                .into_iter()
+                .collect();
+
+            for file in files {
+                // Read file
+                let read_result = execute_from_json(
+                    self.executor,
+                    &format!("refactor-read-{}", file),
+                    "read_file",
+                    json!({
+                        "path": file
+                    }),
+                );
+
+                if read_result.error.is_none() {
+                    let content = read_result.output;
+                    let modified = content.replace(old_name, new_name);
+
+                    // Write back
+                    let write_result = execute_from_json(
+                        self.executor,
+                        &format!("refactor-write-{}", file),
+                        "write_file",
+                        json!({
+                            "path": file,
+                            "content": modified
+                        }),
+                    );
+
+                    if write_result.error.is_none() {
+                        modified_files.push(file);
+                    }
+                }
+            }
+        }
+
+        modified_files
+    }
+
+    /// Generate refactoring report
+    fn generate_report(&self, operations: &HashMap<String, Vec<String>>) -> String {
+        let mut report = String::from("# Code Refactoring Report\n\n");
+
+        report.push_str("## Summary\n\n");
+        report.push_str(&format!("Total operations: {}\n\n", operations.len()));
+
+        for (operation, files) in operations {
+            report.push_str(&format!("### {}\n", operation));
+            report.push_str(&format!("Modified {} files:\n\n", files.len()));
+            for file in files {
+                report.push_str(&format!("- {}\n", file));
+            }
+            report.push('\n');
+        }
+
+        report
+    }
+}
+
+// ===========================================================================
+// USE CASE 2: Log Analysis Tool
+// ===========================================================================
+
+struct LogAnalysisTool<'a> {
+    executor: &'a ToolExecutor,
+}
+
+impl<'a> LogAnalysisTool<'a> {
+    fn new(executor: &'a ToolExecutor) -> Self {
+        Self { executor }
+    }
+
+    /// Analyze log file for errors and warnings
+    fn analyze_logs(&self, log_file: &str) -> HashMap<String, usize> {
+        let mut stats = HashMap::new();
+
+        // Count errors
+        let error_result = execute_from_json(
+            self.executor,
+            "log-errors",
+            "grep",
+            json!({
+                "pattern": "ERROR",
+                "path": log_file
+            }),
+        );
+
+        if error_result.error.is_none() {
+            stats.insert("ERROR".to_string(), error_result.output.lines().count());
+        }
+
+        // Count warnings
+        let warn_result = execute_from_json(
+            self.executor,
+            "log-warns",
+            "grep",
+            json!({
+                "pattern": "WARN",
+                "path": log_file
+            }),
+        );
+
+        if warn_result.error.is_none() {
+            stats.insert("WARN".to_string(), warn_result.output.lines().count());
+        }
+
+        // Count info messages
+        let info_result = execute_from_json(
+            self.executor,
+            "log-info",
+            "grep",
+            json!({
+                "pattern": "INFO",
+                "path": log_file
+            }),
+        );
+
+        if info_result.error.is_none() {
+            stats.insert("INFO".to_string(), info_result.output.lines().count());
+        }
+
+        stats
+    }
+
+    /// Extract error patterns
+    fn extract_error_patterns(&self, log_file: &str) -> Vec<String> {
+        let result = execute_from_json(
+            self.executor,
+            "log-patterns",
+            "grep",
+            json!({
+                "pattern": "ERROR.*:",
+                "path": log_file
+            }),
+        );
+
+        if result.error.is_none() {
+            result
+                .output
+                .lines()
+                .map(|line| line.split("ERROR:").nth(1).unwrap_or("").trim().to_string())
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Generate monitoring report
+    fn generate_monitoring_report(
+        &self,
+        stats: &HashMap<String, usize>,
+        patterns: &[String],
+    ) -> String {
+        let mut report = String::from("# Log Monitoring Report\n\n");
+
+        report.push_str("## Log Statistics\n\n");
+        for (level, count) in stats {
+            report.push_str(&format!("- {}: {} occurrences\n", level, count));
+        }
+
+        report.push_str("\n## Error Patterns\n\n");
+        for (idx, pattern) in patterns.iter().enumerate() {
+            report.push_str(&format!("{}. {}\n", idx + 1, pattern));
+        }
+
+        report.push_str("\n## Recommendations\n\n");
+
+        let error_count = *stats.get("ERROR").unwrap_or(&0);
+        if error_count > 10 {
+            report.push_str("⚠️  High error count detected - investigate immediately\n");
+        }
+
+        let warn_count = *stats.get("WARN").unwrap_or(&0);
+        if warn_count > 20 {
+            report.push_str("⚠️  Elevated warning count - review warnings\n");
+        }
+
+        if !patterns.is_empty() {
+            report.push_str("✅ Error patterns identified - use for root cause analysis\n");
+        }
+
+        report
+    }
+}
+
+// ===========================================================================
+// USE CASE 3: Automated Testing Helper
+// ===========================================================================
+
+struct TestingAssistant<'a> {
+    executor: &'a ToolExecutor,
+}
+
+impl<'a> TestingAssistant<'a> {
+    fn new(executor: &'a ToolExecutor) -> Self {
+        Self { executor }
+    }
+
+    /// Find all test files
+    fn find_test_files(&self, _workspace: &str) -> Vec<String> {
+        let result = execute_from_json(
+            self.executor,
+            "test-find",
+            "glob",
+            json!({
+                "pattern": "**/*test*.rs"
+            }),
+        );
+
+        if result.error.is_none() {
+            result.output.lines().map(|s| s.to_string()).collect()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Check test coverage by looking for test markers
+    fn analyze_test_coverage(&self, files: &[String]) -> HashMap<String, (usize, usize)> {
+        let mut coverage = HashMap::new();
+
+        for file in files {
+            let result = execute_from_json(
+                self.executor,
+                &format!("test-coverage-{}", file),
+                "read_file",
+                json!({
+                    "path": file
+                }),
+            );
+
+            if result.error.is_none() {
+                let content = result.output;
+                let test_count = content.matches("#[test]").count();
+                let function_count = content.matches("fn ").count();
+
+                coverage.insert(file.clone(), (test_count, function_count));
+            }
+        }
+
+        coverage
+    }
+
+    /// Generate test report
+    fn generate_test_report(&self, coverage: &HashMap<String, (usize, usize)>) -> String {
+        let mut report = String::from("# Test Coverage Report\n\n");
+
+        let mut total_tests = 0;
+        let mut total_functions = 0;
+
+        for (file, (tests, functions)) in coverage.iter() {
+            total_tests += tests;
+            total_functions += functions;
+
+            let percentage = if *functions > 0 {
+                (*tests as f64 / *functions as f64) * 100.0
+            } else {
+                0.0
+            };
+
+            report.push_str(&format!(
+                "## {}\n\n- Tests: {}\n- Functions: {}\n- Coverage: {:.1}%\n\n",
+                file, tests, functions, percentage
+            ));
+        }
+
+        let overall_percentage = if total_functions > 0 {
+            (total_tests as f64 / total_functions as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        report.push_str(&format!(
+            "## Summary\n\n- Total Tests: {}\n- Total Functions: {}\n- Overall Coverage: {:.1}%\n",
+            total_tests, total_functions, overall_percentage
+        ));
+
+        if overall_percentage < 50.0 {
+            report.push_str("\n⚠️  Low test coverage - add more tests\n");
+        } else if overall_percentage < 80.0 {
+            report.push_str("\n✅ Moderate test coverage - room for improvement\n");
+        } else {
+            report.push_str("\n✅ Excellent test coverage\n");
+        }
+
+        report
+    }
+}
+
+// ===========================================================================
+// USE CASE 4: Documentation Generator
+// ===========================================================================
+
+struct DocumentationGenerator<'a> {
+    executor: &'a ToolExecutor,
+}
+
+impl<'a> DocumentationGenerator<'a> {
+    fn new(executor: &'a ToolExecutor) -> Self {
+        Self { executor }
+    }
+
+    /// Extract module documentation
+    fn extract_module_docs(&self, file_path: &str) -> Option<String> {
+        let result = execute_from_json(
+            self.executor,
+            "docs-module",
+            "read_file",
+            json!({
+                "path": file_path
+            }),
+        );
+
+        if result.error.is_none() {
+            let content = result.output;
+            let docs: String = content
+                .lines()
+                .skip_while(|line| !line.starts_with("//!"))
+                .take_while(|line| line.starts_with("//!"))
+                .map(|line| line.trim_start_matches("//! ").to_string() + "\n")
+                .collect();
+
+            if !docs.is_empty() {
+                Some(docs)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Extract function signatures
+    fn extract_functions(&self, file_path: &str) -> Vec<String> {
+        let result = execute_from_json(
+            self.executor,
+            "docs-functions",
+            "grep",
+            json!({
+                "pattern": r"^(pub )?fn ",
+                "path": file_path
+            }),
+        );
+
+        if result.error.is_none() {
+            result
+                .output
+                .lines()
+                .map(|line| line.trim().to_string())
+                .collect()
+        } else {
+            vec![]
+        }
+    }
+
+    /// Generate API documentation
+    fn generate_api_docs(&self, files: &[String]) -> String {
+        let mut docs = String::from("# API Documentation\n\n");
+        docs.push_str("Generated automatically by rustycode-tools\n\n");
+
+        for file in files {
+            docs.push_str(&format!("## {}\n\n", file));
+
+            // Module docs
+            if let Some(module_docs) = self.extract_module_docs(file) {
+                docs.push_str(&module_docs);
+                docs.push('\n');
+            }
+
+            // Functions
+            let functions = self.extract_functions(file);
+            if !functions.is_empty() {
+                docs.push_str("### Functions\n\n");
+                for func in functions {
+                    docs.push_str(&format!("```rust\n{}\n```\n\n", func));
+                }
+            }
+        }
+
+        docs
+    }
+}
+
+// ===========================================================================
+// MAIN DEMO
+// ===========================================================================
+
+fn main() -> anyhow::Result<()> {
+    let workspace = PathBuf::from("/tmp/rustycode-realworld-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    let executor = ToolExecutor::from_cwd(workspace.clone());
+
+    println!("=== Real-World Use Cases Demo ===\n");
+
+    // =========================================================================
+    // USE CASE 1: Code Refactoring
+    // =========================================================================
+    println!("🔧 USE CASE 1: Code Refactoring Assistant\n");
+
+    // Create sample code files
+    println!("   Setting up sample codebase...");
+    std::fs::write(
+        workspace.join("user_service.rs"),
+        r#"//! User management module
+
+pub fn get_user(id: u32) -> User {
+    // Implementation
+    User { id, name: "Test".to_string() }
+}
+
+pub fn create_user(name: String) -> User {
+    // Implementation
+    User { id: 1, name }
+}
+
+pub fn update_user(id: u32, name: String) -> User {
+    // Implementation
+    User { id, name }
+}
+
+struct User {
+    id: u32,
+    name: String,
+}
+"#,
+    )?;
+
+    std::fs::write(
+        workspace.join("auth_service.rs"),
+        r#"//! Authentication module
+
+pub fn authenticate_user(username: String, password: String) -> bool {
+    // Implementation
+    true
+}
+
+pub fn authorize_user(user_id: u32, resource: String) -> bool {
+    // Implementation
+    true
+}
+"#,
+    )?;
+
+    println!("   ✓ Sample codebase created\n");
+
+    let refactor_assistant = CodeRefactoringAssistant::new(&executor);
+
+    // Find all public functions
+    println!("   Finding public functions...");
+    let functions = refactor_assistant.find_functions("pub fn", ".");
+    println!("   ✓ Found {} public functions", functions.len());
+
+    // Rename function
+    println!("\n   Renaming 'authenticate_user' to 'verify_credentials'...");
+    let modified =
+        refactor_assistant.rename_function("authenticate_user", "verify_credentials", ".");
+    println!("   ✓ Modified {} files", modified.len());
+
+    let mut refactor_ops = HashMap::new();
+    refactor_ops.insert("Function rename".to_string(), modified);
+
+    let report = refactor_assistant.generate_report(&refactor_ops);
+    println!("\n   Refactoring report:\n{}", report);
+
+    // =========================================================================
+    // USE CASE 2: Log Analysis
+    // =========================================================================
+    println!("\n\n📊 USE CASE 2: Log Analysis Tool\n");
+
+    // Create sample log file
+    println!("   Creating sample log file...");
+    let log_content = r#"2024-03-14 10:00:00 INFO Application started
+2024-03-14 10:00:01 INFO Database connected
+2024-03-14 10:00:02 ERROR Failed to connect to cache: Connection refused
+2024-03-14 10:00:03 WARN Retrying cache connection
+2024-03-14 10:00:04 ERROR Cache connection timeout
+2024-03-14 10:00:05 INFO Cache connected successfully
+2024-03-14 10:00:06 ERROR Database query failed: syntax error
+2024-03-14 10:00:07 INFO Query retried successfully
+2024-03-14 10:00:08 WARN High memory usage detected
+2024-03-14 10:00:09 INFO Request processed
+2024-03-14 10:00:10 ERROR External API timeout
+"#;
+
+    std::fs::write(workspace.join("app.log"), log_content)?;
+    println!("   ✓ Log file created\n");
+
+    let log_analyzer = LogAnalysisTool::new(&executor);
+
+    println!("   Analyzing log file...");
+    let stats = log_analyzer.analyze_logs("app.log");
+    println!("   ✓ Analysis complete:");
+
+    for (level, count) in &stats {
+        println!("     - {}: {}", level, count);
+    }
+
+    println!("\n   Extracting error patterns...");
+    let patterns = log_analyzer.extract_error_patterns("app.log");
+    println!("   ✓ Found {} error patterns", patterns.len());
+
+    let monitoring_report = log_analyzer.generate_monitoring_report(&stats, &patterns);
+    println!("\n   Monitoring report:\n{}", monitoring_report);
+
+    // =========================================================================
+    // USE CASE 3: Testing Assistant
+    // =========================================================================
+    println!("\n\n🧪 USE CASE 3: Testing Assistant\n");
+
+    // Create test files
+    println!("   Creating test files...");
+    std::fs::write(
+        workspace.join("user_tests.rs"),
+        r#"#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_user() {
+        let user = get_user(1);
+        assert_eq!(user.id, 1);
+    }
+
+    #[test]
+    fn test_create_user() {
+        let user = create_user("Alice".to_string());
+        assert_eq!(user.name, "Alice");
+    }
+
+    fn helper_function() {
+        // Not a test
+    }
+}
+"#,
+    )?;
+
+    std::fs::write(
+        workspace.join("auth_tests.rs"),
+        r#"#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_authenticate() {
+        let result = verify_credentials("user".to_string(), "pass".to_string());
+        assert!(result);
+    }
+
+    #[test]
+    fn test_authorize() {
+        let result = authorize_user(1, "resource".to_string());
+        assert!(result);
+    }
+}
+"#,
+    )?;
+
+    println!("   ✓ Test files created\n");
+
+    let testing_assistant = TestingAssistant::new(&executor);
+
+    println!("   Finding test files...");
+    let test_files = testing_assistant.find_test_files(".");
+    println!("   ✓ Found {} test files", test_files.len());
+
+    println!("\n   Analyzing test coverage...");
+    let coverage = testing_assistant.analyze_test_coverage(&test_files);
+
+    for (file, (tests, functions)) in &coverage {
+        let percentage = if *functions > 0 {
+            (*tests as f64 / *functions as f64) * 100.0
+        } else {
+            0.0
+        };
+        println!(
+            "     {}: {} tests / {} functions ({:.1}%)",
+            file, tests, functions, percentage
+        );
+    }
+
+    let test_report = testing_assistant.generate_test_report(&coverage);
+    println!("\n   Test report:\n{}", test_report);
+
+    // =========================================================================
+    // USE CASE 4: Documentation Generator
+    // =========================================================================
+    println!("\n\n📚 USE CASE 4: Documentation Generator\n");
+
+    let doc_generator = DocumentationGenerator::new(&executor);
+
+    println!("   Generating API documentation...");
+    let files = vec!["user_service.rs".to_string(), "auth_service.rs".to_string()];
+    let api_docs = doc_generator.generate_api_docs(&files);
+
+    println!("   ✓ Documentation generated:\n");
+    println!("{}", api_docs.chars().take(1000).collect::<String>());
+    println!("...\n[truncated]");
+
+    // Save documentation
+    let write_result = execute_from_json(
+        &executor,
+        "docs-save",
+        "write_file",
+        json!({
+            "path": "API_DOCUMENTATION.md",
+            "content": api_docs
+        }),
+    );
+
+    if write_result.error.is_none() {
+        println!("   ✓ Documentation saved to API_DOCUMENTATION.md");
+    }
+
+    // Cleanup
+    println!("\n\n🧹 Cleaning up demo files...");
+    std::fs::remove_dir_all(&workspace)?;
+    println!("   ✓ Cleanup complete");
+
+    println!("\n=== Demo Complete ===\n");
+
+    println!("📚 Real-World Use Cases Demonstrated:");
+    println!("   1. Code refactoring assistant");
+    println!("   2. Log analysis and monitoring");
+    println!("   3. Automated testing helper");
+    println!("   4. Documentation generator");
+
+    Ok(())
+}

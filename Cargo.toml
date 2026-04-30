@@ -1,0 +1,232 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rustycode-acp",
+    "crates/rustycode-agent",
+    "crates/rustycode-agents",
+    "crates/rustycode-auth",
+    "crates/rustycode-bench",
+    "crates/rustycode-bus",
+    "crates/rustycode-classification",
+    "crates/rustycode-cli",
+    "crates/rustycode-config",
+    "crates/rustycode-connector",
+    "crates/rustycode-core",
+    "crates/rustycode-execution",
+    "crates/rustycode-git",
+    "crates/rustycode-guard",
+    "crates/rustycode-id",
+    "crates/rustycode-integration",
+    "crates/rustycode-learning",
+    "crates/rustycode-litert",
+    "crates/rustycode-lsp",
+    "crates/rustycode-macros",
+    "crates/rustycode-mcp",
+    "crates/rustycode-memory",
+    "crates/rustycode-observability",
+    "crates/rustycode-orchestration",
+    "crates/rustycode-protocol",
+    "crates/rustycode-prompt",
+    "crates/rustycode-providers",
+    "crates/rustycode-runtime",
+    "crates/rustycode-session",
+    "crates/rustycode-shared-runtime",
+    "crates/rustycode-skill",
+    "crates/rustycode-storage",
+    "crates/rustycode-tasks",
+    "crates/rustycode-thread-guard",
+    "crates/rustycode-tool-integration",
+    "crates/rustycode-tool-server",
+    "crates/rustycode-tools",
+    "crates/rustycode-tools-api",
+    "crates/rustycode-tools-registry",
+    "crates/rustycode-tui",
+    "crates/rustycode-ui-core",
+    "crates/rustycode-vector-memory",
+    "examples",
+    "tests",
+]
+exclude = ["crates/ratzilla-wasm", "crates/rustycode-web"]
+
+[workspace.metadata]
+cargo-version = "2"
+
+# Build rustycode-cli by default when running cargo build --release
+default-members = ["crates/rustycode-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Nat"]
+license = "MIT"
+repository = "https://github.com/luengnat/rustycode"
+
+[workspace.dependencies]
+anyhow = "1"
+git2 = { version = "0.20.4", features = ["vendored-openssl"] }
+futures = "0.3"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+dirs = "6"
+colored = "3.1.1"
+regex = "1"
+rusqlite = { version = "0.39.0", features = ["bundled", "chrono"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+shell-words = "1.1"
+sha2 = "0.11.0"
+thiserror = "2"
+num_cpus = "1.16"
+bincode = "1.3"
+nanoid = "0.5.0"
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "process", "io-util", "macros", "time", "net", "fs"] }
+tokio-util = "0.7"
+toml = "1.1.2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+urlencoding = "2.1"
+walkdir = "2"
+which = "8"
+lsp-types = "0.97.0"
+lru = "0.17.0"
+ignore = "0.4"
+futures-util = "0.3"
+rustycode-tasks = { path = "crates/rustycode-tasks" }
+handlebars = "6.0"
+shellexpand = "3"
+pulldown-cmark = "0.13.3"
+syntect = "5.1"
+crossterm = "0.29.0"
+ratatui = { version = "0.30", default-features = false }
+tempfile = "3"
+reqwest = { version = "0.13.2", default-features = false, features = ["form", "json", "stream", "rustls", "http2"] }
+async-trait = "0.1"
+base64 = "0.22"
+parking_lot = "0.12"
+secrecy = { version = "0.10", features = ["serde"] }
+once_cell = "1.20"
+rand = "0.10.1"
+hnsw = "0.11.0"
+ndarray = "0.17.2"
+criterion = "0.8.2"
+axum = { version = "0.8", features = ["ws"] }
+tower-http = { version = "0.6", features = ["cors", "fs"] }
+cron = "0.16.0"
+
+# ---------------------------------------------------------------------------
+# Workspace-wide lint configuration (clippy + rustc)
+#
+# Each workspace member inherits these via `lints.workspace = true` in its
+# own Cargo.toml.  This guarantees consistent lint behaviour across local
+# development and CI.
+#
+# CI runs:  cargo clippy --workspace --all-targets -- -D warnings
+# ---------------------------------------------------------------------------
+# Note: the same lint settings are copied to `ci/workspace-lints.toml` for
+# easier editing and review. Keep the authoritative config here in
+# `Cargo.toml` to ensure Cargo recognizes workspace.lints.
+[workspace.lints.clippy]
+# --- Lint groups -----------------------------------------------------------
+pedantic = { level = "warn", priority = -1 }
+nursery  = { level = "warn", priority = -1 }
+
+# --- Restriction lints (error-prone patterns) ------------------------------
+unwrap_used = "warn"
+expect_used = "warn"
+
+# uninlined_format_args (format!("{}"), x) -> format!("{x}")) produces 500+
+# suggestions across the codebase with no functional difference. Allow to
+# avoid churn during workspace lint rollout.
+uninlined_format_args = "allow"
+
+# --- Opt-outs (allowed) ----------------------------------------------------
+# The project has consciously decided to allow these lints because they
+# either conflict with the codebase style or produce too many false positives.
+# Each entry includes a brief justification so future readers understand the
+# rationale.
+
+# Complex types are common in async callback signatures and tool-registry
+# dispatch; several sites already use #[allow(clippy::type_complexity)].
+type_complexity = "allow"
+
+# collapsible_match is used intentionally in provider-v2 to keep the
+# despatch arms visually aligned and easier to read.
+collapsible-match = "allow"
+
+# unnecessary_sort_by produces noise on sort_by calls that are clearer
+# to read as-is. The performance difference is negligible for small collections.
+unnecessary-sort-by = "allow"
+
+
+# unnecessary-min-or-max: sometimes the explicit comparison is clearer
+# than min/max for documenting intent.
+unnecessary-min-or-max = "allow"
+
+# useless-conversion: some .into() calls are intentionally explicit
+# to document the type transition.
+useless-conversion = "allow"
+
+# Index-based loops are sometimes clearer than iterator-based loops when
+# correlating multiple slices (e.g., search result context lines).
+needless_range_loop = "allow"
+
+# Some async code holds a lock across an await point by design (the lock
+# guard is dropped shortly after).  Converting to try_lock everywhere would
+# add complexity without real benefit.
+await_holding_lock = "allow"
+
+# HTTP, JSON, LSP, MCP, etc. are well-known acronyms that read better in
+# upper-case even in CamelCase identifiers (e.g., HttpMethod, LspClient).
+upper_case_acronyms = "allow"
+
+# Builder / configuration APIs naturally take many parameters; the
+# threshold is tuned in .clippy.toml, but we also allow the lint at the
+# group level to avoid per-site annotations.
+too_many_arguments = "allow"
+
+# string_slice is overly aggressive for a codebase that frequently slices
+# into well-known prefixes/suffixes (e.g., stripping "file://" prefixes).
+string_slice = "allow"
+
+# redundant_field_names can improve readability in large struct literals
+# where the field name carries semantic meaning distinct from the variable.
+redundant_field_names = "allow"
+
+# Module inception (module with the same name as its parent) is a common
+# Rust idiom for re-exporting from a submodule.
+module_inception = "allow"
+
+# missing_errors_doc and missing_panics_doc are noisy for internal crates
+# where the error surface is documented at the boundary.
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+# must_use_candidate produces many false positives for builder-pattern
+# methods and query functions that don't always need chaining.
+must_use_candidate = "allow"
+
+# cast_possible_truncation and cast_sign_loss are common when dealing with
+# usize/length conversions; the project uses checked casts where it matters.
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+
+# return_self_not_must_use triggers on methods that return &mut Self for
+# chaining but where the caller may not always use the return value.
+return_self_not_must_use = "allow"
+
+# wildcard_imports are used selectively in test modules and example code.
+wildcard_imports = "allow"
+
+# --- Rustc lints -----------------------------------------------------------
+[workspace.lints.rust]
+# unsafe_code is denied by default; crates that need it must explicitly
+# opt in via their crate-level [lints] section (rust.unsafe_code = "allow").
+unsafe_code = "deny"
+
+# dead_code warnings are expected during development; CI builds with
+# --all-targets which includes tests/benches that may reference otherwise
+# dead code.  Keep as warn so unused items still surface, but don't block
+# the build.
+dead_code = "warn"

@@ -1,0 +1,21 @@
+[package]
+name = "rustycode-ui-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ratatui.workspace = true
+pulldown-cmark.workspace = true
+tracing.workspace = true
+unicode-width = "0.2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+syntect.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,208 @@
+//! Tool Risk Classification
+//!
+//! Risk-based classification system for tool execution approval.
+//! Enhanced with SmartApprove from rustycode-tools for fine-grained
+//! bash command analysis.
+
+/// Tool risk level
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum RiskLevel {
+    /// Safe tools - read-only, no side effects
+    Safe = 0,
+    /// Medium risk - file writes, modifications
+    Medium = 1,
+    /// High risk - system commands, execution
+    High = 2,
+    /// Dangerous - destructive operations
+    Dangerous = 3,
+}
+
+/// Tool type categories
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ToolType {
+    /// Read file contents
+    ReadFile,
+    /// Write/create files
+    WriteFile,
+    /// Execute bash command
+    Bash,
+    /// Search/grep operations
+    Grep,
+    /// Find files
+    Find,
+    /// List directory
+    ListDirectory,
+    /// Delete files
+    DeleteFile,
+    /// Git operations
+    Git,
+    /// Custom tool
+    Custom(String),
+}
+
+/// Classify tool risk based on type and command
+pub fn classify_tool_risk(tool_type: &ToolType, command: &str) -> RiskLevel {
+    match tool_type {
+        // Read operations are always safe
+        ToolType::ReadFile => RiskLevel::Safe,
+
+        // Search operations are safe
+        ToolType::Grep | ToolType::Find => RiskLevel::Safe,
+
+        // List directory is safe
+        ToolType::ListDirectory => RiskLevel::Safe,
+
+        // Write operations are medium risk
+        ToolType::WriteFile => RiskLevel::Medium,
+
+        // Git operations are medium risk
+        ToolType::Git => RiskLevel::Medium,
+
+        // Bash commands - use SmartApprove for fine-grained analysis
+        ToolType::Bash => {
+            use rustycode_tools::smart_approve::OperationClass;
+            let sa = rustycode_tools::smart_approve::SmartApprove::new();
+            match sa.classify("bash", Some(command)) {
+                OperationClass::ReadOnly => RiskLevel::Safe,
+                OperationClass::Write => RiskLevel::Medium,
+                OperationClass::Destructive => RiskLevel::Dangerous,
+                OperationClass::Unknown => classify_bash_command_risk(command),
+                #[allow(unreachable_patterns)]
+                _ => classify_bash_command_risk(command),
+            }
+        }
+
+        // Delete operations are dangerous
+        ToolType::DeleteFile => RiskLevel::Dangerous,
+
+        // Custom tools - assume high risk
+        ToolType::Custom(_) => RiskLevel::High,
+    }
+}
+
+/// Classify bash command risk level
+fn classify_bash_command_risk(command: &str) -> RiskLevel {
+    let command_lower = command.to_lowercase();
+
+    // Check for destructive patterns
+    if command_lower.contains("rm -rf") ||
+       command_lower.contains("rm -fr") ||
+       command_lower.contains(":() {") ||  // fork bomb
+       command_lower.contains("dd if=") ||  // disk destroyer
+       command_lower.contains("mkfs") ||   // format filesystem
+       command_lower.contains("format") ||
+       command_lower.contains("fdisk")
+    {
+        return RiskLevel::Dangerous;
+    }
+
+    // Check for high-risk operations
+    if command_lower.contains("rm ")
+        || command_lower.contains("kill ")
+        || command_lower.contains("pkill ")
+        || command_lower.contains("killall ")
+        || command_lower.contains("shutdown")
+        || command_lower.contains("reboot")
+        || command_lower.contains("systemctl")
+    {
+        return RiskLevel::High;
+    }
+
+    // Check for build/compile operations - medium risk
+    if command_lower.contains("cargo build")
+        || command_lower.contains("cargo run")
+        || command_lower.contains("make")
+        || command_lower.contains("npm install")
+        || command_lower.contains("npm run")
+    {
+        return RiskLevel::Medium;
+    }
+
+    // Read operations are safe
+    if command_lower.contains("cat ")
+        || command_lower.contains("ls ")
+        || command_lower.contains("echo ")
+        || command_lower.contains("pwd")
+    {
+        return RiskLevel::Safe;
+    }
+
+    // Default bash commands to high risk
+    RiskLevel::High
+}
+
+/// Get risk level color for display
+pub fn risk_level_color(risk: RiskLevel) -> &'static str {
+    match risk {
+        RiskLevel::Safe => "green",
+        RiskLevel::Medium => "yellow",
+        RiskLevel::High => "orange",
+        RiskLevel::Dangerous => "red",
+    }
+}
+
+/// Get risk level description
+pub fn risk_level_description(risk: RiskLevel) -> &'static str {
+    match risk {
+        RiskLevel::Safe => "Safe - Read-only operation",
+        RiskLevel::Medium => "Medium - May modify files",
+        RiskLevel::High => "High - System command execution",
+        RiskLevel::Dangerous => "Dangerous - Destructive operation",
+    }
+}
+
+/// Check if tool should be auto-approved
+pub fn should_auto_approve(tool_type: &ToolType, command: &str) -> bool {
+    let risk = classify_tool_risk(tool_type, command);
+    // Only automatically approve safe (read-only) operations.
+    matches!(risk, RiskLevel::Safe)
+}
+
+/// Map a tool name string to a ToolType
+pub fn classify_tool_type(tool_name: &str) -> ToolType {
+    match tool_name {
+        "read_file" => ToolType::ReadFile,
+        "write_file" => ToolType::WriteFile,
+        "bash" => ToolType::Bash,
+        "grep" => ToolType::Grep,
+        "glob" | "list_files" | "list_dir" => ToolType::ListDirectory,
+        "edit_file" | "search_replace" => ToolType::WriteFile,
+        "git_status" | "git_diff" | "git_log" | "git_commit" => ToolType::Git,
+        _ => ToolType::Custom(tool_name.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn safe_tools_are_auto_approved() {
+        assert!(should_auto_approve(
+            &ToolType::ReadFile,
+            r#"{"path":"src/main.rs"}"#
+        ));
+        assert!(should_auto_approve(
+            &ToolType::Grep,
+            r#"{"pattern":"TODO"}"#
+        ));
+        assert!(should_auto_approve(
+            &ToolType::ListDirectory,
+            r#"{"path":"."}"#
+        ));
+    }
+
+    #[test]
+    fn medium_risk_tools_require_confirmation() {
+        assert!(!should_auto_approve(
+            &ToolType::WriteFile,
+            r#"{"path":"src/main.rs"}"#
+        ));
+        assert!(!should_auto_approve(
+            &ToolType::Git,
+            r#"{"command":"git diff"}"#
+        ));
+    }
+}

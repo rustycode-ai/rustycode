@@ -1,0 +1,27 @@
+[package]
+name = "rustycode-acp"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["io-std", "rt-multi-thread", "macros"] }
+rustycode-tools = { path = "../rustycode-tools" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-config = { path = "../rustycode-config" }
+rustycode-llm = { path = "../rustycode-llm" }
+tracing.workspace = true
+tracing-subscriber = { workspace = true }
+uuid.workspace = true
+chrono.workspace = true
+secrecy.workspace = true
+dashmap = "6.1.0"
+
+[lints]
+workspace = true
+

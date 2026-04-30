@@ -1,0 +1,26 @@
+[
+  {
+    "task": "Fix typo in README",
+    "complexity": 1.0,
+    "strategy": "PhasedOrchestration",
+    "success": true,
+    "steps_completed": 1,
+    "total_cost": 0.001
+  },
+  {
+    "task": "Implement bubble sort",
+    "complexity": 2.0,
+    "strategy": "PhasedOrchestration",
+    "success": true,
+    "steps_completed": 1,
+    "total_cost": 0.001
+  },
+  {
+    "task": "Explore maze solution",
+    "complexity": 4.0,
+    "strategy": "PhasedOrchestration",
+    "success": true,
+    "steps_completed": 1,
+    "total_cost": 0.001
+  }
+]

@@ -1,0 +1,138 @@
+//! Basic File Operations Example
+//!
+//! This example demonstrates the fundamental file operations available in rustycode-tools:
+//! - Reading files with optional line ranges
+//! - Writing files with automatic metadata tracking
+//! - Listing directories with filtering options
+//!
+//! Run with: cargo run --example basic_file_operations
+
+use rustycode_tools::{ToolExecutor, WriteFileTool, ReadFileTool, ListDirTool};
+use serde_json::json;
+use std::path::PathBuf;
+
+fn main() -> anyhow::Result<()> {
+    // Create a temporary workspace for demonstration
+    let workspace = PathBuf::from("/tmp/rustycode-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    let executor = ToolExecutor::new(workspace.clone());
+
+    println!("=== Basic File Operations Demo ===\n");
+
+    // Example 1: Write a new file
+    println!("1. Writing a new file...");
+    let write_call = serde_json::json!({
+        "call_id": "1",
+        "name": "write_file",
+        "arguments": {
+            "path": "demo.txt",
+            "content": "Hello, rustycode-tools!\n\nThis is a demo file.\nIt has multiple lines.\nLine 4\nLine 5"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, write_call) {
+        Ok(result) => {
+            println!("   ✓ File written successfully");
+            if let Some(metadata) = result.metadata {
+                if let Some(line_count) = metadata.get("line_count") {
+                    println!("   ✓ Lines written: {}", line_count);
+                }
+            }
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 2: Read the entire file
+    println!("\n2. Reading entire file...");
+    let read_call = serde_json::json!({
+        "call_id": "2",
+        "name": "read_file",
+        "arguments": {
+            "path": "demo.txt"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, read_call) {
+        Ok(result) => {
+            println!("   ✓ File read successfully");
+            println!("   Content preview:\n{}", result.result.lines().take(3).collect::<Vec<_>>().join("\n"));
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 3: Read specific line range
+    println!("\n3. Reading lines 2-4...");
+    let read_range_call = serde_json::json!({
+        "call_id": "3",
+        "name": "read_file",
+        "arguments": {
+            "path": "demo.txt",
+            "start_line": 2,
+            "end_line": 4
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, read_range_call) {
+        Ok(result) => {
+            println!("   ✓ Line range read successfully");
+            println!("   Content:\n{}", result.result);
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 4: List directory with filtering
+    println!("\n4. Creating more files for directory listing...");
+    for i in 1..=3 {
+        std::fs::write(workspace.join(format!("file{}.rs", i)), format!("// File {}\n", i))?;
+    }
+    println!("   ✓ Created 3 additional .rs files");
+
+    println!("\n5. Listing directory with .rs filter...");
+    let list_call = serde_json::json!({
+        "call_id": "4",
+        "name": "list_dir",
+        "arguments": {
+            "path": ".",
+            "filter": ".rs"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, list_call) {
+        Ok(result) => {
+            println!("   ✓ Directory listed successfully");
+            let file_count = result.result.lines().count();
+            println!("   ✓ Found {} .rs files", file_count);
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 6: List directory recursively
+    println!("\n6. Listing directory recursively...");
+    let list_recursive_call = serde_json::json!({
+        "call_id": "5",
+        "name": "list_dir",
+        "arguments": {
+            "path": ".",
+            "recursive": true
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, list_recursive_call) {
+        Ok(result) => {
+            println!("   ✓ Recursive listing successful");
+            let lines: Vec<_> = result.result.lines().collect();
+            println!("   ✓ Total entries: {}", lines.len());
+            println!("   Preview: {} items", lines.iter().take(3).count());
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Cleanup
+    println!("\n7. Cleaning up demo files...");
+    std::fs::remove_dir_all(&workspace)?;
+    println!("   ✓ Cleanup complete");
+
+    println!("\n=== Demo Complete ===");
+    Ok(())
+}

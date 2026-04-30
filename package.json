@@ -1,0 +1,28 @@
+{
+  "name": "mips-interpreter",
+  "version": "1.0.0",
+  "description": "MIPS32 interpreter for running doomgeneric ELF binary",
+  "main": "vm.js",
+  "scripts": {
+    "start": "node vm.js doomgeneric_mips",
+    "run": "node vm.js doomgeneric_mips ./frames",
+    "test": "node test.js",
+    "convert": "ffmpeg -framerate 30 -i frames/frame_%06d.ppm -c:v libx264 doom.mp4"
+  },
+  "keywords": [
+    "mips",
+    "interpreter",
+    "doom",
+    "doomgeneric",
+    "elf"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "vm.js",
+    "README.md"
+  ]
+}

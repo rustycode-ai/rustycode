@@ -1,0 +1,221 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rust-matrix:
+    name: Rust ${{ matrix.toolchain }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, beta, nightly]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test-${{ matrix.toolchain }}
+
+      - name: Build workspace
+        run: cargo build --workspace --locked
+
+      - name: Run workspace tests
+        run: cargo test --workspace --locked
+
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  provider-v2:
+    name: Provider v2 Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: provider-v2
+
+      - name: Run provider crate tests
+        run: cargo test -p rustycode-llm --lib --tests --locked
+
+      - name: Check runtime crate compilation
+        run: cargo check -p rustycode-runtime --locked
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: security
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Update advisory database
+        run: cargo audit 2>/dev/null || true
+
+      - name: Run security audit
+        run: |
+          echo "Running cargo audit to check for security vulnerabilities..."
+          echo "Configuration: .audit.toml"
+          echo ""
+
+          # Run audit and capture exit code
+          cargo audit || AUDIT_EXIT_CODE=$?
+
+          # Print summary
+          echo ""
+          echo "=== Security Audit Summary ==="
+          echo "Exit code: ${AUDIT_EXIT_CODE:-0}"
+          echo ""
+
+          # Warn on vulnerabilities but don't fail the build
+          # (This allows time to fix issues while maintaining visibility)
+          if [ "${AUDIT_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "⚠️ Security vulnerabilities detected!"
+            echo "Please review the output above and address the issues."
+            echo ""
+            echo "To fix:"
+            echo "1. Update vulnerable dependencies: cargo update"
+            echo "2. Review .audit.toml for configuration"
+            echo "3. Check RustSec advisories for details"
+            echo ""
+            echo "Note: This check currently warns but doesn't block CI."
+            echo "To make it blocking, update the workflow to use 'set -euo pipefail'"
+          else
+            echo "✅ No security vulnerabilities found!"
+          fi
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-results
+          path: |
+            SecurityVulnerabilities.md
+            ~/.cargo/advisory-db/
+          if-no-files-found: ignore
+
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development
+          allow-licenses: MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Unicode-DFS-2016
+
+  tui-tests:
+    name: TUI Comprehensive Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: tui-tests-${{ matrix.os }}
+
+      - name: Run TUI unit tests
+        run: cargo test -p rustycode-tui --lib --verbose
+
+      - name: Run TUI integration tests
+        run: cargo test -p rustycode-tui --test '*' --verbose
+
+      - name: Run performance tests
+        run: cargo test -p rustycode-tui --test performance_tests --verbose
+
+      - name: Run edge case tests
+        run: cargo test -p rustycode-tui --test edge_case_tests --verbose
+
+      - name: Install tarpaulin for coverage (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo install cargo-tarpaulin
+
+      - name: Generate TUI coverage report (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo tarpaulin -p rustycode-tui --out Xml --output-dir ./coverage
+
+      - name: Upload TUI coverage to Codecov (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/cobertura.xml
+          flags: tui
+          name: codecov-tui-${{ matrix.os }}
+          fail_ci_if_error: false

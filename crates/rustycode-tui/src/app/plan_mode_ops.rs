@@ -1,0 +1,166 @@
+//! Plan mode UI state and helpers.
+//!
+//! This module keeps the user-facing plan-mode banner state separate from the
+//! execution gate itself. The gate lives in `rustycode-orchestration`, while this
+//! module manages how the TUI explains planning, stalls, and mode switches.
+
+use crate::app::event_loop::TUI;
+use crate::ui::header::HeaderStatus;
+
+/// User-facing plan mode banner shown in the persistent status bar / header.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PlanModeBanner {
+    /// Planning is active for a specific convoy.
+    Planning {
+        convoy_id: String,
+        action_hint: String,
+    },
+    /// A plan has been created and is awaiting user approval.
+    AwaitingApproval {
+        convoy_id: String,
+        plan_summary: String,
+        action_hint: String,
+    },
+    /// The plan for the convoy has been approved and is ready to execute.
+    PlanApproved {
+        convoy_id: String,
+        action_hint: String,
+    },
+    /// Implementation is actively executing for a specific convoy.
+    Executing {
+        convoy_id: String,
+        current_task: String,
+        action_hint: String,
+    },
+}
+
+impl PlanModeBanner {
+    /// Banner title shown in the status bar.
+    pub(crate) fn title(&self) -> &'static str {
+        match self {
+            Self::Planning { .. } => "Planning",
+            Self::AwaitingApproval { .. } => "Approval Required",
+            Self::PlanApproved { .. } => "Plan Approved",
+            Self::Executing { .. } => "Executing",
+        }
+    }
+
+    /// Main descriptive text shown in the status bar.
+    pub(crate) fn description(&self) -> String {
+        match self {
+            Self::Planning {
+                convoy_id,
+                action_hint,
+            } => {
+                format!("[{}] Planning active. {}", convoy_id, action_hint)
+            }
+            Self::AwaitingApproval {
+                convoy_id,
+                plan_summary,
+                action_hint,
+            } => {
+                format!("[{}] {}. {}", convoy_id, plan_summary, action_hint)
+            }
+            Self::PlanApproved {
+                convoy_id,
+                action_hint,
+            } => {
+                format!("[{}] Plan approved. {}", convoy_id, action_hint)
+            }
+            Self::Executing {
+                convoy_id,
+                current_task,
+                action_hint,
+            } => {
+                format!("[{}] {}. {}", convoy_id, current_task, action_hint)
+            }
+        }
+    }
+
+    /// Short user-facing message that can also be surfaced in chat.
+    #[allow(dead_code)]
+    pub(crate) fn message(&self) -> String {
+        self.description()
+    }
+
+    /// Color accent used for the banner.
+    pub(crate) fn status_color(&self) -> ratatui::style::Color {
+        match self {
+            Self::Planning { .. } => ratatui::style::Color::Cyan,
+            Self::AwaitingApproval { .. } => ratatui::style::Color::Yellow,
+            Self::PlanApproved { .. } => ratatui::style::Color::Green,
+            Self::Executing { .. } => ratatui::style::Color::Blue,
+        }
+    }
+
+    /// Header status to use while this banner is active.
+    pub(crate) fn header_status(&self) -> HeaderStatus {
+        match self {
+            Self::Planning { .. } | Self::AwaitingApproval { .. } => HeaderStatus::Planning,
+            Self::PlanApproved { .. } | Self::Executing { .. } => HeaderStatus::RunningTools,
+        }
+    }
+}
+
+impl TUI {
+    /// Replace the current plan-mode banner.
+    pub(crate) fn set_plan_mode_banner(&mut self, banner: Option<PlanModeBanner>) {
+        if self.plan_mode_banner == banner {
+            return;
+        }
+
+        self.plan_mode_banner = banner;
+        self.dirty = true;
+    }
+
+    /// Clear any active plan-mode banner.
+    pub(crate) fn clear_plan_mode_banner(&mut self) {
+        self.set_plan_mode_banner(None);
+    }
+
+    /// Show that planning mode is active for a specific convoy.
+    pub(crate) fn show_planning_banner(&mut self, convoy_id: &str) {
+        self.set_plan_mode_banner(Some(PlanModeBanner::Planning {
+            convoy_id: convoy_id.to_string(),
+            action_hint: "Building strategy...".to_string(),
+        }));
+    }
+
+    /// Show that a plan is ready for review.
+    pub(crate) fn show_approval_banner(&mut self, convoy_id: &str, plan_summary: &str) {
+        self.set_plan_mode_banner(Some(PlanModeBanner::AwaitingApproval {
+            convoy_id: convoy_id.to_string(),
+            plan_summary: plan_summary.to_string(),
+            action_hint: "Review and approve plan to proceed.".to_string(),
+        }));
+        self.toast_manager
+            .info(format!("[{}] Plan ready for review", convoy_id));
+    }
+
+    /// Show that a plan has been approved.
+    #[allow(dead_code)]
+    pub(crate) fn show_plan_approved_banner(&mut self, convoy_id: &str) {
+        self.set_plan_mode_banner(Some(PlanModeBanner::PlanApproved {
+            convoy_id: convoy_id.to_string(),
+            action_hint: "Plan approved. Starting execution...".to_string(),
+        }));
+    }
+
+    /// Show active execution status for a convoy task.
+    #[allow(dead_code)]
+    pub(crate) fn show_executing_banner(&mut self, convoy_id: &str, current_task: &str) {
+        self.set_plan_mode_banner(Some(PlanModeBanner::Executing {
+            convoy_id: convoy_id.to_string(),
+            current_task: current_task.to_string(),
+            action_hint: "Working...".to_string(),
+        }));
+    }
+
+    /// Whether the TUI is currently displaying a banner awaiting approval.
+    pub(crate) fn is_awaiting_approval(&self) -> bool {
+        matches!(
+            self.plan_mode_banner,
+            Some(PlanModeBanner::AwaitingApproval { .. })
+        )
+    }
+}

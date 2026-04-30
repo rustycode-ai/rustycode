@@ -1,0 +1,20 @@
+[package]
+name = "rustycode-tools-registry"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+rustycode-tools-api = { path = "../rustycode-tools-api" }
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true
+

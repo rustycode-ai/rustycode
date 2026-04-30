@@ -1,0 +1,123 @@
+name: Benchmarks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "benches/**"
+      - "crates/**"
+      - "scripts/bench*.sh"
+      - "scripts/check-performance-regressions.sh"
+      - "scripts/validate-benchmarks.sh"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  push:
+    branches: [main]
+    paths:
+      - "benches/**"
+      - "crates/**"
+      - "scripts/bench*.sh"
+      - "scripts/check-performance-regressions.sh"
+      - "scripts/validate-benchmarks.sh"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: bench-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Bench Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate benchmark manifest
+        run: ./scripts/validate-benchmarks.sh
+
+  compile:
+    name: Compile Benches
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: benches
+
+      - name: Build benchmark targets
+        run: |
+          cargo bench --bench tui_performance --no-run --locked
+
+
+  regression:
+    name: Performance Regression Check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs: compile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: perf-regression
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }} --depth=1
+
+      - name: Check for regressions
+        run: ./scripts/check-performance-regressions.sh origin/${{ github.base_ref }} 10
+
+  full:
+    name: Full Benchmark Run
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    needs: compile
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: full-bench
+
+      - name: Run benchmark suite
+        run: ./scripts/bench.sh main
+
+      - name: Upload criterion reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-results
+          path: target/criterion
+          retention-days: 30

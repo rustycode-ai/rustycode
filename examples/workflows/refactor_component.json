@@ -1,0 +1,111 @@
+{
+  "id": "refactor_component",
+  "name": "Safe Component Refactoring",
+  "description": "Multi-step refactoring workflow with testing and rollback",
+
+  "parameters": [
+    {
+      "name": "component_path",
+      "type": "string",
+      "required": true,
+      "description": "Path to the component file to refactor"
+    },
+    {
+      "name": "refactoring_type",
+      "type": "enum",
+      "required": true,
+      "values": ["extract_method", "rename", "simplify_logic", "reduce_complexity"],
+      "description": "Type of refactoring to apply"
+    },
+    {
+      "name": "backup_before",
+      "type": "boolean",
+      "required": false,
+      "default": true
+    }
+  ],
+
+  "steps": [
+    {
+      "id": "read_component",
+      "tool_call": {
+        "tool": "read_file",
+        "parameters": {
+          "path": "{{component_path}}"
+        }
+      }
+    },
+    {
+      "id": "backup",
+      "condition": "backup_before == true",
+      "then_step": {
+        "id": "create_backup",
+        "tool_call": {
+          "tool": "backup_file",
+          "parameters": {
+            "path": "{{component_path}}"
+          }
+        }
+      },
+      "depends_on": ["read_component"]
+    },
+    {
+      "id": "analyze_code",
+      "tool_call": {
+        "tool": "analyze_code",
+        "parameters": {
+          "content": "{{read_component.result}}",
+          "analysis_type": "refactoring"
+        }
+      },
+      "depends_on": ["read_component", "backup"]
+    },
+    {
+      "id": "generate_plan",
+      "tool_call": {
+        "tool": "generate_refactoring_plan",
+        "parameters": {
+          "analysis": "{{analyze_code.result}}",
+          "type": "{{refactoring_type}}"
+        }
+      },
+      "depends_on": ["analyze_code"]
+    },
+    {
+      "id": "apply_refactoring",
+      "tool_call": {
+        "tool": "apply_refactoring",
+        "parameters": {
+          "path": "{{component_path}}",
+          "plan": "{{generate_plan.result}}"
+        }
+      },
+      "depends_on": ["generate_plan"],
+      "on_failure": "rollback"
+    },
+    {
+      "id": "verify_compilation",
+      "tool_call": {
+        "tool": "check_compilation",
+        "parameters": {
+          "path": "{{component_path}}"
+        }
+      },
+      "depends_on": ["apply_refactoring"]
+    },
+    {
+      "id": "run_tests",
+      "tool_call": {
+        "tool": "run_tests",
+        "parameters": {}
+      },
+      "depends_on": ["verify_compilation"]
+    }
+  ],
+
+  "error_handling": {
+    "strategy": "rollback",
+    "rollback_on_critical": true,
+    "retry_attempts": 1
+  }
+}

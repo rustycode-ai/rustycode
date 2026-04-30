@@ -1,0 +1,33 @@
+[package]
+name = "rustycode-session"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+tracing.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+zstd = "0.13"
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-llm = { path = "../rustycode-llm" }
+uuid = { workspace = true }
+nanoid.workspace = true
+num_cpus.workspace = true
+bincode.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+tempfile.workspace = true
+rustycode-storage = { path = "../rustycode-storage" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+
+[lints]
+workspace = true
+

@@ -1,0 +1,54 @@
+FROM rust:latest AS builder
+WORKDIR /src
+
+# Cache dependencies
+COPY Cargo.toml Cargo.lock ./
+COPY crates/rustycode-id/Cargo.toml crates/rustycode-id/Cargo.toml
+COPY crates/rustycode-protocol/Cargo.toml crates/rustycode-protocol/Cargo.toml
+COPY crates/rustycode-bus/Cargo.toml crates/rustycode-bus/Cargo.toml
+COPY crates/rustycode-config/Cargo.toml crates/rustycode-config/Cargo.toml
+COPY crates/rustycode-storage/Cargo.toml crates/rustycode-storage/Cargo.toml
+COPY crates/rustycode-git/Cargo.toml crates/rustycode-git/Cargo.toml
+COPY crates/rustycode-lsp/Cargo.toml crates/rustycode-lsp/Cargo.toml
+COPY crates/rustycode-memory/Cargo.toml crates/rustycode-memory/Cargo.toml
+COPY crates/rustycode-skill/Cargo.toml crates/rustycode-skill/Cargo.toml
+COPY crates/rustycode-tools/Cargo.toml crates/rustycode-tools/Cargo.toml
+COPY crates/rustycode-tools-api/Cargo.toml crates/rustycode-tools-api/Cargo.toml
+COPY crates/rustycode-ui-core/Cargo.toml crates/rustycode-ui-core/Cargo.toml
+COPY crates/rustycode-mcp/Cargo.toml crates/rustycode-mcp/Cargo.toml
+COPY crates/rustycode-macros/Cargo.toml crates/rustycode-macros/Cargo.toml
+COPY crates/rustycode-core/Cargo.toml crates/rustycode-core/Cargo.toml
+COPY crates/rustycode-runtime/Cargo.toml crates/rustycode-runtime/Cargo.toml
+COPY crates/rustycode-tui/Cargo.toml crates/rustycode-tui/Cargo.toml
+COPY crates/rustycode-cli/Cargo.toml crates/rustycode-cli/Cargo.toml
+COPY crates/rustycode-llm/Cargo.toml crates/rustycode-llm/Cargo.toml
+COPY crates/rustycode-load/Cargo.toml crates/rustycode-load/Cargo.toml
+COPY crates/rustycode-auth/Cargo.toml crates/rustycode-auth/Cargo.toml
+COPY crates/rustycode-prompt/Cargo.toml crates/rustycode-prompt/Cargo.toml
+COPY crates/rustycode-tool-server/Cargo.toml crates/rustycode-tool-server/Cargo.toml
+COPY crates/rustycode-session/Cargo.toml crates/rustycode-session/Cargo.toml
+COPY crates/rustycode-providers/Cargo.toml crates/rustycode-providers/Cargo.toml
+COPY crates/rustycode-learning/Cargo.toml crates/rustycode-learning/Cargo.toml
+COPY crates/rustycode-orchestra/Cargo.toml crates/rustycode-orchestra/Cargo.toml
+COPY crates/rustycode-observability/Cargo.toml crates/rustycode-observability/Cargo.toml
+COPY crates/rustycode-plugins/Cargo.toml crates/rustycode-plugins/Cargo.toml
+COPY crates/rustycode-connector/Cargo.toml crates/rustycode-connector/Cargo.toml
+COPY crates/rustycode-acp/Cargo.toml crates/rustycode-acp/Cargo.toml
+COPY crates/rustycode-thread-guard/Cargo.toml crates/rustycode-thread-guard/Cargo.toml
+COPY crates/rustycode-shared-runtime/Cargo.toml crates/rustycode-shared-runtime/Cargo.toml
+COPY crates/rustycode-bench/Cargo.toml crates/rustycode-bench/Cargo.toml
+COPY crates/rustycode-vector-memory/Cargo.toml crates/rustycode-vector-memory/Cargo.toml
+
+# Create dummy sources to cache dependencies
+RUN find crates -name "Cargo.toml" -exec bash -c 'dir=$(dirname {}); mkdir -p "$dir/src"; echo "" > "$dir/src/lib.rs"' \;
+COPY rustycode-macros/src/ crates/rustycode-macros/src/
+RUN cargo build --release -p rustycode-cli 2>/dev/null || true
+
+# Now copy real sources and build
+COPY . .
+RUN cargo build --release -p rustycode-cli
+
+# Extract binary
+FROM debian:bookworm-slim
+COPY --from=builder /src/target/release/rustycode /rustycode
+RUN chmod +x /rustycode

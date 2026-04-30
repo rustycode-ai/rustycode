@@ -1,0 +1,291 @@
+//! TruncateTier -- free compaction pass that keeps only the last N complete turns.
+//!
+//! A "turn" is one complete user-to-assistant round trip, including any
+//! tool_use / tool_result pairs within it. Each turn starts at a User-role
+//! message and extends up to (but not including) the next User-role message.
+
+use rustycode_protocol::Message;
+
+use super::TierResult;
+
+/// Free compaction pass: hard cut to the tail N turns.
+#[derive(Debug, Clone)]
+pub struct TruncateTier {
+    /// Number of complete turns to retain from the tail of the conversation.
+    tail_turns: usize,
+}
+
+impl TruncateTier {
+    /// Create a new TruncateTier that keeps the last `tail_turns` turns.
+    pub fn new(tail_turns: usize) -> Self {
+        Self { tail_turns }
+    }
+
+    /// Run the truncate pass over `messages`, returning the retained messages
+    /// and an estimated count of tokens removed.
+    pub fn compact(&self, messages: Vec<Message>) -> TierResult {
+        // tail_turns == 0 means drop everything.
+        if self.tail_turns == 0 {
+            let chars_removed: usize = messages.iter().map(|m| m.content.len()).sum();
+            return TierResult {
+                messages: Vec::new(),
+                tokens_removed: chars_removed / 4,
+            };
+        }
+
+        let total_len = messages.len();
+        if total_len == 0 {
+            return TierResult {
+                messages,
+                tokens_removed: 0,
+            };
+        }
+
+        // Find indices of every User-role message (these are turn boundaries).
+        let user_indices: Vec<usize> = messages
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| m.is_user())
+            .map(|(i, _)| i)
+            .collect();
+
+        if user_indices.is_empty() {
+            // No user messages at all -- keep the last N messages as a flat tail.
+            return self.keep_flat_tail(messages);
+        }
+
+        // If there are fewer turns than tail_turns, keep everything.
+        let num_turns = user_indices.len();
+        if num_turns <= self.tail_turns {
+            return TierResult {
+                messages,
+                tokens_removed: 0,
+            };
+        }
+
+        // Keep from the (num_turns - tail_turns)-th user message onward.
+        let keep_from = user_indices[num_turns - self.tail_turns];
+        self.split_at(messages, keep_from)
+    }
+
+    /// When no user messages exist, keep the last `tail_turns` messages as a
+    /// flat tail.
+    fn keep_flat_tail(&self, messages: Vec<Message>) -> TierResult {
+        let total = messages.len();
+        if total <= self.tail_turns {
+            return TierResult {
+                messages,
+                tokens_removed: 0,
+            };
+        }
+        let keep_from = total - self.tail_turns;
+        self.split_at(messages, keep_from)
+    }
+
+    /// Split `messages` at `keep_from`, returning the tail and estimating
+    /// tokens removed from the discarded head.
+    fn split_at(&self, messages: Vec<Message>, keep_from: usize) -> TierResult {
+        let chars_removed: usize = messages[..keep_from].iter().map(|m| m.content.len()).sum();
+        let retained = messages[keep_from..].to_vec();
+        TierResult {
+            messages: retained,
+            tokens_removed: chars_removed / 4,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rustycode_protocol::{ContentBlock, MessageContent};
+
+    /// Helper: user message with simple text.
+    fn user_msg(text: &str) -> Message {
+        Message::user(text)
+    }
+
+    /// Helper: assistant message with simple text.
+    fn assistant_msg(text: &str) -> Message {
+        Message::assistant(text)
+    }
+
+    /// Helper: user message carrying a ToolResult block (simulates tool result
+    /// returned to the conversation).
+    fn tool_result_msg(tool_use_id: &str, content: &str) -> Message {
+        Message {
+            role: "user".to_string(),
+            content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                tool_use_id: tool_use_id.to_string(),
+                content: content.to_string(),
+                is_error: false,
+            }]),
+            timestamp: chrono::Utc::now(),
+            metadata: rustycode_protocol::MessageMetadata::default(),
+        }
+    }
+
+    /// Helper: assistant message carrying a ToolUse block.
+    fn tool_use_msg(id: &str, name: &str) -> Message {
+        Message {
+            role: "assistant".to_string(),
+            content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
+                id: id.to_string(),
+                name: name.to_string(),
+                input: serde_json::Value::Object(serde_json::Map::new()),
+            }]),
+            timestamp: chrono::Utc::now(),
+            metadata: rustycode_protocol::MessageMetadata::default(),
+        }
+    }
+
+    // -- Test 1: zero_returns_empty --------------------------------------------------
+
+    #[test]
+    fn zero_returns_empty() {
+        let tier = TruncateTier::new(0);
+        let msgs = vec![
+            user_msg("hello"),
+            assistant_msg("hi"),
+            user_msg("how are you"),
+            assistant_msg("fine"),
+        ];
+        let result = tier.compact(msgs);
+        assert!(
+            result.messages.is_empty(),
+            "tail_turns=0 should return empty"
+        );
+        assert!(
+            result.tokens_removed > 0,
+            "should report tokens removed when messages are discarded"
+        );
+    }
+
+    // -- Test 2: keeps_last_two_turns -------------------------------------------------
+
+    #[test]
+    fn keeps_last_two_turns() {
+        let tier = TruncateTier::new(2);
+        let long = "x".repeat(40);
+        // Three turns:
+        //   turn 0: user(long) + assistant(long)
+        //   turn 1: user(long) + assistant(long)
+        //   turn 2: user("c") + assistant("C")
+        let msgs = vec![
+            user_msg(&long),
+            assistant_msg(&long),
+            user_msg(&long),
+            assistant_msg(&long),
+            user_msg("c"),
+            assistant_msg("C"),
+        ];
+        let result = tier.compact(msgs);
+
+        // Should keep turns 1 and 2 (from the 2nd-to-last user msg onward).
+        assert_eq!(result.messages.len(), 4);
+        assert_eq!(result.messages[0].content.as_text(), long);
+        assert_eq!(result.messages[1].content.as_text(), long);
+        assert_eq!(result.messages[2].content.as_text(), "c");
+        assert_eq!(result.messages[3].content.as_text(), "C");
+        // Discarded 2 messages of 40 chars each = 80 chars / 4 = 20 tokens.
+        assert!(
+            result.tokens_removed > 0,
+            "should report tokens removed when turns are discarded"
+        );
+    }
+
+    // -- Test 3: keeps_turn_with_tool_results -----------------------------------------
+
+    #[test]
+    fn keeps_turn_with_tool_results() {
+        let tier = TruncateTier::new(1);
+        // Turn 0: user("read file") + assistant(tool_use) + user(tool_result) + assistant("done")
+        // Turn 1: user("summarize") + assistant("summary text")
+        let msgs = vec![
+            user_msg("read file"),
+            tool_use_msg("t1", "read_file"),
+            tool_result_msg("t1", "file contents here"),
+            assistant_msg("done reading"),
+            user_msg("summarize"),
+            assistant_msg("summary text"),
+        ];
+
+        let result = tier.compact(msgs);
+
+        // Should keep only turn 1 (the last complete turn).
+        assert_eq!(result.messages.len(), 2);
+        assert_eq!(result.messages[0].content.as_text(), "summarize");
+        assert_eq!(result.messages[1].content.as_text(), "summary text");
+        assert!(result.tokens_removed > 0);
+    }
+
+    // -- Test 4: fewer_messages_than_tail_keeps_all -----------------------------------
+
+    #[test]
+    fn fewer_messages_than_tail_keeps_all() {
+        let tier = TruncateTier::new(5);
+        let msgs = vec![user_msg("hello"), assistant_msg("hi")];
+        let result = tier.compact(msgs);
+
+        assert_eq!(
+            result.messages.len(),
+            2,
+            "should keep all when fewer turns than tail_turns"
+        );
+        assert_eq!(
+            result.tokens_removed, 0,
+            "no tokens removed when nothing is discarded"
+        );
+    }
+
+    // -- Test 5: no_user_messages_keeps_tail ------------------------------------------
+
+    #[test]
+    fn no_user_messages_keeps_tail() {
+        let tier = TruncateTier::new(2);
+        // Only assistant/system messages, no user messages at all.
+        let msgs = vec![
+            assistant_msg("first"),
+            assistant_msg("second"),
+            assistant_msg("third"),
+            assistant_msg("fourth"),
+        ];
+        let result = tier.compact(msgs);
+
+        // Should keep last 2 messages (flat tail).
+        assert_eq!(result.messages.len(), 2);
+        assert_eq!(result.messages[0].content.as_text(), "third");
+        assert_eq!(result.messages[1].content.as_text(), "fourth");
+        assert!(result.tokens_removed > 0);
+    }
+
+    // -- Test 6: tokens_removed_positive ----------------------------------------------
+
+    #[test]
+    fn tokens_removed_positive() {
+        let tier = TruncateTier::new(1);
+        // Create messages with enough content to measure token removal.
+        let long_text = "x".repeat(200);
+        let msgs = vec![
+            user_msg("short question"),
+            assistant_msg(&long_text),
+            user_msg(&long_text),
+            assistant_msg(&long_text),
+            user_msg("keep me"),
+            assistant_msg("response"),
+        ];
+        let result = tier.compact(msgs);
+
+        // Should keep only the last turn (2 messages).
+        assert_eq!(result.messages.len(), 2);
+        assert!(
+            result.tokens_removed > 0,
+            "tokens_removed should be positive when messages are discarded"
+        );
+        // Rough sanity: at least 100 tokens removed (400+ chars / 4).
+        assert!(
+            result.tokens_removed >= 100,
+            "expected substantial removal, got {}",
+            result.tokens_removed
+        );
+    }
+}

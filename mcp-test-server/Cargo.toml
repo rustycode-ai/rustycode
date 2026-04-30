@@ -1,0 +1,12 @@
+[package]
+name = "mcp-test-server"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+rustycode-mcp = { path = "../crates/rustycode-mcp" }
+rustycode-tools = { path = "../crates/rustycode-tools" }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing-subscriber.workspace = true
+humantime = "2"

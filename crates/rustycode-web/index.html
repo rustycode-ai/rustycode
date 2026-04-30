@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>RustyCode — Brutalist</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/firacode/6.2.0/fira_code.min.css"
+    />
+    <link data-trunk rel="rust" data-bin="rustycode-web" />
+    <style>
+      /* Midnight Rust Palette */
+      :root {
+        --background: #2e3440;
+        --foreground: #eceff4;
+        --primary: #5e81ac;
+        --secondary: #81a1c4;
+        --accent: #88c0d0;
+        --success: #a3be8c;
+        --warning: #ebcb8b;
+        --error: #bf616a;
+        --muted: #4c566a;
+        --user: #b48ead;
+        --ai: #8fbcbb;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: "Fira Code", monospace;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Brutalist Header */
+      .header {
+        flex-shrink: 0;
+        padding: 4px 12px;
+        background: var(--background);
+        border-bottom: 1px solid var(--muted);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .header-brand {
+        color: var(--primary);
+        font-weight: bold;
+      }
+
+      .header-version {
+        color: var(--muted);
+      }
+
+      .header-mode {
+        color: var(--muted);
+        opacity: 0.7;
+        font-size: 11px;
+      }
+
+      .header-status {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 12px;
+      }
+
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      .status-dot.ready {
+        background: var(--success);
+      }
+
+      .status-dot.streaming {
+        background: var(--warning);
+        animation: pulse 1s infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+
+      /* Main Container */
+      .container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Messages Area */
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+      }
+
+      .message {
+        margin-bottom: 12px;
+        border-left: 2px solid var(--muted);
+        padding-left: 12px;
+      }
+
+      .message.user {
+        border-left-color: var(--user);
+      }
+
+      .message.ai {
+        border-left-color: var(--ai);
+      }
+
+      .message-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+
+      .message-role {
+        font-weight: bold;
+      }
+
+      .message-role.user {
+        color: var(--user);
+      }
+
+      .message-role.ai {
+        color: var(--ai);
+      }
+
+      .message-time {
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .message-content {
+        color: var(--foreground);
+        white-space: pre-wrap;
+      }
+
+      /* Input Area */
+      .input-container {
+        flex-shrink: 0;
+        padding: 8px;
+        border-top: 1px solid var(--muted);
+      }
+
+      .input-wrapper {
+        display: flex;
+        align-items: center;
+        background: var(--background);
+        border: 1px solid var(--muted);
+        padding: 4px 8px;
+      }
+
+      .input-wrapper:focus-within {
+        border-color: var(--primary);
+      }
+
+      .input-prompt {
+        color: var(--primary);
+        margin-right: 8px;
+        font-weight: bold;
+      }
+
+      .input-field {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--foreground);
+        font-family: inherit;
+        font-size: inherit;
+        outline: none;
+      }
+
+      .input-field::placeholder {
+        color: var(--muted);
+        opacity: 0.5;
+      }
+
+      /* Footer Status */
+      .footer {
+        flex-shrink: 0;
+        padding: 4px 12px;
+        background: var(--background);
+        border-top: 1px solid var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .footer-separator {
+        color: var(--muted);
+      }
+
+      /* Scrollbar Styling */
+      .messages::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .messages::-webkit-scrollbar-track {
+        background: var(--background);
+      }
+
+      .messages::-webkit-scrollbar-thumb {
+        background: var(--muted);
+        border-radius: 4px;
+      }
+
+      .messages::-webkit-scrollbar-thumb:hover {
+        background: var(--secondary);
+      }
+
+      /* Welcome Message */
+      .welcome {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        text-align: center;
+        color: var(--foreground);
+      }
+
+      .welcome h1 {
+        font-size: 24px;
+        margin: 0 0 8px 0;
+        color: var(--primary);
+      }
+
+      .welcome p {
+        margin: 4px 0;
+        color: var(--muted);
+      }
+
+      .welcome kbd {
+        background: var(--muted);
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+
+      /* Loading State */
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--muted);
+      }
+
+      .loading::after {
+        content: '…';
+        animation: dots 1.5s steps(4, end) infinite;
+      }
+
+      @keyframes dots {
+        0%, 20% { content: '.'; }
+        40% { content: '..'; }
+        60%, 100% { content: '...'; }
+      }
+
+      /* Tool Indicator */
+      .tool {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .tool-icon {
+        font-size: 10px;
+      }
+
+      .tool-icon.running { color: var(--warning); }
+      .tool-icon.complete { color: var(--success); }
+      .tool-icon.failed { color: var(--error); }
+
+      .tool-name {
+        color: var(--foreground);
+      }
+
+      /* Responsive */
+      @media (max-width: 600px) {
+        .header {
+          padding: 4px 8px;
+          font-size: 11px;
+        }
+
+        .messages {
+          padding: 4px;
+        }
+
+        .message {
+          padding-left: 8px;
+          margin-bottom: 8px;
+        }
+
+        .input-container {
+          padding: 4px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="loading">Loading</div>
+    </div>
+
+    <script type="module">
+      import init from './rustycode-web.js';
+
+      async function run() {
+        await init();
+
+        // Render the brutalist interface
+        const app = document.getElementById('app');
+        app.innerHTML = `
+          <header class="header">
+            <div class="header-left">
+              <span class="header-brand">╺─ RustyCode</span>
+              <span class="header-version">v0.1</span>
+              <span class="header-mode">─</span>
+              <span class="header-mode">ins</span>
+            </div>
+            <div class="header-status">
+              <div class="status-indicator">
+                <div class="status-dot ready"></div>
+                <span>ready</span>
+              </div>
+            </div>
+          </header>
+
+          <div class="container">
+            <div class="messages" id="messages">
+              <div class="welcome">
+                <h1>╶─ RustyCode ─╴</h1>
+                <p>autonomous development framework</p>
+                <p style="margin-top: 24px;">type a message and press <kbd>Enter</kbd> to start</p>
+                <p>press <kbd>?</kbd> for help</p>
+              </div>
+            </div>
+
+            <div class="input-container">
+              <div class="input-wrapper">
+                <span class="input-prompt">▐▸</span>
+                <input
+                  type="text"
+                  class="input-field"
+                  id="input"
+                  placeholder="..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </div>
+            </div>
+          </div>
+
+          <footer class="footer">
+            <span>│</span>
+            <span> ready </span>
+            <span>│</span>
+            <span> memory:off </span>
+            <span class="footer-separator">───────────────────</span>
+          </footer>
+        `;
+
+        // Input handling
+        const input = document.getElementById('input');
+        const messages = document.getElementById('messages');
+
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && input.value.trim()) {
+            addMessage('user', input.value);
+            input.value = '';
+
+            // Simulate AI response
+            setTimeout(() => {
+              addMessage('ai', 'Brutalist mode active. Type a message to begin.');
+            }, 300);
+          }
+        });
+
+        function addMessage(role, content) {
+          // Remove welcome if present
+          const welcome = messages.querySelector('.welcome');
+          if (welcome) {
+            welcome.remove();
+          }
+
+          const message = document.createElement('div');
+          message.className = \`message \${role}\`;
+          message.innerHTML = \`
+            <div class="message-header">
+              <span class="message-role \${role}">\${role === 'user' ? 'you' : 'ai'}</span>
+              <span class="message-time">\${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+            <div class="message-content">\${content}</div>
+          \`;
+          messages.appendChild(message);
+          messages.scrollTop = messages.scrollHeight;
+        }
+
+        // Focus input on load
+        input.focus();
+      }
+
+      run().catch(console.error);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,25 @@
+[package]
+name = "rustycode-connector"
+version = "0.1.0"
+edition = "2021"
+description = "Terminal connector abstraction for rustycode (tmux, iTerm2 support)"
+license = "MIT"
+
+[dependencies]
+# Native iTerm2 WebSocket/Unix socket support
+iterm2-client = "0.2"
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "time", "fs"] }
+
+[[example]]
+name = "connector_benchmark"
+path = "examples/connector_benchmark.rs"
+
+[[test]]
+name = "connector_comparison"
+path = "tests/connector_comparison.rs"
+
+[dev-dependencies]
+
+[lints]
+workspace = true
+

@@ -1,0 +1,11 @@
+You are in the {{phase}} phase.
+
+Task:
+{{task}}
+
+Execute the approved plan precisely.
+Prefer small, verifiable changes.
+Verify the result before reporting completion.
+
+Approved plan:
+{{plan_summary}}

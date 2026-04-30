@@ -1,0 +1,64 @@
+[package]
+name = "rustycode-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+rand.workspace = true
+regex = { workspace = true }
+uuid = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true }
+futures = { workspace = true }
+tracing.workspace = true
+walkdir.workspace = true
+lru.workspace = true
+rustycode-config = { path = "../rustycode-config" }
+rustycode-git = { path = "../rustycode-git" }
+rustycode-lsp = { path = "../rustycode-lsp" }
+rustycode-memory = { path = "../rustycode-memory" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-skill = { path = "../rustycode-skill" }
+rustycode-storage = { path = "../rustycode-storage" }
+rustycode-tools-api = { path = "../rustycode-tools-api" }
+rustycode-tools = { path = "../rustycode-tools", default-features = false }
+rustycode-bus = { path = "../rustycode-bus" }
+rustycode-llm = { path = "../rustycode-llm", default-features = false }
+rustycode-orchestration = { path = "../rustycode-orchestration" }
+rustycode-prompt = { path = "../rustycode-prompt" }
+rustycode-mcp = { path = "../rustycode-mcp", default-features = false }
+once_cell.workspace = true
+rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
+rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
+rustycode-session = { path = "../rustycode-session" }
+rustycode-agent = { path = "../rustycode-agent" }
+
+
+[features]
+default = []
+deadlock = []
+vector-memory = ["dep:rustycode-vector-memory"]
+
+[dev-dependencies]
+tempfile.workspace = true
+futures.workspace = true
+
+[[test]]
+name = "deadlock_tests"
+path = "tests/deadlock_tests.rs"
+required-features = ["deadlock"]
+
+[lints]
+workspace = true
+

@@ -1,0 +1,169 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secrets:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install gitleaks
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          tar -xzf gitleaks_8.21.2_linux_x64.tar.gz
+          sudo mv gitleaks /usr/local/bin/
+          rm gitleaks_8.21.2_linux_x64.tar.gz
+
+      - name: Run gitleaks (full history)
+        continue-on-error: true
+        run: |
+          echo "=== Running gitleaks on full history ==="
+          gitleaks detect --source . --verbose --report-format sarif --report-path gitleaks-results.sarif || true
+
+      - name: Run gitleaks (unstaged changes)
+        run: |
+          echo "=== Running gitleaks on unstaged changes ==="
+          gitleaks protect --source . --verbose --staged || true
+
+      - name: Upload gitleaks results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: gitleaks
+
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: security-audit
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Update advisory database
+        run: cargo audit 2>/dev/null || true
+
+      - name: Run security audit
+        run: |
+          echo "Running cargo audit to check for security vulnerabilities..."
+          echo "Configuration: .audit.toml"
+          echo ""
+
+          # Run audit and capture exit code
+          set +e
+          cargo audit 2>&1 | tee audit-output.txt
+          AUDIT_EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          # Print summary
+          echo ""
+          echo "=== Security Audit Summary ==="
+          echo "Exit code: ${AUDIT_EXIT_CODE:-0}"
+
+          if [ "${AUDIT_EXIT_CODE:-0}" -ne 0 ]; then
+            echo "Security vulnerabilities detected!"
+            echo "Please review the output above and address the issues."
+            echo ""
+            echo "To fix:"
+            echo "1. Update vulnerable dependencies: cargo update"
+            echo "2. Review .audit.toml for configuration"
+            echo "3. Check RustSec advisories for details"
+          else
+            echo "No security vulnerabilities found!"
+          fi
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-audit-results
+          path: |
+            audit-output.txt
+            SecurityVulnerabilities.md
+          if-no-files-found: ignore
+
+  deny:
+    name: License & Policy Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: security-deny
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny
+
+      - name: Run cargo-deny checks
+        run: |
+          echo "=== Running cargo-deny checks ==="
+          echo ""
+
+          # Run all checks in a single invocation; exit on failure
+          # Checks: licenses, bans, advisories, sources
+          cargo deny check licenses bans advisories sources
+
+      - name: Upload deny report
+        if: always()
+        run: cargo deny report --format html > deny-report.html || true
+
+      - name: Upload deny report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-deny-report
+          path: deny-report.html
+          if-no-files-found: ignore
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development
+          allow-licenses: MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Unicode-DFS-2016, MPL-2.0, Zlib, CC0-1.0

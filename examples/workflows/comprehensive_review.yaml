@@ -1,0 +1,101 @@
+# Comprehensive Code Review Workflow
+# Advanced workflow with conditions, loops, and parallel execution
+
+id: comprehensive_review
+name: Comprehensive Code Review
+description: Thorough code review with multiple analysis types
+
+parameters:
+  - name: file_path
+    type: string
+    required: true
+    description: "Path to the file to review"
+
+  - name: run_security_scan
+    type: boolean
+    required: false
+    default: true
+
+  - name: check_dependencies
+    type: array
+    required: false
+    description: "List of dependency names to check"
+
+steps:
+  - id: read_file
+    tool_call:
+      tool: read_file
+      parameters:
+        path: "{{file_path}}"
+
+  - id: check_security
+    condition: "run_security_scan == true"
+    then_step:
+      id: security_scan
+      tool_call:
+        tool: security_scan
+        parameters:
+          content: "{{read_file.result}}"
+    depends_on:
+      - read_file
+
+  - id: quality_analysis
+    tool_call:
+      tool: code_quality_check
+      parameters:
+        content: "{{read_file.result}}"
+    depends_on:
+      - read_file
+
+  - id: check_all_dependencies
+    loop:
+      type: foreach
+      over_variable: "check_dependencies"
+    step:
+      id: check_single_dependency
+      tool_call:
+        tool: check_dependency
+        parameters:
+          name: "{{item}}"
+
+  - id: parallel_analysis
+    parallel:
+      - id: performance_check
+        tool_call:
+          tool: performance_analysis
+          parameters:
+            content: "{{read_file.result}}"
+
+      - id: style_check
+        tool_call:
+          tool: style_check
+          parameters:
+            content: "{{read_file.result}}"
+
+      - id: complexity_analysis
+        tool_call:
+          tool: complexity_analysis
+          parameters:
+            content: "{{read_file.result}}"
+    depends_on:
+      - read_file
+    wait_for_all: true
+
+  - id: generate_report
+    tool_call:
+      tool: generate_report
+      parameters:
+        quality_result: "{{quality_analysis.result}}"
+        security_result: "{{check_security.result}}"
+        performance_result: "{{parallel_analysis.performance_check.result}}"
+        style_result: "{{parallel_analysis.style_check.result}}"
+        complexity_result: "{{parallel_analysis.complexity_analysis.result}}"
+    depends_on:
+      - quality_analysis
+      - check_security
+      - parallel_analysis
+
+error_handling:
+  strategy: continue
+  rollback_on_critical: true
+  retry_attempts: 2

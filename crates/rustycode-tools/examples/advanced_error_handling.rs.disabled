@@ -1,0 +1,599 @@
+//! Advanced Error Handling and Retry Patterns
+//!
+//! This example demonstrates sophisticated error handling strategies:
+//! - Exponential backoff retry logic
+//! - Circuit breaker pattern for failing operations
+//! - Graceful degradation with fallbacks
+//! - Error aggregation and reporting
+//! - Security error handling
+//!
+//! Run with: cargo run --example advanced_error_handling
+
+use rustycode_protocol::{ToolCall, ToolResult};
+use rustycode_tools::ToolExecutor;
+use serde_json::json;
+use std::path::PathBuf;
+use std::thread;
+use std::time::{Duration, Instant};
+
+fn execute_from_json(
+    executor: &ToolExecutor,
+    call_id: &str,
+    name: &str,
+    arguments: serde_json::Value,
+) -> ToolResult {
+    let call = ToolCall {
+        call_id: call_id.to_string(),
+        name: name.to_string(),
+        arguments,
+    };
+    executor.execute(&call)
+}
+
+/// Retry configuration
+struct RetryConfig {
+    max_attempts: u32,
+    base_delay_ms: u64,
+    max_delay_ms: u64,
+    backoff_multiplier: f64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            max_attempts: 3,
+            base_delay_ms: 100,
+            max_delay_ms: 5000,
+            backoff_multiplier: 2.0,
+        }
+    }
+}
+
+/// Execute with exponential backoff retry
+fn execute_with_retry(
+    executor: &ToolExecutor,
+    call_id: &str,
+    name: &str,
+    arguments: serde_json::Value,
+    config: &RetryConfig,
+) -> Result<ToolResult, Vec<String>> {
+    let mut errors = Vec::new();
+    let mut current_delay = config.base_delay_ms;
+
+    for attempt in 1..=config.max_attempts {
+        let result = execute_from_json(executor, call_id, name, arguments.clone());
+
+        if result.success {
+            return Ok(result);
+        }
+
+        let error_msg = result.error.unwrap_or_else(|| "Unknown error".to_string());
+        errors.push(format!("Attempt {}: {}", attempt, error_msg));
+
+        // Check if this is a retriable error
+        if !is_retriable_error(&error_msg) {
+            break;
+        }
+
+        if attempt < config.max_attempts {
+            println!(
+                "   ⏳ Attempt {} failed, retrying in {}ms...",
+                attempt, current_delay
+            );
+            thread::sleep(Duration::from_millis(current_delay));
+
+            // Exponential backoff
+            current_delay = (current_delay as f64 * config.backoff_multiplier) as u64;
+            current_delay = current_delay.min(config.max_delay_ms);
+        }
+    }
+
+    Err(errors)
+}
+
+/// Check if an error is retriable
+fn is_retriable_error(error: &str) -> bool {
+    let error_lower = error.to_lowercase();
+    error_lower.contains("timeout")
+        || error_lower.contains("temporary")
+        || error_lower.contains("unavailable")
+        || error_lower.contains("connection")
+}
+
+/// Circuit breaker state
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum CircuitState {
+    Closed,   // Normal operation
+    Open,     // Failing, reject requests
+    HalfOpen, // Testing if service recovered
+}
+
+impl std::fmt::Display for CircuitState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CircuitState::Closed => write!(f, "Closed"),
+            CircuitState::Open => write!(f, "Open"),
+            CircuitState::HalfOpen => write!(f, "HalfOpen"),
+        }
+    }
+}
+
+/// Circuit breaker for preventing cascading failures
+struct CircuitBreaker {
+    state: CircuitState,
+    failure_count: u32,
+    success_count: u32,
+    failure_threshold: u32,
+    success_threshold: u32,
+    last_failure_time: Option<Instant>,
+    timeout: Duration,
+}
+
+impl CircuitBreaker {
+    fn new(failure_threshold: u32, success_threshold: u32, timeout_secs: u64) -> Self {
+        Self {
+            state: CircuitState::Closed,
+            failure_count: 0,
+            success_count: 0,
+            failure_threshold,
+            success_threshold,
+            last_failure_time: None,
+            timeout: Duration::from_secs(timeout_secs),
+        }
+    }
+
+    fn execute<F>(&mut self, operation: F) -> Result<ToolResult, String>
+    where
+        F: FnOnce() -> ToolResult,
+    {
+        // Check if circuit should transition from Open to HalfOpen
+        if self.state == CircuitState::Open {
+            if let Some(last_failure) = self.last_failure_time {
+                if last_failure.elapsed() > self.timeout {
+                    println!("   ⚡ Circuit breaker: Open → HalfOpen");
+                    self.state = CircuitState::HalfOpen;
+                    self.success_count = 0;
+                } else {
+                    return Err("Circuit breaker is OPEN - rejecting request".to_string());
+                }
+            }
+        }
+
+        // Execute the operation
+        let result = operation();
+
+        if result.success {
+            self.on_success();
+            Ok(result)
+        } else {
+            self.on_failure();
+            Err(result
+                .error
+                .unwrap_or_else(|| "Operation failed".to_string()))
+        }
+    }
+
+    fn on_success(&mut self) {
+        match self.state {
+            CircuitState::HalfOpen => {
+                self.success_count += 1;
+                if self.success_count >= self.success_threshold {
+                    println!("   ✅ Circuit breaker: HalfOpen → Closed");
+                    self.state = CircuitState::Closed;
+                    self.failure_count = 0;
+                }
+            }
+            CircuitState::Closed => {
+                self.failure_count = 0;
+            }
+            _ => {}
+        }
+    }
+
+    fn on_failure(&mut self) {
+        self.failure_count += 1;
+        self.last_failure_time = Some(Instant::now());
+
+        if self.failure_count >= self.failure_threshold {
+            println!("   ⛔ Circuit breaker: {} → Open", self.state);
+            self.state = CircuitState::Open;
+        }
+    }
+}
+
+/// Aggregate multiple errors into a comprehensive report
+struct ErrorAggregator {
+    errors: Vec<(String, String, Instant)>, // (category, message, timestamp)
+}
+
+impl ErrorAggregator {
+    fn new() -> Self {
+        Self { errors: Vec::new() }
+    }
+
+    fn add_error(&mut self, category: impl Into<String>, message: impl Into<String>) {
+        self.errors
+            .push((category.into(), message.into(), Instant::now()));
+    }
+
+    fn generate_report(&self) -> String {
+        let mut report = String::from("# Error Report\n\n");
+
+        // Group by category
+        let mut categorized: std::collections::HashMap<&str, Vec<&str>> =
+            std::collections::HashMap::new();
+
+        for (category, message, _) in &self.errors {
+            categorized.entry(category).or_default().push(message);
+        }
+
+        // Build report
+        for (category, messages) in &categorized {
+            report.push_str(&format!("## {}\n", category));
+            report.push_str(&format!("Count: {}\n\n", messages.len()));
+            for (idx, msg) in messages.iter().enumerate() {
+                report.push_str(&format!("{}. {}\n", idx + 1, msg));
+            }
+            report.push('\n');
+        }
+
+        report.push_str(&format!(
+            "## Summary\n\nTotal errors: {}\n",
+            self.errors.len()
+        ));
+
+        report
+    }
+}
+
+fn main() -> anyhow::Result<()> {
+    let workspace = PathBuf::from("/tmp/rustycode-error-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    let executor = ToolExecutor::from_cwd(workspace.clone());
+
+    println!("=== Advanced Error Handling Demo ===\n");
+
+    // =========================================================================
+    // PATTERN 1: Exponential Backoff Retry
+    // =========================================================================
+    println!("🔄 PATTERN 1: Exponential Backoff Retry\n");
+
+    println!("   Attempting to read non-existent file with retry...");
+    let retry_config = RetryConfig {
+        max_attempts: 3,
+        base_delay_ms: 100,
+        max_delay_ms: 1000,
+        backoff_multiplier: 2.0,
+    };
+
+    match execute_with_retry(
+        &executor,
+        "retry-1",
+        "read_file",
+        json!({
+            "path": "nonexistent.txt"
+        }),
+        &retry_config,
+    ) {
+        Ok(_result) => {
+            println!("   ✓ Unexpected success");
+        }
+        Err(errors) => {
+            println!("   ✓ Retry attempts exhausted:");
+            for error in &errors {
+                println!("     - {}", error);
+            }
+        }
+    }
+
+    // =========================================================================
+    // PATTERN 2: Circuit Breaker
+    // =========================================================================
+    println!("\n\n🔌 PATTERN 2: Circuit Breaker\n");
+
+    let mut circuit_breaker = CircuitBreaker::new(2, 2, 5);
+
+    println!("   Testing circuit breaker with failing operations...");
+
+    // First failure
+    println!("\n   Attempt 1:");
+    match circuit_breaker
+        .execute(|| execute_from_json(&executor, "cb-1", "bash", json!({"command": "exit 1"})))
+    {
+        Ok(_) => println!("   ✓ Success"),
+        Err(e) => println!("   ✗ Failed: {}", e),
+    }
+
+    // Second failure (triggers circuit breaker)
+    println!("\n   Attempt 2:");
+    match circuit_breaker
+        .execute(|| execute_from_json(&executor, "cb-2", "bash", json!({"command": "exit 1"})))
+    {
+        Ok(_) => println!("   ✓ Success"),
+        Err(e) => println!("   ✗ Failed: {}", e),
+    }
+
+    // Third attempt (should be rejected by circuit breaker)
+    println!("\n   Attempt 3 (should be rejected):");
+    match circuit_breaker
+        .execute(|| execute_from_json(&executor, "cb-3", "bash", json!({"command": "echo 'test'"})))
+    {
+        Ok(_) => println!("   ✓ Success"),
+        Err(e) => println!("   ✗ Failed: {}", e),
+    }
+
+    // =========================================================================
+    // PATTERN 3: Graceful Degradation
+    // =========================================================================
+    println!("\n\n🛡️ PATTERN 3: Graceful Degradation\n");
+
+    println!("   Attempting operation with fallback chain...");
+
+    // Try primary operation, fall back to secondary
+    let result = execute_from_json(
+        &executor,
+        "fallback-1",
+        "read_file",
+        json!({
+            "path": "primary_config.json"
+        }),
+    );
+
+    let content = if result.success {
+        println!("   ✓ Primary config loaded");
+        Some(result.output)
+    } else {
+        println!("   ⚠ Primary config unavailable, trying fallback...");
+
+        let fallback_result = execute_from_json(
+            &executor,
+            "fallback-2",
+            "read_file",
+            json!({
+                "path": "fallback_config.json"
+            }),
+        );
+
+        if fallback_result.success {
+            println!("   ✓ Fallback config loaded");
+            Some(fallback_result.output)
+        } else {
+            println!("   ⚠ No config available, using defaults");
+            Some("{\"setting\": \"default\"}".to_string())
+        }
+    };
+
+    if let Some(config) = content {
+        println!(
+            "   ✓ Using configuration: {}",
+            config.chars().take(50).collect::<String>()
+        );
+    }
+
+    // =========================================================================
+    // PATTERN 4: Error Aggregation
+    // =========================================================================
+    println!("\n\n📊 PATTERN 4: Error Aggregation\n");
+
+    let mut aggregator = ErrorAggregator::new();
+
+    println!("   Collecting errors from multiple operations...");
+
+    // Simulate various errors
+    let operations = vec![
+        (
+            "File Operations",
+            "read_file",
+            json!({"path": "missing1.txt"}),
+        ),
+        (
+            "File Operations",
+            "read_file",
+            json!({"path": "missing2.txt"}),
+        ),
+        (
+            "Network",
+            "web_fetch",
+            json!({"url": "https://invalid-url-xyz.com"}),
+        ),
+        (
+            "Permissions",
+            "bash",
+            json!({"command": "cat /root/secret"}),
+        ),
+    ];
+
+    for (category, tool, args) in operations {
+        let result = execute_from_json(&executor, "agg-1", tool, args);
+        if !result.success {
+            aggregator.add_error(category, result.error.unwrap_or_default());
+        }
+    }
+
+    let report = aggregator.generate_report();
+    println!("   ✓ Generated error report:\n");
+    println!("{}", report);
+
+    // =========================================================================
+    // PATTERN 5: Security Error Handling
+    // =========================================================================
+    println!("\n\n🔒 PATTERN 5: Security Error Handling\n");
+
+    // Path traversal attempts
+    println!("   Testing security error handling...");
+
+    let path_traversal_attempts = [
+        "../../../etc/passwd",
+        "~/.ssh/id_rsa",
+        "/etc/passwd",
+        "..\\..\\..\\windows\\system32\\config\\sam",
+    ];
+
+    for (idx, path) in path_traversal_attempts.iter().enumerate() {
+        println!("\n   Attempt {}: {}", idx + 1, path);
+
+        let result = execute_from_json(
+            &executor,
+            &format!("sec-{}", idx),
+            "read_file",
+            json!({
+                "path": path
+            }),
+        );
+
+        match result.success {
+            true => println!("   ✗ SECURITY ISSUE: Path traversal allowed!"),
+            false => {
+                let error = result.error.unwrap_or_default();
+                if error.to_lowercase().contains("outside")
+                    || error.to_lowercase().contains("workspace")
+                {
+                    println!("   ✓ Blocked: {}", error);
+                } else {
+                    println!("   ? Unexpected error: {}", error);
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // PATTERN 6: Timeout Handling
+    // =========================================================================
+    println!("\n\n⏱️ PATTERN 6: Timeout Handling\n");
+
+    println!("   Testing timeout with long-running command...");
+
+    let start = Instant::now();
+    let result = execute_from_json(
+        &executor,
+        "timeout-1",
+        "bash",
+        json!({
+            "command": "sleep 10",
+            "timeout_secs": 2
+        }),
+    );
+    let elapsed = start.elapsed();
+
+    if !result.success {
+        println!("   ✓ Command timed out after {:?}", elapsed);
+        println!("   Error: {}", result.error.unwrap_or_default());
+    } else {
+        println!("   ✗ Command should have timed out");
+    }
+
+    // =========================================================================
+    // PATTERN 7: Validation Error Handling
+    // =========================================================================
+    println!("\n\n✅ PATTERN 7: Validation Error Handling\n");
+
+    println!("   Testing input validation...");
+
+    // Invalid regex (ReDoS risk)
+    println!("\n   Testing ReDoS prevention...");
+    let invalid_regex = execute_from_json(
+        &executor,
+        "val-1",
+        "grep",
+        json!({
+            "pattern": "((a+)*)+",
+            "path": "."
+        }),
+    );
+
+    if !invalid_regex.success {
+        println!(
+            "   ✓ ReDoS pattern blocked: {}",
+            invalid_regex.error.unwrap_or_default()
+        );
+    }
+
+    // Binary file detection
+    println!("\n   Testing binary file detection...");
+    std::fs::write(
+        workspace.join("binary.bin"),
+        b"\x00\x01\x02\x03\xFF\xFE\xFD",
+    )?;
+
+    let binary_result = execute_from_json(
+        &executor,
+        "val-2",
+        "read_file",
+        json!({
+            "path": "binary.bin"
+        }),
+    );
+
+    if !binary_result.success {
+        let error = binary_result.error.unwrap_or_default();
+        if error.to_lowercase().contains("binary") {
+            println!("   ✓ Binary file blocked: {}", error);
+        } else {
+            println!("   ? Error: {}", error);
+        }
+    }
+
+    // =========================================================================
+    // PATTERN 8: Contextual Error Reporting
+    // =========================================================================
+    println!("\n\n📝 PATTERN 8: Contextual Error Reporting\n");
+
+    println!("   Creating comprehensive error context...");
+
+    let operation = "batch_file_processing";
+    let files = vec!["file1.txt", "file2.txt", "file3.txt"];
+
+    let mut successful = 0;
+    let mut failed = 0;
+    let mut error_details = Vec::new();
+
+    for file in files {
+        let result = execute_from_json(
+            &executor,
+            &format!("ctx-{}", file),
+            "read_file",
+            json!({
+                "path": file
+            }),
+        );
+
+        if result.success {
+            successful += 1;
+        } else {
+            failed += 1;
+            error_details.push(format!("{}: {}", file, result.error.unwrap_or_default()));
+        }
+    }
+
+    println!("   ✓ Operation: {}", operation);
+    println!("   ✓ Processed: {}", successful + failed);
+    println!("   ✓ Successful: {}", successful);
+    println!("   ✓ Failed: {}", failed);
+
+    if failed > 0 {
+        println!("\n   Error details:");
+        for detail in error_details {
+            println!("     - {}", detail);
+        }
+    }
+
+    // Cleanup
+    println!("\n\n🧹 Cleaning up demo files...");
+    std::fs::remove_dir_all(&workspace)?;
+    println!("   ✓ Cleanup complete");
+
+    println!("\n=== Demo Complete ===\n");
+
+    println!("📚 Error Handling Patterns Demonstrated:");
+    println!("   1. Exponential backoff retry");
+    println!("   2. Circuit breaker pattern");
+    println!("   3. Graceful degradation with fallbacks");
+    println!("   4. Error aggregation and reporting");
+    println!("   5. Security error handling");
+    println!("   6. Timeout handling");
+    println!("   7. Validation error handling");
+    println!("   8. Contextual error reporting");
+
+    Ok(())
+}

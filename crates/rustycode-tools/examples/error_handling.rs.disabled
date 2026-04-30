@@ -1,0 +1,244 @@
+//! Error Handling Example
+//!
+//! This example demonstrates comprehensive error handling:
+//! - Path validation errors
+//! - Permission errors
+//! - Timeout handling
+//! - Binary file detection
+//! - Security violations
+//!
+//! Run with: cargo run --example error_handling
+
+use rustycode_tools::ToolExecutor;
+use rustycode_protocol::{ToolCall, ToolResult};
+use serde_json::json;
+use std::path::PathBuf;
+
+fn main() -> anyhow::Result<()> {
+    let workspace = PathBuf::from("/tmp/rustycode-error-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    let executor = ToolExecutor::new(workspace.clone());
+
+    println!("=== Error Handling Demo ===\n");
+
+    // Example 1: File not found
+    println!("1. Attempting to read non-existent file...");
+    let not_found_call = serde_json::json!({
+        "call_id": "1",
+        "name": "read_file",
+        "arguments": {
+            "path": "nonexistent.txt"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, not_found_call) {
+        Ok(result) => {
+            println!("   ✗ Unexpected success");
+        }
+        Err(e) => {
+            println!("   ✓ Expected error: {}", e);
+            println!("     (File not found errors are clearly reported)");
+        }
+    }
+
+    // Example 2: Path traversal attempt
+    println!("\n2. Attempting path traversal...");
+    let traversal_call = serde_json::json!({
+        "call_id": "2",
+        "name": "read_file",
+        "arguments": {
+            "path": "../../../etc/passwd"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, traversal_call) {
+        Ok(result) => {
+            println!("   ✗ Unexpected success (security issue!)");
+        }
+        Err(e) => {
+            println!("   ✓ Security violation blocked: {}", e);
+            println!("     (Path traversal is prevented)");
+        }
+    }
+
+    // Example 3: Binary file detection
+    println!("\n3. Attempting to read binary file...");
+    std::fs::write(workspace.join("test.bin"), b"\x00\x01\x02\x03\x04\xFF\xFE\xFD")?;
+
+    let binary_call = serde_json::json!({
+        "call_id": "3",
+        "name": "read_file",
+        "arguments": {
+            "path": "test.bin"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, binary_call) {
+        Ok(result) => {
+            println!("   ✗ Unexpected success");
+        }
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("binary") {
+                println!("   ✓ Binary file detected: {}", e);
+                println!("     (Binary files are blocked with helpful hints)");
+            } else {
+                println!("   ✗ Unexpected error: {}", e);
+            }
+        }
+    }
+
+    // Example 4: Blocked file extension
+    println!("\n4. Attempting to read .env file...");
+    std::fs::write(workspace.join(".env"), "SECRET=value")?;
+
+    let env_call = serde_json::json!({
+        "call_id": "4",
+        "name": "read_file",
+        "arguments": {
+            "path": ".env"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, env_call) {
+        Ok(result) => {
+            println!("   ✗ Unexpected success");
+        }
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("blocked") {
+                println!("   ✓ Blocked extension: {}", e);
+                println!("     (Security-sensitive files are protected)");
+            } else {
+                println!("   ✗ Unexpected error: {}", e);
+            }
+        }
+    }
+
+    // Example 5: Command timeout
+    println!("\n5. Testing command timeout...");
+    let timeout_call = serde_json::json!({
+        "call_id": "5",
+        "name": "bash",
+        "arguments": {
+            "command": "sleep 10",
+            "timeout_secs": 1
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, timeout_call) {
+        Ok(result) => {
+            if let Some(metadata) = result.metadata {
+                if let Some(timed_out) = metadata.get("timed_out") {
+                    if timed_out == true {
+                        println!("   ✓ Timeout handled correctly");
+                        println!("     (Long-running commands are terminated)");
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("   ✓ Timeout error: {}", e);
+            println!("     (Timeouts prevent hanging)");
+        }
+    }
+
+    // Example 6: Invalid regex pattern
+    println!("\n6. Testing invalid regex pattern...");
+    let invalid_regex_call = serde_json::json!({
+        "call_id": "6",
+        "name": "grep",
+        "arguments": {
+            "pattern": "(.*).*",  // Nested quantifiers - ReDoS risk
+            "path": "."
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, invalid_regex_call) {
+        Ok(result) => {
+            println!("   ✗ Unexpected success");
+        }
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("regex") || error_msg.contains("pattern") {
+                println!("   ✓ Invalid regex blocked: {}", e);
+                println!("     (ReDoS vulnerabilities are prevented)");
+            } else {
+                println!("   ✗ Unexpected error: {}", e);
+            }
+        }
+    }
+
+    // Example 7: File size limit
+    println!("\n7. Testing file size limit...");
+    let large_content = "x".repeat(20_000_000); // 20 MB
+    std::fs::write(workspace.join("huge.txt"), &large_content)?;
+
+    let large_file_call = serde_json::json!({
+        "call_id": "7",
+        "name": "read_file",
+        "arguments": {
+            "path": "huge.txt"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, large_file_call) {
+        Ok(result) => {
+            if let Some(metadata) = result.metadata {
+                if let Some(truncated) = metadata.get("truncated") {
+                    if truncated == true {
+                        println!("   ✓ Large file truncated");
+                        println!("     (Files exceeding limits are truncated)");
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            println!("   ✓ Size limit enforced: {}", e);
+            println!("     (Large files are handled gracefully)");
+        }
+    }
+
+    // Example 8: Invalid line range
+    println!("\n8. Testing invalid line range...");
+    std::fs::write(workspace.join("test.txt"), "Line 1\nLine 2\nLine 3")?;
+
+    let invalid_range_call = serde_json::json!({
+        "call_id": "8",
+        "name": "read_file",
+        "arguments": {
+            "path": "test.txt",
+            "start_line": 100,
+            "end_line": 200
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, invalid_range_call) {
+        Ok(result) => {
+            println!("   ✓ Invalid range handled gracefully");
+            println!("   Output: {}", result.result.trim());
+        }
+        Err(e) => {
+            println!("   ✓ Range error: {}", e);
+            println!("     (Out-of-range requests are handled)");
+        }
+    }
+
+    // Cleanup
+    println!("\n9. Cleaning up demo files...");
+    std::fs::remove_dir_all(&workspace)?;
+    println!("   ✓ Cleanup complete");
+
+    println!("\n=== Demo Complete ===");
+    println!("\nKey error handling features:");
+    println!("• Path validation prevents directory traversal");
+    println!("• Binary detection prevents data corruption");
+    println!("• Extension blocking protects sensitive files");
+    println!("• Timeouts prevent hanging operations");
+    println!("• Regex validation prevents ReDoS attacks");
+    println!("• Size limits prevent memory issues");
+    println!("• All errors provide clear, actionable messages");
+
+    Ok(())
+}

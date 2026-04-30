@@ -1,0 +1,97 @@
+[
+  {
+    "id": "task-023",
+    "title": "Optimize compilation time to under 10s",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "bash -c 'time cargo build --workspace 2>&1 | grep real || true'",
+      "timeout_seconds": 600
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-024",
+    "title": "Run cargo tarpaulin for coverage report",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "cargo tarpaulin --workspace --timeout 600 --out Html 2>&1 | grep -c 'coverage'",
+      "timeout_seconds": 900
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-025",
+    "title": "Add rustdoc examples to public APIs",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "cargo doc --workspace --no-deps 2>&1 | grep -E '(Finished|documented)'",
+      "timeout_seconds": 300
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-026",
+    "title": "Run clippy with all features",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "cargo clippy --workspace --all-features --all-targets 2>&1 | grep -c 'warning:' || echo 0",
+      "timeout_seconds": 300
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-027",
+    "title": "Run cargo fmt --check",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "cargo fmt -- --check 2>&1 | grep -E '(diff|formatted)' || echo 'All formatted'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  }
+]

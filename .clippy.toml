@@ -1,0 +1,30 @@
+# Clippy configuration for rustycode
+# https://doc.rust-lang.org/clippy/configuration.html
+
+# ---------------------------------------------------------------------------
+# Lint-group thresholds
+# ---------------------------------------------------------------------------
+
+# The project uses complex types in several places (e.g., tool-registry
+# callbacks, streaming handlers).  Keep the threshold generous so that
+# legitimate complexity is not flagged, but truly egregious signatures
+# still surface.
+type-complexity-threshold = 300
+
+# Several public APIs naturally take many parameters (e.g., builder-style
+# configuration, tool execution).  Allow up to 8 before warning.
+too-many-arguments-threshold = 8
+
+# ---------------------------------------------------------------------------
+# Naming / ident configuration
+# ---------------------------------------------------------------------------
+
+# Accept common abbreviations that appear throughout the codebase.
+doc-valid-idents = [
+    "KiB", "MiB", "GiB", "TiB", "PiB", "EiB",
+    "JSON", "JWT", "HTTP", "HTTPS", "URL", "URI",
+    "LLM", "API", "LSP", "MCP", "ACP",
+    "WebSocket", "WebRTC", "OAuth",
+    "stderr", "stdout", "stdin",
+    "macOS", "iOS",
+]

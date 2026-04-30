@@ -1,0 +1,81 @@
+[package]
+name = "rustycode-bench"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Benchmark runner for agent evaluation (Terminal Bench compatible)"
+
+[[bin]]
+name = "rtk-bench"
+path = "src/bin/main.rs"
+
+[features]
+default = []
+# Enable the real-agent mode (delegates to AgentSession instead of the
+# heuristic-heavy CodeAgent).  Requires unsafe for sync→async env bridge.
+real-agent = ["dep:rustycode-agent", "dep:rustycode-tools-api", "dep:rustycode-orchestration"]
+
+[dependencies]
+anyhow.workspace = true
+regex = "1"
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "process", "macros", "time", "fs", "io-util"] }
+toml.workspace = true
+tracing.workspace = true
+uuid = { workspace = true, features = ["v4"] }
+chrono.workspace = true
+async-trait.workspace = true
+bollard = "0.17"
+rustycode-llm = { path = "../rustycode-llm" }
+rustycode-agent = { path = "../rustycode-agent", optional = true }
+rustycode-tools = { path = "../rustycode-tools" }
+rustycode-tools-api = { path = "../rustycode-tools-api", optional = true }
+rustycode-orchestration = { path = "../rustycode-orchestration", optional = true }
+rustycode-protocol = { path = "../rustycode-protocol" }
+base64 = "0.22"
+secrecy.workspace = true
+clap = { workspace = true, features = ["derive"] }
+tracing-subscriber.workspace = true
+reqwest = { workspace = true }
+git2.workspace = true
+futures.workspace = true
+flate2 = "1.1"
+tar = "0.4"
+ignore = "0.4"
+globset = "0.4"
+indicatif = "0.17"
+console = "0.15"
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery  = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+type_complexity = "allow"
+collapsible-match = "allow"
+unnecessary-sort-by = "allow"
+unnecessary-min-or-max = "allow"
+useless-conversion = "allow"
+needless_range_loop = "allow"
+await_holding_lock = "allow"
+upper_case_acronyms = "allow"
+too_many_arguments = "allow"
+string_slice = "allow"
+redundant_field_names = "allow"
+module_inception = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+must_use_candidate = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+return_self_not_must_use = "allow"
+wildcard_imports = "allow"
+
+[lints.rust]
+unsafe_code = "allow"
+dead_code = "warn"

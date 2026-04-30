@@ -1,0 +1,46 @@
+[package]
+name = "rustycode-integration-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lints.clippy]
+len_zero = "allow"
+
+[dev-dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+tempfile = "3"
+rustycode-core = { path = "../crates/rustycode-core" }
+rustycode-protocol = { path = "../crates/rustycode-protocol" }
+rustycode-llm = { path = "../crates/rustycode-llm" }
+rustycode-config = { path = "../crates/rustycode-config" }
+rustycode-providers = { path = "../crates/rustycode-providers" }
+rustycode-session = { path = "../crates/rustycode-session" }
+rustycode-mcp = { path = "../crates/rustycode-mcp" }
+
+[[test]]
+name = "config_integration"
+path = "integration_new/config_integration.rs"
+
+[[test]]
+name = "e2e_workflow"
+path = "integration_new/e2e_workflow.rs"
+
+[[test]]
+name = "mcp_integration"
+path = "integration_new/mcp_integration.rs"
+
+[[test]]
+name = "provider_integration"
+path = "integration_new/provider_integration.rs"
+
+[[test]]
+name = "session_integration"
+path = "integration_new/session_integration.rs"
+
+[dependencies]
+uuid = { workspace = true, features = ["v4"] }

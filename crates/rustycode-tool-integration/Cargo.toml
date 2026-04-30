@@ -1,0 +1,20 @@
+[package]
+name = "rustycode-tool-integration"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ahash = "0.8"
+anyhow.workspace = true
+chrono.workspace = true
+dashmap = "6"
+rustycode-protocol = { path = "../rustycode-protocol" }
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
+

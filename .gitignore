@@ -1,0 +1,104 @@
+# OS
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.tmp
+**/*.bak
+**/*.backup
+**/*.tmp
+*~
+*.swp
+*.swo
+
+# Rust / Build
+**/target/
+/target/
+/build/
+dist/
+/dist/
+*.rlib
+rust_out
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Cache
+.cache/
+.fastembed_cache/
+**/.fastembed_cache/
+.omc/
+**/.omc/
+
+# IDE / Tools
+.idea/
+.vscode/
+*.code-workspace
+.mcp.json
+.rustycode_command_history
+**/.rustycode_command_history
+
+# Logs
+*.log
+**/*.log
+.orchestra/activity.logl
+clippy_output.txt
+unwrap_files.txt
+**/*.jsonl
+
+# Test artifacts and binaries
+/jobs/
+/_jobs/
+terminal-bench-*/
+/harbor/
+/harbor-agent/
+/glm-5.1/
+crates/rustycode-runtime/benchmark_results/
+crates/rustycode-session/sessions/
+*.exp
+*.tar.gz
+*.deb
+
+# Agent / Tool Specific
+.harness*
+.sparv
+/.rustycode/
+**/.rustycode/
+.orchestra/
+.claude/
+.serena/
+.sisyphus/
+.gsd/
+.gsd-id
+.bg-shell/
+.worktrees/
+**/t-think/
+**/t-tier4/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+.orchestra.orchestra.db*
+
+# Benchmark baselines
+benches/report/
+criterion/
+*.baseline
+
+# Credentials
+.env
+.env.*
+!.env.example
+credentials.json
+*.credentials.json
+config.json
+.rustycode/
+tests/sessions/

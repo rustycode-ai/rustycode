@@ -1,0 +1,18 @@
+[package]
+name = "rustycode-tui-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+crossterm.workspace = true
+ratatui = { workspace = true, features = ["crossterm"] }
+rustycode-llm = { path = "../rustycode-llm" }
+rustycode-orchestration = { path = "../rustycode-orchestration" }
+
+[lints]
+workspace = true
+

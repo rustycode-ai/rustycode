@@ -1,0 +1,21 @@
+[package]
+name = "rustycode-classification"
+version.workspace = true
+edition.workspace = true
+license = "MIT"
+description = "Task complexity classification for orchestration routing"
+
+[dependencies]
+anyhow.workspace = true
+regex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+rustycode-protocol = { path = "../rustycode-protocol" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,188 @@
+//! Web Operations Example
+//!
+//! This example demonstrates web fetching capabilities:
+//! - HTTP GET requests with full metadata
+//! - Response header tracking
+//! - Status code handling
+//! - Execution timing
+//!
+//! Run with: cargo run --example web_operations
+
+use rustycode_protocol::{ToolCall, ToolResult};
+use rustycode_tools::ToolExecutor;
+use std::path::PathBuf;
+
+fn execute_from_json(
+    executor: &ToolExecutor,
+    call_id: &str,
+    name: &str,
+    arguments: serde_json::Value,
+) -> ToolResult {
+    let call = ToolCall {
+        call_id: call_id.to_string(),
+        name: name.to_string(),
+        arguments,
+    };
+    executor.execute(&call)
+}
+
+fn main() -> anyhow::Result<()> {
+    let workspace = PathBuf::from("/tmp/rustycode-web-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    let executor = ToolExecutor::from_cwd(workspace);
+
+    println!("=== Web Operations Demo ===\n");
+
+    // Example 1: Simple GET request
+    println!("1. Fetching https://example.com...");
+    let result = execute_from_json(
+        &executor,
+        "1",
+        "web_fetch",
+        serde_json::json!({"url": "https://example.com"}),
+    );
+
+    match result.error.is_none() {
+        true => {
+            println!("   ✓ Fetch completed");
+            if let Some(metadata) = result.data {
+                if let Some(status) = metadata.get("status_code") {
+                    println!("   ✓ Status code: {}", status);
+                }
+                if let Some(time) = metadata.get("fetch_time_ms") {
+                    println!("   ✓ Fetch time: {}ms", time);
+                }
+                if let Some(headers) = metadata.get("headers") {
+                    println!("   ✓ Response headers: {}", headers);
+                }
+            }
+            println!(
+                "   Content preview (first 200 chars):\n{}",
+                result.output.chars().take(200).collect::<String>()
+            );
+        }
+        false => println!("   ✗ Error: {}", result.error.unwrap_or_default()),
+    }
+
+    // Example 2: Fetch JSON API
+    println!("\n2. Fetching JSON from https://httpbin.org/json...");
+    let result = execute_from_json(
+        &executor,
+        "2",
+        "web_fetch",
+        serde_json::json!({"url": "https://httpbin.org/json"}),
+    );
+
+    match result.error.is_none() {
+        true => {
+            println!("   ✓ JSON fetch completed");
+            if let Some(metadata) = result.data {
+                if let Some(content_type) = metadata.get("content_type") {
+                    println!("   ✓ Content-Type: {}", content_type);
+                }
+                if let Some(size) = metadata.get("content_length") {
+                    println!("   ✓ Content length: {} bytes", size);
+                }
+            }
+            println!("   Response:\n{}", result.output);
+        }
+        false => println!("   ✗ Error: {}", result.error.unwrap_or_default()),
+    }
+
+    // Example 3: Fetch with specific headers (using httpbin)
+    println!("\n3. Testing request with httpbin.org/headers...");
+    let result = execute_from_json(
+        &executor,
+        "3",
+        "web_fetch",
+        serde_json::json!({"url": "https://httpbin.org/headers"}),
+    );
+
+    match result.error.is_none() {
+        true => {
+            println!("   ✓ Headers fetch completed");
+            println!(
+                "   Response preview:\n{}",
+                result.output.chars().take(300).collect::<String>()
+            );
+        }
+        false => println!("   ✗ Error: {}", result.error.unwrap_or_default()),
+    }
+
+    // Example 4: Fetch status code
+    println!("\n4. Testing 404 response...");
+    let result = execute_from_json(
+        &executor,
+        "4",
+        "web_fetch",
+        serde_json::json!({"url": "https://httpbin.org/status/404"}),
+    );
+
+    match result.error.is_none() {
+        true => {
+            println!("   ✓ Fetch completed (404 expected)");
+            if let Some(metadata) = result.data {
+                if let Some(status) = metadata.get("status_code") {
+                    println!("   ✓ Status code: {} (as expected)", status);
+                }
+                if let Some(success) = metadata.get("success") {
+                    println!("   ✓ Success flag: {}", success);
+                }
+            }
+        }
+        false => println!("   ✗ Error: {}", result.error.unwrap_or_default()),
+    }
+
+    // Example 5: Fetch delay timing
+    println!("\n5. Testing fetch timing with delay...");
+    let result = execute_from_json(
+        &executor,
+        "5",
+        "web_fetch",
+        serde_json::json!({"url": "https://httpbin.org/delay/1"}),
+    );
+
+    match result.error.is_none() {
+        true => {
+            println!("   ✓ Delayed fetch completed");
+            if let Some(metadata) = result.data {
+                if let Some(time) = metadata.get("fetch_time_ms") {
+                    println!("   ✓ Fetch time: {}ms (should be ~1000ms)", time);
+                }
+                if let Some(status) = metadata.get("status_code") {
+                    println!("   ✓ Status code: {}", status);
+                }
+            }
+        }
+        false => println!("   ✗ Error: {}", result.error.unwrap_or_default()),
+    }
+
+    // Example 6: Fetch plain text
+    println!("\n6. Fetching plain text...");
+    let result = execute_from_json(
+        &executor,
+        "6",
+        "web_fetch",
+        serde_json::json!({"url": "https://httpbin.org/robots.txt"}),
+    );
+
+    match result.error.is_none() {
+        true => {
+            println!("   ✓ Text fetch completed");
+            if let Some(metadata) = result.data {
+                if let Some(content_type) = metadata.get("content_type") {
+                    println!("   ✓ Content-Type: {}", content_type);
+                }
+            }
+            println!("   Content:\n{}", result.output);
+        }
+        false => println!("   ✗ Error: {}", result.error.unwrap_or_default()),
+    }
+
+    println!("\n=== Demo Complete ===");
+    println!("\nNote: Web fetch operations require network connectivity.");
+    println!("Some examples use httpbin.org for testing purposes.");
+
+    Ok(())
+}

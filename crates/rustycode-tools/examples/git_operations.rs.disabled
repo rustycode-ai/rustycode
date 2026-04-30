@@ -1,0 +1,187 @@
+//! Git Operations Example
+//!
+//! This example demonstrates git-related tools:
+//! - Git status with file tracking
+//! - Git diff with statistics
+//! - Git log with history
+//! - Git commit with change tracking
+//!
+//! Run with: cargo run --example git_operations
+
+use rustycode_tools::ToolExecutor;
+use rustycode_protocol::{ToolCall, ToolResult};
+use serde_json::json;
+use std::path::PathBuf;
+use std::process::Command;
+
+fn main() -> anyhow::Result<()> {
+    // Create a temporary git repository
+    let workspace = PathBuf::from("/tmp/rustycode-git-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    // Initialize git repository
+    Command::new("git")
+        .args(["init"])
+        .current_dir(&workspace)
+        .output()?;
+
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(&workspace)
+        .output()?;
+
+    Command::new("git")
+        .args(["config", "user.name", "Test User"])
+        .current_dir(&workspace)
+        .output()?;
+
+    let executor = ToolExecutor::new(workspace.clone());
+
+    println!("=== Git Operations Demo ===\n");
+
+    // Example 1: Create initial file and check status
+    println!("1. Creating initial file...");
+    std::fs::write(
+        workspace.join("README.md"),
+        "# Demo Project\n\nInitial version\n",
+    )?;
+    println!("   ✓ File created");
+
+    println!("\n2. Checking git status...");
+    let status_call = serde_json::json!({
+        "call_id": "1",
+        "name": "git_status",
+        "arguments": {}
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, status_call) {
+        Ok(result) => {
+            println!("   ✓ Status retrieved");
+            if let Some(metadata) = result.metadata {
+                if let Some(stats) = metadata.get("file_stats") {
+                    println!("   ✓ File stats: {}", stats);
+                }
+            }
+            println!("   Status output:\n{}", result.result);
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 2: Git diff
+    println!("\n3. Checking git diff...");
+    let diff_call = serde_json::json!({
+        "call_id": "2",
+        "name": "git_diff",
+        "arguments": {}
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, diff_call) {
+        Ok(result) => {
+            println!("   ✓ Diff retrieved");
+            if let Some(metadata) = result.metadata {
+                if let Some(stats) = metadata.get("stats") {
+                    println!("   ✓ Diff stats: {}", stats);
+                }
+            }
+            println!("   Diff preview (first 15 lines):\n{}",
+                result.result.lines().take(15).collect::<Vec<_>>().join("\n"));
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 3: Commit changes
+    println!("\n4. Committing changes...");
+    let commit_call = serde_json::json!({
+        "call_id": "3",
+        "name": "git_commit",
+        "arguments": {
+            "message": "Initial commit: Add README"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, commit_call) {
+        Ok(result) => {
+            println!("   ✓ Commit created");
+            if let Some(metadata) = result.metadata {
+                if let Some(hash) = metadata.get("commit_hash") {
+                    println!("   ✓ Commit hash: {}", hash);
+                }
+            }
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 4: Create more commits and check log
+    println!("\n5. Creating additional commits...");
+    for i in 1..=3 {
+        let file_name = format!("file{}.txt", i);
+        std::fs::write(workspace.join(&file_name), format!("Content {}\n", i))?;
+
+        let commit_msg = format!("Commit {}: Add {}", i, file_name);
+        let commit_call = serde_json::json!({
+            "call_id": &format!("{}", 3 + i),
+            "name": "git_commit",
+            "arguments": {
+                "message": commit_msg
+            }
+        });
+
+        match execute_from_json(&executor, call_id, tool_name, commit_call) {
+            Ok(_) => println!("   ✓ Created commit {}", i),
+            Err(e) => println!("   ✗ Commit {} failed: {}", i, e),
+        }
+    }
+
+    println!("\n6. Checking git log...");
+    let log_call = serde_json::json!({
+        "call_id": "7",
+        "name": "git_log",
+        "arguments": {
+            "max_count": 5
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, log_call) {
+        Ok(result) => {
+            println!("   ✓ Log retrieved");
+            if let Some(metadata) = result.metadata {
+                if let Some(count) = metadata.get("commit_count") {
+                    println!("   ✓ Total commits: {}", count);
+                }
+            }
+            println!("   Recent commits:\n{}", result.result);
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 5: Check diff for a specific file
+    println!("\n7. Modifying file and checking diff...");
+    std::fs::write(
+        workspace.join("README.md"),
+        "# Demo Project\n\nUpdated version\n\nNew section\n",
+    )?;
+
+    let diff_file_call = serde_json::json!({
+        "call_id": "8",
+        "name": "git_diff",
+        "arguments": {
+            "path": "README.md"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, diff_file_call) {
+        Ok(result) => {
+            println!("   ✓ File diff retrieved");
+            println!("   Diff output:\n{}", result.result);
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Cleanup
+    println!("\n8. Cleaning up demo repository...");
+    std::fs::remove_dir_all(&workspace)?;
+    println!("   ✓ Cleanup complete");
+
+    println!("\n=== Demo Complete ===");
+    Ok(())
+}

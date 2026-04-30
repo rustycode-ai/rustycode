@@ -1,0 +1,28 @@
+[package]
+name = "rustycode-execution"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+futures.workspace = true
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-config = { path = "../rustycode-config" }
+rustycode-bus = { path = "../rustycode-bus" }
+rustycode-storage = { path = "../rustycode-storage" }
+rustycode-tool-integration = { path = "../rustycode-tool-integration" }
+rustycode-tools = { path = "../rustycode-tools" }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[lints]
+workspace = true
+

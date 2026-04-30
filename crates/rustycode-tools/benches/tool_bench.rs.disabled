@@ -1,0 +1,280 @@
+// Criterion benchmarks for tool execution performance
+use rustycode_protocol::ToolCall;
+use rustycode_tools::{ToolExecutor, ToolRegistry};
+use serde_json::json;
+use std::path::PathBuf;
+use tempfile::TempDir;
+
+#[cfg(test)]
+#[allow(dead_code)]
+mod tool_benches {
+    use super::*;
+    use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+
+    fn create_test_workspace() -> (TempDir, PathBuf) {
+        let temp_dir = TempDir::new().unwrap();
+        let workspace = temp_dir.path().to_path_buf();
+
+        // Create some test files
+        std::fs::write(
+            workspace.join("test.txt"),
+            "hello world\nthis is a test file\nwith multiple lines",
+        )
+        .unwrap();
+
+        std::fs::write(workspace.join("large_file.txt"), "x".repeat(10000)).unwrap();
+
+        // Create subdirectories
+        std::fs::create_dir_all(workspace.join("subdir")).unwrap();
+        std::fs::write(workspace.join("subdir/nested.txt"), "nested content").unwrap();
+
+        (temp_dir, workspace)
+    }
+
+    fn bench_read_file_performance(c: &mut Criterion) {
+        let mut group = c.benchmark_group("tool_read_file");
+
+        for size in [100, 1000, 10000].iter() {
+            group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+                let (_temp, workspace) = create_test_workspace();
+
+                // Create file of specific size
+                std::fs::write(workspace.join("sized.txt"), "x".repeat(size)).unwrap();
+
+                let executor = ToolExecutor::from_cwd(workspace);
+                let call = ToolCall {
+                    call_id: "test-1".to_string(),
+                    name: "read_file".to_string(),
+                    arguments: json!({"path": "sized.txt"}),
+                };
+
+                b.iter(|| {
+                    executor.execute(black_box(&call));
+                });
+            });
+        }
+
+        group.finish();
+    }
+
+    fn bench_write_file_performance(c: &mut Criterion) {
+        let mut group = c.benchmark_group("tool_write_file");
+
+        for size in [100, 1000, 10000].iter() {
+            group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
+                let (_temp, workspace) = create_test_workspace();
+                let executor = ToolExecutor::from_cwd(workspace);
+
+                let content = "x".repeat(size);
+
+                b.iter(|| {
+                    let call = ToolCall {
+                        call_id: "test-1".to_string(),
+                        name: "write_file".to_string(),
+                        arguments: json!({
+                            "path": format!("test_{}.txt", size),
+                            "content": black_box(&content)
+                        }),
+                    };
+                    executor.execute(black_box(&call));
+                });
+            });
+        }
+
+        group.finish();
+    }
+
+    fn bench_list_dir_performance(c: &mut Criterion) {
+        let mut group = c.benchmark_group("tool_list_dir");
+
+        group.bench_function("small_directory", |b| {
+            let (_temp, workspace) = create_test_workspace();
+            let executor = ToolExecutor::from_cwd(workspace);
+
+            let call = ToolCall {
+                call_id: "test-1".to_string(),
+                name: "list_dir".to_string(),
+                arguments: json!({"path": "."}),
+            };
+
+            b.iter(|| {
+                executor.execute(black_box(&call));
+            });
+        });
+
+        group.bench_function("recursive_listing", |b| {
+            let (_temp, workspace) = create_test_workspace();
+            let executor = ToolExecutor::from_cwd(workspace);
+
+            let call = ToolCall {
+                call_id: "test-1".to_string(),
+                name: "list_dir".to_string(),
+                arguments: json!({"path": ".", "recursive": true, "max_depth": 3}),
+            };
+
+            b.iter(|| {
+                executor.execute(black_box(&call));
+            });
+        });
+
+        group.finish();
+    }
+
+    fn bench_grep_performance(c: &mut Criterion) {
+        let mut group = c.benchmark_group("tool_grep");
+
+        // Create workspace with test files
+        let (_temp, workspace) = create_test_workspace();
+
+        // Create multiple files with content
+        for i in 0..10 {
+            std::fs::write(
+                workspace.join(format!("file_{}.txt", i)),
+                "line 1\ntest pattern\nline 3\npattern test\nline 5",
+            )
+            .unwrap();
+        }
+
+        let executor = ToolExecutor::from_cwd(workspace);
+
+        group.bench_function("simple_pattern", |b| {
+            let call = ToolCall {
+                call_id: "test-1".to_string(),
+                name: "grep".to_string(),
+                arguments: json!({"pattern": "pattern"}),
+            };
+
+            b.iter(|| {
+                executor.execute(black_box(&call));
+            });
+        });
+
+        group.bench_function("regex_pattern", |b| {
+            let call = ToolCall {
+                call_id: "test-1".to_string(),
+                name: "grep".to_string(),
+                arguments: json!({"pattern": r"pat.*ern"}),
+            };
+
+            b.iter(|| {
+                executor.execute(black_box(&call));
+            });
+        });
+
+        group.finish();
+    }
+
+    fn bench_glob_performance(c: &mut Criterion) {
+        let mut group = c.benchmark_group("tool_glob");
+
+        // Create workspace with many files
+        let (_temp, workspace) = create_test_workspace();
+
+        // Create many test files
+        for i in 0..50 {
+            std::fs::write(workspace.join(format!("test_{}.txt", i)), "content").unwrap();
+            std::fs::write(workspace.join(format!("data_{}.rs", i)), "content").unwrap();
+        }
+
+        let executor = ToolExecutor::from_cwd(workspace);
+
+        group.bench_function("pattern_matching", |b| {
+            let call = ToolCall {
+                call_id: "test-1".to_string(),
+                name: "glob".to_string(),
+                arguments: json!({"pattern": "test"}),
+            };
+
+            b.iter(|| {
+                executor.execute(black_box(&call));
+            });
+        });
+
+        group.finish();
+    }
+
+    fn bench_cached_execution(c: &mut Criterion) {
+        let mut group = c.benchmark_group("cached_execution");
+
+        let (_temp, workspace) = create_test_workspace();
+        let executor = ToolExecutor::from_cwd(workspace);
+
+        // Pre-populate cache
+        let call = ToolCall {
+            call_id: "test-1".to_string(),
+            name: "read_file".to_string(),
+            arguments: json!({"path": "test.txt"}),
+        };
+
+        // First call to populate cache
+        executor.execute(&call);
+
+        group.bench_function("cache_hit", |b| {
+            b.iter(|| {
+                executor.execute(black_box(&call));
+            });
+        });
+
+        group.finish();
+    }
+
+    fn bench_tool_registry(c: &mut Criterion) {
+        let mut group = c.benchmark_group("tool_registry");
+
+        group.bench_function("list_tools", |b| {
+            let registry = ToolRegistry::new();
+            b.iter(|| {
+                registry.list();
+            });
+        });
+
+        group.bench_function("get_tool", |b| {
+            let registry = ToolRegistry::new();
+            b.iter(|| {
+                registry.get(black_box("read_file"));
+            });
+        });
+
+        group.finish();
+    }
+
+    fn bench_json_serialization(c: &mut Criterion) {
+        let mut group = c.benchmark_group("json_overhead");
+
+        group.bench_function("small_arguments", |b| {
+            let args = json!({"path": "/test/file.txt"});
+            b.iter(|| {
+                serde_json::to_string(black_box(&args)).unwrap();
+            });
+        });
+
+        group.bench_function("large_arguments", |b| {
+            let args = json!({
+                "pattern": "test",
+                "path": "/",
+                "context": 5,
+                "max_matches": 1000,
+                "ignore_case": true,
+                "whole_word": false
+            });
+            b.iter(|| {
+                serde_json::to_string(black_box(&args)).unwrap();
+            });
+        });
+
+        group.finish();
+    }
+
+    criterion_group!(
+        benches,
+        bench_read_file_performance,
+        bench_write_file_performance,
+        bench_list_dir_performance,
+        bench_grep_performance,
+        bench_glob_performance,
+        bench_cached_execution,
+        bench_tool_registry,
+        bench_json_serialization
+    );
+    criterion_main!(benches);
+}

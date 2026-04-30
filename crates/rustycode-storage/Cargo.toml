@@ -1,0 +1,34 @@
+[package]
+name = "rustycode-storage"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-bus = { path = "../rustycode-bus" }
+async-trait.workspace = true
+uuid.workspace = true
+tracing.workspace = true
+dirs.workspace = true
+ulid = "1.1"
+
+[dependencies.tokio]
+workspace = true
+features = ["sync", "rt", "macros"]
+
+[dev-dependencies]
+uuid.workspace = true
+ulid = "1.1"
+tempfile.workspace = true
+
+[lints]
+workspace = true
+

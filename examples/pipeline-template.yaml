@@ -1,0 +1,43 @@
+# RustyCode Pipeline Configuration Schema
+# This file allows users to define their custom pipeline without modifying code.
+# The `implementation` field links to pre-compiled engine steps.
+
+pipeline_version: "1.0"
+metadata:
+  name: "XMAN AM Pipeline"
+  description: "Standard daily asset management pipeline"
+
+# Pre-defined steps available in the engine. 
+# Users map these steps to the signals they need.
+steps:
+  - id: "load_workflow"
+    implementation: "rustycode::steps::LoadWorkflowStep"
+    provides: ["WORKFLOW_LOADED"]
+
+  - id: "data_refresh"
+    implementation: "rustycode::steps::DataRefreshStep"
+    depends_on: 
+      - signal: "WORKFLOW_LOADED"
+        blocking: "hard"
+    provides: ["DATA_REFRESH_COMPLETE"]
+
+  - id: "data_gate"
+    implementation: "rustycode::steps::DataGateStep"
+    depends_on:
+      - signal: "DATA_REFRESH_COMPLETE"
+        blocking: "hard"
+    provides: ["DATA_GATE_PASSED"]
+
+# Define the sequence logic or groupings
+phases:
+  - name: "Initialization"
+    steps: ["load_workflow"]
+  
+  - name: "Data Acquisition"
+    steps: ["data_refresh", "data_gate"]
+
+# Global settings for the pipeline engine
+settings:
+  auto_retry: true
+  max_retries: 3
+  halt_on_hard_failure: true

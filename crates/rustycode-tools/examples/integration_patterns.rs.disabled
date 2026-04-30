@@ -1,0 +1,628 @@
+//! Integration Patterns
+//!
+//! This example demonstrates integration with external systems:
+//! - LLM provider integration patterns
+//! - Event-driven architecture with tool events
+//! - Pipeline composition and chaining
+//! - Error recovery and rollback mechanisms
+//!
+//! Run with: cargo run --example integration_patterns
+
+use rustycode_protocol::{ToolCall, ToolResult};
+use rustycode_tools::ToolExecutor;
+use serde_json::json;
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+// Simple timestamp function (avoiding chrono dependency)
+#[allow(dead_code)]
+fn _current_timestamp() -> String {
+    "2024-03-14T10:00:00Z".to_string()
+}
+fn execute_from_json(
+    executor: &ToolExecutor,
+    call_id: &str,
+    name: &str,
+    arguments: serde_json::Value,
+) -> ToolResult {
+    let call = ToolCall {
+        call_id: call_id.to_string(),
+        name: name.to_string(),
+        arguments,
+    };
+    executor.execute(&call)
+}
+
+// ===========================================================================
+// PATTERN 1: LLM Integration
+// ===========================================================================
+
+struct LLMIntegrationHelper<'a> {
+    executor: &'a ToolExecutor,
+    prompt_template: String,
+}
+
+impl<'a> LLMIntegrationHelper<'a> {
+    fn new(executor: &'a ToolExecutor, template: &str) -> Self {
+        Self {
+            executor,
+            prompt_template: template.to_string(),
+        }
+    }
+
+    /// Build prompt from template and context
+    fn build_prompt(&self, context: &HashMap<String, String>) -> String {
+        let mut prompt = self.prompt_template.clone();
+
+        for (key, value) in context {
+            prompt = prompt.replace(&format!("{{{}}}", key), value);
+        }
+
+        prompt
+    }
+
+    /// Prepare code context for LLM
+    fn prepare_code_context(&self, file_path: &str) -> Option<HashMap<String, String>> {
+        let result = execute_from_json(
+            self.executor,
+            "llm-read",
+            "read_file",
+            json!({
+                "path": file_path
+            }),
+        );
+        if result.success {
+            let mut context = HashMap::new();
+            context.insert("file_path".to_string(), file_path.to_string());
+            context.insert("file_content".to_string(), result.output.clone());
+            context.insert(
+                "line_count".to_string(),
+                result.output.lines().count().to_string(),
+            );
+
+            if let Some(metadata) = result.data {
+                if let Some(hash) = metadata.get("content_hash") {
+                    context.insert("content_hash".to_string(), hash.to_string());
+                }
+            }
+
+            Some(context)
+        } else {
+            None
+        }
+    }
+
+    /// Generate LLM prompt from code context
+    fn generate_prompt(&self, file_path: &str) -> Option<String> {
+        let context = self.prepare_code_context(file_path)?;
+        Some(self.build_prompt(&context))
+    }
+
+    /// Process LLM response and apply changes
+    fn apply_llm_suggestions(&self, file_path: &str, suggestions: &str) -> Result<(), String> {
+        // In real implementation, this would parse LLM response
+        // and apply suggested changes
+
+        // For demo, just append suggestions as comment
+        let read_result = execute_from_json(
+            self.executor,
+            "llm-apply-read",
+            "read_file",
+            json!({
+                "path": file_path
+            }),
+        );
+
+        if read_result.success {
+            let modified = format!(
+                "{}\n\n// LLM Suggestions:\n{}\n",
+                read_result.output, suggestions
+            );
+
+            let write_result = execute_from_json(
+                self.executor,
+                "llm-apply-write",
+                "write_file",
+                json!({
+                    "path": file_path,
+                    "content": modified
+                }),
+            );
+
+            if write_result.success {
+                Ok(())
+            } else {
+                Err(write_result.error.unwrap_or_default())
+            }
+        } else {
+            Err(read_result.error.unwrap_or_default())
+        }
+    }
+}
+
+// ===========================================================================
+// PATTERN 2: Pipeline Composition
+// ===========================================================================
+
+#[allow(clippy::type_complexity)]
+struct PipelineStage<'a> {
+    name: String,
+    processor:
+        Box<dyn Fn(&ToolExecutor, &serde_json::Value) -> Result<serde_json::Value, String> + 'a>,
+}
+
+impl<'a> PipelineStage<'a> {
+    fn new<F>(name: &str, processor: F) -> Self
+    where
+        F: Fn(&ToolExecutor, &serde_json::Value) -> Result<serde_json::Value, String> + 'a,
+    {
+        Self {
+            name: name.to_string(),
+            processor: Box::new(processor),
+        }
+    }
+}
+
+struct Pipeline<'a> {
+    stages: Vec<PipelineStage<'a>>,
+    executor: &'a ToolExecutor,
+}
+
+impl<'a> Pipeline<'a> {
+    fn new(executor: &'a ToolExecutor) -> Self {
+        Self {
+            stages: Vec::new(),
+            executor,
+        }
+    }
+
+    fn add_stage(mut self, stage: PipelineStage<'a>) -> Self {
+        self.stages.push(stage);
+        self
+    }
+
+    fn execute(&self, initial_input: serde_json::Value) -> Result<serde_json::Value, String> {
+        let mut current_data = initial_input;
+        let mut stage_results = Vec::new();
+
+        for stage in &self.stages {
+            println!("   ▶ Executing stage: {}", stage.name);
+
+            let result = (stage.processor)(self.executor, &current_data);
+            match result {
+                Ok(output) => {
+                    stage_results.push((stage.name.clone(), Ok(())));
+                    current_data = output;
+                }
+                Err(e) => {
+                    stage_results.push((stage.name.clone(), Err(e.clone())));
+                    return Err(format!("Pipeline failed at stage '{}': {}", stage.name, e));
+                }
+            }
+        }
+
+        println!("   ✓ Pipeline completed successfully");
+        Ok(current_data)
+    }
+}
+
+// ===========================================================================
+// PATTERN 3: Event-Driven Architecture
+// ===========================================================================
+
+#[derive(Debug, Clone)]
+struct ToolEvent {
+    tool_name: String,
+    success: bool,
+}
+
+#[allow(clippy::type_complexity)]
+struct EventBus {
+    subscribers: Vec<Box<dyn Fn(&ToolEvent)>>,
+}
+
+impl EventBus {
+    fn new() -> Self {
+        Self {
+            subscribers: Vec::new(),
+        }
+    }
+
+    fn subscribe<F>(&mut self, handler: F)
+    where
+        F: Fn(&ToolEvent) + 'static,
+    {
+        self.subscribers.push(Box::new(handler));
+    }
+
+    fn publish(&self, event: ToolEvent) {
+        for handler in &self.subscribers {
+            handler(&event);
+        }
+    }
+}
+
+struct EventDrivenExecutor<'a> {
+    executor: &'a ToolExecutor,
+    event_bus: EventBus,
+}
+
+impl<'a> EventDrivenExecutor<'a> {
+    fn new(executor: &'a ToolExecutor) -> Self {
+        Self {
+            executor,
+            event_bus: EventBus::new(),
+        }
+    }
+
+    fn execute_with_events(
+        &self,
+        call_id: &str,
+        name: &str,
+        arguments: serde_json::Value,
+    ) -> ToolResult {
+        let result = execute_from_json(self.executor, call_id, name, arguments);
+
+        let event = ToolEvent {
+            tool_name: name.to_string(),
+            success: result.success,
+        };
+
+        self.event_bus.publish(event);
+
+        result
+    }
+}
+
+// ===========================================================================
+// PATTERN 4: Transactional Operations
+// ===========================================================================
+
+struct Transaction<'a> {
+    operations: Vec<Box<dyn Fn() -> Result<(), String>>>,
+    rollback_operations: Vec<Box<dyn Fn() -> Result<(), String>>>,
+    _phantom: std::marker::PhantomData<&'a ()>,
+}
+
+impl<'a> Transaction<'a> {
+    fn new(_executor: &'a ToolExecutor) -> Self {
+        Self {
+            operations: Vec::new(),
+            rollback_operations: Vec::new(),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    fn add_operation(
+        mut self,
+        operation: Box<dyn Fn() -> Result<(), String>>,
+        rollback: Box<dyn Fn() -> Result<(), String>>,
+    ) -> Self {
+        self.operations.push(operation);
+        self.rollback_operations.push(rollback);
+        self
+    }
+
+    fn commit(&self) -> Result<(), String> {
+        // Execute all operations
+        for (successful_ops, operation) in self.operations.iter().enumerate() {
+            if let Err(e) = operation() {
+                // Rollback successful operations
+                for rollback in self.rollback_operations.iter().take(successful_ops) {
+                    let _ = rollback(); // Best effort rollback
+                }
+                return Err(format!("Transaction failed: {}", e));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+// ===========================================================================
+// MAIN DEMO
+// ===========================================================================
+
+fn main() -> anyhow::Result<()> {
+    let workspace = PathBuf::from("/tmp/rustycode-integration-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    let executor = ToolExecutor::from_cwd(workspace.clone());
+
+    println!("=== Integration Patterns Demo ===\n");
+
+    // =========================================================================
+    // PATTERN 1: LLM Integration
+    // =========================================================================
+    println!("🤖 PATTERN 1: LLM Integration\n");
+
+    // Create sample code file
+    std::fs::write(
+        workspace.join("example.rs"),
+        r#"pub fn process_data(input: Vec<i32>) -> Vec<i32> {
+    let mut result = Vec::new();
+    for item in input {
+        if item > 0 {
+            result.push(item * 2);
+        }
+    }
+    result
+}
+"#,
+    )?;
+
+    let llm_helper = LLMIntegrationHelper::new(
+        &executor,
+        r#"Analyze the following Rust code and provide improvement suggestions:
+
+File: {file_path}
+Lines: {line_count}
+Content:
+{file_content}
+
+Please suggest:
+1. Performance optimizations
+2. Error handling improvements
+3. Code style recommendations
+"#,
+    );
+
+    println!("   Generating LLM prompt...");
+    if let Some(prompt) = llm_helper.generate_prompt("example.rs") {
+        println!("   ✓ Prompt generated:\n");
+        println!("{}", prompt.chars().take(500).collect::<String>());
+        println!("...\n[prompt truncated]");
+    }
+
+    // Simulate LLM response
+    let suggestions = r#"1. Consider using iterators: `input.iter().filter(|x| *x > 0).map(|x| x * 2).collect()`
+2. Add input validation
+3. Consider using Result type for error handling"#;
+
+    println!("\n   Applying LLM suggestions...");
+    match llm_helper.apply_llm_suggestions("example.rs", suggestions) {
+        Ok(_) => println!("   ✓ Suggestions applied"),
+        Err(e) => println!("   ✗ Failed: {}", e),
+    }
+
+    // =========================================================================
+    // PATTERN 2: Pipeline Composition
+    // =========================================================================
+    println!("\n\n🔧 PATTERN 2: Pipeline Composition\n");
+
+    // Create test data
+    std::fs::write(
+        workspace.join("data.txt"),
+        "line1\nline2\nline3\nline4\nline5",
+    )?;
+
+    println!("   Building multi-stage pipeline...");
+
+    let executor_ref = &executor;
+
+    let pipeline = Pipeline::new(executor_ref)
+        .add_stage(PipelineStage::new("Read File", {
+            let executor = executor_ref;
+            move |_e: &ToolExecutor, _input: &serde_json::Value| {
+                println!("     Reading file...");
+                let result = execute_from_json(executor, "pipe-1", "read_file", json!({"path": "data.txt"}));
+                if result.success {
+                    Ok(json!({"content": result.output, "line_count": result.output.lines().count()}))
+                } else {
+                    Err(result.error.unwrap_or_default())
+                }
+            }
+        }))
+        .add_stage(PipelineStage::new("Transform", {
+            move |_e: &ToolExecutor, input: &serde_json::Value| {
+                println!("     Transforming data...");
+                let content = input["content"].as_str().unwrap_or("");
+                let transformed = content.to_uppercase();
+                Ok(json!({"content": transformed, "original": input}))
+            }
+        }))
+        .add_stage(PipelineStage::new("Validate", {
+            move |_e: &ToolExecutor, input: &serde_json::Value| {
+                println!("     Validating output...");
+                let content = input["content"].as_str().unwrap_or("");
+                if content.is_empty() {
+                    Err("Content is empty".to_string())
+                } else {
+                    Ok(json!({"status": "validated", "data": input}))
+                }
+            }
+        }))
+        .add_stage(PipelineStage::new("Write Output", {
+            let executor = executor_ref;
+            move |_e: &ToolExecutor, input: &serde_json::Value| {
+                println!("     Writing output...");
+                let content = input["data"]["content"].as_str().unwrap_or("");
+                let result = execute_from_json(
+                    executor,
+                    "pipe-4",
+                    "write_file",
+                    json!({
+                        "path": "output.txt",
+                        "content": content
+                    })
+                );
+                if result.success {
+                    Ok(json!({"status": "completed", "output_file": "output.txt"}))
+                } else {
+                    Err(result.error.unwrap_or_default())
+                }
+            }
+        }));
+
+    println!("   Executing pipeline...\n");
+    match pipeline.execute(json!({})) {
+        Ok(final_result) => {
+            println!("\n   ✓ Pipeline succeeded:");
+            println!("     {:?}", final_result);
+        }
+        Err(e) => {
+            println!("\n   ✗ Pipeline failed: {}", e);
+        }
+    }
+
+    // =========================================================================
+    // PATTERN 3: Event-Driven Architecture
+    // =========================================================================
+    println!("\n\n📡 PATTERN 3: Event-Driven Architecture\n");
+
+    let mut event_executor = EventDrivenExecutor::new(&executor);
+
+    // Subscribe to events
+    event_executor.event_bus.subscribe(|event| {
+        println!(
+            "   📢 Event: {} - {}",
+            event.tool_name,
+            if event.success {
+                "✓ Success"
+            } else {
+                "✗ Failed"
+            }
+        );
+    });
+
+    println!("   Executing operations with event tracking...\n");
+
+    let _ = event_executor.execute_with_events("event-1", "read_file", json!({"path": "data.txt"}));
+    let _ = event_executor.execute_with_events(
+        "event-2",
+        "read_file",
+        json!({"path": "nonexistent.txt"}),
+    );
+    let _ =
+        event_executor.execute_with_events("event-3", "bash", json!({"command": "echo 'test'"}));
+
+    println!("\n   ✓ Event tracking complete");
+
+    // =========================================================================
+    // PATTERN 4: Transactional Operations
+    // =========================================================================
+    println!("\n\n💾 PATTERN 4: Transactional Operations\n");
+
+    println!("   Demonstrating transaction with rollback...");
+
+    let ws1 = workspace.clone();
+    let ws1r = workspace.clone();
+    let ws2 = workspace.clone();
+    let ws2r = workspace.clone();
+    let ws3 = workspace.clone();
+    let ws3r = workspace.clone();
+    let transaction = Transaction::new(&executor)
+        .add_operation(
+            Box::new(move || {
+                println!("     Creating file1.txt...");
+                std::fs::write(ws1.join("file1.txt"), "content1")
+                    .map_err(|e| format!("Failed to create file1: {}", e))
+            }),
+            Box::new(move || {
+                println!("     Rolling back file1.txt...");
+                std::fs::remove_file(ws1r.join("file1.txt"))
+                    .map_err(|e| format!("Failed to rollback file1: {}", e))
+            }),
+        )
+        .add_operation(
+            Box::new(move || {
+                println!("     Creating file2.txt...");
+                std::fs::write(ws2.join("file2.txt"), "content2")
+                    .map_err(|e| format!("Failed to create file2: {}", e))
+            }),
+            Box::new(move || {
+                println!("     Rolling back file2.txt...");
+                std::fs::remove_file(ws2r.join("file2.txt"))
+                    .map_err(|e| format!("Failed to rollback file2: {}", e))
+            }),
+        )
+        .add_operation(
+            Box::new(move || {
+                println!("     Creating file3.txt...");
+                std::fs::write(ws3.join("file3.txt"), "content3")
+                    .map_err(|e| format!("Failed to create file3: {}", e))
+            }),
+            Box::new(move || {
+                println!("     Rolling back file3.txt...");
+                std::fs::remove_file(ws3r.join("file3.txt"))
+                    .map_err(|e| format!("Failed to rollback file3: {}", e))
+            }),
+        );
+
+    match transaction.commit() {
+        Ok(_) => {
+            println!("\n   ✓ Transaction committed successfully");
+            println!("   ✓ All files created");
+        }
+        Err(e) => {
+            println!("\n   ✗ Transaction failed: {}", e);
+            println!("   ✓ All changes rolled back");
+        }
+    }
+
+    // =========================================================================
+    // PATTERN 5: Adaptive Strategy Selection
+    // =========================================================================
+    println!("\n\n🎯 PATTERN 5: Adaptive Strategy Selection\n");
+
+    println!("   Selecting strategy based on file size...");
+
+    // Create files of different sizes
+    std::fs::write(workspace.join("small.txt"), "small content")?;
+    std::fs::write(workspace.join("large.txt"), "large content\n".repeat(1000))?;
+
+    // Check file size and choose strategy
+    let check_file = |path: &str| -> (bool, usize) {
+        let result = execute_from_json(
+            &executor,
+            "adaptive-check",
+            "read_file",
+            json!({
+                "path": path,
+                "end_line": 1
+            }),
+        );
+
+        if result.success {
+            if let Some(metadata) = result.data {
+                let size = metadata
+                    .get("size_bytes")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0) as usize;
+                return (size > 1000, size);
+            }
+        }
+
+        (false, 0)
+    };
+
+    let (is_large, size) = check_file("small.txt");
+    println!(
+        "   ✓ File: small.txt, Size: {} bytes, Strategy: {}",
+        size,
+        if is_large { "streaming" } else { "load_all" }
+    );
+
+    let (is_large, size) = check_file("large.txt");
+    println!(
+        "   ✓ File: large.txt, Size: {} bytes, Strategy: {}",
+        size,
+        if is_large { "streaming" } else { "load_all" }
+    );
+
+    // Cleanup
+    println!("\n\n🧹 Cleaning up demo files...");
+    std::fs::remove_dir_all(&workspace)?;
+    println!("   ✓ Cleanup complete");
+
+    println!("\n=== Demo Complete ===\n");
+
+    println!("📚 Integration Patterns Demonstrated:");
+    println!("   1. LLM integration with context preparation");
+    println!("   2. Pipeline composition and chaining");
+    println!("   3. Event-driven architecture");
+    println!("   4. Transactional operations with rollback");
+    println!("   5. Adaptive strategy selection");
+
+    Ok(())
+}

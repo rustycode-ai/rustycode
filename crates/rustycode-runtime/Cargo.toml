@@ -1,0 +1,62 @@
+[package]
+name = "rustycode-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+base64.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing.workspace = true
+walkdir.workspace = true
+uuid.workspace = true
+dirs.workspace = true
+futures = { workspace = true }
+rustycode-bus = { path = "../rustycode-bus" }
+rustycode-core = { path = "../rustycode-core", default-features = false }
+rustycode-config = { path = "../rustycode-config" }
+rustycode-storage = { path = "../rustycode-storage" }
+rustycode-git = { path = "../rustycode-git" }
+rustycode-lsp = { path = "../rustycode-lsp" }
+rustycode-memory = { path = "../rustycode-memory" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-classification = { path = "../rustycode-classification" }
+rustycode-tools = { path = "../rustycode-tools", default-features = false }
+rustycode-prompt = { path = "../rustycode-prompt" }
+rustycode-llm = { path = "../rustycode-llm" }
+rustycode-orchestration = { path = "../rustycode-orchestration" }
+rustycode-id = { path = "../rustycode-id" }
+rand.workspace = true
+rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
+shell-words.workspace = true
+
+[[example]]
+name = "test_config_load"
+path = "examples/test_config_load.rs"
+
+[[example]]
+name = "test_api_call"
+path = "examples/test_api_call.rs"
+
+[dev-dependencies]
+env_logger = "0.10"
+futures.workspace = true
+reqwest.workspace = true
+tempfile.workspace = true
+
+rustycode-tools-api = { path = "../rustycode-tools-api" }
+
+[lints]
+workspace = true
+

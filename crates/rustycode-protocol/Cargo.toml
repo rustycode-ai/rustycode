@@ -1,0 +1,29 @@
+[package]
+name = "rustycode-protocol"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+chrono.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+schemars = "0.8"
+rustycode-id = { path = "../rustycode-id" }
+anyhow.workspace = true
+thiserror.workspace = true
+regex.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+async-trait.workspace = true
+tokio = { workspace = true, features = ["rt"] }
+uuid = { workspace = true, features = ["v4", "v7"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { workspace = true, features = ["v4", "v7", "js"] }
+
+[lints]
+workspace = true
+

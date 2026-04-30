@@ -1,0 +1,19 @@
+{
+  "model": "claude-3-5-sonnet-20241022",
+  "providers": {
+    "anthropic": {
+      "api_key": "{env:ANTHROPIC_API_KEY}",
+      "base_url": "https://api.anthropic.com",
+      "models": ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"]
+    },
+    "openai": {
+      "api_key": "{env:OPENAI_API_KEY}",
+      "base_url": "https://api.openai.com/v1",
+      "models": ["gpt-4o", "gpt-4o-mini"]
+    },
+    "openrouter": {
+      "api_key": "{env:OPENROUTER_API_KEY}",
+      "base_url": "https://openrouter.ai/api/v1"
+    }
+  }
+}

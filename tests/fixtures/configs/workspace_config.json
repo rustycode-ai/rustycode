@@ -1,0 +1,12 @@
+{
+  "model": "claude-3-5-sonnet-20241022",
+  "workspace": {
+    "name": "test-workspace",
+    "root": ".",
+    "features": ["git", "lsp", "testing"]
+  },
+  "features": {
+    "mcp_servers": ["filesystem", "git"],
+    "agents": ["planner", "reviewer"]
+  }
+}

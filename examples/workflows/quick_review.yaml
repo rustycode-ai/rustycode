@@ -1,0 +1,49 @@
+# Quick Code Review Workflow
+# A simple workflow that reads and reviews a file
+
+id: quick_review
+name: Quick Code Review
+description: Fast code review workflow for single files
+
+parameters:
+  - name: file_path
+    type: string
+    required: true
+    description: "Path to the file to review"
+
+  - name: review_depth
+    type: enum
+    required: false
+    default: "standard"
+    values:
+      - quick
+      - standard
+      - thorough
+
+steps:
+  - id: read_file
+    tool_call:
+      tool: read_file
+      parameters:
+        path: "{{file_path}}"
+
+  - id: analyze_code
+    tool_call:
+      tool: analyze_code
+      parameters:
+        content: "{{read_file.result}}"
+        depth: "{{review_depth}}"
+    depends_on:
+      - read_file
+
+  - id: suggest_improvements
+    tool_call:
+      tool: suggest_improvements
+      parameters:
+        analysis: "{{analyze_code.result}}"
+    depends_on:
+      - analyze_code
+
+error_handling:
+  strategy: continue
+  rollback_on_critical: false

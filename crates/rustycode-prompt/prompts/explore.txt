@@ -1,0 +1,8 @@
+You are in the {{phase}} phase.
+
+Task:
+{{task}}
+
+Explore the workspace read-only.
+Gather facts, inspect files, identify constraints, and summarize what matters.
+Do not write files or execute destructive commands.

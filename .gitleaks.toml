@@ -1,0 +1,183 @@
+# Gitleaks Configuration
+#
+# This file configures secret detection for the rustycode project.
+# See: https://github.com/gitleaks/gitleaks
+#
+# Gitleaks scans for secrets, API keys, passwords, and other sensitive information
+# that should never be committed to version control.
+
+title = "Rustycode Gitleaks Configuration"
+
+[extend]
+useDefault = true
+
+# Allow specific rules to be ignored (use sparingly and with justification)
+[allowlist]
+description = "Global allowlist for false positives"
+# Allow generic-api-key matches that contain test/placeholder patterns
+regexTarget = "line"
+regexes = [
+    '''let msg.*=.*"''',         # Variable assignment in test code
+    '''/// let''',                # Doc test examples
+    '''placeholder''',            # Placeholder values
+    '''EXAMPLE''',                # Example values
+]
+
+# Paths to ignore
+paths = [
+    '''(.*/)?test.*''',
+    '''(.*/)?tests/(.*)''',
+    '''(.*/)?testdata/(.*)''',
+    '''(.*/)?examples/(.*)''',
+    '''(.*/)?vendor/(.*)''',
+    '''(.*/)?third_party/(.*)''',
+    '''Cargo\.lock''',            # Lock file contains checksums that trigger false positives
+    '''(.*/)?\*_test\..*''',      # Test files
+]
+
+# Specific file patterns to ignore (these apply to historical scans too)
+fileRegexes = [
+    '''^\.gitleaks\.toml$''',                          # This configuration file itself
+    '''^deny\.toml$''',                                # Cargo deny config may contain example keys
+    '''sanitize\.rs$''',                               # Contains test examples with placeholder tokens
+    '''bedrock\.rs$''',                                # Contains AWS example placeholder
+]
+
+# StopWords - if these words appear in a match, it's likely a false positive
+stopWords = [
+    "placeholder",
+    "EXAMPLE",
+    "example",
+    "test",
+    "mock",
+    "fake",
+]
+
+# Allow specific commits with known false positives
+# These are historical commits containing test/placeholder data
+# Note: gitleaks allowlist.commits only accepts commit hashes as strings
+# The paths filtering for these commits is handled by the fileRegexes above
+
+# Additional custom rules for this project with proper test allowances
+# These override the default rules to allow test/placeholder data
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API Key"
+regex = '''sk-ant-[a-zA-Z0-9_-]{90,}'''
+keywords = ["sk-ant"]
+rarity = "critical"
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API Key"
+regex = '''sk-[a-zA-Z0-9]{20,}'''
+keywords = ["sk-"]
+rarity = "critical"
+[[rules.allowlists]]
+regexes = ['''sk-1234567890''']
+description = "Test/placeholder OpenAI key"
+
+[[rules]]
+id = "github-token"
+description = "GitHub Personal Access Token"
+regex = '''ghp_[a-zA-Z0-9]{36}'''
+keywords = ["ghp_"]
+rarity = "critical"
+
+[[rules]]
+id = "github-oauth"
+description = "GitHub OAuth Access Token"
+regex = '''gho_[a-zA-Z0-9]{36}'''
+keywords = ["gho_"]
+rarity = "critical"
+
+[[rules]]
+id = "github-app-token"
+description = "GitHub App Token"
+regex = '''(ghu|ghs)_[a-zA-Z0-9]{36}'''
+keywords = ["ghu_", "ghs_"]
+rarity = "critical"
+
+[[rules]]
+id = "github-refresh-token"
+description = "GitHub Refresh Token"
+regex = '''ghr_[a-zA-Z0-9]{36}'''
+keywords = ["ghr_"]
+rarity = "critical"
+
+[[rules]]
+id = "aws-access-key-id"
+description = "AWS Access Key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
+keywords = ["AKIA"]
+rarity = "critical"
+[[rules.allowlists]]
+regexes = ['''AKIAIOSFODNN7EXAMPLE''']
+description = "AWS documentation example key"
+
+[[rules]]
+id = "aws-secret-access-key"
+description = "AWS Secret Access Key"
+regex = '''[0-9a-zA-Z/+]{40}'''
+keywords = ["aws_secret", "AWS_SECRET"]
+rarity = "critical"
+
+[[rules]]
+id = "google-api-key"
+description = "Google API Key"
+regex = '''AIza[0-9A-Za-z_-]{35}'''
+keywords = ["AIza"]
+rarity = "critical"
+
+[[rules]]
+id = "google-oauth"
+description = "Google OAuth Access Token"
+regex = '''ya29\.[0-9A-Za-z_-]+'''
+keywords = ["ya29."]
+rarity = "critical"
+
+[[rules]]
+id = "jwt-token"
+description = "JSON Web Token"
+regex = '''eyJ[a-zA-Z0-9_-]*\.eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*'''
+keywords = ["eyJ"]
+rarity = "high"
+
+[[rules]]
+id = "slack-bot-token"
+description = "Slack Bot Token"
+regex = '''xoxb-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*'''
+keywords = ["xoxb-"]
+rarity = "critical"
+
+[[rules]]
+id = "slack-user-token"
+description = "Slack User Token"
+regex = '''xoxp-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*'''
+keywords = ["xoxp-"]
+rarity = "critical"
+
+[[rules]]
+id = "slack-legacy-workspace-token"
+description = "Slack Legacy Workspace Token"
+regex = '''xoxa-[0-9]{10,13}-[0-9]{10,13}[a-zA-Z0-9-]*'''
+keywords = ["xoxa-"]
+rarity = "critical"
+[[rules.allowlists]]
+regexes = ['''xoxa-abcdef1234567890''']
+description = "Test/placeholder Slack token"
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----'''
+keywords = ["PRIVATE KEY"]
+rarity = "critical"
+
+[[rules]]
+id = "rust-crates-io-token"
+description = "Crates.io API Token"
+regex = '''[a-zA-Z0-9]{32}'''
+keywords = ["crates.io", "CARGO_REGISTRY_TOKEN"]
+rarity = "high"

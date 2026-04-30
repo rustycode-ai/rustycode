@@ -1,0 +1,68 @@
+# Cargo Audit Configuration
+#
+# This file configures cargo-audit behavior for security vulnerability scanning.
+# See: https://github.com/RustSec/cargo-audit
+
+# Advisory database to use
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/RustSec/advisory-db"]
+vulnerability-file = "SecurityVulnerabilities.md"
+
+# How to handle vulnerabilities
+# "deny" - Fail on any vulnerability
+# "warn" - Print warning but don't fail
+# "allow" - Ignore vulnerabilities (not recommended)
+yanked = "warn"
+
+# Severity threshold for reporting
+# Allowed values: "none", "low", "medium", "high", "critical"
+# Only vulnerabilities at or above this level will be reported
+severity-threshold = "medium"
+
+# Ignore specific advisories (use sparingly and with justification)
+#
+# Format:
+# [[ignored.ids]]
+# id = "RUSTSEC-2020-0001"
+# reason = "Reason for ignoring this advisory"
+# NOTE: When ignoring advisories, you MUST document:
+# 1. Why it's safe to ignore (e.g., unused feature, non-executable code path)
+# 2. When it will be reviewed/fixed
+# 3. Who approved the exception
+
+# Known issues with limited impact
+[[ignored]]
+id = "RUSTSEC-2026-0049"
+reason = "CRL Distribution Point bug requires compromised CA. Low impact for our use case. Will fix when rustls updates transitive deps."
+expiry = "2026-06-01"
+
+[[ignored]]
+id = "RUSTSEC-2026-0002"
+reason = "lru IterMut Stacked Borrows issue. Low impact - affects dev dependency usage."
+expiry = "2026-06-01"
+
+[[ignored]]
+id = "RUSTSEC-2026-0008"
+reason = "git2 Buf deref UB. Rare edge case, low impact for our git operations."
+expiry = "2026-06-01"
+
+# Example (DO NOT copy without proper justification):
+# [[ignored.ids]]
+# id = "RUSTSEC-2020-0001"
+# reason = "Not used in our codebase, will be removed in next version"
+# expiry = "2025-06-01"  # Optional: automatically stop ignoring after this date
+
+[output]
+# Output format for vulnerabilities
+# "display" - Human-readable output
+# "json" - JSON format (for CI integration)
+default = "display"
+
+# Only display vulnerabilities at or above severity threshold
+# This helps reduce noise from low-severity issues
+quiet = false
+
+# Warn about informational advisories
+# These are potential issues that haven't been assigned a CVE yet
+informational-warnings = true

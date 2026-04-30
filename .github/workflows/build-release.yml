@@ -1,0 +1,162 @@
+name: Build Release Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      binaries:
+        description: 'Binaries to build (comma-separated)'
+        required: false
+        default: 'rustycode-cli,rustycode-tui'
+
+env:
+  CARGO_TERM_COLOR: always
+  # Force vendored OpenSSL for all platforms (no system dependency)
+  OPENSSL_STATIC: "1"
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact_name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            artifact_name: rustycode-linux-x64
+            exe_ext: ''
+          - os: ubuntu-24.04
+            target: aarch64-unknown-linux-gnu
+            artifact_name: rustycode-linux-arm64
+            exe_ext: ''
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: rustycode-windows-x64
+            exe_ext: '.exe'
+          - os: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: rustycode-macos-arm64
+            exe_ext: ''
+          - os: macos-14
+            target: x86_64-apple-darwin
+            artifact_name: rustycode-macos-x64
+            exe_ext: ''
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libx11-dev libxft-dev libxext-dev \
+            gcc-aarch64-linux-gnu
+
+      - name: Configure Linux ARM64 cross-compilation
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config.toml
+          echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config.toml
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.target }}
+
+      - name: Build release binaries
+        shell: bash
+        run: |
+          cargo build --release --target ${{ matrix.target }} -p rustycode-cli --locked
+          cargo build --release --target ${{ matrix.target }} -p rustycode-tui --locked
+
+      - name: Verify binaries exist
+        id: locate-binary
+        shell: bash
+        run: |
+          CLI="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
+          TUI="target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}"
+
+          if [ ! -f "$CLI" ]; then
+            echo "::error::CLI binary not found at $CLI"
+            exit 1
+          fi
+
+          echo "cli=$CLI" >> "$GITHUB_OUTPUT"
+          echo "tui=$TUI" >> "$GITHUB_OUTPUT"
+
+      - name: Package binaries
+        shell: bash
+        run: |
+          mkdir -p "artifacts/${{ matrix.artifact_name }}"
+          cp "target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}" "artifacts/${{ matrix.artifact_name }}/"
+          if [ -f "target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}" ]; then
+            cp "target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}" "artifacts/${{ matrix.artifact_name }}/"
+          fi
+
+          cd artifacts
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            7z a -tzip "${{ matrix.artifact_name }}.zip" "${{ matrix.artifact_name }}/"
+          else
+            tar -czvf "${{ matrix.artifact_name }}.tar.gz" "${{ matrix.artifact_name }}/"
+          fi
+
+          ls -lh
+
+      - name: Test binary
+        shell: bash
+        run: |
+          CLI="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
+          "$CLI" --version || true
+          "$CLI" --help | head -20 || true
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: artifacts/*.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: |
+          echo "Artifacts to release:"
+          ls -lh artifacts/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

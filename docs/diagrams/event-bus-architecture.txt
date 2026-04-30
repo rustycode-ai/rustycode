@@ -1,0 +1,366 @@
+# RustyCode Event Bus Architecture Diagrams
+
+## 1. High-Level Component Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           RustyCode Workspace                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐                │
+│  │ rustycode-  │      │ rustycode-  │      │ rustycode-  │                │
+│  │   git       │      │    lsp      │      │  memory     │                │
+│  │             │      │             │      │             │                │
+│  └──────┬──────┘      └──────┬──────┘      └──────┬──────┘                │
+│         │                    │                     │                       │
+│         │ Publish            │ Publish             │ Publish               │
+│         ▼                    ▼                     ▼                       │
+│         └────────────────────┼─────────────────────┘                       │
+│                              │                                              │
+│                       ┌──────▼──────┐                                       │
+│                       │ rustycode-  │                                       │
+│                       │    bus      │                                       │
+│                       │             │                                       │
+│                       │  EventBus   │                                       │
+│                       └──────┬──────┘                                       │
+│                              │                                              │
+│                              │ Route & Notify                               │
+│                              ▼                                              │
+│         ┌────────────────────┼─────────────────────┐                       │
+│         │                    │                     │                        │
+│         ▼                    ▼                     ▼                        │
+│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐                │
+│  │ rustycode-  │      │ rustycode-  │      │ rustycode-  │                │
+│  │  storage    │      │   core      │      │    cli      │                │
+│  │             │      │             │      │             │                │
+│  │ Subscribe   │      │ Subscribe   │      │ Subscribe   │                │
+│  └─────────────┘      └─────────────┘      └─────────────┘                │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## 2. Event Bus Internal Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        EventBus Core                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. Publish Phase                                               │
+│  ┌──────────────┐                                               │
+│  │  Publisher   │──> publish<T: Event>(event)                   │
+│  └──────────────┘       │                                       │
+│                         ▼                                       │
+│                  ┌──────────────┐                               │
+│                  │ Pre-Publish  │──> Run hooks                  │
+│                  │    Hooks     │                               │
+│                  └──────┬───────┘                               │
+│                         │                                       │
+│                         ▼                                       │
+│                  ┌──────────────┐                               │
+│                  │   Wildcard   │──> Match subscribers          │
+│                  │   Matcher    │                               │
+│                  └──────┬───────┘                               │
+│                         │                                       │
+│  2. Routing Phase        │                                       │
+│                         ▼                                       │
+│         ┌────────────────┴────────────────┐                     │
+│         │                                  │                     │
+│         ▼                                  ▼                     │
+│  ┌─────────────┐                   ┌─────────────┐             │
+│  │   Exact     │                   │  Wildcard   │             │
+│  │ Subscribers │                   │ Subscribers │             │
+│  └──────┬──────┘                   └──────┬──────┘             │
+│         │                                 │                     │
+│         └────────────┬────────────────────┘                     │
+│                      │                                          │
+│                      ▼                                          │
+│         ┌─────────────────────────┐                             │
+│         │   broadcast::channel    │                             │
+│         │   (per subscriber)      │                             │
+│         └────────────┬────────────┘                             │
+│                      │                                          │
+│  3. Post-Processing  │                                          │
+│                      ▼                                          │
+│         ┌─────────────────────────┐                             │
+│         │  Post-Publish Hooks     │──> Logging, metrics         │
+│         └─────────────────────────┘                             │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 3. Event Flow Sequence Diagram
+
+```
+Publisher          EventBus            Hook1             Hook2           Subscriber
+   │                  │                  │                 │                 │
+   │ publish(event)   │                  │                 │                 │
+   │─────────────────>│                  │                 │                 │
+   │                  │                  │                 │                 │
+   │                  │ run_hooks(Pre)   │                 │                 │
+   │                  │─────────────────>│                 │                 │
+   │                  │                  │                 │                 │
+   │                  │                  │────────────────>│                 │
+   │                  │<─────────────────│<────────────────│                 │
+   │                  │                  │                 │                 │
+   │                  │ match_subscribers()                 │                 │
+   │                  │─────────────────────────────────────────────────────>│
+   │                  │                  │                 │                 │
+   │                  │ send(event)      │                 │                 │
+   │                  │─────────────────────────────────────────────────────>│
+   │                  │                  │                 │                 │
+   │                  │ run_hooks(Post)  │                 │                 │
+   │                  │─────────────────>│                 │                 │
+   │                  │                  │                 │                 │
+   │                  │<─────────────────│                 │                 │
+   │                  │                  │                 │                 │
+   │< Ok()            │                  │                 │                 │
+   │                  │                  │                 │                 │
+   │                                     │                 │  receive()     │
+   │                                     │                 │<──────────────│
+```
+
+## 4. Wildcard Subscription Matching
+
+```
+Event Type: "session.started"
+
+Subscriptions:
+┌─────────────────────────────────────────────────────────────┐
+│ Pattern         │ Matches? │ Reason                         │
+├─────────────────────────────────────────────────────────────┤
+│ "session.*"     │ YES      │ Wildcard matches all session   │
+│ "*.started"     │ YES      │ Wildcard matches all started   │
+│ "*"             │ YES      │ Wildcard matches everything    │
+│ "session.started"│ YES     │ Exact match                    │
+│ "session.error" │ NO       │ Different event type           │
+│ "git.*"         │ NO       │ Different domain               │
+└─────────────────────────────────────────────────────────────┘
+
+Regex Conversions:
+┌─────────────────────────────────────────────────────────────┐
+│ Pattern         │ Regex                    │                │
+├─────────────────────────────────────────────────────────────┤
+│ "session.*"     │ "^session\..*$"          │                │
+│ "*.started"     │ "^.*\.started$"          │                │
+│ "*"             │ "^.*$"                   │                │
+│ "session.*.*"   │ "^session\..*\..*$"      │                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 5. Event Type Hierarchy
+
+```
+rustycode events
+│
+├── session.* (Session lifecycle events)
+│   ├── session.started
+│   ├── context.assembled
+│   ├── inspection.completed
+│   └── session.ended
+│
+├── git.* (Git repository events)
+│   ├── git.status_changed
+│   ├── git.branch_changed
+│   └── git.commit_made
+│
+├── lsp.* (Language server events)
+│   ├── lsp.server_discovered
+│   ├── lsp.server_started
+│   └── lsp.server_crashed
+│
+├── memory.* (Memory system events)
+│   ├── memory.entry_added
+│   ├── memory.entry_removed
+│   └──.memory.entry_updated
+│
+├── skill.* (Skill system events)
+│   ├── skill.discovered
+│   ├── skill.loaded
+│   └── skill.executed
+│
+└── error.* (Error events)
+    ├── error.validation
+    ├── error.storage
+    └── error.network
+```
+
+## 6. Hook System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Hook Phases                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Event ──> [Pre-Publish Hooks] ──> [Event Bus] ──>             │
+│            - Validate event             │                       │
+│            - Transform event            │                       │
+│            - Enrich metadata            ▼                       │
+│                                       [Post-Publish Hooks]      │
+│                                       - Log event               │
+│                                       - Update metrics          │
+│                                       - Trigger side effects    │
+│                                                                  │
+│  Error ──> [On-Error Hooks]                                     │
+│           - Aggregate errors                                   │
+│           - Alert monitoring                                   │
+│           - Circuit breaker logic                              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+
+Example Hooks:
+┌─────────────────────────────────────────────────────────────────┐
+│ Phase        │ Hook              │ Purpose                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Pre-Publish  │ Validator         │ Ensure event data validity   │
+│ Pre-Publish  │ Enricher          │ Add timestamps, IDs          │
+│ Post-Publish │ Logger            │ Structured logging           │
+│ Post-Publish │ Metrics           │ Prometheus counters          │
+│ Post-Publish │ Auditor           │ Event audit trail           │
+│ On-Error     │ ErrorAggregator   │ Collect errors for review    │
+│ On-Error     │ CircuitBreaker    │ Prevent cascade failures     │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 7. Thread Safety & Concurrency
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Thread Safety Model                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  EventBus: Arc<RwLock<...>>                                     │
+│  ├─ subscribers: Arc<RwLock<HashMap>>                           │
+│  │  └─ Multiple readers (concurrent)                           │
+│  │  └─ Single writer (exclusive)                               │
+│  │                                                              │
+│  ├─ hooks: Arc<RwLock<HashMap>>                                │
+│  │  └─ Multiple readers (concurrent)                           │
+│  │  └─ Single writer (exclusive)                               │
+│  │                                                              │
+│  └─ metrics: Arc<AtomicU64> (lock-free)                        │
+│     └─ All operations (concurrent)                             │
+│                                                                  │
+│  Channel: tokio::sync::broadcast                                │
+│  ├─ Sender: Clone (many)                                       │
+│  ├─ Receiver: Clone (many)                                     │
+│  └─ Async MPSC (multi-producer, single-consumer)               │
+│                                                                  │
+│  Concurrency Patterns:                                          │
+│  ├─ publish(): Concurrent (multiple threads)                    │
+│  ├─ subscribe(): Concurrent (multiple threads)                  │
+│  └─ receive(): Per-subscriber (isolated channels)              │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 8. Migration Path Diagram
+
+```
+Phase 1: Shadow Mode (Non-Breaking)
+┌─────────────────────────────────────────────────────────────┐
+│ Runtime::run()                                              │
+│   │                                                          │
+│   ├── storage.insert_session()  ──┐                        │
+│   │                              │                         │
+│   └── bus.publish() ─────────────┼──> Both execute         │
+│                                  │                         │
+│                                  ▼                         │
+│                           Storage persists                 │
+│                           Bus notifies subscribers         │
+└─────────────────────────────────────────────────────────────┘
+
+Phase 2: Internal Migration
+┌─────────────────────────────────────────────────────────────┐
+│ Runtime::run()                                              │
+│   │                                                          │
+│   ├── bus.publish() ────────────> EventBus                  │
+│   │                                  │                      │
+│   │                                  ├─> Subscriber: Storage│
+│   │                                  ├─> Subscriber: Logger │
+│   │                                  └─> Subscriber: Metrics│
+│   │                                                         │
+│   └── Direct storage calls removed                          │
+└─────────────────────────────────────────────────────────────┘
+
+Phase 3: Full Migration
+┌─────────────────────────────────────────────────────────────┐
+│ All crates publish to EventBus                              │
+│                                                             │
+│   rustycode-git ──> EventBus ──> Storage                    │
+│   rustycode-lsp ──> EventBus ──> Storage                    │
+│   rustycode-mem ──> EventBus ──> Storage                    │
+│   rustycode-skill ─> EventBus ──> Storage                   │
+│                                                             │
+│   Storage is just another subscriber                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 9. Performance Characteristics
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Performance Profile                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Operation          │ Complexity │ Notes                        │
+│  ─────────────────────────────────────────────────────────────  │
+│  publish()          │ O(n)      │ n = active subscribers       │
+│  subscribe()        │ O(1)      │ HashMap insertion            │
+│  unsubscribe()      │ O(1)      │ HashMap removal              │
+│  wildcard_match()   │ O(1)      │ Cached regex per subscriber  │
+│  hook_execution()   │ O(h)      │ h = hooks per phase          │
+│  event_cloning()    │ O(s)      │ s = event size in bytes      │
+│                                                                  │
+│  Bottlenecks:                                                   │
+│  - Event cloning for each subscriber (mitigate with Arc)        │
+│  - Hook execution (keep hooks fast, use async for I/O)          │
+│  - Channel full (buffer overflow drops receivers)               │
+│                                                                  │
+│  Optimizations:                                                 │
+│  - Lock-free metrics (AtomicU64)                                │
+│  - Regex compilation cached per subscription                    │
+│  - Broadcast channels avoid mutex per send                      │
+│  - RwLock allows concurrent reads                               │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 10. Testing Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Test Pyramid                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│                    ┌─────────┐                                  │
+│                   ╱         ╲                                  │
+│                  ╱ Integration ╲                               │
+│                 ╱               ╲                              │
+│                ╱─────────────────╲                             │
+│               ╱                   ╲                            │
+│              ╱     Unit Tests      ╲                           │
+│             ╱                       ╲                          │
+│            ╱─────────────────────────╲                         │
+│                                                                  │
+│  Unit Tests (70%):                                              │
+│  - Exact subscription matching                                  │
+│  - Wildcard pattern matching                                    │
+│  - Hook execution order                                         │
+│  - Subscribe/unsubscribe                                        │
+│  - Event serialization                                          │
+│                                                                  │
+│  Integration Tests (20%):                                       │
+│  - End-to-end event flow                                        │
+│  - Concurrent subscribers                                       │
+│  - Event ordering guarantees                                    │
+│  - Error handling                                               │
+│                                                                  │
+│  Performance Tests (10%):                                       │
+│  - High throughput (10k+ events)                                │
+│  - Concurrent publishers                                        │
+│  - Memory usage under load                                      │
+│  - Channel backpressure behavior                                │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```

@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "test-filesystem": {
+      "command": "node",
+      "args": ["path/to/filesystem-server.js"],
+      "env": {
+        "TEST_MODE": "true"
+      }
+    },
+    "test-git": {
+      "command": "python",
+      "args": ["-m", "git_mcp_server"],
+      "env": {
+        "GIT_REPO_PATH": "/tmp/test_repo"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "model": "{env:DEFAULT_MODEL}",
+  "temperature": {env:DEFAULT_TEMPERATURE},
+  "providers": {
+    "anthropic": {
+      "api_key": "{env:ANTHROPIC_API_KEY}"
+    },
+    "custom": {
+      "api_key": "{file:/api_keys/custom_key.txt}"
+    }
+  }
+}

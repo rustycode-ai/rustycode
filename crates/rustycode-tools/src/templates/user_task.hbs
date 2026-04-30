@@ -1,0 +1,17 @@
+Task: {{task}}
+
+{{#if cwd}}Working directory: {{cwd}}{{/if}}
+{{#if project_name}}Project: {{project_name}}{{/if}}
+{{#if git_branch}}Branch: {{git_branch}}{{/if}}
+{{#if git_status}}Status: {{git_status}}{{/if}}
+
+{{#if open_files}}
+Relevant files:
+{{#each open_files}}  - {{this}}
+{{/each}}
+{{/if}}
+
+{{#if additional_context}}
+Additional context:
+{{additional_context}}
+{{/if}}

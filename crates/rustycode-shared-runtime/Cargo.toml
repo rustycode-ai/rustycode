@@ -1,0 +1,17 @@
+[package]
+name = "rustycode_shared_runtime"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+tokio = { workspace = true }
+futures = { workspace = true }
+num_cpus = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util", "macros"] }
+
+[lints]
+workspace = true
+

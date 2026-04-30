@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>OpenRusty Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background:#0b1220; color:#dbe9ff; padding:20px }
+    .panel { background:#071021; border:1px solid #123; padding:12px; border-radius:6px }
+    input, select, button { font-size:14px; padding:6px; margin-right:8px }
+    pre { background:#05101a; padding:8px; border-radius:4px; color:#9ee6a6; max-height:320px; overflow:auto }
+    .msg { margin:6px 0; padding:6px; border-radius:4px }
+    .meta { color:#7fb0ff }
+    .chunk { color:#c7f0ff }
+  </style>
+</head>
+<body>
+  <h1>OpenRusty — Tool Server Demo</h1>
+  <div class="panel">
+    <div>
+      <label>Command:</label>
+      <input id="cmd" size="60" value="git status --porcelain" />
+      <label>Transform</label>
+      <select id="transform">
+        <option value="">(none)</option>
+        <option value="auto">auto (heuristic)</option>
+        <option value="compact_git_status">compact_git_status</option>
+        <option value="test_summary">test_summary</option>
+      </select>
+      <button id="run">Run</button>
+    </div>
+    <div style="margin-top:10px">
+      <strong>Connection:</strong> <span id="status">disconnected</span>
+    </div>
+  </div>
+
+  <h2>Stream</h2>
+  <div id="stream" class="panel">
+    <div id="messages"></div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const messagesEl = document.getElementById('messages');
+    const runBtn = document.getElementById('run');
+    const cmdInput = document.getElementById('cmd');
+    const transformSel = document.getElementById('transform');
+
+    let ws;
+    function appendMessage(kind, text, obj) {
+      const div = document.createElement('div');
+      div.className = 'msg';
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = kind;
+      const body = document.createElement('pre');
+      body.className = 'chunk';
+      if (typeof text === 'string') body.textContent = text;
+      else body.textContent = JSON.stringify(text, null, 2);
+      div.appendChild(meta);
+      div.appendChild(body);
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function connect() {
+      const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://'+location.hostname+':3000/ws';
+      ws = new WebSocket(url);
+      ws.onopen = () => { statusEl.textContent = 'connected'; appendMessage('system','ws open'); };
+      ws.onclose = () => { statusEl.textContent = 'closed'; appendMessage('system','ws closed'); setTimeout(connect,1000); };
+      ws.onerror = (e) => { appendMessage('system','ws error'); };
+      ws.onmessage = (ev) => {
+        try {
+          const j = JSON.parse(ev.data);
+          if (j.type) {
+            appendMessage(j.type, j);
+          } else {
+            appendMessage('message', j);
+          }
+        } catch (e) {
+          appendMessage('text', ev.data);
+        }
+      };
+    }
+
+    runBtn.addEventListener('click', () => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) { appendMessage('error','not connected'); return; }
+      const callId = 'call_' + Math.random().toString(36).slice(2,9);
+      const payload = {
+        call_id: callId,
+        name: 'bash',
+        arguments: { command: cmdInput.value, transform: transformSel.value }
+      };
+      appendMessage('client_sent', payload);
+      ws.send(JSON.stringify(payload));
+    });
+
+    // start
+    connect();
+  </script>
+</body>
+</html>

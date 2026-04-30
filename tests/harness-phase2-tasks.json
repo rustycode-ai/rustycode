@@ -1,0 +1,211 @@
+[
+  {
+    "id": "task-028",
+    "title": "Add memory profiling benchmarks",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'criterion' benches/ | wc -l | awk '{exit $1 > 0 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-029",
+    "title": "Implement request coalescing for async runtime",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'coalesce' crates/rustycode-runtime/src/ | wc -l | awk '{exit $1 > 0 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-030",
+    "title": "Add property-based testing with proptest",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'proptest' crates/ | wc -l | awk '{exit $1 > 10 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-031",
+    "title": "Create architecture decision records",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "ls docs/adr/ 2>/dev/null | wc -l | awk '{exit $1 > 5 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-032",
+    "title": "Add integration tests for TUI workflows",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'tmux' tests/ | wc -l | awk '{exit $1 > 20 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-033",
+    "title": "Optimize TUI rendering performance",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'ratatui' crates/rustycode-tui/src/ | wc -l | awk '{exit $1 > 0 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-034",
+    "title": "Add error recovery strategies to core",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'ErrorRecovery' crates/rustycode-core/src/ | wc -l | awk '{exit $1 > 0 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-035",
+    "title": "Create developer contribution guide",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "ls CONTRIBUTING.md 2>/dev/null || echo 'not found'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-036",
+    "title": "Add async instrumentation hooks",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'tracing::instrument' crates/rustycode-runtime/ | wc -l | awk '{exit $1 > 10 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-037",
+    "title": "Implement backpressure handling",
+    "status": "pending",
+    "priority": "P2",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'backpressure' crates/rustycode-runtime/src/ | wc -l | awk '{exit $1 > 0 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  },
+  {
+    "id": "task-038",
+    "title": "Add performance regression CI checks",
+    "status": "pending",
+    "priority": "P1",
+    "depends_on": [],
+    "attempts": 0,
+    "max_attempts": 3,
+    "started_at_commit": null,
+    "validation": {
+      "command": "grep -r 'bench' .github/workflows/ | wc -l | awk '{exit $1 > 0 ? 0 : 1}'",
+      "timeout_seconds": 60
+    },
+    "on_failure": {
+      "cleanup": null
+    },
+    "error_log": [],
+    "checkpoints": []
+  }
+]

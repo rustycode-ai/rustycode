@@ -1,0 +1,91 @@
+[package]
+name = "rustycode-tui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+tokio.workspace = true
+secrecy.workspace = true
+futures.workspace = true
+chrono.workspace = true
+once_cell.workspace = true
+ratatui = { workspace = true, features = ["crossterm"] }
+crossterm.workspace = true
+pulldown-cmark.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+async-trait.workspace = true
+similar = "2.6"
+dirs.workspace = true
+# TOML is used for themes and plugin manifests (data files, not config)
+toml.workspace = true
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-runtime = { path = "../rustycode-runtime" }
+rustycode-core = { path = "../rustycode-core", default-features = false }
+rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
+rustycode-tools = { path = "../rustycode-tools", default-features = false }
+rustycode-tools-api = { path = "../rustycode-tools-api" }
+rustycode-llm = { path = "../rustycode-llm" }
+rustycode-lsp = { path = "../rustycode-lsp" }
+rustycode-memory = { path = "../rustycode-memory" }
+rustycode-ui-core = { path = "../rustycode-ui-core" }
+rustycode-config = { path = "../rustycode-config", features = ["schema-validation"] }
+rustycode-prompt = { path = "../rustycode-prompt" }
+rustycode-providers = { path = "../rustycode-providers" }
+rustycode-session = { path = "../rustycode-session" }
+rustycode-skill = { path = "../rustycode-skill" }
+rustycode-auth = { path = "../rustycode-auth" }
+rustycode-mcp = { path = "../rustycode-mcp", default-features = false }
+rustycode-agent = { path = "../rustycode-agent" }
+rustycode-storage = { path = "../rustycode-storage" }
+rustycode-observability = { path = "../rustycode-observability" }
+rustycode-classification = { path = "../rustycode-classification" }
+rustycode-orchestration = { path = "../rustycode-orchestration" }
+rustycode-guard = { path = "../rustycode-guard" }
+rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
+arboard = "3.2"
+image = "0.25"
+base64.workspace = true
+thiserror.workspace = true
+regex.workspace = true
+parking_lot.workspace = true
+ulid = "1.1"
+unicode-segmentation = "1.11"
+unicode-width = "0.2"
+rand.workspace = true
+cron.workspace = true
+ctrlc = "3.4"
+reqwest = { workspace = true }
+which.workspace = true
+tempfile.workspace = true
+lsp-types.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.29", features = ["signal", "process"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+criterion.workspace = true
+
+[features]
+default = []
+# Enable live API integration tests (requires ANTHROPIC_API_KEY, network access)
+live-api-tests = []
+# Enable Ollama integration tests (requires Ollama to be running)
+ollama-tests = []
+vector-memory = ["dep:rustycode-vector-memory"]
+
+[[bench]]
+name = "tui_performance"
+harness = false
+
+[lints]
+workspace = true

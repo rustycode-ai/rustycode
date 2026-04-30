@@ -1,0 +1,235 @@
+//! Metadata and Tracking Example
+//!
+//! This example demonstrates metadata tracking and usage statistics:
+//! - Tool execution metadata
+//! - Content hashing for caching
+//! - Usage tracking and statistics
+//! - Performance monitoring
+//!
+//! Run with: cargo run --example metadata_and_tracking
+
+use rustycode_tools::{ToolExecutor, UsageTracker};
+use serde_json::json;
+use std::path::PathBuf;
+
+fn main() -> anyhow::Result<()> {
+    let workspace = PathBuf::from("/tmp/rustycode-metadata-demo");
+    std::fs::create_dir_all(&workspace)?;
+
+    let executor = ToolExecutor::new(workspace.clone());
+
+    println!("=== Metadata and Tracking Demo ===\n");
+
+    // Example 1: Content hash tracking
+    println!("1. Demonstrating content hash tracking...");
+    std::fs::write(workspace.join("test.txt"), "Hello, World!")?;
+
+    let read_call = serde_json::json!({
+        "call_id": "1",
+        "name": "read_file",
+        "arguments": {
+            "path": "test.txt"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, read_call) {
+        Ok(result) => {
+            println!("   ✓ File read successfully");
+            if let Some(metadata) = result.metadata {
+                if let Some(hash) = metadata.get("content_hash") {
+                    println!("   ✓ Content hash (SHA-256): {}", hash);
+                    println!("     (Use this for caching/validation)");
+                }
+                if let Some(size) = metadata.get("size_bytes") {
+                    println!("   ✓ Size: {} bytes", size);
+                }
+            }
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 2: Execution time tracking
+    println!("\n2. Demonstrating execution time tracking...");
+    let bash_call = serde_json::json!({
+        "call_id": "2",
+        "name": "bash",
+        "arguments": {
+            "command": "echo 'Performance test' && sleep 0.1"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, bash_call) {
+        Ok(result) => {
+            println!("   ✓ Command executed");
+            if let Some(metadata) = result.metadata {
+                if let Some(time) = metadata.get("execution_time_ms") {
+                    println!("   ✓ Execution time: {}ms", time);
+                    println!("     (Track this for performance monitoring)");
+                }
+                if let Some(exit_code) = metadata.get("exit_code") {
+                    println!("   ✓ Exit code: {}", exit_code);
+                }
+            }
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 3: Usage tracking
+    println!("\n3. Demonstrating usage tracking...");
+    let mut tracker = UsageTracker::new();
+
+    // Simulate tool usage
+    tracker.record_use("read_file");
+    tracker.record_use("grep");
+    tracker.record_use("read_file");
+    tracker.record_use("bash");
+    tracker.record_use("write_file");
+
+    let stats = tracker.get_statistics();
+    println!("   ✓ Recorded {} tool uses", tracker.total_uses());
+    println!("   ✓ Unique tools used: {}", tracker.unique_tools());
+
+    println!("\n   Tool usage breakdown:");
+    for (tool, count, timestamp) in stats.iter().take(5) {
+        println!("     - {}: {} times", tool, count);
+        if let Some(ts) = timestamp {
+            println!("       Last used: {}", ts);
+        }
+    }
+
+    // Example 4: Search result metadata
+    println!("\n4. Demonstrating search metadata...");
+    for i in 1..=5 {
+        std::fs::write(workspace.join(format!("file{}.rs", i)), format!("// File {}\nfn test{}", i, i))?;
+    }
+
+    let grep_call = serde_json::json!({
+        "call_id": "3",
+        "name": "grep",
+        "arguments": {
+            "pattern": "fn",
+            "path": "."
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, grep_call) {
+        Ok(result) => {
+            println!("   ✓ Search completed");
+            if let Some(metadata) = result.metadata {
+                if let Some(matches) = metadata.get("total_matches") {
+                    println!("   ✓ Total matches: {}", matches);
+                }
+                if let Some(files) = metadata.get("files_with_matches") {
+                    println!("   ✓ Files with matches: {}", files);
+                }
+            }
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 5: Directory listing metadata
+    println!("\n5. Demonstrating directory listing metadata...");
+    let list_call = serde_json::json!({
+        "call_id": "4",
+        "name": "list_dir",
+        "arguments": {
+            "path": ".",
+            "recursive": true
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, list_call) {
+        Ok(result) => {
+            println!("   ✓ Directory listed");
+            if let Some(metadata) = result.metadata {
+                if let Some(total) = metadata.get("total_entries") {
+                    println!("   ✓ Total entries: {}", total);
+                }
+                if let Some(shown) = metadata.get("shown_entries") {
+                    println!("   ✓ Shown entries: {}", shown);
+                }
+                if let Some(truncated) = metadata.get("truncated") {
+                    println!("   ✓ Truncated: {}", truncated);
+                }
+            }
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 6: Truncation metadata
+    println!("\n6. Demonstrating truncation metadata...");
+    let large_content = "x".repeat(10000);
+    std::fs::write(workspace.join("large.txt"), &large_content)?;
+
+    let read_large_call = serde_json::json!({
+        "call_id": "5",
+        "name": "read_file",
+        "arguments": {
+            "path": "large.txt"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, read_large_call) {
+        Ok(result) => {
+            println!("   ✓ Large file read");
+            if let Some(metadata) = result.metadata {
+                if let Some(total_lines) = metadata.get("total_lines") {
+                    println!("   ✓ Total lines: {}", total_lines);
+                }
+                if let Some(shown_lines) = metadata.get("shown_lines") {
+                    println!("   ✓ Shown lines: {}", shown_lines);
+                }
+                if let Some(truncated) = metadata.get("truncated") {
+                    println!("   ✓ Truncated: {}", truncated);
+                }
+            }
+            println!("   Output size: {} bytes", result.result.len());
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Example 7: Web fetch metadata
+    println!("\n7. Demonstrating web fetch metadata...");
+    let web_call = serde_json::json!({
+        "call_id": "6",
+        "name": "web_fetch",
+        "arguments": {
+            "url": "https://example.com"
+        }
+    });
+
+    match execute_from_json(&executor, call_id, tool_name, web_call) {
+        Ok(result) => {
+            println!("   ✓ Web fetch completed");
+            if let Some(metadata) = result.metadata {
+                if let Some(status) = metadata.get("status_code") {
+                    println!("   ✓ Status code: {}", status);
+                }
+                if let Some(time) = metadata.get("fetch_time_ms") {
+                    println!("   ✓ Fetch time: {}ms", time);
+                }
+                if let Some(length) = metadata.get("content_length") {
+                    println!("   ✓ Content length: {} bytes", length);
+                }
+                if let Some(success) = metadata.get("success") {
+                    println!("   ✓ Success: {}", success);
+                }
+            }
+        }
+        Err(e) => println!("   ✗ Error: {}", e),
+    }
+
+    // Cleanup
+    println!("\n8. Cleaning up demo files...");
+    std::fs::remove_dir_all(&workspace)?;
+    println!("   ✓ Cleanup complete");
+
+    println!("\n=== Demo Complete ===");
+    println!("\nKey takeaways:");
+    println!("• Content hashes enable caching and validation");
+    println!("• Execution times track performance");
+    println!("• Usage statistics inform optimization");
+    println!("• Metadata provides context for all operations");
+
+    Ok(())
+}

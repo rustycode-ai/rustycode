@@ -1,0 +1,28 @@
+[package]
+name = "rustycode-agent"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+futures.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+rustycode-llm = { path = "../rustycode-llm" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-tools = { path = "../rustycode-tools" }
+rustycode-tools-api = { path = "../rustycode-tools-api" }
+rustycode-skill = { path = "../rustycode-skill" }
+rustycode-guard = { path = "../rustycode-guard" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true
+

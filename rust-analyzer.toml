@@ -1,0 +1,96 @@
+# Rust-Analyzer Configuration for RustyCode
+#
+# This file configures rust-analyzer behavior for the RustyCode project.
+# See https://rust-analyzer.github.io/manual.html#configuration for options.
+
+[general]
+# Enable all proc-macro features including the rust-analyzer-proc-macro-srv
+procMacro.enable = true
+
+# Enable features from workspace Cargo.toml
+cargo.features = "all"
+
+# Build all targets
+cargo.buildScripts.enable = true
+cargo.buildScripts.overrideCommand = ["cargo", "check", "--message-format=json"]
+
+# Use a faster build setting for the IDE
+cargo.loadOutDirsFromCheck = true
+
+# Use rustc wrapper for faster analysis (optional, uncomment if using sccache)
+# rustc.wrapper = "sccache"
+
+[completion]
+# Add call parentheses/snippets automatically
+addCallArgumentSnippets = true
+addCallParenthesis = true
+
+# Auto-import completion
+autoImport.enable = true
+
+# Show postfix snippets like 'somevariable.ref', 'somevariable.not'
+postfix.enable = true
+
+# Show private items in completion
+privateEditable.enable = false
+
+[diagnostics]
+# Enable experimental diagnostics
+experimental.enable = true
+
+# Show warnings for unused code
+warningsAsHint = ["unused_variables"]
+
+# Disable specific diagnostics that are too noisy for this project
+disabled = [
+    "unresolved-proc-macro",  # Sometimes proc-macros show as unresolved during editing
+]
+
+[hover]
+# Show documentation in hover
+documentation.enable = true
+
+# Show links to documentation in hover
+linksInHover.enable = true
+
+[inlayHints]
+# Enable inlay hints for type parameters
+typeParameters.enable = true
+
+# Show hints for generic types
+genericParameterHints.enable = true
+
+# Show hints for implicit 'this' parameter
+implicitDeref.enable = true
+
+[procMacro]
+# Enable proc-macro server (required for workspace with macros)
+enable = true
+server =rust-analyzer-proc-macro-srv
+
+[lens]
+# Enable code lens implementations
+implementations.enable = true
+run.enable = true
+debug.enable = true
+
+# Show method references
+methodReferences.enable = true
+
+# Show references in general (can be noisy)
+references.adt.enable = false  # Don't show enum/struct refs
+references.enumVariant.enable = false
+references.method.enable = false
+references.trait.enable = true
+
+[semanticTokens]
+# Use modern semantic token highlighting
+modifiers.enable = true
+
+[typing]
+# Auto-closing of delimiters
+autoClosingAngleBrackets.enable = true
+
+[files]
+# Watch for changes
+watcher = "client"
