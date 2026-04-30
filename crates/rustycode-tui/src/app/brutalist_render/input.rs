@@ -179,7 +179,7 @@ impl BrutalistRenderer<'_> {
                 };
 
                 if is_cursor_line {
-                    let col = self.cursor_col.min(line.len());
+                    let col = line.floor_char_boundary(self.cursor_col.min(line.len()));
                     let (before, after) = line.split_at(col);
                     let mut spans = prefix;
                     if !before.is_empty() {
@@ -216,7 +216,7 @@ impl BrutalistRenderer<'_> {
                 }
             }
         } else {
-            let col = self.cursor_col.min(self.input_text.len());
+            let col = self.input_text.floor_char_boundary(self.cursor_col.min(self.input_text.len()));
             let (before, after) = self.input_text.split_at(col);
             let mut spans = vec![
                 Span::styled("❯", Style::default().fg(Color::Rgb(220, 80, 100))),

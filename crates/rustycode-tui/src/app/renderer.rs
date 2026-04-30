@@ -503,6 +503,8 @@ impl PolishedRenderer {
         }
 
         if tui.command_palette.is_visible() {
+            let input = tui.input_handler.state.all_text();
+            tui.command_palette.sync_query_from_input(&input);
             tui.command_palette.render(frame, size);
         }
 

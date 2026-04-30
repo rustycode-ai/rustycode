@@ -68,6 +68,38 @@ crates/rustycode-session/sessions/
 *.tar.gz
 *.deb
 
+# Benchmark run data (generated, not source)
+benchmark_results/
+bench-tasks/
+
+# AST tool state
+.ast/
+**/.ast/
+
+# Scratch / debug files
+test.js
+test.txt
+vm.js
+plan.md
+instruction.md
+BrutalistRenderer
+actual_crates.txt
+workspace_members.txt
+*.csv
+!Cargo.toml
+
+# Doom / MIPS build artifacts
+doomgeneric/
+doomgeneric_mips
+
+# Status markers (consolidated into docs/)
+DISCIPLINE_GATE.md
+PROFILE_GATE.md
+GSD_TEST_REGS.md
+HARNESS_INTEGRATION_COMPLETE.md
+PROJECT_SUMMARY.md
+USAGE.md
+
 # Agent / Tool Specific
 .harness*
 .sparv

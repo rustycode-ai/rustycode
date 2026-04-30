@@ -2543,6 +2543,8 @@ impl TUI {
 
         // Overlay: command palette (Ctrl+K / Ctrl+Shift+P)
         if self.command_palette.is_visible() {
+            let input = self.input_handler.state.all_text();
+            self.command_palette.sync_query_from_input(&input);
             self.command_palette.render(frame, size);
         }
 

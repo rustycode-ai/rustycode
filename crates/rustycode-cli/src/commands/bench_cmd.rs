@@ -108,7 +108,7 @@ async fn async_run(
     job_config: rustycode_bench::JobConfig,
     max_turns: usize,
     max_tokens: u32,
-    timeout: u64,
+    _timeout: u64,
 ) -> Result<()> {
     let job = rustycode_bench::Job::new(job_config);
 

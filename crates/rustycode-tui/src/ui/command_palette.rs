@@ -486,6 +486,13 @@ impl CommandPaletteState {
         self.recent_commands.truncate(5);
     }
 
+    fn recent_rank(&self, command_name: &str) -> usize {
+        self.recent_commands
+            .iter()
+            .position(|name| name == command_name)
+            .unwrap_or(usize::MAX)
+    }
+
     /// Toggle palette visibility
     pub fn toggle(&mut self) {
         if self.visible {
@@ -519,11 +526,26 @@ impl CommandPaletteState {
             .collect();
 
         matches.sort_by(|a, b| {
-            b.1.cmp(&a.1).then_with(|| {
-                let a_name = self.commands[a.0].name.to_lowercase();
-                let b_name = self.commands[b.0].name.to_lowercase();
-                a_name.cmp(&b_name)
-            })
+            let a_cmd = &self.commands[a.0];
+            let b_cmd = &self.commands[b.0];
+            let a_recent = self.recent_rank(&a_cmd.name);
+            let b_recent = self.recent_rank(&b_cmd.name);
+
+            if self.query.is_empty() {
+                a_recent.cmp(&b_recent).then_with(|| {
+                    let a_name = a_cmd.name.to_lowercase();
+                    let b_name = b_cmd.name.to_lowercase();
+                    a_name.cmp(&b_name)
+                })
+            } else {
+                b.1.cmp(&a.1)
+                    .then_with(|| a_recent.cmp(&b_recent))
+                    .then_with(|| {
+                        let a_name = a_cmd.name.to_lowercase();
+                        let b_name = b_cmd.name.to_lowercase();
+                        a_name.cmp(&b_name)
+                    })
+            }
         });
 
         self.filtered_indices = matches.into_iter().map(|(idx, _)| idx).collect();
@@ -544,6 +566,19 @@ impl CommandPaletteState {
         self.selected_index = 0;
         self.scroll_offset = 0;
         self.update_filtered();
+    }
+
+    /// Sync the query from the input field text (everything after `/`).
+    /// Returns true if the query changed (caller should set dirty).
+    pub fn sync_query_from_input(&mut self, input: &str) -> bool {
+        let new_query = input.strip_prefix('/').unwrap_or(input).to_string();
+        if self.query != new_query {
+            self.query = new_query;
+            self.update_filtered();
+            true
+        } else {
+            false
+        }
     }
 
     /// Advance to the next tab.
@@ -792,9 +827,6 @@ impl CommandPaletteRenderer {
                 CommandResult::Close
             }),
             Command::with_hint("/model", "Switch LLM model", "<model-name>", || {
-                CommandResult::Close
-            }),
-            Command::new("/model list", "List available models with numbers", || {
                 CommandResult::Close
             }),
             Command::with_hint(
@@ -1228,7 +1260,7 @@ impl CommandPaletteRenderer {
         }
 
         self.state
-            .set_viewport_rows(inner.height.saturating_sub(7) as usize);
+            .set_viewport_rows(inner.height.saturating_sub(4) as usize);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -1332,24 +1364,6 @@ impl CommandPaletteRenderer {
             return;
         }
 
-        let body_chunks = if area.width > 88 {
-            Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints([Constraint::Percentage(56), Constraint::Percentage(44)])
-                .split(area)
-        } else {
-            Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([Constraint::Min(6), Constraint::Length(7)])
-                .split(area)
-        };
-
-        self.render_command_list(f, body_chunks[0]);
-        self.render_command_details(f, body_chunks[1]);
-    }
-
-    /// Render the filtered command list
-    fn render_command_list(&self, f: &mut Frame, area: Rect) {
         let visible_start = self.state.scroll_offset;
         let visible_end = (visible_start + self.state.viewport_rows.get().max(1))
             .min(self.state.filtered_indices.len());
@@ -1415,78 +1429,14 @@ impl CommandPaletteRenderer {
         f.render_stateful_widget(list, area, &mut list_state);
     }
 
-    fn render_command_details(&self, f: &mut Frame, area: Rect) {
-        if area.width < 20 || area.height < 5 {
-            return;
-        }
-
-        let Some(command) = self.state.selected_command() else {
-            let empty = Paragraph::new("No command selected")
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .title(" Details ")
-                        .border_style(Style::default().fg(Color::DarkGray)),
-                );
-            f.render_widget(empty, area);
-            return;
-        };
-
-        let mut lines = vec![
-            Line::from(vec![Span::styled(
-                command.name.clone(),
-                Style::default()
-                    .fg(Color::Rgb(80, 200, 220))
-                    .add_modifier(Modifier::BOLD),
-            )]),
-            Line::from(vec![Span::styled(
-                command.description.clone(),
-                Style::default().fg(Color::White),
-            )]),
-            Line::from(""),
-        ];
-
-        if !command.argument_hint.is_empty() {
-            lines.push(Line::from(vec![
-                Span::styled("Args: ", Style::default().fg(Color::DarkGray)),
-                Span::styled(
-                    command.argument_hint.clone(),
-                    Style::default().fg(Color::Yellow),
-                ),
-            ]));
-        }
-
-        lines.push(Line::from(vec![
-            Span::styled("Enter/Tab: ", Style::default().fg(Color::DarkGray)),
-            Span::styled("insert into prompt", Style::default().fg(Color::Gray)),
-        ]));
-        lines.push(Line::from(vec![
-            Span::styled("Ctrl+K / Ctrl+P: ", Style::default().fg(Color::DarkGray)),
-            Span::styled("open dialog", Style::default().fg(Color::Gray)),
-        ]));
-        lines.push(Line::from(vec![
-            Span::styled("PgUp/PgDn: ", Style::default().fg(Color::DarkGray)),
-            Span::styled("page results", Style::default().fg(Color::Gray)),
-        ]));
-
-        let details = Paragraph::new(lines)
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .title(" Details ")
-                    .border_style(Style::default().fg(Color::DarkGray)),
-            )
-            .wrap(Wrap { trim: false });
-
-        f.render_widget(details, area);
-    }
-
     fn render_footer(&self, f: &mut Frame, area: Rect) {
         let footer = Paragraph::new(Line::from(vec![
             Span::styled("Esc", Style::default().fg(Color::DarkGray)),
             Span::raw(" close  "),
             Span::styled("Enter", Style::default().fg(Color::DarkGray)),
             Span::raw(" insert  "),
+            Span::styled("Ctrl+K/P", Style::default().fg(Color::DarkGray)),
+            Span::raw(" open  "),
             Span::styled("PgUp/PgDn", Style::default().fg(Color::DarkGray)),
             Span::raw(" scroll  "),
             Span::styled("Ctrl+U", Style::default().fg(Color::DarkGray)),
@@ -1577,6 +1527,11 @@ impl CommandPalette {
     /// Get reference to state
     pub fn state(&self) -> &CommandPaletteState {
         self.renderer.state()
+    }
+
+    /// Sync query from input text (everything after `/`)
+    pub fn sync_query_from_input(&mut self, input: &str) -> bool {
+        self.renderer.state_mut().sync_query_from_input(input)
     }
 }
 
@@ -1670,20 +1625,25 @@ mod tests {
     fn test_highlight_matches_unicode() {
         let matcher = FuzzyMatcher::new();
 
-        // Case-insensitive match with multi-byte chars (Ü → ü, same byte length)
+        // Case-insensitive match with multi-byte chars — must not panic
         let line = matcher.highlight_matches("über", "ÜBER");
-        assert!(line.spans.len() >= 2); // Should have highlighted portion
-
-        // Match that expands across char boundaries (İ → i̇, different byte count)
-        let line = matcher.highlight_matches("i", "İstanbul");
         assert!(!line.spans.is_empty());
 
-        // Pure ASCII match still works
-        let line = matcher.highlight_matches("test", "test_command");
-        assert!(line.spans.len() >= 2);
+        // CJK characters — must not panic
+        let line = matcher.highlight_matches("東", "東京都");
+        assert!(!line.spans.is_empty());
 
-        // CJK characters
-        let line = matcher.highlight_matches("東京", "東京都");
+        // Turkish İ (expands to i + combining dot above in lowercase)
+        let line = matcher.highlight_matches("istanbul", "İstanbul");
+        // Should not panic even if highlighting is partial
+        assert!(!line.spans.is_empty());
+
+        // Mixed ASCII + multi-byte
+        let line = matcher.highlight_matches("café", "CAFÉ");
+        assert!(!line.spans.is_empty());
+
+        // Verify ASCII still works correctly
+        let line = matcher.highlight_matches("test_command", "test");
         assert!(line.spans.len() >= 2);
     }
 

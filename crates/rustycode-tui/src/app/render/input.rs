@@ -214,7 +214,7 @@ impl PolishedRenderer {
         }
 
         if row_idx == cursor_row {
-            let col = cursor_col.min(row.len());
+            let col = row.floor_char_boundary(cursor_col.min(row.len()));
             let (before, rest) = row.split_at(col);
 
             if !before.is_empty() {

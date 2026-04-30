@@ -638,8 +638,7 @@ impl BenchAgent for CodeAgent {
                             .get("command")
                             .and_then(|v| v.as_str())
                             .map(|s| truncate(s, 500))
-                            .unwrap_or_default()
-                            .to_string(),
+                            .unwrap_or_default(),
                         "write_file" | "read_file" | "edit_file" => {
                             let p = tu
                                 .input
