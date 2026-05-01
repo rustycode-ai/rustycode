@@ -742,7 +742,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
     // Conversation limits to prevent unbounded memory growth
     const MAX_MESSAGES: usize = 50;
     const MAX_CONVERSATION_BYTES: usize = 10 * 1024 * 1024; // 10MB
-    const MAX_TOOL_TURNS: usize = 50; // Prevent infinite tool-use loops
+    const MAX_TOOL_TURNS: usize = 200; // Prevent infinite tool-use loops
 
     // Conversation-level truncation for tool results.
     // Individual tools truncate at 30-80 lines / 10-50KB, but MCP tools, custom tools,
@@ -1659,8 +1659,10 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                         "Reached max tool turns ({}) — stopping to prevent infinite loop",
                         MAX_TOOL_TURNS
                     );
-                    send_chunk(&stream_tx,StreamChunk::Text(
-                        format!("\n⚠️ Reached maximum tool turns ({}). Stopping to prevent infinite loop.\n", MAX_TOOL_TURNS),
+                    send_chunk(&stream_tx, StreamChunk::SystemMessage(
+                        format!("Reached maximum tool turns ({}). Stopping current turn. \
+                                 Auto-continue will resume if enabled, or press Enter to continue manually.",
+                                MAX_TOOL_TURNS),
                     ));
                     break;
                 }
@@ -1755,6 +1757,17 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     stop_reason: reason.to_string(),
                 },
             );
+        }
+        Some("max_tokens") => {
+            send_chunk(
+                &stream_tx,
+                StreamChunk::SystemMessage(
+                    "Response truncated (max tokens reached). The response will continue \
+                     automatically if auto-continue is enabled."
+                        .to_string(),
+                ),
+            );
+            send_chunk(&stream_tx, StreamChunk::Done);
         }
         _ => send_chunk(&stream_tx, StreamChunk::Done),
     }

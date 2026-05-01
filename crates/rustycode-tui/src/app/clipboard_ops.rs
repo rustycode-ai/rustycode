@@ -7,7 +7,7 @@ use crate::ui::message::MessageRole;
 use anyhow::Result;
 
 impl TUI {
-    fn copy_text_with_feedback(&mut self, content: String, _success_label: &str) -> Result<()> {
+    fn copy_text_with_feedback(&mut self, content: String, success_label: &str) -> Result<()> {
         use crate::clipboard::copy_text_to_clipboard_both;
 
         let chars = content.chars().count();
@@ -15,7 +15,7 @@ impl TUI {
             Ok(()) => {
                 tracing::debug!("Copied clipboard payload ({} chars)", chars);
                 self.toast_manager
-                    .success(format!("✓ Copied {} chars", chars));
+                    .success(format!("✓ {} ({} chars)", success_label, chars));
             }
             Err(e) => {
                 tracing::error!("Failed to copy clipboard payload: {}", e);

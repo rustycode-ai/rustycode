@@ -42,6 +42,7 @@ members = [
     "crates/rustycode-tools-registry",
     "crates/rustycode-tui",
     "crates/rustycode-ui-core",
+    "crates/rustycode-ui-model",
     "crates/rustycode-vector-memory",
     "examples",
     "tests",

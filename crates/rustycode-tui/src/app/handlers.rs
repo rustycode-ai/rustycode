@@ -29,7 +29,27 @@ fn classify_tool_type(tool_name: &str) -> risk::ToolType {
 fn check_and_trigger_auto_continue(tui: &mut TUI) {
     use crate::tasks::TaskStatus;
 
-    const MAX_AUTO_CONTINUE_ITERATIONS: usize = 20;
+    const MAX_AUTO_CONTINUE_ITERATIONS: usize = 100;
+    const MAX_STAGNANT_ITERATIONS: usize = 5;
+
+    // Check if the last stream was productive (had tool executions).
+    // Productive streams reset the stagnation counter, allowing effectively
+    // unlimited continuation as long as the agent keeps doing useful work.
+    let last_stream_had_tools = tui
+        .messages
+        .iter()
+        .rev()
+        .find(|m| m.role == MessageRole::Assistant)
+        .is_some_and(|m| {
+            m.tool_executions
+                .as_ref()
+                .is_some_and(|execs| !execs.is_empty())
+        });
+
+    if last_stream_had_tools {
+        // Productive turn — reset iteration counter so the agent can keep going
+        tui.auto_continue_iterations = 0;
+    }
 
     // Enforce iteration limit to prevent infinite loops
     if tui.auto_continue_iterations >= MAX_AUTO_CONTINUE_ITERATIONS {
@@ -41,6 +61,22 @@ fn check_and_trigger_auto_continue(tui: &mut TUI) {
             "Auto-continue stopped after {} iterations. Press Ctrl+Shift+A to resume if needed.",
             MAX_AUTO_CONTINUE_ITERATIONS
         ));
+        tui.auto_continue_enabled = false;
+        tui.auto_continue_iterations = 0;
+        return;
+    }
+
+    // Stagnation check: if we've had multiple consecutive iterations with no
+    // tool use, the agent is likely stuck in a text-only loop. Stop and inform.
+    if !last_stream_had_tools && tui.auto_continue_iterations >= MAX_STAGNANT_ITERATIONS {
+        tracing::warn!(
+            "Auto-continue stopped: {} consecutive iterations with no tool use",
+            MAX_STAGNANT_ITERATIONS
+        );
+        tui.add_system_message(
+            "Agent appears stuck (no tool calls for several turns). \
+             Press Enter to continue manually if needed.".to_string(),
+        );
         tui.auto_continue_enabled = false;
         tui.auto_continue_iterations = 0;
         return;
@@ -87,9 +123,14 @@ fn check_and_trigger_auto_continue(tui: &mut TUI) {
             .send_message_with_history(context, Some(history))
         {
             tracing::error!("Failed to send auto-continue message: {}", e);
+            tui.add_system_message(format!(
+                "Auto-continue failed: {}. Auto-continue disabled. Press Enter to continue manually.",
+                e
+            ));
             tui.reset_streaming_state();
             tui.active_tools.clear();
             tui.auto_continue_pending = false;
+            tui.auto_continue_enabled = false;
         } else {
             let assistant_msg = Message::assistant(String::new());
             tui.messages.push(assistant_msg);
@@ -142,9 +183,14 @@ fn check_and_trigger_auto_continue(tui: &mut TUI) {
         .send_message_with_history(context, Some(history))
     {
         tracing::error!("Failed to send auto-continue message: {}", e);
+        tui.add_system_message(format!(
+            "Auto-continue failed: {}. Auto-continue disabled. Press Enter to continue manually.",
+            e
+        ));
         tui.reset_streaming_state();
         tui.active_tools.clear();
         tui.auto_continue_pending = false;
+        tui.auto_continue_enabled = false;
     } else {
         let assistant_msg = Message::assistant(String::new());
         tui.messages.push(assistant_msg);
@@ -1462,22 +1508,24 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
                 let user_message = match stop_reason.as_str() {
                     "content_filter" | "SAFETY" | "RECITATION" => {
                         "Response filtered by provider's safety policy. \
-                         Try rephrasing your request or using a different model."
+                         Try rephrasing your request or using a different model.".to_string()
                     }
                     "refusal" => {
                         "Model declined to respond. \
-                         Try rephrasing or simplifying your request."
+                         Try rephrasing or simplifying your request.".to_string()
                     }
                     _ => {
-                        "Stream stopped unexpectedly. \
-                         Try rephrasing or retrying."
+                        format!(
+                            "Stream stopped (reason: {}). Try rephrasing or retrying.",
+                            stop_reason
+                        )
                     }
                 };
                 tracing::warn!(
                     stop_reason = %stop_reason,
                     "Stream stopped with non-normal stop reason"
                 );
-                tui.add_system_message(user_message.to_string());
+                tui.add_system_message(user_message);
             }
 
             tui.context_monitor.update(&tui.messages);

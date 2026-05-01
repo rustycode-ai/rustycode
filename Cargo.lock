@@ -5497,11 +5497,20 @@ version = "0.1.0"
 dependencies = [
  "pulldown-cmark",
  "ratatui",
+ "rustycode-ui-model",
  "serde",
  "serde_json",
  "syntect",
  "tracing",
  "unicode-width",
+]
+
+[[package]]
+name = "rustycode-ui-model"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
