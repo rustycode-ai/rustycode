@@ -105,14 +105,14 @@ export function MessageList({ messages, toolOutputsVisible, pending, scrollConta
             <div key={item.key} className="date-separator" role="presentation">
               <span className="date-separator-label">{item.label}</span>
             </div>
-          ) : (
+          ) : item.message ? (
             <MessageBubble
               key={item.key}
-              message={item.message!}
+              message={item.message}
               toolOutputsVisible={toolOutputsVisible}
-              isStreaming={pending && item.index === lastIndex && item.message!.kind === "Assistant"}
+              isStreaming={pending && item.index === lastIndex && item.message.kind === "Assistant"}
             />
-          )
+          ) : null
         )
       )}
       <div ref={bottomRef} />

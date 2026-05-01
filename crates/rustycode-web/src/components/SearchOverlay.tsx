@@ -51,8 +51,11 @@ export function SearchOverlay({ messages, onClose, onNavigate }: SearchOverlayPr
       setSelectedIndex((prev) => Math.max(prev - 1, 0));
     } else if (e.key === "Enter" && results.length > 0) {
       e.preventDefault();
-      onNavigate(results[selectedIndex].id);
-      onClose();
+      const selected = results[selectedIndex];
+      if (selected) {
+        onNavigate(selected.id);
+        onClose();
+      }
     }
   }, [onClose, results, selectedIndex, onNavigate]);
 
