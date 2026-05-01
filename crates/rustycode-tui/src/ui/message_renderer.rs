@@ -599,14 +599,14 @@ impl MessageRenderer {
                 let visible = total_tools.min(VISIBLE_LIMIT);
                 let skipped = total_tools.saturating_sub(VISIBLE_LIMIT);
                 // Header border + (ellipsis line + spacer if skipped) + visible tools + spacers + footer border
-                2 + if skipped > 0 { 2 } else { 0 }
+                1 + if skipped > 0 { 2 } else { 0 }
                     + visible
                     + visible.saturating_sub(1) // spacers between tools
                     + 1
             }
             ExpansionLevel::Deep => {
-                // Header + border + all tools (with detail for focused) + border
-                2 + total_tools + 4 + 1
+                // Header border + all tools (with detail for focused) + detail extras + footer border
+                1 + total_tools + 4 + 1
             }
         }
     }

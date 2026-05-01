@@ -1,5 +1,3 @@
-use rustycode_ui_model::*;
-
 pub mod markdown;
 pub mod renderer;
 pub mod syntax_highlighter;
