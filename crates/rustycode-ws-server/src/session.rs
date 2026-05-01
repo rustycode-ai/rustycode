@@ -184,7 +184,7 @@ mod tests {
     #[tokio::test]
     async fn get_or_create_new_on_invalid_token() {
         let mgr = SessionManager::new();
-        let (state, resumed) = mgr.get_or_create(Some("invalid")).await.unwrap();
+        let (_state, resumed) = mgr.get_or_create(Some("invalid")).await.unwrap();
         assert!(!resumed);
     }
 

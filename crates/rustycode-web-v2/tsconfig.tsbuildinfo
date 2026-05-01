@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/inputbar.tsx","./src/components/messagebubble.tsx","./src/components/messagelist.tsx","./src/components/statusbar.tsx","./src/hooks/usesession.ts","./src/hooks/usewebsocket.ts","./src/protocol/types.ts","./src/protocol/ws-client.ts","./src/state/event-reducer.ts","./src/state/session-store.ts"],"version":"5.8.3"}

@@ -127,6 +127,12 @@ pub trait RunController {
     fn finish_error(&mut self, content: impl Into<String>);
 }
 
+#[cfg(feature = "accumulator")]
+pub mod accumulator;
+
+#[cfg(feature = "accumulator")]
+pub use accumulator::apply_event;
+
 pub struct SessionRunController<'a> {
     session: &'a mut FrontendSession,
 }

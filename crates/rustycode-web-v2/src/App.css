@@ -1,0 +1,199 @@
+:root {
+  --bg-primary: oklch(13% 0 0);
+  --bg-secondary: oklch(18% 0 0);
+  --bg-surface: oklch(22% 0 0);
+  --text-primary: oklch(92% 0 0);
+  --text-secondary: oklch(68% 0 0);
+  --accent: oklch(70% 0.15 250);
+  --accent-error: oklch(65% 0.2 25);
+  --accent-tool: oklch(70% 0.15 180);
+  --border: oklch(30% 0 0);
+  --radius: 8px;
+  --font-mono: "SF Mono", "Fira Code", "JetBrains Mono", monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Status bar */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.status-title {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.status-pending {
+  color: oklch(75% 0.15 90);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-tools {
+  color: var(--text-secondary);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Main message area */
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.message-list {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Message bubbles */
+.message-bubble {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+}
+
+.message-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.message-user .message-label { color: var(--accent); }
+.message-assistant .message-label { color: oklch(75% 0.12 140); }
+.message-system .message-label { color: var(--text-secondary); }
+.message-tool .message-label { color: var(--accent-tool); }
+.message-error .message-label { color: var(--accent-error); }
+
+.message-content {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.message-content p {
+  margin: 4px 0;
+}
+
+.message-content pre {
+  background: var(--bg-primary);
+  padding: 8px 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 13px;
+}
+
+.message-content code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.tool-output {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Input bar */
+.footer {
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+}
+
+.input-bar {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.input-bar textarea {
+  flex: 1;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  min-height: 40px;
+  max-height: 120px;
+}
+
+.input-bar textarea:focus {
+  border-color: var(--accent);
+}
+
+.input-bar textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.input-bar textarea:disabled {
+  opacity: 0.5;
+}
+
+button {
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-send {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+}
+
+.btn-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-abort {
+  background: transparent;
+  color: var(--accent-error);
+  border-color: var(--accent-error);
+}

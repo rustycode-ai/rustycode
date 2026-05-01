@@ -912,7 +912,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
         #[allow(clippy::duration_suboptimal_units)]
         const MAX_STREAM_DURATION: Duration = Duration::from_secs(600);
 
-        loop {
+        'stream: loop {
             let elapsed = stream_start.elapsed();
             if !thinking_timeout_fired && thinking_content.len() > 100 {
                 let early_cutoff = elapsed > EARLY_CUTOFF_DURATION
@@ -946,21 +946,45 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                 break;
             }
 
-            // 5min per-chunk timeout: models generating large write_file calls can go quiet for extended periods
-            let chunk_result =
-                match tokio::time::timeout(Duration::from_mins(5), stream.next()).await {
-                    Ok(Some(result)) => result,
-                    Ok(None) => break, // stream ended normally
-                    Err(_) => {
+            // Poll for next chunk with responsive cancellation checking.
+            // Uses 500ms intervals so Esc/Ctrl+C is detected within half a second,
+            // instead of blocking for up to 5 minutes on a single stream.next() call.
+            let chunk_result = {
+                let deadline = tokio::time::Instant::now() + Duration::from_mins(5);
+                let mut chunk_val = None;
+                let mut stream_done = false;
+
+                while chunk_val.is_none() && !stream_done {
+                    if stop_signal
+                        .as_ref()
+                        .is_some_and(|flag| flag.load(Ordering::Relaxed))
+                    {
+                        tracing::info!("Stream cancelled by user during chunk wait");
+                        send_chunk(&stream_tx, StreamChunk::Done);
+                        return Ok(());
+                    }
+                    if tokio::time::Instant::now() >= deadline {
                         tracing::warn!("Stream timed out after 300s with no data");
-                        send_chunk(&stream_tx,StreamChunk::Error(
+                        send_chunk(&stream_tx, StreamChunk::Error(
                             "Stream timed out (300s without data). The provider may be overloaded."
                                 .into(),
                         ));
                         send_chunk(&stream_tx, StreamChunk::Done);
-                        break;
+                        break 'stream;
                     }
-                };
+                    match tokio::time::timeout(Duration::from_millis(500), stream.next()).await {
+                        Ok(Some(r)) => chunk_val = Some(r),
+                        Ok(None) => stream_done = true,
+                        Err(_) => {} // 500ms interval elapsed, re-check stop_signal
+                    }
+                }
+
+                if stream_done {
+                    break 'stream;
+                }
+
+                chunk_val.unwrap()
+            };
             // Check for cancellation signal
             if stop_signal
                 .as_ref()

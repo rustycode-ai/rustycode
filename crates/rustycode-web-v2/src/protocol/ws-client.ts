@@ -1,0 +1,229 @@
+import type {
+  Envelope,
+  HelloPayload,
+  InputPayload,
+  HeartbeatPayload,
+  SessionCreatedPayload,
+  SessionResumedPayload,
+  EventPayload,
+  HeartbeatAckPayload,
+  ErrorPayload,
+  FrontendSession,
+} from "./types";
+
+type ServerMessageHandler = (
+  type: string,
+  payload: unknown
+) => void;
+
+type PendingEnvelope = {
+  type: string;
+  id: string;
+  payload: unknown;
+};
+
+export class WsClient {
+  private ws: WebSocket | null = null;
+  private sessionToken: string | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 10;
+  private baseReconnectDelay = 1000;
+  private ready = false;
+  private manualDisconnect = false;
+  private pendingSendQueue: PendingEnvelope[] = [];
+  private onMessage: ServerMessageHandler;
+  private url: string;
+
+  constructor(url: string, onMessage: ServerMessageHandler) {
+    this.url = url;
+    this.onMessage = onMessage;
+  }
+
+  connect(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.manualDisconnect = false;
+      this.ws = new WebSocket(this.url);
+      let handshakeResolved = false;
+
+      this.ws.onopen = () => {
+        this.ready = false;
+        this.sendHello();
+        this.startHeartbeat();
+      };
+
+      this.ws.onmessage = (event) => {
+        const handled = this.handleMessage(event.data as string);
+        if (!handshakeResolved && handled === "handshake") {
+          handshakeResolved = true;
+          this.reconnectAttempts = 0;
+          this.ready = true;
+          this.flushPendingSends();
+          resolve();
+        }
+      };
+
+      this.ws.onerror = () => {
+        if (!handshakeResolved) {
+          reject(new Error("WebSocket connection error"));
+        }
+      };
+
+      this.ws.onclose = () => {
+        this.ready = false;
+        this.stopHeartbeat();
+        if (this.manualDisconnect) {
+          return;
+        }
+        if (!handshakeResolved) {
+          reject(new Error("WebSocket connection closed before handshake"));
+        }
+        this.scheduleReconnect();
+      };
+    });
+  }
+
+  private sendEnvelope(type: string, id: string, payload: unknown): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    const envelope: Envelope = { v: 2, type, id, payload };
+    if (type !== "hello" && !this.ready) {
+      this.pendingSendQueue.push(envelope);
+      return;
+    }
+    this.ws.send(JSON.stringify(envelope));
+  }
+
+  private sendHello(): void {
+    const payload: HelloPayload = {};
+    if (this.sessionToken) {
+      payload.session_token = this.sessionToken;
+    }
+    this.sendEnvelope("hello", "1", payload);
+  }
+
+  sendInput(content: string): void {
+    const payload: InputPayload = { content };
+    this.sendEnvelope("input", crypto.randomUUID(), payload);
+  }
+
+  sendAbort(): void {
+    this.sendEnvelope("abort", crypto.randomUUID(), {});
+  }
+
+  private sendHeartbeat(): void {
+    const payload: HeartbeatPayload = { ts: Date.now() };
+    this.sendEnvelope("heartbeat", crypto.randomUUID(), payload);
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), 30_000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private handleMessage(raw: string): "handshake" | "regular" {
+    let envelope: Envelope;
+    try {
+      envelope = JSON.parse(raw) as Envelope;
+    } catch {
+      console.error("Failed to parse envelope:", raw);
+      return "regular";
+    }
+
+    switch (envelope.type) {
+      case "session_created": {
+        const payload = envelope.payload as SessionCreatedPayload;
+        this.sessionToken = payload.session_token;
+        this.onMessage("session_created", payload);
+        return "handshake";
+      }
+      case "session_resumed": {
+        const payload = envelope.payload as SessionResumedPayload;
+        this.sessionToken = payload.session_token;
+        this.onMessage("session_resumed", payload);
+        return "handshake";
+      }
+      case "state_snapshot": {
+        const payload = envelope.payload as FrontendSession;
+        this.onMessage("state_snapshot", payload);
+        return "regular";
+      }
+      case "event": {
+        const payload = envelope.payload as EventPayload;
+        this.onMessage("event", payload);
+        return "regular";
+      }
+      case "heartbeat_ack": {
+        const payload = envelope.payload as HeartbeatAckPayload;
+        this.onMessage("heartbeat_ack", payload);
+        return "regular";
+      }
+      case "error": {
+        const payload = envelope.payload as ErrorPayload;
+        this.onMessage("error", payload);
+        return "regular";
+      }
+      default:
+        console.warn("Unknown message type:", envelope.type);
+        return "regular";
+    }
+  }
+
+  private flushPendingSends(): void {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.ready) {
+      return;
+    }
+
+    while (this.pendingSendQueue.length > 0) {
+      const envelope = this.pendingSendQueue.shift();
+      if (envelope) {
+        this.ws.send(JSON.stringify(envelope));
+      }
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      this.onMessage("connection_lost", {
+        message: "Max reconnection attempts reached",
+      });
+      return;
+    }
+    const delay =
+      this.baseReconnectDelay *
+      Math.pow(2, this.reconnectAttempts);
+    this.reconnectAttempts++;
+    this.onMessage("reconnecting", { attempt: this.reconnectAttempts, delay });
+    setTimeout(() => {
+      this.connect().catch(() => {
+        // onclose will schedule next reconnect
+      });
+    }, delay);
+  }
+
+  disconnect(): void {
+    this.stopHeartbeat();
+    this.manualDisconnect = true;
+    this.reconnectAttempts = this.maxReconnectAttempts; // prevent reconnect
+    this.ready = false;
+    this.pendingSendQueue = [];
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+
+  get connected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  get token(): string | null {
+    return this.sessionToken;
+  }
+}

@@ -44,11 +44,11 @@ members = [
     "crates/rustycode-ui-core",
     "crates/rustycode-ui-model",
     "crates/rustycode-vector-memory",
-    "crates/rustycode-web-native",
+    "crates/rustycode-ws-server",
     "examples",
     "tests",
 ]
-exclude = ["crates/ratzilla-wasm", "crates/rustycode-web"]
+exclude = ["crates/ratzilla-wasm"]
 
 [workspace.metadata]
 cargo-version = "2"
