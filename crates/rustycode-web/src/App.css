@@ -553,6 +553,7 @@ h1, h2, h3, h4 {
 /* ── Message Bubble ──────────────────────────────────────── */
 
 .message-bubble {
+  position: relative;
   padding: var(--sp-3) var(--sp-4);
   border-radius: var(--radius);
   background: var(--bg-surface);
@@ -1386,16 +1387,172 @@ button:active {
   background: oklch(20% 0.04 25);
 }
 
+/* ── Scrollbar Polish ─────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(40% 0.02 250 / 0.5);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(50% 0.03 250 / 0.6);
+}
+
+/* ── Message Actions ─────────────────────────────────────── */
+
+.message-actions {
+  position: absolute;
+  top: var(--sp-1);
+  right: var(--sp-1);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.message-bubble:hover .message-actions {
+  opacity: 1;
+}
+
+.message-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-dimmed);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.message-action-btn:hover {
+  background: var(--bg-raised);
+  color: var(--text-primary);
+}
+
+.message-action-btn[data-copied="true"] {
+  color: oklch(70% 0.15 145);
+  border-color: oklch(70% 0.15 145 / 0.3);
+}
+
+/* ── Keyboard Shortcuts Overlay ──────────────────────────── */
+
+.shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  background: oklch(0% 0 0 / 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  backdrop-filter: blur(4px);
+  animation: fade-in 0.15s ease-out;
+}
+
+.shortcuts-panel {
+  width: min(420px, 90vw);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: modal-in 0.2s ease-out;
+}
+
+.shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcuts-header h2 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.shortcuts-body {
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-1) 0;
+}
+
+.shortcut-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.shortcut-keys {
+  display: flex;
+  gap: 4px;
+}
+
+.shortcut-key {
+  display: inline-block;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dimmed);
+  min-width: 24px;
+  text-align: center;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
+
+.sidebar-backdrop {
+  display: none;
+}
 
 @media (max-width: 768px) {
   .session-sidebar {
-    position: absolute;
-    top: 36px;
+    position: fixed;
+    top: 0;
     left: 0;
     bottom: 0;
-    z-index: 100;
-    box-shadow: 4px 0 16px oklch(0% 0 0 / 0.4);
+    z-index: 200;
+    box-shadow: 4px 0 24px oklch(0% 0 0 / 0.5);
+    animation: sidebar-slide-in 0.25s ease-out;
+  }
+
+  @keyframes sidebar-slide-in {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: oklch(0% 0 0 / 0.4);
+    z-index: 199;
+    animation: fade-in 0.15s ease-out;
   }
 
   .main {
@@ -1405,12 +1562,51 @@ button:active {
   .input-bar {
     flex-direction: column;
   }
+
+  .input-bar textarea {
+    font-size: 16px; /* prevent iOS zoom */
+  }
+
+  .message-list {
+    max-width: 100%;
+  }
+
+  .input-bar {
+    max-width: 100%;
+  }
+
+  .toast-container {
+    right: var(--sp-2);
+    left: var(--sp-2);
+    max-width: none;
+  }
+
+  .settings-panel {
+    max-width: 95vw;
+  }
+
+  .status-bar {
+    padding: var(--sp-2);
+    gap: var(--sp-2);
+  }
 }
 
 @media (max-width: 480px) {
   .session-sidebar {
-    width: 100%;
-    min-width: 100%;
+    width: 85vw;
+    min-width: 85vw;
+  }
+
+  .status-title {
+    display: none;
+  }
+
+  .status-bar {
+    font-size: 11px;
+  }
+
+  .input-bar textarea {
+    min-height: 48px;
   }
 }
 
@@ -1466,6 +1662,31 @@ button:focus-visible {
 
 .skip-link:focus {
   top: var(--sp-2);
+}
+
+/* ── Error Boundary ──────────────────────────────────────── */
+
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--sp-6);
+  text-align: center;
+  gap: var(--sp-3);
+}
+
+.error-boundary h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: oklch(65% 0.2 25);
+}
+
+.error-boundary p {
+  font-size: 13px;
+  color: var(--text-dimmed);
+  max-width: 400px;
 }
 
 /* ── Connection Status ───────────────────────────────────── */

@@ -16,6 +16,9 @@ pub enum WsError {
 
     #[error("connection closed")]
     ConnectionClosed,
+
+    #[error("internal error: {0}")]
+    Internal(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]

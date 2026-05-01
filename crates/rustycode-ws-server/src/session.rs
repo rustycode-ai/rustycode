@@ -21,7 +21,9 @@ pub struct McpServerConfig {
     pub env: HashMap<String, String>,
 }
 
-#[derive(Debug, Clone)]
+type ApprovalMap = std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>>;
+
+#[derive(Debug)]
 pub struct SessionState {
     pub id: SessionId,
     pub session: FrontendSession,
@@ -30,6 +32,24 @@ pub struct SessionState {
     pub last_active_at: chrono::DateTime<Utc>,
     pub client_count: usize,
     pub cancel_token: tokio_util::sync::CancellationToken,
+    pub pending_tool_approvals: std::sync::Arc<ApprovalMap>,
+    pub pending_plan_approvals: std::sync::Arc<ApprovalMap>,
+}
+
+impl Clone for SessionState {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            session: self.session.clone(),
+            seq: self.seq,
+            created_at: self.created_at,
+            last_active_at: self.last_active_at,
+            client_count: self.client_count,
+            cancel_token: self.cancel_token.clone(),
+            pending_tool_approvals: self.pending_tool_approvals.clone(),
+            pending_plan_approvals: self.pending_plan_approvals.clone(),
+        }
+    }
 }
 
 impl SessionState {
@@ -43,6 +63,8 @@ impl SessionState {
             last_active_at: now,
             client_count: 0,
             cancel_token: tokio_util::sync::CancellationToken::new(),
+            pending_tool_approvals: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            pending_plan_approvals: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
         }
     }
 
@@ -248,6 +270,73 @@ impl SessionManager {
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         state.cancel_token.cancel();
         Ok(())
+    }
+
+    pub async fn respond_tool_approval(
+        &self,
+        token: &str,
+        request_id: &str,
+        approved: bool,
+    ) -> Result<(), WsError> {
+        let sessions = self.sessions.read().await;
+        let state = sessions
+            .get(token)
+            .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
+        let mut map = state.pending_tool_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        if let Some(sender) = map.remove(request_id) {
+            let _ = sender.send(approved);
+        }
+        Ok(())
+    }
+
+    pub async fn respond_plan_approval(
+        &self,
+        token: &str,
+        plan_id: &str,
+        approved: bool,
+    ) -> Result<(), WsError> {
+        let sessions = self.sessions.read().await;
+        let state = sessions
+            .get(token)
+            .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
+        let mut map = state.pending_plan_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        if let Some(sender) = map.remove(plan_id) {
+            let _ = sender.send(approved);
+        }
+        Ok(())
+    }
+
+    /// Register a oneshot channel for a pending tool approval request.
+    /// The caller awaits the receiver; the server sends the result via the sender.
+    pub async fn register_tool_approval(
+        &self,
+        token: &str,
+        request_id: String,
+    ) -> Result<tokio::sync::oneshot::Receiver<bool>, WsError> {
+        let sessions = self.sessions.read().await;
+        let state = sessions
+            .get(token)
+            .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let mut map = state.pending_tool_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        map.insert(request_id, tx);
+        Ok(rx)
+    }
+
+    /// Register a oneshot channel for a pending plan approval request.
+    pub async fn register_plan_approval(
+        &self,
+        token: &str,
+        plan_id: String,
+    ) -> Result<tokio::sync::oneshot::Receiver<bool>, WsError> {
+        let sessions = self.sessions.read().await;
+        let state = sessions
+            .get(token)
+            .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let mut map = state.pending_plan_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        map.insert(plan_id, tx);
+        Ok(rx)
     }
 
     pub async fn snapshot(&self, token: &str) -> Result<FrontendSession, WsError> {

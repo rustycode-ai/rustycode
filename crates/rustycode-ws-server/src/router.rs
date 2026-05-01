@@ -320,6 +320,7 @@ async fn handle_text_message(
         }
         ClientMessage::Abort => {
             info!(session_id = session_token, "abort requested");
+            state.session_manager.abort(session_token).await?;
         }
         ClientMessage::ToolApproval(payload) => {
             info!(
@@ -328,7 +329,10 @@ async fn handle_text_message(
                 approved = payload.approved,
                 "tool approval response received"
             );
-            // TODO: Forward approval to orchestration pipeline's approval channel
+            state
+                .session_manager
+                .respond_tool_approval(session_token, &payload.request_id, payload.approved)
+                .await?;
         }
         ClientMessage::PlanApproval(payload) => {
             info!(
@@ -337,7 +341,10 @@ async fn handle_text_message(
                 approved = payload.approved,
                 "plan approval response received"
             );
-            // TODO: Forward plan approval to orchestration pipeline
+            state
+                .session_manager
+                .respond_plan_approval(session_token, &payload.plan_id, payload.approved)
+                .await?;
         }
         ClientMessage::Heartbeat(payload) => {
             let _ = out_tx.send(Outbound::Server(ServerMessage::HeartbeatAck(

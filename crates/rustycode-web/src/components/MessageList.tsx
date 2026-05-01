@@ -52,7 +52,7 @@ export function MessageList({ messages, toolOutputsVisible, pending, scrollConta
           <div className="empty-hints">
             <span className="empty-hint"><kbd>⌘K</kbd> Commands</span>
             <span className="empty-hint"><kbd>⌘B</kbd> Sessions</span>
-            <span className="empty-hint"><kbd>⌘/</kbd> Tool output</span>
+            <span className="empty-hint"><kbd>⌘/</kbd> Shortcuts</span>
           </div>
         </div>
       ) : (

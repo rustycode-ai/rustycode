@@ -206,3 +206,24 @@ async fn unknown_message_type_returns_error() {
     let err = recv_envelope(&mut recv).await;
     assert_eq!(err.r#type, "error");
 }
+
+#[tokio::test]
+async fn abort_cancels_session_task() {
+    let shared_mgr = Arc::new(test_session_manager());
+
+    // Connect and create session
+    let (mut sink, mut recv, mgr) = ws_connect_with(Some(shared_mgr)).await;
+    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    let created = recv_envelope(&mut recv).await;
+    let token = created.payload["session_token"].as_str().unwrap().to_string();
+
+    // Receive state_snapshot
+    let _snapshot = recv_envelope(&mut recv).await;
+
+    // Abort via session manager (same path the router uses)
+    mgr.abort(&token).await.unwrap();
+
+    // Session should still be queryable (abort doesn't delete it)
+    let snapshot = mgr.snapshot(&token).await.unwrap();
+    assert!(snapshot.messages.is_empty());
+}

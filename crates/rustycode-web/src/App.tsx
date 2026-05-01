@@ -11,6 +11,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { PlanBanner } from "./components/PlanBanner";
 import { ToolApprovalModal } from "./components/ToolApprovalModal";
 import { ToastContainer } from "./components/ToastContainer";
+import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
 
 interface AppInnerProps {
   pendingApproval: import("./protocol/types").ToolApprovalRequestPayload | null;
@@ -26,6 +27,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
   const [toolOutputsVisible, setToolOutputsVisible] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { toasts, addToast, dismissToast } = useToast();
   const prevStatusRef = useRef(connectionStatus);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -59,7 +61,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "/") {
         e.preventDefault();
-        setToolOutputsVisible((prev) => !prev);
+        setShortcutsOpen((prev) => !prev);
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
@@ -101,13 +103,16 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
       />
       <div className="app-body">
         {sidebarOpen && (
-          <SessionSidebar
-            currentSessionId={null}
-            onSelectSession={handleSelectSession}
-            onNewSession={handleNewSession}
-            open={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-          />
+          <>
+            <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+            <SessionSidebar
+              currentSessionId={null}
+              onSelectSession={handleSelectSession}
+              onNewSession={handleNewSession}
+              open={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+            />
+          </>
         )}
         <main className="main" id="main-content" ref={mainRef}>
           <MessageList messages={state.messages} toolOutputsVisible={toolOutputsVisible} pending={state.pending_request} scrollContainerRef={mainRef} />
@@ -149,6 +154,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
         onRespond={handleToolApprovalResponse}
       />
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
     </div>
   );
 }

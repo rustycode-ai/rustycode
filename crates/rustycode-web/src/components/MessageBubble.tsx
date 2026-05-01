@@ -130,6 +130,28 @@ function PartRenderer({ part, toolOutputsVisible, streaming }: { part: MessagePa
   }
 }
 
+function CopyMessageButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleClick = useCallback(() => {
+    navigator.clipboard.writeText(text).then(
+      () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
+      () => {},
+    );
+  }, [text]);
+  return (
+    <button
+      className="message-action-btn"
+      onClick={handleClick}
+      type="button"
+      aria-label="Copy message"
+      data-copied={copied}
+      title={copied ? "Copied" : "Copy message"}
+    >
+      {copied ? "✓" : "⧉"}
+    </button>
+  );
+}
+
 export function MessageBubble({ message, toolOutputsVisible, isStreaming }: MessageBubbleProps) {
   const className = `message-bubble message-${message.kind.toLowerCase()}${isStreaming ? " message-streaming" : ""}`;
 
@@ -138,6 +160,9 @@ export function MessageBubble({ message, toolOutputsVisible, isStreaming }: Mess
   if (message.kind === "User") {
     return (
       <div className={className}>
+        <div className="message-actions">
+          <CopyMessageButton text={message.content} />
+        </div>
         <div className="message-content">
           <p>{message.content}</p>
         </div>
@@ -147,9 +172,15 @@ export function MessageBubble({ message, toolOutputsVisible, isStreaming }: Mess
   }
 
   const hasParts = message.parts.length > 0;
+  const copyText = hasParts
+    ? message.parts.filter(p => p.type === "text").map(p => p.content).join("\n")
+    : message.content;
 
   return (
     <div className={className} role="article" aria-label={`${message.kind} message`}>
+      <div className="message-actions">
+        <CopyMessageButton text={copyText} />
+      </div>
       {hasParts ? (
         <div className="message-parts">
           {message.parts.map((part, i) => {
