@@ -145,6 +145,41 @@ pub enum OrchestrationEvent {
         cache_read_tokens: u64,
         cache_creation_tokens: u64,
     },
+    /// A plan has been created with steps.
+    PlanCreated {
+        task_id: String,
+        plan_id: String,
+        title: String,
+        steps: Vec<(String, String)>, // (name, description)
+    },
+    /// A plan step has started executing.
+    PlanStepStarted {
+        task_id: String,
+        plan_id: String,
+        step_index: usize,
+    },
+    /// A plan step has finished.
+    PlanStepCompleted {
+        task_id: String,
+        plan_id: String,
+        step_index: usize,
+        success: bool,
+        message: String,
+    },
+    /// The entire plan has finished.
+    PlanCompleted {
+        task_id: String,
+        plan_id: String,
+        success: bool,
+        summary: String,
+    },
+    /// Plan is awaiting user approval.
+    PlanApprovalRequested {
+        task_id: String,
+        plan_id: String,
+        title: String,
+        steps: Vec<(String, String)>, // (name, description)
+    },
 }
 
 #[derive(Clone)]
@@ -583,6 +618,107 @@ mod tests {
             event,
             OrchestrationEvent::ToolInputDelta { task_id, tool_id, chunk }
                 if task_id == "t1" && tool_id == "tc-1" && chunk == r#"{"cmd":"echo"#
+        ));
+    }
+
+    #[test]
+    fn test_plan_created_event() {
+        let handle = BusHandle::new(16);
+        let mut rx = handle.subscribe();
+
+        handle.publish(OrchestrationEvent::PlanCreated {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            title: "Refactor auth".into(),
+            steps: vec![("Step 1".into(), "Read files".into())],
+        });
+
+        let event = rx.try_recv().unwrap();
+        assert!(matches!(
+            event,
+            OrchestrationEvent::PlanCreated { plan_id, steps, .. }
+                if plan_id == "plan-1" && steps.len() == 1
+        ));
+    }
+
+    #[test]
+    fn test_plan_step_started_event() {
+        let handle = BusHandle::new(16);
+        let mut rx = handle.subscribe();
+
+        handle.publish(OrchestrationEvent::PlanStepStarted {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            step_index: 2,
+        });
+
+        let event = rx.try_recv().unwrap();
+        assert!(matches!(
+            event,
+            OrchestrationEvent::PlanStepStarted { step_index: 2, .. }
+        ));
+    }
+
+    #[test]
+    fn test_plan_step_completed_event() {
+        let handle = BusHandle::new(16);
+        let mut rx = handle.subscribe();
+
+        handle.publish(OrchestrationEvent::PlanStepCompleted {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            step_index: 0,
+            success: true,
+            message: "done".into(),
+        });
+
+        let event = rx.try_recv().unwrap();
+        assert!(matches!(
+            event,
+            OrchestrationEvent::PlanStepCompleted { success: true, .. }
+        ));
+    }
+
+    #[test]
+    fn test_plan_completed_event() {
+        let handle = BusHandle::new(16);
+        let mut rx = handle.subscribe();
+
+        handle.publish(OrchestrationEvent::PlanCompleted {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            success: true,
+            summary: "All steps done".into(),
+        });
+
+        let event = rx.try_recv().unwrap();
+        assert!(matches!(
+            event,
+            OrchestrationEvent::PlanCompleted { success: true, summary, .. }
+                if summary == "All steps done"
+        ));
+    }
+
+    #[test]
+    fn test_plan_approval_requested_event() {
+        let handle = BusHandle::new(16);
+        let mut rx = handle.subscribe();
+
+        handle.publish(OrchestrationEvent::PlanApprovalRequested {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            title: "Big refactor".into(),
+            steps: vec![
+                ("Analyze".into(), "Read codebase".into()),
+                ("Implement".into(), "Write code".into()),
+            ],
+        });
+
+        let event = rx.try_recv().unwrap();
+        assert!(matches!(
+            event,
+            OrchestrationEvent::PlanApprovalRequested { steps, .. }
+                if steps.len() == 2
         ));
     }
 

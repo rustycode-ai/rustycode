@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type { FrontendMessage } from "../protocol/types";
 
 interface SkillEntry {
@@ -110,7 +110,7 @@ export function CommandPalette({
       fetch("/api/skills")
         .then((r) => (r.ok ? r.json() : { skills: [] }))
         .then((d) => setSkills(d.skills ?? []))
-        .catch(() => {})
+        .catch(() => setSkills([]))
         .finally(() => setLoading(false));
       setSearch("");
       setHighlightIdx(0);
@@ -118,7 +118,7 @@ export function CommandPalette({
     }
   }, [open]);
 
-  const actions: ActionEntry[] = [
+  const actions: ActionEntry[] = useMemo(() => [
     {
       id: "action:toggle-sidebar",
       label: "Toggle Sidebar",
@@ -147,9 +147,9 @@ export function CommandPalette({
       section: "Actions",
       execute: () => exportConversation(messages),
     },
-  ];
+  ], [messages, onToggleSidebar, onToggleToolOutputs, onOpenModelSelector]);
 
-  const items: PaletteItem[] = [
+  const items: PaletteItem[] = useMemo(() => [
     ...actions.map((a) => ({
       type: "action" as const,
       ...a,
@@ -161,16 +161,16 @@ export function CommandPalette({
       description: s.description,
       section: s.categories[0] || "Skills",
     })),
-  ];
+  ], [actions, skills]);
 
-  const filtered = search
+  const filtered = useMemo(() => search
     ? items.filter(
         (item) =>
           fuzzyMatch(search, item.label) ||
           fuzzyMatch(search, item.description) ||
           fuzzyMatch(search, item.id)
       )
-    : items;
+    : items, [search, items]);
 
   useEffect(() => {
     setHighlightIdx(0);

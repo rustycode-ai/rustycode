@@ -573,9 +573,9 @@ impl ServiceManager {
             let rt = match tokio::runtime::Runtime::new() {
                 Ok(rt) => rt,
                 Err(e) => {
-                    let _ = stream_tx.send(StreamChunk::Error(format!(
-                        "Failed to create async runtime: {e}"
-                    )));
+                    let _ = stream_tx.send(StreamChunk::Error(StreamError::RuntimeError {
+                        message: e.to_string(),
+                    }));
                     return;
                 }
             };
@@ -605,13 +605,17 @@ impl ServiceManager {
                         reason, ..
                     }) => {
                         crate::info_log!("Pipeline FAILED: {}", reason);
-                        if let Err(e) = stream_tx.send(StreamChunk::Error(reason)) {
+                        if let Err(e) = stream_tx.send(StreamChunk::Error(StreamError::PipelineFailed {
+                            reason,
+                        })) {
                             tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
                         }
                     }
                     Err(e) => {
                         crate::info_log!("Pipeline ERROR: {}", e);
-                        if let Err(e) = stream_tx.send(StreamChunk::Error(e.to_string())) {
+                        if let Err(e) = stream_tx.send(StreamChunk::Error(StreamError::PipelineFailed {
+                            reason: e.to_string(),
+                        })) {
                             tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
                         }
                     }
@@ -640,7 +644,9 @@ impl ServiceManager {
                     Ok(rt) => rt,
                     Err(e) => {
                         if let Err(e) = stream_tx
-                            .send(StreamChunk::Error(format!("Failed to create runtime: {e}")))
+                            .send(StreamChunk::Error(StreamError::RuntimeError {
+                                message: e.to_string(),
+                            }))
                         {
                             tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
                         }
@@ -676,7 +682,9 @@ impl ServiceManager {
                 });
 
                 if let Err(e) = result {
-                    if let Err(e) = stream_tx.send(StreamChunk::Error(format!("LLM error: {e}"))) {
+                    if let Err(e) = stream_tx.send(StreamChunk::Error(StreamError::Provider(
+                        rustycode_llm::provider::ProviderError::Api(e.to_string())
+                    ))) {
                         tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
                     }
                     if let Err(e) = stream_tx.send(StreamChunk::Done) {
@@ -687,7 +695,9 @@ impl ServiceManager {
 
             if result.is_err() {
                 if let Err(e) = stream_tx_panic.send(StreamChunk::Error(
-                    "Internal error: streaming thread panicked".to_string(),
+                    StreamError::InternalError {
+                        message: "streaming thread panicked".to_string(),
+                    },
                 )) {
                     tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
                 }

@@ -61,6 +61,187 @@ pub struct QuestionOption {
     pub description: String,
 }
 
+/// Structured error type for streaming failures.
+///
+/// Replaces the previous `StreamChunk::Error(String)` with typed variants
+/// so the error handler can match on enum variants instead of fragile
+/// string matching (`.contains("401")`, `.contains("Rate limit")`, etc.).
+///
+/// The `Provider` variant wraps `ProviderError` from `rustycode-llm`,
+/// which is already a structured enum with variants for auth, rate limit,
+/// network, context length, etc. The TUI-specific variants cover errors
+/// that originate inside the TUI layer itself (config, timeouts, orchestration).
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum StreamError {
+    // --- Provider errors (passthrough from rustycode-llm) ---
+    /// Error from the LLM provider (auth, rate limit, network, context, etc.)
+    Provider(rustycode_llm::provider::ProviderError),
+
+    // --- Config / validation errors ---
+    /// No API key configured for the selected provider
+    NoApiKey { provider: String },
+    /// API key present but invalid format (e.g., too short)
+    InvalidApiKey { details: String },
+
+    // --- Stream limit errors ---
+    /// Exceeded maximum tool-use turns (infinite loop guard)
+    MaxToolTurns { limit: usize },
+    /// Stream exceeded maximum wall-clock duration
+    StreamDurationExceeded,
+    /// No data received from provider for too long
+    StreamIdleTimeout { seconds: u64 },
+
+    // --- Orchestration errors ---
+    /// Context / token budget exceeded during orchestration
+    ContextBudgetExceeded,
+    /// An orchestration pipeline step failed
+    OrchestrationStepFailed { message: String },
+
+    // --- Infrastructure errors ---
+    /// Pipeline task failed with a reason string
+    PipelineFailed { reason: String },
+    /// Failed to create async runtime (thread resource issue)
+    RuntimeError { message: String },
+    /// Streaming thread panicked (internal error)
+    InternalError { message: String },
+
+    // --- Channel errors ---
+    /// Approval channel not available for tool confirmation
+    ApprovalChannelUnavailable,
+    /// Question channel not available for user prompts
+    QuestionChannelUnavailable,
+}
+
+impl StreamError {
+    /// Whether the error is transient and worth retrying with backoff.
+    ///
+    /// Non-retryable errors indicate a fundamental problem (bad credentials,
+    /// wrong model, exhausted context) that retrying won't fix.
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            // Provider errors: delegate to ProviderError's retryability
+            StreamError::Provider(e) => matches!(
+                e,
+                rustycode_llm::provider::ProviderError::RateLimited { .. }
+                    | rustycode_llm::provider::ProviderError::Network(_)
+                    | rustycode_llm::provider::ProviderError::Timeout(_)
+                    | rustycode_llm::provider::ProviderError::Api(_)
+            ),
+
+            // TUI errors that are transient
+            StreamError::StreamDurationExceeded
+            | StreamError::StreamIdleTimeout { .. }
+            | StreamError::PipelineFailed { .. }
+            | StreamError::RuntimeError { .. }
+            | StreamError::ContextBudgetExceeded
+            | StreamError::OrchestrationStepFailed { .. } => true,
+
+            // TUI errors that are NOT transient
+            StreamError::NoApiKey { .. }
+            | StreamError::InvalidApiKey { .. }
+            | StreamError::MaxToolTurns { .. }
+            | StreamError::ApprovalChannelUnavailable
+            | StreamError::QuestionChannelUnavailable
+            | StreamError::InternalError { .. } => false,
+        }
+    }
+
+    /// Short category label for display in the retry countdown message.
+    ///
+    /// Returns strings like "Rate limited", "Connection issue", "Auth error",
+    /// "Context too long", "Temporary issue" — matching the previous
+    /// string-matching logic in `handle_error_chunk`.
+    pub fn display_category(&self) -> &'static str {
+        match self {
+            StreamError::Provider(e) => match e {
+                rustycode_llm::provider::ProviderError::RateLimited { .. } => "Rate limited",
+                rustycode_llm::provider::ProviderError::Network(_) => "Connection issue",
+                rustycode_llm::provider::ProviderError::Auth(_) => "Auth error",
+                rustycode_llm::provider::ProviderError::ContextLengthExceeded(_) => "Context too long",
+                rustycode_llm::provider::ProviderError::CreditsExhausted { .. } => "Credits exhausted",
+                rustycode_llm::provider::ProviderError::InvalidModel(_) => "Invalid model",
+                rustycode_llm::provider::ProviderError::Timeout(_) => "Connection issue",
+                _ => "Temporary issue",
+            },
+            StreamError::StreamIdleTimeout { .. } | StreamError::StreamDurationExceeded => "Connection issue",
+            StreamError::ContextBudgetExceeded => "Context too long",
+            StreamError::NoApiKey { .. } | StreamError::InvalidApiKey { .. } => "Auth error",
+            _ => "Temporary issue",
+        }
+    }
+
+    /// Whether this error should cause auto-continue to be disabled.
+    ///
+    /// Non-retryable errors disable auto-continue to prevent infinite loops.
+    pub fn should_disable_auto_continue(&self) -> bool {
+        !self.is_retryable()
+    }
+
+    /// Whether the queued user message should be preserved for retry.
+    ///
+    /// For auth/context errors the message is cleared since retrying won't help.
+    /// For transient errors the message is kept so the user can retry after backoff.
+    pub fn should_preserve_queued_message(&self) -> bool {
+        self.is_retryable()
+    }
+}
+
+impl std::fmt::Display for StreamError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StreamError::Provider(e) => write!(f, "{}", e),
+            StreamError::NoApiKey { provider } => write!(
+                f,
+                "No API key configured for provider '{}'. Please set the appropriate environment variable or add it to your config.json.",
+                provider
+            ),
+            StreamError::InvalidApiKey { details } => write!(f, "Invalid API key: {}", details),
+            StreamError::MaxToolTurns { limit } => write!(
+                f,
+                "Reached maximum tool-use turns ({}). Stopping to prevent infinite loop.",
+                limit
+            ),
+            StreamError::StreamDurationExceeded => write!(
+                f,
+                "Stream exceeded maximum duration (10 minutes). Task may be too complex for a single session."
+            ),
+            StreamError::StreamIdleTimeout { seconds } => write!(
+                f,
+                "Stream timed out ({}s without data). The provider may be overloaded.",
+                seconds
+            ),
+            StreamError::ContextBudgetExceeded => write!(
+                f,
+                "Context limit reached — response may be incomplete"
+            ),
+            StreamError::OrchestrationStepFailed { message } => {
+                write!(f, "Step failed: {}", message)
+            }
+            StreamError::PipelineFailed { reason } => write!(f, "{}", reason),
+            StreamError::RuntimeError { message } => {
+                write!(f, "Failed to create async runtime: {}", message)
+            }
+            StreamError::InternalError { message } => write!(f, "Internal error: {}", message),
+            StreamError::ApprovalChannelUnavailable => {
+                write!(f, "Error: approval channel not available")
+            }
+            StreamError::QuestionChannelUnavailable => {
+                write!(f, "Error: question channel not available")
+            }
+        }
+    }
+}
+
+impl std::error::Error for StreamError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            StreamError::Provider(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
 /// Chunk of streamed LLM response
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
@@ -133,8 +314,8 @@ pub enum StreamChunk {
     Done,
     /// Streaming stopped with a non-normal stop reason (e.g., content_filter, SAFETY)
     Stopped { stop_reason: String },
-    /// Streaming encountered an error
-    Error(String),
+    /// Streaming encountered an error (structured — see [`StreamError`])
+    Error(StreamError),
     /// The final execution trace from the orchestration pipeline
     ExecutionTrace(serde_json::Value),
     /// A system-level status message (e.g., tool started, phase changed)
@@ -588,8 +769,12 @@ mod tests {
         let done = StreamChunk::Done;
         assert_eq!(done, StreamChunk::Done);
 
-        let error = StreamChunk::Error("Failed".to_string());
-        assert_eq!(error, StreamChunk::Error("Failed".to_string()));
+        let error = StreamChunk::Error(StreamError::InternalError {
+            message: "Failed".to_string(),
+        });
+        assert_eq!(error, StreamChunk::Error(StreamError::InternalError {
+            message: "Failed".to_string(),
+        }));
     }
 
     #[test]

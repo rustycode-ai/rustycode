@@ -1,4 +1,4 @@
-use crate::app::async_::{QuestionOption, StreamChunk};
+use crate::app::async_::{QuestionOption, StreamChunk, StreamError};
 use async_trait::async_trait;
 use rustycode_agent::{AgentEvents, AgentResult, ApprovalDecision};
 use rustycode_core::streaming::ToolCall;
@@ -171,7 +171,7 @@ impl StreamEventAdapter {
             } => {
                 tracing::warn!(tier, used, limit, "context budget exceeded");
                 self.emit(StreamChunk::Error(
-                    "Context limit reached — response may be incomplete".to_string(),
+                    StreamError::ContextBudgetExceeded,
                 ));
             }
             OrchestrationEvent::EnsembleStarted {
@@ -197,10 +197,9 @@ impl StreamEventAdapter {
             }
             OrchestrationEvent::StepFailed { signal, .. } => {
                 tracing::warn!(message = %signal.message, "orchestration step failed");
-                self.emit(StreamChunk::Error(format!(
-                    "Step failed: {}",
-                    signal.message
-                )));
+                self.emit(StreamChunk::Error(StreamError::OrchestrationStepFailed {
+                    message: signal.message.clone(),
+                }));
             }
             _ => {}
         }

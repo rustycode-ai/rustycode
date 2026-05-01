@@ -1,0 +1,276 @@
+//! Shared helper functions for stream handlers.
+
+use crate::app::TUI;
+use crate::tool_approval::risk;
+use crate::ui::message::{Message, MessageRole};
+use tracing;
+
+pub(super) fn classify_tool_type(tool_name: &str) -> risk::ToolType {
+    risk::classify_tool_type(tool_name)
+}
+
+/// Check for pending tasks and trigger auto-continue if needed
+///
+/// This function is called after stream completion when auto-continue is enabled.
+/// It checks if there are pending or in-progress tasks, and if so, automatically
+/// sends a continuation message to keep the AI working.
+///
+/// Safety: capped at MAX_AUTO_CONTINUE_ITERATIONS (20) to prevent infinite loops
+/// if the AI keeps creating new tasks faster than it completes them.
+pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
+    use crate::tasks::TaskStatus;
+
+    const MAX_AUTO_CONTINUE_ITERATIONS: usize = 100;
+    const MAX_STAGNANT_ITERATIONS: usize = 5;
+
+    // Check if the last stream was productive (had tool executions).
+    // Productive streams reset the stagnation counter, allowing effectively
+    // unlimited continuation as long as the agent keeps doing useful work.
+    let last_stream_had_tools = tui
+        .messages
+        .iter()
+        .rev()
+        .find(|m| m.role == MessageRole::Assistant)
+        .is_some_and(|m| {
+            m.tool_executions
+                .as_ref()
+                .is_some_and(|execs| !execs.is_empty())
+        });
+
+    if last_stream_had_tools {
+        // Productive turn — reset iteration counter so the agent can keep going
+        tui.auto_continue_iterations = 0;
+    }
+
+    // Enforce iteration limit to prevent infinite loops
+    if tui.auto_continue_iterations >= MAX_AUTO_CONTINUE_ITERATIONS {
+        tracing::warn!(
+            "Auto-continue stopped after {} iterations (task creation may be outpacing completion)",
+            MAX_AUTO_CONTINUE_ITERATIONS
+        );
+        tui.add_system_message(format!(
+            "Auto-continue stopped after {} iterations. Press Ctrl+Shift+A to resume if needed.",
+            MAX_AUTO_CONTINUE_ITERATIONS
+        ));
+        tui.auto_continue_enabled = false;
+        tui.auto_continue_iterations = 0;
+        return;
+    }
+
+    // Stagnation check: if we've had multiple consecutive iterations with no
+    // tool use, the agent is likely stuck in a text-only loop. Stop and inform.
+    if !last_stream_had_tools && tui.auto_continue_iterations >= MAX_STAGNANT_ITERATIONS {
+        tracing::warn!(
+            "Auto-continue stopped: {} consecutive iterations with no tool use",
+            MAX_STAGNANT_ITERATIONS
+        );
+        tui.add_system_message(
+            "Agent appears stuck (no tool calls for several turns). \
+             Press Enter to continue manually if needed."
+                .to_string(),
+        );
+        tui.auto_continue_enabled = false;
+        tui.auto_continue_iterations = 0;
+        return;
+    }
+
+    // Check for pending or in-progress tasks
+    let pending_tasks: Vec<_> = tui
+        .workspace_tasks
+        .tasks
+        .iter()
+        .filter(|t| t.status == TaskStatus::Pending || t.status == TaskStatus::InProgress)
+        .collect();
+
+    // Check for incomplete todos
+    let incomplete_todos: Vec<_> = tui
+        .workspace_tasks
+        .todos
+        .iter()
+        .filter(|t| !t.done)
+        .collect();
+
+    // Only continue if there's work to do
+    if pending_tasks.is_empty() && incomplete_todos.is_empty() {
+        tracing::debug!("Auto-continue: No pending tasks/todos, sending generic continue");
+        // No formal tasks extracted, but auto-continue is on — continue
+        // so the AI picks up where it left off (e.g. after partial response).
+        tui.auto_continue_pending = true;
+        tui.auto_continue_iterations += 1;
+
+        let context = "Continue where you left off. Keep working on the task.".to_string();
+        let _workspace_context = tui.workspace_context.clone();
+        let history = tui.build_conversation_history();
+
+        tui.is_streaming = true;
+        tui.chunks_received = 0;
+        tui.thinking_chunks_received = 0;
+        tui.stream_start_time = Some(std::time::Instant::now());
+        tui.current_stream_content.clear();
+        tui.streaming_render_buffer =
+            crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+
+        if let Err(e) = tui
+            .services
+            .send_message_with_history(context, Some(history))
+        {
+            tracing::error!("Failed to send auto-continue message: {}", e);
+            tui.add_system_message(format!(
+                "Auto-continue failed: {}. Auto-continue disabled. Press Enter to continue manually.",
+                e
+            ));
+            tui.reset_streaming_state();
+            tui.active_tools.clear();
+            tui.auto_continue_pending = false;
+            tui.auto_continue_enabled = false;
+        } else {
+            let assistant_msg = Message::assistant(String::new());
+            tui.messages.push(assistant_msg);
+            tui.dirty = true;
+        }
+        return;
+    }
+
+    // Count remaining work
+    let total_pending = pending_tasks.len() + incomplete_todos.len();
+
+    tracing::info!(
+        "Auto-continue: {} tasks/todos remaining, continuing work",
+        total_pending
+    );
+
+    // Mark that we have a pending continuation
+    tui.auto_continue_pending = true;
+    tui.auto_continue_iterations += 1;
+
+    // Build context message about remaining work
+    let mut context = String::from("Continue working on the remaining tasks:\n\n");
+
+    // Add pending tasks
+    for task in &pending_tasks {
+        context.push_str(&format!("- [ ] {}\n", task.description));
+    }
+
+    // Add incomplete todos
+    for todo in &incomplete_todos {
+        context.push_str(&format!("- [ ] {}\n", todo.text));
+    }
+
+    context.push_str("\nPlease continue with the next task. Use tools to complete the work.");
+
+    // Send the continuation message
+    let _workspace_context = tui.workspace_context.clone();
+    let history = tui.build_conversation_history();
+
+    // Set streaming state before send to prevent races
+    tui.is_streaming = true;
+    tui.chunks_received = 0;
+    tui.thinking_chunks_received = 0;
+    tui.stream_start_time = Some(std::time::Instant::now());
+    tui.current_stream_content.clear();
+    tui.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+
+    if let Err(e) = tui
+        .services
+        .send_message_with_history(context, Some(history))
+    {
+        tracing::error!("Failed to send auto-continue message: {}", e);
+        tui.add_system_message(format!(
+            "Auto-continue failed: {}. Auto-continue disabled. Press Enter to continue manually.",
+            e
+        ));
+        tui.reset_streaming_state();
+        tui.active_tools.clear();
+        tui.auto_continue_pending = false;
+        tui.auto_continue_enabled = false;
+    } else {
+        let assistant_msg = Message::assistant(String::new());
+        tui.messages.push(assistant_msg);
+        tui.dirty = true;
+    }
+}
+
+pub(super) fn build_tool_summary_arg(tool_name: &str, input_json: &serde_json::Value) -> Option<String> {
+    let lower = tool_name.to_lowercase();
+    if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
+        return input_json.get("command").and_then(|v| v.as_str()).map(|s| {
+            let truncated = if s.len() > 60 {
+                format!("{}…", &s[..s.floor_char_boundary(57)])
+            } else {
+                s.to_string()
+            };
+            truncated
+        });
+    }
+    if lower.contains("read") || lower.contains("cat") || lower.contains("view") {
+        return input_json
+            .get("path")
+            .or_else(|| input_json.get("file_path"))
+            .or_else(|| input_json.get("file"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+    }
+    if lower.contains("write") || lower.contains("create") {
+        return input_json
+            .get("path")
+            .or_else(|| input_json.get("file_path"))
+            .or_else(|| input_json.get("file"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+    }
+    if lower.contains("grep") || lower.contains("search") {
+        return input_json
+            .get("pattern")
+            .or_else(|| input_json.get("query"))
+            .and_then(|v| v.as_str())
+            .map(|s| {
+                format!(
+                    "\"{}\"",
+                    if s.len() > 50 {
+                        &s[..s.floor_char_boundary(47)]
+                    } else {
+                        s
+                    }
+                )
+            });
+    }
+    if lower.contains("glob") || lower.contains("find") || lower.contains("list") {
+        return input_json
+            .get("pattern")
+            .or_else(|| input_json.get("path"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+    }
+    if lower.contains("edit") || lower.contains("patch") || lower.contains("replace") {
+        return input_json
+            .get("path")
+            .or_else(|| input_json.get("file_path"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+    }
+    // Agent tool: show subagent_type and description/prompt excerpt
+    if lower == "agent" {
+        let agent_type = input_json
+            .get("subagent_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let desc = input_json
+            .get("description")
+            .and_then(|v| v.as_str())
+            .or_else(|| {
+                input_json.get("prompt").and_then(|v| {
+                    // Truncate prompt to first line or 60 chars
+                    let s = v.as_str()?;
+                    let first_line = s.split('\n').next().unwrap_or(s);
+                    Some(if first_line.len() > 60 {
+                        &first_line[..first_line.floor_char_boundary(57)]
+                    } else {
+                        first_line
+                    })
+                })
+            })
+            .unwrap_or("no description");
+        return Some(format!("{}: {}", agent_type, desc));
+    }
+    None
+}

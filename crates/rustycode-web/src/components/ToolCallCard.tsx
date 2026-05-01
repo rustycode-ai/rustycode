@@ -55,18 +55,36 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function highlightFilePaths(text: string): string {
-  const filePathPattern = /(?:^|\s)([\w./-]+\.(?:rs|ts|tsx|js|jsx|py|toml|yaml|yml|json|md|css|html|sql|sh|go|java|c|h|cpp))(?::?\d*(?::?\d*)?)/g;
-  return text.replace(filePathPattern, (match) => `<span class="tool-file-path">${match.trim()}</span>`);
+const FILE_PATH_RE = /([\w./-]+\.(?:rs|ts|tsx|js|jsx|py|toml|yaml|yml|json|md|css|html|sql|sh|go|java|c|h|cpp))(?::?\d*(?::?\d*)?)/g;
+
+/** Split text into safe segments, marking file-path matches for highlighting. */
+function splitByFilePaths(text: string): Array<{ text: string; highlight: boolean }> {
+  const segments: Array<{ text: string; highlight: boolean }> = [];
+  let last = 0;
+  for (const m of text.matchAll(FILE_PATH_RE)) {
+    const idx = m.index!;
+    if (idx > last) {
+      segments.push({ text: text.slice(last, idx), highlight: false });
+    }
+    segments.push({ text: m[0], highlight: true });
+    last = idx + m[0].length;
+  }
+  if (last < text.length) {
+    segments.push({ text: text.slice(last), highlight: false });
+  }
+  return segments.length ? segments : [{ text, highlight: false }];
 }
 
 function ToolOutput({ text, isError }: { text: string; isError?: boolean }) {
-  const highlighted = highlightFilePaths(text);
+  const segments = splitByFilePaths(text);
   return (
-    <pre
-      className={`tool-call-output ${isError ? "tool-output-error" : ""}`}
-      dangerouslySetInnerHTML={{ __html: highlighted }}
-    />
+    <pre className={`tool-call-output ${isError ? "tool-output-error" : ""}`}>
+      {segments.map((seg, i) =>
+        seg.highlight
+          ? <span key={i} className="tool-file-path">{seg.text}</span>
+          : seg.text,
+      )}
+    </pre>
   );
 }
 

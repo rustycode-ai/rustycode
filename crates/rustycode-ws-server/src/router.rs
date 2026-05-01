@@ -514,12 +514,17 @@ async fn add_mcp_server(
 async fn remove_mcp_server(
     State(state): State<AppState>,
     Path(name): Path<String>,
-) -> Result<StatusCode, Json<serde_json::Value>> {
+) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
     state
         .session_manager
         .remove_mcp_server(&name)
         .await
-        .map_err(|e| Json(serde_json::json!({ "error": e.to_string() })))?;
+        .map_err(|e| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            )
+        })?;
     Ok(StatusCode::NO_CONTENT)
 }
 

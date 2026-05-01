@@ -11,7 +11,7 @@ use std::sync::mpsc::SyncSender;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::Duration;
 
-use crate::app::async_::StreamChunk;
+use crate::app::async_::{StreamChunk, StreamError};
 
 /// Send a stream chunk, logging if the channel is closed.
 ///
@@ -44,7 +44,7 @@ impl Drop for DoneGuard {
 }
 use crate::task_extraction::extract_todos_from_tool_result;
 use crate::{ErrorTracker, FileReadCache};
-use rustycode_config::api_key_env_name;
+
 use rustycode_llm::provider::{ChatMessage, CompletionRequest, MessageRole};
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_protocol::{ContentBlock, MessageContent};
@@ -339,11 +339,9 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         "ollama" | "local" | "lmstudio" | "litert-lm" | "litert_lm" | "litert"
     );
     if needs_api_key && v2_config.api_key.is_none() {
-        send_chunk(&stream_tx,StreamChunk::Error(format!(
-            "No API key configured for provider '{}'. Please set the {} environment variable or add it to your config.json.",
-            provider_type,
-            api_key_env_name(&provider_type)
-        )));
+        send_chunk(&stream_tx,StreamChunk::Error(StreamError::NoApiKey {
+            provider: provider_type.clone(),
+        }));
         send_chunk(&stream_tx, StreamChunk::Done);
         return Ok(());
     }
@@ -490,7 +488,9 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         .await
         .context("AgentSession streaming failed")
     {
-        send_chunk(&stream_tx, StreamChunk::Error(err.to_string()));
+        send_chunk(&stream_tx, StreamChunk::Error(StreamError::Provider(
+            rustycode_llm::provider::ProviderError::Api(err.to_string())
+        )));
         send_chunk(&stream_tx, StreamChunk::Done);
         return Err(err);
     }
@@ -547,9 +547,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
     );
     if needs_api_key && v2_config.api_key.is_none() {
         send_chunk(&stream_tx,StreamChunk::Error(
-            format!("No API key configured for provider '{}'. Please set the {} environment variable or add it to your config.json.",
-                provider_type,
-                api_key_env_name(&provider_type))
+            StreamError::NoApiKey { provider: provider_type.clone() }
         ));
         // Must send Done so the TUI releases the query guard and clears is_streaming.
         // Without this, the guard stays active and blocks all future messages.
@@ -565,8 +563,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                 send_chunk(
                     &stream_tx,
                     StreamChunk::Error(
-                        "No API key configured. Please set up your API key in settings."
-                            .to_string(),
+                        StreamError::NoApiKey { provider: provider_type.clone() }
                     ),
                 );
                 send_chunk(&stream_tx, StreamChunk::Done);
@@ -576,8 +573,9 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
         let key_str = api_key.expose_secret();
         if key_str.len() < 20 {
             send_chunk(&stream_tx,StreamChunk::Error(
-                format!("Invalid Anthropic API key format. API key appears too short ({} chars). Expected at least 20 characters.",
-                    key_str.len())
+                StreamError::InvalidApiKey {
+                    details: format!("API key appears too short ({} chars). Expected at least 20 characters.", key_str.len()),
+                }
             ));
             send_chunk(&stream_tx, StreamChunk::Done);
             return Ok(());
@@ -837,10 +835,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
             tracing::warn!("Reached max tool turns ({}), breaking loop", MAX_TOOL_TURNS);
             send_chunk(
                 &stream_tx,
-                StreamChunk::Error(format!(
-                    "Reached maximum tool-use turns ({}). Stopping to prevent infinite loop.",
-                    MAX_TOOL_TURNS
-                )),
+                StreamChunk::Error(StreamError::MaxToolTurns { limit: MAX_TOOL_TURNS }),
             );
             break;
         }
@@ -940,7 +935,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     turn_elapsed.as_secs_f64()
                 );
                 send_chunk(&stream_tx,StreamChunk::Error(
-                    "Stream exceeded maximum duration (10 minutes). Task may be too complex for a single session.".into(),
+                    StreamError::StreamDurationExceeded,
                 ));
                 send_chunk(&stream_tx, StreamChunk::Done);
                 break;
@@ -966,8 +961,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     if tokio::time::Instant::now() >= deadline {
                         tracing::warn!("Stream timed out after 300s with no data");
                         send_chunk(&stream_tx, StreamChunk::Error(
-                            "Stream timed out (300s without data). The provider may be overloaded."
-                                .into(),
+                            StreamError::StreamIdleTimeout { seconds: 300 },
                         ));
                         send_chunk(&stream_tx, StreamChunk::Done);
                         break 'stream;
@@ -1080,88 +1074,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     | _ => {}
                 },
                 Err(e) => {
-                    // Typed error matching using ProviderError variants,
-                    // with fallback to string matching for wrapped errors.
-                    use rustycode_llm::provider::ProviderError;
-                    let enhanced = match &e {
-                        ProviderError::RateLimited { retry_delay, .. } => {
-                            let wait_hint = retry_delay
-                                .map(|d| format!(" (retry after {}s)", d.as_secs()))
-                                .unwrap_or_default();
-                            format!(
-                                "Rate limited by provider '{}'.{wait_hint}\n\
-                                Consider using a different model or provider if this persists.\n\
-                                Details: {}",
-                                provider_type, e
-                            )
-                        }
-                        ProviderError::CreditsExhausted { top_up_url, .. } => {
-                            let top_up = top_up_url
-                                .as_ref()
-                                .map(|url| format!("\nTop up credits: {}", url))
-                                .unwrap_or_default();
-                            format!(
-                                "API credits exhausted for provider '{}'.{top_up}\n\
-                                Details: {}",
-                                provider_type, e
-                            )
-                        }
-                        ProviderError::ContextLengthExceeded(_) => {
-                            format!(
-                                "Context length exceeded for model '{}'. Try:\n\
-                                - Start a new conversation (/clear)\n\
-                                - Use a model with larger context\n\
-                                Details: {}",
-                                model, e
-                            )
-                        }
-                        ProviderError::InvalidModel(_) => {
-                            format!(
-                                "Model '{}' not found. Check the model name is correct.\n\
-                                Try: claude-sonnet-4-6, claude-opus-4-6, or claude-haiku-4-5\n\
-                                Details: {}",
-                                model, e
-                            )
-                        }
-                        ProviderError::Auth(_) => {
-                            format!("Authentication failed for provider '{}'. Your API key may be invalid or expired.\n\
-                                Set the correct key in your config or environment variable.\n\
-                                Details: {}", provider_type, e)
-                        }
-                        ProviderError::Network(_) => {
-                            format!("Network error connecting to provider '{}'. Check your internet connection.\n\
-                                Please retry if you think this is a transient error.\n\
-                                Details: {}", provider_type, e)
-                        }
-                        ProviderError::Timeout(_) => {
-                            format!("Request timed out for provider '{}'. The server may be overloaded.\n\
-                                Please retry if you think this is a transient error.\n\
-                                Details: {}", provider_type, e)
-                        }
-                        _ => {
-                            // Fallback to string matching for wrapped/unknown errors
-                            let error_msg = format!("{}", e);
-                            if error_msg.contains("429") || error_msg.contains("rate limit") {
-                                format!(
-                                    "Rate limited by provider '{}'. Please wait and try again.\n\
-                                    Details: {}",
-                                    provider_type, error_msg
-                                )
-                            } else if error_msg.contains("404") || error_msg.contains("not_found") {
-                                format!("Model '{}' not found. Try: claude-sonnet-4-6, claude-opus-4-6, or claude-haiku-4-5\n\
-                                    Details: {}", model, error_msg)
-                            } else if error_msg.contains("403") || error_msg.contains("forbidden") {
-                                format!("Access denied by provider '{}'. Your account may not have access to model '{}'.\n\
-                                    Details: {}", provider_type, model, error_msg)
-                            } else {
-                                format!(
-                                    "Stream interrupted: {}. Try resending your message.",
-                                    error_msg
-                                )
-                            }
-                        }
-                    };
-                    send_chunk(&stream_tx, StreamChunk::Error(enhanced));
+                    send_chunk(&stream_tx, StreamChunk::Error(StreamError::Provider(e)));
                     send_chunk(&stream_tx, StreamChunk::Done);
                     return Ok(());
                 }
@@ -1375,9 +1288,9 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                         None => {
                             send_chunk(
                                 &stream_tx,
-                                StreamChunk::Error(
-                                    "Error: approval channel not available".to_string(),
-                                ),
+                            StreamChunk::Error(
+                                StreamError::ApprovalChannelUnavailable,
+                            ),
                             );
                             tool_executions.push(ToolExecutionResult {
                                 tool_use_id: tool.id.clone(),
@@ -1515,9 +1428,9 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                         None => {
                             send_chunk(
                                 &stream_tx,
-                                StreamChunk::Error(
-                                    "Error: question channel not available".to_string(),
-                                ),
+                            StreamChunk::Error(
+                                StreamError::QuestionChannelUnavailable,
+                            ),
                             );
                             tool_executions.push(ToolExecutionResult {
                                 tool_use_id: tool.id.clone(),

@@ -207,7 +207,7 @@ export function MessageBubble({ message, toolOutputsVisible, isStreaming }: Mess
           ) : isStreaming ? (
             <span className="streaming-cursor" aria-hidden="true" />
           ) : (
-            <span className="message-loading">…</span>
+            <span className="message-loading" aria-label="Loading">…</span>
           )}
         </div>
       )}

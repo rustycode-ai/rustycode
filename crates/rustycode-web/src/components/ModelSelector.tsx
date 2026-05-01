@@ -36,6 +36,7 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
   const [data, setData] = useState<ProviderListResponse | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [search, setSearch] = useState("");
   const [highlightIdx, setHighlightIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -43,14 +44,17 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetch("/api/providers");
       if (res.ok) {
         const json: ProviderListResponse = await res.json();
         setData(json);
+      } else {
+        setError(true);
       }
     } catch {
-      // ignore
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -83,9 +87,11 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
           prev ? { ...prev, current: info } : prev
         );
         onSwitch?.(prov, mdl);
+      } else {
+        setError(true);
       }
     } catch {
-      // ignore
+      setError(true);
     }
     setOpen(false);
   };
@@ -212,6 +218,7 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
                     className={`model-item ${isCurrent ? "model-item-active" : ""} ${flatIdx === highlightIdx ? "model-item-highlight" : ""}`}
                     data-highlighted={flatIdx === highlightIdx}
                     disabled={!item.available}
+                    aria-disabled={!item.available}
                     onClick={() => switchModel(item.provider, item.model)}
                     onMouseEnter={() => setHighlightIdx(flatIdx)}
                   >
@@ -222,8 +229,14 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
               })}
             </div>
           ))}
-          {items.length === 0 && (
+          {items.length === 0 && !loading && (
             <div className="model-empty">No models match your search.</div>
+          )}
+          {error && (
+            <div className="model-error">
+              Failed to load providers
+              <button className="sidebar-retry" onClick={fetchData} type="button">Retry</button>
+            </div>
           )}
         </div>
       </div>

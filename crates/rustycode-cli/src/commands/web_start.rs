@@ -1,6 +1,9 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use anyhow::Context;
+use rustycode_orchestration::config::OrchestrationConfig;
+use rustycode_orchestration::pipeline::OrchestrationPipeline;
 use rustycode_ws_server::{SessionManager, WsRouter};
 use tower_http::services::{ServeDir, ServeFile};
 use tracing::info;
@@ -8,7 +11,8 @@ use tracing::info;
 pub async fn start_web_server(port: u16) -> anyhow::Result<()> {
     let dist_dir = find_web_dist()?;
 
-    let session_manager = SessionManager::new();
+    let pipeline = Arc::new(OrchestrationPipeline::new(OrchestrationConfig::default()));
+    let session_manager = SessionManager::new(pipeline, "default".to_string(), "default".to_string());
     let ws_router = WsRouter::build(session_manager);
 
     let static_files = ServeDir::new(&dist_dir)

@@ -170,6 +170,72 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
             cache_read_tokens: *cache_read_tokens,
             cache_creation_tokens: *cache_creation_tokens,
         }),
+        other => convert_plan_event(other),
+    }
+}
+
+fn to_stream_steps(steps: &[(String, String)]) -> Vec<rustycode_protocol::stream_event::StreamPlanStep> {
+    steps
+        .iter()
+        .map(|(name, desc)| rustycode_protocol::stream_event::StreamPlanStep {
+            name: name.clone(),
+            description: desc.clone(),
+        })
+        .collect()
+}
+
+fn convert_plan_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
+    match event {
+        OrchestrationEvent::PlanCreated {
+            plan_id,
+            title,
+            steps,
+            ..
+        } => Some(StreamEvent::PlanCreated {
+            id: plan_id.clone(),
+            title: title.clone(),
+            steps: to_stream_steps(steps),
+        }),
+        OrchestrationEvent::PlanStepStarted {
+            plan_id,
+            step_index,
+            ..
+        } => Some(StreamEvent::PlanStepStarted {
+            plan_id: plan_id.clone(),
+            step_index: *step_index,
+        }),
+        OrchestrationEvent::PlanStepCompleted {
+            plan_id,
+            step_index,
+            success,
+            message,
+            ..
+        } => Some(StreamEvent::PlanStepCompleted {
+            plan_id: plan_id.clone(),
+            step_index: *step_index,
+            success: *success,
+            message: message.clone(),
+        }),
+        OrchestrationEvent::PlanCompleted {
+            plan_id,
+            success,
+            summary,
+            ..
+        } => Some(StreamEvent::PlanCompleted {
+            plan_id: plan_id.clone(),
+            success: *success,
+            summary: summary.clone(),
+        }),
+        OrchestrationEvent::PlanApprovalRequested {
+            plan_id,
+            title,
+            steps,
+            ..
+        } => Some(StreamEvent::PlanApprovalRequested {
+            plan_id: plan_id.clone(),
+            title: title.clone(),
+            steps: to_stream_steps(steps),
+        }),
         _ => None,
     }
 }
@@ -388,6 +454,79 @@ mod tests {
             _ => panic!("expected TextDelta"),
         };
         assert!(content.contains("1→2"));
+    }
+
+    #[test]
+    fn convert_plan_created() {
+        let event = OrchestrationEvent::PlanCreated {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            title: "Refactor".into(),
+            steps: vec![("Step 1".into(), "Read".into())],
+        };
+        let result = convert_event(&event).unwrap();
+        assert!(matches!(result, StreamEvent::PlanCreated { .. }));
+        if let StreamEvent::PlanCreated { id, steps, .. } = result {
+            assert_eq!(id, "plan-1");
+            assert_eq!(steps.len(), 1);
+        }
+    }
+
+    #[test]
+    fn convert_plan_step_started() {
+        let event = OrchestrationEvent::PlanStepStarted {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            step_index: 2,
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::PlanStepStarted {
+                plan_id: "plan-1".into(),
+                step_index: 2,
+            }
+        );
+    }
+
+    #[test]
+    fn convert_plan_step_completed() {
+        let event = OrchestrationEvent::PlanStepCompleted {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            step_index: 0,
+            success: true,
+            message: "done".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert!(matches!(result, StreamEvent::PlanStepCompleted { success: true, .. }));
+    }
+
+    #[test]
+    fn convert_plan_completed() {
+        let event = OrchestrationEvent::PlanCompleted {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            success: true,
+            summary: "All done".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert!(matches!(result, StreamEvent::PlanCompleted { success: true, .. }));
+    }
+
+    #[test]
+    fn convert_plan_approval_requested() {
+        let event = OrchestrationEvent::PlanApprovalRequested {
+            task_id: "t1".into(),
+            plan_id: "plan-1".into(),
+            title: "Big refactor".into(),
+            steps: vec![("Analyze".into(), "Read".into())],
+        };
+        let result = convert_event(&event).unwrap();
+        assert!(matches!(result, StreamEvent::PlanApprovalRequested { .. }));
+        if let StreamEvent::PlanApprovalRequested { steps, .. } = result {
+            assert_eq!(steps.len(), 1);
+        }
     }
 
     #[test]

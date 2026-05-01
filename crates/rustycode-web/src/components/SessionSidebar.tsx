@@ -65,9 +65,11 @@ export function SessionSidebar({
       const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
       if (res.ok) {
         setSessions((prev) => prev.filter((s) => s.id !== id));
+      } else {
+        setError(true);
       }
     } catch {
-      // ignore
+      setError(true);
     }
   };
 
@@ -137,7 +139,7 @@ export function SessionSidebar({
                 <span className="sidebar-item-id">{s.id.slice(0, 8)}</span>
                 <span>{formatTimeAgo(s.last_active_at)}</span>
                 {s.client_count > 0 && (
-                  <span className="sidebar-connected">● live</span>
+                  <span className="sidebar-connected" aria-label="connected">● live</span>
                 )}
               </div>
               <button

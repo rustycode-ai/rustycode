@@ -346,6 +346,9 @@ impl OrchestrationPipeline {
         if let Err(e) = lifecycle.submit_plan(plan) {
             tracing::warn!("Failed to submit plan: {e}");
         }
+
+        self.emit_plan_lifecycle_events(&ctx);
+
         if let Err(e) = lifecycle.approve_plan() {
             tracing::warn!("Failed to approve plan: {e}");
         }
@@ -370,6 +373,8 @@ impl OrchestrationPipeline {
         }
 
         ctx.complete(TaskPhase::Completed);
+
+        self.emit_plan_completed_event(&ctx, true, "All steps completed");
 
         self.bus.publish(OrchestrationEvent::TaskCompleted {
             task_id: ctx.task_id.clone(),
@@ -452,6 +457,9 @@ impl OrchestrationPipeline {
         if let Err(e) = lifecycle.submit_plan(plan) {
             tracing::warn!("Failed to submit plan: {e}");
         }
+
+        self.emit_plan_lifecycle_events(&ctx);
+
         if let Err(e) = lifecycle.approve_plan() {
             tracing::warn!("Failed to approve plan: {e}");
         }
@@ -475,6 +483,8 @@ impl OrchestrationPipeline {
         }
 
         ctx.complete(TaskPhase::Completed);
+
+        self.emit_plan_completed_event(&ctx, true, "All steps completed");
 
         self.bus.publish(OrchestrationEvent::TaskCompleted {
             task_id: ctx.task_id.clone(),
@@ -502,6 +512,32 @@ impl OrchestrationPipeline {
         })
     }
 
+    fn emit_plan_lifecycle_events(&self, ctx: &TaskContext) {
+        let plan_id = format!("plan-{}", ctx.task_id);
+        let step_desc = ctx.original_request.clone();
+        self.bus.publish(OrchestrationEvent::PlanCreated {
+            task_id: ctx.task_id.clone(),
+            plan_id: plan_id.clone(),
+            title: ctx.original_request.clone(),
+            steps: vec![("execute".into(), step_desc.clone())],
+        });
+        self.bus.publish(OrchestrationEvent::PlanApprovalRequested {
+            task_id: ctx.task_id.clone(),
+            plan_id,
+            title: ctx.original_request.clone(),
+            steps: vec![("execute".into(), step_desc)],
+        });
+    }
+
+    fn emit_plan_completed_event(&self, ctx: &TaskContext, success: bool, summary: &str) {
+        self.bus.publish(OrchestrationEvent::PlanCompleted {
+            task_id: ctx.task_id.clone(),
+            plan_id: format!("plan-{}", ctx.task_id),
+            success,
+            summary: summary.to_string(),
+        });
+    }
+
     async fn execute_steps(&self, ctx: &mut TaskContext) -> Result<()> {
         // In a full implementation, we would call the TaskDecomposer here.
         // For V1, we assume a simple single-step plan.
@@ -516,15 +552,34 @@ impl OrchestrationPipeline {
         }];
 
         for step in steps {
+            self.bus.publish(OrchestrationEvent::PlanStepStarted {
+                task_id: ctx.task_id.clone(),
+                plan_id: format!("plan-{}", ctx.task_id),
+                step_index: step.index as usize,
+            });
             match self.orchestrator.execute_step(&step, ctx).await {
                 Ok(_) => {
                     tracing::info!(step_id = %step.id, "Step completed successfully");
                     if let Some(entry) = ctx.execution_trace.steps.last() {
                         ctx.add_cost(entry.cost_usd);
                     }
+                    self.bus.publish(OrchestrationEvent::PlanStepCompleted {
+                        task_id: ctx.task_id.clone(),
+                        plan_id: format!("plan-{}", ctx.task_id),
+                        step_index: step.index as usize,
+                        success: true,
+                        message: "completed".into(),
+                    });
                 }
                 Err(e) => {
                     tracing::error!(step_id = %step.id, error = %e, "Step failed permanently");
+                    self.bus.publish(OrchestrationEvent::PlanStepCompleted {
+                        task_id: ctx.task_id.clone(),
+                        plan_id: format!("plan-{}", ctx.task_id),
+                        step_index: step.index as usize,
+                        success: false,
+                        message: e.to_string(),
+                    });
                     return Err(e);
                 }
             }

@@ -941,7 +941,7 @@ pub async fn execute(cwd: &Path, command: HarnessCommand) -> Result<()> {
                 let result = {
                     let config = AgentConfig::from_env();
                     let mut session = AgentSession::new(config, project_dir)
-                        .with_intelligence(Box::new(LocalIntelligence::new(project_dir)));
+                        .with_intelligence(Box::new(LocalIntelligence::new(project_dir)?));
                     let mut harness_events = HarnessEvents;
                     let messages = vec![rustycode_llm::provider::ChatMessage::user(task_prompt)];
                     let system = "You are an expert software engineer. Complete the task using the tools available. \

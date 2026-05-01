@@ -1056,7 +1056,7 @@ impl Default for ProviderConfig {
     }
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
 #[non_exhaustive]
 pub enum ProviderError {
     #[error("Authentication failed: {0}")]

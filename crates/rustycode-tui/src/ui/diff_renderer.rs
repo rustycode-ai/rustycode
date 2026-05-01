@@ -163,15 +163,9 @@ impl DiffRenderer {
                 similar::ChangeTag::Equal => {
                     let val = change.value().to_string();
                     lines.push(Line::from(vec![
-                        Span::styled(
-                            format!("  {}", val),
-                            Style::default().fg(Color::DarkGray),
-                        ),
+                        Span::styled(format!("  {}", val), Style::default().fg(Color::DarkGray)),
                         Span::raw("  "),
-                        Span::styled(
-                            format!("  {}", val),
-                            Style::default().fg(Color::DarkGray),
-                        ),
+                        Span::styled(format!("  {}", val), Style::default().fg(Color::DarkGray)),
                     ]));
                 }
             }

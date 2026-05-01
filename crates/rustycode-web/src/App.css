@@ -1305,6 +1305,18 @@ button:active {
   background: oklch(20% 0.04 25);
 }
 
+.model-error,
+.settings-error {
+  padding: var(--sp-4);
+  text-align: center;
+  color: var(--accent-error);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
 .sidebar-item-id {
   font-family: var(--font-mono);
   font-size: 10px;

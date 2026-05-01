@@ -370,7 +370,7 @@ impl SessionManager {
             info!(name = %name, "removed MCP server");
             Ok(())
         } else {
-            Err(WsError::SessionNotFound(format!(
+            Err(WsError::NotFound(format!(
                 "mcp server not found: {name}"
             )))
         }
@@ -379,7 +379,7 @@ impl SessionManager {
     pub async fn restart_mcp_server(&self, name: &str) -> Result<McpServerConfig, WsError> {
         let servers = self.mcp_servers.read().await;
         let config = servers.get(name).ok_or_else(|| {
-            WsError::SessionNotFound(format!("mcp server not found: {name}"))
+            WsError::NotFound(format!("mcp server not found: {name}"))
         })?;
         info!(name = %name, "restarting MCP server");
         Ok(config.clone())

@@ -119,13 +119,13 @@ pub struct LocalIntelligence {
 }
 
 impl LocalIntelligence {
-    #[allow(clippy::expect_used)]
-    pub fn new(root: impl Into<PathBuf>) -> Self {
+    pub fn new(root: impl Into<PathBuf>) -> anyhow::Result<Self> {
         let root = root.into();
         let index = Arc::new(Mutex::new(CodeIndex::new(root.clone())));
 
         let (tx, mut rx) = mpsc::channel(100);
-        let watcher = FileSystemWatcher::new(root.clone(), tx).expect("Failed to start watcher");
+        let watcher = FileSystemWatcher::new(root.clone(), tx)
+            .map_err(|e| anyhow::anyhow!("failed to start file watcher for {}: {e}", root.display()))?;
 
         let index_clone = index.clone();
         tokio::spawn(async move {
@@ -144,12 +144,12 @@ impl LocalIntelligence {
             }
         });
 
-        Self {
+        Ok(Self {
             root,
             repo_map_cache: Mutex::new(None),
             index,
             _watcher: watcher,
-        }
+        })
     }
 
     #[allow(dead_code)]

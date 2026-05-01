@@ -17,55 +17,73 @@ interface SettingsPanelProps {
 export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelProps) {
   const [servers, setServers] = useState<McpServer[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCommand, setNewCommand] = useState("");
   const [newArgs, setNewArgs] = useState("");
 
-  useEffect(() => {
-    if (open) {
-      setLoading(true);
-      fetch("/api/mcp/servers")
-        .then((r) => r.json())
-        .then((d: { servers: McpServer[] }) => setServers(d.servers))
-        .catch(() => setServers([]))
-        .finally(() => setLoading(false));
+  const refreshServers = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch("/api/mcp/servers");
+      if (res.ok) {
+        const d: { servers: McpServer[] } = await res.json();
+        setServers(d.servers);
+      } else {
+        setError(true);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
     }
-  }, [open]);
+  }, []);
+
+  useEffect(() => {
+    if (open) refreshServers();
+  }, [open, refreshServers]);
 
   const handleAdd = useCallback(async () => {
     if (!newName.trim() || !newCommand.trim()) return;
-    await fetch("/api/mcp/servers/add", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: newName.trim(),
-        command: newCommand.trim(),
-        args: newArgs.trim() ? newArgs.trim().split(/\s+/) : [],
-      }),
-    });
-    setNewName("");
-    setNewCommand("");
-    setNewArgs("");
-    setAdding(false);
-    const res = await fetch("/api/mcp/servers");
-    const d: { servers: McpServer[] } = await res.json();
-    setServers(d.servers);
-  }, [newName, newCommand, newArgs]);
+    try {
+      await fetch("/api/mcp/servers/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newName.trim(),
+          command: newCommand.trim(),
+          args: newArgs.trim() ? newArgs.trim().split(/\s+/) : [],
+        }),
+      });
+      setNewName("");
+      setNewCommand("");
+      setNewArgs("");
+      setAdding(false);
+      await refreshServers();
+    } catch {
+      setError(true);
+    }
+  }, [newName, newCommand, newArgs, refreshServers]);
 
   const handleRemove = useCallback(async (name: string) => {
-    await fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" });
-    const res = await fetch("/api/mcp/servers");
-    const d: { servers: McpServer[] } = await res.json();
-    setServers(d.servers);
-  }, []);
+    try {
+      await fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" });
+      await refreshServers();
+    } catch {
+      setError(true);
+    }
+  }, [refreshServers]);
 
   const handleRestart = useCallback(async (name: string) => {
-    await fetch(`/api/mcp/servers/${encodeURIComponent(name)}/restart`, { method: "POST" });
-    const res = await fetch("/api/mcp/servers");
-    const d: { servers: McpServer[] } = await res.json();
-    setServers(d.servers);
-  }, []);
+    try {
+      await fetch(`/api/mcp/servers/${encodeURIComponent(name)}/restart`, { method: "POST" });
+      await refreshServers();
+    } catch {
+      setError(true);
+    }
+  }, [refreshServers]);
 
   if (!open) return null;
 
@@ -96,6 +114,11 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
                 <div className="skeleton skeleton-text" />
                 <div className="skeleton skeleton-text" />
                 <div className="skeleton skeleton-text skeleton-text-sm" />
+              </div>
+            ) : error ? (
+              <div className="settings-error">
+                Failed to load MCP servers
+                <button className="sidebar-retry" onClick={refreshServers} type="button">Retry</button>
               </div>
             ) : servers.length === 0 && !adding ? (
               <p className="settings-note">No MCP servers configured.</p>
