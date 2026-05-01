@@ -1,44 +1,43 @@
 # Web Frontend Replacement Plan
 
-This document defines the strategy for replacing the legacy `rustycode-web` (WASM/ratzilla) frontend with a clean, Rust-native web architecture.
+This document defines the strategy for replacing the legacy `rustycode-web` (WASM/ratzilla) frontend with a clean, **WebSocket-based React frontend**.
 
 ## 1. Goal
-Retire the "TUI-in-browser" (ratzilla) approach in favor of a modern, web-native interface that retains RustyCode's core business logic while providing a responsive, accessible, and performant user experience.
+Retire the "TUI-in-browser" (ratzilla) approach in favor of a modern, web-native interface that offloads session state to the backend and communicates via WebSockets, ensuring consistent behavior across all clients.
 
 ## 2. Architectural Principles
-*   **Decoupling**: Remove TUI-rendering logic from core business logic.
-*   **Platform Neutrality**: Extract session and state management into a pure Rust library with zero TUI dependencies.
-*   **Service-Oriented**: The web frontend communicates with the backend/tool-server via standardized JSON-RPC or REST interfaces, isolating it from native Rust constraints.
-*   **Legacy Retirement**: The legacy `rustycode-web` crate will be marked for deletion.
+*   **Thin Client**: The web frontend is a view-only layer; the backend (RustyCode Gateway) manages the `FrontendSession` state.
+*   **WebSocket Synchronization**: Bi-directional communication handles input events and state updates (full state sync + incremental deltas).
+*   **Service-Oriented**: The web frontend communicates with the backend gateway, which coordinates with tool-execution servers.
+*   **Legacy Retirement**: The legacy `rustycode-web` crate is marked for deletion.
 
 ## 3. Implementation Phases
 
-### Phase I: Logic Extraction (Foundation)
-- Create `rustycode-ui-model` (or similar) to house the platform-agnostic session and state structures (messages, input buffers, request lifecycle).
-- Strip `rustycode-ui-core` of TUI rendering dependencies (ratatui, terminal abstractions).
-- Ensure `rustycode-ui-model` can be built for both native and `wasm32-unknown-unknown` targets without modification.
+### Phase I: Logic Extraction (Complete)
+- [x] Extract `rustycode-ui-model` (platform-neutral state).
+- [x] Strip TUI dependencies from core logic.
 
-### Phase II: Web-Native Interface Development
-- Scaffold the new web frontend (e.g., using Dioxus or Leptos, or standard React+WASM).
-- Define the new view-to-model adapter layer.
-- Implement UI components using native web patterns (CSS/HTML5) instead of box-drawing characters.
+### Phase II: Backend WebSocket Gateway (New)
+- Implement WebSocket handler in the backend using `axum`.
+- Integrate `rustycode-ui-model` into the server session controller.
+- Implement session recovery, heartbeat handling, and protocol message serialization.
 
-### Phase III: Integration and Verification
-- Migrate slash command handlers and input parsing to the new architecture.
-- Re-verify communication with `rustycode-tool-server`.
-- Run parity tests to ensure message flow, tool invocation, and state transitions remain consistent.
+### Phase III: Web-Native Interface Development (Updated)
+- Scaffold React frontend (Vite/TypeScript).
+- Implement WebSocket client using the `WEBSOCKET_PROTOCOL.md` spec.
+- Implement React state management (hook-based subscription to state updates).
 
 ### Phase IV: Cleanup
-- Remove `crates/rustycode-web` and associated legacy build configs.
-- Update project documentation to reflect the new architecture.
+- Remove `crates/rustycode-web`.
+- Remove any remaining `ratzilla` or terminal-related dependencies from the new frontend path.
 
 ## 4. Risks & Mitigations
-- **Logic Regressions**: Mitigated by high test coverage in the new `rustycode-ui-model`.
+- **Logic Regressions**: Mitigated by high test coverage in `rustycode-ui-model`.
 - **UI Parity**: The new interface will intentionally diverge from the TUI aesthetic while retaining the "brutalist" design language via CSS.
-- **WASM Constraints**: Continued use of the tool-server proxy remains the standard to handle file/OS restrictions in the browser.
+- **Latency**: WebSocket overhead is minimal compared to the complexity of local WASM-state synchronization and persistence.
 
 ## 5. Success Criteria
-- [ ] New web frontend fully functional without `ratzilla` or `ratatui` dependencies.
-- [ ] Business logic shared cleanly between native TUI and web via `rustycode-ui-model`.
+- [ ] New web frontend fully functional using WebSocket synchronization.
+- [ ] Business logic shared cleanly between native TUI and server-side state controller via `rustycode-ui-model`.
 - [ ] Legacy `crates/rustycode-web` removed from codebase.
 - [ ] Zero regression on core request/response lifecycle.
