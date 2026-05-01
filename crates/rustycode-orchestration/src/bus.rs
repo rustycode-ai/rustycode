@@ -91,6 +91,12 @@ pub enum OrchestrationEvent {
         tool_name: String,
         input_preview: String,
     },
+    /// Incremental tool input JSON chunk.
+    ToolInputDelta {
+        task_id: String,
+        tool_id: String,
+        chunk: String,
+    },
     /// A tool call completed during step execution.
     ToolCallCompleted {
         task_id: String,
@@ -126,6 +132,18 @@ pub enum OrchestrationEvent {
         tier: u8,
         used: u64,
         limit: u64,
+    },
+    /// Token usage report from the LLM.
+    TokenUsage {
+        task_id: String,
+        input_tokens: u64,
+        output_tokens: u64,
+    },
+    /// Cache token accounting.
+    CacheUsage {
+        task_id: String,
+        cache_read_tokens: u64,
+        cache_creation_tokens: u64,
     },
 }
 
@@ -546,6 +564,25 @@ mod tests {
             event,
             OrchestrationEvent::ToolCallStarted { task_id, tool_name, .. }
                 if task_id == "t1" && tool_name == "bash"
+        ));
+    }
+
+    #[test]
+    fn test_tool_input_delta_event() {
+        let handle = BusHandle::new(16);
+        let mut rx = handle.subscribe();
+
+        handle.publish(OrchestrationEvent::ToolInputDelta {
+            task_id: "t1".into(),
+            tool_id: "tc-1".into(),
+            chunk: r#"{"cmd":"echo"#.into(),
+        });
+
+        let event = rx.try_recv().unwrap();
+        assert!(matches!(
+            event,
+            OrchestrationEvent::ToolInputDelta { task_id, tool_id, chunk }
+                if task_id == "t1" && tool_id == "tc-1" && chunk == r#"{"cmd":"echo"#
         ));
     }
 

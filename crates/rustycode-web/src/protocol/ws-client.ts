@@ -11,6 +11,57 @@ import type {
   FrontendSession,
 } from "./types";
 
+export type ErrorClass =
+  | "auth"
+  | "rate_limit"
+  | "server"
+  | "session"
+  | "connection";
+
+export interface ClassifiedError {
+  class: ErrorClass;
+  code: string;
+  message: string;
+  retryable: boolean;
+}
+
+const RETRYABLE_CLASSES: Record<ErrorClass, boolean> = {
+  auth: false,
+  rate_limit: true,
+  server: true,
+  session: false,
+  connection: true,
+};
+
+export function classifyError(code: string, message: string): ClassifiedError {
+  const cls: ErrorClass =
+    code === "unauthorized" || code === "session_expired"
+      ? "auth"
+      : code === "rate_limited"
+        ? "rate_limit"
+        : code === "session_not_found"
+          ? "session"
+          : "server";
+  return { class: cls, code, message, retryable: RETRYABLE_CLASSES[cls] };
+}
+
+export function classifyWsClose(code: number, reason: string): ClassifiedError {
+  const cls: ErrorClass =
+    code === 4001 || code === 4003
+      ? "auth"
+      : code === 4008 || code === 429
+        ? "rate_limit"
+        : code >= 4500
+          ? "server"
+          : "connection";
+  return {
+    class: cls,
+    code: `ws_close_${code}`,
+    message: reason || `WebSocket closed with code ${code}`,
+    retryable: RETRYABLE_CLASSES[cls],
+  };
+}
+
 type ServerMessageHandler = (
   type: string,
   payload: unknown

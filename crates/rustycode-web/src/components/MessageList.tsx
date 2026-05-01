@@ -39,6 +39,7 @@ function groupByDay(messages: FrontendMessage[]): MessageOrSeparator[] {
   let lastDayKey = "";
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
+    if (!msg) continue;
     const dayKey = getDayKey(msg.created_at);
     if (dayKey !== lastDayKey) {
       result.push({
@@ -49,7 +50,8 @@ function groupByDay(messages: FrontendMessage[]): MessageOrSeparator[] {
       lastDayKey = dayKey;
     }
     result.push({ type: "message", key: msg.id, message: msg, index: i });
-  }  return result;
+  }
+  return result;
 }
 
 export function MessageList({ messages, toolOutputsVisible, pending, scrollContainerRef }: MessageListProps) {

@@ -505,17 +505,18 @@ mod tests {
 
     #[test]
     fn event_payload_plan_created() {
+        use rustycode_protocol::StreamPlanStep;
         let payload = make_event(StreamEvent::PlanCreated {
-            plan_id: "plan-1".to_string(),
+            id: "plan-1".to_string(),
             title: "Refactor auth".to_string(),
             steps: vec![
-                "Step 1: Add types".to_string(),
-                "Step 2: Migrate".to_string(),
+                StreamPlanStep { name: "Add types".into(), description: "Define newtypes".into() },
+                StreamPlanStep { name: "Migrate".into(), description: "Update callers".into() },
             ],
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "plan_created");
-        assert_eq!(json["data"]["plan_id"], "plan-1");
+        assert_eq!(json["data"]["id"], "plan-1");
         assert_eq!(json["data"]["title"], "Refactor auth");
         assert_eq!(json["data"]["steps"].as_array().unwrap().len(), 2);
     }
@@ -525,12 +526,10 @@ mod tests {
         let payload = make_event(StreamEvent::PlanStepStarted {
             plan_id: "plan-1".to_string(),
             step_index: 0,
-            step_name: "Add types".to_string(),
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "plan_step_started");
         assert_eq!(json["data"]["step_index"], 0);
-        assert_eq!(json["data"]["step_name"], "Add types");
     }
 
     #[test]
@@ -539,7 +538,7 @@ mod tests {
             plan_id: "plan-1".to_string(),
             step_index: 0,
             success: true,
-            result: Some("Done".to_string()),
+            message: "Done".to_string(),
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "plan_step_completed");
@@ -551,6 +550,7 @@ mod tests {
         let payload = make_event(StreamEvent::PlanCompleted {
             plan_id: "plan-1".to_string(),
             success: true,
+            summary: "All steps completed".to_string(),
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "plan_completed");
@@ -560,13 +560,17 @@ mod tests {
 
     #[test]
     fn event_payload_plan_approval_requested() {
+        use rustycode_protocol::StreamPlanStep;
         let payload = make_event(StreamEvent::PlanApprovalRequested {
             plan_id: "plan-1".to_string(),
-            plan_content: "Do the thing".to_string(),
+            title: "Refactor auth".to_string(),
+            steps: vec![
+                StreamPlanStep { name: "Step 1".into(), description: "Do the thing".into() },
+            ],
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "plan_approval_requested");
-        assert_eq!(json["data"]["plan_content"], "Do the thing");
+        assert_eq!(json["data"]["title"], "Refactor auth");
     }
 
     #[test]

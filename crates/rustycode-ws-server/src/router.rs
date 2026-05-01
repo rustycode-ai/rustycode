@@ -362,12 +362,9 @@ async fn handle_text_message(
 // ── REST API Handlers ──────────────────────────────────────
 
 async fn get_providers(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
 ) -> Json<ProviderListResponse> {
-    let current = ProviderInfo {
-        provider: "default".to_string(),
-        model: "default".to_string(),
-    };
+    let current = state.session_manager.provider_info().await;
     let providers = rustycode_llm::registry::ProviderMetadataRegistry::new()
         .get_all_providers()
         .iter()
@@ -387,14 +384,11 @@ async fn get_providers(
 }
 
 async fn switch_provider(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(req): Json<SwitchProviderRequest>,
 ) -> Json<ProviderInfo> {
-    info!(provider = %req.provider, model = %req.model, "switching provider");
-    Json(ProviderInfo {
-        provider: req.provider,
-        model: req.model,
-    })
+    let info = state.session_manager.switch_provider(req.provider, req.model).await;
+    Json(info)
 }
 
 async fn list_skills(

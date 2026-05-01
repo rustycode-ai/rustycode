@@ -91,6 +91,14 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
             id: tool_id.clone(),
             name: tool_name.clone(),
         }),
+        OrchestrationEvent::ToolInputDelta {
+            tool_id,
+            chunk,
+            ..
+        } => Some(StreamEvent::ToolInputDelta {
+            id: tool_id.clone(),
+            chunk: chunk.clone(),
+        }),
         OrchestrationEvent::ToolCallCompleted {
             tool_id,
             tool_name,
@@ -146,6 +154,22 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
         } => Some(StreamEvent::TextDelta {
             content: format!("Context handed off tier {from_tier}→{to_tier}"),
         }),
+        OrchestrationEvent::TokenUsage {
+            input_tokens,
+            output_tokens,
+            ..
+        } => Some(StreamEvent::TokenUsage {
+            input_tokens: *input_tokens,
+            output_tokens: *output_tokens,
+        }),
+        OrchestrationEvent::CacheUsage {
+            cache_read_tokens,
+            cache_creation_tokens,
+            ..
+        } => Some(StreamEvent::CacheUsage {
+            cache_read_tokens: *cache_read_tokens,
+            cache_creation_tokens: *cache_creation_tokens,
+        }),
         _ => None,
     }
 }
@@ -200,6 +224,23 @@ mod tests {
             StreamEvent::ToolCallStarted {
                 id: "tc-1".into(),
                 name: "bash".into()
+            }
+        );
+    }
+
+    #[test]
+    fn convert_tool_input_delta() {
+        let event = OrchestrationEvent::ToolInputDelta {
+            task_id: "t1".into(),
+            tool_id: "tc-1".into(),
+            chunk: r#"{"cmd":"echo"#.into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::ToolInputDelta {
+                id: "tc-1".into(),
+                chunk: r#"{"cmd":"echo"#.into(),
             }
         );
     }
@@ -356,6 +397,40 @@ mod tests {
             content: "partial".into(),
         };
         assert!(convert_event(&event).is_none());
+    }
+
+    #[test]
+    fn convert_token_usage() {
+        let event = OrchestrationEvent::TokenUsage {
+            task_id: "t1".into(),
+            input_tokens: 1500,
+            output_tokens: 800,
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::TokenUsage {
+                input_tokens: 1500,
+                output_tokens: 800
+            }
+        );
+    }
+
+    #[test]
+    fn convert_cache_usage() {
+        let event = OrchestrationEvent::CacheUsage {
+            task_id: "t1".into(),
+            cache_read_tokens: 5000,
+            cache_creation_tokens: 1200,
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::CacheUsage {
+                cache_read_tokens: 5000,
+                cache_creation_tokens: 1200
+            }
+        );
     }
 
     #[tokio::test]

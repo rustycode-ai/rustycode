@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { WsClient } from "../protocol/ws-client";
+import { WsClient, classifyError, type ClassifiedError } from "../protocol/ws-client";
 import type { FrontendSession, EventPayload, ToolApprovalRequestPayload } from "../protocol/types";
 import type { SessionAction } from "../state/session-store";
 
@@ -9,7 +9,7 @@ interface UseWebSocketOptions {
   url: string;
   dispatch: React.Dispatch<SessionAction>;
   onConnected?: (token: string) => void;
-  onError?: (code: string, message: string) => void;
+  onError?: (error: ClassifiedError) => void;
   onToolApprovalRequest?: (request: ToolApprovalRequestPayload) => void;
   onConnectionChange?: (status: "connected" | "connecting" | "disconnected") => void;
 }
@@ -53,8 +53,10 @@ export function useWebSocket({ url, dispatch, onConnected, onError, onToolApprov
           break;
         case "error":
           onError?.(
-            (payload as { code: string }).code,
-            (payload as { message: string }).message
+            classifyError(
+              (payload as { code: string }).code,
+              (payload as { message: string }).message
+            )
           );
           break;
         case "heartbeat_ack":

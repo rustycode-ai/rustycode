@@ -98,9 +98,18 @@ impl AgentEvents for BusAgentEvents {
                 });
                 self.pending_tools.remove(&id);
             }
+            StreamEvent::TokenUsage {
+                input_tokens,
+                output_tokens,
+            } => {
+                self.bus.publish(OrchestrationEvent::TokenUsage {
+                    task_id: self.task_id.clone(),
+                    input_tokens,
+                    output_tokens,
+                });
+            }
             // Other events are ignored for bus
             StreamEvent::ThinkingDelta { .. }
-            | StreamEvent::TokenUsage { .. }
             | StreamEvent::Done
             | _ => {}
         }
@@ -195,6 +204,11 @@ impl AgentEvents for BridgeEvents {
                 if let Some((_, input)) = self.pending_tools.get_mut(&id) {
                     input.push_str(&chunk);
                 }
+                self.bus.publish(OrchestrationEvent::ToolInputDelta {
+                    task_id: self.task_id.clone(),
+                    tool_id: id,
+                    chunk,
+                });
             }
             StreamEvent::ToolExecStarted { id, name: _ } => {
                 // Called when tool input fully assembled and execution begins
@@ -235,7 +249,27 @@ impl AgentEvents for BridgeEvents {
                 });
                 self.pending_tools.remove(&id);
             }
-            StreamEvent::TokenUsage { .. } | StreamEvent::Done | _ => {}
+            StreamEvent::TokenUsage {
+                input_tokens,
+                output_tokens,
+            } => {
+                self.bus.publish(OrchestrationEvent::TokenUsage {
+                    task_id: self.task_id.clone(),
+                    input_tokens,
+                    output_tokens,
+                });
+            }
+            StreamEvent::CacheUsage {
+                cache_read_tokens,
+                cache_creation_tokens,
+            } => {
+                self.bus.publish(OrchestrationEvent::CacheUsage {
+                    task_id: self.task_id.clone(),
+                    cache_read_tokens,
+                    cache_creation_tokens,
+                });
+            }
+            StreamEvent::Done | _ => {}
         }
     }
 

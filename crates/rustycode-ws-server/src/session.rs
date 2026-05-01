@@ -79,8 +79,8 @@ pub struct SessionManager {
     sessions: Arc<RwLock<HashMap<String, SessionState>>>,
     mcp_servers: Arc<RwLock<HashMap<String, McpServerConfig>>>,
     pipeline: Arc<OrchestrationPipeline>,
-    provider_name: String,
-    model_name: String,
+    provider_name: RwLock<String>,
+    model_name: RwLock<String>,
 }
 
 impl std::fmt::Debug for SessionManager {
@@ -89,8 +89,8 @@ impl std::fmt::Debug for SessionManager {
             .field("sessions", &"<locked>")
             .field("mcp_servers", &"<locked>")
             .field("pipeline", &"<OrchestrationPipeline>")
-            .field("provider_name", &self.provider_name)
-            .field("model_name", &self.model_name)
+            .field("provider_name", &self.provider_name.try_read().map_or_else(|_| "<locked>".to_string(), |v| v.clone()))
+            .field("model_name", &self.model_name.try_read().map_or_else(|_| "<locked>".to_string(), |v| v.clone()))
             .finish()
     }
 }
@@ -101,8 +101,8 @@ impl Clone for SessionManager {
             sessions: Arc::clone(&self.sessions),
             mcp_servers: Arc::clone(&self.mcp_servers),
             pipeline: Arc::clone(&self.pipeline),
-            provider_name: self.provider_name.clone(),
-            model_name: self.model_name.clone(),
+            provider_name: RwLock::new(self.provider_name.try_read().map_or_else(|_| String::new(), |v| v.clone())),
+            model_name: RwLock::new(self.model_name.try_read().map_or_else(|_| String::new(), |v| v.clone())),
         }
     }
 }
@@ -114,16 +114,22 @@ impl SessionManager {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             mcp_servers: Arc::new(RwLock::new(HashMap::new())),
             pipeline,
-            provider_name,
-            model_name,
+            provider_name: RwLock::new(provider_name),
+            model_name: RwLock::new(model_name),
         }
     }
 
-    pub fn provider_info(&self) -> ProviderInfo {
-        ProviderInfo {
-            provider: self.provider_name.clone(),
-            model: self.model_name.clone(),
-        }
+    pub async fn provider_info(&self) -> ProviderInfo {
+        let provider = self.provider_name.read().await.clone();
+        let model = self.model_name.read().await.clone();
+        ProviderInfo { provider, model }
+    }
+
+    pub async fn switch_provider(&self, provider: String, model: String) -> ProviderInfo {
+        info!(provider = %provider, model = %model, "switching provider");
+        *self.provider_name.write().await = provider;
+        *self.model_name.write().await = model;
+        self.provider_info().await
     }
 
     pub const fn pipeline(&self) -> &Arc<OrchestrationPipeline> {
@@ -580,5 +586,25 @@ mod tests {
         let s1 = mgr.update_session(&token, SessionState::next_seq).await.unwrap();
         let s2 = mgr.update_session(&token, SessionState::next_seq).await.unwrap();
         assert!(s2 > s1);
+    }
+
+    #[tokio::test]
+    async fn provider_info_returns_initial_values() {
+        let mgr = test_mgr();
+        let info = mgr.provider_info().await;
+        assert_eq!(info.provider, "mock");
+        assert_eq!(info.model, "test-model");
+    }
+
+    #[tokio::test]
+    async fn switch_provider_updates_values() {
+        let mgr = test_mgr();
+        let info = mgr.switch_provider("anthropic".to_string(), "claude-sonnet-4-6".to_string()).await;
+        assert_eq!(info.provider, "anthropic");
+        assert_eq!(info.model, "claude-sonnet-4-6");
+
+        let info_after = mgr.provider_info().await;
+        assert_eq!(info_after.provider, "anthropic");
+        assert_eq!(info_after.model, "claude-sonnet-4-6");
     }
 }

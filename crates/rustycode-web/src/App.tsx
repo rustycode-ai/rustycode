@@ -53,7 +53,10 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
   useEffect(() => {
     fetch("/api/providers")
       .then((r) => r.json())
-      .then((d) => setProviderInfo({ provider: d.provider || "", model: d.model || "" }))
+      .then((d) => setProviderInfo({
+        provider: d.current?.provider || "",
+        model: d.current?.model || "",
+      }))
       .catch(() => {});
   }, []);
 
