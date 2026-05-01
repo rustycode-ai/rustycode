@@ -228,10 +228,6 @@ impl TUI {
                 // Ctrl+Y: Quick copy last AI response
                 if let Err(e) = self.copy_last_ai_response() {
                     tracing::error!("Failed to copy last response: {}", e);
-                    self.toast_manager.error(format!("Copy failed: {}", e));
-                } else {
-                    self.toast_manager
-                        .success("Copied response to clipboard".to_string());
                 }
                 self.dirty = true;
             }
@@ -239,10 +235,6 @@ impl TUI {
             (KeyCode::Char('K'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 if let Err(e) = self.copy_all_conversation() {
                     tracing::error!("Failed to copy conversation: {}", e);
-                    self.toast_manager.error(format!("Copy failed: {}", e));
-                } else {
-                    self.toast_manager
-                        .success("Copied conversation to clipboard".to_string());
                 }
                 self.dirty = true;
             }

@@ -147,6 +147,25 @@ pub fn handle_provider_command(parts: &[&str], ctx: CommandContext<'_>) -> Resul
     }
 
     let subcommand = parts[1].to_string();
+
+    // /provider list — same as bare /provider (show providers)
+    if subcommand == "list" {
+        let current = std::env::var("RUSTYCODE_PROVIDER")
+            .ok()
+            .unwrap_or_else(|| "default".to_string());
+        let providers = get_available_providers();
+        let mut lines = vec![
+            format!("Current provider: {}", current),
+            "".to_string(),
+            "Available providers:".to_string(),
+        ];
+        for (i, p) in providers.iter().enumerate() {
+            let status = if p.is_configured() { "✓" } else { "✗" };
+            lines.push(format!("{}. {} [{}]", i + 1, p.name, status));
+        }
+        return Ok(CommandEffect::MultipleMessages(lines));
+    }
+
     if subcommand == "connect" || subcommand == "disconnect" || subcommand == "validate" {
         if parts.len() < 3 {
             return Ok(CommandEffect::SystemMessage(format!(

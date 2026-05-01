@@ -21,7 +21,14 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use rustycode_tui::app::async_::StreamChunk;
 use rustycode_tui::ui::input_handler::{InputAction, InputHandler};
 use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
+use std::sync::Mutex;
 use std::time::Duration;
+
+/// Global lock to serialize tests that mutate environment variables.
+/// `with_isolated_provider` sets `RUSTYCODE_PROVIDER` and `RUSTYCODE_MODEL_OVERRIDE`,
+/// which is process-wide. Without serialization, parallel test threads race on these
+/// env vars and produce flaky failures.
+static PROVIDER_LOCK: Mutex<()> = Mutex::new(());
 
 // ============================================================================
 // Test 1: Enter Key Submission Tests
@@ -198,6 +205,7 @@ fn test_empty_enter_does_not_crash() {
 /// contains valid keys. Uses `ollama` which has no API key requirement and will
 /// fail fast if ollama isn't running on localhost.
 fn with_isolated_provider<F: FnOnce()>(f: F) {
+    let _lock = PROVIDER_LOCK.lock().unwrap();
     let orig_provider = std::env::var("RUSTYCODE_PROVIDER").ok();
     let orig_model = std::env::var("RUSTYCODE_MODEL_OVERRIDE").ok();
 
