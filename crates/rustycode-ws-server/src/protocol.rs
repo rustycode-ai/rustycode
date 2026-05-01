@@ -371,19 +371,221 @@ mod tests {
     }
 
     #[test]
-    fn event_payload_serializes_stream_event_correctly() {
-        let payload = EventPayload {
-            seq: 1,
-            event_id: "evt-1".to_string(),
-            event: StreamEvent::ToolCallStarted {
-                id: "tool-1".to_string(),
-                name: "bash".to_string(),
-            },
-        };
+    fn event_payload_tool_call_started() {
+        let payload = make_event(StreamEvent::ToolCallStarted {
+            id: "tool-1".to_string(),
+            name: "bash".to_string(),
+        });
         let json = serde_json::to_value(&payload).unwrap();
-        assert_eq!(json["seq"], 1);
-        assert_eq!(json["event_id"], "evt-1");
         assert_eq!(json["type"], "tool_call_started");
+        assert_eq!(json["data"]["id"], "tool-1");
+        assert_eq!(json["data"]["name"], "bash");
+    }
+
+    #[test]
+    fn event_payload_text_delta() {
+        let payload = make_event(StreamEvent::TextDelta {
+            content: "hello world".to_string(),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "text_delta");
+        assert_eq!(json["data"]["content"], "hello world");
+    }
+
+    #[test]
+    fn event_payload_thinking_delta() {
+        let payload = make_event(StreamEvent::ThinkingDelta {
+            content: "reasoning...".to_string(),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "thinking_delta");
+        assert_eq!(json["data"]["content"], "reasoning...");
+    }
+
+    #[test]
+    fn event_payload_tool_input_delta() {
+        let payload = make_event(StreamEvent::ToolInputDelta {
+            id: "tool-2".to_string(),
+            chunk: r#"{"command":"ls"}"#.to_string(),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "tool_input_delta");
+        assert_eq!(json["data"]["id"], "tool-2");
+        assert_eq!(json["data"]["chunk"], r#"{"command":"ls"}"#);
+    }
+
+    #[test]
+    fn event_payload_tool_exec_started() {
+        let payload = make_event(StreamEvent::ToolExecStarted {
+            id: "tool-3".to_string(),
+            name: "read_file".to_string(),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "tool_exec_started");
+        assert_eq!(json["data"]["id"], "tool-3");
+        assert_eq!(json["data"]["name"], "read_file");
+    }
+
+    #[test]
+    fn event_payload_tool_exec_completed() {
+        let payload = make_event(StreamEvent::ToolExecCompleted {
+            id: "tool-4".to_string(),
+            name: "bash".to_string(),
+            output: "file.txt\nmain.rs".to_string(),
+            is_error: false,
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "tool_exec_completed");
+        assert_eq!(json["data"]["id"], "tool-4");
+        assert_eq!(json["data"]["name"], "bash");
+        assert_eq!(json["data"]["is_error"], false);
+    }
+
+    #[test]
+    fn event_payload_tool_exec_completed_error() {
+        let payload = make_event(StreamEvent::ToolExecCompleted {
+            id: "tool-5".to_string(),
+            name: "bash".to_string(),
+            output: "permission denied".to_string(),
+            is_error: true,
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "tool_exec_completed");
+        assert_eq!(json["data"]["is_error"], true);
+    }
+
+    #[test]
+    fn event_payload_turn_started() {
+        let payload = make_event(StreamEvent::TurnStarted { turn: 3 });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "turn_started");
+        assert_eq!(json["data"]["turn"], 3);
+    }
+
+    #[test]
+    fn event_payload_token_usage() {
+        let payload = make_event(StreamEvent::TokenUsage {
+            input_tokens: 1500,
+            output_tokens: 800,
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "token_usage");
+        assert_eq!(json["data"]["input_tokens"], 1500);
+        assert_eq!(json["data"]["output_tokens"], 800);
+    }
+
+    #[test]
+    fn event_payload_turn_completed() {
+        let payload = make_event(StreamEvent::TurnCompleted {
+            stop_reason: "end_turn".to_string(),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "turn_completed");
+        assert_eq!(json["data"]["stop_reason"], "end_turn");
+    }
+
+    #[test]
+    fn event_payload_cache_usage() {
+        let payload = make_event(StreamEvent::CacheUsage {
+            cache_read_tokens: 5000,
+            cache_creation_tokens: 1200,
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "cache_usage");
+        assert_eq!(json["data"]["cache_read_tokens"], 5000);
+        assert_eq!(json["data"]["cache_creation_tokens"], 1200);
+    }
+
+    #[test]
+    fn event_payload_done() {
+        let payload = make_event(StreamEvent::Done);
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "done");
+    }
+
+    #[test]
+    fn event_payload_plan_created() {
+        let payload = make_event(StreamEvent::PlanCreated {
+            plan_id: "plan-1".to_string(),
+            title: "Refactor auth".to_string(),
+            steps: vec![
+                "Step 1: Add types".to_string(),
+                "Step 2: Migrate".to_string(),
+            ],
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "plan_created");
+        assert_eq!(json["data"]["plan_id"], "plan-1");
+        assert_eq!(json["data"]["title"], "Refactor auth");
+        assert_eq!(json["data"]["steps"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn event_payload_plan_step_started() {
+        let payload = make_event(StreamEvent::PlanStepStarted {
+            plan_id: "plan-1".to_string(),
+            step_index: 0,
+            step_name: "Add types".to_string(),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "plan_step_started");
+        assert_eq!(json["data"]["step_index"], 0);
+        assert_eq!(json["data"]["step_name"], "Add types");
+    }
+
+    #[test]
+    fn event_payload_plan_step_completed() {
+        let payload = make_event(StreamEvent::PlanStepCompleted {
+            plan_id: "plan-1".to_string(),
+            step_index: 0,
+            success: true,
+            result: Some("Done".to_string()),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "plan_step_completed");
+        assert_eq!(json["data"]["success"], true);
+    }
+
+    #[test]
+    fn event_payload_plan_completed() {
+        let payload = make_event(StreamEvent::PlanCompleted {
+            plan_id: "plan-1".to_string(),
+            success: true,
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "plan_completed");
+        assert_eq!(json["data"]["plan_id"], "plan-1");
+        assert_eq!(json["data"]["success"], true);
+    }
+
+    #[test]
+    fn event_payload_plan_approval_requested() {
+        let payload = make_event(StreamEvent::PlanApprovalRequested {
+            plan_id: "plan-1".to_string(),
+            plan_content: "Do the thing".to_string(),
+        });
+        let json = serde_json::to_value(&payload).unwrap();
+        assert_eq!(json["type"], "plan_approval_requested");
+        assert_eq!(json["data"]["plan_content"], "Do the thing");
+    }
+
+    #[test]
+    fn event_roundtrip_text_delta() {
+        let payload = make_event(StreamEvent::TextDelta {
+            content: "roundtrip test".to_string(),
+        });
+        let json_str = serde_json::to_string(&payload).unwrap();
+        let roundtrip: EventPayload = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(roundtrip.seq, 1);
+        assert_eq!(roundtrip.event_id, "evt-test");
+    }
+
+    fn make_event(event: StreamEvent) -> EventPayload {
+        EventPayload {
+            seq: 1,
+            event_id: "evt-test".to_string(),
+            event,
+        }
     }
 
     #[test]

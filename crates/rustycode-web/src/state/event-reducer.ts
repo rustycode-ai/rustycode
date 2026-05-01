@@ -45,7 +45,11 @@ export function applyEvent(
       return session;
 
     case "cache_usage":
-      return session;
+      return {
+        ...session,
+        cache_read_tokens: event.data.cache_read_tokens,
+        cache_creation_tokens: event.data.cache_creation_tokens,
+      };
 
     case "done": {
       let s = session;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { SessionContext, useSession } from "./state/session-store";
 import { useSessionProvider } from "./hooks/useSession";
 import { useToast } from "./hooks/useToast";
@@ -6,12 +6,15 @@ import { StatusBar } from "./components/StatusBar";
 import { MessageList } from "./components/MessageList";
 import { InputBar } from "./components/InputBar";
 import { SessionSidebar } from "./components/SessionSidebar";
-import { SettingsPanel } from "./components/SettingsPanel";
-import { CommandPalette } from "./components/CommandPalette";
 import { PlanBanner } from "./components/PlanBanner";
-import { ToolApprovalModal } from "./components/ToolApprovalModal";
 import { ToastContainer } from "./components/ToastContainer";
-import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
+import { SectionErrorBoundary } from "./components/SectionErrorBoundary";
+
+const SettingsPanel = lazy(() => import("./components/SettingsPanel").then(m => ({ default: m.SettingsPanel })));
+const CommandPalette = lazy(() => import("./components/CommandPalette").then(m => ({ default: m.CommandPalette })));
+const ToolApprovalModal = lazy(() => import("./components/ToolApprovalModal").then(m => ({ default: m.ToolApprovalModal })));
+const ShortcutsOverlay = lazy(() => import("./components/ShortcutsOverlay").then(m => ({ default: m.ShortcutsOverlay })));
+const SearchOverlay = lazy(() => import("./components/SearchOverlay").then(m => ({ default: m.SearchOverlay })));
 
 interface AppInnerProps {
   pendingApproval: import("./protocol/types").ToolApprovalRequestPayload | null;
@@ -28,6 +31,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { toasts, addToast, dismissToast } = useToast();
   const prevStatusRef = useRef(connectionStatus);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -67,6 +71,10 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
         e.preventDefault();
         setPaletteOpen((prev) => !prev);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -75,6 +83,14 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
   const handleModelSwitch = useCallback((provider: string, model: string) => {
     setProviderInfo({ provider, model });
   }, []);
+
+  const handleRegenerate = useCallback(() => {
+    if (state.pending_request) return;
+    const lastUserMsg = [...state.messages].reverse().find((m) => m.kind === "User");
+    if (!lastUserMsg?.content) return;
+    sendAbort();
+    setTimeout(() => sendInput(lastUserMsg.content), 100);
+  }, [state.pending_request, state.messages, sendAbort, sendInput]);
 
   const handleNewSession = () => {
     window.location.reload();
@@ -86,6 +102,15 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
     window.location.href = url.toString();
   };
 
+  const handleSearchNavigate = useCallback((messageId: string) => {
+    const el = document.querySelector(`[data-message-id="${messageId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("message-highlight-flash");
+      setTimeout(() => el.classList.remove("message-highlight-flash"), 2000);
+    }
+  }, []);
+
   return (
     <div className="app">
       <a className="skip-link" href="#main-content">Skip to content</a>
@@ -94,6 +119,8 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
         pending={state.pending_request}
         inputTokens={state.input_tokens}
         outputTokens={state.output_tokens}
+        cacheReadTokens={state.cache_read_tokens}
+        cacheCreationTokens={state.cache_creation_tokens}
         onToggleSidebar={toggleSidebar}
         onOpenSettings={() => setSettingsOpen(true)}
         onModelSwitch={handleModelSwitch}
@@ -105,17 +132,21 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
         {sidebarOpen && (
           <>
             <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
-            <SessionSidebar
-              currentSessionId={null}
-              onSelectSession={handleSelectSession}
-              onNewSession={handleNewSession}
-              open={sidebarOpen}
-              onClose={() => setSidebarOpen(false)}
-            />
+            <SectionErrorBoundary name="Sidebar">
+              <SessionSidebar
+                currentSessionId={null}
+                onSelectSession={handleSelectSession}
+                onNewSession={handleNewSession}
+                open={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+              />
+            </SectionErrorBoundary>
           </>
         )}
         <main className="main" id="main-content" ref={mainRef}>
-          <MessageList messages={state.messages} toolOutputsVisible={toolOutputsVisible} pending={state.pending_request} scrollContainerRef={mainRef} />
+          <SectionErrorBoundary name="Messages">
+            <MessageList messages={state.messages} toolOutputsVisible={toolOutputsVisible} pending={state.pending_request} scrollContainerRef={mainRef} />
+          </SectionErrorBoundary>
         </main>
       </div>
       {state.plan && (
@@ -130,31 +161,57 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
           onSend={sendInput}
           onAbort={sendAbort}
           pending={state.pending_request}
+          onRegenerate={handleRegenerate}
         />
       </footer>
-      <SettingsPanel
-        provider={providerInfo.provider}
-        model={providerInfo.model}
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-      />
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        sessionToken={getSessionToken() ?? ""}
-        onToggleSidebar={toggleSidebar}
-        onToggleToolOutputs={() => setToolOutputsVisible((prev) => !prev)}
-        onOpenModelSelector={() => {
-          // Trigger model selector by clicking it programmatically
-          document.querySelector<HTMLElement>(".model-selector-btn")?.click();
-        }}
-      />
-      <ToolApprovalModal
-        request={pendingApproval}
-        onRespond={handleToolApprovalResponse}
-      />
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <SettingsPanel
+            provider={providerInfo.provider}
+            model={providerInfo.model}
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+            sessionToken={getSessionToken() ?? ""}
+            messages={state.messages}
+            onToggleSidebar={toggleSidebar}
+            onToggleToolOutputs={() => setToolOutputsVisible((prev) => !prev)}
+            onOpenModelSelector={() => {
+              document.querySelector<HTMLElement>(".model-selector-btn")?.click();
+            }}
+          />
+        </Suspense>
+      )}
+      {pendingApproval && (
+        <Suspense fallback={null}>
+          <ToolApprovalModal
+            request={pendingApproval}
+            onRespond={handleToolApprovalResponse}
+          />
+        </Suspense>
+      )}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      {shortcutsOpen && <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />}
+      {shortcutsOpen && (
+        <Suspense fallback={null}>
+          <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} />
+        </Suspense>
+      )}
+      {searchOpen && (
+        <Suspense fallback={null}>
+          <SearchOverlay
+            messages={state.messages}
+            onClose={() => setSearchOpen(false)}
+            onNavigate={handleSearchNavigate}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

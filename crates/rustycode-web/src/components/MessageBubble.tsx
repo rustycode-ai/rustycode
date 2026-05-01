@@ -159,7 +159,7 @@ export function MessageBubble({ message, toolOutputsVisible, isStreaming }: Mess
 
   if (message.kind === "User") {
     return (
-      <div className={className}>
+      <div className={className} data-message-id={message.id}>
         <div className="message-actions">
           <CopyMessageButton text={message.content} />
         </div>
@@ -177,7 +177,7 @@ export function MessageBubble({ message, toolOutputsVisible, isStreaming }: Mess
     : message.content;
 
   return (
-    <div className={className} role="article" aria-label={`${message.kind} message`}>
+    <div className={className} role="article" aria-label={`${message.kind} message`} data-message-id={message.id}>
       <div className="message-actions">
         <CopyMessageButton text={copyText} />
       </div>

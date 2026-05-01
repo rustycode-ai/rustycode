@@ -1689,6 +1689,27 @@ button:focus-visible {
   max-width: 400px;
 }
 
+.section-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-4);
+  gap: var(--sp-2);
+  color: var(--text-dimmed);
+  font-size: 13px;
+}
+
+.section-error button {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
 /* ── Connection Status ───────────────────────────────────── */
 
 .status-connection {
@@ -2558,4 +2579,177 @@ button:focus-visible {
   font-size: 0.68em;
   color: var(--text-dimmed);
   letter-spacing: 0.02em;
+}
+
+/* ── Date Separator ────────────────────────────────────────── */
+
+.date-separator {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 var(--sp-2);
+  user-select: none;
+}
+
+.date-separator::before,
+.date-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.date-separator-label {
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  color: var(--text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Cache Status ──────────────────────────────────────────── */
+
+.status-cache {
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  color: var(--accent);
+  padding: 2px 6px;
+  background: oklch(0.2 0.06 var(--accent-hue));
+  border-radius: var(--radius-sm);
+}
+
+/* ── Regenerate Button ─────────────────────────────────────── */
+
+.btn-regenerate {
+  font-size: 1.1em;
+  color: var(--text-dimmed);
+  transition: color 0.15s;
+  padding: 2px 6px;
+}
+
+.btn-regenerate:hover {
+  color: var(--text-primary);
+}
+
+/* ── Search Overlay ────────────────────────────────────────── */
+
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  padding-top: 12vh;
+  background: oklch(0 0 0 / 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.search-panel {
+  width: min(560px, 90vw);
+  max-height: 60vh;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 48px oklch(0 0 0 / 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.search-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.search-input {
+  flex: 1;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text-primary);
+  font-size: 0.9em;
+  outline: none;
+  font-family: inherit;
+}
+
+.search-input:focus {
+  border-color: var(--border-focus);
+}
+
+.search-count {
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  color: var(--text-dimmed);
+  white-space: nowrap;
+  min-width: 4em;
+  text-align: right;
+}
+
+.search-results {
+  overflow-y: auto;
+  padding: var(--sp-1) 0;
+}
+
+.search-result {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.82em;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.1s;
+}
+
+.search-result:hover,
+.search-result.selected {
+  background: oklch(0.5 0.02 260 / 0.1);
+  color: var(--text-primary);
+}
+
+.search-result-kind {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  color: var(--text-dimmed);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  min-width: 4.5em;
+}
+
+.search-result-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Message Highlight Flash (search navigate) ──────────────── */
+
+.message-highlight-flash {
+  animation: highlight-flash 2s ease-out;
+}
+
+@keyframes highlight-flash {
+  0%, 30% {
+    box-shadow: 0 0 0 2px oklch(0.7 0.15 250 / 0.5);
+    background: oklch(0.5 0.08 250 / 0.08);
+  }
+  100% {
+    box-shadow: none;
+    background: transparent;
+  }
 }

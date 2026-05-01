@@ -216,7 +216,7 @@ impl Message {
 }
 
 /// Message role
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum MessageRole {
     User,

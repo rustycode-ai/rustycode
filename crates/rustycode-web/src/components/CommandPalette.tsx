@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import type { FrontendMessage } from "../protocol/types";
 
 interface SkillEntry {
   id: string;
@@ -38,6 +39,7 @@ interface CommandPaletteProps {
   open: boolean;
   onClose: () => void;
   sessionToken: string;
+  messages: FrontendMessage[];
   onSkillExecuted?: (skillId: string) => void;
   onToggleSidebar?: () => void;
   onToggleToolOutputs?: () => void;
@@ -55,10 +57,41 @@ function fuzzyMatch(query: string, text: string): boolean {
   return qi === q.length;
 }
 
+function exportConversation(messages: FrontendMessage[]) {
+  const lines: string[] = ["# RustyCode Conversation", ""];
+  for (const msg of messages) {
+    const role = msg.kind === "User" ? "**You**" : msg.kind === "Assistant" ? "**Assistant**" : `**${msg.kind}**`;
+    const time = msg.created_at ? ` — ${new Date(msg.created_at).toLocaleString()}` : "";
+    lines.push(`### ${role}${time}`, "");
+    if (msg.parts.length > 0) {
+      for (const part of msg.parts) {
+        if (part.type === "text") {
+          lines.push(part.content, "");
+        } else if (part.type === "tool_call") {
+          lines.push(`> **Tool: ${part.name}**${part.output ? "\n>\n> ```\n" + part.output.slice(0, 500) + "\n> ```" : ""}`, "");
+        } else if (part.type === "thinking") {
+          lines.push(`<details><summary>Thinking</summary>\n\n${part.content}\n\n</details>`, "");
+        }
+      }
+    } else {
+      lines.push(msg.content, "");
+    }
+    lines.push("---", "");
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rustycode-${new Date().toISOString().slice(0, 10)}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export function CommandPalette({
   open,
   onClose,
   sessionToken,
+  messages,
   onSkillExecuted,
   onToggleSidebar,
   onToggleToolOutputs,
@@ -106,6 +139,13 @@ export function CommandPalette({
       description: "Open the model selector",
       section: "Actions",
       execute: () => onOpenModelSelector?.(),
+    },
+    {
+      id: "action:export-conversation",
+      label: "Export Conversation",
+      description: "Download conversation as Markdown",
+      section: "Actions",
+      execute: () => exportConversation(messages),
     },
   ];
 

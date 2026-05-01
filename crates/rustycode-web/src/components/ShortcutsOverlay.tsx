@@ -3,9 +3,14 @@ import { useEffect } from "react";
 const SHORTCUTS = [
   { keys: ["⌘", "K"], label: "Command palette" },
   { keys: ["⌘", "B"], label: "Toggle sidebar" },
-  { keys: ["⌘", "↵"], label: "Send message" },
-  { keys: ["Esc"], label: "Close dialog / Stop" },
+  { keys: ["⌘", "F"], label: "Search messages" },
   { keys: ["⌘", "/"], label: "Keyboard shortcuts" },
+  { keys: ["Enter"], label: "Send message" },
+  { keys: ["⇧", "Enter"], label: "New line in input" },
+  { keys: ["Esc"], label: "Close dialog / Stop generation" },
+  { keys: ["↑"], label: "Previous input history" },
+  { keys: ["↓"], label: "Next input history" },
+  { keys: ["↻"], label: "Regenerate last response" },
 ] as const;
 
 interface ShortcutsOverlayProps {

@@ -76,7 +76,8 @@ impl Drop for EventBridge {
 
 fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
     match event {
-        OrchestrationEvent::TextDelta { content, .. } => Some(StreamEvent::TextDelta {
+        OrchestrationEvent::TextDelta { content, .. }
+        | OrchestrationEvent::StreamDelta { content, .. } => Some(StreamEvent::TextDelta {
             content: content.clone(),
         }),
         OrchestrationEvent::ThinkingDelta { content, .. } => Some(StreamEvent::ThinkingDelta {
@@ -102,7 +103,49 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
             output: output_preview.clone(),
             is_error: !success,
         }),
+        OrchestrationEvent::ToolExecutionStarted { task_id, tool, .. } => {
+            Some(StreamEvent::ToolExecStarted {
+                id: task_id.clone(),
+                name: tool.clone(),
+            })
+        }
+        OrchestrationEvent::ToolExecutionFinished {
+            task_id,
+            tool,
+            result,
+        } => Some(StreamEvent::ToolExecCompleted {
+            id: task_id.clone(),
+            name: tool.clone(),
+            output: result.clone(),
+            is_error: false,
+        }),
+        OrchestrationEvent::StepFailed { step_id, signal } => Some(StreamEvent::ToolExecCompleted {
+            id: step_id.clone(),
+            name: String::new(),
+            output: signal.message.clone(),
+            is_error: true,
+        }),
         OrchestrationEvent::TaskCompleted { .. } => Some(StreamEvent::Done),
+        OrchestrationEvent::PhaseTransition {
+            to, reason, ..
+        } => Some(StreamEvent::TextDelta {
+            content: format!("[{to:?}] {reason}"),
+        }),
+        OrchestrationEvent::EscalationSignal {
+            from_tier,
+            to_tier,
+            reason,
+            ..
+        } => Some(StreamEvent::TextDelta {
+            content: format!("Escalated tier {from_tier}→{to_tier}: {reason}"),
+        }),
+        OrchestrationEvent::TierHandoff {
+            from_tier,
+            to_tier,
+            ..
+        } => Some(StreamEvent::TextDelta {
+            content: format!("Context handed off tier {from_tier}→{to_tier}"),
+        }),
         _ => None,
     }
 }
@@ -195,12 +238,122 @@ mod tests {
     }
 
     #[test]
-    fn convert_ignores_unmapped_events() {
+    fn convert_stream_delta() {
+        let event = OrchestrationEvent::StreamDelta {
+            task_id: "t1".into(),
+            content: "stream text".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::TextDelta {
+                content: "stream text".into()
+            }
+        );
+    }
+
+    #[test]
+    fn convert_tool_execution_started() {
+        let event = OrchestrationEvent::ToolExecutionStarted {
+            task_id: "t1".into(),
+            tool: "bash".into(),
+            args: "echo hi".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::ToolExecStarted {
+                id: "t1".into(),
+                name: "bash".into()
+            }
+        );
+    }
+
+    #[test]
+    fn convert_tool_execution_finished() {
+        let event = OrchestrationEvent::ToolExecutionFinished {
+            task_id: "t1".into(),
+            tool: "read_file".into(),
+            result: "file contents".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::ToolExecCompleted {
+                id: "t1".into(),
+                name: "read_file".into(),
+                output: "file contents".into(),
+                is_error: false
+            }
+        );
+    }
+
+    #[test]
+    fn convert_step_failed() {
+        let event = OrchestrationEvent::StepFailed {
+            step_id: "s1".into(),
+            signal: rustycode_orchestration::error_signal::ErrorSignal::new(
+                rustycode_orchestration::error_signal::ErrorCategory::LogicError,
+                Some(1),
+                "test failed".into(),
+                "s1".into(),
+                "bash".into(),
+            ),
+        };
+        let result = convert_event(&event).unwrap();
+        assert!(matches!(result, StreamEvent::ToolExecCompleted { is_error: true, .. }));
+    }
+
+    #[test]
+    fn convert_phase_transition() {
         let event = OrchestrationEvent::PhaseTransition {
             task_id: "t1".into(),
             from: rustycode_protocol::ExecutionPhase::Explore,
             to: rustycode_protocol::ExecutionPhase::Plan,
-            reason: "test".into(),
+            reason: "context gathered".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert!(matches!(result, StreamEvent::TextDelta { .. }));
+    }
+
+    #[test]
+    fn convert_escalation_signal() {
+        let event = OrchestrationEvent::EscalationSignal {
+            task_id: "t1".into(),
+            from_tier: 2,
+            to_tier: 3,
+            reason: "stuck".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        let content = match &result {
+            StreamEvent::TextDelta { content } => content.clone(),
+            _ => panic!("expected TextDelta"),
+        };
+        assert!(content.contains("2→3"));
+        assert!(content.contains("stuck"));
+    }
+
+    #[test]
+    fn convert_tier_handoff() {
+        let event = OrchestrationEvent::TierHandoff {
+            task_id: "t1".into(),
+            from_tier: 1,
+            to_tier: 2,
+            package_size_bytes: 4096,
+        };
+        let result = convert_event(&event).unwrap();
+        let content = match &result {
+            StreamEvent::TextDelta { content } => content.clone(),
+            _ => panic!("expected TextDelta"),
+        };
+        assert!(content.contains("1→2"));
+    }
+
+    #[test]
+    fn convert_ignores_unmapped_events() {
+        let event = OrchestrationEvent::PartialResult {
+            step_id: "s1".into(),
+            content: "partial".into(),
         };
         assert!(convert_event(&event).is_none());
     }

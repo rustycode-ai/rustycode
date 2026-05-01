@@ -16,7 +16,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          "highlight-js": ["highlight.js"],
+          "react-markdown": ["react-markdown", "rehype-highlight", "highlight.js"],
         },
       },
     },

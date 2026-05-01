@@ -8,6 +8,8 @@ interface StatusBarProps {
   pending: boolean;
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
   onToggleSidebar: () => void;
   onOpenSettings: () => void;
   onModelSwitch: (provider: string, model: string) => void;
@@ -22,7 +24,7 @@ function formatTokens(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
-export function StatusBar({ toolIterationCount, pending, inputTokens, outputTokens, onToggleSidebar, onOpenSettings, onModelSwitch, provider, model, connectionStatus }: StatusBarProps) {
+export function StatusBar({ toolIterationCount, pending, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, onToggleSidebar, onOpenSettings, onModelSwitch, provider, model, connectionStatus }: StatusBarProps) {
   return (
     <header className="status-bar" role="banner">
       <button
@@ -51,6 +53,11 @@ export function StatusBar({ toolIterationCount, pending, inputTokens, outputToke
       {(inputTokens > 0 || outputTokens > 0) && (
         <span className="status-tokens">
           {formatTokens(inputTokens + outputTokens)} tokens
+        </span>
+      )}
+      {cacheReadTokens > 0 && (
+        <span className="status-cache" title={`Cache: ${cacheReadTokens} read, ${cacheCreationTokens} created`}>
+          ∿ {formatTokens(cacheReadTokens)} cached
         </span>
       )}
       <span className="status-sep" />

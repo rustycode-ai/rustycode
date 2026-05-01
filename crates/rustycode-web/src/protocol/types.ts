@@ -150,6 +150,8 @@ export interface FrontendSession {
   current_response: string;
   input_tokens: number;
   output_tokens: number;
+  cache_read_tokens: number;
+  cache_creation_tokens: number;
   plan: PlanState | null;
 }
 
