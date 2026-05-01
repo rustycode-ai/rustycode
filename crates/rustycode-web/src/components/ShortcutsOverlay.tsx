@@ -1,17 +1,22 @@
 import { useEffect } from "react";
 
+const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+
+const mod = isMac ? "⌘" : "Ctrl";
+const shift = isMac ? "⇧" : "Shift";
+
 const SHORTCUTS = [
-  { keys: ["⌘", "K"], label: "Command palette" },
-  { keys: ["⌘", "B"], label: "Toggle sidebar" },
-  { keys: ["⌘", "F"], label: "Search messages" },
-  { keys: ["⌘", "/"], label: "Keyboard shortcuts" },
+  { keys: [mod, "K"], label: "Command palette" },
+  { keys: [mod, "B"], label: "Toggle sidebar" },
+  { keys: [mod, "F"], label: "Search messages" },
+  { keys: [mod, "/"], label: "Keyboard shortcuts" },
   { keys: ["Enter"], label: "Send message" },
-  { keys: ["⇧", "Enter"], label: "New line in input" },
+  { keys: [shift, "Enter"], label: "New line in input" },
   { keys: ["Esc"], label: "Close dialog / Stop generation" },
   { keys: ["↑"], label: "Previous input history" },
   { keys: ["↓"], label: "Next input history" },
   { keys: ["↻"], label: "Regenerate last response" },
-] as const;
+];
 
 interface ShortcutsOverlayProps {
   onClose: () => void;

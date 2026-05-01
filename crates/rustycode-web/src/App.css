@@ -28,10 +28,14 @@
   --border: oklch(28% 0 0);
   --border-focus: oklch(72% 0.14 250);
 
+  /* Semantic */
+  --color-success: oklch(72% 0.18 155);
+  --bg-backdrop: oklch(13% 0 0 / 0.55);
+  --shadow-modal: 0 8px 32px oklch(0% 0 0 / 0.4);
+
   /* Radius */
   --radius-sm: 4px;
   --radius: 8px;
-  --radius-md: 8px;
   --radius-lg: 12px;
 
   /* Typography */
@@ -189,7 +193,7 @@ h1, h2, h3, h4 {
   align-items: flex-start;
   justify-content: center;
   padding-top: 15vh;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-backdrop);
   backdrop-filter: blur(2px);
 }
 
@@ -201,7 +205,7 @@ h1, h2, h3, h4 {
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-modal);
 }
 
 .model-modal-header {
@@ -263,7 +267,7 @@ h1, h2, h3, h4 {
 }
 
 .dot-on {
-  background: #4ade80;
+  background: var(--color-success);
 }
 
 .dot-off {

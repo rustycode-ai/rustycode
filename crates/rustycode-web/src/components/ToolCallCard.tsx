@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import type { ToolCallPart } from "../protocol/types";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 
 interface ToolCallCardProps {
   part: ToolCallPart;
@@ -34,19 +35,12 @@ function toolIcon(name: string): string {
 }
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(text).then(
-      () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
-      () => {},
-    );
-  }, [text]);
+  const { copied, copy } = useCopyToClipboard();
 
   return (
     <button
       className="tool-copy-btn"
-      onClick={handleCopy}
+      onClick={() => copy(text)}
       type="button"
       aria-label={copied ? "Copied" : "Copy to clipboard"}
     >

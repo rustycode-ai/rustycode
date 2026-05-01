@@ -15,7 +15,7 @@ pub(super) fn classify_tool_type(tool_name: &str) -> risk::ToolType {
 /// It checks if there are pending or in-progress tasks, and if so, automatically
 /// sends a continuation message to keep the AI working.
 ///
-/// Safety: capped at MAX_AUTO_CONTINUE_ITERATIONS (20) to prevent infinite loops
+/// Safety: capped at MAX_AUTO_CONTINUE_ITERATIONS (100) to prevent infinite loops
 /// if the AI keeps creating new tasks faster than it completes them.
 pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     use crate::tasks::TaskStatus;
@@ -90,76 +90,29 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
         .filter(|t| !t.done)
         .collect();
 
-    // Only continue if there's work to do
-    if pending_tasks.is_empty() && incomplete_todos.is_empty() {
+    // Build the continuation context and send
+    let context = if pending_tasks.is_empty() && incomplete_todos.is_empty() {
         tracing::debug!("Auto-continue: No pending tasks/todos, sending generic continue");
-        // No formal tasks extracted, but auto-continue is on — continue
-        // so the AI picks up where it left off (e.g. after partial response).
-        tui.auto_continue_pending = true;
-        tui.auto_continue_iterations += 1;
-
-        let context = "Continue where you left off. Keep working on the task.".to_string();
-        let _workspace_context = tui.workspace_context.clone();
-        let history = tui.build_conversation_history();
-
-        tui.is_streaming = true;
-        tui.chunks_received = 0;
-        tui.thinking_chunks_received = 0;
-        tui.stream_start_time = Some(std::time::Instant::now());
-        tui.current_stream_content.clear();
-        tui.streaming_render_buffer =
-            crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
-
-        if let Err(e) = tui
-            .services
-            .send_message_with_history(context, Some(history))
-        {
-            tracing::error!("Failed to send auto-continue message: {}", e);
-            tui.add_system_message(format!(
-                "Auto-continue failed: {}. Auto-continue disabled. Press Enter to continue manually.",
-                e
-            ));
-            tui.reset_streaming_state();
-            tui.active_tools.clear();
-            tui.auto_continue_pending = false;
-            tui.auto_continue_enabled = false;
-        } else {
-            let assistant_msg = Message::assistant(String::new());
-            tui.messages.push(assistant_msg);
-            tui.dirty = true;
+        "Continue where you left off. Keep working on the task.".to_string()
+    } else {
+        let total_pending = pending_tasks.len() + incomplete_todos.len();
+        tracing::info!(
+            "Auto-continue: {} tasks/todos remaining, continuing work",
+            total_pending
+        );
+        let mut ctx = String::from("Continue working on the remaining tasks:\n\n");
+        for task in &pending_tasks {
+            ctx.push_str(&format!("- [ ] {}\n", task.description));
         }
-        return;
-    }
+        for todo in &incomplete_todos {
+            ctx.push_str(&format!("- [ ] {}\n", todo.text));
+        }
+        ctx.push_str("\nPlease continue with the next task. Use tools to complete the work.");
+        ctx
+    };
 
-    // Count remaining work
-    let total_pending = pending_tasks.len() + incomplete_todos.len();
-
-    tracing::info!(
-        "Auto-continue: {} tasks/todos remaining, continuing work",
-        total_pending
-    );
-
-    // Mark that we have a pending continuation
     tui.auto_continue_pending = true;
     tui.auto_continue_iterations += 1;
-
-    // Build context message about remaining work
-    let mut context = String::from("Continue working on the remaining tasks:\n\n");
-
-    // Add pending tasks
-    for task in &pending_tasks {
-        context.push_str(&format!("- [ ] {}\n", task.description));
-    }
-
-    // Add incomplete todos
-    for todo in &incomplete_todos {
-        context.push_str(&format!("- [ ] {}\n", todo.text));
-    }
-
-    context.push_str("\nPlease continue with the next task. Use tools to complete the work.");
-
-    // Send the continuation message
-    let _workspace_context = tui.workspace_context.clone();
     let history = tui.build_conversation_history();
 
     // Set streaming state before send to prevent races
@@ -168,7 +121,8 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     tui.thinking_chunks_received = 0;
     tui.stream_start_time = Some(std::time::Instant::now());
     tui.current_stream_content.clear();
-    tui.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming_render_buffer =
+        crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
 
     if let Err(e) = tui
         .services

@@ -559,7 +559,7 @@ async fn start_turn_with_retry(
 
     match start_stream_with_retry(provider, messages, request.clone(), max_retries).await {
         Ok(stream) => Ok(TurnSource::Stream(stream)),
-        Err(err) if is_streaming_unsupported_error(&err.to_string()) => {
+        Err(err) if matches!(classify_error(&err.to_string()), ErrorClass::StreamingUnsupported) => {
             tracing::info!("Streaming is unavailable, falling back to non-streaming completion");
             let response =
                 start_completion_with_retry(provider, messages, request, max_retries).await?;
@@ -579,14 +579,7 @@ async fn start_stream_with_retry(
     let mut final_error: Option<anyhow::Error> = None;
 
     for attempt in 0..=max_retries {
-        // Rebuild request each attempt so trimmed messages are used
-        let req = CompletionRequest::new(request.model.clone(), messages.clone())
-            .with_streaming(true)
-            .with_max_tokens(32_768)
-            .with_temperature(request.temperature.unwrap_or(0.2))
-            .with_system_prompt(request.system_prompt.clone().unwrap_or_default())
-            .with_tools(request.tools.clone().unwrap_or_default())
-            .with_tool_choice(serde_json::json!("auto"));
+        let req = rebuild_request(&request, messages, true);
 
         match provider.complete_stream(req).await {
             Ok(s) => {
@@ -597,63 +590,27 @@ async fn start_stream_with_retry(
             }
             Err(e) => {
                 let err_str = format!("{e}");
-
-                if is_streaming_unsupported_error(&err_str) {
-                    return Err(anyhow::anyhow!("{e}"));
-                }
-
-                // Context length exceeded — aggressively trim and retry immediately
-                if err_str.contains("context_length")
-                    || err_str.contains("too many tokens")
-                    || err_str.contains("input too long")
-                    || err_str.contains("maximum context")
-                    || err_str.contains("token limit")
-                    || err_str.contains("reduce the length")
-                {
-                    let total = messages.len();
-                    if total > 8 {
-                        let keep = 6;
-                        let trim_from = total - keep;
-                        let mut trimmed = Vec::with_capacity(keep + 2);
-                        trimmed.push(messages[0].clone());
-                        trimmed.push(ChatMessage {
-                            role: MessageRole::User,
-                            content: MessageContent::Simple(
-                                "[Context trimmed due to length. Continue from current state.]"
-                                    .to_string(),
-                            ),
-                        });
-                        for msg in messages.iter().skip(trim_from) {
-                            trimmed.push(msg.clone());
-                        }
-                        tracing::warn!(
-                            "Context length exceeded, aggressive trim: {total} → {} messages",
-                            trimmed.len()
-                        );
-                        *messages = trimmed;
-                        // Don't count context trim as a retry
-                        continue;
+                match classify_error(&err_str) {
+                    ErrorClass::StreamingUnsupported => {
+                        return Err(anyhow::anyhow!("{e}"));
                     }
+                    ErrorClass::ContextLength => {
+                        if trim_context(messages) {
+                            continue;
+                        }
+                    }
+                    ErrorClass::Transient if attempt < max_retries => {
+                        let delay_ms = 1000u64 * (1 << attempt);
+                        tracing::warn!(
+                            "Transient stream error (attempt {}/{}): {e}. Retrying in {delay_ms}ms",
+                            attempt + 1,
+                            max_retries + 1,
+                        );
+                        tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                    }
+                    _ => {}
                 }
-
                 final_error = Some(anyhow::anyhow!("{e}"));
-
-                let is_transient = err_str.contains("429")
-                    || err_str.contains("503")
-                    || err_str.contains("502")
-                    || err_str.contains("500")
-                    || err_str.contains("timeout")
-                    || err_str.contains("connection");
-
-                if is_transient && attempt < max_retries {
-                    let delay_ms = 1000u64 * (1 << attempt);
-                    tracing::warn!(
-                        "Transient stream error (attempt {}/{}): {e}. Retrying in {delay_ms}ms",
-                        attempt + 1,
-                        max_retries + 1,
-                    );
-                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                }
             }
         }
     }
@@ -671,13 +628,7 @@ async fn start_completion_with_retry(
     let mut final_error: Option<anyhow::Error> = None;
 
     for attempt in 0..=max_retries {
-        let req = CompletionRequest::new(request.model.clone(), messages.clone())
-            .with_streaming(false)
-            .with_max_tokens(32_768)
-            .with_temperature(request.temperature.unwrap_or(0.2))
-            .with_system_prompt(request.system_prompt.clone().unwrap_or_default())
-            .with_tools(request.tools.clone().unwrap_or_default())
-            .with_tool_choice(serde_json::json!("auto"));
+        let req = rebuild_request(&request, messages, false);
 
         match provider.complete(req).await {
             Ok(response) => {
@@ -688,57 +639,24 @@ async fn start_completion_with_retry(
             }
             Err(e) => {
                 let err_str = format!("{e}");
-
-                if err_str.contains("context_length")
-                    || err_str.contains("too many tokens")
-                    || err_str.contains("input too long")
-                    || err_str.contains("maximum context")
-                    || err_str.contains("token limit")
-                    || err_str.contains("reduce the length")
-                {
-                    let total = messages.len();
-                    if total > 8 {
-                        let keep = 6;
-                        let trim_from = total - keep;
-                        let mut trimmed = Vec::with_capacity(keep + 2);
-                        trimmed.push(messages[0].clone());
-                        trimmed.push(ChatMessage {
-                            role: MessageRole::User,
-                            content: MessageContent::Simple(
-                                "[Context trimmed due to length. Continue from current state.]"
-                                    .to_string(),
-                            ),
-                        });
-                        for msg in messages.iter().skip(trim_from) {
-                            trimmed.push(msg.clone());
+                match classify_error(&err_str) {
+                    ErrorClass::ContextLength => {
+                        if trim_context(messages) {
+                            continue;
                         }
-                        tracing::warn!(
-                            "Context length exceeded, aggressive trim: {total} → {} messages",
-                            trimmed.len()
-                        );
-                        *messages = trimmed;
-                        continue;
                     }
+                    ErrorClass::Transient if attempt < max_retries => {
+                        let delay_ms = 1000u64 * (1 << attempt);
+                        tracing::warn!(
+                            "Transient completion error (attempt {}/{}): {e}. Retrying in {delay_ms}ms",
+                            attempt + 1,
+                            max_retries + 1,
+                        );
+                        tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                    }
+                    _ => {}
                 }
-
                 final_error = Some(anyhow::anyhow!("{e}"));
-
-                let is_transient = err_str.contains("429")
-                    || err_str.contains("503")
-                    || err_str.contains("502")
-                    || err_str.contains("500")
-                    || err_str.contains("timeout")
-                    || err_str.contains("connection");
-
-                if is_transient && attempt < max_retries {
-                    let delay_ms = 1000u64 * (1 << attempt);
-                    tracing::warn!(
-                        "Transient completion error (attempt {}/{}): {e}. Retrying in {delay_ms}ms",
-                        attempt + 1,
-                        max_retries + 1,
-                    );
-                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                }
             }
         }
     }
@@ -746,9 +664,37 @@ async fn start_completion_with_retry(
     Err(final_error.unwrap_or_else(|| anyhow::anyhow!("Completion initialization failed")))
 }
 
-fn is_streaming_unsupported_error(err: &str) -> bool {
+/// Rebuild a `CompletionRequest` with current messages and settings from the original request.
+fn rebuild_request(
+    original: &CompletionRequest,
+    messages: &[ChatMessage],
+    streaming: bool,
+) -> CompletionRequest {
+    CompletionRequest::new(original.model.clone(), messages.to_vec())
+        .with_streaming(streaming)
+        .with_max_tokens(32_768)
+        .with_temperature(original.temperature.unwrap_or(0.2))
+        .with_system_prompt(original.system_prompt.clone().unwrap_or_default())
+        .with_tools(original.tools.clone().unwrap_or_default())
+        .with_tool_choice(serde_json::json!("auto"))
+}
+
+/// Classify an error string for retry logic.
+enum ErrorClass {
+    /// Transient (429, 5xx, timeout, connection) — retry with backoff.
+    Transient,
+    /// Context length exceeded — aggressively trim messages and retry immediately.
+    ContextLength,
+    /// Streaming not supported — fall back to non-streaming.
+    StreamingUnsupported,
+    /// Non-retryable — propagate.
+    Fatal,
+}
+
+fn classify_error(err: &str) -> ErrorClass {
     let lower = err.to_lowercase();
-    lower.contains("stream")
+
+    if lower.contains("stream")
         && (lower.contains("completion-only")
             || lower.contains("streaming-only")
             || lower.contains("no stream")
@@ -758,6 +704,62 @@ fn is_streaming_unsupported_error(err: &str) -> bool {
             || lower.contains("streaming not available")
             || lower.contains("unsupported"))
         || lower.contains("completion-only")
+    {
+        return ErrorClass::StreamingUnsupported;
+    }
+
+    if lower.contains("context_length")
+        || lower.contains("too many tokens")
+        || lower.contains("input too long")
+        || lower.contains("maximum context")
+        || lower.contains("token limit")
+        || lower.contains("reduce the length")
+    {
+        return ErrorClass::ContextLength;
+    }
+
+    if lower.contains("429")
+        || lower.contains("503")
+        || lower.contains("502")
+        || lower.contains("500")
+        || lower.contains("timeout")
+        || lower.contains("connection")
+    {
+        return ErrorClass::Transient;
+    }
+
+    ErrorClass::Fatal
+}
+
+/// Trim conversation history when context length is exceeded.
+/// Keeps the first message + a notice + the most recent N messages.
+fn trim_context(messages: &mut Vec<ChatMessage>) -> bool {
+    const MIN_MESSAGES: usize = 8;
+    const KEEP_RECENT: usize = 6;
+
+    if messages.len() <= MIN_MESSAGES {
+        return false;
+    }
+
+    let total = messages.len();
+    let trim_from = total - KEEP_RECENT;
+    let mut trimmed = Vec::with_capacity(KEEP_RECENT + 2);
+    trimmed.push(messages[0].clone());
+    trimmed.push(ChatMessage {
+        role: MessageRole::User,
+        content: MessageContent::Simple(
+            "[Context trimmed due to length. Continue from current state.]".to_string(),
+        ),
+    });
+    for msg in messages.iter().skip(trim_from) {
+        trimmed.push(msg.clone());
+    }
+    tracing::warn!(
+        "Context length exceeded, aggressive trim: {total} → {} messages",
+        trimmed.len()
+    );
+    *messages = trimmed;
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -830,5 +832,78 @@ mod tests {
         collector.on_event(StreamEvent::Done).await;
 
         assert_eq!(collector.events.len(), 3);
+    }
+
+    #[test]
+    fn classify_error_streaming_unsupported() {
+        assert!(matches!(
+            classify_error("streaming not supported for this model"),
+            ErrorClass::StreamingUnsupported
+        ));
+        assert!(matches!(
+            classify_error("completion-only mode"),
+            ErrorClass::StreamingUnsupported
+        ));
+    }
+
+    #[test]
+    fn classify_error_context_length() {
+        assert!(matches!(
+            classify_error("context_length_exceeded"),
+            ErrorClass::ContextLength
+        ));
+        assert!(matches!(
+            classify_error("too many tokens in input"),
+            ErrorClass::ContextLength
+        ));
+        assert!(matches!(
+            classify_error("Please reduce the length of your prompt"),
+            ErrorClass::ContextLength
+        ));
+    }
+
+    #[test]
+    fn classify_error_transient() {
+        assert!(matches!(classify_error("Error 429 rate limited"), ErrorClass::Transient));
+        assert!(matches!(classify_error("503 service unavailable"), ErrorClass::Transient));
+        assert!(matches!(classify_error("connection timed out"), ErrorClass::Transient));
+    }
+
+    #[test]
+    fn classify_error_fatal() {
+        assert!(matches!(classify_error("invalid API key"), ErrorClass::Fatal));
+        assert!(matches!(classify_error("model not found"), ErrorClass::Fatal));
+    }
+
+    #[test]
+    fn trim_context_skips_short_history() {
+        let messages: Vec<ChatMessage> = (0..6)
+            .map(|i| ChatMessage {
+                role: if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant },
+                content: MessageContent::Simple(format!("msg {i}")),
+            })
+            .collect();
+        let mut msgs = messages;
+        assert!(!trim_context(&mut msgs));
+        assert_eq!(msgs.len(), 6);
+    }
+
+    #[test]
+    fn trim_context_trims_long_history() {
+        let messages: Vec<ChatMessage> = (0..20)
+            .map(|i| ChatMessage {
+                role: if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant },
+                content: MessageContent::Simple(format!("msg {i}")),
+            })
+            .collect();
+        let mut msgs = messages;
+        assert!(trim_context(&mut msgs));
+        // first msg + trim notice + 6 recent = 8
+        assert_eq!(msgs.len(), 8);
+        assert!(matches!(&msgs[0].content, MessageContent::Simple(s) if s == "msg 0"));
+        assert!(matches!(&msgs[1].content, MessageContent::Simple(s) if s.contains("trimmed")));
+        // Last 6 should be messages 14..20
+        assert!(matches!(&msgs[2].content, MessageContent::Simple(s) if s == "msg 14"));
+        assert!(matches!(&msgs[7].content, MessageContent::Simple(s) if s == "msg 19"));
     }
 }

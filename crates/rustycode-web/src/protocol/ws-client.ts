@@ -271,9 +271,12 @@ export class WsClient {
       });
       return;
     }
-    const delay =
+    const baseDelay =
       this.baseReconnectDelay *
       Math.pow(2, this.reconnectAttempts);
+    // Add jitter (±25%) to avoid thundering herd on simultaneous reconnects
+    const jitter = baseDelay * 0.25 * (Math.random() * 2 - 1);
+    const delay = Math.max(this.baseReconnectDelay, baseDelay + jitter);
     this.reconnectAttempts++;
     this.onMessage("reconnecting", { attempt: this.reconnectAttempts, delay });
     this.reconnectTimer = setTimeout(() => {

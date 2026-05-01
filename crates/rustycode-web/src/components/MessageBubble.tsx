@@ -1,9 +1,10 @@
-import { useState, useCallback, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Markdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark-dimmed.css";
 import type { FrontendMessage, MessagePart } from "../protocol/types";
 import { ToolCallCard } from "./ToolCallCard";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 
 const ALLOWED_ELEMENTS = [
   "p", "br", "code", "pre", "strong", "em", "ul", "ol", "li", "a",
@@ -27,23 +28,16 @@ function extractText(children: ReactNode): string {
 }
 
 function CodeBlock({ className, children }: CodeBlockProps) {
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopyToClipboard();
   const lang = className?.replace("language-", "") || "";
   const codeText = extractText(children).replace(/\n$/, "");
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(codeText).then(
-      () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
-      () => {},
-    );
-  }, [codeText]);
 
   return (
     <div className="code-block-wrapper">
       {lang && <span className="code-block-lang">{lang}</span>}
       <button
         className="code-block-copy"
-        onClick={handleCopy}
+        onClick={() => copy(codeText)}
         type="button"
         aria-label="Copy code"
       >
@@ -131,17 +125,11 @@ function PartRenderer({ part, toolOutputsVisible, streaming }: { part: MessagePa
 }
 
 function CopyMessageButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleClick = useCallback(() => {
-    navigator.clipboard.writeText(text).then(
-      () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
-      () => {},
-    );
-  }, [text]);
+  const { copied, copy } = useCopyToClipboard();
   return (
     <button
       className="message-action-btn"
-      onClick={handleClick}
+      onClick={() => copy(text)}
       type="button"
       aria-label="Copy message"
       data-copied={copied}

@@ -43,59 +43,119 @@ static INLINE_TOKEN_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 /// Truncate large code blocks in content, saving full content to temp file.
+///
+/// Processes ALL code blocks in the content, not just the first one.
 fn truncate_code_blocks(content: &str) -> String {
-    let (open_pos, fence) = match (content.find("```"), content.find("~~~")) {
-        (Some(a), Some(b)) if a <= b => (a, "```"),
-        (Some(a), None) => (a, "```"),
-        (None, Some(b)) => (b, "~~~"),
-        (None, None) => return content.to_string(),
-        (Some(_), Some(b)) => (b, "~~~"),
-    };
+    let mut result = String::with_capacity(content.len());
+    let mut pos = 0;
+    let len = content.len();
 
-    let Some(after_open) = content.get(open_pos + 3..) else {
-        return content.to_string();
-    };
-    let Some(newline_pos) = after_open.find('\n') else {
-        return content.to_string();
-    };
-    let code_start = open_pos + 3 + newline_pos + 1;
+    while pos < len {
+        let remaining = &content[pos..];
 
-    let Some(code_region) = content.get(code_start..) else {
-        return content.to_string();
-    };
-    let close_pattern = format!("\n{}", fence);
-    let Some(close_offset) = code_region.find(&close_pattern) else {
-        return content.to_string();
-    };
+        let (fence_offset, fence_str) = match (            remaining.find("```"),
+            remaining.find("~~~"),
+        ) {
+            (Some(a), Some(b)) if a <= b => (a, "```"),
+            (Some(a), None) => (a, "```"),
+            (None, Some(b)) => (b, "~~~"),
+            (None, None) => {
+                result.push_str(remaining);
+                break;
+            }
+            (Some(_), Some(b)) => (b, "~~~"),
+        };
 
-    let Some(code_content) = code_region.get(..close_offset) else {
-        return content.to_string();
-    };
-    let lines: Vec<&str> = code_content.lines().collect();
+        result.push_str(&remaining[..fence_offset]);
 
-    if lines.len() <= MAX_CODE_BLOCK_LINES {
-        return content.to_string();
+        let fence_abs = pos + fence_offset;
+        let after_fence = match content.get(fence_abs + 3..) {
+            Some(s) => s,
+            None => {
+                result.push_str(&remaining[fence_offset..]);
+                break;
+            }
+        };
+
+        let newline_pos = match after_fence.find('\n') {
+            Some(p) => p,
+            None => {
+                result.push_str(&remaining[fence_offset..]);
+                break;
+            }
+        };
+
+        let code_start = fence_abs + 3 + newline_pos + 1;
+
+        let code_region = match content.get(code_start..) {
+            Some(s) => s,
+            None => {
+                result.push_str(&remaining[fence_offset..]);
+                break;
+            }
+        };
+
+        let close_pattern = format!("\n{}", fence_str);
+        let close_offset = match code_region.find(&close_pattern) {
+            Some(p) => p,
+            None => {
+                result.push_str(&remaining[fence_offset..]);
+                break;
+            }
+        };
+
+        let code_content = match code_region.get(..close_offset) {
+            Some(s) => s,
+            None => {
+                result.push_str(&remaining[fence_offset..]);
+                break;
+            }
+        };
+
+        let lines: Vec<&str> = code_content.lines().collect();
+
+        if lines.len() <= MAX_CODE_BLOCK_LINES {
+            let block_end = code_start + close_offset + 1 + fence_str.len();
+            result.push_str(match content.get(..block_end) {
+                Some(s) => &s[fence_abs..],
+                None => break,
+            });
+        } else {
+            let truncated: String = lines
+                .iter()
+                .take(TRUNCATED_SHOW_LINES)
+                .copied()
+                .collect::<Vec<_>>()
+                .join("\n");
+            let remaining_lines = lines.len() - TRUNCATED_SHOW_LINES;
+
+            let file_msg = save_to_temp_file(code_content)
+                .map(|p| format!(" -> {}", p))
+                .unwrap_or_default();
+
+            let fence_header_end = fence_abs + 3 + newline_pos;
+            let fence_header = &content[fence_abs..fence_header_end];
+
+            let close_abs = code_start + close_offset + 1;
+            let suffix: &str = content.get(close_abs + fence_str.len()..).unwrap_or_default();
+
+            result.push_str(fence_header);
+            result.push('\n');
+            result.push_str(&truncated);
+            result.push_str(&format!(
+                "\n... ({} more lines{})\n{}{}",
+                remaining_lines, file_msg, fence_str, suffix
+            ));
+
+            pos = close_abs + fence_str.len();
+            continue;
+        }
+
+        let close_abs = code_start + close_offset + 1;
+        pos = close_abs + fence_str.len();
     }
 
-    let truncated: String = lines
-        .iter()
-        .take(TRUNCATED_SHOW_LINES)
-        .copied()
-        .collect::<Vec<_>>()
-        .join("\n");
-    let remaining = lines.len() - TRUNCATED_SHOW_LINES;
-
-    let file_msg = save_to_temp_file(code_content)
-        .map(|p| format!(" -> {}", p))
-        .unwrap_or_default();
-
-    let close_pos = code_start + close_offset + 1;
-    let prefix = content.get(..code_start).unwrap_or("");
-    let suffix = content.get(close_pos..).unwrap_or("");
-    format!(
-        "{}{}\n... ({} more lines{})\n{}",
-        prefix, truncated, remaining, file_msg, suffix
-    )
+    result
 }
 
 fn save_to_temp_file(content: &str) -> Option<String> {
@@ -165,29 +225,51 @@ impl ParseState {
 ///
 /// At stream end, an unclosed fence (``` or ~~~) would cause everything
 /// after it to render as a code block. This function detects and closes them.
+///
+/// Properly tracks open/close state so that fence-like content inside a code
+/// block (e.g., a markdown tutorial showing ``` examples) doesn't cause false
+/// positives.
 fn close_unclosed_fences(content: &str) -> String {
     let mut result = content.to_string();
 
-    // Count backtick fences at line start (lines starting with ```)
-    // Each one toggles between "inside" and "outside" a code block
-    let backtick_depth = content
-        .lines()
-        .filter(|line| line.starts_with("```"))
-        .count();
-    if backtick_depth % 2 != 0 {
-        result.push_str("\n```\n");
+    let mut open_backtick = false;
+    let mut open_tilde = false;
+
+    for line in content.lines() {
+        let trimmed = line.trim_start();
+        if open_backtick {
+            let fence_len = trimmed.chars().take_while(|&c| c == '`').count();
+            if fence_len >= 3 {
+                let after = trimmed.get(fence_len..).map(|s| s.trim()).unwrap_or("");
+                if after.is_empty() {
+                    open_backtick = false;
+                }
+            }
+        } else if open_tilde {
+            let fence_len = trimmed.chars().take_while(|&c| c == '~').count();
+            if fence_len >= 3 {
+                let after = trimmed.get(fence_len..).map(|s| s.trim()).unwrap_or("");
+                if after.is_empty() {
+                    open_tilde = false;
+                }
+            }
+        } else {
+            if trimmed.starts_with("```") {
+                open_backtick = true;
+            } else if trimmed.starts_with("~~~") {
+                open_tilde = true;
+            }
+        }
     }
 
-    // Count tilde fences (separate from backtick)
-    let tilde_depth = content
-        .lines()
-        .filter(|line| line.starts_with("~~~"))
-        .count();
-    if tilde_depth % 2 != 0 {
+    if open_backtick {
+        result.push_str("\n```\n");
+    }
+    if open_tilde {
         result.push_str("\n~~~\n");
     }
 
-    truncate_code_blocks(&result).to_string()
+    truncate_code_blocks(&result)
 }
 
 /// A streaming markdown buffer that tracks open constructs.

@@ -72,9 +72,15 @@ pub(super) fn handle_approval_request_chunk(
         return;
     }
 
+    // If we're already awaiting approval for the same tool, the provider sent
+    // a duplicate request (race condition / retry). Auto-approve to avoid
+    // deadlock — the provider is waiting for a response and won't proceed
+    // without one.
     if tui.awaiting_approval {
         if let Some(req) = tui.pending_approval_request.front() {
             if req.tool_name == tool_name {
+                tui.services.send_approval_response(true);
+                tui.dirty = true;
                 return;
             }
         }

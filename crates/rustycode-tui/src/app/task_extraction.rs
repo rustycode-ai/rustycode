@@ -92,17 +92,20 @@ fn extract_todos(text: &str) -> Vec<String> {
             || trimmed.starts_with("○ ")
             || trimmed.starts_with("◦ ");
 
-        // Check for numbered items
         let is_numbered = trimmed
-            .chars()
-            .next()
-            .map(|c| c.is_ascii_digit())
-            .unwrap_or(false)
-            && trimmed
-                .chars()
-                .nth(1)
-                .map(|c| c == '.' || c == ')' || c == ' ')
-                .unwrap_or(false);
+            .bytes()
+            .enumerate()
+            .take_while(|(_, b)| b.is_ascii_digit())
+            .last()
+            .map(|(idx, _)| {
+                let after_digits = idx + 1;
+                trimmed
+                    .as_bytes()
+                    .get(after_digits)
+                    .map(|&b| b == b'.' || b == b')' || b == b' ')
+                    .unwrap_or(false)
+            })
+            .unwrap_or(false);
 
         if is_bullet || is_numbered {
             // Extract the content
@@ -295,13 +298,18 @@ pub fn extract_todos_from_tool_result(tool_name: &str, output: &str) -> Vec<Stri
     match tool_name {
         "grep" | "search_files" | "ripgrep" => {
             // Extract TODO/FIXME from grep results
+            // Grep output format: "path/to/file.rs:42: // TODO: description"
+            // We need to find the TODO:/FIXME: marker, not the first colon (which is in the file path)
             for line in output.lines() {
                 let line_upper = line.to_uppercase();
-                if line_upper.contains("TODO:") || line_upper.contains("FIXME:") {
-                    // Extract the comment content
-                    if let Some(pos) = line.find(':') {
-                        let comment = &line[pos + 1..];
-                        let comment = comment.trim();
+                let marker_pos = if let Some(pos) = line_upper.find("TODO:") {
+                    Some(pos + 5)
+                } else {
+                    line_upper.find("FIXME:").map(|pos| pos + 6)
+                };
+                if let Some(content_start) = marker_pos {
+                    if content_start < line.len() {
+                        let comment = line[content_start..].trim();
                         if !comment.is_empty() && comment.len() < 100 {
                             todos.push(format!("{}: {}", tool_name, comment));
                         }

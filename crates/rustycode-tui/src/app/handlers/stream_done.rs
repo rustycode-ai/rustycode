@@ -146,7 +146,6 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
                     }
                 }
                 tracing::warn!(
-                    stream_content_len = tui.current_stream_content.len(),
                     chunks_received = tui.chunks_received,
                     thinking_chunks = tui.thinking_chunks_received,
                     "Empty response from model — no text, no thinking, no tool executions"
@@ -218,15 +217,15 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
         return;
     };
     let auto_send_start = std::time::Instant::now();
+    let message_to_send = tui.prepare_message_for_send(&queued);
+
     let user_msg = Message::user(queued.clone());
     tui.messages.push(user_msg);
     tui.selected_message = tui.messages.len() - 1;
     tui.scroll_offset_line = 0;
     tui.user_scrolled = false;
 
-    let prepare_start = std::time::Instant::now();
-    let message_to_send = tui.prepare_message_for_send(&queued);
-    let prepare_elapsed = prepare_start.elapsed();
+    let prepare_elapsed = auto_send_start.elapsed();
     let history_start = std::time::Instant::now();
     let history = tui.build_conversation_history();
     let history_elapsed = history_start.elapsed();
@@ -242,7 +241,7 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
             .count()
         );
     }
-    tui.rate_limit.last_message = Some(queued.clone());
+    tui.rate_limit.last_message = Some(queued);
     tui.is_streaming = true;
     tui.chunks_received = 0;
     tui.thinking_chunks_received = 0;

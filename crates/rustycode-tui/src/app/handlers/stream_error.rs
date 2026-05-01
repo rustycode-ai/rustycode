@@ -30,6 +30,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     // (auto-approve notifications, doom loop warnings) may have been
     // pushed during streaming, making .last() point to the wrong message.
     if !tui.current_stream_content.is_empty() {
+        let content = std::mem::take(&mut tui.current_stream_content);
+        let preserved_len = content.len();
         let assistant_msg = tui
             .messages
             .iter_mut()
@@ -37,15 +39,14 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
             .find(|m| m.role == MessageRole::Assistant);
         if let Some(msg) = assistant_msg {
             if msg.content.is_empty() {
-                msg.content = tui.current_stream_content.clone();
+                msg.content = content;
             }
         } else {
-            tui.messages
-                .push(Message::assistant(tui.current_stream_content.clone()));
+            tui.messages.push(Message::assistant(content));
         }
         tui.add_system_message(format!(
             "Partial response preserved ({} chars)",
-            tui.current_stream_content.len()
+            preserved_len
         ));
     }
 
@@ -53,12 +54,9 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     tui.check_auto_compaction();
 
     // On cancellation, keep the queued message so the user can retry.
-    // On non-retryable errors, preserve it too — the user should decide.
-    // Only clear on explicit user cancellation (which sets stream_cancelled).
-    // Note: stream_cancelled is already reset above, but we check the error
-    // type to decide whether to preserve the queue.
-    let was_auth_or_context = !err.should_preserve_queued_message();
-    if was_auth_or_context {
+    // On retryable errors (rate limit, network), preserve it for auto-retry.
+    // On non-retryable errors (auth, context), clear it — retrying won't help.
+    if !err.should_preserve_queued_message() {
         tui.queued_message = None;
     }
 
@@ -124,7 +122,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     tui.rate_limit.auto_retry_cancelled = false;
 
     // Increment retry count for next exponential backoff
-    tui.rate_limit.retry_count += 1;
+    tui.rate_limit.retry_count = tui.rate_limit.retry_count.saturating_add(1);
 
     tui.auto_scroll();
 

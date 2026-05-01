@@ -25,65 +25,14 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
         ToolOutput::Timeout => Some("Operation timed out".to_string()),
     };
 
-    // Truncate large tool outputs with temp file fallback for inspection
-    // Strip ANSI escape codes so terminal colors don't render as garbage in the TUI
-    let detailed_output = raw_output.map(|output| {
-        let output = crate::app::tool_output_format::strip_ansi_escapes(&output);
-        const MAX_INLINE_CHARS: usize = 4000;
-        if output.len() <= MAX_INLINE_CHARS {
-            output
-        } else {
-            let truncated_lines: Vec<&str> = output.lines().take(21).collect();
-            let has_more = truncated_lines.len() > 20;
-            let truncated_lines = &truncated_lines[..20.min(truncated_lines.len())];
-            let mut truncated = truncated_lines.join("\n");
-
-            // Save full output to temp file
-            let filename = format!(
-                "rustycode-tool-{}-{}.txt",
-                result.name,
-                SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs()
-            );
-            let path = std::env::temp_dir().join(&filename);
-            if std::fs::write(&path, &output).is_ok() {
-                if has_more {
-                    truncated.push_str(&format!(
-                        "\n\n... (more lines truncated. Full output: {})",
-                        path.display()
-                    ));
-                }
-            } else {
-                if has_more {
-                    truncated.push_str(&format!(
-                        "\n\n... (more lines truncated, {} chars total)",
-                        output.len()
-                    ));
-                }
-            }
-            truncated
-        }
-    });
+    let detailed_output = raw_output.map(|raw| format_detailed_output(&result, raw));
 
     // Save copies for tool panel history before moving into message
     let panel_detailed_output = detailed_output.clone();
     let panel_status = result_status.clone();
 
     // Compute a smart summary using output_summary for better display
-    // Strip ANSI from summary too so status lines are clean
-    let result_summary = match &result.result {
-        ToolOutput::Success(s) => {
-            let clean = crate::app::tool_output_format::strip_ansi_escapes(s);
-            crate::app::tool_output_format::output_summary(&clean)
-        }
-        ToolOutput::Error(e) => {
-            let clean = crate::app::tool_output_format::strip_ansi_escapes(e);
-            format!("Error: {}", clean)
-        }
-        ToolOutput::Timeout => "Timeout".to_string(),
-    };
+    let result_summary = compute_result_summary(&result);
 
     // Pre-extract input_json from messages (immutable borrow) BEFORE any
     // mutable borrow of tui.messages. ToolComplete may have already removed
@@ -108,77 +57,190 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
         .map(|t| t.start_time)
         .unwrap_or_else(chrono::Utc::now);
 
+    update_message_tool_execution(
+        tui,
+        &result,
+        result_status,
+        result_summary.clone(),
+        detailed_output,
+        fallback_input_json,
+        fallback_start_time,
+    );
+
+    // Remove from active tools
+    tui.active_tools.remove(&result.id);
+
+    update_tool_panel_history(
+        tui,
+        &result,
+        panel_status,
+        result_summary.clone(),
+        panel_detailed_output,
+    );
+
+    update_ast_phase_state(tui, &result);
+
+    // Surface ask_user tool results to the user
+    if result.name == "ask_user" {
+        if let ToolOutput::Success(json_str) = &result.result {
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
+                if parsed["status"].as_str() == Some("clarification_requested") {
+                    let question = parsed["question"]
+                        .as_str()
+                        .unwrap_or("LLM needs clarification");
+                    let urgency = parsed["urgency"].as_str().unwrap_or("medium");
+                    tui.add_system_message(format!("[{urgency}] LLM asks: {question}"));
+                }
+            }
+        }
+    }
+
+    tui.dirty = true;
+}
+
+/// Truncate large tool outputs with temp file fallback for inspection.
+/// Strips ANSI escape codes so terminal colors don't render as garbage in the TUI.
+fn format_detailed_output(result: &ToolResult, output: String) -> String {
+    let output = crate::app::tool_output_format::strip_ansi_escapes(&output);
+    const MAX_INLINE_CHARS: usize = 4000;
+    if output.chars().count() <= MAX_INLINE_CHARS {
+        return output;
+    }
+
+    let truncated_lines: Vec<&str> = output.lines().take(21).collect();
+    let has_more = truncated_lines.len() > 20;
+    let truncated_lines = &truncated_lines[..20.min(truncated_lines.len())];
+    let mut truncated = truncated_lines.join("\n");
+
+    // Save full output to temp file
+    let filename = format!(
+        "rustycode-tool-{}-{}.txt",
+        result.name,
+        SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    );
+    let path = std::env::temp_dir().join(&filename);
+    if std::fs::write(&path, &output).is_ok() {
+        if has_more {
+            truncated.push_str(&format!(
+                "\n\n... (more lines truncated. Full output: {})",
+                path.display()
+            ));
+        }
+    } else if has_more {
+        truncated.push_str(&format!(
+            "\n\n... (more lines truncated, {} chars total)",
+            output.chars().count()
+        ));
+    }
+    truncated
+}
+
+/// Compute a smart summary using output_summary for better display.
+/// Strips ANSI from summary so status lines are clean.
+fn compute_result_summary(result: &ToolResult) -> String {
+    match &result.result {
+        ToolOutput::Success(s) => {
+            let clean = crate::app::tool_output_format::strip_ansi_escapes(s);
+            crate::app::tool_output_format::output_summary(&clean)
+        }
+        ToolOutput::Error(e) => {
+            let clean = crate::app::tool_output_format::strip_ansi_escapes(e);
+            format!("Error: {}", clean)
+        }
+        ToolOutput::Timeout => "Timeout".to_string(),
+    }
+}
+
+/// Update or create the ToolExecution entry in the last assistant message.
+fn update_message_tool_execution(
+    tui: &mut TUI,
+    result: &ToolResult,
+    result_status: ToolStatus,
+    result_summary: String,
+    detailed_output: Option<String>,
+    fallback_input_json: Option<serde_json::Value>,
+    fallback_start_time: chrono::DateTime<chrono::Utc>,
+) {
     let assistant_msg = tui
         .messages
         .iter_mut()
         .rev()
         .find(|m| m.role == MessageRole::Assistant);
-    if let Some(last_msg) = assistant_msg {
-        let updated_existing = if let Some(tools) = &mut last_msg.tool_executions {
-            if let Some(tool) = tools.iter_mut().find(|t| t.tool_id == result.id) {
-                tool.status = result_status.clone();
-                let end_time = chrono::Utc::now();
-                tool.end_time = Some(end_time);
-                tool.duration_ms = Some(
-                    end_time
-                        .signed_duration_since(tool.start_time)
-                        .num_milliseconds()
-                        .max(0) as u64,
-                );
-                tool.result_summary = result_summary.clone();
-                tool.detailed_output = detailed_output.clone();
-                true
-            } else {
-                false
-            }
+    let Some(last_msg) = assistant_msg else {
+        return;
+    };
+
+    let updated_existing = if let Some(tools) = &mut last_msg.tool_executions {
+        if let Some(tool) = tools.iter_mut().find(|t| t.tool_id == result.id) {
+            tool.status = result_status.clone();
+            let end_time = chrono::Utc::now();
+            tool.end_time = Some(end_time);
+            tool.duration_ms = Some(
+                end_time
+                    .signed_duration_since(tool.start_time)
+                    .num_milliseconds()
+                    .max(0) as u64,
+            );
+            tool.result_summary = result_summary.clone();
+            tool.detailed_output = detailed_output.clone();
+            true
         } else {
             false
+        }
+    } else {
+        false
+    };
+
+    if !updated_existing {
+        let start_time = fallback_start_time;
+        let end_time = chrono::Utc::now();
+        let tool_execution = ToolExecution {
+            tool_id: result.id.clone(),
+            name: result.name.clone(),
+            start_time,
+            end_time: Some(end_time),
+            duration_ms: Some(
+                end_time
+                    .signed_duration_since(start_time)
+                    .num_milliseconds()
+                    .max(0) as u64,
+            ),
+            result_summary,
+            status: result_status,
+            detailed_output,
+            input_json: fallback_input_json,
+            progress_current: None,
+            progress_total: None,
+            progress_description: None,
         };
 
-        if !updated_existing {
-            let input_json = fallback_input_json;
-            let start_time = fallback_start_time;
-            let end_time = chrono::Utc::now();
-            let tool_execution = ToolExecution {
-                tool_id: result.id.clone(),
-                name: result.name.clone(),
-                start_time,
-                end_time: Some(end_time),
-                duration_ms: Some(
-                    end_time
-                        .signed_duration_since(start_time)
-                        .num_milliseconds()
-                        .max(0) as u64,
-                ),
-                result_summary: result_summary.clone(),
-                status: result_status,
-                detailed_output,
-                input_json,
-                progress_current: None,
-                progress_total: None,
-                progress_description: None,
-            };
-
-            if last_msg.tool_executions.is_none() {
-                last_msg.tool_executions = Some(vec![]);
-            }
-            if let Some(tools) = &mut last_msg.tool_executions {
-                tools.push(tool_execution);
-                while tools.len() > 100 {
-                    tools.remove(0);
-                }
-            }
+        if last_msg.tool_executions.is_none() {
+            last_msg.tool_executions = Some(vec![]);
         }
-
-        if !tui.user_scrolled {
-            tui.auto_scroll();
+        if let Some(tools) = &mut last_msg.tool_executions {
+            tools.push(tool_execution);
+            while tools.len() > 100 {
+                tools.remove(0);
+            }
         }
     }
 
-    // Remove from active tools
-    tui.active_tools.remove(&result.id);
+    if !tui.user_scrolled {
+        tui.auto_scroll();
+    }
+}
 
-    // Update the running entry in tool panel history (added by ToolStart)
+/// Update the running entry in tool panel history (added by ToolStart).
+fn update_tool_panel_history(
+    tui: &mut TUI,
+    result: &ToolResult,
+    panel_status: ToolStatus,
+    result_summary: String,
+    panel_detailed_output: Option<String>,
+) {
     // Look up duration from the message's tool execution that was just updated
     let panel_duration = tui
         .messages
@@ -223,68 +285,53 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
             tui.tool_panel_history.remove(0);
         }
     }
-
-    // Update AST phase state from structured_thinking tool results
-    if result.name == "structured_thinking" {
-        match &result.result {
-            ToolOutput::Success(json_str) => {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
-                    let phase_num =
-                        parsed["phase"].as_u64().unwrap_or(1).saturating_sub(1) as usize;
-                    let phase_num = phase_num.min(AST_PHASE_NAMES.len() - 1);
-                    let phase_name = AST_PHASE_NAMES[phase_num];
-                    let next_needed = parsed["next_thought_needed"].as_bool().unwrap_or(true);
-                    let confidence = parsed["confidence"].as_u64().unwrap_or(0) as usize;
-
-                    if !tui.ast_phase_state.is_active() {
-                        tui.ast_phase_state
-                            .activate(phase_name, phase_num, "Structured thinking");
-                    } else {
-                        tui.ast_phase_state.phase = phase_name.to_string();
-                        tui.ast_phase_state.phase_index = phase_num;
-                    }
-                    // Use confidence as progress indicator (0-100 maps to phase completion)
-                    tui.ast_phase_state.update_milestones(confidence, 100);
-
-                    if !next_needed {
-                        tui.ast_phase_state.complete();
-                    }
-
-                    // Surface loop warning as a system message
-                    if parsed
-                        .get("loop_warning")
-                        .and_then(|w| w.get("detected"))
-                        .and_then(|d| d.as_bool())
-                        .unwrap_or(false)
-                    {
-                        let suggestion = parsed["loop_warning"]["suggestion"]
-                            .as_str()
-                            .unwrap_or("Thinking loop detected — consider using ask_user");
-                        tui.add_system_message(suggestion.to_string());
-                    }
-                }
-            }
-            ToolOutput::Error(_) | ToolOutput::Timeout => {
-                tui.ast_phase_state.deactivate();
-            }
-        }
-    }
-
-    // Surface ask_user tool results to the user
-    if result.name == "ask_user" {
-        if let ToolOutput::Success(json_str) = &result.result {
-            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
-                if parsed["status"].as_str() == Some("clarification_requested") {
-                    let question = parsed["question"]
-                        .as_str()
-                        .unwrap_or("LLM needs clarification");
-                    let urgency = parsed["urgency"].as_str().unwrap_or("medium");
-                    tui.add_system_message(format!("[{urgency}] LLM asks: {question}"));
-                }
-            }
-        }
-    }
-
-    tui.dirty = true;
 }
 
+/// Update AST phase state from structured_thinking tool results.
+fn update_ast_phase_state(tui: &mut TUI, result: &ToolResult) {
+    if result.name != "structured_thinking" {
+        return;
+    }
+
+    match &result.result {
+        ToolOutput::Success(json_str) => {
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
+                let phase_num = parsed["phase"].as_u64().unwrap_or(1).saturating_sub(1) as usize;
+                let phase_num = phase_num.min(AST_PHASE_NAMES.len() - 1);
+                let phase_name = AST_PHASE_NAMES[phase_num];
+                let next_needed = parsed["next_thought_needed"].as_bool().unwrap_or(true);
+                let confidence = parsed["confidence"].as_u64().unwrap_or(0) as usize;
+
+                if !tui.ast_phase_state.is_active() {
+                    tui.ast_phase_state
+                        .activate(phase_name, phase_num, "Structured thinking");
+                } else {
+                    tui.ast_phase_state.phase = phase_name.to_string();
+                    tui.ast_phase_state.phase_index = phase_num;
+                }
+                // Use confidence as progress indicator (0-100 maps to phase completion)
+                tui.ast_phase_state.update_milestones(confidence, 100);
+
+                if !next_needed {
+                    tui.ast_phase_state.complete();
+                }
+
+                // Surface loop warning as a system message
+                if parsed
+                    .get("loop_warning")
+                    .and_then(|w| w.get("detected"))
+                    .and_then(|d| d.as_bool())
+                    .unwrap_or(false)
+                {
+                    let suggestion = parsed["loop_warning"]["suggestion"]
+                        .as_str()
+                        .unwrap_or("Thinking loop detected — consider using ask_user");
+                    tui.add_system_message(suggestion.to_string());
+                }
+            }
+        }
+        ToolOutput::Error(_) | ToolOutput::Timeout => {
+            tui.ast_phase_state.deactivate();
+        }
+    }
+}

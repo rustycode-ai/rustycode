@@ -18,8 +18,8 @@ pub(super) fn handle_extract_tasks_chunk(tui: &mut TUI, text: String) {
 
     extract_action_items(&text, &mut tui.workspace_tasks);
 
-    let new_todos = tui.workspace_tasks.todos.len() - initial_todos;
-    let new_tasks = tui.workspace_tasks.tasks.len() - initial_tasks;
+    let new_todos = tui.workspace_tasks.todos.len().saturating_sub(initial_todos);
+    let new_tasks = tui.workspace_tasks.tasks.len().saturating_sub(initial_tasks);
 
     // Save the updated tasks
     if let Err(e) = crate::tasks::save_tasks(&tui.workspace_tasks) {

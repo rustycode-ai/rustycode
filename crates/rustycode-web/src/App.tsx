@@ -57,7 +57,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
         provider: d.current?.provider || "",
         model: d.current?.model || "",
       }))
-      .catch(() => {});
+      .catch(() => setProviderInfo({ provider: "", model: "" }));
   }, []);
 
   useEffect(() => {
@@ -189,6 +189,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
             onOpenModelSelector={() => {
               document.querySelector<HTMLElement>(".model-selector-btn")?.click();
             }}
+            onError={(msg) => addToast(msg, "error")}
           />
         </Suspense>
       )}

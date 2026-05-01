@@ -135,6 +135,8 @@ function appendTextPart(session: FrontendSession, chunk: string): FrontendSessio
     }
     return { ...msg, content: currentResponse, parts };
   });
+  // If no assistant message exists, skip current_response update to avoid state inconsistency
+  if (messages === session.messages) return session;
   return { ...session, current_response: currentResponse, messages };
 }
 
@@ -169,6 +171,8 @@ function startToolCall(
     };
     return { ...msg, parts: [...msg.parts, part] };
   });
+  // If no assistant message exists, don't increment count
+  if (messages === session.messages) return session;
   return {
     ...session,
     messages,

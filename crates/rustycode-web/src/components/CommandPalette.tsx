@@ -44,6 +44,7 @@ interface CommandPaletteProps {
   onToggleSidebar?: () => void;
   onToggleToolOutputs?: () => void;
   onOpenModelSelector?: () => void;
+  onError?: (message: string) => void;
 }
 
 function fuzzyMatch(query: string, text: string): boolean {
@@ -96,6 +97,7 @@ export function CommandPalette({
   onToggleSidebar,
   onToggleToolOutputs,
   onOpenModelSelector,
+  onError,
 }: CommandPaletteProps) {
   const [skills, setSkills] = useState<SkillEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -196,13 +198,15 @@ export function CommandPalette({
         });
         if (res.ok) {
           onSkillExecuted?.(skillId);
+        } else {
+          onError?.(`Skill execution failed (${res.status})`);
         }
       } catch {
-        // ignore
+        onError?.("Failed to execute skill");
       }
       onClose();
     },
-    [sessionToken, onSkillExecuted, onClose]
+    [sessionToken, onSkillExecuted, onClose, onError]
   );
 
   const handleKeyDown = useCallback(

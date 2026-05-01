@@ -36,7 +36,14 @@ pub async fn start_web_server(port: u16) -> anyhow::Result<()> {
 }
 
 fn find_web_dist() -> anyhow::Result<std::path::PathBuf> {
-    let candidates = [
+    // Walk up from CWD to find workspace root (contains Cargo.toml with [workspace])
+    let mut candidates = Vec::new();
+
+    if let Ok(workspace_root) = find_workspace_root() {
+        candidates.push(workspace_root.join("crates/rustycode-web/dist"));
+    }
+
+    candidates.extend([
         // Workspace-relative (cargo run from repo root)
         std::path::PathBuf::from("crates/rustycode-web/dist"),
         // Adjacent crate (running from crates/rustycode-cli)
@@ -46,7 +53,7 @@ fn find_web_dist() -> anyhow::Result<std::path::PathBuf> {
             .parent()
             .map(|p| p.join("web-dist"))
             .unwrap_or_default(),
-    ];
+    ]);
 
     for dir in &candidates {
         if dir.is_dir() {
@@ -58,4 +65,23 @@ fn find_web_dist() -> anyhow::Result<std::path::PathBuf> {
     anyhow::bail!(
         "web frontend not found. Build it first:\n  cd crates/rustycode-web && npm run build"
     )
+}
+
+/// Walk up from CWD to find a directory containing a workspace Cargo.toml.
+fn find_workspace_root() -> anyhow::Result<std::path::PathBuf> {
+    let mut dir = std::env::current_dir()?;
+    loop {
+        let cargo_toml = dir.join("Cargo.toml");
+        if cargo_toml.is_file() {
+            if let Ok(content) = std::fs::read_to_string(&cargo_toml) {
+                if content.contains("[workspace]") {
+                    return Ok(dir);
+                }
+            }
+        }
+        dir = dir
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("reached filesystem root"))?
+            .to_path_buf();
+    }
 }

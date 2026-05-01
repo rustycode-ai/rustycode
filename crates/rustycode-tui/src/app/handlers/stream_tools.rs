@@ -10,6 +10,63 @@ use tracing;
 
 use super::helpers::build_tool_summary_arg;
 
+const REASONING_TOOLS: &[&str] = &[
+    "reasoning_decompose",
+    "reasoning_research",
+    "reasoning_validate",
+    "reasoning_integrate",
+];
+
+fn is_reasoning_tool(name: &str) -> bool {
+    REASONING_TOOLS.contains(&name)
+}
+
+fn new_running_tool(
+    tool_id: String,
+    tool_name: String,
+    input_json: Option<serde_json::Value>,
+    result_summary: String,
+) -> ToolExecution {
+    ToolExecution {
+        tool_id,
+        name: tool_name,
+        status: ToolStatus::Running,
+        start_time: chrono::Utc::now(),
+        end_time: None,
+        duration_ms: None,
+        result_summary,
+        detailed_output: None,
+        input_json,
+        progress_current: None,
+        progress_total: None,
+        progress_description: None,
+    }
+}
+
+fn spawn_hook(
+    hooks_dir: std::path::PathBuf,
+    trigger: rustycode_tools::hooks::HookTrigger,
+    ctx: serde_json::Value,
+) {
+    std::thread::spawn(move || {
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => {
+                tracing::error!("Failed to create runtime for hook execution: {}", e);
+                return;
+            }
+        };
+        let hm = rustycode_tools::hooks::HookManager::new(
+            hooks_dir,
+            rustycode_tools::hooks::HookProfile::Standard,
+            String::new(),
+        );
+        if let Err(e) = rt.block_on(hm.execute(trigger, ctx)) {
+            tracing::warn!("{:?} hook execution failed: {}", trigger, e);
+        }
+    });
+}
+
 pub(super) fn handle_tool_start_chunk(
     tui: &mut TUI,
     tool_name: String,
@@ -32,27 +89,6 @@ pub(super) fn handle_tool_start_chunk(
         tool_name,
         input_json.is_some()
     );
-    let hm = &tui.hook_manager;
-    let trigger = rustycode_tools::hooks::HookTrigger::PreToolUse;
-    let ctx = serde_json::json!({"tool_name": &tool_name, "tool_id": &tool_id});
-    let hooks_dir = hm.hooks_dir().to_path_buf();
-    std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for hook execution: {}", e);
-                return;
-            }
-        };
-        let hm2 = rustycode_tools::hooks::HookManager::new(
-            hooks_dir,
-            rustycode_tools::hooks::HookProfile::Standard,
-            String::new(),
-        );
-        if let Err(e) = rt.block_on(hm2.execute(trigger, ctx)) {
-            tracing::warn!("Pre-tool hook execution failed: {}", e);
-        }
-    });
 
     let plan_blocked = match tui.plan_mode.is_tool_allowed(&tool_name) {
         Ok(()) => false,
@@ -93,10 +129,15 @@ pub(super) fn handle_tool_start_chunk(
         return;
     }
 
-    let is_reasoning_start = matches!(
-        tool_name.as_str(),
-        "reasoning_decompose" | "reasoning_research" | "reasoning_validate" | "reasoning_integrate"
+    let hooks_dir = tui.hook_manager.hooks_dir().to_path_buf();
+    let ctx = serde_json::json!({"tool_name": &tool_name, "tool_id": &tool_id});
+    spawn_hook(
+        hooks_dir,
+        rustycode_tools::hooks::HookTrigger::PreToolUse,
+        ctx,
     );
+
+    let is_reasoning_start = is_reasoning_tool(&tool_name);
     if is_reasoning_start {
         let budget_exhausted = match tui.reasoning_budget.lock() {
             Ok(budget) => budget.stop_and_code_active,
@@ -128,23 +169,25 @@ pub(super) fn handle_tool_start_chunk(
         _ => format!("{}...", tool_name),
     };
 
-    // Track in active_tools map for status bar display
+    let panel_summary = format!("{}...", tool_name);
+    tui.tool_panel_history.push(new_running_tool(
+        tool_id.clone(),
+        tool_name.clone(),
+        input_json.clone(),
+        panel_summary,
+    ));
+    if tui.tool_panel_history.len() > 50 {
+        tui.tool_panel_history.remove(0);
+    }
+
     tui.active_tools.insert(
         tool_id.clone(),
-        ToolExecution {
-            tool_id: tool_id.clone(),
-            name: tool_name.clone(),
-            status: ToolStatus::Running,
-            start_time: chrono::Utc::now(),
-            end_time: None,
-            duration_ms: None,
-            result_summary: initial_summary.clone(),
-            detailed_output: None,
-            input_json: input_json.clone(),
-            progress_current: None,
-            progress_total: None,
-            progress_description: None,
-        },
+        new_running_tool(
+            tool_id.clone(),
+            tool_name.clone(),
+            input_json.clone(),
+            initial_summary.clone(),
+        ),
     );
 
     let assistant_msg = tui
@@ -153,20 +196,12 @@ pub(super) fn handle_tool_start_chunk(
         .rev()
         .find(|m| m.role == MessageRole::Assistant);
     if let Some(last_msg) = assistant_msg {
-        let tool_execution = ToolExecution {
-            tool_id: tool_id.clone(),
-            name: tool_name.clone(),
-            status: ToolStatus::Running,
-            start_time: chrono::Utc::now(),
-            end_time: None,
-            duration_ms: None,
-            result_summary: initial_summary,
-            detailed_output: None,
-            input_json: input_json.clone(),
-            progress_current: None,
-            progress_total: None,
-            progress_description: None,
-        };
+        let tool_execution = new_running_tool(
+            tool_id,
+            tool_name,
+            input_json,
+            initial_summary,
+        );
 
         if last_msg.tool_executions.is_none() {
             last_msg.tool_executions = Some(vec![]);
@@ -180,26 +215,6 @@ pub(super) fn handle_tool_start_chunk(
     }
 
     tui.dirty = true;
-
-    // Add running tool to panel history immediately (goose pattern: show in-progress work)
-    tui.tool_panel_history.push(ToolExecution {
-        tool_id: tool_id.clone(),
-        name: tool_name.clone(),
-        status: ToolStatus::Running,
-        start_time: chrono::Utc::now(),
-        end_time: None,
-        duration_ms: None,
-        result_summary: format!("{}...", tool_name),
-        detailed_output: None,
-        input_json: input_json.clone(),
-        progress_current: None,
-        progress_total: None,
-        progress_description: None,
-    });
-    // Cap at 50 entries
-    if tui.tool_panel_history.len() > 50 {
-        tui.tool_panel_history.remove(0);
-    }
 }
 
 
@@ -332,7 +347,7 @@ pub(super) fn handle_tool_complete_chunk(
     let detailed_output = output.map(|raw| {
         let clean = crate::app::tool_output_format::strip_ansi_escapes(&raw);
         const MAX_INLINE_CHARS: usize = 4000;
-        if clean.len() <= MAX_INLINE_CHARS {
+        if clean.chars().count() <= MAX_INLINE_CHARS {
             clean
         } else {
             let truncated_lines: Vec<&str> = clean.lines().take(21).collect();
@@ -342,7 +357,7 @@ pub(super) fn handle_tool_complete_chunk(
             if has_more {
                 truncated.push_str(&format!(
                     "\n\n... (more lines truncated, {} chars total)",
-                    clean.len()
+                    clean.chars().count()
                 ));
             }
             truncated
@@ -397,14 +412,11 @@ pub(super) fn handle_tool_complete_chunk(
     // Reasoning tools are exempt — they're designed to be called in
     // sequence (decompose → research → validate → check) and may
     // repeat with similar args by design.
-    let is_reasoning_tool = matches!(
-        tool_name.as_str(),
-        "reasoning_decompose" | "reasoning_research" | "reasoning_validate" | "reasoning_integrate"
-    );
+    let reasoning = is_reasoning_tool(&tool_name);
 
     if success {
         if let Ok(mut budget) = tui.reasoning_budget.lock() {
-            if is_reasoning_tool {
+            if reasoning {
                 let triggered = budget.record_exploration();
                 if triggered {
                     tui.toast_manager.warning(
@@ -444,7 +456,7 @@ pub(super) fn handle_tool_complete_chunk(
                     .map(|s| s.to_string())
             })
         });
-    if !is_reasoning_tool {
+    if !reasoning {
         tui.doom_loop
             .record(&tool_name, key_arg.as_deref(), success);
     }
@@ -457,23 +469,9 @@ pub(super) fn handle_tool_complete_chunk(
 
     let post_ctx = serde_json::json!({"tool_name": &tool_name, "success": success});
     let post_dir = tui.hook_manager.hooks_dir().to_path_buf();
-    std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for post-tool hook: {}", e);
-                return;
-            }
-        };
-        let hm = rustycode_tools::hooks::HookManager::new(
-            post_dir,
-            rustycode_tools::hooks::HookProfile::Standard,
-            String::new(),
-        );
-        if let Err(e) =
-            rt.block_on(hm.execute(rustycode_tools::hooks::HookTrigger::PostToolUse, post_ctx))
-        {
-            tracing::warn!("Post-tool hook execution failed: {}", e);
-        }
-    });
+    spawn_hook(
+        post_dir,
+        rustycode_tools::hooks::HookTrigger::PostToolUse,
+        post_ctx,
+    );
 }

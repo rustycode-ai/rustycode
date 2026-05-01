@@ -67,14 +67,16 @@ fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
     if let Some(last_msg) = assistant_msg {
         if let Some(existing) = &mut last_msg.thinking {
             if existing.len() + thinking.len() > MAX_THINKING_BYTES {
-                existing.truncate(MAX_THINKING_BYTES.saturating_sub(3));
+                let limit = existing.floor_char_boundary(MAX_THINKING_BYTES.saturating_sub(3));
+                existing.truncate(limit);
                 existing.push_str("...");
             } else {
                 existing.push_str(&thinking);
             }
         } else {
             if thinking.len() > MAX_THINKING_BYTES {
-                thinking.truncate(MAX_THINKING_BYTES.saturating_sub(3));
+                let limit = thinking.floor_char_boundary(MAX_THINKING_BYTES.saturating_sub(3));
+                thinking.truncate(limit);
                 thinking.push_str("...");
             }
             last_msg.thinking = Some(thinking);

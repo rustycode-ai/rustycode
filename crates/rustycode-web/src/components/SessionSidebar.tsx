@@ -36,6 +36,7 @@ export function SessionSidebar({
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -64,12 +65,13 @@ export function SessionSidebar({
     try {
       const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
       if (res.ok) {
+        setDeleteError(false);
         setSessions((prev) => prev.filter((s) => s.id !== id));
       } else {
-        setError(true);
+        setDeleteError(true);
       }
     } catch {
-      setError(true);
+      setDeleteError(true);
     }
   };
 
@@ -98,6 +100,12 @@ export function SessionSidebar({
           </button>
         </div>
       </div>
+      {deleteError && (
+        <div className="sidebar-error" role="alert">
+          Failed to delete session
+          <button className="sidebar-retry" onClick={() => setDeleteError(false)} type="button">Dismiss</button>
+        </div>
+      )}
       <ul className="sidebar-list" role="listbox" aria-label="Session list">
         {loading && sessions.length === 0 ? (
           <li className="sidebar-loading">

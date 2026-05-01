@@ -197,9 +197,26 @@ impl SessionManager {
         let mut sessions = self.sessions.write().await;
         if let Some(state) = sessions.get_mut(token) {
             state.client_count = state.client_count.saturating_sub(1);
+
+            // Clean up pending approval maps to prevent memory leaks from abandoned requests
+            let tool_count = {
+                let mut map = state.pending_tool_approvals.lock().unwrap_or_else(|e| e.into_inner());
+                let count = map.len();
+                map.clear();
+                count
+            };
+            let plan_count = {
+                let mut map = state.pending_plan_approvals.lock().unwrap_or_else(|e| e.into_inner());
+                let count = map.len();
+                map.clear();
+                count
+            };
+
             info!(
                 session_id = token,
                 clients = state.client_count,
+                cleared_tool_approvals = tool_count,
+                cleared_plan_approvals = plan_count,
                 "client disconnected"
             );
         }
@@ -239,19 +256,26 @@ impl SessionManager {
 
         let task_id_clone = task_id.clone();
         tokio::spawn(async move {
+            let conduct_future = pipeline.conduct(task_id_clone.clone(), content_owned);
             let content = tokio::select! {
-                result = pipeline.conduct(task_id_clone.clone(), content_owned) => {
-                    match &result {
-                        Err(e) => {
-                            tracing::error!(session_id = %token_owned, task_id = %task_id_clone, "pipeline error: {e}");
-                            format!("Error: {e}")
-                        }
-                        Ok(rustycode_orchestration::pipeline::TaskResult::Success { output, .. }) => {
-                            output.clone()
-                        }
-                        Ok(rustycode_orchestration::pipeline::TaskResult::Failed { reason, .. }) => {
-                            tracing::warn!(session_id = %token_owned, "pipeline failed: {reason}");
-                            format!("Failed: {reason}")
+                result = tokio::time::timeout(std::time::Duration::from_secs(900), conduct_future) => {
+                    match result {
+                        Ok(inner) => match &inner {
+                            Err(e) => {
+                                tracing::error!(session_id = %token_owned, task_id = %task_id_clone, "pipeline error: {e}");
+                                format!("Error: {e}")
+                            }
+                            Ok(rustycode_orchestration::pipeline::TaskResult::Success { output, .. }) => {
+                                output.clone()
+                            }
+                            Ok(rustycode_orchestration::pipeline::TaskResult::Failed { reason, .. }) => {
+                                tracing::warn!(session_id = %token_owned, "pipeline failed: {reason}");
+                                format!("Failed: {reason}")
+                            }
+                        },
+                        Err(_) => {
+                            tracing::error!(session_id = %token_owned, task_id = %task_id_clone, "pipeline timed out after 900s");
+                            "Error: generation timed out".to_string()
                         }
                     }
                 }
@@ -290,7 +314,9 @@ impl SessionManager {
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         let mut map = state.pending_tool_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
         if let Some(sender) = map.remove(request_id) {
-            let _ = sender.send(approved);
+            if sender.send(approved).is_err() {
+                tracing::warn!(session_id = token, request_id, "tool approval response dropped (receiver gone)");
+            }
         }
         Ok(())
     }
@@ -307,7 +333,9 @@ impl SessionManager {
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         let mut map = state.pending_plan_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
         if let Some(sender) = map.remove(plan_id) {
-            let _ = sender.send(approved);
+            if sender.send(approved).is_err() {
+                tracing::warn!(session_id = token, plan_id, "plan approval response dropped (receiver gone)");
+            }
         }
         Ok(())
     }

@@ -71,7 +71,6 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
     setSearch("");
     setHighlightIdx(0);
     setOpen(true);
-    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const switchModel = async (prov: string, mdl: string) => {
@@ -184,6 +183,7 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
             type="text"
             placeholder="Search models..."
             value={search}
+            autoFocus
             onChange={(e) => {
               setSearch(e.target.value);
               setHighlightIdx(0);

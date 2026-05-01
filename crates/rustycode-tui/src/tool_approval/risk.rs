@@ -92,7 +92,7 @@ fn classify_bash_command_risk(command: &str) -> RiskLevel {
        command_lower.contains(":() {") ||  // fork bomb
        command_lower.contains("dd if=") ||  // disk destroyer
        command_lower.contains("mkfs") ||   // format filesystem
-       command_lower.contains("format") ||
+       command_lower.contains("> format") ||  // format command
        command_lower.contains("fdisk")
     {
         return RiskLevel::Dangerous;

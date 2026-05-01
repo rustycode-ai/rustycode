@@ -32,12 +32,12 @@ export function useSessionProvider() {
     onConnectionChange: handleConnectionChange,
   });
 
-  const handleSendInput = (content: string) => {
+  const handleSendInput = useCallback((content: string) => {
     dispatch({ type: "ADD_USER_MESSAGE", content });
     dispatch({ type: "CLEAR_INPUT" });
     dispatch({ type: "SET_PENDING", pending: true });
     sendInput(content);
-  };
+  }, [sendInput]);
 
   const handleToolApprovalResponse = useCallback((requestId: string, approved: boolean) => {
     sendToolApproval(requestId, approved);
@@ -52,8 +52,7 @@ export function useSessionProvider() {
       sendAbort,
       getSessionToken,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, sendAbort]
+    [state, sendAbort, handleSendInput]
   );
 
   return { state, contextValue, sendAbort, sendPlanApproval, getSessionToken, pendingApproval, handleToolApprovalResponse, connectionStatus };

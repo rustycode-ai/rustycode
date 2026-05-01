@@ -268,7 +268,7 @@ pub fn output_summary(output: &str) -> String {
         return match_summary;
     }
 
-    let char_count = output.len(); // byte count is close enough for display
+    let char_count = output.chars().count();
 
     if line_count <= 1 {
         if char_count > 80 {

@@ -203,11 +203,7 @@ impl SummarizeTier {
         // If there is nothing to summarize (all preserved), return unchanged.
         if to_summarize.is_empty() {
             return Ok(TierResult {
-                messages: to_summarize
-                    .iter()
-                    .cloned()
-                    .chain(to_preserve.iter().cloned())
-                    .collect(),
+                messages,
                 tokens_removed: 0,
             });
         }
