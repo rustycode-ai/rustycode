@@ -151,6 +151,7 @@ impl Default for SessionManager {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -233,8 +234,8 @@ mod tests {
         let created = mgr.create_session().await;
         let token = created.id.to_string();
 
-        let s1 = mgr.update_session(&token, |s| s.next_seq()).await.unwrap();
-        let s2 = mgr.update_session(&token, |s| s.next_seq()).await.unwrap();
+        let s1 = mgr.update_session(&token, SessionState::next_seq).await.unwrap();
+        let s2 = mgr.update_session(&token, SessionState::next_seq).await.unwrap();
         assert!(s2 > s1);
     }
 }
