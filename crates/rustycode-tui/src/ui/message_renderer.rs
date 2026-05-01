@@ -411,6 +411,17 @@ impl MessageRenderer {
             .tool_executions
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No tool executions found in message"))?;
+
+        // In non-deep mode, only show the last 5 tools to avoid flooding the display
+        const VISIBLE_TOOL_LIMIT: usize = 5;
+        let is_deep = message.tools_expansion == ExpansionLevel::Deep;
+        let (skip_count, visible_tools): (usize, Vec<_>) = if is_deep || tools.len() <= VISIBLE_TOOL_LIMIT {
+            (0, tools.iter().enumerate().collect())
+        } else {
+            let skip = tools.len() - VISIBLE_TOOL_LIMIT;
+            (skip, tools.iter().enumerate().skip(skip).collect())
+        };
+
         let mut lines = vec![];
 
         // Add header border
@@ -423,16 +434,31 @@ impl MessageRenderer {
             Span::styled("┐", Style::default().fg(Color::DarkGray)),
         ]));
 
-        // Add each tool as a card
-        for (i, tool) in tools.iter().enumerate() {
-            let is_focused = message.focused_tool_index == Some(i);
+        // Show "... and N more" for skipped tools
+        if skip_count > 0 {
+            lines.push(Line::from(vec![
+                Span::styled(format!("{} ╎ ", pipe), Style::default().fg(color)),
+                Span::styled(
+                    format!("  ... and {} earlier tool{}", skip_count, if skip_count > 1 { "s" } else { "" }),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]));
+            lines.push(Line::from(vec![Span::styled(
+                format!("{} ╎ ", pipe),
+                Style::default().fg(color),
+            )]));
+        }
 
-            if message.tools_expansion == ExpansionLevel::Deep && is_focused {
+        // Add each visible tool as a card
+        for (idx, (i, tool)) in visible_tools.iter().enumerate() {
+            let is_focused = message.focused_tool_index == Some(*i);
+
+            if is_deep && is_focused {
                 lines.push(self.render_tool_details(tool, pipe, color, theme)?);
             } else {
                 lines.push(self.render_tool_card(
                     tool,
-                    i,
+                    *i,
                     is_focused,
                     pipe,
                     color,
@@ -442,7 +468,7 @@ impl MessageRenderer {
             }
 
             // Add thin spacer
-            if i < tools.len() - 1 {
+            if idx < visible_tools.len() - 1 {
                 lines.push(Line::from(vec![Span::styled(
                     format!("{} ╎ ", pipe),
                     Style::default().fg(color),
@@ -564,16 +590,23 @@ impl MessageRenderer {
             return 0;
         }
 
+        let total_tools = message.tool_count();
+        const VISIBLE_LIMIT: usize = 5;
+
         match message.tools_expansion {
             ExpansionLevel::Collapsed => 1, // Just header
             ExpansionLevel::Expanded => {
-                // Header + border + tools + border
-                2 + message.tool_count() + 1
+                let visible = total_tools.min(VISIBLE_LIMIT);
+                let skipped = total_tools.saturating_sub(VISIBLE_LIMIT);
+                // Header border + (ellipsis line + spacer if skipped) + visible tools + spacers + footer border
+                2 + if skipped > 0 { 2 } else { 0 }
+                    + visible
+                    + visible.saturating_sub(1) // spacers between tools
+                    + 1
             }
             ExpansionLevel::Deep => {
-                // Header + border + tools (with detail) + border
-                // Deep expansion shows detail for one tool
-                2 + message.tool_count() + 4 + 1
+                // Header + border + all tools (with detail for focused) + border
+                2 + total_tools + 4 + 1
             }
         }
     }
