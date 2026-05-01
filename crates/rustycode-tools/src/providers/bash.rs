@@ -902,7 +902,10 @@ impl Tool for BashTool {
 
     fn description(&self) -> &'static str {
         "Run bash/POSIX commands in a persistent shell session (works on Unix, Linux, macOS, WSL, and Cygwin). \
-         Available: ls, grep, sed, awk, find, curl, git, cargo, npm, python3, etc. \
+         Prefer dedicated tools over bash for common operations: use read_file/edit_file for file I/O, \
+         grep for searching, glob for file matching, write_file for creating files. \
+         Use bash for: running tests, build commands, git operations, installing packages, \
+         and complex multi-step operations that need shell features (pipes, redirects, loops). \
          On Windows: bash is detected via WSL or Cygwin if available."
     }
 

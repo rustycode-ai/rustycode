@@ -1634,6 +1634,15 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
             }
         }
 
+        if stop_signal
+            .as_ref()
+            .is_some_and(|flag| flag.load(Ordering::Relaxed))
+        {
+            tracing::info!("Stream cancelled by user between turns");
+            send_chunk(&stream_tx, StreamChunk::Done);
+            return Ok(());
+        }
+
         // Some providers/users get to the end of a tool turn without a
         // trustworthy stop_reason. If we have tool executions, we should still
         // continue the conversation so the model can see tool results and

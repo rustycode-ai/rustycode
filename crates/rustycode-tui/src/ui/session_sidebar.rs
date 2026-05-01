@@ -437,7 +437,10 @@ impl SessionSidebar {
         // Keep selected index in bounds
         if !self.sessions.is_empty() && self.selected_session_index >= self.sessions.len() {
             self.selected_session_index = self.sessions.len().saturating_sub(1);
+        } else if self.sessions.is_empty() {
+            self.selected_session_index = 0;
         }
+        self.state.scroll_offset = 0;
     }
 
     /// Get the current session ID
