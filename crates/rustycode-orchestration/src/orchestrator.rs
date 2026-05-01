@@ -196,7 +196,9 @@ impl StepOrchestrator {
                                 "to_tier": new_tier.to_string(),
                             }),
                         );
-                        let _ = guard.trigger(&hook_ctx);
+                        if let Err(e) = guard.trigger(&hook_ctx) {
+                            tracing::debug!(error = %e, "Hook trigger failed for tier promotion");
+                        }
                     }
                 }
             }

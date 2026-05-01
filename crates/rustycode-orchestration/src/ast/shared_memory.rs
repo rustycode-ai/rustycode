@@ -137,7 +137,9 @@ impl AgentMemory for ProgressStoreMemory {
             tracing::error!("shared_memory store lock poisoned: {e}");
             e.into_inner()
         });
-        let _ = store.store_artifact(&artifact);
+        if let Err(e) = store.store_artifact(&artifact) {
+            tracing::warn!(error = %e, artifact_id = %id, "Failed to store shared memory artifact");
+        }
         id
     }
 

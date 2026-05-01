@@ -336,17 +336,20 @@ impl RealExecutor {
                 Ok(parsed) => match ResponseParser::to_thoughts(&parsed) {
                     Ok(thoughts) => thoughts,
                     Err(e) => {
-                        tracing::warn!(error = %e, "Thought conversion failed");
-                        Vec::new()
+                        tracing::warn!(error = %e, "Thought conversion failed on iteration {iteration}");
+                        last_llm_error = Some(Error::StrategyError(format!("Thought conversion failed: {e}")));
+                        break;
                     }
                 },
                 Err(e) => {
-                    tracing::warn!(error = %e, "Response parsing failed");
-                    Vec::new()
+                    tracing::warn!(error = %e, "Response parsing failed on iteration {iteration}");
+                    last_llm_error = Some(Error::StrategyError(format!("Response parsing failed: {e}")));
+                    break;
                 }
             };
 
             if new_thoughts.is_empty() {
+                tracing::debug!(iteration, "LLM returned no new thoughts, ending reasoning loop");
                 break;
             }
 

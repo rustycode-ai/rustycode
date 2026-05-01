@@ -291,9 +291,7 @@ impl rustycode_tools_api::Tool for StructuredThinkingTool {
             }
             Err(e) => {
                 tracing::error!("Structured thinking tool call failed: {e}");
-                Ok(rustycode_tools_api::ToolOutput::text(format!(
-                    "Error: failed to record thought: {e}"
-                )))
+                Err(anyhow::anyhow!("Failed to record thought: {e}"))
             }
         }
     }

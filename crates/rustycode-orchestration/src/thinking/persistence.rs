@@ -105,8 +105,8 @@ impl SessionManager {
     ///
     /// Returns an error if serialization or file writing fails.
     pub fn save_json(&self, graph: &SerializedGraph, session_id: &str) -> Result<PathBuf> {
-        let _ = Self::sanitize_session_id(session_id)?;
-        let file_path = self.base_path.join(format!("{session_id}.json"));
+        let safe_id = Self::sanitize_session_id(session_id)?;
+        let file_path = self.base_path.join(format!("{safe_id}.json"));
         let json = serde_json::to_string_pretty(graph)?;
         fs::write(&file_path, &json).map_err(|e| {
             crate::thinking::core::error::Error::SerializationError(format!(
@@ -124,8 +124,8 @@ impl SessionManager {
     ///
     /// Returns an error if the file cannot be read or deserialized.
     pub fn load_json(&self, session_id: &str) -> Result<SerializedGraph> {
-        let _ = Self::sanitize_session_id(session_id)?;
-        let file_path = self.base_path.join(format!("{session_id}.json"));
+        let safe_id = Self::sanitize_session_id(session_id)?;
+        let file_path = self.base_path.join(format!("{safe_id}.json"));
         let json = fs::read_to_string(&file_path).map_err(|e| {
             crate::thinking::core::error::Error::SerializationError(format!(
                 "Failed to read graph from {}: {e}",
@@ -143,8 +143,8 @@ impl SessionManager {
     ///
     /// Returns an error if serialization or file writing fails.
     pub fn save_bincode(&self, graph: &SerializedGraph, session_id: &str) -> Result<PathBuf> {
-        let _ = Self::sanitize_session_id(session_id)?;
-        let file_path = self.base_path.join(format!("{session_id}.bin"));
+        let safe_id = Self::sanitize_session_id(session_id)?;
+        let file_path = self.base_path.join(format!("{safe_id}.bin"));
         let bytes = bincode::serialize(graph)?;
         fs::write(&file_path, &bytes).map_err(|e| {
             crate::thinking::core::error::Error::SerializationError(format!(
@@ -162,8 +162,8 @@ impl SessionManager {
     ///
     /// Returns an error if the file cannot be read or deserialized.
     pub fn load_bincode(&self, session_id: &str) -> Result<SerializedGraph> {
-        let _ = Self::sanitize_session_id(session_id)?;
-        let file_path = self.base_path.join(format!("{session_id}.bin"));
+        let safe_id = Self::sanitize_session_id(session_id)?;
+        let file_path = self.base_path.join(format!("{safe_id}.bin"));
         let bytes = fs::read(&file_path)?;
         let graph = bincode::deserialize(&bytes)?;
         tracing::info!("Loaded graph (bincode) from {}", file_path.display());
@@ -198,10 +198,10 @@ impl SessionManager {
     ///
     /// Returns an error if the session files cannot be deleted.
     pub fn delete_session(&self, session_id: &str) -> Result<()> {
-        let _ = Self::sanitize_session_id(session_id)?;
+        let safe_id = Self::sanitize_session_id(session_id)?;
         // Try deleting both JSON and binary formats
-        let json_path = self.base_path.join(format!("{session_id}.json"));
-        let bin_path = self.base_path.join(format!("{session_id}.bin"));
+        let json_path = self.base_path.join(format!("{safe_id}.json"));
+        let bin_path = self.base_path.join(format!("{safe_id}.bin"));
 
         if json_path.exists() {
             fs::remove_file(&json_path)?;
