@@ -281,7 +281,13 @@ impl ToastManager {
 
         // Enforce capacity: force-exit oldest toasts if we'd exceed the cap.
         // We count non-exiting toasts as "visible" slots.
-        while self.toasts.iter().filter(|t| t.phase != ToastPhase::Exiting).count() >= self.max_toasts {
+        while self
+            .toasts
+            .iter()
+            .filter(|t| t.phase != ToastPhase::Exiting)
+            .count()
+            >= self.max_toasts
+        {
             if let Some(oldest_visible) = self
                 .toasts
                 .iter_mut()

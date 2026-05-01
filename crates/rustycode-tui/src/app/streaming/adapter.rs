@@ -313,7 +313,45 @@ impl AgentEvents for StreamEventAdapter {
         {
             Some(Ok(true)) => ApprovalDecision::Approve,
             Some(Ok(false)) => ApprovalDecision::Reject("rejected by user".to_string()),
-            Some(Err(_)) | None => ApprovalDecision::AutoApproved,
+            Some(Err(_)) => {
+                // Timeout: only auto-approve safe (read-only) tools.
+                // Dangerous tools must be rejected to prevent silent
+                // approval of destructive operations like `rm -rf`.
+                let tool_type = crate::tool_approval::risk::classify_tool_type(tool_name);
+                let command_str = input.to_string();
+                let risk = crate::tool_approval::risk::classify_tool_risk(&tool_type, &command_str);
+                let is_safe = matches!(risk, crate::tool_approval::risk::RiskLevel::Safe);
+                if is_safe {
+                    tracing::warn!(
+                        "Tool approval timed out for {}, auto-approving safe tool",
+                        tool_name
+                    );
+                    self.emit(StreamChunk::ApprovalApproved {
+                        tool_id: self
+                            .pending_tool_id
+                            .clone()
+                            .unwrap_or_else(|| "unknown".to_string()),
+                    });
+                    ApprovalDecision::AutoApproved
+                } else {
+                    tracing::warn!(
+                        "Tool approval timed out for {}, auto-rejecting ({:?} risk)",
+                        tool_name,
+                        risk
+                    );
+                    self.emit(StreamChunk::ApprovalRejected {
+                        tool_id: self
+                            .pending_tool_id
+                            .clone()
+                            .unwrap_or_else(|| "unknown".to_string()),
+                    });
+                    self.emit(StreamChunk::Text(
+                        "[Tool execution rejected: approval timed out]\n".to_string(),
+                    ));
+                    ApprovalDecision::Reject(format!("approval timed out ({:?} risk)", risk))
+                }
+            }
+            None => ApprovalDecision::AutoApproved,
         }
     }
 
@@ -421,7 +459,10 @@ mod tests {
             } => {
                 assert_eq!(tool_name, "bash");
                 assert_eq!(tool_id, "t1");
-                assert!(duration_ms < 100, "duration_ms should be near zero, got {duration_ms}");
+                assert!(
+                    duration_ms < 100,
+                    "duration_ms should be near zero, got {duration_ms}"
+                );
                 assert!(success);
                 assert_eq!(output_size, 2);
                 assert_eq!(output, Some("ok".into()));

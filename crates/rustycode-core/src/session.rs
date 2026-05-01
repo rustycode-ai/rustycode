@@ -477,7 +477,8 @@ mod tests {
     // --- SessionState tests ---
 
     fn make_session() -> SessionState {
-        SessionState::new(std::env::current_dir().unwrap())
+        let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp"));
+        SessionState::new(cwd)
     }
 
     #[test]

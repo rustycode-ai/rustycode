@@ -107,6 +107,7 @@ impl ProgressStoreMemory {
 
 impl AgentMemory for ProgressStoreMemory {
     fn read_artifact(&self, artifact_id: &str) -> Option<String> {
+        #[allow(clippy::significant_drop_tightening)]
         let store = self.store.lock().unwrap_or_else(|e| {
             tracing::error!("shared_memory store lock poisoned: {e}");
             e.into_inner()
@@ -122,6 +123,7 @@ impl AgentMemory for ProgressStoreMemory {
         None
     }
 
+    #[allow(clippy::significant_drop_tightening)]
     fn write_artifact(&mut self, kind: &str, content: &str) -> String {
         let id = format!("art-{}", uuid::Uuid::new_v4());
         let artifact = ArtifactRecord {
@@ -133,6 +135,7 @@ impl AgentMemory for ProgressStoreMemory {
             summary: Some(content.into()),
             created_at: chrono::Utc::now().to_rfc3339(),
         };
+        #[allow(clippy::significant_drop_tightening)]
         let store = self.store.lock().unwrap_or_else(|e| {
             tracing::error!("shared_memory store lock poisoned: {e}");
             e.into_inner()

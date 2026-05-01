@@ -50,14 +50,22 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
 
     // Wait for hello message
     if let Some(hello) = wait_for_hello(&mut receiver).await {
-        let (session_state, resumed) = state
+        let (session_state, resumed) = match state
             .session_manager
             .get_or_create(hello.session_token.as_deref())
             .await
-            .unwrap_or_else(|e| {
+        {
+            Ok(result) => result,
+            Err(e) => {
                 error!("session creation failed: {e}");
-                panic!("session creation failed");
-            });
+                let err_msg = ServerMessage::Error(ErrorPayload {
+                    code: ErrorCode::InternalError,
+                    message: format!("session creation failed: {e}"),
+                });
+                let _ = send_server_message(&mut sender, &err_msg, "err").await;
+                return;
+            }
+        };
 
         session_token = session_state.id.to_string();
 

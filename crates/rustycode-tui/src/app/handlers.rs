@@ -75,7 +75,8 @@ fn check_and_trigger_auto_continue(tui: &mut TUI) {
         );
         tui.add_system_message(
             "Agent appears stuck (no tool calls for several turns). \
-             Press Enter to continue manually if needed.".to_string(),
+             Press Enter to continue manually if needed."
+                .to_string(),
         );
         tui.auto_continue_enabled = false;
         tui.auto_continue_iterations = 0;
@@ -1278,7 +1279,9 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
         } => {
             // Determine tool type based on tool name
             let tool_type = classify_tool_type(&tool_name);
-            let command = diff.clone().unwrap_or_else(|| format!("Execute {}", tool_name));
+            let command = diff
+                .clone()
+                .unwrap_or_else(|| format!("Execute {}", tool_name));
             let risk_level = risk::classify_tool_risk(&tool_type, &command);
 
             if tui.services.ai_mode() == crate::agent_mode::AiMode::Yolo {
@@ -1298,7 +1301,9 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
                         if tool_name == "write_file" {
                             if let Some(path) = diff.as_ref().and_then(|d| {
                                 // Try to extract path from diff string like "write_file: path=..."
-                                d.split("path=").nth(1).and_then(|s| s.split_whitespace().next())
+                                d.split("path=")
+                                    .nth(1)
+                                    .and_then(|s| s.split_whitespace().next())
                             }) {
                                 let lower = path.to_lowercase();
                                 !DOC_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
@@ -1313,10 +1318,7 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
 
                 if plan_blocked {
                     tui.services.send_approval_response(false);
-                    tui.add_system_message(format!(
-                        "Plan mode blocked tool: {}",
-                        tool_name
-                    ));
+                    tui.add_system_message(format!("Plan mode blocked tool: {}", tool_name));
                     tui.dirty = true;
                     return;
                 }
@@ -1508,12 +1510,12 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
                 let user_message = match stop_reason.as_str() {
                     "content_filter" | "SAFETY" | "RECITATION" => {
                         "Response filtered by provider's safety policy. \
-                         Try rephrasing your request or using a different model.".to_string()
+                         Try rephrasing your request or using a different model."
+                            .to_string()
                     }
-                    "refusal" => {
-                        "Model declined to respond. \
-                         Try rephrasing or simplifying your request.".to_string()
-                    }
+                    "refusal" => "Model declined to respond. \
+                         Try rephrasing or simplifying your request."
+                        .to_string(),
                     _ => {
                         format!(
                             "Stream stopped (reason: {}). Try rephrasing or retrying.",

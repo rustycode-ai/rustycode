@@ -1115,12 +1115,16 @@ impl SessionSidebar {
                 };
                 lsp_lines.push(Line::from(vec![
                     Span::styled("● ", Style::default().fg(color)),
-                    Span::styled(self.lsp_servers.join(", "), Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        self.lsp_servers.join(", "),
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ]));
             } else {
-                lsp_lines.push(Line::from(vec![
-                    Span::styled("● ", Style::default().fg(Color::DarkGray)),
-                ]));
+                lsp_lines.push(Line::from(vec![Span::styled(
+                    "● ",
+                    Style::default().fg(Color::DarkGray),
+                )]));
             }
 
             // Show diagnostics summary if any
@@ -1170,19 +1174,14 @@ impl SessionSidebar {
                 // Truncate server name to fit sidebar (width 24-34 minus "● " prefix)
                 let max_name_width = 20;
                 let display_name = if crate::unicode::display_width(&server.name) > max_name_width {
-                    crate::unicode::truncate_display(&server.name, max_name_width.saturating_sub(3)) + "..."
+                    crate::unicode::truncate_display(&server.name, max_name_width.saturating_sub(3))
+                        + "..."
                 } else {
                     server.name.clone()
                 };
                 let mut line = vec![
-                    Span::styled(
-                        "● ",
-                        Style::default().fg(server.state.color()),
-                    ),
-                    Span::styled(
-                        display_name,
-                        Style::default().fg(server.state.color()),
-                    ),
+                    Span::styled("● ", Style::default().fg(server.state.color())),
+                    Span::styled(display_name, Style::default().fg(server.state.color())),
                 ];
 
                 if let Some(detail) = &server.detail {

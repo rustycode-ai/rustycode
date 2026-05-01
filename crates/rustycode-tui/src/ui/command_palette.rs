@@ -245,7 +245,10 @@ fn command_tab(command: &Command) -> PaletteTab {
         || name.starts_with("/model ")
         || name == "/provider"
         || name.starts_with("/provider ")
-        || matches!(name, "/theme" | "/copilot-login" | "/model list" | "/provider list")
+        || matches!(
+            name,
+            "/theme" | "/copilot-login" | "/model list" | "/provider list"
+        )
     {
         PaletteTab::Settings
     } else {
@@ -353,7 +356,10 @@ impl FuzzyMatcher {
                 // The match may span multiple original chars; find the last one
                 let text_end_char = lower_to_text[i + query_len - 1];
 
-                let byte_start = byte_offsets.get(text_start_char).copied().unwrap_or(text_len);
+                let byte_start = byte_offsets
+                    .get(text_start_char)
+                    .copied()
+                    .unwrap_or(text_len);
                 // End byte is the start of the char AFTER the last matched char
                 let byte_end = byte_offsets
                     .get(text_end_char + 1)
@@ -361,7 +367,10 @@ impl FuzzyMatcher {
                     .unwrap_or(text_len);
 
                 // Text before match
-                let prev_byte = byte_offsets.get(last_text_char).copied().unwrap_or(text_len);
+                let prev_byte = byte_offsets
+                    .get(last_text_char)
+                    .copied()
+                    .unwrap_or(text_len);
                 if byte_start > prev_byte {
                     spans.push(Span::raw(text[prev_byte..byte_start].to_string()));
                 }
@@ -384,7 +393,10 @@ impl FuzzyMatcher {
         }
 
         // Remaining text
-        let remaining_byte = byte_offsets.get(last_text_char).copied().unwrap_or(text_len);
+        let remaining_byte = byte_offsets
+            .get(last_text_char)
+            .copied()
+            .unwrap_or(text_len);
         if remaining_byte < text_len {
             spans.push(Span::raw(text[remaining_byte..].to_string()));
         }
@@ -1246,7 +1258,10 @@ impl CommandPaletteRenderer {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Rgb(80, 200, 220)))
             .title(Line::from(vec![
-                Span::styled(" Command Dialog ", Style::default().fg(Color::Rgb(80, 200, 220))),
+                Span::styled(
+                    " Command Dialog ",
+                    Style::default().fg(Color::Rgb(80, 200, 220)),
+                ),
                 Span::styled(
                     format!("{} results", count),
                     Style::default().fg(Color::DarkGray),
@@ -1322,10 +1337,7 @@ impl CommandPaletteRenderer {
         } else {
             for (idx, name) in self.state.recent_commands.iter().enumerate() {
                 if idx > 0 {
-                    spans.push(Span::styled(
-                        "  ",
-                        Style::default().fg(Color::DarkGray),
-                    ));
+                    spans.push(Span::styled("  ", Style::default().fg(Color::DarkGray)));
                 }
                 spans.push(Span::styled(
                     format!("[{}]", name),
@@ -1336,8 +1348,7 @@ impl CommandPaletteRenderer {
             }
         }
 
-        let recent = Paragraph::new(Line::from(spans))
-            .wrap(Wrap { trim: true });
+        let recent = Paragraph::new(Line::from(spans)).wrap(Wrap { trim: true });
         f.render_widget(recent, area);
     }
 

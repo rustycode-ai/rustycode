@@ -415,12 +415,13 @@ impl MessageRenderer {
         // In non-deep mode, only show the last 5 tools to avoid flooding the display
         const VISIBLE_TOOL_LIMIT: usize = 5;
         let is_deep = message.tools_expansion == ExpansionLevel::Deep;
-        let (skip_count, visible_tools): (usize, Vec<_>) = if is_deep || tools.len() <= VISIBLE_TOOL_LIMIT {
-            (0, tools.iter().enumerate().collect())
-        } else {
-            let skip = tools.len() - VISIBLE_TOOL_LIMIT;
-            (skip, tools.iter().enumerate().skip(skip).collect())
-        };
+        let (skip_count, visible_tools): (usize, Vec<_>) =
+            if is_deep || tools.len() <= VISIBLE_TOOL_LIMIT {
+                (0, tools.iter().enumerate().collect())
+            } else {
+                let skip = tools.len() - VISIBLE_TOOL_LIMIT;
+                (skip, tools.iter().enumerate().skip(skip).collect())
+            };
 
         let mut lines = vec![];
 
@@ -439,7 +440,11 @@ impl MessageRenderer {
             lines.push(Line::from(vec![
                 Span::styled(format!("{} ╎ ", pipe), Style::default().fg(color)),
                 Span::styled(
-                    format!("  ... and {} earlier tool{}", skip_count, if skip_count > 1 { "s" } else { "" }),
+                    format!(
+                        "  ... and {} earlier tool{}",
+                        skip_count,
+                        if skip_count > 1 { "s" } else { "" }
+                    ),
                     Style::default().fg(Color::DarkGray),
                 ),
             ]));

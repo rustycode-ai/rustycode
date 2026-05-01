@@ -7,7 +7,8 @@ export type SessionAction =
   | { type: "APPLY_EVENT"; payload: EventPayload }
   | { type: "SET_INPUT"; input: string }
   | { type: "SET_PENDING"; pending: boolean }
-  | { type: "CLEAR_INPUT" };
+  | { type: "CLEAR_INPUT" }
+  | { type: "ADD_USER_MESSAGE"; content: string };
 
 export const initialSession: FrontendSession = {
   input: "",
@@ -33,6 +34,16 @@ export function sessionReducer(
       return { ...state, pending_request: action.pending };
     case "CLEAR_INPUT":
       return { ...state, input: "" };
+    case "ADD_USER_MESSAGE":
+      return {
+        ...state,
+        last_user_prompt: action.content,
+        messages: [
+          ...state.messages,
+          { content: action.content, kind: "User" as const },
+          { content: "", kind: "Assistant" as const },
+        ],
+      };
     default:
       return state;
   }

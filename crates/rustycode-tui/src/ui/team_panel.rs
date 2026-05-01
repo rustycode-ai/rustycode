@@ -405,7 +405,10 @@ impl TeamPanel {
             };
 
             let detail_truncated = if crate::unicode::display_width(detail_display) > 20 {
-                format!("{}...", crate::unicode::truncate_display(detail_display, 17))
+                format!(
+                    "{}...",
+                    crate::unicode::truncate_display(detail_display, 17)
+                )
             } else {
                 detail_display.to_string()
             };

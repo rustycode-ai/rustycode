@@ -11,16 +11,17 @@
 //! use std::time::Duration;
 //!
 //! #[tokio::main]
-//! async fn main() {
+//! async fn main() -> anyhow::Result<()> {
 //!     // Create a rate limiter with 10 RPM and 10000 TPM
 //!     let mut limiter = RateLimiter::builder()
 //!         .requests_per_minute(10)
 //!         .tokens_per_minute(10000)
-//!         .build();
+//!         .build()?;
 //!
 //!     // Acquire permission to make a request
 //!     limiter.rate_limit(100).await;
 //!     println!("Request allowed!");
+//!     Ok(())
 //! }
 //! ```
 
@@ -211,10 +212,13 @@ impl RateLimiter {
     /// ```no_run
     /// # use rustycode_llm::RateLimiter;
     /// # #[tokio::main]
-    /// # async fn main() {
-    /// # let mut limiter = RateLimiter::builder().build();
+    /// # async fn main() -> anyhow::Result<()> {
+    /// # let mut limiter = RateLimiter::builder()
+    /// #     .requests_per_minute(10)
+    /// #     .build()?;
     /// // Wait until rate limit allows the request
     /// limiter.rate_limit(100).await;
+    /// # Ok(())
     /// # }
     /// ```
     pub async fn rate_limit(&self, tokens: u64) {
@@ -365,15 +369,15 @@ impl RateLimiterBuilder {
 
     /// Build the rate limiter
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if no rate limits have been configured
-    pub fn build(self) -> RateLimiter {
+    /// Returns an error if no rate limits have been configured.
+    pub fn build(self) -> anyhow::Result<RateLimiter> {
         if self.limits.is_empty() {
-            panic!("RateLimiter must have at least one rate limit configured");
+            anyhow::bail!("RateLimiter must have at least one rate limit configured");
         }
 
-        RateLimiter::new(self.limits)
+        Ok(RateLimiter::new(self.limits))
     }
 }
 
@@ -391,7 +395,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rate_limiter_basic() {
-        let limiter = RateLimiter::builder().requests_per_second(2).build();
+        let limiter = RateLimiter::builder().requests_per_second(2).build().unwrap();
 
         let start = Instant::now();
 
@@ -410,7 +414,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_token_bucket_replenishment() {
-        let limiter = RateLimiter::builder().requests_per_second(1).build();
+        let limiter = RateLimiter::builder().requests_per_second(1).build().unwrap();
 
         // Consume the single request
         limiter.rate_limit(0).await;
@@ -429,7 +433,7 @@ mod tests {
         let limiter = RateLimiter::builder()
             .requests_per_second(10)
             .tokens_per_second(100)
-            .build();
+            .build().unwrap();
 
         // Make 10 small token requests quickly
         for _ in 0..10 {
@@ -444,7 +448,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_token_limit_only() {
-        let limiter = RateLimiter::builder().tokens_per_second(50).build();
+        let limiter = RateLimiter::builder().tokens_per_second(50).build().unwrap();
 
         let start = Instant::now();
 
@@ -459,7 +463,7 @@ mod tests {
 
     #[tokio::test]
     async fn try_acquire_test() {
-        let limiter = RateLimiter::builder().requests_per_second(1).build();
+        let limiter = RateLimiter::builder().requests_per_second(1).build().unwrap();
 
         // First should succeed
         assert!(limiter.try_acquire(0).await);
@@ -477,7 +481,7 @@ mod tests {
         let limiter = RateLimiter::builder()
             .requests_per_second(10)
             .tokens_per_second(100)
-            .build();
+            .build().unwrap();
 
         let req_tokens = limiter.available_tokens(RateLimitType::Requests).await;
         assert_eq!(req_tokens, Some(10.0));
@@ -495,7 +499,7 @@ mod tests {
 
     #[tokio::test]
     async fn reset_test() {
-        let limiter = RateLimiter::builder().requests_per_second(1).build();
+        let limiter = RateLimiter::builder().requests_per_second(1).build().unwrap();
 
         // Consume the request
         limiter.rate_limit(0).await;
@@ -515,20 +519,25 @@ mod tests {
         let limiter = RateLimiter::builder()
             .requests_per_second(10)
             .tokens_per_second(100)
-            .build();
+            .build().unwrap();
 
         assert_eq!(limiter.limit_count().await, 2);
     }
 
     #[tokio::test]
-    #[should_panic(expected = "at least one rate limit")]
-    async fn test_builder_panic_on_no_limits() {
-        RateLimiter::builder().build();
+    async fn test_builder_error_on_no_limits() {
+        let result = RateLimiter::builder().build();
+        assert!(result.is_err(), "Should return error when no limits configured");
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("at least one rate limit"),
+            "Error message should describe the issue: {err}"
+        );
     }
 
     #[tokio::test]
     async fn test_burst_capacity() {
-        let limiter = RateLimiter::builder().requests_per_second(10).build();
+        let limiter = RateLimiter::builder().requests_per_second(10).build().unwrap();
 
         let start = Instant::now();
 
@@ -550,7 +559,7 @@ mod tests {
         let custom_config =
             RateLimitConfig::new(5, Duration::from_secs(10), RateLimitType::Requests);
 
-        let limiter = RateLimiter::builder().custom_limit(custom_config).build();
+        let limiter = RateLimiter::builder().custom_limit(custom_config).build().unwrap();
 
         let start = Instant::now();
 
@@ -577,7 +586,7 @@ mod tests {
         let limiter = RateLimiter::builder()
             .requests_per_second(2)
             .tokens_per_second(100)
-            .build();
+            .build().unwrap();
 
         // Spawn multiple concurrent tasks
         let handles: Vec<_> = (0..5)

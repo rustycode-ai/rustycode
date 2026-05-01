@@ -84,8 +84,13 @@ export class WsClient {
   }
 
   private sendEnvelope(type: string, id: string, payload: unknown): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     const envelope: Envelope = { v: 2, type, id, payload };
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      if (type !== "hello") {
+        this.pendingSendQueue.push(envelope);
+      }
+      return;
+    }
     if (type !== "hello" && !this.ready) {
       this.pendingSendQueue.push(envelope);
       return;

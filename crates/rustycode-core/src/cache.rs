@@ -629,27 +629,40 @@ impl MultiLevelCache {
 impl Cache for MultiLevelCache {
     /// Get a value from the cache (L1 first, then L2)
     async fn get(&self, key: &CacheKey) -> Result<Option<CacheValue>> {
-        // Try L1 first
-        {
+        // Try L1 first — extract value, then drop lock before update_stats
+        // to avoid self-deadlock (tokio::sync::RwLock is not reentrant).
+        let l1_hit = {
             let mut l1 = self.l1.write().await;
-            if let Some(value) = l1.get(key) {
-                self.update_stats().await;
-                return Ok(Some(value));
-            }
+            l1.get(key)
+        };
+        // l1 write lock is dropped here
+
+        if let Some(value) = l1_hit {
+            self.update_stats().await;
+            return Ok(Some(value));
         }
 
-        // Try L2
-        {
+        // Try L2 — same pattern: acquire, extract, drop, then update stats
+        let l2_result: Option<CacheValue> = {
             let mut l2_guard = self.l2.write().await;
             if let Some(ref mut l2) = *l2_guard {
-                if let Some(value) = l2.get(key)? {
-                    // Promote to L1
-                    let mut l1 = self.l1.write().await;
-                    l1.set(key.clone(), value.clone(), self.config.ttl);
-                    self.update_stats().await;
-                    return Ok(Some(value));
-                }
+                l2.get(key)?
+            } else {
+                None
             }
+        };
+        // l2 write lock is dropped here
+
+        if let Some(value) = l2_result {
+            // Promote to L1 (short-lived write, no nested update_stats)
+            {
+                let mut l1 = self.l1.write().await;
+                l1.set(key.clone(), value.clone(), self.config.ttl);
+            }
+            // l1 write lock is dropped here
+
+            self.update_stats().await;
+            return Ok(Some(value));
         }
 
         self.update_stats().await;

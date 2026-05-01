@@ -46,32 +46,14 @@ impl TUI {
                     }
                 }
             }
-            let mut chunk_iter = chunks.into_iter();
-            let mut stream_ended_early = false;
-            for chunk in chunk_iter.by_ref() {
+            // Process all drained chunks unconditionally — do NOT break on
+            // `is_streaming` going false. `handle_stream_chunk(Done)` toggles
+            // `is_streaming` false→true (via auto-queued messages), so the flag
+            // is not a reliable stream-end signal within a single batch. The
+            // channel is bounded (cap 100) and we cap at 8 chunks/frame.
+            for chunk in chunks {
                 crate::app::handlers::handle_stream_chunk(self, chunk);
                 had_stream = true;
-                if !self.is_streaming {
-                    stream_ended_early = true;
-                    break;
-                }
-            }
-            // Stream ended mid-batch — drain remaining chunks so ToolComplete
-            // messages (and other cleanup variants) are not silently dropped,
-            // which would leave tools stuck in "Running" state forever.
-            let remaining_count = chunk_iter.len();
-            if remaining_count > 0 {
-                tracing::debug!("Draining remaining chunks after stream ended");
-                for chunk in chunk_iter {
-                    crate::app::handlers::handle_stream_chunk(self, chunk);
-                }
-            }
-            if stream_ended_early && !self.active_tools.is_empty() {
-                tracing::debug!(
-                    active_tool_count = self.active_tools.len(),
-                    "Clearing tools still in Running state after stream ended"
-                );
-                self.active_tools.clear();
             }
         }
 

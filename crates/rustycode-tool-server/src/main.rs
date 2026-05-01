@@ -68,7 +68,7 @@ async fn async_main() {
     let app = Router::new()
         .route("/call", post(handle_call))
         .route("/ws", get(ws_handler))
-        .route("/cache/:call_id", get(get_cached))
+        .route("/cache/{call_id}", get(get_cached))
         .route("/", get(get_index))
         .nest_service("/www", ServeDir::new("crates/ratzilla-wasm/www"))
         .with_state(state.clone());

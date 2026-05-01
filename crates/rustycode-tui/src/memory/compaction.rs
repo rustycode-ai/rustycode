@@ -136,27 +136,29 @@ impl ContextMonitor {
         }
     }
 
-    /// Count tokens in messages (approximate: 1 token ≈ 4 characters)
+    /// Count tokens in messages (word-based estimation).
     ///
-    /// Accounts for all content that consumes context: message text,
-    /// thinking blocks, and tool execution inputs/outputs.
+    /// Uses word-boundary counting which is more accurate for code than the
+    /// naive chars/4 heuristic. Accounts for all content that consumes context:
+    /// message text, thinking blocks, and tool execution inputs/outputs.
     pub fn count_tokens(&self, messages: &[Message]) -> usize {
-        let mut total_chars: usize = 0;
+        let mut total = 0usize;
         for m in messages {
-            total_chars += m.content.len();
+            total += estimate_tokens(&m.content);
             if let Some(ref thinking) = m.thinking {
-                total_chars += thinking.len();
+                total += estimate_tokens(thinking);
             }
             if let Some(ref tools) = m.tool_executions {
                 for t in tools {
-                    total_chars += t.name.len() + t.result_summary.len();
+                    total += estimate_tokens(&t.name);
+                    total += estimate_tokens(&t.result_summary);
                     if let Some(ref output) = t.detailed_output {
-                        total_chars += output.len();
+                        total += estimate_tokens(output);
                     }
                 }
             }
         }
-        (total_chars / 4).max(1)
+        total.max(1)
     }
 
     /// Update token count from messages (estimated)
@@ -348,9 +350,19 @@ impl CompactionPreview {
 
 // ── Token Estimation ─────────────────────────────────────────────────────────
 
-/// Approximate tokens from a string (1 token ≈ 4 chars).
+/// Approximate tokens from a string using word-boundary counting.
+///
+/// More accurate for code than chars/4: code has many short punctuation tokens
+/// that get merged by char-based heuristics, and long identifiers that get
+/// under-split. Word-based counting matches the approach used in
+/// `rustycode-orchestration`'s AST pipeline.
 fn estimate_tokens(s: &str) -> usize {
-    (s.len() / 4).max(1)
+    let words = s.split_whitespace().count();
+    if words == 0 && !s.is_empty() {
+        1 // punctuation-only content still consumes tokens
+    } else {
+        words
+    }
 }
 
 // ── Tier 1: Tool Output Pruning ──────────────────────────────────────────────
@@ -699,7 +711,8 @@ mod tests {
     #[test]
     fn test_context_monitor_should_compact() {
         let mut monitor = ContextMonitor::new(1000, 0.5);
-        let messages = vec![create_test_message(MessageRole::User, &"x".repeat(3000))];
+        // Use space-separated words: estimate_tokens counts words, not chars
+        let messages = vec![create_test_message(MessageRole::User, &"x ".repeat(600))];
         monitor.update(&messages);
         assert!(monitor.should_compact());
     }
@@ -726,14 +739,15 @@ mod tests {
     #[test]
     fn test_usage_color() {
         let mut monitor = ContextMonitor::new(1000, 0.8);
-        monitor.update(&[create_test_message(MessageRole::User, &"x".repeat(200))]);
-        assert_eq!(monitor.usage_color(), UsageColor::Green);
+        // estimate_tokens counts words, so use space-separated words
+        monitor.update(&[create_test_message(MessageRole::User, &"x ".repeat(200))]);
+        assert_eq!(monitor.usage_color(), UsageColor::Green); // 200/1000 = 20%
 
-        monitor.update(&[create_test_message(MessageRole::User, &"x".repeat(2400))]);
-        assert_eq!(monitor.usage_color(), UsageColor::Yellow);
+        monitor.update(&[create_test_message(MessageRole::User, &"x ".repeat(600))]);
+        assert_eq!(monitor.usage_color(), UsageColor::Yellow); // 600/1000 = 60%
 
-        monitor.update(&[create_test_message(MessageRole::User, &"x".repeat(3400))]);
-        assert_eq!(monitor.usage_color(), UsageColor::Red);
+        monitor.update(&[create_test_message(MessageRole::User, &"x ".repeat(900))]);
+        assert_eq!(monitor.usage_color(), UsageColor::Red); // 900/1000 = 90%
     }
 
     // ── Compaction Strategy ────────────────────────────────

@@ -18,6 +18,7 @@ export function useSessionProvider() {
   });
 
   const handleSendInput = (content: string) => {
+    dispatch({ type: "ADD_USER_MESSAGE", content });
     dispatch({ type: "CLEAR_INPUT" });
     dispatch({ type: "SET_PENDING", pending: true });
     sendInput(content);

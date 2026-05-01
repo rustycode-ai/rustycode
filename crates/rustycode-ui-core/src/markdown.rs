@@ -1165,7 +1165,7 @@ fn hash_code(code: &str) -> u64 {
 }
 
 #[cfg(test)]
-#[allow(clippy::similar_names)]
+#[allow(clippy::similar_names, clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

@@ -694,8 +694,11 @@ mod tests {
         assert!(!tui.showing_command_palette);
         assert!(!tui.command_palette.is_visible());
 
-        tui.handle_global_shortcut(KeyCode::Char('P'), KeyModifiers::CONTROL | KeyModifiers::SHIFT)
-            .unwrap();
+        tui.handle_global_shortcut(
+            KeyCode::Char('P'),
+            KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+        )
+        .unwrap();
         assert!(tui.showing_command_palette);
         assert!(tui.command_palette.is_visible());
     }
