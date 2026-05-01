@@ -78,7 +78,6 @@ futures.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "time", "signal"] }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
-rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-session = { path = "../rustycode-session" }
 
 

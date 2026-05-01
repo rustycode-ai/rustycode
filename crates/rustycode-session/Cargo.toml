@@ -26,7 +26,6 @@ bincode.workspace = true
 criterion.workspace = true
 tempfile.workspace = true
 rustycode-storage = { path = "../rustycode-storage" }
-rustycode-protocol = { path = "../rustycode-protocol" }
 
 [lints]
 workspace = true

@@ -1389,6 +1389,10 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
             tui.session_cache_creation_tokens += cache_creation_tokens;
             tui.last_turn_input_tokens = input_tokens;
 
+            // Update context monitor with real API token counts
+            tui.context_monitor
+                .update_from_api(input_tokens, &tui.current_model);
+
             let model = &tui.current_model;
             let turn_cost =
                 rustycode_llm::token_tracker::estimate_cost(model, input_tokens, output_tokens);

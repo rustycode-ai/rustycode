@@ -159,9 +159,20 @@ impl ContextMonitor {
         (total_chars / 4).max(1)
     }
 
-    /// Update token count from messages
+    /// Update token count from messages (estimated)
     pub fn update(&mut self, messages: &[Message]) {
         self.current_tokens = self.count_tokens(messages);
+        self.last_update = Instant::now();
+        self.needs_compaction = self.usage_percentage() >= self.warning_threshold;
+    }
+
+    /// Update token count from actual API response (preferred over estimate)
+    pub fn update_from_api(&mut self, input_tokens: usize, model_id: &str) {
+        self.current_tokens = input_tokens;
+        let window = predefined::context_window_for_model(model_id);
+        if window > 0 {
+            self.max_tokens = window;
+        }
         self.last_update = Instant::now();
         self.needs_compaction = self.usage_percentage() >= self.warning_threshold;
     }
@@ -691,6 +702,25 @@ mod tests {
         let messages = vec![create_test_message(MessageRole::User, &"x".repeat(3000))];
         monitor.update(&messages);
         assert!(monitor.should_compact());
+    }
+
+    #[test]
+    fn test_context_monitor_update_from_api() {
+        let mut monitor = ContextMonitor::new(100_000, 0.8);
+        assert_eq!(monitor.current_tokens, 0);
+
+        // Simulate API reporting 15k input tokens for claude-3-5-sonnet
+        monitor.update_from_api(15_000, "claude-3-5-sonnet");
+        assert_eq!(monitor.current_tokens, 15_000);
+        // max_tokens should update to model's context window (200k)
+        assert_eq!(monitor.max_tokens, 200_000);
+        assert!(!monitor.needs_compaction);
+
+        // Unknown model: max_tokens falls back to DEFAULT_CONTEXT_WINDOW (100k)
+        monitor.update_from_api(90_000, "totally-unknown-model");
+        assert_eq!(monitor.current_tokens, 90_000);
+        assert_eq!(monitor.max_tokens, 100_000); // DEFAULT_CONTEXT_WINDOW
+        assert!(monitor.needs_compaction); // 90k/100k = 90% > 80%
     }
 
     #[test]
