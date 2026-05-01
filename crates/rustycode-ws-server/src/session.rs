@@ -33,6 +33,7 @@ impl SessionState {
         }
     }
 
+    #[allow(clippy::missing_const_for_fn)]
     pub fn next_seq(&mut self) -> u64 {
         self.seq = self.seq.saturating_add(1);
         self.seq
@@ -44,6 +45,7 @@ pub struct SessionManager {
     sessions: Arc<RwLock<HashMap<String, SessionState>>>,
 }
 
+#[allow(clippy::significant_drop_tightening)]
 impl SessionManager {
     pub fn new() -> Self {
         Self {
@@ -88,7 +90,9 @@ impl SessionManager {
             .get_mut(token)
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         state.last_active_at = Utc::now();
-        Ok(f(state))
+        let ret = f(state);
+        drop(sessions);
+        Ok(ret)
     }
 
     pub async fn client_connected(&self, token: &str) -> Result<(), WsError> {
@@ -102,6 +106,7 @@ impl SessionManager {
             clients = state.client_count,
             "client connected"
         );
+        drop(sessions);
         Ok(())
     }
 

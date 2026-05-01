@@ -49,58 +49,55 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     let session_token;
 
     // Wait for hello message
-    match wait_for_hello(&mut receiver).await {
-        Some(hello) => {
-            let (session_state, resumed) = state
-                .session_manager
-                .get_or_create(hello.session_token.as_deref())
-                .await
-                .unwrap_or_else(|e| {
-                    error!("session creation failed: {e}");
-                    panic!("session creation failed");
-                });
-
-            session_token = session_state.id.to_string();
-
-            let msg = if resumed {
-                ServerMessage::SessionResumed(SessionResumedPayload {
-                    session_token: session_token.clone(),
-                })
-            } else {
-                ServerMessage::SessionCreated(SessionCreatedPayload {
-                    session_token: session_token.clone(),
-                    capabilities: Capabilities::default(),
-                })
-            };
-
-            if let Err(e) = send_server_message(&mut sender, &msg, &correlation_id(0)).await {
-                warn!("failed to send session response: {e}");
-                return;
-            }
-
-            state
-                .session_manager
-                .client_connected(&session_token)
-                .await
-                .unwrap_or_else(|e| warn!("client tracking failed: {e}"));
-
-            // Send initial state snapshot
-            if let Ok(snapshot) = state.session_manager.snapshot(&session_token).await {
-                let snap_msg = ServerMessage::StateSnapshot(snapshot);
-                if let Err(e) = send_server_message(&mut sender, &snap_msg, &correlation_id(0)).await
-                {
-                    warn!("failed to send state snapshot: {e}");
-                }
-            }
-        }
-        None => {
-            let err_msg = ServerMessage::Error(ErrorPayload {
-                code: ErrorCode::Unauthorized,
-                message: "expected hello message".to_string(),
+    if let Some(hello) = wait_for_hello(&mut receiver).await {
+        let (session_state, resumed) = state
+            .session_manager
+            .get_or_create(hello.session_token.as_deref())
+            .await
+            .unwrap_or_else(|e| {
+                error!("session creation failed: {e}");
+                panic!("session creation failed");
             });
-            let _ = send_server_message(&mut sender, &err_msg, "err").await;
+
+        session_token = session_state.id.to_string();
+
+        let msg = if resumed {
+            ServerMessage::SessionResumed(SessionResumedPayload {
+                session_token: session_token.clone(),
+            })
+        } else {
+            ServerMessage::SessionCreated(SessionCreatedPayload {
+                session_token: session_token.clone(),
+                capabilities: Capabilities::default(),
+            })
+        };
+
+        if let Err(e) = send_server_message(&mut sender, &msg, &correlation_id(0)).await {
+            warn!("failed to send session response: {e}");
             return;
         }
+
+        state
+            .session_manager
+            .client_connected(&session_token)
+            .await
+            .unwrap_or_else(|e| warn!("client tracking failed: {e}"));
+
+        // Send initial state snapshot
+        if let Ok(snapshot) = state.session_manager.snapshot(&session_token).await {
+            let snap_msg = ServerMessage::StateSnapshot(snapshot);
+            if let Err(e) = send_server_message(&mut sender, &snap_msg, &correlation_id(0)).await
+            {
+                warn!("failed to send state snapshot: {e}");
+            }
+        }
+    } else {
+        let err_msg = ServerMessage::Error(ErrorPayload {
+            code: ErrorCode::Unauthorized,
+            message: "expected hello message".to_string(),
+        });
+        let _ = send_server_message(&mut sender, &err_msg, "err").await;
+        return;
     }
 
     // Main message loop
@@ -159,7 +156,7 @@ async fn wait_for_hello(
                     return None;
                 }
                 Ok(Message::Close(_)) => return None,
-                _ => continue,
+                _ => {}
             }
         }
         None
