@@ -1,0 +1,26 @@
+[package]
+name = "rustycode-ws-server"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+axum.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync"] }
+futures-util.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+uuid = { workspace = true, features = ["v4"] }
+
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-ui-model = { path = "../rustycode-ui-model", features = ["accumulator"] }
+rustycode-bus = { path = "../rustycode-bus" }
+
+[dev-dependencies]
+tokio-tungstenite = "0.26"
+
+[lints]
+workspace = true
