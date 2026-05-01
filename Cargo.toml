@@ -44,6 +44,7 @@ members = [
     "crates/rustycode-ui-core",
     "crates/rustycode-ui-model",
     "crates/rustycode-vector-memory",
+    "crates/rustycode-web-native",
     "examples",
     "tests",
 ]

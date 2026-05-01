@@ -16,7 +16,7 @@ pub struct FrontendMessage {
     pub kind: FrontendMessageKind,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum SubmittedInput {
     Empty,
