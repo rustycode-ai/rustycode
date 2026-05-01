@@ -179,7 +179,7 @@ impl SessionMode {
         let now = Utc::now();
         Ok(vec![
             SessionHistoryEntry {
-                id: SessionId::parse("sess_abc123").unwrap(),
+                id: SessionId::parse("sess_abc123").unwrap_or_default(),
                 name: "Feature Implementation".to_string(),
                 created_at: now - Duration::hours(2),
                 updated_at: now - Duration::minutes(30),
@@ -190,7 +190,7 @@ impl SessionMode {
                 tags: vec!["feature".to_string(), "rust".to_string()],
             },
             SessionHistoryEntry {
-                id: SessionId::parse("sess_def456").unwrap(),
+                id: SessionId::parse("sess_def456").unwrap_or_default(),
                 name: "Bug Fix: Memory Leak".to_string(),
                 created_at: now - Duration::hours(24),
                 updated_at: now - Duration::hours(23),
@@ -201,7 +201,7 @@ impl SessionMode {
                 tags: vec!["bug-fix".to_string(), "memory".to_string()],
             },
             SessionHistoryEntry {
-                id: SessionId::parse("sess_ghi789").unwrap(),
+                id: SessionId::parse("sess_ghi789").unwrap_or_default(),
                 name: "Code Review: API Design".to_string(),
                 created_at: now - Duration::days(2),
                 updated_at: now - Duration::days(2),

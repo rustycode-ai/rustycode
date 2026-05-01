@@ -565,7 +565,15 @@ impl ServiceManager {
         crate::info_log!("Pipeline dispatching with {} tools", tool_count);
 
         thread::spawn(move || {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt,
+                Err(e) => {
+                    let _ = stream_tx.send(StreamChunk::Error(format!(
+                        "Failed to create async runtime: {e}"
+                    )));
+                    return;
+                }
+            };
             rt.block_on(async {
                 let history_pairs: Vec<(String, String)> = thread_history
                     .into_iter()
