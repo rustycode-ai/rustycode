@@ -12,6 +12,7 @@ pub enum FrontendMessageKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FrontendMessage {
+    pub id: String,
     pub content: String,
     pub kind: FrontendMessageKind,
 }
@@ -52,6 +53,7 @@ pub struct FrontendSession {
 impl FrontendSession {
     pub fn add_message(&mut self, content: impl Into<String>, kind: FrontendMessageKind) {
         self.messages.push(FrontendMessage {
+            id: uuid::Uuid::new_v4().to_string(),
             content: content.into(),
             kind,
         });
@@ -305,6 +307,7 @@ mod tests {
     #[test]
     fn frontend_message_serde_roundtrip() {
         let msg = FrontendMessage {
+            id: "test-id".to_string(),
             content: "hello world".to_string(),
             kind: FrontendMessageKind::User,
         };

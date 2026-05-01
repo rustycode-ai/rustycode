@@ -7,6 +7,7 @@ license = "MIT"
 [dependencies]
 axum.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync"] }
+tokio-util.workspace = true
 futures-util.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
@@ -18,6 +19,10 @@ uuid = { workspace = true, features = ["v4"] }
 rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-ui-model = { path = "../rustycode-ui-model", features = ["accumulator"] }
 rustycode-bus = { path = "../rustycode-bus" }
+rustycode-orchestration = { path = "../rustycode-orchestration" }
+rustycode-llm = { path = "../rustycode-llm" }
+rustycode-tools = { path = "../rustycode-tools" }
+anyhow.workspace = true
 
 [dev-dependencies]
 tokio-tungstenite = "0.26"

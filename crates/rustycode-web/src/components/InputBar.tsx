@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useState, useRef, type KeyboardEvent } from "react";
 
 interface InputBarProps {
   onSend: (content: string) => void;
@@ -8,19 +8,26 @@ interface InputBarProps {
 
 export function InputBar({ onSend, onAbort, pending }: InputBarProps) {
   const [value, setValue] = useState("");
+  const sendingRef = useRef(false);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    } else if (e.key === "Escape" && pending) {
+      e.preventDefault();
+      onAbort();
     }
   };
 
   const handleSend = () => {
     const trimmed = value.trim();
-    if (!trimmed || pending) return;
+    if (!trimmed || pending || sendingRef.current) return;
+    sendingRef.current = true;
     onSend(trimmed);
     setValue("");
+    // Reset after React has re-rendered with pending=true
+    requestAnimationFrame(() => { sendingRef.current = false; });
   };
 
   return (

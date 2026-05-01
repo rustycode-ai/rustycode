@@ -5,7 +5,7 @@ RustyCode is an autonomous development framework built in Rust.
 ## Start Here
 
 - New to the project: read the [documentation hub](docs/README.md)
-- Want to contribute: read [CONTRIBUTING.md](CONTRIBUTING.md)
+- Want to contribute: read [CONTRIBUTING.md](docs/contributing/CONTRIBUTING.md)
 - Working on the codebase: read [CLAUDE.md](CLAUDE.md)
 
 ## Install

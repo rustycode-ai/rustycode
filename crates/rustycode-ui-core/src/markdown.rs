@@ -1520,10 +1520,12 @@ fn main() {
         let renderer = MarkdownRenderer::default();
         let messages = vec![
             FrontendMessage {
+                id: "msg-1".to_string(),
                 content: "Hello".to_string(),
                 kind: crate::FrontendMessageKind::User,
             },
             FrontendMessage {
+                id: "msg-2".to_string(),
                 content: "World".to_string(),
                 kind: crate::FrontendMessageKind::Assistant,
             },

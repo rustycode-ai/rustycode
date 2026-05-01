@@ -4802,7 +4802,9 @@ dependencies = [
  "rustycode-storage",
  "rustycode-tools",
  "rustycode-tui",
+ "rustycode-ui-model",
  "rustycode-vector-memory",
+ "rustycode-ws-server",
  "secrecy",
  "serde",
  "serde_json",
@@ -5552,6 +5554,7 @@ dependencies = [
  "rustycode-protocol",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -5572,17 +5575,22 @@ dependencies = [
 name = "rustycode-ws-server"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "axum",
  "chrono",
  "futures-util",
  "rustycode-bus",
+ "rustycode-llm",
+ "rustycode-orchestration",
  "rustycode-protocol",
+ "rustycode-tools",
  "rustycode-ui-model",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite 0.26.2",
+ "tokio-util",
  "tracing",
  "uuid",
 ]

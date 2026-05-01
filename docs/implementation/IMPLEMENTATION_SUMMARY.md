@@ -4,7 +4,7 @@
 
 Successfully completed the replacement of the legacy WASM-based web frontend (`rustycode-web`) with a modern architecture:
 - **Backend**: Rust WebSocket server (`rustycode-ws-server`)
-- **Frontend**: React/TypeScript SPA (`rustycode-web-v2`)
+- **Frontend**: React/TypeScript SPA (`rustycode-web`)
 - **Shared**: Protocol v2 + UI model with state accumulator
 
 ## ✅ Completed Components
@@ -23,7 +23,7 @@ Successfully completed the replacement of the legacy WASM-based web frontend (`r
 - WASM-compatible (no TUI dependencies)
 - **Tests**: 36/36 passing
 
-### 3. React SPA (`crates/rustycode-web-v2`)
+### 3. React SPA (`crates/rustycode-web`)
 - React 19 + TypeScript + Vite
 - WebSocket client with reconnection
 - State management with event reducer
@@ -48,7 +48,7 @@ Successfully completed the replacement of the legacy WASM-based web frontend (`r
 ## 🏗 Architecture
 
 ```
-React SPA (rustycode-web-v2)
+React SPA (rustycode-web)
     │ WebSocket (v2 protocol)
     ▼
 rustycode-ws-server (axum + tokio-tungstenite)
@@ -73,7 +73,7 @@ rustycode-core (sessions, orchestration)
 ### Added
 - `crates/rustycode-ws-server/` - WebSocket server (8 source files + tests)
 - `crates/rustycode-ui-model/src/accumulator.rs` - State accumulator
-- `crates/rustycode-web-v2/` - React SPA (complete)
+- `crates/rustycode-web/` - React SPA (complete)
 - `crates/rustycode-web-native/` - WASM bridge (minimal)
 - Documentation files
 
@@ -99,7 +99,7 @@ cargo build -p rustycode-ui-model --target wasm32-unknown-unknown
 
 ### Web Frontend
 ```bash
-cd crates/rustycode-web-v2
+cd crates/rustycode-web
 npm install
 npm run build  # ✅ Success
 npm run dev    # Start dev server
@@ -123,8 +123,8 @@ npm run dev    # Start dev server
 ## 📈 Verification Steps
 
 1. **Start WS Server**: `cargo run -p rustycode-ws-server`
-2. **Build Web Frontend**: `cd crates/rustycode-web-v2 && npm run build`
-3. **Serve SPA**: `npx serve -s crates/rustycode-web-v2/dist`
+2. **Build Web Frontend**: `cd crates/rustycode-web && npm run build`
+3. **Serve SPA**: `npx serve -s crates/rustycode-web/dist`
 4. **Connect**: Open browser, WebSocket connects automatically
 5. **Test**: Send messages, verify streaming responses
 

@@ -59,6 +59,36 @@ export type StreamEvent =
   | StreamEventCacheUsage
   | StreamEventDone;
 
+// Message Parts — rich content within a single message
+
+export interface TextPart {
+  type: "text";
+  content: string;
+}
+
+export interface ThinkingPart {
+  type: "thinking";
+  content: string;
+}
+
+export interface ToolCallPart {
+  type: "tool_call";
+  id: string;
+  name: string;
+  status: "pending" | "running" | "completed" | "error";
+  input?: string;
+  output?: string;
+  startedAt?: number;
+  completedAt?: number;
+}
+
+export interface ErrorPart {
+  type: "error";
+  message: string;
+}
+
+export type MessagePart = TextPart | ThinkingPart | ToolCallPart | ErrorPart;
+
 // Frontend model types matching rustycode-ui-model
 
 export type FrontendMessageKind =
@@ -69,8 +99,10 @@ export type FrontendMessageKind =
   | "Error";
 
 export interface FrontendMessage {
+  id: string;
   content: string;
   kind: FrontendMessageKind;
+  parts: MessagePart[];
 }
 
 export interface FrontendSession {
@@ -80,6 +112,8 @@ export interface FrontendSession {
   pending_request: boolean;
   tool_iteration_count: number;
   current_response: string;
+  input_tokens: number;
+  output_tokens: number;
 }
 
 // Protocol v2 envelope

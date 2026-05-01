@@ -51,6 +51,8 @@ rustycode-classification = { path = "../rustycode-classification" }
 rustycode-memory = { path = "../rustycode-memory" }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
+rustycode-ws-server = { path = "../rustycode-ws-server" }
+rustycode-ui-model = { path = "../rustycode-ui-model" }
 secrecy.workspace = true
 axum.workspace = true
 tower-http = { workspace = true, features = ["fs"] }

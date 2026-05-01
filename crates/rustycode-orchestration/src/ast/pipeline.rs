@@ -335,12 +335,10 @@ impl<R: StepRunner> AstPipeline<R> {
         self.fire_phase_hook(AstPhase::Classify);
         self.snapshot.current_phase = AstPhase::Research;
         self.persist_ledger()?;
-        #[allow(clippy::expect_used)]
-        Ok(self
-            .snapshot
+        self.snapshot
             .assessment
             .as_ref()
-            .expect("assessment set above"))
+            .ok_or_else(|| OrchestrationError::ast_ledger("No assessment available"))
     }
 
     /// Run Phase 1: RESEARCH.
@@ -371,8 +369,9 @@ impl<R: StepRunner> AstPipeline<R> {
             self.fire_phase_hook(AstPhase::Research);
             self.snapshot.current_phase = AstPhase::Expand;
             self.persist_ledger()?;
-            #[allow(clippy::expect_used)]
-            return Ok(self.snapshot.brief.as_ref().expect("brief set above"));
+            return self.snapshot.brief.as_ref().ok_or_else(|| {
+                OrchestrationError::ast_ledger("No context brief available")
+            });
         }
 
         let brief = self
@@ -382,8 +381,10 @@ impl<R: StepRunner> AstPipeline<R> {
         self.fire_phase_hook(AstPhase::Research);
         self.snapshot.current_phase = AstPhase::Skeleton;
         self.persist_ledger()?;
-        #[allow(clippy::expect_used)]
-        Ok(self.snapshot.brief.as_ref().expect("brief set above"))
+        self.snapshot
+            .brief
+            .as_ref()
+            .ok_or_else(|| OrchestrationError::ast_ledger("No context brief available"))
     }
 
     /// Run Phase 2: SKELETON.
@@ -411,8 +412,10 @@ impl<R: StepRunner> AstPipeline<R> {
         self.fire_phase_hook(AstPhase::Skeleton);
         self.snapshot.current_phase = AstPhase::Expand;
         self.persist_ledger()?;
-        #[allow(clippy::expect_used)]
-        Ok(self.snapshot.skeleton.as_ref().expect("skeleton set above"))
+        self.snapshot
+            .skeleton
+            .as_ref()
+            .ok_or_else(|| OrchestrationError::ast_ledger("No skeleton available"))
     }
 
     /// Run Phase 3a: EXPAND — expand the next batch of milestones.

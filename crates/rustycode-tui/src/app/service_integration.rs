@@ -363,6 +363,11 @@ impl ServiceManager {
                     crate::app::streaming::adapter::StreamEventAdapter::new(stream_tx);
                 loop {
                     if stop_flag.load(Ordering::SeqCst) {
+                        // Drain remaining events before exiting to prevent
+                        // chunk loss during state transitions.
+                        while let Ok(event) = rx.try_recv() {
+                            adapter.on_orchestration_event(event);
+                        }
                         tracing::info!("Forwarding thread stopping due to reset signal");
                         break;
                     }

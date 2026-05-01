@@ -1,0 +1,59 @@
+import { ModelSelector } from "./ModelSelector";
+
+interface StatusBarProps {
+  toolIterationCount: number;
+  pending: boolean;
+  inputTokens: number;
+  outputTokens: number;
+  onToggleSidebar: () => void;
+  onOpenSettings: () => void;
+  provider: string;
+  model: string;
+}
+
+function formatTokens(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
+}
+
+export function StatusBar({ toolIterationCount, pending, inputTokens, outputTokens, onToggleSidebar, onOpenSettings, provider, model }: StatusBarProps) {
+  return (
+    <header className="status-bar" role="banner">
+      <button
+        className="btn-icon status-menu-btn"
+        onClick={onToggleSidebar}
+        aria-label="Toggle session sidebar"
+        title="Sessions"
+      >
+        =
+      </button>
+      <span className="status-title">RustyCode</span>
+      <span className="status-sep" />
+      <ModelSelector provider={provider} model={model} />
+      {pending && (
+        <span className="status-pending" role="status" aria-live="polite">
+          <span className="status-spinner" aria-hidden="true" />
+          Generating
+        </span>
+      )}
+      {toolIterationCount > 0 && (
+        <span className="status-tools">Tools: {toolIterationCount}</span>
+      )}
+      {(inputTokens > 0 || outputTokens > 0) && (
+        <span className="status-tokens">
+          {formatTokens(inputTokens + outputTokens)} tokens
+        </span>
+      )}
+      <span className="status-sep" />
+      <button
+        className="btn-icon status-settings-btn"
+        onClick={onOpenSettings}
+        aria-label="Settings"
+        title="Settings"
+      >
+        :
+      </button>
+    </header>
+  );
+}

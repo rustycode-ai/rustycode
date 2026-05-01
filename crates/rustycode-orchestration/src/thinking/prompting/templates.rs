@@ -11,19 +11,33 @@ pub struct PromptTemplateRegistry {
 }
 
 impl PromptTemplateRegistry {
+    /// Register all built-in prompt templates.
+    ///
+    /// Each call uses `expect()` because these are compile-time constant strings
+    /// that cannot fail at runtime. Clippy normally denies `expect_used` in this
+    /// workspace, but panicking is the correct behaviour here: a malformed
+    /// built-in template is a programming error, not a recoverable condition.
+    #[allow(clippy::expect_used)]
     #[must_use]
     pub fn new() -> Self {
         let mut hb = Handlebars::new();
 
-        let _ = hb.register_template_string("json_schema", Self::json_schema_partial());
+        hb.register_template_string("json_schema", Self::json_schema_partial())
+            .expect("failed to register built-in template 'json_schema'");
 
         // Register all strategy templates
-        let _ = hb.register_template_string("sequential", Self::sequential_template());
-        let _ = hb.register_template_string("dialectic", Self::dialectic_template());
-        let _ = hb.register_template_string("parallel", Self::parallel_template());
-        let _ = hb.register_template_string("analogical", Self::analogical_template());
-        let _ = hb.register_template_string("abductive", Self::abductive_template());
-        let _ = hb.register_template_string("implementation", Self::implementation_template());
+        hb.register_template_string("sequential", Self::sequential_template())
+            .expect("failed to register built-in template 'sequential'");
+        hb.register_template_string("dialectic", Self::dialectic_template())
+            .expect("failed to register built-in template 'dialectic'");
+        hb.register_template_string("parallel", Self::parallel_template())
+            .expect("failed to register built-in template 'parallel'");
+        hb.register_template_string("analogical", Self::analogical_template())
+            .expect("failed to register built-in template 'analogical'");
+        hb.register_template_string("abductive", Self::abductive_template())
+            .expect("failed to register built-in template 'abductive'");
+        hb.register_template_string("implementation", Self::implementation_template())
+            .expect("failed to register built-in template 'implementation'");
 
         Self { hb }
     }

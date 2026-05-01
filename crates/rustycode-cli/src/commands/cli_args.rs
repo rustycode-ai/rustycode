@@ -213,6 +213,19 @@ pub enum OmoCommand {
     ListRoles,
 }
 
+/// Web interface management
+#[derive(Debug, Subcommand)]
+#[non_exhaustive]
+pub enum WebCommand {
+    /// Start the web-native interface.
+    #[command(about = "Start the web-native interface")]
+    Start {
+        /// Port to run the server on (default: 3000)
+        #[arg(long, default_value_t = 3000)]
+        port: u16,
+    },
+}
+
 /// Parse key=value pairs
 pub fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let mut parts = s.splitn(2, '=');

@@ -26,12 +26,15 @@ export class WsClient {
   private ws: WebSocket | null = null;
   private sessionToken: string | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private heartbeatIntervalMs = 30_000;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private baseReconnectDelay = 1000;
   private ready = false;
   private manualDisconnect = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingSendQueue: PendingEnvelope[] = [];
+  private static readonly MAX_PENDING_QUEUE = 64;
   private onMessage: ServerMessageHandler;
   private url: string;
 
@@ -86,7 +89,7 @@ export class WsClient {
   private sendEnvelope(type: string, id: string, payload: unknown): void {
     const envelope: Envelope = { v: 2, type, id, payload };
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      if (type !== "hello") {
+      if (type !== "hello" && this.pendingSendQueue.length < WsClient.MAX_PENDING_QUEUE) {
         this.pendingSendQueue.push(envelope);
       }
       return;
@@ -122,7 +125,7 @@ export class WsClient {
 
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), 30_000);
+    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), this.heartbeatIntervalMs);
   }
 
   private stopHeartbeat(): void {
@@ -145,6 +148,9 @@ export class WsClient {
       case "session_created": {
         const payload = envelope.payload as SessionCreatedPayload;
         this.sessionToken = payload.session_token;
+        if (payload.capabilities?.heartbeat_interval_ms) {
+          this.heartbeatIntervalMs = payload.capabilities.heartbeat_interval_ms;
+        }
         this.onMessage("session_created", payload);
         return "handshake";
       }
@@ -205,7 +211,8 @@ export class WsClient {
       Math.pow(2, this.reconnectAttempts);
     this.reconnectAttempts++;
     this.onMessage("reconnecting", { attempt: this.reconnectAttempts, delay });
-    setTimeout(() => {
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
       this.connect().catch(() => {
         // onclose will schedule next reconnect
       });
@@ -214,6 +221,10 @@ export class WsClient {
 
   disconnect(): void {
     this.stopHeartbeat();
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.manualDisconnect = true;
     this.reconnectAttempts = this.maxReconnectAttempts; // prevent reconnect
     this.ready = false;

@@ -4,9 +4,10 @@ import { MessageBubble } from "./MessageBubble";
 
 interface MessageListProps {
   messages: FrontendMessage[];
+  toolOutputsVisible: boolean;
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, toolOutputsVisible }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -15,9 +16,16 @@ export function MessageList({ messages }: MessageListProps) {
 
   return (
     <div className="message-list">
-      {messages.map((msg, i) => (
-        <MessageBubble key={i} message={msg} />
-      ))}
+      {messages.length === 0 ? (
+        <div className="message-empty">
+          <h2>RustyCode</h2>
+          <p>Send a message to start a conversation.</p>
+        </div>
+      ) : (
+        messages.map((msg) => (
+          <MessageBubble key={msg.id} message={msg} toolOutputsVisible={toolOutputsVisible} />
+        ))
+      )}
       <div ref={bottomRef} />
     </div>
   );

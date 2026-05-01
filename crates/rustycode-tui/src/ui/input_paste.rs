@@ -129,22 +129,33 @@ impl PasteHandler {
                 let before = current_line[..cursor_col].to_string();
                 let after = current_line[cursor_col..].to_string();
 
-                // Replace current line with first pasted line
-                *current_line = format!("{}{}{}", before, lines[0], after);
+                if lines.len() == 1 {
+                    // Single pasted line: before + line + after
+                    *current_line = format!("{}{}{}", before, lines[0], after);
+                } else {
+                    // First line: before + first pasted line
+                    *current_line = format!("{}{}", before, lines[0]);
 
-                // Insert remaining lines
-                if lines.len() > 1 {
+                    // Middle lines: insert as-is
                     for (i, line) in lines.iter().skip(1).enumerate() {
-                        input_state
-                            .lines
-                            .insert(input_state.cursor_row + 1 + i, line.clone());
+                        if i + 1 < lines.len() - 1 {
+                            input_state
+                                .lines
+                                .insert(input_state.cursor_row + 1 + i, line.clone());
+                        }
                     }
-                }
 
-                // Move cursor to end of pasted content
-                input_state.cursor_row += lines.len() - 1;
-                if let Some(last_line) = lines.last() {
-                    input_state.cursor_col = last_line.len();
+                    // Last line: last pasted line + after
+                    let last_idx = lines.len() - 1;
+                    let last_pasted = &lines[last_idx];
+                    input_state.lines.insert(
+                        input_state.cursor_row + last_idx,
+                        format!("{}{}", last_pasted, after),
+                    );
+
+                    // Move cursor to end of pasted content on last line
+                    input_state.cursor_row += last_idx;
+                    input_state.cursor_col = last_pasted.len();
                 }
             }
         } else {

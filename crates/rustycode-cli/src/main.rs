@@ -183,6 +183,11 @@ enum Command {
         #[arg(long, value_name = "MODEL")]
         model: Option<String>,
     },
+    /// Launch the web-native interface.
+    Web {
+        #[command(subcommand)]
+        command: WebCommand,
+    },
     /// Serve the web UI and API server.
     Serve {
         /// Port to listen on (default: 3000)
@@ -457,6 +462,14 @@ async fn async_main() -> Result<()> {
             // Already handled above
             unreachable!();
         }
+        Command::Web { command } => match command {
+            WebCommand::Start { port } => {
+                crate::commands::web_start::start_web_server(port).await?;
+            }
+            _ => {
+                anyhow::bail!("Unknown web command.");
+            }
+        },
         Command::Serve { port, dir } => server::serve_web(port, dir).await?,
 
         Command::Checkpoint {

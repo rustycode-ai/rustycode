@@ -13,8 +13,13 @@ interface UseWebSocketOptions {
 export function useWebSocket({ url, dispatch, onConnected, onError }: UseWebSocketOptions) {
   const clientRef = useRef<WsClient | null>(null);
 
+  // Stable ref-based handler prevents WsClient recreation on callback changes
+  const callbacksRef = useRef({ dispatch, onConnected, onError });
+  callbacksRef.current = { dispatch, onConnected, onError };
+
   const handleMessage = useCallback(
     (type: string, payload: unknown) => {
+      const { dispatch, onConnected, onError } = callbacksRef.current;
       switch (type) {
         case "session_created":
         case "session_resumed":
@@ -33,24 +38,21 @@ export function useWebSocket({ url, dispatch, onConnected, onError }: UseWebSock
           );
           break;
         case "heartbeat_ack":
-          // Measure RTT if needed
           break;
         case "reconnecting":
-          console.info("Reconnecting...", payload);
           break;
         case "connection_lost":
-          console.error("Connection lost:", payload);
           break;
       }
     },
-    [dispatch, onConnected, onError]
+    []
   );
 
   useEffect(() => {
     const client = new WsClient(url, handleMessage);
     clientRef.current = client;
-    client.connect().catch((err: unknown) => {
-      console.error("Initial connection failed:", err);
+    client.connect().catch(() => {
+      // connect() rejects on handshake failure; onclose schedules reconnect
     });
 
     return () => {

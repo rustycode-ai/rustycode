@@ -351,7 +351,36 @@ impl AgentEvents for StreamEventAdapter {
                     ApprovalDecision::Reject(format!("approval timed out ({:?} risk)", risk))
                 }
             }
-            None => ApprovalDecision::AutoApproved,
+            None => {
+                // No approval channel available (e.g., orchestration forwarding thread).
+                // Apply the same risk classification as the timeout path: auto-approve
+                // safe tools, reject dangerous ones to prevent silent approval of
+                // destructive operations.
+                let tool_type = crate::tool_approval::risk::classify_tool_type(tool_name);
+                let command_str = input.to_string();
+                let risk = crate::tool_approval::risk::classify_tool_risk(&tool_type, &command_str);
+                let is_safe = matches!(risk, crate::tool_approval::risk::RiskLevel::Safe);
+                if is_safe {
+                    tracing::debug!(
+                        "No approval channel for {}, auto-approving safe tool",
+                        tool_name
+                    );
+                    ApprovalDecision::AutoApproved
+                } else {
+                    tracing::warn!(
+                        "No approval channel for {}, rejecting ({:?} risk)",
+                        tool_name,
+                        risk
+                    );
+                    self.emit(StreamChunk::Text(
+                        "[Tool execution rejected: no approval channel available]\n".to_string(),
+                    ));
+                    ApprovalDecision::Reject(format!(
+                        "no approval channel available ({:?} risk)",
+                        risk
+                    ))
+                }
+            }
         }
     }
 

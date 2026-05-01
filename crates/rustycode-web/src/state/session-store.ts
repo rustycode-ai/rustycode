@@ -17,6 +17,8 @@ export const initialSession: FrontendSession = {
   pending_request: false,
   tool_iteration_count: 0,
   current_response: "",
+  input_tokens: 0,
+  output_tokens: 0,
 };
 
 export function sessionReducer(
@@ -24,8 +26,15 @@ export function sessionReducer(
   action: SessionAction
 ): FrontendSession {
   switch (action.type) {
-    case "SET_SESSION":
-      return action.session;
+    case "SET_SESSION": {
+      const session = action.session;
+      const messages = session.messages.map((m, i) => ({
+        ...m,
+        id: m.id || `snapshot-${i}`,
+        parts: m.parts || [],
+      }));
+      return { ...initialSession, ...session, messages };
+    }
     case "APPLY_EVENT":
       return applyEvent(state, action.payload.event);
     case "SET_INPUT":
@@ -40,8 +49,8 @@ export function sessionReducer(
         last_user_prompt: action.content,
         messages: [
           ...state.messages,
-          { content: action.content, kind: "User" as const },
-          { content: "", kind: "Assistant" as const },
+          { id: crypto.randomUUID(), content: action.content, kind: "User" as const, parts: [{ type: "text", content: action.content }] },
+          { id: crypto.randomUUID(), content: "", kind: "Assistant" as const, parts: [] },
         ],
       };
     default:
