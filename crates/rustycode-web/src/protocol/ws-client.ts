@@ -118,6 +118,20 @@ export class WsClient {
     this.sendEnvelope("abort", crypto.randomUUID(), {});
   }
 
+  sendToolApproval(requestId: string, approved: boolean): void {
+    this.sendEnvelope("tool_approval", crypto.randomUUID(), {
+      request_id: requestId,
+      approved,
+    });
+  }
+
+  sendPlanApproval(planId: string, approved: boolean): void {
+    this.sendEnvelope("plan_approval", crypto.randomUUID(), {
+      plan_id: planId,
+      approved,
+    });
+  }
+
   private sendHeartbeat(): void {
     const payload: HeartbeatPayload = { ts: Date.now() };
     this.sendEnvelope("heartbeat", crypto.randomUUID(), payload);

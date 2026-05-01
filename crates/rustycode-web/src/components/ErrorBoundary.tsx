@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div className="error-boundary" role="alert">
           <h2>Something went wrong</h2>
           <p>{this.state.message}</p>
-          <button onClick={() => this.setState({ hasError: false, message: "" })} type="button">
+          <button onClick={() => this.setState({ hasError: false, message: "" })} type="button" aria-label="Try again">
             Try again
           </button>
         </div>

@@ -100,7 +100,7 @@ impl DiffRenderer {
                 Span::styled(" ", Style::default()),
                 Span::styled(sign, style),
                 Span::styled(" ", Style::default()),
-                Span::styled(change.value(), style),
+                Span::styled(change.value().to_string(), style),
             ]));
 
             match change.tag() {
@@ -161,14 +161,15 @@ impl DiffRenderer {
                     ]));
                 }
                 similar::ChangeTag::Equal => {
+                    let val = change.value().to_string();
                     lines.push(Line::from(vec![
                         Span::styled(
-                            format!("  {}", change.value()),
+                            format!("  {}", val),
                             Style::default().fg(Color::DarkGray),
                         ),
                         Span::raw("  "),
                         Span::styled(
-                            format!("  {}", change.value()),
+                            format!("  {}", val),
                             Style::default().fg(Color::DarkGray),
                         ),
                     ]));

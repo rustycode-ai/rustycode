@@ -1,9 +1,11 @@
-import { useReducer, useMemo } from "react";
+import { useReducer, useMemo, useState, useCallback } from "react";
 import {
   sessionReducer,
   initialSession,
 } from "../state/session-store";
 import { useWebSocket } from "./useWebSocket";
+import type { ConnectionStatus } from "./useWebSocket";
+import type { ToolApprovalRequestPayload } from "../protocol/types";
 
 const WS_URL =
   typeof window !== "undefined"
@@ -12,9 +14,22 @@ const WS_URL =
 
 export function useSessionProvider() {
   const [state, dispatch] = useReducer(sessionReducer, initialSession);
-  const { sendInput, sendAbort } = useWebSocket({
+  const [pendingApproval, setPendingApproval] = useState<ToolApprovalRequestPayload | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
+
+  const handleToolApprovalRequest = useCallback((request: ToolApprovalRequestPayload) => {
+    setPendingApproval(request);
+  }, []);
+
+  const handleConnectionChange = useCallback((status: ConnectionStatus) => {
+    setConnectionStatus(status);
+  }, []);
+
+  const { sendInput, sendAbort, sendToolApproval, sendPlanApproval, getSessionToken } = useWebSocket({
     url: WS_URL,
     dispatch,
+    onToolApprovalRequest: handleToolApprovalRequest,
+    onConnectionChange: handleConnectionChange,
   });
 
   const handleSendInput = (content: string) => {
@@ -24,11 +39,22 @@ export function useSessionProvider() {
     sendInput(content);
   };
 
+  const handleToolApprovalResponse = useCallback((requestId: string, approved: boolean) => {
+    sendToolApproval(requestId, approved);
+    setPendingApproval(null);
+  }, [sendToolApproval]);
+
   const contextValue = useMemo(
-    () => ({ state, dispatch, sendInput: handleSendInput, sendAbort }),
+    () => ({
+      state,
+      dispatch,
+      sendInput: handleSendInput,
+      sendAbort,
+      getSessionToken,
+    }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state, sendAbort]
   );
 
-  return { state, contextValue, sendAbort };
+  return { state, contextValue, sendAbort, sendPlanApproval, getSessionToken, pendingApproval, handleToolApprovalResponse, connectionStatus };
 }

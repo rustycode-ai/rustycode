@@ -55,6 +55,40 @@ pub enum StreamEvent {
     },
     /// Session completed normally.
     Done,
+    /// A plan has been created with steps.
+    PlanCreated {
+        id: String,
+        title: String,
+        steps: Vec<StreamPlanStep>,
+    },
+    /// A plan step has started executing.
+    PlanStepStarted { plan_id: String, step_index: usize },
+    /// A plan step has finished.
+    PlanStepCompleted {
+        plan_id: String,
+        step_index: usize,
+        success: bool,
+        message: String,
+    },
+    /// The entire plan has finished.
+    PlanCompleted {
+        plan_id: String,
+        success: bool,
+        summary: String,
+    },
+    /// Plan is awaiting user approval.
+    PlanApprovalRequested {
+        plan_id: String,
+        title: String,
+        steps: Vec<StreamPlanStep>,
+    },
+}
+
+/// Lightweight plan step for streaming events.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StreamPlanStep {
+    pub name: String,
+    pub description: String,
 }
 
 #[cfg(test)]

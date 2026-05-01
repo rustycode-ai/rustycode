@@ -1,4 +1,7 @@
 import { ModelSelector } from "./ModelSelector";
+import type { ConnectionStatus } from "../hooks/useWebSocket";
+
+export type { ConnectionStatus };
 
 interface StatusBarProps {
   toolIterationCount: number;
@@ -7,8 +10,10 @@ interface StatusBarProps {
   outputTokens: number;
   onToggleSidebar: () => void;
   onOpenSettings: () => void;
+  onModelSwitch: (provider: string, model: string) => void;
   provider: string;
   model: string;
+  connectionStatus: ConnectionStatus;
 }
 
 function formatTokens(n: number): string {
@@ -17,7 +22,7 @@ function formatTokens(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
-export function StatusBar({ toolIterationCount, pending, inputTokens, outputTokens, onToggleSidebar, onOpenSettings, provider, model }: StatusBarProps) {
+export function StatusBar({ toolIterationCount, pending, inputTokens, outputTokens, onToggleSidebar, onOpenSettings, onModelSwitch, provider, model, connectionStatus }: StatusBarProps) {
   return (
     <header className="status-bar" role="banner">
       <button
@@ -28,9 +33,12 @@ export function StatusBar({ toolIterationCount, pending, inputTokens, outputToke
       >
         =
       </button>
-      <span className="status-title">RustyCode</span>
+      <span className="status-title">
+        RustyCode
+        <span className={`status-dot status-dot-${connectionStatus}`} title={connectionStatus} />
+      </span>
       <span className="status-sep" />
-      <ModelSelector provider={provider} model={model} />
+      <ModelSelector provider={provider} model={model} onSwitch={onModelSwitch} />
       {pending && (
         <span className="status-pending" role="status" aria-live="polite">
           <span className="status-spinner" aria-hidden="true" />

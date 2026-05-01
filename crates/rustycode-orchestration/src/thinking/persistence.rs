@@ -165,7 +165,7 @@ impl SessionManager {
         let safe_id = Self::sanitize_session_id(session_id)?;
         let file_path = self.base_path.join(format!("{safe_id}.bin"));
         let bytes = fs::read(&file_path)?;
-        let graph = bincode::deserialize(&bytes)?;
+        let graph: SerializedGraph = bincode::deserialize(&bytes)?;
         tracing::info!("Loaded graph (bincode) from {}", file_path.display());
         Ok(graph)
     }

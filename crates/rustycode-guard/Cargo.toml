@@ -23,7 +23,7 @@ regex = "1.5"
 rustycode-protocol = { path = "../rustycode-protocol" }
 
 [dev-dependencies]
-criterion = { version = "0.4", default-features = false }
+criterion.workspace = true
 tempfile = "3.3"
 
 [lints]

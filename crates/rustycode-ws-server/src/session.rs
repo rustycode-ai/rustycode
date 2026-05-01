@@ -11,6 +11,16 @@ use rustycode_ui_model::{FrontendMessageKind, FrontendSession};
 
 use crate::error::WsError;
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct McpServerConfig {
+    pub name: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: HashMap<String, String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct SessionState {
     pub id: SessionId,
@@ -45,6 +55,7 @@ impl SessionState {
 
 pub struct SessionManager {
     sessions: Arc<RwLock<HashMap<String, SessionState>>>,
+    mcp_servers: Arc<RwLock<HashMap<String, McpServerConfig>>>,
     pipeline: Arc<OrchestrationPipeline>,
     provider_name: String,
     model_name: String,
@@ -54,6 +65,7 @@ impl std::fmt::Debug for SessionManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SessionManager")
             .field("sessions", &"<locked>")
+            .field("mcp_servers", &"<locked>")
             .field("pipeline", &"<OrchestrationPipeline>")
             .field("provider_name", &self.provider_name)
             .field("model_name", &self.model_name)
@@ -65,6 +77,7 @@ impl Clone for SessionManager {
     fn clone(&self) -> Self {
         Self {
             sessions: Arc::clone(&self.sessions),
+            mcp_servers: Arc::clone(&self.mcp_servers),
             pipeline: Arc::clone(&self.pipeline),
             provider_name: self.provider_name.clone(),
             model_name: self.model_name.clone(),
@@ -77,6 +90,7 @@ impl SessionManager {
     pub fn new(pipeline: Arc<OrchestrationPipeline>, provider_name: String, model_name: String) -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            mcp_servers: Arc::new(RwLock::new(HashMap::new())),
             pipeline,
             provider_name,
             model_name,
@@ -244,6 +258,38 @@ impl SessionManager {
         Ok(state.session.clone())
     }
 
+    pub async fn list_mcp_servers(&self) -> Vec<McpServerConfig> {
+        let servers = self.mcp_servers.read().await;
+        servers.values().cloned().collect()
+    }
+
+    pub async fn add_mcp_server(&self, config: McpServerConfig) {
+        let name = config.name.clone();
+        info!(name = %name, command = %config.command, "adding MCP server");
+        self.mcp_servers.write().await.insert(name, config);
+    }
+
+    pub async fn remove_mcp_server(&self, name: &str) -> Result<(), WsError> {
+        let removed = self.mcp_servers.write().await.remove(name);
+        if removed.is_some() {
+            info!(name = %name, "removed MCP server");
+            Ok(())
+        } else {
+            Err(WsError::SessionNotFound(format!(
+                "mcp server not found: {name}"
+            )))
+        }
+    }
+
+    pub async fn restart_mcp_server(&self, name: &str) -> Result<McpServerConfig, WsError> {
+        let servers = self.mcp_servers.read().await;
+        let config = servers.get(name).ok_or_else(|| {
+            WsError::SessionNotFound(format!("mcp server not found: {name}"))
+        })?;
+        info!(name = %name, "restarting MCP server");
+        Ok(config.clone())
+    }
+
     pub async fn list_sessions(&self) -> Vec<SessionInfo> {
         let sessions = self.sessions.read().await;
         sessions
@@ -281,6 +327,71 @@ pub struct SessionInfo {
 pub struct ProviderInfo {
     pub provider: String,
     pub model: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProviderEntry {
+    pub name: String,
+    pub display_name: String,
+    pub models: Vec<String>,
+    pub default_model: String,
+    pub available: bool,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProviderListResponse {
+    pub current: ProviderInfo,
+    pub providers: Vec<ProviderEntry>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct SwitchProviderRequest {
+    pub provider: String,
+    pub model: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SkillInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub categories: Vec<String>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SkillListResponse {
+    pub skills: Vec<SkillInfo>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct SkillExecuteRequest {
+    pub skill_id: String,
+    pub session_token: String,
+    #[serde(default)]
+    pub args: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct McpServerInfo {
+    pub name: String,
+    pub command: String,
+    pub args: Vec<String>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct McpServerListResponse {
+    pub servers: Vec<McpServerInfo>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct McpAddServerRequest {
+    pub name: String,
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
 }
 
 #[cfg(test)]

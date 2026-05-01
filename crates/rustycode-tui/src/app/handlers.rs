@@ -199,92 +199,91 @@ fn check_and_trigger_auto_continue(tui: &mut TUI) {
     }
 }
 
-/// Handle a stream chunk from the LLM
-pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
-    match chunk {
-        StreamChunk::Text(text) => {
-            // Capture stream start time on first chunk (Goose pattern: response timing)
-            if tui.stream_start_time.is_none() {
-                tui.stream_start_time = Some(std::time::Instant::now());
-            }
+fn handle_text_chunk(tui: &mut TUI, text: String) {
+    // Capture stream start time on first chunk (Goose pattern: response timing)
+    if tui.stream_start_time.is_none() {
+        tui.stream_start_time = Some(std::time::Instant::now());
+    }
 
-            // Feed through the streaming render buffer for safe markdown boundaries.
-            // The buffer holds back incomplete markdown (unclosed bold, code blocks, etc.)
-            // and returns complete segments safe for rendering.
-            let safe_text = tui.streaming_render_buffer.push(&text);
+    // Feed through the streaming render buffer for safe markdown boundaries.
+    // The buffer holds back incomplete markdown (unclosed bold, code blocks, etc.)
+    // and returns complete segments safe for rendering.
+    let safe_text = tui.streaming_render_buffer.push(&text);
 
-            if let Some(renderable) = safe_text {
-                // Append safe content to current stream content only.
-                // The assistant message's .content is set atomically in
-                // StreamChunk::Done to avoid text duplication.
-                tui.current_stream_content.reserve(renderable.len());
-                tui.current_stream_content.push_str(&renderable);
+    if let Some(renderable) = safe_text {
+        // Append safe content to current stream content only.
+        // The assistant message's .content is set atomically in
+        // StreamChunk::Done to avoid text duplication.
+        tui.current_stream_content.reserve(renderable.len());
+        tui.current_stream_content.push_str(&renderable);
 
-                tui.is_streaming = true;
-                tui.chunks_received += 1;
-                // Update terminal title on first chunk (state transition to "thinking")
-                if tui.chunks_received == 1 {
-                    tui.update_terminal_title();
-                }
-                if tui.renderer_mode.is_brutalist() {
-                    if !tui.user_scrolled {
-                        tui.auto_scroll();
-                    }
-                    tui.dirty = true;
-                }
-            } else {
-                // Buffer is holding incomplete markdown — still mark streaming
-                // so the UI shows the spinner, but don't dirty (no render change).
-                tui.is_streaming = true;
-            }
-            // NOTE: Do NOT clear stream_cancelled here!
-            // The user may have pressed Esc/Ctrl+D to cancel while chunks
-            // are still in-flight. If we clear the flag on every Text chunk,
-            // a late-arriving chunk would un-cancel the stream, causing the
-            // Done handler to treat it as a successful completion and trigger
-            // auto-continue or queued message send. The flag is properly
-            // reset in the Done/Error handlers.
+        tui.is_streaming = true;
+        tui.chunks_received += 1;
+        // Update terminal title on first chunk (state transition to "thinking")
+        if tui.chunks_received == 1 {
+            tui.update_terminal_title();
         }
-        StreamChunk::Thinking(mut thinking) => {
-            const MAX_THINKING_BYTES: usize = 50 * 1024;
-            tui.thinking_chunks_received += 1;
-            let assistant_msg = tui
-                .messages
-                .iter_mut()
-                .rev()
-                .find(|m| m.role == MessageRole::Assistant);
-            if let Some(last_msg) = assistant_msg {
-                if let Some(existing) = &mut last_msg.thinking {
-                    if existing.len() + thinking.len() > MAX_THINKING_BYTES {
-                        existing.truncate(MAX_THINKING_BYTES.saturating_sub(3));
-                        existing.push_str("...");
-                    } else {
-                        existing.push_str(&thinking);
-                    }
-                } else {
-                    if thinking.len() > MAX_THINKING_BYTES {
-                        thinking.truncate(MAX_THINKING_BYTES.saturating_sub(3));
-                        thinking.push_str("...");
-                    }
-                    last_msg.thinking = Some(thinking);
-                }
-            }
-
-            tui.is_streaming = true;
-
-            // Take a turn snapshot on first streaming chunk so we can
-            // verify file changes when the turn completes.
-            if tui.turn_snapshot.is_none() {
-                let cwd = std::env::current_dir().unwrap_or_default();
-                tui.turn_snapshot = Some(crate::app::turn_snapshot::TurnSnapshot::take(&cwd));
-            }
-
+        if tui.renderer_mode.is_brutalist() {
             if !tui.user_scrolled {
                 tui.auto_scroll();
             }
             tui.dirty = true;
         }
-        StreamChunk::Done => {
+    } else {
+        // Buffer is holding incomplete markdown — still mark streaming
+        // so the UI shows the spinner, but don't dirty (no render change).
+        tui.is_streaming = true;
+    }
+    // NOTE: Do NOT clear stream_cancelled here!
+    // The user may have pressed Esc/Ctrl+D to cancel while chunks
+    // are still in-flight. If we clear the flag on every Text chunk,
+    // a late-arriving chunk would un-cancel the stream, causing the
+    // Done handler to treat it as a successful completion and trigger
+    // auto-continue or queued message send. The flag is properly
+    // reset in the Done/Error handlers.
+}
+
+fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
+    const MAX_THINKING_BYTES: usize = 50 * 1024;
+    tui.thinking_chunks_received += 1;
+    let assistant_msg = tui
+        .messages
+        .iter_mut()
+        .rev()
+        .find(|m| m.role == MessageRole::Assistant);
+    if let Some(last_msg) = assistant_msg {
+        if let Some(existing) = &mut last_msg.thinking {
+            if existing.len() + thinking.len() > MAX_THINKING_BYTES {
+                existing.truncate(MAX_THINKING_BYTES.saturating_sub(3));
+                existing.push_str("...");
+            } else {
+                existing.push_str(&thinking);
+            }
+        } else {
+            if thinking.len() > MAX_THINKING_BYTES {
+                thinking.truncate(MAX_THINKING_BYTES.saturating_sub(3));
+                thinking.push_str("...");
+            }
+            last_msg.thinking = Some(thinking);
+        }
+    }
+
+    tui.is_streaming = true;
+
+    // Take a turn snapshot on first streaming chunk so we can
+    // verify file changes when the turn completes.
+    if tui.turn_snapshot.is_none() {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        tui.turn_snapshot = Some(crate::app::turn_snapshot::TurnSnapshot::take(&cwd));
+    }
+
+    if !tui.user_scrolled {
+        tui.auto_scroll();
+    }
+    tui.dirty = true;
+}
+
+fn handle_done_chunk(tui: &mut TUI) {
             // Flush any remaining buffered content from the render buffer
             // (e.g., unclosed bold at stream end, last few chars)
             let remaining = tui.streaming_render_buffer.flush();

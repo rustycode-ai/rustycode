@@ -34,16 +34,24 @@ export function SessionSidebar({
   onClose,
 }: SessionSidebarProps) {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
   const fetchSessions = useCallback(async () => {
+    setLoading(true);
+    setError(false);
     try {
       const res = await fetch("/api/sessions");
       if (res.ok) {
         const data = await res.json();
         setSessions(data);
+      } else {
+        setError(true);
       }
     } catch {
-      // Server not available — keep existing list
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -89,7 +97,17 @@ export function SessionSidebar({
         </div>
       </div>
       <ul className="sidebar-list" role="listbox" aria-label="Session list">
-        {sessions.length === 0 ? (
+        {loading && sessions.length === 0 ? (
+          <li className="sidebar-loading">
+            <span className="sidebar-shimmer" />
+            Loading sessions…
+          </li>
+        ) : error && sessions.length === 0 ? (
+          <li className="sidebar-error">
+            Failed to load sessions
+            <button className="sidebar-retry" onClick={fetchSessions} type="button">Retry</button>
+          </li>
+        ) : sessions.length === 0 ? (
           <li className="sidebar-empty">No sessions yet</li>
         ) : (
           sessions.map((s) => (
@@ -112,13 +130,14 @@ export function SessionSidebar({
             >
               <div className="sidebar-item-title">
                 {s.message_count > 0
-                  ? `Session (${s.message_count} msgs)`
+                  ? `${s.message_count} message${s.message_count !== 1 ? "s" : ""}`
                   : "New session"}
               </div>
               <div className="sidebar-item-meta">
+                <span className="sidebar-item-id">{s.id.slice(0, 8)}</span>
                 <span>{formatTimeAgo(s.last_active_at)}</span>
                 {s.client_count > 0 && (
-                  <span className="sidebar-connected">connected</span>
+                  <span className="sidebar-connected">● live</span>
                 )}
               </div>
               <button
@@ -127,7 +146,7 @@ export function SessionSidebar({
                 aria-label={`Delete session ${s.id.slice(0, 8)}`}
                 title="Delete session"
               >
-                del
+                ×
               </button>
             </li>
           ))

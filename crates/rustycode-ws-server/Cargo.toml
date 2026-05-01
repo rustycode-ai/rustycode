@@ -22,6 +22,7 @@ rustycode-bus = { path = "../rustycode-bus" }
 rustycode-orchestration = { path = "../rustycode-orchestration" }
 rustycode-llm = { path = "../rustycode-llm" }
 rustycode-tools = { path = "../rustycode-tools" }
+rustycode-skill = { path = "../rustycode-skill" }
 anyhow.workspace = true
 
 [dev-dependencies]

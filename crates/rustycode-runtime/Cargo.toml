@@ -50,7 +50,7 @@ name = "test_api_call"
 path = "examples/test_api_call.rs"
 
 [dev-dependencies]
-env_logger = "0.10"
+env_logger = "0.11"
 futures.workspace = true
 reqwest.workspace = true
 tempfile.workspace = true

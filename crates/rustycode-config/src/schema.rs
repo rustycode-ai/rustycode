@@ -5,7 +5,7 @@
 /// This module provides JSON Schema validation for configuration files using
 /// the JSON Schema draft 2020-12 specification. It includes built-in schemas
 /// for common configuration types and support for custom schema loading.
-use jsonschema::JSONSchema;
+use jsonschema::Validator;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::path::Path;
@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 /// Schema validator for configuration files
 pub struct SchemaValidator {
-    schemas: HashMap<String, Arc<JSONSchema>>,
+    schemas: HashMap<String, Arc<Validator>>,
     default_schema: Option<String>,
 }
 
@@ -40,7 +40,7 @@ impl SchemaValidator {
     /// Register a custom schema
     pub fn register_schema(&mut self, name: &str, schema: &Value) -> Result<(), SchemaError> {
         let compiled =
-            JSONSchema::compile(schema).map_err(|e| SchemaError::CompileError(e.to_string()))?;
+            jsonschema::validator_for(schema).map_err(|e| SchemaError::CompileError(e.to_string()))?;
 
         self.schemas.insert(name.to_string(), Arc::new(compiled));
         Ok(())
@@ -71,12 +71,13 @@ impl SchemaValidator {
     /// Validate a configuration value against a specific schema
     pub fn validate_with_schema(&self, config: &Value, schema: &Value) -> Result<(), SchemaError> {
         let compiled =
-            JSONSchema::compile(schema).map_err(|e| SchemaError::CompileError(e.to_string()))?;
+            jsonschema::validator_for(schema).map_err(|e| SchemaError::CompileError(e.to_string()))?;
 
-        let result = compiled.validate(config);
+        let errors: Vec<_> = compiled.iter_errors(config).collect();
 
-        if let Err(errors) = result {
+        if !errors.is_empty() {
             let error_details: Vec<ValidationErrorDetail> = errors
+                .into_iter()
                 .map(|e| ValidationErrorDetail {
                     instance_path: e.instance_path.to_string(),
                     schema_path: e.schema_path.to_string(),
@@ -101,10 +102,11 @@ impl SchemaValidator {
             .get(schema_name)
             .ok_or_else(|| SchemaError::SchemaNotFound(schema_name.to_string()))?;
 
-        let result = schema.validate(config);
+        let errors: Vec<_> = schema.iter_errors(config).collect();
 
-        if let Err(errors) = result {
+        if !errors.is_empty() {
             let error_details: Vec<ValidationErrorDetail> = errors
+                .into_iter()
                 .map(|e| ValidationErrorDetail {
                     instance_path: e.instance_path.to_string(),
                     schema_path: e.schema_path.to_string(),

@@ -241,7 +241,7 @@ pub use plan::{Plan, PlanStatus, PlanStep, StepStatus, StepToolExecution};
 pub use event::{EventKind, SessionEvent};
 
 // Stream event types (raw agent events)
-pub use stream_event::{ApprovalDecision, StreamEvent};
+pub use stream_event::{ApprovalDecision, StreamEvent, StreamPlanStep};
 
 // Session event types (persisted, enriched)
 pub use session_event::SyncEvent;

@@ -19,6 +19,7 @@ export const initialSession: FrontendSession = {
   current_response: "",
   input_tokens: 0,
   output_tokens: 0,
+  plan: null,
 };
 
 export function sessionReducer(
@@ -49,8 +50,8 @@ export function sessionReducer(
         last_user_prompt: action.content,
         messages: [
           ...state.messages,
-          { id: crypto.randomUUID(), content: action.content, kind: "User" as const, parts: [{ type: "text", content: action.content }] },
-          { id: crypto.randomUUID(), content: "", kind: "Assistant" as const, parts: [] },
+          { id: crypto.randomUUID(), content: action.content, kind: "User" as const, parts: [{ type: "text", content: action.content }], created_at: Date.now() },
+          { id: crypto.randomUUID(), content: "", kind: "Assistant" as const, parts: [], created_at: Date.now() },
         ],
       };
     default:
@@ -64,6 +65,7 @@ interface SessionContextValue {
   dispatch: React.Dispatch<SessionAction>;
   sendInput: (content: string) => void;
   sendAbort: () => void;
+  getSessionToken: () => string | null;
 }
 
 export const SessionContext = createContext<SessionContextValue | null>(null);

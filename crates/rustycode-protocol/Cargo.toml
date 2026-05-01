@@ -10,7 +10,7 @@ repository.workspace = true
 chrono.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
-schemars = "0.8"
+schemars = "1.2"
 rustycode-id = { path = "../rustycode-id" }
 anyhow.workspace = true
 thiserror.workspace = true

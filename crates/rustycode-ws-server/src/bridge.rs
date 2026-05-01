@@ -1,34 +1,249 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use tracing::info;
+use rustycode_orchestration::bus::{BusHandle, OrchestrationEvent};
+use rustycode_protocol::StreamEvent;
+use tokio::sync::{broadcast, RwLock};
+use tracing::{info, warn};
 
-use crate::session::SessionManager;
+type EventSender = tokio::sync::mpsc::UnboundedSender<StreamEvent>;
 
 pub struct EventBridge {
-    pub(crate) session_manager: Arc<SessionManager>,
-    pub(crate) session_token: String,
-    pub(crate) task_id: String,
+    handle: BusHandle,
+    sessions: Arc<RwLock<HashMap<String, EventSender>>>,
 }
 
 impl EventBridge {
-    pub const fn new(
-        session_manager: Arc<SessionManager>,
-        session_token: String,
-        task_id: String,
-    ) -> Self {
+    pub fn new(handle: BusHandle) -> Self {
+        info!("EventBridge created");
         Self {
-            session_manager,
-            session_token,
-            task_id,
+            handle,
+            sessions: Arc::new(RwLock::new(HashMap::new())),
         }
+    }
+
+    pub fn bus_handle(&self) -> BusHandle {
+        self.handle.clone()
+    }
+
+    pub async fn register(&self, session_token: &str, sender: EventSender) {
+        self.sessions
+            .write()
+            .await
+            .insert(session_token.to_string(), sender);
+    }
+
+    pub async fn unregister(&self, session_token: &str) {
+        self.sessions.write().await.remove(session_token);
+    }
+
+    pub fn start(&self) {
+        let mut rx = self.handle.subscribe();
+        let sessions = self.sessions.clone();
+
+        tokio::spawn(async move {
+            loop {
+                match rx.recv().await {
+                    Ok(event) => {
+                        let Some(stream_event) = convert_event(&event) else {
+                            continue;
+                        };
+                        let sessions = sessions.read().await;
+                        for (token, sender) in sessions.iter() {
+                            if let Err(e) = sender.send(stream_event.clone()) {
+                                warn!(session = %token, "failed to forward event: {e}");
+                            }
+                        }
+                    }
+                    Err(broadcast::error::RecvError::Lagged(n)) => {
+                        warn!("EventBridge lagged by {n} events");
+                    }
+                    Err(broadcast::error::RecvError::Closed) => {
+                        info!("EventBridge: bus channel closed");
+                        break;
+                    }
+                }
+            }
+        });
     }
 }
 
 impl Drop for EventBridge {
     fn drop(&mut self) {
-        info!(
-            session_id = %self.session_token,
-            "event bridge dropped"
+        info!("EventBridge dropped");
+    }
+}
+
+fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
+    match event {
+        OrchestrationEvent::TextDelta { content, .. } => Some(StreamEvent::TextDelta {
+            content: content.clone(),
+        }),
+        OrchestrationEvent::ThinkingDelta { content, .. } => Some(StreamEvent::ThinkingDelta {
+            content: content.clone(),
+        }),
+        OrchestrationEvent::ToolCallStarted {
+            tool_id,
+            tool_name,
+            ..
+        } => Some(StreamEvent::ToolCallStarted {
+            id: tool_id.clone(),
+            name: tool_name.clone(),
+        }),
+        OrchestrationEvent::ToolCallCompleted {
+            tool_id,
+            tool_name,
+            success,
+            output_preview,
+            ..
+        } => Some(StreamEvent::ToolExecCompleted {
+            id: tool_id.clone(),
+            name: tool_name.clone(),
+            output: output_preview.clone(),
+            is_error: !success,
+        }),
+        OrchestrationEvent::TaskCompleted { .. } => Some(StreamEvent::Done),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn convert_text_delta() {
+        let event = OrchestrationEvent::TextDelta {
+            task_id: "t1".into(),
+            content: "hello".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::TextDelta {
+                content: "hello".into()
+            }
         );
+    }
+
+    #[test]
+    fn convert_thinking_delta() {
+        let event = OrchestrationEvent::ThinkingDelta {
+            task_id: "t1".into(),
+            content: "reasoning".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::ThinkingDelta {
+                content: "reasoning".into()
+            }
+        );
+    }
+
+    #[test]
+    fn convert_tool_call_started() {
+        let event = OrchestrationEvent::ToolCallStarted {
+            task_id: "t1".into(),
+            step_id: "s1".into(),
+            tool_id: "tc-1".into(),
+            tool_name: "bash".into(),
+            input_preview: "echo hi".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::ToolCallStarted {
+                id: "tc-1".into(),
+                name: "bash".into()
+            }
+        );
+    }
+
+    #[test]
+    fn convert_tool_call_completed() {
+        let event = OrchestrationEvent::ToolCallCompleted {
+            task_id: "t1".into(),
+            step_id: "s1".into(),
+            tool_id: "tc-1".into(),
+            tool_name: "bash".into(),
+            success: true,
+            output_preview: "ok".into(),
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(
+            result,
+            StreamEvent::ToolExecCompleted {
+                id: "tc-1".into(),
+                name: "bash".into(),
+                output: "ok".into(),
+                is_error: false
+            }
+        );
+    }
+
+    #[test]
+    fn convert_task_completed() {
+        let event = OrchestrationEvent::TaskCompleted {
+            task_id: "t1".into(),
+            tier_used: 2,
+            cost_usd: 0.01,
+        };
+        let result = convert_event(&event).unwrap();
+        assert_eq!(result, StreamEvent::Done);
+    }
+
+    #[test]
+    fn convert_ignores_unmapped_events() {
+        let event = OrchestrationEvent::PhaseTransition {
+            task_id: "t1".into(),
+            from: rustycode_protocol::ExecutionPhase::Explore,
+            to: rustycode_protocol::ExecutionPhase::Plan,
+            reason: "test".into(),
+        };
+        assert!(convert_event(&event).is_none());
+    }
+
+    #[tokio::test]
+    async fn bridge_registers_and_forwards() {
+        let bus = BusHandle::new(16);
+        let bridge = EventBridge::new(bus.clone());
+        bridge.start();
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        bridge.register("sess-1", tx).await;
+
+        bus.publish(OrchestrationEvent::TextDelta {
+            task_id: "t1".into(),
+            content: "hello".into(),
+        });
+
+        let event = rx.recv().await.unwrap();
+        assert_eq!(
+            event,
+            StreamEvent::TextDelta {
+                content: "hello".into()
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn bridge_unregister_stops_delivery() {
+        let bus = BusHandle::new(16);
+        let bridge = EventBridge::new(bus.clone());
+        bridge.start();
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        bridge.register("sess-1", tx).await;
+        bridge.unregister("sess-1").await;
+
+        bus.publish(OrchestrationEvent::TextDelta {
+            task_id: "t1".into(),
+            content: "orphaned".into(),
+        });
+
+        // Channel should not receive anything (sender dropped)
+        assert!(rx.try_recv().is_err());
     }
 }

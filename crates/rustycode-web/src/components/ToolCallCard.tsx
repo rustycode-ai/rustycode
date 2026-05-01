@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { ToolCallPart } from "../protocol/types";
 
 interface ToolCallCardProps {
@@ -33,16 +33,56 @@ function toolIcon(name: string): string {
   return ">";
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(text).then(
+      () => { setCopied(true); setTimeout(() => setCopied(false), 2000); },
+      () => {},
+    );
+  }, [text]);
+
+  return (
+    <button
+      className="tool-copy-btn"
+      onClick={handleCopy}
+      type="button"
+      aria-label={copied ? "Copied" : "Copy to clipboard"}
+    >
+      {copied ? "✓" : "Copy"}
+    </button>
+  );
+}
+
+function highlightFilePaths(text: string): string {
+  const filePathPattern = /(?:^|\s)([\w./-]+\.(?:rs|ts|tsx|js|jsx|py|toml|yaml|yml|json|md|css|html|sql|sh|go|java|c|h|cpp))(?::?\d*(?::?\d*)?)/g;
+  return text.replace(filePathPattern, (match) => `<span class="tool-file-path">${match.trim()}</span>`);
+}
+
+function ToolOutput({ text, isError }: { text: string; isError?: boolean }) {
+  const highlighted = highlightFilePaths(text);
+  return (
+    <pre
+      className={`tool-call-output ${isError ? "tool-output-error" : ""}`}
+      dangerouslySetInnerHTML={{ __html: highlighted }}
+    />
+  );
+}
+
 export function ToolCallCard({ part, defaultOpen = true }: ToolCallCardProps) {
   const [expanded, setExpanded] = useState(defaultOpen ? part.status !== "completed" : false);
   const duration = formatDuration(part.startedAt, part.completedAt);
+  const isCompleted = part.status === "completed";
+  const isCompact = isCompleted && !expanded;
 
   return (
-    <div className={`tool-call-card tool-call-${part.status}`}>
+    <div className={`tool-call-card tool-call-${part.status}${isCompact ? " tool-call-compact" : ""}`}>
       <button
         className="tool-call-header"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
+        aria-label={`${part.name} tool call${expanded ? ", collapse" : ", expand"}`}
       >
         <span className="tool-call-icon">{toolIcon(part.name)}</span>
         <span className="tool-call-name">{part.name}</span>
@@ -55,16 +95,14 @@ export function ToolCallCard({ part, defaultOpen = true }: ToolCallCardProps) {
         <div className="tool-call-body">
           {part.input && (
             <details open={part.status !== "completed"}>
-              <summary>Input</summary>
-              <pre className="tool-call-output">{part.input}</pre>
+              <summary>Input <CopyButton text={part.input} /></summary>
+              <ToolOutput text={part.input} />
             </details>
           )}
           {part.output && (
             <details open={part.status === "error" || !part.input}>
-              <summary>Output</summary>
-              <pre className={`tool-call-output ${part.status === "error" ? "tool-output-error" : ""}`}>
-                {part.output}
-              </pre>
+              <summary>Output <CopyButton text={part.output} /></summary>
+              <ToolOutput text={part.output} isError={part.status === "error"} />
             </details>
           )}
         </div>

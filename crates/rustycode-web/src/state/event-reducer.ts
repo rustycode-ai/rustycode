@@ -1,7 +1,7 @@
 // Parts-based event reducer — maps StreamEvent variants to FrontendSession mutations
 // using structured MessagePart instead of flat text
 
-import type { FrontendSession, StreamEvent, MessagePart } from "../protocol/types";
+import type { FrontendSession, StreamEvent, MessagePart, PlanStepState } from "../protocol/types";
 
 export function applyEvent(
   session: FrontendSession,
@@ -54,6 +54,64 @@ export function applyEvent(
       }
       return { ...s, pending_request: false };
     }
+
+    case "plan_created":
+      return {
+        ...session,
+        plan: {
+          id: event.data.id,
+          title: event.data.title,
+          steps: event.data.steps.map((s) => ({
+            name: s.name,
+            description: s.description,
+            status: "pending" as const,
+          })),
+          completed: false,
+          success: false,
+          awaitingApproval: false,
+        },
+      };
+
+    case "plan_step_started":
+      return updatePlanStep(session, event.data.plan_id, event.data.step_index, {
+        status: "running",
+      });
+
+    case "plan_step_completed":
+      return updatePlanStep(session, event.data.plan_id, event.data.step_index, {
+        status: event.data.success ? "completed" : "failed",
+        message: event.data.message,
+      });
+
+    case "plan_completed":
+      if (!session.plan || session.plan.id !== event.data.plan_id) return session;
+      return {
+        ...session,
+        plan: {
+          ...session.plan,
+          completed: true,
+          success: event.data.success,
+          summary: event.data.summary,
+          awaitingApproval: false,
+        },
+      };
+
+    case "plan_approval_requested":
+      return {
+        ...session,
+        plan: {
+          id: event.data.plan_id,
+          title: event.data.title,
+          steps: event.data.steps.map((s) => ({
+            name: s.name,
+            description: s.description,
+            status: "pending" as const,
+          })),
+          completed: false,
+          success: false,
+          awaitingApproval: true,
+        },
+      };
 
     default:
       return session;
@@ -192,4 +250,18 @@ function finalizeResponse(
     return { ...m, content, parts };
   });
   return { ...session, messages, current_response: content };
+}
+
+/** Update a single plan step immutably. */
+function updatePlanStep(
+  session: FrontendSession,
+  planId: string,
+  stepIndex: number,
+  patch: Partial<PlanStepState>
+): FrontendSession {
+  if (!session.plan || session.plan.id !== planId) return session;
+  const steps = session.plan.steps.map((s, i) =>
+    i === stepIndex ? { ...s, ...patch } : s
+  );
+  return { ...session, plan: { ...session.plan, steps } };
 }

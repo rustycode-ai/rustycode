@@ -1,7 +1,7 @@
 //! Secure token storage using keyring
 
 use crate::{AuthError, AuthResult, AuthToken};
-use keyring::Entry;
+use keyring_core::Entry;
 use serde_json;
 
 const SERVICE_NAME: &str = "rustycode-auth";

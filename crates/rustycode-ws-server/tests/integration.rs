@@ -9,14 +9,14 @@ use std::sync::Arc;
 
 use axum::Router;
 use futures_util::{SinkExt, StreamExt};
-use rustycode_orchestration::config::OrchestrationConfig;
-use rustycode_orchestration::pipeline::OrchestrationPipeline;
 use rustycode_ws_server::{Envelope, SessionManager, WsRouter};
 use serde_json::json;
 use tokio_tungstenite::tungstenite::Message;
 
-fn test_pipeline() -> Arc<OrchestrationPipeline> {
-    Arc::new(OrchestrationPipeline::new(OrchestrationConfig::default()))
+fn test_session_manager() -> SessionManager {
+    let config = rustycode_orchestration::config::OrchestrationConfig::default();
+    let pipeline = Arc::new(rustycode_orchestration::pipeline::OrchestrationPipeline::new(config));
+    SessionManager::new(pipeline, "test".to_string(), "test-model".to_string())
 }
 
 fn create_test_app(session_manager: Arc<SessionManager>) -> Router {
@@ -37,7 +37,7 @@ async fn ws_connect_with(shared: Option<Arc<SessionManager>>) -> (
     >,
     Arc<SessionManager>,
 ) {
-    let mgr = shared.unwrap_or_else(|| Arc::new(SessionManager::new(test_pipeline(), "mock".to_string(), "test-model".to_string())));
+    let mgr = shared.unwrap_or_else(|| Arc::new(test_session_manager()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let app = create_test_app(mgr.clone());
@@ -114,7 +114,7 @@ async fn hello_creates_new_session() {
 
 #[tokio::test]
 async fn hello_with_token_resumes_session() {
-    let shared_mgr = Arc::new(SessionManager::new(test_pipeline(), "mock".to_string(), "test-model".to_string()));
+    let shared_mgr = Arc::new(test_session_manager());
 
     // First connection: create session
     let (mut sink, mut recv, _) = ws_connect_with(Some(shared_mgr.clone())).await;

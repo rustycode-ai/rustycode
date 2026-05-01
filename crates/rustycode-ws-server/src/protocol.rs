@@ -56,6 +56,26 @@ pub struct HeartbeatPayload {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolApprovalRequestPayload {
+    pub request_id: String,
+    pub tool_name: String,
+    pub input_preview: String,
+    pub risk_level: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolApprovalResponsePayload {
+    pub request_id: String,
+    pub approved: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanApprovalPayload {
+    pub plan_id: String,
+    pub approved: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCreatedPayload {
     pub session_token: String,
     pub capabilities: Capabilities,
@@ -100,6 +120,8 @@ pub mod client_types {
     pub const INPUT: &str = "input";
     pub const ABORT: &str = "abort";
     pub const HEARTBEAT: &str = "heartbeat";
+    pub const TOOL_APPROVAL: &str = "tool_approval";
+    pub const PLAN_APPROVAL: &str = "plan_approval";
 }
 
 pub mod server_types {
@@ -109,6 +131,7 @@ pub mod server_types {
     pub const STATE_SNAPSHOT: &str = "state_snapshot";
     pub const HEARTBEAT_ACK: &str = "heartbeat_ack";
     pub const ERROR: &str = "error";
+    pub const TOOL_APPROVAL_REQUESTED: &str = "tool_approval_requested";
 }
 
 pub enum ClientMessage {
@@ -116,6 +139,8 @@ pub enum ClientMessage {
     Input(InputPayload),
     Abort,
     Heartbeat(HeartbeatPayload),
+    ToolApproval(ToolApprovalResponsePayload),
+    PlanApproval(PlanApprovalPayload),
 }
 
 impl ClientMessage {
@@ -137,6 +162,16 @@ impl ClientMessage {
                     .map_err(|e| format!("invalid heartbeat payload: {e}"))?;
                 Ok(Self::Heartbeat(payload))
             }
+            client_types::TOOL_APPROVAL => {
+                let payload: ToolApprovalResponsePayload = serde_json::from_value(envelope.payload.clone())
+                    .map_err(|e| format!("invalid tool_approval payload: {e}"))?;
+                Ok(Self::ToolApproval(payload))
+            }
+            client_types::PLAN_APPROVAL => {
+                let payload: PlanApprovalPayload = serde_json::from_value(envelope.payload.clone())
+                    .map_err(|e| format!("invalid plan_approval payload: {e}"))?;
+                Ok(Self::PlanApproval(payload))
+            }
             other => Err(format!("unknown message type: {other}")),
         }
     }
@@ -148,6 +183,7 @@ pub enum ServerMessage {
     Event(EventPayload),
     StateSnapshot(FrontendSession),
     HeartbeatAck(HeartbeatAckPayload),
+    ToolApprovalRequested(ToolApprovalRequestPayload),
     Error(crate::error::ErrorPayload),
 }
 
@@ -176,6 +212,11 @@ impl ServerMessage {
             )),
             Self::HeartbeatAck(payload) => Ok(Envelope::new(
                 server_types::HEARTBEAT_ACK,
+                id,
+                serde_json::to_value(payload)?,
+            )),
+            Self::ToolApprovalRequested(payload) => Ok(Envelope::new(
+                server_types::TOOL_APPROVAL_REQUESTED,
                 id,
                 serde_json::to_value(payload)?,
             )),
@@ -248,6 +289,28 @@ mod tests {
         let envelope = Envelope::new("unknown", "5", serde_json::json!({}));
         let result = ClientMessage::from_envelope(&envelope);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn client_message_tool_approval() {
+        let envelope = Envelope::new(
+            "tool_approval",
+            "6",
+            serde_json::json!({"request_id": "req-1", "approved": true}),
+        );
+        let msg = ClientMessage::from_envelope(&envelope).unwrap();
+        assert!(matches!(msg, ClientMessage::ToolApproval(p) if p.approved && p.request_id == "req-1"));
+    }
+
+    #[test]
+    fn client_message_plan_approval() {
+        let envelope = Envelope::new(
+            "plan_approval",
+            "7",
+            serde_json::json!({"plan_id": "plan-42", "approved": false}),
+        );
+        let msg = ClientMessage::from_envelope(&envelope).unwrap();
+        assert!(matches!(msg, ClientMessage::PlanApproval(p) if !p.approved && p.plan_id == "plan-42"));
     }
 
     #[test]

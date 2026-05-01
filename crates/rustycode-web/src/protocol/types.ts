@@ -46,6 +46,36 @@ export interface StreamEventDone {
   data: Record<string, never>;
 }
 
+export interface StreamPlanStep {
+  name: string;
+  description: string;
+}
+
+export interface StreamEventPlanCreated {
+  type: "plan_created";
+  data: { id: string; title: string; steps: StreamPlanStep[] };
+}
+
+export interface StreamEventPlanStepStarted {
+  type: "plan_step_started";
+  data: { plan_id: string; step_index: number };
+}
+
+export interface StreamEventPlanStepCompleted {
+  type: "plan_step_completed";
+  data: { plan_id: string; step_index: number; success: boolean; message: string };
+}
+
+export interface StreamEventPlanCompleted {
+  type: "plan_completed";
+  data: { plan_id: string; success: boolean; summary: string };
+}
+
+export interface StreamEventPlanApprovalRequested {
+  type: "plan_approval_requested";
+  data: { plan_id: string; title: string; steps: StreamPlanStep[] };
+}
+
 export type StreamEvent =
   | StreamEventTextDelta
   | StreamEventThinkingDelta
@@ -57,7 +87,12 @@ export type StreamEvent =
   | StreamEventTokenUsage
   | StreamEventTurnCompleted
   | StreamEventCacheUsage
-  | StreamEventDone;
+  | StreamEventDone
+  | StreamEventPlanCreated
+  | StreamEventPlanStepStarted
+  | StreamEventPlanStepCompleted
+  | StreamEventPlanCompleted
+  | StreamEventPlanApprovalRequested;
 
 // Message Parts — rich content within a single message
 
@@ -103,6 +138,7 @@ export interface FrontendMessage {
   content: string;
   kind: FrontendMessageKind;
   parts: MessagePart[];
+  created_at?: number;
 }
 
 export interface FrontendSession {
@@ -114,6 +150,26 @@ export interface FrontendSession {
   current_response: string;
   input_tokens: number;
   output_tokens: number;
+  plan: PlanState | null;
+}
+
+export type PlanStepStatus = "pending" | "running" | "completed" | "failed";
+
+export interface PlanStepState {
+  name: string;
+  description: string;
+  status: PlanStepStatus;
+  message?: string;
+}
+
+export interface PlanState {
+  id: string;
+  title: string;
+  steps: PlanStepState[];
+  completed: boolean;
+  success: boolean;
+  summary?: string;
+  awaitingApproval: boolean;
 }
 
 // Protocol v2 envelope
@@ -163,4 +219,16 @@ export interface HeartbeatAckPayload {
 export interface ErrorPayload {
   code: string;
   message: string;
+}
+
+export interface ToolApprovalRequestPayload {
+  request_id: string;
+  tool_name: string;
+  input_preview: string;
+  risk_level: "low" | "medium" | "high";
+}
+
+export interface ToolApprovalResponsePayload {
+  request_id: string;
+  approved: boolean;
 }

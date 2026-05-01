@@ -1,30 +1,50 @@
 import { useEffect, useRef, useCallback } from "react";
 import { WsClient } from "../protocol/ws-client";
-import type { FrontendSession, EventPayload } from "../protocol/types";
+import type { FrontendSession, EventPayload, ToolApprovalRequestPayload } from "../protocol/types";
 import type { SessionAction } from "../state/session-store";
+
+export type ConnectionStatus = "connected" | "connecting" | "disconnected";
 
 interface UseWebSocketOptions {
   url: string;
   dispatch: React.Dispatch<SessionAction>;
   onConnected?: (token: string) => void;
   onError?: (code: string, message: string) => void;
+  onToolApprovalRequest?: (request: ToolApprovalRequestPayload) => void;
+  onConnectionChange?: (status: "connected" | "connecting" | "disconnected") => void;
 }
 
-export function useWebSocket({ url, dispatch, onConnected, onError }: UseWebSocketOptions) {
+const SESSION_KEY = "rustycode-session-token";
+
+export function clearSessionToken() {
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+}
+
+export function getSavedSessionToken(): string | null {
+  try { return localStorage.getItem(SESSION_KEY); } catch { return null; }
+}
+
+function saveSessionToken(token: string) {
+  try { localStorage.setItem(SESSION_KEY, token); } catch {}
+}
+
+export function useWebSocket({ url, dispatch, onConnected, onError, onToolApprovalRequest, onConnectionChange }: UseWebSocketOptions) {
   const clientRef = useRef<WsClient | null>(null);
 
-  // Stable ref-based handler prevents WsClient recreation on callback changes
-  const callbacksRef = useRef({ dispatch, onConnected, onError });
-  callbacksRef.current = { dispatch, onConnected, onError };
+  const callbacksRef = useRef({ dispatch, onConnected, onError, onToolApprovalRequest, onConnectionChange });
+  callbacksRef.current = { dispatch, onConnected, onError, onToolApprovalRequest, onConnectionChange };
 
   const handleMessage = useCallback(
     (type: string, payload: unknown) => {
-      const { dispatch, onConnected, onError } = callbacksRef.current;
+      const { dispatch, onConnected, onError, onToolApprovalRequest } = callbacksRef.current;
       switch (type) {
         case "session_created":
-        case "session_resumed":
-          onConnected?.((payload as { session_token: string }).session_token);
+        case "session_resumed": {
+          const token = (payload as { session_token: string }).session_token;
+          saveSessionToken(token);
+          onConnected?.(token);
           break;
+        }
         case "state_snapshot":
           dispatch({ type: "SET_SESSION", session: payload as FrontendSession });
           break;
@@ -39,9 +59,14 @@ export function useWebSocket({ url, dispatch, onConnected, onError }: UseWebSock
           break;
         case "heartbeat_ack":
           break;
+        case "tool_approval_requested":
+          onToolApprovalRequest?.(payload as ToolApprovalRequestPayload);
+          break;
         case "reconnecting":
+          callbacksRef.current.onConnectionChange?.("connecting");
           break;
         case "connection_lost":
+          callbacksRef.current.onConnectionChange?.("disconnected");
           break;
       }
     },
@@ -49,15 +74,18 @@ export function useWebSocket({ url, dispatch, onConnected, onError }: UseWebSock
   );
 
   useEffect(() => {
+    callbacksRef.current.onConnectionChange?.("connecting");
     const client = new WsClient(url, handleMessage);
     clientRef.current = client;
-    client.connect().catch(() => {
-      // connect() rejects on handshake failure; onclose schedules reconnect
-    });
+    client.connect().then(
+      () => { callbacksRef.current.onConnectionChange?.("connected"); },
+      () => { callbacksRef.current.onConnectionChange?.("connecting"); },
+    );
 
     return () => {
       client.disconnect();
       clientRef.current = null;
+      callbacksRef.current.onConnectionChange?.("disconnected");
     };
   }, [url, handleMessage]);
 
@@ -69,5 +97,13 @@ export function useWebSocket({ url, dispatch, onConnected, onError }: UseWebSock
     clientRef.current?.sendAbort();
   }, []);
 
-  return { sendInput, sendAbort };
+  const sendToolApproval = useCallback((requestId: string, approved: boolean) => {
+    clientRef.current?.sendToolApproval(requestId, approved);
+  }, []);
+
+  const sendPlanApproval = useCallback((planId: string, approved: boolean) => {
+    clientRef.current?.sendPlanApproval(planId, approved);
+  }, []);
+
+  return { sendInput, sendAbort, sendToolApproval, sendPlanApproval, getSessionToken: () => clientRef.current?.token ?? null };
 }
