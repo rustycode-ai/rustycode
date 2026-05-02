@@ -296,6 +296,7 @@ impl ForkJoinExecutor {
     /// Spawns each fork as a parallel tokio task, bounded by `max_concurrency`.
     /// Forks that complete within `fork_timeout_ms` produce success results;
     /// timed-out or panicked forks produce failure results.
+    #[allow(clippy::too_many_lines)]
     pub async fn execute_forks(
         &self,
         snapshot: &ContextSnapshot,

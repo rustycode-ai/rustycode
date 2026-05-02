@@ -65,6 +65,10 @@ crates/rustycode-runtime/benchmark_results/
 *.deb
 *.baseline
 
+# Generated runtime directories
+exports/
+.benchmark_workspace/
+
 # AST tool state
 .ast/
 
