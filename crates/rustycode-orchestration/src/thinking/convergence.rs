@@ -31,6 +31,8 @@ impl ConvergenceMetrics {
 
     /// Record metrics for current iteration
     pub fn record_iteration(&mut self, graph: &ReasoningGraph) {
+        const MAX_HISTORY: usize = 100;
+
         let scorer = ConfidenceScorer::new();
         let all_scores = scorer.score_all(graph);
 
@@ -50,8 +52,7 @@ impl ConvergenceMetrics {
         self.new_thoughts_history.push_back(new_thoughts);
         self.previous_count = current_count;
 
-        // Trim history to bounded window (VecDeque capacity grows automatically)
-        const MAX_HISTORY: usize = 100;
+        // Trim history to bounded window
         while self.confidence_history.len() > MAX_HISTORY {
             self.confidence_history.pop_front();
             self.graph_size_history.pop_front();

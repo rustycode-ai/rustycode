@@ -3,10 +3,21 @@
 //! Replaces the intent-only `DelegationTool` (from `rustycode-tools`) with a tool
 //! that actually creates and runs sub-agent sessions. The tool name, description,
 //! and parameters schema are identical so the LLM already knows how to call it.
+//!
+//! This module implements the `TaskRunner` trait from `rustycode-orchestration`,
+//! enabling `ForkJoinExecutor` and `TaskDispatcher` to use it for parallel and
+//! ensemble execution. The `DelegationPlanner` three-gate model gates simple
+//! tasks to inline execution while spawning complex ones.
 
 use anyhow::Result;
 use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageRole};
+use rustycode_orchestration::cost_table::calculate_cost;
+use rustycode_orchestration::delegation::{
+    DelegationConfig, DelegationContext, DelegationPlanner, SpawnDecision, TaskRole, TaskSpec,
+};
+use rustycode_orchestration::task_dispatcher::{TaskDispatcher, TaskResult};
+use rustycode_orchestration::task_runner::{TaskRunResult, TaskRunner};
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_protocol::MessageContent;
 use rustycode_tools::{Tool, ToolContext, ToolOutput, ToolPermission};
@@ -17,8 +28,37 @@ use std::sync::Arc;
 
 use super::definitions::{self, AgentDefinition};
 
-/// Valid delegation roles (must match `DelegationTool` exactly).
-const VALID_ROLES: &[&str] = &[
+// ---------------------------------------------------------------------------
+// Role mapping helpers
+// ---------------------------------------------------------------------------
+
+/// Parse a string role (from LLM tool call) into a `TaskRole` enum.
+fn parse_task_role(role: &str) -> TaskRole {
+    match role {
+        "explore" => TaskRole::Explore,
+        "research" => TaskRole::Research,
+        "code" => TaskRole::Code,
+        "review" => TaskRole::Review,
+        "verify" => TaskRole::Verify,
+        "plan" => TaskRole::Plan,
+        "debug" => TaskRole::Debug,
+        _ => TaskRole::Explore,
+    }
+}
+
+/// Map a `TaskRole` to the agent definition type used by `definitions::find_agent`.
+fn task_role_to_agent_type(role: TaskRole) -> &'static str {
+    match role {
+        TaskRole::Explore | TaskRole::Research => "explore",
+        TaskRole::Code => "general-purpose",
+        TaskRole::Review | TaskRole::Verify => "code-reviewer",
+        TaskRole::Plan => "plan",
+        TaskRole::Debug => "build-error-resolver",
+    }
+}
+
+/// Return all valid role strings for the tool schema.
+const VALID_ROLE_STRINGS: [&str; 7] = [
     "explore",
     "research",
     "code",
@@ -28,25 +68,48 @@ const VALID_ROLES: &[&str] = &[
     "debug",
 ];
 
-/// Map a delegation role to an agent definition type.
-fn role_to_agent_type(role: &str) -> &'static str {
-    match role {
-        "explore" => "explore",
-        "research" => "explore",
-        "code" => "general-purpose",
-        "review" => "code-reviewer",
-        "verify" => "code-reviewer",
-        "plan" => "plan",
-        "debug" => "build-error-resolver",
-        _ => "general-purpose",
-    }
+fn valid_role_strings() -> &'static [&'static str] {
+    &VALID_ROLE_STRINGS
 }
+
+fn enrich_task_prompt(
+    task_description: &str,
+    path_scope: &[PathBuf],
+    resume_from: Option<&str>,
+) -> String {
+    let mut prompt = task_description.to_string();
+
+    if let Some(checkpoint) = resume_from {
+        prompt = format!(
+            "[Resuming from previous context: {checkpoint}]\n\n{prompt}\n\n\
+             Note: You are continuing work from a previous session."
+        );
+    }
+
+    if !path_scope.is_empty() {
+        let paths_str = path_scope
+            .iter()
+            .map(|p| format!("- {}", p.display()))
+            .collect::<Vec<_>>()
+            .join("\n");
+        prompt = format!("{prompt}\n\nFocus on these paths:\n{paths_str}");
+    }
+
+    prompt
+}
+
+// ---------------------------------------------------------------------------
+// DelegationExecutor
+// ---------------------------------------------------------------------------
 
 /// Tool that executes delegated tasks by spawning real `AgentSession` sub-agents.
 ///
 /// The LLM calls `delegate_task` with a `task_description`, optional `role`, and
 /// optional `path_scope`/`resume_from`. This tool maps the role to an
 /// `AgentDefinition`, creates a session, and runs it to completion.
+///
+/// Implements `TaskRunner` so the orchestration crate can use it for
+/// `ForkJoinExecutor` and `TaskDispatcher` parallel execution.
 pub struct DelegationExecutor {
     /// LLM provider for the sub-agent.
     provider: Arc<dyn LLMProvider>,
@@ -56,6 +119,10 @@ pub struct DelegationExecutor {
     cwd: PathBuf,
     /// Tool descriptions schema (cloned from parent for sub-agent).
     tools_schema: Vec<Value>,
+    /// Delegation planner — gates simple tasks to inline, spawns complex ones.
+    planner: DelegationPlanner,
+    /// Planner configuration retained so runtime clones can share the same gate values.
+    planner_config: DelegationConfig,
 }
 
 impl DelegationExecutor {
@@ -71,69 +138,35 @@ impl DelegationExecutor {
             model,
             cwd,
             tools_schema,
+            planner_config: DelegationConfig::default(),
+            planner: DelegationPlanner::new(DelegationConfig::default()),
         }
     }
 
-    /// Resolve the agent definition and run the sub-agent loop.
-    fn run_delegation(&self, role: &str, task_description: &str) -> Result<String> {
-        let agent_type = role_to_agent_type(role);
-
-        let def = definitions::find_agent(agent_type).or_else(|| {
-            // Fallback to general-purpose if the mapped type is not found.
-            tracing::warn!(
-                "DelegationExecutor: agent type '{}' not found for role '{}', falling back to general-purpose",
-                agent_type,
-                role
-            );
-            definitions::find_agent("general-purpose")
-        }).ok_or_else(|| {
-            anyhow::anyhow!("No agent definition available for role '{}'", role)
-        })?;
-
-        tracing::info!(
-            "DelegationExecutor: starting delegated task with role='{}' agent_type='{}'",
-            role,
-            agent_type
-        );
-
-        let start = std::time::Instant::now();
-
-        // Run the async AgentSession inside a blocking context.
-        // `Tool::execute` is sync, but `AgentSession::run` is async.
-        let result = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(self.execute_delegated_task(def, task_description, role))
-        });
-
-        let elapsed = start.elapsed();
-        match &result {
-            Ok(output) => {
-                tracing::info!(
-                    "DelegationExecutor: role='{}' completed in {:.1}s ({} chars)",
-                    role,
-                    elapsed.as_secs_f64(),
-                    output.len()
-                );
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "DelegationExecutor: role='{}' failed after {:.1}s: {}",
-                    role,
-                    elapsed.as_secs_f64(),
-                    e
-                );
-            }
+    /// Create a runtime clone that can be used as a `TaskRunner`.
+    fn runtime_clone(&self) -> Self {
+        Self {
+            provider: Arc::clone(&self.provider),
+            model: self.model.clone(),
+            cwd: self.cwd.clone(),
+            tools_schema: self.tools_schema.clone(),
+            planner_config: self.planner_config.clone(),
+            planner: DelegationPlanner::new(self.planner_config.clone()),
         }
-
-        result
     }
 
-    /// Execute the delegated task in an async context.
-    async fn execute_delegated_task(
+    /// Build a `TaskDispatcher` backed by a fresh runtime clone.
+    fn runtime_dispatcher(&self) -> TaskDispatcher {
+        let runner: Arc<dyn TaskRunner> = Arc::new(self.runtime_clone());
+        TaskDispatcher::with_runner(runner, rustycode_orchestration::bus::BusHandle::new(32))
+    }
+
+    async fn execute_delegated_task_inner(
         &self,
         def: &AgentDefinition,
         prompt: &str,
-        _role: &str,
-    ) -> Result<String> {
+        cwd: &std::path::Path,
+    ) -> Result<(AgentResult, usize)> {
         let config = AgentConfig {
             max_turns: 20,
             timeout_secs: 300,
@@ -141,7 +174,7 @@ impl DelegationExecutor {
             temperature: 0.2,
         };
 
-        let mut session = AgentSession::new(config, &self.cwd);
+        let mut session = AgentSession::new(config, cwd);
         session.activation.promote(ToolTier::Full);
 
         // Build tool registry for sub-agent (subset that doesn't recurse).
@@ -153,7 +186,6 @@ impl DelegationExecutor {
             content: MessageContent::Simple(prompt.to_string()),
         }];
 
-        // Collector that captures output.
         let mut collector = DelegationCollector::default();
 
         let result = session
@@ -168,7 +200,7 @@ impl DelegationExecutor {
             )
             .await?;
 
-        Ok(result.final_text)
+        Ok((result, collector.tool_calls()))
     }
 
     /// Build a tool registry for the sub-agent.
@@ -201,7 +233,89 @@ impl DelegationExecutor {
     }
 }
 
-/// Tool trait implementation.
+// ---------------------------------------------------------------------------
+// TaskRunner implementation
+// ---------------------------------------------------------------------------
+
+impl TaskRunner for DelegationExecutor {
+    fn run_task(
+        &self,
+        task_description: &str,
+        role: TaskRole,
+        path_scope: &[PathBuf],
+        resume_from: Option<&str>,
+    ) -> Result<TaskRunResult> {
+        let start = std::time::Instant::now();
+
+        // Map TaskRole to agent definition.
+        let agent_type = task_role_to_agent_type(role);
+        let def = definitions::find_agent(agent_type)
+            .or_else(|| {
+                tracing::warn!(
+                    "DelegationExecutor: agent type '{agent_type}' not found for role {role:?}, falling back"
+                );
+                definitions::find_agent("general-purpose")
+            })
+            .ok_or_else(|| anyhow::anyhow!("No agent definition available for role {role:?}"))?;
+
+        // Determine effective cwd from path_scope.
+        let effective_cwd = path_scope
+            .first()
+            .cloned()
+            .unwrap_or_else(|| self.cwd.clone());
+
+        // Build enriched prompt once from the runner inputs.
+        let prompt = enrich_task_prompt(task_description, path_scope, resume_from);
+
+        tracing::info!(
+            "DelegationExecutor::run_task: role={role:?} agent_type='{agent_type}' starting"
+        );
+
+        // Execute via AgentSession (async, need block_in_place).
+        let result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(
+                self.execute_delegated_task_inner(def, &prompt, &effective_cwd),
+            )
+        });
+
+        let elapsed_ms = i64::try_from(start.elapsed().as_millis()).unwrap_or(i64::MAX);
+
+        match result {
+            Ok((agent_result, tool_calls)) => {
+                let input_tokens =
+                    usize::try_from(agent_result.total_input_tokens).unwrap_or(usize::MAX);
+                let output_tokens =
+                    usize::try_from(agent_result.total_output_tokens).unwrap_or(usize::MAX);
+                let estimated_cost =
+                    calculate_cost(&self.model, input_tokens, output_tokens).unwrap_or(0.0);
+
+                tracing::info!(
+                    "DelegationExecutor::run_task: role={role:?} completed in {:.1}s ({} chars, {} tool calls)",
+                    start.elapsed().as_secs_f64(),
+                    agent_result.final_text.len(),
+                    tool_calls
+                );
+                Ok(TaskRunResult::success(
+                    agent_result.final_text,
+                    estimated_cost,
+                    elapsed_ms,
+                ))
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "DelegationExecutor::run_task: role={role:?} failed after {:.1}s: {e}",
+                    start.elapsed().as_secs_f64()
+                );
+                Ok(TaskRunResult::failure(e.to_string(), elapsed_ms))
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tool trait implementation
+// ---------------------------------------------------------------------------
+
 impl Tool for DelegationExecutor {
     fn name(&self) -> &'static str {
         "delegate_task"
@@ -217,6 +331,7 @@ impl Tool for DelegationExecutor {
     }
 
     fn parameters_schema(&self) -> Value {
+        let roles = valid_role_strings();
         serde_json::json!({
             "type": "object",
             "required": ["task_description"],
@@ -227,7 +342,7 @@ impl Tool for DelegationExecutor {
                 },
                 "role": {
                     "type": "string",
-                    "enum": VALID_ROLES,
+                    "enum": roles,
                     "description": "Role for the spawned task (default: explore)"
                 },
                 "path_scope": {
@@ -258,35 +373,152 @@ impl Tool for DelegationExecutor {
             anyhow::bail!("'task_description' must not be empty");
         }
 
-        // 3. Extract role (default: explore).
-        let role = params
+        // 3. Extract and validate role (default: explore).
+        let roles = valid_role_strings();
+        let role_str = params
             .get("role")
             .and_then(Value::as_str)
             .unwrap_or("explore");
 
-        // 4. Validate role.
-        if !VALID_ROLES.contains(&role) {
+        if !roles.contains(&role_str) {
             anyhow::bail!(
                 "invalid role '{}': must be one of {}",
-                role,
-                VALID_ROLES.join("|")
+                role_str,
+                roles.join("|")
             );
         }
+        let task_role = parse_task_role(role_str);
 
-        // 5. Run the delegation.
-        match self.run_delegation(role, task_description) {
-            Ok(output) => Ok(ToolOutput::text(output)),
-            Err(e) => Ok(ToolOutput::text(format!(
-                "Delegated task (role='{role}') failed: {e}"
-            ))),
+        // 4. Extract path_scope and resume_from.
+        let path_scope: Vec<PathBuf> = params
+            .get("path_scope")
+            .and_then(Value::as_array)
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(PathBuf::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let resume_from = params
+            .get("resume_from")
+            .and_then(Value::as_str)
+            .map(String::from);
+
+        // 5. Consult the delegation planner (three-gate model).
+        let planner_cwd = path_scope
+            .first()
+            .cloned()
+            .unwrap_or_else(|| self.cwd.clone());
+        let mut context = DelegationContext::for_tool_call(&planner_cwd, "tui-parent");
+        if !path_scope.is_empty() {
+            context.affected_paths = path_scope.clone();
+        }
+
+        let dispatcher = self.runtime_dispatcher();
+
+        let results_to_text = |results: Vec<TaskResult>| {
+            results
+                .into_iter()
+                .enumerate()
+                .map(|(i, r)| {
+                    let status = if r.success { "success" } else { "failed" };
+                    format!("## Task {} ({status})\n{}", i + 1, r.output)
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n---\n\n")
+        };
+
+        match self.planner.should_spawn(task_description, &context) {
+            SpawnDecision::Inline => Ok(ToolOutput::text(
+                "This task is simple enough to handle directly in the current context. \
+                 Delegation is not necessary — consider using read_file, grep, or other \
+                 tools inline instead of spawning a sub-agent.",
+            )),
+            SpawnDecision::Spawn(spec) => {
+                let mut spec = spec;
+                spec.role = task_role;
+                if spec.path_scope.is_empty() && !path_scope.is_empty() {
+                    spec.path_scope = path_scope.clone();
+                }
+                if spec.resume_from.is_none() {
+                    spec.resume_from = resume_from.clone();
+                }
+
+                let results = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current()
+                        .block_on(async { dispatcher.dispatch(SpawnDecision::Spawn(spec)).await })
+                });
+
+                Ok(ToolOutput::text(results_to_text(results)))
+            }
+            SpawnDecision::SpawnParallel(specs) => {
+                let mut specs = specs;
+                for spec in &mut specs {
+                    spec.role = task_role;
+                    if spec.path_scope.is_empty() && !path_scope.is_empty() {
+                        spec.path_scope = path_scope.clone();
+                    }
+                    if spec.resume_from.is_none() {
+                        spec.resume_from = resume_from.clone();
+                    }
+                }
+
+                let results = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(async {
+                        dispatcher
+                            .dispatch(SpawnDecision::SpawnParallel(specs))
+                            .await
+                    })
+                });
+
+                Ok(ToolOutput::text(results_to_text(results)))
+            }
+            SpawnDecision::Ensemble(plan) => {
+                // Ensemble not yet fully wired — fall back to first participant.
+                tracing::warn!(
+                    "DelegationExecutor: Ensemble not yet supported, using first participant"
+                );
+                let spec = plan
+                    .participants
+                    .into_iter()
+                    .next()
+                    .map(|(_, spec)| spec)
+                    .unwrap_or_else(|| TaskSpec::new(task_description, task_role));
+                let mut spec = spec;
+                spec.role = task_role;
+                if spec.path_scope.is_empty() && !path_scope.is_empty() {
+                    spec.path_scope = path_scope.clone();
+                }
+                if spec.resume_from.is_none() {
+                    spec.resume_from = resume_from.clone();
+                }
+
+                let results = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current()
+                        .block_on(async { dispatcher.dispatch(SpawnDecision::Spawn(spec)).await })
+                });
+
+                Ok(ToolOutput::text(results_to_text(results)))
+            }
         }
     }
 }
 
+// ---------------------------------------------------------------------------
+// Event collector
+// ---------------------------------------------------------------------------
+
 /// Simple event collector for delegated sub-agent runs.
 #[derive(Default)]
 struct DelegationCollector {
-    _tool_calls: usize,
+    tool_calls: usize,
+}
+
+impl DelegationCollector {
+    fn tool_calls(&self) -> usize {
+        self.tool_calls
+    }
 }
 
 #[async_trait::async_trait]
@@ -294,7 +526,7 @@ impl AgentEvents for DelegationCollector {
     async fn on_event(&mut self, event: StreamEvent) {
         match event {
             StreamEvent::ToolExecStarted { .. } => {
-                self._tool_calls += 1;
+                self.tool_calls += 1;
             }
             StreamEvent::Done => {}
             _ => {}
@@ -303,6 +535,10 @@ impl AgentEvents for DelegationCollector {
 
     async fn on_done(&mut self, _result: &AgentResult) {}
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -332,15 +568,21 @@ mod tests {
         let tool = make_executor();
         let schema = tool.parameters_schema();
 
-        let required = schema["required"].as_array().expect("required should be array");
+        let required = schema["required"]
+            .as_array()
+            .expect("required should be array");
         assert!(required.iter().any(|v| v.as_str() == Some("task_description")));
 
-        let props = schema["properties"].as_object().expect("properties should be object");
+        let props = schema["properties"]
+            .as_object()
+            .expect("properties should be object");
         assert!(props.contains_key("task_description"));
         assert!(props.contains_key("role"));
 
         // Verify role enum.
-        let role_enum = props["role"]["enum"].as_array().expect("role should have enum");
+        let role_enum = props["role"]["enum"]
+            .as_array()
+            .expect("role should have enum");
         assert!(role_enum.iter().any(|v| v == "explore"));
         assert!(role_enum.iter().any(|v| v == "debug"));
 
@@ -399,31 +641,98 @@ mod tests {
         let _tool = make_executor();
         let _ctx = ToolContext::new("/tmp");
 
-        for role in VALID_ROLES {
+        for role in valid_role_strings() {
             let params = serde_json::json!({
                 "task_description": format!("Test task for {role}"),
                 "role": role
             });
 
-            // We can't run a real sub-agent in unit tests, but we can verify
-            // that validation passes for all valid roles (execute will fail
-            // at the async runtime level, not at validation).
-            // Instead, just verify role validation passes:
-            let role_val = params.get("role").and_then(Value::as_str).unwrap_or("explore");
-            assert!(VALID_ROLES.contains(&role_val), "role '{role}' should be valid");
+            // Verify role validation passes:
+            let role_val = params
+                .get("role")
+                .and_then(Value::as_str)
+                .unwrap_or("explore");
+            assert!(
+                valid_role_strings().contains(&role_val),
+                "role '{role}' should be valid"
+            );
         }
     }
 
     #[test]
-    fn role_to_agent_type_mappings() {
-        assert_eq!(role_to_agent_type("explore"), "explore");
-        assert_eq!(role_to_agent_type("research"), "explore");
-        assert_eq!(role_to_agent_type("code"), "general-purpose");
-        assert_eq!(role_to_agent_type("review"), "code-reviewer");
-        assert_eq!(role_to_agent_type("verify"), "code-reviewer");
-        assert_eq!(role_to_agent_type("plan"), "plan");
-        assert_eq!(role_to_agent_type("debug"), "build-error-resolver");
-        // Unknown role falls back to general-purpose.
-        assert_eq!(role_to_agent_type("unknown"), "general-purpose");
+    fn task_role_to_agent_type_mapping() {
+        assert_eq!(
+            task_role_to_agent_type(parse_task_role("explore")),
+            "explore"
+        );
+        assert_eq!(
+            task_role_to_agent_type(parse_task_role("research")),
+            "explore"
+        );
+        assert_eq!(
+            task_role_to_agent_type(parse_task_role("code")),
+            "general-purpose"
+        );
+        assert_eq!(
+            task_role_to_agent_type(parse_task_role("review")),
+            "code-reviewer"
+        );
+        assert_eq!(
+            task_role_to_agent_type(parse_task_role("verify")),
+            "code-reviewer"
+        );
+        assert_eq!(task_role_to_agent_type(parse_task_role("plan")), "plan");
+        assert_eq!(
+            task_role_to_agent_type(parse_task_role("debug")),
+            "build-error-resolver"
+        );
+        // Unknown role falls back to explore.
+        assert_eq!(
+            task_role_to_agent_type(parse_task_role("unknown")),
+            "explore"
+        );
+    }
+
+    #[test]
+    fn parse_task_role_known_roles() {
+        assert_eq!(parse_task_role("explore"), TaskRole::Explore);
+        assert_eq!(parse_task_role("research"), TaskRole::Research);
+        assert_eq!(parse_task_role("code"), TaskRole::Code);
+        assert_eq!(parse_task_role("review"), TaskRole::Review);
+        assert_eq!(parse_task_role("verify"), TaskRole::Verify);
+        assert_eq!(parse_task_role("plan"), TaskRole::Plan);
+        assert_eq!(parse_task_role("debug"), TaskRole::Debug);
+    }
+
+    #[test]
+    fn parse_task_role_unknown_defaults_to_explore() {
+        assert_eq!(parse_task_role("unknown"), TaskRole::Explore);
+        assert_eq!(parse_task_role(""), TaskRole::Explore);
+    }
+
+    #[test]
+    fn valid_role_strings_contains_all_roles() {
+        let roles = valid_role_strings();
+        assert_eq!(roles.len(), 7);
+        assert!(roles.contains(&"explore"));
+        assert!(roles.contains(&"research"));
+        assert!(roles.contains(&"code"));
+        assert!(roles.contains(&"review"));
+        assert!(roles.contains(&"verify"));
+        assert!(roles.contains(&"plan"));
+        assert!(roles.contains(&"debug"));
+    }
+
+    #[test]
+    fn delegation_executor_has_planner() {
+        let exec = make_executor();
+        // Planner is initialized — verify via context creation.
+        let ctx = DelegationContext::for_tool_call(&exec.cwd, "test");
+        let decision = exec.planner.should_spawn("fix a typo in readme", &ctx);
+        // Low-complexity task with default context should be inline.
+        assert!(
+            matches!(decision, SpawnDecision::Inline),
+            "expected Inline for simple task, got {decision:?}"
+        );
     }
 }

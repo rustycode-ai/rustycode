@@ -1,5 +1,5 @@
-import { type ReactNode } from "react";
-import Markdown from "react-markdown";
+import { type ReactNode, Suspense } from "react";
+import { MarkdownHooks as Markdown } from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark-dimmed.css";
 import type { FrontendMessage, MessagePart } from "../protocol/types";
@@ -77,14 +77,25 @@ function timestampISO(ts?: number): string {
   return new Date(ts).toISOString();
 }
 
-function TextPartRenderer({ content, streaming }: { content: string; streaming?: boolean }) {
+function SafeMarkdown({ content }: { content: string }) {
+  if (!content) return null;
   return (
-    <div className={`part-text${streaming ? " part-text-streaming" : ""}`}>
+    <Suspense fallback={<pre>{content}</pre>}>
       <Markdown
         allowedElements={ALLOWED_ELEMENTS}
         rehypePlugins={[rehypeHighlight]}
         components={markdownComponents}
+        skipHtml
+        fallback={<pre>{content}</pre>}
       >{content}</Markdown>
+    </Suspense>
+  );
+}
+
+function TextPartRenderer({ content, streaming }: { content: string; streaming?: boolean }) {
+  return (
+    <div className={`part-text${streaming ? " part-text-streaming" : ""}`}>
+      <SafeMarkdown content={content} />
     </div>
   );
 }
@@ -187,11 +198,7 @@ export function MessageBubble({ message, toolOutputsVisible, isStreaming }: Mess
       ) : (
         <div className="message-content">
           {message.content ? (
-            <Markdown
-              allowedElements={ALLOWED_ELEMENTS}
-              rehypePlugins={[rehypeHighlight]}
-              components={markdownComponents}
-            >{message.content}</Markdown>
+            <SafeMarkdown content={message.content} />
           ) : isStreaming ? (
             <span className="streaming-cursor" aria-hidden="true" />
           ) : (

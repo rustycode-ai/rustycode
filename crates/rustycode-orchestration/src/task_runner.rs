@@ -1,7 +1,8 @@
-//! Abstraction for executing individual tasks, implemented by the TUI crate
-//! with real `AgentSession` execution. The orchestration crate defines the trait
-//! so that `ForkJoinExecutor` and `TaskDispatcher` can use it without depending
-//! on TUI types.
+//! Abstraction for executing individual delegated tasks.
+//!
+//! The orchestration crate defines the `TaskRunner` trait so that
+//! `ForkJoinExecutor` and `TaskDispatcher` can use it without depending
+//! on TUI types. The TUI crate provides the concrete implementation.
 
 use crate::delegation::TaskRole;
 use anyhow::Result;

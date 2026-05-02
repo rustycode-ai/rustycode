@@ -103,6 +103,9 @@ pub struct ForkSpec {
     pub description: String,
     /// File paths this fork is responsible for (for worktree isolation).
     pub path_scope: Vec<PathBuf>,
+    /// Optional checkpoint to resume from.
+    #[serde(default)]
+    pub resume_from: Option<String>,
     /// Tier at which this fork should execute.
     pub tier: ExecutionTier,
     /// Semantic role for this fork's execution.
@@ -121,6 +124,7 @@ impl ForkSpec {
             fork_id: fork_id.into(),
             description: description.into(),
             path_scope: Vec::new(),
+            resume_from: None,
             tier,
             role: None,
         }
@@ -129,6 +133,12 @@ impl ForkSpec {
     /// Add a path to this fork's scope.
     pub fn with_path(mut self, path: PathBuf) -> Self {
         self.path_scope.push(path);
+        self
+    }
+
+    /// Set a resume checkpoint for this fork.
+    pub fn with_resume_from(mut self, checkpoint: impl Into<String>) -> Self {
+        self.resume_from = Some(checkpoint.into());
         self
     }
 
@@ -296,7 +306,11 @@ impl ForkJoinExecutor {
     /// Spawns each fork as a parallel tokio task, bounded by `max_concurrency`.
     /// Forks that complete within `fork_timeout_ms` produce success results;
     /// timed-out or panicked forks produce failure results.
-    #[allow(clippy::too_many_lines)]
+    #[allow(
+        clippy::too_many_lines,
+        clippy::option_if_let_else,
+        clippy::single_match_else
+    )]
     pub async fn execute_forks(
         &self,
         snapshot: &ContextSnapshot,
@@ -314,6 +328,7 @@ impl ForkJoinExecutor {
         let start = std::time::Instant::now();
         let semaphore = Arc::new(Semaphore::new(self.config.max_concurrency));
         let timeout = std::time::Duration::from_millis(self.config.fork_timeout_ms);
+        let fork_count = specs.len();
 
         let mut join_set: tokio::task::JoinSet<(ForkResult, BusHandle)> =
             tokio::task::JoinSet::new();
@@ -323,6 +338,7 @@ impl ForkJoinExecutor {
             let timeout_dur = timeout;
             let bus = self.bus.clone();
             let task_id = snapshot.task_id.clone();
+            let spec = spec.clone();
             let fork_id = spec.fork_id.clone();
             let description = spec.description.clone();
             let runner_opt = self.runner.clone();
@@ -333,7 +349,7 @@ impl ForkJoinExecutor {
                 .publish(crate::bus::OrchestrationEvent::ForkStarted {
                     task_id: task_id.clone(),
                     fork_id: fork_id.clone(),
-                    fork_count: specs.len(),
+                    fork_count,
                 });
 
             join_set.spawn(async move {
@@ -345,46 +361,50 @@ impl ForkJoinExecutor {
                 let fork_start = std::time::Instant::now();
 
                 let result = match tokio::time::timeout(timeout_dur, async {
-                    if let Some(runner) = runner_opt.as_ref() {
-                        let desc = description.clone();
-                        let paths = path_scope.clone();
-                        let fork_id_captured = fork_id.clone();
-                        let runner_arc = Arc::clone(runner);
-                        match tokio::task::spawn_blocking(move || {
-                            runner_arc.run_task(&desc, role, &paths, None)
-                        })
-                        .await
-                        {
-                            Ok(Ok(task_result)) => ForkResult {
-                                fork_id: fork_id_captured,
-                                success: task_result.success,
-                                output: task_result.output,
-                                cost_usd: task_result.cost_usd,
-                                duration_ms: i64::try_from(fork_start.elapsed().as_millis())
-                                    .unwrap_or(i64::MAX),
-                            },
-                            Ok(Err(e)) => ForkResult::failure(
-                                &fork_id_captured,
-                                e.to_string(),
-                                i64::try_from(fork_start.elapsed().as_millis())
-                                    .unwrap_or(i64::MAX),
-                            ),
-                            Err(join_err) => ForkResult::failure(
-                                &fork_id_captured,
-                                join_err.to_string(),
-                                i64::try_from(fork_start.elapsed().as_millis())
-                                    .unwrap_or(i64::MAX),
-                            ),
+                    match runner_opt.as_ref() {
+                        Some(runner) => {
+                            let desc = description.clone();
+                            let paths = path_scope.clone();
+                            let resume_from = spec.resume_from.clone();
+                            let fork_id_captured = fork_id.clone();
+                            let runner_arc = Arc::clone(runner);
+                            match tokio::task::spawn_blocking(move || {
+                                runner_arc.run_task(&desc, role, &paths, resume_from.as_deref())
+                            })
+                            .await
+                            {
+                                Ok(Ok(task_result)) => ForkResult {
+                                    fork_id: fork_id_captured,
+                                    success: task_result.success,
+                                    output: task_result.output,
+                                    cost_usd: task_result.cost_usd,
+                                    duration_ms: i64::try_from(fork_start.elapsed().as_millis())
+                                        .unwrap_or(i64::MAX),
+                                },
+                                Ok(Err(e)) => ForkResult::failure(
+                                    &fork_id_captured,
+                                    e.to_string(),
+                                    i64::try_from(fork_start.elapsed().as_millis())
+                                        .unwrap_or(i64::MAX),
+                                ),
+                                Err(join_err) => ForkResult::failure(
+                                    &fork_id_captured,
+                                    join_err.to_string(),
+                                    i64::try_from(fork_start.elapsed().as_millis())
+                                        .unwrap_or(i64::MAX),
+                                ),
+                            }
                         }
-                    } else {
-                        tokio::task::yield_now().await;
-                        ForkResult::success(
-                            &fork_id,
-                            format!("Fork executed: {description}"),
-                            0.001,
-                            i64::try_from(fork_start.elapsed().as_millis())
-                                .unwrap_or(i64::MAX),
-                        )
+                        None => {
+                            tokio::task::yield_now().await;
+                            ForkResult::success(
+                                &fork_id,
+                                format!("Fork executed: {description}"),
+                                0.0,
+                                i64::try_from(fork_start.elapsed().as_millis())
+                                    .unwrap_or(i64::MAX),
+                            )
+                        }
                     }
                 })
                 .await

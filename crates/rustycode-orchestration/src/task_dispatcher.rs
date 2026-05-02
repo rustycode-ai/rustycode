@@ -194,6 +194,7 @@ fn task_spec_to_fork_spec(spec: &TaskSpec) -> ForkSpec {
     let tier = spec.effective_tier();
     let mut fork = ForkSpec::new(&spec.task_id, &spec.prompt, tier);
     fork.role = Some(spec.role);
+    fork.resume_from.clone_from(&spec.resume_from);
 
     for path in &spec.path_scope {
         fork = fork.with_path(path.clone());
@@ -250,6 +251,15 @@ mod tests {
         let bus = make_bus();
         let dispatcher = make_dispatcher(bus);
         let _ = &dispatcher;
+    }
+
+    #[test]
+    fn task_spec_to_fork_spec_preserves_resume_from() {
+        let mut spec = make_spec("do the thing").with_resume_from("checkpoint-7");
+        spec.path_scope.push(PathBuf::from("src/lib.rs"));
+        let fork = task_spec_to_fork_spec(&spec);
+        assert_eq!(fork.resume_from.as_deref(), Some("checkpoint-7"));
+        assert_eq!(fork.path_scope.len(), 1);
     }
 
     #[tokio::test]
