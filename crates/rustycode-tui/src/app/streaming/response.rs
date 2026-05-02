@@ -884,7 +884,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
         let mut assistant_response = String::new();
         let mut content_blocks: Vec<ContentBlock> = Vec::new();
         let mut thinking_content = String::new();
-        let thinking_signature = String::new();
+        let mut thinking_signature = String::new();
         let mut stop_action = ToolUseAction::None;
         let stream_start = std::time::Instant::now();
         let mut thinking_timeout_fired = false;
@@ -1004,6 +1004,15 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     }
                     StreamEvent::ThinkingDelta { content } => {
                         thinking_content.push_str(&content);
+                        // Populate thinking_signature from the first thinking delta.
+                        // The streaming pipeline does not currently forward the
+                        // provider's signature_delta events (e.g., Anthropic), so
+                        // we use a deterministic placeholder derived from content.
+                        // This ensures downstream thinking-block detection works
+                        // even though we lack the real cryptographic signature.
+                        if thinking_signature.is_empty() && !thinking_content.is_empty() {
+                            thinking_signature = format!("tui_stream_{}", thinking_content.len());
+                        }
                         if Some(&content) != last_thinking_chunk.as_ref() {
                             last_thinking_chunk = Some(content.clone());
                             let _ = crate::app::streaming::events::handle_thinking_event(
@@ -1020,8 +1029,6 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     }
                     StreamEvent::ToolInputDelta { id, chunk } => {
                         if let Some(tool) = active_tools.get_mut(&id) {
-                            tool.push_json(&chunk);
-                        } else if let Some(tool) = active_tools.values_mut().next() {
                             tool.push_json(&chunk);
                         }
                     }

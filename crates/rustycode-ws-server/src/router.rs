@@ -175,11 +175,13 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     state.event_bridge.register(&session_token, bridge_tx).await;
 
     let bridge_out_tx = out_tx.clone();
+    let seq_counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
     let bridge_forward_handle: tokio::task::JoinHandle<()> = tokio::spawn(async move {
         while let Some(stream_event) = bridge_rx.recv().await {
             let event_id = uuid::Uuid::new_v4().to_string();
+            let seq = seq_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed).saturating_add(1);
             let event_payload = crate::protocol::EventPayload {
-                seq: 0, // seq is managed by the session
+                seq,
                 event_id,
                 event: stream_event,
             };

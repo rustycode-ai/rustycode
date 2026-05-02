@@ -51,13 +51,19 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
   }, [connectionStatus, addToast]);
 
   useEffect(() => {
-    fetch("/api/providers")
+    const controller = new AbortController();
+    fetch("/api/providers", { signal: controller.signal })
       .then((r) => r.json())
       .then((d) => setProviderInfo({
         provider: d.current?.provider || "",
         model: d.current?.model || "",
       }))
-      .catch(() => setProviderInfo({ provider: "", model: "" }));
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setProviderInfo({ provider: "", model: "" });
+        }
+      });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {

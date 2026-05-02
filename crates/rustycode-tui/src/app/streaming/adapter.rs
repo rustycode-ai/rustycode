@@ -88,8 +88,8 @@ impl StreamEventAdapter {
                     output: Some(output_preview),
                 });
             }
-            OrchestrationEvent::ToolExecutionStarted { tool, args, .. } => {
-                let tool_id = format!("exec-{}", tool);
+            OrchestrationEvent::ToolExecutionStarted { task_id, tool, args } => {
+                let tool_id = format!("exec-{}-{}", task_id, tool);
                 let call = ToolCall::new(tool_id.clone(), tool.clone(), args);
                 self.emit(StreamChunk::ToolStart {
                     tool_name: tool.clone(),
@@ -98,8 +98,8 @@ impl StreamEventAdapter {
                 });
                 self.active_tools.insert(tool_id, call);
             }
-            OrchestrationEvent::ToolExecutionFinished { tool, result, .. } => {
-                let tool_id = format!("exec-{}", tool);
+            OrchestrationEvent::ToolExecutionFinished { task_id, tool, result } => {
+                let tool_id = format!("exec-{}-{}", task_id, tool);
                 let duration_ms = self
                     .active_tools
                     .remove(&tool_id)
