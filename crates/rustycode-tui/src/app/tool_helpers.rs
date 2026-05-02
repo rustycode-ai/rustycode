@@ -24,6 +24,7 @@ pub fn should_auto_execute(command: &str) -> bool {
     safe_prefixes
         .iter()
         .any(|prefix| command.starts_with(prefix))
+        && !has_dangerous_patterns(command)
 }
 
 /// Parse a command pipeline into individual commands.
@@ -51,14 +52,32 @@ fn has_dangerous_patterns(command: &str) -> bool {
     // These are patterns that enable command injection
     let dangerous = [
         ";",    // Command separator
-        "&",    // Background operator
         "`",    // Command substitution (old style)
         "$(",   // Command substitution (new style)
-        "\\(",  // Subshell
-        "\\${", // Variable expansion with braces (potential injection)
+        "${",   // Variable expansion with braces (potential injection)
     ];
 
-    dangerous.iter().any(|pattern| command.contains(pattern))
+    // Check simple patterns
+    if dangerous.iter().any(|pattern| command.contains(pattern)) {
+        return true;
+    }
+
+    // Check for bare & (background operator) but allow && (sequential execution)
+    // We need to distinguish "cmd &" from "cmd && cmd"
+    if command.contains('&') {
+        // Remove all "&&" occurrences, then check if any & remains
+        let without_double = command.replace("&&", "");
+        if without_double.contains('&') {
+            return true;
+        }
+    }
+
+    // Check for newlines (command separator)
+    if command.contains('\n') {
+        return true;
+    }
+
+    false
 }
 
 /// Check if file redirection is safe (only with whitelisted commands).
@@ -181,7 +200,7 @@ pub fn is_dangerous_shell_command(command: &str) -> bool {
 
 /// Build a canonical conversation summary for a tool result.
 pub fn format_tool_result_summary(tool_result: &ToolResult, tool_name: &str) -> String {
-    if tool_result.error.is_none() {
+    if tool_result.success {
         let output_lines = tool_result.output.lines().count();
         let output_chars = tool_result.output.chars().count();
 

@@ -48,10 +48,21 @@ impl EventBridge {
                         let Some(stream_event) = convert_event(&event) else {
                             continue;
                         };
-                        let sessions = sessions.read().await;
-                        for (token, sender) in sessions.iter() {
-                            if let Err(e) = sender.send(stream_event.clone()) {
+                        let read_guard = sessions.read().await;
+                        let mut dead_tokens = Vec::new();
+                        for (token, sender) in read_guard.iter() {
+                            if sender.is_closed() {
+                                dead_tokens.push(token.clone());
+                            } else if let Err(e) = sender.send(stream_event.clone()) {
                                 warn!(session = %token, "failed to forward event: {e}");
+                                dead_tokens.push(token.clone());
+                            }
+                        }
+                        drop(read_guard);
+                        if !dead_tokens.is_empty() {
+                            let mut write_guard = sessions.write().await;
+                            for token in dead_tokens {
+                                write_guard.remove(&token);
                             }
                         }
                     }

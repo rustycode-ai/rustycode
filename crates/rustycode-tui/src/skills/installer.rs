@@ -160,11 +160,13 @@ pub async fn update_repository(skill_path: &Path) -> Result<String> {
 
 /// Validate skill directory structure
 pub fn validate_skill(dir: &Path) -> Result<()> {
-    // Check skill.md exists
-    let skill_file = dir.join("skill.md");
-    if !skill_file.exists() {
-        anyhow::bail!("skill.md not found in {:?}", dir);
-    }
+    let skill_file = if dir.join("SKILL.md").exists() {
+        dir.join("SKILL.md")
+    } else if dir.join("skill.md").exists() {
+        dir.join("skill.md")
+    } else {
+        anyhow::bail!("SKILL.md not found in {:?}", dir);
+    };
 
     // Check it's not empty
     let content = fs::read_to_string(&skill_file)
@@ -214,7 +216,13 @@ fn save_installed_skill(name: &str, lifecycle: &SkillLifecycle) -> Result<()> {
     let registry_path = registry_path()?;
     let mut registry: HashMap<String, SkillLifecycle> = if registry_path.exists() {
         let content = fs::read_to_string(&registry_path)?;
-        serde_json::from_str(&content).unwrap_or_default()
+        match serde_json::from_str(&content) {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("Failed to parse installed skills registry, resetting: {}", e);
+                HashMap::new()
+            }
+        }
     } else {
         HashMap::new()
     };

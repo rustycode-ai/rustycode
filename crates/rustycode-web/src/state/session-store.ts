@@ -2,6 +2,13 @@ import { createContext, useContext } from "react";
 import type { FrontendSession, EventPayload } from "../protocol/types";
 import { applyEvent } from "./event-reducer";
 
+function randomUUID(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export type SessionAction =
   | { type: "SET_SESSION"; session: FrontendSession }
   | { type: "APPLY_EVENT"; payload: EventPayload }
@@ -52,8 +59,8 @@ export function sessionReducer(
         last_user_prompt: action.content,
         messages: [
           ...state.messages,
-          { id: crypto.randomUUID(), content: action.content, kind: "User" as const, parts: [{ type: "text", content: action.content }], created_at: Date.now() },
-          { id: crypto.randomUUID(), content: "", kind: "Assistant" as const, parts: [], created_at: Date.now() },
+          {       id: randomUUID(), content: action.content, kind: "User" as const, parts: [{ type: "text", content: action.content }], created_at: Date.now() },
+          { id: randomUUID(), content: "", kind: "Assistant" as const, parts: [], created_at: Date.now() },
         ],
       };
     default:

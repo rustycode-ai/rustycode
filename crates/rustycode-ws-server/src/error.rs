@@ -22,6 +22,9 @@ pub enum WsError {
 
     #[error("internal error: {0}")]
     Internal(String),
+
+    #[error("too many sessions (limit: {limit})")]
+    TooManySessions { limit: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]

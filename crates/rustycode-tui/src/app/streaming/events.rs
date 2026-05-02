@@ -47,8 +47,8 @@ pub fn handle_stream_event(
             *in_tool_use = true;
             active_tools.insert(id.clone(), ActiveToolUse::new(id, name, String::new()));
         }
-        StreamEvent::ToolInputDelta { chunk, .. } => {
-            if let Some(tool) = active_tools.values_mut().next() {
+        StreamEvent::ToolInputDelta { id, chunk } => {
+            if let Some(tool) = active_tools.get_mut(&id) {
                 tool.partial_json.push_str(&chunk);
             }
         }

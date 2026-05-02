@@ -245,6 +245,10 @@ impl WorkspaceScanner {
                         if let Ok(metadata) = self.get_file_metadata(&path) {
                             files.push(metadata);
                         }
+                    } else if file_type.is_dir() {
+                        if let Ok(sub_files) = self.scan_directory(&entry.path()) {
+                            files.extend(sub_files);
+                        }
                     }
                 }
             }
@@ -274,7 +278,10 @@ impl WorkspaceScanner {
                 if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
                     current_paths.insert(path.clone());
 
-                    let metadata = self.get_file_metadata(&path)?;
+                    let metadata = match self.get_file_metadata(&path) {
+                        Ok(m) => m,
+                        Err(_) => continue,
+                    };
 
                     if let Some(cached) = self.get_cached(&path) {
                         if cached.metadata.modified < metadata.modified {

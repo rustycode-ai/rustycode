@@ -452,12 +452,15 @@ async fn list_sessions(
 
 async fn create_session(
     State(state): State<AppState>,
-) -> impl IntoResponse {
-    let session_state = state.session_manager.create_session().await;
-    (
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    let session_state = state.session_manager.create_session().await.map_err(|e| {
+        let code = StatusCode::SERVICE_UNAVAILABLE;
+        (code, Json(serde_json::json!({ "error": e.to_string() })))
+    })?;
+    Ok((
         StatusCode::CREATED,
         Json(serde_json::json!({ "session_token": session_state.id.to_string() })),
-    )
+    ))
 }
 
 async fn delete_session(

@@ -102,7 +102,7 @@ export function InputBar({ onSend, onAbort, pending, onRegenerate }: InputBarPro
         aria-label="Message input"
       />
       <div className="input-bar-actions">
-        {value.length > 0 && <span className="input-char-count">{value.length}</span>}
+        {value.length > 0 && <span className="input-char-count" aria-label={`${value.length} characters`}>{value.length}</span>}
         {!pending && onRegenerate && (
           <button className="btn-icon btn-regenerate" onClick={onRegenerate} type="button" aria-label="Regenerate last response" title="Regenerate">
             ↻

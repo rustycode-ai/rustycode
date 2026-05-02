@@ -453,8 +453,11 @@ impl SkillLoader {
     fn load_instructions(&self, path: &Path) -> String {
         let instructions_path = path.join("instructions.md");
         if instructions_path.exists() {
-            if let Ok(content) = fs::read_to_string(&instructions_path) {
-                return content;
+            match fs::read_to_string(&instructions_path) {
+                Ok(content) => return content,
+                Err(e) => {
+                    tracing::warn!("Failed to read instructions file {:?}: {}", instructions_path, e);
+                }
             }
         }
         String::new()

@@ -291,8 +291,8 @@ impl CompositionManager {
                     })?;
 
                 // Replace both {{name}} and {{ name }} formats
-                instantiated = instantiated.replace(&format!("{{{{{}}}", param.name), value);
-                instantiated = instantiated.replace(&format!("{{{} }}", param.name), value);
+                instantiated = instantiated.replace(&format!("{{{{{}}}}}", param.name), value);
+                instantiated = instantiated.replace(&format!("{{{{ {} }}}}", param.name), value);
             }
 
             result.insert(file_path.clone(), instantiated);

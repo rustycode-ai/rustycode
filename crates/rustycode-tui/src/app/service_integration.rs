@@ -512,7 +512,7 @@ impl ServiceManager {
         let (question_tx, question_rx) = std::sync::mpsc::channel();
         self.approval_tx = Some(approval_tx);
         self.question_tx = Some(question_tx);
-        self.stream_stop_requested.store(false, Ordering::SeqCst);
+        self.stream_stop_requested = Arc::new(AtomicBool::new(false));
 
         let ctx = StreamingContext {
             content,

@@ -346,9 +346,22 @@ pub fn highlight_matches(
         result.push_str(&text[last_pos..abs_pos]);
 
         // Add highlighted match
-        let match_end = abs_pos + query.len();
+        let match_len = query_lower.len();
+        let match_end = abs_pos + match_len;
+
         result.push_str(highlight_prefix);
-        result.push_str(&text[abs_pos..match_end]);
+        if text.is_char_boundary(match_end) {
+            result.push_str(&text[abs_pos..match_end]);
+        } else {
+            let matched_lower = &text_lower[abs_pos..match_end];
+            let char_count = matched_lower.chars().count();
+            let actual_end = text[abs_pos..]
+                .char_indices()
+                .nth(char_count)
+                .map(|(i, _)| abs_pos + i)
+                .unwrap_or_else(|| text.len());
+            result.push_str(&text[abs_pos..actual_end]);
+        }
         result.push_str(highlight_suffix);
 
         last_pos = match_end;

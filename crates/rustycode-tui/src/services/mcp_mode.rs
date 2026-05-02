@@ -404,6 +404,10 @@ impl McpMode {
                 }
             }
         }
+
+        let total_tools = self.tools.len();
+        self.selected_tool = self.selected_tool.min(total_tools.saturating_sub(1));
+
         Ok(())
     }
 

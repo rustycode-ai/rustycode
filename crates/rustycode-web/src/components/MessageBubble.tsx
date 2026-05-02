@@ -104,8 +104,8 @@ function ThinkingPartRenderer({ content }: { content: string }) {
 
 function ErrorPartRenderer({ message }: { message: string }) {
   return (
-    <div className="part-error">
-      <span className="part-error-icon">&#9888;</span>
+    <div className="part-error" role="alert">
+      <span className="part-error-icon" aria-hidden="true">&#9888;</span>
       <span>{message}</span>
     </div>
   );

@@ -269,7 +269,7 @@ impl ClipboardImage {
     pub fn to_data_url(&self) -> String {
         use base64::Engine;
         let base64_data = base64::engine::general_purpose::STANDARD.encode(&self.data);
-        format!("{};base64,{}", self.format.mime_type(), base64_data)
+        format!("data:{};base64,{}", self.format.mime_type(), base64_data)
     }
 
     /// Get human-readable size string

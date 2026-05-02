@@ -28,27 +28,21 @@ use crate::skills::{Skill, SkillStateManager};
 
 /// Wrapper that exposes a skill as an LLM-callable tool
 pub struct SkillAsTool {
-    /// Skill metadata
     skill: Skill,
-    /// Reference to skill state manager for runtime state
     state_manager: Arc<RwLock<SkillStateManager>>,
+    tool_name: String,
 }
 
 impl SkillAsTool {
-    /// Create a new skill-as-tool wrapper
     pub fn new(skill: Skill, state_manager: Arc<RwLock<SkillStateManager>>) -> Self {
+        let tool_name = format!("skill_{}", skill.name.replace('-', "_"));
         Self {
             skill,
             state_manager,
+            tool_name,
         }
     }
 
-    /// Get the skill name as a tool name (prefixed with "skill_")
-    fn tool_name(&self) -> String {
-        format!("skill_{}", self.skill.name.replace('-', "_"))
-    }
-
-    /// Build JSON Schema for skill parameters
     fn build_parameters_schema(&self) -> Value {
         let mut properties = json!({});
         let mut required = Vec::new();
@@ -159,14 +153,11 @@ impl SkillAsTool {
 
 impl Tool for SkillAsTool {
     fn name(&self) -> &str {
-        // Leak the string to get a 'static lifetime
-        // Each skill instance gets its own leaked string
-        Box::leak(self.tool_name().into_boxed_str())
+        &self.tool_name
     }
 
     fn description(&self) -> &str {
-        // Leak the string to get a 'static lifetime
-        Box::leak(self.skill.description.clone().into_boxed_str())
+        &self.skill.description
     }
 
     fn permission(&self) -> rustycode_tools::ToolPermission {

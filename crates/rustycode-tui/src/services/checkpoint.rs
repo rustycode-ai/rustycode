@@ -129,6 +129,7 @@ impl CheckpointManager {
             name.to_lowercase()
                 .replace(' ', "-")
                 .chars()
+                .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
                 .take(20)
                 .collect::<String>()
         );

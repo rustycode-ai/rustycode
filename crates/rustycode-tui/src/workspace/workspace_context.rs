@@ -88,12 +88,6 @@ const PROGRESS_UPDATE_INTERVAL: usize = 10;
 /// with too many file entries.
 const MAX_FILES_DISPLAY: usize = 30;
 
-/// Division factor for directory scan progress weight
-///
-/// Directory scanning is weighted less than file reading in progress
-/// calculations since it's generally faster.
-const DIRECTORY_SCAN_WEIGHT: usize = 2;
-
 /// Maximum number of directories to sample for file count estimation
 ///
 /// Limits the sampling to prevent excessive I/O on large projects.
@@ -393,7 +387,6 @@ pub fn load_workspace_context_with_progress(
         }
 
         // Final progress update for directory scan
-        scanned = scanned.max(estimated_total / DIRECTORY_SCAN_WEIGHT);
         report_progress(scanned, estimated_total);
     }
 

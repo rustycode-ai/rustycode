@@ -83,6 +83,9 @@ pub struct SessionManager {
     model_name: RwLock<String>,
 }
 
+const MAX_SESSIONS: usize = 256;
+const MAX_PENDING_APPROVALS: usize = 128;
+
 impl std::fmt::Debug for SessionManager {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SessionManager")
@@ -136,7 +139,13 @@ impl SessionManager {
         &self.pipeline
     }
 
-    pub async fn create_session(&self) -> SessionState {
+    pub async fn create_session(&self) -> Result<SessionState, WsError> {
+        {
+            let sessions = self.sessions.read().await;
+            if sessions.len() >= MAX_SESSIONS {
+                return Err(WsError::TooManySessions { limit: MAX_SESSIONS });
+            }
+        }
         let id = SessionId::new();
         let token = id.to_string();
         let state = SessionState::new(id);
@@ -144,7 +153,7 @@ impl SessionManager {
         info!(session_id = %token, "created new session");
 
         self.sessions.write().await.insert(token, state.clone());
-        state
+        Ok(state)
     }
 
     pub async fn get_or_create(&self, token: Option<&str>) -> Result<(SessionState, bool), WsError> {
@@ -155,7 +164,7 @@ impl SessionManager {
             }
         }
 
-        let state = self.create_session().await;
+        let state = self.create_session().await?;
         Ok((state, false))
     }
 
@@ -353,6 +362,11 @@ impl SessionManager {
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         let (tx, rx) = tokio::sync::oneshot::channel();
         let mut map = state.pending_tool_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        if map.len() >= MAX_PENDING_APPROVALS {
+            return Err(WsError::Internal(format!(
+                "too many pending tool approvals (limit: {MAX_PENDING_APPROVALS})"
+            )));
+        }
         map.insert(request_id, tx);
         Ok(rx)
     }
@@ -369,6 +383,11 @@ impl SessionManager {
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         let (tx, rx) = tokio::sync::oneshot::channel();
         let mut map = state.pending_plan_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        if map.len() >= MAX_PENDING_APPROVALS {
+            return Err(WsError::Internal(format!(
+                "too many pending plan approvals (limit: {MAX_PENDING_APPROVALS})"
+            )));
+        }
         map.insert(plan_id, tx);
         Ok(rx)
     }
@@ -535,8 +554,8 @@ mod tests {
     #[tokio::test]
     async fn creates_session_with_unique_id() {
         let mgr = test_mgr();
-        let s1 = mgr.create_session().await;
-        let s2 = mgr.create_session().await;
+        let s1 = mgr.create_session().await.unwrap();
+        let s2 = mgr.create_session().await.unwrap();
         assert_ne!(s1.id.to_string(), s2.id.to_string());
     }
 
@@ -551,7 +570,7 @@ mod tests {
     #[tokio::test]
     async fn get_or_create_resumes_existing() {
         let mgr = test_mgr();
-        let created = mgr.create_session().await;
+        let created = mgr.create_session().await.unwrap();
         let token = created.id.to_string();
 
         let (state, resumed) = mgr.get_or_create(Some(&token)).await.unwrap();
@@ -569,7 +588,7 @@ mod tests {
     #[tokio::test]
     async fn submit_input_adds_user_message() {
         let mgr = test_mgr();
-        let created = mgr.create_session().await;
+        let created = mgr.create_session().await.unwrap();
         let token = created.id.to_string();
 
         mgr.submit_input(&token, "hello").await.unwrap();
@@ -591,7 +610,7 @@ mod tests {
     #[tokio::test]
     async fn client_tracking() {
         let mgr = test_mgr();
-        let created = mgr.create_session().await;
+        let created = mgr.create_session().await.unwrap();
         let token = created.id.to_string();
 
         mgr.client_connected(&token).await.unwrap();
@@ -608,7 +627,7 @@ mod tests {
     #[tokio::test]
     async fn next_seq_monotonically_increases() {
         let mgr = test_mgr();
-        let created = mgr.create_session().await;
+        let created = mgr.create_session().await.unwrap();
         let token = created.id.to_string();
 
         let s1 = mgr.update_session(&token, SessionState::next_seq).await.unwrap();

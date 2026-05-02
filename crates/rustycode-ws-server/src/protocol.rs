@@ -1,5 +1,6 @@
 use rustycode_protocol::StreamEvent;
 use rustycode_ui_model::FrontendSession;
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
 pub const PROTOCOL_VERSION: u8 = 2;
@@ -27,6 +28,14 @@ impl Envelope {
     }
 
     pub fn decode(json: &str) -> Result<Self, serde_json::Error> {
+        const MAX_ENVELOPE_SIZE: usize = 256 * 1024;
+        if json.len() > MAX_ENVELOPE_SIZE {
+            return Err(serde_json::Error::custom(format!(
+                "message exceeds size limit ({} > {} bytes)",
+                json.len(),
+                MAX_ENVELOPE_SIZE
+            )));
+        }
         serde_json::from_str(json)
     }
 }
@@ -597,5 +606,14 @@ mod tests {
         let caps = Capabilities::default();
         assert_eq!(caps.max_frame_size, 256 * 1024);
         assert_eq!(caps.heartbeat_interval_secs, 30);
+    }
+
+    #[test]
+    fn decode_rejects_oversized_message() {
+        let oversized = format!(r#"{{"v":2,"type":"hello","id":"1","payload":{}}}"#, "X".repeat(300_000));
+        let result = Envelope::decode(&oversized);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("size limit"), "expected size limit error, got: {err}");
     }
 }

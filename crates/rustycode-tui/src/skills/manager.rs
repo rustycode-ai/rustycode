@@ -246,8 +246,8 @@ impl SkillStateManager {
         if let Some(skill) = self.find_skill_mut(name) {
             if success {
                 skill.mark_success();
-            } else if let Some(err) = error {
-                skill.mark_error(err);
+            } else {
+                skill.mark_error(error.unwrap_or_else(|| "Unknown error".to_string()));
             }
             self.running.remove(&name.to_lowercase());
         }

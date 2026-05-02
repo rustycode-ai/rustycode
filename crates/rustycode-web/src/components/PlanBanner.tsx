@@ -35,7 +35,7 @@ export function PlanBanner({ plan, onApprove, onReject }: PlanBannerProps) {
 
         <div className="plan-banner-meta">
           {!plan.completed && !plan.awaitingApproval && currentStep && (
-            <span className="plan-banner-current">
+            <span className="plan-banner-current" aria-live="polite">
               {completedCount + 1}/{totalSteps}: {currentStep.name}
             </span>
           )}
@@ -50,7 +50,7 @@ export function PlanBanner({ plan, onApprove, onReject }: PlanBannerProps) {
         </div>
       </div>
 
-      <div className="plan-banner-progress">
+      <div className="plan-banner-progress" role="progressbar" aria-valuenow={completedCount} aria-valuemin={0} aria-valuemax={totalSteps} aria-label={`Plan progress: ${completedCount} of ${totalSteps} steps completed`}>
         <div
           className={`plan-banner-progress-bar ${plan.success ? "plan-progress-success" : plan.completed ? "plan-progress-failed" : ""}`}
           style={{ width: `${progressPct}%` }}

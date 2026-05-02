@@ -25,6 +25,13 @@ export interface ClassifiedError {
   retryable: boolean;
 }
 
+function randomUUID(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 const RETRYABLE_CLASSES: Record<ErrorClass, boolean> = {
   auth: false,
   rate_limit: true,
@@ -162,22 +169,22 @@ export class WsClient {
 
   sendInput(content: string): void {
     const payload: InputPayload = { content };
-    this.sendEnvelope("input", crypto.randomUUID(), payload);
+    this.sendEnvelope("input", randomUUID(), payload);
   }
 
   sendAbort(): void {
-    this.sendEnvelope("abort", crypto.randomUUID(), {});
+    this.sendEnvelope("abort", randomUUID(), {});
   }
 
   sendToolApproval(requestId: string, approved: boolean): void {
-    this.sendEnvelope("tool_approval", crypto.randomUUID(), {
+    this.sendEnvelope("tool_approval", randomUUID(), {
       request_id: requestId,
       approved,
     });
   }
 
   sendPlanApproval(planId: string, approved: boolean): void {
-    this.sendEnvelope("plan_approval", crypto.randomUUID(), {
+    this.sendEnvelope("plan_approval", randomUUID(), {
       plan_id: planId,
       approved,
     });
@@ -185,7 +192,7 @@ export class WsClient {
 
   private sendHeartbeat(): void {
     const payload: HeartbeatPayload = { ts: Date.now() };
-    this.sendEnvelope("heartbeat", crypto.randomUUID(), payload);
+    this.sendEnvelope("heartbeat", randomUUID(), payload);
   }
 
   private startHeartbeat(): void {
@@ -298,6 +305,10 @@ export class WsClient {
     this.ready = false;
     this.pendingSendQueue = [];
     if (this.ws) {
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onerror = null;
+      this.ws.onclose = null;
       this.ws.close();
       this.ws = null;
     }

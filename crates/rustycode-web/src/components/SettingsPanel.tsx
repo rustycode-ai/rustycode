@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 interface McpServer {
   name: string;
@@ -22,6 +22,15 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
   const [newName, setNewName] = useState("");
   const [newCommand, setNewCommand] = useState("");
   const [newArgs, setNewArgs] = useState("");
+  const [mutating, setMutating] = useState<Set<string>>(new Set());
+
+  const platformKeys = useMemo(() => {
+    const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+    return {
+      mod: isMac ? "⌘" : "Ctrl",
+      shift: isMac ? "⇧" : "Shift",
+    };
+  }, []);
 
   const refreshServers = useCallback(async () => {
     setLoading(true);
@@ -47,8 +56,9 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
 
   const handleAdd = useCallback(async () => {
     if (!newName.trim() || !newCommand.trim()) return;
+    setMutating((prev) => new Set(prev).add("__add__"));
     try {
-      await fetch("/api/mcp/servers/add", {
+      const res = await fetch("/api/mcp/servers/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -57,6 +67,10 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
           args: newArgs.trim() ? newArgs.trim().split(/\s+/) : [],
         }),
       });
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
       setNewName("");
       setNewCommand("");
       setNewArgs("");
@@ -64,34 +78,64 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
       await refreshServers();
     } catch {
       setError(true);
+    } finally {
+      setMutating((prev) => {
+        const next = new Set(prev);
+        next.delete("__add__");
+        return next;
+      });
     }
   }, [newName, newCommand, newArgs, refreshServers]);
 
   const handleRemove = useCallback(async (name: string) => {
+    if (mutating.has(name)) return;
+    setMutating((prev) => new Set(prev).add(name));
     try {
-      await fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" });
+      const res = await fetch(`/api/mcp/servers/${encodeURIComponent(name)}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
       await refreshServers();
     } catch {
       setError(true);
+    } finally {
+      setMutating((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
     }
-  }, [refreshServers]);
+  }, [refreshServers, mutating]);
 
   const handleRestart = useCallback(async (name: string) => {
+    if (mutating.has(name)) return;
+    setMutating((prev) => new Set(prev).add(name));
     try {
-      await fetch(`/api/mcp/servers/${encodeURIComponent(name)}/restart`, { method: "POST" });
+      const res = await fetch(`/api/mcp/servers/${encodeURIComponent(name)}/restart`, { method: "POST" });
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
       await refreshServers();
     } catch {
       setError(true);
+    } finally {
+      setMutating((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
     }
-  }, [refreshServers]);
+  }, [refreshServers, mutating]);
 
   if (!open) return null;
 
   return (
-    <div className="settings-overlay" onClick={onClose} role="dialog" aria-label="Settings" aria-modal="true">
+    <div className="settings-overlay" onClick={onClose} role="dialog" aria-labelledby="settings-title" aria-modal="true">
       <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-header">
-          <h2>Settings</h2>
+          <h2 id="settings-title">Settings</h2>
           <button className="btn-icon" onClick={onClose} aria-label="Close settings">x</button>
         </div>
         <div className="settings-body">
@@ -137,6 +181,7 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
                     <button
                       className="mcp-btn mcp-btn-restart"
                       onClick={() => handleRestart(s.name)}
+                      disabled={mutating.has(s.name)}
                       aria-label={`Restart ${s.name}`}
                     >
                       restart
@@ -144,6 +189,7 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
                     <button
                       className="mcp-btn mcp-btn-remove"
                       onClick={() => handleRemove(s.name)}
+                      disabled={mutating.has(s.name)}
                       aria-label={`Remove ${s.name}`}
                     >
                       remove
@@ -179,7 +225,7 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
                   <button
                     className="mcp-btn mcp-btn-add-confirm"
                     onClick={handleAdd}
-                    disabled={!newName.trim() || !newCommand.trim()}
+                    disabled={!newName.trim() || !newCommand.trim() || mutating.has("__add__")}
                     aria-label="Add server"
                   >
                     add
@@ -202,11 +248,11 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
             <h3>Keyboard Shortcuts</h3>
             <div className="settings-row">
               <span className="settings-label">Toggle sidebar</span>
-              <kbd className="settings-kbd">Ctrl+B</kbd>
+              <kbd className="settings-kbd">{platformKeys.mod}+B</kbd>
             </div>
             <div className="settings-row">
               <span className="settings-label">Toggle tool output</span>
-              <kbd className="settings-kbd">Ctrl+/</kbd>
+              <kbd className="settings-kbd">{platformKeys.mod}+/</kbd>
             </div>
             <div className="settings-row">
               <span className="settings-label">Send message</span>
@@ -214,7 +260,7 @@ export function SettingsPanel({ provider, model, open, onClose }: SettingsPanelP
             </div>
             <div className="settings-row">
               <span className="settings-label">New line</span>
-              <kbd className="settings-kbd">Shift+Enter</kbd>
+              <kbd className="settings-kbd">{platformKeys.shift}+Enter</kbd>
             </div>
             <div className="settings-row">
               <span className="settings-label">Abort generation</span>
