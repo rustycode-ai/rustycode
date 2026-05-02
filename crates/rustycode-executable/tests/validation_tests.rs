@@ -731,7 +731,7 @@ async fn examples_preserved_through_register_get_cycle() {
             can_reason_autonomously: false,
         },
         advanced_metadata: AdvancedToolMetadata {
-            examples: examples.clone(),
+            examples,
             defer_loading: false,
             search_hints: vec!["bash".to_string(), "shell".to_string()],
             execution_strategy: ExecutionMode::Direct,
