@@ -53,6 +53,8 @@ impl SmartApprove {
                 "list_dir",
                 "grep",
                 "glob",
+                "find",
+                "inspect",
                 "git_status",
                 "git_diff",
                 "git_log",
@@ -85,7 +87,6 @@ impl SmartApprove {
                 "edit_file",
                 "text_editor_20250728",
                 "text_editor_20250124",
-                "search_replace",
                 "apply_patch",
                 "multi_edit",
                 "git_commit",
@@ -485,14 +486,6 @@ mod tests {
     fn test_git_commit_is_write() {
         assert_eq!(
             classifier().classify("git_commit", None),
-            OperationClass::Write
-        );
-    }
-
-    #[test]
-    fn test_search_replace_is_write() {
-        assert_eq!(
-            classifier().classify("search_replace", None),
             OperationClass::Write
         );
     }

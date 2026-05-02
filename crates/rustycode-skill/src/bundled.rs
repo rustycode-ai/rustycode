@@ -178,9 +178,9 @@ pub fn get_bundled_skills() -> Vec<SkillDefinition> {
         SkillifyBuilder::new("debug")
             .description("Systematic debugging tool using instrumentation for stepping, variable inspection, and stack traces.")
             .when_to_use("Use when encountering bugs, test failures, or unexpected behavior.")
-            .allowed_tool("debug_step")
-            .allowed_tool("debug_inspect")
-            .allowed_tool("debug_trace")
+            .allowed_tool("bash")
+            .allowed_tool("read_file")
+            .allowed_tool("grep")
             .build(),
         SkillifyBuilder::new("worktree")
             .description("Manage isolated development environments using git worktrees.")

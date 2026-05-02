@@ -27,6 +27,8 @@ shell-words.workspace = true
 html2md = "0.2"
 notify = "8.0"
 rustycode-tools-api = { path = "../rustycode-tools-api" }
+rustycode-executable = { path = "../rustycode-executable" }
+async-trait = "0.1"
 rustycode-config = { path = "../rustycode-config" }
 rustycode-lsp = { path = "../rustycode-lsp" }
 rustycode-protocol = { path = "../rustycode-protocol" }

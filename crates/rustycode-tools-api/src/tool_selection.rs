@@ -26,6 +26,8 @@ impl ToolProfile {
                 "list_dir",
                 "grep",
                 "glob",
+                "find",
+                "inspect",
                 "tool_search",
                 "web_fetch",
                 "lsp_hover",
@@ -36,6 +38,7 @@ impl ToolProfile {
             Self::Debug => &[
                 "lsp_diagnostics",
                 "lsp_hover",
+                "inspect",
                 "bash",
                 "grep",
                 "read_file",
@@ -58,6 +61,8 @@ impl ToolProfile {
                 "list_dir",
                 "grep",
                 "glob",
+                "find",
+                "inspect",
                 "web_fetch",
                 "web_search",
                 "tool_search",
@@ -192,6 +197,8 @@ mod tests {
         let tools = ToolProfile::Explore.available_tools();
         assert!(tools.contains(&"read_file"));
         assert!(tools.contains(&"grep"));
+        assert!(tools.contains(&"find"));
+        assert!(tools.contains(&"inspect"));
         assert!(!tools.contains(&"write_file"));
     }
 

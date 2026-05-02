@@ -125,7 +125,7 @@ npm run dev      # Vite dev server with HMR
 npm run build    # Production build → dist/
 ```
 
-The dev server proxies `/ws` to `ws://127.0.0.1:8080/ws` (configure in `vite.config.ts`). Start the Rust WS server separately:
+The dev server proxies `/api` and `/ws` to `http://127.0.0.1:8080` / `ws://127.0.0.1:8080/ws` (configure in `vite.config.ts`). Start the Rust WS server separately:
 
 ```bash
 cargo run -p rustycode-cli -- start --port 8080

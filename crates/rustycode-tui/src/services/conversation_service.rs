@@ -479,6 +479,7 @@ Unused Memories (candidates for pruning):
                     \n\
                     **You MAY:**\n\
                     - Use read-only tools (read_file, list_dir, grep, glob, web_fetch) to research\n\
+                    - Use find and inspect to explore code through the code index and LSP\n\
                     - Write documentation files (.md, .txt, .rst) to capture your plan\n\
                     \n\
                     **You MUST:**\n\
@@ -619,10 +620,9 @@ Unused Memories (candidates for pruning):
         let tools = self.tool_registry.list();
         let mut tools_json = Vec::new();
         let tool_search_enabled = self.tool_search_enabled_for_provider(&provider, model_id);
-        let allowlist = self.tools_seed_list_for_provider(&provider);
 
         for tool in tools {
-            let is_seed_tool = allowlist.contains(&tool.name.as_str());
+            let is_seed_tool = self.is_seed_tool_for_provider(&provider, &tool.name);
             let tool_schema = match provider {
                 ModelProvider::Anthropic => {
                     let mut schema = serde_json::json!({
@@ -701,6 +701,11 @@ Unused Memories (candidates for pruning):
         })
     }
 
+    fn is_seed_tool_for_provider(&self, provider: &ModelProvider, tool_name: &str) -> bool {
+        let allowlist = self.tools_seed_list_for_provider(provider);
+        allowlist.contains(&tool_name)
+    }
+
     fn tools_seed_list_for_provider(&self, provider: &ModelProvider) -> &'static [&'static str] {
         match provider {
             ModelProvider::Anthropic | ModelProvider::OpenAI => match self.ai_mode {
@@ -710,6 +715,8 @@ Unused Memories (candidates for pruning):
                     "list_dir",
                     "grep",
                     "glob",
+                    "find",
+                    "inspect",
                     "web_fetch",
                 ],
                 AiMode::Plan => &[
@@ -718,6 +725,8 @@ Unused Memories (candidates for pruning):
                     "list_dir",
                     "grep",
                     "glob",
+                    "find",
+                    "inspect",
                     "web_fetch",
                     "write_file",
                 ],
@@ -727,6 +736,8 @@ Unused Memories (candidates for pruning):
                     "list_dir",
                     "grep",
                     "glob",
+                    "find",
+                    "inspect",
                     "web_fetch",
                     "bash",
                     "write_file",
@@ -739,6 +750,8 @@ Unused Memories (candidates for pruning):
                     "list_dir",
                     "grep",
                     "glob",
+                    "find",
+                    "inspect",
                     "web_fetch",
                     "bash",
                     "write_file",
@@ -968,7 +981,9 @@ fn build_layered_prompt_sync(
         **ALWAYS use the right tool:**\n\
         - Use read_file to examine files, not bash 'cat'\n\
         - Use write_file to modify files, not bash 'echo' or 'sed'\n\
+        - Use find for code-index-backed discovery of related code and concepts\n\
         - Use lsp_diagnostics to check for errors before editing\n\
+        - Use inspect for exact symbol lookup and type info\n\
         - Use web_search for current docs, not rely on training data\n\
         \n\
         **Think before you act:**\n\
@@ -1286,7 +1301,8 @@ fn get_rust_project_guidance() -> String {
     **LSP Tool Notes:**\n\
     - LSP tools require rust-analyzer to be installed\n\
     - Install with: rustup component add rust-analyzer\n\
-    - LSP provides accurate type information, go-to-definition, and completions"
+    - LSP provides accurate type information, go-to-definition, and completions\n\
+    - Use find first for broad code exploration, then inspect or read_file for details"
         .to_string()
 }
 
@@ -1584,5 +1600,18 @@ mod tests {
         assert!(service.tool_search_enabled_for_provider(&ModelProvider::OpenAI, "gpt-5.4"));
         assert!(!service.tool_search_enabled_for_provider(&ModelProvider::OpenAI, "gpt-4o"));
         assert!(!service.tool_search_enabled_for_provider(&ModelProvider::Generic, "test"));
+    }
+
+    #[test]
+    fn test_exploration_tools_are_seeded_for_native_tool_providers() {
+        let config = ConversationConfig::default();
+        let tool_registry = rustycode_tools::default_registry();
+        let service = ConversationService::new(config, Arc::new(tool_registry));
+
+        assert!(service.is_seed_tool_for_provider(&ModelProvider::Anthropic, "find"));
+        assert!(service.is_seed_tool_for_provider(&ModelProvider::OpenAI, "inspect"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::Anthropic, "semantic_search"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::Anthropic, "lsp_definition"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::Generic, "lsp_definition"));
     }
 }

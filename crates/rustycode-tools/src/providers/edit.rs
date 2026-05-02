@@ -158,15 +158,27 @@ impl Tool for EditFile {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "File path relative to workspace root"
+                    "description": "File path relative to workspace root (alias: file_path)"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Alias for path"
                 },
                 "old_text": {
                     "type": "string",
-                    "description": "Text to find. Matching is flexible: tries exact, then line-ending-normalized (CRLF/LF), then quote-normalized (curly/smart quotes), then trimmed-whitespace."
+                    "description": "Text to find (alias: old_string). Matching is flexible: tries exact, then line-ending-normalized (CRLF/LF), then quote-normalized (curly/smart quotes), then trimmed-whitespace."
+                },
+                "old_string": {
+                    "type": "string",
+                    "description": "Alias for old_text"
                 },
                 "new_text": {
                     "type": "string",
-                    "description": "Replacement text. Original file line endings (CRLF/LF) are preserved."
+                    "description": "Replacement text (alias: new_string). Original file line endings (CRLF/LF) are preserved."
+                },
+                "new_string": {
+                    "type": "string",
+                    "description": "Alias for new_text"
                 },
                 "replace_all": {
                     "type": "boolean",

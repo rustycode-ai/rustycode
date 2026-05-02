@@ -1,8 +1,8 @@
 //! Shared bench tool registry — same real tools as TUI, minus interactive ones.
 
 use rustycode_tools::providers::{
-    BashTool, EditFile, GitDiffTool, GitLogTool, GitStatusTool, GlobTool, GrepTool, ListDirTool,
-    ReadFileTool, SearchReplace, WriteFileTool,
+    ApplyPatchTool, BashTool, EditFile, GitDiffTool, GitLogTool, GitStatusTool, GlobTool, GrepTool,
+    ListDirTool, ReadFileTool, WriteFileTool,
 };
 use rustycode_tools::ToolRegistry;
 
@@ -20,7 +20,7 @@ pub fn build_bench_registry() -> ToolRegistry {
     registry.register(EditFile);
     registry.register(GrepTool);
     registry.register(GlobTool);
-    registry.register(SearchReplace);
+    registry.register(ApplyPatchTool);
 
     // Bash — runs commands on host (native) or needs docker wrapper
     registry.register(BashTool);

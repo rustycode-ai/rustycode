@@ -14,7 +14,7 @@ use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageRole};
 use rustycode_orchestration::cost_table::calculate_cost;
 use rustycode_orchestration::delegation::{
-    DelegationConfig, DelegationContext, DelegationPlanner, SpawnDecision, TaskRole, TaskSpec,
+    DelegationConfig, DelegationContext, DelegationPlanner, SpawnDecision, TaskRole,
 };
 use rustycode_orchestration::task_dispatcher::{TaskDispatcher, TaskResult};
 use rustycode_orchestration::task_runner::{TaskRunResult, TaskRunner};
@@ -209,7 +209,7 @@ impl DelegationExecutor {
     fn build_subagent_tool_registry(&self) -> rustycode_tools::ToolRegistry {
         use rustycode_tools::edit::EditFile;
         use rustycode_tools::search::{GlobTool, GrepTool};
-        use rustycode_tools::search_replace::SearchReplace;
+        use rustycode_tools::apply_patch::ApplyPatchTool;
         use rustycode_tools::{
             BashTool, GitDiffTool, GitLogTool, GitStatusTool, ListDirTool, ReadFileTool,
             WriteFileTool,
@@ -223,7 +223,7 @@ impl DelegationExecutor {
         registry.register(EditFile);
         registry.register(GrepTool);
         registry.register(GlobTool);
-        registry.register(SearchReplace);
+        registry.register(ApplyPatchTool);
         registry.register(BashTool);
         registry.register(GitStatusTool);
         registry.register(GitDiffTool);
@@ -475,28 +475,9 @@ impl Tool for DelegationExecutor {
                 Ok(ToolOutput::text(results_to_text(results)))
             }
             SpawnDecision::Ensemble(plan) => {
-                // Ensemble not yet fully wired — fall back to first participant.
-                tracing::warn!(
-                    "DelegationExecutor: Ensemble not yet supported, using first participant"
-                );
-                let spec = plan
-                    .participants
-                    .into_iter()
-                    .next()
-                    .map(|(_, spec)| spec)
-                    .unwrap_or_else(|| TaskSpec::new(task_description, task_role));
-                let mut spec = spec;
-                spec.role = task_role;
-                if spec.path_scope.is_empty() && !path_scope.is_empty() {
-                    spec.path_scope = path_scope.clone();
-                }
-                if spec.resume_from.is_none() {
-                    spec.resume_from = resume_from.clone();
-                }
-
                 let results = tokio::task::block_in_place(|| {
                     tokio::runtime::Handle::current()
-                        .block_on(async { dispatcher.dispatch(SpawnDecision::Spawn(spec)).await })
+                        .block_on(async { dispatcher.dispatch(SpawnDecision::Ensemble(plan)).await })
                 });
 
                 Ok(ToolOutput::text(results_to_text(results)))

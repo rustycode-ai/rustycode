@@ -12,6 +12,7 @@ members = [
     "crates/rustycode-config",
     "crates/rustycode-connector",
     "crates/rustycode-core",
+    "crates/rustycode-executable",
     "crates/rustycode-execution",
     "crates/rustycode-git",
     "crates/rustycode-guard",

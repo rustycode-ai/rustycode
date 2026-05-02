@@ -367,13 +367,8 @@ impl ForkJoinExecutor {
                             let paths = path_scope.clone();
                             let resume_from = spec.resume_from.clone();
                             let fork_id_captured = fork_id.clone();
-                            let runner_arc = Arc::clone(runner);
-                            match tokio::task::spawn_blocking(move || {
-                                runner_arc.run_task(&desc, role, &paths, resume_from.as_deref())
-                            })
-                            .await
-                            {
-                                Ok(Ok(task_result)) => ForkResult {
+                            match runner.run_task(&desc, role, &paths, resume_from.as_deref()) {
+                                Ok(task_result) => ForkResult {
                                     fork_id: fork_id_captured,
                                     success: task_result.success,
                                     output: task_result.output,
@@ -381,15 +376,9 @@ impl ForkJoinExecutor {
                                     duration_ms: i64::try_from(fork_start.elapsed().as_millis())
                                         .unwrap_or(i64::MAX),
                                 },
-                                Ok(Err(e)) => ForkResult::failure(
+                                Err(e) => ForkResult::failure(
                                     &fork_id_captured,
                                     e.to_string(),
-                                    i64::try_from(fork_start.elapsed().as_millis())
-                                        .unwrap_or(i64::MAX),
-                                ),
-                                Err(join_err) => ForkResult::failure(
-                                    &fork_id_captured,
-                                    join_err.to_string(),
                                     i64::try_from(fork_start.elapsed().as_millis())
                                         .unwrap_or(i64::MAX),
                                 ),

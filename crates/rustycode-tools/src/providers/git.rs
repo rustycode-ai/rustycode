@@ -101,7 +101,8 @@ impl Tool for GitDiffTool {
             "type": "object",
             "properties": {
                 "staged": { "type": "boolean", "description": "Show staged (cached) diff (default false)" },
-                "path": { "type": "string" }
+                "path": { "type": "string", "description": "Optional path to show diff for (alias: file_path)" },
+                "file_path": { "type": "string", "description": "Alias for path" }
             }
         })
     }
@@ -116,7 +117,11 @@ impl Tool for GitDiffTool {
             args.push("--cached");
         }
         args.push("--");
-        if let Some(path) = params.get("path").and_then(Value::as_str) {
+        if let Some(path) = params
+            .get("path")
+            .or_else(|| params.get("file_path"))
+            .and_then(Value::as_str)
+        {
             // Validate path is within workspace
             validate_read_path(path, &ctx.cwd)?;
             args.push(path);

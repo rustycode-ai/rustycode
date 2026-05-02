@@ -92,7 +92,7 @@ make test, or whatever test runner the project uses.
 
 ## Tools Available
 - read_file, write_file, edit_file, list_dir: File operations
-- grep, glob, search_replace: Code search and replacement
+- grep, glob, apply_patch: Code search and patching
 - bash: Run commands (tests, installs, scripts)
 - git_status, git_diff, git_log: Inspect repository state
 - structured_thinking: Decompose complex tasks into steps
@@ -287,7 +287,7 @@ mod tests {
         // Search tools
         assert!(names.contains(&"grep"), "missing grep");
         assert!(names.contains(&"glob"), "missing glob");
-        assert!(names.contains(&"search_replace"), "missing search_replace");
+        assert!(names.contains(&"apply_patch"), "missing apply_patch");
         // Bash
         assert!(names.contains(&"bash"), "missing bash");
         // Git (read-only)

@@ -475,19 +475,37 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
             rx
         }));
 
-    if let Err(err) = session
-        .run(
-            provider.as_ref(),
-            &model,
-            &system_message,
-            messages,
-            &tools_schema,
-            tool_registry.as_ref(),
-            &mut bridge,
-        )
-        .await
-        .context("AgentSession streaming failed")
-    {
+    let run_future = session.run(
+        provider.as_ref(),
+        &model,
+        &system_message,
+        messages,
+        &tools_schema,
+        tool_registry.as_ref(),
+        &mut bridge,
+    );
+
+    let result = match stop_signal {
+        Some(stop_flag) => {
+            tokio::select! {
+                res = run_future => res.context("AgentSession streaming failed"),
+                _ = async {
+                    loop {
+                        if stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
+                        }
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                    }
+                } => {
+                    tracing::info!("Streaming cancelled by user");
+                    return Ok(());
+                }
+            }
+        }
+        None => run_future.await.context("AgentSession streaming failed"),
+    };
+
+    if let Err(err) = result {
         send_chunk(&stream_tx, StreamChunk::Error(StreamError::Provider(
             rustycode_llm::provider::ProviderError::Api(err.to_string())
         )));

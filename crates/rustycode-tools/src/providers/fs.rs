@@ -197,7 +197,6 @@ impl Tool for ReadFileTool {
     fn permission(&self) -> ToolPermission {
         ToolPermission::Read
     }
-
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",
@@ -205,7 +204,11 @@ impl Tool for ReadFileTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "File path relative to current workspace"
+                    "description": "File path relative to current workspace (alias: file_path)"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Alias for path"
                 },
                 "start_line": {
                     "type": "integer",
@@ -652,7 +655,11 @@ impl Tool for WriteFileTool {
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "File path relative to workspace root. Parent directories are created automatically."
+                    "description": "File path relative to workspace root (alias: file_path). Parent directories are created automatically."
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Alias for path"
                 },
                 "content": {
                     "type": "string",
@@ -879,8 +886,16 @@ impl Tool for ListDirTool {
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",
+            "required": ["path"],
             "properties": {
-                "path": { "type": "string" },
+                "path": {
+                    "type": "string",
+                    "description": "Directory path relative to current workspace (alias: file_path)"
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Alias for path"
+                },
                 "recursive": { "type": "boolean", "description": "List directories recursively" },
                 "max_depth": { "type": "integer", "description": "Maximum depth for recursive listing" },
                 "filter": {

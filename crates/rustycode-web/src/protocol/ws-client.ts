@@ -8,6 +8,7 @@ import type {
   EventPayload,
   HeartbeatAckPayload,
   ErrorPayload,
+  ToolApprovalRequestPayload,
   FrontendSession,
 } from "./types";
 
@@ -220,8 +221,10 @@ export class WsClient {
       case "session_created": {
         const payload = envelope.payload as SessionCreatedPayload;
         this.sessionToken = payload.session_token;
-        if (payload.capabilities?.heartbeat_interval_ms) {
-          this.heartbeatIntervalMs = payload.capabilities.heartbeat_interval_ms;
+        if (payload.capabilities?.heartbeat_interval_secs) {
+          this.heartbeatIntervalMs = payload.capabilities.heartbeat_interval_secs * 1000;
+        } else if ((payload.capabilities as Record<string, unknown>)?.heartbeat_interval_ms) {
+          this.heartbeatIntervalMs = (payload.capabilities as Record<string, unknown>).heartbeat_interval_ms as number;
         }
         this.onMessage("session_created", payload);
         return "handshake";
@@ -238,8 +241,23 @@ export class WsClient {
         return "regular";
       }
       case "event": {
-        const payload = envelope.payload as EventPayload;
+        // Server uses #[serde(flatten)] on StreamEvent within EventPayload,
+        // so type/data are at the top level alongside seq/event_id.
+        // Reconstruct the nested shape the frontend expects.
+        const raw = envelope.payload as Record<string, unknown>;
+        const payload: EventPayload = {
+          seq: raw.seq as number,
+          event: {
+            type: raw.type as string,
+            data: raw.data,
+          } as EventPayload["event"],
+        };
         this.onMessage("event", payload);
+        return "regular";
+      }
+      case "tool_approval_requested": {
+        const payload = envelope.payload as ToolApprovalRequestPayload;
+        this.onMessage("tool_approval_requested", payload);
         return "regular";
       }
       case "heartbeat_ack": {

@@ -42,6 +42,8 @@ pub struct InputState {
     pub cursor_col: usize,
     /// Pasted images
     pub images: Vec<ImageAttachment>,
+    /// Horizontal scroll offset for the current line (in display columns)
+    pub display_offset: usize,
 }
 
 impl InputState {
@@ -53,6 +55,7 @@ impl InputState {
             cursor_row: 0,
             cursor_col: 0,
             images: Vec::new(),
+            display_offset: 0,
         }
     }
 
@@ -89,6 +92,35 @@ impl InputState {
             .get(self.cursor_row)
             .map(|line| display_width(line))
             .unwrap_or(0)
+    }
+
+    /// Recalculate display offset so cursor stays visible within `visible_width` columns.
+    /// Call after any cursor movement or text change.
+    pub fn recalc_display_offset(&mut self, visible_width: usize) {
+        let cursor_col = self.cursor_display_col();
+        let prefix = cursor_col.saturating_sub(1);
+        let min_offset = prefix.saturating_sub(visible_width.saturating_sub(2));
+        let max_offset = cursor_col;
+        self.display_offset = self.display_offset.clamp(min_offset, max_offset);
+    }
+
+    /// Get the byte offset corresponding to the current display_offset on the cursor row.
+    /// Used by the renderer to slice the line for horizontal scrolling.
+    pub fn scroll_byte_offset(&self) -> usize {
+        let line = self.lines.get(self.cursor_row).map(|s| s.as_str()).unwrap_or("");
+        let mut display_col = 0;
+        for (byte_idx, grapheme) in line.grapheme_indices(true) {
+            if display_col >= self.display_offset {
+                return byte_idx;
+            }
+            display_col += display_width(grapheme);
+        }
+        line.len()
+    }
+
+    /// Get the display column of the cursor relative to the display_offset.
+    pub fn relative_cursor_display_col(&self) -> usize {
+        self.cursor_display_col().saturating_sub(self.display_offset)
     }
 
     /// Insert a character at cursor position
@@ -324,6 +356,7 @@ impl InputState {
         self.lines = vec![String::new()];
         self.cursor_row = 0;
         self.cursor_col = 0;
+        self.display_offset = 0;
 
         // Cleanup temp image files
         for img in &self.images {
@@ -796,5 +829,100 @@ mod tests {
         state.insert_newline();
         assert_eq!(state.lines[0], "你好");
         assert_eq!(state.lines[1], "");
+    }
+
+    // === Horizontal scroll (display_offset) tests ===
+
+    #[test]
+    fn test_recalc_display_offset_no_scroll_when_text_fits() {
+        let mut state = InputState::new();
+        state.lines[0] = "hello".to_string();
+        state.cursor_col = 5;
+        state.display_offset = 0;
+        state.recalc_display_offset(80);
+        assert_eq!(state.display_offset, 0);
+    }
+
+    #[test]
+    fn test_recalc_display_offset_scrolls_when_cursor_past_edge() {
+        let mut state = InputState::new();
+        // 100 chars, cursor at end
+        state.lines[0] = "a".repeat(100);
+        state.cursor_col = 100;
+        state.display_offset = 0;
+        // Only 60 cols visible
+        state.recalc_display_offset(60);
+        // Should scroll so cursor is visible: offset = 100 - 59 = 41
+        assert_eq!(state.display_offset, 41);
+    }
+
+    #[test]
+    fn test_recalc_display_offset_doesnt_overscroll() {
+        let mut state = InputState::new();
+        state.lines[0] = "a".repeat(100);
+        state.cursor_col = 50;
+        state.display_offset = 0;
+        state.recalc_display_offset(60);
+        // Cursor at col 50, visible width 60: fits without scroll
+        assert_eq!(state.display_offset, 0);
+    }
+
+    #[test]
+    fn test_scroll_byte_offset_ascii() {
+        let mut state = InputState::new();
+        state.lines[0] = "abcdefghij".to_string();
+        state.display_offset = 5;
+        let byte_off = state.scroll_byte_offset();
+        assert_eq!(byte_off, 5);
+    }
+
+    #[test]
+    fn test_scroll_byte_offset_cjk() {
+        let mut state = InputState::new();
+        // 你=2 display cols each, 你好你好 = 8 display cols
+        state.lines[0] = "你好你好".to_string();
+        state.display_offset = 4; // skip first 2 chars (你好)
+        let byte_off = state.scroll_byte_offset();
+        assert_eq!(byte_off, 6); // 你好 = 6 bytes
+    }
+
+    #[test]
+    fn test_relative_cursor_display_col() {
+        let mut state = InputState::new();
+        state.lines[0] = "a".repeat(100);
+        state.cursor_col = 80;
+        state.display_offset = 40;
+        assert_eq!(state.relative_cursor_display_col(), 40);
+    }
+
+    // === set_text with newlines (Bug #2 fix) ===
+
+    #[test]
+    fn test_set_text_single_line() {
+        let mut state = InputState::new();
+        state.set_text("hello world");
+        assert_eq!(state.lines, vec!["hello world"]);
+        assert_eq!(state.cursor_col, 11);
+        assert_eq!(state.cursor_row, 0);
+    }
+
+    #[test]
+    fn test_set_text_preserves_newlines() {
+        let mut state = InputState::new();
+        state.set_text("line one\nline two\nline three");
+        assert_eq!(state.lines, vec!["line one", "line two", "line three"]);
+        assert_eq!(state.cursor_row, 2);
+        assert_eq!(state.cursor_col, 10);
+        assert_eq!(state.mode, InputMode::MultiLine);
+    }
+
+    #[test]
+    fn test_set_text_trailing_newline() {
+        let mut state = InputState::new();
+        // str::lines() strips trailing newline, so "hello\nworld\n" -> ["hello", "world"]
+        state.set_text("hello\nworld\n");
+        assert_eq!(state.lines, vec!["hello", "world"]);
+        assert_eq!(state.cursor_row, 1);
+        assert_eq!(state.cursor_col, 5);
     }
 }

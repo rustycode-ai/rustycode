@@ -183,7 +183,7 @@ impl ErrorTracker {
             "bash" => Some(
                 "Instead of using bash, try using a specific tool designed for this operation".to_string(),
             ),
-            "edit_file" | "search_replace" => Some(
+            "edit_file" | "apply_patch" => Some(
                 "For repeated edit failures, try using write_file to replace the entire file content".to_string(),
             ),
             "read_file" => Some(

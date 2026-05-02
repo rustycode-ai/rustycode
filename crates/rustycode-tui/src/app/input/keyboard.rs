@@ -442,10 +442,7 @@ impl TUI {
                         Ok(edited) => {
                             let trimmed = edited.trim();
                             if !trimmed.is_empty() && trimmed != current_text.trim() {
-                                self.input_handler.state.clear();
-                                for c in trimmed.chars() {
-                                    self.input_handler.state.insert_char(c);
-                                }
+                                self.input_handler.state.set_text(trimmed);
                                 self.input_mode = self.input_handler.state.mode;
                                 self.add_system_message(
                                     "📝 Loaded from editor - press Enter to send".to_string(),

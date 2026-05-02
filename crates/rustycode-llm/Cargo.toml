@@ -23,6 +23,7 @@ rustycode-auth = { path = "../rustycode-auth" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
+rustycode-executable = { path = "../rustycode-executable" }
 async-trait.workspace = true
 tokio-stream = "0.1"
 thiserror.workspace = true

@@ -9,20 +9,21 @@ metadata:
 
 # Debug Skill
 
-The Debug Skill allows for systematic debugging of code through the agent's instrumentation of the codebase.
+The Debug Skill allows for systematic debugging of code through exploration, instrumentation, and testing.
 
 ## Capabilities
-- **Step**: Step through code execution (if instrumentation is available).
-- **Inspect**: Read variable states at runtime.
-- **Trace**: Generate stack traces or flow analysis.
+- **Explore**: Search for error messages, log patterns, and relevant code.
+- **Inspect**: Read source code and configuration to understand state.
+- **Execute**: Run tests and debug commands to reproduce and isolate issues.
 
 ## Workflow
 1. Identify the bug or failing test.
-2. Use `debug_step` or `debug_inspect` to localize the issue.
-3. Once the bug is isolated, propose a fix.
-4. Verify the fix by running the affected test.
+2. Use `grep` to search for error messages or relevant code locations.
+3. Use `read_file` to inspect the code and understand logic/state.
+4. Use `bash` to run tests or execute reproduction scripts.
+5. Once the bug is isolated, propose a fix and verify it.
 
 ## Tools
-- `debug_step`: Execute next logical block or step.
-- `debug_inspect`: Retrieve value of variables or state.
-- `debug_trace`: Retrieve current execution trace/stack.
+- `bash`: Run tests, debuggers (gdb, lldb, pdb), or reproduction scripts.
+- `read_file`: Inspect source code and logs.
+- `grep`: Search for patterns, errors, and variable usages.

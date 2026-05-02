@@ -1,9 +1,7 @@
 //! Basic usage example for rustycode-llm
 //!
-//! This example demonstrates how to:
-//! - Configure a provider
-//! - Create a completion request
-//! - Handle responses and errors
+//! This example demonstrates the standard way to configure and use
+//! LLM providers with the RustyCode framework.
 
 use anyhow::Result;
 use rustycode_llm::{
@@ -13,95 +11,50 @@ use secrecy::SecretString;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Example 1: Simple completion with Anthropic
-    anthropic_example().await?;
+    // 1. Anthropic Example
+    let anthropic_key = std::env::var("ANTHROPIC_API_KEY").ok().map(SecretString::from);
+    let anthropic_config = ProviderConfig {
+        api_key: anthropic_key,
+        ..Default::default()
+    };
+    
+    let anthropic = AnthropicProvider::new(anthropic_config, "claude-3-5-sonnet-20240620".to_string())?;
+    run_example("Anthropic", &anthropic, "Explain quantum computing simply.").await?;
 
-    // Example 2: Simple completion with OpenAI
-    openai_example().await?;
+    // 2. OpenAI Example
+    let openai_key = std::env::var("OPENAI_API_KEY").ok().map(SecretString::from);
+    let openai_config = ProviderConfig {
+        api_key: openai_key,
+        ..Default::default()
+    };
+    
+    let openai = OpenAiProvider::new(openai_config, "gpt-4o".to_string())?;
+    run_example("OpenAI", &openai, "Explain async/await in Rust.").await?;
 
     Ok(())
 }
 
-/// Demonstrates basic usage with Anthropic Claude
-async fn anthropic_example() -> Result<()> {
-    println!("=== Anthropic Claude Example ===\n");
+/// Helper to run a completion and display results
+async fn run_example<P: LLMProvider>(name: &str, provider: &P, prompt: &str) -> Result<()> {
+    println!("=== {} Example ===\n", name);
 
-    // Configure the provider
-    let config = ProviderConfig {
-        api_key: std::env::var("ANTHROPIC_API_KEY")
-            .ok()
-            .map(SecretString::from),
-        base_url: Some("https://api.anthropic.com".to_string()),
-        timeout_seconds: Some(180),
-        extra_headers: None,
-        retry_config: None,
-    };
+    if !provider.is_available().await {
+        println!("Provider {} is not available (missing API key).\n", name);
+        return Ok(());
+    }
 
-    let provider = AnthropicProvider::new(config, "claude-3-opus-20240229".to_string())?;
-
-    // Create a completion request
     let request = CompletionRequest::new(
-        "claude-3-opus-20240229".to_string(),
-        vec![ChatMessage::user(
-            "What is Rust programming language?".to_string(),
-        )],
+        provider.name().to_string(), // Simplified usage of model id
+        vec![ChatMessage::user(prompt.to_string())],
     );
 
-    // Send the request
-    match provider.complete(request).await {
-        Ok(response) => {
-            println!("Response: {}\n", response.content);
-            println!("Model: {}", response.model);
-            if let Some(usage) = response.usage {
-                println!(
-                    "Tokens: {} input + {} output = {} total",
-                    usage.input_tokens, usage.output_tokens, usage.total_tokens
-                );
-            }
-        }
-        Err(e) => {
-            eprintln!("Error: {}", e);
-        }
-    }
-
-    Ok(())
-}
-
-/// Demonstrates basic usage with OpenAI GPT
-async fn openai_example() -> Result<()> {
-    println!("=== OpenAI GPT Example ===\n");
-
-    // Configure the provider
-    let config = ProviderConfig {
-        api_key: std::env::var("OPENAI_API_KEY").ok().map(SecretString::from),
-        base_url: Some("https://api.openai.com/v1".to_string()),
-        timeout_seconds: Some(120),
-        extra_headers: None,
-        retry_config: None,
-    };
-
-    let provider = OpenAiProvider::new(config, "gpt-4".to_string())?;
-
-    // Create a completion request
-    let request = CompletionRequest::new(
-        "gpt-4".to_string(),
-        vec![ChatMessage::user(
-            "Explain async/await in Rust.".to_string(),
-        )],
-    )
-    .with_temperature(0.7)
-    .with_max_tokens(500);
-
-    // Send the request
     match provider.complete(request).await {
         Ok(response) => {
             println!("Response: {}\n", response.content);
             println!("Model: {}", response.model);
         }
-        Err(e) => {
-            eprintln!("Error: {}", e);
-        }
+        Err(e) => eprintln!("Error calling {}: {}", name, e),
     }
-
+    println!();
     Ok(())
 }

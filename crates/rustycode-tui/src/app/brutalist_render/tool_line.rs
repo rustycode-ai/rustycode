@@ -32,7 +32,7 @@ impl BrutalistRenderer<'_> {
         let display_name = match tool.name.as_str() {
             "read_file" => "read",
             "write_file" => "write",
-            "edit_file" | "search_replace" => "edit",
+            "edit_file" | "apply_patch" => "edit",
             "execute_command" | "bash" => "sh",
             "list_dir" | "list_files" => "ls",
             n => n,

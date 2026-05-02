@@ -83,7 +83,7 @@ pub fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
 /// Normalize tool names from different providers to our canonical names.
 fn normalize_tool_name(name: &str) -> &str {
     match name {
-        "Edit" | "edit" | "text_editor_20250728" | "search_replace" => "edit_file",
+        "Edit" | "edit" | "text_editor_20250728" => "edit_file",
         "Read" | "read" | "view" => "read_file",
         "Write" | "Create" | "create" => "write_file",
         "Bash" | "Shell" | "shell" | "execute" | "run_command" => "bash",
@@ -92,6 +92,7 @@ fn normalize_tool_name(name: &str) -> &str {
         "NotebookEdit" | "notebook_edit" => "notebook_edit",
         "WebFetch" | "web_fetch" | "fetch" => "web_fetch",
         "LSP" | "lsp" => "lsp",
+        "ApplyPatch" | "apply_patch" | "patch" => "apply_patch",
         _ => name,
     }
 }
@@ -146,6 +147,9 @@ mod tests {
         assert_eq!(normalize_tool_name("WebFetch"), "web_fetch");
         assert_eq!(normalize_tool_name("fetch"), "web_fetch");
         assert_eq!(normalize_tool_name("LSP"), "lsp");
+        assert_eq!(normalize_tool_name("ApplyPatch"), "apply_patch");
+        assert_eq!(normalize_tool_name("patch"), "apply_patch");
+        assert_eq!(normalize_tool_name("apply_patch"), "apply_patch");
         assert_eq!(normalize_tool_name("unknown_tool"), "unknown_tool");
     }
 

@@ -168,7 +168,7 @@ pub fn classify_tool_type(tool_name: &str) -> ToolType {
         "bash" => ToolType::Bash,
         "grep" => ToolType::Grep,
         "glob" | "list_files" | "list_dir" => ToolType::ListDirectory,
-        "edit_file" | "search_replace" => ToolType::WriteFile,
+        "edit_file" | "apply_patch" => ToolType::WriteFile,
         "git_status" | "git_diff" | "git_log" | "git_commit" => ToolType::Git,
         _ => ToolType::Custom(tool_name.to_string()),
     }

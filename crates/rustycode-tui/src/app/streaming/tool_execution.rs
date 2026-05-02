@@ -304,7 +304,7 @@ pub fn snapshot_files_for_undo(
     tool_name: &str,
     parameters_json: &str,
 ) -> Option<Vec<(String, String)>> {
-    if !matches!(tool_name, "write_file" | "edit_file" | "search_replace") {
+    if !matches!(tool_name, "write_file" | "edit_file" | "apply_patch") {
         return None;
     }
 

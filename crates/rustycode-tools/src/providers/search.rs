@@ -100,8 +100,10 @@ impl Tool for GrepTool {
             "type": "object",
             "required": ["pattern"],
             "properties": {
-                "pattern": { "type": "string" },
-                "path": { "type": "string" },
+                "pattern": { "type": "string", "description": "Regex pattern to search for" },
+                "path": { "type": "string", "description": "Directory or file path to search within (alias: file_path, include_pattern)" },
+                "file_path": { "type": "string", "description": "Alias for path" },
+                "include_pattern": { "type": "string", "description": "Alias for path" },
                 "before_context": { "type": "integer", "description": "Lines of context before match" },
                 "after_context": { "type": "integer", "description": "Lines of context after match" },
                 "max_matches_per_file": { "type": "integer", "description": "Limit matches per file" }
@@ -120,7 +122,12 @@ impl Tool for GrepTool {
         // Validate regex pattern for ReDoS
         validate_regex_pattern(pattern)?;
 
-        let path_str = optional_string(&params, "path").unwrap_or(".");
+        let path_str = params
+            .get("path")
+            .or_else(|| params.get("file_path"))
+            .or_else(|| params.get("include_pattern"))
+            .and_then(Value::as_str)
+            .unwrap_or(".");
         let root = validate_list_path(path_str, &ctx.cwd)?;
 
         // Case-insensitive flag — support both -i and case_insensitive
@@ -418,7 +425,11 @@ impl Tool for GlobTool {
                 },
                 "path": {
                     "type": "string",
-                    "description": "Directory to search in (default: workspace root)"
+                    "description": "Directory to search in (alias: file_path). Default: workspace root."
+                },
+                "file_path": {
+                    "type": "string",
+                    "description": "Alias for path"
                 }
             }
         })
@@ -432,8 +443,12 @@ impl Tool for GlobTool {
 
         let pattern = required_string(&params, "pattern")?;
 
-        // Resolve search directory — support optional "path" parameter
-        let search_root = if let Some(custom_path) = optional_string(&params, "path") {
+        // Resolve search directory — support optional "path" parameter and "file_path" alias
+        let search_root = if let Some(custom_path) = params
+            .get("path")
+            .or_else(|| params.get("file_path"))
+            .and_then(Value::as_str)
+        {
             let resolved = ctx.cwd.join(custom_path);
             if !resolved.is_dir() {
                 anyhow::bail!("path '{custom_path}' is not a directory");

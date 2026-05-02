@@ -54,6 +54,7 @@ pub mod ensemble_strategy;
 pub mod error;
 pub mod error_signal;
 pub mod execution_trace;
+pub mod executor_integration;
 pub mod failure_store;
 pub mod fork_join;
 pub mod guard;

@@ -111,6 +111,7 @@
 
 pub mod advisor;
 pub mod anthropic;
+pub mod anthropic_advanced_tools;
 pub mod anthropic_streaming;
 pub mod azure;
 pub mod bedrock;

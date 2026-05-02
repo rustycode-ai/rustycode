@@ -112,7 +112,11 @@ Summary of changes made to each file.
                         "properties": {
                             "path": {
                                 "type": "string",
-                                "description": "File path (relative or absolute)"
+                                "description": "File path relative to current workspace (alias: file_path)"
+                            },
+                            "file_path": {
+                                "type": "string",
+                                "description": "Alias for path"
                             },
                             "operation": {
                                 "type": "string",
@@ -125,11 +129,19 @@ Summary of changes made to each file.
                             },
                             "old_text": {
                                 "type": "string",
-                                "description": "Text to find and replace (for edit operations)"
+                                "description": "Text to find (alias: old_string)"
+                            },
+                            "old_string": {
+                                "type": "string",
+                                "description": "Alias for old_text"
                             },
                             "new_text": {
                                 "type": "string",
-                                "description": "Replacement text (for edit operations)"
+                                "description": "Replacement text (alias: new_string)"
+                            },
+                            "new_string": {
+                                "type": "string",
+                                "description": "Alias for new_text"
                             }
                         },
                         "required": ["path", "operation"]
@@ -292,6 +304,7 @@ enum EditOperation {
 fn validate_edit(edit_value: &Value, ctx: &ToolContext) -> Result<ValidatedEdit> {
     let path = edit_value
         .get("path")
+        .or_else(|| edit_value.get("file_path"))
         .and_then(|v| v.as_str())
         .ok_or_else(|| anyhow!("missing 'path'"))?;
 
@@ -320,6 +333,7 @@ fn validate_edit(edit_value: &Value, ctx: &ToolContext) -> Result<ValidatedEdit>
         "edit" => {
             let old_text = edit_value
                 .get("old_text")
+                .or_else(|| edit_value.get("old_string"))
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow!("missing 'old_text' for edit operation"))?;
 
@@ -329,6 +343,7 @@ fn validate_edit(edit_value: &Value, ctx: &ToolContext) -> Result<ValidatedEdit>
 
             let new_text = edit_value
                 .get("new_text")
+                .or_else(|| edit_value.get("new_string"))
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| anyhow!("missing 'new_text' for edit operation"))?;
 

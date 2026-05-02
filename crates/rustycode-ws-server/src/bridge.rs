@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use rustycode_orchestration::bus::{BusHandle, OrchestrationEvent};
 use rustycode_protocol::StreamEvent;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::{broadcast, oneshot, RwLock};
 use tracing::{info, warn};
 
 type EventSender = tokio::sync::mpsc::UnboundedSender<StreamEvent>;
@@ -11,7 +11,7 @@ type EventSender = tokio::sync::mpsc::UnboundedSender<StreamEvent>;
 pub struct EventBridge {
     handle: Arc<RwLock<BusHandle>>,
     sessions: Arc<RwLock<HashMap<String, EventSender>>>,
-    cancel: tokio_util::sync::CancellationToken,
+    cancel: Arc<Mutex<tokio_util::sync::CancellationToken>>,
 }
 
 impl EventBridge {
@@ -20,7 +20,7 @@ impl EventBridge {
         Self {
             handle: Arc::new(RwLock::new(handle)),
             sessions: Arc::new(RwLock::new(HashMap::new())),
-            cancel: tokio_util::sync::CancellationToken::new(),
+            cancel: Arc::new(Mutex::new(tokio_util::sync::CancellationToken::new())),
         }
     }
 
@@ -39,26 +39,36 @@ impl EventBridge {
         self.sessions.write().await.remove(session_token);
     }
 
-    pub fn start(&self) {
-        self.spawn_forwarder();
+    pub async fn start(&self) {
+        let ready = self.spawn_forwarder();
+        let _ = ready.await;
     }
 
     /// Swap the bus handle (e.g. after pipeline rebuild on provider switch)
     /// and restart the forwarding loop on the new bus.
     pub async fn resubscribe(&self, new_handle: BusHandle) {
-        self.cancel.cancel();
+        let old_cancel = {
+            let mut guard = self.cancel.lock().unwrap_or_else(|poison| poison.into_inner());
+            std::mem::replace(&mut *guard, tokio_util::sync::CancellationToken::new())
+        };
+        old_cancel.cancel();
         {
             let mut guard = self.handle.write().await;
             *guard = new_handle;
         }
-        self.spawn_forwarder();
+        let ready = self.spawn_forwarder();
+        let _ = ready.await;
         info!("EventBridge resubscribed to new bus");
     }
 
-    fn spawn_forwarder(&self) {
-        // Each forwarder gets its own cancellation token child so resubscribe
-        // only stops the old loop, not the new one.
-        let cancel = self.cancel.child_token();
+    fn spawn_forwarder(&self) -> oneshot::Receiver<()> {
+        let (ready_tx, ready_rx) = oneshot::channel();
+        let cancel = {
+            self.cancel
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner())
+                .clone()
+        };
         let handle = Arc::clone(&self.handle);
         let sessions = self.sessions.clone();
 
@@ -66,6 +76,7 @@ impl EventBridge {
             let bus = handle.read().await.clone();
             let mut rx = bus.subscribe();
             drop(bus);
+            let _ = ready_tx.send(());
 
             loop {
                 tokio::select! {
@@ -110,6 +121,7 @@ impl EventBridge {
                 }
             }
         });
+        ready_rx
     }
 }
 
@@ -621,7 +633,7 @@ mod tests {
     async fn bridge_registers_and_forwards() {
         let bus = BusHandle::new(16);
         let bridge = EventBridge::new(bus.clone());
-        bridge.start();
+        bridge.start().await;
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         bridge.register("sess-1", tx).await;
@@ -644,7 +656,7 @@ mod tests {
     async fn bridge_unregister_stops_delivery() {
         let bus = BusHandle::new(16);
         let bridge = EventBridge::new(bus.clone());
-        bridge.start();
+        bridge.start().await;
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         bridge.register("sess-1", tx).await;
@@ -663,7 +675,7 @@ mod tests {
     async fn bridge_resubscribe_switches_bus() {
         let bus1 = BusHandle::new(16);
         let bridge = EventBridge::new(bus1.clone());
-        bridge.start();
+        bridge.start().await;
 
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         bridge.register("sess-1", tx).await;

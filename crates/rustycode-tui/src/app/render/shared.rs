@@ -196,7 +196,7 @@ pub fn tool_kind_icon(name: &str) -> &'static str {
     const RULES: &[(&[&str], &str)] = &[
         (&["read", "cat", "view"], "R"),
         (&["write", "create", "insert"], "W"),
-        (&["edit", "patch", "replace", "search_replace"], "E"),
+        (&["edit", "patch", "replace", "apply_patch"], "E"),
         (&["delete", "remove"], "D"),
         (&["grep", "search"], "G"),
         (&["glob", "find", "list"], "F"),

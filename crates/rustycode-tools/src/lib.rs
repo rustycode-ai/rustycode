@@ -137,6 +137,7 @@ pub mod directory_trust;
 pub mod doom_loop;
 pub mod edit_format;
 pub mod egress_detector;
+pub mod executable_integration;
 pub mod executable_search;
 pub mod file_formatter;
 pub mod file_reference;
@@ -201,13 +202,15 @@ pub mod worktree;
 pub fn check_tool_permission(tool_name: &str, mode: rustycode_protocol::SessionMode) -> bool {
     match mode {
         rustycode_protocol::SessionMode::Planning => {
-            matches!(
+                matches!(
                 tool_name,
                 "read_file"
                     | "list_dir"
                     | "grep"
                     | "search"
                     | "glob"
+                    | "find"
+                    | "inspect"
                     | "lsp_diagnostics"
                     | "lsp_hover"
                     | "lsp_definition"

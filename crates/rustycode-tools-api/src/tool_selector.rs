@@ -87,6 +87,7 @@ pub fn profile_from_prompt(prompt: &str) -> ToolProfile {
         ("show", 3),
         ("display", 3),
         ("find", 2),
+        ("inspect", 2),
         ("search", 2),
         ("list", 2),
         ("explore", 2),

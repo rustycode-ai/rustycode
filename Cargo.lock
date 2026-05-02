@@ -5671,7 +5671,7 @@ dependencies = [
  "rustycode-llm",
  "rustycode-protocol",
  "rustycode-tools",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "tokio",
@@ -5727,7 +5727,7 @@ dependencies = [
  "keyring-core",
  "rand 0.10.1",
  "reqwest 0.13.3",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -5761,7 +5761,7 @@ dependencies = [
  "rustycode-protocol",
  "rustycode-tools",
  "rustycode-tools-api",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "tar",
@@ -5837,7 +5837,7 @@ dependencies = [
  "rustycode-ui-model",
  "rustycode-vector-memory",
  "rustycode-ws-server",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -5926,10 +5926,27 @@ dependencies = [
  "anyhow",
  "crossterm",
  "rustycode-llm",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "rustycode-executable"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures",
+ "secrecy 0.8.0",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-test",
+ "tracing",
 ]
 
 [[package]]
@@ -6072,12 +6089,13 @@ dependencies = [
  "reqwest 0.13.3",
  "rustycode-auth",
  "rustycode-config",
+ "rustycode-executable",
  "rustycode-litert",
  "rustycode-protocol",
  "rustycode-tool-integration",
  "rustycode-tools",
  "rustycode-tools-api",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -6199,6 +6217,7 @@ dependencies = [
  "rusqlite",
  "rustycode-agent",
  "rustycode-classification",
+ "rustycode-executable",
  "rustycode-llm",
  "rustycode-prompt",
  "rustycode-protocol",
@@ -6291,7 +6310,7 @@ dependencies = [
  "rustycode-tools",
  "rustycode-tools-api",
  "rustycode_shared_runtime",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -6416,6 +6435,7 @@ version = "0.1.0"
 dependencies = [
  "ahash",
  "anyhow",
+ "async-trait",
  "base64 0.22.1",
  "chrono",
  "criterion",
@@ -6440,6 +6460,7 @@ dependencies = [
  "reqwest 0.13.3",
  "rustycode-bus",
  "rustycode-config",
+ "rustycode-executable",
  "rustycode-lsp",
  "rustycode-protocol",
  "rustycode-session",
@@ -6547,7 +6568,7 @@ dependencies = [
  "rustycode-ui-core",
  "rustycode-vector-memory",
  "rustycode_shared_runtime",
- "secrecy",
+ "secrecy 0.10.3",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -6724,6 +6745,15 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "secrecy"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bd1c54ea06cfd2f6b63219704de0b9b4f72dcc2b8fdef820be6cd799780e91e"
+dependencies = [
+ "zeroize",
+]
 
 [[package]]
 name = "secrecy"
@@ -7745,6 +7775,17 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f6d24790a10a7af737693a3e8f1d03faef7e6ca0cc99aae5066f533766de545"
+dependencies = [
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

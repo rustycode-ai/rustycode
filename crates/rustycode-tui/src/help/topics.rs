@@ -165,7 +165,7 @@ pub fn get_all_topics() -> Vec<HelpTopic> {
         HelpTopic {
             title: "Undo file changes".to_string(),
             category: HelpCategory::Tools,
-            content: "Undo the last file write operation by restoring the previous file contents. Works for write_file, edit_file, and search_replace tools.".to_string(),
+            content: "Undo the last file write operation by restoring the previous file contents. Works for write_file, edit_file, and apply_patch tools.".to_string(),
             key_bindings: vec!["/undo".to_string()],
         },
         HelpTopic {

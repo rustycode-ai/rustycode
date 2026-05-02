@@ -395,41 +395,6 @@ fn test_bash_executes_in_workspace() {
 // ── Input Validation Tests ───────────────────────────────────────────────────
 
 #[test]
-fn test_search_replace_blocks_dangerous_regex() {
-    let workspace = tempdir().expect("workspace tempdir");
-    let test_file = workspace.path().join("test.txt");
-    fs::write(&test_file, "test content").expect("write test file");
-
-    let tool = SearchReplace;
-    let ctx = ToolContext::new(workspace.path());
-
-    // Nested quantifiers (ReDoS)
-    let result = tool.execute(
-        json!({
-            "path": "test.txt",
-            "pattern": r"(.*).*",
-            "replacement": "x",
-            "regex": true
-        }),
-        &ctx,
-    );
-    assert!(result.is_err(), "Should block nested quantifiers");
-
-    // Very long pattern
-    let long_pattern = "a".repeat(2000);
-    let result = tool.execute(
-        json!({
-            "path": "test.txt",
-            "pattern": long_pattern,
-            "replacement": "x",
-            "regex": true
-        }),
-        &ctx,
-    );
-    assert!(result.is_err(), "Should block excessively long pattern");
-}
-
-#[test]
 fn test_grep_blocks_dangerous_regex() {
     let workspace = tempdir().expect("workspace tempdir");
     let test_file = workspace.path().join("test.txt");

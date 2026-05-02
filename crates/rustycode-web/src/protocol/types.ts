@@ -191,6 +191,7 @@ export interface HelloPayload {
 
 export interface InputPayload {
   content: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface HeartbeatPayload {
@@ -201,7 +202,7 @@ export interface HeartbeatPayload {
 
 export interface SessionCreatedPayload {
   session_token: string;
-  capabilities: { streaming: boolean; heartbeat_interval_ms: number };
+  capabilities: { max_frame_size?: number; heartbeat_interval_secs?: number };
 }
 
 export interface SessionResumedPayload {

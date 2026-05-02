@@ -272,7 +272,7 @@ impl MistakeTracker {
     fn get_alternative_example(&self, operation: &str, mistake_type: &MistakeType) -> String {
         match (operation, mistake_type) {
             ("bash", _) => "Instead of bash, try using the specific tool (read_file, write_file, etc.) directly".to_string(),
-            ("edit_file", _) => "Use search_replace for simple text replacements, or read the file first to see its exact content".to_string(),
+            ("edit_file", _) => "Use apply_patch for multi-hunk changes, or read the file first to see its exact content".to_string(),
             (_, MistakeType::FileNotFoundError) => "Use 'glob' or 'list_dir' to find the correct file path first".to_string(),
             _ => "Let me try a different approach to solve this problem".to_string(),
         }

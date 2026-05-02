@@ -1318,9 +1318,10 @@ impl TUI {
     fn register_builtin_tools(&self, tool_registry: &mut ToolRegistry) {
         use crate::skills::as_tool::{CreateCronTool, CreateTeamTool, SkillToolRegistry};
         use rustycode_tools::edit::EditFile;
+        use rustycode_tools::{FindTool, InspectTool};
         use rustycode_tools::question::QuestionTool;
         use rustycode_tools::search::{GlobTool, GrepTool};
-        use rustycode_tools::search_replace::SearchReplace;
+        use rustycode_tools::apply_patch::ApplyPatchTool;
         use rustycode_tools::{
             BashTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, ListDirTool,
             ReadFileTool, WriteFileTool,
@@ -1335,7 +1336,9 @@ impl TUI {
         // Search tools
         tool_registry.register(GrepTool);
         tool_registry.register(GlobTool);
-        tool_registry.register(SearchReplace);
+        tool_registry.register(ApplyPatchTool);
+        tool_registry.register(FindTool);
+        tool_registry.register(InspectTool);
 
         // Command execution
         tool_registry.register(BashTool);

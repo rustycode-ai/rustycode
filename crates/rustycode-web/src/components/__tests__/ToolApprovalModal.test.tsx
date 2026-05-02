@@ -42,9 +42,9 @@ describe("ToolApprovalModal", () => {
     expect(screen.getByText("Low Risk")).toBeInTheDocument();
   });
 
-  it("has dialog role and aria-modal", () => {
+  it("has alertdialog role and aria-modal", () => {
     render(<ToolApprovalModal request={makeRequest()} onRespond={vi.fn()} />);
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("aria-label", "Tool approval request");
   });
@@ -66,7 +66,7 @@ describe("ToolApprovalModal", () => {
   it("calls onRespond(false) when overlay backdrop clicked", async () => {
     const onRespond = vi.fn();
     render(<ToolApprovalModal request={makeRequest()} onRespond={onRespond} />);
-    const overlay = screen.getByRole("dialog");
+    const overlay = screen.getByRole("alertdialog");
     await userEvent.click(overlay);
     expect(onRespond).toHaveBeenCalledWith("req-1", false);
   });

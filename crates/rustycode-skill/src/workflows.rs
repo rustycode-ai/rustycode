@@ -205,10 +205,12 @@ pub mod builtin {
                 },
             ],
             triggers: vec![
+                "tdd".to_string(),
                 "implement".to_string(),
                 "add feature".to_string(),
                 "new function".to_string(),
                 "write test".to_string(),
+                "test-driven".to_string(),
             ],
             enabled: true,
         }
@@ -275,6 +277,8 @@ pub mod builtin {
                 "architecture".to_string(),
                 "design".to_string(),
                 "plan".to_string(),
+                "proposal".to_string(),
+                "architect".to_string(),
             ],
             enabled: true,
         }
@@ -342,6 +346,8 @@ pub mod builtin {
                 "failing".to_string(),
                 "error".to_string(),
                 "fix".to_string(),
+                "troubleshoot".to_string(),
+                "crash".to_string(),
             ],
             enabled: true,
         }
@@ -400,6 +406,9 @@ pub mod builtin {
                 "auth".to_string(),
                 "token".to_string(),
                 "password".to_string(),
+                "audit".to_string(),
+                "penetration".to_string(),
+                "owasp".to_string(),
             ],
             enabled: true,
         }
@@ -1038,7 +1047,7 @@ mod tests {
         let decoded: Workflow = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.id, "planning_first");
         assert_eq!(decoded.phases.len(), 5);
-        assert_eq!(decoded.triggers.len(), 5);
+        assert_eq!(decoded.triggers.len(), 7);
         assert!(decoded.enabled);
     }
 

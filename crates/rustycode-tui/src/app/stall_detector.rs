@@ -22,7 +22,6 @@ const CODE_TOOLS: &[&str] = &[
     "edit_file",
     "multiedit",
     "apply_patch",
-    "search_replace",
     "claude_text_editor",
 ];
 

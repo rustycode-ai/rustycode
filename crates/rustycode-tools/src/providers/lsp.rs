@@ -99,6 +99,7 @@ impl UriPathExt for Url {
 fn resolve_file_path(ctx: &ToolContext, params: &Value) -> Result<PathBuf> {
     let path = params
         .get("file_path")
+        .or_else(|| params.get("path"))
         .and_then(Value::as_str)
         .ok_or_else(|| anyhow!("missing required parameter: file_path"))?;
     let p = PathBuf::from(path);
@@ -168,7 +169,7 @@ fn param_u32(params: &Value, key: &str) -> Result<u32> {
         .ok_or_else(|| anyhow!("missing required parameter: {key}"))
 }
 
-fn run_async_result<F, T>(fut: F) -> Result<T>
+pub(crate) fn run_async_result<F, T>(fut: F) -> Result<T>
 where
     F: Future<Output = Result<T>>,
 {
@@ -186,7 +187,7 @@ where
 /// Read a file's contents, using blocking I/O safely from async contexts.
 /// This wraps `std::fs::read_to_string` in `spawn_blocking` to avoid blocking
 /// the async runtime.
-fn read_file_blocking(file_path: &Path) -> Result<String> {
+pub(crate) fn read_file_blocking(file_path: &Path) -> Result<String> {
     let path = file_path.to_path_buf();
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
         // We're in an async runtime, use spawn_blocking and block_in_place
@@ -200,7 +201,7 @@ fn read_file_blocking(file_path: &Path) -> Result<String> {
     }
 }
 
-fn with_lsp_client<T>(
+pub(crate) fn with_lsp_client<T>(
     ctx: &ToolContext,
     language: LanguageId,
     lsp_config: Option<&LspConfig>,
@@ -238,7 +239,7 @@ fn with_lsp_client<T>(
 
 /// Helper function to load LSP configuration for a project
 /// from the .rustycode/config.json file, if it exists.
-fn get_lsp_config_for_project(cwd: &Path) -> Option<LspConfig> {
+pub(crate) fn get_lsp_config_for_project(cwd: &Path) -> Option<LspConfig> {
     let config_path = cwd.join(".rustycode").join("config.json");
     if !config_path.exists() {
         return None;
@@ -336,7 +337,8 @@ impl Tool for LspHoverTool {
             "type": "object",
             "required": ["file_path", "line", "character"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "line": { "type": "integer", "minimum": 0 },
                 "character": { "type": "integer", "minimum": 0 },
                 "language": { "type": "string" }
@@ -401,7 +403,8 @@ impl Tool for LspDefinitionTool {
             "type": "object",
             "required": ["file_path", "line", "character"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "line": { "type": "integer", "minimum": 0 },
                 "character": { "type": "integer", "minimum": 0 },
                 "language": { "type": "string" }
@@ -466,7 +469,8 @@ impl Tool for LspCompletionTool {
             "type": "object",
             "required": ["file_path", "line", "character"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "line": { "type": "integer", "minimum": 0 },
                 "character": { "type": "integer", "minimum": 0 },
                 "language": { "type": "string" },
@@ -550,7 +554,8 @@ Returns: Hierarchical list of symbols with their types and locations"
             "type": "object",
             "required": ["file_path"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "language": { "type": "string" }
             }
         })
@@ -617,7 +622,8 @@ Returns: List of locations where the symbol is referenced"
             "type": "object",
             "required": ["file_path", "line", "character"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "line": { "type": "integer", "minimum": 0 },
                 "character": { "type": "integer", "minimum": 0 },
                 "language": { "type": "string" }
@@ -691,7 +697,8 @@ Returns: List of diagnostics with severity, messages, and related information"
             "type": "object",
             "required": ["file_path"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "language": { "type": "string" }
             }
         })
@@ -789,7 +796,8 @@ Returns: List of code actions with titles and kinds"
             "type": "object",
             "required": ["file_path", "line", "character"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "line": { "type": "integer", "description": "0-based line number" },
                 "character": { "type": "integer", "description": "0-based character offset" },
                 "end_line": { "type": "integer", "description": "0-based end line (optional)" },
@@ -903,7 +911,8 @@ Returns: Workspace edit with all changes to apply"
             "type": "object",
             "required": ["file_path", "line", "character", "new_name"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "line": { "type": "integer", "description": "0-based line number" },
                 "character": { "type": "integer", "description": "0-based character offset" },
                 "new_name": { "type": "string", "description": "New name for the symbol" },
@@ -1053,7 +1062,8 @@ Returns: Text edits to apply for formatting"
             "type": "object",
             "required": ["file_path"],
             "properties": {
-                "file_path": { "type": "string" },
+                "file_path": { "type": "string", "description": "File path (alias: path)" },
+                "path": { "type": "string", "description": "Alias for file_path" },
                 "line": { "type": "integer", "description": "0-based start line for range formatting" },
                 "character": { "type": "integer", "description": "0-based start character for range formatting" },
                 "end_line": { "type": "integer", "description": "0-based end line for range formatting" },
@@ -1179,7 +1189,11 @@ impl Tool for LspGetSymbolsOverviewTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file"
+                    "description": "Path to the source file (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "depth": {
                     "type": "integer",
@@ -1261,7 +1275,11 @@ impl Tool for LspFindSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file"
+                    "description": "Path to the source file (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -1405,7 +1423,11 @@ impl Tool for LspReplaceSymbolBodyTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file"
+                    "description": "Path to the source file (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -1507,7 +1529,11 @@ impl Tool for LspInsertBeforeSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file"
+                    "description": "Path to the source file (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -1610,7 +1636,11 @@ impl Tool for LspInsertAfterSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file"
+                    "description": "Path to the source file (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -1714,7 +1744,11 @@ impl Tool for LspSafeDeleteSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file"
+                    "description": "Path to the source file (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -1836,7 +1870,11 @@ impl Tool for LspRenameSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file containing the symbol"
+                    "description": "Path to the source file containing the symbol (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -1977,7 +2015,11 @@ impl Tool for LspAnalyzeSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file"
+                    "description": "Path to the source file (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -2130,7 +2172,11 @@ impl Tool for LspExtractSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file containing the symbol"
+                    "description": "Path to the source file containing the symbol (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",
@@ -2279,7 +2325,11 @@ impl Tool for LspInlineSymbolTool {
             "properties": {
                 "file_path": {
                     "type": "string",
-                    "description": "Path to the source file containing the symbol"
+                    "description": "Path to the source file containing the symbol (alias: path)"
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Alias for file_path"
                 },
                 "name_path": {
                     "type": "string",

@@ -851,10 +851,10 @@ mod tests {
 
     #[test]
     fn parse_tool_fence_accepts_any_tool_name() {
-        let content = "```tool\n[{\"name\": \"search_replace\", \"arguments\": {\"pattern\": \"old\", \"replacement\": \"new\"}}]\n```";
+        let content = "```tool\n[{\"name\": \"apply_patch\", \"arguments\": {\"patch\": \"--- a/file\\n+++ b/file\\n@@ -1 +1 @@\\n-old\\n+new\"}}]\n```";
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "search_replace");
+        assert_eq!(tools[0].name, "apply_patch");
     }
 
     #[test]
@@ -1022,7 +1022,7 @@ mod tests {
         // Search tools
         assert!(names.contains(&"grep"), "missing grep");
         assert!(names.contains(&"glob"), "missing glob");
-        assert!(names.contains(&"search_replace"), "missing search_replace");
+        assert!(names.contains(&"apply_patch"), "missing apply_patch");
         // Bash
         assert!(names.contains(&"bash"), "missing bash");
         // Git (read-only)

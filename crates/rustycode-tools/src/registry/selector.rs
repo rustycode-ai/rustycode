@@ -77,6 +77,8 @@ impl ToolProfile {
                 "list_dir",
                 "grep",
                 "glob",
+                "find",
+                "inspect",
                 "tool_search",
                 "web_fetch",
                 "lsp_hover",
@@ -87,6 +89,7 @@ impl ToolProfile {
             ToolProfile::Debug => &[
                 "lsp_diagnostics",
                 "lsp_hover",
+                "inspect",
                 "bash",
                 "grep",
                 "read_file",
@@ -109,6 +112,8 @@ impl ToolProfile {
                 "list_dir",
                 "grep",
                 "glob",
+                "find",
+                "inspect",
                 "web_fetch",
                 "web_search",
                 "tool_search",
@@ -155,6 +160,7 @@ impl ToolProfile {
             ("display", 3),
             // Exploration actions (weight 2)
             ("find", 2),
+            ("inspect", 2),
             ("search", 2),
             ("list", 2),
             ("explore", 2),

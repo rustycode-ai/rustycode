@@ -292,16 +292,51 @@ impl AgentEvents for StreamEventAdapter {
             })
             .unwrap_or_default();
 
+        // Extract the actual command for bash tools (not the key=value diff)
+        let bash_command = if tool_name == "bash" {
+            input
+                .as_object()
+                .and_then(|obj| obj.get("command"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+        } else {
+            ""
+        };
+
         let tool_id = self
             .pending_tool_id
             .clone()
             .unwrap_or_else(|| "unknown".to_string());
 
+        // Classify risk for logging
+        let tool_type = crate::tool_approval::risk::classify_tool_type(tool_name);
+        let risk_command = if tool_name == "bash" {
+            bash_command.to_string()
+        } else {
+            input.to_string()
+        };
+        let risk = crate::tool_approval::risk::classify_tool_risk(&tool_type, &risk_command);
+        tracing::info!(
+            "Tool approval request: {} (risk={:?}, type={:?}, cmd={})",
+            tool_name,
+            risk,
+            tool_type,
+            if tool_name == "bash" { bash_command } else { &diff }
+        );
+
+        // For bash tools, send the raw command (not key=value) so the TUI's
+        // SmartApprove can properly classify read-only vs dangerous commands.
+        let display_diff = if tool_name == "bash" && !bash_command.is_empty() {
+            Some(bash_command.to_string())
+        } else {
+            Some(diff)
+        };
+
         self.emit(StreamChunk::ApprovalRequest {
             tool_name: tool_name.to_string(),
             tool_id,
             description: format!("Execute tool: {}", tool_name),
-            diff: Some(diff),
+            diff: display_diff,
         });
 
         // Wait for user approval from the TUI side
@@ -310,15 +345,19 @@ impl AgentEvents for StreamEventAdapter {
             .as_ref()
             .map(|rx| rx.recv_timeout(Duration::from_mins(5)))
         {
-            Some(Ok(true)) => ApprovalDecision::Approve,
-            Some(Ok(false)) => ApprovalDecision::Reject("rejected by user".to_string()),
+            Some(Ok(true)) => {
+                tracing::info!("Tool approval: {} approved by user", tool_name);
+                ApprovalDecision::Approve
+            }
+            Some(Ok(false)) => {
+                tracing::info!("Tool approval: {} rejected by user", tool_name);
+                ApprovalDecision::Reject("rejected by user".to_string())
+            }
             Some(Err(_)) => {
                 // Timeout: only auto-approve safe (read-only) tools.
                 // Dangerous tools must be rejected to prevent silent
                 // approval of destructive operations like `rm -rf`.
-                let tool_type = crate::tool_approval::risk::classify_tool_type(tool_name);
-                let command_str = input.to_string();
-                let risk = crate::tool_approval::risk::classify_tool_risk(&tool_type, &command_str);
+                // Reuse risk already classified above for consistency.
                 let is_safe = matches!(risk, crate::tool_approval::risk::RiskLevel::Safe);
                 if is_safe {
                     tracing::warn!(
@@ -352,12 +391,12 @@ impl AgentEvents for StreamEventAdapter {
             }
             None => {
                 // No approval channel available (e.g., orchestration forwarding thread).
-                // Apply the same risk classification as the timeout path: auto-approve
-                // safe tools, reject dangerous ones to prevent silent approval of
-                // destructive operations.
-                let tool_type = crate::tool_approval::risk::classify_tool_type(tool_name);
-                let command_str = input.to_string();
-                let risk = crate::tool_approval::risk::classify_tool_risk(&tool_type, &command_str);
+                // Reuse risk already classified above for consistency.
+                tracing::warn!(
+                    "Tool approval: {} has no approval channel (risk={:?})",
+                    tool_name,
+                    risk
+                );
                 let is_safe = matches!(risk, crate::tool_approval::risk::RiskLevel::Safe);
                 if is_safe {
                     tracing::debug!(

@@ -149,7 +149,7 @@ impl PolishedRenderer {
     ) {
         use ratatui::widgets::Paragraph;
 
-        let lines = self.visible_input_lines(tui, input_area.height as usize, is_multiline);
+        let lines = self.visible_input_lines(tui, input_area.height as usize, input_area.width as usize, is_multiline);
         frame.render_widget(Paragraph::new(lines), input_area);
     }
 
@@ -157,6 +157,7 @@ impl PolishedRenderer {
         &self,
         tui: &TUI,
         max_display_lines: usize,
+        area_width: usize,
         is_multiline: bool,
     ) -> Vec<ratatui::text::Line<'static>> {
         use ratatui::text::Line;
@@ -179,6 +180,7 @@ impl PolishedRenderer {
                 row,
                 cursor_row,
                 cursor_col,
+                area_width,
                 is_multiline,
             )));
         }
@@ -197,25 +199,64 @@ impl PolishedRenderer {
         row: &str,
         cursor_row: usize,
         cursor_col: usize,
+        area_width: usize,
         is_multiline: bool,
     ) -> Vec<ratatui::text::Span<'static>> {
         use ratatui::style::{Color, Style};
         use ratatui::text::Span;
 
         let mut spans = Vec::new();
+        let prefix_width: usize;
         if is_multiline {
-            spans.push(Span::styled(
-                format!("{:>2} ", row_idx + 1),
-                Style::default().fg(Color::DarkGray),
-            ));
+            let label = format!("{:>2} ", row_idx + 1);
+            prefix_width = 3;
+            spans.push(Span::styled(label, Style::default().fg(Color::DarkGray)));
         } else {
+            prefix_width = 2;
             spans.push(Span::styled("❯", Style::default().fg(Color::Rgb(220, 80, 100))));
             spans.push(Span::raw(" "));
         }
 
+        // Visible width for text content (area minus prefix and small padding)
+        let text_visible = area_width.saturating_sub(prefix_width).saturating_sub(2);
+
+        // Apply horizontal scroll offset for the cursor row
         if row_idx == cursor_row {
+            let state = &tui.input_handler.state;
+
+            // Compute scroll offset to keep cursor visible within text_visible columns
+            let cursor_display = state.cursor_display_col();
+            let min_offset = cursor_display.saturating_sub(text_visible.saturating_sub(1));
+            let offset = state.display_offset.clamp(min_offset, cursor_display);
+
+            // Get byte offset for the scroll position
+            let scroll_byte = if offset > 0 {
+                use unicode_segmentation::UnicodeSegmentation;
+                let mut col = 0;
+                let mut byte_pos = 0;
+                for (bi, g) in row.grapheme_indices(true) {
+                    if col >= offset {
+                        byte_pos = bi;
+                        break;
+                    }
+                    col += crate::unicode::display_width(g);
+                    byte_pos = bi + g.len();
+                }
+                byte_pos
+            } else {
+                0
+            };
+
             let col = row.floor_char_boundary(cursor_col.min(row.len()));
-            let (before, rest) = row.split_at(col);
+            let visible_row = if scroll_byte > 0 && scroll_byte <= row.len() {
+                &row[scroll_byte.min(row.len())..]
+            } else {
+                row
+            };
+            let adjusted_cursor = col.saturating_sub(scroll_byte.min(col));
+            let clamped = visible_row.floor_char_boundary(adjusted_cursor.min(visible_row.len()));
+
+            let (before, rest) = visible_row.split_at(clamped);
 
             if !before.is_empty() {
                 spans.push(Span::raw(before.to_string()));

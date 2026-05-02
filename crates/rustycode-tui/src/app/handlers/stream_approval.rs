@@ -19,7 +19,33 @@ pub(super) fn handle_approval_request_chunk(
         .unwrap_or_else(|| format!("Execute {}", tool_name));
     let risk_level = risk::classify_tool_risk(&tool_type, &command);
 
+    tracing::info!(
+        "TUI approval handler: {} (type={:?}, risk={:?}, ai_mode={:?})",
+        tool_name,
+        tool_type,
+        risk_level,
+        tui.services.ai_mode()
+    );
+
     if tui.services.ai_mode() == crate::agent_mode::AiMode::Yolo {
+        match risk_level {
+            risk::RiskLevel::Safe => {}
+            risk::RiskLevel::Medium | risk::RiskLevel::High => {
+                tracing::info!(
+                    "Yolo auto-approved ({:?}): {}",
+                    risk_level,
+                    tool_name
+                );
+                tui.add_system_message(format!("⚡ Auto-approved: {}", tool_name));
+            }
+            risk::RiskLevel::Dangerous => {
+                tracing::warn!(
+                    "Yolo auto-approved (DESTRUCTIVE): {}",
+                    tool_name
+                );
+                tui.add_system_message(format!("⚠ Auto-approved (dangerous): {}", tool_name));
+            }
+        }
         tui.services.send_approval_response(true);
         tui.dirty = true;
         return;
@@ -59,6 +85,10 @@ pub(super) fn handle_approval_request_chunk(
     }
 
     if !tui.tool_approval.requires_approval(&tool_name, risk_level) {
+        tracing::info!(
+            "TUI approval: {} auto-approved (safe or session-approved)",
+            tool_name
+        );
         tui.services.send_approval_response(true);
         tui.dirty = true;
         return;
@@ -66,6 +96,7 @@ pub(super) fn handle_approval_request_chunk(
 
     // Check if tool has been blocked for this session
     if tui.tool_approval.is_blocked(&tool_name) {
+        tracing::info!("TUI approval: {} auto-rejected (blocked)", tool_name);
         tui.services.send_approval_response(false);
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
         tui.dirty = true;
@@ -97,6 +128,11 @@ pub(super) fn handle_approval_request_chunk(
         });
     tui.awaiting_approval = true;
     tui.dirty = true;
+    tracing::warn!(
+        "TUI approval: SHOWING PROMPT for {} (risk={:?})",
+        tool_name,
+        risk_level
+    );
 }
 
 

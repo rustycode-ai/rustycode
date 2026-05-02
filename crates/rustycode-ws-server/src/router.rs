@@ -54,7 +54,7 @@ impl WsRouter {
 
         let bus_handle = session_manager.pipeline().await.bus_handle();
         let event_bridge = Arc::new(EventBridge::new(bus_handle));
-        event_bridge.start();
+        event_bridge.start().await;
         session_manager.set_event_bridge(event_bridge.clone());
 
         let state = AppState {

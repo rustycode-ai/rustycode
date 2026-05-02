@@ -18,6 +18,7 @@ pub mod delegation_tool;
 pub mod docker;
 pub mod docker_isolation;
 pub mod edit;
+pub mod explore;
 pub mod fs;
 pub mod git;
 pub mod git_provider;
@@ -30,7 +31,6 @@ pub mod question;
 pub mod reasoning_types;
 pub mod repl;
 pub mod search;
-pub mod search_replace;
 pub mod send_message;
 pub mod skill_discovery;
 pub mod symbol;
@@ -71,6 +71,8 @@ pub use docker_isolation::*;
 #[allow(ambiguous_glob_reexports)]
 pub use edit::*;
 #[allow(ambiguous_glob_reexports)]
+pub use explore::*;
+#[allow(ambiguous_glob_reexports)]
 pub use fs::*;
 #[allow(ambiguous_glob_reexports)]
 pub use git::*;
@@ -92,8 +94,6 @@ pub use reasoning_types::*;
 pub use repl::*;
 #[allow(ambiguous_glob_reexports)]
 pub use search::*;
-#[allow(ambiguous_glob_reexports)]
-pub use search_replace::*;
 #[allow(ambiguous_glob_reexports)]
 pub use send_message::*;
 #[allow(ambiguous_glob_reexports)]
