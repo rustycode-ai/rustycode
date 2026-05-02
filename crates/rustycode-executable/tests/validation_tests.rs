@@ -11,7 +11,7 @@ use common::{make_agent_unit, make_input, make_skill_unit, make_tool_unit, EchoC
 use rustycode_executable::{
     CallChain, ExecutableError, ExecutableRegistry, ExecutableUnit, ExecutionContext,
     ExecutionMode, ExecutionRouter, ToolSearchService,
-    AdvancedToolMetadata, UnitCapabilities, UnitSource,
+    AdvancedToolMetadata, ExecutionExample, UnitCapabilities, UnitSource,
 };
 use rustycode_executable::discovery::ToolSearchOptions;
 use rustycode_executable::router::{AgentExecutor, DirectExecutor, SkillBundler};
@@ -687,4 +687,169 @@ async fn concurrent_read_while_registering() {
     // Pre-existing unit should still be intact
     let pre = registry.get("pre_existing").await;
     assert!(pre.is_some());
+}
+
+// ===================================================================
+// G. Examples accuracy
+// ===================================================================
+
+#[tokio::test]
+async fn examples_preserved_through_register_get_cycle() {
+    let registry = ExecutableRegistry::new();
+
+    // Build a tool unit with two realistic examples
+    let examples = vec![
+        ExecutionExample {
+            scenario: "list files in a directory".to_string(),
+            input: serde_json::json!({"command": "ls -la /tmp"}),
+            output: serde_json::json!({"exit_code": 0, "stdout": "file1.txt\nfile2.txt"}),
+            context: ExecutionContext::DirectTool {
+                immediate_result: true,
+                timeout_ms: Some(10_000),
+            },
+            explanation: Some("Lists files with details".to_string()),
+        },
+        ExecutionExample {
+            scenario: "run a long-running build".to_string(),
+            input: serde_json::json!({"command": "cargo build --release", "timeout": 300}),
+            output: serde_json::json!({"exit_code": 0, "stdout": "Finished release [optimized]"}),
+            context: ExecutionContext::DirectTool {
+                immediate_result: false,
+                timeout_ms: Some(300_000),
+            },
+            explanation: None,
+        },
+    ];
+
+    let unit = ExecutableUnit {
+        id: "bash_with_examples".to_string(),
+        name: "bash".to_string(),
+        description: "Execute shell commands".to_string(),
+        capabilities: UnitCapabilities {
+            can_execute_directly: true,
+            can_bundle_knowledge: false,
+            can_reason_autonomously: false,
+        },
+        advanced_metadata: AdvancedToolMetadata {
+            examples: examples.clone(),
+            defer_loading: false,
+            search_hints: vec!["bash".to_string(), "shell".to_string()],
+            execution_strategy: ExecutionMode::Direct,
+            result_processor: None,
+        },
+        handler: Arc::new(EchoCallable),
+        source: UnitSource::NativeTool {
+            path: "tools/bash".to_string(),
+        },
+        schema: None,
+        tags: vec![],
+        version: None,
+    };
+
+    registry.register(unit).unwrap();
+
+    // Retrieve the full unit and verify examples survived registration
+    let retrieved = registry.get_sync("bash_with_examples").unwrap();
+    let retrieved_examples = &retrieved.advanced_metadata.examples;
+
+    assert_eq!(
+        retrieved_examples.len(),
+        2,
+        "both examples should be preserved"
+    );
+
+    // Verify first example field-by-field
+    assert_eq!(retrieved_examples[0].scenario, "list files in a directory");
+    assert_eq!(retrieved_examples[0].input["command"], "ls -la /tmp");
+    assert!(retrieved_examples[0].input.is_object(), "input must be valid JSON object");
+    assert_eq!(retrieved_examples[0].output["exit_code"], 0);
+    assert!(retrieved_examples[0].output.is_object(), "output must be valid JSON object");
+    assert_eq!(
+        retrieved_examples[0].explanation,
+        Some("Lists files with details".to_string())
+    );
+
+    // Verify second example (no explanation)
+    assert_eq!(retrieved_examples[1].scenario, "run a long-running build");
+    assert!(retrieved_examples[1].input.is_object());
+    assert!(retrieved_examples[1].output.is_object());
+    assert_eq!(retrieved_examples[1].explanation, None);
+}
+
+#[tokio::test]
+async fn default_unit_has_empty_examples() {
+    let registry = ExecutableRegistry::new();
+    registry.register(make_tool_unit("no_examples_tool")).unwrap();
+    registry.register(make_skill_unit("no_examples_skill")).unwrap();
+    registry.register(make_agent_unit("no_examples_agent")).unwrap();
+
+    for id in &["no_examples_tool", "no_examples_skill", "no_examples_agent"] {
+        let unit = registry.get_sync(id).unwrap();
+        assert!(
+            unit.advanced_metadata.examples.is_empty(),
+            "unit '{id}' should have no examples by default"
+        );
+    }
+}
+
+#[tokio::test]
+async fn examples_accessible_after_discovery() {
+    let registry = Arc::new(ExecutableRegistry::new());
+
+    let unit = ExecutableUnit {
+        id: "discoverable_with_examples".to_string(),
+        name: "discoverable_with_examples".to_string(),
+        description: "A unit carrying examples for discovery validation".to_string(),
+        capabilities: UnitCapabilities {
+            can_execute_directly: true,
+            can_bundle_knowledge: false,
+            can_reason_autonomously: false,
+        },
+        advanced_metadata: AdvancedToolMetadata {
+            examples: vec![ExecutionExample {
+                scenario: "basic invocation".to_string(),
+                input: serde_json::json!({"key": "value"}),
+                output: serde_json::json!({"result": "ok"}),
+                context: ExecutionContext::DirectTool {
+                    immediate_result: true,
+                    timeout_ms: None,
+                },
+                explanation: Some("Simple key-value round-trip".to_string()),
+            }],
+            defer_loading: false,
+            search_hints: vec!["discoverable_with_examples".to_string()],
+            execution_strategy: ExecutionMode::Direct,
+            result_processor: None,
+        },
+        handler: Arc::new(EchoCallable),
+        source: UnitSource::NativeTool {
+            path: "tools/discoverable_with_examples".to_string(),
+        },
+        schema: None,
+        tags: vec![],
+        version: None,
+    };
+
+    registry.register(unit).unwrap();
+
+    // Discover the unit through ToolSearchService
+    let search = ToolSearchService::new(registry.clone());
+    let results = search
+        .search("discoverable_with_examples", ToolSearchOptions::default())
+        .await
+        .unwrap();
+
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].id, "discoverable_with_examples");
+
+    // Retrieve the full unit by the discovered ID and verify examples are intact
+    let discovered_unit = registry.get(&results[0].id).await.unwrap();
+    let examples = &discovered_unit.advanced_metadata.examples;
+
+    assert_eq!(examples.len(), 1);
+    assert_eq!(examples[0].scenario, "basic invocation");
+    assert_eq!(examples[0].input["key"], "value");
+    assert_eq!(examples[0].output["result"], "ok");
+    assert!(examples[0].input.is_object());
+    assert!(examples[0].output.is_object());
 }
