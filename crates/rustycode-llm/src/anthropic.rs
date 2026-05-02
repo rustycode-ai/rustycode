@@ -663,12 +663,18 @@ impl AnthropicProvider {
             .usage
             .input_tokens
             .try_into()
-            .unwrap_or(u32::MAX);
+            .unwrap_or_else(|_| {
+                tracing::warn!("input_tokens overflow, clamping to u32::MAX");
+                u32::MAX
+            });
         let output_tokens: u32 = anthropic_response
             .usage
             .output_tokens
             .try_into()
-            .unwrap_or(u32::MAX);
+            .unwrap_or_else(|_| {
+                tracing::warn!("output_tokens overflow, clamping to u32::MAX");
+                u32::MAX
+            });
         // Zero out cache fields when we didn't request caching —
         // proxies may return fake values that produce nonsensical stats.
         let (cache_read, cache_creation) = if use_cache_control {
@@ -676,12 +682,18 @@ impl AnthropicProvider {
                 .usage
                 .cache_read_input_tokens
                 .try_into()
-                .unwrap_or(u32::MAX);
+                .unwrap_or_else(|_| {
+                    tracing::warn!("cache_read_input_tokens overflow, clamping to u32::MAX");
+                    u32::MAX
+                });
             let c: u32 = anthropic_response
                 .usage
                 .cache_creation_input_tokens
                 .try_into()
-                .unwrap_or(u32::MAX);
+                .unwrap_or_else(|_| {
+                    tracing::warn!("cache_creation_input_tokens overflow, clamping to u32::MAX");
+                    u32::MAX
+                });
             (r, c)
         } else {
             (0, 0)
@@ -1555,8 +1567,12 @@ impl AnthropicProvider {
             // Guard against unbounded buffer growth (malformed SSE with no newlines)
             const MAX_SSE_BUFFER: usize = 1 << 20; // 1 MiB
             if buffer.len() > MAX_SSE_BUFFER {
-                tracing::warn!("SSE buffer exceeded {} bytes, truncating", MAX_SSE_BUFFER);
-                buffer.clear();
+                tracing::warn!(
+                    original_len = buffer.len(),
+                    "SSE buffer exceeded {MAX_SSE_BUFFER} bytes, truncating to last 4KB"
+                );
+                let keep = buffer.len().saturating_sub(4096);
+                buffer.drain(..keep);
             }
 
             // Extract complete lines (up to the last newline)
@@ -1793,14 +1809,13 @@ impl AnthropicProvider {
                                     }));
                                 }
 
-                                if let Some(stop_reason) = stop_reason {
-                                    events.push(Ok(StreamEvent::TurnCompleted {
-                                        stop_reason: crate::provider::normalize_stop_reason(Some(
-                                            &stop_reason,
-                                        ))
-                                        .unwrap_or(stop_reason),
-                                    }));
-                                }
+                                let reason = crate::provider::normalize_stop_reason(
+                                    stop_reason.as_deref(),
+                                )
+                                .unwrap_or_else(|| stop_reason.clone().unwrap_or_else(|| "end_turn".to_string()));
+                                events.push(Ok(StreamEvent::TurnCompleted {
+                                    stop_reason: reason,
+                                }));
                             }
                             Some("message_stop") => {
                                 events.push(Ok(StreamEvent::Done));

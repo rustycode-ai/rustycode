@@ -216,8 +216,13 @@ async fn apply_stream_event(
                 .await;
         }
         StreamEvent::ToolInputDelta { id, chunk } => {
-            if let Some(last) = state.tools.last_mut() {
-                last.input_json.push_str(chunk);
+            if let Some(tool) = state.tools.iter_mut().find(|t| t.id == *id) {
+                tool.input_json.push_str(chunk);
+            } else {
+                tracing::warn!(tool_id = %id, "ToolInputDelta for unknown tool, appending to last");
+                if let Some(last) = state.tools.last_mut() {
+                    last.input_json.push_str(chunk);
+                }
             }
             events
                 .on_event(StreamEvent::ToolInputDelta {
@@ -384,7 +389,7 @@ fn extract_marked_tool_payload(content: &str) -> Option<&str> {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn strip_tool_annotations(content: &str, has_tool_calls: bool) -> String {
     let trimmed = content.trim();
     if has_tool_calls && (trimmed.starts_with('{') || trimmed.starts_with('[')) {

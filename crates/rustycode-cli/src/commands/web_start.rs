@@ -13,7 +13,7 @@ pub async fn start_web_server(port: u16) -> anyhow::Result<()> {
 
     let pipeline = Arc::new(OrchestrationPipeline::new(OrchestrationConfig::default()));
     let session_manager = SessionManager::new(pipeline, "default".to_string(), "default".to_string());
-    let ws_router = WsRouter::build(session_manager);
+    let ws_router = WsRouter::build(session_manager).await;
 
     let static_files = ServeDir::new(&dist_dir)
         .fallback(ServeFile::new(dist_dir.join("index.html")))

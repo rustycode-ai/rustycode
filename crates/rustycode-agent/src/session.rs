@@ -327,8 +327,8 @@ async fn run_loop(
 
         // Build assistant message with text + tool_use blocks
         let mut assistant_blocks: Vec<ContentBlock> = Vec::new();
-        if !final_text.is_empty() {
-            assistant_blocks.push(ContentBlock::text(&final_text));
+        if !state.assistant_text.is_empty() {
+            assistant_blocks.push(ContentBlock::text(&state.assistant_text));
         }
 
         let mut tool_result_blocks: Vec<ContentBlock> = Vec::new();
@@ -522,6 +522,24 @@ fn inject_turn_context(messages: &mut Vec<ChatMessage>, intel: &dyn CodeIntellig
                         .map(|n| n.to_string_lossy())
                         .unwrap_or_default();
                     parts.push(format!("{name} outline:\n{outline}"));
+                }
+            }
+
+            // Show what depends on this file so the model understands impact
+            if let Some(path_str) = change.path.to_str() {
+                let deps = intel.dependents(path_str);
+                if !deps.is_empty() {
+                    let dep_names: Vec<&str> =
+                        deps.iter().map(|d| d.name.as_str()).take(8).collect();
+                    parts.push(format!(
+                        "Dependents of {}: {}",
+                        change
+                            .path
+                            .file_name()
+                            .map(|n| n.to_string_lossy())
+                            .unwrap_or_default(),
+                        dep_names.join(", ")
+                    ));
                 }
             }
         }

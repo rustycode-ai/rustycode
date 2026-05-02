@@ -81,7 +81,7 @@ export function useWebSocket({ url, dispatch, onConnected, onError, onToolApprov
     clientRef.current = client;
     client.connect().then(
       () => { callbacksRef.current.onConnectionChange?.("connected"); },
-      () => { callbacksRef.current.onConnectionChange?.("connecting"); },
+      () => { callbacksRef.current.onConnectionChange?.("disconnected"); },
     );
 
     return () => {

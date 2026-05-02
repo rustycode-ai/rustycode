@@ -121,4 +121,39 @@ describe("sessionReducer", () => {
     expect(result.current_response).toBe("hi");
     expect(result.messages[0]?.parts).toEqual([{ type: "text", content: "hi" }]);
   });
+
+  it("SET_SESSION with empty messages array", () => {
+    const result = sessionReducer(session({ messages: [{ id: "x", content: "old", kind: "User", parts: [] }] }), {
+      type: "SET_SESSION",
+      session: { ...initialSession, messages: [] },
+    });
+    expect(result.messages).toEqual([]);
+  });
+
+  it("ADD_USER_MESSAGE creates text part in user message", () => {
+    const result = sessionReducer(initialSession, {
+      type: "ADD_USER_MESSAGE",
+      content: "hello",
+    });
+    expect(result.messages[0]?.parts).toEqual([{ type: "text", content: "hello" }]);
+  });
+
+  it("consecutive ADD_USER_MESSAGE creates alternating pairs", () => {
+    let s = sessionReducer(initialSession, { type: "ADD_USER_MESSAGE", content: "first" });
+    s = sessionReducer(s, { type: "ADD_USER_MESSAGE", content: "second" });
+    expect(s.messages).toHaveLength(4);
+    expect(s.messages[0]?.kind).toBe("User");
+    expect(s.messages[1]?.kind).toBe("Assistant");
+    expect(s.messages[2]?.kind).toBe("User");
+    expect(s.messages[3]?.kind).toBe("Assistant");
+    expect(s.last_user_prompt).toBe("second");
+  });
+
+  it("SET_SESSION merges with initialSession defaults", () => {
+    const partial = { messages: [], input: "test" } as FrontendSession;
+    const result = sessionReducer(initialSession, { type: "SET_SESSION", session: partial });
+    expect(result.input).toBe("test");
+    expect(result.pending_request).toBe(false);
+    expect(result.tool_iteration_count).toBe(0);
+  });
 });

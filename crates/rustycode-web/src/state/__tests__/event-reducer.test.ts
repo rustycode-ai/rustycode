@@ -280,4 +280,125 @@ describe("applyEvent", () => {
     const result = applyEvent(session, { type: "unknown_event" } as unknown as StreamEvent);
     expect(result).toEqual(session);
   });
+
+  it("updates tool status to running on tool_exec_started", () => {
+    let session = assistantSession();
+    session = applyEvent(session, { type: "tool_call_started", data: { id: "t1", name: "bash" } });
+    session = applyEvent(session, { type: "tool_exec_started", data: { id: "t1", name: "bash" } });
+    const part = session.messages[0].parts[0];
+    if (part.type === "tool_call") {
+      expect(part.status).toBe("running");
+    }
+  });
+
+  it("finalizes response on done when current_response is set", () => {
+    let session = { ...assistantSession(), pending_request: true, current_response: "Hello" };
+    session = applyEvent(session, {
+      type: "text_delta",
+      data: { content: "Hello" },
+    });
+    session = applyEvent(session, { type: "done", data: {} });
+    expect(session.pending_request).toBe(false);
+    expect(session.messages[0].parts).toEqual([{ type: "text", content: "Hello" }]);
+  });
+
+  it("plan_completed is no-op when no plan exists", () => {
+    const session = emptySession();
+    const result = applyEvent(session, {
+      type: "plan_completed",
+      data: { plan_id: "p1", success: true, summary: "done" },
+    });
+    expect(result.plan).toBeNull();
+  });
+
+  it("thinking then text creates separate parts", () => {
+    let session = assistantSession();
+    session = applyEvent(session, { type: "thinking_delta", data: { content: "hmm" } });
+    session = applyEvent(session, { type: "text_delta", data: { content: "Hello" } });
+    expect(session.messages[0].parts).toHaveLength(2);
+    expect(session.messages[0].parts[0]).toEqual({ type: "thinking", content: "hmm" });
+    expect(session.messages[0].parts[1]).toEqual({ type: "text", content: "Hello" });
+  });
+
+  it("consecutive thinking deltas merge", () => {
+    let session = assistantSession();
+    session = applyEvent(session, { type: "thinking_delta", data: { content: "let me" } });
+    session = applyEvent(session, { type: "thinking_delta", data: { content: " think" } });
+    expect(session.messages[0].parts).toEqual([{ type: "thinking", content: "let me think" }]);
+  });
+
+  it("interleaved tool calls create separate parts", () => {
+    let session = assistantSession();
+    session = applyEvent(session, { type: "text_delta", data: { content: "Running " } });
+    session = applyEvent(session, { type: "tool_call_started", data: { id: "t1", name: "read" } });
+    session = applyEvent(session, { type: "text_delta", data: { content: " and " } });
+    session = applyEvent(session, { type: "tool_call_started", data: { id: "t2", name: "bash" } });
+    expect(session.messages[0].parts).toHaveLength(4);
+    expect(session.messages[0].parts[0]).toEqual({ type: "text", content: "Running " });
+    expect(session.messages[0].parts[1].type).toBe("tool_call");
+    expect(session.messages[0].parts[2]).toEqual({ type: "text", content: " and " });
+    expect(session.messages[0].parts[3].type).toBe("tool_call");
+    expect(session.tool_iteration_count).toBe(2);
+  });
+
+  it("tool_input_delta for unknown tool id is no-op", () => {
+    let session = assistantSession();
+    session = applyEvent(session, { type: "tool_call_started", data: { id: "t1", name: "bash" } });
+    const before = session.messages[0].parts;
+    session = applyEvent(session, { type: "tool_input_delta", data: { id: "unknown", chunk: "oops" } });
+    expect(session.messages[0].parts).toEqual(before);
+  });
+
+  it("tool_exec_completed for unknown tool id is no-op", () => {
+    let session = assistantSession();
+    session = applyEvent(session, { type: "tool_call_started", data: { id: "t1", name: "bash" } });
+    const before = session.messages[0].parts;
+    session = applyEvent(session, {
+      type: "tool_exec_completed",
+      data: { id: "unknown", name: "bash", output: "x", is_error: false },
+    });
+    expect(session.messages[0].parts).toEqual(before);
+  });
+
+  it("plan with multiple steps — partial completion", () => {
+    let session = emptySession();
+    session = applyEvent(session, {
+      type: "plan_created",
+      data: {
+        id: "p1",
+        title: "Multi",
+        steps: [
+          { name: "S1", description: "D1" },
+          { name: "S2", description: "D2" },
+          { name: "S3", description: "D3" },
+        ],
+      },
+    });
+    session = applyEvent(session, { type: "plan_step_started", data: { plan_id: "p1", step_index: 0 } });
+    session = applyEvent(session, { type: "plan_step_completed", data: { plan_id: "p1", step_index: 0, success: true, message: "ok" } });
+    session = applyEvent(session, { type: "plan_step_started", data: { plan_id: "p1", step_index: 1 } });
+    expect(session.plan!.steps[0].status).toBe("completed");
+    expect(session.plan!.steps[1].status).toBe("running");
+    expect(session.plan!.steps[2].status).toBe("pending");
+    expect(session.plan!.completed).toBe(false);
+  });
+
+  it("plan_step_started with out-of-range index does not crash", () => {
+    let session = emptySession();
+    session = applyEvent(session, {
+      type: "plan_created",
+      data: { id: "p1", title: "P", steps: [{ name: "S1", description: "D1" }] },
+    });
+    // step_index 99 doesn't exist — map just won't match any element
+    const result = applyEvent(session, { type: "plan_step_started", data: { plan_id: "p1", step_index: 99 } });
+    expect(result.plan!.steps).toHaveLength(1);
+    expect(result.plan!.steps[0].status).toBe("pending");
+  });
+
+  it("done clears pending_request even without current_response", () => {
+    const session = { ...emptySession(), pending_request: true };
+    const result = applyEvent(session, { type: "done", data: {} });
+    expect(result.pending_request).toBe(false);
+    expect(result.current_response).toBe("");
+  });
 });

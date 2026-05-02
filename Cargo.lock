@@ -6608,11 +6608,14 @@ name = "rustycode-ws-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "chrono",
  "futures-util",
+ "http-body-util",
  "rustycode-bus",
  "rustycode-llm",
+ "rustycode-mcp",
  "rustycode-orchestration",
  "rustycode-protocol",
  "rustycode-skill",
@@ -6624,6 +6627,7 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.26.2",
  "tokio-util",
+ "tower",
  "tracing",
  "uuid",
 ]

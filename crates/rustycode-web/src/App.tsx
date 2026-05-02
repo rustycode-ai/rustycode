@@ -32,6 +32,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [modelSelectorTrigger, setModelSelectorTrigger] = useState(0);
   const { toasts, addToast, dismissToast } = useToast();
   const prevStatusRef = useRef(connectionStatus);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -136,6 +137,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
         provider={providerInfo.provider}
         model={providerInfo.model}
         connectionStatus={connectionStatus}
+        modelSelectorTrigger={modelSelectorTrigger}
       />
       <div className="app-body">
         {sidebarOpen && (
@@ -192,9 +194,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
             messages={state.messages}
             onToggleSidebar={toggleSidebar}
             onToggleToolOutputs={() => setToolOutputsVisible((prev) => !prev)}
-            onOpenModelSelector={() => {
-              document.querySelector<HTMLElement>(".model-selector-btn")?.click();
-            }}
+            onOpenModelSelector={() => setModelSelectorTrigger((n) => n + 1)}
             onError={(msg) => addToast(msg, "error")}
           />
         </Suspense>

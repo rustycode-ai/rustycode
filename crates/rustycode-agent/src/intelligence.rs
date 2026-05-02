@@ -112,8 +112,9 @@ pub struct LocalIntelligence {
     /// Cached repo map — built lazily on first query.
     repo_map_cache: Mutex<Option<RepoMap>>,
     /// Code Index for fast lookups and updates.
-    #[allow(dead_code)]
     index: Arc<Mutex<CodeIndex>>,
+    /// Accumulated file changes from the watcher. Drained on each `changes()` call.
+    changes: Arc<Mutex<Vec<FileChange>>>,
     /// Background watcher task handle.
     _watcher: FileSystemWatcher,
 }
@@ -122,24 +123,57 @@ impl LocalIntelligence {
     pub fn new(root: impl Into<PathBuf>) -> anyhow::Result<Self> {
         let root = root.into();
         let index = Arc::new(Mutex::new(CodeIndex::new(root.clone())));
+        let changes: Arc<Mutex<Vec<FileChange>>> = Arc::new(Mutex::new(Vec::new()));
 
         let (tx, mut rx) = mpsc::channel(100);
         let watcher = FileSystemWatcher::new(root.clone(), tx)
             .map_err(|e| anyhow::anyhow!("failed to start file watcher for {}: {e}", root.display()))?;
 
         let index_clone = index.clone();
+        let changes_clone = changes.clone();
         tokio::spawn(async move {
             while let Some(event) = rx.recv().await {
-                let mut idx = index_clone
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner);
-                match event {
+                let change = match &event {
                     FileEvent::Created(path) | FileEvent::Modified(path) => {
-                        let _ = idx.update_file(path);
+                        let symbol_names = {
+                            let mut idx = index_clone
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            let _ = idx.update_file(path.clone());
+                            idx.get_file_symbols(path)
+                                .iter()
+                                .map(|s| s.name.clone())
+                                .collect::<Vec<_>>()
+                        };
+                        let change_type = match &event {
+                            FileEvent::Created(_) => ChangeType::Created,
+                            _ => ChangeType::Modified,
+                        };
+                        Some(FileChange {
+                            path: path.clone(),
+                            change_type,
+                            symbols: symbol_names,
+                        })
                     }
                     FileEvent::Deleted(path) => {
-                        let _ = idx.remove_file(path);
+                        {
+                            let mut idx = index_clone
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            let _ = idx.remove_file(path.clone());
+                        }
+                        Some(FileChange {
+                            path: path.clone(),
+                            change_type: ChangeType::Deleted,
+                            symbols: Vec::new(),
+                        })
                     }
+                };
+                if let Some(change) = change {
+                    changes_clone
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .push(change);
                 }
             }
         });
@@ -148,13 +182,9 @@ impl LocalIntelligence {
             root,
             repo_map_cache: Mutex::new(None),
             index,
+            changes,
             _watcher: watcher,
         })
-    }
-
-    #[allow(dead_code)]
-    const fn snapshot_state() -> Vec<(PathBuf, std::time::SystemTime)> {
-        Vec::new()
     }
 }
 
@@ -183,44 +213,78 @@ impl CodeIntelligence for LocalIntelligence {
             .map_or_else(String::new, |c| c.to_map_string().to_string())
     }
 
-    fn dependents(&self, _path: &str) -> Vec<SymbolRef> {
-        // Will be implemented with CodeIndex once wired
-        Vec::new()
+    fn dependents(&self, path: &str) -> Vec<SymbolRef> {
+        let file_path = PathBuf::from(path);
+        let idx = self
+            .index
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        idx.get_dependents(&file_path)
+            .into_iter()
+            .filter_map(|dep| {
+                let symbols = idx.get_file_symbols(&dep);
+                let sym = symbols.first()?;
+                Some(SymbolRef {
+                    name: sym.name.clone(),
+                    file: dep,
+                    line: sym.line,
+                    kind: sym.kind.to_string(),
+                })
+            })
+            .collect()
     }
 
-    fn callers(&self, _symbol: &str) -> Vec<SymbolRef> {
-        // Will be implemented with CodeIndex once wired
-        Vec::new()
+    fn callers(&self, symbol: &str) -> Vec<SymbolRef> {
+        let idx = self
+            .index
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        idx.find_symbols(symbol)
+            .into_iter()
+            .map(|s| SymbolRef {
+                name: s.name.clone(),
+                file: s.file_path.clone(),
+                line: s.line,
+                kind: s.kind.to_string(),
+            })
+            .collect()
     }
 
     fn changes(&self) -> Vec<FileChange> {
-        Vec::new()
+        std::mem::take(&mut *self
+            .changes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner))
     }
 
-    fn search(&self, _query: &str, _limit: usize) -> Vec<CodeLocation> {
-        // Will be implemented with CodeIndex once wired
-        Vec::new()
+    fn search(&self, query: &str, limit: usize) -> Vec<CodeLocation> {
+        let idx = self
+            .index
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        idx.search(query)
+            .into_iter()
+            .take(limit)
+            .map(|r| CodeLocation {
+                file: r.file_path,
+                line: r.line,
+                symbol: String::new(),
+                context: r.context,
+            })
+            .collect()
     }
 
     fn file_outline(&self, path: &Path) -> Option<String> {
-        let cache = self
-            .repo_map_cache
+        let outline = self
+            .index
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        cache.as_ref().and_then(|map| {
-            map.for_file(path).map(|summary| {
-                let mut lines = Vec::new();
-                for sym in &summary.symbols {
-                    lines.push(format!(
-                        "L{}: {kind} {name}",
-                        sym.line,
-                        kind = sym.kind,
-                        name = sym.name
-                    ));
-                }
-                lines.join("\n")
-            })
-        })
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .file_outline(path);
+        if outline.is_empty() {
+            None
+        } else {
+            Some(outline)
+        }
     }
 }
 

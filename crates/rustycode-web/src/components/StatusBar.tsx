@@ -16,6 +16,7 @@ interface StatusBarProps {
   provider: string;
   model: string;
   connectionStatus: ConnectionStatus;
+  modelSelectorTrigger?: number;
 }
 
 function formatTokens(n: number): string {
@@ -24,7 +25,7 @@ function formatTokens(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
-export function StatusBar({ toolIterationCount, pending, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, onToggleSidebar, onOpenSettings, onModelSwitch, provider, model, connectionStatus }: StatusBarProps) {
+export function StatusBar({ toolIterationCount, pending, inputTokens, outputTokens, cacheReadTokens, cacheCreationTokens, onToggleSidebar, onOpenSettings, onModelSwitch, provider, model, connectionStatus, modelSelectorTrigger }: StatusBarProps) {
   return (
     <header className="status-bar" role="banner">
       <button
@@ -40,7 +41,7 @@ export function StatusBar({ toolIterationCount, pending, inputTokens, outputToke
         <span className={`status-dot status-dot-${connectionStatus}`} title={connectionStatus} />
       </span>
       <span className="status-sep" />
-      <ModelSelector provider={provider} model={model} onSwitch={onModelSwitch} />
+      <ModelSelector provider={provider} model={model} onSwitch={onModelSwitch} triggerOpen={modelSelectorTrigger} />
       {pending && (
         <span className="status-pending" role="status" aria-live="polite">
           <span className="status-spinner" aria-hidden="true" />

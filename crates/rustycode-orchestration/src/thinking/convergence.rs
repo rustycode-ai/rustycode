@@ -50,8 +50,9 @@ impl ConvergenceMetrics {
         self.new_thoughts_history.push_back(new_thoughts);
         self.previous_count = current_count;
 
-        // Trim history if over capacity
-        if self.confidence_history.len() > self.confidence_history.capacity() {
+        // Trim history to bounded window (VecDeque capacity grows automatically)
+        const MAX_HISTORY: usize = 100;
+        while self.confidence_history.len() > MAX_HISTORY {
             self.confidence_history.pop_front();
             self.graph_size_history.pop_front();
             self.new_thoughts_history.pop_front();

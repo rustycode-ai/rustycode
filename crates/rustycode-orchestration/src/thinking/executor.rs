@@ -210,7 +210,9 @@ impl RealExecutor {
             let best_id = sorted_ids.iter().max_by(|a, b| {
                 let sa = all_scores.get(a).copied().unwrap_or(0.0);
                 let sb = all_scores.get(b).copied().unwrap_or(0.0);
-                sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
+                sa.partial_cmp(&sb).unwrap_or_else(|| {
+                    if sa.is_nan() { std::cmp::Ordering::Less } else { std::cmp::Ordering::Greater }
+                })
             });
             return best_id.map_or_else(
                 || Ok("No valid result found.".to_string()),
@@ -275,18 +277,6 @@ impl RealExecutor {
                     break;
                 }
             }
-            if convergence_detector.has_converged(&metrics, Some(params.config.target_confidence)) {
-                break;
-            }
-
-            // Check time limit
-            if let Ok(elapsed) = start_time.elapsed() {
-                if elapsed > Duration::from_secs(params.config.time_limit_secs) {
-                    break;
-                }
-            }
-
-            // Check convergence
             if convergence_detector.has_converged(&metrics, Some(params.config.target_confidence)) {
                 break;
             }
@@ -417,7 +407,7 @@ impl RealExecutor {
                 Ok(response) => return Ok(response),
                 Err(e) if retries < self.config.max_retries => {
                     retries += 1;
-                    let delay = std::cmp::min(100 * 2u64.pow(retries as u32), 30_000);
+                    let delay = std::cmp::min(100 * 2u64.saturating_pow(retries as u32), 30_000);
                     tracing::warn!(retries, delay_ms = delay, "LLM call failed, retrying: {e}");
                     tokio::time::sleep(Duration::from_millis(delay)).await;
                 }

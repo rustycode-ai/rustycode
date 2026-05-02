@@ -47,16 +47,7 @@ interface CommandPaletteProps {
   onError?: (message: string) => void;
 }
 
-function fuzzyMatch(query: string, text: string): boolean {
-  const q = query.toLowerCase();
-  const t = text.toLowerCase();
-  if (t.includes(q)) return true;
-  let qi = 0;
-  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
-    if (t[ti] === q[qi]) qi++;
-  }
-  return qi === q.length;
-}
+import { fuzzyMatch } from "../utils/text";
 
 function exportConversation(messages: FrontendMessage[]) {
   const lines: string[] = ["# RustyCode Conversation", ""];
@@ -107,17 +98,20 @@ export function CommandPalette({
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) {
-      setLoading(true);
-      fetch("/api/skills")
-        .then((r) => (r.ok ? r.json() : { skills: [] }))
-        .then((d) => setSkills(d.skills ?? []))
-        .catch(() => setSkills([]))
-        .finally(() => setLoading(false));
-      setSearch("");
-      setHighlightIdx(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
-    }
+    if (!open) return;
+    const controller = new AbortController();
+    setLoading(true);
+    fetch("/api/skills", { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : { skills: [] }))
+      .then((d) => setSkills(d.skills ?? []))
+      .catch(() => {
+        if (!controller.signal.aborted) setSkills([]);
+      })
+      .finally(() => setLoading(false));
+    setSearch("");
+    setHighlightIdx(0);
+    setTimeout(() => inputRef.current?.focus(), 50);
+    return () => controller.abort();
   }, [open]);
 
   const actions: ActionEntry[] = useMemo(() => [

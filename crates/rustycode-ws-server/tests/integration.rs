@@ -9,9 +9,11 @@ use std::sync::Arc;
 
 use axum::Router;
 use futures_util::{SinkExt, StreamExt};
+use http_body_util::BodyExt;
 use rustycode_ws_server::{Envelope, SessionManager, WsRouter};
 use serde_json::json;
 use tokio_tungstenite::tungstenite::Message;
+use tower::ServiceExt;
 
 fn test_session_manager() -> SessionManager {
     let config = rustycode_orchestration::config::OrchestrationConfig::default();
@@ -19,8 +21,8 @@ fn test_session_manager() -> SessionManager {
     SessionManager::new(pipeline, "test".to_string(), "test-model".to_string())
 }
 
-fn create_test_app(session_manager: Arc<SessionManager>) -> Router {
-    WsRouter::build((*session_manager).clone())
+async fn create_test_app(session_manager: Arc<SessionManager>) -> Router {
+    WsRouter::build((*session_manager).clone()).await
 }
 
 async fn ws_connect_with(shared: Option<Arc<SessionManager>>) -> (
@@ -40,7 +42,7 @@ async fn ws_connect_with(shared: Option<Arc<SessionManager>>) -> (
     let mgr = shared.unwrap_or_else(|| Arc::new(test_session_manager()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    let app = create_test_app(mgr.clone());
+    let app = create_test_app(mgr.clone()).await;
 
     tokio::spawn(async move {
         axum::serve(listener, app).await.unwrap();
@@ -226,4 +228,308 @@ async fn abort_cancels_session_task() {
     // Session should still be queryable (abort doesn't delete it)
     let snapshot = mgr.snapshot(&token).await.unwrap();
     assert!(snapshot.messages.is_empty());
+}
+
+// ── REST API Integration Tests ─────────────────────────────
+
+#[allow(clippy::unused_async)]
+async fn rest_app() -> (Router, Arc<SessionManager>) {
+    let mgr = Arc::new(test_session_manager());
+    let app = create_test_app(mgr.clone()).await;
+    (app, mgr)
+}
+
+async fn body_to_json(body: axum::body::Body) -> serde_json::Value {
+    let bytes = body.collect().await.unwrap().to_bytes();
+    serde_json::from_slice(&bytes).unwrap()
+}
+
+#[tokio::test]
+async fn get_providers_returns_current() {
+    let (app, _) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/providers")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["current"]["provider"], "test");
+    assert_eq!(body["current"]["model"], "test-model");
+    assert!(body["providers"].is_array());
+}
+
+#[tokio::test]
+async fn switch_provider_updates_info() {
+    let (app, _) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/providers/switch")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_string(&json!({"provider": "ollama", "model": "llama3"})).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["provider"], "ollama");
+    assert_eq!(body["model"], "llama3");
+}
+
+#[tokio::test]
+async fn list_skills_returns_array() {
+    let (app, _) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/skills")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = body_to_json(response.into_body()).await;
+    assert!(body["skills"].is_array());
+}
+
+#[tokio::test]
+async fn create_and_list_sessions() {
+    let (app, mgr) = rest_app().await;
+
+    // Create session via REST
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/sessions/new")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::CREATED);
+    let body = body_to_json(response.into_body()).await;
+    let token = body["session_token"].as_str().unwrap();
+    assert!(!token.is_empty());
+
+    // List sessions
+    let app = create_test_app(mgr.clone()).await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/sessions")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let sessions: Vec<serde_json::Value> =
+        serde_json::from_slice(
+            &response.into_body().collect().await.unwrap().to_bytes(),
+        )
+        .unwrap();
+    assert!(!sessions.is_empty());
+}
+
+#[tokio::test]
+async fn delete_session_returns_no_content() {
+    let (_app, mgr) = rest_app().await;
+
+    // Create session
+    let session = mgr.create_session().await.unwrap();
+    let token = session.id.to_string();
+
+    // Delete it
+    let app = create_test_app(mgr.clone()).await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/sessions/{token}"))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn delete_nonexistent_session_returns_404() {
+    let (app, _mgr) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/api/sessions/nonexistent-id")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn delete_session_rejects_empty_id() {
+    let (app, _mgr) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/api/sessions/")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    // Trailing slash without ID won't match the route
+    assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn list_mcp_servers_returns_empty() {
+    let (app, _mgr) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/mcp/servers")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = body_to_json(response.into_body()).await;
+    assert!(body["servers"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn add_mcp_server_and_list() {
+    let (app, mgr) = rest_app().await;
+
+    // Add server
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/mcp/servers/add")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    serde_json::to_string(&json!({
+                        "name": "test-fs",
+                        "command": "npx",
+                        "args": ["mcp-fs"]
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = body_to_json(response.into_body()).await;
+    assert_eq!(body["status"], "added");
+    assert_eq!(body["name"], "test-fs");
+
+    // Verify in list
+    let app = create_test_app(mgr).await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/mcp/servers")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = body_to_json(response.into_body()).await;
+    let servers = body["servers"].as_array().unwrap();
+    assert_eq!(servers.len(), 1);
+    assert_eq!(servers[0]["name"], "test-fs");
+}
+
+#[tokio::test]
+async fn remove_mcp_server() {
+    let (_app, mgr) = rest_app().await;
+
+    // Add server first
+    mgr.add_mcp_server(rustycode_ws_server::McpServerConfig {
+        name: "to-remove".into(),
+        command: "echo".into(),
+        args: vec![],
+        env: std::collections::HashMap::new(),
+    })
+    .await
+    .unwrap();
+
+    // Remove it
+    let app = create_test_app(mgr.clone()).await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/api/mcp/servers/to-remove")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::NO_CONTENT);
+
+    // Verify it's gone
+    let app = create_test_app(mgr).await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .uri("/api/mcp/servers")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = body_to_json(response.into_body()).await;
+    assert!(body["servers"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn remove_nonexistent_mcp_server_returns_404() {
+    let (app, _mgr) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("DELETE")
+                .uri("/api/mcp/servers/no-such-server")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn restart_nonexistent_mcp_server_returns_404() {
+    let (app, _mgr) = rest_app().await;
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/mcp/servers/no-such-server/restart")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
 }

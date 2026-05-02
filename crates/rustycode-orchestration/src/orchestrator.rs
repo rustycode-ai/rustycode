@@ -6,6 +6,7 @@
 use crate::bus::BusHandle;
 use crate::composer::Composer;
 use crate::conductor::{Conductor, EscalationDecision};
+use crate::delegation::{DelegationConfig, DelegationContext, DelegationPlanner, SpawnDecision};
 use crate::editor::Editor;
 use crate::error::{OrchestrationError, Result};
 use crate::isolation::TierIsolation;
@@ -30,6 +31,7 @@ pub struct StepOrchestrator {
     bus: BusHandle,
     ast_pipeline: tokio::sync::RwLock<crate::ast::pipeline::AstPipeline>,
     hooks: Option<Arc<tokio::sync::RwLock<crate::hook_points::HookRegistry>>>,
+    delegation_planner: DelegationPlanner,
 }
 
 impl StepOrchestrator {
@@ -57,6 +59,7 @@ impl StepOrchestrator {
                 std::path::PathBuf::from(".ast"),
             )),
             hooks: None,
+            delegation_planner: DelegationPlanner::new(DelegationConfig::default()),
         }
     }
 
@@ -82,6 +85,7 @@ impl StepOrchestrator {
                 std::path::PathBuf::from(".ast"),
             )),
             hooks: None,
+            delegation_planner: DelegationPlanner::new(DelegationConfig::default()),
         }
     }
 
@@ -248,7 +252,34 @@ impl StepOrchestrator {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     pub async fn execute_step(&self, step: &Step, ctx: &mut TaskContext) -> Result<StepResult> {
+        let budget_pressure = if ctx.budget_limit > 0.0 {
+            ctx.cost_used / ctx.budget_limit
+        } else {
+            0.0
+        };
+        let delegation_context = DelegationContext {
+            context_pressure: budget_pressure,
+            remaining_budget: ctx.budget_remaining(),
+            affected_paths: vec![],
+            past_failure_count: usize::from(ctx.attempt_count),
+            parent_task_id: ctx.task_id.clone(),
+        };
+
+        let decision = self.delegation_planner.should_spawn(
+            &step.description,
+            &delegation_context,
+        );
+
+        if !matches!(decision, SpawnDecision::Inline) {
+            tracing::info!(
+                step_id = %step.id,
+                decision = ?decision,
+                "Delegation planner recommends spawning"
+            );
+        }
+
         let mut retries = 0u8;
         let max_retries = ctx.constraints.max_retries;
         let mut thinking_attempted = false;

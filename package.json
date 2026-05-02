@@ -24,5 +24,8 @@
   "files": [
     "vm.js",
     "README.md"
-  ]
+  ],
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
 }

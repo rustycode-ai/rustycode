@@ -180,6 +180,43 @@ pub enum OrchestrationEvent {
         title: String,
         steps: Vec<(String, String)>, // (name, description)
     },
+    /// A delegated task has been spawned into its own context.
+    TaskSpawned {
+        task_id: String,
+        role: String,
+        tier: u8,
+        parent_task_id: String,
+    },
+    /// A delegated task completed successfully.
+    TaskDelegationCompleted {
+        task_id: String,
+        role: String,
+        output_preview: String,
+        cost_usd: f64,
+        duration_ms: i64,
+    },
+    /// A delegated task failed.
+    TaskDelegationFailed {
+        task_id: String,
+        role: String,
+        error: String,
+        cost_usd: f64,
+        duration_ms: i64,
+    },
+    /// A parallel delegation batch started.
+    DelegationBatchStarted {
+        parent_task_id: String,
+        task_count: usize,
+        roles: Vec<String>,
+    },
+    /// A parallel delegation batch completed.
+    DelegationBatchCompleted {
+        parent_task_id: String,
+        succeeded: usize,
+        failed: usize,
+        total_cost_usd: f64,
+        total_duration_ms: i64,
+    },
 }
 
 #[derive(Clone)]

@@ -14,6 +14,7 @@ pub mod compile_time;
 pub mod cron;
 pub mod database;
 pub mod decompose;
+pub mod delegation_tool;
 pub mod docker;
 pub mod docker_isolation;
 pub mod edit;
@@ -61,6 +62,8 @@ pub use cron::*;
 pub use database::*;
 #[allow(ambiguous_glob_reexports)]
 pub use decompose::*;
+#[allow(ambiguous_glob_reexports)]
+pub use delegation_tool::*;
 #[allow(ambiguous_glob_reexports)]
 pub use docker::*;
 #[allow(ambiguous_glob_reexports)]

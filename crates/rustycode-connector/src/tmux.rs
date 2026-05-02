@@ -267,7 +267,7 @@ impl TerminalConnector for TmuxConnector {
         // Update tracked pane count
         if let Ok(mut sessions) = self.sessions.lock() {
             if let Some(s) = sessions.iter_mut().find(|s| s.id == *session) {
-                s.pane_count += 1;
+                s.pane_count = s.pane_count.saturating_add(1);
             }
         }
 

@@ -54,3 +54,77 @@ pub async fn auth_middleware(
         Err((StatusCode::UNAUTHORIZED, "unauthorized"))
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auth_config_disabled_when_no_key() {
+        let config = AuthConfig::default();
+        assert!(!config.is_enabled());
+    }
+
+    #[test]
+    fn auth_config_disabled_when_empty_key() {
+        let config = AuthConfig {
+            api_key: Some(String::new()),
+        };
+        assert!(!config.is_enabled());
+    }
+
+    #[test]
+    fn auth_config_enabled_when_key_set() {
+        let config = AuthConfig {
+            api_key: Some("secret".to_string()),
+        };
+        assert!(config.is_enabled());
+    }
+
+    #[test]
+    fn extract_api_key_from_bearer_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", "Bearer my-token".parse().unwrap());
+        let result = extract_api_key(&headers, None);
+        assert_eq!(result, Some("my-token".to_string()));
+    }
+
+    #[test]
+    fn extract_api_key_from_query_token() {
+        let headers = HeaderMap::new();
+        let result = extract_api_key(&headers, Some("query-token"));
+        assert_eq!(result, Some("query-token".to_string()));
+    }
+
+    #[test]
+    fn extract_api_key_prefers_header_over_query() {
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", "Bearer header-token".parse().unwrap());
+        let result = extract_api_key(&headers, Some("query-token"));
+        assert_eq!(result, Some("header-token".to_string()));
+    }
+
+    #[test]
+    fn extract_api_key_returns_none_when_absent() {
+        let headers = HeaderMap::new();
+        let result = extract_api_key(&headers, None);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn extract_api_key_ignores_malformed_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", "Basic abc123".parse().unwrap());
+        let result = extract_api_key(&headers, None);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn extract_api_key_handles_empty_bearer() {
+        let mut headers = HeaderMap::new();
+        headers.insert("Authorization", "Bearer ".parse().unwrap());
+        let result = extract_api_key(&headers, None);
+        assert_eq!(result, Some(String::new()));
+    }
+}

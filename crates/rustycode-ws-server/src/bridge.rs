@@ -9,21 +9,23 @@ use tracing::{info, warn};
 type EventSender = tokio::sync::mpsc::UnboundedSender<StreamEvent>;
 
 pub struct EventBridge {
-    handle: BusHandle,
+    handle: Arc<RwLock<BusHandle>>,
     sessions: Arc<RwLock<HashMap<String, EventSender>>>,
+    cancel: tokio_util::sync::CancellationToken,
 }
 
 impl EventBridge {
     pub fn new(handle: BusHandle) -> Self {
         info!("EventBridge created");
         Self {
-            handle,
+            handle: Arc::new(RwLock::new(handle)),
             sessions: Arc::new(RwLock::new(HashMap::new())),
+            cancel: tokio_util::sync::CancellationToken::new(),
         }
     }
 
-    pub fn bus_handle(&self) -> BusHandle {
-        self.handle.clone()
+    pub async fn bus_handle(&self) -> BusHandle {
+        self.handle.read().await.clone()
     }
 
     pub async fn register(&self, session_token: &str, sender: EventSender) {
@@ -38,40 +40,72 @@ impl EventBridge {
     }
 
     pub fn start(&self) {
-        let mut rx = self.handle.subscribe();
+        self.spawn_forwarder();
+    }
+
+    /// Swap the bus handle (e.g. after pipeline rebuild on provider switch)
+    /// and restart the forwarding loop on the new bus.
+    pub async fn resubscribe(&self, new_handle: BusHandle) {
+        self.cancel.cancel();
+        {
+            let mut guard = self.handle.write().await;
+            *guard = new_handle;
+        }
+        self.spawn_forwarder();
+        info!("EventBridge resubscribed to new bus");
+    }
+
+    fn spawn_forwarder(&self) {
+        // Each forwarder gets its own cancellation token child so resubscribe
+        // only stops the old loop, not the new one.
+        let cancel = self.cancel.child_token();
+        let handle = Arc::clone(&self.handle);
         let sessions = self.sessions.clone();
 
         tokio::spawn(async move {
+            let bus = handle.read().await.clone();
+            let mut rx = bus.subscribe();
+            drop(bus);
+
             loop {
-                match rx.recv().await {
-                    Ok(event) => {
-                        let Some(stream_event) = convert_event(&event) else {
-                            continue;
-                        };
-                        let read_guard = sessions.read().await;
-                        let mut dead_tokens = Vec::new();
-                        for (token, sender) in read_guard.iter() {
-                            if sender.is_closed() {
-                                dead_tokens.push(token.clone());
-                            } else if let Err(e) = sender.send(stream_event.clone()) {
-                                warn!(session = %token, "failed to forward event: {e}");
-                                dead_tokens.push(token.clone());
-                            }
-                        }
-                        drop(read_guard);
-                        if !dead_tokens.is_empty() {
-                            let mut write_guard = sessions.write().await;
-                            for token in dead_tokens {
-                                write_guard.remove(&token);
-                            }
-                        }
-                    }
-                    Err(broadcast::error::RecvError::Lagged(n)) => {
-                        warn!("EventBridge lagged by {n} events");
-                    }
-                    Err(broadcast::error::RecvError::Closed) => {
-                        info!("EventBridge: bus channel closed");
+                tokio::select! {
+                    biased;
+                    () = cancel.cancelled() => {
+                        info!("EventBridge forwarder cancelled");
                         break;
+                    }
+                    result = rx.recv() => {
+                        match result {
+                            Ok(event) => {
+                                let Some(stream_event) = convert_event(&event) else {
+                                    continue;
+                                };
+                                let read_guard = sessions.read().await;
+                                let mut dead_tokens = Vec::new();
+                                for (token, sender) in read_guard.iter() {
+                                    if sender.is_closed() {
+                                        dead_tokens.push(token.clone());
+                                    } else if let Err(e) = sender.send(stream_event.clone()) {
+                                        warn!(session = %token, "failed to forward event: {e}");
+                                        dead_tokens.push(token.clone());
+                                    }
+                                }
+                                drop(read_guard);
+                                if !dead_tokens.is_empty() {
+                                    let mut write_guard = sessions.write().await;
+                                    for token in dead_tokens {
+                                        write_guard.remove(&token);
+                                    }
+                                }
+                            }
+                            Err(broadcast::error::RecvError::Lagged(n)) => {
+                                warn!("EventBridge lagged by {n} events");
+                            }
+                            Err(broadcast::error::RecvError::Closed) => {
+                                info!("EventBridge: bus channel closed");
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -623,5 +657,48 @@ mod tests {
 
         // Channel should not receive anything (sender dropped)
         assert!(rx.try_recv().is_err());
+    }
+
+    #[tokio::test]
+    async fn bridge_resubscribe_switches_bus() {
+        let bus1 = BusHandle::new(16);
+        let bridge = EventBridge::new(bus1.clone());
+        bridge.start();
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        bridge.register("sess-1", tx).await;
+
+        // Publish on old bus — should arrive
+        bus1.publish(OrchestrationEvent::TextDelta {
+            task_id: "t1".into(),
+            content: "old-bus".into(),
+        });
+        let event = rx.recv().await.unwrap();
+        assert_eq!(
+            event,
+            StreamEvent::TextDelta {
+                content: "old-bus".into()
+            }
+        );
+
+        // Resubscribe to a new bus
+        let bus2 = BusHandle::new(16);
+        bridge.resubscribe(bus2.clone()).await;
+
+        // Give the new forwarder time to start
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+        // Publish on new bus — should arrive
+        bus2.publish(OrchestrationEvent::TextDelta {
+            task_id: "t2".into(),
+            content: "new-bus".into(),
+        });
+        let event = rx.recv().await.unwrap();
+        assert_eq!(
+            event,
+            StreamEvent::TextDelta {
+                content: "new-bus".into()
+            }
+        );
     }
 }

@@ -59,8 +59,20 @@ export function sessionReducer(
         last_user_prompt: action.content,
         messages: [
           ...state.messages,
-          {       id: randomUUID(), content: action.content, kind: "User" as const, parts: [{ type: "text", content: action.content }], created_at: Date.now() },
-          { id: randomUUID(), content: "", kind: "Assistant" as const, parts: [], created_at: Date.now() },
+          {
+            id: randomUUID(),
+            content: action.content,
+            kind: "User" as const,
+            parts: [{ type: "text", content: action.content }],
+            created_at: Date.now(),
+          },
+          {
+            id: randomUUID(),
+            content: "",
+            kind: "Assistant" as const,
+            parts: [],
+            created_at: Date.now(),
+          },
         ],
       };
     default:

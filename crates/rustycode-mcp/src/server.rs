@@ -508,40 +508,8 @@ impl McpServer {
 mod tests {
     use super::*;
     use crate::build_lsp_tool_executor;
-    use rustycode_tools::{Tool, ToolOutput};
+    use rustycode_tools::ToolOutput;
     use tempfile::tempdir;
-    #[allow(dead_code)] // Kept for future use
-    struct DummyTool {
-        name: String,
-    }
-
-    #[allow(dead_code)] // Kept for future use
-    impl Tool for DummyTool {
-        fn name(&self) -> &str {
-            &self.name
-        }
-
-        fn description(&self) -> &str {
-            "A dummy tool"
-        }
-
-        fn parameters_schema(&self) -> serde_json::Value {
-            json!({
-                "type": "object",
-                "properties": {
-                    "input": {"type": "string"}
-                }
-            })
-        }
-
-        fn execute(
-            &self,
-            _params: serde_json::Value,
-            _ctx: &rustycode_tools::ToolContext,
-        ) -> anyhow::Result<ToolOutput> {
-            Ok(ToolOutput::text("dummy output"))
-        }
-    }
 
     #[tokio::test]
     async fn test_server_creation() {

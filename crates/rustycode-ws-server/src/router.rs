@@ -38,12 +38,12 @@ pub struct AppState {
 pub struct WsRouter;
 
 impl WsRouter {
-    pub fn build(session_manager: SessionManager) -> Router {
-        Self::build_with_config(session_manager, AuthConfig::default(), tokio_util::sync::CancellationToken::new())
+    pub async fn build(session_manager: SessionManager) -> Router {
+        Self::build_with_config(session_manager, AuthConfig::default(), tokio_util::sync::CancellationToken::new()).await
     }
 
-    pub fn build_with_config(
-        session_manager: SessionManager,
+    pub async fn build_with_config(
+        mut session_manager: SessionManager,
         auth_config: AuthConfig,
         shutdown_token: tokio_util::sync::CancellationToken,
     ) -> Router {
@@ -52,9 +52,10 @@ impl WsRouter {
             skill_registry.register_bundled(skill);
         }
 
-        let bus_handle = session_manager.pipeline().bus_handle();
+        let bus_handle = session_manager.pipeline().await.bus_handle();
         let event_bridge = Arc::new(EventBridge::new(bus_handle));
         event_bridge.start();
+        session_manager.set_event_bridge(event_bridge.clone());
 
         let state = AppState {
             session_manager: Arc::new(session_manager),
@@ -363,6 +364,24 @@ async fn handle_text_message(
 
 // ── REST API Handlers ──────────────────────────────────────
 
+const MAX_PATH_PARAM_LEN: usize = 256;
+
+fn validate_path_param(value: &str, label: &str) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if value.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": format!("{label} must not be empty") })),
+        ));
+    }
+    if value.len() > MAX_PATH_PARAM_LEN {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": format!("{label} exceeds maximum length") })),
+        ));
+    }
+    Ok(())
+}
+
 async fn get_providers(
     State(state): State<AppState>,
 ) -> Json<ProviderListResponse> {
@@ -388,9 +407,17 @@ async fn get_providers(
 async fn switch_provider(
     State(state): State<AppState>,
     Json(req): Json<SwitchProviderRequest>,
-) -> Json<ProviderInfo> {
-    let info = state.session_manager.switch_provider(req.provider, req.model).await;
-    Json(info)
+) -> Result<Json<ProviderInfo>, (StatusCode, Json<ErrorPayload>)> {
+    match state.session_manager.switch_provider(req.provider, req.model).await {
+        Ok(info) => Ok(Json(info)),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorPayload {
+                code: ErrorCode::InternalError,
+                message: e.to_string(),
+            }),
+        )),
+    }
 }
 
 async fn list_skills(
@@ -456,7 +483,10 @@ async fn create_session(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
     let session_state = state.session_manager.create_session().await.map_err(|e| {
-        let code = StatusCode::SERVICE_UNAVAILABLE;
+        let code = match &e {
+            crate::error::WsError::TooManySessions { .. } => StatusCode::SERVICE_UNAVAILABLE,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
         (code, Json(serde_json::json!({ "error": e.to_string() })))
     })?;
     Ok((
@@ -468,13 +498,17 @@ async fn create_session(
 async fn delete_session(
     State(state): State<AppState>,
     Path(id): Path<String>,
-) -> Result<impl IntoResponse, Json<serde_json::Value>> {
+) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    validate_path_param(&id, "session id")?;
     state
         .session_manager
         .delete_session(&id)
         .await
         .map_err(|e| {
-            Json(serde_json::json!({ "error": e.to_string() }))
+            (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({ "error": e.to_string() })),
+            )
         })?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -484,16 +518,24 @@ async fn delete_session(
 async fn list_mcp_servers(
     State(state): State<AppState>,
 ) -> Json<McpServerListResponse> {
+    let connected = state.session_manager.connected_mcp_servers();
     let servers: Vec<McpServerInfo> = state
         .session_manager
         .list_mcp_servers()
         .await
         .into_iter()
-        .map(|c| McpServerInfo {
-            name: c.name,
-            command: c.command,
-            args: c.args,
-            status: "registered".to_string(),
+        .map(|c| {
+            let status = if connected.contains(&c.name) {
+                "connected"
+            } else {
+                "registered"
+            };
+            McpServerInfo {
+                name: c.name,
+                command: c.command,
+                args: c.args,
+                status: status.to_string(),
+            }
         })
         .collect();
     Json(McpServerListResponse { servers })
@@ -502,24 +544,32 @@ async fn list_mcp_servers(
 async fn add_mcp_server(
     State(state): State<AppState>,
     Json(req): Json<McpAddServerRequest>,
-) -> Json<serde_json::Value> {
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let config = McpServerConfig {
         name: req.name.clone(),
         command: req.command.clone(),
         args: req.args.clone(),
         env: req.env.clone(),
     };
-    state.session_manager.add_mcp_server(config).await;
-    Json(serde_json::json!({
+    state.session_manager.add_mcp_server(config).await.map_err(|e| {
+        let code = match &e {
+            crate::error::WsError::Validation(_) => StatusCode::BAD_REQUEST,
+            crate::error::WsError::TooManyMcpServers { .. } => StatusCode::SERVICE_UNAVAILABLE,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+        (code, Json(serde_json::json!({ "error": e.to_string() })))
+    })?;
+    Ok(Json(serde_json::json!({
         "status": "added",
         "name": req.name
-    }))
+    })))
 }
 
 async fn remove_mcp_server(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
+    validate_path_param(&name, "server name")?;
     state
         .session_manager
         .remove_mcp_server(&name)
@@ -537,6 +587,7 @@ async fn restart_mcp_server(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    validate_path_param(&name, "server name")?;
     let config = state
         .session_manager
         .restart_mcp_server(&name)
@@ -572,4 +623,34 @@ async fn send_server_message(
 
 fn correlation_id(seq: u64) -> String {
     format!("corr-{seq}")
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_path_param_accepts_valid_id() {
+        assert!(validate_path_param("abc-123", "test").is_ok());
+    }
+
+    #[test]
+    fn validate_path_param_rejects_empty() {
+        let err = validate_path_param("", "test").unwrap_err();
+        assert_eq!(err.0, StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn validate_path_param_rejects_too_long() {
+        let long = "x".repeat(MAX_PATH_PARAM_LEN + 1);
+        let err = validate_path_param(&long, "test").unwrap_err();
+        assert_eq!(err.0, StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn validate_path_param_accepts_max_length() {
+        let max = "x".repeat(MAX_PATH_PARAM_LEN);
+        assert!(validate_path_param(&max, "test").is_ok());
+    }
 }

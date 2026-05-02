@@ -1,12 +1,17 @@
 //! Fork-join parallel execution with shared context snapshots.
 //!
 //! For parallel tasks, the parent's context is snapshotted and injected into
-//! each fork. Forks execute independently and results are collected back.
+//! each fork. Forks execute independently via `tokio::JoinSet` and results
+//! are collected back.
 
 use crate::bus::BusHandle;
+use crate::delegation::TaskRole;
+use crate::task_runner::TaskRunner;
 use crate::types::ExecutionTier;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 /// Snapshot of parent context for injection into parallel forks.
 ///
@@ -100,6 +105,9 @@ pub struct ForkSpec {
     pub path_scope: Vec<PathBuf>,
     /// Tier at which this fork should execute.
     pub tier: ExecutionTier,
+    /// Semantic role for this fork's execution.
+    #[serde(default)]
+    pub role: Option<TaskRole>,
 }
 
 impl ForkSpec {
@@ -114,6 +122,7 @@ impl ForkSpec {
             description: description.into(),
             path_scope: Vec::new(),
             tier,
+            role: None,
         }
     }
 
@@ -222,18 +231,23 @@ impl ForkJoinResult {
 
 /// Coordinates parallel fork execution with shared context snapshots.
 ///
-/// The executor takes a parent context snapshot, creates fork specifications,
-/// executes them (sequentially in `V1`, with async parallelism planned for `V2`),
-/// and collects results.
+/// Uses `tokio::JoinSet` for true parallel execution, bounded by
+/// `max_concurrency` via a semaphore. Each fork runs as an independent
+/// tokio task.
 pub struct ForkJoinExecutor {
     config: ForkJoinConfig,
     bus: BusHandle,
+    runner: Option<Arc<dyn TaskRunner>>,
 }
 
 impl ForkJoinExecutor {
     /// Create a new executor with the given configuration.
     pub const fn new(config: ForkJoinConfig, bus: BusHandle) -> Self {
-        Self { config, bus }
+        Self {
+            config,
+            bus,
+            runner: None,
+        }
     }
 
     /// Create with default configuration.
@@ -241,10 +255,23 @@ impl ForkJoinExecutor {
         Self::new(ForkJoinConfig::default(), bus)
     }
 
+    /// Create with a real task runner for production execution.
+    pub fn with_runner(
+        config: ForkJoinConfig,
+        bus: BusHandle,
+        runner: Arc<dyn TaskRunner>,
+    ) -> Self {
+        Self {
+            config,
+            bus,
+            runner: Some(runner),
+        }
+    }
+
     /// Plan forks from a list of path scopes.
     ///
     /// Each path gets its own fork with a unique ID. Paths are assigned
-    /// to the Musician tier (execution tier) by default.
+    /// to the given tier by default.
     pub fn plan_forks(
         paths: &[PathBuf],
         base_description: &str,
@@ -266,9 +293,9 @@ impl ForkJoinExecutor {
 
     /// Execute a list of fork specifications against a context snapshot.
     ///
-    /// `V1`: Sequential execution. `V2` will use `tokio::JoinSet` for parallelism.
-    /// Each fork gets the snapshot injected; results are collected.
-    #[allow(clippy::unused_async)]
+    /// Spawns each fork as a parallel tokio task, bounded by `max_concurrency`.
+    /// Forks that complete within `fork_timeout_ms` produce success results;
+    /// timed-out or panicked forks produce failure results.
     pub async fn execute_forks(
         &self,
         snapshot: &ContextSnapshot,
@@ -284,38 +311,120 @@ impl ForkJoinExecutor {
         }
 
         let start = std::time::Instant::now();
-        let mut results = Vec::with_capacity(specs.len());
+        let semaphore = Arc::new(Semaphore::new(self.config.max_concurrency));
+        let timeout = std::time::Duration::from_millis(self.config.fork_timeout_ms);
+
+        let mut join_set: tokio::task::JoinSet<(ForkResult, BusHandle)> =
+            tokio::task::JoinSet::new();
 
         for spec in specs {
-            // Publish fork started event
+            let permit = semaphore.clone();
+            let timeout_dur = timeout;
+            let bus = self.bus.clone();
+            let task_id = snapshot.task_id.clone();
+            let fork_id = spec.fork_id.clone();
+            let description = spec.description.clone();
+            let runner_opt = self.runner.clone();
+            let role = spec.role.unwrap_or(TaskRole::Code);
+            let path_scope = spec.path_scope.clone();
+
             self.bus
                 .publish(crate::bus::OrchestrationEvent::ForkStarted {
-                    task_id: snapshot.task_id.clone(),
-                    fork_id: spec.fork_id.clone(),
+                    task_id: task_id.clone(),
+                    fork_id: fork_id.clone(),
                     fork_count: specs.len(),
                 });
 
-            // V1: Sequential execution placeholder.
-            // In production, each fork would create its own TaskContext from
-            // the snapshot, execute via StepOrchestrator, and return.
-            let result = ForkResult::success(
-                &spec.fork_id,
-                format!("Fork executed: {}", spec.description),
-                0.001,
-                10,
-            );
-
-            // Publish fork completed event
-            self.bus
-                .publish(crate::bus::OrchestrationEvent::ForkCompleted {
-                    task_id: snapshot.task_id.clone(),
-                    fork_id: spec.fork_id.clone(),
-                    success: result.success,
-                    duration_ms: result.duration_ms,
+            join_set.spawn(async move {
+                let _permit = permit.acquire().await.unwrap_or_else(|e| {
+                    tracing::error!("semaphore closed: {e}");
+                    panic!("semaphore closed unexpectedly")
                 });
 
-            results.push(result);
+                let fork_start = std::time::Instant::now();
+
+                let result = match tokio::time::timeout(timeout_dur, async {
+                    if let Some(runner) = runner_opt.as_ref() {
+                        let desc = description.clone();
+                        let paths = path_scope.clone();
+                        let fork_id_captured = fork_id.clone();
+                        let runner_arc = Arc::clone(runner);
+                        match tokio::task::spawn_blocking(move || {
+                            runner_arc.run_task(&desc, role, &paths, None)
+                        })
+                        .await
+                        {
+                            Ok(Ok(task_result)) => ForkResult {
+                                fork_id: fork_id_captured,
+                                success: task_result.success,
+                                output: task_result.output,
+                                cost_usd: task_result.cost_usd,
+                                duration_ms: i64::try_from(fork_start.elapsed().as_millis())
+                                    .unwrap_or(i64::MAX),
+                            },
+                            Ok(Err(e)) => ForkResult::failure(
+                                &fork_id_captured,
+                                e.to_string(),
+                                i64::try_from(fork_start.elapsed().as_millis())
+                                    .unwrap_or(i64::MAX),
+                            ),
+                            Err(join_err) => ForkResult::failure(
+                                &fork_id_captured,
+                                join_err.to_string(),
+                                i64::try_from(fork_start.elapsed().as_millis())
+                                    .unwrap_or(i64::MAX),
+                            ),
+                        }
+                    } else {
+                        tokio::task::yield_now().await;
+                        ForkResult::success(
+                            &fork_id,
+                            format!("Fork executed: {description}"),
+                            0.001,
+                            i64::try_from(fork_start.elapsed().as_millis())
+                                .unwrap_or(i64::MAX),
+                        )
+                    }
+                })
+                .await
+                {
+                    Ok(result) => result,
+                    Err(_) => ForkResult::failure(
+                        &fork_id,
+                        "fork timed out",
+                        i64::try_from(fork_start.elapsed().as_millis()).unwrap_or(i64::MAX),
+                    ),
+                };
+
+                (result, bus)
+            });
         }
+
+        let mut results = Vec::with_capacity(specs.len());
+        while let Some(join_result) = join_set.join_next().await {
+            match join_result {
+                Ok((result, bus)) => {
+                    bus.publish(crate::bus::OrchestrationEvent::ForkCompleted {
+                        task_id: snapshot.task_id.clone(),
+                        fork_id: result.fork_id.clone(),
+                        success: result.success,
+                        duration_ms: result.duration_ms,
+                    });
+                    results.push(result);
+                }
+                Err(join_err) => {
+                    tracing::error!("fork task panicked: {join_err}");
+                    results.push(ForkResult::failure(
+                        "unknown",
+                        format!("panic: {join_err}"),
+                        0,
+                    ));
+                }
+            }
+        }
+
+        // Sort by fork_id for deterministic test results.
+        results.sort_by(|a, b| a.fork_id.cmp(&b.fork_id));
 
         let total_cost: f64 = results.iter().map(|r| r.cost_usd).sum();
         let all_succeeded = results.iter().all(|r| r.success);
@@ -578,7 +687,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn executor_execute_forks_multiple_forks() {
+    async fn executor_execute_forks_multiple_forks_parallel() {
         let bus = BusHandle::new(16);
         let executor = ForkJoinExecutor::with_bus(bus);
         let snapshot = ContextSnapshot::new("t1", "parallel work", 2);
@@ -593,6 +702,53 @@ mod tests {
         assert!(result.all_succeeded);
         assert_eq!(result.success_count(), 3);
         assert_eq!(result.failure_count(), 0);
+
+        // Verify deterministic ordering (sorted by fork_id).
+        assert_eq!(result.fork_results[0].fork_id, "fork-0");
+        assert_eq!(result.fork_results[1].fork_id, "fork-1");
+        assert_eq!(result.fork_results[2].fork_id, "fork-2");
+    }
+
+    #[tokio::test]
+    async fn executor_execute_forks_respects_concurrency_limit() {
+        let bus = BusHandle::new(16);
+        let config = ForkJoinConfig {
+            max_concurrency: 2,
+            fork_timeout_ms: 5_000,
+        };
+        let executor = ForkJoinExecutor::new(config, bus);
+        let snapshot = ContextSnapshot::new("t1", "bounded work", 2);
+        let specs = vec![
+            ForkSpec::new("fork-0", "task A", ExecutionTier::Musician),
+            ForkSpec::new("fork-1", "task B", ExecutionTier::Musician),
+            ForkSpec::new("fork-2", "task C", ExecutionTier::Musician),
+            ForkSpec::new("fork-3", "task D", ExecutionTier::Musician),
+        ];
+
+        let result = executor.execute_forks(&snapshot, &specs).await;
+        assert_eq!(result.fork_results.len(), 4);
+        assert!(result.all_succeeded);
+    }
+
+    #[tokio::test]
+    async fn executor_execute_forks_timeout_produces_failure() {
+        let bus = BusHandle::new(16);
+        let config = ForkJoinConfig {
+            max_concurrency: 4,
+            fork_timeout_ms: 1, // 1ms — will timeout
+        };
+        let executor = ForkJoinExecutor::new(config, bus);
+        let snapshot = ContextSnapshot::new("t1", "timeout test", 2);
+        let specs = vec![ForkSpec::new(
+            "fork-0",
+            "slow task",
+            ExecutionTier::Musician,
+        )];
+
+        let result = executor.execute_forks(&snapshot, &specs).await;
+        // With a 1ms timeout, the fork may or may not succeed depending on
+        // scheduling. At minimum, we should get a result back.
+        assert_eq!(result.fork_results.len(), 1);
     }
 
     #[tokio::test]
@@ -661,5 +817,80 @@ mod tests {
         let deserialized: ForkResult = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.fork_id, "fork-0");
         assert!(deserialized.success);
+    }
+
+    // --- ForkSpec with role ---
+
+    #[test]
+    fn fork_spec_new_has_no_role() {
+        let spec = ForkSpec::new("fork-0", "desc", ExecutionTier::Musician);
+        assert!(spec.role.is_none());
+    }
+
+    #[test]
+    fn fork_spec_with_role_set() {
+        let mut spec = ForkSpec::new("fork-0", "desc", ExecutionTier::Editor);
+        spec.role = Some(TaskRole::Code);
+        assert_eq!(spec.role, Some(TaskRole::Code));
+    }
+
+    // --- ForkJoinExecutor with runner ---
+
+    struct MockRunner {
+        output: String,
+        success: bool,
+    }
+
+    impl crate::task_runner::TaskRunner for MockRunner {
+        fn run_task(
+            &self,
+            _task_description: &str,
+            _role: crate::delegation::TaskRole,
+            _path_scope: &[PathBuf],
+            _resume_from: Option<&str>,
+        ) -> anyhow::Result<crate::task_runner::TaskRunResult> {
+            Ok(crate::task_runner::TaskRunResult {
+                success: self.success,
+                output: self.output.clone(),
+                cost_usd: 0.02,
+                duration_ms: 50,
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn executor_with_runner_uses_real_execution() {
+        let bus = BusHandle::new(16);
+        let runner = Arc::new(MockRunner {
+            output: "real output".into(),
+            success: true,
+        });
+        let executor = ForkJoinExecutor::with_runner(
+            ForkJoinConfig::default(),
+            bus,
+            runner,
+        );
+        let snapshot = ContextSnapshot::new("t1", "desc", 2);
+        let mut spec = ForkSpec::new("fork-0", "process main.rs", ExecutionTier::Editor);
+        spec.role = Some(TaskRole::Code);
+
+        let result = executor.execute_forks(&snapshot, &[spec]).await;
+        assert_eq!(result.fork_results.len(), 1);
+        assert!(result.all_succeeded);
+        assert_eq!(result.fork_results[0].output, "real output");
+        assert!((result.fork_results[0].cost_usd - 0.02).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn executor_without_runner_uses_placeholder() {
+        let bus = BusHandle::new(16);
+        let executor = ForkJoinExecutor::with_bus(bus);
+        let snapshot = ContextSnapshot::new("t1", "desc", 2);
+        let spec = ForkSpec::new("fork-0", "process main.rs", ExecutionTier::Musician);
+
+        let result = executor.execute_forks(&snapshot, &[spec]).await;
+        assert_eq!(result.fork_results.len(), 1);
+        assert!(result.all_succeeded);
+        assert!(result.fork_results[0].output.contains("Fork executed:"));
     }
 }

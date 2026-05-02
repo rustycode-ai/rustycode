@@ -1,3 +1,4 @@
+pub mod approval;
 pub mod auth;
 pub mod bridge;
 pub mod error;

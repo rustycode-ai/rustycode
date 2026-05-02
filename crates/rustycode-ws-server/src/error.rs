@@ -25,6 +25,12 @@ pub enum WsError {
 
     #[error("too many sessions (limit: {limit})")]
     TooManySessions { limit: usize },
+
+    #[error("too many MCP servers (limit: {limit})")]
+    TooManyMcpServers { limit: usize },
+
+    #[error("validation error: {0}")]
+    Validation(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]

@@ -1399,6 +1399,7 @@ impl TUI {
                 schema
             })
             .collect();
+        let tools_schema_clone = tools_schema.clone();
         let agent_tool = crate::agents::agent_tool::AgentTool::new(
             Arc::clone(&self.pipeline_ctx.provider),
             self.pipeline_ctx.current_model.clone(),
@@ -1406,6 +1407,15 @@ impl TUI {
             tools_schema,
         );
         tool_registry.register(agent_tool);
+
+        // Delegation executor — real sub-agent execution for delegate_task tool.
+        let delegation_executor = crate::agents::delegation_executor::DelegationExecutor::new(
+            Arc::clone(&self.pipeline_ctx.provider),
+            self.pipeline_ctx.current_model.clone(),
+            self.services.cwd().clone(),
+            tools_schema_clone,
+        );
+        tool_registry.register(delegation_executor);
 
         // Team management tool - allows LLM to create agent teams
         tool_registry.register(CreateTeamTool::new());

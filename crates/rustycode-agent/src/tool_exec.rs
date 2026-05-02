@@ -62,12 +62,11 @@ pub fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
         .last()
         .map_or(0, |(i, c)| i + c.len_utf8());
 
+    let tail_start_offset = output.len().saturating_sub(tail_bytes);
     let tail_start = output
         .char_indices()
-        .rev()
-        .skip_while(|(i, _)| output.len() - *i > tail_bytes)
-        .last()
-        .map_or(0, |(i, _)| i);
+        .find(|(i, _)| *i >= tail_start_offset)
+        .map_or(output.len(), |(i, _)| i);
 
     if tail_start > head_end {
         let skipped = tail_start - head_end;
@@ -94,6 +93,71 @@ fn normalize_tool_name(name: &str) -> &str {
         "WebFetch" | "web_fetch" | "fetch" => "web_fetch",
         "LSP" | "lsp" => "lsp",
         _ => name,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_short_output_unchanged() {
+        let output = "hello world";
+        assert_eq!(truncate_tool_output(output, 100), output);
+    }
+
+    #[test]
+    fn truncate_long_output_with_error() {
+        let mut lines: Vec<String> = (0..50).map(|i| format!("ok line {i}")).collect();
+        lines.insert(5, "error: something failed".to_string());
+        let output = lines.join("\n");
+        assert!(output.len() > 200);
+        let truncated = truncate_tool_output(&output, 100);
+        assert!(truncated.contains("truncated"));
+        assert!(truncated.len() < output.len());
+    }
+
+    #[test]
+    fn truncate_long_output_no_error() {
+        let output = "normal output line\n".repeat(50);
+        assert!(output.len() > 500);
+        let truncated = truncate_tool_output(&output, 200);
+        assert!(truncated.contains("truncated"));
+        assert!(truncated.len() < output.len());
+    }
+
+    #[test]
+    fn normalize_tool_names() {
+        assert_eq!(normalize_tool_name("Edit"), "edit_file");
+        assert_eq!(normalize_tool_name("edit"), "edit_file");
+        assert_eq!(normalize_tool_name("text_editor_20250728"), "edit_file");
+        assert_eq!(normalize_tool_name("Read"), "read_file");
+        assert_eq!(normalize_tool_name("view"), "read_file");
+        assert_eq!(normalize_tool_name("Write"), "write_file");
+        assert_eq!(normalize_tool_name("Create"), "write_file");
+        assert_eq!(normalize_tool_name("Bash"), "bash");
+        assert_eq!(normalize_tool_name("Shell"), "bash");
+        assert_eq!(normalize_tool_name("execute"), "bash");
+        assert_eq!(normalize_tool_name("Grep"), "grep");
+        assert_eq!(normalize_tool_name("Search"), "grep");
+        assert_eq!(normalize_tool_name("Glob"), "glob");
+        assert_eq!(normalize_tool_name("Find"), "glob");
+        assert_eq!(normalize_tool_name("NotebookEdit"), "notebook_edit");
+        assert_eq!(normalize_tool_name("WebFetch"), "web_fetch");
+        assert_eq!(normalize_tool_name("fetch"), "web_fetch");
+        assert_eq!(normalize_tool_name("LSP"), "lsp");
+        assert_eq!(normalize_tool_name("unknown_tool"), "unknown_tool");
+    }
+
+    #[test]
+    fn truncate_empty_output() {
+        assert_eq!(truncate_tool_output("", 100), "");
+    }
+
+    #[test]
+    fn truncate_exact_boundary() {
+        let output = "x".repeat(50);
+        assert_eq!(truncate_tool_output(&output, 50), output);
     }
 }
 

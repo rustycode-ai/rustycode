@@ -71,9 +71,10 @@ export function ToolApprovalModal({ request, onRespond }: ToolApprovalModalProps
     <div
       className="approval-overlay"
       onClick={() => onRespond(request.request_id, false)}
-      role="dialog"
+      role="alertdialog"
       aria-label="Tool approval request"
       aria-modal="true"
+      aria-describedby="approval-body"
     >
       <div className="approval-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="approval-header">
@@ -81,7 +82,7 @@ export function ToolApprovalModal({ request, onRespond }: ToolApprovalModalProps
           <span className="approval-timer">{formatElapsed(elapsed)}</span>
         </div>
 
-        <div className="approval-body">
+        <div className="approval-body" id="approval-body">
           <div className="approval-tool-name">{request.tool_name}</div>
           <div
             className="approval-risk-badge"

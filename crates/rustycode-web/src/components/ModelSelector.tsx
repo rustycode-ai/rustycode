@@ -22,6 +22,7 @@ interface ModelSelectorProps {
   model: string;
   provider: string;
   onSwitch?: (provider: string, model: string) => void;
+  triggerOpen?: number;
 }
 
 function matchesSearch(query: string, provider: string, model: string): boolean {
@@ -32,7 +33,7 @@ function matchesSearch(query: string, provider: string, model: string): boolean 
   );
 }
 
-export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps) {
+export function ModelSelector({ model, provider, onSwitch, triggerOpen }: ModelSelectorProps) {
   const [data, setData] = useState<ProviderListResponse | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,6 +64,10 @@ export function ModelSelector({ model, provider, onSwitch }: ModelSelectorProps)
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    if (triggerOpen) handleOpen();
+  }, [triggerOpen]);
 
   const current = data?.current ?? { provider, model };
 

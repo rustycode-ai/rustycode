@@ -352,12 +352,18 @@ impl BashSession {
         if read_timed_out {
             if let Ok(mut child_guard) = self.child.lock() {
                 if let Some(child) = child_guard.as_mut() {
+                    // Send SIGINT first
                     if let Some(stdin) = child.stdin.as_mut() {
                         let _ = stdin.write_all(b"\x03\n");
                         let _ = stdin.flush();
-                        thread::sleep(Duration::from_millis(100));
-                        let _ = writeln!(stdin, "echo '---END---'");
-                        let _ = stdin.flush();
+                    }
+                    thread::sleep(Duration::from_millis(100));
+                    // Force kill if process hasn't exited
+                    if let Ok(status) = child.try_wait() {
+                        if status.is_none() {
+                            tracing::warn!("bash child still alive after SIGINT, sending kill");
+                            let _ = child.kill();
+                        }
                     }
                 }
             }
@@ -522,12 +528,18 @@ impl BashSession {
         if read_timed_out {
             if let Ok(mut child_guard) = self.child.lock() {
                 if let Some(child) = child_guard.as_mut() {
+                    // Send SIGINT first
                     if let Some(stdin) = child.stdin.as_mut() {
                         let _ = stdin.write_all(b"\x03\n");
                         let _ = stdin.flush();
-                        thread::sleep(Duration::from_millis(100));
-                        let _ = writeln!(stdin, "echo '---END---'");
-                        let _ = stdin.flush();
+                    }
+                    thread::sleep(Duration::from_millis(100));
+                    // Force kill if process hasn't exited
+                    if let Ok(status) = child.try_wait() {
+                        if status.is_none() {
+                            tracing::warn!("bash child still alive after SIGINT in streaming, sending kill");
+                            let _ = child.kill();
+                        }
                     }
                 }
             }
@@ -1295,46 +1307,255 @@ fn extract_binary_name(command: &str) -> anyhow::Result<String> {
     Ok(binary_name.to_lowercase())
 }
 
-/// Validates that a command is safe to execute.
-///
-/// This function uses an allowlist approach for maximum security:
-/// - Only explicitly allowed commands can be executed
-/// - Uses `shell_words::split()` for proper tokenization
-/// - Detects dangerous flags for commands like `find`
-/// - Rejects commands that fail shell parsing (potential obfuscation)
-/// - Blocks shell metacharacters that could enable command injection
-///
-/// # Security Model
-///
-/// The allowlist approach is more secure than a blocklist because:
-/// 1. Unknown/exploitative commands are blocked by default
-/// 2. New attack vectors cannot bypass the allowlist
-/// 3. The list of allowed commands is auditable and minimal
-///
-/// # Public API
-///
-/// This function is public so it can be reused by other parts of the codebase
-/// (e.g., `command_runner` in rustycode-runtime) to ensure consistent security
-/// validation across all command execution paths.
-pub fn validate_command_safety(command: &str) -> Result<()> {
-    // In sandbox/container mode, skip security restrictions. The agent is
-    // already running in an isolated container — these checks only prevent
-    // the agent from doing its job (e.g., `python3 -c "import numpy"`,
-    // `wc -c`, `curl -L` are all blocked by the allowlist).
-    if std::env::var("RUSTYCODE_SANDBOX").as_deref() == Ok("container") {
-        return Ok(());
-    }
+// ---------------------------------------------------------------------------
+// Module-level constants for command safety validation
+// ---------------------------------------------------------------------------
 
-    // SECURITY: Add input length limit BEFORE parsing to prevent ReDoS
-    const MAX_COMMAND_LENGTH: usize = 10_000; // 10KB max command length
-    if command.len() > MAX_COMMAND_LENGTH {
-        anyhow::bail!("command exceeds maximum length of {MAX_COMMAND_LENGTH} characters");
-    }
+/// Shells and interpreters where `-c`/`-e` flags mean "execute arbitrary code".
+const SHELLS_AND_INTERPRETERS: &[&str] = &[
+    "sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh", "python", "python3", "perl",
+    "ruby", "node", "lua",
+];
 
-    // SECURITY: Check for excessive quote nesting (potential obfuscation)
-    // Heredoc bodies (cat > file << 'EOF') contain legitimate multi-line content with many
-    // quotes. We skip depth-counting inside heredoc blocks and only measure nesting in
-    // the actual shell command structure. Raw total is capped as a secondary ceiling.
+/// Allowlist of safe commands. Only add commands genuinely needed for development.
+const ALLOWED_COMMANDS: &[&str] = &[
+    // File operations (read-only)
+    "ls",
+    "cat",
+    "head",
+    "tail",
+    "less",
+    "more",
+    "wc",
+    "sort",
+    "uniq",
+    "file",
+    "stat",
+    "tree",
+    "du",
+    "df",
+    "readlink",
+    "realpath",
+    "basename",
+    "dirname",
+    // Search tools
+    "grep",
+    "rg",
+    "ag",
+    "ack",
+    "find",
+    "locate",
+    // Build tools
+    "cargo",
+    "rustc",
+    "rustfmt",
+    "clippy",
+    "npm",
+    "pnpm",
+    "yarn",
+    "bun",
+    "node",
+    "deno",
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    "poetry",
+    "uv",
+    "ruby",
+    "gem",
+    "bundle",
+    "go",
+    "gofmt",
+    "golint",
+    "javac",
+    "java",
+    "gradle",
+    "maven",
+    "mvn",
+    "gcc",
+    "clang",
+    "cc",
+    "c++",
+    "g++",
+    "make",
+    "cmake",
+    "meson",
+    "ninja",
+    "zig",
+    "cargo-zigbuild",
+    // Version control
+    "git",
+    "hg",
+    "svn",
+    // Text processing
+    "sed",
+    "awk",
+    "tr",
+    "cut",
+    "paste",
+    "join",
+    "diff",
+    "patch",
+    "jq",
+    "yq",
+    "tomlq",
+    "xonq",
+    // Binary analysis and inspection
+    "xxd",
+    "hexdump",
+    "od",
+    "readelf",
+    "objdump",
+    "nm",
+    "strings",
+    "size",
+    "file",
+    "strip",
+    // Network utilities (read-only)
+    "curl",
+    "wget",
+    "httpie",
+    "http",
+    // Process utilities (read-only)
+    "ps",
+    "top",
+    "htop",
+    "btop",
+    "pgrep",
+    "pkill",
+    // System utilities (read-only or safe)
+    "pwd",
+    "date",
+    "uptime",
+    "whoami",
+    "id",
+    "env",
+    "printenv",
+    "echo",
+    "which",
+    "type",
+    "whereis",
+    "what",
+    "command",
+    // Compression/decompression
+    "tar",
+    "gzip",
+    "gunzip",
+    "xz",
+    "unxz",
+    "zip",
+    "unzip",
+    "zstd",
+    // Testing
+    "pytest",
+    "jest",
+    "vitest",
+    "mocha",
+    "jasmine",
+    "karma",
+    "go-test",
+    "cargo-test",
+    // Documentation
+    "man",
+    "help",
+    "tldr",
+    "pydoc",
+    // Docker/Podman (container operations)
+    "docker",
+    "podman",
+    "docker-compose",
+    // Database clients
+    "psql",
+    "mysql",
+    "mongosh",
+    "redis-cli",
+    "sqlite3",
+    // Cloud CLIs
+    "aws",
+    "az",
+    "gcloud",
+    // Package managers
+    "apt",
+    "apt-get",
+    "yum",
+    "dnf",
+    "pacman",
+    "brew",
+    "choco",
+    "scoop",
+    // Misc development tools
+    "ln",
+    "mkdir",
+    "touch",
+    "cp",
+    "mv",
+    "rm",
+    "chmod", // Basic file ops
+    // REMOVED: "sh", "bash", "zsh", "fish", "dash" - SECURITY: Shells bypass allowlist
+    "rsync",
+    "scp", // Sync/copy
+    "ssh", // Remote shell
+    "cd",  // Change directory (shell builtin, but common in scripts)
+];
+
+/// Platform-specific commands allowed in addition to [`ALLOWED_COMMANDS`].
+#[cfg(unix)]
+const PLATFORM_COMMANDS: &[&str] = &[
+    "sed", "awk", "grep", "find", "curl", "wget", "xargs", "tee", "nohup", "screen", "tmux",
+    "strace", "lsof", "ss", "nc", "socat",
+];
+
+#[cfg(windows)]
+const PLATFORM_COMMANDS: &[&str] = &[
+    // PowerShell cmdlets (common aliases)
+    "Get-Content",
+    "Get-ChildItem",
+    "Select-String",
+    "Get-Process",
+    "Set-Location",
+    "Copy-Item",
+    "Remove-Item",
+    "Move-Item",
+    "New-Item",
+    "Test-Path",
+    "Get-Location",
+    "Write-Output",
+    "Get-Date",
+    "Get-Host",
+    "Invoke-WebRequest",
+    "Invoke-RestMethod",
+    // Windows utilities
+    "dir",
+    "type",
+    "findstr",
+    "where",
+    "cmdkey",
+    "netstat",
+    "tasklist",
+    "systeminfo",
+    "winget",
+    "scoop",
+    "choco",
+];
+
+#[cfg(not(any(unix, windows)))]
+const PLATFORM_COMMANDS: &[&str] = &[];
+
+/// Shell targets blocked from pipe destinations to prevent allowlist bypass.
+const BLOCKED_PIPE_TARGETS: &[&str] =
+    &["sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh"];
+
+// ---------------------------------------------------------------------------
+// Helper functions for validate_command_safety
+// ---------------------------------------------------------------------------
+
+/// Checks for excessive quote nesting that may indicate obfuscation.
+///
+/// Heredoc bodies (`cat > file << 'EOF'`) contain legitimate multi-line content
+/// with many quotes. We skip depth-counting inside heredoc blocks and only
+/// measure nesting in the actual shell command structure.
+fn check_quote_nesting(command: &str) -> Result<()> {
     let mut max_depth = 0i32;
     let mut in_heredoc = false;
     for line in command.lines() {
@@ -1367,9 +1588,14 @@ pub fn validate_command_safety(command: &str) -> Result<()> {
     if raw_quote_count > 2000 {
         anyhow::bail!("command has excessive quote nesting (potential obfuscation attempt)");
     }
+    Ok(())
+}
 
-    // Block null bytes and raw carriage returns, but allow newlines when this is a heredoc.
-    // Heredoc syntax (cat << 'EOF' ... EOF) requires embedded newlines in the command string.
+/// Checks for dangerous input encoding: null bytes, carriage returns, IFS
+/// variable usage, and Unicode whitespace that could cause parsing inconsistencies.
+///
+/// Returns `(has_newline, is_heredoc)` for use by later checks.
+fn check_input_encoding(command: &str) -> Result<(bool, bool)> {
     let has_null = command.contains('\0');
     let has_cr = command.contains('\r');
     let has_newline = command.contains('\n');
@@ -1381,47 +1607,46 @@ pub fn validate_command_safety(command: &str) -> Result<()> {
         anyhow::bail!("blocked command with carriage return (potential injection)");
     }
 
-    // SECURITY: Block IFS variable usage — can bypass regex-based validation by
-    // changing how the shell splits tokens. Example: IFS=x; $IFS expands to a
-    // field separator that can turn "rmxrf" into "rm rf".
+    // Block IFS variable usage — can bypass regex-based validation by changing
+    // how the shell splits tokens. Example: IFS=x; $IFS expands to a field
+    // separator that can turn "rmxrf" into "rm rf".
     if command.contains("$IFS") || command.contains("${IFS") {
         anyhow::bail!("blocked command with IFS variable usage (potential security bypass)");
     }
 
-    // SECURITY: Block Unicode whitespace characters that could cause parsing
-    // inconsistencies between validation and execution. These non-standard
-    // whitespace chars (U+00A0 NO-BREAK SPACE, U+2000-U+200A various spaces,
-    // U+2028/U+2029 line/paragraph separators, U+3000 IDEOGRAPHIC SPACE) may
-    // be interpreted differently by the shell vs our regex-based checks.
+    // Block Unicode whitespace that could cause parsing inconsistencies between
+    // validation and execution.
     let has_unicode_ws = command.chars().any(|c| {
         matches!(
             c,
-            '\u{00A0}'  // NO-BREAK SPACE
-            | '\u{1680}' // OGHAM SPACE MARK
-            | '\u{2000}'
-                ..='\u{200A}' // VARIOUS SPACES
-            | '\u{2028}' // LINE SEPARATOR
-            | '\u{2029}' // PARAGRAPH SEPARATOR
-            | '\u{202F}' // NARROW NO-BREAK SPACE
-            | '\u{205F}' // MEDIUM MATHEMATICAL SPACE
-            | '\u{3000}' // IDEOGRAPHIC SPACE
+            '\u{00A0}'
+            | '\u{1680}'
+            | '\u{2000}'..='\u{200A}'
+            | '\u{2028}'
+            | '\u{2029}'
+            | '\u{202F}'
+            | '\u{205F}'
+            | '\u{3000}'
         )
     });
     if has_unicode_ws {
         anyhow::bail!("blocked command with Unicode whitespace (potential parsing inconsistency)");
     }
 
-    // Parse the command using shell-words to properly tokenize it.
-    // This will fail if the command has invalid quoting, which may indicate
-    // an attempt to obfuscate the command.
-    let tokens = shell_words::split(command).map_err(|_| {
-        anyhow::anyhow!("blocked command with invalid shell syntax (potential obfuscation attempt)")
-    })?;
+    Ok((has_newline, is_heredoc))
+}
 
-    // SECURITY: Newline validation. shell_words::split() absorbs newlines inside
-    // quotes, so `python3 -c "...30 line script..."` → 3 tokens. Real injection
-    // like "ls\nrm -rf /" → 4+ tokens with shell operators. We use both token
-    // count and raw line analysis to distinguish safe from dangerous.
+/// Checks for newline-based command injection.
+///
+/// `shell_words::split()` absorbs newlines inside quotes, so multi-line scripts
+/// in a single token are safe. Real injection like `"ls\nrm -rf /"` produces
+/// many tokens with shell operators.
+fn check_newline_injection(
+    command: &str,
+    tokens: &[String],
+    has_newline: bool,
+    is_heredoc: bool,
+) -> Result<()> {
     if has_newline && !is_heredoc {
         let raw_lines: Vec<&str> = command.lines().filter(|l| !l.trim().is_empty()).collect();
 
@@ -1435,290 +1660,46 @@ pub fn validate_command_safety(command: &str) -> Result<()> {
                     || trimmed.ends_with("||")
             });
             if has_chain_op {
-                anyhow::bail!("blocked command with excessive newlines and shell chaining (potential injection)");
+                anyhow::bail!(
+                    "blocked command with excessive newlines and shell chaining (potential injection)"
+                );
             }
         }
     }
+    Ok(())
+}
 
-    // Empty command is invalid
-    if tokens.is_empty() {
-        anyhow::bail!("blocked empty command");
-    }
-
-    // Get the binary name (first token), stripping any path component
-    let binary = &tokens[0];
-    let binary_name = if binary.contains('/') {
-        binary.rsplit('/').next().unwrap_or(binary)
-    } else {
-        binary
-    };
-
-    // SECURITY: Check for dangerous flag combinations that could bypass allowlist.
-    // Only block -c/--command for shells and interpreters where it means "execute
-    // arbitrary code". Commands like `wc -c` (byte count) or `git -c key=val`
-    // (config override) use -c for harmless purposes.
-    const SHELLS_AND_INTERPRETERS: &[&str] = &[
-        "sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh", "python", "python3", "perl",
-        "ruby", "node", "lua",
-    ];
+/// Checks for `-c`/`--command` and `-e`/`--eval` flags on shells and interpreters.
+///
+/// Only blocks these flags for programs in [`SHELLS_AND_INTERPRETERS`] where they
+/// mean "execute arbitrary code". Commands like `wc -c` or `git -c key=val` are
+/// unaffected.
+fn check_interpreter_flags(tokens: &[String], binary_name: &str) -> Result<()> {
     let is_shell_or_interp = SHELLS_AND_INTERPRETERS.contains(&binary_name);
 
-    if tokens.len() >= 2 {
+    if tokens.len() >= 2 && is_shell_or_interp {
         for (i, token) in tokens.iter().enumerate() {
-            // Block -c/--command for shells and interpreters where it means "execute
-            // arbitrary code". This applies even to allowlisted binaries because -c
-            // turns any interpreter into an arbitrary code executor.
-            if (token == "-c" || token == "--command") && is_shell_or_interp && i + 1 < tokens.len()
-            {
+            if (token == "-c" || token == "--command") && i + 1 < tokens.len() {
                 anyhow::bail!(
                     "blocked command with -c/--command flag (potential allowlist bypass)"
                 );
             }
 
-            // Block -e/--eval for interpreters. This applies even to allowlisted
-            // binaries because -e turns any interpreter into an arbitrary code executor.
-            if (token == "-e" || token == "--eval" || token == "-E") && is_shell_or_interp {
+            if token == "-e" || token == "--eval" || token == "-E" {
                 anyhow::bail!("blocked interpreter with -e flag (potential allowlist bypass)");
             }
         }
     }
+    Ok(())
+}
 
-    // Allowlist of safe commands
-    // This list should be kept minimal - only add commands that are
-    // genuinely needed for development workflows.
-    const ALLOWED_COMMANDS: &[&str] = &[
-        // File operations (read-only)
-        "ls",
-        "cat",
-        "head",
-        "tail",
-        "less",
-        "more",
-        "wc",
-        "sort",
-        "uniq",
-        "file",
-        "stat",
-        "tree",
-        "du",
-        "df",
-        "readlink",
-        "realpath",
-        "basename",
-        "dirname",
-        // Search tools
-        "grep",
-        "rg",
-        "ag",
-        "ack",
-        "find",
-        "locate",
-        // Build tools
-        "cargo",
-        "rustc",
-        "rustfmt",
-        "clippy",
-        "npm",
-        "pnpm",
-        "yarn",
-        "bun",
-        "node",
-        "deno",
-        "python",
-        "python3",
-        "pip",
-        "pip3",
-        "poetry",
-        "uv",
-        "ruby",
-        "gem",
-        "bundle",
-        "go",
-        "gofmt",
-        "golint",
-        "javac",
-        "java",
-        "gradle",
-        "maven",
-        "mvn",
-        "gcc",
-        "clang",
-        "cc",
-        "c++",
-        "g++",
-        "make",
-        "cmake",
-        "meson",
-        "ninja",
-        "zig",
-        "cargo-zigbuild",
-        // Version control
-        "git",
-        "hg",
-        "svn",
-        // Text processing
-        "sed",
-        "awk",
-        "tr",
-        "cut",
-        "paste",
-        "join",
-        "diff",
-        "patch",
-        "jq",
-        "yq",
-        "tomlq",
-        "xonq",
-        // Binary analysis and inspection
-        "xxd",
-        "hexdump",
-        "od",
-        "readelf",
-        "objdump",
-        "nm",
-        "strings",
-        "size",
-        "file",
-        "strip",
-        // Network utilities (read-only)
-        "curl",
-        "wget",
-        "httpie",
-        "http",
-        // Process utilities (read-only)
-        "ps",
-        "top",
-        "htop",
-        "btop",
-        "pgrep",
-        "pkill",
-        // System utilities (read-only or safe)
-        "pwd",
-        "date",
-        "uptime",
-        "whoami",
-        "id",
-        "env",
-        "printenv",
-        "echo",
-        "which",
-        "type",
-        "whereis",
-        "what",
-        "command",
-        // Compression/decompression
-        "tar",
-        "gzip",
-        "gunzip",
-        "xz",
-        "unxz",
-        "zip",
-        "unzip",
-        "zstd",
-        // Testing
-        "pytest",
-        "jest",
-        "vitest",
-        "mocha",
-        "jasmine",
-        "karma",
-        "go-test",
-        "cargo-test",
-        // Documentation
-        "man",
-        "help",
-        "tldr",
-        "pydoc",
-        // Docker/Podman (container operations)
-        "docker",
-        "podman",
-        "docker-compose",
-        // Database clients
-        "psql",
-        "mysql",
-        "mongosh",
-        "redis-cli",
-        "sqlite3",
-        // Cloud CLIs
-        "aws",
-        "az",
-        "gcloud",
-        // Package managers
-        "apt",
-        "apt-get",
-        "yum",
-        "dnf",
-        "pacman",
-        "brew",
-        "choco",
-        "scoop",
-        // Misc development tools
-        "ln",
-        "mkdir",
-        "touch",
-        "cp",
-        "mv",
-        "rm",
-        "chmod", // Basic file ops
-        // REMOVED: "sh", "bash", "zsh", "fish", "dash" - SECURITY: Shells bypass allowlist
-        "rsync",
-        "scp", // Sync/copy
-        "ssh", // Remote shell
-        "cd",  // Change directory (shell builtin, but common in scripts)
-    ];
-
-    // Platform-specific commands
-    #[cfg(unix)]
-    const PLATFORM_COMMANDS: &[&str] = &[
-        "sed", "awk", "grep", "find", "curl", "wget", "xargs", "tee", "nohup", "screen", "tmux",
-        "strace", "lsof", "ss", "nc", "socat",
-    ];
-
-    #[cfg(windows)]
-    const PLATFORM_COMMANDS: &[&str] = &[
-        // PowerShell cmdlets (common aliases)
-        "Get-Content",
-        "Get-ChildItem",
-        "Select-String",
-        "Get-Process",
-        "Set-Location",
-        "Copy-Item",
-        "Remove-Item",
-        "Move-Item",
-        "New-Item",
-        "Test-Path",
-        "Get-Location",
-        "Write-Output",
-        "Get-Date",
-        "Get-Host",
-        "Invoke-WebRequest",
-        "Invoke-RestMethod",
-        // Windows utilities
-        "dir",
-        "type",
-        "findstr",
-        "where",
-        "cmdkey",
-        "netstat",
-        "tasklist",
-        "systeminfo",
-        "winget",
-        "scoop",
-        "choco",
-    ];
-
-    #[cfg(not(any(unix, windows)))]
-    const PLATFORM_COMMANDS: &[&str] = &[];
-
-    // SECURITY: Check for pipe-to-shell bypass.
-    // Pipes allow piping output to shells which bypass the allowlist since only
-    // the first binary is checked. Block piping to any shell or interpreter.
-    // e.g., "cat file.txt | sh" should be blocked even though cat is allowed.
-    const BLOCKED_PIPE_TARGETS: &[&str] =
-        &["sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh"];
+/// Checks for pipe-to-shell bypasses (e.g., `cat file | sh`).
+///
+/// Pipes allow piping output to shells which bypass the allowlist since only
+/// the first binary is checked.
+fn check_pipe_to_shell(command: &str) -> Result<()> {
     let cmd_trimmed = command.trim();
     for target in BLOCKED_PIPE_TARGETS {
-        // Check for " | sh", " | bash", etc. (with spaces around pipe)
         if cmd_trimmed.contains(&format!("| {target}"))
             || cmd_trimmed.contains(&format!("|{target}"))
         {
@@ -1735,8 +1716,143 @@ pub fn validate_command_safety(command: &str) -> Result<()> {
             }
         }
     }
+    Ok(())
+}
 
-    // Check if the binary is in the allowlist
+/// Checks for dangerous patterns: fork bombs, shell expansion, parameter
+/// expansion, arithmetic expansion, root-filesystem delete, and dangerous
+/// `find` flags.
+fn check_dangerous_patterns(command: &str, binary_name: &str, tokens: &[String]) -> Result<()> {
+    // Dangerous flags on `find`
+    if binary_name == "find" {
+        let dangerous_find_flags = ["-delete", "-exec", "-ok", "-execdir"];
+        for token in tokens {
+            let token_lower: String = token.to_lowercase();
+            for flag in dangerous_find_flags {
+                if token_lower.starts_with(flag) || token_lower == flag {
+                    anyhow::bail!("blocked find command with dangerous flag `{flag}`");
+                }
+            }
+        }
+    }
+
+    let cmd_lower = command.to_lowercase();
+
+    // Fork bomb detection — Pattern 1: recursive function definition
+    if cmd_lower.contains(":(){") || cmd_lower.contains(":() {") {
+        anyhow::bail!("blocked shell function definition (potential fork bomb)");
+    }
+    // Pattern 2: background self-execution
+    if cmd_lower.contains(":|:&") || cmd_lower.contains(": | : &") {
+        anyhow::bail!("blocked shell function with self-execution (potential fork bomb)");
+    }
+    // Pattern 3: excessive background ampersands
+    let ampersand_count = cmd_lower.matches('&').count();
+    if ampersand_count > 50 {
+        anyhow::bail!("blocked command with excessive background operators (potential fork bomb)");
+    }
+    // Pattern 4: eval with function definition
+    if cmd_lower.contains("eval") && (cmd_lower.contains("()") || cmd_lower.contains('{')) {
+        anyhow::bail!("blocked eval with function definition (potential fork bomb)");
+    }
+
+    // Shell expansion outside heredoc bodies
+    let mut in_body = false;
+    for line in command.lines() {
+        if line.contains("<<") && (line.contains('\'') || line.contains('"')) {
+            in_body = true;
+        }
+        if in_body {
+            continue;
+        }
+        if line.contains("$(") || line.contains('`') {
+            anyhow::bail!("blocked command with shell expansion (potential obfuscation attempt)");
+        }
+    }
+
+    // Dangerous parameter expansion
+    if cmd_lower.contains("${!") || cmd_lower.contains("${@:") {
+        anyhow::bail!("blocked command with dangerous parameter expansion");
+    }
+    // Arithmetic expansion
+    if cmd_lower.contains("$((") {
+        anyhow::bail!("blocked command with arithmetic expansion");
+    }
+    // Root filesystem recursive delete
+    if cmd_lower.contains("-rf /") || cmd_lower.contains("-rf /*") || cmd_lower.contains("-fr /") {
+        anyhow::bail!("blocked recursive delete targeting root filesystem");
+    }
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/// Validates that a command is safe to execute.
+///
+/// This function uses an allowlist approach for maximum security:
+/// - Only explicitly allowed commands can be executed
+/// - Uses `shell_words::split()` for proper tokenization
+/// - Detects dangerous flags for commands like `find`
+/// - Rejects commands that fail shell parsing (potential obfuscation)
+/// - Blocks shell metacharacters that could enable command injection
+///
+/// # Security Model
+///
+/// The allowlist approach is more secure than a blocklist because:
+/// 1. Unknown/exploitative commands are blocked by default
+/// 2. New attack vectors cannot bypass the allowlist
+/// 3. The list of allowed commands is auditable and minimal
+///
+/// # Public API
+///
+/// This function is public so it can be reused by other parts of the codebase
+/// (e.g., `command_runner` in rustycode-runtime) to ensure consistent security
+/// validation across all command execution paths.
+pub fn validate_command_safety(command: &str) -> Result<()> {
+    // In sandbox/container mode, skip security restrictions. The agent is
+    // already running in an isolated container — these checks only prevent
+    // the agent from doing its job (e.g., `python3 -c "import numpy"`,
+    // `wc -c`, `curl -L` are all blocked by the allowlist).
+    if std::env::var("RUSTYCODE_SANDBOX").as_deref() == Ok("container") {
+        return Ok(());
+    }
+
+    // SECURITY: Input length limit to prevent ReDoS
+    const MAX_COMMAND_LENGTH: usize = 10_000;
+    if command.len() > MAX_COMMAND_LENGTH {
+        anyhow::bail!("command exceeds maximum length of {MAX_COMMAND_LENGTH} characters");
+    }
+
+    check_quote_nesting(command)?;
+
+    let (has_newline, is_heredoc) = check_input_encoding(command)?;
+
+    // Tokenize via shell-words. Invalid quoting is treated as potential obfuscation.
+    let tokens = shell_words::split(command).map_err(|_| {
+        anyhow::anyhow!("blocked command with invalid shell syntax (potential obfuscation attempt)")
+    })?;
+
+    check_newline_injection(command, &tokens, has_newline, is_heredoc)?;
+
+    if tokens.is_empty() {
+        anyhow::bail!("blocked empty command");
+    }
+
+    // Extract binary name (first token, stripped of any path component)
+    let binary = &tokens[0];
+    let binary_name = if binary.contains('/') {
+        binary.rsplit('/').next().unwrap_or(binary)
+    } else {
+        binary
+    };
+
+    check_interpreter_flags(&tokens, binary_name)?;
+    check_pipe_to_shell(command)?;
+
+    // Allowlist enforcement
     if !ALLOWED_COMMANDS.contains(&binary_name)
         && !PLATFORM_COMMANDS.contains(&binary_name)
         && !PLATFORM_COMMANDS
@@ -1750,86 +1866,7 @@ pub fn validate_command_safety(command: &str) -> Result<()> {
         );
     }
 
-    // Additional checks for dangerous flags in specific commands
-    // Even safe commands can have dangerous flags
-    if binary_name == "find" {
-        let dangerous_find_flags = ["-delete", "-exec", "-ok", "-execdir"];
-        for token in &tokens {
-            let token_lower: String = token.to_lowercase();
-            for flag in dangerous_find_flags {
-                if token_lower.starts_with(flag) || token_lower == flag {
-                    anyhow::bail!("blocked find command with dangerous flag `{flag}`");
-                }
-            }
-        }
-    }
-
-    // Check for shell function definition (fork bomb) - IMPROVED DETECTION
-    // shell_words::split parses ":(){ :|:& };:" as [":(){", ":|:&", "};:"]
-    let cmd_lower = command.to_lowercase();
-
-    // Pattern 1: Recursive function definition (more comprehensive)
-    if cmd_lower.contains(":(){") || cmd_lower.contains(":() {") {
-        anyhow::bail!("blocked shell function definition (potential fork bomb)");
-    }
-
-    // Pattern 2: Background self-execution patterns
-    if cmd_lower.contains(":|:&") || cmd_lower.contains(": | : &") {
-        anyhow::bail!("blocked shell function with self-execution (potential fork bomb)");
-    }
-
-    // Pattern 3: Multiple background ampersands (suspicious)
-    // Allow higher threshold since Python code often uses & in decorators, bitwise ops, etc.
-    let ampersand_count = cmd_lower.matches("&").count();
-    if ampersand_count > 50 {
-        anyhow::bail!("blocked command with excessive background operators (potential fork bomb)");
-    }
-
-    // Pattern 4: Check for eval with function definition
-    if cmd_lower.contains("eval") && (cmd_lower.contains("()") || cmd_lower.contains("{")) {
-        anyhow::bail!("blocked eval with function definition (potential fork bomb)");
-    }
-
-    // Block commands with shell expansion features that could be used for obfuscation - IMPROVED
-    // shell-words doesn't parse these as special, but the shell would expand them.
-    // When heredoc uses quoted delimiter (<<'EOF' or <<"EOF"), the body is literal text,
-    // so we only check shell expansion OUTSIDE the heredoc body.
-    let is_heredoc_quoted = {
-        let mut in_body = false;
-        for line in command.lines() {
-            if line.contains("<<") && (line.contains('\'') || line.contains('"')) {
-                in_body = true;
-            }
-            if in_body {
-                continue;
-            }
-            if line.contains("$(") || line.contains('`') {
-                return Err(anyhow::anyhow!(
-                    "blocked command with shell expansion (potential obfuscation attempt)"
-                ));
-            }
-        }
-        true
-    };
-    if !is_heredoc_quoted && (command.contains("$(") || command.contains('`')) {
-        anyhow::bail!("blocked command with shell expansion (potential obfuscation attempt)");
-    }
-
-    // Block parameter expansion that could be dangerous
-    if cmd_lower.contains("${!") || cmd_lower.contains("${@:") {
-        anyhow::bail!("blocked command with dangerous parameter expansion");
-    }
-
-    // Block arithmetic expansion
-    if cmd_lower.contains("$((") {
-        anyhow::bail!("blocked command with arithmetic expansion");
-    }
-
-    // Block commands targeting root filesystem recursively
-    // This is a catch-all for patterns that might have slipped through
-    if cmd_lower.contains("-rf /") || cmd_lower.contains("-rf /*") || cmd_lower.contains("-fr /") {
-        anyhow::bail!("blocked recursive delete targeting root filesystem");
-    }
+    check_dangerous_patterns(command, binary_name, &tokens)?;
 
     Ok(())
 }

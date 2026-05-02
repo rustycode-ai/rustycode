@@ -3,6 +3,7 @@
 //! Submodules:
 //! - `definitions`: Built-in agent types with `when_to_use` auto-activation descriptions
 //! - `agent_tool`: Functional Agent tool backed by AgentSession
+//! - `delegation_executor`: Delegation executor that runs real sub-agent sessions
 //!
 //! Real-time tracking and management of spawned agents:
 //! - Spawn agents with specific tasks
@@ -21,6 +22,7 @@
 //! - Success/failure rates
 
 pub mod agent_tool;
+pub mod delegation_executor;
 pub mod definitions;
 
 use anyhow::Result;

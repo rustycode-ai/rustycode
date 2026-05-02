@@ -1,6 +1,5 @@
 # OS
 .DS_Store
-**/.DS_Store
 Thumbs.db
 
 # Backup files
@@ -9,22 +8,22 @@ Thumbs.db
 *.backup
 *.old
 *.tmp
-**/*.bak
-**/*.bak*
-**/*.backup
-**/*.tmp
 *~
 *.swp
 *.swo
 
 # Rust / Build
-**/target/
 /target/
+**/target/
 /build/
-dist/
 /dist/
 *.rlib
 rust_out
+
+# Node
+node_modules/
+package-lock.json
+.kilo/
 
 # Python
 __pycache__/
@@ -35,9 +34,7 @@ venv/
 # Cache
 .cache/
 .fastembed_cache/
-**/.fastembed_cache/
 .omc/
-**/.omc/
 
 # IDE / Tools
 .idea/
@@ -45,15 +42,12 @@ venv/
 *.code-workspace
 .mcp.json
 .rustycode_command_history
-**/.rustycode_command_history
 
 # Logs
 *.log
-**/*.log
-.orchestra/activity.logl
+*.jsonl
 clippy_output.txt
 unwrap_files.txt
-**/*.jsonl
 
 # Test artifacts and binaries
 /jobs/
@@ -62,19 +56,17 @@ terminal-bench-*/
 /harbor/
 /harbor-agent/
 /glm-5.1/
-crates/rustycode-runtime/benchmark_results/
+benchmark_results/
+bench-tasks/
 crates/rustycode-session/sessions/
+crates/rustycode-runtime/benchmark_results/
 *.exp
 *.tar.gz
 *.deb
-
-# Benchmark run data (generated, not source)
-benchmark_results/
-bench-tasks/
+*.baseline
 
 # AST tool state
 .ast/
-**/.ast/
 
 # Scratch / debug files
 test.js
@@ -86,13 +78,12 @@ BrutalistRenderer
 actual_crates.txt
 workspace_members.txt
 *.csv
-!Cargo.toml
 
 # Doom / MIPS build artifacts
 doomgeneric/
 doomgeneric_mips
 
-# Status markers (consolidated into docs/)
+# Status markers
 DISCIPLINE_GATE.md
 PROFILE_GATE.md
 GSD_TEST_REGS.md
@@ -102,8 +93,7 @@ USAGE.md
 # Agent / Tool Specific
 .harness*
 .sparv
-/.rustycode/
-**/.rustycode/
+.rustycode/
 .orchestra/
 .claude/
 .serena/
@@ -112,8 +102,8 @@ USAGE.md
 .gsd-id
 .bg-shell/
 .worktrees/
-**/t-think/
-**/t-tier4/
+t-think/
+t-tier4/
 
 # Database
 *.db
@@ -124,7 +114,6 @@ USAGE.md
 # Benchmark baselines
 benches/report/
 criterion/
-*.baseline
 
 # Credentials
 .env
@@ -133,5 +122,4 @@ criterion/
 credentials.json
 *.credentials.json
 config.json
-.rustycode/
 tests/sessions/
