@@ -1325,7 +1325,13 @@ impl TUI {
         use rustycode_tools::{
             BashTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, ListDirTool,
             ReadFileTool, WriteFileTool,
+            WebFetchTool, WebSearchTool, CodeSearchTool, MultiEditTool, NotebookEditTool,
+            ToolSearchTool, BriefTool, SendMessageTool, TaskOutputTool, TaskStopTool,
         };
+        use rustycode_tools::todo::{TodoWriteTool, TodoUpdateTool};
+        use rustycode_tools::todo_read::TodoReadTool;
+        #[cfg(feature = "vector-memory")]
+        use rustycode_tools::SemanticSearchTool;
 
         // Core file system tools
         tool_registry.register(ReadFileTool);
@@ -1381,6 +1387,31 @@ impl TUI {
 
         // Interactive tools
         tool_registry.register(QuestionTool);
+
+        // Web & search tools
+        tool_registry.register(WebFetchTool);
+        tool_registry.register(WebSearchTool);
+        tool_registry.register(CodeSearchTool);
+        #[cfg(feature = "vector-memory")]
+        tool_registry.register(SemanticSearchTool::new(
+            &std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+        ));
+
+        // Edit tools
+        tool_registry.register(MultiEditTool);
+        tool_registry.register(NotebookEditTool);
+
+        // Task management & communication
+        tool_registry.register(BriefTool);
+        tool_registry.register(SendMessageTool);
+        tool_registry.register(TaskOutputTool);
+        tool_registry.register(TaskStopTool);
+        tool_registry.register(ToolSearchTool);
+
+        // Todo tools (shared state with TUI sidebar)
+        tool_registry.register(TodoReadTool::new(self.todo_state.clone()));
+        tool_registry.register(TodoWriteTool::new(self.todo_state.clone()));
+        tool_registry.register(TodoUpdateTool::new(self.todo_state.clone()));
 
         // Agent tool - functional sub-agent backed by AgentSession.
         // Build full tool definitions (name + description + input_schema) for sub-agent.

@@ -347,7 +347,70 @@ impl rustycode_tool_integration::tool_executor::ToolExecutorApi for ToolExecutor
     }
 }
 
-/// Create a default (empty) tool registry.
+/// Create a default tool registry with all zero-config built-in tools.
+///
+/// Stateful tools (todo, semantic search) must be registered separately
+/// by the caller since they require runtime state.
 pub fn default_registry() -> ToolRegistry {
-    ToolRegistry::new()
+    use crate::providers::apply_patch::ApplyPatchTool;
+    use crate::providers::brief::BriefTool;
+    use crate::providers::codesearch::CodeSearchTool;
+    use crate::providers::edit::EditFile;
+    use crate::providers::multiedit::MultiEditTool;
+    use crate::providers::notebook::NotebookEditTool;
+    use crate::providers::search::{GlobTool, GrepTool};
+    use crate::providers::send_message::SendMessageTool;
+    use crate::providers::task_output::{TaskOutputTool, TaskStopTool};
+    use crate::providers::tool_search::ToolSearchTool;
+    use crate::providers::web_search::WebSearchTool;
+    use crate::providers::WebFetchTool;
+    use crate::providers::{
+        BashTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, InspectTool,
+        ListDirTool, QuestionTool, ReadFileTool, WriteFileTool,
+    };
+
+    let mut reg = ToolRegistry::new();
+
+    // Core file system tools
+    reg.register(ReadFileTool);
+    reg.register(WriteFileTool);
+    reg.register(ListDirTool);
+    reg.register(EditFile);
+
+    // Search & exploration
+    reg.register(GrepTool);
+    reg.register(GlobTool);
+    reg.register(FindTool);
+    reg.register(InspectTool);
+    reg.register(CodeSearchTool);
+    reg.register(ApplyPatchTool);
+
+    // Command execution
+    reg.register(BashTool);
+
+    // Git tools
+    reg.register(GitStatusTool);
+    reg.register(GitDiffTool);
+    reg.register(GitLogTool);
+    reg.register(GitCommitTool);
+
+    // Web & search
+    reg.register(WebFetchTool);
+    reg.register(WebSearchTool);
+
+    // Edit tools
+    reg.register(MultiEditTool);
+    reg.register(NotebookEditTool);
+
+    // Task management & communication
+    reg.register(BriefTool);
+    reg.register(SendMessageTool);
+    reg.register(TaskOutputTool);
+    reg.register(TaskStopTool);
+    reg.register(ToolSearchTool);
+
+    // Interactive tools
+    reg.register(QuestionTool);
+
+    reg
 }
