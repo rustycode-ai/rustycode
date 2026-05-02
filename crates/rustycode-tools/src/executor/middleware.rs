@@ -48,6 +48,7 @@ impl Default for MiddlewareConfig {
             checkpoint_tools: vec![
                 "edit_file".to_string(),
                 "multiedit".to_string(),
+                "apply_patch".to_string(),
                 "write_file".to_string(),
                 "bash".to_string(),
             ],

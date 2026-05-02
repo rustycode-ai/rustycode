@@ -1317,101 +1317,25 @@ impl TUI {
     /// Register all built-in tools for AI coding assistant functionality
     fn register_builtin_tools(&self, tool_registry: &mut ToolRegistry) {
         use crate::skills::as_tool::{CreateCronTool, CreateTeamTool, SkillToolRegistry};
-        use rustycode_tools::edit::EditFile;
-        use rustycode_tools::{FindTool, InspectTool};
-        use rustycode_tools::question::QuestionTool;
-        use rustycode_tools::search::{GlobTool, GrepTool};
-        use rustycode_tools::apply_patch::ApplyPatchTool;
-        use rustycode_tools::{
-            BashTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, ListDirTool,
-            ReadFileTool, WriteFileTool,
-            WebFetchTool, WebSearchTool, CodeSearchTool, MultiEditTool, NotebookEditTool,
-            ToolSearchTool, BriefTool, SendMessageTool, TaskOutputTool, TaskStopTool,
-        };
         use rustycode_tools::todo::{TodoWriteTool, TodoUpdateTool};
         use rustycode_tools::todo_read::TodoReadTool;
         #[cfg(feature = "vector-memory")]
         use rustycode_tools::SemanticSearchTool;
 
-        // Core file system tools
-        tool_registry.register(ReadFileTool);
-        tool_registry.register(WriteFileTool);
-        tool_registry.register(ListDirTool);
-        tool_registry.register(EditFile);
+        // Register all zero-config built-in tools from default registry
+        *tool_registry = rustycode_tools::default_registry();
 
-        // Search tools
-        tool_registry.register(GrepTool);
-        tool_registry.register(GlobTool);
-        tool_registry.register(ApplyPatchTool);
-        tool_registry.register(FindTool);
-        tool_registry.register(InspectTool);
-
-        // Command execution
-        tool_registry.register(BashTool);
-
-        // Git tools
-        tool_registry.register(GitStatusTool);
-        tool_registry.register(GitDiffTool);
-        tool_registry.register(GitLogTool);
-        tool_registry.register(GitCommitTool);
-
-        // LSP (Language Server Protocol) tools - code intelligence
-        use rustycode_tools::providers::lsp::{
-            LspAnalyzeSymbolTool, LspCodeActionsTool, LspCompletionTool, LspDefinitionTool,
-            LspDiagnosticsTool, LspDocumentSymbolsTool, LspExtractSymbolTool, LspFindSymbolTool,
-            LspFormattingTool, LspFullDiagnosticsTool, LspGetSymbolsOverviewTool, LspHoverTool,
-            LspInlineSymbolTool, LspInsertAfterSymbolTool, LspInsertBeforeSymbolTool,
-            LspReferencesTool, LspRenameSymbolTool, LspRenameTool, LspReplaceSymbolBodyTool,
-            LspSafeDeleteSymbolTool,
-        };
-        tool_registry.register(LspDiagnosticsTool);
-        tool_registry.register(LspHoverTool);
-        tool_registry.register(LspDefinitionTool);
-        tool_registry.register(LspCompletionTool);
-        tool_registry.register(LspDocumentSymbolsTool);
-        tool_registry.register(LspReferencesTool);
-        tool_registry.register(LspFullDiagnosticsTool);
-        tool_registry.register(LspCodeActionsTool);
-        tool_registry.register(LspRenameTool);
-        tool_registry.register(LspFormattingTool);
-        tool_registry.register(LspGetSymbolsOverviewTool);
-        tool_registry.register(LspFindSymbolTool);
-        tool_registry.register(LspReplaceSymbolBodyTool);
-        tool_registry.register(LspInsertBeforeSymbolTool);
-        tool_registry.register(LspInsertAfterSymbolTool);
-        tool_registry.register(LspSafeDeleteSymbolTool);
-        tool_registry.register(LspRenameSymbolTool);
-        tool_registry.register(LspAnalyzeSymbolTool);
-        tool_registry.register(LspExtractSymbolTool);
-        tool_registry.register(LspInlineSymbolTool);
-
-        // Interactive tools
-        tool_registry.register(QuestionTool);
-
-        // Web & search tools
-        tool_registry.register(WebFetchTool);
-        tool_registry.register(WebSearchTool);
-        tool_registry.register(CodeSearchTool);
-        #[cfg(feature = "vector-memory")]
-        tool_registry.register(SemanticSearchTool::new(
-            &std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
-        ));
-
-        // Edit tools
-        tool_registry.register(MultiEditTool);
-        tool_registry.register(NotebookEditTool);
-
-        // Task management & communication
-        tool_registry.register(BriefTool);
-        tool_registry.register(SendMessageTool);
-        tool_registry.register(TaskOutputTool);
-        tool_registry.register(TaskStopTool);
-        tool_registry.register(ToolSearchTool);
-
+        // Register stateful tools that require runtime state
         // Todo tools (shared state with TUI sidebar)
         tool_registry.register(TodoReadTool::new(self.todo_state.clone()));
         tool_registry.register(TodoWriteTool::new(self.todo_state.clone()));
         tool_registry.register(TodoUpdateTool::new(self.todo_state.clone()));
+
+        // Semantic search tool (conditional feature)
+        #[cfg(feature = "vector-memory")]
+        tool_registry.register(SemanticSearchTool::new(
+            &std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+        ));
 
         // Agent tool - functional sub-agent backed by AgentSession.
         // Build full tool definitions (name + description + input_schema) for sub-agent.

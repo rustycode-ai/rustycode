@@ -85,7 +85,15 @@ impl ToolProfile {
                 "lsp_definition",
                 "semantic_search",
             ],
-            ToolProfile::Implement => &["write_file", "edit", "bash", "read_file", "test", "grep"],
+            ToolProfile::Implement => &[
+                "write_file",
+                "edit_file",
+                "apply_patch",
+                "bash",
+                "read_file",
+                "grep",
+                "multi_edit",
+            ],
             ToolProfile::Debug => &[
                 "lsp_diagnostics",
                 "lsp_hover",
@@ -108,12 +116,15 @@ impl ToolProfile {
                 "bash",
                 "read_file",
                 "write_file",
-                "edit",
+                "edit_file",
+                "apply_patch",
+                "multi_edit",
                 "list_dir",
                 "grep",
                 "glob",
                 "find",
                 "inspect",
+                "codesearch",
                 "web_fetch",
                 "web_search",
                 "tool_search",
@@ -125,9 +136,12 @@ impl ToolProfile {
                 "git_diff",
                 "git_status",
                 "git_log",
-                "test",
+                "notebook_edit",
+                "todo_read",
                 "todo_write",
                 "todo_update",
+                "brief",
+                "question",
                 "semantic_search",
             ],
         }
@@ -719,14 +733,14 @@ mod tests {
     }
 
     #[test]
-    fn test_no_model_keeps_generic_edit() {
+    fn test_no_model_keeps_edit_file() {
         let selector = ToolSelector::new().with_profile(ToolProfile::Implement);
 
         let tools = selector.select_tools();
-        // Without model, generic "edit" should remain
+        // Without model, "edit_file" should be present
         assert!(
-            tools.iter().any(|t| t == "edit"),
-            "Without model, generic 'edit' should be present, got: {:?}",
+            tools.iter().any(|t| t == "edit_file"),
+            "Without model, 'edit_file' should be present, got: {:?}",
             tools
         );
     }

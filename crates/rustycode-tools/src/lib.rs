@@ -349,13 +349,14 @@ impl rustycode_tool_integration::tool_executor::ToolExecutorApi for ToolExecutor
 
 /// Create a default tool registry with all zero-config built-in tools.
 ///
-/// Stateful tools (todo, semantic search) must be registered separately
-/// by the caller since they require runtime state.
+/// Includes all built-in tools except those requiring runtime state (todo, semantic search, agent).
+/// Stateful tools must be registered separately by the caller.
 pub fn default_registry() -> ToolRegistry {
     use crate::providers::apply_patch::ApplyPatchTool;
     use crate::providers::brief::BriefTool;
     use crate::providers::codesearch::CodeSearchTool;
     use crate::providers::edit::EditFile;
+    use crate::providers::lsp::*;
     use crate::providers::multiedit::MultiEditTool;
     use crate::providers::notebook::NotebookEditTool;
     use crate::providers::search::{GlobTool, GrepTool};
@@ -393,6 +394,28 @@ pub fn default_registry() -> ToolRegistry {
     reg.register(GitDiffTool);
     reg.register(GitLogTool);
     reg.register(GitCommitTool);
+
+    // LSP (Language Server Protocol) tools - code intelligence
+    reg.register(LspDiagnosticsTool);
+    reg.register(LspHoverTool);
+    reg.register(LspDefinitionTool);
+    reg.register(LspCompletionTool);
+    reg.register(LspDocumentSymbolsTool);
+    reg.register(LspReferencesTool);
+    reg.register(LspFullDiagnosticsTool);
+    reg.register(LspCodeActionsTool);
+    reg.register(LspRenameTool);
+    reg.register(LspFormattingTool);
+    reg.register(LspGetSymbolsOverviewTool);
+    reg.register(LspFindSymbolTool);
+    reg.register(LspReplaceSymbolBodyTool);
+    reg.register(LspInsertBeforeSymbolTool);
+    reg.register(LspInsertAfterSymbolTool);
+    reg.register(LspSafeDeleteSymbolTool);
+    reg.register(LspRenameSymbolTool);
+    reg.register(LspAnalyzeSymbolTool);
+    reg.register(LspExtractSymbolTool);
+    reg.register(LspInlineSymbolTool);
 
     // Web & search
     reg.register(WebFetchTool);
