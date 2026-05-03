@@ -1,7 +1,33 @@
 # RustyCode Architecture Review
 **Date:** 2026-04-20
 **Reviewer:** Claude Code
-**Updated:** 2026-04-24 (orchestration consolidation, integration layer, API compatibility fix)
+**Updated:** 2026-05-03 (workspace scanner, adaptive scanning, doc cleanup)
+
+---
+
+## STATUS UPDATE (2026-05-03)
+
+**Workspace scanner rewrite, adaptive scanning, release v0.1.0**
+
+| Area | Status | Details |
+|------|--------|---------|
+| Workspace scanner | ✅ COMPLETE | Rewritten with `ignore::WalkBuilder` for automatic `.gitignore` support |
+| Adaptive scanning | ✅ COMPLETE | Skips `RepoMap::build()` for workspaces >300 files, reduces tree depth |
+| Custom ignore files | ✅ COMPLETE | `.rustycodeignore` support via `add_custom_ignore_filename` |
+| LSP tool tags | ✅ COMPLETE | Explore/Implement tags added (not just Debug) |
+| StructuredThinkingTool | ✅ COMPLETE | Tool trait impl in orchestration, registered in TUI + headless |
+| AskUserTool + StuckDetector | ✅ COMPLETE | LLM clarification requests, confidence stagnation detection |
+| Debug logging cleanup | ✅ COMPLETE | Removed `palette_debug.log` from event_loop_input |
+| Release v0.1.0 | ✅ SHIPPED | macOS arm64 + Windows x86_64 binaries on GitHub Releases |
+| Doc cleanup | ✅ COMPLETE | Removed stale status/legacy docs, updated README and CRATES.md |
+
+**Key Changes:**
+- `workspace_scanner.rs`: Replaced manual `SKIP_DIRS` with `ignore::WalkBuilder` (from ripgrep)
+- `workspace_context.rs`: Added `LARGE_WORKSPACE_THRESHOLD = 300`, adaptive depth/entries, intermediate progress
+- `lsp.rs`: Diagnostics, hover, definition, completion tools now available in Explore/Implement profiles
+- `tool_selection.rs`: Clippy fixes (`Self::` variants, `#[allow(clippy::too_many_lines)]`)
+
+**Remaining P0:** Circular dependency `rustycode-llm` ↔ `rustycode-tools` (mitigated by `rustycode-tool-integration`)
 
 ---
 

@@ -294,9 +294,99 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **Dependencies:** axum, tokio, rustycode-tools, rustycode-protocol  
 **See Also:** [README](../../crates/rustycode-tool-server/README.md)
 
-### rustycode-task-integration (not yet documented)
-**Purpose:** Bridge between tool registry and execution  
-**See Also:** [README](../../crates/rustycode-tools/README.md)
+### rustycode-tool-integration
+**Purpose:** Bridge between LLM providers and tool execution (breaks circular dep `rustycode-llm` ↔ `rustycode-tools`)
+**Key Types:** ToolIntegrationBridge
+**Dependencies:** rustycode-tools-api, rustycode-llm
+**Used By:** rustycode-core, rustycode-tui
+**See Also:** [README](../../crates/rustycode-tool-integration/README.md)
+
+### rustycode-thread-guard
+**Purpose:** Thread safety utilities for TUI/UI isolation
+**Key Types:** ThreadGuard
+**Dependencies:** tokio
+**Used By:** rustycode-tui
+**See Also:** [README](../../crates/rustycode-thread-guard/README.md)
+
+### rustycode-classification
+**Purpose:** Local task complexity classifier for orchestration routing
+**Key Types:** LocalTaskClassifier
+**Features:** Keyword-based routing, complexity scoring
+**Dependencies:** tokio, rustycode-protocol
+**Used By:** rustycode-cli, rustycode-tui
+**See Also:** [README](../../crates/rustycode-classification/README.md)
+
+### rustycode-connector
+**Purpose:** Terminal connector abstraction for multiple terminal multiplexers
+**Key Types:** TmuxConnector, Connector trait
+**Features:** tmux control mode, session management
+**Dependencies:** tokio, rustycode-protocol
+**See Also:** [README](../../crates/rustycode-connector/README.md)
+
+### rustycode-learning
+**Purpose:** Conversation learning and memory extraction
+**Key Types:** LearningEngine, PatternExtractor
+**Features:** Extracts patterns from conversations for future use
+**Dependencies:** rustycode-protocol, rustycode-memory
+**See Also:** [README](../../crates/rustycode-learning/README.md)
+
+### rustycode-id
+**Purpose:** Sortable ID generation and management
+**Key Types:** SessionId, PlanId, TaskId
+**Features:** Time-sortable, human-readable, collision-free
+**Dependencies:** chrono, serde
+**Used By:** rustycode-protocol, all crates
+**See Also:** [README](../../crates/rustycode-id/README.md)
+
+### rustycode-litert
+**Purpose:** LiteRT LM runtime management and process pooling
+**Key Types:** LiteRtRuntime, ProcessPool
+**Features:** Local LLM inference via LiteRT
+**Dependencies:** tokio, rustycode-llm
+**See Also:** [README](../../crates/rustycode-litert/README.md)
+
+### rustycode-agent
+**Purpose:** Shared thin LLM↔tool loop (no heuristics, no behavioral injection)
+**Key Types:** Agent, AgentConfig
+**Features:** Headless execution, clean LLM↔tool iteration
+**Dependencies:** rustycode-llm, rustycode-tools, rustycode-protocol
+**Used By:** rustycode-core, rustycode-bench
+**See Also:** [README](../../crates/rustycode-agent/README.md)
+
+### rustycode-vector-memory
+**Purpose:** Vector-based semantic memory for knowledge retrieval
+**Key Types:** VectorStore, Embedding
+**Features:** Similarity search, embedding-based retrieval
+**Dependencies:** rustycode-memory, rustycode-protocol
+**See Also:** [README](../../crates/rustycode-vector-memory/README.md)
+
+### rustycode-web
+**Purpose:** Browser-based chat interface (React 19 + TypeScript)
+**Communication:** WebSocket via `rustycode-ws-server`
+**Features:** Streaming responses, syntax highlighting, tool visualization
+**Dependencies:** React 19, TypeScript, Vite
+**See Also:** [README](../../crates/rustycode-web/README.md)
+
+### rustycode-ws-server
+**Purpose:** WebSocket server powering the web frontend
+**Communication:** WebSocket protocol bridging web clients to RustyCode core
+**Dependencies:** tokio, rustycode-core, rustycode-protocol
+**Used By:** rustycode-web
+
+### rustycode-ui-model
+**Purpose:** Shared UI model types for TUI and web frontends
+**Dependencies:** rustycode-protocol, serde
+**Used By:** rustycode-tui, rustycode-web
+
+### rustycode-executable
+**Purpose:** Executable abstraction for running commands and scripts
+**Dependencies:** tokio, rustycode-protocol
+**Used By:** rustycode-tools, rustycode-bench
+
+### rustycode-integration
+**Purpose:** Integration test utilities and shared test infrastructure
+**Dependencies:** rustycode-core, rustycode-protocol
+**Used By:** integration tests across crates
 
 ### rustycode-tasks
 **Purpose:** Task management and lifecycle (skeleton)  

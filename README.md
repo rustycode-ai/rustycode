@@ -12,15 +12,17 @@ RustyCode is an autonomous development framework built in Rust.
 
 ### Unix (Linux/macOS)
 
+Download from [GitHub Releases](https://github.com/rustycode-ai/rustycode/releases):
+
 ```bash
-curl -sSL https://raw.githubusercontent.com/luengnat/rustycode/main/scripts/install.sh | bash
+# macOS arm64
+curl -sSL https://github.com/rustycode-ai/rustycode/releases/latest/download/rustycode-macos-arm64.tar.gz | tar xz
+chmod +x rustycode-macos-arm64 && mv rustycode-macos-arm64 /usr/local/bin/rustycode
 ```
 
-### Windows (PowerShell)
+### Windows
 
-```powershell
-irm https://raw.githubusercontent.com/luengnat/rustycode/main/scripts/install.ps1 | iex
-```
+Download `rustycode-windows-x86_64.zip` from [GitHub Releases](https://github.com/rustycode-ai/rustycode/releases).
 
 ## Build Requirements
 
