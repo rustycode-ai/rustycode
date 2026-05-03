@@ -81,6 +81,26 @@ impl ToolProfile {
             ],
         }
     }
+
+    /// Return a short hint string describing the active profile's constraints.
+    ///
+    /// Useful for injecting into LLM system prompts so the model knows which
+    /// tool profile is in effect and can tailor its tool selection accordingly.
+    pub const fn format_profile_hint(&self) -> &'static str {
+        match self {
+            Self::Explore => "Active profile: Explore — read only. No writes.",
+            Self::Implement => {
+                "Active profile: Implement — writes enabled. Use bash for builds/tests only."
+            }
+            Self::Debug => {
+                "Active profile: Debug — diagnose before editing. Prefer lsp_diagnostics."
+            }
+            Self::Ops => "Active profile: Ops — prefer bash and git_* tools.",
+            Self::All => {
+                "Active profile: All — full access. Choose tools suited to the sub-task."
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -341,5 +361,39 @@ mod tests {
         // "test" has low score, might fall below threshold
         let profile = ToolProfile::from_prompt("random ambiguous text xyz");
         assert_eq!(profile, ToolProfile::All);
+    }
+
+    #[test]
+    fn test_format_profile_hint_all_profiles() {
+        let hints: Vec<&'static str> = [
+            ToolProfile::Explore,
+            ToolProfile::Implement,
+            ToolProfile::Debug,
+            ToolProfile::Ops,
+            ToolProfile::All,
+        ]
+        .iter()
+        .map(ToolProfile::format_profile_hint)
+        .collect();
+
+        // Every hint is non-empty.
+        for hint in &hints {
+            assert!(!hint.is_empty(), "profile hint must not be empty");
+        }
+
+        // All hints are distinct (no two profiles share the same hint).
+        let unique: std::collections::HashSet<_> = hints.iter().copied().collect();
+        assert_eq!(
+            unique.len(),
+            hints.len(),
+            "each profile must produce a distinct hint string"
+        );
+
+        // Spot-check a few keywords so the strings stay meaningful.
+        assert!(ToolProfile::Explore.format_profile_hint().contains("read only"));
+        assert!(ToolProfile::Implement.format_profile_hint().contains("writes enabled"));
+        assert!(ToolProfile::Debug.format_profile_hint().contains("lsp_diagnostics"));
+        assert!(ToolProfile::Ops.format_profile_hint().contains("git_*"));
+        assert!(ToolProfile::All.format_profile_hint().contains("full access"));
     }
 }

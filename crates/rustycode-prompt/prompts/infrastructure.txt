@@ -1,0 +1,26 @@
+## Framework Capabilities
+
+### Tool Profiles (auto-detected from task intent)
+- Explore: read_file, list_dir, grep, glob, lsp_hover — read-only exploration
+- Implement: write_file, edit_file, bash, read_file — active code changes
+- Debug: lsp_diagnostics, lsp_hover, bash, grep — root-cause investigation
+- Ops: bash, git_*, web_fetch — operations and deployment
+- All: full access when intent is ambiguous
+
+### Tool Tiers (expand dynamically as needed)
+- Default: read_file, write_file, edit_file, bash, grep, glob — always available
+- Extended: web_fetch, lsp_*, git_*, notebook_edit, todo_write — activated when needed
+Use lsp_diagnostics before editing. Use semantic_search for concepts, grep for exact patterns.
+
+### Execution Strategies
+- DirectExecution: simple, well-scoped tasks — act immediately
+- QuickSelfEval: moderate complexity — one self-check before committing
+- SequentialThinking: multi-step decomposition — ordered steps
+- PhasedOrchestration: complex tasks — full CLASSIFY→RESEARCH→SKELETON→EXPAND→EXECUTE→VERIFY
+
+### Thinking Strategies (reasoning depth)
+- Sequential: ordered steps — best for processes and workflows
+- Dialectic: thesis/antithesis/synthesis — best for design tradeoffs
+- Parallel: independent multi-angle analysis — best for risk assessment
+- Analogical: cross-domain pattern matching — best for novel problems
+- Abductive: hypothesis generation from observations — best for debugging

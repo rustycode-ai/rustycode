@@ -22,6 +22,8 @@ use crate::supervisor::{
 };
 use crate::verification_gates::VerificationGateRegistry;
 use chrono::Utc;
+use rustycode_prompt::layered::PromptBuilder;
+use rustycode_prompt::environment::EnvironmentContext;
 use rustycode_protocol::{
     CommandPlan, ConvoyPlan, ConvoyRisk, ExecutionPhase, PhaseSkipConfig, PlanApproval,
 };
@@ -275,6 +277,34 @@ impl OrchestrationPipeline {
     /// and the final response is validated against this schema.
     pub fn with_output_schema(mut self, schema: serde_json::Value) -> Self {
         self.output_schema = Some(schema);
+        self
+    }
+
+    /// Replace the system prompt with a layered prompt built by `PromptBuilder`.
+    ///
+    /// The layered prompt includes base identity, model-specific instructions,
+    /// infrastructure capabilities, and environment context. When a strategy
+    /// is provided, an "Active Strategy" section is appended so the LLM is
+    /// aware of the execution mode it should follow.
+    ///
+    /// Falls back gracefully if context gathering fails -- the original prompt
+    /// is kept.
+    pub async fn with_layered_prompt(
+        &mut self,
+        model_id: &str,
+        strategy: Option<&crate::types::ReasoningStrategy>,
+    ) -> &mut Self {
+        if let Ok(env) = EnvironmentContext::gather().await {
+            if let Ok(prompt) = PromptBuilder::new().build(model_id, None, &env).await {
+                let mut prompt = prompt;
+                if let Some(s) = strategy {
+                    let hint = crate::strategy_selector::strategy_hint(s);
+                    prompt.push_str("\n\n## Active Strategy\n\n");
+                    prompt.push_str(hint);
+                }
+                self.system_prompt = Some(prompt);
+            }
+        }
         self
     }
 
@@ -897,5 +927,76 @@ mod tests {
     #[test]
     fn test_clean_tool_xml_handles_empty_string() {
         assert_eq!(clean_tool_xml(""), "");
+    }
+
+    #[tokio::test]
+    async fn test_pipeline_with_layered_prompt_includes_infrastructure() {
+        let mut pipeline = OrchestrationPipeline::new(default_config());
+        pipeline.with_layered_prompt("claude-3-opus", None).await;
+
+        // The system_prompt field should now contain the layered prompt
+        // which includes "Framework Capabilities" from infrastructure.txt
+        let prompt = pipeline
+            .system_prompt
+            .as_ref()
+            .expect("system_prompt should be set after with_layered_prompt");
+        assert!(
+            prompt.contains("Framework Capabilities"),
+            "layered prompt should include infrastructure layer, got: {}",
+            &prompt[..prompt.len().min(200)]
+        );
+        assert!(
+            prompt.contains("Tool Profiles"),
+            "layered prompt should include tool profiles"
+        );
+        assert!(
+            prompt.contains("Execution Strategies"),
+            "layered prompt should include execution strategies"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_pipeline_fallback_preserved() {
+        let pipeline = OrchestrationPipeline::new(default_config());
+
+        // Without calling with_layered_prompt, system_prompt should be None
+        // and the pipeline should still work with the hardcoded default.
+        assert!(
+            pipeline.system_prompt.is_none(),
+            "system_prompt should be None when with_layered_prompt is not called"
+        );
+
+        // The pipeline should still execute successfully with the fallback prompt
+        let result = pipeline
+            .conduct("fallback-test".into(), "hello world".into())
+            .await
+            .unwrap();
+        assert!(
+            matches!(result, TaskResult::Success { .. } | TaskResult::Failed { .. }),
+            "pipeline should complete with fallback prompt"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_pipeline_includes_strategy_hint() {
+        let mut pipeline = OrchestrationPipeline::new(default_config());
+        let strategy = crate::types::ReasoningStrategy::SequentialThinking;
+        pipeline
+            .with_layered_prompt("claude-3-opus", Some(&strategy))
+            .await;
+
+        let prompt = pipeline
+            .system_prompt
+            .as_ref()
+            .expect("system_prompt should be set after with_layered_prompt");
+        assert!(
+            prompt.contains("## Active Strategy"),
+            "prompt should contain Active Strategy section, got: {}",
+            &prompt[..prompt.len().min(200)]
+        );
+        assert!(
+            prompt.contains("SequentialThinking"),
+            "prompt should mention the strategy name"
+        );
     }
 }

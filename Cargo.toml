@@ -128,6 +128,7 @@ criterion = "0.8.2"
 axum = { version = "0.8", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 cron = "0.16.0"
+rustycode-prompt = { path = "crates/rustycode-prompt" }
 
 # ---------------------------------------------------------------------------
 # Workspace-wide lint configuration (clippy + rustc)

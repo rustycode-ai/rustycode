@@ -71,7 +71,13 @@ After making changes, ALWAYS verify before stopping:
 Only end your turn when ALL success criteria are verified. \"Task completed\" means \
 you wrote code AND verified it works - not that you read files or explored the codebase.
 
-## Tools
+## Tools (tiered access)
+Default: read_file, write_file, edit_file, bash, grep, glob — always available.
+Extended: web_fetch, lsp_*, git_*, notebook_edit — activated when needed.
+Use lsp_diagnostics before editing to check current error state.
+Use semantic_search for concept-level queries; grep for exact patterns.
+
+### Tool tips
 - `edit_file`: old_string must match EXACTLY. If it fails, re-read the file first.
 - `bash` with `cat > file << 'EOF'`: preferred for files over ~50 lines.
 - `bash` timeout_secs: set to 300 for builds/installs (default 120s, max 600s).
@@ -86,3 +92,28 @@ without making changes. This is a RETRY.
 
 Your FIRST tool call MUST be write_file or edit_file. Do not read files, explore, or plan - \
 you already have context from the previous attempt. Write the solution now, then verify it works.";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_headless_prompt_includes_tier_guidance() {
+        assert!(
+            HEADLESS_SYSTEM_PROMPT.contains("Extended"),
+            "system prompt must mention Extended tool tier"
+        );
+        assert!(
+            HEADLESS_SYSTEM_PROMPT.contains("tiered access"),
+            "system prompt must describe tiered access model"
+        );
+        assert!(
+            HEADLESS_SYSTEM_PROMPT.contains("lsp_diagnostics"),
+            "system prompt must mention lsp_diagnostics"
+        );
+        assert!(
+            HEADLESS_SYSTEM_PROMPT.contains("semantic_search"),
+            "system prompt must mention semantic_search"
+        );
+    }
+}

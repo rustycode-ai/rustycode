@@ -90,6 +90,23 @@ impl StrategySelector {
     }
 }
 
+/// Returns a human-readable prompt hint for the given strategy.
+///
+/// Used by the pipeline to inject the active strategy into the system prompt
+/// so the LLM is aware of the execution mode it should follow.
+pub const fn strategy_hint(strategy: &ReasoningStrategy) -> &'static str {
+    match strategy {
+        ReasoningStrategy::DirectExecution =>
+            "Strategy: DirectExecution — act immediately, no extended planning.",
+        ReasoningStrategy::QuickSelfEval =>
+            "Strategy: QuickSelfEval — one self-check before committing.",
+        ReasoningStrategy::SequentialThinking =>
+            "Strategy: SequentialThinking — decompose into ordered steps.",
+        ReasoningStrategy::PhasedOrchestration =>
+            "Strategy: PhasedOrchestration — follow AST phases strictly.",
+    }
+}
+
 /// Convenience alias for use in TUI and external callers.
 pub type Strategy = ReasoningStrategy;
 
@@ -359,5 +376,34 @@ mod tests {
         .collect();
 
         assert_eq!(strategies.len(), 4, "all 4 strategies should be reachable");
+    }
+
+    #[test]
+    fn test_strategy_hint_all_variants() {
+        let variants = [
+            ReasoningStrategy::DirectExecution,
+            ReasoningStrategy::QuickSelfEval,
+            ReasoningStrategy::SequentialThinking,
+            ReasoningStrategy::PhasedOrchestration,
+        ];
+
+        let hints: Vec<&str> = variants.iter().map(strategy_hint).collect();
+
+        // All hints are non-empty
+        for hint in &hints {
+            assert!(!hint.is_empty(), "hint should not be empty");
+            assert!(
+                hint.starts_with("Strategy:"),
+                "hint should start with 'Strategy:': {hint}"
+            );
+        }
+
+        // All hints are distinct
+        let unique: std::collections::HashSet<&str> = hints.iter().copied().collect();
+        assert_eq!(
+            unique.len(),
+            variants.len(),
+            "each variant should produce a distinct hint"
+        );
     }
 }

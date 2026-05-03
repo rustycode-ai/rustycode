@@ -36,6 +36,19 @@ Rules:
 - Recover locally when a step fails.
 - Verify against explicit success criteria.
 
+Tool Selection by Phase:
+- CLASSIFY: read_file, grep, glob — read-only
+- RESEARCH: semantic_search, lsp_hover, lsp_definition, grep, web_fetch
+- SKELETON: no tool calls — planning only
+- EXPAND: todo_write (optional)
+- EXECUTE: write_file, edit_file, bash, run_tests
+- VERIFY: bash, run_tests, read_file
+
+Complexity Routing:
+- TRIVIAL: skip RESEARCH, compact SKELETON, direct EXECUTE
+- MODERATE: all phases, bounded thinking
+- COMPLEX: full phases, rolling-wave EXPAND
+
 EXECUTION BOUNDARY (mandatory):
 After the SKELETON phase is complete, you MUST begin writing files and executing steps. You may NOT continue planning, analyzing, or reasoning about the task. Analysis paralysis is a known failure mode — the transition from SKELETON to EXPAND/EXECUTE is a hard gate, not a soft suggestion.
 
@@ -387,6 +400,13 @@ mod tests {
             tokens < 500,
             "AST_SYSTEM_PROMPT estimated at {tokens} tokens, must be < 500"
         );
+    }
+
+    #[test]
+    fn test_ast_prompt_includes_phase_tool_guidance() {
+        assert!(AST_SYSTEM_PROMPT.contains("CLASSIFY"));
+        assert!(AST_SYSTEM_PROMPT.contains("EXECUTE"));
+        assert!(AST_SYSTEM_PROMPT.contains("Complexity Routing"));
     }
 
     // -- Phase header parsing ------------------------------------------------

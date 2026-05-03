@@ -19,6 +19,7 @@ use tokio::fs;
 pub enum PromptLayer {
     Base,
     ModelSpecific,
+    Infrastructure,
     Environment,
     Project,
     Local,
@@ -126,6 +127,7 @@ pub struct PromptBuilder {
     base_prompt: String,
     anthropic_prompt: String,
     generic_prompt: String,
+    infrastructure_prompt: String,
     scanner: InstructionScanner,
 }
 
@@ -135,6 +137,7 @@ impl PromptBuilder {
             base_prompt: include_str!("../prompts/base.txt").to_string(),
             anthropic_prompt: include_str!("../prompts/anthropic.txt").to_string(),
             generic_prompt: include_str!("../prompts/generic.txt").to_string(),
+            infrastructure_prompt: include_str!("../prompts/infrastructure.txt").to_string(),
             scanner: InstructionScanner::new(),
         }
     }
@@ -158,11 +161,15 @@ impl PromptBuilder {
         layers.push(model_prompt.trim().to_string());
         layers.push(String::new());
 
-        // Layer 3: Environment
+        // Layer 3: Infrastructure (static, cache-stable)
+        layers.push(self.infrastructure_prompt.trim().to_string());
+        layers.push(String::new());
+
+        // Layer 4: Environment
         layers.push(env.format_markdown());
         layers.push(String::new());
 
-        // Layer 4: Domain context
+        // Layer 5: Domain context
         if let Ok(Some(domain_path)) = DomainContext::discover(&env.workspace_root) {
             if let Ok(domain) = DomainContext::load_from_file(&domain_path) {
                 let domain_block = domain.format_markdown();
@@ -173,7 +180,7 @@ impl PromptBuilder {
             }
         }
 
-        // Layer 5: Project instructions
+        // Layer 6: Project instructions
         if let Some(filepath) = file {
             let project_instructions = self
                 .scanner
@@ -186,7 +193,7 @@ impl PromptBuilder {
             }
         }
 
-        // Layer 6: Global instructions
+        // Layer 7: Global instructions
         let global_instructions = self.scanner.load_global().await;
         if !global_instructions.is_empty() {
             layers.extend(global_instructions);
@@ -371,6 +378,7 @@ mod tests {
             PromptLayer::ModelSpecific,
             PromptLayer::ModelSpecific
         ));
+        assert!(matches!(PromptLayer::Infrastructure, PromptLayer::Infrastructure));
         assert!(matches!(PromptLayer::Environment, PromptLayer::Environment));
         assert!(matches!(PromptLayer::Project, PromptLayer::Project));
         assert!(matches!(PromptLayer::Local, PromptLayer::Local));
@@ -536,6 +544,7 @@ mod tests {
     fn test_prompt_layer_debug() {
         assert!(format!("{:?}", PromptLayer::Base).contains("Base"));
         assert!(format!("{:?}", PromptLayer::ModelSpecific).contains("ModelSpecific"));
+        assert!(format!("{:?}", PromptLayer::Infrastructure).contains("Infrastructure"));
         assert!(format!("{:?}", PromptLayer::Environment).contains("Environment"));
         assert!(format!("{:?}", PromptLayer::Project).contains("Project"));
         assert!(format!("{:?}", PromptLayer::Local).contains("Local"));
@@ -692,5 +701,56 @@ mod tests {
             result.len() % 3 == 0 || result.is_empty(),
             "Each instruction file produces 3 entries: header, content, blank"
         );
+    }
+
+    #[tokio::test]
+    async fn test_build_prompt_includes_infrastructure() {
+        let builder = PromptBuilder::new();
+        let env = EnvironmentContext {
+            working_directory: PathBuf::from("/tmp/test"),
+            workspace_root: PathBuf::from("/tmp/test"),
+            is_git_repo: false,
+            platform: "linux".to_string(),
+            date: "2026-05-03".to_string(),
+            git_status: None,
+        };
+
+        let prompt = builder.build("claude-3", None, &env).await.unwrap();
+
+        assert!(prompt.contains("Framework Capabilities"));
+        assert!(prompt.contains("Tool Profiles"));
+        assert!(prompt.contains("Execution Strategies"));
+    }
+
+    #[tokio::test]
+    async fn test_infrastructure_appears_before_environment() {
+        let builder = PromptBuilder::new();
+        let env = EnvironmentContext {
+            working_directory: PathBuf::from("/tmp/test"),
+            workspace_root: PathBuf::from("/tmp/test"),
+            is_git_repo: false,
+            platform: "linux".to_string(),
+            date: "2026-05-03".to_string(),
+            git_status: None,
+        };
+
+        let prompt = builder.build("claude-3", None, &env).await.unwrap();
+
+        let infra_pos = prompt
+            .find("Framework Capabilities")
+            .expect("missing infrastructure");
+        let env_pos = prompt
+            .find("## Environment")
+            .expect("missing environment");
+        assert!(
+            infra_pos < env_pos,
+            "infrastructure must appear before environment"
+        );
+    }
+
+    #[test]
+    fn test_prompt_layer_infrastructure_variant() {
+        assert!(matches!(PromptLayer::Infrastructure, PromptLayer::Infrastructure));
+        assert!(format!("{:?}", PromptLayer::Infrastructure).contains("Infrastructure"));
     }
 }

@@ -6309,6 +6309,7 @@ dependencies = [
  "rustycode-agent",
  "rustycode-executable",
  "rustycode-llm",
+ "rustycode-prompt",
  "rustycode-protocol",
  "rustycode-skill",
  "rustycode-tools",

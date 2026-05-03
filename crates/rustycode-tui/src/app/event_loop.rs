@@ -275,6 +275,7 @@ pub struct TUI {
     // Command palette for slash commands
     pub(crate) command_palette: CommandPalette,
     pub(crate) showing_command_palette: bool,
+    pub(crate) debug_tick: u32,
     pub(crate) showing_skill_palette: bool,
 
     // Collapsible sections (Phase 3 polish)
@@ -687,6 +688,7 @@ impl TUI {
             tool_result_scroll_offset: 0,
             command_palette,
             showing_command_palette: false,
+debug_tick: 0,
             showing_skill_palette: false,
             status_bar_collapsed: false,
             footer_collapsed: false,
@@ -972,6 +974,7 @@ impl TUI {
             stashed_prompt: None,
             command_palette,
             showing_command_palette: false,
+debug_tick: 0,
             showing_skill_palette: false,
             status_bar_collapsed: false,
             footer_collapsed: false,

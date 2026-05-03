@@ -29,6 +29,7 @@ rustycode-executable = { path = "../rustycode-executable" }
 rustycode-skill = { path = "../rustycode-skill" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
+rustycode-prompt = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
