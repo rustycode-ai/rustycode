@@ -335,11 +335,6 @@ impl TUI {
         // Extract images from input state before clearing
         let attached_images: Vec<_> = self.input_handler.state.images.drain(..).collect();
         let is_image_only_submission = content.trim().is_empty() && !attached_images.is_empty();
-        tracing::error!(
-            "BUG9-DEBUG: attached_images count={}, is_image_only={}",
-            attached_images.len(),
-            is_image_only_submission
-        );
 
         const MAX_MESSAGE_LENGTH: usize = 100_000;
         if content.len() > MAX_MESSAGE_LENGTH {
@@ -512,22 +507,14 @@ impl TUI {
                                 &img.mime_type,
                                 b64,
                             )));
-                            tracing::error!(
-                                "BUG9-DEBUG: encoded image {} ({} bytes, {})",
-                                img.id,
-                                bytes.len(),
-                                img.mime_type
-                            );
                         }
                         Err(e) => {
-                            tracing::error!("BUG9-DEBUG: failed to read image {}: {}", img.path.display(), e);
+                            tracing::warn!("Failed to read image {}: {}", img.path.display(), e);
                         }
                     }
                 }
-                tracing::error!("BUG9-DEBUG: image_blocks count={}", blocks.len());
                 blocks
             } else {
-                tracing::error!("BUG9-DEBUG: attached_images was empty, no blocks built");
                 Vec::new()
             };
 
@@ -549,7 +536,6 @@ impl TUI {
             self.showing_tool_result = false;
             self.active_tools.clear();
 
-            tracing::error!("BUG9-DEBUG: about to send, image_blocks is_some={}", image_blocks.is_empty() == false);
             let send_call_start = std::time::Instant::now();
             if let Err(e) = self.services.send_message_with_history(
                 message_to_send,

@@ -233,6 +233,16 @@ impl InputHandler {
                 InputAction::Consumed
             }
 
+            (KeyCode::Left, KeyModifiers::CONTROL) => {
+                self.state.move_word_backward();
+                InputAction::Consumed
+            }
+
+            (KeyCode::Right, KeyModifiers::CONTROL) => {
+                self.state.move_word_forward();
+                InputAction::Consumed
+            }
+
             // === Backspace/Delete ===
             (KeyCode::Backspace, KeyModifiers::NONE) => {
                 if self.history.is_in_reverse_search() {

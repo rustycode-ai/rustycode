@@ -192,22 +192,14 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
             })
         }
         OrchestrationEvent::TaskCompleted { .. } => Some(StreamEvent::Done),
-        OrchestrationEvent::PhaseTransition { to, reason, .. } => Some(StreamEvent::TextDelta {
-            content: format!("[{to:?}] {reason}"),
-        }),
-        OrchestrationEvent::EscalationSignal {
-            from_tier,
-            to_tier,
-            reason,
-            ..
-        } => Some(StreamEvent::TextDelta {
-            content: format!("Escalated tier {from_tier}→{to_tier}: {reason}"),
-        }),
-        OrchestrationEvent::TierHandoff {
-            from_tier, to_tier, ..
-        } => Some(StreamEvent::TextDelta {
-            content: format!("Context handed off tier {from_tier}→{to_tier}"),
-        }),
+        // PhaseTransition, EscalationSignal, and TierHandoff are internal
+        // orchestration status — the frontend tracks progress via the
+        // dedicated plan_lifecycle events (plan_created, plan_step_started,
+        // etc.) and tool events.  Emitting them as TextDelta pollutes the
+        // chat with "[Plan] context gathered" noise.
+        OrchestrationEvent::PhaseTransition { .. }
+        | OrchestrationEvent::EscalationSignal { .. }
+        | OrchestrationEvent::TierHandoff { .. } => None,
         OrchestrationEvent::TokenUsage {
             input_tokens,
             output_tokens,
@@ -473,48 +465,36 @@ mod tests {
     }
 
     #[test]
-    fn convert_phase_transition() {
+    fn convert_phase_transition_is_suppressed() {
         let event = OrchestrationEvent::PhaseTransition {
             task_id: "t1".into(),
             from: rustycode_protocol::ExecutionPhase::Explore,
             to: rustycode_protocol::ExecutionPhase::Plan,
             reason: "context gathered".into(),
         };
-        let result = convert_event(&event).unwrap();
-        assert!(matches!(result, StreamEvent::TextDelta { .. }));
+        assert!(convert_event(&event).is_none());
     }
 
     #[test]
-    fn convert_escalation_signal() {
+    fn convert_escalation_signal_is_suppressed() {
         let event = OrchestrationEvent::EscalationSignal {
             task_id: "t1".into(),
             from_tier: 2,
             to_tier: 3,
             reason: "stuck".into(),
         };
-        let result = convert_event(&event).unwrap();
-        let content = match &result {
-            StreamEvent::TextDelta { content } => content.clone(),
-            _ => panic!("expected TextDelta"),
-        };
-        assert!(content.contains("2→3"));
-        assert!(content.contains("stuck"));
+        assert!(convert_event(&event).is_none());
     }
 
     #[test]
-    fn convert_tier_handoff() {
+    fn convert_tier_handoff_is_suppressed() {
         let event = OrchestrationEvent::TierHandoff {
             task_id: "t1".into(),
             from_tier: 1,
             to_tier: 2,
             package_size_bytes: 4096,
         };
-        let result = convert_event(&event).unwrap();
-        let content = match &result {
-            StreamEvent::TextDelta { content } => content.clone(),
-            _ => panic!("expected TextDelta"),
-        };
-        assert!(content.contains("1→2"));
+        assert!(convert_event(&event).is_none());
     }
 
     #[test]

@@ -283,6 +283,54 @@ impl InputState {
         }
     }
 
+    /// Move cursor to the start of the previous word
+    pub fn move_word_backward(&mut self) {
+        if let Some(line) = self.lines.get(self.cursor_row) {
+            if self.cursor_col > 0 {
+                let col = line.floor_char_boundary(self.cursor_col);
+                let chars: Vec<char> = line[..col].chars().collect();
+                let mut i = chars.len();
+
+                // Skip whitespace
+                while i > 0 && chars[i - 1].is_whitespace() {
+                    i -= 1;
+                }
+                // Skip word characters
+                while i > 0 && !chars[i - 1].is_whitespace() {
+                    i -= 1;
+                }
+
+                // Convert char index back to byte index
+                self.cursor_col = line[..col]
+                    .char_indices()
+                    .nth(i)
+                    .map(|(byte_idx, _)| byte_idx)
+                    .unwrap_or(0);
+            }
+        }
+    }
+
+    /// Move cursor to the start of the next word
+    pub fn move_word_forward(&mut self) {
+        if let Some(line) = self.lines.get(self.cursor_row) {
+            let col = line.floor_char_boundary(self.cursor_col);
+            let rest = &line[col..];
+            let mut found_ws = false;
+
+            for (offset, c) in rest.char_indices() {
+                if c.is_whitespace() {
+                    found_ws = true;
+                } else if found_ws {
+                    self.cursor_col = col + offset;
+                    return;
+                }
+            }
+
+            // No next word found — move to end
+            self.cursor_col = line.len();
+        }
+    }
+
     /// Move cursor up (multi-line mode)
     ///
     /// Preserves visual column position when possible, using display width.
