@@ -38,7 +38,7 @@ const READ_ONLY_TOOLS: &[&str] = &[
     "web_fetch",
     "lsp_diagnostics",
     "lsp_hover",
-    "lsp_definitions",
+    "lsp_definition",
     "lsp_references",
     "lsp_document_symbols",
 ];

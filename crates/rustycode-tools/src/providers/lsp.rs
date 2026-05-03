@@ -295,7 +295,7 @@ impl Tool for LspDiagnosticsTool {
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore, ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
@@ -351,7 +351,7 @@ impl Tool for LspHoverTool {
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -421,7 +421,7 @@ impl Tool for LspDefinitionTool {
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -492,7 +492,7 @@ impl Tool for LspCompletionTool {
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -578,7 +578,7 @@ Returns: Hierarchical list of symbols with their types and locations"
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -652,7 +652,7 @@ Returns: List of locations where the symbol is referenced"
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -729,7 +729,7 @@ Returns: List of diagnostics with severity, messages, and related information"
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore, ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -836,7 +836,7 @@ Returns: List of code actions with titles and kinds"
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Refactor, ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -1248,7 +1248,7 @@ impl Tool for LspGetSymbolsOverviewTool {
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
+        &[ToolTag::Debug, ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -2102,7 +2102,7 @@ impl Tool for LspAnalyzeSymbolTool {
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
+        &[ToolTag::Debug, ToolTag::Explore, ToolTag::Refactor]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

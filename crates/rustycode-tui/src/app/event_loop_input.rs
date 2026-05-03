@@ -114,31 +114,6 @@ impl TUI {
                     self.dirty = true;
                     return Ok(());
                 }
-                // Handle special modal states first (priority order)
-                {
-                    let _ = std::fs::OpenOptions::new()
-                        .create(true).append(true)
-                        .open("/tmp/palette_debug.log")
-                        .and_then(|mut f| {
-                            use std::io::Write;
-                            writeln!(f, "KEY_DISPATCH: key={:?} {:?}, cp={}, help={}, tool_res={}, search={}, tool_panel={}, file_finder={}, wizard={}, approval_empty={}, error={}, clarif={}, compact={}, marketplace={}, plugin={}",
-                                key.code, key.modifiers,
-                                self.showing_command_palette,
-                                self.help_state.visible,
-                                self.showing_tool_result,
-                                self.search_state.visible,
-                                self.showing_tool_panel,
-                                self.file_finder.is_visible(),
-                                self.wizard.showing_wizard,
-                                self.pending_approval_request.is_empty(),
-                                self.error_manager.is_showing(),
-                                self.awaiting_clarification,
-                                self.showing_compaction_preview,
-                                self.showing_marketplace_browser,
-                                self.showing_plugin_manager,
-                            )
-                        });
-                }
                 if self.handle_wizard_input(key)? {
                     return Ok(());
                 }

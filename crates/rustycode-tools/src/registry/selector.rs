@@ -688,7 +688,7 @@ mod tests {
     fn test_explore_profile_tools() {
         let registry = test_registry();
         let tags = ToolProfile::Explore.required_tags();
-        let listed = registry.list_for_tags(&tags);
+        let listed = registry.list_for_tags(tags);
         let tools: Vec<_> = listed.iter().map(|t| &t.name).collect();
         assert!(tools.iter().any(|t| t.as_str() == "read_file"));
         assert!(tools.iter().any(|t| t.as_str() == "grep"));

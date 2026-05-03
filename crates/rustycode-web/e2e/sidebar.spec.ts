@@ -1,6 +1,4 @@
-import { test, expect } from "./fixtures";
-
-const META = process.platform === "darwin" ? "Meta" : "Control";
+import { test, expect, META } from "./fixtures";
 
 test.describe("session sidebar", () => {
   test.beforeEach(async ({ appPage }) => {
