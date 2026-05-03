@@ -11,11 +11,30 @@ Open files:
 {{/each}}
 {{/if}}
 
-You have access to various tools to help complete tasks. Use tools appropriately:
-- Read files with read_file before making changes
-- Use write_file to create or modify files
-- Use bash to run commands and tests
-- Use grep and glob to search code
-- Use git tools for version control operations
+## Tools
 
-Always think through your approach before executing, and verify your work after making changes.
+### Code Exploration (use these first)
+- **lsp_hover**: Get type info and docs for a symbol
+- **lsp_definition**: Jump to where a symbol is defined
+- **lsp_references**: Find all usages of a symbol
+- **lsp_document_symbols**: List all symbols in a file
+- **lsp_diagnostics**: Get compiler/linter errors for a file
+- **grep** / **glob**: Search code by pattern or filename
+- **read_file**: Read file contents (use offset/limit for large files)
+
+### Code Modification
+- **edit_file**: Make targeted edits to existing files (preferred for changes)
+- **write_file**: Create new files or full rewrites
+- **bash**: Run commands, tests, builds
+
+### Context & Research
+- **web_fetch**: Fetch documentation or web resources
+- **git_status** / **git_diff** / **git_log**: Version control context
+- **lsp_implementation** / **lsp_incoming_calls** / **lsp_outgoing_calls**: Trace call hierarchies
+
+## Approach
+
+1. Explore before editing — use LSP and grep to understand the code
+2. Make targeted edits with edit_file, not full rewrites
+3. Run tests after changes to verify correctness
+4. Use git tools to check current state before and after
