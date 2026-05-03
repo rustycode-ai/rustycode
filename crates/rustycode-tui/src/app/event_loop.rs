@@ -40,7 +40,6 @@ use crate::ui::model_selector::ModelSelector;
 use crate::ui::session_sidebar::{McpServerState, McpServerStatus, SessionSidebar};
 use crate::ui::skill_palette::SkillPalette;
 use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
-use rustycode_lsp::{default_servers as default_lsp_servers, discover as discover_lsp_servers};
 
 use crate::ui::theme_preview::{ThemePreview, ThemeSwitcher};
 use crate::ui::toast::ToastManager;
@@ -1094,37 +1093,24 @@ impl TUI {
             return false;
         }
 
-        let candidate_servers = default_lsp_servers();
-        let statuses = discover_lsp_servers(&candidate_servers);
-        let lsp_connected = statuses.iter().any(|status| status.installed);
-
         let active_clients = rustycode_tools::providers::lsp::active_clients_status();
         let any_running = active_clients.iter().any(|(_, state)| state == "running");
 
-        let mut lsp_names: Vec<String> = if active_clients.is_empty() {
-            statuses
-                .into_iter()
-                .filter(|status| status.installed)
-                .map(|status| status.name)
-                .collect()
-        } else {
-            active_clients
-                .iter()
-                .map(|(name, state)| {
-                    if state == "running" {
-                        format!("✓ {name}")
-                    } else {
-                        format!("○ {name} ({state})")
-                    }
-                })
-                .collect()
-        };
+        let lsp_names: Vec<String> = active_clients
+            .iter()
+            .map(|(name, state)| {
+                if state == "running" {
+                    format!("✓ {name}")
+                } else {
+                    format!("○ {name} ({state})")
+                }
+            })
+            .collect();
 
-        if lsp_names.is_empty() {
-            lsp_names.push("No LSP servers detected".to_string());
-        }
-
-        let display_connected = any_running || lsp_connected;
+        // Only show the LSP section when servers are actually running.
+        // Showing installed-but-not-started servers was confusing — users
+        // couldn't tell which LSPs were active vs merely available.
+        let display_connected = any_running;
 
         let changed = force
             || display_connected != self.last_lsp_connected

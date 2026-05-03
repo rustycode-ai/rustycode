@@ -8,7 +8,6 @@ mod integration_tests {
     use rustycode_orchestration::{
         cache::PromptCacheManager,
         config::{OrchestrationConfig, ParallelExecutionConfig, PromptCachingConfig},
-        executor::ParallelExecutor,
         optimization_metrics::OptimizationMetrics,
         routing::{ComplexityClassifier, ModelRouter, TaskComplexity},
         summary::ResultSummarizer,

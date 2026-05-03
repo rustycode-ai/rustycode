@@ -210,20 +210,8 @@ impl Header {
             used += status_text.len();
         }
 
-        if let Some(mode) = self.ai_mode {
-            if mode != AiModeLabel::default() {
-                let mode_text = format!("{} ", mode.label());
-                if used + mode_text.len() + 4 < width {
-                    spans.push(Span::styled(
-                        mode_text.clone(),
-                        Style::default()
-                            .fg(mode.color())
-                            .add_modifier(Modifier::BOLD),
-                    ));
-                    used += mode_text.len();
-                }
-            }
-        }
+        // AI mode label intentionally not rendered — the header status
+        // (thinking / tools / ready) already communicates what matters.
 
         // Git branch (before project, only if room)
         if let Some(branch) = &self.git_branch {
