@@ -175,7 +175,8 @@ impl UsageTracker {
 
 /// Manages which tools are currently active based on tier and skill scoping.
 ///
-/// The manager starts at [`ToolTier::Default`] and can only be promoted upward.
+/// The manager starts at [`ToolTier::Extended`] (LSP and advanced tools available
+/// from the start) and can only be promoted upward.
 /// A skill scope can further restrict available tools to an intersection of the
 /// current tier's tool set and the skill's allowed list.
 #[derive(Debug, Clone)]
@@ -188,10 +189,10 @@ pub struct ToolActivationManager {
 }
 
 impl ToolActivationManager {
-    /// Create a new manager starting at the Default tier with no scope restriction.
+    /// Create a new manager starting at the Extended tier with no scope restriction.
     pub fn new() -> Self {
         Self {
-            tier: ToolTier::Default,
+            tier: ToolTier::Extended,
             scope: None,
             usage: UsageTracker::new(),
         }
@@ -482,12 +483,13 @@ mod tests {
     // -- ToolActivationManager tests --
 
     #[test]
-    fn activation_manager_starts_at_default_tier() {
+    fn activation_manager_starts_at_extended_tier() {
         let manager = ToolActivationManager::new();
-        assert_eq!(manager.current_tier(), ToolTier::Default);
+        assert_eq!(manager.current_tier(), ToolTier::Extended);
         assert!(manager.is_active("read_file"));
         assert!(manager.is_active("bash"));
-        assert!(!manager.is_active("web_fetch"));
+        assert!(manager.is_active("web_fetch"));
+        assert!(manager.is_active("lsp_hover"));
     }
 
     #[test]
@@ -606,6 +608,6 @@ mod tests {
     #[test]
     fn activation_manager_default() {
         let manager = ToolActivationManager::default();
-        assert_eq!(manager.current_tier(), ToolTier::Default);
+        assert_eq!(manager.current_tier(), ToolTier::Extended);
     }
 }

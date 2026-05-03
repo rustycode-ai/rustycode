@@ -69,7 +69,7 @@ impl Default for ToolActivationManager {
 impl ToolActivationManager {
     pub fn new() -> Self {
         Self {
-            tier: ToolTier::Default,
+            tier: ToolTier::Extended,
             scoped_tools: None,
             usage: UsageTracker::new(),
         }
@@ -229,11 +229,12 @@ mod tests {
     }
 
     #[test]
-    fn activation_manager_starts_default() {
+    fn activation_manager_starts_extended() {
         let manager = ToolActivationManager::new();
-        assert_eq!(manager.current_tier(), ToolTier::Default);
+        assert_eq!(manager.current_tier(), ToolTier::Extended);
         assert!(manager.is_tool_allowed("read_file"));
-        assert!(!manager.is_tool_allowed("web_fetch"));
+        assert!(manager.is_tool_allowed("lsp_hover"));
+        assert!(manager.is_tool_allowed("web_fetch"));
     }
 
     #[test]
@@ -258,7 +259,9 @@ mod tests {
 
     #[test]
     fn activation_manager_allowed_tools_respects_tier() {
+        // Start at Default tier to test tier promotion behavior
         let mut manager = ToolActivationManager::new();
+        manager.tier = ToolTier::Default;
         let defaults = manager.allowed_tools();
         assert!(defaults.contains(&"read_file".to_string()));
         assert!(!defaults.contains(&"web_fetch".to_string()));

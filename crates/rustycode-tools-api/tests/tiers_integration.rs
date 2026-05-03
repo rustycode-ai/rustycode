@@ -9,12 +9,7 @@ use rustycode_tools_api::{
 fn test_tool_tier_promotion_logic() {
     let mut manager = ToolActivationManager::new();
 
-    assert_eq!(
-        manager.current_tier(),
-        rustycode_tools_api::tiers::ToolTier::Default
-    );
-
-    manager.promote(rustycode_tools_api::tiers::ToolTier::Extended);
+    // Starts at Extended (LSP and advanced tools available from the start)
     assert_eq!(
         manager.current_tier(),
         rustycode_tools_api::tiers::ToolTier::Extended
@@ -38,29 +33,22 @@ fn test_tool_tier_promotion_logic() {
 fn test_tool_availability_by_tier() {
     let manager = ToolActivationManager::new();
 
-    // Default tier should have basic tools
+    // Extended tier (default start) should have basic + extended tools
     assert!(manager.is_tool_allowed("read_file"));
     assert!(manager.is_tool_allowed("edit_file"));
     assert!(manager.is_tool_allowed("write_file"));
     assert!(manager.is_tool_allowed("bash"));
     assert!(manager.is_tool_allowed("grep"));
     assert!(manager.is_tool_allowed("glob"));
-
-    // Default tier should NOT have extended tools
-    assert!(!manager.is_tool_allowed("web_fetch"));
-    assert!(!manager.is_tool_allowed("notebook_edit"));
-    assert!(!manager.is_tool_allowed("lsp_hover"));
-
-    // Promote to extended tier
-    let mut manager = manager;
-    manager.promote(rustycode_tools_api::tiers::ToolTier::Extended);
-
-    assert!(manager.is_tool_allowed("read_file"));
     assert!(manager.is_tool_allowed("web_fetch"));
     assert!(manager.is_tool_allowed("notebook_edit"));
     assert!(manager.is_tool_allowed("lsp_hover"));
 
+    // Extended tier should NOT allow arbitrary tools
+    assert!(!manager.is_tool_allowed("custom_tool_xyz"));
+
     // Promote to full tier
+    let mut manager = manager;
     manager.promote(rustycode_tools_api::tiers::ToolTier::Full);
 
     assert!(manager.is_tool_allowed("read_file"));
@@ -73,26 +61,20 @@ fn test_tool_availability_by_tier() {
 fn test_skill_scoping_intersects_with_tier() {
     let mut manager = ToolActivationManager::new();
 
+    // Extended tier: basic + extended tools all available
     assert!(manager.is_tool_allowed("read_file"));
-    assert!(!manager.is_tool_allowed("web_fetch"));
+    assert!(manager.is_tool_allowed("web_fetch"));
 
-    // Apply skill scope that allows both default and extended tools
+    // Apply skill scope that restricts to subset
     manager = manager.with_scope(vec![
         "read_file".to_string(),
         "web_fetch".to_string(),
         "bash".to_string(),
     ]);
 
-    // Should still respect tier restrictions
-    assert!(manager.is_tool_allowed("read_file"));
-    assert!(!manager.is_tool_allowed("web_fetch")); // in scope but not in default tier
-
-    // Promote to extended tier
-    manager.promote(rustycode_tools_api::tiers::ToolTier::Extended);
-
+    // Scope filters to intersection with tier
     assert!(manager.is_tool_allowed("read_file"));
     assert!(manager.is_tool_allowed("web_fetch"));
-    assert!(manager.is_tool_allowed("bash"));
 
     // But scope should still filter
     assert!(!manager.is_tool_allowed("edit_file")); // in tier but not in scope
