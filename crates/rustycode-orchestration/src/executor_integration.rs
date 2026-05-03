@@ -28,9 +28,11 @@ impl ToolExecutor for ExecutableToolExecutor {
         _model: &str,
     ) -> crate::error::Result<StepResult> {
         let exec_input = ExecutionInput {
-            data: serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({
-                "raw": input
-            })),
+            data: serde_json::from_str(input).unwrap_or_else(|_| {
+                serde_json::json!({
+                    "raw": input
+                })
+            }),
             caller_info: None,
             session_context: None,
         };

@@ -37,14 +37,12 @@ tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["registry"] }
 lsp-types.workspace = true
-once_cell.workspace = true
 rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
 rustycode-thread-guard = { path = "../rustycode-thread-guard" }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 reqwest = { workspace = true, features = ["blocking"] }
-governor = "0.6"
 lru.workspace = true
 parking_lot.workspace = true
 uuid.workspace = true
@@ -75,8 +73,6 @@ llm-cost-tracking = []
 
 [dev-dependencies]
 tempfile.workspace = true
-criterion.workspace = true
-futures.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "time", "signal"] }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }

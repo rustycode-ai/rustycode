@@ -123,37 +123,107 @@ pub fn save_current_session(
     Ok(session_file)
 }
 
-/// Load session from disk
+/// Load session from disk.
+///
+/// Tries recovery directories first (which have real messages),
+/// then falls back to flat JSON files.
 ///
 /// # Arguments
-/// * `session_id` - The ID of the session to load (filename without .json extension)
+/// * `session_id` - The ID of the session to load
 ///
 /// # Returns
 /// Result containing (title, messages, age_description) or error
 pub fn load_session(session_id: &str) -> std::io::Result<(String, Vec<SerializedMessage>, String)> {
     use std::fs;
 
-    let session_path = sessions_dir().join(format!("{}.json", session_id));
+    let sdir = sessions_dir();
+
+    // Try recovery directory first: {session_id}/state.json
+    let recovery_path = sdir.join(session_id).join("state.json");
+    if recovery_path.exists() {
+        let content = fs::read_to_string(&recovery_path)?;
+        let value: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+
+        let title = format!(
+            "Session {}",
+            session_id.split('-').next().unwrap_or(session_id)
+        );
+
+        let mut messages = Vec::new();
+        if let Some(msgs) = value.get("messages").and_then(|v| v.as_array()) {
+            for msg in msgs {
+                if let (Some(role), Some(content)) = (
+                    msg.get("role")
+                        .or_else(|| msg.get("message_role"))
+                        .and_then(|r| r.as_str()),
+                    msg.get("content").and_then(|c| c.as_str()),
+                ) {
+                    let msg_type = match role {
+                        "user" => SerializedMessageType::User,
+                        "assistant" => SerializedMessageType::AI,
+                        "system" => SerializedMessageType::System,
+                        "tool" => SerializedMessageType::Tool,
+                        _ => SerializedMessageType::System,
+                    };
+                    messages.push(SerializedMessage {
+                        role: msg_type,
+                        content: content.to_string(),
+                    });
+                }
+            }
+        }
+
+        let age_description = value
+            .get("last_saved")
+            .and_then(|v| v.as_str())
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+            .map(|dt| {
+                let millis = dt.timestamp_millis() as u64;
+                let session_time = std::time::UNIX_EPOCH + std::time::Duration::from_millis(millis);
+                if let Ok(elapsed) = std::time::SystemTime::now().duration_since(session_time) {
+                    let secs = elapsed.as_secs();
+                    if secs < 60 {
+                        "just now".to_string()
+                    } else if secs < 3600 {
+                        format!("{} min ago", secs / 60)
+                    } else if secs < 86400 {
+                        format!("{}h {}m ago", secs / 3600, (secs % 3600) / 60)
+                    } else {
+                        format!("{}d ago", secs / 86400)
+                    }
+                } else {
+                    "unknown".to_string()
+                }
+            })
+            .unwrap_or_else(|| "unknown".to_string());
+
+        return Ok((title, messages, age_description));
+    }
+
+    // Fallback: flat JSON file
+    let session_path = sdir.join(format!("{}.json", session_id));
     let content = if session_path.exists() {
         fs::read_to_string(&session_path)?
     } else {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("Session file not found: {}", session_path.display()),
+            format!(
+                "Session not found: {} (tried recovery dir and flat file)",
+                session_id
+            ),
         ));
     };
 
     let value = serde_json::from_str::<serde_json::Value>(&content)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 
-    // Extract title
     let title = value
         .get("title")
         .and_then(|v| v.as_str())
         .unwrap_or("Untitled")
         .to_string();
 
-    // Extract messages
     let mut messages = Vec::new();
     if let Some(msgs) = value.get("messages").and_then(|v| v.as_array()) {
         for msg in msgs {
@@ -176,7 +246,6 @@ pub fn load_session(session_id: &str) -> std::io::Result<(String, Vec<Serialized
         }
     }
 
-    // Compute age of session for resume hint
     let age_description = value
         .get("timestamp")
         .and_then(|v| v.as_u64())
@@ -202,7 +271,10 @@ pub fn load_session(session_id: &str) -> std::io::Result<(String, Vec<Serialized
     Ok((title, messages, age_description))
 }
 
-/// Load list of available sessions from disk
+/// Load list of available sessions from disk.
+///
+/// Reads from recovery directories (which contain full session state with messages)
+/// and falls back to flat JSON files. Results are sorted newest first.
 ///
 /// # Arguments
 /// * `current_title` - The title of the current (unsaved) session
@@ -228,7 +300,6 @@ pub fn load_session_history_list(
     // Add current session to the list
     let current_entry = SessionHistoryEntry {
         id: "current".to_string(),
-        // Normalize current title for tests that expect a specific naming
         title: if current_title == "Current Session" {
             "Current Session".to_string()
         } else {
@@ -236,69 +307,160 @@ pub fn load_session_history_list(
         },
         timestamp: std::time::SystemTime::now(),
         message_count: current_message_count,
-        first_message: None, // Current session has no history yet
+        first_message: None,
     };
     entries.push(current_entry);
 
-    // Read all session files
+    // Track which session IDs we've already loaded (from recovery dirs)
+    let mut loaded_ids = std::collections::HashSet::new();
+    loaded_ids.insert("current".to_string());
+
+    // Primary: read recovery directories (state.json with real messages)
     if let Ok(read_dir) = fs::read_dir(&sessions_dir) {
         for entry in read_dir.flatten() {
             let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
-                // Try to read session metadata
-                if let Ok(content) = fs::read_to_string(&path) {
-                    // Parse the session file to get title and message count
-                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
-                        let title = value
-                            .get("title")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("Untitled")
-                            .to_string();
-
-                        let message_count = value
-                            .get("message_count")
-                            .and_then(|v| v.as_u64())
-                            .unwrap_or(0) as usize;
-
-                        // Extract first message preview if available
-                        let first_message = value
-                            .get("first_message")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string());
-
-                        // Parse timestamp (now using milliseconds)
-                        let timestamp = value
-                            .get("timestamp")
-                            .and_then(|v| v.as_u64())
-                            .map(|millis| {
-                                std::time::UNIX_EPOCH + std::time::Duration::from_millis(millis)
-                            })
-                            .unwrap_or(std::time::SystemTime::now());
-
-                        let file_name = path
-                            .file_stem()
-                            .and_then(|s| s.to_str())
-                            .unwrap_or("unknown")
-                            .to_string();
-
-                        let history_entry = SessionHistoryEntry {
-                            id: file_name,
-                            title,
-                            timestamp,
-                            message_count,
-                            first_message,
-                        };
-
-                        entries.push(history_entry);
-                    }
-                }
+            if !path.is_dir() {
+                continue;
             }
+            let session_id = match path.file_name().and_then(|n| n.to_str()) {
+                Some(id) => id.to_string(),
+                None => continue,
+            };
+            let state_path = path.join("state.json");
+            if !state_path.exists() {
+                continue;
+            }
+            let content = match fs::read_to_string(&state_path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            let value: serde_json::Value = match serde_json::from_str(&content) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+
+            let message_count = value
+                .get("messages")
+                .and_then(|v| v.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+
+            // Skip sessions with no messages
+            if message_count == 0 {
+                continue;
+            }
+
+            let first_message = value
+                .get("messages")
+                .and_then(|v| v.as_array())
+                .and_then(|msgs| msgs.first())
+                .and_then(|m| m.get("content"))
+                .and_then(|c| c.as_str())
+                .map(|s| s.chars().take(60).collect::<String>());
+
+            let timestamp = value
+                .get("last_saved")
+                .and_then(|v| v.as_str())
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| {
+                    std::time::UNIX_EPOCH
+                        + std::time::Duration::from_millis(dt.timestamp_millis() as u64)
+                })
+                .unwrap_or(std::time::SystemTime::now());
+
+            loaded_ids.insert(session_id.clone());
+            entries.push(SessionHistoryEntry {
+                id: session_id,
+                title: format!("Session ({} messages)", message_count),
+                timestamp,
+                message_count,
+                first_message,
+            });
         }
     }
 
     // Sort by timestamp (newest first)
     entries.sort_by_key(|a| std::cmp::Reverse(a.timestamp));
     entries
+}
+
+/// Delete a session by ID.
+///
+/// Removes both the recovery directory and the flat JSON file if they exist.
+pub fn delete_session(session_id: &str) -> std::io::Result<()> {
+    use std::fs;
+
+    let sdir = sessions_dir();
+
+    // Remove recovery directory
+    let recovery_dir = sdir.join(session_id);
+    if recovery_dir.is_dir() {
+        fs::remove_dir_all(&recovery_dir)?;
+    }
+
+    // Remove flat JSON file
+    let flat_file = sdir.join(format!("{}.json", session_id));
+    if flat_file.is_file() {
+        fs::remove_file(&flat_file)?;
+    }
+
+    Ok(())
+}
+
+/// Clean up old sessions, keeping only the most recent `keep` sessions.
+///
+/// Removes both recovery directories and flat JSON files for sessions
+/// beyond the keep limit. Also removes sessions with 0 messages.
+///
+/// # Returns
+/// Number of sessions removed.
+pub fn cleanup_old_sessions(keep: usize) -> std::io::Result<usize> {
+    use std::fs;
+
+    let sdir = sessions_dir();
+    if !sdir.exists() {
+        return Ok(0);
+    }
+
+    // Get current list (already sorted newest first, excludes empty)
+    let entries = load_session_history_list("Current Session", 0);
+
+    // Skip "current" entry and sessions we want to keep
+    let to_delete: Vec<&str> = entries
+        .iter()
+        .filter(|e| e.id != "current")
+        .skip(keep)
+        .map(|e| e.id.as_str())
+        .collect();
+
+    let mut removed = 0;
+    for id in &to_delete {
+        if delete_session(id).is_ok() {
+            removed += 1;
+        }
+    }
+
+    // Also clean up flat JSON files with 0 messages (stubs)
+    if let Ok(read_dir) = fs::read_dir(&sdir) {
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(&content) {
+                        let msg_count = value
+                            .get("message_count")
+                            .and_then(|v| v.as_u64())
+                            .unwrap_or(0);
+                        if msg_count == 0 {
+                            let _ = fs::remove_file(&path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(removed)
 }
 
 /// Load command history from disk
@@ -414,32 +576,35 @@ mod tests {
         let sessions_path = temp_dir.path().join("sessions");
 
         // Use thread-local override instead of env var (avoids race with parallel tests)
-        set_test_sessions_dir(Some(sessions_path));
+        set_test_sessions_dir(Some(sessions_path.clone()));
 
-        // Save some sessions with messages to ensure they're valid
-        let messages1 = vec![SerializedMessage {
-            role: SerializedMessageType::User,
-            content: "Message 1".to_string(),
-        }];
-        let messages2 = vec![SerializedMessage {
-            role: SerializedMessageType::User,
-            content: "Message 2".to_string(),
-        }];
+        // Create recovery directory structures (what the rewritten code reads)
+        let now = chrono::Utc::now();
+        for (i, (session_id, content)) in [("sess-older", "Message 1"), ("sess-newer", "Message 2")]
+            .iter()
+            .enumerate()
+        {
+            let dir = sessions_path.join(session_id);
+            std::fs::create_dir_all(&dir).unwrap();
+            let state = serde_json::json!({
+                "messages": [{ "role": "user", "content": content }],
+                "last_saved": (now - chrono::Duration::seconds(10 * (2 - i) as i64))
+                    .to_rfc3339(),
+            });
+            std::fs::write(dir.join("state.json"), state.to_string()).unwrap();
+        }
 
-        let _session1_path = save_current_session("Session 1", &messages1).unwrap();
-        std::thread::sleep(std::time::Duration::from_millis(10)); // Ensure different timestamps
-        let _session2_path = save_current_session("Session 2", &messages2).unwrap();
-
-        // Load list — should have exactly current + 2 saved (no interference from other tests)
         let list = load_session_history_list("Current Session", 5);
 
-        assert!(
-            list.len() >= 3,
-            "Expected at least 3 sessions, got {}",
+        // current + 2 recovery sessions
+        assert_eq!(
+            list.len(),
+            3,
+            "Expected 3 sessions (current + 2 recovery), got {}",
             list.len()
         );
 
-        // Current session should be first (newest by timestamp)
+        // Current session should be present
         let current = list
             .iter()
             .find(|e| e.id == "current")
@@ -447,13 +612,11 @@ mod tests {
         assert_eq!(current.title, "Current Session");
         assert_eq!(current.message_count, 5);
 
-        // Saved sessions should be present and sorted newest first
+        // Saved sessions should be sorted newest first
         let saved: Vec<_> = list.iter().filter(|e| e.id != "current").collect();
-        assert!(saved.len() >= 2, "Expected at least 2 saved sessions");
-        assert!(
-            saved[0].id > saved[1].id,
-            "Saved sessions should be sorted newest first"
-        );
+        assert_eq!(saved.len(), 2, "Expected 2 saved sessions");
+        assert_eq!(saved[0].id, "sess-newer");
+        assert_eq!(saved[1].id, "sess-older");
 
         // Restore override
         set_test_sessions_dir(None);

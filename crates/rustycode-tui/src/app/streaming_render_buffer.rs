@@ -53,9 +53,7 @@ fn truncate_code_blocks(content: &str) -> String {
     while pos < len {
         let remaining = &content[pos..];
 
-        let (fence_offset, fence_str) = match (            remaining.find("```"),
-            remaining.find("~~~"),
-        ) {
+        let (fence_offset, fence_str) = match (remaining.find("```"), remaining.find("~~~")) {
             (Some(a), Some(b)) if a <= b => (a, "```"),
             (Some(a), None) => (a, "```"),
             (None, Some(b)) => (b, "~~~"),
@@ -137,7 +135,9 @@ fn truncate_code_blocks(content: &str) -> String {
             let fence_header = &content[fence_abs..fence_header_end];
 
             let close_abs = code_start + close_offset + 1;
-            let suffix: &str = content.get(close_abs + fence_str.len()..).unwrap_or_default();
+            let suffix: &str = content
+                .get(close_abs + fence_str.len()..)
+                .unwrap_or_default();
 
             result.push_str(fence_header);
             result.push('\n');

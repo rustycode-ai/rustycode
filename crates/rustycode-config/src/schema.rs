@@ -39,8 +39,8 @@ impl SchemaValidator {
 
     /// Register a custom schema
     pub fn register_schema(&mut self, name: &str, schema: &Value) -> Result<(), SchemaError> {
-        let compiled =
-            jsonschema::validator_for(schema).map_err(|e| SchemaError::CompileError(e.to_string()))?;
+        let compiled = jsonschema::validator_for(schema)
+            .map_err(|e| SchemaError::CompileError(e.to_string()))?;
 
         self.schemas.insert(name.to_string(), Arc::new(compiled));
         Ok(())
@@ -70,8 +70,8 @@ impl SchemaValidator {
 
     /// Validate a configuration value against a specific schema
     pub fn validate_with_schema(&self, config: &Value, schema: &Value) -> Result<(), SchemaError> {
-        let compiled =
-            jsonschema::validator_for(schema).map_err(|e| SchemaError::CompileError(e.to_string()))?;
+        let compiled = jsonschema::validator_for(schema)
+            .map_err(|e| SchemaError::CompileError(e.to_string()))?;
 
         let errors: Vec<_> = compiled.iter_errors(config).collect();
 

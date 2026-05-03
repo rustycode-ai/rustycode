@@ -22,8 +22,8 @@
 //! - Success/failure rates
 
 pub mod agent_tool;
-pub mod delegation_executor;
 pub mod definitions;
+pub mod delegation_executor;
 
 use anyhow::Result;
 use rustycode_runtime::multi_agent::{

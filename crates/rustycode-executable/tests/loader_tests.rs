@@ -9,12 +9,12 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use rustycode_executable::registry::loaders::UnitLoader;
 use rustycode_executable::{
     AdvancedToolMetadata, Callable, ExecutableError, ExecutableRegistry, ExecutableUnit,
-    ExecutionInput, ExecutionMetadata, ExecutionContext, ExecutionMode, UnitCapabilities,
+    ExecutionContext, ExecutionInput, ExecutionMetadata, ExecutionMode, UnitCapabilities,
     UnitSource,
 };
-use rustycode_executable::registry::loaders::UnitLoader;
 
 // ---------------------------------------------------------------------------
 // Helpers (self-contained, no dependency on tests/common which has issues)
@@ -180,11 +180,10 @@ async fn test_registry_register_from_loader_multiple_units() {
 
 #[tokio::test]
 async fn test_native_tool_loader_creates_units() {
-    let loader =
-        rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
-            "bash".to_string(),
-            "read".to_string(),
-        ]);
+    let loader = rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
+        "bash".to_string(),
+        "read".to_string(),
+    ]);
 
     assert_eq!(loader.name(), "native_tools");
 
@@ -196,10 +195,9 @@ async fn test_native_tool_loader_creates_units() {
 
 #[tokio::test]
 async fn test_native_tool_loader_individual_load() {
-    let loader =
-        rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
-            "bash".to_string(),
-        ]);
+    let loader = rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
+        "bash".to_string(),
+    ]);
 
     let unit = loader.load("bash").await.unwrap();
     assert_eq!(unit.id, "bash");
@@ -207,10 +205,9 @@ async fn test_native_tool_loader_individual_load() {
 
 #[tokio::test]
 async fn test_native_tool_loader_missing() {
-    let loader =
-        rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
-            "bash".to_string(),
-        ]);
+    let loader = rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
+        "bash".to_string(),
+    ]);
 
     let result = loader.load("nonexistent").await;
     assert!(matches!(result, Err(ExecutableError::NotFound(_))));
@@ -218,8 +215,7 @@ async fn test_native_tool_loader_missing() {
 
 #[tokio::test]
 async fn test_native_tool_loader_stale_default() {
-    let loader =
-        rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![]);
+    let loader = rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![]);
     // Default is_stale returns false
     assert!(!loader.is_stale().await);
 }
@@ -239,9 +235,8 @@ async fn test_skill_loader_name() {
 #[tokio::test]
 async fn test_skill_loader_empty_dir() {
     let tmp = tempfile::tempdir().unwrap();
-    let loader = rustycode_executable::registry::skill_loader::SkillLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::skill_loader::SkillLoader::new(tmp.path().to_path_buf());
     let units = loader.load_units().await.unwrap();
     assert!(units.is_empty());
 }
@@ -255,9 +250,8 @@ async fn test_skill_loader_discovers_skills() {
     )
     .unwrap();
 
-    let loader = rustycode_executable::registry::skill_loader::SkillLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::skill_loader::SkillLoader::new(tmp.path().to_path_buf());
     let units = loader.load_units().await.unwrap();
     assert_eq!(units.len(), 1);
     assert_eq!(units[0].id, "skill:test_skill");
@@ -268,9 +262,8 @@ async fn test_skill_loader_load_by_id() {
     let tmp = tempfile::tempdir().unwrap();
     std::fs::write(tmp.path().join("my_skill.md"), "skill content").unwrap();
 
-    let loader = rustycode_executable::registry::skill_loader::SkillLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::skill_loader::SkillLoader::new(tmp.path().to_path_buf());
     let unit = loader.load("skill:my_skill").await.unwrap();
     assert_eq!(unit.id, "skill:my_skill");
 }
@@ -282,9 +275,8 @@ async fn test_skill_loader_ignores_non_md_files() {
     std::fs::write(tmp.path().join("readme.txt"), "text").unwrap();
     std::fs::write(tmp.path().join("valid.md"), "skill").unwrap();
 
-    let loader = rustycode_executable::registry::skill_loader::SkillLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::skill_loader::SkillLoader::new(tmp.path().to_path_buf());
     let units = loader.load_units().await.unwrap();
     assert_eq!(units.len(), 1);
     assert_eq!(units[0].id, "skill:valid");
@@ -305,9 +297,8 @@ async fn test_agent_loader_name() {
 #[tokio::test]
 async fn test_agent_loader_empty_dir() {
     let tmp = tempfile::tempdir().unwrap();
-    let loader = rustycode_executable::registry::agent_loader::AgentLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::agent_loader::AgentLoader::new(tmp.path().to_path_buf());
     let units = loader.load_units().await.unwrap();
     assert!(units.is_empty());
 }
@@ -317,9 +308,8 @@ async fn test_agent_loader_discovers_agents() {
     let tmp = tempfile::tempdir().unwrap();
     std::fs::write(tmp.path().join("test_agent.md"), "# Test Agent").unwrap();
 
-    let loader = rustycode_executable::registry::agent_loader::AgentLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::agent_loader::AgentLoader::new(tmp.path().to_path_buf());
     let units = loader.load_units().await.unwrap();
     assert_eq!(units.len(), 1);
     assert_eq!(units[0].id, "agent:test_agent");
@@ -330,9 +320,8 @@ async fn test_agent_loader_discovers_yaml_agents() {
     let tmp = tempfile::tempdir().unwrap();
     std::fs::write(tmp.path().join("yaml_agent.yaml"), "name: yaml_agent").unwrap();
 
-    let loader = rustycode_executable::registry::agent_loader::AgentLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::agent_loader::AgentLoader::new(tmp.path().to_path_buf());
     let units = loader.load_units().await.unwrap();
     assert_eq!(units.len(), 1);
     assert_eq!(units[0].id, "agent:yaml_agent");
@@ -343,9 +332,8 @@ async fn test_agent_loader_load_by_id() {
     let tmp = tempfile::tempdir().unwrap();
     std::fs::write(tmp.path().join("coder.md"), "# Coder agent").unwrap();
 
-    let loader = rustycode_executable::registry::agent_loader::AgentLoader::new(
-        tmp.path().to_path_buf(),
-    );
+    let loader =
+        rustycode_executable::registry::agent_loader::AgentLoader::new(tmp.path().to_path_buf());
     let unit = loader.load("agent:coder").await.unwrap();
     assert_eq!(unit.id, "agent:coder");
 }

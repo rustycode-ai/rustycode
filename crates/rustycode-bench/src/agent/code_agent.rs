@@ -152,11 +152,7 @@ impl CodeAgent {
     }
 
     /// Execute a tool via the registry with real tool implementations.
-    fn execute_tool(
-        registry: &ToolRegistry,
-        tool_use: &ToolUse,
-        ctx: &ToolContext,
-    ) -> String {
+    fn execute_tool(registry: &ToolRegistry, tool_use: &ToolUse, ctx: &ToolContext) -> String {
         let normalized_name = Self::normalize_tool_name(&tool_use.name);
 
         if let Some(tool) = registry.get(normalized_name) {

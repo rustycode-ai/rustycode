@@ -4,12 +4,20 @@ use crate::app::async_::StreamChunk;
 use crate::app::TUI;
 use crate::ui::message::MessageRole;
 
-use super::stream_approval::{handle_approval_approved_chunk, handle_approval_rejected_chunk, handle_approval_request_chunk};
-use super::stream_data::{handle_execution_trace_chunk, handle_extract_tasks_chunk, handle_file_snapshot_chunk, handle_question_answered_chunk, handle_question_request_chunk, handle_system_message_chunk, handle_tasks_extracted_chunk, handle_token_usage_chunk};
+use super::stream_approval::{
+    handle_approval_approved_chunk, handle_approval_rejected_chunk, handle_approval_request_chunk,
+};
+use super::stream_data::{
+    handle_execution_trace_chunk, handle_extract_tasks_chunk, handle_file_snapshot_chunk,
+    handle_question_answered_chunk, handle_question_request_chunk, handle_system_message_chunk,
+    handle_tasks_extracted_chunk, handle_token_usage_chunk,
+};
 use super::stream_done::handle_done_chunk;
 use super::stream_error::handle_error_chunk;
 use super::stream_stopped::handle_stopped_chunk;
-use super::stream_tools::{handle_tool_complete_chunk, handle_tool_progress_chunk, handle_tool_start_chunk};
+use super::stream_tools::{
+    handle_tool_complete_chunk, handle_tool_progress_chunk, handle_tool_start_chunk,
+};
 
 fn handle_text_chunk(tui: &mut TUI, text: String) {
     // Capture stream start time on first chunk (Goose pattern: response timing)
@@ -55,7 +63,6 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
     // reset in the Done/Error handlers.
 }
 
-
 fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
     const MAX_THINKING_BYTES: usize = 50 * 1024;
     tui.thinking_chunks_received += 1;
@@ -97,7 +104,6 @@ fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
     }
     tui.dirty = true;
 }
-
 
 pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
     match chunk {

@@ -11,9 +11,9 @@ use crate::fork_join::{ContextSnapshot, ForkJoinConfig, ForkJoinExecutor, ForkSp
 use crate::task_runner::TaskRunner;
 #[cfg(test)]
 use crate::types::ExecutionTier;
-use std::sync::Arc;
 #[cfg(test)]
 use std::path::PathBuf;
+use std::sync::Arc;
 
 /// Outcome of executing a single task.
 #[derive(Debug, Clone)]
@@ -101,11 +101,7 @@ impl TaskDispatcher {
             fork_count: 1,
         });
 
-        let snapshot = ContextSnapshot::new(
-            &spec.task_id,
-            &spec.prompt,
-            tier.as_u8(),
-        );
+        let snapshot = ContextSnapshot::new(&spec.task_id, &spec.prompt, tier.as_u8());
 
         let fork_spec = task_spec_to_fork_spec(spec);
         let fj_result = self.fork_join.execute_forks(&snapshot, &[fork_spec]).await;
@@ -120,11 +116,7 @@ impl TaskDispatcher {
                 cost_usd: fr.cost_usd,
                 duration_ms: elapsed_ms,
             },
-            None => TaskResult::failure(
-                &spec.task_id,
-                "no fork result returned",
-                elapsed_ms,
-            ),
+            None => TaskResult::failure(&spec.task_id, "no fork result returned", elapsed_ms),
         };
 
         self.bus.publish(OrchestrationEvent::ForkCompleted {
@@ -147,11 +139,7 @@ impl TaskDispatcher {
         let first = &specs[0];
         let tier = first.effective_tier();
 
-        let snapshot = ContextSnapshot::new(
-            &first.task_id,
-            &first.prompt,
-            tier.as_u8(),
-        );
+        let snapshot = ContextSnapshot::new(&first.task_id, &first.prompt, tier.as_u8());
 
         let fork_specs: Vec<ForkSpec> = specs.iter().map(task_spec_to_fork_spec).collect();
         let fj_result = self.fork_join.execute_forks(&snapshot, &fork_specs).await;
@@ -359,18 +347,13 @@ mod tests {
                 s
             },
         ];
-        let paired: Vec<_> = participants
-            .into_iter()
-            .zip(specs.into_iter())
-            .collect();
+        let paired: Vec<_> = participants.into_iter().zip(specs.into_iter()).collect();
         let plan = EnsemblePlan {
             strategy: crate::ensemble_strategy::StrategyKind::SequentialReview,
             participants: paired,
         };
 
-        let results = dispatcher
-            .dispatch(SpawnDecision::Ensemble(plan))
-            .await;
+        let results = dispatcher.dispatch(SpawnDecision::Ensemble(plan)).await;
 
         // Both should succeed in V1, so both results present.
         assert_eq!(results.len(), 2);
@@ -422,18 +405,13 @@ mod tests {
                 s
             },
         ];
-        let paired: Vec<_> = participants
-            .into_iter()
-            .zip(specs.into_iter())
-            .collect();
+        let paired: Vec<_> = participants.into_iter().zip(specs.into_iter()).collect();
         let plan = EnsemblePlan {
             strategy: crate::ensemble_strategy::StrategyKind::SequentialReview,
             participants: paired,
         };
 
-        let results = dispatcher
-            .dispatch(SpawnDecision::Ensemble(plan))
-            .await;
+        let results = dispatcher.dispatch(SpawnDecision::Ensemble(plan)).await;
 
         assert_eq!(results.len(), 3);
     }

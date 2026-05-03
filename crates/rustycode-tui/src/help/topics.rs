@@ -18,7 +18,7 @@ pub fn get_all_topics() -> Vec<HelpTopic> {
             title: "Navigate to top/bottom".to_string(),
             category: HelpCategory::Navigation,
             content: "Jump to the first or last message. Vim keys j/k work when input is empty, gg jumps to top, G to bottom. Shift+Up/Down jumps between user message boundaries (turn navigation). Ctrl+Shift+Z jumps back to previous scroll position.".to_string(),
-            key_bindings: vec!["Home".to_string(), "End".to_string(), "j/k".to_string(), "g/G".to_string(), "Shift+Up/Down".to_string(), "Ctrl+Shift+Z".to_string()],
+            key_bindings: vec!["Home".to_string(), "End".to_string(), "j/k (vim)".to_string(), "g/G (vim)".to_string(), "Shift+Up/Down".to_string(), "Ctrl+Shift+Z".to_string()],
         },
         HelpTopic {
             title: "Toggle message collapse".to_string(),

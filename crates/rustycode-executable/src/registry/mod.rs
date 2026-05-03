@@ -1,15 +1,15 @@
+pub mod agent_loader;
 pub mod loaders;
 pub mod native_tool_loader;
 pub mod skill_loader;
-pub mod agent_loader;
 
 // Re-export loader types for convenience
+pub use agent_loader::AgentLoader;
 pub use loaders::UnitLoader;
 pub use native_tool_loader::NativeToolLoader;
 pub use skill_loader::SkillLoader;
-pub use agent_loader::AgentLoader;
 
-use crate::{ExecutableUnit, ExecutableError, UnitCapabilities};
+use crate::{ExecutableError, ExecutableUnit, UnitCapabilities};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -52,9 +52,9 @@ impl ExecutableRegistry {
             let mut units = futures::executor::block_on(self.units.write());
 
             if units.contains_key(&id) {
-                return Err(ExecutableError::ExecutionFailed(
-                    format!("unit {id} already registered"),
-                ));
+                return Err(ExecutableError::ExecutionFailed(format!(
+                    "unit {id} already registered"
+                )));
             }
 
             units.insert(id.clone(), unit);
@@ -120,15 +120,22 @@ impl ExecutableRegistry {
         Ok(())
     }
 
-    pub async fn discover(&self, query: &str, _context: Option<crate::ExecutionContext>) -> Vec<UnitMetadata> {
+    pub async fn discover(
+        &self,
+        query: &str,
+        _context: Option<crate::ExecutionContext>,
+    ) -> Vec<UnitMetadata> {
         let metadata = self.list_metadata().await;
         let query_lower = query.to_lowercase();
 
-        metadata.into_iter()
+        metadata
+            .into_iter()
             .filter(|m| {
                 m.name.to_lowercase().contains(&query_lower)
                     || m.description.to_lowercase().contains(&query_lower)
-                    || m.search_hints.iter().any(|hint| hint.to_lowercase().contains(&query_lower))
+                    || m.search_hints
+                        .iter()
+                        .any(|hint| hint.to_lowercase().contains(&query_lower))
             })
             .collect()
     }

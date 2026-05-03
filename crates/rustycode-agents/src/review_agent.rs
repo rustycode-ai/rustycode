@@ -11,17 +11,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 /// Review agent for code analysis and review
+#[derive(Default)]
 pub struct ReviewAgent;
 
 impl ReviewAgent {
     /// Create a new review agent
     pub const fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for ReviewAgent {
-    fn default() -> Self {
         Self
     }
 }

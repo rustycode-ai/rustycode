@@ -1184,9 +1184,7 @@ impl OpenAiProvider {
                 if let Some(delta) = choice.get("delta") {
                     Self::extract_delta_events(delta, events, tool_ids_by_index);
                 }
-                if let Some(finish_reason) =
-                    choice.get("finish_reason").and_then(|f| f.as_str())
-                {
+                if let Some(finish_reason) = choice.get("finish_reason").and_then(|f| f.as_str()) {
                     Self::extract_finish_events(data, finish_reason, events);
                 }
             }
@@ -1239,10 +1237,7 @@ impl OpenAiProvider {
         events: &mut Vec<Result<StreamEvent, ProviderError>>,
         tool_ids_by_index: &mut HashMap<usize, String>,
     ) {
-        let index = tc_delta
-            .get("index")
-            .and_then(|i| i.as_u64())
-            .unwrap_or(0) as usize;
+        let index = tc_delta.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
 
         let resolved_id = tc_delta
             .get("id")
@@ -1309,12 +1304,8 @@ impl OpenAiProvider {
             .and_then(|t| t.as_u64())
             .unwrap_or(0) as u32;
         if cached_tokens > 0 {
-            let hit_pct = (cached_tokens * 100)
-                .checked_div(input_tokens)
-                .unwrap_or(0);
-            tracing::info!(
-                "Cache: {hit_pct}% hit ({cached_tokens}/{input_tokens} prompt tokens)"
-            );
+            let hit_pct = (cached_tokens * 100).checked_div(input_tokens).unwrap_or(0);
+            tracing::info!("Cache: {hit_pct}% hit ({cached_tokens}/{input_tokens} prompt tokens)");
         }
         Some(Usage {
             input_tokens,
@@ -1327,7 +1318,9 @@ impl OpenAiProvider {
     }
 
     /// Extract an error from a JSON value that has a top-level "error" object.
-    fn extract_stream_error(data: &serde_json::Value) -> Option<Result<StreamEvent, ProviderError>> {
+    fn extract_stream_error(
+        data: &serde_json::Value,
+    ) -> Option<Result<StreamEvent, ProviderError>> {
         let error = data.get("error")?;
         let code = error
             .get("code")

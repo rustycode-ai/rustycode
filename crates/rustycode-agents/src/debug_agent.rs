@@ -11,17 +11,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 /// Debug agent for error analysis and troubleshooting
+#[derive(Default)]
 pub struct DebugAgent;
 
 impl DebugAgent {
     /// Create a new debug agent
     pub const fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for DebugAgent {
-    fn default() -> Self {
         Self
     }
 }

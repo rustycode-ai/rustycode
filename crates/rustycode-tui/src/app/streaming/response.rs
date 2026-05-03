@@ -339,9 +339,12 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         "ollama" | "local" | "lmstudio" | "litert-lm" | "litert_lm" | "litert"
     );
     if needs_api_key && v2_config.api_key.is_none() {
-        send_chunk(&stream_tx,StreamChunk::Error(StreamError::NoApiKey {
-            provider: provider_type.clone(),
-        }));
+        send_chunk(
+            &stream_tx,
+            StreamChunk::Error(StreamError::NoApiKey {
+                provider: provider_type.clone(),
+            }),
+        );
         send_chunk(&stream_tx, StreamChunk::Done);
         return Ok(());
     }
@@ -506,9 +509,12 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
     };
 
     if let Err(err) = result {
-        send_chunk(&stream_tx, StreamChunk::Error(StreamError::Provider(
-            rustycode_llm::provider::ProviderError::Api(err.to_string())
-        )));
+        send_chunk(
+            &stream_tx,
+            StreamChunk::Error(StreamError::Provider(
+                rustycode_llm::provider::ProviderError::Api(err.to_string()),
+            )),
+        );
         send_chunk(&stream_tx, StreamChunk::Done);
         return Err(err);
     }
@@ -564,9 +570,12 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
         "ollama" | "local" | "lmstudio" | "litert-lm" | "litert_lm" | "litert"
     );
     if needs_api_key && v2_config.api_key.is_none() {
-        send_chunk(&stream_tx,StreamChunk::Error(
-            StreamError::NoApiKey { provider: provider_type.clone() }
-        ));
+        send_chunk(
+            &stream_tx,
+            StreamChunk::Error(StreamError::NoApiKey {
+                provider: provider_type.clone(),
+            }),
+        );
         // Must send Done so the TUI releases the query guard and clears is_streaming.
         // Without this, the guard stays active and blocks all future messages.
         send_chunk(&stream_tx, StreamChunk::Done);
@@ -580,9 +589,9 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
             None => {
                 send_chunk(
                     &stream_tx,
-                    StreamChunk::Error(
-                        StreamError::NoApiKey { provider: provider_type.clone() }
-                    ),
+                    StreamChunk::Error(StreamError::NoApiKey {
+                        provider: provider_type.clone(),
+                    }),
                 );
                 send_chunk(&stream_tx, StreamChunk::Done);
                 return Ok(());
@@ -590,11 +599,15 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
         };
         let key_str = api_key.expose_secret();
         if key_str.len() < 20 {
-            send_chunk(&stream_tx,StreamChunk::Error(
-                StreamError::InvalidApiKey {
-                    details: format!("API key appears too short ({} chars). Expected at least 20 characters.", key_str.len()),
-                }
-            ));
+            send_chunk(
+                &stream_tx,
+                StreamChunk::Error(StreamError::InvalidApiKey {
+                    details: format!(
+                        "API key appears too short ({} chars). Expected at least 20 characters.",
+                        key_str.len()
+                    ),
+                }),
+            );
             send_chunk(&stream_tx, StreamChunk::Done);
             return Ok(());
         }
@@ -853,7 +866,9 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
             tracing::warn!("Reached max tool turns ({}), breaking loop", MAX_TOOL_TURNS);
             send_chunk(
                 &stream_tx,
-                StreamChunk::Error(StreamError::MaxToolTurns { limit: MAX_TOOL_TURNS }),
+                StreamChunk::Error(StreamError::MaxToolTurns {
+                    limit: MAX_TOOL_TURNS,
+                }),
             );
             break;
         }
@@ -952,9 +967,10 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     "Stream timeout exceeded ({:.1}s)",
                     turn_elapsed.as_secs_f64()
                 );
-                send_chunk(&stream_tx,StreamChunk::Error(
-                    StreamError::StreamDurationExceeded,
-                ));
+                send_chunk(
+                    &stream_tx,
+                    StreamChunk::Error(StreamError::StreamDurationExceeded),
+                );
                 send_chunk(&stream_tx, StreamChunk::Done);
                 break;
             }
@@ -978,9 +994,10 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     }
                     if tokio::time::Instant::now() >= deadline {
                         tracing::warn!("Stream timed out after 300s with no data");
-                        send_chunk(&stream_tx, StreamChunk::Error(
-                            StreamError::StreamIdleTimeout { seconds: 300 },
-                        ));
+                        send_chunk(
+                            &stream_tx,
+                            StreamChunk::Error(StreamError::StreamIdleTimeout { seconds: 300 }),
+                        );
                         send_chunk(&stream_tx, StreamChunk::Done);
                         break 'stream;
                     }
@@ -1313,9 +1330,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                         None => {
                             send_chunk(
                                 &stream_tx,
-                            StreamChunk::Error(
-                                StreamError::ApprovalChannelUnavailable,
-                            ),
+                                StreamChunk::Error(StreamError::ApprovalChannelUnavailable),
                             );
                             tool_executions.push(ToolExecutionResult {
                                 tool_use_id: tool.id.clone(),
@@ -1453,9 +1468,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                         None => {
                             send_chunk(
                                 &stream_tx,
-                            StreamChunk::Error(
-                                StreamError::QuestionChannelUnavailable,
-                            ),
+                                StreamChunk::Error(StreamError::QuestionChannelUnavailable),
                             );
                             tool_executions.push(ToolExecutionResult {
                                 tool_use_id: tool.id.clone(),

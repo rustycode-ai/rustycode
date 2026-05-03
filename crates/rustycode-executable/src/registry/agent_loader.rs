@@ -1,7 +1,10 @@
 //! Loader for `RustyCode` agents
 
-use crate::{ExecutableUnit, ExecutableError, UnitCapabilities, AdvancedToolMetadata, ExecutionMode, UnitSource};
 use crate::registry::loaders::UnitLoader;
+use crate::{
+    AdvancedToolMetadata, ExecutableError, ExecutableUnit, ExecutionMode, UnitCapabilities,
+    UnitSource,
+};
 use async_trait::async_trait;
 use std::path::PathBuf;
 
@@ -22,7 +25,11 @@ impl AgentLoader {
         if let Ok(entries) = std::fs::read_dir(&self.agents_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.is_dir() || path.extension().is_some_and(|ext| ext == "md" || ext == "yaml") {
+                if path.is_dir()
+                    || path
+                        .extension()
+                        .is_some_and(|ext| ext == "md" || ext == "yaml")
+                {
                     let name = path
                         .file_stem()
                         .and_then(|s| s.to_str())

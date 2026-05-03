@@ -29,10 +29,44 @@ pub struct Header {
     pub status: HeaderStatus,
     /// Animation frame index for spinner (goose pattern: animated header status)
     pub spinner_frame: usize,
+    /// Current AI autonomy mode (Ask/Plan/Act/Yolo)
+    pub ai_mode: Option<AiModeLabel>,
     /// Primary color for headers/borders
     pub primary_color: Color,
     /// Secondary color for muted text
     pub secondary_color: Color,
+}
+
+/// Compact label for the AI autonomy level displayed in the header.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AiModeLabel {
+    #[default]
+    Ask,
+    Plan,
+    Act,
+    Yolo,
+}
+
+impl AiModeLabel {
+    /// Short display string shown in the header.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Ask => "Ask",
+            Self::Plan => "Plan",
+            Self::Act => "Act",
+            Self::Yolo => "Yolo",
+        }
+    }
+
+    /// Color used for the mode badge.
+    pub fn color(&self) -> Color {
+        match self {
+            Self::Ask => Color::Rgb(107, 142, 255),   // soft blue
+            Self::Plan => Color::Cyan,
+            Self::Act => Color::Rgb(255, 200, 80),     // gold
+            Self::Yolo => Color::Rgb(255, 80, 80),     // red/cranberry
+        }
+    }
 }
 
 /// Header status indicator (goose pattern: color-coded status in header)
@@ -83,6 +117,7 @@ impl Default for Header {
             turn_count: 0,
             status: HeaderStatus::Ready,
             spinner_frame: 0,
+            ai_mode: None,
             primary_color: Color::Rgb(91, 141, 239),
             secondary_color: Color::Rgb(107, 114, 128),
         }
@@ -118,6 +153,11 @@ impl Header {
 
     pub fn with_turn_count(mut self, turns: usize) -> Self {
         self.turn_count = turns;
+        self
+    }
+
+    pub fn with_ai_mode(mut self, mode: Option<AiModeLabel>) -> Self {
+        self.ai_mode = mode;
         self
     }
 
@@ -168,6 +208,19 @@ impl Header {
                 Style::default().fg(self.status.color()),
             ));
             used += status_text.len();
+        }
+
+        if let Some(mode) = self.ai_mode {
+            if mode != AiModeLabel::default() {
+                let mode_text = format!("{} ", mode.label());
+                if used + mode_text.len() + 4 < width {
+                    spans.push(Span::styled(
+                        mode_text.clone(),
+                        Style::default().fg(mode.color()).add_modifier(Modifier::BOLD),
+                    ));
+                    used += mode_text.len();
+                }
+            }
         }
 
         // Git branch (before project, only if room)

@@ -48,8 +48,8 @@ pub fn executables_to_tool_definitions(units: &[ExecutableUnit]) -> Vec<ToolDefi
 mod tests {
     use super::*;
     use rustycode_executable::{
-        AdvancedToolMetadata, ExecutionExample, ExecutionMode, ExecutionContext,
-        UnitCapabilities, UnitSource,
+        AdvancedToolMetadata, ExecutionContext, ExecutionExample, ExecutionMode, UnitCapabilities,
+        UnitSource,
     };
     use std::sync::Arc;
 

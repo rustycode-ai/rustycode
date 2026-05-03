@@ -329,8 +329,8 @@ mod tests {
             &mut tui,
             StreamChunk::Error(StreamError::Provider(
                 rustycode_llm::provider::ProviderError::Network(
-                    "Connection issue: stream interrupted".to_string()
-                )
+                    "Connection issue: stream interrupted".to_string(),
+                ),
             )),
         );
 

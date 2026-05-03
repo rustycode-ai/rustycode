@@ -1,30 +1,31 @@
 use std::sync::Arc;
 
 use axum::{
-    extract::{Path, Query, State, WebSocketUpgrade, ws::{Message, WebSocket}},
+    extract::{
+        ws::{Message, WebSocket},
+        Path, Query, State, WebSocketUpgrade,
+    },
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post},
-    Json,
-    Router,
+    Json, Router,
 };
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 
 use crate::auth::{self, AuthConfig, WsQuery};
+use crate::bridge::EventBridge;
 use crate::error::{ErrorCode, ErrorPayload};
 use crate::protocol::{
     Capabilities, ClientMessage, Envelope, HeartbeatAckPayload, ServerMessage,
     SessionCreatedPayload, SessionResumedPayload,
 };
 use crate::session::{
-    SessionManager, SessionInfo,
-    ProviderInfo, ProviderEntry, ProviderListResponse, SwitchProviderRequest,
-    SkillListResponse, SkillInfo, SkillExecuteRequest,
-    McpServerListResponse, McpServerInfo, McpAddServerRequest, McpServerConfig,
+    McpAddServerRequest, McpServerConfig, McpServerInfo, McpServerListResponse, ProviderEntry,
+    ProviderInfo, ProviderListResponse, SessionInfo, SessionManager, SkillExecuteRequest,
+    SkillInfo, SkillListResponse, SwitchProviderRequest,
 };
-use crate::bridge::EventBridge;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -39,7 +40,12 @@ pub struct WsRouter;
 
 impl WsRouter {
     pub async fn build(session_manager: SessionManager) -> Router {
-        Self::build_with_config(session_manager, AuthConfig::default(), tokio_util::sync::CancellationToken::new()).await
+        Self::build_with_config(
+            session_manager,
+            AuthConfig::default(),
+            tokio_util::sync::CancellationToken::new(),
+        )
+        .await
     }
 
     pub async fn build_with_config(
@@ -64,7 +70,9 @@ impl WsRouter {
             shutdown_token,
             event_bridge,
         };
-        let auth_state = crate::auth::AuthState { config: auth_config };
+        let auth_state = crate::auth::AuthState {
+            config: auth_config,
+        };
 
         Router::new()
             .route("/ws", get(ws_upgrade_handler))
@@ -79,7 +87,10 @@ impl WsRouter {
             .route("/api/mcp/servers/add", post(add_mcp_server))
             .route("/api/mcp/servers/{name}", delete(remove_mcp_server))
             .route("/api/mcp/servers/{name}/restart", post(restart_mcp_server))
-            .layer(axum::middleware::from_fn_with_state(auth_state, crate::auth::auth_middleware))
+            .layer(axum::middleware::from_fn_with_state(
+                auth_state,
+                crate::auth::auth_middleware,
+            ))
             .with_state(state)
     }
 }
@@ -156,7 +167,8 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
 
         if let Ok(snapshot) = state.session_manager.snapshot(&session_token).await {
             let snap_msg = ServerMessage::StateSnapshot(snapshot);
-            if let Err(e) = send_server_message(&mut ws_sender, &snap_msg, &correlation_id(0)).await {
+            if let Err(e) = send_server_message(&mut ws_sender, &snap_msg, &correlation_id(0)).await
+            {
                 warn!("failed to send state snapshot: {e}");
             }
         }
@@ -180,7 +192,9 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
     let bridge_forward_handle: tokio::task::JoinHandle<()> = tokio::spawn(async move {
         while let Some(stream_event) = bridge_rx.recv().await {
             let event_id = uuid::Uuid::new_v4().to_string();
-            let seq = seq_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed).saturating_add(1);
+            let seq = seq_counter
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+                .saturating_add(1);
             let event_payload = crate::protocol::EventPayload {
                 seq,
                 event_id,
@@ -305,8 +319,8 @@ async fn handle_text_message(
 ) -> Result<(), crate::error::WsError> {
     let envelope =
         Envelope::decode(text).map_err(|e| crate::error::WsError::Protocol(e.to_string()))?;
-    let client_msg = ClientMessage::from_envelope(&envelope)
-        .map_err(crate::error::WsError::Protocol)?;
+    let client_msg =
+        ClientMessage::from_envelope(&envelope).map_err(crate::error::WsError::Protocol)?;
 
     match client_msg {
         ClientMessage::Hello(_) => {
@@ -366,7 +380,10 @@ async fn handle_text_message(
 
 const MAX_PATH_PARAM_LEN: usize = 256;
 
-fn validate_path_param(value: &str, label: &str) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+fn validate_path_param(
+    value: &str,
+    label: &str,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     if value.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -382,16 +399,13 @@ fn validate_path_param(value: &str, label: &str) -> Result<(), (StatusCode, Json
     Ok(())
 }
 
-async fn get_providers(
-    State(state): State<AppState>,
-) -> Json<ProviderListResponse> {
+async fn get_providers(State(state): State<AppState>) -> Json<ProviderListResponse> {
     let current = state.session_manager.provider_info().await;
     let providers = rustycode_llm::registry::ProviderMetadataRegistry::new()
         .get_all_providers()
         .iter()
         .map(|meta| {
-            let available = std::env::var(&meta.api_key_env)
-                .is_ok_and(|k| !k.is_empty());
+            let available = std::env::var(&meta.api_key_env).is_ok_and(|k| !k.is_empty());
             ProviderEntry {
                 name: meta.id.clone(),
                 display_name: meta.name.clone(),
@@ -408,7 +422,11 @@ async fn switch_provider(
     State(state): State<AppState>,
     Json(req): Json<SwitchProviderRequest>,
 ) -> Result<Json<ProviderInfo>, (StatusCode, Json<ErrorPayload>)> {
-    match state.session_manager.switch_provider(req.provider, req.model).await {
+    match state
+        .session_manager
+        .switch_provider(req.provider, req.model)
+        .await
+    {
         Ok(info) => Ok(Json(info)),
         Err(e) => Err((
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -420,10 +438,9 @@ async fn switch_provider(
     }
 }
 
-async fn list_skills(
-    State(state): State<AppState>,
-) -> Json<SkillListResponse> {
-    let skills: Vec<SkillInfo> = state.skill_registry
+async fn list_skills(State(state): State<AppState>) -> Json<SkillListResponse> {
+    let skills: Vec<SkillInfo> = state
+        .skill_registry
         .get_all()
         .into_iter()
         .filter(|s| s.user_invocable)
@@ -473,9 +490,7 @@ async fn execute_skill(
     ))
 }
 
-async fn list_sessions(
-    State(state): State<AppState>,
-) -> Json<Vec<SessionInfo>> {
+async fn list_sessions(State(state): State<AppState>) -> Json<Vec<SessionInfo>> {
     Json(state.session_manager.list_sessions().await)
 }
 
@@ -515,9 +530,7 @@ async fn delete_session(
 
 // ── MCP Server Handlers ───────────────────────────────────
 
-async fn list_mcp_servers(
-    State(state): State<AppState>,
-) -> Json<McpServerListResponse> {
+async fn list_mcp_servers(State(state): State<AppState>) -> Json<McpServerListResponse> {
     let connected = state.session_manager.connected_mcp_servers();
     let servers: Vec<McpServerInfo> = state
         .session_manager
@@ -551,14 +564,18 @@ async fn add_mcp_server(
         args: req.args.clone(),
         env: req.env.clone(),
     };
-    state.session_manager.add_mcp_server(config).await.map_err(|e| {
-        let code = match &e {
-            crate::error::WsError::Validation(_) => StatusCode::BAD_REQUEST,
-            crate::error::WsError::TooManyMcpServers { .. } => StatusCode::SERVICE_UNAVAILABLE,
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-        (code, Json(serde_json::json!({ "error": e.to_string() })))
-    })?;
+    state
+        .session_manager
+        .add_mcp_server(config)
+        .await
+        .map_err(|e| {
+            let code = match &e {
+                crate::error::WsError::Validation(_) => StatusCode::BAD_REQUEST,
+                crate::error::WsError::TooManyMcpServers { .. } => StatusCode::SERVICE_UNAVAILABLE,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            (code, Json(serde_json::json!({ "error": e.to_string() })))
+        })?;
     Ok(Json(serde_json::json!({
         "status": "added",
         "name": req.name

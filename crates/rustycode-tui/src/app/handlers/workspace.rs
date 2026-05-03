@@ -83,8 +83,6 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
     }
 }
 
-
-
 pub fn handle_slash_command_result(tui: &mut TUI, result: SlashCommandResult) {
     match result {
         SlashCommandResult::Success(output) => {

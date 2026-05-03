@@ -1,13 +1,13 @@
 //! Shared test fixtures for `rustycode-executable` integration tests
 #![allow(dead_code, clippy::missing_const_for_fn, clippy::doc_markdown)]
 
-use rustycode_executable::{
-    AdvancedToolMetadata, Callable, ExecutionInput, ExecutionMetadata, ExecutionMode,
-    ExecutionContext, ExecutableError, ExecutableUnit, ToolSchema, UnitCapabilities, UnitSource,
-};
-use rustycode_executable::router::{DirectExecutor, SkillBundler, AgentExecutor};
-use std::sync::Arc;
 use async_trait::async_trait;
+use rustycode_executable::router::{AgentExecutor, DirectExecutor, SkillBundler};
+use rustycode_executable::{
+    AdvancedToolMetadata, Callable, ExecutableError, ExecutableUnit, ExecutionContext,
+    ExecutionInput, ExecutionMetadata, ExecutionMode, ToolSchema, UnitCapabilities, UnitSource,
+};
+use std::sync::Arc;
 
 /// Simple callable that echoes input data back
 pub struct EchoCallable;

@@ -456,7 +456,11 @@ impl SkillLoader {
             match fs::read_to_string(&instructions_path) {
                 Ok(content) => return content,
                 Err(e) => {
-                    tracing::warn!("Failed to read instructions file {:?}: {}", instructions_path, e);
+                    tracing::warn!(
+                        "Failed to read instructions file {:?}: {}",
+                        instructions_path,
+                        e
+                    );
                 }
             }
         }

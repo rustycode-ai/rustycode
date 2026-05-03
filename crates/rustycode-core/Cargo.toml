@@ -36,9 +36,7 @@ rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-bus = { path = "../rustycode-bus" }
 rustycode-llm = { path = "../rustycode-llm", default-features = false }
 rustycode-orchestration = { path = "../rustycode-orchestration" }
-rustycode-prompt = { path = "../rustycode-prompt" }
 rustycode-mcp = { path = "../rustycode-mcp", default-features = false }
-once_cell.workspace = true
 rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 rustycode-session = { path = "../rustycode-session" }

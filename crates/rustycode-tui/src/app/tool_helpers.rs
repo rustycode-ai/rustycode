@@ -51,10 +51,10 @@ fn is_single_command_allowed(base_command: &str) -> bool {
 fn has_dangerous_patterns(command: &str) -> bool {
     // These are patterns that enable command injection
     let dangerous = [
-        ";",    // Command separator
-        "`",    // Command substitution (old style)
-        "$(",   // Command substitution (new style)
-        "${",   // Variable expansion with braces (potential injection)
+        ";",  // Command separator
+        "`",  // Command substitution (old style)
+        "$(", // Command substitution (new style)
+        "${", // Variable expansion with braces (potential injection)
     ];
 
     // Check simple patterns

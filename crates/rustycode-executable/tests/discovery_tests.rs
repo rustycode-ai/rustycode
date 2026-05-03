@@ -4,10 +4,10 @@
 mod common;
 
 use common::{make_agent_unit, make_skill_unit, make_tool_unit};
+use rustycode_executable::discovery::ToolSearchOptions;
 use rustycode_executable::registry::loaders::UnitLoader;
 use rustycode_executable::registry::native_tool_loader::NativeToolLoader;
 use rustycode_executable::{ExecutableRegistry, ToolSearchService};
-use rustycode_executable::discovery::ToolSearchOptions;
 use std::sync::Arc;
 
 fn setup_search() -> (Arc<ExecutableRegistry>, ToolSearchService) {
@@ -27,7 +27,10 @@ fn setup_search() -> (Arc<ExecutableRegistry>, ToolSearchService) {
 #[tokio::test]
 async fn search_finds_by_name_exact_match() {
     let (_registry, search) = setup_search();
-    let results = search.search("grep", ToolSearchOptions::default()).await.unwrap();
+    let results = search
+        .search("grep", ToolSearchOptions::default())
+        .await
+        .unwrap();
 
     assert!(!results.is_empty());
     assert_eq!(results[0].id, "grep");
@@ -186,10 +189,7 @@ async fn native_loader_unknown_tool_has_no_examples() {
 
     assert_eq!(units.len(), 1);
     let examples = &units[0].advanced_metadata.examples;
-    assert!(
-        examples.is_empty(),
-        "unknown tools should have no examples"
-    );
+    assert!(examples.is_empty(), "unknown tools should have no examples");
 }
 
 #[tokio::test]

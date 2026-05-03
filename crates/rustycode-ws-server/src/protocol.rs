@@ -14,7 +14,11 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    pub fn new(msg_type: impl Into<String>, id: impl Into<String>, payload: serde_json::Value) -> Self {
+    pub fn new(
+        msg_type: impl Into<String>,
+        id: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
         Self {
             v: PROTOCOL_VERSION,
             r#type: msg_type.into(),
@@ -172,8 +176,9 @@ impl ClientMessage {
                 Ok(Self::Heartbeat(payload))
             }
             client_types::TOOL_APPROVAL => {
-                let payload: ToolApprovalResponsePayload = serde_json::from_value(envelope.payload.clone())
-                    .map_err(|e| format!("invalid tool_approval payload: {e}"))?;
+                let payload: ToolApprovalResponsePayload =
+                    serde_json::from_value(envelope.payload.clone())
+                        .map_err(|e| format!("invalid tool_approval payload: {e}"))?;
                 Ok(Self::ToolApproval(payload))
             }
             client_types::PLAN_APPROVAL => {
@@ -265,16 +270,14 @@ mod tests {
             serde_json::json!({"session_token": "abc", "client_info": null}),
         );
         let msg = ClientMessage::from_envelope(&envelope).unwrap();
-        assert!(matches!(msg, ClientMessage::Hello(p) if p.session_token.as_deref() == Some("abc")));
+        assert!(
+            matches!(msg, ClientMessage::Hello(p) if p.session_token.as_deref() == Some("abc"))
+        );
     }
 
     #[test]
     fn client_message_input() {
-        let envelope = Envelope::new(
-            "input",
-            "2",
-            serde_json::json!({"content": "hello world"}),
-        );
+        let envelope = Envelope::new("input", "2", serde_json::json!({"content": "hello world"}));
         let msg = ClientMessage::from_envelope(&envelope).unwrap();
         assert!(matches!(msg, ClientMessage::Input(p) if p.content == "hello world"));
     }
@@ -308,7 +311,9 @@ mod tests {
             serde_json::json!({"request_id": "req-1", "approved": true}),
         );
         let msg = ClientMessage::from_envelope(&envelope).unwrap();
-        assert!(matches!(msg, ClientMessage::ToolApproval(p) if p.approved && p.request_id == "req-1"));
+        assert!(
+            matches!(msg, ClientMessage::ToolApproval(p) if p.approved && p.request_id == "req-1")
+        );
     }
 
     #[test]
@@ -319,7 +324,9 @@ mod tests {
             serde_json::json!({"plan_id": "plan-42", "approved": false}),
         );
         let msg = ClientMessage::from_envelope(&envelope).unwrap();
-        assert!(matches!(msg, ClientMessage::PlanApproval(p) if !p.approved && p.plan_id == "plan-42"));
+        assert!(
+            matches!(msg, ClientMessage::PlanApproval(p) if !p.approved && p.plan_id == "plan-42")
+        );
     }
 
     #[test]
@@ -519,8 +526,14 @@ mod tests {
             id: "plan-1".to_string(),
             title: "Refactor auth".to_string(),
             steps: vec![
-                StreamPlanStep { name: "Add types".into(), description: "Define newtypes".into() },
-                StreamPlanStep { name: "Migrate".into(), description: "Update callers".into() },
+                StreamPlanStep {
+                    name: "Add types".into(),
+                    description: "Define newtypes".into(),
+                },
+                StreamPlanStep {
+                    name: "Migrate".into(),
+                    description: "Update callers".into(),
+                },
             ],
         });
         let json = serde_json::to_value(&payload).unwrap();
@@ -573,9 +586,10 @@ mod tests {
         let payload = make_event(StreamEvent::PlanApprovalRequested {
             plan_id: "plan-1".to_string(),
             title: "Refactor auth".to_string(),
-            steps: vec![
-                StreamPlanStep { name: "Step 1".into(), description: "Do the thing".into() },
-            ],
+            steps: vec![StreamPlanStep {
+                name: "Step 1".into(),
+                description: "Do the thing".into(),
+            }],
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "plan_approval_requested");
@@ -610,10 +624,16 @@ mod tests {
 
     #[test]
     fn decode_rejects_oversized_message() {
-        let oversized = format!(r#"{{"v":2,"type":"hello","id":"1","payload":{}}}"#, "X".repeat(300_000));
+        let oversized = format!(
+            r#"{{"v":2,"type":"hello","id":"1","payload":{}}}"#,
+            "X".repeat(300_000)
+        );
         let result = Envelope::decode(&oversized);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("size limit"), "expected size limit error, got: {err}");
+        assert!(
+            err.contains("size limit"),
+            "expected size limit error, got: {err}"
+        );
     }
 }

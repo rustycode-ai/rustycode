@@ -196,12 +196,7 @@ pub(super) fn handle_tool_start_chunk(
         .rev()
         .find(|m| m.role == MessageRole::Assistant);
     if let Some(last_msg) = assistant_msg {
-        let tool_execution = new_running_tool(
-            tool_id,
-            tool_name,
-            input_json,
-            initial_summary,
-        );
+        let tool_execution = new_running_tool(tool_id, tool_name, input_json, initial_summary);
 
         if last_msg.tool_executions.is_none() {
             last_msg.tool_executions = Some(vec![]);
@@ -216,7 +211,6 @@ pub(super) fn handle_tool_start_chunk(
 
     tui.dirty = true;
 }
-
 
 pub(super) fn handle_tool_progress_chunk(
     tui: &mut TUI,
@@ -292,7 +286,6 @@ pub(super) fn handle_tool_progress_chunk(
         }
     }
 }
-
 
 pub(super) fn handle_tool_complete_chunk(
     tui: &mut TUI,

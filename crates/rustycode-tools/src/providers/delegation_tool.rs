@@ -14,13 +14,7 @@ use serde_json::{json, Value};
 
 /// Valid roles a delegated task can assume.
 const VALID_ROLES: &[&str] = &[
-    "explore",
-    "research",
-    "code",
-    "review",
-    "verify",
-    "plan",
-    "debug",
+    "explore", "research", "code", "review", "verify", "plan", "debug",
 ];
 
 /// Intent-only delegation tool — captures the LLM's delegation intent as structured JSON.
@@ -112,9 +106,7 @@ impl Tool for DelegationTool {
         let task_description = params
             .get("task_description")
             .and_then(Value::as_str)
-            .ok_or_else(|| {
-                anyhow!("missing required parameter 'task_description' (string)")
-            })?;
+            .ok_or_else(|| anyhow!("missing required parameter 'task_description' (string)"))?;
 
         if task_description.trim().is_empty() {
             return Err(anyhow!("'task_description' must not be empty"));
@@ -159,9 +151,7 @@ impl Tool for DelegationTool {
             result["resume_from"] = json!(checkpoint);
         }
 
-        let text = format!(
-            "Task delegated: [{role}] {task_description} (id: {task_id})"
-        );
+        let text = format!("Task delegated: [{role}] {task_description} (id: {task_id})");
 
         Ok(ToolOutput::with_structured(text, result))
     }
@@ -195,11 +185,15 @@ mod tests {
         let schema = tool.parameters_schema();
 
         // Verify required fields
-        let required = schema["required"].as_array().expect("required should be array");
+        let required = schema["required"]
+            .as_array()
+            .expect("required should be array");
         assert!(required.iter().any(|v| v == "task_description"));
 
         // Verify role enum
-        let role_enum = schema["properties"]["role"]["enum"].as_array().expect("role should have enum");
+        let role_enum = schema["properties"]["role"]["enum"]
+            .as_array()
+            .expect("role should have enum");
         assert!(role_enum.iter().any(|v| v == "explore"));
         assert!(role_enum.iter().any(|v| v == "debug"));
 
@@ -233,7 +227,9 @@ mod tests {
         );
         assert!(structured["task_id"].as_str().unwrap().starts_with("del_"));
 
-        let paths = structured["path_scope"].as_array().expect("path_scope should be array");
+        let paths = structured["path_scope"]
+            .as_array()
+            .expect("path_scope should be array");
         assert_eq!(paths.len(), 2);
     }
 
@@ -299,7 +295,10 @@ mod tests {
 
         let result = tool.execute(params, &ctx);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must not be empty"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must not be empty"));
     }
 
     #[test]
@@ -315,7 +314,10 @@ mod tests {
         let result = tool.execute(params, &ctx);
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("invalid role"), "expected 'invalid role', got: {err_msg}");
+        assert!(
+            err_msg.contains("invalid role"),
+            "expected 'invalid role', got: {err_msg}"
+        );
         assert!(err_msg.contains("nonexistent_role"));
     }
 
@@ -330,7 +332,8 @@ mod tests {
                 "role": role
             });
 
-            let output = tool.execute(params, &ctx)
+            let output = tool
+                .execute(params, &ctx)
                 .unwrap_or_else(|e| panic!("role '{role}' should be valid: {e}"));
             let structured = output.structured.expect("should have structured output");
             assert_eq!(structured["role"], *role);

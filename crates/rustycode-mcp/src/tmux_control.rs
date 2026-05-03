@@ -805,9 +805,7 @@ impl TmuxMcpServer {
             "exit_code": record.exit_code,
         });
 
-        if matches!(record.origin, CommandOrigin::Tmux)
-            && record.status == "running"
-        {
+        if matches!(record.origin, CommandOrigin::Tmux) && record.status == "running" {
             if let (Some(session_id_str), Some(pane_index)) =
                 (&record.session_id, record.pane_index)
             {
@@ -917,7 +915,10 @@ impl TmuxMcpServer {
             .get("timeout_secs")
             .and_then(serde_json::Value::as_u64)
             .unwrap_or(self.config.command_timeout_secs);
-        let filter = args.get("filter").and_then(serde_json::Value::as_str).unwrap_or("");
+        let filter = args
+            .get("filter")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("");
         let mut command = String::from("cargo test");
         if !filter.is_empty() {
             command.push(' ');

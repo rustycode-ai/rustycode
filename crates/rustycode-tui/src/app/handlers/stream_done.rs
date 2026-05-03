@@ -157,9 +157,7 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
                      • The response was filtered (check debug log for details)"
                         .to_string(),
                 );
-            } else if let Some(last_msg) =
-                tui.messages.iter_mut().rev().find(|m| m.id == msg_id)
-            {
+            } else if let Some(last_msg) = tui.messages.iter_mut().rev().find(|m| m.id == msg_id) {
                 tracing::info!(
                     tool_count = last_msg
                         .tool_executions
@@ -247,8 +245,7 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
     tui.thinking_chunks_received = 0;
     tui.stream_start_time = Some(std::time::Instant::now());
     tui.current_stream_content.clear();
-    tui.streaming_render_buffer =
-        crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
     let send_start = std::time::Instant::now();
     if let Err(e) = tui
         .services

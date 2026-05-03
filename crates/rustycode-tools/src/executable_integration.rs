@@ -7,8 +7,8 @@
 
 use async_trait::async_trait;
 use rustycode_executable::{
-    Callable, ExecutableError, ExecutionInput, ExecutionMetadata, ExecutionMode, ExecutionOutput,
-    ExecutableUnit, UnitCapabilities, UnitSource, AdvancedToolMetadata, ToolSchema,
+    AdvancedToolMetadata, Callable, ExecutableError, ExecutableUnit, ExecutionInput,
+    ExecutionMetadata, ExecutionMode, ExecutionOutput, ToolSchema, UnitCapabilities, UnitSource,
 };
 use rustycode_tools_api::{Tool, ToolContext, ToolInfo, ToolRegistry};
 use std::sync::Arc;
@@ -67,10 +67,7 @@ impl Callable for NativeToolCallable {
 }
 
 /// Convert a native `Tool` (behind `Arc`) into an `ExecutableUnit`.
-pub fn native_tool_to_executable(
-    tool: Arc<dyn Tool>,
-    context: Arc<ToolContext>,
-) -> ExecutableUnit {
+pub fn native_tool_to_executable(tool: Arc<dyn Tool>, context: Arc<ToolContext>) -> ExecutableUnit {
     let name = tool.name().to_string();
     let description = tool.description().to_string();
     let schema_json = tool.parameters_schema();
@@ -231,10 +228,7 @@ mod tests {
             serde_json::json!({"type": "object", "properties": {"msg": {"type": "string"}}})
         }
         fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
-            let msg = params
-                .get("msg")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let msg = params.get("msg").and_then(|v| v.as_str()).unwrap_or("");
             Ok(ToolOutput::with_structured(
                 msg,
                 serde_json::json!({"echo": msg}),

@@ -303,6 +303,10 @@ const REGISTERED_SLASH_COMMANDS: &[SlashCommandPlugin] = &[
         names: &["/retry"],
         handler: handle_retry_command,
     },
+    SlashCommandPlugin {
+        names: &["/sessions"],
+        handler: handle_sessions_command,
+    },
 ];
 
 /// Dispatch a registered slash command plugin if one matches the input.

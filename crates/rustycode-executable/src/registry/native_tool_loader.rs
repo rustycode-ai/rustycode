@@ -1,10 +1,10 @@
 //! Loader for native `RustyCode` tools
 
-use crate::{
-    AdvancedToolMetadata, ExecutableError, ExecutionExample, ExecutionContext, ExecutionMode,
-    ExecutableUnit, UnitCapabilities, UnitSource,
-};
 use crate::registry::loaders::UnitLoader;
+use crate::{
+    AdvancedToolMetadata, ExecutableError, ExecutableUnit, ExecutionContext, ExecutionExample,
+    ExecutionMode, UnitCapabilities, UnitSource,
+};
 use async_trait::async_trait;
 
 /// Wraps native tools from `rustycode-tools` as `ExecutableUnit`s
@@ -38,7 +38,9 @@ impl NativeToolLoader {
                 result_processor: None,
             },
             handler: std::sync::Arc::new(crate::types::callable::NoOpCallable),
-            source: UnitSource::NativeTool { path: "native".to_string() },
+            source: UnitSource::NativeTool {
+                path: "native".to_string(),
+            },
             schema: None,
             tags: vec!["native".to_string()],
             version: None,
@@ -66,8 +68,7 @@ impl NativeToolLoader {
                         timeout_ms: Some(30_000),
                     },
                     explanation: Some(
-                        "Run a shell command and return stdout, stderr, and exit code."
-                            .to_string(),
+                        "Run a shell command and return stdout, stderr, and exit code.".to_string(),
                     ),
                 },
                 ExecutionExample {
@@ -84,8 +85,7 @@ impl NativeToolLoader {
                         timeout_ms: Some(30_000),
                     },
                     explanation: Some(
-                        "Use find to locate files matching a pattern recursively."
-                            .to_string(),
+                        "Use find to locate files matching a pattern recursively.".to_string(),
                     ),
                 },
             ],
@@ -135,7 +135,9 @@ impl NativeToolLoader {
                     immediate_result: true,
                     timeout_ms: None,
                 },
-                explanation: Some("Write content to a file, creating or overwriting it.".to_string()),
+                explanation: Some(
+                    "Write content to a file, creating or overwriting it.".to_string(),
+                ),
             }],
             "glob" => vec![ExecutionExample {
                 scenario: "Find Rust source files".to_string(),
@@ -187,6 +189,10 @@ impl UnitLoader for NativeToolLoader {
     }
 
     async fn load_units(&self) -> Result<Vec<ExecutableUnit>, ExecutableError> {
-        Ok(self.tool_names.iter().map(|n| Self::create_stub_unit(n)).collect())
+        Ok(self
+            .tool_names
+            .iter()
+            .map(|n| Self::create_stub_unit(n))
+            .collect())
     }
 }

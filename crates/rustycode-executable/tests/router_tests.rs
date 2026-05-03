@@ -4,13 +4,11 @@
 mod common;
 
 use common::{
-    make_agent_unit, make_input, make_skill_unit, make_tool_unit,
-    TagDirectExecutor, TagSkillBundler, TagAgentExecutor,
-    make_direct_only_unit, make_knowledge_only_unit,
+    make_agent_unit, make_direct_only_unit, make_input, make_knowledge_only_unit, make_skill_unit,
+    make_tool_unit, TagAgentExecutor, TagDirectExecutor, TagSkillBundler,
 };
 use rustycode_executable::{
-    ExecutionRouter, ExecutableRegistry, ExecutionContext,
-    ExecutableError,
+    ExecutableError, ExecutableRegistry, ExecutionContext, ExecutionRouter,
 };
 use std::sync::Arc;
 
@@ -59,7 +57,10 @@ async fn execute_skill_context_requires_knowledge_capability() {
 
     let result = router.execute("tool_only", input, context).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ExecutableError::UnsupportedContext { .. }));
+    assert!(matches!(
+        result.unwrap_err(),
+        ExecutableError::UnsupportedContext { .. }
+    ));
 }
 
 #[tokio::test]
@@ -76,7 +77,10 @@ async fn execute_agent_context_requires_reasoning_capability() {
 
     let result = router.execute("no_reason", input, context).await;
     assert!(result.is_err());
-    assert!(matches!(result.unwrap_err(), ExecutableError::UnsupportedContext { .. }));
+    assert!(matches!(
+        result.unwrap_err(),
+        ExecutableError::UnsupportedContext { .. }
+    ));
 }
 
 #[tokio::test]
@@ -109,7 +113,9 @@ async fn execute_hybrid_selects_direct_for_tool() {
 #[tokio::test]
 async fn execute_hybrid_selects_agent_for_autonomous_unit() {
     let (registry, router) = setup_router();
-    registry.register(make_agent_unit("autonomous_agent")).unwrap();
+    registry
+        .register(make_agent_unit("autonomous_agent"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({}));
     let result = router.execute_hybrid("autonomous_agent", input).await;
@@ -144,7 +150,9 @@ async fn programmatic_call_context_uses_direct_executor() {
 #[tokio::test]
 async fn hybrid_selects_direct_for_tool_only_unit() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_direct_only_unit("bash_tool")).unwrap();
+    registry
+        .register(make_direct_only_unit("bash_tool"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({"cmd": "ls"}));
     let result = router.execute_hybrid("bash_tool", input).await;
@@ -172,7 +180,9 @@ async fn hybrid_selects_agent_for_autonomous_unit() {
 #[tokio::test]
 async fn hybrid_selects_skill_for_knowledge_only_unit() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_knowledge_only_unit("doc_skill")).unwrap();
+    registry
+        .register(make_knowledge_only_unit("doc_skill"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({"topic": "rust"}));
     let result = router.execute_hybrid("doc_skill", input).await;
@@ -223,7 +233,9 @@ async fn hybrid_returns_not_found_for_unregistered_unit() {
 #[tokio::test]
 async fn tool_unit_rejects_agent_reasoning_context() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_direct_only_unit("strict_tool")).unwrap();
+    registry
+        .register(make_direct_only_unit("strict_tool"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({}));
     let context = ExecutionContext::AgentReasoning {
@@ -247,7 +259,9 @@ async fn tool_unit_rejects_agent_reasoning_context() {
 #[tokio::test]
 async fn tool_only_unit_rejects_skill_context() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_direct_only_unit("no_knowledge_tool")).unwrap();
+    registry
+        .register(make_direct_only_unit("no_knowledge_tool"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({}));
     let context = ExecutionContext::SkillReference {
@@ -268,7 +282,9 @@ async fn tool_only_unit_rejects_skill_context() {
 #[tokio::test]
 async fn knowledge_only_unit_rejects_direct_context() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_knowledge_only_unit("pure_skill")).unwrap();
+    registry
+        .register(make_knowledge_only_unit("pure_skill"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({}));
     let context = ExecutionContext::DirectTool {
@@ -289,7 +305,9 @@ async fn knowledge_only_unit_rejects_direct_context() {
 #[tokio::test]
 async fn knowledge_only_unit_rejects_agent_context() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_knowledge_only_unit("no_reason_skill")).unwrap();
+    registry
+        .register(make_knowledge_only_unit("no_reason_skill"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({}));
     let context = ExecutionContext::AgentReasoning {
@@ -311,7 +329,9 @@ async fn knowledge_only_unit_rejects_agent_context() {
 #[tokio::test]
 async fn agent_unit_accepts_direct_context() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_agent_unit("flexible_agent")).unwrap();
+    registry
+        .register(make_agent_unit("flexible_agent"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({"action": "run"}));
     let context = ExecutionContext::DirectTool {
@@ -329,7 +349,9 @@ async fn agent_unit_accepts_direct_context() {
 #[tokio::test]
 async fn agent_unit_accepts_skill_context() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_agent_unit("knowledgeable_agent")).unwrap();
+    registry
+        .register(make_agent_unit("knowledgeable_agent"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({}));
     let context = ExecutionContext::SkillReference {
@@ -366,7 +388,9 @@ async fn agent_unit_accepts_agent_context() {
 #[tokio::test]
 async fn programmatic_call_rejected_by_knowledge_only_unit() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_knowledge_only_unit("doc_only")).unwrap();
+    registry
+        .register(make_knowledge_only_unit("doc_only"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({}));
     let context = ExecutionContext::ProgrammaticCall {
@@ -387,7 +411,9 @@ async fn programmatic_call_rejected_by_knowledge_only_unit() {
 #[tokio::test]
 async fn programmatic_call_accepted_by_direct_unit() {
     let (registry, router) = setup_tagged_router();
-    registry.register(make_direct_only_unit("callable_tool")).unwrap();
+    registry
+        .register(make_direct_only_unit("callable_tool"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({"x": 1}));
     let context = ExecutionContext::ProgrammaticCall {

@@ -84,12 +84,18 @@ mod tests {
         let mut session = FrontendSession::default();
         start_response(&mut session);
 
-        apply_event(&mut session, &StreamEvent::TextDelta {
-            content: "hel".to_string(),
-        });
-        apply_event(&mut session, &StreamEvent::TextDelta {
-            content: "lo".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TextDelta {
+                content: "hel".to_string(),
+            },
+        );
+        apply_event(
+            &mut session,
+            &StreamEvent::TextDelta {
+                content: "lo".to_string(),
+            },
+        );
 
         assert_eq!(session.current_response, "hello");
         assert_eq!(session.messages.last().unwrap().content, "hello");
@@ -100,9 +106,12 @@ mod tests {
         let mut session = FrontendSession::default();
         start_response(&mut session);
 
-        apply_event(&mut session, &StreamEvent::ThinkingDelta {
-            content: "thinking...".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::ThinkingDelta {
+                content: "thinking...".to_string(),
+            },
+        );
 
         assert_eq!(session.current_response, "thinking...");
     }
@@ -112,10 +121,13 @@ mod tests {
         let mut session = FrontendSession::default();
         start_response(&mut session);
 
-        apply_event(&mut session, &StreamEvent::ToolCallStarted {
-            id: "t1".to_string(),
-            name: "bash".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::ToolCallStarted {
+                id: "t1".to_string(),
+                name: "bash".to_string(),
+            },
+        );
 
         assert_eq!(session.tool_iteration_count, 1);
         assert!(session.current_response.contains("[tool: bash]"));
@@ -126,12 +138,15 @@ mod tests {
         let mut session = FrontendSession::default();
         start_response(&mut session);
 
-        apply_event(&mut session, &StreamEvent::ToolExecCompleted {
-            id: "t1".to_string(),
-            name: "read".to_string(),
-            output: "file contents".to_string(),
-            is_error: false,
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::ToolExecCompleted {
+                id: "t1".to_string(),
+                name: "read".to_string(),
+                output: "file contents".to_string(),
+                is_error: false,
+            },
+        );
 
         assert_eq!(session.messages.len(), 2);
         assert_eq!(session.messages[1].kind, FrontendMessageKind::Tool);
@@ -143,12 +158,15 @@ mod tests {
         let mut session = FrontendSession::default();
         start_response(&mut session);
 
-        apply_event(&mut session, &StreamEvent::ToolExecCompleted {
-            id: "t2".to_string(),
-            name: "bash".to_string(),
-            output: "command failed".to_string(),
-            is_error: true,
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::ToolExecCompleted {
+                id: "t2".to_string(),
+                name: "bash".to_string(),
+                output: "command failed".to_string(),
+                is_error: true,
+            },
+        );
 
         assert_eq!(session.messages[1].kind, FrontendMessageKind::Error);
     }
@@ -157,13 +175,19 @@ mod tests {
     fn turn_completed_end_turn_finalizes_response() {
         let mut session = FrontendSession::default();
         start_response(&mut session);
-        apply_event(&mut session, &StreamEvent::TextDelta {
-            content: "answer".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TextDelta {
+                content: "answer".to_string(),
+            },
+        );
 
-        apply_event(&mut session, &StreamEvent::TurnCompleted {
-            stop_reason: "end_turn".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TurnCompleted {
+                stop_reason: "end_turn".to_string(),
+            },
+        );
 
         assert!(!session.pending_request);
         assert_eq!(session.messages[0].content, "answer");
@@ -173,13 +197,19 @@ mod tests {
     fn turn_completed_tool_use_does_not_finalize() {
         let mut session = FrontendSession::default();
         start_response(&mut session);
-        apply_event(&mut session, &StreamEvent::TextDelta {
-            content: "partial".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TextDelta {
+                content: "partial".to_string(),
+            },
+        );
 
-        apply_event(&mut session, &StreamEvent::TurnCompleted {
-            stop_reason: "tool_use".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TurnCompleted {
+                stop_reason: "tool_use".to_string(),
+            },
+        );
 
         assert_eq!(session.current_response, "partial");
     }
@@ -189,9 +219,12 @@ mod tests {
         let mut session = FrontendSession::default();
         session.pending_request = true;
         start_response(&mut session);
-        apply_event(&mut session, &StreamEvent::TextDelta {
-            content: "final".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TextDelta {
+                content: "final".to_string(),
+            },
+        );
 
         apply_event(&mut session, &StreamEvent::Done);
 
@@ -212,17 +245,26 @@ mod tests {
         start_response(&mut session);
 
         // Stream text
-        apply_event(&mut session, &StreamEvent::TextDelta {
-            content: "The ".to_string(),
-        });
-        apply_event(&mut session, &StreamEvent::TextDelta {
-            content: "answer is 4.".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TextDelta {
+                content: "The ".to_string(),
+            },
+        );
+        apply_event(
+            &mut session,
+            &StreamEvent::TextDelta {
+                content: "answer is 4.".to_string(),
+            },
+        );
 
         // Turn completes
-        apply_event(&mut session, &StreamEvent::TurnCompleted {
-            stop_reason: "end_turn".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TurnCompleted {
+                stop_reason: "end_turn".to_string(),
+            },
+        );
 
         // Done
         apply_event(&mut session, &StreamEvent::Done);
@@ -238,10 +280,13 @@ mod tests {
     fn tool_input_delta_is_noop() {
         let mut session = FrontendSession::default();
         let before = session.clone();
-        apply_event(&mut session, &StreamEvent::ToolInputDelta {
-            id: "t1".to_string(),
-            chunk: "data".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::ToolInputDelta {
+                id: "t1".to_string(),
+                chunk: "data".to_string(),
+            },
+        );
         assert_eq!(session.messages, before.messages);
         assert_eq!(session.current_response, before.current_response);
     }
@@ -250,10 +295,13 @@ mod tests {
     fn tool_exec_started_is_noop() {
         let mut session = FrontendSession::default();
         let before = session.clone();
-        apply_event(&mut session, &StreamEvent::ToolExecStarted {
-            id: "t1".to_string(),
-            name: "bash".to_string(),
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::ToolExecStarted {
+                id: "t1".to_string(),
+                name: "bash".to_string(),
+            },
+        );
         assert_eq!(session.messages, before.messages);
     }
 
@@ -269,10 +317,13 @@ mod tests {
     fn token_usage_is_noop() {
         let mut session = FrontendSession::default();
         let before = session.clone();
-        apply_event(&mut session, &StreamEvent::TokenUsage {
-            input_tokens: 100,
-            output_tokens: 50,
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::TokenUsage {
+                input_tokens: 100,
+                output_tokens: 50,
+            },
+        );
         assert_eq!(session.messages, before.messages);
     }
 
@@ -280,10 +331,13 @@ mod tests {
     fn cache_usage_is_noop() {
         let mut session = FrontendSession::default();
         let before = session.clone();
-        apply_event(&mut session, &StreamEvent::CacheUsage {
-            cache_read_tokens: 10,
-            cache_creation_tokens: 5,
-        });
+        apply_event(
+            &mut session,
+            &StreamEvent::CacheUsage {
+                cache_read_tokens: 10,
+                cache_creation_tokens: 5,
+            },
+        );
         assert_eq!(session.messages, before.messages);
     }
 }

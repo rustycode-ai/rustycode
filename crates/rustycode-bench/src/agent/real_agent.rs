@@ -20,8 +20,8 @@ use rustycode_tools_api::tiers::ToolTier;
 use rustycode_tools_api::ToolPermission;
 use serde_json::{json, Value};
 
-use crate::agent::BenchAgent;
 use crate::agent::tools::build_bench_registry;
+use crate::agent::BenchAgent;
 use crate::environment::BenchEnvironment;
 
 // ---------------------------------------------------------------------------
@@ -295,10 +295,19 @@ mod tests {
         assert!(names.contains(&"git_diff"), "missing git_diff");
         assert!(names.contains(&"git_log"), "missing git_log");
         // No interactive tools
-        assert!(!names.contains(&"question"), "question should not be registered");
-        assert!(!names.contains(&"ask_user"), "ask_user should not be registered");
+        assert!(
+            !names.contains(&"question"),
+            "question should not be registered"
+        );
+        assert!(
+            !names.contains(&"ask_user"),
+            "ask_user should not be registered"
+        );
         // No git commit
-        assert!(!names.contains(&"git_commit"), "git_commit should not be registered");
+        assert!(
+            !names.contains(&"git_commit"),
+            "git_commit should not be registered"
+        );
     }
 
     #[test]

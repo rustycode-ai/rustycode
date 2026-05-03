@@ -31,18 +31,11 @@ pub(super) fn handle_approval_request_chunk(
         match risk_level {
             risk::RiskLevel::Safe => {}
             risk::RiskLevel::Medium | risk::RiskLevel::High => {
-                tracing::info!(
-                    "Yolo auto-approved ({:?}): {}",
-                    risk_level,
-                    tool_name
-                );
+                tracing::info!("Yolo auto-approved ({:?}): {}", risk_level, tool_name);
                 tui.add_system_message(format!("⚡ Auto-approved: {}", tool_name));
             }
             risk::RiskLevel::Dangerous => {
-                tracing::warn!(
-                    "Yolo auto-approved (DESTRUCTIVE): {}",
-                    tool_name
-                );
+                tracing::warn!("Yolo auto-approved (DESTRUCTIVE): {}", tool_name);
                 tui.add_system_message(format!("⚠ Auto-approved (dangerous): {}", tool_name));
             }
         }
@@ -135,7 +128,6 @@ pub(super) fn handle_approval_request_chunk(
     );
 }
 
-
 pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
     if let Some(mut request) = tui.pending_approval_request.pop_front() {
         request.approve();
@@ -146,7 +138,6 @@ pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
     tui.awaiting_approval = !tui.pending_approval_request.is_empty();
     tui.dirty = true;
 }
-
 
 pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, _tool_id: String) {
     if let Some(mut request) = tui.pending_approval_request.pop_front() {

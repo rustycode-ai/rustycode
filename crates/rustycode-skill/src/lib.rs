@@ -63,9 +63,9 @@ pub mod types;
 pub mod watcher;
 pub mod workflows;
 
+pub use budget::{BudgetEnforcer, ContextBudget, SkillBudgetEntry};
 pub use discovery::Discovery;
 pub use registry::SkillRegistry;
-pub use budget::{BudgetEnforcer, ContextBudget, SkillBudgetEntry};
 pub use scoping::{resolve_allowed_tools, scope_from_definition, SkillToolScope};
 
 /// Metadata about a discovered skill

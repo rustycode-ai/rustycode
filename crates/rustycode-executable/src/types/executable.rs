@@ -1,4 +1,4 @@
-use crate::types::{UnitCapabilities, AdvancedToolMetadata, ToolSchema};
+use crate::types::{AdvancedToolMetadata, ToolSchema, UnitCapabilities};
 use crate::Callable;
 use std::sync::Arc;
 

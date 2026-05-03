@@ -17,9 +17,9 @@
 //! let output = cmd.output().await?;
 //! ```
 
-use std::sync::LazyLock;
 use std::process::Command as StdCommand;
 use std::process::Stdio;
+use std::sync::LazyLock;
 use tokio::process::Command as TokioCommand;
 
 pub struct ShellInfo {

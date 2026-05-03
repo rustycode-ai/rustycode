@@ -390,8 +390,7 @@ impl ForkJoinExecutor {
                                 &fork_id,
                                 format!("Fork executed: {description}"),
                                 0.0,
-                                i64::try_from(fork_start.elapsed().as_millis())
-                                    .unwrap_or(i64::MAX),
+                                i64::try_from(fork_start.elapsed().as_millis()).unwrap_or(i64::MAX),
                             )
                         }
                     }
@@ -875,11 +874,7 @@ mod tests {
             output: "real output".into(),
             success: true,
         });
-        let executor = ForkJoinExecutor::with_runner(
-            ForkJoinConfig::default(),
-            bus,
-            runner,
-        );
+        let executor = ForkJoinExecutor::with_runner(ForkJoinConfig::default(), bus, runner);
         let snapshot = ContextSnapshot::new("t1", "desc", 2);
         let mut spec = ForkSpec::new("fork-0", "process main.rs", ExecutionTier::Editor);
         spec.role = Some(TaskRole::Code);

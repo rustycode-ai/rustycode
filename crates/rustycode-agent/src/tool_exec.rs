@@ -164,4 +164,3 @@ mod tests {
         assert_eq!(truncate_tool_output(&output, 50), output);
     }
 }
-

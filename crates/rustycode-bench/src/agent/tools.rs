@@ -32,7 +32,9 @@ pub fn build_bench_registry() -> ToolRegistry {
 
     // Structured thinking — task decomposition, strategy selection, phase tracking
     #[cfg(feature = "real-agent")]
-    registry.register(rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool::new(None));
+    registry.register(
+        rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool::new(None),
+    );
 
     registry
 }

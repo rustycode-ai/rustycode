@@ -18,8 +18,16 @@ pub(super) fn handle_extract_tasks_chunk(tui: &mut TUI, text: String) {
 
     extract_action_items(&text, &mut tui.workspace_tasks);
 
-    let new_todos = tui.workspace_tasks.todos.len().saturating_sub(initial_todos);
-    let new_tasks = tui.workspace_tasks.tasks.len().saturating_sub(initial_tasks);
+    let new_todos = tui
+        .workspace_tasks
+        .todos
+        .len()
+        .saturating_sub(initial_todos);
+    let new_tasks = tui
+        .workspace_tasks
+        .tasks
+        .len()
+        .saturating_sub(initial_tasks);
 
     // Save the updated tasks
     if let Err(e) = crate::tasks::save_tasks(&tui.workspace_tasks) {
@@ -56,7 +64,6 @@ pub(super) fn handle_extract_tasks_chunk(tui: &mut TUI, text: String) {
     );
 }
 
-
 pub(super) fn handle_tasks_extracted_chunk(_tui: &mut TUI, todos_count: usize, tasks_count: usize) {
     // Notification that extraction happened (for logging/debugging)
     tracing::info!(
@@ -65,7 +72,6 @@ pub(super) fn handle_tasks_extracted_chunk(_tui: &mut TUI, todos_count: usize, t
         tasks_count
     );
 }
-
 
 pub(super) fn handle_question_request_chunk(
     tui: &mut TUI,
@@ -101,11 +107,13 @@ pub(super) fn handle_question_request_chunk(
     tui.dirty = true;
 }
 
-
-pub(super) fn handle_question_answered_chunk(_tui: &mut TUI, _question_id: String, _answer: String) {
+pub(super) fn handle_question_answered_chunk(
+    _tui: &mut TUI,
+    _question_id: String,
+    _answer: String,
+) {
     // Question was answered - this is for logging
 }
-
 
 pub(super) fn handle_file_snapshot_chunk(tui: &mut TUI, batch: Vec<(String, String)>) {
     // Snapshot of file content before a write operation — push to undo stack
@@ -117,7 +125,6 @@ pub(super) fn handle_file_snapshot_chunk(tui: &mut TUI, batch: Vec<(String, Stri
         }
     }
 }
-
 
 pub(super) fn handle_token_usage_chunk(
     tui: &mut TUI,
@@ -163,7 +170,6 @@ pub(super) fn handle_token_usage_chunk(
     tui.dirty = true;
 }
 
-
 pub(super) fn handle_execution_trace_chunk(tui: &mut TUI, trace: serde_json::Value) {
     tracing::debug!("Received execution trace from orchestration pipeline");
     tui.execution_trace = Some(trace);
@@ -172,7 +178,6 @@ pub(super) fn handle_execution_trace_chunk(tui: &mut TUI, trace: serde_json::Val
         recovery.mark_dirty();
     }
 }
-
 
 pub(super) fn handle_system_message_chunk(tui: &mut TUI, msg: String) {
     tui.add_system_message(msg);

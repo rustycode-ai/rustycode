@@ -65,6 +65,8 @@ pub struct RendererState {
     pub pending_tools: usize,
     /// Active plan-mode banner, if any.
     pub plan_mode_banner: Option<crate::app::plan_mode_ops::PlanModeBanner>,
+    /// Current AI autonomy level.
+    pub ai_mode: crate::ui::header::AiModeLabel,
 
     // ── Tasks ─────────────────────────────────────────────────────────────────
     /// Total task count in workspace.
@@ -154,6 +156,15 @@ impl RendererState {
             turn_count,
             pending_tools: tui.active_tools.len(),
             plan_mode_banner: tui.plan_mode_banner.clone(),
+            ai_mode: {
+                use crate::ui::header::AiModeLabel;
+                match tui.services.ai_mode() {
+                    crate::services::agent_mode::AiMode::Ask => AiModeLabel::Ask,
+                    crate::services::agent_mode::AiMode::Plan => AiModeLabel::Plan,
+                    crate::services::agent_mode::AiMode::Act => AiModeLabel::Act,
+                    crate::services::agent_mode::AiMode::Yolo => AiModeLabel::Yolo,
+                }
+            },
             task_count: tui.workspace_tasks.tasks.len(),
             task_summary,
             session_secs: tui.start_time.elapsed().as_secs(),
@@ -379,6 +390,7 @@ impl PolishedRenderer {
             .with_counts(self.state.task_count, self.state.pending_tools)
             .with_turn_count(self.state.turn_count)
             .with_status(self.state.header_status)
+            .with_ai_mode(Some(self.state.ai_mode))
             .with_spinner_frame(tui.animator.current_frame().progress_frame / 5);
         header.render(frame, chunks[0]);
 
@@ -503,8 +515,6 @@ impl PolishedRenderer {
         }
 
         if tui.command_palette.is_visible() {
-            let input = tui.input_handler.state.all_text();
-            tui.command_palette.sync_query_from_input(&input);
             tui.command_palette.render(frame, size);
         }
 

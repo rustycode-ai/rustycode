@@ -1809,10 +1809,13 @@ impl AnthropicProvider {
                                     }));
                                 }
 
-                                let reason = crate::provider::normalize_stop_reason(
-                                    stop_reason.as_deref(),
-                                )
-                                .unwrap_or_else(|| stop_reason.clone().unwrap_or_else(|| "end_turn".to_string()));
+                                let reason =
+                                    crate::provider::normalize_stop_reason(stop_reason.as_deref())
+                                        .unwrap_or_else(|| {
+                                            stop_reason
+                                                .clone()
+                                                .unwrap_or_else(|| "end_turn".to_string())
+                                        });
                                 events.push(Ok(StreamEvent::TurnCompleted {
                                     stop_reason: reason,
                                 }));

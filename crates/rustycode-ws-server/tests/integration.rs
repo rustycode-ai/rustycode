@@ -25,7 +25,9 @@ async fn create_test_app(session_manager: Arc<SessionManager>) -> Router {
     WsRouter::build((*session_manager).clone()).await
 }
 
-async fn ws_connect_with(shared: Option<Arc<SessionManager>>) -> (
+async fn ws_connect_with(
+    shared: Option<Arc<SessionManager>>,
+) -> (
     futures_util::stream::SplitSink<
         tokio_tungstenite::WebSocketStream<
             tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
@@ -103,7 +105,9 @@ async fn recv_envelope(
 async fn hello_creates_new_session() {
     let (mut sink, mut recv) = ws_connect().await;
 
-    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "1", json!({})))
+        .await
+        .unwrap();
 
     let envelope = recv_envelope(&mut recv).await;
     assert_eq!(envelope.r#type, "session_created");
@@ -120,9 +124,14 @@ async fn hello_with_token_resumes_session() {
 
     // First connection: create session
     let (mut sink, mut recv, _) = ws_connect_with(Some(shared_mgr.clone())).await;
-    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "1", json!({})))
+        .await
+        .unwrap();
     let created = recv_envelope(&mut recv).await;
-    let token = created.payload["session_token"].as_str().unwrap().to_string();
+    let token = created.payload["session_token"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     // Receive state_snapshot
     let snapshot = recv_envelope(&mut recv).await;
@@ -144,7 +153,9 @@ async fn heartbeat_roundtrip() {
     let (mut sink, mut recv) = ws_connect().await;
 
     // Hello first
-    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "1", json!({})))
+        .await
+        .unwrap();
     let _created = recv_envelope(&mut recv).await;
     let _snapshot = recv_envelope(&mut recv).await;
 
@@ -164,7 +175,9 @@ async fn heartbeat_roundtrip() {
 async fn state_snapshot_contains_empty_session() {
     let (mut sink, mut recv) = ws_connect().await;
 
-    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "1", json!({})))
+        .await
+        .unwrap();
     let _created = recv_envelope(&mut recv).await;
 
     let snapshot = recv_envelope(&mut recv).await;
@@ -180,12 +193,16 @@ async fn state_snapshot_contains_empty_session() {
 async fn duplicate_hello_returns_error() {
     let (mut sink, mut recv) = ws_connect().await;
 
-    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "1", json!({})))
+        .await
+        .unwrap();
     let _created = recv_envelope(&mut recv).await;
     let _snapshot = recv_envelope(&mut recv).await;
 
     // Send another hello
-    sink.send(make_envelope("hello", "2", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "2", json!({})))
+        .await
+        .unwrap();
 
     let err = recv_envelope(&mut recv).await;
     assert_eq!(err.r#type, "error");
@@ -196,7 +213,9 @@ async fn duplicate_hello_returns_error() {
 async fn unknown_message_type_returns_error() {
     let (mut sink, mut recv) = ws_connect().await;
 
-    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "1", json!({})))
+        .await
+        .unwrap();
     let _created = recv_envelope(&mut recv).await;
     let _snapshot = recv_envelope(&mut recv).await;
 
@@ -215,9 +234,14 @@ async fn abort_cancels_session_task() {
 
     // Connect and create session
     let (mut sink, mut recv, mgr) = ws_connect_with(Some(shared_mgr)).await;
-    sink.send(make_envelope("hello", "1", json!({}))).await.unwrap();
+    sink.send(make_envelope("hello", "1", json!({})))
+        .await
+        .unwrap();
     let created = recv_envelope(&mut recv).await;
-    let token = created.payload["session_token"].as_str().unwrap().to_string();
+    let token = created.payload["session_token"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     // Receive state_snapshot
     let _snapshot = recv_envelope(&mut recv).await;
@@ -273,7 +297,8 @@ async fn switch_provider_updates_info() {
                 .uri("/api/providers/switch")
                 .header("content-type", "application/json")
                 .body(axum::body::Body::from(
-                    serde_json::to_string(&json!({"provider": "ollama", "model": "llama3"})).unwrap(),
+                    serde_json::to_string(&json!({"provider": "ollama", "model": "llama3"}))
+                        .unwrap(),
                 ))
                 .unwrap(),
         )
@@ -334,10 +359,7 @@ async fn create_and_list_sessions() {
         .unwrap();
     assert_eq!(response.status(), axum::http::StatusCode::OK);
     let sessions: Vec<serde_json::Value> =
-        serde_json::from_slice(
-            &response.into_body().collect().await.unwrap().to_bytes(),
-        )
-        .unwrap();
+        serde_json::from_slice(&response.into_body().collect().await.unwrap().to_bytes()).unwrap();
     assert!(!sessions.is_empty());
 }
 

@@ -508,7 +508,6 @@ impl McpServer {
 mod tests {
     use super::*;
     use crate::build_lsp_tool_executor;
-    use rustycode_tools::ToolOutput;
     use tempfile::tempdir;
 
     #[tokio::test]

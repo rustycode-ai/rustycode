@@ -7,15 +7,15 @@
 
 mod common;
 
+use async_trait::async_trait;
 use common::{make_agent_unit, make_input, make_skill_unit, make_tool_unit, EchoCallable};
-use rustycode_executable::{
-    CallChain, ExecutableError, ExecutableRegistry, ExecutableUnit, ExecutionContext,
-    ExecutionMode, ExecutionRouter, ToolSearchService,
-    AdvancedToolMetadata, ExecutionExample, UnitCapabilities, UnitSource,
-};
 use rustycode_executable::discovery::ToolSearchOptions;
 use rustycode_executable::router::{AgentExecutor, DirectExecutor, SkillBundler};
-use async_trait::async_trait;
+use rustycode_executable::{
+    AdvancedToolMetadata, CallChain, ExecutableError, ExecutableRegistry, ExecutableUnit,
+    ExecutionContext, ExecutionExample, ExecutionMode, ExecutionRouter, ToolSearchService,
+    UnitCapabilities, UnitSource,
+};
 use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
@@ -285,7 +285,9 @@ async fn tool_unit_rejects_agent_context() {
 async fn skill_unit_accepts_direct_context() {
     let (registry, router) = setup_delegating_router();
     // Skill: can_execute_directly=true, can_bundle_knowledge=true
-    registry.register(make_skill_unit("versatile_skill")).unwrap();
+    registry
+        .register(make_skill_unit("versatile_skill"))
+        .unwrap();
 
     let input = make_input(serde_json::json!({"x": 1}));
     let context = ExecutionContext::DirectTool {
@@ -407,9 +409,7 @@ async fn programmatic_call_context_requires_direct_capability() {
 #[tokio::test]
 async fn discovery_exact_name_scores_highest() {
     let registry = Arc::new(ExecutableRegistry::new());
-    registry
-        .register(make_tool_unit("exact_match"))
-        .unwrap();
+    registry.register(make_tool_unit("exact_match")).unwrap();
     // Another unit whose description contains "exact_match" as substring
     let related = ExecutableUnit {
         id: "related".to_string(),
@@ -453,12 +453,8 @@ async fn discovery_exact_name_scores_highest() {
 async fn discovery_results_sorted_by_relevance_descending() {
     let registry = Arc::new(ExecutableRegistry::new());
     registry.register(make_tool_unit("alpha")).unwrap();
-    registry
-        .register(make_tool_unit("alpha_beta"))
-        .unwrap();
-    registry
-        .register(make_skill_unit("alpha_gamma"))
-        .unwrap();
+    registry.register(make_tool_unit("alpha_beta")).unwrap();
+    registry.register(make_skill_unit("alpha_gamma")).unwrap();
 
     let search = ToolSearchService::new(registry);
     let results = search
@@ -474,7 +470,10 @@ async fn discovery_results_sorted_by_relevance_descending() {
         assert!(
             window[0].relevance_score >= window[1].relevance_score,
             "results not sorted by descending relevance: {:?}",
-            results.iter().map(|r| (&r.id, r.relevance_score)).collect::<Vec<_>>()
+            results
+                .iter()
+                .map(|r| (&r.id, r.relevance_score))
+                .collect::<Vec<_>>()
         );
     }
 }
@@ -483,7 +482,9 @@ async fn discovery_results_sorted_by_relevance_descending() {
 async fn discovery_limits_results_correctly() {
     let registry = Arc::new(ExecutableRegistry::new());
     for i in 0..20 {
-        registry.register(make_tool_unit(&format!("unit_{i:02}"))).unwrap();
+        registry
+            .register(make_tool_unit(&format!("unit_{i:02}")))
+            .unwrap();
     }
 
     let search = ToolSearchService::new(registry);
@@ -603,7 +604,8 @@ async fn long_unit_id_works() {
 async fn special_characters_in_description_work() {
     let registry = ExecutableRegistry::new();
     let mut unit = make_tool_unit("special_desc");
-    unit.description = "Handles files with paths like /tmp/test (v2.0) & special <chars> \"quotes\"".to_string();
+    unit.description =
+        "Handles files with paths like /tmp/test (v2.0) & special <chars> \"quotes\"".to_string();
     registry.register(unit).unwrap();
 
     let retrieved = registry.get_sync("special_desc").unwrap();
@@ -761,9 +763,15 @@ async fn examples_preserved_through_register_get_cycle() {
     // Verify first example field-by-field
     assert_eq!(retrieved_examples[0].scenario, "list files in a directory");
     assert_eq!(retrieved_examples[0].input["command"], "ls -la /tmp");
-    assert!(retrieved_examples[0].input.is_object(), "input must be valid JSON object");
+    assert!(
+        retrieved_examples[0].input.is_object(),
+        "input must be valid JSON object"
+    );
     assert_eq!(retrieved_examples[0].output["exit_code"], 0);
-    assert!(retrieved_examples[0].output.is_object(), "output must be valid JSON object");
+    assert!(
+        retrieved_examples[0].output.is_object(),
+        "output must be valid JSON object"
+    );
     assert_eq!(
         retrieved_examples[0].explanation,
         Some("Lists files with details".to_string())
@@ -779,9 +787,15 @@ async fn examples_preserved_through_register_get_cycle() {
 #[tokio::test]
 async fn default_unit_has_empty_examples() {
     let registry = ExecutableRegistry::new();
-    registry.register(make_tool_unit("no_examples_tool")).unwrap();
-    registry.register(make_skill_unit("no_examples_skill")).unwrap();
-    registry.register(make_agent_unit("no_examples_agent")).unwrap();
+    registry
+        .register(make_tool_unit("no_examples_tool"))
+        .unwrap();
+    registry
+        .register(make_skill_unit("no_examples_skill"))
+        .unwrap();
+    registry
+        .register(make_agent_unit("no_examples_agent"))
+        .unwrap();
 
     for id in &["no_examples_tool", "no_examples_skill", "no_examples_agent"] {
         let unit = registry.get_sync(id).unwrap();

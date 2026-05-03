@@ -1,6 +1,6 @@
-use async_trait::async_trait;
-use crate::types::{UnitCapabilities, ExecutionContext};
+use crate::types::{ExecutionContext, UnitCapabilities};
 use crate::ExecutableError;
+use async_trait::async_trait;
 
 /// Unified interface for executable units
 #[async_trait]
@@ -17,7 +17,10 @@ pub trait Callable: Send + Sync {
         Ok(())
     }
 
-    async fn process_output(&self, output: ExecutionOutput) -> Result<ExecutionOutput, ExecutableError> {
+    async fn process_output(
+        &self,
+        output: ExecutionOutput,
+    ) -> Result<ExecutionOutput, ExecutableError> {
         Ok(output)
     }
 }

@@ -59,13 +59,7 @@ fn task_role_to_agent_type(role: TaskRole) -> &'static str {
 
 /// Return all valid role strings for the tool schema.
 const VALID_ROLE_STRINGS: [&str; 7] = [
-    "explore",
-    "research",
-    "code",
-    "review",
-    "verify",
-    "plan",
-    "debug",
+    "explore", "research", "code", "review", "verify", "plan", "debug",
 ];
 
 fn valid_role_strings() -> &'static [&'static str] {
@@ -207,9 +201,9 @@ impl DelegationExecutor {
     ///
     /// Excludes `AgentTool` and `DelegationExecutor` to prevent recursive spawning.
     fn build_subagent_tool_registry(&self) -> rustycode_tools::ToolRegistry {
+        use rustycode_tools::apply_patch::ApplyPatchTool;
         use rustycode_tools::edit::EditFile;
         use rustycode_tools::search::{GlobTool, GrepTool};
-        use rustycode_tools::apply_patch::ApplyPatchTool;
         use rustycode_tools::{
             BashTool, GitDiffTool, GitLogTool, GitStatusTool, ListDirTool, ReadFileTool,
             WriteFileTool,
@@ -273,9 +267,11 @@ impl TaskRunner for DelegationExecutor {
 
         // Execute via AgentSession (async, need block_in_place).
         let result = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(
-                self.execute_delegated_task_inner(def, &prompt, &effective_cwd),
-            )
+            tokio::runtime::Handle::current().block_on(self.execute_delegated_task_inner(
+                def,
+                &prompt,
+                &effective_cwd,
+            ))
         });
 
         let elapsed_ms = i64::try_from(start.elapsed().as_millis()).unwrap_or(i64::MAX);
@@ -476,8 +472,9 @@ impl Tool for DelegationExecutor {
             }
             SpawnDecision::Ensemble(plan) => {
                 let results = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current()
-                        .block_on(async { dispatcher.dispatch(SpawnDecision::Ensemble(plan)).await })
+                    tokio::runtime::Handle::current().block_on(async {
+                        dispatcher.dispatch(SpawnDecision::Ensemble(plan)).await
+                    })
                 });
 
                 Ok(ToolOutput::text(results_to_text(results)))
@@ -552,7 +549,9 @@ mod tests {
         let required = schema["required"]
             .as_array()
             .expect("required should be array");
-        assert!(required.iter().any(|v| v.as_str() == Some("task_description")));
+        assert!(required
+            .iter()
+            .any(|v| v.as_str() == Some("task_description")));
 
         let props = schema["properties"]
             .as_object()

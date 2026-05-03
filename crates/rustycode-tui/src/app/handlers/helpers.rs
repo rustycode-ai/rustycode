@@ -121,8 +121,7 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     tui.thinking_chunks_received = 0;
     tui.stream_start_time = Some(std::time::Instant::now());
     tui.current_stream_content.clear();
-    tui.streaming_render_buffer =
-        crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
 
     if let Err(e) = tui
         .services
@@ -144,7 +143,10 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     }
 }
 
-pub(super) fn build_tool_summary_arg(tool_name: &str, input_json: &serde_json::Value) -> Option<String> {
+pub(super) fn build_tool_summary_arg(
+    tool_name: &str,
+    input_json: &serde_json::Value,
+) -> Option<String> {
     let lower = tool_name.to_lowercase();
     if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
         return input_json.get("command").and_then(|v| v.as_str()).map(|s| {

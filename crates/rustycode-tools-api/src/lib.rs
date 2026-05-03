@@ -410,9 +410,7 @@ pub fn get_tool_permission(tool_name: &str) -> Option<ProtocolToolPermission> {
         // Read-only tools - auto-allow (safe operations)
         "read_file" | "list_dir" | "grep" | "glob" | "find" | "inspect" | "git_status"
         | "git_diff" | "git_log" | "lsp_diagnostics" | "lsp_hover" | "lsp_definition"
-        | "lsp_completion" => {
-            Some(ProtocolToolPermission::AutoAllow)
-        }
+        | "lsp_completion" => Some(ProtocolToolPermission::AutoAllow),
         // Write, execute, and unknown tools - require confirmation for safety
         _ => Some(ProtocolToolPermission::RequiresConfirmation),
     }

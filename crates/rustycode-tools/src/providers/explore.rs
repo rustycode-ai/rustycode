@@ -60,10 +60,12 @@ fn scope_matches(path: &Path, scope: Option<&str>, cwd: &Path) -> bool {
 fn file_uri(path: &Path) -> Result<LspUrl> {
     let file_url = FileUrl::from_file_path(path)
         .map_err(|()| anyhow!("failed to convert path to file URI: {}", path.display()))?;
-    file_url
-        .as_str()
-        .parse()
-        .map_err(|_| anyhow!("failed to convert file URL into LSP URI: {}", path.display()))
+    file_url.as_str().parse().map_err(|_| {
+        anyhow!(
+            "failed to convert file URL into LSP URI: {}",
+            path.display()
+        )
+    })
 }
 
 fn uri_to_path(uri: &LspUrl) -> Option<PathBuf> {
@@ -138,10 +140,15 @@ fn choose_symbol_information<'a>(
     candidates
         .iter()
         .find(|candidate| {
-                candidate.name == symbol_name
-                && uri_to_path(&candidate.location.uri).is_some_and(|candidate_path| candidate_path == path)
+            candidate.name == symbol_name
+                && uri_to_path(&candidate.location.uri)
+                    .is_some_and(|candidate_path| candidate_path == path)
         })
-        .or_else(|| candidates.iter().find(|candidate| candidate.name == symbol_name))
+        .or_else(|| {
+            candidates
+                .iter()
+                .find(|candidate| candidate.name == symbol_name)
+        })
         .or_else(|| candidates.first())
 }
 
@@ -227,8 +234,14 @@ impl Tool for FindTool {
         let mut results = nearby_matches(&index, query, scope, &ctx.cwd)
             .into_iter()
             .filter(|entry| {
-                let path = entry.get("path").and_then(Value::as_str).unwrap_or_default();
-                let line = entry.get("line").and_then(Value::as_u64).unwrap_or_default() as usize;
+                let path = entry
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let line = entry
+                    .get("line")
+                    .and_then(Value::as_u64)
+                    .unwrap_or_default() as usize;
                 seen.insert((path.to_string(), line))
             })
             .take(limit.saturating_sub(exact_symbols.len()))
@@ -243,7 +256,10 @@ impl Tool for FindTool {
         } else {
             let mut output = format!("Found {} matches for `{query}`\n", all_results.len());
             for (idx, entry) in all_results.iter().enumerate() {
-                let line = entry.get("line").and_then(Value::as_u64).unwrap_or_default();
+                let line = entry
+                    .get("line")
+                    .and_then(Value::as_u64)
+                    .unwrap_or_default();
                 let path = entry.get("path").and_then(Value::as_str).unwrap_or("?");
                 let kind = entry.get("kind").and_then(Value::as_str).unwrap_or("match");
                 let context = entry.get("context").and_then(Value::as_str).unwrap_or("");

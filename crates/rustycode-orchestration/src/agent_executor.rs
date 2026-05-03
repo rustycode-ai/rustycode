@@ -109,9 +109,7 @@ impl AgentEvents for BusAgentEvents {
                 });
             }
             // Other events are ignored for bus
-            StreamEvent::ThinkingDelta { .. }
-            | StreamEvent::Done
-            | _ => {}
+            StreamEvent::ThinkingDelta { .. } | StreamEvent::Done | _ => {}
         }
     }
 

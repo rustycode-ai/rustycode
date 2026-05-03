@@ -88,7 +88,11 @@ impl StreamEventAdapter {
                     output: Some(output_preview),
                 });
             }
-            OrchestrationEvent::ToolExecutionStarted { task_id, tool, args } => {
+            OrchestrationEvent::ToolExecutionStarted {
+                task_id,
+                tool,
+                args,
+            } => {
                 let tool_id = format!("exec-{}-{}", task_id, tool);
                 let call = ToolCall::new(tool_id.clone(), tool.clone(), args);
                 self.emit(StreamChunk::ToolStart {
@@ -98,7 +102,11 @@ impl StreamEventAdapter {
                 });
                 self.active_tools.insert(tool_id, call);
             }
-            OrchestrationEvent::ToolExecutionFinished { task_id, tool, result } => {
+            OrchestrationEvent::ToolExecutionFinished {
+                task_id,
+                tool,
+                result,
+            } => {
                 let tool_id = format!("exec-{}-{}", task_id, tool);
                 let duration_ms = self
                     .active_tools
@@ -170,9 +178,7 @@ impl StreamEventAdapter {
                 tier, used, limit, ..
             } => {
                 tracing::warn!(tier, used, limit, "context budget exceeded");
-                self.emit(StreamChunk::Error(
-                    StreamError::ContextBudgetExceeded,
-                ));
+                self.emit(StreamChunk::Error(StreamError::ContextBudgetExceeded));
             }
             OrchestrationEvent::EnsembleStarted {
                 strategy,
@@ -321,7 +327,11 @@ impl AgentEvents for StreamEventAdapter {
             tool_name,
             risk,
             tool_type,
-            if tool_name == "bash" { bash_command } else { &diff }
+            if tool_name == "bash" {
+                bash_command
+            } else {
+                &diff
+            }
         );
 
         // For bash tools, send the raw command (not key=value) so the TUI's

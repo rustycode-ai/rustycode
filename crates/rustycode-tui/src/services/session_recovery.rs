@@ -391,12 +391,12 @@ impl CrashRecovery {
         self.persistence.load_state(session_id).is_ok()
     }
 
-    /// Get list of recoverable sessions
+    /// Get list of recoverable sessions, sorted newest first by `last_saved`.
     pub fn list_recoverable_sessions(&self) -> Result<Vec<String>> {
-        let mut sessions = Vec::new();
+        let mut sessions: Vec<(String, DateTime<Utc>)> = Vec::new();
 
         if !self.persistence.base_dir.exists() {
-            return Ok(sessions);
+            return Ok(Vec::new());
         }
 
         for entry in fs::read_dir(&self.persistence.base_dir)? {
@@ -406,13 +406,21 @@ impl CrashRecovery {
             if path.is_dir() {
                 if let Some(session_id) = path.file_name().and_then(|n| n.to_str()) {
                     if self.is_recoverable(session_id) {
-                        sessions.push(session_id.to_string());
+                        let last_saved = self
+                            .persistence
+                            .load_state(session_id)
+                            .ok()
+                            .map(|s| s.last_saved)
+                            .unwrap_or(Utc::now());
+                        sessions.push((session_id.to_string(), last_saved));
                     }
                 }
             }
         }
 
-        Ok(sessions)
+        // Sort newest first
+        sessions.sort_by(|a, b| b.1.cmp(&a.1));
+        Ok(sessions.into_iter().map(|(id, _)| id).collect())
     }
 }
 

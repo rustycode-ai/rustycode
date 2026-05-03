@@ -1317,7 +1317,7 @@ impl TUI {
     /// Register all built-in tools for AI coding assistant functionality
     fn register_builtin_tools(&self, tool_registry: &mut ToolRegistry) {
         use crate::skills::as_tool::{CreateCronTool, CreateTeamTool, SkillToolRegistry};
-        use rustycode_tools::todo::{TodoWriteTool, TodoUpdateTool};
+        use rustycode_tools::todo::{TodoUpdateTool, TodoWriteTool};
         use rustycode_tools::todo_read::TodoReadTool;
         #[cfg(feature = "vector-memory")]
         use rustycode_tools::SemanticSearchTool;

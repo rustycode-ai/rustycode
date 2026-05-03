@@ -1,17 +1,17 @@
+pub mod agent;
 pub mod direct;
 pub mod skill;
-pub mod agent;
 
 use crate::{
-    ExecutableRegistry, ExecutableUnit, ExecutionContext, ExecutionCapability,
-    ExecutionInput, ExecutionOutput, ExecutionMode, ExecutableError,
+    ExecutableError, ExecutableRegistry, ExecutableUnit, ExecutionCapability, ExecutionContext,
+    ExecutionInput, ExecutionMode, ExecutionOutput,
 };
-use std::sync::Arc;
 use async_trait::async_trait;
+use std::sync::Arc;
 
+pub use agent::AgentExecutor;
 pub use direct::DirectExecutor;
 pub use skill::SkillBundler;
-pub use agent::AgentExecutor;
 
 /// Routes `ExecutableUnit` invocations to context-specific handlers
 pub struct ExecutionRouter {

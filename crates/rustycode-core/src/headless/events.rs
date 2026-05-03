@@ -38,7 +38,11 @@ impl AgentEvents for HeadlessAgentBridge {
                 tracing::debug!("Headless auto-approved (read-only): {}", tool_name);
             }
             rustycode_tools::smart_approve::OperationClass::Write => {
-                tracing::info!("Headless auto-approved (write): {} {}", tool_name, truncate_cmd(&command, 60));
+                tracing::info!(
+                    "Headless auto-approved (write): {} {}",
+                    tool_name,
+                    truncate_cmd(&command, 60)
+                );
             }
             rustycode_tools::smart_approve::OperationClass::Destructive => {
                 tracing::warn!(

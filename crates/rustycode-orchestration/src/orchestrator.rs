@@ -267,10 +267,9 @@ impl StepOrchestrator {
             parent_task_id: ctx.task_id.clone(),
         };
 
-        let decision = self.delegation_planner.should_spawn(
-            &step.description,
-            &delegation_context,
-        );
+        let decision = self
+            .delegation_planner
+            .should_spawn(&step.description, &delegation_context);
 
         if !matches!(decision, SpawnDecision::Inline) {
             tracing::info!(

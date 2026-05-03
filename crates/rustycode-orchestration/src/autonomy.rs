@@ -225,8 +225,8 @@ impl OperationType {
             | "lsp_references"
             | "lsp_document_symbols"
             | "todo_read" => Self::Read,
-            "write_file" | "edit_file" | "text_editor" | "apply_patch"
-            | "multi_edit" | "todo_write" | "notebook_edit" => Self::Write,
+            "write_file" | "edit_file" | "text_editor" | "apply_patch" | "multi_edit"
+            | "todo_write" | "notebook_edit" => Self::Write,
             "bash" | "subprocess" => Self::Execute,
             _ => Self::Unknown,
         }

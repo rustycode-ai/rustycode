@@ -84,6 +84,7 @@ impl TUI {
         if !self.showing_command_palette {
             return Ok(false);
         }
+        tracing::warn!("PALETTE INPUT: {:?} {:?}", key_code, modifiers);
 
         match (key_code, modifiers) {
             (KeyCode::Esc, _) => {
@@ -192,11 +193,24 @@ impl TUI {
                 self.dirty = true;
                 Ok(true)
             }
-            _ => {
-                // All other keys go to normal input handler
-                // Palette will filter from input text
-                Ok(false)
+            (KeyCode::Char(c), m)
+                if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT =>
+            {
+                self.command_palette.state_mut().insert_char(c);
+                self.dirty = true;
+                Ok(true)
             }
+            (KeyCode::Backspace, KeyModifiers::NONE) => {
+                self.command_palette.state_mut().backspace();
+                self.dirty = true;
+                Ok(true)
+            }
+            (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
+                self.command_palette.state_mut().clear_query();
+                self.dirty = true;
+                Ok(true)
+            }
+            _ => Ok(false),
         }
     }
 

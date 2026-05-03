@@ -158,13 +158,19 @@ impl StreamError {
                 rustycode_llm::provider::ProviderError::RateLimited { .. } => "Rate limited",
                 rustycode_llm::provider::ProviderError::Network(_) => "Connection issue",
                 rustycode_llm::provider::ProviderError::Auth(_) => "Auth error",
-                rustycode_llm::provider::ProviderError::ContextLengthExceeded(_) => "Context too long",
-                rustycode_llm::provider::ProviderError::CreditsExhausted { .. } => "Credits exhausted",
+                rustycode_llm::provider::ProviderError::ContextLengthExceeded(_) => {
+                    "Context too long"
+                }
+                rustycode_llm::provider::ProviderError::CreditsExhausted { .. } => {
+                    "Credits exhausted"
+                }
                 rustycode_llm::provider::ProviderError::InvalidModel(_) => "Invalid model",
                 rustycode_llm::provider::ProviderError::Timeout(_) => "Connection issue",
                 _ => "Temporary issue",
             },
-            StreamError::StreamIdleTimeout { .. } | StreamError::StreamDurationExceeded => "Connection issue",
+            StreamError::StreamIdleTimeout { .. } | StreamError::StreamDurationExceeded => {
+                "Connection issue"
+            }
             StreamError::ContextBudgetExceeded => "Context too long",
             StreamError::NoApiKey { .. } | StreamError::InvalidApiKey { .. } => "Auth error",
             _ => "Temporary issue",
@@ -772,9 +778,12 @@ mod tests {
         let error = StreamChunk::Error(StreamError::InternalError {
             message: "Failed".to_string(),
         });
-        assert_eq!(error, StreamChunk::Error(StreamError::InternalError {
-            message: "Failed".to_string(),
-        }));
+        assert_eq!(
+            error,
+            StreamChunk::Error(StreamError::InternalError {
+                message: "Failed".to_string(),
+            })
+        );
     }
 
     #[test]

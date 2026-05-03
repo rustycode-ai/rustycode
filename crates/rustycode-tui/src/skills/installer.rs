@@ -219,7 +219,10 @@ fn save_installed_skill(name: &str, lifecycle: &SkillLifecycle) -> Result<()> {
         match serde_json::from_str(&content) {
             Ok(r) => r,
             Err(e) => {
-                warn!("Failed to parse installed skills registry, resetting: {}", e);
+                warn!(
+                    "Failed to parse installed skills registry, resetting: {}",
+                    e
+                );
                 HashMap::new()
             }
         }

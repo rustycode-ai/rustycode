@@ -8,10 +8,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use rustycode_executable::router::{AgentExecutor, DirectExecutor, SkillBundler};
 use rustycode_executable::{
-    AdvancedToolMetadata, CallChain, ChainResult, ChainStep,
-    ExecutionContext, ExecutionInput, ExecutionMetadata, ExecutionMode, ExecutionOutput,
-    ExecutionRouter, ExecutableError, ExecutableRegistry, ExecutableUnit, InputTransform,
-    OutputTransform, UnitCapabilities, UnitSource,
+    AdvancedToolMetadata, CallChain, ChainResult, ChainStep, ExecutableError, ExecutableRegistry,
+    ExecutableUnit, ExecutionContext, ExecutionInput, ExecutionMetadata, ExecutionMode,
+    ExecutionOutput, ExecutionRouter, InputTransform, OutputTransform, UnitCapabilities,
+    UnitSource,
 };
 
 use common::{make_input, make_tool_unit, FixedCallable};
@@ -117,15 +117,24 @@ fn fixed_unit(id: &str, value: serde_json::Value) -> ExecutableUnit {
 #[tokio::test]
 async fn single_step_chain_executes_and_returns_one_output() {
     let (registry, router) = setup_chain_env();
-    registry.register(fixed_unit("add", serde_json::json!({"sum": 42}))).unwrap();
+    registry
+        .register(fixed_unit("add", serde_json::json!({"sum": 42})))
+        .unwrap();
 
     let chain = CallChain::new().then("add");
     let input = make_input(serde_json::json!({"a": 1, "b": 2}));
     let result = chain.execute(&router, input).await.unwrap();
 
-    assert_eq!(result.outputs.len(), 1, "single-step chain should produce exactly one output");
+    assert_eq!(
+        result.outputs.len(),
+        1,
+        "single-step chain should produce exactly one output"
+    );
     assert_eq!(result.outputs[0].data["sum"], 42);
-    assert_eq!(result.final_output.data["sum"], 42, "final_output should be the same as the sole output");
+    assert_eq!(
+        result.final_output.data["sum"], 42,
+        "final_output should be the same as the sole output"
+    );
 }
 
 #[tokio::test]
@@ -223,7 +232,10 @@ async fn input_transform_fixed_ignores_previous_output() {
     let (registry, router) = setup_chain_env();
 
     registry
-        .register(fixed_unit("producer", serde_json::json!({"original": true})))
+        .register(fixed_unit(
+            "producer",
+            serde_json::json!({"original": true}),
+        ))
         .unwrap();
     registry.register(make_tool_unit("consumer")).unwrap();
 
@@ -488,8 +500,14 @@ fn chain_step_fields_are_set_correctly_by_then() {
 
     let step = &chain.steps[0];
     assert_eq!(step.unit_id, "unit_a");
-    assert!(step.input_transform.is_none(), "then() should not set input_transform");
-    assert!(step.output_transform.is_none(), "then() should not set output_transform");
+    assert!(
+        step.input_transform.is_none(),
+        "then() should not set input_transform"
+    );
+    assert!(
+        step.output_transform.is_none(),
+        "then() should not set output_transform"
+    );
 }
 
 #[test]
@@ -515,7 +533,10 @@ fn chain_step_manual_construction_with_all_fields() {
     };
 
     assert_eq!(step.unit_id, "custom");
-    assert!(matches!(&step.input_transform, Some(InputTransform::Fixed(_))));
+    assert!(matches!(
+        &step.input_transform,
+        Some(InputTransform::Fixed(_))
+    ));
     assert!(matches!(
         &step.output_transform,
         Some(OutputTransform::ExtractField(f)) if f == "result"
@@ -581,8 +602,14 @@ fn output_transform_stored_on_chain_step() {
         &chain.steps[0].output_transform,
         Some(OutputTransform::ExtractField(f)) if f == "id"
     ));
-    assert!(matches!(&chain.steps[1].output_transform, Some(OutputTransform::DataOnly)));
-    assert!(matches!(&chain.steps[2].output_transform, Some(OutputTransform::Full)));
+    assert!(matches!(
+        &chain.steps[1].output_transform,
+        Some(OutputTransform::DataOnly)
+    ));
+    assert!(matches!(
+        &chain.steps[2].output_transform,
+        Some(OutputTransform::Full)
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -609,7 +636,10 @@ async fn chain_sets_programmatic_call_context_with_position() {
     let input = make_input(serde_json::json!({}));
     let result = chain.execute(&router, input).await;
 
-    assert!(result.is_ok(), "chain should execute successfully with ProgrammaticCall context");
+    assert!(
+        result.is_ok(),
+        "chain should execute successfully with ProgrammaticCall context"
+    );
     assert_eq!(result.unwrap().outputs.len(), 3);
 }
 
@@ -671,7 +701,10 @@ fn call_chain_is_cloneable() {
 fn call_chain_implements_debug() {
     let chain = CallChain::new().then("debug_unit");
     let debug_str = format!("{chain:?}");
-    assert!(debug_str.contains("debug_unit"), "Debug output should contain unit id");
+    assert!(
+        debug_str.contains("debug_unit"),
+        "Debug output should contain unit id"
+    );
 }
 
 #[test]

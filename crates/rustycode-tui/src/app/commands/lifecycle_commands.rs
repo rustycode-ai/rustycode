@@ -227,6 +227,106 @@ pub fn handle_resume_command(_parts: &[&str], _ctx: CommandContext<'_>) -> Resul
     }
 }
 
+/// Handle /sessions command
+///
+/// Subcommands:
+///   /sessions              — list sessions
+///   /sessions delete <id>  — delete a session
+///   /sessions clear [N]    — keep only the N most recent sessions (default: 10)
+pub fn handle_sessions_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
+    let sub = parts.get(1).copied().unwrap_or("");
+
+    match sub {
+        "delete" => {
+            let id = match parts.get(2) {
+                Some(id) => *id,
+                None => {
+                    return Ok(CommandEffect::SystemMessage(
+                        "Usage: /sessions delete <session-id>".to_string(),
+                    ));
+                }
+            };
+
+            match crate::session::delete_session(id) {
+                Ok(()) => Ok(CommandEffect::SystemMessage(format!(
+                    "Deleted session '{}'",
+                    id
+                ))),
+                Err(e) => Ok(CommandEffect::SystemMessage(format!(
+                    "Failed to delete session '{}': {}",
+                    id, e
+                ))),
+            }
+        }
+        "clear" => {
+            let keep: usize = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
+            match crate::session::cleanup_old_sessions(keep) {
+                Ok(removed) => Ok(CommandEffect::SystemMessage(format!(
+                    "Cleaned up {} old sessions (kept {} most recent)",
+                    removed, keep
+                ))),
+                Err(e) => Ok(CommandEffect::SystemMessage(format!(
+                    "Failed to clean up sessions: {}",
+                    e
+                ))),
+            }
+        }
+        _ => {
+            // List sessions
+            let sessions = crate::session::load_session_history_list("Current Session", 0);
+            if sessions.is_empty() {
+                return Ok(CommandEffect::SystemMessage(
+                    "No saved sessions found".to_string(),
+                ));
+            }
+
+            let mut output = String::from("Sessions:\n");
+            for (i, session) in sessions.iter().enumerate() {
+                let age = if session.id == "current" {
+                    "(current)".to_string()
+                } else {
+                    let elapsed = session
+                        .timestamp
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default();
+                    let now_elapsed = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default();
+                    let secs = now_elapsed.as_secs().saturating_sub(elapsed.as_secs());
+                    if secs < 60 {
+                        "just now".to_string()
+                    } else if secs < 3600 {
+                        format!("{}m ago", secs / 60)
+                    } else if secs < 86400 {
+                        format!("{}h ago", secs / 3600)
+                    } else {
+                        format!("{}d ago", secs / 86400)
+                    }
+                };
+                let preview = session.first_message.as_deref().unwrap_or("");
+                let preview_display = if preview.is_empty() {
+                    String::new()
+                } else {
+                    format!(" — {}", preview)
+                };
+                output.push_str(&format!(
+                    "  {}. {} [{}] ({} msgs) {}{}\n",
+                    i + 1,
+                    session.title,
+                    age,
+                    session.message_count,
+                    session.id,
+                    preview_display,
+                ));
+            }
+            output.push_str("\n/sessions delete <id> — delete a session");
+            output.push_str("\n/sessions clear [N] — keep only N most recent (default: 10)");
+            output.push_str("\n/load <id> — load a session");
+            Ok(CommandEffect::SystemMessage(output))
+        }
+    }
+}
+
 pub fn handle_tokens_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
     let input = ctx.session_input_tokens;
     let output = ctx.session_output_tokens;

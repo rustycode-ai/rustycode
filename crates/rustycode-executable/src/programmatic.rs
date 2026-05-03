@@ -1,6 +1,6 @@
 //! Programmatic calling support for chaining executable units
 
-use crate::{ExecutionContext, ExecutionInput, ExecutionOutput, ExecutableError};
+use crate::{ExecutableError, ExecutionContext, ExecutionInput, ExecutionOutput};
 
 /// Describes a chain of unit invocations
 #[derive(Clone, Debug)]
@@ -99,8 +99,10 @@ impl CallChain {
                 },
                 Some(InputTransform::Merge(extra)) => {
                     let mut merged = current_input.data.clone();
-                    if let (serde_json::Value::Object(ref mut map), serde_json::Value::Object(ref extra_map)) =
-                        (&mut merged, extra)
+                    if let (
+                        serde_json::Value::Object(ref mut map),
+                        serde_json::Value::Object(ref extra_map),
+                    ) = (&mut merged, extra)
                     {
                         for (k, v) in extra_map {
                             map.insert(k.clone(), v.clone());
@@ -130,9 +132,10 @@ impl CallChain {
             outputs.push(output);
         }
 
-        let final_output = outputs.last().cloned().ok_or_else(|| {
-            ExecutableError::ExecutionFailed("empty call chain".to_string())
-        })?;
+        let final_output = outputs
+            .last()
+            .cloned()
+            .ok_or_else(|| ExecutableError::ExecutionFailed("empty call chain".to_string()))?;
 
         Ok(ChainResult {
             outputs,

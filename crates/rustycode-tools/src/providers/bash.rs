@@ -537,7 +537,9 @@ impl BashSession {
                     // Force kill if process hasn't exited
                     if let Ok(status) = child.try_wait() {
                         if status.is_none() {
-                            tracing::warn!("bash child still alive after SIGINT in streaming, sending kill");
+                            tracing::warn!(
+                                "bash child still alive after SIGINT in streaming, sending kill"
+                            );
                             let _ = child.kill();
                         }
                     }
@@ -1313,8 +1315,8 @@ fn extract_binary_name(command: &str) -> anyhow::Result<String> {
 
 /// Shells and interpreters where `-c`/`-e` flags mean "execute arbitrary code".
 const SHELLS_AND_INTERPRETERS: &[&str] = &[
-    "sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh", "python", "python3", "perl",
-    "ruby", "node", "lua",
+    "sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh", "python", "python3", "perl", "ruby",
+    "node", "lua",
 ];
 
 /// Allowlist of safe commands. Only add commands genuinely needed for development.
@@ -1543,8 +1545,7 @@ const PLATFORM_COMMANDS: &[&str] = &[
 const PLATFORM_COMMANDS: &[&str] = &[];
 
 /// Shell targets blocked from pipe destinations to prevent allowlist bypass.
-const BLOCKED_PIPE_TARGETS: &[&str] =
-    &["sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh"];
+const BLOCKED_PIPE_TARGETS: &[&str] = &["sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh"];
 
 // ---------------------------------------------------------------------------
 // Helper functions for validate_command_safety
@@ -1619,14 +1620,8 @@ fn check_input_encoding(command: &str) -> Result<(bool, bool)> {
     let has_unicode_ws = command.chars().any(|c| {
         matches!(
             c,
-            '\u{00A0}'
-            | '\u{1680}'
-            | '\u{2000}'..='\u{200A}'
-            | '\u{2028}'
-            | '\u{2029}'
-            | '\u{202F}'
-            | '\u{205F}'
-            | '\u{3000}'
+            '\u{00A0}' | '\u{1680}' | '\u{2000}'
+                ..='\u{200A}' | '\u{2028}' | '\u{2029}' | '\u{202F}' | '\u{205F}' | '\u{3000}'
         )
     });
     if has_unicode_ws {

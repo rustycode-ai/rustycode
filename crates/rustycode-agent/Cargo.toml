@@ -17,7 +17,6 @@ rustycode-llm = { path = "../rustycode-llm" }
 rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-tools = { path = "../rustycode-tools" }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
-rustycode-skill = { path = "../rustycode-skill" }
 rustycode-guard = { path = "../rustycode-guard" }
 
 [dev-dependencies]

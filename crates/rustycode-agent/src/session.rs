@@ -577,7 +577,12 @@ async fn start_turn_with_retry(
 
     match start_stream_with_retry(provider, messages, request.clone(), max_retries).await {
         Ok(stream) => Ok(TurnSource::Stream(stream)),
-        Err(err) if matches!(classify_error(&err.to_string()), ErrorClass::StreamingUnsupported) => {
+        Err(err)
+            if matches!(
+                classify_error(&err.to_string()),
+                ErrorClass::StreamingUnsupported
+            ) =>
+        {
             tracing::info!("Streaming is unavailable, falling back to non-streaming completion");
             let response =
                 start_completion_with_retry(provider, messages, request, max_retries).await?;
@@ -882,22 +887,41 @@ mod tests {
 
     #[test]
     fn classify_error_transient() {
-        assert!(matches!(classify_error("Error 429 rate limited"), ErrorClass::Transient));
-        assert!(matches!(classify_error("503 service unavailable"), ErrorClass::Transient));
-        assert!(matches!(classify_error("connection timed out"), ErrorClass::Transient));
+        assert!(matches!(
+            classify_error("Error 429 rate limited"),
+            ErrorClass::Transient
+        ));
+        assert!(matches!(
+            classify_error("503 service unavailable"),
+            ErrorClass::Transient
+        ));
+        assert!(matches!(
+            classify_error("connection timed out"),
+            ErrorClass::Transient
+        ));
     }
 
     #[test]
     fn classify_error_fatal() {
-        assert!(matches!(classify_error("invalid API key"), ErrorClass::Fatal));
-        assert!(matches!(classify_error("model not found"), ErrorClass::Fatal));
+        assert!(matches!(
+            classify_error("invalid API key"),
+            ErrorClass::Fatal
+        ));
+        assert!(matches!(
+            classify_error("model not found"),
+            ErrorClass::Fatal
+        ));
     }
 
     #[test]
     fn trim_context_skips_short_history() {
         let messages: Vec<ChatMessage> = (0..6)
             .map(|i| ChatMessage {
-                role: if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant },
+                role: if i % 2 == 0 {
+                    MessageRole::User
+                } else {
+                    MessageRole::Assistant
+                },
                 content: MessageContent::Simple(format!("msg {i}")),
             })
             .collect();
@@ -910,7 +934,11 @@ mod tests {
     fn trim_context_trims_long_history() {
         let messages: Vec<ChatMessage> = (0..20)
             .map(|i| ChatMessage {
-                role: if i % 2 == 0 { MessageRole::User } else { MessageRole::Assistant },
+                role: if i % 2 == 0 {
+                    MessageRole::User
+                } else {
+                    MessageRole::Assistant
+                },
                 content: MessageContent::Simple(format!("msg {i}")),
             })
             .collect();

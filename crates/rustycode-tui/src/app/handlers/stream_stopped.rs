@@ -61,4 +61,3 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
         tui.auto_scroll();
     }
 }
-

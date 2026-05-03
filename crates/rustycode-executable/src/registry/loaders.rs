@@ -1,6 +1,6 @@
 //! Unit loaders for populating the registry from various sources
 
-use crate::{ExecutableUnit, ExecutableError};
+use crate::{ExecutableError, ExecutableUnit};
 use async_trait::async_trait;
 
 /// Trait for loading `ExecutableUnits` from a source
@@ -23,9 +23,8 @@ pub trait UnitLoader: Send + Sync {
     /// Loaders with more efficient lookup can override this.
     async fn load(&self, id: &str) -> Result<ExecutableUnit, ExecutableError> {
         let units = self.load_units().await?;
-        units
-            .into_iter()
-            .find(|u| u.id == id)
-            .ok_or_else(|| ExecutableError::NotFound(format!("unit '{id}' not found in {}", self.name())))
+        units.into_iter().find(|u| u.id == id).ok_or_else(|| {
+            ExecutableError::NotFound(format!("unit '{id}' not found in {}", self.name()))
+        })
     }
 }

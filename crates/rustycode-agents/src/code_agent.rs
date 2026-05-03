@@ -11,17 +11,12 @@ use anyhow::Result;
 use async_trait::async_trait;
 
 /// Code agent for general coding tasks
+#[derive(Default)]
 pub struct CodeAgent;
 
 impl CodeAgent {
     /// Create a new code agent
     pub const fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for CodeAgent {
-    fn default() -> Self {
         Self
     }
 }

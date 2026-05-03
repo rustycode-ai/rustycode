@@ -211,7 +211,11 @@ impl RealExecutor {
                 let sa = all_scores.get(a).copied().unwrap_or(0.0);
                 let sb = all_scores.get(b).copied().unwrap_or(0.0);
                 sa.partial_cmp(&sb).unwrap_or_else(|| {
-                    if sa.is_nan() { std::cmp::Ordering::Less } else { std::cmp::Ordering::Greater }
+                    if sa.is_nan() {
+                        std::cmp::Ordering::Less
+                    } else {
+                        std::cmp::Ordering::Greater
+                    }
                 })
             });
             return best_id.map_or_else(
@@ -327,19 +331,26 @@ impl RealExecutor {
                     Ok(thoughts) => thoughts,
                     Err(e) => {
                         tracing::warn!(error = %e, "Thought conversion failed on iteration {iteration}");
-                        last_llm_error = Some(Error::StrategyError(format!("Thought conversion failed: {e}")));
+                        last_llm_error = Some(Error::StrategyError(format!(
+                            "Thought conversion failed: {e}"
+                        )));
                         break;
                     }
                 },
                 Err(e) => {
                     tracing::warn!(error = %e, "Response parsing failed on iteration {iteration}");
-                    last_llm_error = Some(Error::StrategyError(format!("Response parsing failed: {e}")));
+                    last_llm_error = Some(Error::StrategyError(format!(
+                        "Response parsing failed: {e}"
+                    )));
                     break;
                 }
             };
 
             if new_thoughts.is_empty() {
-                tracing::debug!(iteration, "LLM returned no new thoughts, ending reasoning loop");
+                tracing::debug!(
+                    iteration,
+                    "LLM returned no new thoughts, ending reasoning loop"
+                );
                 break;
             }
 

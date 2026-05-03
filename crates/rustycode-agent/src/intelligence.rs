@@ -126,8 +126,9 @@ impl LocalIntelligence {
         let changes: Arc<Mutex<Vec<FileChange>>> = Arc::new(Mutex::new(Vec::new()));
 
         let (tx, mut rx) = mpsc::channel(100);
-        let watcher = FileSystemWatcher::new(root.clone(), tx)
-            .map_err(|e| anyhow::anyhow!("failed to start file watcher for {}: {e}", root.display()))?;
+        let watcher = FileSystemWatcher::new(root.clone(), tx).map_err(|e| {
+            anyhow::anyhow!("failed to start file watcher for {}: {e}", root.display())
+        })?;
 
         let index_clone = index.clone();
         let changes_clone = changes.clone();
@@ -251,10 +252,12 @@ impl CodeIntelligence for LocalIntelligence {
     }
 
     fn changes(&self) -> Vec<FileChange> {
-        std::mem::take(&mut *self
-            .changes
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner))
+        std::mem::take(
+            &mut *self
+                .changes
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        )
     }
 
     fn search(&self, query: &str, limit: usize) -> Vec<CodeLocation> {

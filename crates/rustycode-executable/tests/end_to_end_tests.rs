@@ -3,17 +3,15 @@
 
 mod common;
 
-use common::{make_input, make_tool_unit, EchoCallable, FixedCallable};
-use rustycode_executable::{
-    ExecutionCapability, ExecutionContext,
-    ExecutionInput, ExecutionOutput,
-    ExecutionMode, ExecutionRouter, ExecutableRegistry, ExecutableUnit,
-    UnitCapabilities, UnitSource, AdvancedToolMetadata,
-    CallChain, ExecutableError,
-};
-use rustycode_executable::router::{DirectExecutor, SkillBundler, AgentExecutor};
-use std::sync::Arc;
 use async_trait::async_trait;
+use common::{make_input, make_tool_unit, EchoCallable, FixedCallable};
+use rustycode_executable::router::{AgentExecutor, DirectExecutor, SkillBundler};
+use rustycode_executable::{
+    AdvancedToolMetadata, CallChain, ExecutableError, ExecutableRegistry, ExecutableUnit,
+    ExecutionCapability, ExecutionContext, ExecutionInput, ExecutionMode, ExecutionOutput,
+    ExecutionRouter, UnitCapabilities, UnitSource,
+};
+use std::sync::Arc;
 
 /// A direct executor that delegates to the unit's Callable handler
 struct DelegatingDirectExecutor;
@@ -26,10 +24,13 @@ impl DirectExecutor for DelegatingDirectExecutor {
         input: ExecutionInput,
     ) -> Result<ExecutionOutput, ExecutableError> {
         unit.handler
-            .execute(input, ExecutionContext::DirectTool {
-                immediate_result: true,
-                timeout_ms: None,
-            })
+            .execute(
+                input,
+                ExecutionContext::DirectTool {
+                    immediate_result: true,
+                    timeout_ms: None,
+                },
+            )
             .await
     }
 }
@@ -96,7 +97,10 @@ async fn full_pipeline_discover_then_execute() {
 
     let search_svc = rustycode_executable::ToolSearchService::new(registry.clone());
     let results = search_svc
-        .search("search", rustycode_executable::discovery::ToolSearchOptions::default())
+        .search(
+            "search",
+            rustycode_executable::discovery::ToolSearchOptions::default(),
+        )
         .await
         .unwrap();
 
@@ -135,7 +139,9 @@ async fn call_chain_executes_sequence() {
         handler: Arc::new(FixedCallable {
             value: serde_json::json!({"result": "from_a"}),
         }),
-        source: UnitSource::NativeTool { path: "a".to_string() },
+        source: UnitSource::NativeTool {
+            path: "a".to_string(),
+        },
         schema: None,
         tags: vec![],
         version: None,
@@ -158,7 +164,9 @@ async fn call_chain_executes_sequence() {
             result_processor: None,
         },
         handler: Arc::new(EchoCallable),
-        source: UnitSource::NativeTool { path: "b".to_string() },
+        source: UnitSource::NativeTool {
+            path: "b".to_string(),
+        },
         schema: None,
         tags: vec![],
         version: None,
@@ -167,9 +175,7 @@ async fn call_chain_executes_sequence() {
     registry.register(unit_a).unwrap();
     registry.register(unit_b).unwrap();
 
-    let chain = CallChain::new()
-        .then("step_a")
-        .then_with_prev("step_b");
+    let chain = CallChain::new().then("step_a").then_with_prev("step_b");
 
     let initial_input = make_input(serde_json::json!({"start": true}));
     let result = chain.execute(&router, initial_input).await.unwrap();
@@ -232,18 +238,27 @@ fn capability_check_enforcement() {
         immediate_result: true,
         timeout_ms: None,
     };
-    assert_eq!(direct_ctx.requires_capability(), ExecutionCapability::DirectExecution);
+    assert_eq!(
+        direct_ctx.requires_capability(),
+        ExecutionCapability::DirectExecution
+    );
 
     let skill_ctx = ExecutionContext::SkillReference {
         discoverable: true,
         cacheable: true,
     };
-    assert_eq!(skill_ctx.requires_capability(), ExecutionCapability::Knowledge);
+    assert_eq!(
+        skill_ctx.requires_capability(),
+        ExecutionCapability::Knowledge
+    );
 
     let agent_ctx = ExecutionContext::AgentReasoning {
         autonomous: false,
         max_steps: None,
         can_delegate: false,
     };
-    assert_eq!(agent_ctx.requires_capability(), ExecutionCapability::Reasoning);
+    assert_eq!(
+        agent_ctx.requires_capability(),
+        ExecutionCapability::Reasoning
+    );
 }

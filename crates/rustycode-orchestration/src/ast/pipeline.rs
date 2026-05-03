@@ -369,9 +369,11 @@ impl<R: StepRunner> AstPipeline<R> {
             self.fire_phase_hook(AstPhase::Research);
             self.snapshot.current_phase = AstPhase::Expand;
             self.persist_ledger()?;
-            return self.snapshot.brief.as_ref().ok_or_else(|| {
-                OrchestrationError::ast_ledger("No context brief available")
-            });
+            return self
+                .snapshot
+                .brief
+                .as_ref()
+                .ok_or_else(|| OrchestrationError::ast_ledger("No context brief available"));
         }
 
         let brief = self

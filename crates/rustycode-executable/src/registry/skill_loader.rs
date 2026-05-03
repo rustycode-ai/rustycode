@@ -1,7 +1,10 @@
 //! Loader for Claude Code skills from ~/.claude/skills
 
-use crate::{ExecutableUnit, ExecutableError, UnitCapabilities, AdvancedToolMetadata, ExecutionMode, UnitSource};
 use crate::registry::loaders::UnitLoader;
+use crate::{
+    AdvancedToolMetadata, ExecutableError, ExecutableUnit, ExecutionMode, UnitCapabilities,
+    UnitSource,
+};
 use async_trait::async_trait;
 use std::path::PathBuf;
 

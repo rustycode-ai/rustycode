@@ -24,7 +24,8 @@ pub struct McpServerConfig {
     pub env: HashMap<String, String>,
 }
 
-type ApprovalMap = std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>>;
+type ApprovalMap =
+    std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>>;
 
 #[derive(Debug)]
 pub struct SessionState {
@@ -66,8 +67,12 @@ impl SessionState {
             last_active_at: now,
             client_count: 0,
             cancel_token: tokio_util::sync::CancellationToken::new(),
-            pending_tool_approvals: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
-            pending_plan_approvals: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            pending_tool_approvals: std::sync::Arc::new(std::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
+            pending_plan_approvals: std::sync::Arc::new(std::sync::Mutex::new(
+                std::collections::HashMap::new(),
+            )),
         }
     }
 
@@ -100,9 +105,24 @@ impl std::fmt::Debug for SessionManager {
             .field("mcp_servers", &"<locked>")
             .field("mcp_client_manager", &"<Mutex>")
             .field("pipeline", &"<RwLock<Arc<OrchestrationPipeline>>>")
-            .field("provider_name", &self.provider_name.try_read().map_or_else(|_| "<locked>".to_string(), |v| v.clone()))
-            .field("model_name", &self.model_name.try_read().map_or_else(|_| "<locked>".to_string(), |v| v.clone()))
-            .field("event_bridge", &self.event_bridge.as_ref().map_or("None", |_| "Some"))
+            .field(
+                "provider_name",
+                &self
+                    .provider_name
+                    .try_read()
+                    .map_or_else(|_| "<locked>".to_string(), |v| v.clone()),
+            )
+            .field(
+                "model_name",
+                &self
+                    .model_name
+                    .try_read()
+                    .map_or_else(|_| "<locked>".to_string(), |v| v.clone()),
+            )
+            .field(
+                "event_bridge",
+                &self.event_bridge.as_ref().map_or("None", |_| "Some"),
+            )
             .field("orchestration_config", &"..")
             .finish()
     }
@@ -115,8 +135,16 @@ impl Clone for SessionManager {
             mcp_servers: Arc::clone(&self.mcp_servers),
             mcp_client_manager: Arc::clone(&self.mcp_client_manager),
             pipeline: Arc::clone(&self.pipeline),
-            provider_name: RwLock::new(self.provider_name.try_read().map_or_else(|_| String::new(), |v| v.clone())),
-            model_name: RwLock::new(self.model_name.try_read().map_or_else(|_| String::new(), |v| v.clone())),
+            provider_name: RwLock::new(
+                self.provider_name
+                    .try_read()
+                    .map_or_else(|_| String::new(), |v| v.clone()),
+            ),
+            model_name: RwLock::new(
+                self.model_name
+                    .try_read()
+                    .map_or_else(|_| String::new(), |v| v.clone()),
+            ),
             event_bridge: self.event_bridge.clone(),
             orchestration_config: self.orchestration_config.clone(),
         }
@@ -125,11 +153,17 @@ impl Clone for SessionManager {
 
 #[allow(clippy::significant_drop_tightening)]
 impl SessionManager {
-    pub fn new(pipeline: Arc<OrchestrationPipeline>, provider_name: String, model_name: String) -> Self {
+    pub fn new(
+        pipeline: Arc<OrchestrationPipeline>,
+        provider_name: String,
+        model_name: String,
+    ) -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             mcp_servers: Arc::new(RwLock::new(HashMap::new())),
-            mcp_client_manager: Arc::new(std::sync::Mutex::new(rustycode_mcp::stdio_client::McpClientManager::new())),
+            mcp_client_manager: Arc::new(std::sync::Mutex::new(
+                rustycode_mcp::stdio_client::McpClientManager::new(),
+            )),
             pipeline: Arc::new(RwLock::new(pipeline)),
             provider_name: RwLock::new(provider_name),
             model_name: RwLock::new(model_name),
@@ -160,11 +194,16 @@ impl SessionManager {
         ProviderInfo { provider, model }
     }
 
-    pub async fn switch_provider(&self, provider: String, model: String) -> Result<ProviderInfo, WsError> {
+    pub async fn switch_provider(
+        &self,
+        provider: String,
+        model: String,
+    ) -> Result<ProviderInfo, WsError> {
         info!(provider = %provider, model = %model, "switching provider");
 
-        let new_provider = rustycode_llm::create_provider(&provider, &model)
-            .map_err(|e| WsError::Internal(format!("failed to create provider '{provider}': {e}")))?;
+        let new_provider = rustycode_llm::create_provider(&provider, &model).map_err(|e| {
+            WsError::Internal(format!("failed to create provider '{provider}': {e}"))
+        })?;
 
         let new_pipeline = Arc::new(OrchestrationPipeline::with_provider_and_model(
             self.orchestration_config.clone(),
@@ -197,7 +236,9 @@ impl SessionManager {
         {
             let sessions = self.sessions.read().await;
             if sessions.len() >= MAX_SESSIONS {
-                return Err(WsError::TooManySessions { limit: MAX_SESSIONS });
+                return Err(WsError::TooManySessions {
+                    limit: MAX_SESSIONS,
+                });
             }
         }
         let id = SessionId::new();
@@ -210,7 +251,10 @@ impl SessionManager {
         Ok(state)
     }
 
-    pub async fn get_or_create(&self, token: Option<&str>) -> Result<(SessionState, bool), WsError> {
+    pub async fn get_or_create(
+        &self,
+        token: Option<&str>,
+    ) -> Result<(SessionState, bool), WsError> {
         if let Some(token) = token {
             let sessions = self.sessions.read().await;
             if let Some(state) = sessions.get(token) {
@@ -263,13 +307,19 @@ impl SessionManager {
 
             // Clean up pending approval maps to prevent memory leaks from abandoned requests
             let tool_count = {
-                let mut map = state.pending_tool_approvals.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                let mut map = state
+                    .pending_tool_approvals
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                 let count = map.len();
                 map.clear();
                 count
             };
             let plan_count = {
-                let mut map = state.pending_plan_approvals.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                let mut map = state
+                    .pending_plan_approvals
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
                 let count = map.len();
                 map.clear();
                 count
@@ -325,18 +375,18 @@ impl SessionManager {
             {
                 let sessions_lock = sessions.read().await;
                 if let Some(state) = sessions_lock.get(&token_owned) {
-                    interaction
-                        .set_session(
-                            state.pending_tool_approvals.clone(),
-                            state.cancel_token.clone(),
-                        );
+                    interaction.set_session(
+                        state.pending_tool_approvals.clone(),
+                        state.cancel_token.clone(),
+                    );
                 }
             }
 
             let conduct_future = pipeline.conduct_streaming(
                 task_id_clone.clone(),
                 content_owned,
-                interaction.clone() as Arc<dyn rustycode_orchestration::pipeline::PipelineInteraction>,
+                interaction.clone()
+                    as Arc<dyn rustycode_orchestration::pipeline::PipelineInteraction>,
             );
             let content = tokio::select! {
                 result = tokio::time::timeout(std::time::Duration::from_mins(15), conduct_future) => {
@@ -394,10 +444,17 @@ impl SessionManager {
         let state = sessions
             .get(token)
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
-        let mut map = state.pending_tool_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        let mut map = state
+            .pending_tool_approvals
+            .lock()
+            .map_err(|e| WsError::Internal(e.to_string()))?;
         if let Some(sender) = map.remove(request_id) {
             if sender.send(approved).is_err() {
-                tracing::warn!(session_id = token, request_id, "tool approval response dropped (receiver gone)");
+                tracing::warn!(
+                    session_id = token,
+                    request_id,
+                    "tool approval response dropped (receiver gone)"
+                );
             }
         }
         Ok(())
@@ -413,10 +470,17 @@ impl SessionManager {
         let state = sessions
             .get(token)
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
-        let mut map = state.pending_plan_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        let mut map = state
+            .pending_plan_approvals
+            .lock()
+            .map_err(|e| WsError::Internal(e.to_string()))?;
         if let Some(sender) = map.remove(plan_id) {
             if sender.send(approved).is_err() {
-                tracing::warn!(session_id = token, plan_id, "plan approval response dropped (receiver gone)");
+                tracing::warn!(
+                    session_id = token,
+                    plan_id,
+                    "plan approval response dropped (receiver gone)"
+                );
             }
         }
         Ok(())
@@ -434,7 +498,10 @@ impl SessionManager {
             .get(token)
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let mut map = state.pending_tool_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        let mut map = state
+            .pending_tool_approvals
+            .lock()
+            .map_err(|e| WsError::Internal(e.to_string()))?;
         if map.len() >= MAX_PENDING_APPROVALS {
             return Err(WsError::Internal(format!(
                 "too many pending tool approvals (limit: {MAX_PENDING_APPROVALS})"
@@ -455,7 +522,10 @@ impl SessionManager {
             .get(token)
             .ok_or_else(|| WsError::SessionNotFound(token.to_string()))?;
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let mut map = state.pending_plan_approvals.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+        let mut map = state
+            .pending_plan_approvals
+            .lock()
+            .map_err(|e| WsError::Internal(e.to_string()))?;
         if map.len() >= MAX_PENDING_APPROVALS {
             return Err(WsError::Internal(format!(
                 "too many pending plan approvals (limit: {MAX_PENDING_APPROVALS})"
@@ -479,23 +549,35 @@ impl SessionManager {
     }
 
     pub fn connected_mcp_servers(&self) -> Vec<String> {
-        self.mcp_client_manager
-            .lock()
-            .map_or_else(|_| Vec::new(), |mgr| mgr.connected_servers().into_iter().map(String::from).collect())
+        self.mcp_client_manager.lock().map_or_else(
+            |_| Vec::new(),
+            |mgr| {
+                mgr.connected_servers()
+                    .into_iter()
+                    .map(String::from)
+                    .collect()
+            },
+        )
     }
 
     pub async fn add_mcp_server(&self, config: McpServerConfig) -> Result<(), WsError> {
         let name = config.name.trim();
         let command = config.command.trim();
         if name.is_empty() {
-            return Err(WsError::Validation("MCP server name must not be empty".to_string()));
+            return Err(WsError::Validation(
+                "MCP server name must not be empty".to_string(),
+            ));
         }
         if command.is_empty() {
-            return Err(WsError::Validation("MCP server command must not be empty".to_string()));
+            return Err(WsError::Validation(
+                "MCP server command must not be empty".to_string(),
+            ));
         }
         let mut servers = self.mcp_servers.write().await;
         if !servers.contains_key(name) && servers.len() >= MAX_MCP_SERVERS {
-            return Err(WsError::TooManyMcpServers { limit: MAX_MCP_SERVERS });
+            return Err(WsError::TooManyMcpServers {
+                limit: MAX_MCP_SERVERS,
+            });
         }
         info!(name = %name, command = %command, "adding MCP server");
 
@@ -504,7 +586,10 @@ impl SessionManager {
         mcp_config.args.clone_from(&config.args);
         mcp_config.env.clone_from(&config.env);
         {
-            let mut mgr = self.mcp_client_manager.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+            let mut mgr = self
+                .mcp_client_manager
+                .lock()
+                .map_err(|e| WsError::Internal(e.to_string()))?;
             if let Err(e) = mgr.add_server(mcp_config) {
                 tracing::warn!(name = %name, "MCP server registered but connection failed: {e}");
             }
@@ -517,14 +602,15 @@ impl SessionManager {
     pub async fn remove_mcp_server(&self, name: &str) -> Result<(), WsError> {
         let removed = self.mcp_servers.write().await.remove(name);
         if removed.is_none() {
-            return Err(WsError::NotFound(format!(
-                "mcp server not found: {name}"
-            )));
+            return Err(WsError::NotFound(format!("mcp server not found: {name}")));
         }
 
         // Disconnect the running MCP client process
         {
-            let mut mgr = self.mcp_client_manager.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+            let mut mgr = self
+                .mcp_client_manager
+                .lock()
+                .map_err(|e| WsError::Internal(e.to_string()))?;
             if let Err(e) = mgr.remove_server(name) {
                 tracing::warn!(name = %name, "MCP server config removed but disconnect failed: {e}");
             }
@@ -537,19 +623,24 @@ impl SessionManager {
     pub async fn restart_mcp_server(&self, name: &str) -> Result<McpServerConfig, WsError> {
         let config = {
             let servers = self.mcp_servers.read().await;
-            servers.get(name).ok_or_else(|| {
-                WsError::NotFound(format!("mcp server not found: {name}"))
-            })?.clone()
+            servers
+                .get(name)
+                .ok_or_else(|| WsError::NotFound(format!("mcp server not found: {name}")))?
+                .clone()
         };
 
         info!(name = %name, "restarting MCP server");
 
         // Disconnect old connection, then reconnect
-        let mut mcp_config = rustycode_mcp::stdio_client::McpServerConfig::new(name, &config.command);
+        let mut mcp_config =
+            rustycode_mcp::stdio_client::McpServerConfig::new(name, &config.command);
         mcp_config.args.clone_from(&config.args);
         mcp_config.env.clone_from(&config.env);
         {
-            let mut mgr = self.mcp_client_manager.lock().map_err(|e| WsError::Internal(e.to_string()))?;
+            let mut mgr = self
+                .mcp_client_manager
+                .lock()
+                .map_err(|e| WsError::Internal(e.to_string()))?;
             let _ = mgr.remove_server(name);
             if let Err(e) = mgr.add_server(mcp_config) {
                 tracing::warn!(name = %name, "MCP server restart connection failed: {e}");
@@ -675,7 +766,11 @@ mod tests {
     }
 
     fn test_mgr() -> SessionManager {
-        SessionManager::new(test_pipeline(), "mock".to_string(), "test-model".to_string())
+        SessionManager::new(
+            test_pipeline(),
+            "mock".to_string(),
+            "test-model".to_string(),
+        )
     }
 
     #[tokio::test]
@@ -757,8 +852,14 @@ mod tests {
         let created = mgr.create_session().await.unwrap();
         let token = created.id.to_string();
 
-        let s1 = mgr.update_session(&token, SessionState::next_seq).await.unwrap();
-        let s2 = mgr.update_session(&token, SessionState::next_seq).await.unwrap();
+        let s1 = mgr
+            .update_session(&token, SessionState::next_seq)
+            .await
+            .unwrap();
+        let s2 = mgr
+            .update_session(&token, SessionState::next_seq)
+            .await
+            .unwrap();
         assert!(s2 > s1);
     }
 
@@ -773,7 +874,10 @@ mod tests {
     #[tokio::test]
     async fn switch_provider_updates_values() {
         let mgr = test_mgr();
-        let info = mgr.switch_provider("ollama".to_string(), "llama3".to_string()).await.unwrap();
+        let info = mgr
+            .switch_provider("ollama".to_string(), "llama3".to_string())
+            .await
+            .unwrap();
         assert_eq!(info.provider, "ollama");
         assert_eq!(info.model, "llama3");
 
@@ -898,9 +1002,14 @@ mod tests {
         let created = mgr.create_session().await.unwrap();
         let token = created.id.to_string();
 
-        let rx = mgr.register_tool_approval(&token, "req-1".to_string()).await.unwrap();
+        let rx = mgr
+            .register_tool_approval(&token, "req-1".to_string())
+            .await
+            .unwrap();
 
-        mgr.respond_tool_approval(&token, "req-1", true).await.unwrap();
+        mgr.respond_tool_approval(&token, "req-1", true)
+            .await
+            .unwrap();
 
         let approved = rx.await.unwrap();
         assert!(approved);
@@ -909,7 +1018,10 @@ mod tests {
     #[tokio::test]
     async fn tool_approval_not_found_session() {
         let mgr = test_mgr();
-        let err = mgr.register_tool_approval("nonexistent", "req-1".to_string()).await.unwrap_err();
+        let err = mgr
+            .register_tool_approval("nonexistent", "req-1".to_string())
+            .await
+            .unwrap_err();
         assert!(matches!(err, WsError::SessionNotFound(_)));
     }
 
@@ -919,9 +1031,14 @@ mod tests {
         let created = mgr.create_session().await.unwrap();
         let token = created.id.to_string();
 
-        let rx = mgr.register_plan_approval(&token, "plan-1".to_string()).await.unwrap();
+        let rx = mgr
+            .register_plan_approval(&token, "plan-1".to_string())
+            .await
+            .unwrap();
 
-        mgr.respond_plan_approval(&token, "plan-1", false).await.unwrap();
+        mgr.respond_plan_approval(&token, "plan-1", false)
+            .await
+            .unwrap();
 
         let approved = rx.await.unwrap();
         assert!(!approved);
@@ -957,7 +1074,12 @@ mod tests {
             mgr.create_session().await.unwrap();
         }
         let err = mgr.create_session().await.unwrap_err();
-        assert!(matches!(err, WsError::TooManySessions { limit: MAX_SESSIONS }));
+        assert!(matches!(
+            err,
+            WsError::TooManySessions {
+                limit: MAX_SESSIONS
+            }
+        ));
     }
 
     #[tokio::test]
@@ -982,7 +1104,12 @@ mod tests {
             })
             .await
             .unwrap_err();
-        assert!(matches!(err, WsError::TooManyMcpServers { limit: MAX_MCP_SERVERS }));
+        assert!(matches!(
+            err,
+            WsError::TooManyMcpServers {
+                limit: MAX_MCP_SERVERS
+            }
+        ));
     }
 
     #[tokio::test]

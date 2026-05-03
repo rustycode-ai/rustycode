@@ -66,15 +66,24 @@ impl TaskRole {
     /// Tools this role is allowed to use.
     pub const fn allowed_tools(self) -> &'static [&'static str] {
         match self {
-            Self::Explore | Self::Research | Self::Review | Self::Plan => &[
-                "read_file", "search_files", "list_directory", "glob",
-            ],
+            Self::Explore | Self::Research | Self::Review | Self::Plan => {
+                &["read_file", "search_files", "list_directory", "glob"]
+            }
             Self::Code => &[
-                "read_file", "write_file", "edit_file", "search_files",
-                "list_directory", "glob", "bash",
+                "read_file",
+                "write_file",
+                "edit_file",
+                "search_files",
+                "list_directory",
+                "glob",
+                "bash",
             ],
             Self::Verify | Self::Debug => &[
-                "read_file", "search_files", "list_directory", "glob", "bash",
+                "read_file",
+                "search_files",
+                "list_directory",
+                "glob",
+                "bash",
             ],
         }
     }
@@ -158,7 +167,8 @@ impl TaskSpec {
 
     /// Effective execution tier (override or role default).
     pub fn effective_tier(&self) -> ExecutionTier {
-        self.tier_override.unwrap_or_else(|| self.role.default_tier())
+        self.tier_override
+            .unwrap_or_else(|| self.role.default_tier())
     }
 }
 
@@ -314,8 +324,8 @@ impl DelegationPlanner {
         // Gate 1: context pressure override — always spawn to get a fresh window.
         if context.context_pressure >= self.config.context_pressure_threshold {
             let role = infer_role_from_description(task_description);
-            let spec = TaskSpec::new(task_description, role)
-                .with_budget_limit(context.remaining_budget);
+            let spec =
+                TaskSpec::new(task_description, role).with_budget_limit(context.remaining_budget);
             return SpawnDecision::Spawn(spec);
         }
 
@@ -331,8 +341,8 @@ impl DelegationPlanner {
                 return self.decompose_parallel(task_description, context, &modules);
             }
             let role = infer_role_from_description(task_description);
-            let spec = TaskSpec::new(task_description, role)
-                .with_budget_limit(context.remaining_budget);
+            let spec =
+                TaskSpec::new(task_description, role).with_budget_limit(context.remaining_budget);
             return SpawnDecision::Spawn(spec);
         }
 
@@ -362,19 +372,16 @@ impl DelegationPlanner {
                     .cloned()
                     .collect();
 
-                let mut spec = TaskSpec::new(
-                    format!("[{module}] {task_description}"),
-                    role,
-                )
-                .with_budget_limit(budget_per_task);
+                let mut spec = TaskSpec::new(format!("[{module}] {task_description}"), role)
+                    .with_budget_limit(budget_per_task);
                 spec.path_scope = scoped_paths;
                 spec
             })
             .collect();
 
         if specs.is_empty() {
-            let spec = TaskSpec::new(task_description, role)
-                .with_budget_limit(context.remaining_budget);
+            let spec =
+                TaskSpec::new(task_description, role).with_budget_limit(context.remaining_budget);
             return SpawnDecision::Spawn(spec);
         }
 
@@ -382,31 +389,23 @@ impl DelegationPlanner {
     }
 
     #[allow(clippy::unused_self)]
-    fn plan_ensemble(
-        &self,
-        task_description: &str,
-        context: &DelegationContext,
-    ) -> SpawnDecision {
+    fn plan_ensemble(&self, task_description: &str, context: &DelegationContext) -> SpawnDecision {
         // Map complexity (0.0–5.0) to u8 (0–100) for EnsembleStrategy.
-        let complexity_u8 = (StrategySelector::detect_complexity(task_description) / 5.0 * 100.0)
-            .min(100.0) as u8;
+        let complexity_u8 =
+            (StrategySelector::detect_complexity(task_description) / 5.0 * 100.0).min(100.0) as u8;
 
         let ensemble = EnsembleStrategy::select_for_complexity(complexity_u8);
         let strategy_kind = ensemble.kind();
         let participants = ensemble.participants().to_vec();
 
         let role = infer_role_from_description(task_description);
-        let budget_per_participant =
-            context.remaining_budget / (participants.len().max(1) as f64);
+        let budget_per_participant = context.remaining_budget / (participants.len().max(1) as f64);
 
         let paired: Vec<(ParticipantSpec, TaskSpec)> = participants
             .into_iter()
             .map(|spec| {
-                let task = TaskSpec::new(
-                    format!("[{}] {}", spec.role, task_description),
-                    role,
-                )
-                .with_budget_limit(budget_per_participant);
+                let task = TaskSpec::new(format!("[{}] {}", spec.role, task_description), role)
+                    .with_budget_limit(budget_per_participant);
                 (spec, task)
             })
             .collect();
@@ -445,10 +444,7 @@ pub fn infer_role_from_description(description: &str) -> TaskRole {
     ) {
         return TaskRole::Debug;
     }
-    if contains_any(
-        &lower,
-        &["review", "check", "audit", "inspect", "examine"],
-    ) {
+    if contains_any(&lower, &["review", "check", "audit", "inspect", "examine"]) {
         return TaskRole::Review;
     }
     if contains_any(&lower, &["verify", "test", "validate", "confirm"]) {
@@ -562,7 +558,10 @@ mod tests {
             infer_role_from_description("explore the codebase for auth patterns"),
             TaskRole::Explore
         );
-        assert_eq!(infer_role_from_description("find the bug location"), TaskRole::Explore);
+        assert_eq!(
+            infer_role_from_description("find the bug location"),
+            TaskRole::Explore
+        );
     }
 
     #[test]
@@ -571,7 +570,10 @@ mod tests {
             infer_role_from_description("research best practices for error handling"),
             TaskRole::Research
         );
-        assert_eq!(infer_role_from_description("read the docs on tokio"), TaskRole::Research);
+        assert_eq!(
+            infer_role_from_description("read the docs on tokio"),
+            TaskRole::Research
+        );
     }
 
     #[test]
@@ -580,10 +582,22 @@ mod tests {
             infer_role_from_description("implement user authentication"),
             TaskRole::Code
         );
-        assert_eq!(infer_role_from_description("create a new handler"), TaskRole::Code);
-        assert_eq!(infer_role_from_description("build the API endpoint"), TaskRole::Code);
-        assert_eq!(infer_role_from_description("add logging to the module"), TaskRole::Code);
-        assert_eq!(infer_role_from_description("write a new parser"), TaskRole::Code);
+        assert_eq!(
+            infer_role_from_description("create a new handler"),
+            TaskRole::Code
+        );
+        assert_eq!(
+            infer_role_from_description("build the API endpoint"),
+            TaskRole::Code
+        );
+        assert_eq!(
+            infer_role_from_description("add logging to the module"),
+            TaskRole::Code
+        );
+        assert_eq!(
+            infer_role_from_description("write a new parser"),
+            TaskRole::Code
+        );
     }
 
     #[test]
@@ -592,8 +606,14 @@ mod tests {
             infer_role_from_description("review the PR for security issues"),
             TaskRole::Review
         );
-        assert_eq!(infer_role_from_description("check the code quality"), TaskRole::Review);
-        assert_eq!(infer_role_from_description("audit the error handling"), TaskRole::Review);
+        assert_eq!(
+            infer_role_from_description("check the code quality"),
+            TaskRole::Review
+        );
+        assert_eq!(
+            infer_role_from_description("audit the error handling"),
+            TaskRole::Review
+        );
     }
 
     #[test]
@@ -602,8 +622,14 @@ mod tests {
             infer_role_from_description("verify the test results"),
             TaskRole::Verify
         );
-        assert_eq!(infer_role_from_description("test the new feature"), TaskRole::Verify);
-        assert_eq!(infer_role_from_description("validate the input schema"), TaskRole::Verify);
+        assert_eq!(
+            infer_role_from_description("test the new feature"),
+            TaskRole::Verify
+        );
+        assert_eq!(
+            infer_role_from_description("validate the input schema"),
+            TaskRole::Verify
+        );
     }
 
     #[test]
@@ -628,7 +654,10 @@ mod tests {
             infer_role_from_description("debug the race condition"),
             TaskRole::Debug
         );
-        assert_eq!(infer_role_from_description("fix the broken test"), TaskRole::Debug);
+        assert_eq!(
+            infer_role_from_description("fix the broken test"),
+            TaskRole::Debug
+        );
         assert_eq!(
             infer_role_from_description("investigate the memory leak"),
             TaskRole::Debug
@@ -645,8 +674,14 @@ mod tests {
 
     #[test]
     fn infer_role_case_insensitive() {
-        assert_eq!(infer_role_from_description("IMPLEMENT the feature"), TaskRole::Code);
-        assert_eq!(infer_role_from_description("DEBUG this issue"), TaskRole::Debug);
+        assert_eq!(
+            infer_role_from_description("IMPLEMENT the feature"),
+            TaskRole::Code
+        );
+        assert_eq!(
+            infer_role_from_description("DEBUG this issue"),
+            TaskRole::Debug
+        );
     }
 
     // ---- DelegationPlanner::should_spawn - inline ----
@@ -900,7 +935,8 @@ mod tests {
             parent_task_id: "parent-6".into(),
         };
 
-        let decision = planner.should_spawn("explore the architecture across all modules", &context);
+        let decision =
+            planner.should_spawn("explore the architecture across all modules", &context);
         if let SpawnDecision::SpawnParallel(specs) = decision {
             assert!(specs.len() <= 2, "should not exceed max_concurrent_tasks");
         } else {
@@ -920,10 +956,7 @@ mod tests {
         let context = DelegationContext {
             context_pressure: 0.1,
             remaining_budget: 10.0,
-            affected_paths: vec![
-                PathBuf::from("/a/mod.rs"),
-                PathBuf::from("/b/mod.rs"),
-            ],
+            affected_paths: vec![PathBuf::from("/a/mod.rs"), PathBuf::from("/b/mod.rs")],
             past_failure_count: 0,
             parent_task_id: "parent-7".into(),
         };

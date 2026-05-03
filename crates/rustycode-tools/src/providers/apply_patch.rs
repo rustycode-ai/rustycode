@@ -146,7 +146,9 @@ fn resolve_source(params: &Value, ctx: &ToolContext) -> Result<PatchSource> {
         let validated = validate_read_path(path, &ctx.cwd)?;
         return Ok(PatchSource::File(validated));
     }
-    Err(anyhow!("provide either `patch` (inline text) or `patch_file` (path)"))
+    Err(anyhow!(
+        "provide either `patch` (inline text) or `patch_file` (path)"
+    ))
 }
 
 fn read_source(source: &PatchSource, _ctx: &ToolContext) -> Result<String> {
@@ -207,7 +209,10 @@ fn parse_multi_file_patch(patch_text: &str) -> Result<Vec<FilePatch>> {
                 i += 1;
 
                 let mut hunk_lines = Vec::new();
-                while i < lines.len() && !lines[i].starts_with("@@") && !lines[i].starts_with("--- ") {
+                while i < lines.len()
+                    && !lines[i].starts_with("@@")
+                    && !lines[i].starts_with("--- ")
+                {
                     let line = lines[i];
                     if let Some(content) = line.strip_prefix('+') {
                         hunk_lines.push(PatchLine::Add(content.to_string()));
@@ -262,9 +267,16 @@ fn extract_path(header: &str, prefix_len: usize) -> &str {
 
 fn strip_path_components(path: &str, n: usize) -> String {
     // Strip a/ or b/ prefix.
-    let stripped = path.strip_prefix("a/").or_else(|| path.strip_prefix("b/")).unwrap_or(path);
+    let stripped = path
+        .strip_prefix("a/")
+        .or_else(|| path.strip_prefix("b/"))
+        .unwrap_or(path);
     // Strip additional components.
-    stripped.split('/').skip(n.saturating_sub(1)).collect::<Vec<_>>().join("/")
+    stripped
+        .split('/')
+        .skip(n.saturating_sub(1))
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
 fn parse_hunk(header: &str) -> Result<(usize, usize, usize, usize)> {
@@ -353,7 +365,12 @@ fn apply_add(path: &Path, fp: &FilePatch) -> Result<String> {
     file.sync_all()?;
 
     let diff = generate_diff("", &content, &path.display().to_string(), 30);
-    Ok(format!("Created {} (+{} lines)\n{}", path.display(), content.lines().count(), diff))
+    Ok(format!(
+        "Created {} (+{} lines)\n{}",
+        path.display(),
+        content.lines().count(),
+        diff
+    ))
 }
 
 fn apply_delete(path: &Path, _fp: &FilePatch) -> Result<String> {
@@ -364,7 +381,11 @@ fn apply_delete(path: &Path, _fp: &FilePatch) -> Result<String> {
     let old_content = read_file(path)?;
     std::fs::remove_file(path).with_context(|| format!("failed to delete: {}", path.display()))?;
 
-    Ok(format!("Deleted {} (was {} lines)", path.display(), old_content.lines().count()))
+    Ok(format!(
+        "Deleted {} (was {} lines)",
+        path.display(),
+        old_content.lines().count()
+    ))
 }
 
 fn apply_update(path: &Path, fp: &FilePatch, ctx: &ToolContext) -> Result<String> {
@@ -427,7 +448,8 @@ fn apply_hunks(content: &str, hunks: &[Hunk]) -> Result<String> {
 
         // Verify context matches.
         let end = (insert_pos + removes.len()).min(result.len());
-        let actual: Vec<&str> = result.get(insert_pos..end)
+        let actual: Vec<&str> = result
+            .get(insert_pos..end)
             .unwrap_or(&[])
             .iter()
             .map(|s| s.as_str())
@@ -436,13 +458,14 @@ fn apply_hunks(content: &str, hunks: &[Hunk]) -> Result<String> {
         // Allow fuzzy: if exact match fails, try to find the removed block nearby.
         let match_pos = if !removes.is_empty() && actual != removes {
             let result_refs: Vec<&str> = result.iter().map(|s| s.as_str()).collect();
-            find_fuzzy_match(&result_refs, &removes, insert_pos, 10)
-                .ok_or_else(|| anyhow!(
+            find_fuzzy_match(&result_refs, &removes, insert_pos, 10).ok_or_else(|| {
+                anyhow!(
                     "hunk at line {} does not match.\nExpected:\n  {}\nFound:\n  {}",
                     hunk.old_start,
                     removes.join("\n  "),
                     actual.join("\n  ")
-                ))?
+                )
+            })?
         } else {
             insert_pos
         };
@@ -477,7 +500,11 @@ fn find_fuzzy_match<'a>(
             continue;
         }
         let slice = &lines[pos..end];
-        if slice.iter().zip(removes.iter()).all(|(a, b)| a.trim() == b.trim()) {
+        if slice
+            .iter()
+            .zip(removes.iter())
+            .all(|(a, b)| a.trim() == b.trim())
+        {
             return Some(pos);
         }
     }
@@ -503,8 +530,8 @@ fn git_apply_fallback(patch_text: &str, strip: usize, ctx: &ToolContext) -> Resu
     std::fs::create_dir_all(&tmp_dir).ok();
     let tmp_path = tmp_dir.join(format!("patch-{:x}", patch_text.len()));
     {
-        let mut f = std::fs::File::create(&tmp_path)
-            .with_context(|| "failed to create temp patch file")?;
+        let mut f =
+            std::fs::File::create(&tmp_path).with_context(|| "failed to create temp patch file")?;
         f.write_all(patch_text.as_bytes())?;
     }
 
@@ -736,8 +763,14 @@ mod tests {
 
         assert!(result.is_ok());
         let output = result.unwrap().text;
-        assert!(output.contains("+foo"), "diff output should contain +foo, got: {output}");
-        assert!(output.contains("-hello"), "diff output should contain -hello, got: {output}");
+        assert!(
+            output.contains("+foo"),
+            "diff output should contain +foo, got: {output}"
+        );
+        assert!(
+            output.contains("-hello"),
+            "diff output should contain -hello, got: {output}"
+        );
     }
 
     #[test]
@@ -784,10 +817,7 @@ mod tests {
         let tool = ApplyPatchTool;
         let ctx = ToolContext::new(workspace.path());
 
-        let result = tool.execute(
-            json!({"patch_file": "changes.patch"}),
-            &ctx,
-        );
+        let result = tool.execute(json!({"patch_file": "changes.patch"}), &ctx);
 
         assert!(result.is_ok(), "apply failed: {:?}", result.err());
         let content = std::fs::read_to_string(&test_file).unwrap();

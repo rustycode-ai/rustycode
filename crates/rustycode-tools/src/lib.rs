@@ -202,7 +202,7 @@ pub mod worktree;
 pub fn check_tool_permission(tool_name: &str, mode: rustycode_protocol::SessionMode) -> bool {
     match mode {
         rustycode_protocol::SessionMode::Planning => {
-                matches!(
+            matches!(
                 tool_name,
                 "read_file"
                     | "list_dir"

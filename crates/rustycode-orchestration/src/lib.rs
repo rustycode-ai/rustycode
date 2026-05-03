@@ -44,9 +44,9 @@ pub mod bus;
 pub mod composer;
 pub mod conductor;
 pub mod config;
-pub mod delegation;
 pub mod context;
 pub mod cost_table;
+pub mod delegation;
 pub mod domain_context;
 pub mod dummy_provider;
 pub mod editor;
@@ -95,9 +95,9 @@ pub mod structured_thinking_tool_impl;
 pub mod supervisor;
 pub mod swebench;
 pub mod task_context;
+pub mod task_decomposer;
 pub mod task_dispatcher;
 pub mod task_runner;
-pub mod task_decomposer;
 pub mod thinking;
 pub mod tool_tiers;
 pub mod types;
@@ -192,6 +192,10 @@ pub use verification_gates::{
     VerificationOutcome, VerificationStrategy,
 };
 // Replaced by direct initialization logic.
+pub use delegation::{
+    DelegationConfig, DelegationContext, DelegationPlanner, EnsemblePlan, SpawnDecision, TaskRole,
+    TaskSpec,
+};
 pub use orchestra_paths::{
     agent_dir, app_root, build_milestone_file_name, milestones_dir, orchestra_root,
     resolve_milestone_file, resolve_milestone_path, resolve_slice_file, resolve_task_file,
@@ -205,10 +209,6 @@ pub use state_derivation::{
     MilestoneRef, MilestoneState, OrchestraState, SliceRef, SliceState, StateDeriver, TaskRef,
     TaskState,
 };
-pub use delegation::{
-    DelegationConfig, DelegationContext, DelegationPlanner, EnsemblePlan, SpawnDecision, TaskRole,
-    TaskSpec,
-};
+pub use swebench::{SweBenchPrediction, SweBenchRunner};
 pub use task_dispatcher::{TaskDispatcher, TaskResult};
 pub use task_runner::{TaskRunResult, TaskRunner};
-pub use swebench::{SweBenchPrediction, SweBenchRunner};

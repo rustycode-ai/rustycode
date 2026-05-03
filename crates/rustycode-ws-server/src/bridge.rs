@@ -48,7 +48,10 @@ impl EventBridge {
     /// and restart the forwarding loop on the new bus.
     pub async fn resubscribe(&self, new_handle: BusHandle) {
         let old_cancel = {
-            let mut guard = self.cancel.lock().unwrap_or_else(|poison| poison.into_inner());
+            let mut guard = self
+                .cancel
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             std::mem::replace(&mut *guard, tokio_util::sync::CancellationToken::new())
         };
         old_cancel.cancel();
@@ -66,7 +69,7 @@ impl EventBridge {
         let cancel = {
             self.cancel
                 .lock()
-                .unwrap_or_else(|poison| poison.into_inner())
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clone()
         };
         let handle = Arc::clone(&self.handle);
@@ -141,21 +144,17 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
             content: content.clone(),
         }),
         OrchestrationEvent::ToolCallStarted {
-            tool_id,
-            tool_name,
-            ..
+            tool_id, tool_name, ..
         } => Some(StreamEvent::ToolCallStarted {
             id: tool_id.clone(),
             name: tool_name.clone(),
         }),
-        OrchestrationEvent::ToolInputDelta {
-            tool_id,
-            chunk,
-            ..
-        } => Some(StreamEvent::ToolInputDelta {
-            id: tool_id.clone(),
-            chunk: chunk.clone(),
-        }),
+        OrchestrationEvent::ToolInputDelta { tool_id, chunk, .. } => {
+            Some(StreamEvent::ToolInputDelta {
+                id: tool_id.clone(),
+                chunk: chunk.clone(),
+            })
+        }
         OrchestrationEvent::ToolCallCompleted {
             tool_id,
             tool_name,
@@ -184,16 +183,16 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
             output: result.clone(),
             is_error: false,
         }),
-        OrchestrationEvent::StepFailed { step_id, signal } => Some(StreamEvent::ToolExecCompleted {
-            id: step_id.clone(),
-            name: String::new(),
-            output: signal.message.clone(),
-            is_error: true,
-        }),
+        OrchestrationEvent::StepFailed { step_id, signal } => {
+            Some(StreamEvent::ToolExecCompleted {
+                id: step_id.clone(),
+                name: String::new(),
+                output: signal.message.clone(),
+                is_error: true,
+            })
+        }
         OrchestrationEvent::TaskCompleted { .. } => Some(StreamEvent::Done),
-        OrchestrationEvent::PhaseTransition {
-            to, reason, ..
-        } => Some(StreamEvent::TextDelta {
+        OrchestrationEvent::PhaseTransition { to, reason, .. } => Some(StreamEvent::TextDelta {
             content: format!("[{to:?}] {reason}"),
         }),
         OrchestrationEvent::EscalationSignal {
@@ -205,9 +204,7 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
             content: format!("Escalated tier {from_tier}→{to_tier}: {reason}"),
         }),
         OrchestrationEvent::TierHandoff {
-            from_tier,
-            to_tier,
-            ..
+            from_tier, to_tier, ..
         } => Some(StreamEvent::TextDelta {
             content: format!("Context handed off tier {from_tier}→{to_tier}"),
         }),
@@ -231,13 +228,17 @@ fn convert_event(event: &OrchestrationEvent) -> Option<StreamEvent> {
     }
 }
 
-fn to_stream_steps(steps: &[(String, String)]) -> Vec<rustycode_protocol::stream_event::StreamPlanStep> {
+fn to_stream_steps(
+    steps: &[(String, String)],
+) -> Vec<rustycode_protocol::stream_event::StreamPlanStep> {
     steps
         .iter()
-        .map(|(name, desc)| rustycode_protocol::stream_event::StreamPlanStep {
-            name: name.clone(),
-            description: desc.clone(),
-        })
+        .map(
+            |(name, desc)| rustycode_protocol::stream_event::StreamPlanStep {
+                name: name.clone(),
+                description: desc.clone(),
+            },
+        )
         .collect()
 }
 
@@ -465,7 +466,10 @@ mod tests {
             ),
         };
         let result = convert_event(&event).unwrap();
-        assert!(matches!(result, StreamEvent::ToolExecCompleted { is_error: true, .. }));
+        assert!(matches!(
+            result,
+            StreamEvent::ToolExecCompleted { is_error: true, .. }
+        ));
     }
 
     #[test]
@@ -556,7 +560,10 @@ mod tests {
             message: "done".into(),
         };
         let result = convert_event(&event).unwrap();
-        assert!(matches!(result, StreamEvent::PlanStepCompleted { success: true, .. }));
+        assert!(matches!(
+            result,
+            StreamEvent::PlanStepCompleted { success: true, .. }
+        ));
     }
 
     #[test]
@@ -568,7 +575,10 @@ mod tests {
             summary: "All done".into(),
         };
         let result = convert_event(&event).unwrap();
-        assert!(matches!(result, StreamEvent::PlanCompleted { success: true, .. }));
+        assert!(matches!(
+            result,
+            StreamEvent::PlanCompleted { success: true, .. }
+        ));
     }
 
     #[test]

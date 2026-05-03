@@ -107,7 +107,11 @@ impl InputState {
     /// Get the byte offset corresponding to the current display_offset on the cursor row.
     /// Used by the renderer to slice the line for horizontal scrolling.
     pub fn scroll_byte_offset(&self) -> usize {
-        let line = self.lines.get(self.cursor_row).map(|s| s.as_str()).unwrap_or("");
+        let line = self
+            .lines
+            .get(self.cursor_row)
+            .map(|s| s.as_str())
+            .unwrap_or("");
         let mut display_col = 0;
         for (byte_idx, grapheme) in line.grapheme_indices(true) {
             if display_col >= self.display_offset {
@@ -120,7 +124,8 @@ impl InputState {
 
     /// Get the display column of the cursor relative to the display_offset.
     pub fn relative_cursor_display_col(&self) -> usize {
-        self.cursor_display_col().saturating_sub(self.display_offset)
+        self.cursor_display_col()
+            .saturating_sub(self.display_offset)
     }
 
     /// Insert a character at cursor position
