@@ -599,6 +599,8 @@ impl TUI {
                     );
                 }
 
+                let agent_tool_registry = p.tool_registry.clone();
+
                 p.register_factory(
                     "rustycode::steps::DataGateStep",
                     Box::new(crate::app::pipeline::steps::data_gate_factory::DataGateFactory),
@@ -628,7 +630,7 @@ impl TUI {
                     pipeline_provider,
                     rustycode_agent::AgentConfig::default(),
                     mdl,
-                    crate::app::pipeline::tool_registry::ToolRegistry::new(),
+                    agent_tool_registry,
                 )
             },
             pipeline_guardian: crate::app::pipeline::guardian::PipelineGuardian::new(),

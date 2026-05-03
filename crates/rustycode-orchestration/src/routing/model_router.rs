@@ -51,10 +51,7 @@ impl ModelRouter {
 
     /// Create a router with both a custom policy and a custom classifier.
     pub const fn with_classifier(policy: RoutingPolicy, classifier: ComplexityClassifier) -> Self {
-        Self {
-            classifier,
-            policy,
-        }
+        Self { classifier, policy }
     }
 
     /// Classify a task and map it to the appropriate [`ExecutionTier`].
@@ -109,11 +106,7 @@ mod tests {
     fn test_routes_complex_to_composer() {
         let router = ModelRouter::default();
         // 20 steps + "design"/"algorithm" keywords => Complex
-        let task = make_task(
-            "Design distributed consensus algorithm",
-            "",
-            20,
-        );
+        let task = make_task("Design distributed consensus algorithm", "", 20);
         let tier = router.route(&task);
         assert_eq!(tier, ExecutionTier::Composer);
     }

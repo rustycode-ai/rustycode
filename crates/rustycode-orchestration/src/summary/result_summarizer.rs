@@ -72,8 +72,7 @@ impl ResultSummarizer {
                     || upper.contains("WARN")
                     || upper.contains("WARNING:")
                     || upper.contains("FATAL")
-                    || upper.contains("PANIC")
-                && added.insert(i)
+                    || upper.contains("PANIC") && added.insert(i)
                 {
                     kept.push(*line);
                 }
@@ -121,7 +120,8 @@ impl ResultSummarizer {
         // Try to parse as JSON.
         match serde_json::from_str::<Value>(trimmed) {
             Ok(Value::Object(map)) => {
-                let mut extracted = serde_json::Map::with_capacity(self.config.json_extract_keys.len());
+                let mut extracted =
+                    serde_json::Map::with_capacity(self.config.json_extract_keys.len());
 
                 for key in &self.config.json_extract_keys {
                     if let Some(val) = map.get(key).cloned() {
@@ -145,10 +145,7 @@ impl ResultSummarizer {
                 let preview: Vec<_> = arr.iter().take(3).cloned().collect();
                 let mut obj = serde_json::Map::new();
                 obj.insert("total_items".into(), Value::Number(total.into()));
-                obj.insert(
-                    "preview".into(),
-                    Value::Array(preview),
-                );
+                obj.insert("preview".into(), Value::Array(preview));
                 serde_json::to_string_pretty(&Value::Object(obj))
                     .unwrap_or_else(|_| self.summarize_generic(trimmed))
             }
@@ -339,10 +336,7 @@ Build finished with errors";
         let result = summarizer
             .summarize(TOOL_BASH, short)
             .expect("summarize should succeed");
-        assert_eq!(
-            result, short,
-            "short output should be returned as-is"
-        );
+        assert_eq!(result, short, "short output should be returned as-is");
     }
 
     #[test]
@@ -401,24 +395,15 @@ Build finished with errors";
 
         // No reduction.
         let ratio = summarizer.reduction_ratio("hello", "hello");
-        assert!(
-            (ratio - 0.0).abs() < 0.01,
-            "expected ~0.0, got {ratio}"
-        );
+        assert!((ratio - 0.0).abs() < 0.01, "expected ~0.0, got {ratio}");
 
         // 50% reduction.
         let ratio = summarizer.reduction_ratio("abcdefghij", "abcde");
-        assert!(
-            (ratio - 0.5).abs() < 0.01,
-            "expected ~0.5, got {ratio}"
-        );
+        assert!((ratio - 0.5).abs() < 0.01, "expected ~0.5, got {ratio}");
 
         // Full reduction (empty summary).
         let ratio = summarizer.reduction_ratio("hello", "");
-        assert!(
-            (ratio - 1.0).abs() < 0.01,
-            "expected ~1.0, got {ratio}"
-        );
+        assert!((ratio - 1.0).abs() < 0.01, "expected ~1.0, got {ratio}");
 
         // Empty original should be 0.0.
         let ratio = summarizer.reduction_ratio("", "");
@@ -431,10 +416,9 @@ Build finished with errors";
     #[test]
     fn test_custom_extractor() {
         let mut config = SummaryConfig::default();
-        config.custom_extractors.insert(
-            "custom_tool".into(),
-            r"^\[RESULT\]".into(),
-        );
+        config
+            .custom_extractors
+            .insert("custom_tool".into(), r"^\[RESULT\]".into());
         let summarizer = ResultSummarizer::new(config);
 
         let output = (0..100)

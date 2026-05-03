@@ -118,8 +118,11 @@ impl OptimizationMetrics {
 
     /// Record a parallel-vs-sequential execution comparison.
     pub const fn record_execution(&mut self, sequential_ms: u64, parallel_ms: u64) {
-        self.sequential_execution_time_ms = self.sequential_execution_time_ms.saturating_add(sequential_ms);
-        self.parallel_execution_time_ms = self.parallel_execution_time_ms.saturating_add(parallel_ms);
+        self.sequential_execution_time_ms = self
+            .sequential_execution_time_ms
+            .saturating_add(sequential_ms);
+        self.parallel_execution_time_ms =
+            self.parallel_execution_time_ms.saturating_add(parallel_ms);
         self.total_execution_time_ms = self.total_execution_time_ms.saturating_add(parallel_ms);
     }
 
@@ -139,8 +142,11 @@ impl OptimizationMetrics {
     pub const fn record_summarization(&mut self, original_tokens: usize, summarized_tokens: usize) {
         let saved = original_tokens.saturating_sub(summarized_tokens);
         self.total_input_tokens = self.total_input_tokens.saturating_add(original_tokens);
-        self.summarized_input_tokens = self.summarized_input_tokens.saturating_add(summarized_tokens);
-        self.tokens_saved_by_summarization = self.tokens_saved_by_summarization.saturating_add(saved);
+        self.summarized_input_tokens = self
+            .summarized_input_tokens
+            .saturating_add(summarized_tokens);
+        self.tokens_saved_by_summarization =
+            self.tokens_saved_by_summarization.saturating_add(saved);
         self.total_tokens_saved = self.total_tokens_saved.saturating_add(saved);
     }
 
@@ -264,10 +270,7 @@ mod tests {
         metrics.sequential_execution_time_ms = 1000;
         metrics.parallel_execution_time_ms = 400;
         let pct = metrics.time_savings_percent();
-        assert!(
-            (pct - 60.0).abs() < 1e-9,
-            "expected 60.0%, got {pct}%"
-        );
+        assert!((pct - 60.0).abs() < 1e-9, "expected 60.0%, got {pct}%");
     }
 
     #[test]
@@ -282,10 +285,7 @@ mod tests {
         metrics.total_input_tokens = 1000;
         metrics.total_tokens_saved = 300;
         let pct = metrics.token_savings_percent();
-        assert!(
-            (pct - 30.0).abs() < 1e-9,
-            "expected 30.0%, got {pct}%"
-        );
+        assert!((pct - 30.0).abs() < 1e-9, "expected 30.0%, got {pct}%");
     }
 
     #[test]

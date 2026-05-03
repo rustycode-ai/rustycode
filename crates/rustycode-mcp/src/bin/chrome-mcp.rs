@@ -20,7 +20,10 @@ use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
 #[derive(Debug, Parser)]
-#[command(name = "chrome-mcp", about = "Chrome browser MCP server for E2E testing")]
+#[command(
+    name = "chrome-mcp",
+    about = "Chrome browser MCP server for E2E testing"
+)]
 struct Cli {
     /// Run in headless mode (no visible browser window)
     #[arg(long, default_value_t = false)]
@@ -35,7 +38,7 @@ struct Cli {
     server_version: String,
 }
 
-/// Holds a shared BrowserPool (lifecycle) plus a cached page for reuse.
+/// Holds a shared `BrowserPool` (lifecycle) plus a cached page for reuse.
 struct BrowserState {
     pool: BrowserPool,
     page: Mutex<Option<Page>>,
@@ -50,9 +53,11 @@ impl BrowserState {
     }
 
     async fn get_page(&self) -> Result<Page> {
-        let existing = self.page.lock().await.clone();
-        if let Some(page) = existing {
-            return Ok(page);
+        if let Some(page) = self.page.lock().await.clone() {
+            if page.evaluate("1").await.is_ok() {
+                return Ok(page);
+            }
+            self.page.lock().await.take();
         }
         let page = self.pool.get_page().await?;
         *self.page.lock().await = Some(page.clone());
@@ -120,7 +125,9 @@ async fn main() -> Result<()> {
                     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
                     let title = page.get_title().await.ok().flatten().unwrap_or_default();
                     let final_url = page.url().await.ok().flatten().unwrap_or_default();
-                    Ok(text_result(format!("Navigated to {final_url}\nTitle: {title}")))
+                    Ok(text_result(format!(
+                        "Navigated to {final_url}\nTitle: {title}"
+                    )))
                 }))
             },
         )
@@ -245,17 +252,10 @@ async fn main() -> Result<()> {
                 to_mcp(run_async(async move {
                     let page = s.get_page().await?;
                     let html = if let Some(sel) = &selector {
-                        let el = page
-                            .find_element(sel)
-                            .await
-                            .map_err(|e| anyhow!("{e}"))?;
+                        let el = page.find_element(sel).await.map_err(|e| anyhow!("{e}"))?;
                         el.inner_html().await.map_err(|e| anyhow!("{e}"))?
                     } else {
-                        Some(
-                            page.content()
-                                .await
-                                .map_err(|e| anyhow!("{e}"))?,
-                        )
+                        Some(page.content().await.map_err(|e| anyhow!("{e}"))?)
                     }
                     .unwrap_or_default();
                     Ok(text_result(html))
@@ -275,10 +275,7 @@ async fn main() -> Result<()> {
                 to_mcp(run_async(async move {
                     let page = s.get_page().await?;
                     let text = if let Some(sel) = &selector {
-                        let el = page
-                            .find_element(sel)
-                            .await
-                            .map_err(|e| anyhow!("{e}"))?;
+                        let el = page.find_element(sel).await.map_err(|e| anyhow!("{e}"))?;
                         el.inner_text().await.map_err(|e| anyhow!("{e}"))?
                     } else {
                         let result = page

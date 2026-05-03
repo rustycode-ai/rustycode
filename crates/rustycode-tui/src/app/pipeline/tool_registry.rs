@@ -45,4 +45,9 @@ impl ToolRegistry {
         }
         allowed
     }
+
+    pub fn get(&self, namespace: &str, name: &str) -> Option<Arc<dyn Tool>> {
+        let full_name = format!("{namespace}.{name}");
+        self.tools.get(&full_name).cloned()
+    }
 }

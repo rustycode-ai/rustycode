@@ -64,10 +64,7 @@ mod tests {
         metrics.hits = 3;
         metrics.misses = 1;
         let rate = metrics.hit_rate();
-        assert!(
-            (rate - 0.75).abs() < 0.001,
-            "expected ~0.75, got {rate}"
-        );
+        assert!((rate - 0.75).abs() < 0.001, "expected ~0.75, got {rate}");
     }
 
     #[test]

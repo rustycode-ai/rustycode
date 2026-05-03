@@ -6,6 +6,7 @@
 pub mod apply_patch;
 pub mod bash;
 pub mod brief;
+pub mod browser_fetch;
 pub mod builtin;
 pub mod check_integration;
 pub mod claude_text_editor;
@@ -39,7 +40,6 @@ pub mod team;
 pub mod tool_search;
 pub mod validate_requirements;
 pub mod web_search;
-pub mod browser_fetch;
 
 // Re-exports for backward-compatible access via `rustycode_tools::TypeName`
 #[allow(ambiguous_glob_reexports)]
@@ -57,6 +57,8 @@ pub use codesearch::*;
 // compile_time defines its own Tool/ToolPermission types that shadow the
 // crate-level re-exports. Skip glob re-export; consumers access it via
 // providers::compile_time:: directly.
+#[allow(ambiguous_glob_reexports)]
+pub use browser_fetch::*;
 #[allow(ambiguous_glob_reexports)]
 pub use cron::*;
 #[allow(ambiguous_glob_reexports)]
@@ -111,5 +113,3 @@ pub use tool_search::*;
 pub use validate_requirements::*;
 #[allow(ambiguous_glob_reexports)]
 pub use web_search::*;
-#[allow(ambiguous_glob_reexports)]
-pub use browser_fetch::*;

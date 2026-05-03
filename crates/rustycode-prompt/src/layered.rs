@@ -378,7 +378,10 @@ mod tests {
             PromptLayer::ModelSpecific,
             PromptLayer::ModelSpecific
         ));
-        assert!(matches!(PromptLayer::Infrastructure, PromptLayer::Infrastructure));
+        assert!(matches!(
+            PromptLayer::Infrastructure,
+            PromptLayer::Infrastructure
+        ));
         assert!(matches!(PromptLayer::Environment, PromptLayer::Environment));
         assert!(matches!(PromptLayer::Project, PromptLayer::Project));
         assert!(matches!(PromptLayer::Local, PromptLayer::Local));
@@ -739,9 +742,7 @@ mod tests {
         let infra_pos = prompt
             .find("Framework Capabilities")
             .expect("missing infrastructure");
-        let env_pos = prompt
-            .find("## Environment")
-            .expect("missing environment");
+        let env_pos = prompt.find("## Environment").expect("missing environment");
         assert!(
             infra_pos < env_pos,
             "infrastructure must appear before environment"
@@ -750,7 +751,10 @@ mod tests {
 
     #[test]
     fn test_prompt_layer_infrastructure_variant() {
-        assert!(matches!(PromptLayer::Infrastructure, PromptLayer::Infrastructure));
+        assert!(matches!(
+            PromptLayer::Infrastructure,
+            PromptLayer::Infrastructure
+        ));
         assert!(format!("{:?}", PromptLayer::Infrastructure).contains("Infrastructure"));
     }
 }

@@ -102,9 +102,9 @@ impl PromptCacheManager {
     ///
     /// Returns 0 if tool definitions have not been cached.
     pub fn cached_tool_count(&self) -> usize {
-        self.cached_items
-            .get(TOOL_DEFS_KEY)
-            .map_or(0, |item| item.content.lines().filter(|line| !line.is_empty()).count())
+        self.cached_items.get(TOOL_DEFS_KEY).map_or(0, |item| {
+            item.content.lines().filter(|line| !line.is_empty()).count()
+        })
     }
 
     /// Return the SHA-256 hash of the cached system prompt, if any.
@@ -144,8 +144,10 @@ impl PromptCacheManager {
     /// Record a cache hit with the number of tokens saved.
     pub const fn record_cache_hit(&mut self, tokens_saved: usize) {
         self.cache_metrics.hits += 1;
-        self.cache_metrics.total_tokens_saved =
-            self.cache_metrics.total_tokens_saved.saturating_add(tokens_saved);
+        self.cache_metrics.total_tokens_saved = self
+            .cache_metrics
+            .total_tokens_saved
+            .saturating_add(tokens_saved);
     }
 
     /// Record a cache miss.
@@ -299,9 +301,6 @@ mod tests {
 
         // Hit rate: 2 / 3
         let rate = metrics.hit_rate();
-        assert!(
-            (rate - 0.666_7).abs() < 0.01,
-            "expected ~0.667, got {rate}"
-        );
+        assert!((rate - 0.666_7).abs() < 0.01, "expected ~0.667, got {rate}");
     }
 }

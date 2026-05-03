@@ -7,9 +7,7 @@
 mod integration_tests {
     use rustycode_orchestration::{
         cache::PromptCacheManager,
-        config::{
-            OrchestrationConfig, ParallelExecutionConfig, PromptCachingConfig,
-        },
+        config::{OrchestrationConfig, ParallelExecutionConfig, PromptCachingConfig},
         executor::ParallelExecutor,
         optimization_metrics::OptimizationMetrics,
         routing::{ComplexityClassifier, ModelRouter, TaskComplexity},
@@ -99,7 +97,10 @@ Final result: success";
         assert_eq!(simple_complexity, TaskComplexity::Simple);
         let simple_tier = router.route(&simple_task);
         // Should route to fast tier (Musician tier 2)
-        assert_ne!(simple_tier, rustycode_orchestration::types::ExecutionTier::Composer);
+        assert_ne!(
+            simple_tier,
+            rustycode_orchestration::types::ExecutionTier::Composer
+        );
 
         // Complex task
         let complex_task = rustycode_orchestration::routing::Task {
@@ -114,7 +115,10 @@ Final result: success";
         assert_eq!(complex_complexity, TaskComplexity::Complex);
         let complex_tier = router.route(&complex_task);
         // Should route to expensive tier (Composer tier 4)
-        assert_eq!(complex_tier, rustycode_orchestration::types::ExecutionTier::Composer);
+        assert_eq!(
+            complex_tier,
+            rustycode_orchestration::types::ExecutionTier::Composer
+        );
     }
 
     #[test]
@@ -179,7 +183,10 @@ Final result: success";
         let deserialized: OrchestrationConfig =
             serde_json::from_str(&json).expect("deserialization failed");
 
-        assert_eq!(deserialized.parallel_execution.enabled, config.parallel_execution.enabled);
+        assert_eq!(
+            deserialized.parallel_execution.enabled,
+            config.parallel_execution.enabled
+        );
         assert_eq!(
             deserialized.parallel_execution.max_concurrent,
             config.parallel_execution.max_concurrent

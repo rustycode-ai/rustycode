@@ -73,17 +73,14 @@ impl Tool for BrowserFetchTool {
                     .map_err(|e| anyhow!("navigation failed: {e}"))?;
 
                 if let Some(sel) = &wait_for {
-                    tokio::time::timeout(
-                        std::time::Duration::from_secs(10),
-                        async {
-                            loop {
-                                if page.find_element(sel).await.is_ok() {
-                                    break;
-                                }
-                                tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                    tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), async {
+                        loop {
+                            if page.find_element(sel).await.is_ok() {
+                                break;
                             }
-                        },
-                    )
+                            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                        }
+                    })
                     .await
                     .map_err(|_| anyhow!("timed out waiting for selector '{sel}'"))?;
                 } else {
@@ -100,8 +97,7 @@ impl Tool for BrowserFetchTool {
                             )
                             .await
                             .map_err(|e| anyhow!("screenshot failed: {e}"))?;
-                        let b64 =
-                            base64::engine::general_purpose::STANDARD.encode(&bytes);
+                        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
                         Ok(ToolOutput::text(b64))
                     }
                     _ => {

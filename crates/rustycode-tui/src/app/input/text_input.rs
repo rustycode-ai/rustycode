@@ -192,9 +192,7 @@ impl TUI {
                 self.dirty = true;
                 Ok(true)
             }
-            (KeyCode::Char(c), m)
-                if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT =>
-            {
+            (KeyCode::Char(c), m) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
                 self.command_palette.state_mut().insert_char(c);
                 self.dirty = true;
                 Ok(true)
@@ -499,7 +497,9 @@ impl TUI {
                 );
             }
 
-            let image_blocks: Vec<rustycode_llm::provider::ContentBlock> = if !attached_images.is_empty() {
+            let image_blocks: Vec<rustycode_llm::provider::ContentBlock> = if !attached_images
+                .is_empty()
+            {
                 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
                 use rustycode_llm::provider::{ContentBlock, ImageSource};
 
@@ -548,14 +548,15 @@ impl TUI {
             self.active_tools.clear();
 
             let send_call_start = std::time::Instant::now();
-            if let Err(e) = self
-                .services
-                .send_message_with_history(
-                    message_to_send,
-                    Some(history),
-                    if image_blocks.is_empty() { None } else { Some(image_blocks) },
-                )
-            {
+            if let Err(e) = self.services.send_message_with_history(
+                message_to_send,
+                Some(history),
+                if image_blocks.is_empty() {
+                    None
+                } else {
+                    Some(image_blocks)
+                },
+            ) {
                 tracing::error!("Failed to send message: {}", e);
                 self.reset_streaming_state();
                 self.active_tools.clear();

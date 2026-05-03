@@ -605,9 +605,9 @@ impl TUI {
         self.showing_tool_result = false;
         self.active_tools.clear();
 
-        let send_result = self
-            .services
-            .send_message_with_history(message_to_send, Some(history), None);
+        let send_result =
+            self.services
+                .send_message_with_history(message_to_send, Some(history), None);
         if let Err(e) = send_result {
             tracing::error!("Failed to retry message: {}", e);
             self.reset_streaming_state();

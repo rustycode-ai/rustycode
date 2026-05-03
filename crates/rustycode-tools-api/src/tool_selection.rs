@@ -96,9 +96,7 @@ impl ToolProfile {
                 "Active profile: Debug — diagnose before editing. Prefer lsp_diagnostics."
             }
             Self::Ops => "Active profile: Ops — prefer bash and git_* tools.",
-            Self::All => {
-                "Active profile: All — full access. Choose tools suited to the sub-task."
-            }
+            Self::All => "Active profile: All — full access. Choose tools suited to the sub-task.",
         }
     }
 }
@@ -390,10 +388,18 @@ mod tests {
         );
 
         // Spot-check a few keywords so the strings stay meaningful.
-        assert!(ToolProfile::Explore.format_profile_hint().contains("read only"));
-        assert!(ToolProfile::Implement.format_profile_hint().contains("writes enabled"));
-        assert!(ToolProfile::Debug.format_profile_hint().contains("lsp_diagnostics"));
+        assert!(ToolProfile::Explore
+            .format_profile_hint()
+            .contains("read only"));
+        assert!(ToolProfile::Implement
+            .format_profile_hint()
+            .contains("writes enabled"));
+        assert!(ToolProfile::Debug
+            .format_profile_hint()
+            .contains("lsp_diagnostics"));
         assert!(ToolProfile::Ops.format_profile_hint().contains("git_*"));
-        assert!(ToolProfile::All.format_profile_hint().contains("full access"));
+        assert!(ToolProfile::All
+            .format_profile_hint()
+            .contains("full access"));
     }
 }

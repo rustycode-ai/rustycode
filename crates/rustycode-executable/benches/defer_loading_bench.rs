@@ -117,7 +117,10 @@ const TOOL_DEFINITIONS: &[(&str, &str)] = &[
     ("plan_create", "Create an execution plan from a goal"),
     ("plan_execute", "Execute a plan step by step"),
     ("plan_status", "Get the current status of a plan"),
-    ("tool_registry", "Inspect registered tool metadata and capabilities"),
+    (
+        "tool_registry",
+        "Inspect registered tool metadata and capabilities",
+    ),
 ];
 
 /// Build an `ExecutableUnit` with the given ID, description, and defer_loading flag.

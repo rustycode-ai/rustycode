@@ -69,8 +69,8 @@ pub mod judge;
 pub mod mock_provider_for_tests;
 pub mod model_registry;
 pub mod musician;
-pub mod orchestra_paths;
 pub mod optimization_metrics;
+pub mod orchestra_paths;
 pub mod orchestrator;
 pub mod phase;
 pub mod phase_lifecycle;
@@ -96,8 +96,8 @@ pub mod state_machine;
 pub mod strategy_selector;
 pub mod structured_thinking_tool;
 pub mod structured_thinking_tool_impl;
-pub mod supervisor;
 pub mod summary;
+pub mod supervisor;
 pub mod swebench;
 pub mod task_context;
 pub mod task_decomposer;
@@ -223,5 +223,7 @@ pub use cache::{CacheMetrics, PromptCacheManager};
 pub use config::{OrchestrationConfig, ParallelExecutionConfig, PromptCachingConfig};
 pub use executor::{ParallelExecutor, StreamingToolExecutor, ToolExecution, ToolResult};
 pub use optimization_metrics::OptimizationMetrics;
-pub use routing::{ComplexityClassifier, ModelRouter, RoutingPolicy, TaskComplexity, TaskDescriptor};
+pub use routing::{
+    ComplexityClassifier, ModelRouter, RoutingPolicy, TaskComplexity, TaskDescriptor,
+};
 pub use summary::{ResultSummarizer, SummaryConfig};

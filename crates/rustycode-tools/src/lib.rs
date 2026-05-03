@@ -250,10 +250,7 @@ pub fn check_tool_permission(tool_name: &str, mode: rustycode_protocol::SessionM
 ///
 /// Permission hierarchy: None < Read < Write < Execute < Network.
 /// Returns an error if the required permission exceeds the context's allowance.
-pub fn check_permission(
-    permission: ToolPermission,
-    ctx: &ToolContext,
-) -> anyhow::Result<()> {
+pub fn check_permission(permission: ToolPermission, ctx: &ToolContext) -> anyhow::Result<()> {
     let required = permission_level(&permission);
     let allowed = permission_level(&ctx.max_permission);
     if required > allowed {
@@ -416,6 +413,7 @@ impl rustycode_tool_integration::tool_executor::ToolExecutorApi for ToolExecutor
 pub fn default_registry() -> ToolRegistry {
     use crate::providers::apply_patch::ApplyPatchTool;
     use crate::providers::brief::BriefTool;
+    use crate::providers::browser_fetch::BrowserFetchTool;
     use crate::providers::codesearch::CodeSearchTool;
     use crate::providers::edit::EditFile;
     use crate::providers::lsp::*;
@@ -427,7 +425,6 @@ pub fn default_registry() -> ToolRegistry {
     use crate::providers::tool_search::ToolSearchTool;
     use crate::providers::web_search::WebSearchTool;
     use crate::providers::WebFetchTool;
-    use crate::providers::browser_fetch::BrowserFetchTool;
     use crate::providers::{
         BashTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, InspectTool,
         ListDirTool, QuestionTool, ReadFileTool, WriteFileTool,

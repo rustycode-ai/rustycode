@@ -87,7 +87,11 @@ impl ParallelExecutor {
         // Every slot is guaranteed to be filled because we awaited all futures.
         ordered
             .into_iter()
-            .map(|opt| opt.unwrap_or_else(|| unreachable!("every slot is filled after awaiting all futures")))
+            .map(|opt| {
+                opt.unwrap_or_else(|| {
+                    unreachable!("every slot is filled after awaiting all futures")
+                })
+            })
             .collect()
     }
 
@@ -150,10 +154,12 @@ mod tests {
             // Track the highest concurrency observed.
             let mut current_peak = self.peak.load(Ordering::SeqCst);
             while active > current_peak {
-                match self
-                    .peak
-                    .compare_exchange_weak(current_peak, active, Ordering::SeqCst, Ordering::SeqCst)
-                {
+                match self.peak.compare_exchange_weak(
+                    current_peak,
+                    active,
+                    Ordering::SeqCst,
+                    Ordering::SeqCst,
+                ) {
                     Ok(_) => break,
                     Err(actual) => current_peak = actual,
                 }
@@ -266,7 +272,8 @@ mod tests {
     #[tokio::test]
     async fn test_empty_input_returns_empty() {
         let executor = ParallelExecutor::new(4);
-        let results: Vec<anyhow::Result<String>> = executor.execute_all::<DelayedTool>(vec![]).await;
+        let results: Vec<anyhow::Result<String>> =
+            executor.execute_all::<DelayedTool>(vec![]).await;
         assert!(results.is_empty());
     }
 

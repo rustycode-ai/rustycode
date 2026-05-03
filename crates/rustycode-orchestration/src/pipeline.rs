@@ -22,8 +22,8 @@ use crate::supervisor::{
 };
 use crate::verification_gates::VerificationGateRegistry;
 use chrono::Utc;
-use rustycode_prompt::layered::PromptBuilder;
 use rustycode_prompt::environment::EnvironmentContext;
+use rustycode_prompt::layered::PromptBuilder;
 use rustycode_protocol::{
     CommandPlan, ConvoyPlan, ConvoyRisk, ExecutionPhase, PhaseSkipConfig, PlanApproval,
 };
@@ -972,7 +972,10 @@ mod tests {
             .await
             .unwrap();
         assert!(
-            matches!(result, TaskResult::Success { .. } | TaskResult::Failed { .. }),
+            matches!(
+                result,
+                TaskResult::Success { .. } | TaskResult::Failed { .. }
+            ),
             "pipeline should complete with fallback prompt"
         );
     }

@@ -9,6 +9,92 @@ use std::sync::Arc;
 use crate::app::async_::StreamChunk;
 use crate::app::pipeline::tool_registry::ToolRegistry;
 use crate::app::streaming::adapter::StreamEventAdapter;
+use anyhow::Context as _;
+use rustycode_tools_api::{Tool as RustyCodeTool, ToolOutput, ToolPermission};
+use serde_json::json;
+use std::sync::Arc as StdArc;
+
+struct PipelineToolAdapter {
+    name: String,
+    description: String,
+    parameters_schema: serde_json::Value,
+    permission: ToolPermission,
+    tool: StdArc<dyn crate::app::pipeline::tool_registry::Tool>,
+}
+
+impl RustyCodeTool for PipelineToolAdapter {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn description(&self) -> &str {
+        &self.description
+    }
+
+    fn permission(&self) -> ToolPermission {
+        self.permission
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        self.parameters_schema.clone()
+    }
+
+    fn execute(
+        &self,
+        params: serde_json::Value,
+        _ctx: &rustycode_tools_api::ToolContext,
+    ) -> anyhow::Result<ToolOutput> {
+        let output = self
+            .tool
+            .execute(params)
+            .with_context(|| format!("pipeline tool '{}' failed", self.name))?;
+        let text = output
+            .as_str()
+            .map(ToString::to_string)
+            .unwrap_or_else(|| output.to_string());
+        Ok(ToolOutput::text(text))
+    }
+}
+
+fn browser_tool_adapters(tool_registry: &ToolRegistry) -> Vec<Box<dyn RustyCodeTool>> {
+    let mut tools = Vec::new();
+
+    if let Some(tool) = tool_registry.get("browser", "goto") {
+        tools.push(Box::new(PipelineToolAdapter {
+            name: "browser.goto".to_string(),
+            description: "Navigate to a URL in the browser and return the title plus final URL"
+                .to_string(),
+            parameters_schema: json!({
+                "type": "object",
+                "required": ["url"],
+                "properties": {
+                    "url": {"type": "string", "description": "URL to navigate to"}
+                }
+            }),
+            permission: ToolPermission::Network,
+            tool,
+        }) as Box<dyn RustyCodeTool>);
+    }
+
+    if let Some(tool) = tool_registry.get("browser", "extract") {
+        tools.push(Box::new(PipelineToolAdapter {
+            name: "browser.extract".to_string(),
+            description: "Extract page content or a selector from the active browser tab"
+                .to_string(),
+            parameters_schema: json!({
+                "type": "object",
+                "properties": {
+                    "selector": {"type": "string", "description": "CSS selector to extract"},
+                    "screenshot": {"type": "boolean", "description": "Return a screenshot instead of content"}
+                }
+            }),
+            permission: ToolPermission::Network,
+            tool,
+        }) as Box<dyn RustyCodeTool>);
+    }
+
+    tools
+}
 
 pub struct TuiAgentManager {
     session: Arc<tokio::sync::Mutex<AgentSession>>,
@@ -95,10 +181,13 @@ impl TuiAgentManager {
         &self,
         model: &str,
         task: &str,
-        _tool_registry: &ToolRegistry,
+        tool_registry: &ToolRegistry,
         events: &mut E,
     ) -> Result<AgentResult> {
-        let tool_registry = rustycode_tools::default_registry();
+        let mut registry = rustycode_tools::default_registry();
+        for adapter in browser_tool_adapters(tool_registry) {
+            registry.register_boxed(adapter);
+        }
         let mut session = self.session.lock().await;
         session
             .run(
@@ -107,7 +196,7 @@ impl TuiAgentManager {
                 "You are an autonomous development agent.",
                 vec![rustycode_llm::provider::ChatMessage::user(task.to_string())],
                 &[],
-                &tool_registry,
+                &registry,
                 events,
             )
             .await

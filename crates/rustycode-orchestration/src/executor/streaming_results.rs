@@ -22,7 +22,11 @@ impl Clone for ToolResult {
     fn clone(&self) -> Self {
         Self {
             tool_name: self.tool_name.clone(),
-            result: self.result.as_ref().map(String::from).map_err(|e| anyhow::anyhow!("{e}")),
+            result: self
+                .result
+                .as_ref()
+                .map(String::from)
+                .map_err(|e| anyhow::anyhow!("{e}")),
             completion_time: self.completion_time,
         }
     }
@@ -32,7 +36,14 @@ impl fmt::Debug for ToolResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ToolResult")
             .field("tool_name", &self.tool_name)
-            .field("result", &self.result.as_ref().map(|_| "...").map_err(std::string::ToString::to_string))
+            .field(
+                "result",
+                &self
+                    .result
+                    .as_ref()
+                    .map(|_| "...")
+                    .map_err(std::string::ToString::to_string),
+            )
             .field("completion_time", &self.completion_time)
             .finish()
     }
@@ -79,11 +90,13 @@ impl StreamingToolExecutor {
                 let completion_time = start.elapsed();
                 // If the receiver is dropped, send returns Err -- that is fine,
                 // the consumer has opted out of further results.
-                let _ = tx.send(ToolResult {
-                    tool_name,
-                    result,
-                    completion_time,
-                }).await;
+                let _ = tx
+                    .send(ToolResult {
+                        tool_name,
+                        result,
+                        completion_time,
+                    })
+                    .await;
             });
         }
 
@@ -220,16 +233,18 @@ mod tests {
             })
             .collect();
 
-        let handle = tokio::spawn(async move {
-            StreamingToolExecutor::execute_streaming(tools, tx).await
-        });
+        let handle =
+            tokio::spawn(async move { StreamingToolExecutor::execute_streaming(tools, tx).await });
 
         // Drop the receiver immediately.
         drop(rx);
 
         // The executor should still succeed (sends are silently discarded).
         let result = handle.await.expect("task should not panic");
-        assert!(result.is_ok(), "executor should succeed even with dropped receiver: {result:?}");
+        assert!(
+            result.is_ok(),
+            "executor should succeed even with dropped receiver: {result:?}"
+        );
     }
 
     #[tokio::test]
@@ -259,26 +274,18 @@ mod tests {
         h1.await.expect("ok batch join").expect("ok batch exec");
         h2.await.expect("fail batch join").expect("fail batch exec");
 
-        let ok_result = rx1
-            .recv()
-            .await
-            .expect("should receive ok result");
+        let ok_result = rx1.recv().await.expect("should receive ok result");
         assert!(ok_result.result.is_ok());
         assert_eq!(ok_result.result.as_ref().unwrap(), "success");
 
-        let fail_result = rx2
-            .recv()
-            .await
-            .expect("should receive fail result");
+        let fail_result = rx2.recv().await.expect("should receive fail result");
         assert!(fail_result.result.is_err());
-        assert!(
-            fail_result
-                .result
-                .as_ref()
-                .unwrap_err()
-                .to_string()
-                .contains("intentional failure")
-        );
+        assert!(fail_result
+            .result
+            .as_ref()
+            .unwrap_err()
+            .to_string()
+            .contains("intentional failure"));
     }
 
     #[tokio::test]
@@ -291,7 +298,10 @@ mod tests {
             .expect("empty input should succeed");
 
         // Channel should be closed with no messages.
-        assert!(rx.recv().await.is_none(), "expected no results for empty input");
+        assert!(
+            rx.recv().await.is_none(),
+            "expected no results for empty input"
+        );
     }
 
     #[tokio::test]

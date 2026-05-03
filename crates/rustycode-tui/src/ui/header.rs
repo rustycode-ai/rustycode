@@ -61,10 +61,10 @@ impl AiModeLabel {
     /// Color used for the mode badge.
     pub fn color(&self) -> Color {
         match self {
-            Self::Ask => Color::Rgb(107, 142, 255),   // soft blue
+            Self::Ask => Color::Rgb(107, 142, 255), // soft blue
             Self::Plan => Color::Cyan,
-            Self::Act => Color::Rgb(255, 200, 80),     // gold
-            Self::Yolo => Color::Rgb(255, 80, 80),     // red/cranberry
+            Self::Act => Color::Rgb(255, 200, 80), // gold
+            Self::Yolo => Color::Rgb(255, 80, 80), // red/cranberry
         }
     }
 }
@@ -216,7 +216,9 @@ impl Header {
                 if used + mode_text.len() + 4 < width {
                     spans.push(Span::styled(
                         mode_text.clone(),
-                        Style::default().fg(mode.color()).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(mode.color())
+                            .add_modifier(Modifier::BOLD),
                     ));
                     used += mode_text.len();
                 }

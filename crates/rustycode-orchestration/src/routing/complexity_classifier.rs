@@ -138,8 +138,7 @@ impl ComplexityClassifier {
     /// Apply the weighted scoring formula to produce a complexity level.
     #[allow(clippy::suboptimal_flops)]
     pub fn score(&self, features: &TaskFeatures) -> TaskComplexity {
-        let score = (features.description_length as f64)
-            .mul_add(0.01, features.step_count as f64)
+        let score = (features.description_length as f64).mul_add(0.01, features.step_count as f64)
             + (features.context_length as f64 * 0.002)
             + (features.keyword_count as f64 * 2.0);
 
@@ -194,11 +193,7 @@ mod tests {
         // Actually "design" and "algorithm" are keywords: +4.0
         // description ~50 chars: +0.5
         // Total ~24.5 which is >= 10 -> Complex
-        let task = make_task(
-            "Design distributed consensus algorithm",
-            "",
-            20,
-        );
+        let task = make_task("Design distributed consensus algorithm", "", 20);
         let complexity = classifier.classify(&task);
         assert_eq!(complexity, TaskComplexity::Complex);
     }
@@ -213,13 +208,15 @@ mod tests {
         assert_eq!(classifier.count_complexity_keywords("debug the issue"), 1);
 
         // Multiple keywords
-        let count = classifier.count_complexity_keywords(
-            "design the architecture and optimize the algorithm",
-        );
+        let count = classifier
+            .count_complexity_keywords("design the architecture and optimize the algorithm");
         assert_eq!(count, 4); // design, architecture, optimize, algorithm
 
         // Case insensitive
-        assert_eq!(classifier.count_complexity_keywords("DESIGN and REFACTOR"), 2);
+        assert_eq!(
+            classifier.count_complexity_keywords("DESIGN and REFACTOR"),
+            2
+        );
     }
 
     #[test]
@@ -239,7 +236,10 @@ mod tests {
             keyword_count: 0,
         };
         // score = 1.0 < 2.0 => Simple
-        assert_eq!(classifier.score(&features_at_simple), TaskComplexity::Simple);
+        assert_eq!(
+            classifier.score(&features_at_simple),
+            TaskComplexity::Simple
+        );
 
         let features_at_moderate = TaskFeatures {
             step_count: 3,
@@ -248,7 +248,10 @@ mod tests {
             keyword_count: 0,
         };
         // score = 3.0 >= 2.0 and < 10.0 => Moderate
-        assert_eq!(classifier.score(&features_at_moderate), TaskComplexity::Moderate);
+        assert_eq!(
+            classifier.score(&features_at_moderate),
+            TaskComplexity::Moderate
+        );
 
         let features_at_complex = TaskFeatures {
             step_count: 12,
@@ -257,7 +260,10 @@ mod tests {
             keyword_count: 0,
         };
         // score = 12.0 >= 10.0 => Complex
-        assert_eq!(classifier.score(&features_at_complex), TaskComplexity::Complex);
+        assert_eq!(
+            classifier.score(&features_at_complex),
+            TaskComplexity::Complex
+        );
     }
 
     #[test]

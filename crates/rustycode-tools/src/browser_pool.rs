@@ -79,9 +79,12 @@ impl BrowserPool {
     pub async fn shutdown(&self) -> Result<()> {
         let mut inner = self.inner.lock().await;
         if let Some(instance) = inner.take() {
+            drop(inner);
             drop(instance.browser);
             let _ = instance.handler.await;
+            return Ok(());
         }
+        drop(inner);
         Ok(())
     }
 }

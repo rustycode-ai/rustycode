@@ -261,15 +261,15 @@ impl TUI {
                     // Restore stashed prompt (bulk set instead of char-by-char)
                     self.input_handler.state.set_text(&stashed);
                     self.input_mode = self.input_handler.state.mode;
-                    self.toast_manager.success("📝 Restored stashed prompt".to_string());
+                    self.toast_manager
+                        .success("📝 Restored stashed prompt".to_string());
                 } else if !current_text.trim().is_empty() {
                     // Stash current prompt
                     self.stashed_prompt = Some(current_text.clone());
                     self.input_handler.state.clear();
                     self.input_mode = self.input_handler.state.mode;
-                    self.toast_manager.success(
-                        "📝 Prompt stashed - press Ctrl+S again to restore".to_string(),
-                    );
+                    self.toast_manager
+                        .success("📝 Prompt stashed - press Ctrl+S again to restore".to_string());
                 }
                 self.dirty = true;
             }

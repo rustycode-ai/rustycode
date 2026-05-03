@@ -96,14 +96,18 @@ impl StrategySelector {
 /// so the LLM is aware of the execution mode it should follow.
 pub const fn strategy_hint(strategy: &ReasoningStrategy) -> &'static str {
     match strategy {
-        ReasoningStrategy::DirectExecution =>
-            "Strategy: DirectExecution — act immediately, no extended planning.",
-        ReasoningStrategy::QuickSelfEval =>
-            "Strategy: QuickSelfEval — one self-check before committing.",
-        ReasoningStrategy::SequentialThinking =>
-            "Strategy: SequentialThinking — decompose into ordered steps.",
-        ReasoningStrategy::PhasedOrchestration =>
-            "Strategy: PhasedOrchestration — follow AST phases strictly.",
+        ReasoningStrategy::DirectExecution => {
+            "Strategy: DirectExecution — act immediately, no extended planning."
+        }
+        ReasoningStrategy::QuickSelfEval => {
+            "Strategy: QuickSelfEval — one self-check before committing."
+        }
+        ReasoningStrategy::SequentialThinking => {
+            "Strategy: SequentialThinking — decompose into ordered steps."
+        }
+        ReasoningStrategy::PhasedOrchestration => {
+            "Strategy: PhasedOrchestration — follow AST phases strictly."
+        }
     }
 }
 

@@ -21,7 +21,11 @@ impl Tool for BrowserExtractTool {
 
                 let selector = args["selector"].as_str();
 
-                if args.get("screenshot").and_then(|v| v.as_bool()).unwrap_or(false) {
+                if args
+                    .get("screenshot")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
                     let bytes = page
                         .screenshot(
                             chromiumoxide::page::ScreenshotParams::builder()
