@@ -275,7 +275,6 @@ pub struct TUI {
     // Command palette for slash commands
     pub(crate) command_palette: CommandPalette,
     pub(crate) showing_command_palette: bool,
-    pub(crate) debug_tick: u32,
     pub(crate) showing_skill_palette: bool,
 
     // Collapsible sections (Phase 3 polish)
@@ -688,7 +687,6 @@ impl TUI {
             tool_result_scroll_offset: 0,
             command_palette,
             showing_command_palette: false,
-debug_tick: 0,
             showing_skill_palette: false,
             status_bar_collapsed: false,
             footer_collapsed: false,
@@ -974,7 +972,6 @@ debug_tick: 0,
             stashed_prompt: None,
             command_palette,
             showing_command_palette: false,
-debug_tick: 0,
             showing_skill_palette: false,
             status_bar_collapsed: false,
             footer_collapsed: false,
@@ -2037,8 +2034,6 @@ debug_tick: 0,
     /// This handles paste from the terminal's native paste (Cmd+V, Ctrl+Shift+V).
     /// The entire pasted content is received at once, preventing multiple sends.
     pub(crate) fn handle_bracketed_paste(&mut self, content: &str) -> Result<()> {
-        use crate::ui::input_state::InputMode;
-
         if content.is_empty() {
             return Ok(());
         }
@@ -2051,13 +2046,6 @@ debug_tick: 0,
                 MAX_BRACKETED_PASTE_BYTES
             ));
             return Ok(());
-        }
-
-        // Check if content has newlines - if so, ensure we are in multiline mode
-        // (but don't force it if it's already multiline)
-        if content.contains('\n') && self.input_handler.state.mode == InputMode::SingleLine {
-            self.input_handler.state.mode = InputMode::MultiLine;
-            self.input_mode = InputMode::MultiLine;
         }
 
         let state = &mut self.input_handler.state;

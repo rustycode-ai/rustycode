@@ -261,13 +261,13 @@ impl TUI {
                     // Restore stashed prompt (bulk set instead of char-by-char)
                     self.input_handler.state.set_text(&stashed);
                     self.input_mode = self.input_handler.state.mode;
-                    self.add_system_message("📝 Restored stashed prompt".to_string());
+                    self.toast_manager.success("📝 Restored stashed prompt".to_string());
                 } else if !current_text.trim().is_empty() {
                     // Stash current prompt
                     self.stashed_prompt = Some(current_text.clone());
                     self.input_handler.state.clear();
                     self.input_mode = self.input_handler.state.mode;
-                    self.add_system_message(
+                    self.toast_manager.success(
                         "📝 Prompt stashed - press Ctrl+S again to restore".to_string(),
                     );
                 }
@@ -382,8 +382,7 @@ impl TUI {
                 self.dirty = true;
                 return Ok(());
             }
-            (KeyCode::Char('m'), KeyModifiers::CONTROL) => {
-                // Cycle to next agent mode
+            (KeyCode::Char('m'), KeyModifiers::ALT) => {
                 let new_mode = self.services.next_agent_mode();
                 self.add_system_message(format!(
                     "🔧 Agent mode: {} - {}",
@@ -395,8 +394,7 @@ impl TUI {
                 return Ok(());
             }
             #[allow(unreachable_patterns)]
-            (KeyCode::Char('m'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                // Cycle to previous agent mode
+            (KeyCode::Char('M'), KeyModifiers::ALT | KeyModifiers::SHIFT) => {
                 let new_mode = self.services.prev_agent_mode();
                 self.add_system_message(format!(
                     "🔧 Agent mode: {} - {}",
@@ -534,11 +532,10 @@ impl TUI {
                     return Ok(());
                 }
 
-                // Priority 3: Multiline → single-line mode switch
+                // Priority 3: Switch to single-line display mode (without destroying content)
                 if self.input_mode == InputMode::MultiLine {
                     self.input_mode = InputMode::SingleLine;
                     self.input_handler.state.mode = InputMode::SingleLine;
-                    self.input_handler.state.flatten_to_single_line();
                     self.dirty = true;
                     return Ok(());
                 }

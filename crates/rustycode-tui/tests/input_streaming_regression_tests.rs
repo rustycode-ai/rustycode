@@ -65,7 +65,7 @@ fn test_enter_key_submits_message_in_single_line_mode() {
 }
 
 #[test]
-fn test_enter_key_creates_newline_in_multiline_mode() {
+fn test_enter_key_sends_in_multiline_mode() {
     let mut handler = InputHandler::new();
 
     // Switch to multi-line mode
@@ -78,37 +78,20 @@ fn test_enter_key_creates_newline_in_multiline_mode() {
     handler.state.insert_char('e');
     handler.state.insert_char('1');
 
-    // Press Enter
+    // Press Enter — always sends, even in multi-line mode
     let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::NONE);
 
-    // Should insert newline, NOT send message
-    assert_eq!(
-        action,
-        InputAction::Consumed,
-        "Enter should insert newline in multi-line mode"
+    assert!(
+        matches!(action, InputAction::SendMessage(_)),
+        "Enter should send message in multi-line mode"
     );
-
-    // Verify we have two lines
-    assert_eq!(
-        handler.state.lines.len(),
-        2,
-        "Should have two lines after Enter"
-    );
-    // After Enter, cursor moves to new empty line (row 1)
-    assert_eq!(
-        handler.state.current_line(),
-        "",
-        "Current line should be the new empty line after Enter"
-    );
-    // First line should be preserved
-    assert_eq!(
-        handler.state.lines[0], "Line1",
-        "First line should be preserved"
-    );
+    if let InputAction::SendMessage(lines) = action {
+        assert_eq!(lines, vec!["Line1"]);
+    }
 }
 
 #[test]
-fn test_shift_enter_inserts_newline_in_multiline_mode() {
+fn test_shift_enter_inserts_newline_then_enter_sends() {
     let mut handler = InputHandler::new();
 
     // Switch to multi-line mode
@@ -125,7 +108,7 @@ fn test_shift_enter_inserts_newline_in_multiline_mode() {
     let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::SHIFT);
     assert!(
         matches!(action, InputAction::Consumed),
-        "Shift+Enter should insert newline in multi-line mode, not send"
+        "Shift+Enter should insert newline, not send"
     );
 
     // Continue typing on new line
@@ -135,11 +118,11 @@ fn test_shift_enter_inserts_newline_in_multiline_mode() {
     handler.state.insert_char('e');
     handler.state.insert_char('2');
 
-    // Now Ctrl+Enter should send
-    let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::CONTROL);
+    // Now Enter (plain) sends the message
+    let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::NONE);
     assert!(
         matches!(action, InputAction::SendMessage(_)),
-        "Ctrl+Enter should send message in multi-line mode"
+        "Enter should send the multi-line message"
     );
 
     if let InputAction::SendMessage(lines) = action {

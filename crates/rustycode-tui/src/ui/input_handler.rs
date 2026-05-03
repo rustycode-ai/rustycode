@@ -112,66 +112,32 @@ impl InputHandler {
     pub fn handle_key_event(&mut self, key_code: KeyCode, modifiers: KeyModifiers) -> InputAction {
         tracing::debug!("Key event: code={:?}, modifiers={:?}", key_code, modifiers);
         match (key_code, modifiers) {
-            // === Multi-line handling ===
-            (KeyCode::Enter, KeyModifiers::ALT) => {
-                // Option+Enter: Toggle input mode
-                match self.state.mode {
-                    InputMode::SingleLine => {
-                        self.state.mode = InputMode::MultiLine;
-                        self.state.insert_newline();
-                        InputAction::Consumed
-                    }
-                    InputMode::MultiLine => {
-                        // Send message - avoid clone by collecting into Vec
-                        let lines: Vec<String> = self.state.lines.to_vec();
-                        InputAction::SendMessage(lines)
-                    }
-                }
-            }
-
-            (KeyCode::Enter, KeyModifiers::SHIFT) => {
-                // Shift+Enter: insert newline in both modes (matches hint text)
-                if self.state.mode == InputMode::SingleLine {
-                    self.state.mode = InputMode::MultiLine;
-                }
+            // === Enter handling: always-submit model ===
+            (KeyCode::Enter, KeyModifiers::SHIFT) | (KeyCode::Enter, KeyModifiers::CONTROL) => {
+                // Shift+Enter / Ctrl+Enter: insert newline
                 self.state.insert_newline();
                 InputAction::Consumed
             }
 
-            (KeyCode::Enter, KeyModifiers::CONTROL) => {
-                // Ctrl+Enter: Send message in both modes (standard multi-line submit)
-                let lines: Vec<String> = self.state.lines.to_vec();
-                InputAction::SendMessage(lines)
+            (KeyCode::Enter, KeyModifiers::ALT) => {
+                // Alt+Enter: insert newline (consistent with other modifier+Enter)
+                self.state.insert_newline();
+                InputAction::Consumed
             }
 
             (KeyCode::Enter, KeyModifiers::NONE) => {
-                // Handle reverse search mode
+                // Plain Enter: always submit all lines
                 if self.history.is_in_reverse_search() {
                     if self.history.has_reverse_search_match() {
-                        // Accept current match and send
                         let text = self.state.all_text();
                         self.history.exit_reverse_search(&mut self.state);
                         InputAction::SendMessage(vec![text])
                     } else {
-                        // No matches: exit search mode, restoring the original
-                        // pending_input. The "no matches" display text must never
-                        // be submitted as a message.
                         self.history.exit_reverse_search(&mut self.state);
                         InputAction::Consumed
                     }
                 } else {
-                    // Plain Enter: behavior depends on mode
-                    match self.state.mode {
-                        InputMode::SingleLine => {
-                            // Send immediately
-                            InputAction::SendMessage(vec![self.state.current_line()])
-                        }
-                        InputMode::MultiLine => {
-                            // Insert newline
-                            self.state.insert_newline();
-                            InputAction::Consumed
-                        }
-                    }
+                    InputAction::SendMessage(self.state.lines.to_vec())
                 }
             }
 
@@ -183,11 +149,11 @@ impl InputHandler {
                         return match result {
                             PasteResult::Text => InputAction::Consumed,
                             PasteResult::Image => InputAction::Consumed,
-                            PasteResult::None => InputAction::Ignored,
+                            PasteResult::None => InputAction::Consumed,
                         };
                     }
                 }
-                InputAction::Ignored
+                InputAction::Consumed
             }
 
             // === Reverse search (Ctrl+R) ===
@@ -213,10 +179,13 @@ impl InputHandler {
                     // Exit history mode when typing
                     self.history.exit_history_mode();
 
-                    // Note: '/' and '@' are inserted as normal characters so users can type
-                    // slash commands like /help, /quit, etc. directly. Command/skill palettes
-                    // are opened via keyboard shortcuts (Ctrl+K / Ctrl+Shift+P, Ctrl+Shift+S) or by
-                    // submitting a bare "/" on Enter.
+                    // Leading '/' on empty input opens command palette (Claude Code style).
+                    // Non-empty input: '/' inserts normally so users can type commands like
+                    // /help mid-sentence, or submit a bare "/" to confirm the palette selection.
+                    if c == '/' && self.state.is_empty() {
+                        self.state.insert_char('/');
+                        return InputAction::OpenCommandPalette;
+                    }
 
                     if c == 'x' && !self.state.images.is_empty() {
                         if let Some(img) = self.state.images.last() {
@@ -296,15 +265,10 @@ impl InputHandler {
                 InputAction::Consumed
             }
 
-            // === Escape to exit multi-line or reverse search ===
+            // === Escape: exit reverse search or pass through ===
             (KeyCode::Esc, KeyModifiers::NONE) => {
                 if self.history.is_in_reverse_search() {
-                    // Exit reverse search mode
                     self.history.exit_reverse_search(&mut self.state);
-                    InputAction::Consumed
-                } else if self.state.mode == InputMode::MultiLine {
-                    self.state.mode = InputMode::SingleLine;
-                    self.state.flatten_to_single_line();
                     InputAction::Consumed
                 } else {
                     InputAction::Ignored
@@ -427,8 +391,11 @@ mod tests {
 
         let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::NONE);
 
-        assert_eq!(action, InputAction::Consumed);
-        assert_eq!(handler.state.lines.len(), 2); // Newline added
+        // Enter always submits, even in multi-line mode
+        assert!(matches!(action, InputAction::SendMessage(_)));
+        if let InputAction::SendMessage(lines) = action {
+            assert_eq!(lines, vec!["Hello"]);
+        }
     }
 
     #[test]
@@ -438,9 +405,9 @@ mod tests {
 
         let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::ALT);
 
+        // Alt+Enter inserts newline without changing mode
         assert_eq!(action, InputAction::Consumed);
-        assert_eq!(handler.state.mode, InputMode::MultiLine);
-        assert_eq!(handler.state.lines.len(), 2); // Newline added
+        assert_eq!(handler.state.lines.len(), 2);
     }
 
     #[test]
@@ -451,7 +418,9 @@ mod tests {
 
         let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::ALT);
 
-        assert!(matches!(action, InputAction::SendMessage(_)));
+        // Alt+Enter inserts newline, does not send
+        assert_eq!(action, InputAction::Consumed);
+        assert_eq!(handler.state.lines.len(), 3);
     }
 
     #[test]
@@ -463,7 +432,6 @@ mod tests {
 
         let action = handler.handle_key_event(KeyCode::Enter, KeyModifiers::SHIFT);
         assert_eq!(action, InputAction::Consumed);
-        assert_eq!(handler.state.mode, InputMode::MultiLine);
         assert_eq!(handler.state.lines.len(), 2);
         assert_eq!(handler.state.lines[0], "Hello");
         assert_eq!(handler.state.lines[1], "");
@@ -489,14 +457,27 @@ mod tests {
     }
 
     #[test]
-    fn test_handler_slash_inserts_as_normal_char() {
+    fn test_handler_slash_on_empty_opens_palette() {
         let mut handler = InputHandler::new();
 
         let action = handler.handle_key_event(KeyCode::Char('/'), KeyModifiers::NONE);
 
-        // '/' is inserted as a normal character so users can type commands like /help directly
-        assert_eq!(action, InputAction::Consumed);
+        // '/' on empty input opens command palette (Claude Code style)
+        assert_eq!(action, InputAction::OpenCommandPalette);
         assert_eq!(handler.state.all_text(), "/");
+    }
+
+    #[test]
+    fn test_handler_slash_on_nonempty_inserts_char() {
+        let mut handler = InputHandler::new();
+        handler.state.insert_char('h');
+        handler.state.insert_char('i');
+
+        let action = handler.handle_key_event(KeyCode::Char('/'), KeyModifiers::NONE);
+
+        // '/' on non-empty input inserts normally so users can type /help mid-sentence
+        assert_eq!(action, InputAction::Consumed);
+        assert_eq!(handler.state.all_text(), "hi/");
     }
 
     #[test]
@@ -524,17 +505,18 @@ mod tests {
     }
 
     #[test]
-    fn test_handler_esc_exits_multiline() {
+    fn test_handler_esc_does_not_destroy_multiline() {
         let mut handler = InputHandler::new();
         handler.state.mode = InputMode::MultiLine;
         handler.state.lines = vec!["Line 1".to_string(), "Line 2".to_string()];
 
         let action = handler.handle_key_event(KeyCode::Esc, KeyModifiers::NONE);
 
-        assert_eq!(action, InputAction::Consumed);
-        assert_eq!(handler.state.mode, InputMode::SingleLine);
-        assert_eq!(handler.state.lines.len(), 1); // Collapsed
-        assert_eq!(handler.state.lines[0], "Line 1 Line 2"); // Joined
+        // Esc is ignored — multi-line content is preserved
+        assert_eq!(action, InputAction::Ignored);
+        assert_eq!(handler.state.lines.len(), 2);
+        assert_eq!(handler.state.lines[0], "Line 1");
+        assert_eq!(handler.state.lines[1], "Line 2");
     }
 
     #[test]
