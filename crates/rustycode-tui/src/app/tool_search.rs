@@ -573,6 +573,7 @@ mod tests {
                 permission: rustycode_tools::ToolPermission::Read,
                 defer_loading: None,
                 annotations: None,
+                tags: vec![],
             },
             rustycode_tools::ToolInfo {
                 name: "write_file".to_string(),
@@ -594,6 +595,7 @@ mod tests {
                 permission: rustycode_tools::ToolPermission::Write,
                 defer_loading: None,
                 annotations: None,
+                tags: vec![],
             },
             rustycode_tools::ToolInfo {
                 name: "bash".to_string(),
@@ -611,6 +613,7 @@ mod tests {
                 permission: rustycode_tools::ToolPermission::Execute,
                 defer_loading: None,
                 annotations: None,
+                tags: vec![],
             },
         ]
     }

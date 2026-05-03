@@ -688,10 +688,11 @@ mod tests {
     fn test_explore_profile_tools() {
         let registry = test_registry();
         let tags = ToolProfile::Explore.required_tags();
-        let tools: Vec<_> = registry.list_for_tags(&tags).iter().map(|t| &t.name).collect();
-        assert!(tools.iter().any(|t| t == "read_file"));
-        assert!(tools.iter().any(|t| t == "grep"));
-        assert!(!tools.iter().any(|t| t == "write_file"));
+        let listed = registry.list_for_tags(&tags);
+        let tools: Vec<_> = listed.iter().map(|t| &t.name).collect();
+        assert!(tools.iter().any(|t| t.as_str() == "read_file"));
+        assert!(tools.iter().any(|t| t.as_str() == "grep"));
+        assert!(!tools.iter().any(|t| t.as_str() == "write_file"));
     }
 
     #[test]
@@ -708,31 +709,34 @@ mod tests {
 
     #[test]
     fn test_tool_selector_with_profile() {
+        let registry = test_registry();
         let selector = ToolSelector::new().with_profile(ToolProfile::Explore);
 
-        let tools = selector.select_tools();
+        let tools = selector.select_tools(&registry);
         assert!(tools.iter().any(|t| t == "read_file"));
         assert!(tools.iter().any(|t| t == "grep"));
     }
 
     #[test]
     fn test_tool_selector_custom_filters() {
+        let registry = test_registry();
         let selector = ToolSelector::new()
             .always_include("custom_tool")
             .always_exclude("bash");
 
-        let tools = selector.select_tools();
+        let tools = selector.select_tools(&registry);
         assert!(tools.iter().any(|t| t == "custom_tool"));
         assert!(!tools.iter().any(|t| t == "bash"));
     }
 
     #[test]
     fn test_prediction_from_prompt() {
+        let registry = test_registry();
         let mut selector = ToolSelector::new();
         selector.record_use("read_file");
         selector.record_use("read_file");
 
-        let predicted = selector.predict_from_prompt("Show me authentication code");
+        let predicted = selector.predict_from_prompt("Show me authentication code", &registry);
         assert!(predicted.iter().any(|t| t == "read_file"));
         // read_file should be near the top due to high usage
         assert_eq!(predicted[0], "read_file");
@@ -742,11 +746,12 @@ mod tests {
 
     #[test]
     fn test_claude_model_gets_native_editor() {
+        let registry = test_registry();
         let selector = ToolSelector::new()
             .with_profile(ToolProfile::Implement)
             .with_model("claude-sonnet-4-6");
 
-        let tools = selector.select_tools();
+        let tools = selector.select_tools(&registry);
         // Claude models should get text_editor tool
         assert!(
             tools.iter().any(|t| t == "text_editor_20250728"),
@@ -757,11 +762,12 @@ mod tests {
 
     #[test]
     fn test_gpt_model_gets_edit_file() {
+        let registry = test_registry();
         let selector = ToolSelector::new()
             .with_profile(ToolProfile::Implement)
             .with_model("gpt-4o");
 
-        let tools = selector.select_tools();
+        let tools = selector.select_tools(&registry);
         // GPT models prefer edit_file (SearchReplace)
         assert!(
             tools.iter().any(|t| t == "edit_file"),
@@ -772,11 +778,12 @@ mod tests {
 
     #[test]
     fn test_model_replaces_generic_edit() {
+        let registry = test_registry();
         let selector = ToolSelector::new()
             .with_profile(ToolProfile::Implement)
             .with_model("claude-sonnet-4-6");
 
-        let tools = selector.select_tools();
+        let tools = selector.select_tools(&registry);
         // Generic "edit" should be replaced with model-specific tool
         assert!(
             !tools.iter().any(|t| t == "edit"),
@@ -799,11 +806,12 @@ mod tests {
 
     #[test]
     fn test_all_profile_with_model_includes_full_chain() {
+        let registry = test_registry();
         let selector = ToolSelector::new()
             .with_profile(ToolProfile::All)
             .with_model("claude-opus-4-6");
 
-        let tools = selector.select_tools();
+        let tools = selector.select_tools(&registry);
         // All profile with Claude should include both text_editor versions
         assert!(tools.iter().any(|t| t == "text_editor_20250728"));
         assert!(tools.iter().any(|t| t == "text_editor_20250124"));
@@ -811,9 +819,10 @@ mod tests {
 
     #[test]
     fn test_no_model_keeps_edit_file() {
+        let registry = test_registry();
         let selector = ToolSelector::new().with_profile(ToolProfile::Implement);
 
-        let tools = selector.select_tools();
+        let tools = selector.select_tools(&registry);
         // Without model, "edit_file" should be present
         assert!(
             tools.iter().any(|t| t == "edit_file"),
