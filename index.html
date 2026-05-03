@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RustyCode - AI-Powered Autonomous Development</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">RustyCode</span>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="manual.html">Manual</a>
+    <a href="configuration.html">Configuration</a>
+    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </nav>
+
+  <div class="container">
+    <div class="hero">
+      <h1>RustyCode</h1>
+      <p>AI-powered autonomous development framework. Built in Rust for speed, reliability, and full control over your codebase.</p>
+      <a class="cta" href="getting-started.html">Get Started</a>
+      <a class="cta secondary" href="https://github.com/rustycode-ai/rustycode/releases/tag/v0.1.0">Download v0.1.0</a>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="icon">&#9889;</div>
+        <h3>Blazing Fast</h3>
+        <p>Native Rust binary. No Node.js, no Python runtime. Starts instantly, runs efficiently.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#129302;</div>
+        <h3>Multi-Provider LLM</h3>
+        <p>Anthropic Claude, OpenAI GPT, Ollama, and more. Switch providers without changing your workflow.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128736;</div>
+        <h3>Autonomous Mode</h3>
+        <p>Let RustyCode plan, execute, and verify tasks autonomously with structured reasoning and quality gates.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128187;</div>
+        <h3>Terminal UI</h3>
+        <p>Beautiful ratatui-based TUI with real-time streaming, conversation history, and tool execution monitoring.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128274;</div>
+        <h3>Security First</h3>
+        <p>Permission system validates all file and command operations. API keys stay secret. No unsafe code by default.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128640;</div>
+        <h3>Benchmark Suite</h3>
+        <p>Built-in benchmark runner (rtk-bench) for evaluating agent performance on standardized tasks.</p>
+      </div>
+    </div>
+
+    <h2>Quick Install</h2>
+    <pre><code># macOS (arm64)
+curl -LO https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-macos-arm64.tar.gz
+tar xzf rustycode-macos-arm64.tar.gz
+chmod +x rustycode-macos-arm64
+sudo mv rustycode-macos-arm64 /usr/local/bin/rustycode
+
+# Windows (x64)
+curl -LO https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-windows-x64.zip
+Expand-Archive rustycode-windows-x64.zip
+# Move rustycode-windows-x86_64.exe to your PATH</code></pre>
+
+    <h2>Quick Start</h2>
+    <pre><code># Set your API key
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Start the TUI
+rustycode tui
+
+# Or run headless
+rustycode run "Fix the bug in src/main.rs"</code></pre>
+
+    <h2>Architecture</h2>
+    <p>RustyCode is organized as a modular workspace of focused crates:</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <h3>CLI &amp; TUI</h3>
+        <p>Interactive terminal interface with streaming responses, tool monitoring, and keyboard shortcuts.</p>
+      </div>
+      <div class="card">
+        <h3>Orchestration</h3>
+        <p>Autonomous execution engine with reasoning loops, quality gates, and strategy management.</p>
+      </div>
+      <div class="card">
+        <h3>LLM Providers</h3>
+        <p>Unified provider trait supporting Anthropic, OpenAI, Ollama, and custom endpoints.</p>
+      </div>
+      <div class="card">
+        <h3>Tools</h3>
+        <p>File editing, bash execution, grep, glob, LSP integration, and extensible tool framework.</p>
+      </div>
+      <div class="card">
+        <h3>Event Bus</h3>
+        <p>Publish/subscribe event system for real-time communication between components.</p>
+      </div>
+      <div class="card">
+        <h3>Benchmark</h3>
+        <p>rtk-bench: native and Docker-based benchmark runner for agent evaluation.</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </footer>
+</body>
+</html>

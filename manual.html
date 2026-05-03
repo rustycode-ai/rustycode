@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual - RustyCode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">RustyCode</span>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="manual.html">Manual</a>
+    <a href="configuration.html">Configuration</a>
+    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </nav>
+
+  <div class="container">
+    <h1>Manual</h1>
+
+    <div class="toc">
+      <strong>Contents</strong>
+      <ul>
+        <li><a href="#cli-reference">CLI Reference</a></li>
+        <li><a href="#tools">Built-in Tools</a></li>
+        <li><a href="#autonomous-mode">Autonomous Mode</a></li>
+        <li><a href="#llm-providers">LLM Providers</a></li>
+        <li><a href="#permissions">Permission System</a></li>
+        <li><a href="#benchmark">Benchmark Runner</a></li>
+      </ul>
+    </div>
+
+    <h2 id="cli-reference">CLI Reference</h2>
+
+    <h3>Commands</h3>
+    <table>
+      <tr><th>Command</th><th>Description</th></tr>
+      <tr><td><code>rustycode tui</code></td><td>Start the interactive terminal UI</td></tr>
+      <tr><td><code>rustycode run &lt;prompt&gt;</code></td><td>Run a task in headless mode</td></tr>
+      <tr><td><code>rustycode --version</code></td><td>Show version</td></tr>
+      <tr><td><code>rustycode --help</code></td><td>Show help</td></tr>
+    </table>
+
+    <h3>Global Flags</h3>
+    <table>
+      <tr><th>Flag</th><th>Description</th></tr>
+      <tr><td><code>--provider &lt;name&gt;</code></td><td>LLM provider: anthropic, openai, ollama</td></tr>
+      <tr><td><code>--model &lt;name&gt;</code></td><td>Model name (e.g., claude-sonnet-4-6, gpt-4o)</td></tr>
+      <tr><td><code>--timeout &lt;secs&gt;</code></td><td>Wall-clock timeout for headless mode</td></tr>
+      <tr><td><code>--config &lt;path&gt;</code></td><td>Path to config file</td></tr>
+      <tr><td><code>--no-default-features</code></td><td>Disable default feature flags (build time)</td></tr>
+    </table>
+
+    <h2 id="tools">Built-in Tools</h2>
+    <p>RustyCode provides the LLM with a set of tools to interact with your codebase:</p>
+
+    <h3>File Operations</h3>
+    <table>
+      <tr><th>Tool</th><th>Description</th></tr>
+      <tr><td><code>read_file</code></td><td>Read file contents. Supports <code>offset</code> and <code>limit</code> for large files.</td></tr>
+      <tr><td><code>write_file</code></td><td>Create or overwrite a file with new content.</td></tr>
+      <tr><td><code>edit_file</code></td><td>Apply targeted edits using exact, normalized, or trimmed matching.</td></tr>
+      <tr><td><code>notebook_edit</code></td><td>Edit Jupyter notebook cells (replace, insert, delete).</td></tr>
+    </table>
+
+    <h3>Search &amp; Navigation</h3>
+    <table>
+      <tr><th>Tool</th><th>Description</th></tr>
+      <tr><td><code>grep</code></td><td>Search file contents with regex. Supports <code>-i</code> (case-insensitive), <code>type</code> (file filter), <code>context</code>, <code>head_limit</code>.</td></tr>
+      <tr><td><code>glob</code></td><td>Find files matching a glob pattern.</td></tr>
+      <tr><td><code>list_directory</code></td><td>List directory contents.</td></tr>
+    </table>
+
+    <h3>Execution</h3>
+    <table>
+      <tr><th>Tool</th><th>Description</th></tr>
+      <tr><td><code>bash</code></td><td>Execute shell commands. Supports <code>timeout</code> and <code>run_in_background</code>.</td></tr>
+    </table>
+
+    <h3>LSP Integration</h3>
+    <table>
+      <tr><th>Tool</th><th>Description</th></tr>
+      <tr><td><code>lsp_references</code></td><td>Find all references to a symbol.</td></tr>
+      <tr><td><code>lsp_document_symbols</code></td><td>List all symbols in a file.</td></tr>
+      <tr><td><code>lsp_implementation</code></td><td>Find implementations of an interface.</td></tr>
+      <tr><td><code>lsp_incoming_calls</code></td><td>Show callers of a function.</td></tr>
+      <tr><td><code>lsp_outgoing_calls</code></td><td>Show functions called by a function.</td></tr>
+    </table>
+
+    <h3>Web</h3>
+    <table>
+      <tr><th>Tool</th><th>Description</th></tr>
+      <tr><td><code>web_fetch</code></td><td>Fetch web content with optional <code>prompt</code> parameter for focused extraction.</td></tr>
+    </table>
+
+    <h2 id="autonomous-mode">Autonomous Mode</h2>
+    <p>RustyCode's autonomous mode uses structured reasoning to plan and execute multi-step tasks:</p>
+
+    <ol>
+      <li><strong>Analysis</strong> &mdash; Reads your codebase, identifies relevant files and context</li>
+      <li><strong>Planning</strong> &mdash; Creates a structured plan with phases and dependencies</li>
+      <li><strong>Execution</strong> &mdash; Runs tools in sequence, adapting based on results</li>
+      <li><strong>Verification</strong> &mdash; Runs tests, checks builds, validates changes</li>
+      <li><strong>Quality Gates</strong> &mdash; Ensures code quality before marking tasks complete</li>
+    </ol>
+
+    <h3>Execution Parameters</h3>
+    <table>
+      <tr><th>Parameter</th><th>Default</th><th>Description</th></tr>
+      <tr><td><code>MAX_ITERATIONS</code></td><td>3</td><td>Maximum reasoning iterations</td></tr>
+      <tr><td><code>MAX_TOOL_TURNS</code></td><td>25</td><td>Maximum tool calls per task</td></tr>
+      <tr><td><code>DEFAULT_WALL_CLOCK_TIMEOUT_SECS</code></td><td>900</td><td>15-minute wall-clock timeout</td></tr>
+      <tr><td><code>MIN_TOOL_CALLS_TO_STOP</code></td><td>5</td><td>Minimum tool calls before considering completion</td></tr>
+    </table>
+
+    <h3>Stuck Detection</h3>
+    <p>The autonomous engine detects when it's stuck via:</p>
+    <ul>
+      <li>Confidence stagnation over multiple iterations</li>
+      <li>Repetition of the same approach</li>
+      <li>Excessive reasoning phases without progress</li>
+    </ul>
+    <p>When stuck, RustyCode surfaces a warning and may ask for clarification.</p>
+
+    <h2 id="llm-providers">LLM Providers</h2>
+
+    <h3>Anthropic Claude</h3>
+    <p>Recommended provider. Best reasoning quality for code tasks.</p>
+    <pre><code>export ANTHROPIC_API_KEY="sk-ant-..."
+rustycode tui --provider anthropic</code></pre>
+
+    <h3>OpenAI GPT</h3>
+    <pre><code>export OPENAI_API_KEY="sk-..."
+rustycode tui --provider openai</code></pre>
+
+    <h3>Ollama (Local)</h3>
+    <p>Run LLMs locally with no API key required:</p>
+    <pre><code>ollama serve
+ollama pull codellama
+rustycode tui --provider ollama</code></pre>
+
+    <h2 id="permissions">Permission System</h2>
+    <p>RustyCode validates all operations through its security layer:</p>
+    <ul>
+      <li><strong>Path validation</strong> &mdash; Blocks access to sensitive files (`.env`, credentials, SSH keys)</li>
+      <li><strong>Command validation</strong> &mdash; Validates shell commands before execution</li>
+      <li><strong>Secret sanitization</strong> &mdash; API keys are stripped from logs and debug output</li>
+      <li><strong>Eval blocking</strong> &mdash; Blocks <code>-c</code>/<code>-e</code> flags for interpreters</li>
+    </ul>
+
+    <h3>Blocked File Patterns</h3>
+    <pre><code>.env, .env.*, credentials.json, config.json,
+id_rsa, id_ed25519, *.pem, *.key,
+terraform.tfstate, *.tfstate.backup</code></pre>
+
+    <h2 id="benchmark">Benchmark Runner</h2>
+    <p><code>rtk-bench</code> evaluates agent performance on standardized coding tasks:</p>
+
+    <pre><code># Run benchmarks natively
+cargo run -p rustycode-bench -- --native --timeout 120
+
+# Run in Docker
+cargo run -p rustycode-bench -- --docker --timeout 300
+
+# Filter tasks with regex
+cargo run -p rustycode-bench -- --native --include "regex-.*" --timeout 120
+
+# Output formats
+cargo run -p rustycode-bench -- --native --output json
+cargo run -p rustycode-bench -- --native --report markdown</code></pre>
+  </div>
+
+  <footer>
+    &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started - RustyCode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">RustyCode</span>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="manual.html">Manual</a>
+    <a href="configuration.html">Configuration</a>
+    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </nav>
+
+  <div class="container">
+    <h1>Getting Started</h1>
+
+    <div class="toc">
+      <strong>Contents</strong>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#install">Installation</a></li>
+        <li><a href="#configure">Configure API Keys</a></li>
+        <li><a href="#first-run">Your First Run</a></li>
+        <li><a href="#tui-basics">TUI Basics</a></li>
+        <li><a href="#headless-mode">Headless Mode</a></li>
+        <li><a href="#next-steps">Next Steps</a></li>
+      </ul>
+    </div>
+
+    <h2 id="prerequisites">Prerequisites</h2>
+    <table>
+      <tr><th>Requirement</th><th>Details</th></tr>
+      <tr><td>Operating System</td><td>macOS (arm64), Windows (x64), Linux (amd64/arm64)</td></tr>
+      <tr><td>API Key</td><td>Anthropic API key (for Claude) or OpenAI API key</td></tr>
+      <tr><td>Terminal</td><td>Any modern terminal with 256-color support</td></tr>
+    </table>
+
+    <h2 id="install">Installation</h2>
+
+    <h3>Download Binary (Recommended)</h3>
+    <p>Download the latest release from <a href="https://github.com/rustycode-ai/rustycode/releases">GitHub Releases</a>:</p>
+
+    <pre><code># macOS (arm64)
+curl -LO https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-macos-arm64.tar.gz
+tar xzf rustycode-macos-arm64.tar.gz
+chmod +x rustycode-macos-arm64
+sudo mv rustycode-macos-arm64 /usr/local/bin/rustycode
+
+# Windows (PowerShell)
+Invoke-WebRequest -Uri https://github.com/rustycode-ai/rustycode/releases/download/v0.1.0/rustycode-windows-x64.zip -OutFile rustycode-windows-x64.zip
+Expand-Archive rustycode-windows-x64.zip
+# Move rustycode-windows-x86_64.exe somewhere in your PATH</code></pre>
+
+    <h3>Build from Source</h3>
+    <pre><code>git clone https://github.com/rustycode-ai/rustycode.git
+cd rustycode
+cargo build --release -p rustycode-cli
+# Binary at target/release/rustycode-cli</code></pre>
+
+    <h3>Verify Installation</h3>
+    <pre><code>rustycode --version
+# rustycode-cli 0.1.0</code></pre>
+
+    <h2 id="configure">Configure API Keys</h2>
+    <p>RustyCode reads API keys from environment variables:</p>
+
+    <pre><code># For Anthropic Claude (recommended)
+export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+
+# For OpenAI GPT
+export OPENAI_API_KEY="sk-your-key-here"</code></pre>
+
+    <div class="tip">
+      <strong>Tip:</strong> Add the export to your <code>~/.zshrc</code> or <code>~/.bashrc</code> so it persists across sessions. Never commit API keys to source control.
+    </div>
+
+    <p>You can also use a local LLM via Ollama &mdash; no API key required:</p>
+    <pre><code># Install and start Ollama
+ollama serve
+ollama pull codellama
+
+# Configure RustyCode to use Ollama (see configuration.html)</code></pre>
+
+    <h2 id="first-run">Your First Run</h2>
+
+    <h3>Interactive TUI Mode</h3>
+    <pre><code>cd your-project-directory
+rustycode tui</code></pre>
+
+    <p>This opens the terminal UI. Type your request and press Enter. RustyCode will:</p>
+    <ol>
+      <li>Analyze your codebase context</li>
+      <li>Plan an approach using structured reasoning</li>
+      <li>Execute changes using file editing and shell tools</li>
+      <li>Show results and ask for confirmation when needed</li>
+    </ol>
+
+    <h3>Headless CLI Mode</h3>
+    <pre><code>rustycode run "Add error handling to the database connection function"</code></pre>
+
+    <h2 id="tui-basics">TUI Basics</h2>
+
+    <h3>Keyboard Shortcuts</h3>
+    <table>
+      <tr><th>Key</th><th>Action</th></tr>
+      <tr><td><code>Enter</code></td><td>Send message / Confirm action</td></tr>
+      <tr><td><code>Escape</code></td><td>Cancel / Go back</td></tr>
+      <tr><td><code>Ctrl+C</code></td><td>Stop current operation</td></tr>
+      <tr><td><code>Ctrl+Q</code></td><td>Quit RustyCode</td></tr>
+      <tr><td><code>Up/Down</code></td><td>Scroll conversation history</td></tr>
+      <tr><td><code>Tab</code></td><td>Autocomplete file paths</td></tr>
+    </table>
+
+    <h3>Tool Approvals</h3>
+    <p>When RustyCode wants to run a tool (edit a file, run a command), the TUI shows the proposed action and asks for your approval. You can:</p>
+    <ul>
+      <li><strong>Approve</strong> &mdash; let the tool execute</li>
+      <li><strong>Deny</strong> &mdash; block the action</li>
+      <li><strong>Auto-approve</strong> &mdash; approve all subsequent actions for this session</li>
+    </ul>
+
+    <h2 id="headless-mode">Headless Mode</h2>
+    <p>Run RustyCode without a TUI for scripting and automation:</p>
+
+    <pre><code># Single task
+rustycode run "Fix the off-by-one error in parser.rs"
+
+# With specific provider
+rustycode run --provider openai "Refactor the auth module"
+
+# With timeout
+rustycode run --timeout 300 "Implement the full user registration flow"</code></pre>
+
+    <h2 id="next-steps">Next Steps</h2>
+    <div class="card-grid">
+      <a class="card" href="manual.html">
+        <h3>Full Manual</h3>
+        <p>Complete reference for all commands, tools, and modes.</p>
+      </a>
+      <a class="card" href="configuration.html">
+        <h3>Configuration</h3>
+        <p>Customize providers, permissions, and behavior.</p>
+      </a>
+      <a class="card" href="tips-and-tricks.html">
+        <h3>Tips &amp; Tricks</h3>
+        <p>Get the most out of RustyCode with advanced patterns.</p>
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tips &amp; Tricks - RustyCode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">RustyCode</span>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="manual.html">Manual</a>
+    <a href="configuration.html">Configuration</a>
+    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </nav>
+
+  <div class="container">
+    <h1>Tips &amp; Tricks</h1>
+
+    <div class="toc">
+      <strong>Contents</strong>
+      <ul>
+        <li><a href="#effective-prompts">Writing Effective Prompts</a></li>
+        <li><a href="#workflow-patterns">Workflow Patterns</a></li>
+        <li><a href="#project-context">Setting Up Project Context</a></li>
+        <li><a href="#debugging">Debugging with RustyCode</a></li>
+        <li><a href="#refactoring">Refactoring Large Codebases</a></li>
+        <li><a href="#performance">Performance Tips</a></li>
+        <li><a href="#common-issues">Common Issues &amp; Solutions</a></li>
+      </ul>
+    </div>
+
+    <h2 id="effective-prompts">Writing Effective Prompts</h2>
+
+    <h3>Be Specific About Files</h3>
+    <pre><code># Vague
+"Fix the bug"
+
+# Better
+"Fix the null pointer dereference in src/auth/session.rs line 47
+where user.profile can be None after account deletion"</code></pre>
+
+    <h3>Specify the Outcome</h3>
+    <pre><code># Vague
+"Make it better"
+
+# Better
+"Add input validation to the register endpoint:
+- email must be valid format
+- password must be 8+ chars with uppercase and number
+- return 400 with specific error messages for each failure"</code></pre>
+
+    <h3>Provide Context</h3>
+    <pre><code># Let RustyCode know about constraints
+"This project uses PostgreSQL 15 and we can't add new dependencies.
+The solution should use only the existing 'tokio-postgres' crate."</code></pre>
+
+    <h2 id="workflow-patterns">Workflow Patterns</h2>
+
+    <h3>Incremental Development</h3>
+    <p>Break large features into small, verifiable steps:</p>
+    <pre><code>Step 1: "Create the User struct with fields: id, email, created_at"
+Step 2: "Add a UserRepository with CRUD methods using our existing PostgresPool"
+Step 3: "Add unit tests for UserRepository covering create, find, and delete"
+Step 4: "Wire the repository into the user routes"</code></pre>
+
+    <h3>Test-First Workflow</h3>
+    <pre><code># Ask RustyCode to write the test first
+"Write a test for a function that validates email addresses.
+It should accept user@example.com and reject 'invalid' and '@nouser.com'.
+Don't implement the function yet."
+
+# Then implement
+"Now implement the validate_email function to make those tests pass."</code></pre>
+
+    <h3>Code Review</h3>
+    <pre><code>"Review the changes in src/api/handlers.rs since the last commit.
+Focus on: error handling, SQL injection risks, and missing input validation.
+Don't make changes &mdash; just list the issues."</code></pre>
+
+    <h2 id="project-context">Setting Up Project Context</h2>
+
+    <h3>CLAUDE.md / Project Instructions</h3>
+    <p>Create a <code>CLAUDE.md</code> file in your project root with project-specific instructions:</p>
+    <pre><code># CLAUDE.md
+
+## Project
+This is a Rust web API using Axum with a PostgreSQL database.
+
+## Conventions
+- Use `anyhow` for errors in handlers, `thiserror` for library crates
+- All routes go in `src/routes/`
+- Tests use `#[tokio::test]` with a test database
+- Never use `unwrap()` in production code
+
+## Architecture
+- `src/routes/` - HTTP handlers
+- `src/models/` - Database models
+- `src/services/` - Business logic
+- `src/repo/` - Data access layer</code></pre>
+
+    <div class="tip">
+      RustyCode automatically reads <code>CLAUDE.md</code> when it opens your project, so it understands your conventions from the start.
+    </div>
+
+    <h2 id="debugging">Debugging with RustyCode</h2>
+
+    <h3>Paste Error Messages</h3>
+    <pre><code>"I'm getting this error when running `cargo build`:
+
+error[E0599]: no method named `parse` found for struct `String`
+  --> src/parser.rs:42:18
+
+Help me fix it."</code></pre>
+
+    <h3>Ask for Investigation First</h3>
+    <pre><code>"Users are reporting 500 errors on the /api/orders endpoint.
+Look at the handler code and database queries to find the root cause.
+Don't fix it yet &mdash; just tell me what's wrong."</code></pre>
+
+    <h2 id="refactoring">Refactoring Large Codebases</h2>
+
+    <h3>Scope the Refactor</h3>
+    <pre><code>"Extract the authentication logic from src/routes/users.rs into
+a new module src/middleware/auth.rs. Keep the same API surface.
+Don't touch any other files."</code></pre>
+
+    <h3>Use LSP Tools</h3>
+    <p>RustyCode has built-in LSP integration. Ask it to:</p>
+    <ul>
+      <li>Find all references to a symbol before renaming</li>
+      <li>Check call hierarchies to understand blast radius</li>
+      <li>List document symbols to understand file structure</li>
+    </ul>
+
+    <pre><code>"Find all callers of the `process_payment` function across
+the codebase, then rename it to `handle_payment_transaction`.
+Update every call site."</code></pre>
+
+    <h2 id="performance">Performance Tips</h2>
+
+    <h3>Use the Right Model</h3>
+    <table>
+      <tr><th>Task</th><th>Recommended Model</th><th>Why</th></tr>
+      <tr><td>Quick fixes, simple edits</td><td>Haiku</td><td>Fast, cheap, good enough</td></tr>
+      <tr><td>Feature development</td><td>Sonnet</td><td>Best balance of speed and quality</td></tr>
+      <tr><td>Architecture, debugging</td><td>Opus</td><td>Deepest reasoning</td></tr>
+    </table>
+
+    <h3>Reduce Context Noise</h3>
+    <pre><code># Instead of reading the whole project
+"Focus only on src/auth/ and src/middleware/. Ignore everything else."
+
+# Be explicit about what to skip
+"Don't read test files or generated code. Only look at src/lib/ and src/services/."</code></pre>
+
+    <h2 id="common-issues">Common Issues &amp; Solutions</h2>
+
+    <h3>"Edit not found" errors</h3>
+    <p>If RustyCode can't find the exact text to edit, it automatically tries three matching strategies: exact match, line-ending-normalized match, and trimmed match. If it still fails:</p>
+    <pre><code>"Read src/main.rs lines 30-50 first, then apply the edit to the
+function starting with 'fn handle_request'."</code></pre>
+
+    <h3>Timeout in autonomous mode</h3>
+    <p>Increase the wall-clock timeout:</p>
+    <pre><code>rustycode run --timeout 600 "Implement the full API"</code></pre>
+
+    <h3>Wrong file edited</h3>
+    <p>Use git to undo and be more specific:</p>
+    <pre><code>git checkout -- src/wrong_file.rs
+
+# Then be explicit
+"Edit ONLY src/services/user_service.rs. Do NOT modify any other files."</code></pre>
+
+    <h3>API rate limiting</h3>
+    <p>If you hit rate limits during long autonomous sessions:</p>
+    <ul>
+      <li>Use <code>MIN_TOOL_CALLS_TO_STOP = 5</code> (default) to avoid excessive API calls</li>
+      <li>Reduce <code>MAX_TOOL_TURNS</code> to 15</li>
+      <li>Switch to a provider with higher rate limits</li>
+    </ul>
+  </div>
+
+  <footer>
+    &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </footer>
+</body>
+</html>

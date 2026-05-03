@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration - RustyCode</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">RustyCode</span>
+    <a href="index.html">Home</a>
+    <a href="getting-started.html">Getting Started</a>
+    <a href="manual.html">Manual</a>
+    <a href="configuration.html">Configuration</a>
+    <a href="tips-and-tricks.html">Tips &amp; Tricks</a>
+    <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </nav>
+
+  <div class="container">
+    <h1>Configuration</h1>
+
+    <div class="toc">
+      <strong>Contents</strong>
+      <ul>
+        <li><a href="#config-file">Config File</a></li>
+        <li><a href="#environment-variables">Environment Variables</a></li>
+        <li><a href="#provider-settings">Provider Settings</a></li>
+        <li><a href="#tool-permissions">Tool Permissions</a></li>
+        <li><a href="#tui-settings">TUI Settings</a></li>
+      </ul>
+    </div>
+
+    <h2 id="config-file">Config File</h2>
+    <p>RustyCode reads configuration from <code>~/.rustycode/config.toml</code> (create it if it doesn't exist):</p>
+
+    <pre><code># ~/.rustycode/config.toml
+
+[provider]
+# Default LLM provider
+default = "anthropic"
+
+[provider.anthropic]
+api_key_env = "ANTHROPIC_API_KEY"
+model = "claude-sonnet-4-6"
+
+[provider.openai]
+api_key_env = "OPENAI_API_KEY"
+model = "gpt-4o"
+
+[provider.ollama]
+base_url = "http://localhost:11434"
+model = "codellama"
+
+[orchestration]
+max_iterations = 3
+max_tool_turns = 25
+wall_clock_timeout_secs = 900
+min_tool_calls_to_stop = 5
+
+[permissions]
+# Files that require explicit approval to edit
+protected_paths = [".env", "Cargo.toml", "package.json"]
+# Commands that are auto-approved (read-only)
+auto_approve_commands = ["ls", "cat", "git status", "git log", "git diff"]
+
+[tui]
+theme = "dark"
+scrollback = 10000</code></pre>
+
+    <h2 id="environment-variables">Environment Variables</h2>
+    <table>
+      <tr><th>Variable</th><th>Description</th><th>Required</th></tr>
+      <tr><td><code>ANTHROPIC_API_KEY</code></td><td>API key for Anthropic Claude</td><td>For Anthropic provider</td></tr>
+      <tr><td><code>OPENAI_API_KEY</code></td><td>API key for OpenAI GPT</td><td>For OpenAI provider</td></tr>
+      <tr><td><code>RUSTYCODE_PROVIDER</code></td><td>Override default provider</td><td>No</td></tr>
+      <tr><td><code>RUSTYCODE_MODEL</code></td><td>Override default model</td><td>No</td></tr>
+      <tr><td><code>RUSTYCODE_CONFIG</code></td><td>Path to config file</td><td>No</td></tr>
+    </table>
+
+    <h2 id="provider-settings">Provider Settings</h2>
+
+    <h3>Anthropic Claude</h3>
+    <pre><code>[provider.anthropic]
+api_key_env = "ANTHROPIC_API_KEY"
+model = "claude-sonnet-4-6"     # or claude-opus-4-7, claude-haiku-4-5
+max_tokens = 8192
+temperature = 0.0</code></pre>
+
+    <h3>OpenAI</h3>
+    <pre><code>[provider.openai]
+api_key_env = "OPENAI_API_KEY"
+model = "gpt-4o"                # or gpt-4o-mini, gpt-4-turbo
+base_url = ""                   # Optional: custom endpoint</code></pre>
+
+    <h3>Ollama</h3>
+    <pre><code>[provider.ollama]
+base_url = "http://localhost:11434"
+model = "codellama"             # or llama3, mistral, deepseek-coder</code></pre>
+
+    <div class="tip">
+      <strong>Tip:</strong> You can define multiple providers and switch between them at runtime with the <code>--provider</code> flag, without changing the config file.
+    </div>
+
+    <h2 id="tool-permissions">Tool Permissions</h2>
+
+    <h3>Auto-Approved Commands</h3>
+    <p>These read-only commands run without asking for approval:</p>
+    <pre><code>ls, cat, head, tail, wc, find, grep,
+git status, git log, git diff, git branch,
+cargo check, cargo test, cargo clippy,
+python3 --version, node --version</code></pre>
+
+    <h3>Blocked Patterns</h3>
+    <p>These are always blocked for safety:</p>
+    <pre><code># Files
+.env, .env.*, credentials.json, id_rsa, *.pem, terraform.tfstate
+
+# Command flags
+python -c "..."    # eval flag blocked for all interpreters
+bash -c "..."      # same for bash</code></pre>
+
+    <h2 id="tui-settings">TUI Settings</h2>
+    <table>
+      <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+      <tr><td><code>theme</code></td><td><code>"dark"</code></td><td>Color theme: dark or light</td></tr>
+      <tr><td><code>scrollback</code></td><td><code>10000</code></td><td>Max lines of conversation history in memory</td></tr>
+    </table>
+  </div>
+
+  <footer>
+    &copy; 2026 RustyCode &middot; MIT License &middot; <a href="https://github.com/rustycode-ai/rustycode">GitHub</a>
+  </footer>
+</body>
+</html>
