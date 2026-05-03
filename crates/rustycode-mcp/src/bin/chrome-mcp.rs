@@ -6,7 +6,7 @@
 //!   chrome-mcp                  # headed (visible browser)
 //!   chrome-mcp --headless       # headless (CI mode)
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use base64::Engine;
 use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::Page;
@@ -14,6 +14,7 @@ use clap::Parser;
 use rustycode_mcp::types::{McpContent, McpTool, McpToolResult};
 use rustycode_mcp::{McpError, McpResult, McpServer};
 use rustycode_tools::browser_pool::BrowserPool;
+use rustycode_tools::security::validation::validate_url;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::runtime::Handle;
@@ -53,12 +54,14 @@ impl BrowserState {
     }
 
     async fn get_page(&self) -> Result<Page> {
-        if let Some(page) = self.page.lock().await.clone() {
+        let guard = self.page.lock().await;
+        if let Some(page) = guard.as_ref() {
             if page.evaluate("1").await.is_ok() {
-                return Ok(page);
+                return Ok(page.clone());
             }
-            self.page.lock().await.take();
         }
+        drop(guard);
+
         let page = self.pool.get_page().await?;
         *self.page.lock().await = Some(page.clone());
         Ok(page)
@@ -116,13 +119,14 @@ async fn main() -> Result<()> {
                 let url = params["url"]
                     .as_str()
                     .ok_or_else(|| McpError::InvalidRequest("'url' parameter required".into()))?;
+                validate_url(url)
+                    .map_err(|e| McpError::InvalidRequest(format!("invalid URL: {e}")))?;
                 let s = s.clone();
                 to_mcp(run_async(async move {
                     let page = s.get_page().await?;
                     page.goto(url)
                         .await
                         .map_err(|e| anyhow!("navigation failed: {e}"))?;
-                    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
                     let title = page.get_title().await.ok().flatten().unwrap_or_default();
                     let final_url = page.url().await.ok().flatten().unwrap_or_default();
                     Ok(text_result(format!(

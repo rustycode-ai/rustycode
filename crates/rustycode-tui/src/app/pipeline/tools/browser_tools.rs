@@ -1,6 +1,7 @@
 use crate::app::pipeline::browser_manager::BrowserManager;
 use crate::app::pipeline::tool_registry::Tool;
 use anyhow::{anyhow, Result};
+use rustycode_tools::security::validation::validate_url;
 use std::sync::Arc;
 
 pub struct BrowserGotoTool {
@@ -18,6 +19,7 @@ impl Tool for BrowserGotoTool {
         let url = args["url"]
             .as_str()
             .ok_or_else(|| anyhow!("'url' parameter required"))?;
+        validate_url(url)?;
 
         tokio::task::block_in_place(|| {
             tokio::runtime::Handle::current().block_on(async {

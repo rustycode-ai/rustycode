@@ -536,6 +536,46 @@ impl TUI {
         let history = load_command_history();
         input_handler.set_history(history);
 
+        // Build pipeline and extract tool registry for agent context
+        let (pipeline, agent_tool_registry) = {
+            let mut p = crate::app::pipeline::registry::PipelineRegistry::new();
+            #[cfg(feature = "browser")]
+            {
+                let browser_manager =
+                    Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
+                p.tool_registry.register(
+                    "browser",
+                    "goto",
+                    Arc::new(
+                        crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
+                            browser_manager.clone(),
+                        ),
+                    ),
+                );
+                p.tool_registry.register(
+                    "browser",
+                    "extract",
+                    Arc::new(
+                        crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
+                            browser_manager,
+                        ),
+                    ),
+                );
+            }
+
+            let reg = p.tool_registry.clone();
+
+            p.register_factory(
+                "rustycode::steps::DataGateStep",
+                Box::new(crate::app::pipeline::steps::data_gate_factory::DataGateFactory),
+            );
+            p.register_factory(
+                "rustycode::steps::AgentStep",
+                Box::new(crate::app::pipeline::steps::agent_factory::AgentStepFactory),
+            );
+            (p, reg)
+        };
+
         Ok(Self {
             message_renderer: MessageRenderer::new(),
             input_handler,
@@ -573,44 +613,7 @@ impl TUI {
             workspace_loaded: false,
             workspace_context: None, // Initialize workspace context as None
             workspace_tasks: load_tasks(),
-            pipeline: {
-                let mut p = crate::app::pipeline::registry::PipelineRegistry::new();
-                #[cfg(feature = "browser")]
-                {
-                    let browser_manager =
-                        Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
-                    p.tool_registry.register(
-                        "browser",
-                        "goto",
-                        Arc::new(
-                            crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
-                                browser_manager.clone(),
-                            ),
-                        ),
-                    );
-                    p.tool_registry.register(
-                        "browser",
-                        "extract",
-                        Arc::new(
-                            crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
-                                browser_manager,
-                            ),
-                        ),
-                    );
-                }
-
-                let agent_tool_registry = p.tool_registry.clone();
-
-                p.register_factory(
-                    "rustycode::steps::DataGateStep",
-                    Box::new(crate::app::pipeline::steps::data_gate_factory::DataGateFactory),
-                );
-                p.register_factory(
-                    "rustycode::steps::AgentStep",
-                    Box::new(crate::app::pipeline::steps::agent_factory::AgentStepFactory),
-                );
-                p
-            },
+            pipeline,
             pipeline_ctx: {
                 let (pt, mdl, _) =
                     rustycode_llm::load_provider_config_from_env().unwrap_or_else(|_| {

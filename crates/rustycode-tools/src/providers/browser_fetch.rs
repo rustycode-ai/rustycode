@@ -87,7 +87,7 @@ impl Tool for BrowserFetchTool {
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 }
 
-                match action {
+                let result = match action {
                     "screenshot" => {
                         let bytes = page
                             .screenshot(
@@ -130,7 +130,10 @@ impl Tool for BrowserFetchTool {
 
                         Ok(ToolOutput::text(output))
                     }
-                }
+                };
+
+                let _ = page.close().await;
+                result
             })
         })
     }
