@@ -106,6 +106,51 @@ impl ScanResult {
     }
 }
 
+/// Directories to always skip during scanning
+const SKIP_DIRS: &[&str] = &[
+    "target",        // Rust build artifacts (can be 100K+ files)
+    ".git",          // Git internals
+    "node_modules",  // Node.js dependencies
+    ".next",         // Next.js build
+    ".nuxt",         // Nuxt build
+    "__pycache__",   // Python bytecode cache
+    ".venv",         // Python virtualenv
+    "venv",          // Python virtualenv
+    ".tox",          // Python tox
+    "dist",          // Build output
+    ".cache",        // Generic cache
+    ".cargo",        // Cargo cache
+    ".rustup",       // Rustup toolchains
+    ".claude",       // Claude Code session data
+    ".omc",          // OMC data
+    "coverage",      // Coverage reports
+    ".turbo",        // Turborepo cache
+];
+
+/// Check if a directory name should be skipped during scanning
+fn should_skip_dir(name: &str) -> bool {
+    // Skip hidden directories (start with .) except .rustycode
+    if name.starts_with('.') && name != ".rustycode" {
+        return true;
+    }
+    SKIP_DIRS.contains(&name)
+}
+
+/// Check if a file should be included (skip binaries and generated files)
+fn should_include_file(name: &str) -> bool {
+    let skip_extensions = [
+        ".o", ".obj", ".so", ".dylib", ".dll", ".exe",
+        ".pdb", ".d", ".pkl", ".pyc", ".pyo",
+        ".class", ".jar", ".war",
+        ".wasm",
+        ".gz", ".zip", ".tar", ".bz2", ".xz", ".zst",
+        ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".woff", ".woff2", ".ttf", ".eot",
+        ".mp3", ".mp4", ".avi", ".mov",
+        ".lock",  // Cargo.lock, package-lock.json etc.
+    ];
+    !skip_extensions.iter().any(|ext| name.ends_with(ext))
+}
+
 /// Cache entry for file metadata
 #[derive(Debug, Clone)]
 struct CacheEntry {
@@ -190,13 +235,20 @@ impl WorkspaceScanner {
         // Scan directory recursively
         if let Ok(entries) = std::fs::read_dir(&self.root) {
             for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().into_owned();
                 if let Ok(file_type) = entry.file_type() {
                     if file_type.is_file() {
+                        if !should_include_file(&name) {
+                            continue;
+                        }
                         let path = entry.path();
                         if let Ok(metadata) = self.get_file_metadata(&path) {
                             files.push(metadata);
                         }
                     } else if file_type.is_dir() {
+                        if should_skip_dir(&name) {
+                            continue;
+                        }
                         // Recursively scan subdirectory
                         if let Ok(sub_files) = self.scan_directory(&entry.path()) {
                             files.extend(sub_files);
@@ -239,13 +291,20 @@ impl WorkspaceScanner {
 
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().into_owned();
                 if let Ok(file_type) = entry.file_type() {
                     if file_type.is_file() {
+                        if !should_include_file(&name) {
+                            continue;
+                        }
                         let path = entry.path();
                         if let Ok(metadata) = self.get_file_metadata(&path) {
                             files.push(metadata);
                         }
                     } else if file_type.is_dir() {
+                        if should_skip_dir(&name) {
+                            continue;
+                        }
                         if let Ok(sub_files) = self.scan_directory(&entry.path()) {
                             files.extend(sub_files);
                         }

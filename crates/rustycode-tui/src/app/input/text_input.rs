@@ -193,12 +193,16 @@ impl TUI {
                 Ok(true)
             }
             (KeyCode::Char(c), m) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
-                self.command_palette.state_mut().insert_char(c);
+                self.input_handler.state.insert_char(c);
+                let text = self.input_handler.state.all_text();
+                self.command_palette.sync_query_from_input(&text);
                 self.dirty = true;
                 Ok(true)
             }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
-                self.command_palette.state_mut().backspace();
+                self.input_handler.state.backspace();
+                let text = self.input_handler.state.all_text();
+                self.command_palette.sync_query_from_input(&text);
                 self.dirty = true;
                 Ok(true)
             }
@@ -476,7 +480,7 @@ impl TUI {
 
             // Build conversation history from existing messages for multi-turn context
             let history_start = std::time::Instant::now();
-            let mut history = self.build_conversation_history();
+            let history = self.build_conversation_history();
             let history_elapsed = history_start.elapsed();
             if debug_enabled {
                 tracing::debug!(
@@ -605,7 +609,8 @@ impl TUI {
                 self.skill_palette.close();
                 self.showing_command_palette = true;
                 self.command_palette.show();
-                self.command_palette.state_mut().clear_query();
+                let input_text = self.input_handler.state.all_text();
+                self.command_palette.sync_query_from_input(&input_text);
                 self.dirty = true;
             }
             InputAction::OpenSkillPalette => {

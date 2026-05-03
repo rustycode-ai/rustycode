@@ -6707,6 +6707,7 @@ dependencies = [
  "ctrlc",
  "dirs",
  "futures",
+ "ignore",
  "image",
  "lsp-types",
  "nix",

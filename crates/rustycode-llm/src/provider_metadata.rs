@@ -401,7 +401,12 @@ pub fn get_metadata(provider_id: &str) -> Option<ProviderMetadata> {
         "openai" => Some(crate::openai::OpenAiProvider::metadata()),
         "gemini" | "google" => Some(crate::gemini::GeminiProvider::metadata()),
         "litert-lm" | "litert_lm" | "litert" => {
-            Some(crate::litert_lm::LiteRtLmProvider::metadata())
+            #[cfg(feature = "litert")]
+            {
+                Some(crate::litert_lm::LiteRtLmProvider::metadata())
+            }
+            #[cfg(not(feature = "litert"))]
+            None
         }
         "together" | "together_ai" => Some(crate::together::TogetherProvider::metadata()),
         "cohere" => Some(crate::cohere::CohereProvider::metadata()),

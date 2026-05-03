@@ -68,6 +68,7 @@ chromiumoxide.workspace = true
 which.workspace = true
 tempfile.workspace = true
 lsp-types.workspace = true
+ignore.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.31", features = ["signal", "process"] }
