@@ -30,7 +30,7 @@
 use rustycode_llm::{
     AnthropicProvider, ChatMessage, CompletionRequest, LLMProvider, ProviderConfig,
 };
-use rustycode_tools::{ToolProfile, ToolRegistry, ToolSelector};
+use rustycode_tools::{default_registry, ToolProfile, ToolRegistry, ToolSelector};
 use secrecy::SecretString;
 use std::sync::Arc;
 
@@ -165,21 +165,21 @@ fn test_tool_profile_detection() {
 #[test]
 fn test_tool_selector_filters_by_profile() {
     // Test that ToolSelector correctly filters tools by profile
-    let _registry = Arc::new(ToolRegistry::new());
+    let registry = default_registry();
     let selector = ToolSelector::new();
 
     // Test that selector returns different results for different profiles
     let explore_tools = selector
         .clone()
         .with_profile(ToolProfile::Explore)
-        .select_tools();
+        .select_tools(&registry);
 
     let implement_tools = selector
         .clone()
         .with_profile(ToolProfile::Implement)
-        .select_tools();
+        .select_tools(&registry);
 
-    let debug_tools = selector.with_profile(ToolProfile::Debug).select_tools();
+    let debug_tools = selector.with_profile(ToolProfile::Debug).select_tools(&registry);
 
     // Verify that different profiles produce different tool selections
     println!("Explore tools: {:?}", explore_tools);
@@ -196,7 +196,7 @@ fn test_tool_selector_filters_by_profile() {
 #[test]
 fn test_context_reduction_with_tool_selection() {
     // Test that tool selection reduces the number of tools sent to LLM
-    let registry = Arc::new(ToolRegistry::new());
+    let registry = default_registry();
     let all_tools = registry.list();
 
     println!("Total tools in registry: {}", all_tools.len());
@@ -212,7 +212,7 @@ fn test_context_reduction_with_tool_selection() {
     // With Explore profile, only ~40-60% of tools should be selected
     let explore_tools = ToolSelector::new()
         .with_profile(ToolProfile::Explore)
-        .select_tools();
+        .select_tools(&registry);
 
     println!(
         "Explore profile: {}/{} tools selected",
@@ -223,7 +223,7 @@ fn test_context_reduction_with_tool_selection() {
     // With Implement profile
     let implement_tools = ToolSelector::new()
         .with_profile(ToolProfile::Implement)
-        .select_tools();
+        .select_tools(&registry);
 
     println!(
         "Implement profile: {}/{} tools selected",

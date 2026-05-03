@@ -550,7 +550,7 @@ impl ToolSelector {
             registry.list_all_names()
         } else {
             registry
-                .list_for_tags(&tags)
+                .list_for_tags(tags)
                 .into_iter()
                 .map(|info| info.name)
                 .collect()
@@ -618,7 +618,7 @@ impl ToolSelector {
             registry.list_all_names()
         } else {
             registry
-                .list_for_tags(&tags)
+                .list_for_tags(tags)
                 .into_iter()
                 .map(|info| info.name)
                 .collect()

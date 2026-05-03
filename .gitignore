@@ -12,6 +12,10 @@ Thumbs.db
 *.swp
 *.swo
 
+# Test artifacts
+test-results/
+playwright-report/
+
 # Rust / Build
 /target/
 **/target/

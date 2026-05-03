@@ -21,6 +21,7 @@ impl ToolProfile {
     }
 
     /// Return the list of tool names available for this profile.
+    #[allow(clippy::too_many_lines)]
     pub const fn available_tools(&self) -> &'static [&'static str] {
         const EXPLORE: &[&str] = &[
             "read_file",
@@ -131,12 +132,12 @@ impl ToolProfile {
         ];
 
         match self {
-            ToolProfile::Explore => EXPLORE,
-            ToolProfile::Implement => IMPLEMENT,
-            ToolProfile::Debug => DEBUG,
-            ToolProfile::Ops => OPS,
-            ToolProfile::Refactor => REFACTOR,
-            ToolProfile::All => ALL_TOOLS,
+            Self::Explore => EXPLORE,
+            Self::Implement => IMPLEMENT,
+            Self::Debug => DEBUG,
+            Self::Ops => OPS,
+            Self::Refactor => REFACTOR,
+            Self::All => ALL_TOOLS,
         }
     }
 

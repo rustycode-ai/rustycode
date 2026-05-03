@@ -28,13 +28,13 @@
 //! These tests measure and validate that intelligent tool selection
 //! reduces context size by 40-80%.
 
-use rustycode_tools::{ToolProfile, ToolRegistry, ToolSelector};
+use rustycode_tools::{default_registry, ToolProfile, ToolRegistry, ToolSelector};
 use std::sync::Arc;
 
 #[test]
 fn test_tool_count_reduction_baselines() {
     // Establish baseline: all tools in registry
-    let registry = Arc::new(ToolRegistry::new());
+    let registry = Arc::new(default_registry());
     let all_tools = registry.list();
     let baseline_count = all_tools.len();
 
@@ -121,7 +121,7 @@ fn test_token_estimation_savings() {
     // - Average tool definition: ~150 tokens (name, description, schema)
     // - Tool definitions are sent as part of the system prompt
 
-    let registry = Arc::new(ToolRegistry::new());
+    let registry = Arc::new(default_registry());
     let all_tools = registry.list();
     let baseline_count = all_tools.len();
 
@@ -135,10 +135,10 @@ fn test_token_estimation_savings() {
 
     let explore_tools = ToolSelector::new()
         .with_profile(ToolProfile::Explore)
-        .select_tools();
+        .select_tools(&registry);
     let implement_tools = ToolSelector::new()
         .with_profile(ToolProfile::Implement)
-        .select_tools();
+        .select_tools(&registry);
 
     let explore_tokens = explore_tools.len() as u32 * TOKENS_PER_TOOL;
     let implement_tokens = implement_tools.len() as u32 * TOKENS_PER_TOOL;
@@ -189,12 +189,13 @@ fn test_tool_selection_relevance() {
     // but also maintains quality by selecting appropriate tools.
 
     let selector = ToolSelector::new();
+    let registry = default_registry();
 
     // Explore profile should prioritize read-only tools
     let explore_tools = selector
         .clone()
         .with_profile(ToolProfile::Explore)
-        .select_tools();
+        .select_tools(&registry);
 
     println!("\nExplore profile tools ({}):", explore_tools.len());
     for tool in &explore_tools {
@@ -218,7 +219,7 @@ fn test_tool_selection_relevance() {
     let implement_tools = selector
         .clone()
         .with_profile(ToolProfile::Implement)
-        .select_tools();
+        .select_tools(&registry);
 
     println!("\nImplement profile tools ({}):", implement_tools.len());
     for tool in &implement_tools {
@@ -239,7 +240,7 @@ fn test_tool_selection_relevance() {
     }
 
     // Debug profile should prioritize diagnostic tools
-    let debug_tools = selector.with_profile(ToolProfile::Debug).select_tools();
+    let debug_tools = selector.with_profile(ToolProfile::Debug).select_tools(&registry);
 
     println!("\nDebug profile tools ({}):", debug_tools.len());
     for tool in &debug_tools {
@@ -271,7 +272,7 @@ fn test_context_reduction_scenarios() {
         ("Run cargo test", ToolProfile::Ops),
     ];
 
-    let registry = Arc::new(ToolRegistry::new());
+    let registry = Arc::new(default_registry());
     let baseline_count = registry.list().len();
 
     if baseline_count == 0 {
@@ -285,7 +286,7 @@ fn test_context_reduction_scenarios() {
         let detected_profile = ToolProfile::from_prompt(prompt);
         let tools = ToolSelector::new()
             .with_profile(detected_profile)
-            .select_tools();
+            .select_tools(&registry);
         let reduction = ((baseline_count - tools.len()) as f64 / baseline_count as f64) * 100.0;
 
         println!("\n  Prompt: \"{}\"", prompt);
@@ -323,6 +324,7 @@ fn test_tool_selection_performance() {
     use std::time::Instant;
 
     let selector = ToolSelector::new();
+    let registry = default_registry();
     let iterations = 1000;
 
     let start = Instant::now();
@@ -330,15 +332,15 @@ fn test_tool_selection_performance() {
         selector
             .clone()
             .with_profile(ToolProfile::Explore)
-            .select_tools();
+            .select_tools(&registry);
         selector
             .clone()
             .with_profile(ToolProfile::Implement)
-            .select_tools();
+            .select_tools(&registry);
         selector
             .clone()
             .with_profile(ToolProfile::Debug)
-            .select_tools();
+            .select_tools(&registry);
     }
     let duration = start.elapsed();
 
