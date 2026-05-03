@@ -91,17 +91,16 @@ impl TUI {
             // Ctrl+D when input is empty and user has scrolled: half-page down (Vim Ctrl+D).
             // Must come before the quit handler to intercept when scrolled.
             (KeyCode::Char('d'), KeyModifiers::CONTROL)
-                if input_is_empty && self.user_scrolled && !self.is_streaming =>
+                if input_is_empty && !self.is_streaming =>
             {
-                if !self.messages.is_empty() {
+                if self.user_scrolled && !self.messages.is_empty() {
                     self.push_undo_position();
                     self.half_page_down();
                     self.dirty = true;
                 }
                 return Ok(());
             }
-            (KeyCode::Char('d'), KeyModifiers::CONTROL)
-            | (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
+            (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
                 // Stop any active stream before quitting
                 if self.is_streaming {
                     if self.stream_cancelled {
@@ -113,12 +112,22 @@ impl TUI {
                     }
                     self.services.request_stop_stream();
                     self.stream_cancelled = true;
-                    // Let Done handler clean up — then quit on next Ctrl+D
+                    // Let Done handler clean up — then quit on next Ctrl+Q
                     self.add_system_message("Generation stopped - press again to quit".to_string());
                     self.dirty = true;
                     return Ok(());
                 }
                 self.running = false;
+            }
+            (KeyCode::Char('d'), KeyModifiers::CONTROL)
+                if !self.is_streaming && !input_is_empty =>
+            {
+                // Ctrl+D with text in input: dismiss overlay if showing one, otherwise do nothing
+                if self.showing_tool_result {
+                    self.showing_tool_result = false;
+                    self.dirty = true;
+                }
+                return Ok(());
             }
             // Ctrl+Shift+C: Copy selected message (moved from Ctrl+C to match industry convention)
             (KeyCode::Char('C'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {

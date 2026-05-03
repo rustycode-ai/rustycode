@@ -133,23 +133,8 @@ pub const DEFAULT_TOKEN_BUDGET: usize = 4000;
 /// File extensions that are always indexed.
 const INDEXED_EXTENSIONS: &[&str] = &["rs", "py", "js", "jsx", "ts", "tsx", "go"];
 
-/// Directories to skip during traversal.
-const SKIP_DIRS: &[&str] = &[
-    "target",
-    "node_modules",
-    ".git",
-    "vendor",
-    "build",
-    "dist",
-    "out",
-    ".next",
-    "__pycache__",
-    ".venv",
-    "venv",
-    ".cargo",
-    ".idea",
-    ".vscode",
-];
+/// Extensions also indexed via regex fallback (no tree-sitter grammar).
+const REGEX_EXTENSIONS: &[&str] = &["java", "kt", "scala", "c", "cpp", "h", "hpp", "rb"];
 
 // ── Implementation ───────────────────────────────────────────────────────────
 
@@ -1401,45 +1386,44 @@ fn extract_go_doc_comment(node: &Node, source: &str) -> Option<String> {
 }
 
 fn collect_source_files(project_root: &Path) -> Result<Vec<PathBuf>> {
+    let ext_set: std::collections::HashSet<&str> = INDEXED_EXTENSIONS
+        .iter()
+        .chain(REGEX_EXTENSIONS.iter())
+        .cloned()
+        .collect();
+
     let mut files = Vec::new();
-    let skip_set: std::collections::HashSet<&str> = SKIP_DIRS.iter().cloned().collect();
-    let ext_set: std::collections::HashSet<&str> = INDEXED_EXTENSIONS.iter().cloned().collect();
+    let mut builder = ignore::WalkBuilder::new(project_root);
+    builder
+        .hidden(false)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .ignore(true)
+        .add_custom_ignore_filename(".rustycodeignore");
 
-    walk_project(project_root, &ext_set, &skip_set, &mut files);
+    for result in builder.build() {
+        let entry = match result {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
 
-    // Also include files with regex fallback support
-    let regex_exts: std::collections::HashSet<&str> =
-        ["java", "kt", "scala", "c", "cpp", "h", "hpp", "rb"]
-            .iter()
-            .cloned()
-            .collect();
-    walk_project(project_root, &regex_exts, &skip_set, &mut files);
+        if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+            continue;
+        }
 
-    Ok(files)
-}
+        let ext = entry
+            .path()
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
 
-fn walk_project(
-    dir: &Path,
-    ext_set: &std::collections::HashSet<&str>,
-    skip_set: &std::collections::HashSet<&str>,
-    files: &mut Vec<PathBuf>,
-) {
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if !skip_set.contains(name) && !name.starts_with('.') {
-                        walk_project(&path, ext_set, skip_set, files);
-                    }
-                }
-            } else if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                if ext_set.contains(ext) {
-                    files.push(path);
-                }
-            }
+        if ext_set.contains(ext) {
+            files.push(entry.path().to_path_buf());
         }
     }
+
+    Ok(files)
 }
 
 fn file_modified_time(path: &Path) -> std::time::SystemTime {
@@ -1919,6 +1903,20 @@ pub fn load_config() -> Result<Config> { Ok(Config::new()) }
     #[test]
     fn test_gitignore_dirs_skipped() {
         let dir = setup_test_env();
+
+        // Initialize git repo so WalkBuilder respects .gitignore
+        std::process::Command::new("git")
+            .arg("init")
+            .arg(dir.path())
+            .output()
+            .expect("failed to run git init");
+
+        // Write .gitignore with standard ignore patterns
+        std::fs::write(
+            dir.path().join(".gitignore"),
+            "target/\nnode_modules/\n",
+        )
+        .expect("failed to write .gitignore");
 
         // Create a file in target/ which should be skipped
         let target_dir = dir.path().join("target");
