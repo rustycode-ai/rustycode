@@ -14,7 +14,7 @@
 //! - **All**: All tools available
 
 use crate::edit_format::{self, EditFormat};
-use crate::ToolTag;
+use crate::{ToolRegistry, ToolTag};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -544,13 +544,17 @@ impl ToolSelector {
     /// - The model's preferred edit format tools are included
     /// - Generic "edit" is replaced with the model-specific tool
     /// - Tools the model doesn't support are deprioritized
-    pub fn select_tools(&self) -> Vec<String> {
-        let mut available: Vec<String> = self
-            .profile
-            .available_tools()
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+    pub fn select_tools(&self, registry: &ToolRegistry) -> Vec<String> {
+        let tags = self.profile.required_tags();
+        let mut available: Vec<String> = if tags.is_empty() {
+            registry.list_all_names()
+        } else {
+            registry
+                .list_for_tags(&tags)
+                .into_iter()
+                .map(|info| info.name)
+                .collect()
+        };
 
         // Model-aware edit format adjustment
         if let Some(ref model) = self.model_id {
@@ -596,8 +600,8 @@ impl ToolSelector {
     }
 
     /// Get tools that should appear in suggestions
-    pub fn suggest_tools(&self) -> Vec<String> {
-        let available = self.select_tools();
+    pub fn suggest_tools(&self, registry: &ToolRegistry) -> Vec<String> {
+        let available = self.select_tools(registry);
         let filtered: Vec<String> = available
             .into_iter()
             .filter(|tool| !self.profile.filtered_suggestions().contains(&tool.as_str()))
@@ -607,13 +611,18 @@ impl ToolSelector {
     }
 
     /// Predict which tools might be needed based on prompt
-    pub fn predict_from_prompt(&self, prompt: &str) -> Vec<String> {
+    pub fn predict_from_prompt(&self, prompt: &str, registry: &ToolRegistry) -> Vec<String> {
         let profile = ToolProfile::from_prompt(prompt);
-        let mut tools: Vec<String> = profile
-            .available_tools()
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let tags = profile.required_tags();
+        let mut tools: Vec<String> = if tags.is_empty() {
+            registry.list_all_names()
+        } else {
+            registry
+                .list_for_tags(&tags)
+                .into_iter()
+                .map(|info| info.name)
+                .collect()
+        };
 
         // Boost frequently used tools to the top
         tools.sort_by(|a, b| {
@@ -635,6 +644,11 @@ impl ToolSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::default_registry;
+
+    fn test_registry() -> ToolRegistry {
+        default_registry()
+    }
 
     #[test]
     fn test_profile_detection() {
@@ -672,10 +686,12 @@ mod tests {
 
     #[test]
     fn test_explore_profile_tools() {
-        let tools = ToolProfile::Explore.available_tools();
-        assert!(tools.contains(&"read_file"));
-        assert!(tools.contains(&"grep"));
-        assert!(!tools.contains(&"write_file"));
+        let registry = test_registry();
+        let tags = ToolProfile::Explore.required_tags();
+        let tools: Vec<_> = registry.list_for_tags(&tags).iter().map(|t| &t.name).collect();
+        assert!(tools.iter().any(|t| t == "read_file"));
+        assert!(tools.iter().any(|t| t == "grep"));
+        assert!(!tools.iter().any(|t| t == "write_file"));
     }
 
     #[test]

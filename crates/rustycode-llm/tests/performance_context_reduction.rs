@@ -46,19 +46,27 @@ fn test_tool_count_reduction_baselines() {
         return;
     }
 
-    // Measure reduction for each profile
-    let explore_tools = ToolSelector::new()
-        .with_profile(ToolProfile::Explore)
-        .select_tools();
-    let implement_tools = ToolSelector::new()
-        .with_profile(ToolProfile::Implement)
-        .select_tools();
-    let debug_tools = ToolSelector::new()
-        .with_profile(ToolProfile::Debug)
-        .select_tools();
-    let ops_tools = ToolSelector::new()
-        .with_profile(ToolProfile::Ops)
-        .select_tools();
+    // Measure reduction for each profile using available_tools()
+    let explore_tools: Vec<String> = ToolProfile::Explore
+        .available_tools()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let implement_tools: Vec<String> = ToolProfile::Implement
+        .available_tools()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let debug_tools: Vec<String> = ToolProfile::Debug
+        .available_tools()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let ops_tools: Vec<String> = ToolProfile::Ops
+        .available_tools()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
     println!("\nTool count reduction:");
     println!(

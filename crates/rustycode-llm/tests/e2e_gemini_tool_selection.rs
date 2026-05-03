@@ -184,15 +184,21 @@ fn test_gemini_context_reduction() {
     let selector = ToolSelector::new();
 
     // Get tool counts for different profiles
-    let explore_tools = selector
-        .clone()
-        .with_profile(ToolProfile::Explore)
-        .select_tools();
-    let implement_tools = selector
-        .clone()
-        .with_profile(ToolProfile::Implement)
-        .select_tools();
-    let debug_tools = selector.with_profile(ToolProfile::Debug).select_tools();
+    let explore_tools: Vec<String> = ToolProfile::Explore
+        .available_tools()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let implement_tools: Vec<String> = ToolProfile::Implement
+        .available_tools()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let debug_tools: Vec<String> = ToolProfile::Debug
+        .available_tools()
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
     println!("Gemini tool selection:");
     println!("  Explore: {} tools", explore_tools.len());

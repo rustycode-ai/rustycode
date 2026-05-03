@@ -876,12 +876,9 @@ impl AnthropicProvider {
             // Detect profile from prompt
             let profile = ToolProfile::from_prompt(&prompt);
 
-            // Get tool names available for this profile
-            let tool_names: Vec<String> = profile
-                .available_tools()
-                .iter()
-                .map(|s| s.to_string())
-                .collect();
+            // Get ranked tools for this profile using tag-based discovery
+            let selector = self.tool_selector.clone().with_profile(profile);
+            let tool_names = selector.select_tools(&self.tool_registry);
 
             // Format tools for Anthropic API
             Some(self.format_tools_for_anthropic(&tool_names))
