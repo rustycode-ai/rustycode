@@ -98,7 +98,7 @@ impl TuiAgentManager {
         _tool_registry: &ToolRegistry,
         events: &mut E,
     ) -> Result<AgentResult> {
-        let tool_registry = rustycode_tools::ToolRegistry::new();
+        let tool_registry = rustycode_tools::default_registry();
         let mut session = self.session.lock().await;
         session
             .run(

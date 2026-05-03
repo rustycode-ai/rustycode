@@ -39,6 +39,7 @@ pub mod team;
 pub mod tool_search;
 pub mod validate_requirements;
 pub mod web_search;
+pub mod browser_fetch;
 
 // Re-exports for backward-compatible access via `rustycode_tools::TypeName`
 #[allow(ambiguous_glob_reexports)]
@@ -110,3 +111,5 @@ pub use tool_search::*;
 pub use validate_requirements::*;
 #[allow(ambiguous_glob_reexports)]
 pub use web_search::*;
+#[allow(ambiguous_glob_reexports)]
+pub use browser_fetch::*;

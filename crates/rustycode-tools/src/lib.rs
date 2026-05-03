@@ -130,6 +130,7 @@ pub use crate::side_effects::{RecoveryStatus, SideEffect, SideEffectLedger, Side
 
 // Other legacy modules that haven't been moved yet
 pub mod app_paths;
+pub mod browser_pool;
 pub mod checkpoint;
 pub mod compaction;
 pub mod config_migration;
@@ -245,21 +246,82 @@ pub fn check_tool_permission(tool_name: &str, mode: rustycode_protocol::SessionM
     }
 }
 
-/// Stub: check if the given permission is allowed in the context.
-/// Currently a no-op placeholder; full permission enforcement lives in the
-/// orchestration layer.
-pub const fn check_permission(
-    _permission: ToolPermission,
-    _ctx: &ToolContext,
+/// Check if the given permission level is allowed by the context's `max_permission`.
+///
+/// Permission hierarchy: None < Read < Write < Execute < Network.
+/// Returns an error if the required permission exceeds the context's allowance.
+pub fn check_permission(
+    permission: ToolPermission,
+    ctx: &ToolContext,
 ) -> anyhow::Result<()> {
+    let required = permission_level(&permission);
+    let allowed = permission_level(&ctx.max_permission);
+    if required > allowed {
+        anyhow::bail!(
+            "permission denied: tool requires {:?} but context allows {:?}",
+            permission,
+            ctx.max_permission
+        );
+    }
     Ok(())
 }
 
-/// Stub: check if a path is allowed under sandbox rules.
-/// Currently a no-op placeholder; full sandbox enforcement lives in the
-/// orchestration layer.
-pub const fn check_sandbox_path(_path: &std::path::Path, _ctx: &ToolContext) -> anyhow::Result<()> {
+/// Check if a path is allowed under sandbox rules.
+///
+/// Validates against:
+/// 1. Denied paths (always blocked)
+/// 2. Allowed paths (whitelist, if configured)
+/// 3. Blocked path components (.ssh, .gnupg, .aws, etc.)
+pub fn check_sandbox_path(path: &std::path::Path, ctx: &ToolContext) -> anyhow::Result<()> {
+    // Check denied paths first
+    for denied in &ctx.sandbox.denied_paths {
+        if path.starts_with(denied) {
+            anyhow::bail!(
+                "sandbox: path '{}' is under denied prefix '{}'",
+                path.display(),
+                denied.display()
+            );
+        }
+    }
+
+    // Check allowed paths (whitelist mode if configured)
+    if let Some(allowed) = &ctx.sandbox.allowed_paths {
+        let permitted = allowed.iter().any(|prefix| path.starts_with(prefix));
+        if !permitted {
+            anyhow::bail!(
+                "sandbox: path '{}' is outside allowed directories",
+                path.display()
+            );
+        }
+    }
+
+    // Check blocked path components (.ssh, .gnupg, .aws, etc.)
+    for component in path.components() {
+        if let std::path::Component::Normal(os_str) = component {
+            if let Some(s) = os_str.to_str() {
+                if security::validation::BLOCKED_PATH_COMPONENTS.contains(&s) {
+                    anyhow::bail!(
+                        "sandbox: path contains blocked component '{}' for security reasons",
+                        s
+                    );
+                }
+            }
+        }
+    }
+
     Ok(())
+}
+
+/// Numeric level for permission comparison. Higher = more permissive.
+const fn permission_level(p: &ToolPermission) -> u8 {
+    match p {
+        ToolPermission::None => 0,
+        ToolPermission::Read => 1,
+        ToolPermission::Write => 2,
+        ToolPermission::Execute => 3,
+        ToolPermission::Network => 4,
+        _ => 0,
+    }
 }
 
 /// Tool executor combining a registry and a context.
@@ -365,6 +427,7 @@ pub fn default_registry() -> ToolRegistry {
     use crate::providers::tool_search::ToolSearchTool;
     use crate::providers::web_search::WebSearchTool;
     use crate::providers::WebFetchTool;
+    use crate::providers::browser_fetch::BrowserFetchTool;
     use crate::providers::{
         BashTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, InspectTool,
         ListDirTool, QuestionTool, ReadFileTool, WriteFileTool,
@@ -419,6 +482,7 @@ pub fn default_registry() -> ToolRegistry {
 
     // Web & search
     reg.register(WebFetchTool);
+    reg.register(BrowserFetchTool);
     reg.register(WebSearchTool);
 
     // Edit tools

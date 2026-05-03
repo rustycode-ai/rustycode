@@ -8,17 +8,16 @@
 
 use anyhow::{anyhow, Context, Result};
 use base64::Engine;
-use chromiumoxide::browser::{Browser, BrowserConfig};
 use chromiumoxide::page::ScreenshotParams;
 use chromiumoxide::Page;
 use clap::Parser;
-use futures::StreamExt;
 use rustycode_mcp::types::{McpContent, McpTool, McpToolResult};
 use rustycode_mcp::{McpError, McpResult, McpServer};
+use rustycode_tools::browser_pool::BrowserPool;
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::runtime::Handle;
-use tokio::task::JoinHandle;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Parser)]
 #[command(name = "chrome-mcp", about = "Chrome browser MCP server for E2E testing")]
@@ -36,91 +35,28 @@ struct Cli {
     server_version: String,
 }
 
-struct BrowserInstance {
-    browser: Browser,
-    handler: JoinHandle<()>,
-}
-
+/// Holds a shared BrowserPool (lifecycle) plus a cached page for reuse.
 struct BrowserState {
-    inner: Mutex<Option<BrowserInstance>>,
+    pool: BrowserPool,
     page: Mutex<Option<Page>>,
-    headless: bool,
 }
 
 impl BrowserState {
     fn new(headless: bool) -> Self {
         Self {
-            inner: Mutex::new(None),
-            page: Mutex::new(None),
-            headless,
+            pool: BrowserPool::new(headless),
+            page: Mutex::const_new(None),
         }
     }
 
-    fn get_page(&self) -> Result<Page> {
-        // Try to reuse existing page
-        if let Some(page) = self.page.lock().expect("lock").clone() {
+    async fn get_page(&self) -> Result<Page> {
+        let existing = self.page.lock().await.clone();
+        if let Some(page) = existing {
             return Ok(page);
         }
-
-        // Launch browser if needed
-        {
-            let mut inner = self.inner.lock().expect("lock");
-            if inner.is_none() {
-                let mut config_builder = BrowserConfig::builder()
-                    .window_size(1280, 1024)
-                    .arg("--disable-gpu")
-                    .arg("--no-sandbox")
-                    .arg("--disable-dev-shm-usage");
-
-                if !self.headless {
-                    config_builder = config_builder.with_head();
-                }
-
-                let config = config_builder
-                    .build()
-                    .map_err(|e| anyhow!("config error: {e}"))?;
-
-                let (browser, mut handler) = Browser::launch(config)
-                    .await_context("failed to launch Chrome")?;
-
-                let handler_handle = tokio::spawn(async move {
-                    while let Some(event) = handler.next().await {
-                        if event.is_err() {
-                            break;
-                        }
-                    }
-                });
-
-                *inner = Some(BrowserInstance {
-                    browser,
-                    handler: handler_handle,
-                });
-            }
-        }
-
-        // Create new page
-        let inner = self.inner.lock().expect("lock");
-        let instance = inner.as_ref().context("no browser instance")?;
-        let page = instance
-            .browser
-            .new_page("about:blank")
-            .await_context("failed to create page")?;
-
-        *self.page.lock().expect("lock") = Some(page.clone());
+        let page = self.pool.get_page().await?;
+        *self.page.lock().await = Some(page.clone());
         Ok(page)
-    }
-}
-
-/// Helper trait to convert anyhow errors in sync context
-trait AwaitContext<T> {
-    fn await_context(self, msg: &str) -> Result<T>;
-}
-
-impl<F: std::future::Future<Output = Result<T>>, T> AwaitContext<T> for F {
-    fn await_context(self, msg: &str) -> Result<T> {
-        // This doesn't actually await - it's a type alias for documentation
-        // Real awaiting happens in block_on below
-        unimplemented!("use run_async instead")
     }
 }
 
@@ -144,16 +80,8 @@ fn text_result(text: String) -> McpToolResult {
     }
 }
 
-fn err_result(msg: String) -> McpToolResult {
-    McpToolResult {
-        content: vec![McpContent::Text { text: format!("Error: {msg}") }],
-        structured_content: None,
-        is_error: Some(true),
-        meta: None,
-    }
-}
-
 #[tokio::main]
+#[allow(clippy::too_many_lines)]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter("info,chrome_mcp=debug")
@@ -185,7 +113,7 @@ async fn main() -> Result<()> {
                     .ok_or_else(|| McpError::InvalidRequest("'url' parameter required".into()))?;
                 let s = s.clone();
                 to_mcp(run_async(async move {
-                    let page = s.get_page()?;
+                    let page = s.get_page().await?;
                     page.goto(url)
                         .await
                         .map_err(|e| anyhow!("navigation failed: {e}"))?;
@@ -206,7 +134,7 @@ async fn main() -> Result<()> {
             move |_params: Value| -> McpResult<McpToolResult> {
                 let s = s.clone();
                 to_mcp(run_async(async move {
-                    let page = s.get_page()?;
+                    let page = s.get_page().await?;
                     let bytes = page
                         .screenshot(ScreenshotParams::builder().full_page(true).build())
                         .await
@@ -238,7 +166,7 @@ async fn main() -> Result<()> {
                     .to_string();
                 let s = s.clone();
                 to_mcp(run_async(async move {
-                    let page = s.get_page()?;
+                    let page = s.get_page().await?;
                     let el = page
                         .find_element(&selector)
                         .await
@@ -266,7 +194,7 @@ async fn main() -> Result<()> {
                     .to_string();
                 let s = s.clone();
                 to_mcp(run_async(async move {
-                    let page = s.get_page()?;
+                    let page = s.get_page().await?;
                     let el = page
                         .find_element(&selector)
                         .await
@@ -290,15 +218,16 @@ async fn main() -> Result<()> {
                     .to_string();
                 let s = s.clone();
                 to_mcp(run_async(async move {
-                    let page = s.get_page()?;
+                    let page = s.get_page().await?;
                     let result = page
-                        .evaluate(&script)
+                        .evaluate(script.as_str())
                         .await
                         .map_err(|e| anyhow!("{e}"))?;
-                    let output = result
-                        .into_value()
-                        .map(|v| v.to_string())
-                        .unwrap_or_else(|_| "undefined".into());
+                    #[allow(clippy::option_if_let_else)]
+                    let output = match result.into_value::<Value>() {
+                        Ok(v) => v.to_string(),
+                        Err(_) => "undefined".into(),
+                    };
                     Ok(text_result(output))
                 }))
             },
@@ -314,7 +243,7 @@ async fn main() -> Result<()> {
                 let selector = params["selector"].as_str().map(String::from);
                 let s = s.clone();
                 to_mcp(run_async(async move {
-                    let page = s.get_page()?;
+                    let page = s.get_page().await?;
                     let html = if let Some(sel) = &selector {
                         let el = page
                             .find_element(sel)
@@ -322,8 +251,13 @@ async fn main() -> Result<()> {
                             .map_err(|e| anyhow!("{e}"))?;
                         el.inner_html().await.map_err(|e| anyhow!("{e}"))?
                     } else {
-                        page.content().await.map_err(|e| anyhow!("{e}"))?
-                    };
+                        Some(
+                            page.content()
+                                .await
+                                .map_err(|e| anyhow!("{e}"))?,
+                        )
+                    }
+                    .unwrap_or_default();
                     Ok(text_result(html))
                 }))
             },
@@ -339,7 +273,7 @@ async fn main() -> Result<()> {
                 let selector = params["selector"].as_str().map(String::from);
                 let s = s.clone();
                 to_mcp(run_async(async move {
-                    let page = s.get_page()?;
+                    let page = s.get_page().await?;
                     let text = if let Some(sel) = &selector {
                         let el = page
                             .find_element(sel)
@@ -351,11 +285,14 @@ async fn main() -> Result<()> {
                             .evaluate("document.body.innerText")
                             .await
                             .map_err(|e| anyhow!("{e}"))?;
-                        result
-                            .into_value()
-                            .map(|v| v.as_str().unwrap_or("").to_string())
-                            .unwrap_or_default()
-                    };
+                        #[allow(clippy::option_if_let_else)]
+                        let val = match result.into_value::<Value>() {
+                            Ok(v) => v.as_str().unwrap_or("").to_string(),
+                            Err(_) => String::new(),
+                        };
+                        Some(val)
+                    }
+                    .unwrap_or_default();
                     Ok(text_result(text))
                 }))
             },
@@ -366,7 +303,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-// Tool definitions
 fn navigate_tool() -> McpTool {
     McpTool {
         name: "browser_navigate".into(),

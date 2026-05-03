@@ -721,6 +721,391 @@ fn lsp_outgoing_calls_tool() -> ToolDefinition {
     ])
 }
 
+/// LSP full diagnostics tool
+fn lsp_full_diagnostics_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_full_diagnostics",
+        "Get comprehensive diagnostics (errors, warnings, hints) with full context for a file. More detailed than lsp_diagnostics. Use this when you need complete error information including related diagnostics.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to analyze (e.g., 'src/main.rs')"
+                }
+            },
+            "required": ["file_path"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs"}),
+    ])
+}
+
+/// LSP code actions tool
+fn lsp_code_actions_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_code_actions",
+        "Get available code actions (quick fixes, refactorings, source actions) for a range. Use this to find automated fixes for diagnostics or to apply refactorings.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file (e.g., 'src/main.rs')"
+                },
+                "line": {
+                    "type": "integer",
+                    "description": "Start line number (1-based, as shown in editors)"
+                },
+                "character": {
+                    "type": "integer",
+                    "description": "Start character offset (1-based, as shown in editors)"
+                },
+                "end_line": {
+                    "type": "integer",
+                    "description": "End line number (1-based, as shown in editors)"
+                },
+                "end_character": {
+                    "type": "integer",
+                    "description": "End character offset (1-based, as shown in editors)"
+                }
+            },
+            "required": ["file_path", "line", "character", "end_line", "end_character"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs", "line": 10, "character": 1, "end_line": 10, "end_character": 20}),
+    ])
+}
+
+/// LSP rename tool
+fn lsp_rename_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_rename",
+        "Rename a symbol at a position across all references in the workspace. Use this to safely rename variables, functions, types, etc.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file (e.g., 'src/main.rs')"
+                },
+                "line": {
+                    "type": "integer",
+                    "description": "Line number (1-based, as shown in editors)"
+                },
+                "character": {
+                    "type": "integer",
+                    "description": "Character offset (1-based, as shown in editors)"
+                },
+                "new_name": {
+                    "type": "string",
+                    "description": "The new name for the symbol"
+                }
+            },
+            "required": ["file_path", "line", "character", "new_name"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs", "line": 15, "character": 8, "new_name": "process_request"}),
+    ])
+}
+
+/// LSP formatting tool
+fn lsp_formatting_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_formatting",
+        "Format a file or range using the language server's formatter. Use this to auto-format code according to project style.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file to format (e.g., 'src/main.rs')"
+                },
+                "line": {
+                    "type": "integer",
+                    "description": "Start line for range formatting (optional, formats whole file if omitted)"
+                },
+                "character": {
+                    "type": "integer",
+                    "description": "Start character for range formatting"
+                },
+                "end_line": {
+                    "type": "integer",
+                    "description": "End line for range formatting"
+                },
+                "end_character": {
+                    "type": "integer",
+                    "description": "End character for range formatting"
+                }
+            },
+            "required": ["file_path"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs"}),
+        json!({"file_path": "src/main.rs", "line": 10, "character": 1, "end_line": 20, "end_character": 1}),
+    ])
+}
+
+/// Get symbols overview tool
+fn lsp_get_symbols_overview_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_get_symbols_overview",
+        "Get a compact hierarchical overview of symbols in a file grouped by kind (functions, structs, impls, etc.). Use this to quickly understand a file's structure without reading the entire content.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file (e.g., 'src/main.rs')"
+                },
+                "depth": {
+                    "type": "integer",
+                    "description": "Depth of symbol hierarchy to return (default: 0, immediate children only)"
+                }
+            },
+            "required": ["file_path"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs"}),
+        json!({"file_path": "src/lib.rs", "depth": 1}),
+    ])
+}
+
+/// Find symbol tool
+fn lsp_find_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_find_symbol",
+        "Find symbols by name path pattern in a file. Use this to locate specific functions, structs, or methods. Supports qualified names like 'MyClass/my_method'.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path (e.g., 'MyClass/my_method' or 'process_data')"
+                },
+                "include_body": {
+                    "type": "boolean",
+                    "description": "Whether to include the symbol's source code (default: false)"
+                }
+            },
+            "required": ["file_path", "name_path"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs", "name_path": "App/run"}),
+        json!({"file_path": "src/lib.rs", "name_path": "Config", "include_body": true}),
+    ])
+}
+
+/// Replace symbol body tool
+fn lsp_replace_symbol_body_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_replace_symbol_body",
+        "Replace a symbol's entire body with new content. Use this to rewrite a function, method, or other definition. The symbol is identified by name path.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to identify the symbol (e.g., 'MyClass/my_method')"
+                },
+                "body": {
+                    "type": "string",
+                    "description": "New body content to replace the symbol with"
+                }
+            },
+            "required": ["file_path", "name_path", "body"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs", "name_path": "process", "body": "fn process() -> Result<()> {\n    todo!()\n}"}),
+    ])
+}
+
+/// Insert before symbol tool
+fn lsp_insert_before_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_insert_before_symbol",
+        "Insert text before a symbol's definition. Use this to add new items (functions, imports, fields) above an existing symbol.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to insert before (e.g., 'MyClass/my_method')"
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Content to insert before the symbol"
+                }
+            },
+            "required": ["file_path", "name_path", "body"]
+        }),
+    )
+}
+
+/// Insert after symbol tool
+fn lsp_insert_after_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_insert_after_symbol",
+        "Insert text after a symbol's definition. Use this to add new items after an existing symbol.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to insert after (e.g., 'MyClass/my_method')"
+                },
+                "body": {
+                    "type": "string",
+                    "description": "Content to insert after the symbol"
+                }
+            },
+            "required": ["file_path", "name_path", "body"]
+        }),
+    )
+}
+
+/// Safe delete symbol tool
+fn lsp_safe_delete_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_safe_delete_symbol",
+        "Safely delete a symbol after checking for references. Will report if the symbol is still used elsewhere. Use this instead of text-based deletion to avoid breaking references.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to delete (e.g., 'old_function')"
+                }
+            },
+            "required": ["file_path", "name_path"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs", "name_path": "deprecated_helper"}),
+    ])
+}
+
+/// Rename symbol (by name path) tool
+fn lsp_rename_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_rename_symbol",
+        "Rename a symbol across the codebase by name path. Use this when you know the symbol name but not its exact position.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file containing the symbol (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to rename (e.g., 'MyClass/old_name')"
+                },
+                "new_name": {
+                    "type": "string",
+                    "description": "The new name for the symbol"
+                }
+            },
+            "required": ["file_path", "name_path", "new_name"]
+        }),
+    ).with_examples(vec![
+        json!({"file_path": "src/main.rs", "name_path": "old_func", "new_name": "new_func"}),
+    ])
+}
+
+/// Analyze symbol tool
+fn lsp_analyze_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_analyze_symbol",
+        "Analyze a symbol to get its references, implementations, and complexity metrics. Use this for deep code understanding before refactoring.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to analyze (e.g., 'MyClass/process')"
+                },
+                "include_info": {
+                    "type": "boolean",
+                    "description": "Include hover-like info (type signature, documentation) (default: false)"
+                }
+            },
+            "required": ["file_path", "name_path"]
+        }),
+    )
+}
+
+/// Extract symbol tool
+fn lsp_extract_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_extract_symbol",
+        "Extract a symbol definition to a new file or module. Use this to refactor code by moving functions, structs, or traits to their own files.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to extract (e.g., 'MyStruct')"
+                },
+                "target_path": {
+                    "type": "string",
+                    "description": "Target file path for the extracted symbol (optional, auto-generated if omitted)"
+                }
+            },
+            "required": ["file_path", "name_path"]
+        }),
+    )
+}
+
+/// Inline symbol tool
+fn lsp_inline_symbol_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "lsp_inline_symbol",
+        "Inline a symbol definition at all its usage sites. Use this to remove unnecessary abstraction by replacing calls with the actual implementation.",
+        json!({
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the source file (e.g., 'src/main.rs')"
+                },
+                "name_path": {
+                    "type": "string",
+                    "description": "Symbol name path to inline (e.g., 'trivial_wrapper')"
+                }
+            },
+            "required": ["file_path", "name_path"]
+        }),
+    )
+}
+
 /// Notebook editing tool — replace, insert, or delete cells in Jupyter notebooks
 fn notebook_edit_tool() -> ToolDefinition {
     ToolDefinition::new(
@@ -841,6 +1226,20 @@ pub fn get_tui_tools() -> Vec<ToolDefinition> {
         lsp_completion_tool(),
         lsp_incoming_calls_tool(),
         lsp_outgoing_calls_tool(),
+        lsp_full_diagnostics_tool(),
+        lsp_code_actions_tool(),
+        lsp_rename_tool(),
+        lsp_formatting_tool(),
+        lsp_get_symbols_overview_tool(),
+        lsp_find_symbol_tool(),
+        lsp_replace_symbol_body_tool(),
+        lsp_insert_before_symbol_tool(),
+        lsp_insert_after_symbol_tool(),
+        lsp_safe_delete_symbol_tool(),
+        lsp_rename_symbol_tool(),
+        lsp_analyze_symbol_tool(),
+        lsp_extract_symbol_tool(),
+        lsp_inline_symbol_tool(),
         notebook_edit_tool(),
         todo_write_tool(),
     ]

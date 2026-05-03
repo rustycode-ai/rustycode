@@ -175,6 +175,8 @@ struct StreamingContext {
     history: Option<Vec<rustycode_llm::provider::ChatMessage>>,
     orchestration_guidance: Option<String>,
     phase_context: Option<String>,
+    /// Base64-encoded image blocks from clipboard paste, threaded through to the LLM.
+    image_blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
 }
 
 impl ServiceManager {
@@ -399,7 +401,7 @@ impl ServiceManager {
     /// This method is called from the event loop when the user sends a message.
     /// It spawns a background task that streams the LLM response through the channel.
     pub fn send_message(&mut self, content: String) -> Result<()> {
-        self.send_message_with_history(content, None)
+        self.send_message_with_history(content, None, None)
     }
 
     /// Send a message with conversation history for multi-turn context
@@ -407,6 +409,7 @@ impl ServiceManager {
         &mut self,
         content: String,
         conversation_history: Option<Vec<rustycode_llm::provider::ChatMessage>>,
+        image_blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
     ) -> Result<()> {
         use rustycode_prompt::ModelProvider;
 
@@ -531,6 +534,7 @@ impl ServiceManager {
             history: conversation_history,
             orchestration_guidance,
             phase_context,
+            image_blocks,
         };
 
         // 5. Dispatch
@@ -678,7 +682,8 @@ impl ServiceManager {
                     .tool_registry_opt(Some(ctx.tool_registry))
                     .orchestration_guidance_opt(ctx.orchestration_guidance)
                     .phase_context_opt(ctx.phase_context)
-                    .orchestration_opt(Some(ctx.orchestration));
+                    .orchestration_opt(Some(ctx.orchestration))
+                    .image_blocks_opt(ctx.image_blocks);
 
                     stream_llm_response(config).await
                 });

@@ -254,7 +254,7 @@ impl TUI {
 
         if let Err(e) = self
             .services
-            .send_message_with_history(user_prompt, Some(history))
+            .send_message_with_history(user_prompt, Some(history), None)
         {
             tracing::error!("Failed to regenerate response: {}", e);
             self.reset_streaming_state();

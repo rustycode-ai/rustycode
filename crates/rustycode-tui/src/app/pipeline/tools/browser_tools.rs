@@ -19,22 +19,23 @@ impl Tool for BrowserGotoTool {
             .as_str()
             .ok_or_else(|| anyhow!("'url' parameter required"))?;
 
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            let page = self.manager.get_page().await?;
-            page.goto(url)
-                .await
-                .map_err(|e| anyhow!("navigation failed: {e}"))?;
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async {
+                let page = self.manager.get_page().await?;
+                page.goto(url)
+                    .await
+                    .map_err(|e| anyhow!("navigation failed: {e}"))?;
 
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-            let title = page.get_title().await.ok().flatten().unwrap_or_default();
-            let final_url = page.url().await.ok().flatten().unwrap_or_default();
+                let title = page.get_title().await.ok().flatten().unwrap_or_default();
+                let final_url = page.url().await.ok().flatten().unwrap_or_default();
 
-            Ok(serde_json::json!({
-                "title": title,
-                "url": final_url,
-            }))
+                Ok(serde_json::json!({
+                    "title": title,
+                    "url": final_url,
+                }))
+            })
         })
     }
 }

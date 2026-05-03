@@ -105,6 +105,12 @@ const MAX_SUBDIR_SAMPLE: usize = 10;
 /// to ensure the progress bar behaves reasonably.
 const MIN_FILE_COUNT_ESTIMATE: usize = 10;
 
+/// Maximum depth for the recursive file tree
+const FILE_TREE_MAX_DEPTH: usize = 3;
+
+/// Maximum total entries in the file tree output
+const FILE_TREE_MAX_ENTRIES: usize = 200;
+
 /// Load ignore patterns from .rustycodeignore file and defaults
 ///
 /// Combines the default ignore patterns with any patterns found in
@@ -202,6 +208,82 @@ fn matches_ignore_pattern(path: &Path, patterns: &[String]) -> bool {
                     .any(|c| c.as_os_str().to_str() == Some(pattern))
         }
     })
+}
+
+/// Build a compact multi-level file tree rooted at `dir`.
+///
+/// Returns a string like:
+/// ```text
+/// src/
+///   lib.rs
+///   app/
+///     mod.rs
+///     config.rs
+/// ```
+///
+/// Stops recursing at `FILE_TREE_MAX_DEPTH` and caps total entries at
+/// `FILE_TREE_MAX_ENTRIES`.
+fn build_file_tree(dir: &Path, ignore_patterns: &[String]) -> String {
+    let mut output = String::with_capacity(4096);
+    let mut count = 0usize;
+    build_file_tree_recursive(dir, ignore_patterns, 0, &mut count, &mut output);
+    output
+}
+
+fn build_file_tree_recursive(
+    dir: &Path,
+    ignore_patterns: &[String],
+    depth: usize,
+    count: &mut usize,
+    output: &mut String,
+) {
+    if depth > FILE_TREE_MAX_DEPTH || *count >= FILE_TREE_MAX_ENTRIES {
+        return;
+    }
+
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+
+    let mut dirs: Vec<String> = Vec::new();
+    let mut files: Vec<String> = Vec::new();
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if matches_ignore_pattern(&path, ignore_patterns) {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if path.is_dir() {
+            dirs.push(name);
+        } else {
+            files.push(name);
+        }
+    }
+
+    dirs.sort();
+    files.sort();
+
+    let indent = "  ".repeat(depth);
+
+    for name in &dirs {
+        if *count >= FILE_TREE_MAX_ENTRIES {
+            output.push_str(&format!("{indent}  ... (truncated)\n"));
+            return;
+        }
+        output.push_str(&format!("{indent}{}/\n", name));
+        *count += 1;
+        build_file_tree_recursive(&dir.join(name), ignore_patterns, depth + 1, count, output);
+    }
+
+    for name in &files {
+        if *count >= FILE_TREE_MAX_ENTRIES {
+            output.push_str(&format!("{indent}  ... (truncated)\n"));
+            return;
+        }
+        output.push_str(&format!("{indent}{}\n", name));
+        *count += 1;
+    }
 }
 
 /// Load workspace context for a given directory
@@ -388,6 +470,15 @@ pub fn load_workspace_context_with_progress(
 
         // Final progress update for directory scan
         report_progress(scanned, estimated_total);
+    }
+
+    // Compact multi-level file tree for deeper navigation awareness
+    context.push_str("\n## File Tree:\n");
+    let tree = build_file_tree(cwd, &ignore_patterns);
+    if tree.is_empty() {
+        context.push_str("  (empty)\n");
+    } else {
+        context.push_str(&tree);
     }
 
     context.push_str("\n## Git Status:\n");

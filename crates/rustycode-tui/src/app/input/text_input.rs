@@ -337,6 +337,11 @@ impl TUI {
         // Extract images from input state before clearing
         let attached_images: Vec<_> = self.input_handler.state.images.drain(..).collect();
         let is_image_only_submission = content.trim().is_empty() && !attached_images.is_empty();
+        tracing::error!(
+            "BUG9-DEBUG: attached_images count={}, is_image_only={}",
+            attached_images.len(),
+            is_image_only_submission
+        );
 
         const MAX_MESSAGE_LENGTH: usize = 100_000;
         if content.len() > MAX_MESSAGE_LENGTH {
@@ -494,15 +499,11 @@ impl TUI {
                 );
             }
 
-            // If images were attached, replace the last user message (which has text-only content)
-            // with a multi-content message that includes image blocks
-            if !attached_images.is_empty() {
+            let image_blocks: Vec<rustycode_llm::provider::ContentBlock> = if !attached_images.is_empty() {
                 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
                 use rustycode_llm::provider::{ContentBlock, ImageSource};
-                use rustycode_protocol::MessageContent;
 
-                let mut blocks = vec![ContentBlock::text(&message_to_send)];
-
+                let mut blocks = Vec::new();
                 for img in &attached_images {
                     match std::fs::read(&img.path) {
                         Ok(bytes) => {
@@ -520,21 +521,13 @@ impl TUI {
                         }
                         Err(e) => {
                             tracing::warn!("Failed to read image {}: {}", img.path.display(), e);
-                            blocks.push(ContentBlock::text(format!(
-                                "[Image {} could not be loaded: {}]",
-                                img.id, e
-                            )));
                         }
                     }
                 }
-
-                // Replace the last user message in history with the image-enriched version
-                if let Some(last_msg) = history.last_mut() {
-                    if last_msg.role == rustycode_llm::provider::MessageRole::User {
-                        last_msg.content = MessageContent::blocks(blocks);
-                    }
-                }
-            }
+                blocks
+            } else {
+                Vec::new()
+            };
 
             self.rate_limit.last_message = Some(content.clone());
 
@@ -557,7 +550,11 @@ impl TUI {
             let send_call_start = std::time::Instant::now();
             if let Err(e) = self
                 .services
-                .send_message_with_history(message_to_send, Some(history))
+                .send_message_with_history(
+                    message_to_send,
+                    Some(history),
+                    if image_blocks.is_empty() { None } else { Some(image_blocks) },
+                )
             {
                 tracing::error!("Failed to send message: {}", e);
                 self.reset_streaming_state();

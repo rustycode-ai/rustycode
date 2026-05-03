@@ -78,6 +78,7 @@ pub struct StreamConfig {
     pub phase_context: Option<String>,
     pub orchestration:
         Option<Arc<StdMutex<crate::app::orchestration_integration::OrchestrationIntegration>>>,
+    pub image_blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
 }
 
 impl StreamConfig {
@@ -103,6 +104,7 @@ impl StreamConfig {
             orchestration_guidance: None,
             phase_context: None,
             orchestration: None,
+            image_blocks: None,
         }
     }
 
@@ -194,6 +196,14 @@ impl StreamConfig {
         >,
     ) -> Self {
         self.orchestration = orch;
+        self
+    }
+
+    pub fn image_blocks_opt(
+        mut self,
+        blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
+    ) -> Self {
+        self.image_blocks = blocks;
         self
     }
 }
@@ -319,6 +329,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         orchestration_guidance,
         phase_context,
         orchestration: _,
+        image_blocks,
     } = config;
 
     let _done_guard = DoneGuard::new(stream_tx.clone());
@@ -457,7 +468,20 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
             }
         }
     }
-    messages.push(rustycode_llm::provider::ChatMessage::user(content));
+    if let Some(ref img_blocks) = image_blocks {
+        if !img_blocks.is_empty() {
+            let mut blocks = vec![rustycode_llm::provider::ContentBlock::text(content)];
+            blocks.extend(img_blocks.iter().cloned());
+            messages.push(rustycode_llm::provider::ChatMessage {
+                role: rustycode_llm::provider::MessageRole::User,
+                content: rustycode_protocol::MessageContent::blocks(blocks),
+            });
+        } else {
+            messages.push(rustycode_llm::provider::ChatMessage::user(content));
+        }
+    } else {
+        messages.push(rustycode_llm::provider::ChatMessage::user(content));
+    }
 
     let tool_registry =
         tool_registry.unwrap_or_else(|| std::sync::Arc::new(rustycode_tools::ToolRegistry::new()));
@@ -548,6 +572,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
         orchestration_guidance,
         phase_context,
         orchestration,
+        image_blocks,
     } = config;
 
     let _done_guard = DoneGuard::new(stream_tx.clone());
@@ -765,7 +790,20 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
 
     // Add the current user message only if not already in history
     if !history_included_user_msg {
-        messages.push(ChatMessage::user(content.to_string()));
+        if let Some(ref img_blocks) = image_blocks {
+            if !img_blocks.is_empty() {
+                let mut blocks = vec![ContentBlock::text(content)];
+                blocks.extend(img_blocks.iter().cloned());
+                messages.push(ChatMessage {
+                    role: MessageRole::User,
+                    content: rustycode_protocol::MessageContent::blocks(blocks),
+                });
+            } else {
+                messages.push(ChatMessage::user(content.to_string()));
+            }
+        } else {
+            messages.push(ChatMessage::user(content.to_string()));
+        }
     }
 
     // Conversation limits to prevent unbounded memory growth

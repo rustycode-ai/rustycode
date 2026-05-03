@@ -125,7 +125,7 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
 
     if let Err(e) = tui
         .services
-        .send_message_with_history(context, Some(history))
+        .send_message_with_history(context, Some(history), None)
     {
         tracing::error!("Failed to send auto-continue message: {}", e);
         tui.add_system_message(format!(

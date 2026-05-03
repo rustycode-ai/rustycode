@@ -249,7 +249,7 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
     let send_start = std::time::Instant::now();
     if let Err(e) = tui
         .services
-        .send_message_with_history(message_to_send, Some(history))
+        .send_message_with_history(message_to_send, Some(history), None)
     {
         tracing::error!("Failed to send queued message: {}", e);
         tui.reset_streaming_state();
