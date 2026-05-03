@@ -1,4 +1,4 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
@@ -46,6 +46,10 @@ impl Tool for BriefTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

@@ -1,4 +1,4 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
@@ -55,6 +55,10 @@ If you receive a JSON message with `type: "shutdown_request"` or `type: "plan_ap
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {

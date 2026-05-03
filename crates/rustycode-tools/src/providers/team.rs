@@ -1,4 +1,4 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 use std::fs;
@@ -51,6 +51,10 @@ This creates:
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
@@ -139,6 +143,10 @@ IMPORTANT: TeamDelete will fail if the team still has active members. Gracefully
             "type": "object",
             "properties": {},
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {

@@ -8,7 +8,7 @@
 use crate::file_formatter;
 use crate::line_endings::{detect_line_ending, generate_diff, normalize_quotes, normalize_to_lf};
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -187,6 +187,10 @@ impl Tool for EditFile {
             },
             "required": ["path", "old_text", "new_text"]
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement]
     }
 
     fn execute(&self, params: serde_json::Value, ctx: &ToolContext) -> Result<ToolOutput> {

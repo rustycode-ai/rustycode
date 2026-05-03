@@ -1,4 +1,4 @@
-use rustycode_tools::registry::selector::ToolProfile;
+use rustycode_tools::ToolProfile;
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Default)]
 #[non_exhaustive]

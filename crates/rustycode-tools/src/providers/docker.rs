@@ -8,7 +8,7 @@
 //! - `DockerLogsTool`: View container logs
 //! - `DockerInspectTool`: Inspect containers/images
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::process::Command;
@@ -74,6 +74,10 @@ Use this tool to:
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -243,6 +247,10 @@ Use this tool to:
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -435,6 +443,10 @@ Use this tool to:
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let all = params.get("all").and_then(Value::as_bool).unwrap_or(false);
         let quiet = params
@@ -510,6 +522,10 @@ Use this tool to:
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -601,6 +617,10 @@ Use this tool to:
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let container = required_string(&params, "container")?;
         let follow = params
@@ -688,6 +708,10 @@ Use this tool to:
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -778,6 +802,10 @@ Use this tool to:
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

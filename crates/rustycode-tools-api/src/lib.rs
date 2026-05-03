@@ -6,6 +6,41 @@ use rustycode_protocol::{
 };
 use serde_json::Value;
 
+/// Capability tags that tools self-declare for profile-based autodiscovery.
+/// These are the ONLY valid tags — typos are caught at compile time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolTag {
+    /// Workspace exploration — read-only discovery tools
+    Explore,
+    /// Code implementation — write/edit/execute tools
+    Implement,
+    /// Debugging — diagnostics, inspection, test-run tools
+    Debug,
+    /// Refactoring — LSP rename/extract/restructure tools
+    Refactor,
+    /// Operations — git, bash, docker, deployment tools
+    Ops,
+}
+
+impl ToolTag {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Explore => "explore",
+            Self::Implement => "implement",
+            Self::Debug => "debug",
+            Self::Refactor => "refactor",
+            Self::Ops => "ops",
+        }
+    }
+}
+
+impl std::fmt::Display for ToolTag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// MCP-aligned tool annotations
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
@@ -271,7 +306,7 @@ pub trait Tool: Send + Sync {
     fn defer_loading(&self) -> Option<bool> {
         None
     }
-    fn tags(&self) -> &[&'static str] {
+    fn tags(&self) -> &[ToolTag] {
         &[]
     }
     fn execute(&self, params: Value, ctx: &ToolContext) -> anyhow::Result<ToolOutput>;
@@ -286,7 +321,7 @@ pub struct ToolInfo {
     pub permission: ToolPermission,
     pub defer_loading: Option<bool>,
     pub annotations: Option<ToolAnnotations>,
-    pub tags: Vec<String>,
+    pub tags: Vec<ToolTag>,
 }
 
 /// A trait for providing access to tool metadata, allowing decoupling of
@@ -325,14 +360,20 @@ impl ToolRegistry {
                 permission: t.permission(),
                 defer_loading: t.defer_loading(),
                 annotations: None,
-                tags: t.tags().iter().map(|s| s.to_string()).collect(),
+                tags: t.tags().to_vec(),
             })
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
         infos
     }
 
-    pub fn list_for_tags(&self, required_tags: &[&str]) -> Vec<ToolInfo> {
+    pub fn list_all_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self.tools.keys().cloned().collect();
+        names.sort();
+        names
+    }
+
+    pub fn list_for_tags(&self, required_tags: &[ToolTag]) -> Vec<ToolInfo> {
         let mut infos: Vec<ToolInfo> = self
             .tools
             .values()
@@ -347,12 +388,13 @@ impl ToolRegistry {
                 permission: t.permission(),
                 defer_loading: t.defer_loading(),
                 annotations: None,
-                tags: t.tags().iter().map(|s| s.to_string()).collect(),
+                tags: t.tags().to_vec(),
             })
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
         infos
     }
+
     pub fn get(&self, name: &str) -> Option<&dyn Tool> {
         self.tools.get(name).map(AsRef::as_ref)
     }
@@ -399,7 +441,7 @@ impl ToolMetadataProvider for ToolRegistry {
             permission: t.permission(),
             defer_loading: t.defer_loading(),
             annotations: None,
-            tags: t.tags().iter().map(|s| s.to_string()).collect(),
+            tags: t.tags().to_vec(),
         })
     }
 }
@@ -727,6 +769,7 @@ mod tests {
             permission: ToolPermission::Read,
             defer_loading: None,
             annotations: None,
+            tags: vec![],
         };
         let json = serde_json::to_string(&info).unwrap();
         assert!(json.contains("read_file"));

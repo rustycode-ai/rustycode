@@ -6,7 +6,7 @@ use crate::security::{
 
 const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
 use crate::truncation::{truncate_items, truncate_lines, LIST_MAX_ITEMS, READ_MAX_LINES};
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use regex::Regex;
@@ -254,6 +254,10 @@ impl Tool for ReadFileTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore, ToolTag::Implement, ToolTag::Debug, ToolTag::Refactor, ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -681,6 +685,10 @@ impl Tool for WriteFileTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement, ToolTag::Refactor]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         // Role-based gating
         if let Some(gate) = &ctx.plan_gate {
@@ -906,6 +914,10 @@ impl Tool for ListDirTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         // Role-based gating
         if let Some(gate) = &ctx.plan_gate {
@@ -1104,6 +1116,10 @@ impl Tool for WebFetchTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

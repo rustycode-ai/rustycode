@@ -1,4 +1,4 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -57,6 +57,10 @@ Returns a job ID you can pass to cron_delete."#
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
@@ -129,6 +133,10 @@ impl Tool for CronDeleteTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
+    }
+
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let id = params
             .get("id")
@@ -164,6 +172,10 @@ impl Tool for CronListTool {
             "type": "object",
             "properties": {}
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {

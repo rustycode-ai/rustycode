@@ -246,14 +246,22 @@ Unused Memories (candidates for pruning):
     /// Set the AI behavior mode
     pub fn set_ai_mode(&mut self, mode: AiMode) {
         self.ai_mode = mode;
-        // Invalidate cache when mode changes
         self.cached_system_prompt.clear();
         self.last_cache_key = None;
     }
 
-    /// Get the current AI mode
+    pub fn set_agent_mode(&mut self, mode: AgentMode) {
+        self.agent_mode = mode;
+        self.cached_system_prompt.clear();
+        self.last_cache_key = None;
+    }
+
     pub fn ai_mode(&self) -> AiMode {
         self.ai_mode
+    }
+
+    pub fn agent_mode(&self) -> AgentMode {
+        self.agent_mode
     }
 
     /// Add a message to the conversation
@@ -558,9 +566,17 @@ Unused Memories (candidates for pruning):
 
     /// Generate tool descriptions from the tool registry
     fn generate_tool_descriptions(&self) -> String {
+        let profile = self.agent_mode.tool_profile();
+        let tags = profile.required_tags();
+        let tools = if tags.is_empty() {
+            self.tool_registry.list()
+        } else {
+            self.tool_registry.list_for_tags(&tags)
+        };
+
         let mut descriptions = Vec::new();
 
-        for tool in self.tool_registry.list() {
+        for tool in tools {
             let name = tool.name;
             let description = tool.description;
 

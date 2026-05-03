@@ -6,7 +6,7 @@
 use crate::provider::{ChatMessage, MessageRole};
 #[cfg(feature = "vector-memory")]
 use rustycode_tools_api::{route_query, SearchStrategy};
-use rustycode_tools_api::{ToolInfo, ToolMetadataProvider};
+use rustycode_tools_api::{ToolInfo, ToolMetadataProvider, ToolRegistry};
 use rustycode_tools_api::{ToolProfile, ToolSelector};
 use std::sync::Arc;
 
@@ -14,13 +14,15 @@ use std::sync::Arc;
 pub struct ToolSelectionState {
     pub provider: Arc<dyn ToolMetadataProvider>,
     pub selector: ToolSelector,
+    pub registry: Arc<ToolRegistry>,
 }
 
 impl ToolSelectionState {
-    pub fn new(provider: Arc<dyn ToolMetadataProvider>) -> Self {
+    pub fn new(provider: Arc<dyn ToolMetadataProvider>, registry: Arc<ToolRegistry>) -> Self {
         Self {
             provider,
             selector: ToolSelector::new(),
+            registry,
         }
     }
 
@@ -44,8 +46,8 @@ impl ToolSelectionState {
             // Update selector with detected profile
             let selector = self.selector.clone().with_profile(profile);
 
-            // Get ranked tools for this profile
-            let tools = selector.select_tools();
+            // Get ranked tools for this profile using tag-based discovery
+            let tools = selector.select_tools(&self.registry);
 
             // AUTO-ROUTING: Use route_query() to further filter based on search intent
             let filtered_tools = Self::apply_auto_routing(&tools, &prompt);

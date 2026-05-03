@@ -447,8 +447,8 @@ impl OpenAiProvider {
             // Update selector with detected profile
             let selector = self.tool_selector.clone().with_profile(profile);
 
-            // Get ranked tools for this profile
-            let tools = selector.select_tools();
+            // Get ranked tools for this profile using tag-based discovery
+            let tools = selector.select_tools(&self.tool_registry);
 
             // Format tools for OpenAI API
             Some(self.format_tools_for_openai(&tools))

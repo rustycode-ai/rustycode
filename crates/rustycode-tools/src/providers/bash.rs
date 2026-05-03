@@ -1,7 +1,7 @@
 use crate::streaming::{StreamChunk, StreamReceiver, StreamSender, ToolStreaming};
 use crate::transform::transform_by_name;
 use crate::truncation::truncate_bash_output;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -965,6 +965,10 @@ impl Tool for BashTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement, ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

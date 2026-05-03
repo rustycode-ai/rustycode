@@ -14,6 +14,7 @@
 //! - **All**: All tools available
 
 use crate::edit_format::{self, EditFormat};
+use crate::ToolTag;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -45,7 +46,9 @@ fn contains_word(text: &str, word: &str) -> bool {
     }
 
     // Not in cache, compile and insert
-    let re = regex::Regex::new(&pattern).unwrap_or_else(|_| regex::Regex::new(r"\b").unwrap());
+    // regex::escape() ensures pattern is valid, so this expect is safe
+    let re = regex::Regex::new(&pattern)
+        .expect("escaped regex pattern should always compile");
     let is_match = re.is_match(text);
     cache.put(pattern, re);
 
@@ -70,14 +73,137 @@ pub enum ToolProfile {
     All,
 }
 
+    /// All tools available across every profile
+    const ALL_TOOLS: &[&str] = &[
+        "read_file",
+        "write_file",
+        "list_dir",
+        "edit_file",
+        "grep",
+        "glob",
+        "find",
+        "inspect",
+        "code_search",
+        "apply_patch",
+        "bash",
+        "git_status",
+        "git_diff",
+        "git_log",
+        "git_commit",
+        "web_fetch",
+        "lsp_diagnostics",
+        "lsp_hover",
+        "lsp_definition",
+        "lsp_completion",
+        "lsp_document_symbols",
+        "lsp_references",
+        "lsp_full_diagnostics",
+        "lsp_code_actions",
+        "lsp_rename",
+        "lsp_formatting",
+        "lsp_get_symbols_overview",
+        "lsp_find_symbol",
+        "lsp_replace_symbol_body",
+        "lsp_insert_before_symbol",
+        "lsp_insert_after_symbol",
+        "lsp_safe_delete_symbol",
+        "lsp_analyze_symbol",
+        "lsp_extract_symbol",
+        "lsp_inline_symbol",
+        "lsp_workspace_symbols",
+    ];
+
 impl ToolProfile {
-    pub fn required_tags(&self) -> &[&'static str] {
+    /// Return the list of tool names available for this profile.
+    pub fn available_tools(&self) -> &'static [&'static str] {
+        const EXPLORE: &[&str] = &[
+            "read_file",
+            "list_dir",
+            "grep",
+            "glob",
+            "find",
+            "inspect",
+            "code_search",
+            "lsp_diagnostics",
+            "lsp_hover",
+            "lsp_definition",
+            "lsp_references",
+            "lsp_document_symbols",
+            "lsp_find_symbol",
+            "lsp_get_symbols_overview",
+            "lsp_workspace_symbols",
+        ];
+        const IMPLEMENT: &[&str] = &[
+            "read_file",
+            "write_file",
+            "edit_file",
+            "bash",
+            "grep",
+            "glob",
+            "find",
+            "apply_patch",
+            "lsp_diagnostics",
+            "lsp_hover",
+            "lsp_definition",
+            "lsp_completion",
+            "lsp_references",
+            "lsp_document_symbols",
+            "lsp_code_actions",
+            "lsp_formatting",
+        ];
+        const DEBUG: &[&str] = &[
+            "read_file",
+            "bash",
+            "grep",
+            "glob",
+            "lsp_diagnostics",
+            "lsp_hover",
+            "lsp_full_diagnostics",
+            "lsp_definition",
+            "lsp_references",
+        ];
+        const OPS: &[&str] = &[
+            "bash",
+            "read_file",
+            "list_dir",
+            "grep",
+            "glob",
+            "git_status",
+            "git_diff",
+            "git_log",
+        ];
+        const REFACTOR: &[&str] = &[
+            "read_file",
+            "edit_file",
+            "grep",
+            "glob",
+            "lsp_rename",
+            "lsp_references",
+            "lsp_document_symbols",
+            "lsp_find_symbol",
+            "lsp_replace_symbol_body",
+            "lsp_extract_symbol",
+            "lsp_inline_symbol",
+            "lsp_code_actions",
+        ];
+
         match self {
-            ToolProfile::Explore => &["explore"],
-            ToolProfile::Implement => &["implement"],
-            ToolProfile::Debug => &["debug"],
-            ToolProfile::Ops => &["ops"],
-            ToolProfile::Refactor => &["refactor"],
+            ToolProfile::Explore => EXPLORE,
+            ToolProfile::Implement => IMPLEMENT,
+            ToolProfile::Debug => DEBUG,
+            ToolProfile::Ops => OPS,
+            ToolProfile::Refactor => REFACTOR,
+            ToolProfile::All => ALL_TOOLS,
+        }
+    }
+
+    pub fn required_tags(&self) -> &'static [ToolTag] {
+        match self {
+            ToolProfile::Explore => &[ToolTag::Explore],
+            ToolProfile::Implement => &[ToolTag::Implement],
+            ToolProfile::Debug => &[ToolTag::Debug],
+            ToolProfile::Ops => &[ToolTag::Ops],
+            ToolProfile::Refactor => &[ToolTag::Refactor],
             ToolProfile::All => &[],
         }
     }

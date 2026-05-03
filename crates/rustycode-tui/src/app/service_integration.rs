@@ -766,6 +766,9 @@ impl ServiceManager {
     /// Set the agent mode
     pub fn set_agent_mode(&mut self, mode: crate::agent_mode::AgentMode) {
         self.agent_mode = mode;
+        if let Some(conv) = &mut self.conversation {
+            conv.set_agent_mode(mode);
+        }
     }
 
     /// Cycle to the next agent mode

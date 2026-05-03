@@ -9,6 +9,9 @@ repository.workspace = true
 [dependencies]
 anyhow.workspace = true
 rustycode-tools-api = { path = "../rustycode-tools-api" }
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]

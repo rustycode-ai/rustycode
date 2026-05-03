@@ -1,6 +1,6 @@
 use crate::file_formatter;
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
-use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 use std::fs;
@@ -159,6 +159,10 @@ Summary of changes made to each file.
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

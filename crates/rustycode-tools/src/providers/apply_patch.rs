@@ -8,7 +8,7 @@ use crate::line_endings::generate_diff;
 use crate::security::{
     create_file_symlink_safe, open_file_symlink_safe, validate_read_path, validate_write_path,
 };
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 use std::io::{Read, Write};
@@ -105,6 +105,10 @@ impl Tool for ApplyPatchTool {
                 { "required": ["patch_file"] }
             ]
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

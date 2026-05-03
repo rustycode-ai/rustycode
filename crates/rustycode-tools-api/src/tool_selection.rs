@@ -8,6 +8,7 @@ pub enum ToolProfile {
     Implement,
     Debug,
     Ops,
+    Refactor,
     All,
 }
 
@@ -19,66 +20,123 @@ impl ToolProfile {
         crate::profile_from_prompt(prompt)
     }
 
-    pub const fn available_tools(&self) -> &[&'static str] {
+    /// Return the list of tool names available for this profile.
+    pub const fn available_tools(&self) -> &'static [&'static str] {
+        const EXPLORE: &[&str] = &[
+            "read_file",
+            "list_dir",
+            "grep",
+            "glob",
+            "find",
+            "inspect",
+            "codesearch",
+            "lsp_diagnostics",
+            "lsp_hover",
+            "lsp_definition",
+            "lsp_references",
+            "lsp_document_symbols",
+            "lsp_find_symbol",
+            "lsp_get_symbols_overview",
+            "lsp_workspace_symbols",
+        ];
+        const IMPLEMENT: &[&str] = &[
+            "read_file",
+            "write_file",
+            "edit_file",
+            "bash",
+            "grep",
+            "glob",
+            "find",
+            "apply_patch",
+            "lsp_diagnostics",
+            "lsp_hover",
+            "lsp_definition",
+            "lsp_completion",
+            "lsp_references",
+            "lsp_document_symbols",
+            "lsp_code_actions",
+            "lsp_formatting",
+        ];
+        const DEBUG: &[&str] = &[
+            "read_file",
+            "bash",
+            "grep",
+            "glob",
+            "lsp_diagnostics",
+            "lsp_hover",
+            "lsp_full_diagnostics",
+            "lsp_definition",
+            "lsp_references",
+        ];
+        const OPS: &[&str] = &[
+            "bash",
+            "read_file",
+            "list_dir",
+            "grep",
+            "glob",
+            "git_status",
+            "git_diff",
+            "git_log",
+        ];
+        const REFACTOR: &[&str] = &[
+            "read_file",
+            "edit_file",
+            "grep",
+            "glob",
+            "lsp_rename",
+            "lsp_references",
+            "lsp_document_symbols",
+            "lsp_find_symbol",
+            "lsp_replace_symbol_body",
+            "lsp_extract_symbol",
+            "lsp_inline_symbol",
+            "lsp_code_actions",
+        ];
+        const ALL_TOOLS: &[&str] = &[
+            "read_file",
+            "write_file",
+            "list_dir",
+            "edit_file",
+            "grep",
+            "glob",
+            "find",
+            "inspect",
+            "codesearch",
+            "apply_patch",
+            "bash",
+            "git_status",
+            "git_diff",
+            "git_log",
+            "git_commit",
+            "web_search",
+            "lsp_diagnostics",
+            "lsp_hover",
+            "lsp_definition",
+            "lsp_completion",
+            "lsp_document_symbols",
+            "lsp_references",
+            "lsp_full_diagnostics",
+            "lsp_code_actions",
+            "lsp_rename",
+            "lsp_formatting",
+            "lsp_get_symbols_overview",
+            "lsp_find_symbol",
+            "lsp_replace_symbol_body",
+            "lsp_insert_before_symbol",
+            "lsp_insert_after_symbol",
+            "lsp_safe_delete_symbol",
+            "lsp_extract_symbol",
+            "lsp_inline_symbol",
+            "lsp_workspace_symbols",
+        ];
+
         match self {
-            Self::Explore => &[
-                "read_file",
-                "list_dir",
-                "grep",
-                "glob",
-                "find",
-                "inspect",
-                "tool_search",
-                "web_fetch",
-                "lsp_hover",
-                "lsp_definition",
-                "semantic_search",
-            ],
-            Self::Implement => &["write_file", "edit", "bash", "read_file", "test", "grep"],
-            Self::Debug => &[
-                "lsp_diagnostics",
-                "lsp_hover",
-                "inspect",
-                "bash",
-                "grep",
-                "read_file",
-                "test",
-                "semantic_search",
-            ],
-            Self::Ops => &[
-                "bash",
-                "git_commit",
-                "git_diff",
-                "git_status",
-                "web_fetch",
-                "list_dir",
-            ],
-            Self::All => &[
-                "bash",
-                "read_file",
-                "write_file",
-                "edit",
-                "list_dir",
-                "grep",
-                "glob",
-                "find",
-                "inspect",
-                "web_fetch",
-                "web_search",
-                "tool_search",
-                "lsp_diagnostics",
-                "lsp_hover",
-                "lsp_definition",
-                "lsp_completion",
-                "git_commit",
-                "git_diff",
-                "git_status",
-                "git_log",
-                "test",
-                "todo_write",
-                "todo_update",
-                "semantic_search",
-            ],
+            ToolProfile::Explore => EXPLORE,
+            ToolProfile::Implement => IMPLEMENT,
+            ToolProfile::Debug => DEBUG,
+            ToolProfile::Ops => OPS,
+            ToolProfile::Refactor => REFACTOR,
+            ToolProfile::All => ALL_TOOLS,
         }
     }
 
@@ -96,7 +154,21 @@ impl ToolProfile {
                 "Active profile: Debug — diagnose before editing. Prefer lsp_diagnostics."
             }
             Self::Ops => "Active profile: Ops — prefer bash and git_* tools.",
+            Self::Refactor => {
+                "Active profile: Refactor — prefer LSP rename/extract and edit tools."
+            }
             Self::All => "Active profile: All — full access. Choose tools suited to the sub-task.",
+        }
+    }
+
+    pub fn required_tags(&self) -> Vec<crate::ToolTag> {
+        match self {
+            Self::Explore => vec![crate::ToolTag::Explore],
+            Self::Implement => vec![crate::ToolTag::Implement],
+            Self::Debug => vec![crate::ToolTag::Debug],
+            Self::Ops => vec![crate::ToolTag::Ops],
+            Self::Refactor => vec![crate::ToolTag::Refactor],
+            Self::All => vec![],
         }
     }
 }
@@ -225,7 +297,7 @@ mod tests {
         let tools = ToolProfile::Implement.available_tools();
         assert!(tools.contains(&"write_file"));
         assert!(tools.contains(&"bash"));
-        assert!(tools.contains(&"edit"));
+        assert!(tools.contains(&"edit_file"));
     }
 
     #[test]
@@ -239,7 +311,18 @@ mod tests {
     fn tool_profile_ops_tools() {
         let tools = ToolProfile::Ops.available_tools();
         assert!(tools.contains(&"bash"));
-        assert!(tools.contains(&"git_commit"));
+        assert!(tools.contains(&"git_diff"));
+    }
+
+    #[test]
+    fn tool_profile_refactor_tools() {
+        let tools = ToolProfile::Refactor.available_tools();
+        assert!(tools.contains(&"lsp_rename"));
+        assert!(tools.contains(&"lsp_references"));
+        assert!(tools.contains(&"edit_file"));
+        assert!(tools.contains(&"grep"));
+        assert!(!tools.contains(&"write_file"));
+        assert!(!tools.contains(&"bash"));
     }
 
     #[test]
@@ -249,7 +332,7 @@ mod tests {
         assert!(tools.contains(&"read_file"));
         assert!(tools.contains(&"write_file"));
         assert!(tools.contains(&"grep"));
-        assert!(tools.contains(&"git_commit"));
+        assert!(tools.contains(&"git_log"));
     }
 
     #[test]

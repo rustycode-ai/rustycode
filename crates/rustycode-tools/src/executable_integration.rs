@@ -313,6 +313,7 @@ mod tests {
                 permission: ToolPermission::None,
                 defer_loading: None,
                 annotations: None,
+                tags: vec![],
             },
             context: make_context(),
         };

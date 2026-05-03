@@ -15,7 +15,7 @@
 #![allow(dead_code)]
 
 use crate::security::validate_read_path;
-use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, bail, Result};
 use regex::Regex;
 use serde_json::{json, Value};
@@ -522,6 +522,10 @@ impl Tool for QueryTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         // Parse connection info
         let conn_info = ConnectionInfo::from_params(&params)?;
@@ -680,6 +684,10 @@ impl Tool for SchemaTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         // Get database path
         let db_path = params
@@ -804,6 +812,10 @@ impl Tool for TransactionTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

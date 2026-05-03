@@ -9,7 +9,7 @@
 
 const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::env;
@@ -73,6 +73,10 @@ No API key required for basic functionality!"#
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {

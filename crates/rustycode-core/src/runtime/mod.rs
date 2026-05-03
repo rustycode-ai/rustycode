@@ -225,6 +225,7 @@ impl Runtime {
                     permission: rustycode_tools::ToolPermission::Execute,
                     defer_loading: None,
                     annotations: None,
+                    tags: vec![],
                 });
             }
         }

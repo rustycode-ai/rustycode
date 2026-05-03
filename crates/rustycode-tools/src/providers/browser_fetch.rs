@@ -4,7 +4,7 @@
 //! bridges to async chromiumoxide via `tokio::task::block_in_place`.
 
 use crate::security::validation::validate_url;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::anyhow;
 use base64::Engine;
 use serde_json::{json, Value};
@@ -47,6 +47,10 @@ impl Tool for BrowserFetchTool {
                 "timeout_ms": { "type": "number", "description": "Page load timeout in ms (default 30000)" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {

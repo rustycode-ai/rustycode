@@ -1,6 +1,6 @@
 use crate::security::{validate_list_path, validate_regex_pattern, MAX_REGEX_MATCHES};
 use crate::truncation::{truncate_items, GREP_MAX_MATCHES, LIST_MAX_ITEMS};
-use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
 use regex::Regex;
@@ -109,6 +109,10 @@ impl Tool for GrepTool {
                 "max_matches_per_file": { "type": "integer", "description": "Limit matches per file" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore, ToolTag::Debug]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -433,6 +437,10 @@ impl Tool for GlobTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

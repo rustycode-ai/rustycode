@@ -1,7 +1,7 @@
 use crate::indexing::CodeIndex;
 use crate::providers::lsp::{get_lsp_config_for_project, read_file_blocking, with_lsp_client};
 use crate::providers::symbol::symbols_overview;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use lsp_types::{GotoDefinitionResponse, Location, Position, SymbolInformation, Uri as LspUrl};
 use rustycode_lsp::LanguageId;
@@ -192,6 +192,10 @@ impl Tool for FindTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         if let Some(gate) = &ctx.plan_gate {
             gate.check_access(ctx.role, self.name())?;
@@ -324,6 +328,10 @@ impl Tool for InspectTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

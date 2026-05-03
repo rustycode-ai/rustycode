@@ -1,5 +1,5 @@
 use crate::security::validate_read_path;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 use std::process::Command;
@@ -24,6 +24,10 @@ impl Tool for GitStatusTool {
 
     fn parameters_schema(&self) -> Value {
         json!({ "type": "object", "properties": {} })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, _params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -105,6 +109,10 @@ impl Tool for GitDiffTool {
                 "file_path": { "type": "string", "description": "Alias for path" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -212,6 +220,10 @@ impl Tool for GitCommitTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let message = params
             .get("message")
@@ -280,6 +292,10 @@ impl Tool for GitLogTool {
             "type": "object",
             "properties": { "limit": { "type": "integer" } }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Ops]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {

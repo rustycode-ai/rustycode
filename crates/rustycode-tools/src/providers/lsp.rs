@@ -1,5 +1,5 @@
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe};
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use lsp_types::{
     CompletionContext, CompletionTriggerKind, DiagnosticSeverity, Position, Uri as Url,
@@ -294,6 +294,10 @@ impl Tool for LspDiagnosticsTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
+    }
+
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let servers = params
             .get("servers")
@@ -344,6 +348,10 @@ impl Tool for LspHoverTool {
                 "language": { "type": "string" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -412,6 +420,10 @@ impl Tool for LspDefinitionTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let line = param_u32(&params, "line")?;
@@ -477,6 +489,10 @@ impl Tool for LspCompletionTool {
                 "trigger_character": { "type": "string" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -561,6 +577,10 @@ Returns: Hierarchical list of symbols with their types and locations"
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let lsp_config = get_lsp_config_for_project(&ctx.cwd);
@@ -629,6 +649,10 @@ Returns: List of locations where the symbol is referenced"
                 "language": { "type": "string" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -702,6 +726,10 @@ Returns: List of diagnostics with severity, messages, and related information"
                 "language": { "type": "string" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -807,6 +835,10 @@ Returns: List of code actions with titles and kinds"
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Refactor, ToolTag::Debug]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let lsp_config = get_lsp_config_for_project(&ctx.cwd);
@@ -885,7 +917,9 @@ Returns: List of code actions with titles and kinds"
     }
 }
 
-/// Search for symbols across the workspace.
+pub struct LspRenameTool;
+
+impl Tool for LspRenameTool {
     fn name(&self) -> &'static str {
         "lsp_rename"
     }
@@ -917,6 +951,10 @@ Returns: Workspace edit with all changes to apply"
                 "language": { "type": "string" }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Refactor]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -1071,6 +1109,10 @@ Returns: Text edits to apply for formatting"
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Refactor]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let lsp_config = get_lsp_config_for_project(&ctx.cwd);
@@ -1205,6 +1247,10 @@ impl Tool for LspGetSymbolsOverviewTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let depth = param_u32(&params, "depth").unwrap_or(2) as usize;
@@ -1293,6 +1339,10 @@ impl Tool for LspFindSymbolTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore, ToolTag::Debug]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -1443,6 +1493,10 @@ impl Tool for LspReplaceSymbolBodyTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let name_path_str = params
@@ -1547,6 +1601,10 @@ impl Tool for LspInsertBeforeSymbolTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -1656,6 +1714,10 @@ impl Tool for LspInsertAfterSymbolTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let name_path_str = params
@@ -1758,6 +1820,10 @@ impl Tool for LspSafeDeleteSymbolTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Implement]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -1888,6 +1954,10 @@ impl Tool for LspRenameSymbolTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Refactor]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -2029,6 +2099,10 @@ impl Tool for LspAnalyzeSymbolTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Debug]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -2192,6 +2266,10 @@ impl Tool for LspExtractSymbolTool {
         })
     }
 
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Refactor]
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let file_path = resolve_file_path(ctx, &params)?;
         let name_path_str = params
@@ -2339,6 +2417,10 @@ impl Tool for LspInlineSymbolTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Refactor]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -2559,6 +2641,10 @@ impl Tool for LspWorkspaceSymbolsTool {
                 }
             }
         })
+    }
+
+    fn tags(&self) -> &[ToolTag] {
+        &[ToolTag::Explore]
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
