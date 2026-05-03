@@ -310,7 +310,7 @@ pub fn execute_headless_tool(
 
             if out_lower.contains("python: command not found")
                 || out_lower.contains("python: not found")
-                || out_lower.contains("/usr/bin/python: no such file")
+                || out_lower.contains("python: no such file")
             {
                 output.push_str(
                     "\n\nHINT: `python` is not available. Try `python3` instead. \

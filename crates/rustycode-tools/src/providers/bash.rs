@@ -51,6 +51,7 @@ pub struct BashSession {
 }
 
 fn is_shell_boilerplate(trimmed: &str) -> bool {
+    // Bash/zsh/sh patterns
     trimmed.contains("$ timeout ")
         || trimmed.contains("$ echo $?")
         || trimmed.contains("$ echo '---END---'")
@@ -59,6 +60,18 @@ fn is_shell_boilerplate(trimmed: &str) -> bool {
         || trimmed.starts_with("The default interactive shell")
         || trimmed.starts_with("To update your account")
         || trimmed.starts_with("For more details, please visit")
+        // PowerShell patterns
+        || trimmed.starts_with("PowerShell")
+        || trimmed.starts_with("Windows PowerShell")
+        || trimmed.starts_with("PS ")
+        || trimmed.contains("> $")
+        || trimmed.contains("> Write-Host")
+        || trimmed.contains(">> ")
+        // cmd.exe patterns
+        || trimmed.starts_with("Microsoft Windows")
+        || trimmed.starts_with("(C)")
+        || trimmed.starts_with("C:\\")
+        || (trimmed.starts_with(">") && trimmed.len() > 1 && trimmed.chars().nth(1).map(|c| c == ' ').unwrap_or(false))
 }
 
 fn filter_shell_boilerplate(text: &str) -> String {

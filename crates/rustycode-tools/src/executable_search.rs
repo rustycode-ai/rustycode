@@ -45,6 +45,8 @@ impl SearchPathBuilder {
     /// - `/usr/local/bin` (Unix)
     /// - `/opt/homebrew/bin` (macOS Apple Silicon)
     /// - `/opt/local/bin` (macOS `MacPorts`)
+    /// - `%ProgramFiles%\Chocolatey\bin` (Windows)
+    /// - `~\scoop\shims` (Windows)
     pub fn new() -> Self {
         let mut paths = Vec::new();
 
@@ -60,6 +62,16 @@ impl SearchPathBuilder {
         if cfg!(target_os = "macos") {
             paths.push(PathBuf::from("/opt/homebrew/bin"));
             paths.push(PathBuf::from("/opt/local/bin"));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(programfiles) = std::env::var("ProgramFiles").ok() {
+                paths.push(PathBuf::from(programfiles).join("Chocolatey").join("bin"));
+            }
+            if let Some(home) = dirs::home_dir() {
+                paths.push(home.join("scoop").join("shims"));
+            }
         }
 
         Self { paths }

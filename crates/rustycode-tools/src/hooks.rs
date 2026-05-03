@@ -451,7 +451,7 @@ mod tests {
         let hook_minimal = Hook {
             name: "h1".into(),
             trigger: HookTrigger::PreToolUse,
-            script: PathBuf::from("/bin/true"),
+            script: PathBuf::from("true"),
             args: vec![],
             timeout_secs: 5,
             enabled: true,
@@ -461,7 +461,7 @@ mod tests {
         let hook_standard = Hook {
             name: "h2".into(),
             trigger: HookTrigger::PreToolUse,
-            script: PathBuf::from("/bin/true"),
+            script: PathBuf::from("true"),
             args: vec![],
             timeout_secs: 5,
             enabled: true,
@@ -471,7 +471,7 @@ mod tests {
         let hook_strict = Hook {
             name: "h3".into(),
             trigger: HookTrigger::PreToolUse,
-            script: PathBuf::from("/bin/true"),
+            script: PathBuf::from("true"),
             args: vec![],
             timeout_secs: 5,
             enabled: true,
@@ -491,7 +491,7 @@ mod tests {
         mgr.hooks.push(Hook {
             name: "test-hook".into(),
             trigger: HookTrigger::PreToolUse,
-            script: PathBuf::from("/bin/true"),
+            script: PathBuf::from("true"),
             args: vec![],
             timeout_secs: 5,
             enabled: true,
@@ -530,7 +530,7 @@ mod tests {
                 {
                     "name": "lint",
                     "trigger": "post_tool_use",
-                    "script": "/usr/bin/true",
+                    "script": "true",
                     "enabled": true
                 }
             ]

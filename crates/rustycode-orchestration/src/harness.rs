@@ -54,11 +54,27 @@ impl From<TaskResult> for TieredExecutionResult {
 
 pub struct TieredHarness {
     pub budget_usd: f64,
+    provider: Option<std::sync::Arc<dyn rustycode_llm::provider::LLMProvider>>,
+    model: Option<String>,
 }
 
 impl TieredHarness {
     pub const fn new(budget_usd: f64) -> Self {
-        Self { budget_usd }
+        Self {
+            budget_usd,
+            provider: None,
+            model: None,
+        }
+    }
+
+    pub fn with_provider(
+        mut self,
+        provider: std::sync::Arc<dyn rustycode_llm::provider::LLMProvider>,
+        model: impl Into<String>,
+    ) -> Self {
+        self.provider = Some(provider);
+        self.model = Some(model.into());
+        self
     }
 
     pub fn execute(
@@ -96,7 +112,12 @@ impl TieredHarness {
             streaming_results: true,
         };
 
-        let pipeline = OrchestrationPipeline::new(config);
+        let pipeline = match (&self.provider, &self.model) {
+            (Some(provider), Some(model)) => {
+                OrchestrationPipeline::with_provider_and_model(config, provider.clone(), model)
+            }
+            _ => OrchestrationPipeline::new(config),
+        };
 
         let result: TaskResult =
             run_blocking(async move { pipeline.conduct(task_id, task).await })?;

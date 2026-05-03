@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
+use rustycode_llm::{create_provider_with_config, load_provider_config_from_env};
 use rustycode_orchestration::config::OrchestrationConfig;
 use rustycode_orchestration::pipeline::OrchestrationPipeline;
 use rustycode_ws_server::{SessionManager, WsRouter};
@@ -11,9 +12,23 @@ use tracing::info;
 pub async fn start_web_server(port: u16) -> anyhow::Result<()> {
     let dist_dir = find_web_dist()?;
 
-    let pipeline = Arc::new(OrchestrationPipeline::new(OrchestrationConfig::default()));
-    let session_manager =
-        SessionManager::new(pipeline, "default".to_string(), "default".to_string());
+    let (provider_type, model_name, v2_config) = load_provider_config_from_env()
+        .context("Failed to load LLM provider config. Set ANTHROPIC_API_KEY or configure a provider.")?;
+    let provider = create_provider_with_config(&provider_type, &model_name, v2_config)
+        .context("Failed to create LLM provider")?;
+
+    let tool_registry = Arc::new(rustycode_tools::default_registry());
+    let config = OrchestrationConfig::default();
+    let pipeline = OrchestrationPipeline::with_provider_model_and_tools(
+        config, provider, &model_name, tool_registry,
+    );
+
+    let pipeline = match std::env::var("RUSTYCODE_SYSTEM_PROMPT") {
+        Ok(prompt) => pipeline.with_system_prompt(prompt),
+        Err(_) => pipeline,
+    };
+    let pipeline = Arc::new(pipeline);
+    let session_manager = SessionManager::new(pipeline, provider_type, model_name);
     let ws_router = WsRouter::build(session_manager).await;
 
     let static_files = ServeDir::new(&dist_dir)

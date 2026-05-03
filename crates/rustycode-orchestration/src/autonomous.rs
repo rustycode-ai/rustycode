@@ -77,8 +77,26 @@ pub struct AutonomousService {
 }
 
 impl AutonomousService {
+    /// Create with a mock provider (for tests only).
+    /// Production callers should use [`Self::with_provider`] instead.
     pub fn new(orchestration_config: OrchestrationConfig) -> Self {
         let pipeline = OrchestrationPipeline::new(orchestration_config);
+        Self {
+            state: ServiceState::Idle,
+            config: AutonomousConfig::default(),
+            pipeline,
+            ast_config: None,
+        }
+    }
+
+    /// Create with a real LLM provider (for production use).
+    pub fn with_provider(
+        orchestration_config: OrchestrationConfig,
+        provider: std::sync::Arc<dyn rustycode_llm::provider::LLMProvider>,
+        model: &str,
+    ) -> Self {
+        let pipeline =
+            OrchestrationPipeline::with_provider_and_model(orchestration_config, provider, model);
         Self {
             state: ServiceState::Idle,
             config: AutonomousConfig::default(),

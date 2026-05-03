@@ -35,7 +35,7 @@ once_cell = { workspace = true }
 rustycode-litert = { path = "../rustycode-litert", optional = true }
 
 [features]
-default = ["litert"]
+default = []
 # Enable live API integration tests (requires provider API keys, network access)
 live-api-tests = []
 # Enable vector memory integration (semantic search, auto-routing)

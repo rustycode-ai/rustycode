@@ -171,6 +171,8 @@ pub mod streaming;
 pub mod structured_output;
 pub mod subprocess;
 pub mod task_retry;
+#[cfg(test)]
+pub mod test_helpers;
 pub mod testing;
 pub mod text_summary;
 pub mod todo;

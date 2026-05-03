@@ -51,13 +51,7 @@ members = [
 ]
 exclude = [
     "crates/ratzilla-wasm",
-    "crates/rustycode-load",
-    "crates/rustycode-plugins",
-    "crates/rustycode-tui-agents",
-    "crates/rustycode-tui-core",
-    "crates/rustycode-tui-memory",
-    "crates/rustycode-tui-widgets",
-    "crates/rustycode-web-native",
+    "_archived",
     "examples/compile-time-tools",
     "mcp-test-server",
 ]

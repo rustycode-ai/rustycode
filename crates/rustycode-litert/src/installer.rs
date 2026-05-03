@@ -144,7 +144,7 @@ pub async fn ensure_litert_lm_binary(config: &LiteRtLmInstallConfig) -> Result<P
                 .context("failed to create LiteRT-LM binary destination")?;
         }
 
-        #[cfg(unix)]
+        #[cfg(target_os = "macos")]
         {
             let runtime_root = extracted
                 .parent()
@@ -160,11 +160,43 @@ pub async fn ensure_litert_lm_binary(config: &LiteRtLmInstallConfig) -> Result<P
                 .context("failed to create LiteRT-LM binary wrapper")?;
         }
 
-        #[cfg(not(unix))]
+        #[cfg(target_os = "linux")]
+        {
+            let runtime_root = extracted
+                .parent()
+                .and_then(|parent| parent.parent())
+                .ok_or_else(|| anyhow::anyhow!("invalid LiteRT-LM extraction layout"))?;
+            let runtime_bin = extracted.display().to_string();
+            let runtime_lib = runtime_root.join("lib").display().to_string();
+            let wrapper = format!(
+                "#!/bin/sh\nLIB_DIR={runtime_lib:?}\nexport LD_LIBRARY_PATH=\"$LIB_DIR${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}\"\nexec {runtime_bin:?} \"$@\"\n"
+            );
+            tokio::fs::write(&binary_path, wrapper)
+                .await
+                .context("failed to create LiteRT-LM binary wrapper")?;
+        }
+
+        #[cfg(target_os = "windows")]
         {
             tokio::fs::copy(&extracted, &binary_path)
                 .await
                 .context("failed to copy LiteRT-LM binary into cache")?;
+        }
+
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+        {
+            let runtime_root = extracted
+                .parent()
+                .and_then(|parent| parent.parent())
+                .ok_or_else(|| anyhow::anyhow!("invalid LiteRT-LM extraction layout"))?;
+            let runtime_bin = extracted.display().to_string();
+            let runtime_lib = runtime_root.join("lib").display().to_string();
+            let wrapper = format!(
+                "#!/bin/sh\nLIB_DIR={runtime_lib:?}\nexport LD_LIBRARY_PATH=\"$LIB_DIR${{LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}}\"\nexec {runtime_bin:?} \"$@\"\n"
+            );
+            tokio::fs::write(&binary_path, wrapper)
+                .await
+                .context("failed to create LiteRT-LM binary wrapper")?;
         }
     }
 

@@ -11,7 +11,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **Key Interfaces:** Message display, input area, tool panel, status bar, memory browser  
 **Entry Point:** `cargo run -p rustycode-cli -- tui`  
 **Features:** Streaming responses, code highlighting, memory management, keyboard navigation  
-**Dependencies:** ratatui, tokio, rustycode-core, rustycode-tui-core, rustycode-tui-widgets  
+**Dependencies:** ratatui, tokio, rustycode-core
 **Use:** Interactive development with Claude  
 **Note:** The TUI is a subcommand of `rustycode-cli`, not a separate binary.  
 **See Also:** [README](../../crates/rustycode-tui/README.md)
@@ -149,15 +149,6 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **Used By:** CLI, orchestrators, automation  
 **See Also:** [README](../../crates/rustycode-execution/README.md)
 
-### rustycode-plugins
-**Purpose:** Plugin system for dynamic loading of tools, agents, providers  
-**Plugin Types:** ToolPlugin, AgentPlugin, LLMProviderPlugin  
-**Key Types:** PluginRegistry, PluginMetadata, PluginManifest, DependencyResolver  
-**Lifecycle:** Discovery → Loading → Dependency Resolution → Initialization → Runtime  
-**Dependencies:** serde, rustycode-protocol, anyhow  
-**Used By:** Core plugin management, extensibility  
-**See Also:** [README](../../crates/rustycode-plugins/README.md)
-
 ### rustycode-skill
 **Purpose:** Skill discovery and workflow management  
 **Skill Types:** workflow, tool-bundle, pattern, guide, custom  
@@ -193,39 +184,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ---
 
-## Layer 4: UI & Widgets (5 crates)
-
-### rustycode-tui-core
-**Purpose:** Core TUI framework and event loop  
-**Key Types:** EventLoop, TerminalManager, TerminalCleanupGuard, TuiBackend, EventLoopConfig  
-**Features:** Frame budgeting (60 FPS), input latency management, adaptive frame skipping  
-**Dependencies:** ratatui, crossterm, tokio, anyhow  
-**Used By:** rustycode-tui  
-**See Also:** [README](../../crates/rustycode-tui-core/README.md)
-
-### rustycode-tui-widgets
-**Purpose:** Specialized UI components for RustyCode TUI  
-**Components:** Message display, tool panels, input with history, status bar, sidebars  
-**Features:** Markdown rendering, syntax highlighting, tool results, autocomplete  
-**Dependencies:** ratatui, syntect, markdown  
-**Used By:** rustycode-tui  
-**See Also:** [README](../../crates/rustycode-tui-widgets/README.md)
-
-### rustycode-tui-agents
-**Purpose:** Agent lifecycle management in TUI  
-**Key Types:** AgentManager, AgentLifecycle, AgentDisplay  
-**Features:** Spawning, monitoring, bidirectional communication, graceful shutdown  
-**Dependencies:** tokio, rustycode-core, rustycode-protocol  
-**Used By:** rustycode-tui  
-**See Also:** [README](../../crates/rustycode-tui-agents/README.md)
-
-### rustycode-tui-memory
-**Purpose:** Memory system integration with TUI  
-**Key Types:** AutoMemoryManager, MemoryInjector, ThreadSafeMemory  
-**Features:** Auto-save post-message, context-aware ranking, slash command support  
-**Dependencies:** rustycode-memory, tokio, rustycode-protocol  
-**Used By:** rustycode-tui  
-**See Also:** [README](../../crates/rustycode-tui-memory/README.md)
+## Layer 4: UI Components (1 crate)
 
 ### rustycode-ui-core
 **Purpose:** Shared UI types for web and terminal frontends  
@@ -323,7 +282,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **Key Types:** ToolRegistry, ToolMetadata, ToolDiscovery, MetadataProvider, RegistryConfig  
 **Discovery Sources:** Built-in tools, plugins, skill frontmatter, custom providers  
 **Features:** Metadata caching, category filtering, O(1) lookup  
-**Dependencies:** rustycode-tools-api, rustycode-plugins, rustycode-skill, serde, anyhow  
+**Dependencies:** rustycode-tools-api, rustycode-skill, serde, anyhow  
 **Used By:** Agent execution, tool selection, CLI  
 **See Also:** [README](../../crates/rustycode-tools-registry/README.md)
 
@@ -385,13 +344,11 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 ├─────────────────────────────────────────────────────┤
 │ Layer 3: Execution & Agents                         │
 │  - rustycode-agents, rustycode-execution           │
-│  - rustycode-plugins, rustycode-skill              │
+│  - rustycode-skill                                 │
 │  - rustycode-runtime, rustycode-shared-runtime     │
 │  - rustycode-bench                                 │
 ├─────────────────────────────────────────────────────┤
 │ Layer 4: UI Components                              │
-│  - rustycode-tui-core, rustycode-tui-widgets       │
-│  - rustycode-tui-agents, rustycode-tui-memory      │
 │  - rustycode-ui-core                               │
 ├─────────────────────────────────────────────────────┤
 │ Layer 5: Observability & Context                    │
@@ -478,11 +435,17 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 - rustycode-vector-memory — Vector-based semantic memory
 - rustycode-learning — Conversation learning and extraction
 - ~~rustycode-deep-thinker~~ — Deleted; thinking module lives in `rustycode-orchestration`
+- ~~rustycode-load~~ — Archived to `_archived/`
+- ~~rustycode-plugins~~ — Archived to `_archived/`
+- ~~rustycode-tui-agents~~ — Archived to `_archived/`
+- ~~rustycode-tui-core~~ — Archived to `_archived/`
+- ~~rustycode-tui-memory~~ — Archived to `_archived/`
+- ~~rustycode-tui-widgets~~ — Archived to `_archived/`
+- ~~rustycode-web-native~~ — Archived to `_archived/`
 - rustycode-id — ID system internals
 - rustycode-thread-guard — Thread safety utilities
 - rustycode-tool-integration — Tool-LLM integration layer
 - rustycode-connector — Terminal connector abstraction
-- rustycode-load — Load testing utilities
 - rustycode-web — Web UI (WASM)
 - And others...
 

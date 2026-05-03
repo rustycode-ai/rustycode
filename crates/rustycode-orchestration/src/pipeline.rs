@@ -280,6 +280,12 @@ impl OrchestrationPipeline {
         self
     }
 
+    /// Override the system prompt sent to the LLM.
+    pub fn with_system_prompt(mut self, prompt: impl Into<String>) -> Self {
+        self.system_prompt = Some(prompt.into());
+        self
+    }
+
     /// Replace the system prompt with a layered prompt built by `PromptBuilder`.
     ///
     /// The layered prompt includes base identity, model-specific instructions,

