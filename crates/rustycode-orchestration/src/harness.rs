@@ -91,6 +91,9 @@ impl TieredHarness {
             },
             dry_run: DryRunConfig::default(),
             autonomy: crate::autonomy::AutonomyConfig::default(),
+            parallel_execution: crate::config::ParallelExecutionConfig::default(),
+            prompt_caching: crate::config::PromptCachingConfig::default(),
+            streaming_results: true,
         };
 
         let pipeline = OrchestrationPipeline::new(config);

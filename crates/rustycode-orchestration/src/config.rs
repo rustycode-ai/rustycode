@@ -90,6 +90,40 @@ pub struct FailureStoreConfig {
     pub promotion_threshold: u32,
 }
 
+/// Parallel tool execution configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParallelExecutionConfig {
+    pub enabled: bool,
+    pub max_concurrent: usize,
+}
+
+impl Default for ParallelExecutionConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_concurrent: 3,
+        }
+    }
+}
+
+/// Prompt caching configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptCachingConfig {
+    pub enabled: bool,
+    pub cache_system_prompt: bool,
+    pub cache_tool_definitions: bool,
+}
+
+impl Default for PromptCachingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            cache_system_prompt: true,
+            cache_tool_definitions: true,
+        }
+    }
+}
+
 /// Dry-run configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DryRunConfig {
@@ -100,7 +134,7 @@ pub struct DryRunConfig {
 }
 
 /// Main orchestration configuration
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrchestrationConfig {
     pub models: HashMap<String, Vec<ModelConfig>>,
     pub escalation: HashMap<String, TierConfig>,
@@ -109,6 +143,26 @@ pub struct OrchestrationConfig {
     pub failure_store: FailureStoreConfig,
     pub dry_run: DryRunConfig,
     pub autonomy: AutonomyConfig,
+    pub parallel_execution: ParallelExecutionConfig,
+    pub prompt_caching: PromptCachingConfig,
+    pub streaming_results: bool,
+}
+
+impl Default for OrchestrationConfig {
+    fn default() -> Self {
+        Self {
+            models: HashMap::new(),
+            escalation: HashMap::new(),
+            budget: BudgetConfig::default(),
+            hallucination: HallucinationConfig::default(),
+            failure_store: FailureStoreConfig::default(),
+            dry_run: DryRunConfig::default(),
+            autonomy: AutonomyConfig::default(),
+            parallel_execution: ParallelExecutionConfig::default(),
+            prompt_caching: PromptCachingConfig::default(),
+            streaming_results: true,
+        }
+    }
 }
 
 impl OrchestrationConfig {
@@ -372,5 +426,31 @@ mod tests {
             crate::autonomy::AutonomyLevel::L1,
             "Default autonomy should be L1 (ask permission)"
         );
+    }
+
+    #[test]
+    fn test_parallel_execution_config_default() {
+        let cfg = ParallelExecutionConfig::default();
+        assert!(cfg.enabled);
+        assert_eq!(cfg.max_concurrent, 3);
+    }
+
+    #[test]
+    fn test_prompt_caching_config_default() {
+        let cfg = PromptCachingConfig::default();
+        assert!(cfg.enabled);
+        assert!(cfg.cache_system_prompt);
+        assert!(cfg.cache_tool_definitions);
+    }
+
+    #[test]
+    fn test_optimization_config_defaults() {
+        let config = OrchestrationConfig::default();
+        assert!(config.parallel_execution.enabled);
+        assert_eq!(config.parallel_execution.max_concurrent, 3);
+        assert!(config.prompt_caching.enabled);
+        assert!(config.prompt_caching.cache_system_prompt);
+        assert!(config.prompt_caching.cache_tool_definitions);
+        assert!(config.streaming_results);
     }
 }
