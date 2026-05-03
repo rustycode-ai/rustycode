@@ -29,6 +29,7 @@ tempfile.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-connector = { path = "../rustycode-connector", default-features = false }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
+chromiumoxide.workspace = true
 rustycode-thread-guard = { path = "../rustycode-thread-guard" }
 rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
 
@@ -43,6 +44,10 @@ path = "examples/mcp_client_example.rs"
 [[example]]
 name = "mcp_server_example"
 path = "examples/mcp_server_example.rs"
+
+[[bin]]
+name = "chrome-mcp"
+path = "src/bin/chrome-mcp.rs"
 
 [lints]
 workspace = true

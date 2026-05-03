@@ -575,26 +575,29 @@ impl TUI {
             workspace_tasks: load_tasks(),
             pipeline: {
                 let mut p = crate::app::pipeline::registry::PipelineRegistry::new();
-                let browser_manager =
-                    Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
-                p.tool_registry.register(
-                    "browser",
-                    "goto",
-                    Arc::new(
-                        crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
-                            browser_manager.clone(),
+                #[cfg(feature = "browser")]
+                {
+                    let browser_manager =
+                        Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
+                    p.tool_registry.register(
+                        "browser",
+                        "goto",
+                        Arc::new(
+                            crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
+                                browser_manager.clone(),
+                            ),
                         ),
-                    ),
-                );
-                p.tool_registry.register(
-                    "browser",
-                    "extract",
-                    Arc::new(
-                        crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
-                            browser_manager,
+                    );
+                    p.tool_registry.register(
+                        "browser",
+                        "extract",
+                        Arc::new(
+                            crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
+                                browser_manager,
+                            ),
                         ),
-                    ),
-                );
+                    );
+                }
 
                 p.register_factory(
                     "rustycode::steps::DataGateStep",
@@ -859,26 +862,29 @@ impl TUI {
             workspace_tasks: load_tasks(),
             pipeline: {
                 let mut p = crate::app::pipeline::registry::PipelineRegistry::new();
-                let browser_manager =
-                    Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
-                p.tool_registry.register(
-                    "browser",
-                    "goto",
-                    Arc::new(
-                        crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
-                            browser_manager.clone(),
+                #[cfg(feature = "browser")]
+                {
+                    let browser_manager =
+                        Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
+                    p.tool_registry.register(
+                        "browser",
+                        "goto",
+                        Arc::new(
+                            crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
+                                browser_manager.clone(),
+                            ),
                         ),
-                    ),
-                );
-                p.tool_registry.register(
-                    "browser",
-                    "extract",
-                    Arc::new(
-                        crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
-                            browser_manager,
+                    );
+                    p.tool_registry.register(
+                        "browser",
+                        "extract",
+                        Arc::new(
+                            crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
+                                browser_manager,
+                            ),
                         ),
-                    ),
-                );
+                    );
+                }
 
                 p.register_factory(
                     "rustycode::steps::DataGateStep",

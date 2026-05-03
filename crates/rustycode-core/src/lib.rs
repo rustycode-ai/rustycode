@@ -133,7 +133,6 @@
 //! - **Abort**: Stop execution for critical errors
 
 pub mod agent;
-pub mod agents;
 pub mod build_detection;
 pub mod checkpoint;
 pub mod checkpoint_detector;

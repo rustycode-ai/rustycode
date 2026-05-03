@@ -64,6 +64,7 @@ rand.workspace = true
 cron.workspace = true
 ctrlc = "3.4"
 reqwest = { workspace = true }
+chromiumoxide.workspace = true
 which.workspace = true
 tempfile.workspace = true
 lsp-types.workspace = true
@@ -82,6 +83,8 @@ live-api-tests = []
 # Enable Ollama integration tests (requires Ollama to be running)
 ollama-tests = []
 vector-memory = ["dep:rustycode-vector-memory"]
+# Enable browser automation tools (requires chromiumoxide + headless Chrome)
+browser = []
 
 [[bench]]
 name = "tui_performance"

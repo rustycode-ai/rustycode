@@ -25,6 +25,8 @@ walkdir.workspace = true
 ignore.workspace = true
 shell-words.workspace = true
 html2md = "0.2"
+chromiumoxide.workspace = true
+futures.workspace = true
 notify = "8.0"
 rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-executable = { path = "../rustycode-executable" }

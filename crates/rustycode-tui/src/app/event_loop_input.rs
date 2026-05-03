@@ -79,11 +79,6 @@ impl Default for ScrollState {
 impl TUI {
     /// Handle keyboard input - main entry point
     pub(crate) fn handle_input(&mut self) -> Result<()> {
-        let _ = std::fs::write(
-            std::env::var("HOME").unwrap_or_default() + "/palette_debug.log",
-            format!("handle_input tick={}\n", self.debug_tick),
-        );
-        self.debug_tick = self.debug_tick.wrapping_add(1);
         let input_start = std::time::Instant::now();
         let debug_enabled = crate::logging::is_debug_enabled();
 

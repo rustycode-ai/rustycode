@@ -1,5 +1,6 @@
 pub mod agent_manager;
 pub mod artifact_registry;
+#[cfg(feature = "browser")]
 pub mod browser_manager;
 pub mod executor;
 pub mod guardian;
