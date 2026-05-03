@@ -33,6 +33,7 @@
 //! );
 //! ```
 
+use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -88,17 +89,6 @@ const PROGRESS_UPDATE_INTERVAL: usize = 10;
 /// with too many file entries.
 const MAX_FILES_DISPLAY: usize = 30;
 
-/// Maximum number of directories to sample for file count estimation
-///
-/// Limits the sampling to prevent excessive I/O on large projects.
-const MAX_DIR_SAMPLE_THRESHOLD: usize = 50;
-
-/// Maximum number of subdirectory entries to sample for estimation
-///
-/// When estimating file counts, we sample at most this many entries
-/// from each subdirectory to avoid counting huge directories.
-const MAX_SUBDIR_SAMPLE: usize = 10;
-
 /// Minimum file count estimate to ensure reasonable progress tracking
 ///
 /// Even for empty directories, we report at least this many items
@@ -110,6 +100,10 @@ const FILE_TREE_MAX_DEPTH: usize = 3;
 
 /// Maximum total entries in the file tree output
 const FILE_TREE_MAX_ENTRIES: usize = 200;
+
+/// File count threshold for adaptive scanning.
+/// Above this, skip expensive operations like RepoMap tree-sitter parsing.
+const LARGE_WORKSPACE_THRESHOLD: usize = 300;
 
 /// Load ignore patterns from .rustycodeignore file and defaults
 ///
@@ -223,67 +217,71 @@ fn matches_ignore_pattern(path: &Path, patterns: &[String]) -> bool {
 ///
 /// Stops recursing at `FILE_TREE_MAX_DEPTH` and caps total entries at
 /// `FILE_TREE_MAX_ENTRIES`.
-fn build_file_tree(dir: &Path, ignore_patterns: &[String]) -> String {
+fn build_file_tree(dir: &Path, _ignore_patterns: &[String], is_large_workspace: bool) -> String {
     let mut output = String::with_capacity(4096);
     let mut count = 0usize;
-    build_file_tree_recursive(dir, ignore_patterns, 0, &mut count, &mut output);
-    output
-}
 
-fn build_file_tree_recursive(
-    dir: &Path,
-    ignore_patterns: &[String],
-    depth: usize,
-    count: &mut usize,
-    output: &mut String,
-) {
-    if depth > FILE_TREE_MAX_DEPTH || *count >= FILE_TREE_MAX_ENTRIES {
-        return;
-    }
-
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
+    // For large workspaces, reduce depth and entry cap for faster scanning
+    let max_depth = if is_large_workspace {
+        (FILE_TREE_MAX_DEPTH - 1).max(1)
+    } else {
+        FILE_TREE_MAX_DEPTH
+    };
+    let max_entries = if is_large_workspace {
+        FILE_TREE_MAX_ENTRIES / 2
+    } else {
+        FILE_TREE_MAX_ENTRIES
     };
 
-    let mut dirs: Vec<String> = Vec::new();
-    let mut files: Vec<String> = Vec::new();
+    let walker = WalkBuilder::new(dir)
+        .hidden(false)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .ignore(true)
+        .max_depth(Some(max_depth))
+        .add_custom_ignore_filename(IGNORE_FILE_NAME)
+        .build();
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if matches_ignore_pattern(&path, ignore_patterns) {
+    for result in walker {
+        if count >= max_entries {
+            output.push_str("  ... (truncated)\n");
+            break;
+        }
+
+        let entry = match result {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+
+        let depth = entry.depth();
+        if depth == 0 {
             continue;
         }
-        let name = entry.file_name().to_string_lossy().to_string();
-        if path.is_dir() {
-            dirs.push(name);
-        } else {
-            files.push(name);
+
+        let is_file = entry.file_type().is_some_and(|ft| ft.is_file());
+        let name = entry.file_name().to_string_lossy();
+
+        // Skip binary files
+        if is_file {
+            let binary_exts = [
+                ".o", ".so", ".dylib", ".dll", ".exe", ".pyc", ".pyo", ".class",
+                ".wasm", ".gz", ".zip", ".tar", ".bz2", ".xz", ".zst",
+                ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp",
+                ".woff", ".woff2", ".ttf", ".eot", ".mp3", ".mp4",
+            ];
+            if binary_exts.iter().any(|ext| name.ends_with(ext)) {
+                continue;
+            }
         }
+
+        let indent = "  ".repeat(depth);
+        let suffix = if is_file { "" } else { "/" };
+        output.push_str(&format!("{indent}{name}{suffix}\n"));
+        count += 1;
     }
 
-    dirs.sort();
-    files.sort();
-
-    let indent = "  ".repeat(depth);
-
-    for name in &dirs {
-        if *count >= FILE_TREE_MAX_ENTRIES {
-            output.push_str(&format!("{indent}  ... (truncated)\n"));
-            return;
-        }
-        output.push_str(&format!("{indent}{}/\n", name));
-        *count += 1;
-        build_file_tree_recursive(&dir.join(name), ignore_patterns, depth + 1, count, output);
-    }
-
-    for name in &files {
-        if *count >= FILE_TREE_MAX_ENTRIES {
-            output.push_str(&format!("{indent}  ... (truncated)\n"));
-            return;
-        }
-        output.push_str(&format!("{indent}{}\n", name));
-        *count += 1;
-    }
+    output
 }
 
 /// Load workspace context for a given directory
@@ -382,6 +380,7 @@ pub fn load_workspace_context_with_progress(
 
     // First pass: estimate total files by counting directories
     let estimated_total = estimate_file_count(cwd, &ignore_patterns);
+    let is_large_workspace = estimated_total > LARGE_WORKSPACE_THRESHOLD;
     let mut scanned = 0usize;
 
     // Helper to report progress
@@ -473,13 +472,16 @@ pub fn load_workspace_context_with_progress(
     }
 
     // Compact multi-level file tree for deeper navigation awareness
+    // For large workspaces, reduce depth to keep it fast
+    report_progress(scanned + estimated_total / 4, estimated_total);
     context.push_str("\n## File Tree:\n");
-    let tree = build_file_tree(cwd, &ignore_patterns);
+    let tree = build_file_tree(cwd, &ignore_patterns, is_large_workspace);
     if tree.is_empty() {
         context.push_str("  (empty)\n");
     } else {
         context.push_str(&tree);
     }
+    report_progress(scanned + estimated_total / 3, estimated_total);
 
     context.push_str("\n## Git Status:\n");
     if let Ok(output) = Command::new("git")
@@ -510,13 +512,20 @@ pub fn load_workspace_context_with_progress(
         }
     }
 
-    // Append repo map (tree-sitter structural summary) if available
-    if let Ok(repo_map) = rustycode_tools::RepoMap::build(cwd, 2000) {
-        let map_str = repo_map.to_map_string();
-        if !map_str.is_empty() {
-            context.push_str("\n## Code Structure Map:\n");
-            context.push_str(map_str);
+    // Append repo map (tree-sitter structural summary) if available.
+    // Skip for large workspaces — tree-sitter parsing is expensive.
+    if !is_large_workspace {
+        report_progress(scanned + estimated_total / 2, estimated_total);
+        if let Ok(repo_map) = rustycode_tools::RepoMap::build(cwd, 2000) {
+            let map_str = repo_map.to_map_string();
+            if !map_str.is_empty() {
+                context.push_str("\n## Code Structure Map:\n");
+                context.push_str(map_str);
+            }
         }
+    } else {
+        context.push_str("\n## Code Structure Map:\n");
+        context.push_str("  (skipped — large workspace)\n");
     }
 
     // Final progress update - mark as complete
@@ -527,51 +536,29 @@ pub fn load_workspace_context_with_progress(
 
 /// Estimate the total number of files to scan
 ///
-/// Provides a rough estimate by counting entries in the root directory
-/// and sampling subdirectories. The estimate may be wrong for large projects,
-/// but that's okay - the progress bar can handle exceeding 100%.
+/// Uses `ignore::WalkBuilder` at depth 2 with .gitignore support for fast estimation.
+/// Capped at 500 entries to keep the estimate fast.
 ///
 /// # Arguments
 /// * `cwd` - Current working directory to estimate
-/// * `ignore_patterns` - Patterns to exclude from counting
+/// * `ignore_patterns` - Unused (kept for API compatibility)
 ///
 /// # Returns
 /// * Estimated file count (minimum MIN_FILE_COUNT_ESTIMATE)
-///
-/// # Estimation Algorithm
-///
-/// 1. Count non-ignored entries in root directory
-/// 2. For each directory (up to MAX_DIR_SAMPLE_THRESHOLD), sample subdirectory entries
-/// 3. Add up to MAX_SUBDIR_SAMPLE entries from each subdirectory
-/// 4. Return max of actual count and MIN_FILE_COUNT_ESTIMATE
-fn estimate_file_count(cwd: &PathBuf, ignore_patterns: &[String]) -> usize {
-    let mut count = 0usize;
+fn estimate_file_count(cwd: &PathBuf, _ignore_patterns: &[String]) -> usize {
+    // Use WalkBuilder at depth 2 for fast .gitignore-aware estimation.
+    // Capped at 500 entries to keep estimation fast.
+    let walker = WalkBuilder::new(cwd)
+        .hidden(false)
+        .git_ignore(true)
+        .git_global(true)
+        .git_exclude(true)
+        .ignore(true)
+        .max_depth(Some(2))
+        .add_custom_ignore_filename(IGNORE_FILE_NAME)
+        .build();
 
-    // Count entries in root directory
-    if let Ok(entries) = std::fs::read_dir(cwd) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-
-            // Skip ignored patterns
-            if matches_ignore_pattern(&path, ignore_patterns) {
-                continue;
-            }
-
-            count += 1;
-
-            // For directories, sample a few entries to estimate depth
-            if entry.path().is_dir() && count < MAX_DIR_SAMPLE_THRESHOLD {
-                if let Ok(sub_entries) = std::fs::read_dir(entry.path()) {
-                    let sub_count = sub_entries.flatten().count();
-                    // Add a fraction of subdirectory contents to estimate
-                    count += sub_count.min(MAX_SUBDIR_SAMPLE);
-                }
-            }
-        }
-    }
-
-    // Ensure we have a reasonable minimum
-    count.max(MIN_FILE_COUNT_ESTIMATE)
+    walker.take(500).count().max(MIN_FILE_COUNT_ESTIMATE)
 }
 
 #[cfg(test)]

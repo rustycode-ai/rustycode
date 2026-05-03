@@ -1,17 +1,63 @@
-//! Workspace Scanning Optimization
+//! Workspace Scanning with .gitignore support
 //!
-//! Provides efficient workspace scanning with:
-//! - Incremental indexing (only changed files)
-//! - Cached metadata with TTL
-//! - Debounced rapid requests
-//! - Git-aware smart reindexing
+//! Uses the `ignore` crate (from ripgrep) for automatic .gitignore respect.
+//! Features:
+//! - Automatic .gitignore, .ignore, and global gitignore respect
+//! - Custom .rustycodeignore file support
+//! - Cached metadata with TTL for incremental updates
+//! - Binary file filtering
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
+use ignore::WalkBuilder;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+
+/// Binary file extensions to skip (can't be meaningfully edited as text)
+const BINARY_EXTENSIONS: &[&str] = &[
+    ".o",
+    ".obj",
+    ".so",
+    ".dylib",
+    ".dll",
+    ".exe",
+    ".pdb",
+    ".d",
+    ".pkl",
+    ".pyc",
+    ".pyo",
+    ".class",
+    ".jar",
+    ".war",
+    ".wasm",
+    ".gz",
+    ".zip",
+    ".tar",
+    ".bz2",
+    ".xz",
+    ".zst",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".webp",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".eot",
+    ".mp3",
+    ".mp4",
+    ".avi",
+    ".mov",
+];
+
+/// Check if a file is a binary/non-editable type
+fn is_binary_file(name: &str) -> bool {
+    BINARY_EXTENSIONS.iter().any(|ext| name.ends_with(ext))
+}
 
 /// Metadata about a file in the workspace
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,51 +152,6 @@ impl ScanResult {
     }
 }
 
-/// Directories to always skip during scanning
-const SKIP_DIRS: &[&str] = &[
-    "target",        // Rust build artifacts (can be 100K+ files)
-    ".git",          // Git internals
-    "node_modules",  // Node.js dependencies
-    ".next",         // Next.js build
-    ".nuxt",         // Nuxt build
-    "__pycache__",   // Python bytecode cache
-    ".venv",         // Python virtualenv
-    "venv",          // Python virtualenv
-    ".tox",          // Python tox
-    "dist",          // Build output
-    ".cache",        // Generic cache
-    ".cargo",        // Cargo cache
-    ".rustup",       // Rustup toolchains
-    ".claude",       // Claude Code session data
-    ".omc",          // OMC data
-    "coverage",      // Coverage reports
-    ".turbo",        // Turborepo cache
-];
-
-/// Check if a directory name should be skipped during scanning
-fn should_skip_dir(name: &str) -> bool {
-    // Skip hidden directories (start with .) except .rustycode
-    if name.starts_with('.') && name != ".rustycode" {
-        return true;
-    }
-    SKIP_DIRS.contains(&name)
-}
-
-/// Check if a file should be included (skip binaries and generated files)
-fn should_include_file(name: &str) -> bool {
-    let skip_extensions = [
-        ".o", ".obj", ".so", ".dylib", ".dll", ".exe",
-        ".pdb", ".d", ".pkl", ".pyc", ".pyo",
-        ".class", ".jar", ".war",
-        ".wasm",
-        ".gz", ".zip", ".tar", ".bz2", ".xz", ".zst",
-        ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".woff", ".woff2", ".ttf", ".eot",
-        ".mp3", ".mp4", ".avi", ".mov",
-        ".lock",  // Cargo.lock, package-lock.json etc.
-    ];
-    !skip_extensions.iter().any(|ext| name.ends_with(ext))
-}
-
 /// Cache entry for file metadata
 #[derive(Debug, Clone)]
 struct CacheEntry {
@@ -158,7 +159,7 @@ struct CacheEntry {
     cached_at: Instant,
 }
 
-/// Workspace scanner with caching and incremental updates
+/// Workspace scanner with .gitignore-aware caching and incremental updates
 pub struct WorkspaceScanner {
     /// Workspace root directory
     root: PathBuf,
@@ -178,9 +179,9 @@ impl WorkspaceScanner {
         Self {
             root,
             cache: std::sync::RwLock::new(HashMap::new()),
-            cache_ttl: Duration::from_mins(1), // 1 minute cache
+            cache_ttl: Duration::from_mins(1),
             last_scan: std::sync::RwLock::new(None),
-            debounce_duration: Duration::from_millis(100), // 100ms debounce
+            debounce_duration: Duration::from_millis(100),
         }
     }
 
@@ -196,11 +197,21 @@ impl WorkspaceScanner {
         self
     }
 
+    /// Build a configured WalkBuilder for the workspace root
+    fn build_walker(&self) -> WalkBuilder {
+        let mut builder = WalkBuilder::new(&self.root);
+        builder
+            .hidden(false) // allow .rustycode etc
+            .git_ignore(true) // respect .gitignore
+            .git_global(true) // respect global gitignore
+            .git_exclude(true) // respect .git/info/exclude
+            .ignore(true) // respect .ignore files
+            .add_custom_ignore_filename(".rustycodeignore");
+        builder
+    }
+
     /// Scan workspace with incremental updates
     pub fn scan(&self) -> Result<ScanResult> {
-        let _start = Instant::now();
-
-        // Check if we should do a full scan or incremental
         let last_scan = *self.last_scan.read().unwrap_or_else(|e| e.into_inner());
         let cache_stale = last_scan
             .map(|t| t.elapsed() > self.cache_ttl)
@@ -227,34 +238,34 @@ impl WorkspaceScanner {
         }
     }
 
-    /// Perform a full workspace scan
+    /// Perform a full workspace scan using .gitignore-aware traversal
     fn full_scan(&self) -> Result<ScanResult> {
         let start = Instant::now();
         let mut files = Vec::new();
 
-        // Scan directory recursively
-        if let Ok(entries) = std::fs::read_dir(&self.root) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().into_owned();
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_file() {
-                        if !should_include_file(&name) {
-                            continue;
-                        }
-                        let path = entry.path();
-                        if let Ok(metadata) = self.get_file_metadata(&path) {
-                            files.push(metadata);
-                        }
-                    } else if file_type.is_dir() {
-                        if should_skip_dir(&name) {
-                            continue;
-                        }
-                        // Recursively scan subdirectory
-                        if let Ok(sub_files) = self.scan_directory(&entry.path()) {
-                            files.extend(sub_files);
-                        }
-                    }
+        for result in self.build_walker().build() {
+            let entry = match result {
+                Ok(e) => e,
+                Err(err) => {
+                    tracing::debug!("workspace scan skipped entry: {}", err);
+                    continue;
                 }
+            };
+
+            // Only process regular files
+            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+                continue;
+            }
+
+            // Skip binary files
+            let name = entry.file_name().to_string_lossy();
+            if is_binary_file(&name) {
+                continue;
+            }
+
+            let path = entry.path().to_path_buf();
+            if let Ok(metadata) = self.get_file_metadata(&path) {
+                files.push(metadata);
             }
         }
 
@@ -271,7 +282,6 @@ impl WorkspaceScanner {
             );
         }
 
-        // Update last scan time
         *self.last_scan.write().unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
 
         let total_size: u64 = files.iter().map(|f| f.size).sum();
@@ -285,43 +295,11 @@ impl WorkspaceScanner {
         })
     }
 
-    /// Scan a single directory
-    fn scan_directory(&self, dir: &Path) -> Result<Vec<FileMetadata>> {
-        let mut files = Vec::new();
-
-        if let Ok(entries) = std::fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().into_owned();
-                if let Ok(file_type) = entry.file_type() {
-                    if file_type.is_file() {
-                        if !should_include_file(&name) {
-                            continue;
-                        }
-                        let path = entry.path();
-                        if let Ok(metadata) = self.get_file_metadata(&path) {
-                            files.push(metadata);
-                        }
-                    } else if file_type.is_dir() {
-                        if should_skip_dir(&name) {
-                            continue;
-                        }
-                        if let Ok(sub_files) = self.scan_directory(&entry.path()) {
-                            files.extend(sub_files);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(files)
-    }
-
     /// Perform an incremental scan (only changed files)
     fn incremental_scan(&self) -> Result<ScanResult> {
         let start = Instant::now();
         let mut added_files = Vec::new();
         let mut modified_files = Vec::new();
-        let mut removed_files = Vec::new();
 
         let cache = self.cache.read().unwrap_or_else(|e| e.into_inner());
         let previous_paths: HashSet<PathBuf> = cache.keys().cloned().collect();
@@ -329,57 +307,59 @@ impl WorkspaceScanner {
 
         let mut current_paths = HashSet::new();
 
-        // Scan for changes
-        if let Ok(entries) = std::fs::read_dir(&self.root) {
-            for entry in entries.flatten() {
-                let path = entry.path();
+        for result in self.build_walker().build() {
+            let entry = match result {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
 
-                if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
-                    current_paths.insert(path.clone());
+            if !entry.file_type().is_some_and(|ft| ft.is_file()) {
+                continue;
+            }
 
-                    let metadata = match self.get_file_metadata(&path) {
-                        Ok(m) => m,
-                        Err(_) => continue,
-                    };
+            let name = entry.file_name().to_string_lossy();
+            if is_binary_file(&name) {
+                continue;
+            }
 
-                    if let Some(cached) = self.get_cached(&path) {
-                        if cached.metadata.modified < metadata.modified {
-                            // File was modified
-                            modified_files.push(path.clone());
-                            // Update cache
-                            let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
-                            cache.insert(
-                                path.clone(),
-                                CacheEntry {
-                                    metadata,
-                                    cached_at: Instant::now(),
-                                },
-                            );
-                        }
-                    } else {
-                        // New file
-                        added_files.push(path.clone());
-                        // Add to cache
-                        let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
-                        cache.insert(
-                            path.clone(),
-                            CacheEntry {
-                                metadata,
-                                cached_at: Instant::now(),
-                            },
-                        );
-                    }
+            let path = entry.path().to_path_buf();
+            current_paths.insert(path.clone());
+
+            let metadata = match self.get_file_metadata(&path) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+
+            if let Some(cached) = self.get_cached(&path) {
+                if cached.metadata.modified < metadata.modified {
+                    modified_files.push(path.clone());
+                    let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
+                    cache.insert(
+                        path,
+                        CacheEntry {
+                            metadata,
+                            cached_at: Instant::now(),
+                        },
+                    );
                 }
+            } else {
+                added_files.push(path.clone());
+                let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
+                cache.insert(
+                    path,
+                    CacheEntry {
+                        metadata,
+                        cached_at: Instant::now(),
+                    },
+                );
             }
         }
 
         // Find removed files
-        for path in previous_paths {
-            if !current_paths.contains(&path) {
-                removed_files.push(path.clone());
-                // Remove from cache
+        for path in &previous_paths {
+            if !current_paths.contains(path) {
                 let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
-                cache.remove(&path);
+                cache.remove(path);
             }
         }
 
@@ -506,5 +486,17 @@ mod tests {
         let counts = result.count_by_extension();
         assert_eq!(counts.get("rs"), Some(&2));
         assert_eq!(counts.get("py"), Some(&1));
+    }
+
+    #[test]
+    fn test_binary_file_detection() {
+        assert!(is_binary_file("image.png"));
+        assert!(is_binary_file("lib.so"));
+        assert!(is_binary_file("app.exe"));
+        assert!(is_binary_file("archive.tar.gz"));
+        assert!(is_binary_file("font.woff2"));
+        assert!(!is_binary_file("main.rs"));
+        assert!(!is_binary_file("config.toml"));
+        assert!(!is_binary_file("README.md"));
     }
 }
