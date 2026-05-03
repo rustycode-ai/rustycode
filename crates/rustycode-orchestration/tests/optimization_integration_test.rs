@@ -87,7 +87,7 @@ Final result: success";
         let router = ModelRouter::new(Default::default());
 
         // Simple task
-        let simple_task = rustycode_orchestration::routing::Task {
+        let simple_task = rustycode_orchestration::routing::TaskDescriptor {
             description: "List files".to_string(),
             context: "minimal".to_string(),
             step_count: 1,
@@ -103,7 +103,7 @@ Final result: success";
         );
 
         // Complex task
-        let complex_task = rustycode_orchestration::routing::Task {
+        let complex_task = rustycode_orchestration::routing::TaskDescriptor {
             description: "Design and implement distributed consensus algorithm with Byzantine fault tolerance"
                 .to_string(),
             context: "complex architecture decision required, multiple design options, 20+ implementation steps"

@@ -12,6 +12,15 @@ export const test = base.extend<Fixtures>({
         contentType: "application/json",
         body: JSON.stringify({
           current: { provider: "mock", model: "mock-model" },
+          providers: [
+            {
+              name: "mock",
+              display_name: "Mock Provider",
+              models: ["mock-model", "mock-model-v2"],
+              default_model: "mock-model",
+              available: true,
+            },
+          ],
         }),
       }),
     );

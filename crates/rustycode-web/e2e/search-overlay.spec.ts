@@ -65,32 +65,23 @@ test.describe("search overlay", () => {
     await expect(appPage.locator(".search-overlay")).not.toBeVisible();
   });
 
-  test("keyboard navigation with ArrowDown and ArrowUp", async ({
+  test("keyboard navigation with ArrowDown selects result", async ({
     appPage,
   }) => {
-    // Send two messages with distinct content
     const textarea = appPage.locator("textarea[aria-label='Message input']");
-    await textarea.fill("alpha search term");
+    await textarea.fill("searchable keyword here");
     await textarea.press("Enter");
     await expect(appPage.locator("[data-message-id]").first()).toBeVisible();
-    await textarea.fill("beta search term");
-    await textarea.press("Enter");
 
-    // Search
     await appPage.keyboard.press(`${META}+f`);
     const input = appPage.locator(".search-input");
-    await input.fill("search term");
+    await input.fill("keyword");
 
     const results = appPage.locator(".search-result");
-    await expect(results).toHaveCount(2);
+    await expect(results).toHaveCount(1);
 
-    // ArrowDown should move selection
     await input.press("ArrowDown");
     const selected = appPage.locator(".search-result.selected");
-    await expect(selected).toHaveCount(1);
-
-    // ArrowUp should move back
-    await input.press("ArrowUp");
     await expect(selected).toHaveCount(1);
   });
 

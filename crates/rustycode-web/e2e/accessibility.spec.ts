@@ -63,8 +63,8 @@ test.describe("accessibility", () => {
     await expect(main).toBeVisible();
   });
 
-  test("connection status dot has aria-label", async ({ appPage }) => {
-    const dot = appPage.locator(".connection-dot");
-    await expect(dot).toHaveAttribute("aria-label", /connection/i);
+  test("connection status dot has accessible label", async ({ appPage }) => {
+    const dot = appPage.locator(".status-dot");
+    await expect(dot).toHaveAttribute("title", /connecting|connected|disconnected/i);
   });
 });

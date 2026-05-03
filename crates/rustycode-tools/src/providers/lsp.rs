@@ -1211,7 +1211,7 @@ pub struct LspGetSymbolsOverviewTool;
 
 impl Tool for LspGetSymbolsOverviewTool {
     fn name(&self) -> &'static str {
-        "get_symbols_overview"
+        "lsp_get_symbols_overview"
     }
 
     fn description(&self) -> &'static str {
@@ -1301,7 +1301,7 @@ pub struct LspFindSymbolTool;
 
 impl Tool for LspFindSymbolTool {
     fn name(&self) -> &'static str {
-        "find_symbol"
+        "lsp_find_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -1453,7 +1453,7 @@ pub struct LspReplaceSymbolBodyTool;
 
 impl Tool for LspReplaceSymbolBodyTool {
     fn name(&self) -> &'static str {
-        "replace_symbol_body"
+        "lsp_replace_symbol_body"
     }
 
     fn description(&self) -> &'static str {
@@ -1563,7 +1563,7 @@ pub struct LspInsertBeforeSymbolTool;
 
 impl Tool for LspInsertBeforeSymbolTool {
     fn name(&self) -> &'static str {
-        "insert_before_symbol"
+        "lsp_insert_before_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -1674,7 +1674,7 @@ pub struct LspInsertAfterSymbolTool;
 
 impl Tool for LspInsertAfterSymbolTool {
     fn name(&self) -> &'static str {
-        "insert_after_symbol"
+        "lsp_insert_after_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -1786,7 +1786,7 @@ pub struct LspSafeDeleteSymbolTool;
 
 impl Tool for LspSafeDeleteSymbolTool {
     fn name(&self) -> &'static str {
-        "safe_delete_symbol"
+        "lsp_safe_delete_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -1916,7 +1916,7 @@ pub struct LspRenameSymbolTool;
 
 impl Tool for LspRenameSymbolTool {
     fn name(&self) -> &'static str {
-        "rename_symbol"
+        "lsp_rename_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -2065,7 +2065,7 @@ pub struct LspAnalyzeSymbolTool;
 
 impl Tool for LspAnalyzeSymbolTool {
     fn name(&self) -> &'static str {
-        "analyze_symbol"
+        "lsp_analyze_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -2226,7 +2226,7 @@ pub struct LspExtractSymbolTool;
 
 impl Tool for LspExtractSymbolTool {
     fn name(&self) -> &'static str {
-        "extract_symbol"
+        "lsp_extract_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -2383,7 +2383,7 @@ pub struct LspInlineSymbolTool;
 
 impl Tool for LspInlineSymbolTool {
     fn name(&self) -> &'static str {
-        "inline_symbol"
+        "lsp_inline_symbol"
     }
 
     fn description(&self) -> &'static str {
@@ -2615,7 +2615,7 @@ pub struct LspWorkspaceSymbolsTool;
 
 impl Tool for LspWorkspaceSymbolsTool {
     fn name(&self) -> &'static str {
-        "workspace_symbols"
+        "lsp_workspace_symbols"
     }
 
     fn description(&self) -> &'static str {

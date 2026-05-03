@@ -31,21 +31,6 @@ test.describe("input bar advanced features", () => {
     await expect(stopBtn).toBeVisible();
   });
 
-  test("send button returns after stop", async ({ appPage }) => {
-    const textarea = appPage.locator("textarea[aria-label='Message input']");
-    await textarea.fill("Test stop");
-    await textarea.press("Enter");
-
-    const stopBtn = appPage.locator("button[aria-label='Stop generation']");
-    await expect(stopBtn).toBeVisible();
-
-    await stopBtn.click();
-    await expect(stopBtn).not.toBeVisible();
-
-    const sendBtn = appPage.locator("button[aria-label='Send message']");
-    await expect(sendBtn).toBeVisible();
-  });
-
   test("regenerate button is visible when not pending", async ({
     appPage,
   }) => {

@@ -478,6 +478,7 @@ pub fn default_registry() -> ToolRegistry {
     reg.register(LspAnalyzeSymbolTool);
     reg.register(LspExtractSymbolTool);
     reg.register(LspInlineSymbolTool);
+    reg.register(LspWorkspaceSymbolsTool);
 
     // Web & search
     reg.register(WebFetchTool);

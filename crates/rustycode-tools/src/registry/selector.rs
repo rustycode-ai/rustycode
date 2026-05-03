@@ -132,6 +132,7 @@ impl ToolProfile {
             "lsp_find_symbol",
             "lsp_get_symbols_overview",
             "lsp_workspace_symbols",
+            "lsp_analyze_symbol",
         ];
         const IMPLEMENT: &[&str] = &[
             "read_file",
@@ -150,6 +151,7 @@ impl ToolProfile {
             "lsp_document_symbols",
             "lsp_code_actions",
             "lsp_formatting",
+            "lsp_full_diagnostics",
         ];
         const DEBUG: &[&str] = &[
             "read_file",
@@ -161,6 +163,7 @@ impl ToolProfile {
             "lsp_full_diagnostics",
             "lsp_definition",
             "lsp_references",
+            "lsp_analyze_symbol",
         ];
         const OPS: &[&str] = &[
             "bash",
@@ -185,6 +188,7 @@ impl ToolProfile {
             "lsp_extract_symbol",
             "lsp_inline_symbol",
             "lsp_code_actions",
+            "lsp_analyze_symbol",
         ];
 
         match self {

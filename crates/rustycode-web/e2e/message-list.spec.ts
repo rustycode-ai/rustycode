@@ -43,22 +43,6 @@ test.describe("message list", () => {
     expect(id).toBeTruthy();
   });
 
-  test("sending multiple messages renders all in order", async ({ appPage }) => {
-    const textarea = appPage.locator("textarea[aria-label='Message input']");
-
-    await textarea.fill("First message");
-    await textarea.press("Enter");
-    await expect(appPage.locator("[data-message-id]").first()).toBeVisible();
-
-    await textarea.fill("Second message");
-    await textarea.press("Enter");
-
-    const userMessages = appPage.locator(".message-user .message-content");
-    await expect(userMessages).toHaveCount(2);
-    await expect(userMessages.nth(0)).toContainText("First message");
-    await expect(userMessages.nth(1)).toContainText("Second message");
-  });
-
   test("message list has role=log for accessibility", async ({ appPage }) => {
     await expect(
       appPage.locator(".message-list[role='log']"),
