@@ -84,7 +84,6 @@ impl TUI {
         if !self.showing_command_palette {
             return Ok(false);
         }
-        tracing::warn!("PALETTE INPUT: {:?} {:?}", key_code, modifiers);
 
         match (key_code, modifiers) {
             (KeyCode::Esc, _) => {
