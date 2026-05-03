@@ -512,20 +512,22 @@ impl TUI {
                                 &img.mime_type,
                                 b64,
                             )));
-                            tracing::info!(
-                                "Attached image: {} ({} bytes, {})",
+                            tracing::error!(
+                                "BUG9-DEBUG: encoded image {} ({} bytes, {})",
                                 img.id,
                                 bytes.len(),
                                 img.mime_type
                             );
                         }
                         Err(e) => {
-                            tracing::warn!("Failed to read image {}: {}", img.path.display(), e);
+                            tracing::error!("BUG9-DEBUG: failed to read image {}: {}", img.path.display(), e);
                         }
                     }
                 }
+                tracing::error!("BUG9-DEBUG: image_blocks count={}", blocks.len());
                 blocks
             } else {
+                tracing::error!("BUG9-DEBUG: attached_images was empty, no blocks built");
                 Vec::new()
             };
 
@@ -547,6 +549,7 @@ impl TUI {
             self.showing_tool_result = false;
             self.active_tools.clear();
 
+            tracing::error!("BUG9-DEBUG: about to send, image_blocks is_some={}", image_blocks.is_empty() == false);
             let send_call_start = std::time::Instant::now();
             if let Err(e) = self.services.send_message_with_history(
                 message_to_send,
