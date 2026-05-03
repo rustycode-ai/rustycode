@@ -271,6 +271,9 @@ pub trait Tool: Send + Sync {
     fn defer_loading(&self) -> Option<bool> {
         None
     }
+    fn tags(&self) -> &[&'static str] {
+        &[]
+    }
     fn execute(&self, params: Value, ctx: &ToolContext) -> anyhow::Result<ToolOutput>;
 }
 
@@ -283,6 +286,7 @@ pub struct ToolInfo {
     pub permission: ToolPermission,
     pub defer_loading: Option<bool>,
     pub annotations: Option<ToolAnnotations>,
+    pub tags: Vec<String>,
 }
 
 /// A trait for providing access to tool metadata, allowing decoupling of
@@ -321,6 +325,29 @@ impl ToolRegistry {
                 permission: t.permission(),
                 defer_loading: t.defer_loading(),
                 annotations: None,
+                tags: t.tags().iter().map(|s| s.to_string()).collect(),
+            })
+            .collect();
+        infos.sort_by(|a, b| a.name.cmp(&b.name));
+        infos
+    }
+
+    pub fn list_for_tags(&self, required_tags: &[&str]) -> Vec<ToolInfo> {
+        let mut infos: Vec<ToolInfo> = self
+            .tools
+            .values()
+            .filter(|t| {
+                let tool_tags = t.tags();
+                required_tags.iter().any(|rt| tool_tags.contains(rt))
+            })
+            .map(|t| ToolInfo {
+                name: t.name().to_string(),
+                description: t.description().to_string(),
+                parameters_schema: t.parameters_schema(),
+                permission: t.permission(),
+                defer_loading: t.defer_loading(),
+                annotations: None,
+                tags: t.tags().iter().map(|s| s.to_string()).collect(),
             })
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
@@ -372,6 +399,7 @@ impl ToolMetadataProvider for ToolRegistry {
             permission: t.permission(),
             defer_loading: t.defer_loading(),
             annotations: None,
+            tags: t.tags().iter().map(|s| s.to_string()).collect(),
         })
     }
 }

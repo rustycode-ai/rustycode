@@ -64,86 +64,21 @@ pub enum ToolProfile {
     Debug,
     /// Operations and maintenance
     Ops,
+    /// Refactoring and code restructuring
+    Refactor,
     /// All tools available (default)
     All,
 }
 
 impl ToolProfile {
-    /// Get tools available for this profile
-    pub fn available_tools(&self) -> &[&'static str] {
+    pub fn required_tags(&self) -> &[&'static str] {
         match self {
-            ToolProfile::Explore => &[
-                "read_file",
-                "list_dir",
-                "grep",
-                "glob",
-                "find",
-                "inspect",
-                "tool_search",
-                "web_fetch",
-                "lsp_hover",
-                "lsp_definition",
-                "semantic_search",
-            ],
-            ToolProfile::Implement => &[
-                "write_file",
-                "edit_file",
-                "apply_patch",
-                "bash",
-                "read_file",
-                "grep",
-                "multi_edit",
-            ],
-            ToolProfile::Debug => &[
-                "lsp_diagnostics",
-                "lsp_hover",
-                "inspect",
-                "bash",
-                "grep",
-                "read_file",
-                "test",
-                "semantic_search",
-            ],
-            ToolProfile::Ops => &[
-                "bash",
-                "git_commit",
-                "git_diff",
-                "git_status",
-                "web_fetch",
-                "list_dir",
-            ],
-            ToolProfile::All => &[
-                "bash",
-                "read_file",
-                "write_file",
-                "edit_file",
-                "apply_patch",
-                "multi_edit",
-                "list_dir",
-                "grep",
-                "glob",
-                "find",
-                "inspect",
-                "codesearch",
-                "web_fetch",
-                "web_search",
-                "tool_search",
-                "lsp_diagnostics",
-                "lsp_hover",
-                "lsp_definition",
-                "lsp_completion",
-                "git_commit",
-                "git_diff",
-                "git_status",
-                "git_log",
-                "notebook_edit",
-                "todo_read",
-                "todo_write",
-                "todo_update",
-                "brief",
-                "question",
-                "semantic_search",
-            ],
+            ToolProfile::Explore => &["explore"],
+            ToolProfile::Implement => &["implement"],
+            ToolProfile::Debug => &["debug"],
+            ToolProfile::Ops => &["ops"],
+            ToolProfile::Refactor => &["refactor"],
+            ToolProfile::All => &[],
         }
     }
 

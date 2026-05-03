@@ -4,7 +4,7 @@
 //! to specialized subagents based on the nature of the work.
 
 use crate::agent::AgentResult;
-use crate::agents::subagent::SubagentRegistry;
+use crate::subagent::SubagentRegistry;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 

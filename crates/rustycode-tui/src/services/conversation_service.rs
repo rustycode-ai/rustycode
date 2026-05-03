@@ -5,7 +5,7 @@
 
 #![allow(dead_code)]
 
-use crate::agent_mode::AiMode;
+use crate::agent_mode::{AgentMode, AiMode};
 use anyhow::Result;
 use rustycode_config::Config;
 use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
@@ -53,6 +53,7 @@ pub struct ConversationService {
     cached_system_prompt: String,
     last_cache_key: Option<u64>,
     ai_mode: AiMode,
+    agent_mode: AgentMode,
     pub tool_registry: Arc<ToolRegistry>,
     #[cfg(feature = "vector-memory")]
     vector_memory: Option<Arc<Mutex<VectorMemory>>>,
@@ -74,6 +75,7 @@ impl ConversationService {
             cached_system_prompt: String::new(),
             last_cache_key: None,
             ai_mode: AiMode::default(),
+            agent_mode: AgentMode::default(),
             tool_registry,
             #[cfg(feature = "vector-memory")]
             vector_memory: None,
@@ -100,6 +102,7 @@ impl ConversationService {
             cached_system_prompt: String::new(),
             last_cache_key: None,
             ai_mode: AiMode::default(),
+            agent_mode: AgentMode::default(),
             tool_registry,
             vector_memory: Some(vector_memory),
             memory_metrics: Arc::new(Mutex::new(MemoryMetrics::new())),

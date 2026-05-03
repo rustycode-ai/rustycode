@@ -885,9 +885,7 @@ Returns: List of code actions with titles and kinds"
     }
 }
 
-pub struct LspRenameTool;
-
-impl Tool for LspRenameTool {
+/// Search for symbols across the workspace.
     fn name(&self) -> &'static str {
         "lsp_rename"
     }

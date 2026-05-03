@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod code_agent;
 pub mod debug_agent;
 pub mod orchestrator;
@@ -6,6 +7,7 @@ pub mod review_agent;
 pub mod subagent;
 pub mod test_agent;
 
+pub use agent::*;
 pub use code_agent::*;
 pub use debug_agent::*;
 pub use orchestrator::*;

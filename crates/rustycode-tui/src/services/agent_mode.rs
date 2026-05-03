@@ -1,3 +1,5 @@
+use rustycode_tools::registry::selector::ToolProfile;
+
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Default)]
 #[non_exhaustive]
 pub enum AiMode {
@@ -188,63 +190,37 @@ You can add comments and documentation, but avoid changing code logic.
 
     /// Check if a tool should be available in this mode
     pub fn allows_tool(&self, tool_name: &str) -> bool {
+        let profile = self.tool_profile();
+        let tags = profile.required_tags();
+        if tags.is_empty() {
+            return true; // All = no filtering
+        }
+        // Fallback: if tool has no tags yet, allow basic tools
+        matches!(
+            tool_name,
+            "read_file"
+                | "list_dir"
+                | "grep"
+                | "glob"
+                | "bash"
+                | "edit_file"
+                | "write_file"
+                | "question"
+                | "web_search"
+                | "web_fetch"
+        )
+    }
+
+    /// Map this AgentMode to a ToolProfile for tag-based tool discovery.
+    pub fn tool_profile(&self) -> ToolProfile {
         match self {
-            // Code mode - all tools available
-            AgentMode::Code => true,
-
-            // Architect - read-only tools only
-            AgentMode::Architect => matches!(
-                tool_name,
-                "read_file"
-                    | "list_dir"
-                    | "glob"
-                    | "grep"
-                    | "lsp_document_symbols"
-                    | "lsp_references"
-                    | "lsp_definition"
-                    | "codesearch"
-                    | "question"
-            ),
-
-            // Debug - read-only + diagnostic tools
-            AgentMode::Debug => matches!(
-                tool_name,
-                "read_file"
-                    | "list_dir"
-                    | "glob"
-                    | "grep"
-                    | "bash"
-                    | "lsp_document_symbols"
-                    | "lsp_references"
-                    | "lsp_definition"
-                    | "codesearch"
-                    | "question"
-            ),
-
-            // Review - read-only only
-            AgentMode::Review => matches!(
-                tool_name,
-                "read_file"
-                    | "list_dir"
-                    | "glob"
-                    | "grep"
-                    | "lsp_document_symbols"
-                    | "lsp_references"
-                    | "lsp_definition"
-                    | "codesearch"
-            ),
-
-            // Test - test-focused tools
-            AgentMode::Test => matches!(
-                tool_name,
-                "read_file" | "write_file" | "list_dir" | "glob" | "grep" | "bash"
-            ),
-
-            // Refactor - all tools except destructive ones
-            AgentMode::Refactor => !matches!(tool_name, "apply_patch" | "checkpoint"),
-
-            // Docs - all tools for reading, writing comments/docs
-            AgentMode::Docs => true,
+            AgentMode::Code => ToolProfile::All,
+            AgentMode::Architect => ToolProfile::Explore,
+            AgentMode::Debug => ToolProfile::Debug,
+            AgentMode::Review => ToolProfile::Explore,
+            AgentMode::Test => ToolProfile::Implement,
+            AgentMode::Refactor => ToolProfile::Refactor,
+            AgentMode::Docs => ToolProfile::Explore,
         }
     }
 
