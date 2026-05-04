@@ -136,6 +136,41 @@ pub fn dispatch_responses_event(
     let mut events = Vec::new();
 
     match evt_type {
+        // Reasoning streaming
+        "response.reasoning.delta" => {
+            if let Some(delta) = data.get("delta") {
+                if let Some(summary) = delta.get("summary").and_then(|s| s.as_array()) {
+                    for part in summary {
+                        if part.get("type").and_then(|t| t.as_str()) == Some("summary_text") {
+                            if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                                if !text.is_empty() {
+                                    events.push(Ok(StreamEvent::ThinkingDelta {
+                                        content: text.to_string(),
+                                    }));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Reasoning completed
+        "response.reasoning.done" => {
+            let reasoning_data = data.get("data").unwrap_or(data);
+            let encrypted = reasoning_data
+                .get("encrypted_content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if !encrypted.is_empty() {
+                events.push(Ok(StreamEvent::ThinkingBlockCompleted {
+                    block_type: "reasoning".to_string(),
+                    signature: String::new(),
+                    data: encrypted.to_string(),
+                }));
+            }
+        }
+
         // Text streaming
         "response.output_text.delta" => {
             if let Some(delta) = data.get("delta").and_then(|d| d.as_str()) {
@@ -436,5 +471,75 @@ data: [DONE]\n\n";
             }
             other => panic!("expected TurnCompleted, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn parse_reasoning_delta_emits_thinking_delta() {
+        let input = "event: response.reasoning.delta\ndata: {\"type\":\"response.reasoning.delta\",\"delta\":{\"id\":\"rs_abc123\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"Let me think about\"}]}}\n\n";
+        let state = ResponsesSseState::default();
+        let events = parse_responses_sse_lines(input, &state);
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            Ok(StreamEvent::ThinkingDelta { content }) => {
+                assert_eq!(content, "Let me think about");
+            }
+            other => panic!("expected ThinkingDelta, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_reasoning_delta_multiple_summary_parts() {
+        let input = "event: response.reasoning.delta\ndata: {\"type\":\"response.reasoning.delta\",\"delta\":{\"id\":\"rs_abc123\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"First part\"},{\"type\":\"summary_text\",\"text\":\" second part\"}]}}\n\n";
+        let state = ResponsesSseState::default();
+        let events = parse_responses_sse_lines(input, &state);
+        assert_eq!(events.len(), 2);
+        match &events[0] {
+            Ok(StreamEvent::ThinkingDelta { content }) => {
+                assert_eq!(content, "First part");
+            }
+            other => panic!("expected first ThinkingDelta, got {:?}", other),
+        }
+        match &events[1] {
+            Ok(StreamEvent::ThinkingDelta { content }) => {
+                assert_eq!(content, " second part");
+            }
+            other => panic!("expected second ThinkingDelta, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_reasoning_delta_skips_empty_text() {
+        let input = "event: response.reasoning.delta\ndata: {\"type\":\"response.reasoning.delta\",\"delta\":{\"id\":\"rs_abc123\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"\"}]}}\n\n";
+        let state = ResponsesSseState::default();
+        let events = parse_responses_sse_lines(input, &state);
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn parse_reasoning_done_emits_thinking_block_completed() {
+        let input = "event: response.reasoning.done\ndata: {\"type\":\"response.reasoning.done\",\"data\":{\"id\":\"rs_abc123\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"full reasoning\"}],\"encrypted_content\":\"enc_abc123xyz\"}}\n\n";
+        let state = ResponsesSseState::default();
+        let events = parse_responses_sse_lines(input, &state);
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            Ok(StreamEvent::ThinkingBlockCompleted {
+                block_type,
+                signature,
+                data,
+            }) => {
+                assert_eq!(block_type, "reasoning");
+                assert!(signature.is_empty());
+                assert_eq!(data, "enc_abc123xyz");
+            }
+            other => panic!("expected ThinkingBlockCompleted, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_reasoning_done_skips_empty_encrypted_content() {
+        let input = "event: response.reasoning.done\ndata: {\"type\":\"response.reasoning.done\",\"data\":{\"id\":\"rs_abc123\",\"summary\":[]}}\n\n";
+        let state = ResponsesSseState::default();
+        let events = parse_responses_sse_lines(input, &state);
+        assert!(events.is_empty());
     }
 }

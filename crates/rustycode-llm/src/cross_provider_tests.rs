@@ -326,7 +326,7 @@ fn cross_provider_thinking_block() {
         ]),
     };
 
-    // Anthropic: thinking block is converted to text representation
+    // Anthropic: thinking block is preserved with signature for multi-turn round-tripping
     let anthropic = AnthropicProvider::new(anthropic_config(), "claude-sonnet-4-6".into()).unwrap();
     let a_msgs = anthropic.parse_conversation_messages(&[msg.clone()]);
     assert_eq!(a_msgs.len(), 1);
@@ -334,14 +334,13 @@ fn cross_provider_thinking_block() {
     match &a_msgs[0].content {
         AnthropicRequestContent::Blocks(blocks) => {
             assert_eq!(blocks.len(), 2);
-            // Thinking block is converted to text with thinking content
             let think_json = serde_json::to_value(&blocks[0]).unwrap();
-            assert_eq!(think_json["type"], "text");
-            assert!(think_json["text"]
+            assert_eq!(think_json["type"], "thinking");
+            assert!(think_json["thinking"]
                 .as_str()
                 .unwrap()
                 .contains("Let me reason about this"));
-            // Text block works fine
+            assert_eq!(think_json["signature"], "sig_abc123");
             let text_json = serde_json::to_value(&blocks[1]).unwrap();
             assert_eq!(text_json["type"], "text");
             assert_eq!(text_json["text"], "Here is my answer.");

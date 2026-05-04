@@ -66,6 +66,7 @@ impl SyncEvent {
             &self.payload,
             StreamEvent::TextDelta { .. }
                 | StreamEvent::ThinkingDelta { .. }
+                | StreamEvent::ThinkingBlockCompleted { .. }
                 | StreamEvent::ToolInputDelta { .. }
                 | StreamEvent::TokenUsage { .. }
         )

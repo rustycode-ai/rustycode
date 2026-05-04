@@ -145,6 +145,17 @@ pub enum ContentBlock {
         signature: String,
     },
 
+    /// Redacted thinking content block (extended thinking with encrypted content)
+    ///
+    /// When Claude's internal reasoning is flagged by safety systems, the thinking content
+    /// is encrypted and returned as a `redacted_thinking` block. These MUST be passed back
+    /// to the API unchanged to preserve context across multi-turn conversations.
+    #[serde(rename = "redacted_thinking")]
+    RedactedThinking {
+        /// Encrypted thinking data — must be passed back to the API unchanged
+        data: String,
+    },
+
     /// Tool result content block (response to a tool_use)
     /// Must be sent as part of a user message following an assistant message with tool_use blocks.
     #[serde(rename = "tool_result")]
@@ -219,8 +230,8 @@ impl ContentBlock {
             Self::Image { cache_control, .. } => {
                 *cache_control = Some(CacheControl { cache_type });
             }
-            Self::ToolUse { .. } | Self::Thinking { .. } | Self::ToolResult { .. } => {
-                // ToolUse, Thinking, and ToolResult blocks don't support caching - no-op
+            Self::ToolUse { .. } | Self::Thinking { .. } | Self::RedactedThinking { .. } | Self::ToolResult { .. } => {
+                // ToolUse, Thinking, RedactedThinking, and ToolResult blocks don't support caching
             }
         }
         self
@@ -244,6 +255,13 @@ impl ContentBlock {
         Self::Thinking {
             thinking: thinking.into(),
             signature: signature.into(),
+        }
+    }
+
+    /// Create a redacted thinking content block
+    pub fn redacted_thinking(data: impl Into<String>) -> Self {
+        Self::RedactedThinking {
+            data: data.into(),
         }
     }
 
@@ -272,7 +290,7 @@ impl ContentBlock {
         match self {
             Self::Text { cache_control, .. } => cache_control.is_some(),
             Self::Image { cache_control, .. } => cache_control.is_some(),
-            Self::ToolUse { .. } | Self::Thinking { .. } | Self::ToolResult { .. } => false,
+            Self::ToolUse { .. } | Self::Thinking { .. } | Self::RedactedThinking { .. } | Self::ToolResult { .. } => false,
         }
     }
 }
@@ -365,6 +383,7 @@ impl MessageContent {
                         format!("[Tool use: {} ({})]", name, id)
                     }
                     ContentBlock::Thinking { .. } => "[Thinking]".to_string(),
+                    ContentBlock::RedactedThinking { .. } => "[Redacted thinking]".to_string(),
                     ContentBlock::ToolResult {
                         content, is_error, ..
                     } => {
@@ -406,6 +425,7 @@ impl MessageContent {
                     ContentBlock::Image { .. } => 7, // "[Image]" placeholder length
                     ContentBlock::ToolUse { .. } => 9, // "[Tool use]" placeholder length
                     ContentBlock::Thinking { .. } => 10, // "[Thinking]" placeholder length
+                    ContentBlock::RedactedThinking { .. } => 18, // "[Redacted thinking]" placeholder length
                     ContentBlock::ToolResult { .. } => 12, // "[Tool result]" placeholder length
                 })
                 .sum(),
@@ -481,6 +501,9 @@ impl fmt::Display for MessageContent {
                         }
                         ContentBlock::Thinking { .. } => {
                             write!(f, "[Thinking]")?;
+                        }
+                        ContentBlock::RedactedThinking { .. } => {
+                            write!(f, "[Redacted thinking]")?;
                         }
                         ContentBlock::ToolResult {
                             tool_use_id,

@@ -442,6 +442,8 @@ impl OpenRouterProvider {
             previous_response_id: None,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
+            reasoning: None,
+            include: None,
         };
 
         let req = build_request!(
@@ -537,6 +539,8 @@ impl OpenRouterProvider {
             previous_response_id: None,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
+            reasoning: None,
+            include: None,
         };
 
         let req = build_request!(

@@ -661,6 +661,8 @@ impl OpenAiProvider {
             previous_response_id: prev_id,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
+            reasoning: None,
+            include: None,
         };
 
         let req = build_request!(
@@ -765,6 +767,8 @@ impl OpenAiProvider {
             previous_response_id: prev_id,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
+            reasoning: None,
+            include: None,
         };
 
         let req = build_request!(
@@ -890,6 +894,8 @@ impl OpenAiProvider {
             previous_response_id: prev_id,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
+            reasoning: None,
+            include: None,
         };
 
         let body_json = serde_json::to_value(&body)
@@ -1059,7 +1065,7 @@ impl LLMProvider for OpenAiProvider {
 }
 
 impl OpenAiProvider {
-    /// Check if a model is a reasoning model (o-series or GLM-5.x).
+    /// Check if a model is a reasoning model (o-series, GPT-5.x, or GLM-5.x).
     fn is_reasoning_model(model: &str) -> bool {
         // o-series: o1, o3, o4-mini, etc.
         if model.starts_with('o')
@@ -1068,6 +1074,10 @@ impl OpenAiProvider {
                 .next()
                 .is_some_and(|c| c.is_ascii_digit())
         {
+            return true;
+        }
+        // GPT-5.x models support reasoning
+        if model.starts_with("gpt-5") {
             return true;
         }
         // GLM-5.x reasoning models (z.ai)
@@ -1223,8 +1233,8 @@ impl OpenAiProvider {
 
     /// Build the request body with proper parameter selection based on model type.
     ///
-    /// - Reasoning models (o-series): use `max_completion_tokens` instead of deprecated `max_tokens`,
-    ///   and include `reasoning_effort` if provided.
+    /// - Reasoning models (o-series, GPT-5.x, GLM-5.x): use `max_completion_tokens` instead of
+    ///   deprecated `max_tokens`, and include `reasoning_effort` if provided.
     /// - Standard models: use `max_tokens`.
     #[allow(clippy::too_many_arguments)]
     fn build_request_body(
@@ -1242,24 +1252,21 @@ impl OpenAiProvider {
         session_id: Option<&String>,
     ) -> OpenAiRequest {
         let (max_tokens, max_completion_tokens) = if Self::is_reasoning_model(&model) {
-            // o-series models require max_completion_tokens (max_tokens is not supported)
+            // Reasoning models require max_completion_tokens (max_tokens is not supported)
             (None, max_tokens)
         } else {
             // Standard models use max_tokens (max_completion_tokens also works but keep compat)
             (max_tokens, None)
         };
 
-        // reasoning_effort only valid for o-series models
+        // reasoning_effort valid for o-series, GPT-5.x, and GLM-5.x models
         let reasoning_effort = if Self::is_reasoning_model(&model) {
             effort.map(|e| match e {
                 crate::provider::EffortLevel::Low => "low".to_string(),
                 crate::provider::EffortLevel::Medium => "medium".to_string(),
                 crate::provider::EffortLevel::High => "high".to_string(),
-                crate::provider::EffortLevel::Xhigh => {
-                    tracing::info!("effort xhigh not supported by OpenAI, using high");
-                    "high".to_string()
-                }
-                crate::provider::EffortLevel::Max => "high".to_string(),
+                crate::provider::EffortLevel::Xhigh => "xhigh".to_string(),
+                crate::provider::EffortLevel::Max => "xhigh".to_string(),
             })
         } else {
             None
@@ -2211,8 +2218,12 @@ mod tests {
         assert!(OpenAiProvider::is_reasoning_model("o4-mini"));
         assert!(OpenAiProvider::is_reasoning_model("glm-5.1"));
         assert!(OpenAiProvider::is_reasoning_model("glm-5"));
+        // GPT-5.x models support reasoning
+        assert!(OpenAiProvider::is_reasoning_model("gpt-5"));
+        assert!(OpenAiProvider::is_reasoning_model("gpt-5.2"));
+        assert!(OpenAiProvider::is_reasoning_model("gpt-5.1-mini"));
+        // Non-reasoning models
         assert!(!OpenAiProvider::is_reasoning_model("gpt-4o"));
-        assert!(!OpenAiProvider::is_reasoning_model("gpt-5.2"));
         assert!(!OpenAiProvider::is_reasoning_model("optimum"));
         assert!(!OpenAiProvider::is_reasoning_model("glm-4"));
     }
@@ -3512,11 +3523,11 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
         );
         assert_eq!(body.max_tokens, None);
         assert_eq!(body.max_completion_tokens, Some(8192));
-        assert_eq!(body.reasoning_effort, Some("high".to_string()));
+        assert_eq!(body.reasoning_effort, Some("xhigh".to_string()));
 
         let json = serde_json::to_string(&body).unwrap();
         assert!(json.contains("\"max_completion_tokens\":8192"));
-        assert!(json.contains("\"reasoning_effort\":\"high\""));
+        assert!(json.contains("\"reasoning_effort\":\"xhigh\""));
         assert!(!json.contains("\"max_tokens\":"));
     }
 
@@ -3529,8 +3540,8 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             (crate::provider::EffortLevel::Low, "low"),
             (crate::provider::EffortLevel::Medium, "medium"),
             (crate::provider::EffortLevel::High, "high"),
-            (crate::provider::EffortLevel::Xhigh, "high"),
-            (crate::provider::EffortLevel::Max, "high"),
+            (crate::provider::EffortLevel::Xhigh, "xhigh"),
+            (crate::provider::EffortLevel::Max, "xhigh"),
         ];
 
         for (effort, expected_str) in cases {
@@ -3560,9 +3571,9 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
     #[test]
     fn test_build_request_body_standard_model_no_effort() {
         let provider =
-            OpenAiProvider::new(make_config(Some("sk-test")), "gpt-5.2".to_string()).unwrap();
+            OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
         let body = provider.build_request_body(
-            "gpt-5.2".to_string(),
+            "gpt-4o".to_string(),
             vec![],
             vec![],
             Some(2048),

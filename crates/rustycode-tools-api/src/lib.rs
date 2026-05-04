@@ -332,6 +332,21 @@ pub struct ToolInfo {
     pub tags: Vec<ToolTag>,
 }
 
+impl ToolInfo {
+    /// Construct `ToolInfo` from any Tool trait object.
+    fn from_tool(tool: &dyn Tool) -> Self {
+        Self {
+            name: tool.name().to_string(),
+            description: tool.description().to_string(),
+            parameters_schema: tool.parameters_schema(),
+            permission: tool.permission(),
+            defer_loading: tool.defer_loading(),
+            annotations: None,
+            tags: tool.tags().to_vec(),
+        }
+    }
+}
+
 /// A trait for providing access to tool metadata, allowing decoupling of
 /// tool discovery from the concrete registry implementation.
 pub trait ToolMetadataProvider: Send + Sync {
@@ -368,15 +383,7 @@ impl ToolRegistry {
         let mut infos: Vec<ToolInfo> = self
             .tools
             .values()
-            .map(|t| ToolInfo {
-                name: t.name().to_string(),
-                description: t.description().to_string(),
-                parameters_schema: t.parameters_schema(),
-                permission: t.permission(),
-                defer_loading: t.defer_loading(),
-                annotations: None,
-                tags: t.tags().to_vec(),
-            })
+            .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
         infos
@@ -396,15 +403,7 @@ impl ToolRegistry {
                 let tool_tags = t.tags();
                 required_tags.iter().any(|rt| tool_tags.contains(rt))
             })
-            .map(|t| ToolInfo {
-                name: t.name().to_string(),
-                description: t.description().to_string(),
-                parameters_schema: t.parameters_schema(),
-                permission: t.permission(),
-                defer_loading: t.defer_loading(),
-                annotations: None,
-                tags: t.tags().to_vec(),
-            })
+            .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
         infos
@@ -422,15 +421,7 @@ impl ToolRegistry {
             .tools
             .values()
             .filter(|t| t.name() == "tool_search" || t.defer_loading() != Some(true))
-            .map(|t| ToolInfo {
-                name: t.name().to_string(),
-                description: t.description().to_string(),
-                parameters_schema: t.parameters_schema(),
-                permission: t.permission(),
-                defer_loading: t.defer_loading(),
-                annotations: None,
-                tags: t.tags().to_vec(),
-            })
+            .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
         infos
@@ -445,21 +436,16 @@ impl ToolRegistry {
             .filter(|t| t.name() != "tool_search" && t.defer_loading() == Some(true))
             .map(|t| {
                 let first_line = t.description().lines().next().unwrap_or("");
-                ToolInfo {
-                    name: t.name().to_string(),
-                    description: format!(
-                        "{first_line}\n\n(Deferred tool — call tool_search with name \"{}\" to load full schema.)",
-                        t.name()
-                    ),
-                    parameters_schema: serde_json::json!({
-                        "type": "object",
-                        "properties": {}
-                    }),
-                    permission: t.permission(),
-                    defer_loading: Some(true),
-                    annotations: None,
-                    tags: t.tags().to_vec(),
-                }
+                let mut info = ToolInfo::from_tool(t.as_ref());
+                info.description = format!(
+                    "{first_line}\n\n(Deferred tool — call tool_search with name \"{}\" to load full schema.)",
+                    t.name()
+                );
+                info.parameters_schema = serde_json::json!({
+                    "type": "object",
+                    "properties": {}
+                });
+                info
             })
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
@@ -501,15 +487,7 @@ impl ToolMetadataProvider for ToolRegistry {
     }
 
     fn get_tool_info(&self, name: &str) -> Option<ToolInfo> {
-        self.get(name).map(|t| ToolInfo {
-            name: t.name().to_string(),
-            description: t.description().to_string(),
-            parameters_schema: t.parameters_schema(),
-            permission: t.permission(),
-            defer_loading: t.defer_loading(),
-            annotations: None,
-            tags: t.tags().to_vec(),
-        })
+        self.get(name).map(ToolInfo::from_tool)
     }
 }
 /// Todo item status

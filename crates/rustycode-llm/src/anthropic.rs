@@ -154,7 +154,7 @@ pub(crate) enum AnthropicRequestContent {
 }
 
 /// Content for tool_result blocks: either a plain string or an array of typed blocks.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(untagged)]
 pub(crate) enum ToolResultContent {
     Text(String),
@@ -170,6 +170,15 @@ impl PartialEq<&str> for ToolResultContent {
     }
 }
 
+impl PartialEq<str> for ToolResultContent {
+    fn eq(&self, other: &str) -> bool {
+        match self {
+            Self::Text(s) => s == other,
+            _ => false,
+        }
+    }
+}
+
 impl PartialEq<String> for ToolResultContent {
     fn eq(&self, other: &String) -> bool {
         match self {
@@ -180,7 +189,7 @@ impl PartialEq<String> for ToolResultContent {
 }
 
 /// A single block inside a tool_result content array.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
 pub(crate) struct ToolResultBlock {
     #[serde(rename = "type")]
     pub(crate) block_type: &'static str,
@@ -188,7 +197,7 @@ pub(crate) struct ToolResultBlock {
     pub(crate) text: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug)]
 #[serde(untagged)]
 pub(crate) enum ContentBlock {
     Text {
@@ -1051,6 +1060,12 @@ impl AnthropicProvider {
                                     content_type: "thinking",
                                     thinking: thinking.clone(),
                                     signature: signature.clone(),
+                                }
+                            }
+                            rustycode_protocol::ContentBlock::RedactedThinking { data } => {
+                                ContentBlock::RedactedThinking {
+                                    content_type: "redacted_thinking",
+                                    data: data.clone(),
                                 }
                             }
                             _ => ContentBlock::Text {
@@ -2758,8 +2773,8 @@ mod tests {
     }
 
     #[test]
-    fn test_roundtrip_thinking_block_becomes_text() {
-        // Thinking blocks are converted to text representation
+    fn test_roundtrip_thinking_block_preserved() {
+        // Thinking blocks are preserved as thinking blocks (with signature) for multi-turn
         let provider = make_anthropic_provider();
         let msgs = vec![ChatMessage {
             role: MessageRole::Assistant,
@@ -2767,8 +2782,17 @@ mod tests {
         }];
         let result = provider.parse_conversation_messages(&msgs);
         assert_eq!(result.len(), 1);
-        let text = extract_anthropic_text(&result[0].content).unwrap();
-        assert!(text.contains("deep thought"));
+        match &result[0].content {
+            AnthropicRequestContent::Blocks(blocks) => {
+                assert_eq!(blocks.len(), 1);
+                // Thinking block is preserved with thinking content and signature
+                let think_json = serde_json::to_value(&blocks[0]).unwrap();
+                assert_eq!(think_json["type"], "thinking");
+                assert_eq!(think_json["thinking"], "deep thought");
+                assert_eq!(think_json["signature"], "sig123");
+            }
+            other => panic!("expected Blocks, got {:?}", other),
+        }
     }
 
     #[test]

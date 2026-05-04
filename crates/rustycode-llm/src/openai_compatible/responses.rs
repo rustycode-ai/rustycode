@@ -7,6 +7,35 @@
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
+// Reasoning types
+// ---------------------------------------------------------------------------
+
+/// Reasoning configuration for the Responses API.
+///
+/// Controls reasoning effort and summary mode for o-series and GPT-5.x models.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ResponsesApiReasoning {
+    /// Reasoning effort: "none", "minimal", "low", "medium", "high", "xhigh"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
+    /// Summary mode: "auto", "concise", "detailed", "none" (default: "auto" for reasoning models)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    /// Encrypted reasoning content from a previous response (for stateless mode).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encrypted_content: Option<String>,
+}
+
+/// A reasoning summary part.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
+pub enum ResponsesApiReasoningSummary {
+    /// A text summary of the model's reasoning.
+    #[serde(rename = "summary_text")]
+    SummaryText { text: String },
+}
+
+// ---------------------------------------------------------------------------
 // Request
 // ---------------------------------------------------------------------------
 
@@ -34,6 +63,13 @@ pub struct ResponsesApiRequest {
     pub tool_choice: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parallel_tool_calls: Option<bool>,
+    /// Reasoning configuration for o-series and GPT-5.x models.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<ResponsesApiReasoning>,
+    /// Controls which content the API includes in the response.
+    /// E.g., "reasoning_encrypted_content" to get encrypted reasoning for stateless mode.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include: Option<Vec<String>>,
 }
 
 /// Tagged input item for the Responses API.
@@ -148,6 +184,18 @@ pub enum ResponsesApiOutputItem {
         #[serde(default)]
         arguments: String,
     },
+    /// Reasoning output from the model (o-series, GPT-5.x).
+    #[serde(rename = "reasoning")]
+    Reasoning {
+        #[serde(default)]
+        id: String,
+        /// Reasoning summaries (when summary mode is enabled).
+        #[serde(default)]
+        summary: Vec<ResponsesApiReasoningSummary>,
+        /// Encrypted reasoning content for stateless conversations.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        encrypted_content: Option<String>,
+    },
 }
 
 /// Content part within an output message.
@@ -193,11 +241,11 @@ pub struct ResponsesApiOutputTokenDetails {
 // Conversion helpers
 // ---------------------------------------------------------------------------
 
-use crate::provider::{CompletionResponse, Usage, normalize_stop_reason, ProviderError};
+use crate::provider::{CompletionResponse, ThinkingBlock, Usage, normalize_stop_reason, ProviderError};
 
 /// Build a `CompletionResponse` from a Responses API response.
 ///
-/// Extracts text content, tool calls, and usage from the typed `output` array.
+/// Extracts text content, tool calls, reasoning summaries, and usage from the typed `output` array.
 pub fn build_responses_completion_response(
     resp: &ResponsesApiResponse,
 ) -> Result<CompletionResponse, ProviderError> {
@@ -205,6 +253,7 @@ pub fn build_responses_completion_response(
 
     let mut text_parts: Vec<String> = Vec::new();
     let mut tool_calls: Vec<ProtoContentBlock> = Vec::new();
+    let mut thinking_blocks: Vec<ThinkingBlock> = Vec::new();
 
     for item in &resp.output {
         match item {
@@ -241,6 +290,38 @@ pub fn build_responses_completion_response(
                     name: name.clone(),
                     input,
                 });
+            }
+            ResponsesApiOutputItem::Reasoning {
+                summary,
+                encrypted_content,
+                ..
+            } => {
+                let summary_text: String = summary
+                    .iter()
+                    .filter_map(|s| match s {
+                        ResponsesApiReasoningSummary::SummaryText { text } => {
+                            if text.is_empty() {
+                                None
+                            } else {
+                                Some(text.as_str())
+                            }
+                        }
+                    })
+                    .collect::<Vec<&str>>()
+                    .join("\n");
+
+                let has_encrypted = encrypted_content
+                    .as_ref()
+                    .is_some_and(|e| !e.is_empty());
+
+                if !summary_text.is_empty() || has_encrypted {
+                    thinking_blocks.push(ThinkingBlock {
+                        block_type: "thinking".to_string(),
+                        thinking: summary_text,
+                        signature: String::new(),
+                        data: encrypted_content.clone().unwrap_or_default(),
+                    });
+                }
             }
         }
     }
@@ -310,7 +391,11 @@ pub fn build_responses_completion_response(
         usage,
         stop_reason: normalize_stop_reason(stop_reason),
         citations: None,
-        thinking_blocks: None,
+        thinking_blocks: if thinking_blocks.is_empty() {
+            None
+        } else {
+            Some(thinking_blocks)
+        },
         structured_output: None,
     })
 }
@@ -335,11 +420,15 @@ mod tests {
             previous_response_id: None,
             tool_choice: None,
             parallel_tool_calls: None,
+            reasoning: None,
+            include: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("instructions"));
         assert!(!json.contains("tools"));
         assert!(!json.contains("stream"));
+        assert!(!json.contains("reasoning"));
+        assert!(!json.contains("include"));
         assert!(json.contains("\"model\":\"gpt-4o\""));
         assert!(json.contains("\"type\":\"message\""));
     }
@@ -482,5 +571,216 @@ mod tests {
         };
         let json = serde_json::to_string(&part).unwrap();
         assert!(json.contains("\"type\":\"input_text\""));
+    }
+
+    // ----- Reasoning tests -----
+
+    #[test]
+    fn reasoning_config_serializes_with_skip_none() {
+        let config = ResponsesApiReasoning {
+            effort: Some("high".to_string()),
+            summary: None,
+            encrypted_content: None,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"effort\":\"high\""));
+        assert!(!json.contains("summary"));
+        assert!(!json.contains("encrypted_content"));
+    }
+
+    #[test]
+    fn reasoning_config_roundtrip_all_fields() {
+        let config = ResponsesApiReasoning {
+            effort: Some("medium".to_string()),
+            summary: Some("detailed".to_string()),
+            encrypted_content: Some("abc123".to_string()),
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        let parsed: ResponsesApiReasoning = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.effort.as_deref(), Some("medium"));
+        assert_eq!(parsed.summary.as_deref(), Some("detailed"));
+        assert_eq!(parsed.encrypted_content.as_deref(), Some("abc123"));
+    }
+
+    #[test]
+    fn reasoning_summary_deserialize() {
+        let json = r#"{"type":"summary_text","text":"The model reasoned about..."}"#;
+        let parsed: ResponsesApiReasoningSummary = serde_json::from_str(json).unwrap();
+        let ResponsesApiReasoningSummary::SummaryText { text } = parsed;
+        assert_eq!(text, "The model reasoned about...");
+    }
+
+    #[test]
+    fn reasoning_output_item_deserialize() {
+        let json = r#"{
+            "type": "reasoning",
+            "id": "rs_abc123",
+            "summary": [
+                {"type": "summary_text", "text": "First step"},
+                {"type": "summary_text", "text": "Second step"}
+            ],
+            "encrypted_content": "enc_xyz789"
+        }"#;
+        let parsed: ResponsesApiOutputItem = serde_json::from_str(json).unwrap();
+        if let ResponsesApiOutputItem::Reasoning {
+            id,
+            summary,
+            encrypted_content,
+        } = parsed
+        {
+            assert_eq!(id, "rs_abc123");
+            assert_eq!(summary.len(), 2);
+            assert_eq!(encrypted_content.as_deref(), Some("enc_xyz789"));
+        } else {
+            panic!("expected Reasoning variant");
+        }
+    }
+
+    #[test]
+    fn reasoning_output_item_deserialize_minimal() {
+        // Minimal reasoning item with no summary or encrypted content
+        let json = r#"{"type": "reasoning", "id": "rs_min"}"#;
+        let parsed: ResponsesApiOutputItem = serde_json::from_str(json).unwrap();
+        if let ResponsesApiOutputItem::Reasoning {
+            id,
+            summary,
+            encrypted_content,
+        } = parsed
+        {
+            assert_eq!(id, "rs_min");
+            assert!(summary.is_empty());
+            assert!(encrypted_content.is_none());
+        } else {
+            panic!("expected Reasoning variant");
+        }
+    }
+
+    #[test]
+    fn request_with_reasoning_and_include() {
+        let req = ResponsesApiRequest {
+            model: "o3".to_string(),
+            input: vec![ResponsesApiInputItem::Message {
+                role: "user".to_string(),
+                content: ResponsesApiContent::text("solve this"),
+            }],
+            instructions: None,
+            tools: None,
+            temperature: None,
+            max_output_tokens: None,
+            stream: None,
+            previous_response_id: None,
+            tool_choice: None,
+            parallel_tool_calls: None,
+            reasoning: Some(ResponsesApiReasoning {
+                effort: Some("high".to_string()),
+                summary: Some("auto".to_string()),
+                encrypted_content: None,
+            }),
+            include: Some(vec![
+                "reasoning_encrypted_content".to_string(),
+            ]),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("\"reasoning\":{"));
+        assert!(json.contains("\"effort\":\"high\""));
+        assert!(json.contains("\"summary\":\"auto\""));
+        assert!(json.contains("\"include\":[\"reasoning_encrypted_content\"]"));
+    }
+
+    #[test]
+    fn build_responses_completion_response_extracts_reasoning() {
+        let resp = ResponsesApiResponse {
+            id: "resp_reasoning_1".to_string(),
+            model: "o3".to_string(),
+            output: vec![
+                ResponsesApiOutputItem::Reasoning {
+                    id: "rs_001".to_string(),
+                    summary: vec![
+                        ResponsesApiReasoningSummary::SummaryText {
+                            text: "First, I need to analyze the problem.".to_string(),
+                        },
+                        ResponsesApiReasoningSummary::SummaryText {
+                            text: "Then, I should check edge cases.".to_string(),
+                        },
+                    ],
+                    encrypted_content: Some("enc_data_abc".to_string()),
+                },
+                ResponsesApiOutputItem::Message {
+                    id: "msg_001".to_string(),
+                    role: "assistant".to_string(),
+                    content: vec![ResponsesApiOutputContent::OutputText {
+                        text: "The answer is 42.".to_string(),
+                    }],
+                },
+            ],
+            status: "completed".to_string(),
+            usage: Some(ResponsesApiUsage {
+                input_tokens: 100,
+                output_tokens: 50,
+                total_tokens: 150,
+                input_tokens_details: None,
+                output_tokens_details: None,
+            }),
+        };
+        let result = build_responses_completion_response(&resp).unwrap();
+        assert_eq!(result.content, "The answer is 42.");
+        let blocks = result.thinking_blocks.expect("should have thinking blocks");
+        assert_eq!(blocks.len(), 1);
+        assert_eq!(blocks[0].block_type, "thinking");
+        assert!(blocks[0].thinking.contains("First, I need to analyze the problem."));
+        assert!(blocks[0].thinking.contains("Then, I should check edge cases."));
+        assert_eq!(blocks[0].data, "enc_data_abc");
+        assert!(blocks[0].signature.is_empty());
+    }
+
+    #[test]
+    fn build_responses_completion_response_reasoning_empty_skipped() {
+        // Reasoning item with empty summary and no encrypted content should not produce a thinking block
+        let resp = ResponsesApiResponse {
+            id: "resp_empty_reasoning".to_string(),
+            model: "o3".to_string(),
+            output: vec![
+                ResponsesApiOutputItem::Reasoning {
+                    id: "rs_empty".to_string(),
+                    summary: vec![],
+                    encrypted_content: None,
+                },
+                ResponsesApiOutputItem::Message {
+                    id: "msg_002".to_string(),
+                    role: "assistant".to_string(),
+                    content: vec![ResponsesApiOutputContent::OutputText {
+                        text: "Hello".to_string(),
+                    }],
+                },
+            ],
+            status: "completed".to_string(),
+            usage: None,
+        };
+        let result = build_responses_completion_response(&resp).unwrap();
+        assert_eq!(result.content, "Hello");
+        assert!(result.thinking_blocks.is_none());
+    }
+
+    #[test]
+    fn build_responses_completion_response_reasoning_encrypted_only() {
+        // Reasoning item with only encrypted content (no summary text) still produces a thinking block
+        let resp = ResponsesApiResponse {
+            id: "resp_enc_only".to_string(),
+            model: "o3".to_string(),
+            output: vec![
+                ResponsesApiOutputItem::Reasoning {
+                    id: "rs_enc".to_string(),
+                    summary: vec![],
+                    encrypted_content: Some("enc_only_data".to_string()),
+                },
+            ],
+            status: "completed".to_string(),
+            usage: None,
+        };
+        let result = build_responses_completion_response(&resp).unwrap();
+        let blocks = result.thinking_blocks.expect("should have thinking blocks");
+        assert_eq!(blocks.len(), 1);
+        assert!(blocks[0].thinking.is_empty());
+        assert_eq!(blocks[0].data, "enc_only_data");
     }
 }
