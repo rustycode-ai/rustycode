@@ -713,15 +713,14 @@ impl LLMProvider for CohereProvider {
         }
 
         let bytes_stream = response.bytes_stream();
-        let line_buffer = crate::sse::SseLineBuffer::new();
+        let line_buffer = crate::sse::SseByteBuffer::new();
 
         let sse_stream = bytes_stream.map(move |chunk_result| -> StreamChunk {
             let chunk = chunk_result
                 .map_err(|e| ProviderError::Network(format!("failed to read chunk: {}", e)))?;
-            let text = String::from_utf8_lossy(&chunk);
             let mut chunks = Vec::new();
 
-            let lines = line_buffer.feed_chunk(&text);
+            let lines = line_buffer.feed_chunk(&chunk);
             for line in &lines {
                 if line.starts_with("data: ") {
                     let json_str = line.trim_start_matches("data: ").trim();

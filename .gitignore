@@ -64,6 +64,7 @@ benchmark_results/
 bench-tasks/
 crates/rustycode-session/sessions/
 crates/rustycode-runtime/benchmark_results/
+crates/rustycode-web/e2e/cdp-usability-screenshots/
 *.exp
 *.tar.gz
 *.deb

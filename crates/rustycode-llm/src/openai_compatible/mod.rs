@@ -28,9 +28,9 @@ pub mod tools;
 pub mod types;
 
 // Re-export commonly used items
-pub use errors::map_http_error;
+pub use errors::{build_request_with_auth, map_http_error};
 pub use messages::{convert_messages_simple, convert_messages_with_system};
 pub use response::build_completion_response;
-pub use sse::{parse_openai_sse_lines, SseParseConfig};
+pub use sse::{parse_openai_sse_lines, SseParseConfig, SseParseState};
 pub use tools::format_tool_calls_to_content;
 pub use types::*;

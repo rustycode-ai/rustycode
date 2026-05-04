@@ -2,7 +2,7 @@
 
 use super::tools::append_tool_calls_to_content;
 use super::types::{OpenAiCompatibleResponse, OpenAiCompatibleUsage};
-use crate::provider::{CompletionResponse, ProviderError, Usage};
+use crate::provider::{normalize_stop_reason, CompletionResponse, ProviderError, Usage};
 
 /// Build a CompletionResponse from OpenAI-compatible response parts.
 ///
@@ -54,7 +54,7 @@ pub fn build_completion_response(
         content,
         model: response.model.clone(),
         usage,
-        stop_reason: choice.finish_reason.clone(),
+        stop_reason: normalize_stop_reason(choice.finish_reason.as_deref()),
         citations: None,
         thinking_blocks: choice.message.reasoning_content.clone().map(|r| {
             vec![crate::provider::ThinkingBlock {

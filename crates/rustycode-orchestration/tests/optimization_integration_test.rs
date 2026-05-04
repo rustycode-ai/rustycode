@@ -61,17 +61,17 @@ mod integration_tests {
     fn test_summarization_reduces_tokens() {
         let summarizer = ResultSummarizer::new(Default::default());
 
-        let original = "key data: value
-[DEBUG] internal state: 12345
-[DEBUG] processing step 1 of 100
-[DEBUG] step 2
-[ERROR] unexpected error occurred
-[DEBUG] step 3
-Final result: success";
+        // Input must exceed max_output_chars (2000) to trigger summarization
+        let mut original = String::from("key data: value\n");
+        for i in 0..200 {
+            original.push_str(&format!("[DEBUG] processing step {i} of 100\n"));
+        }
+        original.push_str("[ERROR] unexpected error occurred\n");
+        original.push_str("Final result: success\n");
 
-        let summary = summarizer.summarize("bash", original).unwrap();
+        let summary = summarizer.summarize("bash", &original).unwrap();
 
-        let original_tokens = summarizer.estimate_tokens(original);
+        let original_tokens = summarizer.estimate_tokens(&original);
         let summary_tokens = summarizer.estimate_tokens(&summary);
 
         // Summarization should reduce tokens

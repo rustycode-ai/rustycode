@@ -1437,8 +1437,8 @@ impl OpenAiProvider {
         // Convert bytes stream to SSE stream
         let bytes_stream = response.bytes_stream();
 
-        // Parse SSE events from byte stream using the shared parse_sse_lines helper
-        let line_buffer = Arc::new(std::sync::Mutex::new(String::new()));
+        // Parse SSE events from byte stream using the shared SseByteBuffer + parse_sse_lines helper
+        let line_buffer = crate::sse::SseByteBuffer::new();
         let sse_stream = bytes_stream.flat_map(move |chunk_result| {
             let chunk = match chunk_result {
                 Ok(c) => c,
@@ -1447,25 +1447,8 @@ impl OpenAiProvider {
                 }
             };
 
-            let text = String::from_utf8_lossy(chunk.as_ref());
-            let mut buffer = line_buffer.lock().unwrap_or_else(|e| e.into_inner());
-            buffer.push_str(&text);
-
-            // Guard against unbounded buffer growth (malformed SSE with no newlines)
-            const MAX_SSE_BUFFER: usize = 1 << 20; // 1 MiB
-            if buffer.len() > MAX_SSE_BUFFER {
-                tracing::warn!("SSE buffer exceeded {} bytes, truncating", MAX_SSE_BUFFER);
-                buffer.clear();
-            }
-
-            // Extract complete lines (up to the last newline)
-            let current = std::mem::take(&mut *buffer);
-            let (complete_lines, remainder) = match current.rfind('\n') {
-                Some(pos) => (current[..pos].to_string(), current[pos + 1..].to_string()),
-                None => (String::new(), current),
-            };
-            *buffer = remainder;
-            drop(buffer);
+            let lines = line_buffer.feed_chunk(&chunk);
+            let complete_lines = lines.join("\n");
 
             let events = Self::parse_sse_lines_stream_events(&complete_lines);
 

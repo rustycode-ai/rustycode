@@ -22,153 +22,55 @@
 //! api_key = "your-api-key"
 //! ```
 
+use crate::openai_compatible::{
+    build_completion_response, build_request_with_auth, map_http_error,
+    parse_openai_sse_lines, OpenAiCompatibleMessage, OpenAiCompatibleResponse, OpenAiFunction,
+    OpenAiToolCall, SseParseConfig, SseParseState,
+};
 use crate::provider::{
-    CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
-    Usage,
+    build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,
+    ProviderConfig, ProviderError, StreamChunk,
 };
 use crate::provider_metadata::{
     ConfigField, ConfigFieldType, ConfigSchema, PromptOptimizations, PromptTemplate,
     ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
-use crate::retry::extract_retry_after_ms;
+use crate::shared_client;
+use crate::sse::SseByteBuffer;
+use crate::tools::normalize_tools_for_openai;
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use secrecy::ExposeSecret;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::Duration;
 
 /// Default Mistral AI API endpoint
 const MISTRAL_API_ENDPOINT: &str = "https://api.mistral.ai/v1/chat/completions";
-
-#[derive(Serialize)]
-struct MistralRequest {
-    model: String,
-    messages: Vec<MistralMessage>,
-    max_tokens: u32,
-    temperature: f32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<serde_json::Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-struct MistralMessage {
-    role: String,
-    content: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_calls: Option<Vec<MistralToolCall>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct MistralToolCall {
-    id: String,
-    r#type: String,
-    function: MistralToolCallFunction,
-}
-
-#[derive(Serialize, Deserialize)]
-struct MistralToolCallFunction {
-    name: String,
-    arguments: String,
-}
-
-#[derive(Deserialize)]
-struct MistralResponse {
-    #[allow(dead_code)] // Kept for future use
-    id: String,
-    #[allow(dead_code)] // Kept for future use
-    object: String,
-    #[allow(dead_code)] // Kept for future use
-    created: u64,
-    model: String,
-    choices: Vec<MistralChoice>,
-    usage: MistralUsage,
-}
-
-#[derive(Deserialize)]
-struct MistralChoice {
-    #[allow(dead_code)] // Kept for future use
-    index: usize,
-    message: MistralResponseMessage,
-    finish_reason: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct MistralResponseMessage {
-    #[allow(dead_code)] // Kept for future use
-    role: String,
-    content: String,
-    #[serde(default)]
-    tool_calls: Option<Vec<MistralToolCall>>,
-}
-
-#[derive(Deserialize)]
-struct MistralUsage {
-    #[allow(dead_code)] // Kept for future use
-    prompt_tokens: usize,
-    #[allow(dead_code)] // Kept for future use
-    completion_tokens: usize,
-    total_tokens: usize,
-}
 
 /// Mistral AI LLM provider
 pub struct MistralProvider {
     config: ProviderConfig,
     client: reqwest::Client,
-    #[allow(dead_code)] // Kept for future use
-    default_model: String,
+    endpoint: String,
 }
 
 impl MistralProvider {
-    pub fn new(config: ProviderConfig, model: String) -> Result<Self, ProviderError> {
+    pub fn new(config: ProviderConfig, _model: String) -> Result<Self, ProviderError> {
         // Validate config using provider metadata
         Self::metadata().validate_config(&config)?;
 
-        // Try config first, then environment variable
-        let config_key = config
-            .api_key
-            .as_ref()
-            .map(|k| k.expose_secret().to_string());
-        let env_key = std::env::var("MISTRAL_API_KEY").ok();
+        let endpoint = config
+            .base_url
+            .clone()
+            .unwrap_or_else(|| MISTRAL_API_ENDPOINT.to_string());
 
-        let api_key = config_key.or(env_key).ok_or_else(|| {
-            ProviderError::Configuration(
-                "Mistral API key is required. Set api_key in config or MISTRAL_API_KEY env var"
-                    .to_string(),
-            )
-        })?;
-
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::AUTHORIZATION,
-            format!("Bearer {}", api_key).parse().map_err(|e| {
-                ProviderError::Configuration(format!("invalid API key format: {}", e))
-            })?,
-        );
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
-
-        let timeout = Duration::from_secs(config.timeout_seconds.unwrap_or(120));
-
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .timeout(timeout)
-            .build()
-            .map_err(|e| ProviderError::Network(format!("failed to build HTTP client: {}", e)))?;
+        let client = shared_client!();
 
         Ok(Self {
             config,
             client,
-            default_model: model,
+            endpoint,
         })
     }
 
@@ -234,7 +136,22 @@ impl MistralProvider {
         }
     }
 
-    fn convert_messages(messages: Vec<crate::provider::ChatMessage>) -> Vec<MistralMessage> {
+    fn get_api_key(&self) -> Result<String, ProviderError> {
+        let config_key = self
+            .config
+            .api_key
+            .as_ref()
+            .map(|k| k.expose_secret().to_string());
+        let env_key = std::env::var("MISTRAL_API_KEY").ok();
+        config_key.or(env_key).ok_or_else(|| {
+            ProviderError::Configuration(
+                "Mistral API key is required. Set api_key in config or MISTRAL_API_KEY env var"
+                    .to_string(),
+            )
+        })
+    }
+
+    fn convert_messages(messages: Vec<crate::provider::ChatMessage>) -> Vec<OpenAiCompatibleMessage> {
         use crate::provider::MessageRole;
         use rustycode_protocol::message::{ContentBlock, MessageContent};
 
@@ -250,7 +167,6 @@ impl MistralProvider {
             let mut text_parts = Vec::new();
             let mut tool_calls = Vec::new();
             let mut tool_call_id = None;
-            let tool_name = None;
 
             match &msg.content {
                 MessageContent::Simple(t) => text_parts.push(t.clone()),
@@ -261,10 +177,10 @@ impl MistralProvider {
                             ContentBlock::ToolUse {
                                 id, name, input, ..
                             } => {
-                                tool_calls.push(MistralToolCall {
+                                tool_calls.push(OpenAiToolCall {
                                     id: id.clone(),
-                                    r#type: "function".to_string(),
-                                    function: MistralToolCallFunction {
+                                    tool_type: "function".to_string(),
+                                    function: OpenAiFunction {
                                         name: name.clone(),
                                         arguments: serde_json::to_string(input).unwrap_or_default(),
                                     },
@@ -292,46 +208,23 @@ impl MistralProvider {
                 tool_call_id = Some(id.clone());
             }
 
-            result.push(MistralMessage {
+            result.push(OpenAiCompatibleMessage {
                 role: role.to_string(),
-                content: text_parts.join("\n"),
+                content: Some(text_parts.join("\n")),
                 tool_calls: if tool_calls.is_empty() {
                     None
                 } else {
                     Some(tool_calls)
                 },
                 tool_call_id,
-                name: tool_name,
+                name: None,
             });
         }
         result
     }
 
-    fn convert_tools(tools: &[serde_json::Value]) -> Vec<serde_json::Value> {
-        crate::tools::normalize_tools_for_openai(tools)
-    }
-
-    fn endpoint(&self) -> String {
-        self.config
-            .base_url
-            .as_ref()
-            .unwrap_or(&MISTRAL_API_ENDPOINT.to_string())
-            .clone()
-    }
-
-    fn get_api_key(&self) -> Result<String, ProviderError> {
-        let config_key = self
-            .config
-            .api_key
-            .as_ref()
-            .map(|k| k.expose_secret().to_string());
-        let env_key = std::env::var("MISTRAL_API_KEY").ok();
-        config_key.or(env_key).ok_or_else(|| {
-            ProviderError::Configuration(
-                "Mistral API key is required. Set api_key in config or MISTRAL_API_KEY env var"
-                    .to_string(),
-            )
-        })
+    fn endpoint(&self) -> &str {
+        &self.endpoint
     }
 }
 
@@ -342,14 +235,10 @@ impl LLMProvider for MistralProvider {
     }
 
     async fn is_available(&self) -> bool {
-        self.config
-            .api_key
-            .as_ref()
-            .map_or(false, |k| !k.expose_secret().is_empty())
+        self.get_api_key().is_ok()
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        // Return known Mistral models (as of March 2026)
         Ok(vec![
             "mistral-large-2407".to_string(),
             "mixtral-8x22b-2407".to_string(),
@@ -364,122 +253,19 @@ impl LLMProvider for MistralProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let messages = Self::convert_messages(request.messages.clone());
-
-        let tools = request.tools.as_ref().map(|t| Self::convert_tools(t));
-        let body = MistralRequest {
-            model: request.model.clone(),
-            messages,
-            max_tokens: request.max_tokens.unwrap_or(4096),
-            temperature: request.temperature.unwrap_or(0.7),
-            tools,
-            tool_choice: request.tool_choice.clone(),
-        };
-
         let api_key = self.get_api_key()?;
-
-        let response = self
-            .client
-            .post(self.endpoint())
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| ProviderError::Network(format!("Failed to send request: {}", e)))?;
-
-        // Clone headers for potential retry logic (e.g., 429 with Retry-After)
-        let headers = response.headers().clone();
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unable to read error".to_string());
-            return Err(match status.as_u16() {
-                401 | 403 => ProviderError::Auth(format!(
-                    "Authentication failed. Check your MISTRAL_API_KEY env var. {}",
-                    error_text
-                )),
-                404 => ProviderError::InvalidModel(error_text.clone()),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(format!(
-                    "Mistral service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                )),
-                _ => ProviderError::Api(format!("{}: {}", status, error_text)),
-            });
-        }
-
-        let mistral_response: MistralResponse = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("Failed to parse response: {}", e))
-        })?;
-
-        let choice = mistral_response
-            .choices
-            .first()
-            .ok_or_else(|| ProviderError::Api("No choices in response".to_string()))?;
-
-        let content = if let Some(tool_calls) = &choice.message.tool_calls {
-            let tc_json: Vec<serde_json::Value> = tool_calls
-                .iter()
-                .map(|tc| {
-                    serde_json::json!({
-                        "id": tc.id,
-                        "type": tc.r#type,
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments,
-                        }
-                    })
-                })
-                .collect();
-            let text = &choice.message.content;
-            if text.is_empty() {
-                serde_json::to_string(&tc_json).unwrap_or_default()
-            } else {
-                format!(
-                    "{text}\n[TOOL_CALLS:{}]",
-                    serde_json::to_string(&tc_json).unwrap_or_default()
-                )
-            }
-        } else {
-            choice.message.content.clone()
-        };
-
-        Ok(CompletionResponse {
-            content,
-            model: mistral_response.model,
-            usage: Some(Usage {
-                input_tokens: mistral_response.usage.prompt_tokens as u32, // usize→u32 safe: token counts never exceed 2^32
-                output_tokens: mistral_response.usage.completion_tokens as u32,
-                total_tokens: mistral_response.usage.total_tokens as u32,
-                cache_read_input_tokens: 0,
-                cache_creation_input_tokens: 0,
-                reasoning_tokens: None,
-            }),
-            stop_reason: crate::provider::normalize_stop_reason(choice.finish_reason.as_deref()),
-            citations: None,
-            thinking_blocks: None,
-            structured_output: None,
-        })
-    }
-
-    async fn complete_stream(
-        &self,
-        request: CompletionRequest,
-    ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
         let messages = Self::convert_messages(request.messages.clone());
-        let tools = request.tools.as_ref().map(|t| Self::convert_tools(t));
+        let tools = request.tools.as_ref().map(|t| normalize_tools_for_openai(t));
 
         let mut body = serde_json::json!({
             "model": request.model,
             "messages": messages,
+            "max_tokens": request.max_tokens.unwrap_or(4096),
             "temperature": request.temperature.unwrap_or(0.7),
-            "stream": true
         });
+        if let Some(rf) = build_openai_response_format(&request.output_config) {
+            body["response_format"] = rf;
+        }
         if let Some(tools) = tools {
             body["tools"] = serde_json::json!(tools);
         }
@@ -487,109 +273,108 @@ impl LLMProvider for MistralProvider {
             body["tool_choice"] = tc.clone();
         }
 
-        let api_key = self.get_api_key()?;
+        let req = build_request_with_auth(
+            self.client.post(self.endpoint()),
+            &api_key,
+            self.config.extra_headers.as_ref(),
+        );
 
-        let response = self
-            .client
-            .post(self.endpoint())
-            .header("Authorization", format!("Bearer {}", api_key))
+        let response = req
             .json(&body)
             .send()
             .await
-            .map_err(|e| ProviderError::Network(format!("Failed to connect to Mistral: {}", e)))?;
-        // Clone headers for potential retry logic (e.g., 429 with Retry-After)
-        let headers = response.headers().clone();
+            .map_err(|e| ProviderError::Network(format!("Failed to send request: {}", e)))?;
 
         if !response.status().is_success() {
+            let headers = response.headers().clone();
             let status = response.status();
             let error_text = response
                 .text()
                 .await
-                .unwrap_or_else(|_| "Unable to read error".to_string());
-            return Err(match status.as_u16() {
-                401 | 403 => ProviderError::Auth(format!(
-                    "Authentication failed. Check your MISTRAL_API_KEY env var. {}",
-                    error_text
-                )),
-                404 => ProviderError::InvalidModel(error_text.clone()),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(format!(
-                    "Mistral service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                )),
-                _ => ProviderError::Api(format!("{}: {}", status, error_text)),
-            });
+                .unwrap_or_else(|_| "unable to read error".to_string());
+            return Err(map_http_error(
+                status,
+                error_text,
+                &headers,
+                "Mistral",
+                "MISTRAL_API_KEY",
+            ));
         }
 
+        let mistral_response: OpenAiCompatibleResponse = response.json().await.map_err(|e| {
+            ProviderError::Serialization(format!("Failed to parse response: {}", e))
+        })?;
+
+        build_completion_response(&mistral_response)
+    }
+
+    async fn complete_stream(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
+        let api_key = self.get_api_key()?;
+        let messages = Self::convert_messages(request.messages.clone());
+        let tools = request.tools.as_ref().map(|t| normalize_tools_for_openai(t));
+
+        let mut request_body = serde_json::json!({
+            "model": request.model,
+            "messages": messages,
+            "temperature": request.temperature.unwrap_or(0.7),
+            "stream": true
+        });
+        if let Some(tools) = tools {
+            request_body["tools"] = serde_json::json!(tools);
+        }
+        if let Some(tc) = &request.tool_choice {
+            request_body["tool_choice"] = tc.clone();
+        }
+
+        let req = build_request_with_auth(
+            self.client.post(self.endpoint()),
+            &api_key,
+            self.config.extra_headers.as_ref(),
+        );
+
+        let response = req.json(&request_body).send().await.map_err(|e| {
+            ProviderError::Network(format!("Failed to connect to Mistral: {}", e))
+        })?;
+
+        if !response.status().is_success() {
+            let headers = response.headers().clone();
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unable to read error".to_string());
+            return Err(map_http_error(
+                status,
+                error_text,
+                &headers,
+                "Mistral",
+                "MISTRAL_API_KEY",
+            ));
+        }
+
+        // Convert bytes stream to SSE stream using shared parser
         let bytes_stream = response.bytes_stream();
-        let line_buffer = crate::sse::SseLineBuffer::new();
+        let line_buffer = SseByteBuffer::new();
+        let sse_state = SseParseState::default();
+        let config = SseParseConfig::all();
 
-        let sse_stream = bytes_stream.map(move |chunk_result| -> StreamChunk {
-            let chunk = chunk_result
-                .map_err(|e| ProviderError::Network(format!("Failed to read chunk: {}", e)))?;
-            let text = String::from_utf8_lossy(&chunk);
-            let mut chunks = Vec::new();
-
-            let lines = line_buffer.feed_chunk(&text);
-            for line in &lines {
-                if line.starts_with("data: ") {
-                    let json_str = line.trim_start_matches("data: ").trim();
-                    if json_str == "[DONE]" {
-                        continue;
-                    }
-                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(json_str) {
-                        if let Some(choices) = data.get("choices").and_then(|c| c.as_array()) {
-                            if let Some(choice) = choices.first() {
-                                if let Some(delta) = choice.get("delta") {
-                                    if let Some(content) = delta.get("content") {
-                                        if let Some(content_str) = content.as_str() {
-                                            chunks.push(content_str.to_string());
-                                        }
-                                    }
-                                    // Handle tool_calls in streaming delta
-                                    if let Some(tool_calls) =
-                                        delta.get("tool_calls").and_then(|tc| tc.as_array())
-                                    {
-                                        for tc in tool_calls {
-                                            let tc_id =
-                                                tc.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                                            let func = tc.get("function");
-                                            let name = func
-                                                .and_then(|f| f.get("name"))
-                                                .and_then(|n| n.as_str())
-                                                .unwrap_or("");
-                                            let args = func
-                                                .and_then(|f| f.get("arguments"))
-                                                .and_then(|a| a.as_str())
-                                                .unwrap_or("");
-                                            if !name.is_empty() {
-                                                chunks.push(format!(
-                                                    "[TOOL_CALL:{}]",
-                                                    serde_json::to_string(&serde_json::json!({
-                                                        "id": tc_id,
-                                                        "type": "function",
-                                                        "function": {
-                                                            "name": name,
-                                                            "arguments": args,
-                                                        }
-                                                    }))
-                                                    .unwrap_or_default()
-                                                ));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
+            let chunk = match chunk_result {
+                Ok(c) => c,
+                Err(e) => {
+                    return futures::stream::iter(vec![Err(ProviderError::Network(format!(
+                        "Failed to read chunk: {}",
+                        e
+                    )))]);
                 }
-            }
-
-            Ok(rustycode_protocol::stream_event::StreamEvent::TextDelta {
-                content: chunks.join(""),
-            })
+            };
+            let lines = line_buffer.feed_chunk(&chunk);
+            let complete_lines = lines.join("\n");
+            let events = parse_openai_sse_lines(&complete_lines, config, &sse_state);
+            futures::stream::iter(events)
         });
 
         Ok(Box::pin(sse_stream))
@@ -636,8 +421,6 @@ mod tests {
         assert!(result.is_err());
     }
 
-    // --- Metadata ---
-
     #[test]
     fn test_metadata_fields() {
         let meta = MistralProvider::metadata();
@@ -662,8 +445,6 @@ mod tests {
         );
     }
 
-    // --- Endpoint ---
-
     #[test]
     fn test_default_endpoint() {
         let config = make_config(Some("test-key"));
@@ -679,62 +460,12 @@ mod tests {
         assert_eq!(provider.endpoint(), "https://custom.mistral.example.com/v1");
     }
 
-    // --- Serialization ---
-
-    #[test]
-    fn test_request_serialization() {
-        let req = MistralRequest {
-            model: "mistral-large-latest".to_string(),
-            messages: vec![MistralMessage {
-                role: "user".to_string(),
-                content: "Hello".to_string(),
-                tool_calls: None,
-                tool_call_id: None,
-                name: None,
-            }],
-            max_tokens: 1024,
-            temperature: 0.5,
-            tools: None,
-            tool_choice: None,
-        };
-        let json = serde_json::to_value(&req).unwrap();
-        assert_eq!(json["model"], "mistral-large-latest");
-        assert_eq!(json["max_tokens"], 1024);
-        assert_eq!(json["temperature"], 0.5);
-        assert_eq!(json["messages"][0]["role"], "user");
-    }
-
-    #[test]
-    fn test_response_deserialization() {
-        let json = r#"{
-            "id": "chatcmpl-123",
-            "object": "chat.completion",
-            "created": 1700000000,
-            "model": "mistral-large-latest",
-            "choices": [{
-                "index": 0,
-                "message": {"role": "assistant", "content": "Hello!"},
-                "finish_reason": "stop"
-            }],
-            "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
-        }"#;
-        let resp: MistralResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(resp.model, "mistral-large-latest");
-        assert_eq!(resp.choices.len(), 1);
-        assert_eq!(resp.choices[0].message.content, "Hello!");
-        assert_eq!(resp.usage.total_tokens, 15);
-    }
-
-    // --- Availability ---
-
     #[tokio::test]
     async fn test_is_available_with_key() {
         let config = make_config(Some("valid-key"));
         let provider = MistralProvider::new(config, "mistral-large-latest".to_string()).unwrap();
         assert!(provider.is_available().await);
     }
-
-    // --- Model listing ---
 
     #[tokio::test]
     async fn test_list_models_returns_known_models() {
@@ -744,8 +475,6 @@ mod tests {
         assert!(!models.is_empty());
         assert!(models.iter().any(|m| m.contains("mistral-large")));
     }
-
-    // --- Config access ---
 
     #[test]
     fn test_config_returns_some() {

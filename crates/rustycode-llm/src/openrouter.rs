@@ -680,7 +680,7 @@ impl LLMProvider for OpenRouterProvider {
             >::new()));
         let started_tool_indices =
             std::sync::Arc::new(std::sync::Mutex::new(HashSet::<usize>::new()));
-        let line_buffer = crate::sse::SseLineBuffer::new();
+        let line_buffer = crate::sse::SseByteBuffer::new();
 
         let sse_stream = bytes_stream.flat_map(move |chunk_result| {
             let done_sent = done_sent.clone();
@@ -693,10 +693,9 @@ impl LLMProvider for OpenRouterProvider {
                     return futures::stream::iter(vec![Err(ProviderError::Network(e.to_string()))]);
                 }
             };
-            let text = String::from_utf8_lossy(&chunk);
             let mut events = Vec::new();
 
-            let lines = line_buffer.feed_chunk(&text);
+            let lines = line_buffer.feed_chunk(&chunk);
             for line in &lines {
                 if line.is_empty() {
                     continue;

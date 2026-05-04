@@ -1541,8 +1541,8 @@ impl AnthropicProvider {
 
         // Parse SSE events and emit structured events
         // Buffer partial lines and event type across chunk boundaries using shared state
+        let byte_buffer = crate::sse::SseByteBuffer::new();
         let stream_state = Arc::new(std::sync::Mutex::new((
-            String::new(),
             None::<String>,
             HashMap::<usize, String>::new(),
         )));
@@ -1557,40 +1557,13 @@ impl AnthropicProvider {
                 }
             };
 
-            let text = String::from_utf8_lossy(&chunk);
+            let lines = byte_buffer.feed_chunk(&chunk);
             let mut state = stream_state.lock().unwrap_or_else(|e| e.into_inner());
-            let (buffer, current_event_type, tool_ids_by_index) = &mut *state;
-            buffer.push_str(&text);
-
-            // Guard against unbounded buffer growth (malformed SSE with no newlines)
-            const MAX_SSE_BUFFER: usize = 1 << 20; // 1 MiB
-            if buffer.len() > MAX_SSE_BUFFER {
-                tracing::warn!(
-                    original_len = buffer.len(),
-                    "SSE buffer exceeded {MAX_SSE_BUFFER} bytes, truncating to last 4KB"
-                );
-                let keep = buffer.len().saturating_sub(4096);
-                buffer.drain(..keep);
-            }
-
-            // Extract complete lines (up to the last newline)
-            let raw_buffer = std::mem::take(buffer);
-            let (complete_lines, remainder) = match raw_buffer.rfind('\n') {
-                Some(pos) => (
-                    raw_buffer[..pos].to_string(),
-                    raw_buffer[pos + 1..].to_string(),
-                ),
-                None => (String::new(), raw_buffer),
-            };
-            *buffer = remainder;
+            let (current_event_type, tool_ids_by_index) = &mut *state;
 
             let mut events = Vec::new();
 
-            for line in complete_lines.lines() {
-                let line = line.trim_end_matches('\r');
-                if line.is_empty() {
-                    continue;
-                }
+            for line in &lines {
 
                 if line.starts_with("event: ") {
                     *current_event_type = Some(line.trim_start_matches("event: ").to_string());

@@ -34,101 +34,30 @@
 //! Together AI uses an OpenAI-compatible streaming format (SSE) that
 //! returns text chunks in real-time as they're generated.
 
+use crate::openai_compatible::{
+    build_completion_response, build_request_with_auth, convert_messages_simple,
+    map_http_error, parse_openai_sse_lines, OpenAiCompatibleResponse, OpenAiModelListResponse,
+    SseParseConfig, SseParseState,
+};
 use crate::provider::{
     build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,
-    ProviderConfig, ProviderError, StreamChunk, Usage,
+    ProviderConfig, ProviderError, StreamChunk,
 };
 use crate::provider_metadata::{
     ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
-
-// Import macros exported at crate root
-use crate::retry::extract_retry_after_ms;
-use crate::{build_request, get_api_key, shared_client};
+use crate::sse::SseByteBuffer;
+use crate::{get_api_key, shared_client};
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use secrecy::ExposeSecret;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::time::Duration;
 
 /// Default Together AI API endpoint
 const TOGETHER_API_ENDPOINT: &str = "https://api.together.xyz/v1/chat/completions";
-
-#[derive(Serialize)]
-struct TogetherRequest {
-    model: String,
-    messages: Vec<TogetherMessage>,
-    max_tokens: u32,
-    temperature: f32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    response_format: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-struct TogetherMessage {
-    role: String,
-    content: String,
-}
-
-#[derive(Deserialize)]
-struct TogetherResponse {
-    #[allow(dead_code)] // Kept for future use
-    id: String,
-    #[allow(dead_code)] // Kept for future use
-    object: String,
-    #[allow(dead_code)] // Kept for future use
-    created: u64,
-    model: String,
-    choices: Vec<TogetherChoice>,
-    usage: TogetherUsage,
-}
-
-#[derive(Deserialize)]
-struct TogetherChoice {
-    #[allow(dead_code)] // Kept for future use
-    index: usize,
-    message: TogetherResponseMessage,
-    finish_reason: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct TogetherResponseMessage {
-    #[allow(dead_code)] // Kept for future use
-    role: String,
-    #[serde(default)]
-    content: Option<String>,
-    #[serde(default)]
-    tool_calls: Option<Vec<TogetherToolCall>>,
-}
-
-/// Tool call from Together AI response (OpenAI-compatible format)
-#[derive(Deserialize)]
-struct TogetherToolCall {
-    #[allow(dead_code)] // Kept for future use
-    id: String,
-    #[allow(dead_code)] // Kept for future use
-    r#type: String,
-    function: TogetherFunction,
-}
-
-/// Function call within a tool call
-#[derive(Deserialize)]
-struct TogetherFunction {
-    name: String,
-    arguments: String,
-}
-
-#[derive(Deserialize)]
-struct TogetherUsage {
-    #[allow(dead_code)] // Kept for future use
-    prompt_tokens: usize,
-    #[allow(dead_code)] // Kept for future use
-    completion_tokens: usize,
-    total_tokens: usize,
-}
 
 /// Together AI LLM provider
 pub struct TogetherProvider {
@@ -278,17 +207,7 @@ impl LLMProvider for TogetherProvider {
             )));
         }
 
-        #[derive(Deserialize)]
-        struct ModelsResponse {
-            data: Vec<ModelData>,
-        }
-
-        #[derive(Deserialize)]
-        struct ModelData {
-            id: String,
-        }
-
-        let models_response: ModelsResponse = response.json().await.map_err(|e| {
+        let models_response: OpenAiModelListResponse = response.json().await.map_err(|e| {
             ProviderError::Serialization(format!("Failed to parse models response: {}", e))
         })?;
 
@@ -300,42 +219,22 @@ impl LLMProvider for TogetherProvider {
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
         let api_key = self.get_api_key()?;
+        let messages = convert_messages_simple(&request);
 
-        // Build messages vector
-        let mut messages = Vec::new();
-
-        // Add system prompt if provided
-        if let Some(system_prompt) = &request.system_prompt {
-            messages.push(TogetherMessage {
-                role: "system".to_string(),
-                content: system_prompt.clone(),
-            });
+        let mut body = serde_json::json!({
+            "model": request.model,
+            "messages": messages,
+            "temperature": request.temperature.unwrap_or(0.7),
+            "max_tokens": request.max_tokens.unwrap_or(4096),
+        });
+        if let Some(rf) = build_openai_response_format(&request.output_config) {
+            body["response_format"] = rf;
         }
 
-        // Add messages from request
-        for msg in request.messages {
-            messages.push(TogetherMessage {
-                role: msg.role.as_ref().to_string(),
-                content: msg.content.to_text(),
-            });
-        }
-
-        let body = TogetherRequest {
-            model: request.model,
-            messages,
-            max_tokens: request.max_tokens.unwrap_or(4096),
-            temperature: request.temperature.unwrap_or(0.7),
-            response_format: build_openai_response_format(&request.output_config),
-        };
-
-        // Build request with provider-specific headers
-        let req = build_request!(
+        let req = build_request_with_auth(
             self.client.post(&self.endpoint),
-            headers = [
-                ("Authorization", format!("Bearer {}", api_key)),
-                ("Content-Type", "application/json"),
-            ],
-            extra_headers = &self.config.extra_headers
+            &api_key,
+            self.config.extra_headers.as_ref(),
         );
 
         let response = req
@@ -345,83 +244,26 @@ impl LLMProvider for TogetherProvider {
             .map_err(|e| ProviderError::Network(format!("Failed to send request: {}", e)))?;
 
         if !response.status().is_success() {
-            // Capture headers early so we can parse Retry-After for rate limits
             let headers = response.headers().clone();
             let status = response.status();
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
-
-            return Err(match status.as_u16() {
-                401 | 403 => ProviderError::Auth(format!(
-                    "Authentication failed. Check your TOGETHER_API_KEY env var. {}",
-                    error_text
-                )),
-                404 => ProviderError::InvalidModel(format!("model not found: {}", error_text)),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(format!(
-                    "Together AI service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                )),
-                _ => ProviderError::Api(format!("{}: {}", status, error_text)),
-            });
+            return Err(map_http_error(
+                status,
+                error_text,
+                &headers,
+                "Together AI",
+                "TOGETHER_API_KEY",
+            ));
         }
 
-        let together_response: TogetherResponse = response.json().await.map_err(|e| {
+        let together_response: OpenAiCompatibleResponse = response.json().await.map_err(|e| {
             ProviderError::Serialization(format!("Failed to parse response: {}", e))
         })?;
 
-        let choice = together_response
-            .choices
-            .first()
-            .ok_or_else(|| ProviderError::Api("No choices in response".to_string()))?;
-
-        // Build content string, appending tool calls if present
-        let mut content = choice.message.content.clone().unwrap_or_default();
-
-        if let Some(tool_calls) = &choice.message.tool_calls {
-            if !tool_calls.is_empty() {
-                let tool_calls_json: Vec<serde_json::Value> = tool_calls
-                    .iter()
-                    .map(|tc| {
-                        serde_json::json!({
-                            "id": tc.id,
-                            "type": tc.r#type,
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
-                            }
-                        })
-                    })
-                    .collect();
-                let formatted = serde_json::to_string_pretty(&tool_calls_json)
-                    .unwrap_or_else(|_| "[]".to_string());
-                if !content.is_empty() {
-                    content.push('\n');
-                }
-                content.push_str(&format!("```tool\n{}\n```", formatted));
-            }
-        }
-
-        Ok(CompletionResponse {
-            content,
-            model: together_response.model,
-            usage: Some(Usage {
-                input_tokens: together_response.usage.prompt_tokens as u32,
-                output_tokens: together_response.usage.completion_tokens as u32,
-                total_tokens: together_response.usage.total_tokens as u32,
-                cache_read_input_tokens: 0,
-                cache_creation_input_tokens: 0,
-                reasoning_tokens: None,
-            }),
-            stop_reason: crate::provider::normalize_stop_reason(choice.finish_reason.as_deref()),
-            citations: None,
-            thinking_blocks: None,
-            structured_output: None,
-        })
+        build_completion_response(&together_response)
     }
 
     async fn complete_stream(
@@ -429,25 +271,7 @@ impl LLMProvider for TogetherProvider {
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
         let api_key = self.get_api_key()?;
-
-        // Build messages vector
-        let mut messages = Vec::new();
-
-        // Add system prompt if provided
-        if let Some(system_prompt) = &request.system_prompt {
-            messages.push(TogetherMessage {
-                role: "system".to_string(),
-                content: system_prompt.clone(),
-            });
-        }
-
-        // Add messages from request
-        for msg in request.messages {
-            messages.push(TogetherMessage {
-                role: msg.role.as_ref().to_string(),
-                content: msg.content.to_text(),
-            });
-        }
+        let messages = convert_messages_simple(&request);
 
         let request_body = serde_json::json!({
             "model": request.model,
@@ -456,14 +280,10 @@ impl LLMProvider for TogetherProvider {
             "stream": true
         });
 
-        // Build request with provider-specific headers
-        let req = build_request!(
+        let req = build_request_with_auth(
             self.client.post(&self.endpoint),
-            headers = [
-                ("Authorization", format!("Bearer {}", api_key)),
-                ("Content-Type", "application/json"),
-            ],
-            extra_headers = &self.config.extra_headers
+            &api_key,
+            self.config.extra_headers.as_ref(),
         );
 
         let response = req.json(&request_body).send().await.map_err(|e| {
@@ -471,65 +291,41 @@ impl LLMProvider for TogetherProvider {
         })?;
 
         if !response.status().is_success() {
-            let status = response.status();
             let headers = response.headers().clone();
+            let status = response.status();
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(match status.as_u16() {
-                401 | 403 => ProviderError::Auth(format!(
-                    "Authentication failed. Check your TOGETHER_API_KEY env var. {}",
-                    error_text
-                )),
-                404 => ProviderError::InvalidModel(format!("model not found: {}", error_text)),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(format!(
-                    "Together AI service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                )),
-                _ => ProviderError::Api(format!("{}: {}", status, error_text)),
-            });
+            return Err(map_http_error(
+                status,
+                error_text,
+                &headers,
+                "Together AI",
+                "TOGETHER_API_KEY",
+            ));
         }
 
-        // Convert bytes stream to SSE stream (Together uses OpenAI-compatible format)
+        // Convert bytes stream to SSE stream using shared parser
         let bytes_stream = response.bytes_stream();
-        let line_buffer = crate::sse::SseLineBuffer::new();
+        let line_buffer = SseByteBuffer::new();
+        let sse_state = SseParseState::default();
+        let config = SseParseConfig::minimal();
 
-        let sse_stream = bytes_stream.map(move |chunk_result| {
-            let chunk = chunk_result
-                .map_err(|e| ProviderError::Network(format!("Failed to read chunk: {}", e)))?;
-            let text = String::from_utf8_lossy(&chunk);
-            let mut chunks = Vec::new();
-
-            let lines = line_buffer.feed_chunk(&text);
-            for line in &lines {
-                if line.starts_with("data: ") {
-                    let json_str = line.trim_start_matches("data: ").trim();
-                    if json_str == "[DONE]" {
-                        continue;
-                    }
-                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(json_str) {
-                        if let Some(choices) = data.get("choices").and_then(|c| c.as_array()) {
-                            if let Some(choice) = choices.first() {
-                                if let Some(delta) = choice.get("delta") {
-                                    if let Some(content) = delta.get("content") {
-                                        if let Some(content_str) = content.as_str() {
-                                            chunks.push(content_str.to_string());
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
+            let chunk = match chunk_result {
+                Ok(c) => c,
+                Err(e) => {
+                    return futures::stream::iter(vec![Err(ProviderError::Network(format!(
+                        "Failed to read chunk: {}",
+                        e
+                    )))]);
                 }
-            }
-
-            Ok(rustycode_protocol::stream_event::StreamEvent::TextDelta {
-                content: chunks.join(""),
-            })
+            };
+            let lines = line_buffer.feed_chunk(&chunk);
+            let complete_lines = lines.join("\n");
+            let events = parse_openai_sse_lines(&complete_lines, config, &sse_state);
+            futures::stream::iter(events)
         });
 
         Ok(Box::pin(sse_stream))

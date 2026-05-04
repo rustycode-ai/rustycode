@@ -742,14 +742,15 @@ impl LLMProvider for GeminiProvider {
 
         // Gemini returns SSE-style streaming responses
         let bytes_stream = response.bytes_stream();
+        let byte_buffer = crate::sse::SseByteBuffer::new();
 
-        let sse_stream = bytes_stream.map(|chunk_result| -> StreamChunk {
+        let sse_stream = bytes_stream.map(move |chunk_result| -> StreamChunk {
             let chunk = chunk_result
                 .map_err(|e| ProviderError::Network(format!("failed to read chunk: {}", e)))?;
-            let text = String::from_utf8_lossy(&chunk);
+            let lines = byte_buffer.feed_chunk(&chunk);
             let mut chunks = Vec::new();
 
-            for line in text.lines() {
+            for line in &lines {
                 if line.is_empty() || line == "," {
                     continue;
                 }

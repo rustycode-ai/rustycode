@@ -525,11 +525,14 @@ impl LLMProvider for OllamaProvider {
         let eval_count = std::sync::Arc::new(std::sync::Mutex::new(Option::<u32>::None));
         let done_sent = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
+        let byte_buffer = crate::sse::SseByteBuffer::new();
+
         let stream = bytes_stream.flat_map(move |chunk_result| {
             let accumulated_content = accumulated_content.clone();
             let prompt_eval_count = prompt_eval_count.clone();
             let eval_count = eval_count.clone();
             let done_sent = done_sent.clone();
+            let byte_buffer = byte_buffer.clone();
 
             let chunk = match chunk_result {
                 Ok(c) => c,
@@ -540,10 +543,10 @@ impl LLMProvider for OllamaProvider {
                     )))]);
                 }
             };
-            let text = String::from_utf8_lossy(&chunk);
+            let lines = byte_buffer.feed_chunk(&chunk);
             let mut events = Vec::new();
 
-            for line in text.lines() {
+            for line in &lines {
                 if line.is_empty() {
                     continue;
                 }
