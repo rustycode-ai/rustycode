@@ -1604,6 +1604,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                     tool_registry.as_ref(),
                     plan_mode.as_ref(),
                     orchestration.as_ref(),
+                    matches!(ai_mode, Some(crate::agent_mode::AiMode::Yolo)),
                 );
                 let tool_elapsed = tool_start.elapsed().as_millis() as u64;
 
