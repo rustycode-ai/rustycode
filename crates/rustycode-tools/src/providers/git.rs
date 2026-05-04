@@ -139,7 +139,7 @@ impl Tool for GitDiffTool {
             .and_then(Value::as_str)
         {
             // Validate path is within workspace
-            validate_read_path(path, &ctx.cwd)?;
+            validate_read_path(path, &ctx.cwd, !ctx.allow_outside_workspace)?;
             args.push(path);
         }
 
@@ -246,7 +246,7 @@ impl Tool for GitCommitTool {
             let paths: Vec<&str> = files.iter().filter_map(|v| v.as_str()).collect();
             // Validate all file paths are within workspace
             for p in &paths {
-                validate_read_path(p, &ctx.cwd)?;
+                validate_read_path(p, &ctx.cwd, !ctx.allow_outside_workspace)?;
             }
             if !paths.is_empty() {
                 let mut add_args = vec!["add", "--"];

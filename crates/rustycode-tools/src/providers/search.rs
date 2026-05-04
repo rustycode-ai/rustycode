@@ -132,7 +132,7 @@ impl Tool for GrepTool {
             .or_else(|| params.get("include_pattern"))
             .and_then(Value::as_str)
             .unwrap_or(".");
-        let root = validate_list_path(path_str, &ctx.cwd)?;
+        let root = validate_list_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         // Case-insensitive flag — support both -i and case_insensitive
         let case_insensitive = params

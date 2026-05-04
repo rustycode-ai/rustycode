@@ -5,7 +5,7 @@ use crate::security::{
 };
 
 const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
-use crate::truncation::{truncate_items, truncate_lines, LIST_MAX_ITEMS, READ_MAX_LINES};
+use crate::truncation::{format_with_line_numbers, truncate_items, truncate_lines, LIST_MAX_ITEMS, READ_MAX_LINES};
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -272,7 +272,7 @@ impl Tool for ReadFileTool {
         let path_str = resolve_path_str(&params)?;
 
         // Validate path using security module
-        let path = validate_read_path(path_str, &ctx.cwd)?;
+        let path = validate_read_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         // Validate against sandbox rules
         // If interactive mode is enabled, this will prompt the user
@@ -550,9 +550,9 @@ impl Tool for ReadFileTool {
             let max_limit = limit.unwrap_or(READ_MAX_LINES);
 
             let paginated_lines: Vec<&str> =
-                lines.into_iter().skip(offset).take(max_limit).collect();
+                lines.iter().skip(offset).take(max_limit).copied().collect();
 
-            let text = paginated_lines.join("\n");
+            let text = format_with_line_numbers(&paginated_lines, offset + 1);
             let text_bytes = text.len();
             let shown_lines = paginated_lines.len();
 
@@ -587,7 +587,8 @@ impl Tool for ReadFileTool {
             let e = end.unwrap_or(total_lines).min(total_lines);
             let s = s.min(total_lines);
             let e = e.max(s).min(total_lines);
-            let text = lines[s..e].join("\n");
+            let range_lines: Vec<&str> = lines[s..e].to_vec();
+            let text = format_with_line_numbers(&range_lines, s + 1);
 
             return Ok(ToolOutput::with_structured(
                 text,
@@ -728,7 +729,7 @@ impl Tool for WriteFileTool {
             .as_ref()
             .map(|b: &Vec<u8>| b.len())
             .unwrap_or(content.len());
-        let path = validate_write_path(path_str, &ctx.cwd, write_size)?;
+        let path = validate_write_path(path_str, &ctx.cwd, write_size, !ctx.allow_outside_workspace)?;
 
         crate::check_sandbox_path(&path, ctx)?;
 
@@ -1038,7 +1039,7 @@ impl Tool for ListDirTool {
         let path_str = optional_string(&params, "path").unwrap_or(".");
 
         // Validate path using security module
-        let path = validate_list_path(path_str, &ctx.cwd)?;
+        let path = validate_list_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         let path_display = path.display().to_string();
         let recursive = params
@@ -1394,7 +1395,7 @@ mod tests {
         let res = tool.execute(json!({ "path": "test.txt" }), &ctx);
         assert!(res.is_ok());
         let output = res.unwrap();
-        assert_eq!(output.text, "hello world");
+        assert_eq!(output.text, "1\thello world");
     }
 
     #[test]

@@ -42,8 +42,6 @@ pub struct BashSession {
     cwd: PathBuf,
     /// Session ID for tracking
     _session_id: String,
-    /// Whether this session uses `PowerShell` (affects delimiter syntax)
-    is_powershell: bool,
     /// Accumulated stderr from the background drain thread
     stderr_buffer: Arc<Mutex<String>>,
     /// Channel receiver for stdout lines from the persistent reader thread
@@ -60,18 +58,6 @@ fn is_shell_boilerplate(trimmed: &str) -> bool {
         || trimmed.starts_with("The default interactive shell")
         || trimmed.starts_with("To update your account")
         || trimmed.starts_with("For more details, please visit")
-        // PowerShell patterns
-        || trimmed.starts_with("PowerShell")
-        || trimmed.starts_with("Windows PowerShell")
-        || trimmed.starts_with("PS ")
-        || trimmed.contains("> $")
-        || trimmed.contains("> Write-Host")
-        || trimmed.contains(">> ")
-        // cmd.exe patterns
-        || trimmed.starts_with("Microsoft Windows")
-        || trimmed.starts_with("(C)")
-        || trimmed.starts_with("C:\\")
-        || (trimmed.starts_with(">") && trimmed.len() > 1 && trimmed.chars().nth(1).map(|c| c == ' ').unwrap_or(false))
 }
 
 fn filter_shell_boilerplate(text: &str) -> String {
@@ -95,7 +81,6 @@ impl BashSession {
         let session_id = uuid::Uuid::new_v4().to_string();
         let shell = SHELL_INFO.binary;
         let interactive_flag = SHELL_INFO.interactive_flag;
-        let is_powershell = SHELL_INFO.is_powershell;
 
         let mut cmd = Command::new(shell);
         if let Some(flag) = interactive_flag {
@@ -167,7 +152,6 @@ impl BashSession {
             child: Arc::new(Mutex::new(Some(child))),
             cwd,
             _session_id: session_id,
-            is_powershell,
             stderr_buffer,
             stdout_rx: Arc::new(Mutex::new(stdout_rx)),
         })
@@ -282,7 +266,7 @@ impl BashSession {
                 .as_mut()
                 .ok_or_else(|| anyhow!("bash session not available"))?;
 
-            let wrapped_command = if timeout_secs > 0 && !self.is_powershell {
+            let wrapped_command = if timeout_secs > 0 {
                 format!("timeout {timeout_secs} {command}")
             } else {
                 command.to_string()
@@ -292,13 +276,8 @@ impl BashSession {
                 writeln!(stdin, "{wrapped_command}")
                     .map_err(|e| anyhow!("failed to write command: {e}"))?;
 
-                if self.is_powershell {
-                    writeln!(stdin, "Write-Output $LASTEXITCODE")
-                        .map_err(|e| anyhow!("failed to write exit code query: {e}"))?;
-                } else {
-                    writeln!(stdin, "echo $?")
-                        .map_err(|e| anyhow!("failed to write exit code query: {e}"))?;
-                }
+                writeln!(stdin, "echo $?")
+                    .map_err(|e| anyhow!("failed to write exit code query: {e}"))?;
 
                 writeln!(stdin, "echo '---END---'")
                     .map_err(|e| anyhow!("failed to write delimiter: {e}"))?;
@@ -454,7 +433,7 @@ impl BashSession {
                 .ok_or_else(|| anyhow!("shell session not available"))?;
 
             if let Some(stdin) = child.stdin.as_mut() {
-                let wrapped_command = if timeout_secs > 0 && !self.is_powershell {
+                let wrapped_command = if timeout_secs > 0 {
                     format!("timeout {timeout_secs} {command}")
                 } else {
                     command.to_string()
@@ -463,14 +442,8 @@ impl BashSession {
                 writeln!(stdin, "{wrapped_command}")
                     .map_err(|e| anyhow!("failed to write command: {e}"))?;
 
-                // Write exit code query (platform-specific)
-                if self.is_powershell {
-                    writeln!(stdin, "Write-Output $LASTEXITCODE")
-                        .map_err(|e| anyhow!("failed to write exit code query: {e}"))?;
-                } else {
-                    writeln!(stdin, "echo $?")
-                        .map_err(|e| anyhow!("failed to write exit code query: {e}"))?;
-                }
+                writeln!(stdin, "echo $?")
+                    .map_err(|e| anyhow!("failed to write exit code query: {e}"))?;
 
                 // Write a delimiter to mark end of output
                 writeln!(stdin, "echo '---END---'")
@@ -1909,234 +1882,6 @@ fn canonicalize_existing_or_parent(path: &Path) -> Result<PathBuf> {
                 path.display()
             ));
         }
-    }
-}
-
-/// Tool for `PowerShell` commands (Windows).
-///
-/// Shares the same session and execution logic as `BashTool`,
-/// but validates against PowerShell-specific allowed/blocked commands.
-#[derive(Default)]
-pub struct PowerShellTool;
-
-impl Tool for PowerShellTool {
-    fn name(&self) -> &'static str {
-        "powershell"
-    }
-
-    fn description(&self) -> &'static str {
-        "Run PowerShell commands in a persistent session (Windows only). \
-         Available: Get-ChildItem, Get-Content, Select-String, Get-Process, git, cargo, npm, dotnet, etc. \
-         Use PowerShell cmdlets and syntax (e.g., $env:PATH, Get-Item, Select-String)."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["command"],
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "PowerShell command (e.g., 'Get-ChildItem', 'Select-String pattern file.txt', '$env:PATH')"
-                },
-                "restart": {
-                    "type": "boolean",
-                    "description": "If true, restart the PowerShell session before executing the command"
-                },
-                "timeout_secs": {
-                    "type": "integer",
-                    "description": "Timeout in seconds (default 120s, max 600s)",
-                    "default": 120
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        // Check permissions
-        crate::check_permission(self.permission(), ctx)?;
-
-        // Role-based gating
-        if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
-        }
-
-        let command = params
-            .get("command")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing string parameter 'command'"))?
-            .to_string();
-
-        // Cross-platform path validation
-        use crate::security::cross_platform::{
-            get_allowed_commands, get_blocked_commands, validate_path_in_workspace, ShellType,
-        };
-
-        let shell_type = ShellType::PowerShell;
-        validate_path_in_workspace(&ctx.cwd, &ctx.cwd)?;
-        validate_command_safety(&command)?;
-
-        // Validate command is in platform-specific allowlist
-        let binary_name = extract_binary_name(&command)?;
-        let allowed_commands = get_allowed_commands(shell_type);
-        if !allowed_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!(
-                "command '{}' is not in allowed list for PowerShell",
-                binary_name
-            );
-        }
-
-        // Validate command is NOT in platform-specific blocklist
-        let blocked_commands = get_blocked_commands(shell_type);
-        if blocked_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!("command '{}' is blocked for security reasons", binary_name);
-        }
-
-        // Delegate to BashTool's execution (same session logic)
-        BashTool.execute(params, ctx)
-    }
-}
-
-impl ToolStreaming for PowerShellTool {
-    fn execute_stream(&self, params: Value, ctx: &ToolContext) -> Result<StreamReceiver> {
-        // Cross-platform validation (same as execute)
-        use crate::security::cross_platform::{
-            get_allowed_commands, get_blocked_commands, ShellType,
-        };
-
-        let command = params.get("command").and_then(Value::as_str).unwrap_or("");
-        let shell_type = ShellType::PowerShell;
-        let binary_name = extract_binary_name(command).unwrap_or_default();
-
-        let allowed_commands = get_allowed_commands(shell_type);
-        if !allowed_commands.contains(&binary_name.as_str()) {
-            return Err(anyhow!("command not in allowed list for PowerShell"));
-        }
-
-        let blocked_commands = get_blocked_commands(shell_type);
-        if blocked_commands.contains(&binary_name.as_str()) {
-            return Err(anyhow!("command is blocked for security reasons"));
-        }
-
-        BashTool.execute_stream(params, ctx)
-    }
-}
-
-/// Tool for cmd.exe commands (Windows batch shell).
-///
-/// Shares the same session and execution logic as `BashTool`,
-/// but validates against cmd.exe-specific allowed/blocked commands.
-#[derive(Default)]
-pub struct CmdTool;
-
-impl Tool for CmdTool {
-    fn name(&self) -> &'static str {
-        "cmd"
-    }
-
-    fn description(&self) -> &'static str {
-        "Run batch commands in cmd.exe (Windows native shell). \
-         Available: dir, tasklist, findstr, git, cargo, npm, python, etc. \
-         Use cmd.exe batch syntax (e.g., %PATH%, dir /s, findstr pattern)."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["command"],
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "Batch command (e.g., 'dir /s', 'findstr pattern file.txt', 'tasklist')"
-                },
-                "restart": {
-                    "type": "boolean",
-                    "description": "If true, restart the cmd.exe session before executing the command"
-                },
-                "timeout_secs": {
-                    "type": "integer",
-                    "description": "Timeout in seconds (default 120s, max 600s)",
-                    "default": 120
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        // Check permissions
-        crate::check_permission(self.permission(), ctx)?;
-
-        // Role-based gating
-        if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
-        }
-
-        let command = params
-            .get("command")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing string parameter 'command'"))?
-            .to_string();
-
-        // Cross-platform path validation
-        use crate::security::cross_platform::{
-            get_allowed_commands, get_blocked_commands, validate_path_in_workspace, ShellType,
-        };
-
-        let shell_type = ShellType::Cmd;
-        validate_path_in_workspace(&ctx.cwd, &ctx.cwd)?;
-        validate_command_safety(&command)?;
-
-        // Validate command is in platform-specific allowlist
-        let binary_name = extract_binary_name(&command)?;
-        let allowed_commands = get_allowed_commands(shell_type);
-        if !allowed_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!(
-                "command '{}' is not in allowed list for cmd.exe",
-                binary_name
-            );
-        }
-
-        // Validate command is NOT in platform-specific blocklist
-        let blocked_commands = get_blocked_commands(shell_type);
-        if blocked_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!("command '{}' is blocked for security reasons", binary_name);
-        }
-
-        // Delegate to BashTool's execution (same session logic)
-        BashTool.execute(params, ctx)
-    }
-}
-
-impl ToolStreaming for CmdTool {
-    fn execute_stream(&self, params: Value, ctx: &ToolContext) -> Result<StreamReceiver> {
-        // Cross-platform validation (same as execute)
-        use crate::security::cross_platform::{
-            get_allowed_commands, get_blocked_commands, ShellType,
-        };
-
-        let command = params.get("command").and_then(Value::as_str).unwrap_or("");
-        let shell_type = ShellType::Cmd;
-        let binary_name = extract_binary_name(command).unwrap_or_default();
-
-        let allowed_commands = get_allowed_commands(shell_type);
-        if !allowed_commands.contains(&binary_name.as_str()) {
-            return Err(anyhow!("command not in allowed list for cmd.exe"));
-        }
-
-        let blocked_commands = get_blocked_commands(shell_type);
-        if blocked_commands.contains(&binary_name.as_str()) {
-            return Err(anyhow!("command is blocked for security reasons"));
-        }
-
-        BashTool.execute_stream(params, ctx)
     }
 }
 

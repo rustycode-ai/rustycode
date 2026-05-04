@@ -429,7 +429,7 @@ pub fn default_registry() -> ToolRegistry {
     use crate::providers::WebFetchTool;
     use crate::providers::{
         BashTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, InspectTool,
-        ListDirTool, QuestionTool, ReadFileTool, WriteFileTool,
+        ListDirTool, PowerShellTool, QuestionTool, ReadFileTool, WriteFileTool,
     };
 
     let mut reg = ToolRegistry::new();
@@ -450,6 +450,7 @@ pub fn default_registry() -> ToolRegistry {
 
     // Command execution
     reg.register(BashTool);
+    reg.register(PowerShellTool);
 
     // Git tools
     reg.register(GitStatusTool);

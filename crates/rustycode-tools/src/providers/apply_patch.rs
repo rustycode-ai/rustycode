@@ -147,7 +147,7 @@ fn resolve_source(params: &Value, ctx: &ToolContext) -> Result<PatchSource> {
         }
     }
     if let Some(path) = params.get("patch_file").and_then(Value::as_str) {
-        let validated = validate_read_path(path, &ctx.cwd)?;
+        let validated = validate_read_path(path, &ctx.cwd, !ctx.allow_outside_workspace)?;
         return Ok(PatchSource::File(validated));
     }
     Err(anyhow!(
@@ -331,7 +331,7 @@ fn apply_file_patch(fp: &FilePatch, strip: usize, ctx: &ToolContext) -> Result<S
         fp.path.clone()
     };
 
-    let validated = validate_write_path(&path_str, &ctx.cwd, 0)?;
+    let validated = validate_write_path(&path_str, &ctx.cwd, 0, !ctx.allow_outside_workspace)?;
 
     match &fp.operation {
         PatchOperation::Add => apply_add(&validated, fp),

@@ -322,7 +322,7 @@ fn validate_edit(edit_value: &Value, ctx: &ToolContext) -> Result<ValidatedEdit>
         .ok_or_else(|| anyhow!("missing 'operation'"))?;
 
     // Validate path through security layer (blocks path traversal, sensitive files)
-    let validated_path = validate_write_path(path, &ctx.cwd, 0)?;
+    let validated_path = validate_write_path(path, &ctx.cwd, 0, !ctx.allow_outside_workspace)?;
 
     let edit_operation = match operation {
         "create" => {

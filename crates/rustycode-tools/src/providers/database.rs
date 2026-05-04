@@ -558,7 +558,7 @@ impl Tool for QueryTool {
         // Execute based on database type
         let result = match conn_info.db_type {
             DatabaseType::SQLite => {
-                let db_path = validate_read_path(&conn_info.connection, &ctx.cwd)
+                let db_path = validate_read_path(&conn_info.connection, &ctx.cwd, !ctx.allow_outside_workspace)
                     .map_err(|e| anyhow!("Invalid database path: {e}"))?;
                 if !db_path.exists() {
                     bail!("SQLite database not found: {}", db_path.display());
@@ -695,7 +695,7 @@ impl Tool for SchemaTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing 'path' parameter"))?;
 
-        let validated_path = validate_read_path(db_path, &ctx.cwd)
+        let validated_path = validate_read_path(db_path, &ctx.cwd, !ctx.allow_outside_workspace)
             .map_err(|e| anyhow!("Invalid database path: {e}"))?;
         if !validated_path.exists() {
             bail!("SQLite database not found: {}", validated_path.display());
@@ -825,7 +825,7 @@ impl Tool for TransactionTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow!("Missing 'path' parameter"))?;
 
-        let validated_path = validate_read_path(db_path, &ctx.cwd)
+        let validated_path = validate_read_path(db_path, &ctx.cwd, !ctx.allow_outside_workspace)
             .map_err(|e| anyhow!("Invalid database path: {e}"))?;
         if !validated_path.exists() {
             bail!("SQLite database not found: {}", validated_path.display());

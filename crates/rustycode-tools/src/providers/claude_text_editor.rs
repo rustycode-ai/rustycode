@@ -249,7 +249,7 @@ impl ClaudeTextEditor {
         ctx: &ToolContext,
     ) -> Result<ToolOutput> {
         // Validate and resolve path
-        let path = validate_read_path(path_str, &ctx.cwd)?;
+        let path = validate_read_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         // Check if it's a directory or file
         if path.is_dir() {
@@ -396,7 +396,7 @@ impl ClaudeTextEditor {
         }
 
         // Validate and resolve path
-        let path = validate_write_path(path_str, &ctx.cwd, new_str.len())?;
+        let path = validate_write_path(path_str, &ctx.cwd, new_str.len(), !ctx.allow_outside_workspace)?;
 
         // Create backup before editing
         backup_manager.backup(&path)?;
@@ -461,7 +461,7 @@ impl ClaudeTextEditor {
         ctx: &ToolContext,
     ) -> Result<ToolOutput> {
         // Validate and resolve path
-        let path = validate_write_path(path_str, &ctx.cwd, content.len())?;
+        let path = validate_write_path(path_str, &ctx.cwd, content.len(), !ctx.allow_outside_workspace)?;
 
         // Create parent directories if needed (atomic - no TOCTOU)
         // fs::create_dir_all is idempotent - handles AlreadyExists gracefully
@@ -514,7 +514,7 @@ impl ClaudeTextEditor {
         }
 
         // Validate and resolve path
-        let path = validate_write_path(path_str, &ctx.cwd, content.len())?;
+        let path = validate_write_path(path_str, &ctx.cwd, content.len(), !ctx.allow_outside_workspace)?;
 
         // Create backup before editing
         backup_manager.backup(&path)?;
@@ -595,7 +595,7 @@ impl ClaudeTextEditor {
         ctx: &ToolContext,
     ) -> Result<ToolOutput> {
         // Validate and resolve path
-        let path = validate_write_path(path_str, &ctx.cwd, 0)?;
+        let path = validate_write_path(path_str, &ctx.cwd, 0, !ctx.allow_outside_workspace)?;
 
         // Check file exists
         if !path.exists() {

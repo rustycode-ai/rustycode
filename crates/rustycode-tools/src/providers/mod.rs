@@ -28,6 +28,7 @@ pub mod lsp;
 pub mod mcp_resources;
 pub mod multiedit;
 pub mod notebook;
+pub mod powershell;
 pub mod question;
 pub mod reasoning_types;
 pub mod repl;
@@ -89,6 +90,8 @@ pub use mcp_resources::*;
 pub use multiedit::*;
 #[allow(ambiguous_glob_reexports)]
 pub use notebook::*;
+#[allow(ambiguous_glob_reexports)]
+pub use powershell::*;
 #[allow(ambiguous_glob_reexports)]
 pub use question::*;
 #[allow(ambiguous_glob_reexports)]

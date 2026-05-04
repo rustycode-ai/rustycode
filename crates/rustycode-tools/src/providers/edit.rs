@@ -208,7 +208,7 @@ impl Tool for EditFile {
             .ok_or_else(|| anyhow::anyhow!("Invalid path: contains non-UTF-8 characters"))?;
 
         // Validate the path is within workspace and safe
-        let validated_path = validate_write_path(path_str, &ctx.cwd, input.new_text.len())
+        let validated_path = validate_write_path(path_str, &ctx.cwd, input.new_text.len(), !ctx.allow_outside_workspace)
             .map_err(|e| {
                 let mut msg = format!("{e}");
                 if msg.contains("not found") || msg.contains("No such file") {
