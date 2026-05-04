@@ -1,0 +1,7 @@
+<claude_guidance>
+<rule>Use XML tags for structured outputs when the task has multiple distinct parts.</rule>
+<rule>Maximize parallel tool calls when outputs are independent.</rule>
+<rule>After a tool failure: read the error, identify root cause, retry.</rule>
+<rule>Start with the implementation. Keep rationale to 1-2 bullets.</rule>
+<rule>Include verification commands. Produce complete, runnable solutions.</rule>
+</claude_guidance>

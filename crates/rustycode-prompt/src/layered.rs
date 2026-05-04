@@ -10,6 +10,7 @@
 use crate::environment::EnvironmentContext;
 use anyhow::Result;
 use rustycode_config::DomainContext;
+use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs;
 
@@ -27,29 +28,114 @@ pub enum PromptLayer {
 }
 
 /// Model provider for model-specific prompts
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ModelProvider {
-    Anthropic,
-    Google,
-    OpenAI,
+    // Anthropic
+    ClaudeOpus,
+    ClaudeSonnet,
+    ClaudeHaiku,
+
+    // OpenAI
+    GPT5,
+    GPT4,
+    OpenAIReasoning,
+
+    // Google
+    Gemini3,
+    Gemini2,
+
+    // Other providers
+    Mistral,
+    DeepSeek,
+    Llama,
+    Qwen,
+    Cohere,
+
+    // Fallback
     Generic,
 }
 
 impl ModelProvider {
     pub fn from_model_id(model_id: &str) -> Self {
-        if model_id.contains("claude") || model_id.contains("anthropic") {
-            Self::Anthropic
-        } else if model_id.contains("gemini") || model_id.contains("google") {
-            Self::Google
-        } else if model_id.contains("gpt")
-            || model_id.contains("openai")
-            || model_id.contains("openrouter")
-        {
-            Self::OpenAI
-        } else {
-            Self::Generic
+        let id = model_id.to_lowercase();
+
+        // Anthropic — specific models first
+        if id.contains("claude") {
+            if id.contains("opus") {
+                return Self::ClaudeOpus;
+            }
+            if id.contains("haiku") {
+                return Self::ClaudeHaiku;
+            }
+            return Self::ClaudeSonnet;
         }
+
+        // OpenAI — o-series before gpt
+        if id.starts_with("o1") || id.starts_with("o3") || id.starts_with("o4") {
+            return Self::OpenAIReasoning;
+        }
+        if id.contains("gpt-5") || id.contains("gpt5") {
+            return Self::GPT5;
+        }
+        if id.contains("gpt-4")
+            || id.contains("gpt4")
+            || id.contains("gpt-3")
+            || id.contains("chatgpt")
+            || id.contains("gpt-4o")
+        {
+            return Self::GPT4;
+        }
+
+        // Google
+        if id.contains("gemini-3") {
+            return Self::Gemini3;
+        }
+        if id.contains("gemini") {
+            return Self::Gemini2;
+        }
+
+        // Other providers
+        if id.contains("mistral") || id.contains("codestral") {
+            return Self::Mistral;
+        }
+        if id.contains("deepseek") {
+            return Self::DeepSeek;
+        }
+        if id.contains("llama") {
+            return Self::Llama;
+        }
+        if id.contains("qwen") {
+            return Self::Qwen;
+        }
+        if id.contains("command-r") {
+            return Self::Cohere;
+        }
+
+        // openrouter/unknown with openai keyword → GPT4 fallback
+        if id.contains("openai") || id.contains("openrouter") {
+            return Self::GPT4;
+        }
+
+        Self::Generic
+    }
+
+    /// Returns true if this is an Anthropic model (Claude family).
+    pub const fn is_anthropic(&self) -> bool {
+        matches!(
+            self,
+            Self::ClaudeOpus | Self::ClaudeSonnet | Self::ClaudeHaiku
+        )
+    }
+
+    /// Returns true if this is an `OpenAI` model (`GPT` or o-series).
+    pub const fn is_openai(&self) -> bool {
+        matches!(self, Self::GPT5 | Self::GPT4 | Self::OpenAIReasoning)
+    }
+
+    /// Returns true if this is a Google model (Gemini family).
+    pub const fn is_google(&self) -> bool {
+        matches!(self, Self::Gemini3 | Self::Gemini2)
     }
 }
 
@@ -125,22 +211,84 @@ impl Default for InstructionScanner {
 #[derive(Debug, Clone)]
 pub struct PromptBuilder {
     base_prompt: String,
-    anthropic_prompt: String,
-    openai_prompt: String,
-    gemini_prompt: String,
-    generic_prompt: String,
+    model_prompts: HashMap<ModelProvider, String>,
     infrastructure_prompt: String,
     scanner: InstructionScanner,
 }
 
 impl PromptBuilder {
     pub fn new() -> Self {
+        let mut model_prompts: HashMap<ModelProvider, String> = HashMap::new();
+
+        // Anthropic
+        model_prompts.insert(
+            ModelProvider::ClaudeOpus,
+            include_str!("../prompts/claude-opus.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::ClaudeSonnet,
+            include_str!("../prompts/claude-sonnet.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::ClaudeHaiku,
+            include_str!("../prompts/claude-haiku.txt").to_string(),
+        );
+
+        // OpenAI
+        model_prompts.insert(
+            ModelProvider::GPT5,
+            include_str!("../prompts/gpt5.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::GPT4,
+            include_str!("../prompts/gpt4.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::OpenAIReasoning,
+            include_str!("../prompts/o-series.txt").to_string(),
+        );
+
+        // Google
+        model_prompts.insert(
+            ModelProvider::Gemini3,
+            include_str!("../prompts/gemini3.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::Gemini2,
+            include_str!("../prompts/gemini2.txt").to_string(),
+        );
+
+        // Other providers
+        model_prompts.insert(
+            ModelProvider::Mistral,
+            include_str!("../prompts/mistral.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::DeepSeek,
+            include_str!("../prompts/deepseek.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::Llama,
+            include_str!("../prompts/llama.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::Qwen,
+            include_str!("../prompts/qwen.txt").to_string(),
+        );
+        model_prompts.insert(
+            ModelProvider::Cohere,
+            include_str!("../prompts/cohere.txt").to_string(),
+        );
+
+        // Fallback
+        model_prompts.insert(
+            ModelProvider::Generic,
+            include_str!("../prompts/generic.txt").to_string(),
+        );
+
         Self {
             base_prompt: include_str!("../prompts/base.txt").to_string(),
-            anthropic_prompt: include_str!("../prompts/anthropic.txt").to_string(),
-            openai_prompt: include_str!("../prompts/openai.txt").to_string(),
-            gemini_prompt: include_str!("../prompts/gemini.txt").to_string(),
-            generic_prompt: include_str!("../prompts/generic.txt").to_string(),
+            model_prompts,
             infrastructure_prompt: include_str!("../prompts/infrastructure.txt").to_string(),
             scanner: InstructionScanner::new(),
         }
@@ -207,13 +355,13 @@ impl PromptBuilder {
         Ok(layers.join("\n\n"))
     }
 
+    #[allow(clippy::trivially_copy_pass_by_ref, clippy::expect_used)]
     fn get_model_prompt(&self, provider: &ModelProvider) -> &str {
-        match provider {
-            ModelProvider::Anthropic => &self.anthropic_prompt,
-            ModelProvider::OpenAI => &self.openai_prompt,
-            ModelProvider::Google => &self.gemini_prompt,
-            ModelProvider::Generic => &self.generic_prompt,
-        }
+        self.model_prompts.get(provider).unwrap_or_else(|| {
+            self.model_prompts
+                .get(&ModelProvider::Generic)
+                .expect("Generic prompt must exist")
+        })
     }
 }
 
@@ -228,10 +376,11 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    // --- Build tests ---
+
     #[tokio::test]
     async fn test_build_prompt() {
         let builder = PromptBuilder::new();
-
         let env = EnvironmentContext {
             working_directory: PathBuf::from("/tmp/test"),
             workspace_root: PathBuf::from("/tmp/test"),
@@ -283,17 +432,19 @@ mod tests {
         assert!(prompt.contains("rust"));
     }
 
+    // --- Model detection tests ---
+
     #[test]
-    fn test_model_provider_detection() {
+    fn test_model_provider_detection_basic() {
         assert_eq!(
             ModelProvider::from_model_id("claude-3-sonnet"),
-            ModelProvider::Anthropic
+            ModelProvider::ClaudeSonnet
         );
         assert_eq!(
             ModelProvider::from_model_id("gemini-pro"),
-            ModelProvider::Google
+            ModelProvider::Gemini2
         );
-        assert_eq!(ModelProvider::from_model_id("gpt-4"), ModelProvider::OpenAI);
+        assert_eq!(ModelProvider::from_model_id("gpt-4"), ModelProvider::GPT4);
         assert_eq!(
             ModelProvider::from_model_id("unknown-model"),
             ModelProvider::Generic
@@ -301,76 +452,215 @@ mod tests {
     }
 
     #[test]
-    fn test_model_provider_anthropic_variants() {
+    fn test_model_provider_claude_variants() {
         assert_eq!(
             ModelProvider::from_model_id("claude-opus-4"),
-            ModelProvider::Anthropic
+            ModelProvider::ClaudeOpus
         );
         assert_eq!(
-            ModelProvider::from_model_id("anthropic-model"),
-            ModelProvider::Anthropic
+            ModelProvider::from_model_id("claude-opus-4-7"),
+            ModelProvider::ClaudeOpus
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("claude-haiku-4"),
+            ModelProvider::ClaudeHaiku
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("claude-3-5-sonnet"),
+            ModelProvider::ClaudeSonnet
         );
         assert_eq!(
             ModelProvider::from_model_id("claude"),
-            ModelProvider::Anthropic
+            ModelProvider::ClaudeSonnet
         );
     }
 
     #[test]
-    fn test_model_provider_google_variants() {
+    fn test_model_provider_gemini_variants() {
         assert_eq!(
-            ModelProvider::from_model_id("gemini-ultra"),
-            ModelProvider::Google
+            ModelProvider::from_model_id("gemini-3-pro"),
+            ModelProvider::Gemini3
         );
         assert_eq!(
-            ModelProvider::from_model_id("google-gemini"),
-            ModelProvider::Google
+            ModelProvider::from_model_id("gemini-ultra"),
+            ModelProvider::Gemini2
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("gemini-pro"),
+            ModelProvider::Gemini2
         );
     }
 
     #[test]
     fn test_model_provider_openai_variants() {
+        assert_eq!(ModelProvider::from_model_id("gpt-5.5"), ModelProvider::GPT5);
         assert_eq!(
-            ModelProvider::from_model_id("gpt-4o"),
-            ModelProvider::OpenAI
+            ModelProvider::from_model_id("gpt-5-turbo"),
+            ModelProvider::GPT5
         );
-        assert_eq!(
-            ModelProvider::from_model_id("openai-gpt"),
-            ModelProvider::OpenAI
-        );
+        assert_eq!(ModelProvider::from_model_id("gpt-4o"), ModelProvider::GPT4);
         assert_eq!(
             ModelProvider::from_model_id("gpt-3.5-turbo"),
-            ModelProvider::OpenAI
+            ModelProvider::GPT4
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("chatgpt-4o"),
+            ModelProvider::GPT4
+        );
+    }
+
+    #[test]
+    fn test_model_provider_reasoning_variants() {
+        assert_eq!(
+            ModelProvider::from_model_id("o1-preview"),
+            ModelProvider::OpenAIReasoning
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("o3-mini"),
+            ModelProvider::OpenAIReasoning
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("o4-mini"),
+            ModelProvider::OpenAIReasoning
+        );
+    }
+
+    #[test]
+    fn test_model_provider_other_providers() {
+        assert_eq!(
+            ModelProvider::from_model_id("mistral-large"),
+            ModelProvider::Mistral
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("codestral-latest"),
+            ModelProvider::Mistral
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("deepseek-v3"),
+            ModelProvider::DeepSeek
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("llama-3-70b"),
+            ModelProvider::Llama
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("qwen-2.5-coder"),
+            ModelProvider::Qwen
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("command-r-plus"),
+            ModelProvider::Cohere
         );
     }
 
     #[test]
     fn test_model_provider_generic_fallback() {
         assert_eq!(
-            ModelProvider::from_model_id("llama-3"),
+            ModelProvider::from_model_id("grok-2"),
             ModelProvider::Generic
         );
         assert_eq!(
-            ModelProvider::from_model_id("mistral"),
+            ModelProvider::from_model_id("nova-pro"),
             ModelProvider::Generic
         );
         assert_eq!(ModelProvider::from_model_id(""), ModelProvider::Generic);
     }
 
     #[test]
+    fn test_model_provider_openrouter() {
+        assert_eq!(
+            ModelProvider::from_model_id("openrouter/anthropic/claude-3"),
+            ModelProvider::ClaudeSonnet
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("openrouter/meta-llama/llama-3"),
+            ModelProvider::Llama
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("openrouter-gpt-4"),
+            ModelProvider::GPT4
+        );
+    }
+
+    #[test]
+    fn test_model_provider_case_insensitive() {
+        assert_eq!(
+            ModelProvider::from_model_id("Claude-3"),
+            ModelProvider::ClaudeSonnet
+        );
+        assert_eq!(ModelProvider::from_model_id("GPT-4"), ModelProvider::GPT4);
+        assert_eq!(
+            ModelProvider::from_model_id("Gemini-Pro"),
+            ModelProvider::Gemini2
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("Mistral-Large"),
+            ModelProvider::Mistral
+        );
+    }
+
+    #[test]
+    fn test_model_provider_substring_match() {
+        assert_eq!(
+            ModelProvider::from_model_id("my-claude-clone"),
+            ModelProvider::ClaudeSonnet
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("something-with-gemini-inside"),
+            ModelProvider::Gemini2
+        );
+        assert_eq!(
+            ModelProvider::from_model_id("not-really-openai-compatible"),
+            ModelProvider::GPT4
+        );
+    }
+
+    // --- Prompt routing tests ---
+
+    #[test]
     fn test_provider_routing_returns_correct_prompt() {
         let builder = PromptBuilder::new();
 
-        let openai_prompt = builder.get_model_prompt(&ModelProvider::OpenAI);
+        let opus_prompt = builder.get_model_prompt(&ModelProvider::ClaudeOpus);
         assert!(
-            openai_prompt.contains("OpenAI"),
-            "OpenAI prompt should contain provider name"
+            opus_prompt.contains("Claude") || opus_prompt.contains("claude"),
+            "Opus prompt should contain Claude marker"
         );
 
-        let gemini_prompt = builder.get_model_prompt(&ModelProvider::Google);
+        let sonnet_prompt = builder.get_model_prompt(&ModelProvider::ClaudeSonnet);
         assert!(
-            gemini_prompt.contains("Gemini"),
-            "Google prompt should contain Gemini"
+            sonnet_prompt.contains("Claude") || sonnet_prompt.contains("claude"),
+            "Sonnet prompt should contain Claude marker"
+        );
+
+        let haiku_prompt = builder.get_model_prompt(&ModelProvider::ClaudeHaiku);
+        assert!(
+            haiku_prompt.contains("Claude") || haiku_prompt.contains("claude"),
+            "Haiku prompt should contain Claude marker"
+        );
+
+        let gpt5_prompt = builder.get_model_prompt(&ModelProvider::GPT5);
+        assert!(
+            gpt5_prompt.contains("developer"),
+            "GPT5 prompt should contain developer marker"
+        );
+
+        let gpt4_prompt = builder.get_model_prompt(&ModelProvider::GPT4);
+        assert!(
+            gpt4_prompt.contains("developer"),
+            "GPT4 prompt should contain developer marker"
+        );
+
+        let gemini3_prompt = builder.get_model_prompt(&ModelProvider::Gemini3);
+        assert!(
+            gemini3_prompt.contains("Gemini"),
+            "Gemini 3 prompt should contain Gemini"
+        );
+
+        let gemini2_prompt = builder.get_model_prompt(&ModelProvider::Gemini2);
+        assert!(
+            gemini2_prompt.contains("Gemini"),
+            "Gemini 2 prompt should contain Gemini"
         );
 
         let generic_prompt = builder.get_model_prompt(&ModelProvider::Generic);
@@ -378,16 +668,40 @@ mod tests {
             generic_prompt.contains("Core Principles"),
             "Generic prompt should contain core principles"
         );
+    }
 
-        let anthropic_prompt = builder.get_model_prompt(&ModelProvider::Anthropic);
-        assert!(
-            anthropic_prompt.contains("Claude") || anthropic_prompt.contains("Anthropic"),
-            "Anthropic prompt should contain provider name"
-        );
+    #[test]
+    fn test_provider_routing_all_variants_have_prompts() {
+        let builder = PromptBuilder::new();
+        let variants = [
+            ModelProvider::ClaudeOpus,
+            ModelProvider::ClaudeSonnet,
+            ModelProvider::ClaudeHaiku,
+            ModelProvider::GPT5,
+            ModelProvider::GPT4,
+            ModelProvider::OpenAIReasoning,
+            ModelProvider::Gemini3,
+            ModelProvider::Gemini2,
+            ModelProvider::Mistral,
+            ModelProvider::DeepSeek,
+            ModelProvider::Llama,
+            ModelProvider::Qwen,
+            ModelProvider::Cohere,
+            ModelProvider::Generic,
+        ];
+
+        for variant in &variants {
+            let prompt = builder.get_model_prompt(variant);
+            assert!(
+                !prompt.is_empty(),
+                "Prompt for {:?} should not be empty",
+                variant
+            );
+        }
     }
 
     #[tokio::test]
-    async fn test_built_prompt_contains_provider_specific_content() {
+    async fn test_built_prompt_contains_model_specific_content() {
         let builder = PromptBuilder::new();
         let env = EnvironmentContext {
             working_directory: PathBuf::from("/tmp/test"),
@@ -398,17 +712,15 @@ mod tests {
             git_status: None,
         };
 
-        // OpenAI model should get OpenAI-specific prompt
-        let openai_prompt = builder
+        let gpt4_prompt = builder
             .build("gpt-4", None, &env)
             .await
             .expect("build failed");
         assert!(
-            openai_prompt.contains("OpenAI"),
-            "GPT-4 built prompt should contain OpenAI guidance"
+            gpt4_prompt.contains("developer"),
+            "GPT-4 built prompt should contain developer instructions"
         );
 
-        // Gemini model should get Gemini-specific prompt
         let gemini_prompt = builder
             .build("gemini-pro", None, &env)
             .await
@@ -418,34 +730,17 @@ mod tests {
             "Gemini built prompt should contain Gemini guidance"
         );
 
-        // Generic model should get generic fallback
-        let generic_prompt = builder
+        let llama_prompt = builder
             .build("llama-3", None, &env)
             .await
             .expect("build failed");
         assert!(
-            generic_prompt.contains("Core Principles"),
-            "Llama built prompt should contain generic guidance"
+            llama_prompt.contains("Llama"),
+            "Llama built prompt should contain Llama guidance"
         );
     }
 
-    #[test]
-    fn test_model_provider_openrouter() {
-        // OpenRouter with Anthropic model — "claude" substring matches first
-        assert_eq!(
-            ModelProvider::from_model_id("openrouter/anthropic/claude-3"),
-            ModelProvider::Anthropic
-        );
-        // OpenRouter with non-provider-specific model
-        assert_eq!(
-            ModelProvider::from_model_id("openrouter/meta-llama/llama-3"),
-            ModelProvider::OpenAI
-        );
-        assert_eq!(
-            ModelProvider::from_model_id("openrouter-gpt-4"),
-            ModelProvider::OpenAI
-        );
-    }
+    // --- Type trait tests ---
 
     #[test]
     fn test_prompt_layer_variants() {
@@ -501,7 +796,6 @@ mod tests {
         };
 
         let prompt = builder.build("gpt-4", None, &env).await.unwrap();
-
         assert!(!prompt.is_empty());
     }
 
@@ -521,7 +815,6 @@ mod tests {
         let src = dir.path().join("src");
         let nested = src.join("module");
         std::fs::create_dir_all(&nested).unwrap();
-        // Put AGENTS.md in the src/ directory (intermediate, not project root)
         std::fs::write(
             src.join("AGENTS.md"),
             "# Test Instructions\nDo good things.",
@@ -548,12 +841,15 @@ mod tests {
             git_status: None,
         };
 
-        let prompt = builder.build("llama-3-70b", None, &env).await.unwrap();
-
+        let prompt = builder.build("grok-2", None, &env).await.unwrap();
         assert!(!prompt.is_empty());
+        assert!(
+            prompt.contains("Core Principles"),
+            "Unknown model should get generic fallback"
+        );
     }
 
-    // --- New tests: builder validation, edge cases, display ---
+    // --- Equality and trait tests ---
 
     #[test]
     fn test_prompt_layer_equality() {
@@ -571,52 +867,27 @@ mod tests {
 
     #[test]
     fn test_model_provider_equality() {
-        assert_eq!(ModelProvider::Anthropic, ModelProvider::Anthropic);
+        assert_eq!(ModelProvider::ClaudeSonnet, ModelProvider::ClaudeSonnet);
         assert_eq!(ModelProvider::Generic, ModelProvider::Generic);
-        assert_ne!(ModelProvider::Anthropic, ModelProvider::OpenAI);
-    }
-
-    #[test]
-    fn test_model_provider_from_model_id_case_sensitive() {
-        // "Claude" with uppercase C should not match "claude"
-        assert_eq!(
-            ModelProvider::from_model_id("Claude-3"),
-            ModelProvider::Generic
-        );
-        // "GPT" with uppercase should not match "gpt"
-        assert_eq!(
-            ModelProvider::from_model_id("GPT-4"),
-            ModelProvider::Generic
-        );
-    }
-
-    #[test]
-    fn test_model_provider_from_model_id_substring_match() {
-        // Model IDs containing provider keywords in unexpected places
-        assert_eq!(
-            ModelProvider::from_model_id("my-claude-clone"),
-            ModelProvider::Anthropic
-        );
-        assert_eq!(
-            ModelProvider::from_model_id("something-with-gemini-inside"),
-            ModelProvider::Google
-        );
-        assert_eq!(
-            ModelProvider::from_model_id("not-really-openai-compatible"),
-            ModelProvider::OpenAI
-        );
+        assert_ne!(ModelProvider::ClaudeOpus, ModelProvider::ClaudeSonnet);
     }
 
     #[test]
     fn test_model_provider_debug() {
-        let debug = format!("{:?}", ModelProvider::Anthropic);
-        assert!(debug.contains("Anthropic"));
-        let debug = format!("{:?}", ModelProvider::Google);
-        assert!(debug.contains("Google"));
-        let debug = format!("{:?}", ModelProvider::OpenAI);
-        assert!(debug.contains("OpenAI"));
-        let debug = format!("{:?}", ModelProvider::Generic);
-        assert!(debug.contains("Generic"));
+        assert!(format!("{:?}", ModelProvider::ClaudeOpus).contains("ClaudeOpus"));
+        assert!(format!("{:?}", ModelProvider::ClaudeSonnet).contains("ClaudeSonnet"));
+        assert!(format!("{:?}", ModelProvider::ClaudeHaiku).contains("ClaudeHaiku"));
+        assert!(format!("{:?}", ModelProvider::GPT5).contains("GPT5"));
+        assert!(format!("{:?}", ModelProvider::GPT4).contains("GPT4"));
+        assert!(format!("{:?}", ModelProvider::OpenAIReasoning).contains("OpenAIReasoning"));
+        assert!(format!("{:?}", ModelProvider::Gemini3).contains("Gemini3"));
+        assert!(format!("{:?}", ModelProvider::Gemini2).contains("Gemini2"));
+        assert!(format!("{:?}", ModelProvider::Mistral).contains("Mistral"));
+        assert!(format!("{:?}", ModelProvider::DeepSeek).contains("DeepSeek"));
+        assert!(format!("{:?}", ModelProvider::Llama).contains("Llama"));
+        assert!(format!("{:?}", ModelProvider::Qwen).contains("Qwen"));
+        assert!(format!("{:?}", ModelProvider::Cohere).contains("Cohere"));
+        assert!(format!("{:?}", ModelProvider::Generic).contains("Generic"));
     }
 
     #[test]
@@ -659,8 +930,10 @@ mod tests {
         assert_eq!(cloned.base_prompt, builder.base_prompt);
     }
 
+    // --- Build integration tests ---
+
     #[tokio::test]
-    async fn test_build_prompt_anthropic_model() {
+    async fn test_build_prompt_claude_opus() {
         let builder = PromptBuilder::new();
         let env = EnvironmentContext {
             working_directory: PathBuf::from("/tmp/test"),
@@ -671,15 +944,13 @@ mod tests {
             git_status: None,
         };
 
-        let prompt = builder.build("claude-3-opus", None, &env).await.unwrap();
-
+        let prompt = builder.build("claude-opus-4", None, &env).await.unwrap();
         assert!(!prompt.is_empty());
-        // Should contain the anthropic-specific prompt content
-        assert!(!builder.anthropic_prompt.is_empty() || prompt.contains("Environment"));
+        assert!(prompt.contains("Environment"));
     }
 
     #[tokio::test]
-    async fn test_build_prompt_google_model() {
+    async fn test_build_prompt_gemini_model() {
         let builder = PromptBuilder::new();
         let env = EnvironmentContext {
             working_directory: PathBuf::from("/tmp/test"),
@@ -691,7 +962,6 @@ mod tests {
         };
 
         let prompt = builder.build("gemini-pro", None, &env).await.unwrap();
-
         assert!(!prompt.is_empty());
     }
 
@@ -737,7 +1007,6 @@ mod tests {
     #[tokio::test]
     async fn test_scan_upward_stops_at_project_root() {
         let dir = tempfile::tempdir().unwrap();
-        // Create a CLAUDE.md inside project root (should NOT be found since we stop at root)
         std::fs::write(dir.path().join("CLAUDE.md"), "Root instructions").unwrap();
         let src = dir.path().join("src");
         std::fs::create_dir_all(&src).unwrap();
@@ -746,7 +1015,6 @@ mod tests {
         let file = src.join("main.rs");
 
         let instructions = scanner.scan_upward(&file, dir.path()).await;
-        // scan_upward stops when path == project_root, so root-level files are not included
         assert!(!instructions.iter().any(|i| i.contains("Root instructions")));
     }
 
@@ -764,7 +1032,6 @@ mod tests {
         let file = level3.join("file.rs");
 
         let instructions = scanner.scan_upward(&file, dir.path()).await;
-        // Should find instructions from level2 and level1 (scanning upward from file parent)
         assert!(instructions.iter().any(|i| i.contains("Level 1")));
         assert!(instructions.iter().any(|i| i.contains("Level 2")));
     }
@@ -772,10 +1039,7 @@ mod tests {
     #[tokio::test]
     async fn test_load_global_returns_vec() {
         let scanner = InstructionScanner::new();
-        // This just verifies load_global returns without error;
-        // actual content depends on whether ~/.claude/AGENTS.md exists
         let result = scanner.load_global().await;
-        // result is always a Vec, may be empty
         assert!(
             result.len() % 3 == 0 || result.is_empty(),
             "Each instruction file produces 3 entries: header, content, blank"

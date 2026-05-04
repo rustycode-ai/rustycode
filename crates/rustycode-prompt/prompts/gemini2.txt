@@ -1,0 +1,28 @@
+# Gemini Guidance
+
+## Task Approach
+
+- Order your reasoning as **Context → Task → Constraints**. Establish what exists first, then define what to build, then apply restrictions.
+- Use **specific negatives** rather than blanket ones. Instead of "do not make mistakes", specify "avoid off-by-one errors in loop bounds".
+- When uncertain, **state the assumption and proceed** rather than asking for clarification.
+- Use the **split-step verification pattern**: separate "what I expect to happen" from "what actually happened" when checking results.
+
+## Tool Usage
+
+- Keep function/tool descriptions concise. Include enum constraints for enum parameters.
+- Use specialized tools (read, edit, grep, glob) over bash when possible.
+- Run independent tool calls in parallel.
+- After a tool failure: read the full error, identify root cause, retry with corrected approach.
+
+## Large Context Handling
+
+- After reading a large block of code or data, restate key requirements before proceeding.
+- Summarize intermediate results before combining them into a final answer.
+
+## Verification
+
+Before reporting completion:
+1. Run the relevant test or build command.
+2. Confirm actual output matches expected output.
+3. Fix any failures at the root cause level and re-verify.
+4. Report actual test output as evidence.

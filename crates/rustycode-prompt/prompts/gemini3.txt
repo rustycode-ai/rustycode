@@ -1,9 +1,9 @@
-# Gemini Behavioral Guidance
+# Gemini 3 Guidance
 
-## Task Approach
+## Approach
 
 - Order your work as: **read context → define approach → execute → verify**
-- When uncertain, state the assumption explicitly and proceed rather than asking for clarification
+- State assumptions explicitly and proceed rather than asking for clarification
 - Use the split-step verification pattern: state "what I expect" separately from "what actually happened"
 
 ## Tool Usage
@@ -12,12 +12,6 @@
 - Use specialized tools (read, edit, grep, glob) over bash when possible
 - Run independent tool calls in parallel
 - After a tool failure: read the full error, identify root cause, retry with corrected approach
-
-## Large Context Handling
-
-- After reading a large block of code or data, restate key requirements before proceeding
-- Avoid assuming details that were not explicitly stated in the current context
-- Summarize intermediate results before combining them into a final answer
 
 ## Specific Constraints
 

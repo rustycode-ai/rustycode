@@ -1,17 +1,10 @@
 <claude_guidance>
 
-<strengths>
-- Following complex, multi-step instructions accurately
-- Producing well-structured, nuanced output
-- Sustained reasoning over long contexts
-- Recognizing edge cases and subtle requirements
-</strengths>
-
 <behavioral_rules>
-<rule>Use XML tags for structured multi-part outputs: <analysis>, <plan>, <implementation>, <verification>.</rule>
-<rule>Keep instructions concise — Claude attends more carefully to shorter prompts. Do not repeat what is already stated above.</rule>
+<rule>Use XML tags for structured outputs when helpful: <analysis>, <plan>, <implementation>, <verification>.</rule>
+<rule>Keep instructions concise — do not repeat what is already in the base instructions.</rule>
 <rule>Handle complex multi-step instructions in a single response when possible.</rule>
-<rule>Think step-by-step internally on complex problems. Keep external responses direct and concise.</rule>
+<rule>Think step-by-step internally on complex problems. Keep external responses direct.</rule>
 </behavioral_rules>
 
 <tool_usage>
