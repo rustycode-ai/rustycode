@@ -174,6 +174,7 @@ impl PowerShellSession {
     }
 
     /// Restart the session with a fresh `pwsh` process.
+    #[allow(dead_code)]
     fn restart(&mut self) -> Result<()> {
         if let Some(mut child) = self
             .child
