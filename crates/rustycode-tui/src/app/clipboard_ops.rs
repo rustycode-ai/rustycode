@@ -14,8 +14,7 @@ impl TUI {
         match copy_text_to_clipboard_both(&content) {
             Ok(()) => {
                 tracing::debug!("Copied clipboard payload ({} chars)", chars);
-                self.toast_manager
-                    .success(format!("✓ {} ({} chars)", success_label, chars));
+                self.add_system_message(format!("✓ {} ({} chars)", success_label, chars));
             }
             Err(e) => {
                 tracing::error!("Failed to copy clipboard payload: {}", e);
