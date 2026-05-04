@@ -64,7 +64,12 @@ benchmark_results/
 bench-tasks/
 crates/rustycode-session/sessions/
 crates/rustycode-runtime/benchmark_results/
+crates/rustycode-web/e2e/cdp-screenshots/
 crates/rustycode-web/e2e/cdp-usability-screenshots/
+crates/rustycode-web/e2e/cdp-walkthrough.ts
+crates/rustycode-web/e2e/cdp-*-walkthrough.ts
+crates/rustycode-web/progress.txt
+LSP_TESTING_PLAN.md
 *.exp
 *.tar.gz
 *.deb
