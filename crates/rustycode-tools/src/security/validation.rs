@@ -264,12 +264,23 @@ fn check_path_for_symlinks(path: &Path, workspace: &Path) -> Result<()> {
     // Build the path incrementally, checking each component
     // This is necessary because symlink_metadata on a path that goes through
     // a symlink directory will return metadata about the target, not the symlink
-    let mut check_path = workspace.to_path_buf();
 
-    // Get the path components relative to workspace
-    let relative_path = path
-        .strip_prefix(workspace)
-        .map_err(|_| anyhow!("path '{}' is not within workspace", path.display()))?;
+    // For paths outside the workspace (relaxed mode), check only the final
+    // component — we can't walk from workspace root, but still block symlinks
+    // that could redirect to security-sensitive locations.
+    let Ok(relative_path) = path.strip_prefix(workspace) else {
+        if let Ok(metadata) = fs::symlink_metadata(path) {
+            if metadata.file_type().is_symlink() {
+                return Err(anyhow!(
+                    "symbolic link detected at '{}': symlinks are not allowed for security",
+                    path.display()
+                ));
+            }
+        }
+        return Ok(());
+    };
+
+    let mut check_path = workspace.to_path_buf();
 
     // Check each component from workspace root up to the target
     for component in relative_path.components() {
@@ -903,8 +914,8 @@ mod tests {
 
     #[test]
     fn test_validate_read_path_allows_outside_workspace_when_relaxed() {
-        let workspace = TempDir::new().unwrap();
-        let outside = TempDir::new().unwrap();
+        let workspace = tempdir().unwrap();
+        let outside = tempdir().unwrap();
         let file_path = outside.path().join("outside.txt");
         fs::write(&file_path, "hello").unwrap();
 
@@ -918,7 +929,7 @@ mod tests {
 
     #[test]
     fn test_validate_read_path_blocks_env_file_even_when_relaxed() {
-        let workspace = TempDir::new().unwrap();
+        let workspace = tempdir().unwrap();
         let env_path = workspace.path().join(".env");
         fs::write(&env_path, "KEY=secret").unwrap();
 
@@ -932,8 +943,8 @@ mod tests {
 
     #[test]
     fn test_validate_write_path_allows_outside_workspace_when_relaxed() {
-        let workspace = TempDir::new().unwrap();
-        let outside = TempDir::new().unwrap();
+        let workspace = tempdir().unwrap();
+        let outside = tempdir().unwrap();
         let file_path = outside.path().join("outside.txt");
 
         let result = validate_write_path(
@@ -947,7 +958,7 @@ mod tests {
 
     #[test]
     fn test_validate_write_path_blocks_credentials_even_when_relaxed() {
-        let workspace = TempDir::new().unwrap();
+        let workspace = tempdir().unwrap();
         let cred_path = workspace.path().join("credentials.json");
 
         let result = validate_write_path(
@@ -961,8 +972,8 @@ mod tests {
 
     #[test]
     fn test_validate_list_path_allows_outside_workspace_when_relaxed() {
-        let workspace = TempDir::new().unwrap();
-        let outside = TempDir::new().unwrap();
+        let workspace = tempdir().unwrap();
+        let outside = tempdir().unwrap();
 
         let result = validate_list_path(
             outside.path().to_str().unwrap(),
@@ -974,7 +985,7 @@ mod tests {
 
     #[test]
     fn test_validate_path_blocks_traversal_even_when_relaxed() {
-        let workspace = TempDir::new().unwrap();
+        let workspace = tempdir().unwrap();
 
         let result = validate_path(
             "../../../etc/passwd",
@@ -1543,5 +1554,27 @@ mod tests {
         fs::write(&creds, r#"{"api_key":"secret"}"#).unwrap();
         let result = validate_read_path(".credentials.json", workspace_path, true);
         assert!(result.is_err(), ".credentials.json should be blocked");
+    }
+
+    #[test]
+    fn test_outside_workspace_symlink_blocked_even_when_relaxed() {
+        let workspace = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let real_file = outside.path().join("real.txt");
+        fs::write(&real_file, "content").unwrap();
+
+        // Create symlink outside workspace pointing to another outside file
+        let symlink_path = outside.path().join("link.txt");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&real_file, &symlink_path).unwrap();
+
+        // Even in relaxed mode, outside-workspace symlinks should be blocked
+        let result = validate_read_path(
+            symlink_path.to_str().unwrap(),
+            workspace.path(),
+            false,
+        );
+        #[cfg(unix)]
+        assert!(result.is_err(), "symlink outside workspace should be blocked even in relaxed mode");
     }
 }

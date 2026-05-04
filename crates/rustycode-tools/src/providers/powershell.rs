@@ -1,3 +1,5 @@
+#![allow(clippy::doc_markdown)]
+
 //! PowerShell (pwsh) tool — persistent session with PS-native protocol.
 //!
 //! Provides a dedicated `pwsh` session separate from `BashTool`, with:
@@ -30,6 +32,7 @@ use std::time::{Duration, Instant};
 /// Spawns `pwsh -NoLogo -NoProfile -NoExit -Command -` for an interactive
 /// stdin-driven session. Uses `Write-Output` delimiters and `$LASTEXITCODE`
 /// for command boundary detection.
+#[derive(Debug)]
 pub struct PowerShellSession {
     child: Arc<Mutex<Option<Child>>>,
     #[allow(dead_code)]
@@ -58,34 +61,106 @@ fn filter_ps_boilerplate(text: &str) -> String {
         .join("\n")
 }
 
+/// PowerShell edition inferred from the binary name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PSEdition {
+    /// PowerShell Core 7+ (`pwsh`). Supports `&&`, `||`, null-coalescing, ternary.
+    Core,
+    /// Windows PowerShell 5.1 (`powershell`). No `&&`/`||` operators.
+    Desktop,
+}
+
+impl PSEdition {
+    /// Whether this edition supports chain operators (`&&`, `||`).
+    pub const fn supports_chain_operators(self) -> bool {
+        matches!(self, Self::Core)
+    }
+}
+
+/// Cached result of PowerShell binary detection.
+static CACHED_PWSH: std::sync::OnceLock<Option<&'static str>> = std::sync::OnceLock::new();
+
 /// Detect `pwsh` binary availability. Returns the binary name if found.
-fn find_pwsh() -> Option<&'static str> {
+/// Result is cached after first call.
+pub fn find_pwsh() -> Option<&'static str> {
+    *CACHED_PWSH.get_or_init(detect_pwsh_uncached)
+}
+
+fn detect_pwsh_uncached() -> Option<&'static str> {
     // Prefer pwsh (PowerShell Core, cross-platform)
-    if Command::new("pwsh")
-        .arg("-Command")
-        .arg("exit 0")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success())
-    {
+    if probe_pwsh("pwsh") {
         return Some("pwsh");
     }
+
+    // Snap workaround on Linux: the `pwsh` snap wrapper may not be on PATH,
+    // but the real binary exists at a known location.
+    #[cfg(unix)]
+    {
+        for path in &[
+            "/snap/pwsh/current/usr/bin/pwsh",
+            "/opt/microsoft/powershell/7/pwsh",
+        ] {
+            if std::path::Path::new(path).exists() && probe_pwsh(path) {
+                return Some(*path);
+            }
+        }
+    }
+
     // Windows PowerShell fallback (Windows only)
     #[cfg(windows)]
     {
-        if Command::new("powershell")
-            .arg("-Command")
-            .arg("exit 0")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .is_ok_and(|s| s.success())
-        {
+        if probe_pwsh("powershell") {
             return Some("powershell");
         }
     }
     None
+}
+
+/// Probe a PowerShell binary to see if it starts successfully.
+fn probe_pwsh(binary: &str) -> bool {
+    Command::new(binary)
+        .args(["-NoLogo", "-NoProfile", "-Command", "exit 0"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+}
+
+/// Determine the PowerShell edition from the detected binary name.
+/// No spawning needed — `pwsh` = Core (7+), `powershell` = Desktop (5.1).
+pub fn ps_edition() -> Option<PSEdition> {
+    match find_pwsh()? {
+        "pwsh" => Some(PSEdition::Core),
+        "powershell" => Some(PSEdition::Desktop),
+        _ => None,
+    }
+}
+
+/// Detect the PowerShell version string by running `$PSVersionTable.PSVersion`.
+pub fn detect_ps_version() -> Option<String> {
+    let binary = find_pwsh()?;
+    let output = Command::new(binary)
+        .args([
+            "-NoLogo",
+            "-NoProfile",
+            "-Command",
+            "$PSVersionTable.PSVersion.ToString()",
+        ])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if version.is_empty() {
+        None
+    } else {
+        Some(version)
+    }
 }
 
 impl PowerShellSession {
@@ -271,8 +346,11 @@ impl PowerShellSession {
                 // Write command
                 writeln!(stdin, "{command}")
                     .map_err(|e| anyhow!("failed to write command: {e}"))?;
-                // Write exit code query
-                writeln!(stdin, "Write-Output $LASTEXITCODE")
+                // Write exit code query — smart fallback: prefer $LASTEXITCODE for
+                // native exes (git, node), fall back to $? for cmdlet-only pipelines.
+                // PS 5.1 bug: native commands writing to stderr set $? = $false even
+                // on exit 0, so $LASTEXITCODE is more reliable.
+                writeln!(stdin, "$_ec = if ($null -ne $LASTEXITCODE) {{ $LASTEXITCODE }} elseif ($?) {{ 0 }} else {{ 1 }}; Write-Output $_ec")
                     .map_err(|e| anyhow!("failed to write exit code query: {e}"))?;
                 // Write delimiter
                 writeln!(stdin, "Write-Output '---END---'")
@@ -713,9 +791,11 @@ impl Tool for PowerShellTool {
     }
 
     fn description(&self) -> &'static str {
-        "Run PowerShell commands in a persistent session (requires pwsh/PowerShell Core). \
+        "Run PowerShell commands in a persistent session. \
+         Supports PowerShell Core (pwsh 7+, cross-platform) and Windows PowerShell (5.1). \
          Use PowerShell cmdlets and syntax (e.g., Get-ChildItem, Select-String, $env:PATH). \
-         Prefer dedicated tools over this for common operations: use read_file/edit_file for file I/O, \
+         PowerShell Core supports && and || chain operators; Windows PowerShell 5.1 does not. \
+         Prefer dedicated tools for common operations: read_file/edit_file for file I/O, \
          grep for searching, glob for file matching. \
          Use powershell for: .NET operations, Windows-specific tasks, object pipeline processing, \
          and commands that need PS cmdlets (Get-Content, Invoke-WebRequest, etc.)."
@@ -916,6 +996,15 @@ impl Tool for PowerShellTool {
             meta["execution_time_ms"] = json!(execution_time.as_millis());
             meta["timeout_secs"] = json!(timeout_secs);
             meta["shell"] = json!("powershell");
+            if let Some(edition) = ps_edition() {
+                meta["ps_edition"] = json!(match edition {
+                    PSEdition::Core => "core",
+                    PSEdition::Desktop => "desktop",
+                });
+            }
+            if let Some(ver) = detect_ps_version() {
+                meta["ps_version"] = json!(ver);
+            }
             if exit_code != 0 {
                 meta["failed"] = json!(true);
             }
@@ -1273,5 +1362,44 @@ mod tests {
         assert!(limiter.try_acquire().is_err());
         drop(_p1);
         let _p3 = limiter.try_acquire().unwrap();
+    }
+
+    #[test]
+    fn test_ps_edition_from_binary() {
+        // Verify edition detection doesn't panic
+        let edition = ps_edition();
+        if pwsh_available() {
+            assert!(edition.is_some());
+            // pwsh binary should always report Core edition
+            let ed = edition.unwrap();
+            assert_eq!(ed, PSEdition::Core);
+            assert!(ed.supports_chain_operators());
+        }
+    }
+
+    #[test]
+    fn test_edition_desktop_no_chain_operators() {
+        assert!(!PSEdition::Desktop.supports_chain_operators());
+        assert!(PSEdition::Core.supports_chain_operators());
+    }
+
+    #[test]
+    fn test_find_pwsh_cached() {
+        // Calling twice should return the same result (cached via OnceLock)
+        let first = find_pwsh();
+        let second = find_pwsh();
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn test_detect_ps_version() {
+        // Just verify it doesn't panic
+        if pwsh_available() {
+            let ver = detect_ps_version();
+            assert!(ver.is_some());
+            let v = ver.unwrap();
+            // Should look like a version string (e.g., "7.4.0" or "5.1.22")
+            assert!(v.contains('.'), "version should contain a dot: {v}");
+        }
     }
 }

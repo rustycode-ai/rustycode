@@ -126,6 +126,8 @@ impl Default for InstructionScanner {
 pub struct PromptBuilder {
     base_prompt: String,
     anthropic_prompt: String,
+    openai_prompt: String,
+    gemini_prompt: String,
     generic_prompt: String,
     infrastructure_prompt: String,
     scanner: InstructionScanner,
@@ -136,6 +138,8 @@ impl PromptBuilder {
         Self {
             base_prompt: include_str!("../prompts/base.txt").to_string(),
             anthropic_prompt: include_str!("../prompts/anthropic.txt").to_string(),
+            openai_prompt: include_str!("../prompts/openai.txt").to_string(),
+            gemini_prompt: include_str!("../prompts/gemini.txt").to_string(),
             generic_prompt: include_str!("../prompts/generic.txt").to_string(),
             infrastructure_prompt: include_str!("../prompts/infrastructure.txt").to_string(),
             scanner: InstructionScanner::new(),
@@ -206,9 +210,9 @@ impl PromptBuilder {
     fn get_model_prompt(&self, provider: &ModelProvider) -> &str {
         match provider {
             ModelProvider::Anthropic => &self.anthropic_prompt,
-            ModelProvider::Google | ModelProvider::OpenAI | ModelProvider::Generic => {
-                &self.generic_prompt
-            }
+            ModelProvider::OpenAI => &self.openai_prompt,
+            ModelProvider::Google => &self.gemini_prompt,
+            ModelProvider::Generic => &self.generic_prompt,
         }
     }
 }

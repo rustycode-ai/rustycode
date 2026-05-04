@@ -6,6 +6,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Configuration for execution
@@ -112,10 +113,9 @@ use anyhow::bail;
 use chrono::Utc;
 use rustycode_protocol::PlanStep;
 use rustycode_protocol::{Conversation, Message, ToolCall, ToolResult};
-use rustycode_tools::{ToolContext, ToolRegistry};
+use rustycode_tools::{FileReadState, ToolContext, ToolRegistry};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 /// Check if a tool is critical for plan execution.
 ///
@@ -151,6 +151,8 @@ pub struct ExecutionContext {
     pub cwd: PathBuf,
     /// Tool registry for executing tools.
     pub tool_registry: Arc<ToolRegistry>,
+    /// Shared file read state for staleness detection across tool calls.
+    pub file_read_state: Arc<FileReadState>,
 }
 
 impl fmt::Debug for ExecutionContext {
@@ -162,6 +164,7 @@ impl fmt::Debug for ExecutionContext {
             .field("should_continue", &self.should_continue)
             .field("cwd", &self.cwd)
             .field("tool_registry", &"<registry>")
+            .field("file_read_state", &"<FileReadState>")
             .finish()
     }
 }
@@ -169,7 +172,6 @@ impl fmt::Debug for ExecutionContext {
 impl ExecutionContext {
     /// Create a new execution context.
     pub fn new(config: ExecutionConfig, cwd: PathBuf) -> Self {
-        // Create tool registry and register all available tools
         let tool_registry = create_tool_registry();
 
         Self {
@@ -179,6 +181,7 @@ impl ExecutionContext {
             should_continue: true,
             cwd,
             tool_registry: Arc::new(tool_registry),
+            file_read_state: Arc::new(FileReadState::new()),
         }
     }
 
@@ -308,7 +311,7 @@ impl StepExecutor for GenericStepExecutor {
         &self,
         mut step: PlanStep,
         conversation: &mut Conversation,
-        _ctx: &ExecutionContext,
+        ctx: &ExecutionContext,
     ) -> Result<PlanStep> {
         use rustycode_protocol::StepStatus;
 
@@ -357,7 +360,8 @@ impl StepExecutor for GenericStepExecutor {
             };
 
             // Create tool context
-            let tool_ctx = ToolContext::new(&self.cwd);
+            let tool_ctx = ToolContext::new(&self.cwd)
+                .with_file_read_state(ctx.file_read_state.clone());
 
             // Create tool call
             let tool_call = ToolCall {

@@ -3,8 +3,6 @@ use crate::security::{
     create_file_symlink_safe, open_file_symlink_safe, validate_list_path, validate_read_path,
     validate_regex_pattern, validate_url, validate_write_path, BLOCKED_EXTENSIONS,
 };
-
-const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
 use crate::truncation::{format_with_line_numbers, truncate_items, truncate_lines, LIST_MAX_ITEMS, READ_MAX_LINES};
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
@@ -16,6 +14,28 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
+
+const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
+
+/// Paths that are never readable — they expose kernel/device state or can hang
+/// on read (e.g., `/dev/urandom`, named pipes, FUSE control files).
+const BLOCKED_DEVICE_PATHS: &[&str] = &[
+    "/dev/",
+    "/proc/",
+    "/sys/",
+    "/run/systemd/",
+    "/dev/fd/",
+    "/dev/stdin",
+    "/dev/stdout",
+    "/dev/stderr",
+];
+
+fn is_blocked_device_path(path: &Path) -> bool {
+    let path_str = path.to_string_lossy();
+    BLOCKED_DEVICE_PATHS
+        .iter()
+        .any(|blocked| path_str.starts_with(blocked))
+}
 
 /// Maximum number of characters returned by `WebFetchTool` content
 const WEB_FETCH_MAX_CHARS: usize = 50_000;
@@ -258,6 +278,22 @@ impl Tool for ReadFileTool {
 
     fn tags(&self) -> &[ToolTag] {
         &[ToolTag::Explore, ToolTag::Implement, ToolTag::Debug, ToolTag::Refactor, ToolTag::Ops]
+    }
+
+    fn validate_input(&self, params: &Value, _ctx: &ToolContext) -> Result<()> {
+        if let Some(path_str) = params
+            .get("path")
+            .or_else(|| params.get("file_path"))
+            .and_then(Value::as_str)
+        {
+            let path = Path::new(path_str);
+            if is_blocked_device_path(path) {
+                return Err(anyhow!(
+                    "Reading from device/system paths is blocked: {path_str}"
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -556,6 +592,9 @@ impl Tool for ReadFileTool {
             let text_bytes = text.len();
             let shown_lines = paginated_lines.len();
 
+            let hash_prefix = compute_hash_prefix(content.as_bytes());
+            record_file_read(ctx, &path, &hash_prefix, true);
+
             return Ok(ToolOutput::with_structured(
                 text,
                 json!({
@@ -590,6 +629,9 @@ impl Tool for ReadFileTool {
             let range_lines: Vec<&str> = lines[s..e].to_vec();
             let text = format_with_line_numbers(&range_lines, s + 1);
 
+            let hash_prefix = compute_hash_prefix(content.as_bytes());
+            record_file_read(ctx, &path, &hash_prefix, true);
+
             return Ok(ToolOutput::with_structured(
                 text,
                 json!({
@@ -615,7 +657,6 @@ impl Tool for ReadFileTool {
         metadata["total_bytes"] = json!(total_bytes);
 
         // Add content hash for caching and change detection
-        // Using SHA-256 instead of MD5 for better security properties
         let mut hasher = Sha256::new();
         hasher.update(content.as_bytes());
         let content_hash =
@@ -631,12 +672,39 @@ impl Tool for ReadFileTool {
         metadata["shown_bytes"] = json!(output_text.len());
         metadata["binary"] = json!(false);
 
+        let hash_prefix = content_hash[..8].to_string();
+        record_file_read(ctx, &path, &hash_prefix, false);
+
         // Add language detection
         if let Some(language) = detect_language(&path) {
             metadata["language"] = json!(language);
         }
 
         Ok(ToolOutput::with_structured(output_text, metadata))
+    }
+}
+
+fn compute_hash_prefix(data: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let hash = hasher.finalize();
+    hash[..4]
+        .iter()
+        .fold(String::with_capacity(8), |mut acc, byte| {
+            use std::fmt::Write;
+            let _ = write!(acc, "{byte:02x}");
+            acc
+        })
+}
+
+fn record_file_read(ctx: &ToolContext, path: &Path, hash_prefix: &str, is_partial: bool) {
+    if let Some(state) = &ctx.file_read_state {
+        let mtime = fs::metadata(path)
+            .ok()
+            .and_then(|m| m.modified().ok());
+        if let Some(mtime) = mtime {
+            state.record_read(path.to_path_buf(), mtime, hash_prefix.to_string(), is_partial);
+        }
     }
 }
 
@@ -688,6 +756,27 @@ impl Tool for WriteFileTool {
 
     fn tags(&self) -> &[ToolTag] {
         &[ToolTag::Implement, ToolTag::Refactor]
+    }
+
+    fn validate_input(&self, params: &Value, ctx: &ToolContext) -> Result<()> {
+        if let Some(path_str) = resolve_path_str_from_value(params) {
+            let path = Path::new(&path_str);
+            let resolved = if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                ctx.cwd.join(path)
+            };
+            let canonical = resolved.canonicalize().ok();
+            if let (Some(state), Some(canonical)) = (&ctx.file_read_state, &canonical) {
+                let current_mtime = fs::metadata(canonical)
+                    .ok()
+                    .and_then(|m| m.modified().ok());
+                if let Err(reason) = state.check_stale(canonical, current_mtime) {
+                    return Err(anyhow!("{reason}"));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
@@ -745,6 +834,19 @@ impl Tool for WriteFileTool {
                 "File is blocked for writing: {}",
                 path.file_name().unwrap_or_default().to_string_lossy()
             ));
+        }
+
+        // Staleness check: verify file was read and hasn't changed since
+        if let Some(state) = &ctx.file_read_state {
+            let canonical = path.canonicalize().ok();
+            let current_mtime = canonical
+                .as_ref()
+                .and_then(|p| fs::metadata(p).ok())
+                .and_then(|m| m.modified().ok());
+            let check_path = canonical.as_ref().unwrap_or(&path);
+            if let Err(reason) = state.check_stale(check_path, current_mtime) {
+                return Err(anyhow!("{reason}"));
+            }
         }
 
         if let Some(parent) = path.parent() {
@@ -862,6 +964,10 @@ impl Tool for WriteFileTool {
             if let Some(formatter_diff) = file_formatter::format_file(&path, &ctx.cwd) {
                 output_text.push_str(&formatter_diff);
             }
+        }
+
+        if let Some(state) = &ctx.file_read_state {
+            state.invalidate(&path);
         }
 
         Ok(ToolOutput::with_structured(
@@ -1350,6 +1456,14 @@ fn resolve_path_str(value: &Value) -> Result<&str> {
         .or_else(|| value.get("file_path"))
         .and_then(Value::as_str)
         .ok_or_else(|| anyhow!("missing string parameter `path` or `file_path`"))
+}
+
+fn resolve_path_str_from_value(value: &Value) -> Option<String> {
+    value
+        .get("path")
+        .or_else(|| value.get("file_path"))
+        .and_then(Value::as_str)
+        .map(String::from)
 }
 
 #[cfg(test)]

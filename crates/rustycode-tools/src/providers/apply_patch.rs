@@ -532,7 +532,7 @@ fn git_apply_fallback(patch_text: &str, strip: usize, ctx: &ToolContext) -> Resu
     // Write patch to temp file.
     let tmp_dir = std::env::temp_dir().join("rustycode-patches");
     std::fs::create_dir_all(&tmp_dir).ok();
-    let tmp_path = tmp_dir.join(format!("patch-{:x}", patch_text.len()));
+    let tmp_path = tmp_dir.join(format!("patch-{}", uuid::Uuid::new_v4().as_simple()));
     {
         let mut f =
             std::fs::File::create(&tmp_path).with_context(|| "failed to create temp patch file")?;

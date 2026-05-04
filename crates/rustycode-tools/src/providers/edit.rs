@@ -11,6 +11,7 @@ use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
 
 /// Maximum size for edit operations to prevent memory issues
@@ -193,6 +194,32 @@ impl Tool for EditFile {
         &[ToolTag::Implement]
     }
 
+    fn validate_input(&self, params: &serde_json::Value, ctx: &ToolContext) -> Result<()> {
+        let input: EditFileInput = serde_json::from_value(params.clone())
+            .map_err(|e| anyhow::anyhow!("Invalid parameters: {e}"))?;
+        let path_str = input
+            .path
+            .to_str()
+            .ok_or_else(|| anyhow::anyhow!("Invalid path: contains non-UTF-8 characters"))?;
+        let path = if std::path::Path::new(path_str).is_absolute() {
+            std::path::PathBuf::from(path_str)
+        } else {
+            ctx.cwd.join(path_str)
+        };
+        if let Some(state) = &ctx.file_read_state {
+            let canonical = path.canonicalize().ok();
+            let current_mtime = canonical
+                .as_ref()
+                .and_then(|p| fs::metadata(p).ok())
+                .and_then(|m| m.modified().ok());
+            let check_path = canonical.as_ref().unwrap_or(&path);
+            if let Err(reason) = state.check_stale(check_path, current_mtime) {
+                return Err(anyhow::anyhow!("{reason}"));
+            }
+        }
+        Ok(())
+    }
+
     fn execute(&self, params: serde_json::Value, ctx: &ToolContext) -> Result<ToolOutput> {
         // Role-based gating
         if let Some(gate) = &ctx.plan_gate {
@@ -239,6 +266,20 @@ impl Tool for EditFile {
             }
             anyhow::anyhow!("Failed to open file: {e}")
         })?;
+
+        // Defense-in-depth staleness check (also in validate_input)
+        if let Some(state) = &ctx.file_read_state {
+            let canonical = validated_path.canonicalize().ok();
+            let current_mtime = canonical
+                .as_ref()
+                .and_then(|p| fs::metadata(p).ok())
+                .and_then(|m| m.modified().ok());
+            let check_path = canonical.as_ref().unwrap_or(&validated_path);
+            if let Err(reason) = state.check_stale(check_path, current_mtime) {
+                return Err(anyhow::anyhow!("{reason}"));
+            }
+        }
+
         let mut content = String::new();
         use std::io::Read;
         file.read_to_string(&mut content).map_err(|e| {
@@ -303,7 +344,7 @@ impl Tool for EditFile {
         } else if let Some(replacement) =
             try_trimmed_match(&content, &input.old_text, &input.new_text)
         {
-            // Strategy 3: Trimmed match
+            // Strategy 4: Trimmed match
             replacement
         } else {
             // All strategies failed — provide helpful context
@@ -334,14 +375,36 @@ impl Tool for EditFile {
             ));
         }
 
-        // Write the new content using symlink-safe operation
-        let mut file = create_file_symlink_safe(&validated_path)
-            .map_err(|e| anyhow::anyhow!("Failed to create file: {e}"))?;
+        // Write the new content atomically: temp file → sync → rename
         use std::io::Write;
+        let file_name = validated_path
+            .file_name()
+            .unwrap_or_default()
+            .to_str()
+            .unwrap_or("edit");
+        let tmp_name = format!(".{file_name}.rustycode-tmp");
+        let tmp_path = validated_path.with_file_name(tmp_name);
+
+        // Clean up stale temp file if it exists
+        let _ = fs::remove_file(&tmp_path);
+
+        let mut file = create_file_symlink_safe(&tmp_path)
+            .map_err(|e| anyhow::anyhow!("Failed to create temp file: {e}"))?;
         file.write_all(new_content.as_bytes())
-            .map_err(|e| anyhow::anyhow!("Failed to write file: {e}"))?;
-        file.sync_all()
-            .map_err(|e| anyhow::anyhow!("Failed to sync file: {e}"))?;
+            .map_err(|e| {
+                let _ = fs::remove_file(&tmp_path);
+                anyhow::anyhow!("Failed to write file: {e}")
+            })?;
+        file.sync_all().map_err(|e| {
+            let _ = fs::remove_file(&tmp_path);
+            anyhow::anyhow!("Failed to sync file: {e}")
+        })?;
+        drop(file);
+
+        fs::rename(&tmp_path, &validated_path).map_err(|e| {
+            let _ = fs::remove_file(&tmp_path);
+            anyhow::anyhow!("Failed to rename temp file: {e}")
+        })?;
 
         // Generate diff output
         let path_display = input.path.display().to_string();
@@ -351,6 +414,10 @@ impl Tool for EditFile {
 
         if let Some(formatter_diff) = file_formatter::format_file(&validated_path, &ctx.cwd) {
             output.push_str(&formatter_diff);
+        }
+
+        if let Some(state) = &ctx.file_read_state {
+            state.invalidate(&validated_path);
         }
 
         Ok(ToolOutput::text(output))

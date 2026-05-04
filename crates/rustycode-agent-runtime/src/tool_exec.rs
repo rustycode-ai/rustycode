@@ -90,6 +90,7 @@ fn normalize_tool_name(name: &str) -> &str {
         "Write" | "Create" | "create" => "write_file",
         "Bash" | "Shell" | "shell" | "execute" | "run_command" => "bash",
         "PowerShell" | "pwsh" => "powershell",
+        "Cmd" | "cmd" | "cmd.exe" => "cmd",
         "Grep" | "Search" | "search" => "grep",
         "Glob" | "Find" | "find" => "glob",
         "NotebookEdit" | "notebook_edit" => "notebook_edit",

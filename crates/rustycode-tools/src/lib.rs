@@ -83,7 +83,7 @@
 // import them as `crate::Tool`, `crate::ToolContext`, etc.
 use rustycode_protocol::{AgentRole, ToolCall, ToolResult};
 pub use rustycode_tools_api::{
-    CancellationToken, Tool, ToolContext, ToolGate, ToolInfo, ToolOutput, ToolPermission,
+    CancellationToken, FileReadState, Tool, ToolContext, ToolGate, ToolInfo, ToolOutput, ToolPermission,
     ToolProfile, ToolRegistry, ToolSelector, ToolTag,
 };
 
@@ -428,8 +428,8 @@ pub fn default_registry() -> ToolRegistry {
     use crate::providers::web_search::WebSearchTool;
     use crate::providers::WebFetchTool;
     use crate::providers::{
-        BashTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool, InspectTool,
-        ListDirTool, PowerShellTool, QuestionTool, ReadFileTool, WriteFileTool,
+        BashTool, CmdTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool,
+        InspectTool, ListDirTool, PowerShellTool, QuestionTool, ReadFileTool, WriteFileTool,
     };
 
     let mut reg = ToolRegistry::new();
@@ -448,9 +448,14 @@ pub fn default_registry() -> ToolRegistry {
     reg.register(CodeSearchTool);
     reg.register(ApplyPatchTool);
 
-    // Command execution
+    // Command execution — register platform-appropriate shells
     reg.register(BashTool);
-    reg.register(PowerShellTool);
+    if crate::providers::powershell::find_pwsh().is_some() {
+        reg.register(PowerShellTool);
+    }
+    if crate::providers::cmd::find_cmd().is_some() {
+        reg.register(CmdTool);
+    }
 
     // Git tools
     reg.register(GitStatusTool);

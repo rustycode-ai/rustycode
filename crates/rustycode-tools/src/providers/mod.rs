@@ -10,6 +10,7 @@ pub mod browser_fetch;
 pub mod builtin;
 pub mod check_integration;
 pub mod claude_text_editor;
+pub mod cmd;
 pub mod codesearch;
 pub mod compile_time;
 pub mod cron;
@@ -53,6 +54,8 @@ pub use brief::*;
 pub use check_integration::*;
 #[allow(ambiguous_glob_reexports)]
 pub use claude_text_editor::*;
+#[allow(ambiguous_glob_reexports)]
+pub use cmd::*;
 #[allow(ambiguous_glob_reexports)]
 pub use codesearch::*;
 // compile_time defines its own Tool/ToolPermission types that shadow the

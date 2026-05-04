@@ -86,12 +86,14 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 pub mod edit_format;
+pub mod file_read_state;
 pub mod search_strategy;
 pub mod tiers;
 pub mod tool_selection;
 pub mod tool_selector;
 
 pub use edit_format::*;
+pub use file_read_state::*;
 pub use search_strategy::*;
 pub use tiers::*;
 pub use tool_selection::*;
@@ -190,6 +192,8 @@ pub struct ToolContext {
     /// When true, file tools may access paths outside the workspace root.
     /// Security-sensitive paths (.env, .ssh, credentials) remain blocked regardless.
     pub allow_outside_workspace: bool,
+    /// Tracks file read state for staleness detection.
+    pub file_read_state: Option<Arc<FileReadState>>,
 }
 
 impl std::fmt::Debug for ToolContext {
@@ -219,6 +223,7 @@ impl ToolContext {
             cancellation_token: None,
             registry: None,
             allow_outside_workspace: false,
+            file_read_state: None,
         }
     }
     pub fn with_sandbox(mut self, sandbox: SandboxConfig) -> Self {
@@ -266,6 +271,11 @@ impl ToolContext {
     /// Attach a registry reference for tool self-introspection.
     pub fn with_registry(mut self, registry: Arc<ToolRegistry>) -> Self {
         self.registry = Some(registry);
+        self
+    }
+    /// Attach file read state for staleness detection.
+    pub fn with_file_read_state(mut self, state: Arc<FileReadState>) -> Self {
+        self.file_read_state = Some(state);
         self
     }
 }
