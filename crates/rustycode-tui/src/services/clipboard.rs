@@ -413,6 +413,56 @@ fn try_get_image_bytes_from_platform_clipboard() -> Option<Vec<u8>> {
     None
 }
 
+fn try_get_text_from_platform_clipboard() -> Option<String> {
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(output) = Command::new("pbpaste").output() {
+            if output.status.success() && !output.stdout.is_empty() {
+                return Some(String::from_utf8_lossy(&output.stdout).into_owned());
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(output) = Command::new("wl-paste").output() {
+            if output.status.success() && !output.stdout.is_empty() {
+                return Some(String::from_utf8_lossy(&output.stdout).into_owned());
+            }
+        }
+        if let Ok(output) = Command::new("xclip")
+            .args(["-selection", "clipboard", "-o"])
+            .output()
+        {
+            if output.status.success() && !output.stdout.is_empty() {
+                return Some(String::from_utf8_lossy(&output.stdout).into_owned());
+            }
+        }
+        if let Ok(output) = Command::new("xsel")
+            .args(["--clipboard", "--output"])
+            .output()
+        {
+            if output.status.success() && !output.stdout.is_empty() {
+                return Some(String::from_utf8_lossy(&output.stdout).into_owned());
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(output) = Command::new("powershell")
+            .args(["-NoProfile", "-Command", "Get-Clipboard"])
+            .output()
+        {
+            if output.status.success() && !output.stdout.is_empty() {
+                return Some(String::from_utf8_lossy(&output.stdout).into_owned());
+            }
+        }
+    }
+
+    None
+}
+
 fn encode_arboard_image_as_png(width: usize, height: usize, bytes: Vec<u8>) -> Result<Vec<u8>> {
     let rgba = image::RgbaImage::from_raw(width as u32, height as u32, bytes)
         .ok_or_else(|| anyhow::anyhow!("Clipboard image buffer has invalid dimensions/stride"))?;
@@ -431,14 +481,27 @@ pub fn get_text_from_clipboard() -> Result<String> {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("Failed to create clipboard instance for text: {}", e);
+            if let Some(text) = try_get_text_from_platform_clipboard() {
+                tracing::info!("Got text from platform fallback: {} characters", text.len());
+                return Ok(text);
+            }
             return Err(e).context("Failed to access clipboard. Is a display server running?");
         }
     };
 
-    let text = clipboard.get_text().context("No text in clipboard")?;
-
-    tracing::info!("Got text from clipboard: {} characters", text.len());
-    Ok(text)
+    match clipboard.get_text() {
+        Ok(text) => {
+            tracing::info!("Got text from clipboard: {} characters", text.len());
+            Ok(text)
+        }
+        Err(e) => {
+            if let Some(text) = try_get_text_from_platform_clipboard() {
+                tracing::info!("Got text from platform fallback: {} characters", text.len());
+                return Ok(text);
+            }
+            Err(e).context("No text in clipboard")
+        }
+    }
 }
 
 /// Copy text to clipboard using OSC 52 escape sequence (TUI-aware version)

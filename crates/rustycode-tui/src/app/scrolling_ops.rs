@@ -12,10 +12,17 @@ impl TUI {
     /// implicit "auto-scroll to bottom" state into an explicit offset so the
     /// first wheel/page movement actually changes the viewport.
     fn begin_manual_scroll(&mut self) -> usize {
-        let max_scroll = self
-            .last_total_lines
-            .get()
-            .saturating_sub(self.viewport_height.max(1));
+        let total_lines = {
+            let cached = self.last_total_lines.get();
+            // If render hasn't populated the Cell yet (e.g. before first frame),
+            // estimate from message count so the first scroll still works.
+            if cached == 0 && !self.messages.is_empty() {
+                self.messages.len() * 3
+            } else {
+                cached
+            }
+        };
+        let max_scroll = total_lines.saturating_sub(self.viewport_height.max(1));
 
         if !self.user_scrolled {
             self.scroll_offset_line = max_scroll;

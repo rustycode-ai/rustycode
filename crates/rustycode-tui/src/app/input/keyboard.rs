@@ -189,8 +189,8 @@ impl TUI {
                         self.add_system_message("Queued message cleared".to_string());
                     }
                 } else {
-                    // Not streaming — just dismiss overlays, don't quit.
-                    // Use Ctrl+Q to quit. This prevents accidental exits.
+                    // Not streaming: copy input text to clipboard if non-empty,
+                    // then clear. If empty, dismiss overlays or show quit hint.
 
                     // Cancel rate limit auto-retry if active (users naturally press Ctrl+C)
                     if self.rate_limit.until.is_some() {
@@ -204,10 +204,21 @@ impl TUI {
                     if self.dismiss_any_overlay() {
                         // Overlay was dismissed
                     } else {
-                        // Goose pattern: if input has text, clear it first.
-                        // Only show quit hint if input is already empty.
                         let input_text = self.input_handler.state.all_text();
                         if !input_text.is_empty() {
+                            // Copy input to clipboard, then clear
+                            if let Err(e) =
+                                crate::clipboard::copy_text_to_clipboard_both(&input_text)
+                            {
+                                tracing::error!("Failed to copy input: {}", e);
+                                self.add_system_message(format!("[X] Failed to copy: {}", e));
+                            } else {
+                                let chars = input_text.chars().count();
+                                self.add_system_message(format!(
+                                    "📋 Copied input ({} chars) to clipboard",
+                                    chars
+                                ));
+                            }
                             self.input_handler.state.clear();
                             self.input_mode = self.input_handler.state.mode;
                         } else {

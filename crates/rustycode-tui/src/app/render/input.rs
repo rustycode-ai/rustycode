@@ -202,7 +202,7 @@ impl PolishedRenderer {
         area_width: usize,
         is_multiline: bool,
     ) -> Vec<ratatui::text::Span<'static>> {
-        use ratatui::style::{Color, Style};
+        use ratatui::style::{Color, Modifier, Style};
         use ratatui::text::Span;
 
         let mut spans = Vec::new();
@@ -220,10 +220,11 @@ impl PolishedRenderer {
         // Visible width for text content (area minus prefix and small padding)
         let text_visible = area_width.saturating_sub(prefix_width).saturating_sub(2);
 
+        let state = &tui.input_handler.state;
+        let has_sel = state.has_selection();
+
         // Apply horizontal scroll offset for the cursor row
         if row_idx == cursor_row {
-            let state = &tui.input_handler.state;
-
             // Compute scroll offset to keep cursor visible within text_visible columns
             let cursor_display = state.cursor_display_col();
             let min_offset = cursor_display.saturating_sub(text_visible.saturating_sub(1));
@@ -256,32 +257,85 @@ impl PolishedRenderer {
             let adjusted_cursor = col.saturating_sub(scroll_byte.min(col));
             let clamped = visible_row.floor_char_boundary(adjusted_cursor.min(visible_row.len()));
 
-            let (before, rest) = visible_row.split_at(clamped);
+            if has_sel {
+                // Selection-aware rendering: highlight selected bytes with REVERSED
+                let sel_style = Style::default().add_modifier(Modifier::REVERSED);
+                let sel_range = state.get_selection_range();
+                let (sel_start_row, _sel_start_col, sel_end_row, _sel_end_col) =
+                    sel_range.unwrap_or((0, 0, 0, 0));
 
-            if !before.is_empty() {
-                spans.push(Span::raw(before.to_string()));
-            }
+                let (before, rest) = visible_row.split_at(clamped);
 
-            if let Some(ch) = rest.chars().next() {
-                let after = &rest[ch.len_utf8()..];
-                let cursor_on = (tui.animator.frame_count() / 2).is_multiple_of(2);
-                let cursor_style = if cursor_on {
-                    Style::default().fg(Color::Black).bg(Color::White)
-                } else {
-                    Style::default().fg(Color::White).bg(Color::Rgb(60, 60, 80))
-                };
-                spans.push(Span::styled(ch.to_string(), cursor_style));
-                if !after.is_empty() {
-                    spans.push(Span::raw(after.to_string()));
+                if !before.is_empty() {
+                    if row_idx > sel_start_row && row_idx < sel_end_row {
+                        spans.push(Span::styled(before.to_string(), sel_style));
+                    } else {
+                        spans.push(Span::raw(before.to_string()));
+                    }
                 }
-            } else if row.is_empty() && !is_multiline && !tui.is_streaming {
-                spans.push(self.cursor_span(tui));
-                spans.push(Span::styled(
-                    self.input_placeholder(tui),
-                    Style::default().fg(Color::Rgb(80, 80, 100)),
-                ));
+
+                // Cursor character + after
+                if let Some(ch) = rest.chars().next() {
+                    let after = &rest[ch.len_utf8()..];
+                    let cursor_on = (tui.animator.frame_count() / 2).is_multiple_of(2);
+                    let cursor_style = if cursor_on {
+                        Style::default().fg(Color::Black).bg(Color::White)
+                    } else {
+                        Style::default().fg(Color::White).bg(Color::Rgb(60, 60, 80))
+                    };
+                    spans.push(Span::styled(ch.to_string(), cursor_style));
+                    if !after.is_empty() {
+                        spans.push(Span::raw(after.to_string()));
+                    }
+                } else if row.is_empty() && !is_multiline && !tui.is_streaming {
+                    spans.push(self.cursor_span(tui));
+                    spans.push(Span::styled(
+                        self.input_placeholder(tui),
+                        Style::default().fg(Color::Rgb(80, 80, 100)),
+                    ));
+                } else {
+                    spans.push(self.cursor_span(tui));
+                }
             } else {
-                spans.push(self.cursor_span(tui));
+                // Original non-selection rendering
+                let (before, rest) = visible_row.split_at(clamped);
+
+                if !before.is_empty() {
+                    spans.push(Span::raw(before.to_string()));
+                }
+
+                if let Some(ch) = rest.chars().next() {
+                    let after = &rest[ch.len_utf8()..];
+                    let cursor_on = (tui.animator.frame_count() / 2).is_multiple_of(2);
+                    let cursor_style = if cursor_on {
+                        Style::default().fg(Color::Black).bg(Color::White)
+                    } else {
+                        Style::default().fg(Color::White).bg(Color::Rgb(60, 60, 80))
+                    };
+                    spans.push(Span::styled(ch.to_string(), cursor_style));
+                    if !after.is_empty() {
+                        spans.push(Span::raw(after.to_string()));
+                    }
+                } else if row.is_empty() && !is_multiline && !tui.is_streaming {
+                    spans.push(self.cursor_span(tui));
+                    spans.push(Span::styled(
+                        self.input_placeholder(tui),
+                        Style::default().fg(Color::Rgb(80, 80, 100)),
+                    ));
+                } else {
+                    spans.push(self.cursor_span(tui));
+                }
+            }
+        } else if has_sel {
+            // Non-cursor row with selection: highlight entire line if within selection
+            let sel_style = Style::default().add_modifier(Modifier::REVERSED);
+            let sel_range = state.get_selection_range();
+            let (sel_start_row, _, sel_end_row, _) = sel_range.unwrap_or((0, 0, 0, 0));
+
+            if row_idx > sel_start_row && row_idx < sel_end_row {
+                spans.push(Span::styled(row.to_string(), sel_style));
+            } else {
+                spans.push(Span::raw(row.to_string()));
             }
         } else {
             spans.push(Span::raw(row.to_string()));

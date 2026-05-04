@@ -496,12 +496,11 @@ impl ToolSearch {
 
     /// Generate provider-specific tool definition
     pub fn tool_definition_for_provider(provider: ModelProvider) -> serde_json::Value {
-        match provider {
-            ModelProvider::Anthropic => Self::anthropic_tool_definition(),
-            ModelProvider::OpenAI => Self::openai_tool_definition(),
-            ModelProvider::Google => Self::openai_tool_definition(),
-            ModelProvider::Generic => Self::anthropic_tool_definition(),
-            _ => Self::anthropic_tool_definition(),
+        if provider.is_openai() || provider.is_google() {
+            Self::openai_tool_definition()
+        } else {
+            // Anthropic, Generic, and all other providers use the Anthropic-style definition
+            Self::anthropic_tool_definition()
         }
     }
 }

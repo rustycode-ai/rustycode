@@ -738,6 +738,7 @@ impl TUI {
             // Brutalist mode from config (new distinctive look)
             renderer_mode,
             // MCP proxy cache (initialized in init_services)
+            #[allow(deprecated)]
             mcp_proxies: None,
             todo_state: rustycode_tools::todo::new_todo_state(),
             tool_manager: crate::services::tool_manager::ToolManager::new(),
@@ -1304,7 +1305,10 @@ impl TUI {
     /// Load tools from configured MCP servers
     fn load_mcp_tools(&mut self, tool_registry: &mut ToolRegistry) {
         self.tool_manager.load_mcp_tools(tool_registry);
-        self.mcp_proxies = self.tool_manager.mcp_proxies().clone();
+        #[allow(deprecated)]
+        {
+            self.mcp_proxies = self.tool_manager.mcp_proxies().clone();
+        }
     }
 
     /// Check for tmux compatibility and add warning messages if needed
@@ -1333,28 +1337,33 @@ impl TUI {
             }
         }
 
-        let mouse = Command::new("tmux")
-            .args(["show-options", "-gv", "mouse"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim() == "on");
-
-        if let Some(false) = mouse {
-            let enabled = Command::new("tmux")
-                .args(["set-option", "-g", "mouse", "on"])
+        // tmux mouse mode detection
+        if std::env::var("TMUX").is_ok() {
+            // We're inside tmux — check current mouse mode setting
+            let mouse_enabled = Command::new("tmux")
+                .args(["show-options", "-gv", "mouse"])
                 .output()
-                .is_ok();
-            if enabled {
-                self.add_system_message(
-                    "🖱️ Enabled tmux mouse support for scroll wheel. (Changed: set -g mouse on)"
-                        .to_string(),
-                );
-            } else {
-                self.add_system_message(
-                    "⚠️ Tmux mouse support is off. Scrolling may not work. Recommend: set -g mouse on"
-                        .to_string(),
-                );
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().starts_with("on"))
+                .unwrap_or(false);
+
+            if !mouse_enabled {
+                // Try to auto-enable mouse mode
+                let enabled = Command::new("tmux")
+                    .args(["set", "-g", "mouse", "on"])
+                    .status()
+                    .map(|s| s.success())
+                    .unwrap_or(false);
+
+                if enabled {
+                    tracing::info!("tmux mouse mode auto-enabled");
+                } else {
+                    self.add_system_message(
+                        "⚠️ Mouse scroll may not work. Run: tmux set -g mouse on".to_string(),
+                    );
+                    tracing::warn!("Failed to auto-enable tmux mouse mode");
+                }
             }
         }
 
@@ -1808,55 +1817,7 @@ impl TUI {
             return Ok(());
         }
 
-        let state = &mut self.input_handler.state;
-
-        let normalized = content.replace("\r\n", "\n").replace('\r', "");
-        let lines: Vec<&str> = normalized.split('\n').collect();
-
-        if lines.len() == 1 {
-            // Single line paste - just insert the string
-            let text = lines[0];
-            if state.cursor_row < state.lines.len() {
-                let current_line = &mut state.lines[state.cursor_row];
-                let cursor_col =
-                    current_line.floor_char_boundary(state.cursor_col.min(current_line.len()));
-                current_line.insert_str(cursor_col, text);
-                state.cursor_col = cursor_col + text.len();
-            }
-        } else {
-            // Multiline paste
-            if state.cursor_row < state.lines.len() {
-                let current_line = &state.lines[state.cursor_row];
-                let cursor_col =
-                    current_line.floor_char_boundary(state.cursor_col.min(current_line.len()));
-                let before = current_line[..cursor_col].to_string();
-                let after = current_line[cursor_col..].to_string();
-
-                // Replace current line with "before" + first pasted line
-                state.lines[state.cursor_row] = format!("{}{}", before, lines[0]);
-
-                // Insert middle lines
-                #[allow(clippy::needless_range_loop)]
-                for i in 1..lines.len() - 1 {
-                    state
-                        .lines
-                        .insert(state.cursor_row + i, lines[i].to_string());
-                }
-
-                // Last line: last pasted part + "after"
-                let last_idx = lines.len() - 1;
-                let last_pasted_part = lines[last_idx];
-                state.lines.insert(
-                    state.cursor_row + last_idx,
-                    format!("{}{}", last_pasted_part, after),
-                );
-
-                // Move cursor to end of pasted content
-                state.cursor_row += last_idx;
-                state.cursor_col = last_pasted_part.len();
-            }
-        }
-
+        self.input_handler.state.insert_text_at_cursor(content);
         self.dirty = true;
         Ok(())
     }

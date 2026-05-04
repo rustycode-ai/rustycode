@@ -212,14 +212,14 @@ impl SkillToolRegistry {
         let tool_name = format!("skill_{}", skill.name.replace('-', "_"));
 
         match provider {
-            rustycode_prompt::ModelProvider::Anthropic => {
+            p if p.is_anthropic() => {
                 json!({
                     "name": tool_name,
                     "description": skill.description,
                     "input_schema": Self::build_schema_for_skill(skill)
                 })
             }
-            rustycode_prompt::ModelProvider::OpenAI => {
+            p if p.is_openai() => {
                 json!({
                     "type": "function",
                     "function": {
@@ -229,18 +229,11 @@ impl SkillToolRegistry {
                     }
                 })
             }
-            rustycode_prompt::ModelProvider::Google => {
+            p if p.is_google() => {
                 json!({
                     "name": tool_name,
                     "description": skill.description,
                     "parameters": Self::build_schema_for_skill(skill)
-                })
-            }
-            rustycode_prompt::ModelProvider::Generic => {
-                json!({
-                    "name": tool_name,
-                    "description": skill.description,
-                    "input_schema": Self::build_schema_for_skill(skill)
                 })
             }
             _ => {

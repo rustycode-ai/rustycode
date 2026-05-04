@@ -77,7 +77,6 @@ impl BrutalistRenderer<'_> {
         if remaining > info_width + 20 {
             // Show readline-style hints on the info bar
             let hints = if !self.reverse_search_query.is_empty() && self.reverse_search_total > 0 {
-                // Reverse search mode: show query and match position
                 format!(
                     "(reverse-i-search)`{}': {}/{}",
                     self.reverse_search_query, self.reverse_search_match, self.reverse_search_total
@@ -111,9 +110,9 @@ impl BrutalistRenderer<'_> {
             info_spans.push(Span::styled(
                 format!(" {} ", hints),
                 Style::default().fg(if !self.reverse_search_query.is_empty() {
-                    Color::Rgb(255, 200, 80) // Amber for reverse search
+                    Color::Rgb(255, 200, 80)
                 } else if self.history_position > 0 {
-                    Color::Rgb(120, 160, 200) // Blue for history browsing
+                    Color::Rgb(120, 160, 200)
                 } else {
                     Color::Rgb(70, 70, 85)
                 }),
@@ -124,7 +123,6 @@ impl BrutalistRenderer<'_> {
 
         let mut all_lines = vec![info_line];
 
-        // Cursor blink: alternate between bright and dim every ~0.5s (frames 0-3 bright, 4-7 dim)
         let cursor_bright = self.animation_frame % 8 < 4;
         let cursor_char = "▏";
         let cursor_style = if cursor_bright {
@@ -134,7 +132,6 @@ impl BrutalistRenderer<'_> {
         };
 
         if self.input_text.is_empty() {
-            // Empty input — show blinking cursor with placeholder
             let placeholder = if self.is_streaming {
                 ""
             } else {
@@ -153,7 +150,6 @@ impl BrutalistRenderer<'_> {
             }
             all_lines.push(Line::from(spans));
         } else if self.input_line_count > 1 {
-            // Multiline content — render each line with line numbers and cursor
             let lines: Vec<&str> = self.input_text.lines().collect();
             for (i, line) in lines.iter().enumerate() {
                 let line_num = format!("{:>2} ", i + 1);

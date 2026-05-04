@@ -102,7 +102,6 @@ impl PasteHandler {
 
     /// Paste text at cursor position
     fn paste_text(&self, input_state: &mut InputState, text: &str) -> Result<()> {
-        // Validate paste size to prevent memory exhaustion
         let text_bytes = text.len();
         if text_bytes > MAX_PASTE_SIZE_BYTES {
             anyhow::bail!(
@@ -113,61 +112,11 @@ impl PasteHandler {
             );
         }
 
-        // Handle multi-line paste
         if text.contains('\n') {
-            // Automatically switch to multi-line mode
             input_state.mode = super::input_state::InputMode::MultiLine;
-
-            let lines: Vec<String> = text.lines().map(|s| s.to_string()).collect();
-
-            // Insert at current cursor position (respecting grapheme boundaries)
-            if input_state.cursor_row < input_state.lines.len() {
-                let current_line = &mut input_state.lines[input_state.cursor_row];
-
-                // Ensure cursor position is a valid char boundary
-                let cursor_col = current_line
-                    .floor_char_boundary(input_state.cursor_col.min(current_line.len()));
-                let before = current_line[..cursor_col].to_string();
-                let after = current_line[cursor_col..].to_string();
-
-                if lines.len() == 1 {
-                    // Single pasted line: before + line + after
-                    *current_line = format!("{}{}{}", before, lines[0], after);
-                } else {
-                    // First line: before + first pasted line
-                    *current_line = format!("{}{}", before, lines[0]);
-
-                    // Middle lines: insert as-is
-                    for (i, line) in lines.iter().skip(1).enumerate() {
-                        if i + 1 < lines.len() - 1 {
-                            input_state
-                                .lines
-                                .insert(input_state.cursor_row + 1 + i, line.clone());
-                        }
-                    }
-
-                    // Last line: last pasted line + after
-                    let last_idx = lines.len() - 1;
-                    let last_pasted = &lines[last_idx];
-                    input_state.lines.insert(
-                        input_state.cursor_row + last_idx,
-                        format!("{}{}", last_pasted, after),
-                    );
-
-                    // Move cursor to end of pasted content on last line
-                    input_state.cursor_row += last_idx;
-                    input_state.cursor_col = last_pasted.len();
-                }
-            }
-        } else {
-            // Single-line paste - insert the entire string at once
-            if let Some(line) = input_state.lines.get_mut(input_state.cursor_row) {
-                let col = line.floor_char_boundary(input_state.cursor_col.min(line.len()));
-                line.insert_str(col, text);
-                input_state.cursor_col = col + text.len();
-            }
         }
 
+        input_state.insert_text_at_cursor(text);
         Ok(())
     }
 

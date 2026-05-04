@@ -62,7 +62,9 @@ impl TUI {
         }
 
         let sidebar_area = self.sidebar_area.get();
-        let mouse_in_sidebar = self.session_sidebar.is_visible()
+        let sidebar_valid = sidebar_area.width > 0 && sidebar_area.height > 0;
+        let mouse_in_sidebar = sidebar_valid
+            && self.session_sidebar.is_visible()
             && Self::mouse_point_in_area((mouse.column, mouse.row), sidebar_area);
 
         if mouse_in_sidebar {

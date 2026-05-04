@@ -44,6 +44,10 @@ pub struct InputState {
     pub images: Vec<ImageAttachment>,
     /// Horizontal scroll offset for the current line (in display columns)
     pub display_offset: usize,
+    /// Selection anchor column (byte offset). `None` means no selection.
+    pub selection_anchor_col: Option<usize>,
+    /// Selection anchor row. `None` means no selection.
+    pub selection_anchor_row: Option<usize>,
 }
 
 impl InputState {
@@ -56,6 +60,8 @@ impl InputState {
             cursor_col: 0,
             images: Vec::new(),
             display_offset: 0,
+            selection_anchor_col: None,
+            selection_anchor_row: None,
         }
     }
 
@@ -145,6 +151,52 @@ impl InputState {
                 line.insert_str(self.cursor_col, s);
                 self.cursor_col += s.len();
             }
+        }
+    }
+
+    /// Insert text at the current cursor position, handling multiline content.
+    ///
+    /// Normalizes line endings (`\r\n` → `\n`) and splits into lines.
+    /// For single-line text, inserts inline. For multiline text, splits
+    /// the current line at the cursor and inserts all pasted lines.
+    pub fn insert_text_at_cursor(&mut self, text: &str) {
+        let normalized = text.replace("\r\n", "\n").replace('\r', "");
+        let lines: Vec<&str> = normalized.split('\n').collect();
+
+        if lines.is_empty() {
+            return;
+        }
+
+        if self.cursor_row >= self.lines.len() {
+            self.cursor_row = self.lines.len().saturating_sub(1);
+        }
+
+        if lines.len() == 1 {
+            let current_line = &mut self.lines[self.cursor_row];
+            let col = current_line.floor_char_boundary(self.cursor_col.min(current_line.len()));
+            current_line.insert_str(col, lines[0]);
+            self.cursor_col = col + lines[0].len();
+        } else {
+            let current_line = &self.lines[self.cursor_row];
+            let col = current_line.floor_char_boundary(self.cursor_col.min(current_line.len()));
+            let before = current_line[..col].to_string();
+            let after = current_line[col..].to_string();
+
+            self.lines[self.cursor_row] = format!("{}{}", before, lines[0]);
+
+            for (i, line) in lines[1..lines.len() - 1].iter().enumerate() {
+                self.lines.insert(self.cursor_row + 1 + i, line.to_string());
+            }
+
+            let last_idx = lines.len() - 1;
+            let last_pasted_part = lines[last_idx];
+            self.lines.insert(
+                self.cursor_row + last_idx,
+                format!("{}{}", last_pasted_part, after),
+            );
+
+            self.cursor_row += last_idx;
+            self.cursor_col = last_pasted_part.len();
         }
     }
 
@@ -410,6 +462,8 @@ impl InputState {
         self.cursor_row = 0;
         self.cursor_col = 0;
         self.display_offset = 0;
+        self.selection_anchor_col = None;
+        self.selection_anchor_row = None;
 
         // Cleanup temp image files
         for img in &self.images {
@@ -419,6 +473,91 @@ impl InputState {
         }
 
         self.images.clear();
+    }
+
+    pub fn has_selection(&self) -> bool {
+        self.selection_anchor_col.is_some() && self.selection_anchor_row.is_some()
+    }
+
+    pub fn start_selection(&mut self) {
+        if self.selection_anchor_col.is_none() {
+            self.selection_anchor_col = Some(self.cursor_col);
+            self.selection_anchor_row = Some(self.cursor_row);
+        }
+    }
+
+    pub fn clear_selection(&mut self) {
+        self.selection_anchor_col = None;
+        self.selection_anchor_row = None;
+    }
+
+    pub fn get_selection_range(&self) -> Option<(usize, usize, usize, usize)> {
+        let anchor_row = self.selection_anchor_row?;
+        let anchor_col = self.selection_anchor_col?;
+
+        let (start_row, start_col, end_row, end_col) = if anchor_row < self.cursor_row {
+            (anchor_row, anchor_col, self.cursor_row, self.cursor_col)
+        } else if anchor_row > self.cursor_row {
+            (self.cursor_row, self.cursor_col, anchor_row, anchor_col)
+        } else if anchor_col <= self.cursor_col {
+            (anchor_row, anchor_col, self.cursor_row, self.cursor_col)
+        } else {
+            (self.cursor_row, self.cursor_col, anchor_row, anchor_col)
+        };
+
+        Some((start_row, start_col, end_row, end_col))
+    }
+
+    pub fn get_selected_text(&self) -> Option<String> {
+        let (start_row, start_col, end_row, end_col) = self.get_selection_range()?;
+
+        if start_row == end_row {
+            let line = self.lines.get(start_row)?;
+            let start = line.floor_char_boundary(start_col.min(line.len()));
+            let end = line.floor_char_boundary(end_col.min(line.len()));
+            Some(line[start..end].to_string())
+        } else {
+            let mut result = String::new();
+
+            if let Some(line) = self.lines.get(start_row) {
+                let start = line.floor_char_boundary(start_col.min(line.len()));
+                result.push_str(&line[start..]);
+                result.push('\n');
+            }
+
+            for row in (start_row + 1)..end_row {
+                if let Some(line) = self.lines.get(row) {
+                    result.push_str(line);
+                    result.push('\n');
+                }
+            }
+
+            if let Some(line) = self.lines.get(end_row) {
+                let end = line.floor_char_boundary(end_col.min(line.len()));
+                result.push_str(&line[..end]);
+            }
+
+            Some(result)
+        }
+    }
+
+    /// Check if a given byte position on a given row falls within the active selection.
+    pub fn is_byte_selected(&self, row: usize, byte_idx: usize) -> bool {
+        let (start_row, start_col, end_row, end_col) = match self.get_selection_range() {
+            Some(range) => range,
+            None => return false,
+        };
+
+        if row < start_row || row > end_row {
+            return false;
+        }
+        if row == start_row && byte_idx < start_col {
+            return false;
+        }
+        if row == end_row && byte_idx >= end_col {
+            return false;
+        }
+        true
     }
 
     /// Set text content, replacing all current content

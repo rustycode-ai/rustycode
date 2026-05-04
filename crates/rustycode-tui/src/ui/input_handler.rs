@@ -156,6 +156,20 @@ impl InputHandler {
                 InputAction::Consumed
             }
 
+            (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
+                // Ctrl+Y: Yank (paste last killed text from Ctrl+W/Ctrl+K)
+                if let Some(killed) = self.last_kill.take() {
+                    if self.state.cursor_row < self.state.lines.len() {
+                        let current_line = &mut self.state.lines[self.state.cursor_row];
+                        let col = current_line
+                            .floor_char_boundary(self.state.cursor_col.min(current_line.len()));
+                        current_line.insert_str(col, &killed);
+                        self.state.cursor_col = col + killed.len();
+                    }
+                }
+                InputAction::Consumed
+            }
+
             // === Reverse search (Ctrl+R) ===
             (KeyCode::Char('r'), KeyModifiers::CONTROL) => {
                 if self.history.is_in_reverse_search() {
@@ -196,6 +210,7 @@ impl InputHandler {
                             InputAction::Ignored
                         }
                     } else {
+                        self.state.clear_selection();
                         self.state.insert_char(c);
                         InputAction::Consumed
                     }
@@ -203,7 +218,49 @@ impl InputHandler {
             }
 
             // === Navigation ===
+            (KeyCode::Left, KeyModifiers::SHIFT) => {
+                self.state.start_selection();
+                if modifiers.contains(KeyModifiers::CONTROL) {
+                    self.state.move_word_backward();
+                } else {
+                    self.state.move_cursor_left();
+                }
+                InputAction::Consumed
+            }
+            (KeyCode::Right, KeyModifiers::SHIFT) => {
+                self.state.start_selection();
+                if modifiers.contains(KeyModifiers::CONTROL) {
+                    self.state.move_word_forward();
+                } else {
+                    self.state.move_cursor_right();
+                }
+                InputAction::Consumed
+            }
+            (KeyCode::Up, KeyModifiers::SHIFT) => {
+                self.state.start_selection();
+                self.state.move_cursor_up();
+                InputAction::Consumed
+            }
+            (KeyCode::Down, KeyModifiers::SHIFT) => {
+                self.state.start_selection();
+                self.state.move_cursor_down();
+                InputAction::Consumed
+            }
+            (KeyCode::Home, KeyModifiers::SHIFT) => {
+                self.state.start_selection();
+                self.state.cursor_col = 0;
+                InputAction::Consumed
+            }
+            (KeyCode::End, KeyModifiers::SHIFT) => {
+                self.state.start_selection();
+                if self.state.cursor_row < self.state.lines.len() {
+                    self.state.cursor_col = self.state.lines[self.state.cursor_row].len();
+                }
+                InputAction::Consumed
+            }
+
             (KeyCode::Up, KeyModifiers::NONE) => {
+                self.state.clear_selection();
                 if self.state.mode == InputMode::MultiLine {
                     self.state.move_cursor_up();
                     InputAction::Consumed
@@ -214,6 +271,7 @@ impl InputHandler {
             }
 
             (KeyCode::Down, KeyModifiers::NONE) => {
+                self.state.clear_selection();
                 if self.state.mode == InputMode::MultiLine {
                     self.state.move_cursor_down();
                     InputAction::Consumed
@@ -224,21 +282,25 @@ impl InputHandler {
             }
 
             (KeyCode::Left, KeyModifiers::NONE) => {
+                self.state.clear_selection();
                 self.state.move_cursor_left();
                 InputAction::Consumed
             }
 
             (KeyCode::Right, KeyModifiers::NONE) => {
+                self.state.clear_selection();
                 self.state.move_cursor_right();
                 InputAction::Consumed
             }
 
             (KeyCode::Left, KeyModifiers::CONTROL) => {
+                self.state.clear_selection();
                 self.state.move_word_backward();
                 InputAction::Consumed
             }
 
             (KeyCode::Right, KeyModifiers::CONTROL) => {
+                self.state.clear_selection();
                 self.state.move_word_forward();
                 InputAction::Consumed
             }
@@ -287,11 +349,13 @@ impl InputHandler {
 
             // === Home/End ===
             (KeyCode::Home, KeyModifiers::NONE) => {
+                self.state.clear_selection();
                 self.state.cursor_col = 0;
                 InputAction::Consumed
             }
 
             (KeyCode::End, KeyModifiers::NONE) => {
+                self.state.clear_selection();
                 if let Some(line) = self.state.lines.get(self.state.cursor_row) {
                     self.state.cursor_col = line.len();
                 }
@@ -300,13 +364,13 @@ impl InputHandler {
 
             // === Readline-style keybindings ===
             (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
-                // Ctrl+A: Go to beginning of line
+                self.state.clear_selection();
                 self.state.cursor_col = 0;
                 InputAction::Consumed
             }
 
             (KeyCode::Char('e'), KeyModifiers::CONTROL) => {
-                // Ctrl+E: Go to end of line
+                self.state.clear_selection();
                 if let Some(line) = self.state.lines.get(self.state.cursor_row) {
                     self.state.cursor_col = line.len();
                 }

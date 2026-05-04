@@ -642,69 +642,51 @@ Unused Memories (candidates for pruning):
 
         for tool in tools {
             let is_seed_tool = self.is_seed_tool_for_provider(&provider, &tool.name);
-            let tool_schema = match provider {
-                ModelProvider::Anthropic => {
-                    let mut schema = serde_json::json!({
-                        "name": tool.name,
-                        "description": tool.description,
-                        "input_schema": tool.parameters_schema,
-                    });
-                    if let Some(annotations) = anthropic_annotations_for_tool_info(
-                        &tool.name,
-                        matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                    ) {
-                        schema["annotations"] = annotations;
-                    }
-                    if tool_search_enabled && !is_seed_tool {
-                        schema["defer_loading"] = serde_json::json!(true);
-                    }
-                    schema
+            let tool_schema = if provider.is_anthropic() {
+                let mut schema = serde_json::json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "input_schema": tool.parameters_schema,
+                });
+                if let Some(annotations) = anthropic_annotations_for_tool_info(
+                    &tool.name,
+                    matches!(tool.permission, rustycode_tools::ToolPermission::Read),
+                ) {
+                    schema["annotations"] = annotations;
                 }
-                ModelProvider::OpenAI => {
-                    serde_json::json!({
-                        "type": "function",
-                        "function": {
-                            "name": tool.name,
-                            "description": tool.description,
-                            "parameters": tool.parameters_schema
-                        }
-                    })
+                if tool_search_enabled && !is_seed_tool {
+                    schema["defer_loading"] = serde_json::json!(true);
                 }
-                ModelProvider::Google => {
-                    serde_json::json!({
+                schema
+            } else if provider.is_openai() {
+                serde_json::json!({
+                    "type": "function",
+                    "function": {
                         "name": tool.name,
                         "description": tool.description,
                         "parameters": tool.parameters_schema
-                    })
-                }
-                ModelProvider::Generic => {
-                    let mut schema = serde_json::json!({
-                        "name": tool.name,
-                        "description": tool.description,
-                        "input_schema": tool.parameters_schema
-                    });
-                    if let Some(annotations) = anthropic_annotations_for_tool_info(
-                        &tool.name,
-                        matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                    ) {
-                        schema["annotations"] = annotations;
                     }
-                    schema
+                })
+            } else if provider.is_google() {
+                serde_json::json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.parameters_schema
+                })
+            } else {
+                // Generic / fallback — use Anthropic-style schema
+                let mut schema = serde_json::json!({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "input_schema": tool.parameters_schema
+                });
+                if let Some(annotations) = anthropic_annotations_for_tool_info(
+                    &tool.name,
+                    matches!(tool.permission, rustycode_tools::ToolPermission::Read),
+                ) {
+                    schema["annotations"] = annotations;
                 }
-                _ => {
-                    let mut schema = serde_json::json!({
-                        "name": tool.name,
-                        "description": tool.description,
-                        "input_schema": tool.parameters_schema
-                    });
-                    if let Some(annotations) = anthropic_annotations_for_tool_info(
-                        &tool.name,
-                        matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                    ) {
-                        schema["annotations"] = annotations;
-                    }
-                    schema
-                }
+                schema
             };
             if !tool_search_enabled || is_seed_tool {
                 tools_json.push(tool_schema);
@@ -726,8 +708,8 @@ Unused Memories (candidates for pruning):
     }
 
     fn tools_seed_list_for_provider(&self, provider: &ModelProvider) -> &'static [&'static str] {
-        match provider {
-            ModelProvider::Anthropic | ModelProvider::OpenAI => match self.ai_mode {
+        if provider.is_anthropic() || provider.is_openai() {
+            match self.ai_mode {
                 AiMode::Ask => &[
                     "tool_search",
                     "read_file",
@@ -780,16 +762,19 @@ Unused Memories (candidates for pruning):
                     "git_diff",
                     "git_commit",
                 ],
-            },
-            _ => &[],
+            }
+        } else {
+            &[]
         }
     }
 
     fn tool_search_enabled_for_provider(&self, provider: &ModelProvider, model_id: &str) -> bool {
-        match provider {
-            ModelProvider::Anthropic => true,
-            ModelProvider::OpenAI => model_id.starts_with("gpt-5.4"),
-            _ => false,
+        if provider.is_anthropic() {
+            true
+        } else if provider.is_openai() {
+            model_id.starts_with("gpt-5.4")
+        } else {
+            false
         }
     }
 }
@@ -824,48 +809,36 @@ fn build_layered_prompt_sync(
     );
 
     let provider = ModelProvider::from_model_id(current_model);
-    let model_guidance = match provider {
-        ModelProvider::Anthropic => {
-            "You are Claude (Anthropic). You excel at:\n\
-            - Understanding complex codebases and architectural patterns\n\
-            - Writing clean, idiomatic code that follows best practices\n\
-            - Breaking down complex problems into manageable steps\n\
-            - Providing clear technical explanations\n\
-            \n\
-            Prefer decisive implementation steps with concise explanations focused on the 'why' behind important decisions."
-        }
-        ModelProvider::Google => {
-            "You are Gemini (Google). You excel at:\n\
-            - Analyzing code with precision and attention to detail\n\
-            - Following explicit instructions and verification steps\n\
-            - Providing reliable, well-grounded solutions\n\
-            - Generating code that works correctly the first time\n\
-            \n\
-            Prioritize correctness and explicit verification over speed."
-        }
-        ModelProvider::OpenAI => {
-            "You are GPT (OpenAI). You excel at:\n\
-            - Strong code synthesis and rapid prototyping\n\
-            - Generating functional code from descriptions\n\
-            - Providing deterministic fixes for common issues\n\
-            - Adapting to different coding styles and patterns\n\
-            \n\
-            Prioritize working code over creative solutions."
-        }
-        ModelProvider::Generic => {
-            "You are an AI coding assistant. Focus on:\n\
-            - Understanding the user's intent and context\n\
-            - Providing practical, working solutions\n\
-            - Communicating clearly about trade-offs and options\n\
-            - Delivering value through correct, maintainable code"
-        }
-        _ => {
-            "You are an AI coding assistant. Focus on:\n\
-            - Understanding the user's intent and context\n\
-            - Providing practical, working solutions\n\
-            - Communicating clearly about trade-offs and options\n\
-            - Delivering value through correct, maintainable code"
-        }
+    let model_guidance = if provider.is_anthropic() {
+        "You are Claude (Anthropic). You excel at:\n\
+        - Understanding complex codebases and architectural patterns\n\
+        - Writing clean, idiomatic code that follows best practices\n\
+        - Breaking down complex problems into manageable steps\n\
+        - Providing clear technical explanations\n\
+        \n\
+        Prefer decisive implementation steps with concise explanations focused on the 'why' behind important decisions."
+    } else if provider.is_google() {
+        "You are Gemini (Google). You excel at:\n\
+        - Analyzing code with precision and attention to detail\n\
+        - Following explicit instructions and verification steps\n\
+        - Providing reliable, well-grounded solutions\n\
+        - Generating code that works correctly the first time\n\
+        \n\
+        Prioritize correctness and explicit verification over speed."
+    } else if provider.is_openai() {
+        "You are GPT (OpenAI). You excel at:\n\
+        - Strong code synthesis and rapid prototyping\n\
+        - Generating functional code from descriptions\n\
+        - Providing deterministic fixes for common issues\n\
+        - Adapting to different coding styles and patterns\n\
+        \n\
+        Prioritize working code over creative solutions."
+    } else {
+        "You are an AI coding assistant. Focus on:\n\
+        - Understanding the user's intent and context\n\
+        - Providing practical, working solutions\n\
+        - Communicating clearly about trade-offs and options\n\
+        - Delivering value through correct, maintainable code"
     };
     layers.push(model_guidance.to_string());
 
@@ -889,67 +862,66 @@ fn build_layered_prompt_sync(
 
     layers.push(mode_instruction.to_string());
 
-    let tool_instructions = match provider {
-        ModelProvider::Anthropic | ModelProvider::OpenAI | ModelProvider::Google => {
-            // All providers support native tool calling now
-            format!(
-                "## Available Tools\n\
-                \n\
-                You have access to the following tools. Use them when needed to complete tasks.\n\
-                \n\
-                {}",
-                tool_descriptions
-            )
-        }
-        ModelProvider::Generic => {
-            format!(
-                "## Available Tools\n\
-                \n\
-                === HOW TO MAKE TOOL CALLS ===\n\
-                \n\
-                Follow these steps EXACTLY when making a tool call:\n\
-                \n\
-                **Step 1:** Identify the tool you need\n\
-                - User says \"Read X\" → use read_file\n\
-                - User says \"Run command X\" → use bash\n\
-                - User says \"Search for X\" → use web_search\n\
-                \n\
-                **Step 2:** Extract parameter values FROM THE USER'S REQUEST\n\
-                - User says \"Read Cargo.toml\" → path is \"Cargo.toml\"\n\
-                - User says \"List files\" → command is \"ls\"\n\
-                - User says \"Search for Rust async\" → query is \"Rust async\"\n\
-                \n\
-                **Step 3:** Build the JSON with BOTH name AND input fields\n\
-                {{\"name\": \"tool_name\", \"input\": {{\"param\": \"value_from_user_request\"}}}}\n\
-                \n\
-                **Complete examples:**\n\
-                - Read file: {{\"name\": \"read_file\", \"input\": {{\"path\": \"Cargo.toml\"}}}}\n\
-                - Run command: {{\"name\": \"bash\", \"input\": {{\"command\": \"ls\"}}}}\n\
-                - Search: {{\"name\": \"web_search\", \"input\": {{\"query\": \"Rust async\"}}}}\n\
-                - Write: {{\"name\": \"write_file\", \"input\": {{\"path\": \"test.txt\", \"content\": \"hello\"}}}}\n\
-                \n\
-                **COMMON MISTAKES - Do NOT make these:**\n\
-                ❌ {{\"name\": \"read_file\", \"input\": {{}}}}  ← EMPTY! You must extract values from user request!\n\
-                ❌ {{\"name\": \"read_file\", \"path\": \"x\"}}  ← Missing input wrapper!\n\
-                ❌ {{\"name\": \"bash\", \"arguments\": {{\"command\": \"ls\"}}}}  ← Wrong field name!\n\
-                \n\
-                === TOOL DESCRIPTIONS ===\n\
-                \n\
-                {}",
-                tool_descriptions
-            )
-        }
-        _ => {
-            // Future provider types fall back to native tool calling
-            format!(
-                "## Available Tools\n\
-                \n\
-                You have access to the following tools. Use them when needed to complete tasks.\n\
-                \n\
-                {}",
-                tool_descriptions
-            )
-        }
+    let tool_instructions = if provider.is_anthropic()
+        || provider.is_openai()
+        || provider.is_google()
+    {
+        // All major providers support native tool calling now
+        format!(
+            "## Available Tools\n\
+            \n\
+            You have access to the following tools. Use them when needed to complete tasks.\n\
+            \n\
+            {}",
+            tool_descriptions
+        )
+    } else if matches!(provider, ModelProvider::Generic) {
+        format!(
+            "## Available Tools\n\
+            \n\
+            === HOW TO MAKE TOOL CALLS ===\n\
+            \n\
+            Follow these steps EXACTLY when making a tool call:\n\
+            \n\
+            **Step 1:** Identify the tool you need\n\
+            - User says \"Read X\" → use read_file\n\
+            - User says \"Run command X\" → use bash\n\
+            - User says \"Search for X\" → use web_search\n\
+            \n\
+            **Step 2:** Extract parameter values FROM THE USER'S REQUEST\n\
+            - User says \"Read Cargo.toml\" → path is \"Cargo.toml\"\n\
+            - User says \"List files\" → command is \"ls\"\n\
+            - User says \"Search for Rust async\" → query is \"Rust async\"\n\
+            \n\
+            **Step 3:** Build the JSON with BOTH name AND input fields\n\
+            {{\"name\": \"tool_name\", \"input\": {{\"param\": \"value_from_user_request\"}}}}\n\
+            \n\
+            **Complete examples:**\n\
+            - Read file: {{\"name\": \"read_file\", \"input\": {{\"path\": \"Cargo.toml\"}}}}\n\
+            - Run command: {{\"name\": \"bash\", \"input\": {{\"command\": \"ls\"}}}}\n\
+            - Search: {{\"name\": \"web_search\", \"input\": {{\"query\": \"Rust async\"}}}}\n\
+            - Write: {{\"name\": \"write_file\", \"input\": {{\"path\": \"test.txt\", \"content\": \"hello\"}}}}\n\
+            \n\
+            **COMMON MISTAKES - Do NOT make these:**\n\
+            ❌ {{\"name\": \"read_file\", \"input\": {{}}}}  ← EMPTY! You must extract values from user request!\n\
+            ❌ {{\"name\": \"read_file\", \"path\": \"x\"}}  ← Missing input wrapper!\n\
+            ❌ {{\"name\": \"bash\", \"arguments\": {{\"command\": \"ls\"}}}}  ← Wrong field name!\n\
+            \n\
+            === TOOL DESCRIPTIONS ===\n\
+            \n\
+            {}",
+            tool_descriptions
+        )
+    } else {
+        // Future/unknown provider types fall back to native tool calling
+        format!(
+            "## Available Tools\n\
+            \n\
+            You have access to the following tools. Use them when needed to complete tasks.\n\
+            \n\
+            {}",
+            tool_descriptions
+        )
     };
 
     layers.push(tool_instructions);
@@ -1615,9 +1587,9 @@ mod tests {
         let service = ConversationService::new(config, Arc::new(tool_registry));
 
         assert!(service
-            .tool_search_enabled_for_provider(&ModelProvider::Anthropic, "claude-3-5-sonnet"));
-        assert!(service.tool_search_enabled_for_provider(&ModelProvider::OpenAI, "gpt-5.4"));
-        assert!(!service.tool_search_enabled_for_provider(&ModelProvider::OpenAI, "gpt-4o"));
+            .tool_search_enabled_for_provider(&ModelProvider::ClaudeSonnet, "claude-3-5-sonnet"));
+        assert!(service.tool_search_enabled_for_provider(&ModelProvider::GPT5, "gpt-5.4"));
+        assert!(!service.tool_search_enabled_for_provider(&ModelProvider::GPT4, "gpt-4o"));
         assert!(!service.tool_search_enabled_for_provider(&ModelProvider::Generic, "test"));
     }
 
@@ -1627,10 +1599,10 @@ mod tests {
         let tool_registry = rustycode_tools::default_registry();
         let service = ConversationService::new(config, Arc::new(tool_registry));
 
-        assert!(service.is_seed_tool_for_provider(&ModelProvider::Anthropic, "find"));
-        assert!(service.is_seed_tool_for_provider(&ModelProvider::OpenAI, "inspect"));
-        assert!(!service.is_seed_tool_for_provider(&ModelProvider::Anthropic, "semantic_search"));
-        assert!(!service.is_seed_tool_for_provider(&ModelProvider::Anthropic, "lsp_definition"));
+        assert!(service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "find"));
+        assert!(service.is_seed_tool_for_provider(&ModelProvider::GPT5, "inspect"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "semantic_search"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "lsp_definition"));
         assert!(!service.is_seed_tool_for_provider(&ModelProvider::Generic, "lsp_definition"));
     }
 }
