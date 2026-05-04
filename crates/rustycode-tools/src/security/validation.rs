@@ -152,6 +152,7 @@ pub fn validate_path(
     workspace: &Path,
     check_exists: bool,
     allow_symlinks: bool,
+    enforce_workspace: bool,
 ) -> Result<PathBuf> {
     // Check path length
     if path.len() > MAX_PATH_LENGTH {
@@ -208,7 +209,7 @@ pub fn validate_path(
         let path_canonical =
             fs::canonicalize(&resolved).map_err(|e| anyhow!("failed to canonicalize path: {e}"))?;
 
-        if !path_canonical.starts_with(&workspace_canonical) {
+        if enforce_workspace && !path_canonical.starts_with(&workspace_canonical) {
             return Err(anyhow!(
                 "path '{}' is outside workspace '{}' and is blocked. \
                  Use a relative path within the workspace, or use the bash tool \
@@ -233,7 +234,9 @@ pub fn validate_path(
                 let parent_canonical = fs::canonicalize(parent)
                     .map_err(|e| anyhow!("failed to canonicalize parent: {e}"))?;
 
-                if !parent_canonical.starts_with(&workspace_canonical) {
+                if enforce_workspace
+                    && !parent_canonical.starts_with(&workspace_canonical)
+                {
                     return Err(anyhow!(
                         "path parent '{}' is outside workspace '{}' and is blocked. \
                          Use a relative path within the workspace, or use the bash tool \
@@ -293,8 +296,8 @@ fn check_path_for_symlinks(path: &Path, workspace: &Path) -> Result<()> {
 /// - Path is within workspace
 /// - No symlinks in path
 /// - File extension is not blocked
-pub fn validate_read_path(path: &str, workspace: &Path) -> Result<PathBuf> {
-    let validated = validate_path(path, workspace, true, false)?;
+pub fn validate_read_path(path: &str, workspace: &Path, enforce_workspace: bool) -> Result<PathBuf> {
+    let validated = validate_path(path, workspace, true, false, enforce_workspace)?;
 
     // Check blocked path components (e.g., .ssh, .gnupg, .aws)
     for component in validated.components() {
@@ -349,8 +352,8 @@ pub fn validate_read_path(path: &str, workspace: &Path) -> Result<PathBuf> {
 /// - Parent directory exists
 /// - Content size is within limits
 /// - File extension is not blocked
-pub fn validate_write_path(path: &str, workspace: &Path, content_size: usize) -> Result<PathBuf> {
-    let validated = validate_path(path, workspace, false, false)?;
+pub fn validate_write_path(path: &str, workspace: &Path, content_size: usize, enforce_workspace: bool) -> Result<PathBuf> {
+    let validated = validate_path(path, workspace, false, false, enforce_workspace)?;
 
     // Check blocked path components (e.g., .ssh, .gnupg, .aws)
     for component in validated.components() {
@@ -422,8 +425,8 @@ pub fn validate_write_path(path: &str, workspace: &Path, content_size: usize) ->
 /// - Path is within workspace
 /// - No symlinks in path
 /// - Path is a directory (if it exists)
-pub fn validate_list_path(path: &str, workspace: &Path) -> Result<PathBuf> {
-    let validated = validate_path(path, workspace, true, false)?;
+pub fn validate_list_path(path: &str, workspace: &Path, enforce_workspace: bool) -> Result<PathBuf> {
+    let validated = validate_path(path, workspace, true, false, enforce_workspace)?;
 
     // Check if it's actually a directory
     if validated.exists() && !validated.is_dir() {
@@ -828,7 +831,7 @@ mod tests {
         let workspace_path = workspace.path();
 
         // Parent traversal should be blocked
-        let result = validate_read_path("../../etc/passwd", workspace_path);
+        let result = validate_read_path("../../etc/passwd", workspace_path, true);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("traversal"));
     }
@@ -839,7 +842,7 @@ mod tests {
         let workspace_path = workspace.path();
 
         // Absolute path outside workspace should be blocked
-        let result = validate_read_path("/etc/passwd", workspace_path);
+        let result = validate_read_path("/etc/passwd", workspace_path, true);
         assert!(result.is_err());
     }
 
@@ -853,7 +856,7 @@ mod tests {
         fs::write(&env_path, "SECRET=value").unwrap();
 
         // .env files should be blocked for security reasons
-        let result = validate_read_path(".env", workspace_path);
+        let result = validate_read_path(".env", workspace_path, true);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("blocked"));
     }
@@ -866,7 +869,7 @@ mod tests {
         // Create a file larger than MAX_FILE_SIZE
         let large_content = "x".repeat(MAX_FILE_SIZE + 1);
 
-        let result = validate_write_path("test.txt", workspace_path, large_content.len());
+        let result = validate_write_path("test.txt", workspace_path, large_content.len(), true);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("exceeds maximum"));
     }
@@ -894,6 +897,93 @@ mod tests {
         let result = validate_url("file:///etc/passwd");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not allowed"));
+    }
+
+    // --- Relaxed workspace tests (enforce_workspace: false) ---
+
+    #[test]
+    fn test_validate_read_path_allows_outside_workspace_when_relaxed() {
+        let workspace = TempDir::new().unwrap();
+        let outside = TempDir::new().unwrap();
+        let file_path = outside.path().join("outside.txt");
+        fs::write(&file_path, "hello").unwrap();
+
+        let result = validate_read_path(
+            file_path.to_str().unwrap(),
+            workspace.path(),
+            false,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_read_path_blocks_env_file_even_when_relaxed() {
+        let workspace = TempDir::new().unwrap();
+        let env_path = workspace.path().join(".env");
+        fs::write(&env_path, "KEY=secret").unwrap();
+
+        let result = validate_read_path(
+            env_path.to_str().unwrap(),
+            workspace.path(),
+            false,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_write_path_allows_outside_workspace_when_relaxed() {
+        let workspace = TempDir::new().unwrap();
+        let outside = TempDir::new().unwrap();
+        let file_path = outside.path().join("outside.txt");
+
+        let result = validate_write_path(
+            file_path.to_str().unwrap(),
+            workspace.path(),
+            100,
+            false,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_write_path_blocks_credentials_even_when_relaxed() {
+        let workspace = TempDir::new().unwrap();
+        let cred_path = workspace.path().join("credentials.json");
+
+        let result = validate_write_path(
+            cred_path.to_str().unwrap(),
+            workspace.path(),
+            100,
+            false,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_list_path_allows_outside_workspace_when_relaxed() {
+        let workspace = TempDir::new().unwrap();
+        let outside = TempDir::new().unwrap();
+
+        let result = validate_list_path(
+            outside.path().to_str().unwrap(),
+            workspace.path(),
+            false,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_path_blocks_traversal_even_when_relaxed() {
+        let workspace = TempDir::new().unwrap();
+
+        let result = validate_path(
+            "../../../etc/passwd",
+            workspace.path(),
+            false,
+            false,
+            false,
+        );
+        assert!(result.is_err());
     }
 
     #[test]
@@ -925,7 +1015,7 @@ mod tests {
         let test_file = workspace_path.join("test.txt");
         fs::write(&test_file, "content").unwrap();
 
-        let result = validate_read_path("test.txt", workspace_path);
+        let result = validate_read_path("test.txt", workspace_path, true);
         assert!(result.is_ok());
     }
 
@@ -1071,7 +1161,7 @@ mod tests {
     #[test]
     fn test_validate_path_allows_simple_relative() {
         let workspace = tempdir().unwrap();
-        let path = validate_path("file.txt", workspace.path(), false, false);
+        let path = validate_path("file.txt", workspace.path(), false, false, true);
         assert!(path.is_ok());
         assert_eq!(path.unwrap(), workspace.path().join("file.txt"));
     }
@@ -1079,7 +1169,7 @@ mod tests {
     #[test]
     fn test_validate_path_blocks_double_dot_component() {
         let workspace = tempdir().unwrap();
-        let path = validate_path("../../../etc/passwd", workspace.path(), false, false);
+        let path = validate_path("../../../etc/passwd", workspace.path(), false, false, true);
         assert!(path.is_err());
         assert!(path.unwrap_err().to_string().contains("traversal"));
     }
@@ -1087,7 +1177,7 @@ mod tests {
     #[test]
     fn test_validate_path_blocks_encoded_traversal() {
         let workspace = tempdir().unwrap();
-        let path = validate_path("foo/%2e%2e/etc/passwd", workspace.path(), false, false);
+        let path = validate_path("foo/%2e%2e/etc/passwd", workspace.path(), false, false, true);
         assert!(path.is_err());
         assert!(path.unwrap_err().to_string().contains("encoded"));
     }
@@ -1096,7 +1186,7 @@ mod tests {
     fn test_validate_path_blocks_oversized_path() {
         let workspace = tempdir().unwrap();
         let long_path = "a".repeat(MAX_PATH_LENGTH + 100);
-        let path = validate_path(&long_path, workspace.path(), false, false);
+        let path = validate_path(&long_path, workspace.path(), false, false, true);
         assert!(path.is_err());
         assert!(path.unwrap_err().to_string().contains("maximum length"));
     }
@@ -1107,14 +1197,14 @@ mod tests {
         let file_path = workspace.path().join("test.txt");
         fs::write(&file_path, "content").unwrap();
         let abs = file_path.to_str().unwrap();
-        let path = validate_path(abs, workspace.path(), true, false);
+        let path = validate_path(abs, workspace.path(), true, false, true);
         assert!(path.is_ok());
     }
 
     #[test]
     fn test_validate_path_absolute_outside_workspace() {
         let workspace = tempdir().unwrap();
-        let path = validate_path("/etc/passwd", workspace.path(), true, false);
+        let path = validate_path("/etc/passwd", workspace.path(), true, false, true);
         assert!(path.is_err());
     }
 
@@ -1125,7 +1215,7 @@ mod tests {
         let workspace = tempdir().unwrap();
         let subdir = workspace.path().join("subdir");
         fs::create_dir(&subdir).unwrap();
-        let path = validate_list_path("subdir", workspace.path());
+        let path = validate_list_path("subdir", workspace.path(), true);
         assert!(path.is_ok());
     }
 
@@ -1134,7 +1224,7 @@ mod tests {
         let workspace = tempdir().unwrap();
         let file = workspace.path().join("file.txt");
         fs::write(&file, "content").unwrap();
-        let path = validate_list_path("file.txt", workspace.path());
+        let path = validate_list_path("file.txt", workspace.path(), true);
         assert!(path.is_err());
         assert!(path.unwrap_err().to_string().contains("not a directory"));
     }
@@ -1142,7 +1232,7 @@ mod tests {
     #[test]
     fn test_validate_list_path_root_workspace() {
         let workspace = tempdir().unwrap();
-        let path = validate_list_path(".", workspace.path());
+        let path = validate_list_path(".", workspace.path(), true);
         assert!(path.is_ok());
     }
 
@@ -1347,7 +1437,7 @@ mod tests {
     fn test_encoded_traversal_mixed_case() {
         // %2e. should be caught
         let workspace = tempdir().unwrap();
-        let result = validate_path("%2e./etc/passwd", workspace.path(), false, false);
+        let result = validate_path("%2e./etc/passwd", workspace.path(), false, false, true);
         assert!(result.is_err());
     }
 
@@ -1355,7 +1445,7 @@ mod tests {
     fn test_encoded_traversal_dot_percent() {
         // .%2e should be caught
         let workspace = tempdir().unwrap();
-        let result = validate_path(".%2e/etc/passwd", workspace.path(), false, false);
+        let result = validate_path(".%2e/etc/passwd", workspace.path(), false, false, true);
         assert!(result.is_err());
     }
 
@@ -1363,21 +1453,21 @@ mod tests {
     fn test_encoded_traversal_uppercase() {
         // %2E%2E should be caught (already worked, but verify)
         let workspace = tempdir().unwrap();
-        let result = validate_path("%2E%2E/etc/passwd", workspace.path(), false, false);
+        let result = validate_path("%2E%2E/etc/passwd", workspace.path(), false, false, true);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_empty_path_rejected() {
         let workspace = tempdir().unwrap();
-        let result = validate_path("", workspace.path(), false, false);
+        let result = validate_path("", workspace.path(), false, false, true);
         assert!(result.is_err() || !result.unwrap().exists());
     }
 
     #[test]
     fn test_double_dot_midpath_rejected() {
         let workspace = tempdir().unwrap();
-        let result = validate_path("src/../etc/passwd", workspace.path(), false, false);
+        let result = validate_path("src/../etc/passwd", workspace.path(), false, false, true);
         assert!(result.is_err());
     }
 
@@ -1386,7 +1476,7 @@ mod tests {
         let workspace = tempdir().unwrap();
         let env_file = workspace.path().join(".env");
         fs::write(&env_file, "KEY=value").unwrap();
-        let result = validate_write_path(".env", workspace.path(), 10);
+        let result = validate_write_path(".env", workspace.path(), 10, true);
         assert!(result.is_err());
     }
 
@@ -1407,19 +1497,19 @@ mod tests {
         // credentials.json should be blocked
         let creds = workspace.path().join("credentials.json");
         fs::write(&creds, "{}").unwrap();
-        let result = validate_read_path("credentials.json", workspace.path());
+        let result = validate_read_path("credentials.json", workspace.path(), true);
         assert!(result.is_err(), "credentials.json should be blocked");
 
         // id_rsa should be blocked
         let rsa = workspace.path().join("id_rsa");
         fs::write(&rsa, "key").unwrap();
-        let result = validate_read_path("id_rsa", workspace.path());
+        let result = validate_read_path("id_rsa", workspace.path(), true);
         assert!(result.is_err(), "id_rsa should be blocked");
 
         // .netrc should be blocked
         let netrc = workspace.path().join(".netrc");
         fs::write(&netrc, "machine x").unwrap();
-        let result = validate_read_path(".netrc", workspace.path());
+        let result = validate_read_path(".netrc", workspace.path(), true);
         assert!(result.is_err(), ".netrc should be blocked");
     }
 
@@ -1430,7 +1520,7 @@ mod tests {
         fs::create_dir_all(&ssh_dir).unwrap();
         let config = ssh_dir.join("config");
         fs::write(&config, "Host *").unwrap();
-        let result = validate_read_path(".ssh/config", workspace.path());
+        let result = validate_read_path(".ssh/config", workspace.path(), true);
         assert!(result.is_err(), ".ssh directory should be blocked");
     }
 
@@ -1441,7 +1531,7 @@ mod tests {
         fs::create_dir_all(&gnupg_dir).unwrap();
         let keyring = gnupg_dir.join("pubring.kbx");
         fs::write(&keyring, "keydata").unwrap();
-        let result = validate_read_path(".gnupg/pubring.kbx", workspace.path());
+        let result = validate_read_path(".gnupg/pubring.kbx", workspace.path(), true);
         assert!(result.is_err(), ".gnupg directory should be blocked");
     }
 
@@ -1451,7 +1541,7 @@ mod tests {
         let workspace_path = workspace.path();
         let creds = workspace_path.join(".credentials.json");
         fs::write(&creds, r#"{"api_key":"secret"}"#).unwrap();
-        let result = validate_read_path(".credentials.json", workspace_path);
+        let result = validate_read_path(".credentials.json", workspace_path, true);
         assert!(result.is_err(), ".credentials.json should be blocked");
     }
 }

@@ -18,7 +18,7 @@
 //! ```
 
 use crate::{Tool, ToolContext, ToolOutput};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -109,6 +109,10 @@ impl ExecutionMiddleware {
         ctx: &ToolContext,
     ) -> Result<ToolOutput> {
         let tool_name = tool.name().to_string();
+
+        // Phase 0: Input validation (before permission/approval gate)
+        tool.validate_input(&params, ctx)
+            .with_context(|| format!("input validation failed for tool '{tool_name}'"))?;
 
         // Phase 1: Pre-execution checks
         self.pre_execute_check(&tool_name, ctx)?;

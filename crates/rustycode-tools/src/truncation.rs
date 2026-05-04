@@ -162,8 +162,8 @@ pub fn truncate_bytes_critical(
 /// Maximum output sizes for different tool types (following `OpenCode` patterns)
 pub const BASH_MAX_LINES: usize = 30;
 pub const BASH_MAX_BYTES: usize = 50 * 1024; // 50KB
-pub const READ_MAX_LINES: usize = 80;
-pub const READ_MAX_BYTES: usize = 10 * 1024; // 10KB
+pub const READ_MAX_LINES: usize = 2000;
+pub const READ_MAX_BYTES: usize = 256 * 1024; // 256KB
 pub const GREP_MAX_MATCHES: usize = 15;
 pub const LIST_MAX_ITEMS: usize = 30;
 
@@ -219,6 +219,23 @@ impl TruncatedOutput {
     }
 }
 
+/// Format lines with `cat -n` style line number prefixes.
+///
+/// Each line gets a right-aligned line number followed by a tab:
+/// ```text
+///      1\tfirst line
+///      2\tsecond line
+/// ```
+pub fn format_with_line_numbers(lines: &[&str], start_line: usize) -> String {
+    let width = (start_line + lines.len()).to_string().len().max(1);
+    lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| format!("{:>width$}\t{line}", start_line + i))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Truncate text to maximum lines with notice
 ///
 /// # Example
@@ -237,21 +254,35 @@ pub fn truncate_lines(
     let lines: Vec<&str> = content.lines().collect();
 
     if lines.len() <= max_lines {
-        return TruncatedOutput::full(content.to_string(), total_lines.max(lines.len()));
+        let numbered = format_with_line_numbers(&lines, 1);
+        return TruncatedOutput {
+            output: numbered,
+            truncated: false,
+            total_count: total_lines.max(lines.len()),
+            shown_count: lines.len(),
+            metadata: json!({
+                "total": total_lines.max(lines.len()),
+                "shown": lines.len(),
+                "truncated": false,
+                "total_lines": total_lines.max(lines.len()),
+            }),
+        };
     }
 
     let truncated = true;
     let shown_count = max_lines;
     let omitted_count = lines.len() - max_lines;
 
-    let mut output = lines[..max_lines].join("\n");
+    let mut output = format_with_line_numbers(&lines[..max_lines], 1);
 
     // Add truncation notice
     output.push_str(&format!(
         "\n\n[{omitted_count} lines omitted - total: {total_lines}]"
     ));
 
-    output.push_str(&format!("\n[Showing {shown_count} of {total_lines} lines]"));
+    output.push_str(&format!(
+        "\n[Showing lines 1-{shown_count} of {total_lines}. Use offset={shown_count} to read more.]"
+    ));
 
     TruncatedOutput {
         output,
@@ -592,7 +623,7 @@ mod tests {
         assert!(!result.truncated);
         assert_eq!(result.total_count, 3);
         assert_eq!(result.shown_count, 3);
-        assert_eq!(result.output, content);
+        assert_eq!(result.output, "1\tline1\n2\tline2\n3\tline3");
     }
 
     #[test]

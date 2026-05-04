@@ -247,7 +247,7 @@ the full plan object. This is a simplified version.
             "saved_at": Utc::now().to_rfc3339(),
             "note": "This is a placeholder. In a real implementation, the plan would be retrieved from state."
         }))?;
-        let path = validate_write_path(file_path, &ctx.cwd, plan_json.len())?;
+        let path = validate_write_path(file_path, &ctx.cwd, plan_json.len(), !ctx.allow_outside_workspace)?;
 
         // Create parent directories if needed
         if let Some(parent) = path.parent() {
@@ -329,7 +329,7 @@ impl Tool for LoadPlanTool {
         let file_path_str = required_string(&params, "file_path")?;
 
         // Validate path stays within workspace
-        let path = validate_read_path(file_path_str, &ctx.cwd)?;
+        let path = validate_read_path(file_path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         // Read plan file
         let content = fs::read_to_string(&path)
@@ -423,7 +423,7 @@ impl Tool for ListPlansTool {
             .unwrap_or(".rustycode/plans");
 
         // Validate path stays within workspace
-        let dir_path = validate_list_path(directory, &ctx.cwd)?;
+        let dir_path = validate_list_path(directory, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         // Check if directory exists
         if !dir_path.exists() {
