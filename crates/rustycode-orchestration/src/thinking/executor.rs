@@ -480,6 +480,7 @@ impl RealExecutor {
             tool_choice: None,
             parallel_tool_calls: None,
             session_id: None,
+            api_mode: None,
         };
 
         let response = self
@@ -532,6 +533,7 @@ impl RealExecutor {
             tool_choice: None,
             parallel_tool_calls: None,
             session_id: None,
+            api_mode: None,
         };
 
         let response = self

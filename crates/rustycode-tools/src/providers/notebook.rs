@@ -6,6 +6,10 @@ use std::fs;
 pub struct NotebookEditTool;
 
 impl Tool for NotebookEditTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "notebook_edit"
     }

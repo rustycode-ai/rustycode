@@ -265,6 +265,10 @@ pub struct LspDefinitionTool;
 pub struct LspCompletionTool;
 
 impl Tool for LspDiagnosticsTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_diagnostics"
     }
@@ -319,6 +323,10 @@ impl Tool for LspDiagnosticsTool {
 }
 
 impl Tool for LspHoverTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_hover"
     }
@@ -389,6 +397,10 @@ impl Tool for LspHoverTool {
 }
 
 impl Tool for LspDefinitionTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_definition"
     }
@@ -459,6 +471,10 @@ impl Tool for LspDefinitionTool {
 }
 
 impl Tool for LspCompletionTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_completion"
     }
@@ -541,6 +557,10 @@ impl Tool for LspCompletionTool {
 pub struct LspDocumentSymbolsTool;
 
 impl Tool for LspDocumentSymbolsTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_document_symbols"
     }
@@ -614,6 +634,10 @@ Returns: Hierarchical list of symbols with their types and locations"
 pub struct LspReferencesTool;
 
 impl Tool for LspReferencesTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_references"
     }
@@ -686,6 +710,10 @@ impl Tool for LspReferencesTool {
 pub struct LspFullDiagnosticsTool;
 
 impl Tool for LspFullDiagnosticsTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_full_diagnostics"
     }
@@ -782,6 +810,10 @@ impl Tool for LspFullDiagnosticsTool {
 pub struct LspCodeActionsTool;
 
 impl Tool for LspCodeActionsTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_code_actions"
     }
@@ -902,6 +934,10 @@ Returns: List of code actions with titles and kinds"
 pub struct LspRenameTool;
 
 impl Tool for LspRenameTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_rename"
     }
@@ -1056,6 +1092,10 @@ Returns: Workspace edit with all changes to apply"
 pub struct LspFormattingTool;
 
 impl Tool for LspFormattingTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_formatting"
     }
@@ -1192,6 +1232,10 @@ Returns: Text edits to apply for formatting"
 pub struct LspGetSymbolsOverviewTool;
 
 impl Tool for LspGetSymbolsOverviewTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_get_symbols_overview"
     }
@@ -1282,6 +1326,10 @@ impl Tool for LspGetSymbolsOverviewTool {
 pub struct LspFindSymbolTool;
 
 impl Tool for LspFindSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_find_symbol"
     }
@@ -1434,6 +1482,10 @@ impl Tool for LspFindSymbolTool {
 pub struct LspReplaceSymbolBodyTool;
 
 impl Tool for LspReplaceSymbolBodyTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_replace_symbol_body"
     }
@@ -1544,6 +1596,10 @@ impl Tool for LspReplaceSymbolBodyTool {
 pub struct LspInsertBeforeSymbolTool;
 
 impl Tool for LspInsertBeforeSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_insert_before_symbol"
     }
@@ -1655,6 +1711,10 @@ impl Tool for LspInsertBeforeSymbolTool {
 pub struct LspInsertAfterSymbolTool;
 
 impl Tool for LspInsertAfterSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_insert_after_symbol"
     }
@@ -1767,6 +1827,10 @@ impl Tool for LspInsertAfterSymbolTool {
 pub struct LspSafeDeleteSymbolTool;
 
 impl Tool for LspSafeDeleteSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_safe_delete_symbol"
     }
@@ -1897,6 +1961,10 @@ impl Tool for LspSafeDeleteSymbolTool {
 pub struct LspRenameSymbolTool;
 
 impl Tool for LspRenameSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_rename_symbol"
     }
@@ -2046,6 +2114,10 @@ impl Tool for LspRenameSymbolTool {
 pub struct LspAnalyzeSymbolTool;
 
 impl Tool for LspAnalyzeSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_analyze_symbol"
     }
@@ -2207,6 +2279,10 @@ impl Tool for LspAnalyzeSymbolTool {
 pub struct LspExtractSymbolTool;
 
 impl Tool for LspExtractSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_extract_symbol"
     }
@@ -2364,6 +2440,10 @@ impl Tool for LspExtractSymbolTool {
 pub struct LspInlineSymbolTool;
 
 impl Tool for LspInlineSymbolTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_inline_symbol"
     }
@@ -2596,6 +2676,10 @@ impl Tool for LspInlineSymbolTool {
 pub struct LspWorkspaceSymbolsTool;
 
 impl Tool for LspWorkspaceSymbolsTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "lsp_workspace_symbols"
     }

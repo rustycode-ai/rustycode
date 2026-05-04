@@ -33,6 +33,10 @@ const MAX_EDIT_SIZE: usize = 1024 * 1024;
 pub struct MultiEditTool;
 
 impl Tool for MultiEditTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "multiedit"
     }

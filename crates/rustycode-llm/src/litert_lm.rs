@@ -353,6 +353,7 @@ mod tests {
             tool_choice: None,
             parallel_tool_calls: None,
             session_id: None,
+            api_mode: None,
         };
 
         let prompt = LiteRtLmProvider::build_prompt(&request);

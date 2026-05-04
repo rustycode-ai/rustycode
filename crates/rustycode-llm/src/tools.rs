@@ -1381,6 +1381,61 @@ pub fn normalize_tools_for_openai(tools: &[serde_json::Value]) -> Vec<serde_json
         .collect()
 }
 
+/// Normalize tools into the flat Responses API format.
+///
+/// The Responses API uses `{type, name, description, parameters}` instead of
+/// the Chat Completions `{type, function: {name, description, parameters}}`.
+///
+/// ```json
+/// { "type": "function", "name": "...", "description": "...", "parameters": {...} }
+/// ```
+pub fn normalize_tools_for_responses(tools: &[serde_json::Value]) -> Vec<serde_json::Value> {
+    tools
+        .iter()
+        .map(|tool| {
+            let name = tool
+                .get("name")
+                .and_then(|v| v.as_str())
+                .or_else(|| {
+                    tool.get("function")
+                        .and_then(|f| f.get("name"))
+                        .and_then(|v| v.as_str())
+                })
+                .unwrap_or("unknown");
+
+            let description = tool
+                .get("description")
+                .and_then(|v| v.as_str())
+                .or_else(|| {
+                    tool.get("function")
+                        .and_then(|f| f.get("description"))
+                        .and_then(|v| v.as_str())
+                });
+
+            let parameters = tool
+                .get("parameters")
+                .cloned()
+                .or_else(|| tool.get("input_schema").cloned())
+                .or_else(|| {
+                    tool.get("function")
+                        .and_then(|f| f.get("parameters"))
+                        .cloned()
+                });
+
+            let mut obj = serde_json::Map::new();
+            obj.insert("type".to_string(), json!("function"));
+            obj.insert("name".to_string(), json!(name));
+            if let Some(desc) = description {
+                obj.insert("description".to_string(), json!(desc));
+            }
+            if let Some(params) = parameters {
+                obj.insert("parameters".to_string(), params);
+            }
+            serde_json::Value::Object(obj)
+        })
+        .collect()
+}
+
 /// Strip JSON Schema keywords that some providers (notably Zhipu) reject.
 ///
 /// Removes: `minimum`, `maximum`, `enum`, `additionalProperties`, and recurses

@@ -19,6 +19,10 @@ fn pool() -> &'static crate::browser_pool::BrowserPool {
 pub struct BrowserFetchTool;
 
 impl Tool for BrowserFetchTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &str {
         "browser_fetch"
     }

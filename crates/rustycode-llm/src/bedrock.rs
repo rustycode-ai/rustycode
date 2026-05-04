@@ -916,6 +916,7 @@ impl UnifiedLLMProvider for BedrockProvider {
             tool_choice: None,
             parallel_tool_calls: None,
             session_id: None,
+            api_mode: None,
         };
 
         // Call provider complete

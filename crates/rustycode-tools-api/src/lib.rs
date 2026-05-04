@@ -185,6 +185,8 @@ pub struct ToolContext {
     pub project_id: Option<String>,
     /// Cancellation token for interruptible operations.
     pub cancellation_token: Option<CancellationToken>,
+    /// Optional registry reference for self-introspection (used by tool_search).
+    pub registry: Option<Arc<ToolRegistry>>,
 }
 
 impl std::fmt::Debug for ToolContext {
@@ -212,6 +214,7 @@ impl ToolContext {
             session_id: None,
             project_id: None,
             cancellation_token: None,
+            registry: None,
         }
     }
     pub fn with_sandbox(mut self, sandbox: SandboxConfig) -> Self {
@@ -247,6 +250,11 @@ impl ToolContext {
     /// Set the project identifier for persistence.
     pub fn with_project_id(mut self, id: impl Into<String>) -> Self {
         self.project_id = Some(id.into());
+        self
+    }
+    /// Attach a registry reference for tool self-introspection.
+    pub fn with_registry(mut self, registry: Arc<ToolRegistry>) -> Self {
+        self.registry = Some(registry);
         self
     }
 }
@@ -329,6 +337,13 @@ pub struct ToolInfo {
 pub trait ToolMetadataProvider: Send + Sync {
     fn list_tools(&self) -> Vec<ToolInfo>;
     fn get_tool_info(&self, name: &str) -> Option<ToolInfo>;
+    /// Return only tools that should be eagerly loaded (deferred tools excluded).
+    fn list_immediate_tools(&self) -> Vec<ToolInfo> {
+        self.list_tools()
+            .into_iter()
+            .filter(|t| t.name == "tool_search" || t.defer_loading != Some(true))
+            .collect()
+    }
 }
 
 /// Registry type shared across crates. Minimal implementation matching
@@ -397,6 +412,58 @@ impl ToolRegistry {
 
     pub fn get(&self, name: &str) -> Option<&dyn Tool> {
         self.tools.get(name).map(AsRef::as_ref)
+    }
+
+    /// Return ToolInfo for tools that should be eagerly loaded into the prompt.
+    /// Tools with `defer_loading() == Some(true)` are excluded.
+    /// The tool_search tool is always included regardless of its defer_loading setting.
+    pub fn list_immediate(&self) -> Vec<ToolInfo> {
+        let mut infos: Vec<ToolInfo> = self
+            .tools
+            .values()
+            .filter(|t| t.name() == "tool_search" || t.defer_loading() != Some(true))
+            .map(|t| ToolInfo {
+                name: t.name().to_string(),
+                description: t.description().to_string(),
+                parameters_schema: t.parameters_schema(),
+                permission: t.permission(),
+                defer_loading: t.defer_loading(),
+                annotations: None,
+                tags: t.tags().to_vec(),
+            })
+            .collect();
+        infos.sort_by(|a, b| a.name.cmp(&b.name));
+        infos
+    }
+
+    /// Return lightweight stubs for deferred tools — name and first-line description
+    /// with an empty parameters_schema. The LLM must call tool_search to get the full schema.
+    pub fn list_deferred_stubs(&self) -> Vec<ToolInfo> {
+        let mut infos: Vec<ToolInfo> = self
+            .tools
+            .values()
+            .filter(|t| t.name() != "tool_search" && t.defer_loading() == Some(true))
+            .map(|t| {
+                let first_line = t.description().lines().next().unwrap_or("");
+                ToolInfo {
+                    name: t.name().to_string(),
+                    description: format!(
+                        "{first_line}\n\n(Deferred tool — call tool_search with name \"{}\" to load full schema.)",
+                        t.name()
+                    ),
+                    parameters_schema: serde_json::json!({
+                        "type": "object",
+                        "properties": {}
+                    }),
+                    permission: t.permission(),
+                    defer_loading: Some(true),
+                    annotations: None,
+                    tags: t.tags().to_vec(),
+                }
+            })
+            .collect();
+        infos.sort_by(|a, b| a.name.cmp(&b.name));
+        infos
     }
     /// Merge MCP (or other external) tools into the registry.
     /// Built-in tools take precedence — duplicates from `external` are dropped.

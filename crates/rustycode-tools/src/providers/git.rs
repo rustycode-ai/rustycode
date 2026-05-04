@@ -10,6 +10,10 @@ pub struct GitCommitTool;
 pub struct GitLogTool;
 
 impl Tool for GitStatusTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "git_status"
     }
@@ -88,6 +92,10 @@ impl Tool for GitStatusTool {
 }
 
 impl Tool for GitDiffTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "git_diff"
     }
@@ -193,6 +201,10 @@ impl Tool for GitDiffTool {
 }
 
 impl Tool for GitCommitTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "git_commit"
     }
@@ -275,6 +287,10 @@ impl Tool for GitCommitTool {
 }
 
 impl Tool for GitLogTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "git_log"
     }

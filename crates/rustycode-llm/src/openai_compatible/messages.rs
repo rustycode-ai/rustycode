@@ -1,7 +1,8 @@
 //! Message conversion utilities for OpenAI-compatible providers
 
+use super::responses::{ResponsesApiContent, ResponsesApiContentPart, ResponsesApiInputItem};
 use super::types::OpenAiCompatibleMessage;
-use crate::provider::{ChatMessage, CompletionRequest, MessageRole};
+use crate::provider::{ChatMessage, CompletionRequest, ContentBlock, MessageContent, MessageRole};
 
 /// Convert a CompletionRequest to OpenAI-compatible messages (simple text-only version).
 ///
@@ -138,4 +139,134 @@ where
     }
 
     messages
+}
+
+/// Convert a `CompletionRequest` to Responses API `input` items.
+///
+/// Returns `(instructions, input_items)` — the system prompt is extracted as
+/// `instructions` (the Responses API's replacement for system messages), and
+/// all other messages become typed `ResponsesApiInputItem` values.
+///
+/// # Content mapping
+/// - `ContentBlock::Text` → plain text content
+/// - `ContentBlock::Image` → `input_image` content part
+/// - `ContentBlock::ToolUse` → `function_call` input item
+/// - `ContentBlock::ToolResult` → `function_call_output` input item
+pub fn convert_messages_to_responses_input(
+    request: &CompletionRequest,
+) -> (Option<String>, Vec<ResponsesApiInputItem>) {
+    let instructions = request.system_prompt.clone();
+    let mut items = Vec::new();
+
+    for msg in &request.messages {
+        match &msg.role {
+            MessageRole::System => {
+                tracing::debug!(
+                    "skipping system message in messages array for Responses API (sent via `instructions`)"
+                );
+            }
+            MessageRole::Tool(tool_id) => {
+                if let MessageContent::Blocks(blocks) = &msg.content {
+                    for block in blocks {
+                        if let ContentBlock::ToolResult { content, .. } = block {
+                            items.push(ResponsesApiInputItem::FunctionCallOutput {
+                                call_id: tool_id.clone(),
+                                output: content.clone(),
+                            });
+                        }
+                    }
+                } else {
+                    items.push(ResponsesApiInputItem::FunctionCallOutput {
+                        call_id: tool_id.clone(),
+                        output: msg.content.to_text(),
+                    });
+                }
+            }
+            MessageRole::User | MessageRole::Assistant => {
+                let role = match &msg.role {
+                    MessageRole::User => "user",
+                    MessageRole::Assistant => "assistant",
+                    _ => unreachable!(),
+                };
+
+                match &msg.content {
+                    MessageContent::Simple(text) => {
+                        items.push(ResponsesApiInputItem::Message {
+                            role: role.to_string(),
+                            content: ResponsesApiContent::text(text),
+                        });
+                    }
+                    MessageContent::Blocks(blocks) => {
+                        let mut text_parts = Vec::new();
+                        for block in blocks {
+                            match block {
+                                ContentBlock::Text { text, .. } => {
+                                    text_parts.push(ResponsesApiContentPart::InputText {
+                                        text: text.clone(),
+                                    });
+                                }
+                                ContentBlock::Image { source, .. } => {
+                                    let url = match source.source_type.as_str() {
+                                        "url" => source.data.clone(),
+                                        _ => {
+                                            format!(
+                                                "data:{};base64,{}",
+                                                source.media_type, source.data
+                                            )
+                                        }
+                                    };
+                                    text_parts.push(ResponsesApiContentPart::InputImage {
+                                        image_url: url,
+                                    });
+                                }
+                                ContentBlock::ToolUse {
+                                    id,
+                                    name,
+                                    input,
+                                } => {
+                                    if !text_parts.is_empty() {
+                                        items.push(ResponsesApiInputItem::Message {
+                                            role: role.to_string(),
+                                            content: ResponsesApiContent::Parts(
+                                                std::mem::take(&mut text_parts),
+                                            ),
+                                        });
+                                    }
+                                    items.push(ResponsesApiInputItem::FunctionCall {
+                                        // ContentBlock::ToolUse stores a single id; both item id and
+                                        // call_id derive from it since RustyCode doesn't track them separately.
+                                        id: id.clone(),
+                                        call_id: id.clone(),
+                                        name: name.clone(),
+                                        arguments: input.to_string(),
+                                    });
+                                }
+                                ContentBlock::ToolResult {
+                                    tool_use_id,
+                                    content,
+                                    ..
+                                } => {
+                                    items.push(ResponsesApiInputItem::FunctionCallOutput {
+                                        call_id: tool_use_id.clone(),
+                                        output: content.clone(),
+                                    });
+                                }
+                                ContentBlock::Thinking { .. } => {}
+                                _ => {}
+                            }
+                        }
+                        if !text_parts.is_empty() {
+                            items.push(ResponsesApiInputItem::Message {
+                                role: role.to_string(),
+                                content: ResponsesApiContent::Parts(text_parts),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    (instructions, items)
 }

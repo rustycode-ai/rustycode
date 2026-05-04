@@ -21,7 +21,7 @@
 //!    ```
 
 use crate::provider::{
-    build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,
+    build_openai_response_format, ApiMode, CompletionRequest, CompletionResponse, LLMProvider,
     ProviderConfig, ProviderError, StreamChunk, Usage,
 };
 use crate::provider_metadata::{
@@ -389,6 +389,206 @@ impl OpenRouterProvider {
             .unwrap_or("https://openrouter.ai/api/v1");
         base.trim_end_matches('/').to_string()
     }
+
+    /// Complete a request using the Responses API (`POST /v1/responses`).
+    async fn complete_responses(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<CompletionResponse, ProviderError> {
+        let api_key = get_api_key!(self, "OPENROUTER_API_KEY")?;
+
+        let url = format!("{}/responses", self.endpoint());
+
+        let (instructions, input_items) =
+            crate::openai_compatible::convert_messages_to_responses_input(&request);
+
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| crate::tools::normalize_tools_for_responses(t))
+            .unwrap_or_default();
+        let tools_opt = if tools.is_empty() {
+            None
+        } else {
+            let parsed: Vec<crate::openai_compatible::ResponsesApiTool> = tools
+                .iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).map_err(|e| { tracing::warn!("failed to parse tool for Responses API: {e}"); e }).ok())
+                .collect();
+            if parsed.is_empty() { None } else { Some(parsed) }
+        };
+
+        let body = crate::openai_compatible::ResponsesApiRequest {
+            model: request.model.clone(),
+            input: input_items,
+            instructions,
+            tools: tools_opt,
+            temperature: request.temperature,
+            max_output_tokens: request.max_tokens,
+            stream: Some(false),
+            previous_response_id: None,
+            tool_choice: request.tool_choice,
+            parallel_tool_calls: request.parallel_tool_calls,
+        };
+
+        let req = build_request!(
+            self.client.post(&url),
+            headers = [
+                ("Authorization", format!("Bearer {}", api_key)),
+                ("Content-Type", "application/json"),
+                ("HTTP-Referer", "https://rustycode.ai"),
+                ("X-Title", "RustyCode"),
+            ],
+            extra_headers = &self.config.extra_headers
+        );
+
+        let response = req
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::network(format!("failed to send request: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let headers = response.headers().clone();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unable to read error".to_string());
+
+            return Err(match status.as_u16() {
+                401 | 403 => ProviderError::auth(format!(
+                    "Authentication failed. Check your OPENROUTER_API_KEY env var. {}",
+                    text
+                )),
+                404 => ProviderError::InvalidModel(format!("model not found: {}", text)),
+                429 => ProviderError::RateLimited {
+                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
+                },
+                502..=504 => ProviderError::network(format!(
+                    "OpenRouter service temporarily unavailable ({}). Please retry in a few seconds.",
+                    text
+                )),
+                _ => ProviderError::api(format!("{}: {}", status, text)),
+            });
+        }
+
+        let resp: crate::openai_compatible::ResponsesApiResponse = response
+            .json()
+            .await
+            .map_err(|e| ProviderError::api(format!("failed to parse response: {}", e)))?;
+
+        crate::openai_compatible::build_responses_completion_response(&resp)
+    }
+
+    /// Stream a request using the Responses API (`POST /v1/responses` with `stream: true`).
+    async fn complete_responses_stream(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
+            .ok_or_else(|| ProviderError::auth("OpenRouter API key is required. Set api_key in config or OPENROUTER_API_KEY env var"))?
+            .expose_secret();
+
+        let url = format!("{}/responses", self.endpoint());
+
+        let (instructions, input_items) =
+            crate::openai_compatible::convert_messages_to_responses_input(&request);
+
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| crate::tools::normalize_tools_for_responses(t))
+            .unwrap_or_default();
+        let tools_opt = if tools.is_empty() {
+            None
+        } else {
+            let parsed: Vec<crate::openai_compatible::ResponsesApiTool> = tools
+                .iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).map_err(|e| { tracing::warn!("failed to parse tool for Responses API: {e}"); e }).ok())
+                .collect();
+            if parsed.is_empty() { None } else { Some(parsed) }
+        };
+
+        let body = crate::openai_compatible::ResponsesApiRequest {
+            model: request.model.clone(),
+            input: input_items,
+            instructions,
+            tools: tools_opt,
+            temperature: request.temperature,
+            max_output_tokens: request.max_tokens,
+            stream: Some(true),
+            previous_response_id: None,
+            tool_choice: request.tool_choice,
+            parallel_tool_calls: request.parallel_tool_calls,
+        };
+
+        let req = build_request!(
+            self.client.post(&url),
+            headers = [
+                ("Authorization", format!("Bearer {}", api_key)),
+                ("Content-Type", "application/json"),
+                ("HTTP-Referer", "https://rustycode.ai"),
+                ("X-Title", "RustyCode"),
+            ],
+            extra_headers = &self.config.extra_headers
+        );
+
+        let response = req
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::network(format!("failed to send request: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unable to read error".to_string());
+
+            return Err(match status.as_u16() {
+                401 | 403 => ProviderError::auth(format!(
+                    "Authentication failed. Check your OPENROUTER_API_KEY env var. {}",
+                    error_text
+                )),
+                404 => ProviderError::InvalidModel(format!("model not found: {}", error_text)),
+                429 => ProviderError::RateLimited { retry_delay: None },
+                502..=504 => ProviderError::network(format!(
+                    "OpenRouter service temporarily unavailable ({}). Please retry in a few seconds.",
+                    error_text
+                )),
+                _ => ProviderError::api(format!("{}: {}", status, error_text)),
+            });
+        }
+
+        let bytes_stream = response.bytes_stream();
+        let line_buffer = crate::sse::SseByteBuffer::new();
+        let state = crate::openai_compatible::ResponsesSseState::default();
+
+        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
+            let state = state.clone();
+
+            let chunk = match chunk_result {
+                Ok(c) => c,
+                Err(e) => {
+                    return futures::stream::iter(vec![Err(ProviderError::Network(
+                        e.to_string(),
+                    ))]);
+                }
+            };
+
+            let lines = line_buffer.feed_chunk(&chunk);
+            let joined = lines.join("\n");
+            let events = crate::openai_compatible::parse_responses_sse_lines(&joined, &state);
+
+            futures::stream::iter(events)
+        });
+
+        Ok(Box::pin(sse_stream))
+    }
 }
 
 #[async_trait]
@@ -431,6 +631,10 @@ impl LLMProvider for OpenRouterProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
+        if request.api_mode == Some(ApiMode::Responses) {
+            return self.complete_responses(request).await;
+        }
+
         let api_key = get_api_key!(self, "OPENROUTER_API_KEY")?;
 
         let url = format!("{}/chat/completions", self.endpoint());
@@ -595,6 +799,10 @@ impl LLMProvider for OpenRouterProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
+        if request.api_mode == Some(ApiMode::Responses) {
+            return self.complete_responses_stream(request).await;
+        }
+
         let api_key = self
             .config
             .api_key

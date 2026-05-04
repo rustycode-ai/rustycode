@@ -18,6 +18,10 @@ use std::env;
 pub struct WebSearchTool;
 
 impl Tool for WebSearchTool {
+    fn defer_loading(&self) -> Option<bool> {
+        Some(true)
+    }
+
     fn name(&self) -> &'static str {
         "web_search"
     }
