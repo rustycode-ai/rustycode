@@ -20,7 +20,8 @@ pub const MAX_PASTE_SIZE_BYTES: usize = 10 * 1024 * 1024;
 
 // Re-export from sibling modules
 use super::input_image::generate_image_preview;
-use super::input_state::{ImageAttachment, InputState};
+use super::message_types::ImageAttachment;
+use super::input_state::InputState;
 
 // ── Paste Result ───────────────────────────────────────────────────────────────
 
@@ -201,8 +202,11 @@ impl PasteHandler {
         input_state.images.push(ImageAttachment {
             id: file_id.clone(),
             path: file_path.clone(),
-            preview,
             mime_type: image.format.mime_type().to_string(),
+            preview: Some(preview),
+            data_base64: None,
+            width: None,
+            height: None,
         });
 
         tracing::info!(

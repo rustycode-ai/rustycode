@@ -209,10 +209,16 @@ pub fn convert_messages_to_responses_input(
                                     let url = match source.source_type.as_str() {
                                         "url" => source.data.clone(),
                                         _ => {
-                                            format!(
-                                                "data:{};base64,{}",
-                                                source.media_type, source.data
-                                            )
+                                            if let Some((mime, data)) =
+                                                crate::provider::resolve_image_to_base64(source)
+                                            {
+                                                format!("data:{mime};base64,{data}")
+                                            } else {
+                                                tracing::warn!(
+                                                    "Skipping image with unresolvable source"
+                                                );
+                                                continue;
+                                            }
                                         }
                                     };
                                     text_parts.push(ResponsesApiContentPart::InputImage {

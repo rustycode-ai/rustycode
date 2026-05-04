@@ -73,8 +73,7 @@ pub fn render_single_image_preview(
     // Title with filename and remove option
     let filename = img
         .path
-        .as_ref()
-        .and_then(|p| std::path::Path::new(p).file_name())
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("image");
 
@@ -191,7 +190,7 @@ mod tests {
         let (mut terminal, area) = create_test_terminal();
         let img = ImageAttachment {
             id: "test-id".to_string(),
-            path: Some("/path/to/image.png".to_string()),
+            path: std::path::PathBuf::from("/path/to/image.png"),
             mime_type: "image/png".to_string(),
             data_base64: None,
             preview: Some("ASCII preview\nline 2\nline 3".to_string()),
@@ -210,7 +209,7 @@ mod tests {
         let (mut terminal, area) = create_test_terminal();
         let img = ImageAttachment {
             id: "test-id".to_string(),
-            path: Some("/path/to/image.png".to_string()),
+            path: std::path::PathBuf::from("/path/to/image.png"),
             mime_type: "image/png".to_string(),
             data_base64: None,
             preview: None,
@@ -229,7 +228,7 @@ mod tests {
         let (mut terminal, area) = create_test_terminal();
         let img = ImageAttachment {
             id: "test-id".to_string(),
-            path: None,
+            path: std::path::PathBuf::from("unknown_image"),
             mime_type: "image/png".to_string(),
             data_base64: None,
             preview: None,

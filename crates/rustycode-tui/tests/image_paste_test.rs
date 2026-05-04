@@ -16,12 +16,14 @@ use std::path::PathBuf;
 fn test_input_state_image_attachment() {
     let mut state = InputState::new();
 
-    // Add a test image attachment
-    let img = rustycode_tui::ui::input::ImageAttachment {
+    let img = ImageAttachment {
         id: "test123".to_string(),
         path: PathBuf::from("/tmp/test.png"),
-        preview: "test preview".to_string(),
         mime_type: "image/png".to_string(),
+        preview: Some("test preview".to_string()),
+        data_base64: None,
+        width: None,
+        height: None,
     };
 
     state.images.push(img.clone());
@@ -41,11 +43,14 @@ fn test_input_handler_with_images() {
     let mut handler = InputHandler::new();
 
     // Simulate adding an image (normally done via paste)
-    let img = rustycode_tui::ui::input::ImageAttachment {
+    let img = ImageAttachment {
         id: "img1".to_string(),
         path: PathBuf::from("/tmp/test1.png"),
-        preview: "preview1".to_string(),
         mime_type: "image/png".to_string(),
+        preview: Some("preview1".to_string()),
+        data_base64: None,
+        width: None,
+        height: None,
     };
 
     handler.state.images.push(img);
@@ -63,7 +68,7 @@ fn test_message_with_images() {
     // Create a message with image attachments
     let images = vec![ImageAttachment {
         id: "msg_img1".to_string(),
-        path: Some("/tmp/msg_test.png".to_string()),
+        path: PathBuf::from("/tmp/msg_test.png"),
         mime_type: "image/png".to_string(),
         data_base64: Some("base64data".to_string()),
         preview: Some("preview".to_string()),
@@ -96,11 +101,14 @@ fn test_image_cleanup() {
     let mut state = InputState::new();
     state
         .images
-        .push(rustycode_tui::ui::input::ImageAttachment {
+        .push(ImageAttachment {
             id: "cleanup_test".to_string(),
             path: test_file.clone(),
-            preview: String::new(),
             mime_type: "image/png".to_string(),
+            preview: None,
+            data_base64: None,
+            width: None,
+            height: None,
         });
 
     // Clear should cleanup the file

@@ -357,6 +357,29 @@ impl TUI {
 
         // Extract images from input state before clearing
         let attached_images: Vec<_> = self.input_handler.state.images.drain(..).collect();
+
+        // Validate image temp files exist before attempting to read them
+        let mut missing_images = Vec::new();
+        for img in &attached_images {
+            if !img.path.exists() {
+                missing_images.push(img.path.display().to_string());
+            }
+        }
+        if !missing_images.is_empty() {
+            self.add_system_message(format!(
+                "⚠️  {} attached image(s) no longer available (temp files cleaned up): {}",
+                missing_images.len(),
+                missing_images.join(", ")
+            ));
+            self.auto_scroll();
+        }
+
+        // Filter to only images whose temp files still exist
+        let attached_images: Vec<_> = attached_images
+            .into_iter()
+            .filter(|img| img.path.exists())
+            .collect();
+
         let is_image_only_submission = content.trim().is_empty() && !attached_images.is_empty();
 
         const MAX_MESSAGE_LENGTH: usize = 100_000;
@@ -525,11 +548,35 @@ impl TUI {
                 for img in &attached_images {
                     match std::fs::read(&img.path) {
                         Ok(bytes) => {
-                            let b64 = BASE64.encode(&bytes);
-                            blocks.push(ContentBlock::image(ImageSource::base64(
-                                &img.mime_type,
-                                b64,
-                            )));
+                            let original_size = bytes.len();
+                            match rustycode_tools::image::process_image(
+                                &bytes,
+                                rustycode_tools::image::DEFAULT_MAX_TOKENS,
+                            ) {
+                                Ok(processed) => {
+                                    tracing::debug!(
+                                        "Compressed image: {} -> {} tokens, level {:?}",
+                                        original_size,
+                                        processed.output_size,
+                                        processed.compression_level,
+                                    );
+                                    blocks.push(ContentBlock::image(ImageSource::base64(
+                                        &processed.media_type,
+                                        processed.base64_data,
+                                    )));
+                                }
+                                Err(e) => {
+                                    tracing::debug!(
+                                        "Image compression failed, falling back to raw: {}",
+                                        e
+                                    );
+                                    let b64 = BASE64.encode(&bytes);
+                                    blocks.push(ContentBlock::image(ImageSource::base64(
+                                        &img.mime_type,
+                                        b64,
+                                    )));
+                                }
+                            }
                         }
                         Err(e) => {
                             tracing::warn!("Failed to read image {}: {}", img.path.display(), e);
@@ -668,7 +715,7 @@ impl TUI {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::input::ImageAttachment;
+    use crate::ui::message::ImageAttachment;
     use crate::ui::message::MessageRole;
     use std::fs;
     use std::path::PathBuf;
@@ -689,8 +736,11 @@ mod tests {
         tui.input_handler.state.images.push(ImageAttachment {
             id: "img-1".to_string(),
             path: PathBuf::from(&file_path),
-            preview: "preview".to_string(),
             mime_type: "image/png".to_string(),
+            preview: Some("preview".to_string()),
+            data_base64: None,
+            width: None,
+            height: None,
         });
 
         tui.process_send_message(vec![String::new()]).unwrap();

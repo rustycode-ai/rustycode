@@ -312,6 +312,7 @@ impl CmdSessionRegistry {
             .sessions
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        #[allow(clippy::duration_suboptimal_units)]
         let threshold = Duration::from_secs(600);
         sessions.retain(|_, (_, last_used)| last_used.elapsed() < threshold);
     }

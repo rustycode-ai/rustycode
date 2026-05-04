@@ -25,6 +25,7 @@ rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
 rustycode-executable = { path = "../rustycode-executable" }
 async-trait.workspace = true
+base64.workspace = true
 tokio-stream = "0.1"
 thiserror.workspace = true
 secrecy.workspace = true

@@ -1118,11 +1118,18 @@ impl OpenAiProvider {
                                 ContentBlock::Image { source, .. } => {
                                     let url = match source.source_type.as_str() {
                                         "url" => source.data.clone(),
-                                        "base64" => format!(
-                                            "data:{};base64,{}",
-                                            source.media_type, source.data
-                                        ),
-                                        _ => source.data.clone(),
+                                        _ => {
+                                            if let Some((mime, data)) =
+                                                crate::provider::resolve_image_to_base64(source)
+                                            {
+                                                format!("data:{mime};base64,{data}")
+                                            } else {
+                                                tracing::warn!(
+                                                    "Skipping image with unresolvable source"
+                                                );
+                                                continue;
+                                            }
+                                        }
                                     };
                                     other_parts.push(OpenAiContentPart::ImageUrl {
                                         image_url: OpenAiImageUrl { url, detail: None },

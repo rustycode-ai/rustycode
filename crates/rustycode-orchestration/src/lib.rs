@@ -21,8 +21,11 @@
         clippy::manual_let_else,
         clippy::semicolon_if_nothing_returned,
         clippy::let_unit_value,
+        clippy::format_push_string,
     )
 )]
+// Pre-existing pattern in task_decomposer.rs
+#![allow(clippy::format_push_string)]
 // usize→f64 casts in metrics/stats code: values stay well below 2^52 in practice.
 #![allow(clippy::cast_precision_loss)]
 

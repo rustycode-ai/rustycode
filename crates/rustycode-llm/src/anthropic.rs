@@ -1048,12 +1048,36 @@ impl AnthropicProvider {
                                 }
                             }
                             rustycode_protocol::ContentBlock::Image { source, .. } => {
+                                let (source_type, media_type, data) =
+                                    if source.source_type == "file" {
+                                        match crate::provider::resolve_image_to_base64(source) {
+                                            Some((mime, b64)) => {
+                                                ("base64".to_string(), mime, b64)
+                                            }
+                                            None => {
+                                                tracing::warn!(
+                                                    "Skipping image with unreadable file source"
+                                                );
+                                                (
+                                                    source.source_type.clone(),
+                                                    source.media_type.clone(),
+                                                    source.data.clone(),
+                                                )
+                                            }
+                                        }
+                                    } else {
+                                        (
+                                            source.source_type.clone(),
+                                            source.media_type.clone(),
+                                            source.data.clone(),
+                                        )
+                                    };
                                 ContentBlock::Image {
                                     content_type: "image",
                                     source: ImageSource {
-                                        source_type: source.source_type.clone(),
-                                        media_type: source.media_type.clone(),
-                                        data: source.data.clone(),
+                                        source_type,
+                                        media_type,
+                                        data,
                                     },
                                 }
                             }

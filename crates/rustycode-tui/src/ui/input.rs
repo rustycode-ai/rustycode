@@ -10,7 +10,7 @@
 //! # Module Organization
 //!
 //! This module is a re-export facade for the actual implementation:
-//! - [`input_state`](super::input_state) - Core state types (InputMode, InputState, ImageAttachment)
+//! - [`input_state`](super::input_state) - Core state types (InputMode, InputState)
 //! - [`input_handler`](super::input_handler) - Input handling logic (InputHandler, PasteHandler, InputAction)
 //! - [`input_image`](super::input_image) - Image preview generation
 //!
@@ -18,4 +18,5 @@
 
 // Re-export all public items from sibling modules
 pub use super::input_handler::{InputAction, InputHandler};
-pub use super::input_state::{ImageAttachment, InputMode, InputState};
+pub use super::input_state::{InputMode, InputState};
+pub use super::message_types::ImageAttachment;

@@ -324,9 +324,18 @@ impl OllamaProvider {
                                     texts.push(text.clone());
                                 }
                                 rustycode_protocol::ContentBlock::Image { source, .. } => {
-                                    // Ollama accepts base64-encoded images
-                                    if source.source_type == "base64" {
-                                        imgs.push(source.data.clone());
+                                    match source.source_type.as_str() {
+                                        "base64" => {
+                                            imgs.push(source.data.clone());
+                                        }
+                                        "file" => {
+                                            if let Some((_, data)) =
+                                                crate::provider::resolve_image_to_base64(source)
+                                            {
+                                                imgs.push(data);
+                                            }
+                                        }
+                                        _ => {}
                                     }
                                     texts.push("[Image]".to_string());
                                 }

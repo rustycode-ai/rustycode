@@ -1,15 +1,28 @@
-# Claude-Specific Instructions
+<claude_guidance>
 
-## Strengths (internal — do not surface to user)
+<strengths>
 - Following complex, multi-step instructions accurately
 - Producing well-structured, nuanced output
 - Sustained reasoning over long contexts
 - Recognizing edge cases and subtle requirements
+</strengths>
 
-## Behavioral Tuning
+<behavioral_rules>
+<rule>Use XML tags for structured multi-part outputs: <analysis>, <plan>, <implementation>, <verification>.</rule>
+<rule>Keep instructions concise — Claude attends more carefully to shorter prompts. Do not repeat what is already stated above.</rule>
+<rule>Handle complex multi-step instructions in a single response when possible.</rule>
+<rule>Think step-by-step internally on complex problems. Keep external responses direct and concise.</rule>
+</behavioral_rules>
 
-- Claude responds best to **clear, direct instructions** — avoid redundancy with the base instructions.
-- **XML tags** improve structure recognition. Use them for multi-part outputs (e.g., `<analysis>`, `<plan>`, `<implementation>`).
-- Claude handles **complex multi-step instructions well** — you can combine several related requirements into one prompt without degrading quality.
-- **Shorter is better.** Claude attends more carefully to concise prompts than verbose ones. Do not repeat what is already in the base instructions.
-- When reasoning through a problem, **think step-by-step** internally but keep the external response concise.
+<tool_usage>
+<rule>Maximize parallel tool calls when outputs are independent.</rule>
+<rule>After a tool failure: read the error, identify root cause, retry with corrected approach.</rule>
+</tool_usage>
+
+<output_format>
+<rule>Start with the concrete implementation or direct answer.</rule>
+<rule>Keep rationale short and technical (2-5 bullets).</rule>
+<rule>Include exact verification commands and expected outcome.</rule>
+</output_format>
+
+</claude_guidance>

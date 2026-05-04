@@ -140,9 +140,39 @@ impl TokenTracker {
         }
     }
 
-    /// Record a completed LLM request (lock-free for counters)
+    /// Record a completed LLM request using total token count (backward compat).
     pub fn record(&self, provider_type: &str, model: &str, tokens: u64, duration_ms: u64) {
-        self.record_detailed(provider_type, model, 0, 0, 0, 0, duration_ms)
+        let cost = (tokens as f64 / 1_000_000.0) * cost_per_million_tokens(model);
+        let cost_cents = (cost * 100.0) as u64;
+        let timestamp_secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::ZERO)
+            .as_secs();
+
+        self.total_tokens.fetch_add(tokens, Ordering::Relaxed);
+        self.total_cost_cents
+            .fetch_add(cost_cents, Ordering::Relaxed);
+        self.request_count.fetch_add(1, Ordering::Relaxed);
+
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.history.push(TrackedRequest {
+            provider_type: provider_type.to_string(),
+            model: model.to_string(),
+            tokens_used: tokens,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_creation_tokens: 0,
+            cache_read_tokens: 0,
+            cost_usd: cost,
+            timestamp_secs,
+            duration_ms,
+        });
+
+        const MAX_HISTORY: usize = 10_000;
+        let len = inner.history.len();
+        if len > MAX_HISTORY {
+            inner.history.drain(0..len - MAX_HISTORY);
+        }
     }
 
     /// Record a completed LLM request with detailed token breakdown.

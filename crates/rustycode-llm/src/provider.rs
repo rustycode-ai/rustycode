@@ -8,6 +8,43 @@ use strum::{AsRefStr, Display, EnumString};
 // Re-export message content types from protocol crate
 pub use rustycode_protocol::{ContentBlock, ImageSource, MessageContent};
 
+/// Resolve an ImageSource to base64 data.
+///
+/// If the source is already base64, return as-is.
+/// If the source is a file path, read the file and base64-encode it.
+/// If the source is a URL, return None (provider should handle URL passthrough).
+pub fn resolve_image_to_base64(source: &rustycode_protocol::ImageSource) -> Option<(String, String)> {
+    match source.source_type.as_str() {
+        "base64" => Some((source.media_type.clone(), source.data.clone())),
+        "file" => {
+            let path = std::path::Path::new(&source.data);
+            match std::fs::read(path) {
+                Ok(bytes) => {
+                    use base64::{engine::general_purpose::STANDARD, Engine};
+                    let mime = if source.media_type.is_empty() {
+                        match path.extension().and_then(|e| e.to_str()) {
+                            Some("png") => "image/png",
+                            Some("gif") => "image/gif",
+                            Some("webp") => "image/webp",
+                            _ => "image/jpeg",
+                        }
+                        .to_string()
+                    } else {
+                        source.media_type.clone()
+                    };
+                    Some((mime, STANDARD.encode(&bytes)))
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to read image file {}: {}", source.data, e);
+                    None
+                }
+            }
+        }
+        "url" => None,
+        _ => None,
+    }
+}
+
 /// Reference to an Anthropic Agent Skill
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillRef {

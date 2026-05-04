@@ -224,7 +224,7 @@ impl PermissionClassifier {
         None
     }
 
-    fn check_safe<'a>(base: &'a str, command: &str) -> Option<(CommandCategory, &'static str)> {
+    fn check_safe(base: &str, command: &str) -> Option<(CommandCategory, &'static str)> {
         let safe_commands: &[(CommandCategory, &[&str])] = &[
             (CommandCategory::FileRead, &["ls", "cat", "head", "tail", "less", "more", "file", "stat", "wc", "md5sum", "sha256sum", "cksum"]),
             (CommandCategory::FileRead, &["grep", "egrep", "fgrep", "rg", "ag", "ack"]),
@@ -305,8 +305,8 @@ impl PermissionClassifier {
     fn save_cache(&self, path: &Path) {
         let serializable: HashMap<String, &CachedDecision> = self
             .cache
-            .iter()
-            .map(|(_, v)| (format!("{:016x}", v.timestamp_secs), v))
+            .values()
+            .map(|v| (format!("{:016x}", v.timestamp_secs), v))
             .collect();
         if let Ok(json) = serde_json::to_string(&serializable) {
             let _ = std::fs::write(path, json);

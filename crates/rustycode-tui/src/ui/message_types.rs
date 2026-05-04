@@ -8,6 +8,7 @@ use chrono::{DateTime, Utc};
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::path::PathBuf;
 
 // ============================================================================
 // PUBLIC EXPORTS
@@ -309,14 +310,13 @@ impl ToolExecution {
 // IMAGE ATTACHMENT
 // ============================================================================
 
-/// Image attachment for messages
+/// Image attachment for messages and input state
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImageAttachment {
     /// Unique identifier (ULID)
     pub id: String,
     /// Path to the image file (temp file)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub path: Option<String>,
+    pub path: PathBuf,
     /// MIME type
     pub mime_type: String,
     /// Base64-encoded image data for API transmission
@@ -326,8 +326,10 @@ pub struct ImageAttachment {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
     /// Image width in pixels
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub width: Option<u32>,
     /// Image height in pixels
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub height: Option<u32>,
 }
 

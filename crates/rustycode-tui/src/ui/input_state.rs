@@ -6,7 +6,7 @@
 //! - Image attachment metadata
 
 use crate::unicode::{display_width, next_grapheme_boundary, prev_grapheme_boundary};
-use std::path::PathBuf;
+use crate::ui::message_types::ImageAttachment;
 use unicode_segmentation::UnicodeSegmentation;
 
 // ── Input Mode States ───────────────────────────────────────────────────────
@@ -500,26 +500,12 @@ impl InputState {
     }
 }
 
-// ── Image Attachments ─────────────────────────────────────────────────────────
-
-/// Image attachment metadata
-#[derive(Clone, Debug)]
-pub struct ImageAttachment {
-    /// Unique identifier
-    pub id: String,
-    /// Temp file path
-    pub path: PathBuf,
-    /// ASCII preview (24x6 chars)
-    pub preview: String,
-    /// MIME type
-    pub mime_type: String,
-}
-
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn test_input_state_new() {
@@ -610,8 +596,11 @@ mod tests {
         state.images.push(ImageAttachment {
             id: "test".to_string(),
             path: PathBuf::from("/tmp/test.png"),
-            preview: "preview".to_string(),
             mime_type: "image/png".to_string(),
+            preview: Some("preview".to_string()),
+            data_base64: None,
+            width: None,
+            height: None,
         });
 
         state.clear();
@@ -630,14 +619,20 @@ mod tests {
         state.images.push(ImageAttachment {
             id: "img1".to_string(),
             path: PathBuf::from("/tmp/img1.png"),
-            preview: "preview1".to_string(),
             mime_type: "image/png".to_string(),
+            preview: Some("preview1".to_string()),
+            data_base64: None,
+            width: None,
+            height: None,
         });
         state.images.push(ImageAttachment {
             id: "img2".to_string(),
             path: PathBuf::from("/tmp/img2.png"),
-            preview: "preview2".to_string(),
             mime_type: "image/png".to_string(),
+            preview: Some("preview2".to_string()),
+            data_base64: None,
+            width: None,
+            height: None,
         });
 
         assert!(state.remove_image("img1"));
