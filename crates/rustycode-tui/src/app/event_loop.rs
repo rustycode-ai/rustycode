@@ -39,7 +39,6 @@ use crate::ui::message_tags::TagFilter;
 use crate::ui::model_selector::ModelSelector;
 use crate::ui::session_sidebar::{McpServerState, McpServerStatus, SessionSidebar};
 use crate::ui::skill_palette::SkillPalette;
-use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 
 use crate::ui::theme_preview::{ThemePreview, ThemeSwitcher};
 use crate::ui::toast::ToastManager;
@@ -635,7 +634,7 @@ impl TUI {
                     });
                 crate::app::pipeline::registry::PipelineContext::new(
                     pipeline_provider,
-                    rustycode_agent::AgentConfig::default(),
+                    rustycode_agent_runtime::AgentConfig::default(),
                     mdl,
                     agent_tool_registry,
                 )
@@ -916,7 +915,7 @@ impl TUI {
                     });
                 crate::app::pipeline::registry::PipelineContext::new(
                     pipeline_provider,
-                    rustycode_agent::AgentConfig::default(),
+                    rustycode_agent_runtime::AgentConfig::default(),
                     mdl,
                     crate::app::pipeline::tool_registry::ToolRegistry::new(),
                 )

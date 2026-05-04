@@ -28,7 +28,7 @@
 //! These tests measure and validate that intelligent tool selection
 //! reduces context size by 40-80%.
 
-use rustycode_tools::{default_registry, ToolProfile, ToolRegistry, ToolSelector};
+use rustycode_tools::{default_registry, ToolProfile, ToolSelector};
 use std::sync::Arc;
 
 #[test]
@@ -50,22 +50,22 @@ fn test_tool_count_reduction_baselines() {
     let explore_tools: Vec<String> = ToolProfile::Explore
         .available_tools()
         .iter()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect();
     let implement_tools: Vec<String> = ToolProfile::Implement
         .available_tools()
         .iter()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect();
     let debug_tools: Vec<String> = ToolProfile::Debug
         .available_tools()
         .iter()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect();
     let ops_tools: Vec<String> = ToolProfile::Ops
         .available_tools()
         .iter()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect();
 
     println!("\nTool count reduction:");

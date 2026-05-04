@@ -27,7 +27,7 @@
 //! 3. Context reduction is achieved by sending only relevant tools
 
 use rustycode_llm::{ChatMessage, CompletionRequest, LLMProvider, OpenAiProvider, ProviderConfig};
-use rustycode_tools::{ToolProfile, ToolSelector};
+use rustycode_tools::ToolProfile;
 use secrecy::SecretString;
 
 #[tokio::test]
@@ -191,23 +191,22 @@ fn test_openai_tool_formatting() {
 #[test]
 fn test_openai_context_reduction() {
     // Test that tool selection reduces tool count for OpenAI
-    let selector = ToolSelector::new();
 
     // Get tool counts for different profiles
     let explore_tools: Vec<String> = ToolProfile::Explore
         .available_tools()
         .iter()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect();
     let implement_tools: Vec<String> = ToolProfile::Implement
         .available_tools()
         .iter()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect();
     let debug_tools: Vec<String> = ToolProfile::Debug
         .available_tools()
         .iter()
-        .map(|s| s.to_string())
+        .map(ToString::to_string)
         .collect();
 
     println!("OpenAI tool selection:");
