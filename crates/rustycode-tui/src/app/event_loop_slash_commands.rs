@@ -374,15 +374,13 @@ pub(crate) fn update_terminal_title(&self) {
 }
 
 pub(crate) fn apply_model_switch(&mut self, model: &crate::ui::model_selector::ModelInfo) {
-    std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", &model.id);
-    std::env::set_var("RUSTYCODE_PROVIDER_OVERRIDE", &model.provider);
-    self.current_model = model.id.clone();
-    self.compaction_config.model_id = Some(model.id.clone());
+    let result = crate::services::provider_manager::compute_model_switch(model);
+    std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", &result.model_id);
+    std::env::set_var("RUSTYCODE_PROVIDER_OVERRIDE", &result.provider);
+    self.current_model = result.model_id.clone();
+    self.compaction_config.model_id = Some(result.model_id);
     self.context_monitor.max_tokens = self.compaction_config.effective_max_tokens();
-    self.add_system_message(format!(
-        "✓ Model switched to `{}` ({}). New requests will use this model.",
-        model.name, model.provider
-    ));
+    self.add_system_message(result.status_message);
     self.model_selector.hide();
     self.dirty = true;
 }

@@ -12,10 +12,13 @@ pub mod mcp_mode;
 pub mod mistake_tracker;
 pub mod preferences;
 pub mod provider_health;
+pub mod provider_manager;
 pub mod providers;
 pub mod session;
+pub mod session_manager;
 pub mod session_mode;
 pub mod session_recovery;
+pub mod tool_manager;
 
 pub use agent_mode::*;
 pub use checkpoint::*;

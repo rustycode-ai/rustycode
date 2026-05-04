@@ -337,6 +337,7 @@ pub struct TUI {
     pub(crate) renderer_mode: RendererMode,
 
     /// Session-long MCP proxy cache - owns live MCP connections for loaded tools
+    #[deprecated(note = "Use self.tool_manager.mcp_proxies() instead")]
     pub(crate) mcp_proxies: Option<
         Arc<
             tokio::sync::RwLock<std::collections::HashMap<String, rustycode_mcp::proxy::ToolProxy>>,
@@ -344,6 +345,9 @@ pub struct TUI {
     >,
     /// Shared todo state for LLM todo tools (todo_read, todo_write, todo_update)
     pub(crate) todo_state: rustycode_tools::todo::TodoState,
+
+    pub(crate) tool_manager: crate::services::tool_manager::ToolManager,
+    pub(crate) session_manager: crate::services::session_manager::SessionManager,
 
     // Session token usage and cost tracking
     pub(crate) session_input_tokens: usize,
@@ -736,8 +740,13 @@ impl TUI {
             renderer_mode,
             // MCP proxy cache (initialized in init_services)
             mcp_proxies: None,
-            // Shared todo state for LLM todo tools
             todo_state: rustycode_tools::todo::new_todo_state(),
+            tool_manager: crate::services::tool_manager::ToolManager::new(),
+            session_manager: crate::services::session_manager::SessionManager::new(
+                crate::app::session_recovery_integration::SessionRecoveryManager::new(
+                    crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
+                ).ok()
+            ),
             // Team agent timeline panel
             team_panel: crate::ui::team_panel::TeamPanel::new(),
             team_handler: TeamModeHandler::new(),
@@ -776,19 +785,7 @@ impl TUI {
 
     /// Compute API key warning string once at startup (not per-frame)
     fn compute_api_key_warning() -> String {
-        if let Ok((provider_type, _, v2_config)) = rustycode_llm::load_provider_config_from_env() {
-            let needs_api_key = !matches!(
-                provider_type.to_lowercase().as_str(),
-                "ollama" | "local" | "lmstudio" | ""
-            );
-            if needs_api_key && v2_config.api_key.is_none() {
-                return format!(
-                    "⚠ No API key — set {} to get started",
-                    rustycode_config::api_key_env_name(&provider_type)
-                );
-            }
-        }
-        String::new()
+        crate::services::provider_manager::compute_api_key_warning()
     }
 
     #[cfg(test)]
@@ -1015,6 +1012,8 @@ impl TUI {
             renderer_mode,
             mcp_proxies: None,
             todo_state: rustycode_tools::todo::new_todo_state(),
+            tool_manager: crate::services::tool_manager::ToolManager::new(),
+            session_manager: crate::services::session_manager::SessionManager::new(None),
             team_panel: crate::ui::team_panel::TeamPanel::new(),
             team_handler: TeamModeHandler::new(),
             clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
@@ -1140,7 +1139,7 @@ impl TUI {
             return false;
         }
 
-        let connected_servers: HashSet<String> = if let Some(mcp_proxies) = &self.mcp_proxies {
+        let connected_servers: HashSet<String> = if let Some(mcp_proxies) = self.tool_manager.mcp_proxies() {
             let proxies = mcp_proxies.clone();
             rustycode_shared_runtime::SHARED_RUNTIME.block_on(async move {
                 let proxies = proxies.read().await;
@@ -1203,7 +1202,7 @@ impl TUI {
             }
         }
 
-        if mcp_servers.is_empty() && self.mcp_proxies.is_some() {
+        if mcp_servers.is_empty() && self.tool_manager.mcp_proxies().is_some() {
             mcp_servers.push(McpServerStatus {
                 name: "No MCP servers configured".to_string(),
                 state: McpServerState::Configured,
@@ -1246,305 +1245,61 @@ impl TUI {
     /// Called when `--resume` flag is passed on the CLI. Finds the most
     /// recently saved session and loads its messages/scroll state.
     pub fn resume_most_recent_session(&mut self) {
-        if let Some(ref recovery) = self.session_recovery {
-            match recovery.list_recoverable_sessions() {
-                Ok(sessions) => {
-                    if sessions.is_empty() {
-                        self.add_system_message("No previous sessions found to resume".to_string());
-                        return;
-                    }
-
-                    // Try sessions in order, load the first one that works
-                    for session_id in &sessions {
-                        if let Ok(state) = recovery.load_state(session_id) {
-                            let msg_count = state.messages.len();
-                            if msg_count == 0 {
-                                continue;
-                            }
-
-                            let age = chrono::Utc::now()
-                                .signed_duration_since(state.last_saved)
-                                .num_minutes();
-
-                            // Reset session state for clean load
-                            self.selected_message = 0;
-                            self.scroll_offset_line = state.scroll_position;
-                            self.user_scrolled = false;
-                            self.active_tools.clear();
-                            self.tool_panel_history.clear();
-                            self.tool_panel_selected_index = None;
-                            self.showing_tool_result = false;
-                            // Reset streaming state (session could have been saved mid-stream)
-                            self.reset_streaming_state();
-                            self.queued_message = None;
-                            // Restore messages
-                            self.messages = state.messages;
-                            // Recompute token context based on restored messages so the
-                            // context usage bar reflects the loaded session.
-                            self.context_monitor.update(&self.messages);
-                            if !self.messages.is_empty() {
-                                self.selected_message = self.messages.len().saturating_sub(1);
-                            }
-
-                            self.add_system_message(format!(
-                                "Resumed session '{}' ({} messages, {} min ago)",
-                                session_id.split('-').next().unwrap_or(session_id),
-                                msg_count,
-                                age
-                            ));
-                            self.dirty = true;
-                            tracing::info!(
-                                "Resumed session {} ({} messages)",
-                                session_id,
-                                msg_count
-                            );
-                            return;
-                        }
-                    }
-
-                    self.add_system_message("Could not load any saved sessions".to_string());
+        match self.session_manager.find_most_recent_session() {
+            Ok(Some(session)) => {
+                self.selected_message = 0;
+                self.scroll_offset_line = session.scroll_position;
+                self.user_scrolled = false;
+                self.active_tools.clear();
+                self.tool_panel_history.clear();
+                self.tool_panel_selected_index = None;
+                self.showing_tool_result = false;
+                self.reset_streaming_state();
+                self.queued_message = None;
+                self.messages = session.messages;
+                self.context_monitor.update(&self.messages);
+                if !self.messages.is_empty() {
+                    self.selected_message = self.messages.len().saturating_sub(1);
                 }
-                Err(e) => {
-                    tracing::warn!("Failed to list sessions for resume: {}", e);
-                    self.add_system_message("Could not find saved sessions".to_string());
-                }
+
+                let display_id = session.session_id.split('-').next().unwrap_or(&session.session_id);
+                self.add_system_message(format!(
+                    "Resumed session '{}' ({} messages, {} min ago)",
+                    display_id, session.message_count, session.age_minutes
+                ));
+                self.dirty = true;
+                tracing::info!(
+                    "Resumed session {} ({} messages)",
+                    session.session_id,
+                    session.message_count
+                );
             }
-        } else {
-            self.add_system_message("Session persistence not available".to_string());
+            Ok(None) => {
+                self.add_system_message("No previous sessions found to resume".to_string());
+            }
+            Err(e) => {
+                tracing::warn!("Failed to list sessions for resume: {}", e);
+                self.add_system_message("Could not find saved sessions".to_string());
+            }
         }
     }
 
     /// Register all built-in tools for AI coding assistant functionality
     fn register_builtin_tools(&self, tool_registry: &mut ToolRegistry) {
-        use crate::skills::as_tool::{CreateCronTool, CreateTeamTool, SkillToolRegistry};
-        use rustycode_tools::todo::{TodoUpdateTool, TodoWriteTool};
-        use rustycode_tools::todo_read::TodoReadTool;
-        #[cfg(feature = "vector-memory")]
-        use rustycode_tools::SemanticSearchTool;
-
-        // Register all zero-config built-in tools from default registry
-        *tool_registry = rustycode_tools::default_registry();
-
-        // Register stateful tools that require runtime state
-        // Todo tools (shared state with TUI sidebar)
-        tool_registry.register(TodoReadTool::new(self.todo_state.clone()));
-        tool_registry.register(TodoWriteTool::new(self.todo_state.clone()));
-        tool_registry.register(TodoUpdateTool::new(self.todo_state.clone()));
-
-        // Semantic search tool (conditional feature)
-        #[cfg(feature = "vector-memory")]
-        tool_registry.register(SemanticSearchTool::new(
-            &std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
-        ));
-
-        // Agent tool - functional sub-agent backed by AgentSession.
-        // Build full tool definitions (name + description + input_schema) for sub-agent.
-        let tools_schema: Vec<serde_json::Value> = tool_registry
-            .list()
-            .iter()
-            .map(|t| {
-                let mut schema = serde_json::json!({
-                    "name": t.name,
-                    "description": t.description,
-                    "input_schema": t.parameters_schema,
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &t.name,
-                    matches!(t.permission, rustycode_tools::ToolPermission::Read),
-                ) {
-                    schema["annotations"] = annotations;
-                }
-                schema
-            })
-            .collect();
-        let tools_schema_clone = tools_schema.clone();
-        let agent_tool = crate::agents::agent_tool::AgentTool::new(
-            Arc::clone(&self.pipeline_ctx.provider),
-            self.pipeline_ctx.current_model.clone(),
-            self.services.cwd().clone(),
-            tools_schema,
+        self.tool_manager.register_builtin_tools(
+            tool_registry,
+            &self.pipeline_ctx.provider,
+            &self.pipeline_ctx.current_model,
+            self.services.cwd(),
+            &self.skill_manager,
+            &self.todo_state,
         );
-        tool_registry.register(agent_tool);
-
-        // Delegation executor — real sub-agent execution for delegate_task tool.
-        let delegation_executor = crate::agents::delegation_executor::DelegationExecutor::new(
-            Arc::clone(&self.pipeline_ctx.provider),
-            self.pipeline_ctx.current_model.clone(),
-            self.services.cwd().clone(),
-            tools_schema_clone,
-        );
-        tool_registry.register(delegation_executor);
-
-        // Team management tool - allows LLM to create agent teams
-        tool_registry.register(CreateTeamTool::new());
-
-        // Cron scheduling tool - allows LLM to create scheduled tasks
-        tool_registry.register(CreateCronTool::new());
-
-        // Register skill-as-tool wrappers for active skills
-        let skill_tool_registry = SkillToolRegistry::new(self.skill_manager.clone());
-        let skill_tools = skill_tool_registry.build_tools();
-        for skill_tool in skill_tools {
-            tool_registry.register_boxed(skill_tool);
-        }
-
-        tracing::info!("Registered {} built-in tools", tool_registry.list().len());
     }
 
     /// Load tools from configured MCP servers
     fn load_mcp_tools(&mut self, tool_registry: &mut ToolRegistry) {
-        use rustycode_mcp::proxy::{ProxyConfig, ToolProxy};
-        use rustycode_mcp::McpConfigFile;
-        use std::sync::Arc;
-
-        // Load MCP config from all standard locations
-        let configs = McpConfigFile::load_from_standard_locations();
-
-        if configs.is_empty() {
-            tracing::debug!("No MCP server configs found in standard locations");
-            return;
-        }
-
-        // Collect existing built-in tool names for overlap detection
-        let builtin_names: std::collections::HashSet<String> = tool_registry
-            .list()
-            .iter()
-            .map(|t| t.name.clone())
-            .collect();
-
-        // Known semantic equivalents: MCP tool name → built-in tool it duplicates.
-        // These are common filesystem MCP server tools that overlap with built-in tools.
-        let overlap_map: std::collections::HashMap<&str, &str> = [
-            // @modelcontextprotocol/server-filesystem equivalents
-            ("read_text_file", "read_file"),
-            ("write_file", "write_file"),
-            ("list_directory", "list_dir"),
-            ("list_allowed_directories", "__skip__"), // no built-in equivalent, wastes turns
-            ("search_files", "grep"),
-            ("get_file_info", "__skip__"), // no useful equivalent
-            ("create_directory", "bash"),  // mkdir via bash
-            ("move_file", "bash"),         // mv via bash
-            ("read_multiple_files", "read_file"), // can read files individually
-            // Other common MCP servers
-            ("directory_tree", "list_dir"),
-            ("read_file", "read_file"), // exact overlap
-        ]
-        .into_iter()
-        .collect();
-
-        // Create a shared proxy cache for the session so MCP connections stay
-        // alive for the full TUI lifecycle and can be shut down explicitly.
-        let proxy_cache = Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::<
-            String,
-            ToolProxy,
-        >::new()));
-        self.mcp_proxies = Some(proxy_cache.clone());
-
-        // Use the shared persistent runtime so MCP child process handles
-        // (ChildStdin/ChildStdout) remain valid for the entire session.
-        // A short-lived local runtime would drop its I/O driver, killing
-        // the MCP transport — see Bug #11.
-        use rustycode_shared_runtime::SHARED_RUNTIME;
-
-        // Load and start servers from all config files
-        let mut started_count = 0;
-        let mut tools_registered = 0;
-        let mut tools_skipped = 0;
-        for (config_path, config_file) in configs {
-            tracing::info!("Loading MCP servers from {:?}", config_path);
-
-            for (server_id, server_config) in config_file.servers {
-                tracing::info!("Starting MCP server '{}'", server_id);
-
-                // Create a tool proxy for this server (stdio only)
-                let command = match server_config.command.clone() {
-                    Some(cmd) => cmd,
-                    None => {
-                        tracing::debug!(
-                            "Skipping MCP server '{}': no command (remote transport)",
-                            server_id
-                        );
-                        continue;
-                    }
-                };
-                let proxy_config = ProxyConfig {
-                    server_name: server_id.clone(),
-                    command,
-                    args: server_config.args.clone(),
-                    tool_prefix: None,
-                    cache_tools: true,
-                };
-
-                match SHARED_RUNTIME.block_on(ToolProxy::with_discovery(proxy_config)) {
-                    Ok(proxy) => {
-                        tracing::info!("MCP server '{}' connected successfully", server_id);
-                        started_count += 1;
-
-                        // Keep the live proxy around for the rest of the session.
-                        let proxy_for_cache = proxy.clone();
-                        let proxy_cache_clone = proxy_cache.clone();
-                        let server_id_for_cache = server_id.clone();
-                        SHARED_RUNTIME.block_on(async move {
-                            let mut cache = proxy_cache_clone.write().await;
-                            cache.insert(server_id_for_cache, proxy_for_cache);
-                        });
-
-                        // Get all tools from the proxy and register them
-                        let proxied_tools = SHARED_RUNTIME.block_on(proxy.get_tools());
-                        for proxied_tool in proxied_tools {
-                            let tool_name = proxied_tool.name.clone();
-
-                            // Skip MCP tools that duplicate built-in functionality
-                            if let Some(equivalent) = overlap_map.get(tool_name.as_str()) {
-                                if *equivalent == "__skip__" {
-                                    tracing::warn!(
-                                        "Skipping MCP tool '{}' (no useful equivalent, wastes LLM turns)",
-                                        tool_name
-                                    );
-                                    tools_skipped += 1;
-                                    continue;
-                                }
-                                if builtin_names.contains(*equivalent) {
-                                    tracing::warn!(
-                                        "Skipping MCP tool '{}' — built-in '{}' already registered (semantic overlap)",
-                                        tool_name,
-                                        equivalent
-                                    );
-                                    tools_skipped += 1;
-                                    continue;
-                                }
-                            }
-
-                            // Also skip exact name collisions
-                            if builtin_names.contains(&tool_name) {
-                                tracing::warn!(
-                                    "Skipping MCP tool '{}' — already registered as built-in",
-                                    tool_name
-                                );
-                                tools_skipped += 1;
-                                continue;
-                            }
-
-                            tool_registry.register(proxied_tool);
-                            tracing::debug!("  Registered MCP tool: {}", tool_name);
-                            tools_registered += 1;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::error!("Failed to connect to MCP server '{}': {}", server_id, e);
-                    }
-                }
-            }
-        }
-
-        if started_count > 0 {
-            tracing::info!(
-                "Started {} MCP server(s): {} tools registered, {} skipped (overlap with built-in tools)",
-                started_count,
-                tools_registered,
-                tools_skipped
-            );
-        }
+        self.tool_manager.load_mcp_tools(tool_registry);
+        self.mcp_proxies = self.tool_manager.mcp_proxies().clone();
     }
 
     /// Check for tmux compatibility and add warning messages if needed
@@ -1982,7 +1737,7 @@ impl TUI {
         }
 
         // Shutdown MCP servers to prevent orphaned child processes
-        if let Some(mcp_proxies) = &self.mcp_proxies {
+        if let Some(mcp_proxies) = self.tool_manager.mcp_proxies() {
             let proxies = mcp_proxies.clone();
             // Spawn a small tokio runtime for async cleanup since we're in sync context.
             let _ = std::thread::spawn(move || {
@@ -2670,26 +2425,10 @@ impl TUI {
     }
 
     pub(crate) fn cycle_effort_level(&mut self) -> String {
-        let all_levels = ["low", "medium", "high", "xhigh", "max"];
-        let supports_xhigh = self
-            .current_model
-            .contains("opus-4-7")
-            || self.current_model.contains("opus-4.7");
-
-        let current = self.current_effort.as_str();
-        let start_idx = all_levels
-            .iter()
-            .position(|&l| l == current)
-            .unwrap_or(1);
-
-        let mut next_idx = (start_idx + 1) % all_levels.len();
-        let mut attempts = 0;
-        while !supports_xhigh && all_levels[next_idx] == "xhigh" && attempts < all_levels.len() {
-            next_idx = (next_idx + 1) % all_levels.len();
-            attempts += 1;
-        }
-
-        self.current_effort = all_levels[next_idx].to_string();
+        self.current_effort = crate::services::provider_manager::cycle_effort_level(
+            &self.current_effort,
+            &self.current_model,
+        );
         self.services.set_effort(self.current_effort.clone());
         self.current_effort.clone()
     }
@@ -2697,9 +2436,7 @@ impl TUI {
     /// Save command history on exit
     pub(crate) fn save_history(&mut self) {
         let history = self.input_handler.get_history();
-        if let Err(e) = crate::session::save_command_history(history) {
-            tracing::warn!("Failed to save command history: {}", e);
-        }
+        crate::services::session_manager::SessionManager::save_history(history);
     }
 }
 
