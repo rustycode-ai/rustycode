@@ -385,7 +385,7 @@ impl StepExecutor for GenericStepExecutor {
             };
 
             // Create tool context
-            let tool_ctx = ToolContext::new(&self.cwd);
+            let tool_ctx = ToolContext::new(&self.cwd).with_registry(self.tool_registry.clone());
 
             // Create tool call
             let tool_call = ToolCall {

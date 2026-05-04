@@ -297,11 +297,15 @@ impl ThinkingType {
 /// API mode for providers that support multiple endpoints.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ApiMode {
+    /// Try Responses API first, fall back to Chat Completions on failure.
+    /// Caches the result per provider so subsequent requests skip the probe.
+    Auto,
     /// Chat Completions API (`POST /v1/chat/completions`) — default.
     ChatCompletions,
     /// Responses API (`POST /v1/responses`) — HTTP.
     Responses,
     /// Responses API via WebSocket (OpenAI only, feature-gated).
+    #[cfg(feature = "ws")]
     ResponsesWs,
 }
 

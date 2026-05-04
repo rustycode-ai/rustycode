@@ -162,6 +162,8 @@ pub struct OpenAiProvider {
     tool_selector: ToolSelector,
     /// Last Responses API response ID for server-side conversation state.
     last_response_id: Arc<std::sync::Mutex<Option<String>>>,
+    /// Cached Responses API capability: None=unknown, Some(true)=supported, Some(false)=not supported.
+    responses_api_supported: Arc<std::sync::Mutex<Option<bool>>>,
 }
 
 impl OpenAiProvider {
@@ -397,6 +399,7 @@ impl OpenAiProvider {
                 tool_registry,
                 tool_selector,
                 last_response_id: Arc::new(std::sync::Mutex::new(None)),
+                responses_api_supported: Arc::new(std::sync::Mutex::new(None)),
             })
         }
     }
@@ -432,6 +435,7 @@ impl OpenAiProvider {
             tool_registry,
             tool_selector,
             last_response_id: Arc::new(std::sync::Mutex::new(None)),
+            responses_api_supported: Arc::new(std::sync::Mutex::new(None)),
         })
     }
 
@@ -818,6 +822,78 @@ impl OpenAiProvider {
 
         Ok(Box::pin(sse_stream))
     }
+
+    /// Stream a Responses API request over WebSocket (feature-gated).
+    ///
+    /// Converts the HTTP endpoint to a WebSocket URL and uses the WS transport.
+    #[cfg(feature = "ws")]
+    async fn complete_responses_ws(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
+        use secrecy::ExposeSecret;
+
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
+            .ok_or_else(|| ProviderError::auth("OpenAI API key is required. Set api_key in config or OPENAI_API_KEY env var"))?
+            .expose_secret();
+
+        // Convert HTTP endpoint to WebSocket URL
+        let base = self.endpoint().trim_end_matches('/');
+        let ws_url = base
+            .replace("https://", "wss://")
+            .replace("http://", "ws://")
+            + "/responses";
+
+        let (instructions, input_items) =
+            crate::openai_compatible::convert_messages_to_responses_input(&request);
+
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| crate::tools::normalize_tools_for_responses(t))
+            .unwrap_or_default();
+        let tools_opt = if tools.is_empty() {
+            None
+        } else {
+            let parsed: Vec<crate::openai_compatible::ResponsesApiTool> = tools
+                .iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                .collect();
+            if parsed.is_empty() { None } else { Some(parsed) }
+        };
+
+        let prev_id = self
+            .last_response_id
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone());
+
+        let body = crate::openai_compatible::ResponsesApiRequest {
+            model: request.model.clone(),
+            input: input_items,
+            instructions,
+            tools: tools_opt,
+            temperature: request.temperature,
+            max_output_tokens: request.max_tokens,
+            stream: Some(true),
+            previous_response_id: prev_id,
+            tool_choice: request.tool_choice,
+            parallel_tool_calls: request.parallel_tool_calls,
+        };
+
+        let body_json = serde_json::to_value(&body)
+            .map_err(|e| ProviderError::Serialization(e.to_string()))?;
+
+        crate::openai_compatible::responses_ws::stream_responses_ws(
+            &ws_url,
+            api_key,
+            body_json,
+        )
+        .await
+    }
 }
 
 #[async_trait]
@@ -887,6 +963,11 @@ impl LLMProvider for OpenAiProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
+        #[cfg(feature = "ws")]
+        if request.api_mode == Some(ApiMode::ResponsesWs) {
+            return self.complete_responses_ws(request).await;
+        }
+
         if request.api_mode == Some(ApiMode::Responses) {
             return self.complete_responses_stream(request).await;
         }

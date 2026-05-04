@@ -40,7 +40,7 @@ When you see a tool name in the available tools list but don't have its full sch
         &[ToolTag::Explore]
     }
 
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let query = params
             .get("query")
             .and_then(Value::as_str)
@@ -50,13 +50,66 @@ When you see a tool name in the available tools list but don't have its full sch
             return Err(anyhow!("query must not be empty"));
         }
 
-        // Placeholder: actual tool lookup requires registry integration
+        let registry = ctx
+            .registry
+            .as_ref()
+            .ok_or_else(|| anyhow!("tool registry not available in this context"))?;
+
+        // Exact name match — return full schema
+        if let Some(tool) = registry.get(query) {
+            let desc = tool.description();
+            let first_line = desc.lines().next().unwrap_or(desc);
+            return Ok(ToolOutput::with_structured(
+                format!("Loaded schema for: {query}"),
+                json!({
+                    "query": query,
+                    "found": true,
+                    "match_type": "exact",
+                    "name": tool.name(),
+                    "description": first_line,
+                    "full_description": desc,
+                    "parameters_schema": tool.parameters_schema(),
+                    "tags": tool.tags().iter().map(|t| t.as_str()).collect::<Vec<_>>(),
+                }),
+            ));
+        }
+
+        // Fuzzy match — name contains query, return up to 5 matches
+        let query_lower = query.to_lowercase();
+        let matches: Vec<Value> = registry
+            .list()
+            .iter()
+            .filter(|t| t.name.to_lowercase().contains(&query_lower))
+            .take(5)
+            .map(|t| {
+                let desc = &t.description;
+                let first_line = desc.lines().next().unwrap_or(desc);
+                json!({
+                    "name": t.name,
+                    "description": first_line,
+                    "deferred": t.defer_loading == Some(true),
+                })
+            })
+            .collect();
+
+        if matches.is_empty() {
+            return Ok(ToolOutput::with_structured(
+                format!("No tools matching: {query}"),
+                json!({
+                    "query": query,
+                    "found": false,
+                    "suggestion": "Try a different search term or use a partial tool name",
+                }),
+            ));
+        }
+
         Ok(ToolOutput::with_structured(
-            format!("Tool search: {query}"),
+            format!("Found {} tools matching: {query}", matches.len()),
             json!({
                 "query": query,
-                "found": false,
-                "note": "Tool search requires runtime registry integration",
+                "found": true,
+                "match_type": "fuzzy",
+                "results": matches,
             }),
         ))
     }
@@ -65,9 +118,17 @@ When you see a tool name in the available tools list but don't have its full sch
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use crate::ToolRegistry;
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")
+    }
+
+    fn test_ctx_with_registry() -> ToolContext {
+        let mut registry = ToolRegistry::new();
+        registry.register(ToolSearchTool);
+        test_ctx().with_registry(Arc::new(registry))
     }
 
     #[test]
@@ -80,22 +141,52 @@ mod tests {
     #[test]
     fn test_tool_search_requires_query() {
         let tool = ToolSearchTool;
-        let result = tool.execute(json!({}), &test_ctx());
+        let result = tool.execute(json!({}), &test_ctx_with_registry());
         assert!(result.is_err());
     }
 
     #[test]
     fn test_tool_search_rejects_empty() {
         let tool = ToolSearchTool;
-        let result = tool.execute(json!({"query": "  "}), &test_ctx());
+        let result = tool.execute(json!({"query": "  "}), &test_ctx_with_registry());
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_tool_search_returns_result() {
+    fn test_tool_search_requires_registry() {
         let tool = ToolSearchTool;
         let result = tool.execute(json!({"query": "bash"}), &test_ctx());
-        assert!(result.is_ok());
-        assert!(result.unwrap().text.contains("bash"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("registry"));
+    }
+
+    #[test]
+    fn test_tool_search_exact_match() {
+        let tool = ToolSearchTool;
+        let ctx = test_ctx_with_registry();
+        let result = tool.execute(json!({"query": "tool_search"}), &ctx).unwrap();
+        let data = result.structured.unwrap();
+        assert_eq!(data["found"], true);
+        assert_eq!(data["match_type"], "exact");
+        assert_eq!(data["name"], "tool_search");
+    }
+
+    #[test]
+    fn test_tool_search_fuzzy_match() {
+        let tool = ToolSearchTool;
+        let ctx = test_ctx_with_registry();
+        let result = tool.execute(json!({"query": "tool"}), &ctx).unwrap();
+        let data = result.structured.unwrap();
+        assert_eq!(data["found"], true);
+        assert_eq!(data["match_type"], "fuzzy");
+    }
+
+    #[test]
+    fn test_tool_search_no_match() {
+        let tool = ToolSearchTool;
+        let ctx = test_ctx_with_registry();
+        let result = tool.execute(json!({"query": "xyznonexistent"}), &ctx).unwrap();
+        let data = result.structured.unwrap();
+        assert_eq!(data["found"], false);
     }
 }

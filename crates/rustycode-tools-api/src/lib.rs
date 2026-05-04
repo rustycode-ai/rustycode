@@ -185,7 +185,7 @@ pub struct ToolContext {
     pub project_id: Option<String>,
     /// Cancellation token for interruptible operations.
     pub cancellation_token: Option<CancellationToken>,
-    /// Optional registry reference for self-introspection (used by tool_search).
+    /// Optional registry reference for self-introspection (used by `tool_search`).
     pub registry: Option<Arc<ToolRegistry>>,
 }
 
@@ -414,9 +414,9 @@ impl ToolRegistry {
         self.tools.get(name).map(AsRef::as_ref)
     }
 
-    /// Return ToolInfo for tools that should be eagerly loaded into the prompt.
+    /// Return `ToolInfo` for tools that should be eagerly loaded into the prompt.
     /// Tools with `defer_loading() == Some(true)` are excluded.
-    /// The tool_search tool is always included regardless of its defer_loading setting.
+    /// The `tool_search` tool is always included regardless of its `defer_loading` setting.
     pub fn list_immediate(&self) -> Vec<ToolInfo> {
         let mut infos: Vec<ToolInfo> = self
             .tools
@@ -437,7 +437,7 @@ impl ToolRegistry {
     }
 
     /// Return lightweight stubs for deferred tools — name and first-line description
-    /// with an empty parameters_schema. The LLM must call tool_search to get the full schema.
+    /// with an empty `parameters_schema`. The LLM must call `tool_search` to get the full schema.
     pub fn list_deferred_stubs(&self) -> Vec<ToolInfo> {
         let mut infos: Vec<ToolInfo> = self
             .tools

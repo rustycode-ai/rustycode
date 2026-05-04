@@ -733,7 +733,7 @@ impl Runtime {
             });
         }
 
-        let ctx = ToolContext::new(cwd);
+        let ctx = ToolContext::new(cwd).with_registry(self.tools.clone());
         let result = self.tools.execute(&call, &ctx);
 
         if let Ok(mut guard) = self.skill_manager.lock() {
@@ -797,7 +797,7 @@ impl Runtime {
             name: name.clone(),
             arguments,
         };
-        let ctx = ToolContext::new(cwd);
+        let ctx = ToolContext::new(cwd).with_registry(self.tools.clone());
         let result = self.tools.execute(&call, &ctx);
 
         Ok(ToolCallReport { session, result })

@@ -319,42 +319,75 @@ impl LLMToolExecutor {
         Ok(messages)
     }
 
-    /// Get tool definitions for Anthropic format
+    /// Get tool definitions for Anthropic format.
+    /// Deferred tools emit stubs using the canonical schema from `formatters`.
     pub fn get_anthropic_tool_definitions(&self) -> Vec<Value> {
+        let stub_schema = crate::tool_selection_helper::formatters::deferred_stub_schema();
         self.executor
             .list()
             .into_iter()
             .map(|tool| {
-                let mut tool_json = serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.parameters_schema
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &tool.name,
-                    matches!(tool.permission, rustycode_protocol::ToolPermission::Read),
-                ) {
-                    tool_json["annotations"] = annotations;
+                if tool.defer_loading == Some(true) {
+                    let desc = tool.description.lines().next().filter(|s| !s.is_empty()).unwrap_or("(no description)");
+                    let stub_desc = format!(
+                        "{} [DEFERRED: call tool_search with name=\"{}\" to load full schema]",
+                        desc, tool.name
+                    );
+                    serde_json::json!({
+                        "name": tool.name,
+                        "description": stub_desc,
+                        "input_schema": stub_schema
+                    })
+                } else {
+                    let mut tool_json = serde_json::json!({
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": tool.parameters_schema
+                    });
+                    if let Some(annotations) = anthropic_annotations_for_tool_info(
+                        &tool.name,
+                        matches!(tool.permission, rustycode_protocol::ToolPermission::Read),
+                    ) {
+                        tool_json["annotations"] = annotations;
+                    }
+                    tool_json
                 }
-                tool_json
             })
             .collect()
     }
 
-    /// Get tool definitions for OpenAI format
+    /// Get tool definitions for OpenAI format.
+    /// Deferred tools emit stubs using the canonical schema from `formatters`.
     pub fn get_openai_tool_definitions(&self) -> Vec<Value> {
+        let stub_schema = crate::tool_selection_helper::formatters::deferred_stub_schema();
         self.executor
             .list()
             .into_iter()
             .map(|tool| {
-                serde_json::json!({
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.parameters_schema
-                    }
-                })
+                if tool.defer_loading == Some(true) {
+                    let desc = tool.description.lines().next().filter(|s| !s.is_empty()).unwrap_or("(no description)");
+                    let stub_desc = format!(
+                        "{} [DEFERRED: call tool_search with name=\"{}\" to load full schema]",
+                        desc, tool.name
+                    );
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": stub_desc,
+                            "parameters": stub_schema
+                        }
+                    })
+                } else {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.parameters_schema
+                        }
+                    })
+                }
             })
             .collect()
     }

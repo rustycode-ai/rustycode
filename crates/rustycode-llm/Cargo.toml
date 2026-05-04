@@ -33,6 +33,7 @@ uuid = { workspace = true }
 sha2 = { workspace = true }
 once_cell = { workspace = true }
 rustycode-litert = { path = "../rustycode-litert", optional = true }
+tokio-tungstenite = { version = "0.26", optional = true }
 
 [features]
 default = []
@@ -42,6 +43,8 @@ live-api-tests = []
 vector-memory = []
 # Enable LiteRT-LM local inference provider
 litert = ["dep:rustycode-litert"]
+# Enable WebSocket transport for OpenAI Responses API
+ws = ["dep:tokio-tungstenite"]
 
 [lints]
 workspace = true

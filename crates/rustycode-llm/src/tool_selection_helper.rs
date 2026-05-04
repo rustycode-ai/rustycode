@@ -216,54 +216,103 @@ pub mod formatters {
     use crate::tool_annotations::anthropic_annotations_for_tool_info;
     use rustycode_tools_api::ToolInfo;
 
-    /// Format tools for Anthropic API
+    /// Canonical stub description for a deferred tool.
+    fn deferred_description(tool: &ToolInfo) -> String {
+        let desc = tool
+            .description
+            .lines()
+            .next()
+            .filter(|s| !s.is_empty())
+            .unwrap_or("(no description)");
+        format!(
+            "{} [DEFERRED: call tool_search with name=\"{}\" to load full schema]",
+            desc, tool.name
+        )
+    }
+
+    /// Canonical empty JSON Schema used for deferred tool stubs.
+    pub fn deferred_stub_schema() -> serde_json::Value {
+        serde_json::json!({"type": "object", "properties": {}})
+    }
+
+    /// Format tools for Anthropic API.
+    /// Deferred tools emit stubs (empty schema with hint to use tool_search).
     pub fn format_for_anthropic(tools: &[ToolInfo]) -> Vec<serde_json::Value> {
         tools
             .iter()
             .map(|tool| {
-                let mut tool_json = serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.parameters_schema
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &tool.name,
-                    matches!(tool.permission, rustycode_tools_api::ToolPermission::Read),
-                ) {
-                    tool_json["annotations"] = annotations;
+                if tool.defer_loading == Some(true) {
+                    serde_json::json!({
+                        "name": tool.name,
+                        "description": deferred_description(tool),
+                        "input_schema": deferred_stub_schema()
+                    })
+                } else {
+                    let mut tool_json = serde_json::json!({
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": tool.parameters_schema
+                    });
+                    if let Some(annotations) = anthropic_annotations_for_tool_info(
+                        &tool.name,
+                        matches!(tool.permission, rustycode_tools_api::ToolPermission::Read),
+                    ) {
+                        tool_json["annotations"] = annotations;
+                    }
+                    tool_json
                 }
-                tool_json
             })
             .collect()
     }
 
-    /// Format tools for OpenAI function calling API
+    /// Format tools for OpenAI function calling API.
+    /// Deferred tools emit stubs (empty schema with hint to use tool_search).
     pub fn format_for_openai(tools: &[ToolInfo]) -> Vec<serde_json::Value> {
         tools
             .iter()
             .map(|tool| {
-                serde_json::json!({
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.parameters_schema
-                    }
-                })
+                if tool.defer_loading == Some(true) {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": deferred_description(tool),
+                            "parameters": deferred_stub_schema()
+                        }
+                    })
+                } else {
+                    serde_json::json!({
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.parameters_schema
+                        }
+                    })
+                }
             })
             .collect()
     }
 
-    /// Format tools for Gemini function declaration API
+    /// Format tools for Gemini function declaration API.
+    /// Deferred tools emit stubs (empty schema with hint to use tool_search).
     pub fn format_for_gemini(tools: &[ToolInfo]) -> Vec<serde_json::Value> {
         tools
             .iter()
             .map(|tool| {
-                serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.parameters_schema
-                })
+                if tool.defer_loading == Some(true) {
+                    serde_json::json!({
+                        "name": tool.name,
+                        "description": deferred_description(tool),
+                        "parameters": deferred_stub_schema()
+                    })
+                } else {
+                    serde_json::json!({
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters_schema
+                    })
+                }
             })
             .collect()
     }
