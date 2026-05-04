@@ -38,7 +38,7 @@ pub struct EditFileInput {
 }
 
 /// Try exact string match
-fn try_exact_match(content: &str, old_text: &str) -> Option<(usize, usize)> {
+pub(crate) fn try_exact_match(content: &str, old_text: &str) -> Option<(usize, usize)> {
     content
         .find(old_text)
         .map(|start| (start, start + old_text.len()))
@@ -47,7 +47,7 @@ fn try_exact_match(content: &str, old_text: &str) -> Option<(usize, usize)> {
 /// Try matching after normalizing line endings (CRLF → LF).
 /// Normalizes both content and `old_text` to LF, performs replacement, then
 /// restores original line endings.
-fn try_normalized_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
+pub(crate) fn try_normalized_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
     let norm_content = normalize_to_lf(content);
     let norm_old = normalize_to_lf(old_text);
     if norm_content.contains(&norm_old) {
@@ -68,7 +68,7 @@ fn try_normalized_match(content: &str, old_text: &str, new_text: &str) -> Option
 /// Quote normalization preserves character count (1 char → 1 char) but changes
 /// byte length (3-byte curly quote → 1-byte straight quote), so we must map
 /// through character indices rather than using byte offsets directly.
-fn try_quote_normalized_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
+pub(crate) fn try_quote_normalized_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
     let norm_content = normalize_quotes(content);
     let norm_old = normalize_quotes(old_text);
     let match_start_byte = norm_content.find(&norm_old)?;
@@ -100,7 +100,7 @@ fn try_quote_normalized_match(content: &str, old_text: &str, new_text: &str) -> 
 
 /// Try matching where each line is trimmed of whitespace.
 /// Returns the full file content with the matched window replaced by `new_text`.
-fn try_trimmed_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
+pub(crate) fn try_trimmed_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
     let content_lines: Vec<&str> = content.lines().collect();
     let old_lines: Vec<&str> = old_text.lines().collect();
     if old_lines.is_empty() || old_lines.len() > content_lines.len() {

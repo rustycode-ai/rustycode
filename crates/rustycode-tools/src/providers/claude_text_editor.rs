@@ -15,6 +15,9 @@
 //! - `undo_edit`: Revert last edit (Sonnet 3.7 only)
 
 use crate::file_formatter;
+use crate::providers::edit::{
+    try_exact_match, try_normalized_match, try_quote_normalized_match, try_trimmed_match,
+};
 use crate::security::{
     create_file_exclusive, create_file_symlink_safe, open_file_symlink_safe, validate_read_path,
     validate_write_path,
@@ -407,18 +410,23 @@ impl ClaudeTextEditor {
         use std::io::Read;
         file.read_to_string(&mut content)?;
 
-        // Check if old_str exists (after reading, so no TOCTOU)
-        if !content.contains(old_str) {
+        // Try matching strategies in order: exact → line-ending-normalized → quote-normalized → trimmed
+        let (new_content, count) = if try_exact_match(&content, old_str).is_some() {
+            // Exact match — count all occurrences and replace all (preserving existing behavior)
+            let count = content.matches(old_str).count();
+            let new_content = content.replace(old_str, new_str);
+            (new_content, count)
+        } else if let Some(replacement) = try_normalized_match(&content, old_str, new_str) {
+            (replacement, 1)
+        } else if let Some(replacement) = try_quote_normalized_match(&content, old_str, new_str) {
+            (replacement, 1)
+        } else if let Some(replacement) = try_trimmed_match(&content, old_str, new_str) {
+            (replacement, 1)
+        } else {
             return Ok(ToolOutput::text(format!(
-                "[Error] old_str not found in file:\n\"{old_str}\""
+                "[Error] old_str not found in file (tried exact, line-ending-normalized, quote-normalized, and trimmed matching):\n\"{old_str}\""
             )));
-        }
-
-        // Count occurrences
-        let count = content.matches(old_str).count();
-
-        // Perform replacement
-        let new_content = content.replace(old_str, new_str);
+        };
 
         if new_content.len() > MAX_FILE_SIZE {
             return Ok(ToolOutput::text(format!(
@@ -1155,5 +1163,133 @@ mod tests {
 
         let content = fs::read_to_string(&test_file).unwrap();
         assert_eq!(content, "qux bar qux baz qux");
+    }
+
+    // --- Flexible matching tests ---
+
+    #[test]
+    fn test_str_replace_exact_match_still_works() {
+        let workspace = tempdir().unwrap();
+        let test_file = workspace.path().join("test.txt");
+        fs::write(&test_file, "hello world").unwrap();
+
+        let tool = ClaudeTextEditor;
+        let ctx = ToolContext::new(workspace.path());
+
+        let params = serde_json::json!({
+            "command": "str_replace",
+            "path": "test.txt",
+            "old_str": "hello",
+            "new_str": "hi"
+        });
+
+        let result = tool.execute(params, &ctx);
+        assert!(result.is_ok());
+
+        let content = fs::read_to_string(&test_file).unwrap();
+        assert_eq!(content, "hi world");
+    }
+
+    #[test]
+    fn test_str_replace_crlf_normalization() {
+        let workspace = tempdir().unwrap();
+        let test_file = workspace.path().join("test.txt");
+        // File has CRLF line endings
+        fs::write(&test_file, "line1\r\nline2\r\nline3").unwrap();
+
+        let tool = ClaudeTextEditor;
+        let ctx = ToolContext::new(workspace.path());
+
+        // LLM sends LF-only old_str (common mismatch)
+        let params = serde_json::json!({
+            "command": "str_replace",
+            "path": "test.txt",
+            "old_str": "line1\nline2",
+            "new_str": "replaced1\nreplaced2"
+        });
+
+        let result = tool.execute(params, &ctx);
+        assert!(result.is_ok(), "Should succeed via normalized match");
+
+        let content = fs::read_to_string(&test_file).unwrap();
+        assert!(content.contains("replaced1"), "Should contain replacement");
+        // CRLF should be preserved in the rest of the file
+        assert!(content.contains("line3"), "Should preserve unchanged content");
+    }
+
+    #[test]
+    fn test_str_replace_curly_quotes() {
+        let workspace = tempdir().unwrap();
+        let test_file = workspace.path().join("test.txt");
+        // File has curly quotes
+        fs::write(&test_file, "msg = \u{201C}hello\u{201D}").unwrap();
+
+        let tool = ClaudeTextEditor;
+        let ctx = ToolContext::new(workspace.path());
+
+        // LLM sends straight quotes
+        let params = serde_json::json!({
+            "command": "str_replace",
+            "path": "test.txt",
+            "old_str": "msg = \"hello\"",
+            "new_str": "msg = \"world\""
+        });
+
+        let result = tool.execute(params, &ctx);
+        assert!(result.is_ok(), "Should succeed via quote-normalized match");
+
+        let content = fs::read_to_string(&test_file).unwrap();
+        assert!(content.contains("world"), "Should contain replacement");
+    }
+
+    #[test]
+    fn test_str_replace_trimmed_match() {
+        let workspace = tempdir().unwrap();
+        let test_file = workspace.path().join("test.txt");
+        // File has trailing whitespace on lines
+        fs::write(&test_file, "  def foo():  \n    return 42  \n").unwrap();
+
+        let tool = ClaudeTextEditor;
+        let ctx = ToolContext::new(workspace.path());
+
+        // LLM sends trimmed version
+        let params = serde_json::json!({
+            "command": "str_replace",
+            "path": "test.txt",
+            "old_str": "def foo():\n    return 42",
+            "new_str": "def bar():\n    return 99"
+        });
+
+        let result = tool.execute(params, &ctx);
+        assert!(result.is_ok(), "Should succeed via trimmed match");
+
+        let content = fs::read_to_string(&test_file).unwrap();
+        assert!(content.contains("bar"), "Should contain replacement");
+        assert!(content.contains("99"), "Should contain new value");
+    }
+
+    #[test]
+    fn test_str_replace_all_strategies_fail() {
+        let workspace = tempdir().unwrap();
+        let test_file = workspace.path().join("test.txt");
+        fs::write(&test_file, "hello world").unwrap();
+
+        let tool = ClaudeTextEditor;
+        let ctx = ToolContext::new(workspace.path());
+
+        let params = serde_json::json!({
+            "command": "str_replace",
+            "path": "test.txt",
+            "old_str": "completely different content",
+            "new_str": "replacement"
+        });
+
+        let result = tool.execute(params, &ctx);
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert!(
+            output.text.contains("old_str not found"),
+            "Should report not found with all strategies mentioned"
+        );
     }
 }
