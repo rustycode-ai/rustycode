@@ -30,6 +30,7 @@ members = [
     "crates/rustycode-prompt",
     "crates/rustycode-providers",
     "crates/rustycode-runtime",
+    "crates/rustycode-sandbox",
     "crates/rustycode-session",
     "crates/rustycode-shared-runtime",
     "crates/rustycode-skill",
@@ -124,6 +125,7 @@ axum = { version = "0.8", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 cron = "0.16.0"
 rustycode-prompt = { path = "crates/rustycode-prompt" }
+rustycode-sandbox = { path = "crates/rustycode-sandbox" }
 
 # ---------------------------------------------------------------------------
 # Workspace-wide lint configuration (clippy + rustc)

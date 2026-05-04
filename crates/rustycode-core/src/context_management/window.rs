@@ -302,6 +302,17 @@ impl ContextWindow {
         self.used_tokens = used;
     }
 
+    /// Push an item into the window without capacity enforcement.
+    ///
+    /// Updates the used_tokens counter to reflect the new item. This is
+    /// intended for test helpers and internal crate operations that need
+    /// to populate a window beyond its normal capacity constraints.
+    pub(crate) fn push_item_unchecked(&mut self, item: ContextItem<String>) {
+        self.used_tokens = self.used_tokens.saturating_add(item.token_count);
+        self.content.push(item);
+        self.touch();
+    }
+
     /// Calculate a quality score for the current context (0.0 to 1.0).
     ///
     /// Higher scores indicate better context quality (more relevant,

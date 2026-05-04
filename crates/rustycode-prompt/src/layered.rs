@@ -358,6 +358,78 @@ mod tests {
     }
 
     #[test]
+    fn test_provider_routing_returns_correct_prompt() {
+        let builder = PromptBuilder::new();
+
+        let openai_prompt = builder.get_model_prompt(&ModelProvider::OpenAI);
+        assert!(
+            openai_prompt.contains("OpenAI"),
+            "OpenAI prompt should contain provider name"
+        );
+
+        let gemini_prompt = builder.get_model_prompt(&ModelProvider::Google);
+        assert!(
+            gemini_prompt.contains("Gemini"),
+            "Google prompt should contain Gemini"
+        );
+
+        let generic_prompt = builder.get_model_prompt(&ModelProvider::Generic);
+        assert!(
+            generic_prompt.contains("Core Principles"),
+            "Generic prompt should contain core principles"
+        );
+
+        let anthropic_prompt = builder.get_model_prompt(&ModelProvider::Anthropic);
+        assert!(
+            anthropic_prompt.contains("Claude") || anthropic_prompt.contains("Anthropic"),
+            "Anthropic prompt should contain provider name"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_built_prompt_contains_provider_specific_content() {
+        let builder = PromptBuilder::new();
+        let env = EnvironmentContext {
+            working_directory: PathBuf::from("/tmp/test"),
+            workspace_root: PathBuf::from("/tmp/test"),
+            is_git_repo: false,
+            platform: "linux".to_string(),
+            date: "2026-04-25".to_string(),
+            git_status: None,
+        };
+
+        // OpenAI model should get OpenAI-specific prompt
+        let openai_prompt = builder
+            .build("gpt-4", None, &env)
+            .await
+            .expect("build failed");
+        assert!(
+            openai_prompt.contains("OpenAI"),
+            "GPT-4 built prompt should contain OpenAI guidance"
+        );
+
+        // Gemini model should get Gemini-specific prompt
+        let gemini_prompt = builder
+            .build("gemini-pro", None, &env)
+            .await
+            .expect("build failed");
+        assert!(
+            gemini_prompt.contains("Gemini"),
+            "Gemini built prompt should contain Gemini guidance"
+        );
+
+        // Generic model should get generic fallback
+        let generic_prompt = builder
+            .build("llama-3", None, &env)
+            .await
+            .expect("build failed");
+        assert!(
+            generic_prompt.contains("Core Principles"),
+            "Llama built prompt should contain generic guidance"
+        );
+    }
+
+    #[test]
     fn test_model_provider_openrouter() {
         // OpenRouter with Anthropic model — "claude" substring matches first
         assert_eq!(

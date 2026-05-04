@@ -470,7 +470,24 @@ impl ServiceManager {
                         }
                     }
                 }
+                // Inject local decomposition plan for complex tasks
+                if analysis.complexity >= 2.0 {
+                    g.push_str("\n\n");
+                    g.push_str(&rustycode_orchestration::decompose_local(
+                        &content,
+                        analysis.clarity_report.as_ref(),
+                        analysis.complexity,
+                    ));
+                }
                 Some(g)
+            } else if analysis.complexity >= 2.5 {
+                // Non-trivial tasks that don't trigger structured thinking still get a plan
+                let plan = rustycode_orchestration::decompose_local(
+                    &content,
+                    analysis.clarity_report.as_ref(),
+                    analysis.complexity,
+                );
+                Some(plan)
             } else {
                 None
             };

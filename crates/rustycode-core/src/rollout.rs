@@ -1,0 +1,384 @@
+//! Session recording for replay and debugging.
+//!
+//! Records all LLM interactions, tool calls, and compaction events as JSONL
+//! for session replay and post-mortem analysis.
+
+use anyhow::Result;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use tokio::fs::{File, OpenOptions};
+use tokio::io::AsyncWriteExt;
+use tokio::sync::mpsc;
+
+const CHANNEL_CAPACITY: usize = 1024;
+
+/// Configuration for the rollout recorder.
+#[derive(Debug, Clone)]
+pub struct RolloutConfig {
+    /// Directory to store session files. Defaults to `.rustycode/sessions/`.
+    pub sessions_dir: PathBuf,
+    /// Whether recording is enabled.
+    pub enabled: bool,
+    /// Flush to disk on every event (vs buffered).
+    pub flush_on_every_event: bool,
+}
+
+impl Default for RolloutConfig {
+    fn default() -> Self {
+        Self {
+            sessions_dir: PathBuf::from(".rustycode/sessions"),
+            enabled: true,
+            flush_on_every_event: false,
+        }
+    }
+}
+
+/// Token usage snapshot for an event.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TokenUsage {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub cache_read_tokens: u64,
+}
+
+/// Events that can be recorded during a session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum RolloutEvent {
+    #[serde(rename = "session_start")]
+    SessionStart {
+        session_id: String,
+        model: String,
+        timestamp: DateTime<Utc>,
+    },
+    #[serde(rename = "user_message")]
+    UserMessage {
+        content: String,
+        timestamp: DateTime<Utc>,
+    },
+    #[serde(rename = "assistant_message")]
+    AssistantMessage {
+        content: String,
+        model: String,
+        tokens: TokenUsage,
+        duration_ms: u64,
+        timestamp: DateTime<Utc>,
+    },
+    #[serde(rename = "tool_call")]
+    ToolCall {
+        tool_name: String,
+        input: serde_json::Value,
+        timestamp: DateTime<Utc>,
+    },
+    #[serde(rename = "tool_result")]
+    ToolResult {
+        tool_name: String,
+        output: String,
+        success: bool,
+        duration_ms: u64,
+        timestamp: DateTime<Utc>,
+    },
+    #[serde(rename = "compaction")]
+    Compaction {
+        tokens_before: usize,
+        tokens_after: usize,
+        strategy: String,
+        timestamp: DateTime<Utc>,
+    },
+    #[serde(rename = "session_end")]
+    SessionEnd {
+        reason: String,
+        total_tokens: u64,
+        timestamp: DateTime<Utc>,
+    },
+}
+
+impl RolloutEvent {
+    pub fn timestamp(&self) -> &DateTime<Utc> {
+        match self {
+            Self::SessionStart { timestamp, .. }
+            | Self::UserMessage { timestamp, .. }
+            | Self::AssistantMessage { timestamp, .. }
+            | Self::ToolCall { timestamp, .. }
+            | Self::ToolResult { timestamp, .. }
+            | Self::Compaction { timestamp, .. }
+            | Self::SessionEnd { timestamp, .. } => timestamp,
+        }
+    }
+}
+
+/// Records all session events to a JSONL file for replay/inspection.
+///
+/// Uses an async writer via an mpsc channel so the caller never blocks
+/// on disk I/O.
+#[derive(Debug, Clone)]
+pub struct RolloutRecorder {
+    sender: mpsc::Sender<RolloutEvent>,
+    session_id: String,
+    enabled: bool,
+}
+
+impl RolloutRecorder {
+    /// Create a new recorder. Spawns a background writer task.
+    pub async fn new(session_id: &str, config: &RolloutConfig) -> Result<Self> {
+        if !config.enabled {
+            return Ok(Self {
+                sender: mpsc::channel(1).0,
+                session_id: session_id.to_string(),
+                enabled: false,
+            });
+        }
+
+        let path = config.sessions_dir.join(format!("{session_id}.jsonl"));
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .await?;
+
+        let (sender, receiver) = mpsc::channel(CHANNEL_CAPACITY);
+        let flush_every = config.flush_on_every_event;
+
+        tokio::spawn(async move {
+            Self::writer_loop(file, receiver, flush_every).await;
+        });
+
+        Ok(Self {
+            sender,
+            session_id: session_id.to_string(),
+            enabled: true,
+        })
+    }
+
+    /// Create a no-op recorder (recording disabled).
+    pub fn disabled(session_id: &str) -> Self {
+        Self {
+            sender: mpsc::channel(1).0,
+            session_id: session_id.to_string(),
+            enabled: false,
+        }
+    }
+
+    /// Record an event. Returns immediately; actual I/O is async.
+    pub fn record(&self, event: RolloutEvent) {
+        if !self.enabled {
+            return;
+        }
+        // Send is non-blocking; if the channel is full the event is dropped.
+        let _ = self.sender.try_send(event);
+    }
+
+    /// Convenience: record a session start event.
+    pub fn session_start(&self, model: &str) {
+        self.record(RolloutEvent::SessionStart {
+            session_id: self.session_id.clone(),
+            model: model.to_string(),
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Convenience: record a user message.
+    pub fn user_message(&self, content: &str) {
+        self.record(RolloutEvent::UserMessage {
+            content: content.to_string(),
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Convenience: record an assistant message.
+    pub fn assistant_message(&self, content: &str, model: &str, tokens: TokenUsage, duration_ms: u64) {
+        self.record(RolloutEvent::AssistantMessage {
+            content: content.to_string(),
+            model: model.to_string(),
+            tokens,
+            duration_ms,
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Convenience: record a tool call.
+    pub fn tool_call(&self, tool_name: &str, input: serde_json::Value) {
+        self.record(RolloutEvent::ToolCall {
+            tool_name: tool_name.to_string(),
+            input,
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Convenience: record a tool result.
+    pub fn tool_result(&self, tool_name: &str, output: &str, success: bool, duration_ms: u64) {
+        self.record(RolloutEvent::ToolResult {
+            tool_name: tool_name.to_string(),
+            output: output.to_string(),
+            success,
+            duration_ms,
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Convenience: record a compaction event.
+    pub fn compaction(&self, tokens_before: usize, tokens_after: usize, strategy: &str) {
+        self.record(RolloutEvent::Compaction {
+            tokens_before,
+            tokens_after,
+            strategy: strategy.to_string(),
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Convenience: record session end.
+    pub fn session_end(&self, reason: &str, total_tokens: u64) {
+        self.record(RolloutEvent::SessionEnd {
+            reason: reason.to_string(),
+            total_tokens,
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Return the session ID.
+    pub fn session_id(&self) -> &str {
+        &self.session_id
+    }
+
+    /// Return whether recording is active.
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// Background writer loop.
+    async fn writer_loop(
+        mut file: File,
+        mut receiver: mpsc::Receiver<RolloutEvent>,
+        flush_every: bool,
+    ) {
+        while let Some(event) = receiver.recv().await {
+            match serde_json::to_string(&event) {
+                Ok(line) => {
+                    // Append newline-terminated JSON
+                    let _ = file.write_all(line.as_bytes()).await;
+                    let _ = file.write_all(b"\n").await;
+                    if flush_every {
+                        let _ = file.flush().await;
+                    }
+                }
+                Err(e) => {
+                    tracing::debug!("rollout: failed to serialize event: {e}");
+                }
+            }
+        }
+        // Flush on channel close (session end)
+        let _ = file.flush().await;
+    }
+}
+
+/// Read events from a recorded session JSONL file.
+pub async fn read_rollout(path: &Path) -> Result<Vec<RolloutEvent>> {
+    let content = tokio::fs::read_to_string(path).await?;
+    let mut events = Vec::new();
+    for line in content.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str(line) {
+            Ok(event) => events.push(event),
+            Err(e) => tracing::debug!("rollout: skipping malformed line: {e}"),
+        }
+    }
+    Ok(events)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write as StdWrite;
+
+    #[tokio::test]
+    async fn test_disabled_recorder_does_nothing() {
+        let recorder = RolloutRecorder::disabled("test-session");
+        assert!(!recorder.is_enabled());
+        // These should be no-ops
+        recorder.session_start("test-model");
+        recorder.user_message("hello");
+        recorder.session_end("done", 0);
+    }
+
+    #[tokio::test]
+    async fn test_recorder_writes_events() {
+        let dir = std::env::temp_dir().join(format!("rollout-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let config = RolloutConfig {
+            sessions_dir: dir.clone(),
+            enabled: true,
+            flush_on_every_event: true,
+        };
+
+        let recorder = RolloutRecorder::new("test-session", &config)
+            .await
+            .unwrap();
+
+        assert!(recorder.is_enabled());
+
+        recorder.session_start("test-model");
+        recorder.user_message("write a hello world");
+        recorder.assistant_message(
+            "Here is hello world",
+            "test-model",
+            TokenUsage {
+                input_tokens: 10,
+                output_tokens: 20,
+                ..Default::default()
+            },
+            500,
+        );
+        recorder.tool_call("write_file", serde_json::json!({"path": "hello.rs"}));
+        recorder.tool_result("write_file", "File written", true, 100);
+        recorder.session_end("completed", 30);
+
+        // Drop to close the channel and flush
+        drop(recorder);
+
+        // Give the writer task time to finish
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        let file_path = dir.join("test-session.jsonl");
+        let events = read_rollout(&file_path).await.unwrap();
+
+        assert_eq!(events.len(), 6);
+
+        // Verify ordering and types
+        assert!(matches!(&events[0], RolloutEvent::SessionStart { session_id, .. } if session_id == "test-session"));
+        assert!(matches!(&events[1], RolloutEvent::UserMessage { content, .. } if content == "write a hello world"));
+        assert!(matches!(&events[2], RolloutEvent::AssistantMessage { .. }));
+        assert!(matches!(&events[3], RolloutEvent::ToolCall { tool_name, .. } if tool_name == "write_file"));
+        assert!(matches!(&events[4], RolloutEvent::ToolResult { .. }));
+        assert!(matches!(&events[5], RolloutEvent::SessionEnd { reason, .. } if reason == "completed"));
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_read_malformed_jsonl() {
+        let dir = std::env::temp_dir().join(format!("rollout-malformed-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("bad.jsonl");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(f, r#"{{"type":"session_start","session_id":"s1","model":"m","timestamp":"2026-01-01T00:00:00Z"}}"#).unwrap();
+        writeln!(f, "not-json").unwrap();
+        writeln!(f, "").unwrap();
+        writeln!(f, r#"{{"type":"session_end","reason":"ok","total_tokens":0,"timestamp":"2026-01-01T00:00:00Z"}}"#).unwrap();
+
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let events = rt.block_on(read_rollout(&path)).unwrap();
+        assert_eq!(events.len(), 2); // malformed line skipped
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

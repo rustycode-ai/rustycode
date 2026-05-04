@@ -532,16 +532,14 @@ impl OpenAiProvider {
                 },
             },
             prompt_template: PromptTemplate {
-                base_template: "You are a helpful AI assistant powered by GPT.\n\n=== YOUR ROLE ===\n{context}\n\n=== FUNCTION CALLING ===\nWhen you need to call a function, respond with a JSON object containing 'function_name' and 'parameters'.\n\n=== RESPONSE GUIDELINES ===\n- Be direct and concise in your responses\n- Use bullet points or numbered lists when appropriate\n- When writing code, provide brief comments explaining complex logic\n- Focus on practical, actionable solutions\n- Validate assumptions before proceeding".to_string(),
+                base_template: "You are RustyCode, a coding assistant.\n\n{context}\n\n## GPT Guidance\n- Use outcome-first framing: state the goal, then the steps\n- Maximize parallel tool calls when outputs are independent\n- Adapt output depth to reasoning effort level".to_string(),
                 optimizations: PromptOptimizations {
                     prefer_xml_structure: false,
                     include_examples: false,
                     preferred_prompt_length: PromptLength::Medium,
                     special_instructions: vec![
-                        "Be direct and concise in your responses.".to_string(),
-                        "Use bullet points or numbered lists when appropriate.".to_string(),
-                        "When writing code, provide brief comments explaining complex logic.".to_string(),
-                        "Focus on practical, implementable solutions.".to_string(),
+                        "Use explicit behavioral contracts for complex tasks.".to_string(),
+                        "Adapt detail level to reasoning effort — direct for low, thorough for high.".to_string(),
                     ],
                 },
                 tool_format: ToolFormat::OpenAIFunctionCalling,

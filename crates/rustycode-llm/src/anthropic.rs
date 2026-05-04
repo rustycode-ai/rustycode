@@ -1304,16 +1304,14 @@ impl AnthropicProvider {
                 },
             },
             prompt_template: PromptTemplate {
-                base_template: "You are Claude, a helpful AI assistant.\n\n=== YOUR ROLE ===\n{context}\n\n=== TOOL USE ===\nWhen you need to use a tool, respond with a tool_use block in the following XML format:\n<tool_use>\n  <tool_name>$TOOL_NAME</tool_name>\n  <tool_input>$JSON_INPUT</tool_input>\n</tool_use>\n\n=== RESPONSE GUIDELINES ===\n- Be direct and concise in your responses\n- Use bullet points or numbered lists when appropriate\n- When writing code, provide brief comments explaining complex logic\n- Focus on practical, actionable solutions\n- Validate assumptions before proceeding\n- Always cite your sources when referencing information\n\n=== THINKING PROCESS ===\n- Break down complex problems into manageable steps\n- Consider multiple perspectives before concluding\n- Acknowledge uncertainty in your reasoning".to_string(),
+                base_template: "You are RustyCode, a coding assistant.\n\n{context}\n\n## Claude Guidance\n- Use XML tags for structured output (<analysis>, <plan>, <implementation>)\n- Clear, direct instructions work better than verbose ones\n- Handle complex multi-step instructions in a single prompt when possible".to_string(),
                 optimizations: PromptOptimizations {
                     prefer_xml_structure: true,
                     include_examples: false,
                     preferred_prompt_length: PromptLength::Medium,
                     special_instructions: vec![
-                        "Always think step-by-step when solving complex problems.".to_string(),
-                        "Use <thinking> blocks to show your reasoning process.".to_string(),
-                        "Be thorough in your analysis while remaining concise.".to_string(),
-                        "Cite sources when referencing specific information.".to_string(),
+                        "Use <thinking> blocks for internal reasoning on complex problems.".to_string(),
+                        "Keep instructions concise — Claude attends more to shorter prompts.".to_string(),
                     ],
                 },
                 tool_format: ToolFormat::AnthropicXML,

@@ -169,6 +169,24 @@ impl DomainContext {
         if let Some(strategy) = &self.test_strategy {
             out.push_str(&format!("test_strategy: {strategy}\n"));
         }
+        if let Some(lint) = &self.lint_config {
+            if let Some(linter) = &lint.linter {
+                out.push_str("lint:\n");
+                out.push_str(&format!("  command: {linter}\n"));
+                if let Some(cfg) = &lint.config_file {
+                    out.push_str(&format!("  config: {cfg}\n"));
+                }
+            }
+        }
+        if let Some(fmt) = &self.formatter_config {
+            if let Some(formatter) = &fmt.formatter {
+                out.push_str("formatter:\n");
+                out.push_str(&format!("  command: {formatter}\n"));
+                if let Some(cfg) = &fmt.config_file {
+                    out.push_str(&format!("  config: {cfg}\n"));
+                }
+            }
+        }
         out.push_str(&format!("autonomy_default: {}\n", self.autonomy_default));
         out
     }
@@ -322,5 +340,46 @@ autonomy_overrides:
         ctx.autonomy_overrides
             .insert("unknown".to_string(), AutonomyLevel::L4);
         assert_eq!(ctx.resolve_autonomy("unknown"), AutonomyLevel::L4);
+    }
+
+    #[test]
+    fn format_markdown_includes_lint_and_formatter() {
+        let ctx = DomainContext {
+            project_name: "test-project".to_string(),
+            language: "rust".to_string(),
+            build_commands: vec!["cargo build".to_string()],
+            test_commands: vec!["cargo test".to_string()],
+            lint_config: Some(DomainLintConfig {
+                linter: Some("cargo clippy -- -D warnings".to_string()),
+                config_file: Some("clippy.toml".to_string()),
+            }),
+            formatter_config: Some(DomainFormatterConfig {
+                formatter: Some("rustfmt".to_string()),
+                config_file: Some("rustfmt.toml".to_string()),
+            }),
+            ..Default::default()
+        };
+        let md = ctx.format_markdown();
+        assert!(md.contains("lint:"));
+        assert!(md.contains("cargo clippy -- -D warnings"));
+        assert!(md.contains("clippy.toml"));
+        assert!(md.contains("formatter:"));
+        assert!(md.contains("rustfmt"));
+        assert!(md.contains("rustfmt.toml"));
+    }
+
+    #[test]
+    fn format_markdown_omits_lint_when_no_linter() {
+        let ctx = DomainContext {
+            project_name: "test".to_string(),
+            language: "rust".to_string(),
+            lint_config: Some(DomainLintConfig {
+                linter: None,
+                config_file: None,
+            }),
+            ..Default::default()
+        };
+        let md = ctx.format_markdown();
+        assert!(!md.contains("lint:"));
     }
 }

@@ -336,6 +336,31 @@ impl Tool for ReadFileTool {
             .and_then(Value::as_bool)
             .unwrap_or(false);
 
+        // Notebook files: parse as text regardless of binary setting
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            if ext.eq_ignore_ascii_case("ipynb") {
+                let content = std::fs::read_to_string(&path)
+                    .with_context(|| format!("read notebook {}", path.display()))?;
+                let parsed = crate::notebook::parse_notebook(&content)?;
+                let total_lines = parsed.lines().count();
+
+                let hash_prefix = compute_hash_prefix(content.as_bytes());
+                record_file_read(ctx, &path, &hash_prefix, true);
+
+                let path_display = path.display().to_string();
+                return Ok(ToolOutput::with_structured(
+                    parsed.clone(),
+                    json!({
+                        "path": path_display,
+                        "type": "notebook",
+                        "bytes": parsed.len(),
+                        "total_lines": total_lines,
+                        "binary": false
+                    }),
+                ));
+            }
+        }
+
         // Check for binary file before reading
         if detect_binary(&path) && !allow_binary {
             let ext = path
@@ -383,6 +408,33 @@ impl Tool for ReadFileTool {
             let mut bytes = Vec::new();
             use std::io::Read;
             f.read_to_end(&mut bytes)?;
+
+            // Image processing pipeline
+            if crate::image_detect::image_type_from_extension(&path).is_some() {
+                match crate::image::process_image(&bytes, crate::image::DEFAULT_MAX_TOKENS) {
+                    Ok(processed) => {
+                        return Ok(ToolOutput::with_structured(
+                            processed.base64_data.clone(),
+                            json!({
+                                "path": path.display().to_string(),
+                                "type": "image",
+                                "media_type": processed.media_type,
+                                "base64": processed.base64_data,
+                                "original_dimensions": [processed.original_dimensions.0, processed.original_dimensions.1],
+                                "output_dimensions": [processed.output_dimensions.0, processed.output_dimensions.1],
+                                "original_size": processed.original_size,
+                                "output_size": processed.output_size,
+                                "compression_level": format!("{:?}", processed.compression_level),
+                            }),
+                        ));
+                    }
+                    Err(e) => {
+                        tracing::warn!(path = %path.display(), error = %e, "image processing failed, falling back to raw base64");
+                    }
+                }
+            }
+
+            // Default: raw base64 for non-image binaries
             let total_bytes = bytes.len();
             let preview = truncate_bytes_to_boundary(&bytes, WEB_FETCH_MAX_CHARS);
             let encoded = STANDARD.encode(preview);

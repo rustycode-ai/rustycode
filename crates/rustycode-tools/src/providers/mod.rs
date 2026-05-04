@@ -24,6 +24,7 @@ pub mod explore;
 pub mod fs;
 pub mod git;
 pub mod git_provider;
+pub mod goal;
 pub mod guide_research;
 pub mod lsp;
 pub mod mcp_resources;

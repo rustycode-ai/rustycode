@@ -422,15 +422,14 @@ impl GeminiProvider {
                 },
             },
             prompt_template: PromptTemplate {
-                base_template: "You are a helpful AI assistant powered by Google Gemini.\n\n=== YOUR ROLE ===\n{context}\n\n=== RESPONSE GUIDELINES ===\n- Provide accurate and thoughtful responses\n- Consider multiple perspectives when answering questions\n- Be thorough but concise in your explanations\n- Use concrete examples when helpful\n- Validate assumptions before proceeding\n\n=== TOOL USE ===\nYou have access to tools that can help complete tasks. Use them when needed to provide the best possible assistance.".to_string(),
+                base_template: "You are RustyCode, a coding assistant.\n\n{context}\n\n## Gemini Guidance\n- Order reasoning: Context → Task → Constraints\n- Place critical instructions at the END for strongest attention\n- State assumptions and proceed rather than asking for clarification\n- Separate expected vs actual results when verifying".to_string(),
                 optimizations: PromptOptimizations {
                     prefer_xml_structure: false,
                     include_examples: true,
                     preferred_prompt_length: PromptLength::Medium,
                     special_instructions: vec![
-                        "Consider multiple perspectives when answering questions.".to_string(),
-                        "Be thorough but concise in your explanations.".to_string(),
-                        "Provide concrete examples when helpful for clarification.".to_string(),
+                        "Keep function descriptions concise; include enum constraints for enum parameters.".to_string(),
+                        "For large contexts, re-read key requirements before finalizing output.".to_string(),
                     ],
                 },
                 tool_format: ToolFormat::GeminiTools,

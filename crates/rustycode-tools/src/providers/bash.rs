@@ -1159,7 +1159,21 @@ impl Tool for BashTool {
         let truncated = truncate_bash_output(&stdout, &stderr, exit_code);
 
         // Extract output text before consuming truncated
-        let output_text = truncated.as_str().to_string();
+        let mut output_text = truncated.as_str().to_string();
+
+        // Append hints for common binary-not-found errors
+        let output_lower = output_text.to_lowercase();
+        if exit_code != 0 {
+            if output_lower.contains("python: command not found")
+                || output_lower.contains("python: not found")
+            {
+                output_text.push_str("\n\nHINT: `python` is not available. Try `python3` instead. You can check with: which python3");
+            } else if output_lower.contains("python3: command not found")
+                || output_lower.contains("python3: not found")
+            {
+                output_text.push_str("\n\nHINT: `python3` is not available. Try `python` instead.");
+            }
+        }
 
         // Build enhanced metadata with execution time
         let metadata = {

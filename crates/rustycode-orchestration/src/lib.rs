@@ -217,6 +217,7 @@ pub use state_derivation::{
 pub use swebench::{SweBenchPrediction, SweBenchRunner};
 pub use task_dispatcher::{TaskDispatcher, TaskResult};
 pub use task_runner::{TaskRunResult, TaskRunner};
+pub use task_decomposer::{decompose_local, detect_task_type, extract_concepts, DecomposedTask, Decomposer, TaskDecomposer, TaskType};
 
 // Optimization module re-exports.
 pub use cache::{CacheMetrics, PromptCacheManager};

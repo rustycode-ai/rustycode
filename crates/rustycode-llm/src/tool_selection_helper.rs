@@ -331,6 +331,8 @@ pub mod formatters {
                 defer_loading: None,
                 annotations: None,
                 tags: vec![],
+                max_result_size_chars: None,
+                is_destructive_default: false,
             }
         }
 
@@ -343,6 +345,8 @@ pub mod formatters {
                 defer_loading: Some(true),
                 annotations: None,
                 tags: vec![],
+                max_result_size_chars: None,
+                is_destructive_default: false,
             }
         }
 

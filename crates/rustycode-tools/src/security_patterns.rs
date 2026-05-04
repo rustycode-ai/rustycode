@@ -171,7 +171,7 @@ pub const THREAT_PATTERNS: &[ThreatPattern] = &[
     // Network access / reverse shells
     ThreatPattern {
         name: "reverse_shell",
-        pattern: r"(nc|netcat|bash|sh).*-e\s*(bash|sh|bash|/bin/sh)",
+        pattern: r"(nc|netcat|bash|sh).*-e\s*(bash|sh|/bin/sh|/bin/bash)",
         description: "Reverse shell creation",
         risk_level: RiskLevel::Critical,
         category: ThreatCategory::NetworkAccess,

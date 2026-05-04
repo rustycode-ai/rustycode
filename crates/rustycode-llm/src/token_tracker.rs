@@ -41,6 +41,10 @@ pub struct TrackedRequest {
     pub provider_type: String,
     pub model: String,
     pub tokens_used: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cache_creation_tokens: u64,
+    pub cache_read_tokens: u64,
     pub cost_usd: f64,
     pub timestamp_secs: u64,
     pub duration_ms: u64,
@@ -77,7 +81,9 @@ pub fn cost_per_million_tokens_io(model: &str) -> (f64, f64) {
         (2.5, 10.0)
     }
     // o3/o1 series (reasoning models)
-    else if model.starts_with("o3") {
+    else if model.starts_with("o4-mini") {
+        (1.10, 4.40)
+    } else if model.starts_with("o3") {
         (10.0, 40.0)
     } else if model.starts_with("o1") {
         (15.0, 60.0)
@@ -136,8 +142,23 @@ impl TokenTracker {
 
     /// Record a completed LLM request (lock-free for counters)
     pub fn record(&self, provider_type: &str, model: &str, tokens: u64, duration_ms: u64) {
-        let cost = (tokens as f64 / 1_000_000.0) * cost_per_million_tokens(model);
+        self.record_detailed(provider_type, model, 0, 0, 0, 0, duration_ms)
+    }
+
+    /// Record a completed LLM request with detailed token breakdown.
+    pub fn record_detailed(
+        &self,
+        provider_type: &str,
+        model: &str,
+        input_tokens: u64,
+        output_tokens: u64,
+        cache_creation_tokens: u64,
+        cache_read_tokens: u64,
+        duration_ms: u64,
+    ) {
+        let cost = estimate_cost(model, input_tokens as usize, output_tokens as usize);
         let cost_cents = (cost * 100.0) as u64;
+        let tokens = input_tokens + output_tokens;
         let timestamp_secs = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or(Duration::ZERO)
@@ -155,6 +176,10 @@ impl TokenTracker {
             provider_type: provider_type.to_string(),
             model: model.to_string(),
             tokens_used: tokens,
+            input_tokens,
+            output_tokens,
+            cache_creation_tokens,
+            cache_read_tokens,
             cost_usd: cost,
             timestamp_secs,
             duration_ms,

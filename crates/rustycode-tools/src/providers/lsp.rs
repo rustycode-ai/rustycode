@@ -2989,7 +2989,7 @@ mod tests {
         assert_eq!(tool.name(), "lsp_hover");
         assert_eq!(
             tool.description(),
-            "Get hover information (documentation, type info) for code at a specific position. Use this to understand what a function, variable, or parameter does. Requires file_path, line, and character position."
+            "Get type information, documentation, and signature at a specific position. Use when: you need to know the type of a variable, the signature of a function, or the docs for a method. Faster than reading the whole file. Requires: file_path, line, character."
         );
     }
 
@@ -3131,7 +3131,7 @@ mod tests {
         assert_eq!(tool.name(), "lsp_definition");
         assert_eq!(
             tool.description(),
-            "Jump to the definition of a function, variable, or type at a specific position. Use this to find where symbols are defined in the codebase. Requires file_path, line, and character position."
+            "Jump to the definition of a function, variable, type, or import at a specific position. PREFER THIS OVER GREP for navigation — gives the exact definition location. Use when: you see a symbol used in code and want to find where it's defined, you need to trace an import to its source. Requires: file_path, line, character."
         );
     }
 

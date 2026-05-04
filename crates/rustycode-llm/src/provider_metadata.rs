@@ -433,9 +433,8 @@ mod tests {
         let meta = crate::anthropic::AnthropicProvider::metadata();
         let prompt = meta.generate_system_prompt("Help the user.");
         assert!(prompt.contains("Help the user"));
-        assert!(prompt.contains("XML format"));
-        // <tool_name> is a placeholder in the template showing tool call format
-        assert!(prompt.contains("<tool_name>"));
+        assert!(prompt.contains("RustyCode"));
+        assert!(prompt.contains("XML"));
     }
 
     #[test]

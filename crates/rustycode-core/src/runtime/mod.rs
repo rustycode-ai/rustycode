@@ -226,6 +226,8 @@ impl Runtime {
                     defer_loading: None,
                     annotations: None,
                     tags: vec![],
+                    max_result_size_chars: None,
+                    is_destructive_default: false,
                 });
             }
         }

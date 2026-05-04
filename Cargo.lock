@@ -6501,6 +6501,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustycode-sandbox"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "rustycode-session"
 version = "0.1.0"
 dependencies = [
@@ -6621,6 +6633,7 @@ dependencies = [
  "handlebars",
  "html2md",
  "ignore",
+ "image",
  "landlock",
  "libc",
  "log",
