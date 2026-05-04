@@ -573,6 +573,8 @@ mod tests {
                 defer_loading: None,
                 annotations: None,
                 tags: vec![],
+                is_destructive_default: false,
+                max_result_size_chars: None,
             },
             rustycode_tools::ToolInfo {
                 name: "write_file".to_string(),
@@ -595,6 +597,8 @@ mod tests {
                 defer_loading: None,
                 annotations: None,
                 tags: vec![],
+                is_destructive_default: true,
+                max_result_size_chars: None,
             },
             rustycode_tools::ToolInfo {
                 name: "bash".to_string(),
@@ -613,6 +617,8 @@ mod tests {
                 defer_loading: None,
                 annotations: None,
                 tags: vec![],
+                is_destructive_default: true,
+                max_result_size_chars: None,
             },
         ]
     }
