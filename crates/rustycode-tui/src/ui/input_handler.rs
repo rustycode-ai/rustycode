@@ -1031,4 +1031,322 @@ mod tests {
         // cursor_col is floored to byte 4, so 😀 is kept
         assert_eq!(handler.state.lines[0], "😀");
     }
+
+    // === Shift+Arrow selection tests ===
+
+    // -- Shift+Left/Right single-line --
+
+    #[test]
+    fn test_handler_shift_left_starts_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 5;
+
+        let action = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(5));
+        assert_eq!(handler.state.selection_anchor_row, Some(0));
+        assert_eq!(handler.state.cursor_col, 4);
+        assert_eq!(handler.state.get_selected_text(), Some("o".to_string()));
+    }
+
+    #[test]
+    fn test_handler_shift_right_starts_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 2;
+
+        let action = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(2));
+        assert_eq!(handler.state.selection_anchor_row, Some(0));
+        assert_eq!(handler.state.cursor_col, 3);
+        assert_eq!(handler.state.get_selected_text(), Some("l".to_string()));
+    }
+
+    #[test]
+    fn test_handler_shift_left_multiple_extends() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello World".to_string();
+        handler.state.cursor_col = 5;
+
+        let action = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+        let action = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+        let action = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(5));
+        assert_eq!(handler.state.cursor_col, 2);
+        assert_eq!(handler.state.get_selected_text(), Some("llo".to_string()));
+    }
+
+    #[test]
+    fn test_handler_shift_right_multiple_extends() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 0;
+
+        let action = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+        let action = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+        let action = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(0));
+        assert_eq!(handler.state.cursor_col, 3);
+        assert_eq!(handler.state.get_selected_text(), Some("Hel".to_string()));
+    }
+
+    // -- Shift+Up/Down multi-line --
+
+    #[test]
+    fn test_handler_shift_up_multi_line() {
+        let mut handler = InputHandler::new();
+        handler.state.mode = InputMode::MultiLine;
+        handler.state.lines = vec!["Hello".to_string(), "World".to_string()];
+        handler.state.cursor_row = 1;
+        handler.state.cursor_col = 3;
+
+        let action = handler.handle_key_event(KeyCode::Up, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(3));
+        assert_eq!(handler.state.selection_anchor_row, Some(1));
+        assert_eq!(handler.state.cursor_row, 0);
+        assert_eq!(handler.state.cursor_col, 3);
+
+        let selected = handler.state.get_selected_text();
+        assert!(selected.is_some());
+        let text = selected.unwrap();
+        assert!(text.contains("lo"));
+        assert!(text.contains("Wor"));
+    }
+
+    #[test]
+    fn test_handler_shift_down_multi_line() {
+        let mut handler = InputHandler::new();
+        handler.state.mode = InputMode::MultiLine;
+        handler.state.lines = vec!["Hello".to_string(), "World".to_string()];
+        handler.state.cursor_row = 0;
+        handler.state.cursor_col = 3;
+
+        let action = handler.handle_key_event(KeyCode::Down, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(3));
+        assert_eq!(handler.state.selection_anchor_row, Some(0));
+        assert_eq!(handler.state.cursor_row, 1);
+        assert_eq!(handler.state.cursor_col, 3);
+    }
+
+    #[test]
+    fn test_handler_shift_up_in_single_line_mode() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 3;
+
+        let action = handler.handle_key_event(KeyCode::Up, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(3));
+        assert_eq!(handler.state.cursor_row, 0);
+        assert_eq!(handler.state.cursor_col, 3);
+        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+    }
+
+    // -- Shift+Home/End --
+
+    #[test]
+    fn test_handler_shift_home_selects_to_start() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello World".to_string();
+        handler.state.cursor_col = 7;
+
+        let action = handler.handle_key_event(KeyCode::Home, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(7));
+        assert_eq!(handler.state.cursor_col, 0);
+        assert_eq!(
+            handler.state.get_selected_text(),
+            Some("Hello W".to_string())
+        );
+    }
+
+    #[test]
+    fn test_handler_shift_end_selects_to_end() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello World".to_string();
+        handler.state.cursor_col = 2;
+
+        let action = handler.handle_key_event(KeyCode::End, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(2));
+        assert_eq!(handler.state.cursor_col, 11);
+        assert_eq!(
+            handler.state.get_selected_text(),
+            Some("llo World".to_string())
+        );
+    }
+
+    // -- Ctrl+Shift+Left/Right (word selection) --
+
+    #[test]
+    fn test_handler_ctrl_shift_left_word_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello World".to_string();
+        handler.state.cursor_col = 11;
+
+        let action =
+            handler.handle_key_event(KeyCode::Left, KeyModifiers::CONTROL | KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Ignored);
+
+        assert!(!handler.state.has_selection());
+        assert_eq!(handler.state.cursor_col, 11);
+    }
+
+    #[test]
+    fn test_handler_ctrl_shift_right_word_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello World".to_string();
+        handler.state.cursor_col = 0;
+
+        let action =
+            handler.handle_key_event(KeyCode::Right, KeyModifiers::CONTROL | KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Ignored);
+
+        assert!(!handler.state.has_selection());
+        assert_eq!(handler.state.cursor_col, 0);
+    }
+
+    // -- Selection clearing --
+
+    #[test]
+    fn test_handler_plain_left_clears_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 3;
+
+        let _ = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert!(handler.state.has_selection());
+
+        let action = handler.handle_key_event(KeyCode::Left, KeyModifiers::NONE);
+        assert_eq!(action, InputAction::Consumed);
+        assert!(!handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, None);
+    }
+
+    #[test]
+    fn test_handler_plain_right_clears_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 2;
+
+        let _ = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert!(handler.state.has_selection());
+
+        let action = handler.handle_key_event(KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!(action, InputAction::Consumed);
+        assert!(!handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, None);
+    }
+
+    #[test]
+    fn test_handler_typing_clears_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 3;
+
+        let _ = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert!(handler.state.has_selection());
+
+        let action = handler.handle_key_event(KeyCode::Char('x'), KeyModifiers::NONE);
+        assert_eq!(action, InputAction::Consumed);
+        assert!(!handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, None);
+    }
+
+    #[test]
+    fn test_handler_plain_up_clears_selection() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 3;
+
+        let _ = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert!(handler.state.has_selection());
+
+        let action = handler.handle_key_event(KeyCode::Up, KeyModifiers::NONE);
+        assert_eq!(action, InputAction::Consumed);
+        assert!(!handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, None);
+    }
+
+    // -- Edge cases --
+
+    #[test]
+    fn test_handler_shift_left_at_start() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 0;
+
+        let action = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(0));
+        assert_eq!(handler.state.cursor_col, 0);
+        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+    }
+
+    #[test]
+    fn test_handler_shift_right_at_end() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello".to_string();
+        handler.state.cursor_col = 5;
+
+        let action = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(action, InputAction::Consumed);
+
+        assert!(handler.state.has_selection());
+        assert_eq!(handler.state.selection_anchor_col, Some(5));
+        assert_eq!(handler.state.cursor_col, 5);
+        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+    }
+
+    #[test]
+    fn test_handler_selection_direction_reversal() {
+        let mut handler = InputHandler::new();
+        handler.state.lines[0] = "Hello World".to_string();
+        handler.state.cursor_col = 5;
+
+        let _ = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
+        assert_eq!(handler.state.selection_anchor_col, Some(5));
+        assert_eq!(handler.state.cursor_col, 4);
+        assert_eq!(handler.state.get_selected_text(), Some("o".to_string()));
+
+        let _ = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(handler.state.selection_anchor_col, Some(5));
+        assert_eq!(handler.state.cursor_col, 5);
+        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+
+        let _ = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
+        assert_eq!(handler.state.selection_anchor_col, Some(5));
+        assert_eq!(handler.state.cursor_col, 6);
+        assert_eq!(handler.state.get_selected_text(), Some(" ".to_string()));
+    }
 }

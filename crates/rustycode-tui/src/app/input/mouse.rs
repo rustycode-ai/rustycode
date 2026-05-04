@@ -231,7 +231,7 @@ impl TUI {
 #[cfg(test)]
 mod tests {
     use super::TUI;
-    use crossterm::event::{KeyModifiers, MouseEvent, MouseEventKind};
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
     use ratatui::layout::Rect;
 
     #[test]
@@ -317,5 +317,229 @@ mod tests {
         tui.handle_mouse_scroll(mouse);
 
         assert_eq!(tui.scroll_offset_line, 30);
+    }
+
+    // --- Mouse drag-to-select pipeline tests ---
+
+    /// Helper: create a mouse event at (col, row) with the given kind.
+    fn mouse_event(kind: MouseEventKind, col: u16, row: u16) -> MouseEvent {
+        MouseEvent {
+            kind,
+            column: col,
+            row,
+            modifiers: KeyModifiers::NONE,
+        }
+    }
+
+    /// Helper: set up sidebar and messages areas for area-routing tests.
+    fn setup_areas(tui: &mut TUI) {
+        tui.sidebar_area.set(Rect {
+            x: 0,
+            y: 0,
+            width: 20,
+            height: 24,
+        });
+        tui.messages_area.set(Rect {
+            x: 20,
+            y: 0,
+            width: 60,
+            height: 24,
+        });
+    }
+
+    // 1. Down event sets start position, dragged=false
+    #[test]
+    fn test_mouse_selection_down_sets_start() {
+        let mut tui = TUI::default();
+        let mouse = mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5);
+        tui.handle_mouse_input(mouse);
+        assert_eq!(tui.mouse_selection_start.get(), Some((30, 5)));
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 2. Down then Drag sets dragged=true
+    #[test]
+    fn test_mouse_selection_down_drag_sets_dragged() {
+        let mut tui = TUI::default();
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 8));
+        assert_eq!(tui.mouse_selection_start.get(), Some((30, 5)));
+        assert!(tui.mouse_selection_dragged.get());
+    }
+
+    // 3. Full Down+Drag+Up cycle resets state
+    #[test]
+    fn test_mouse_selection_full_drag_cycle() {
+        let mut tui = TUI::default();
+        setup_areas(&mut tui);
+
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 8));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 8));
+
+        assert_eq!(tui.mouse_selection_start.get(), None);
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 4. Down+Up at same position = click (not drag), state resets
+    #[test]
+    fn test_mouse_selection_click_no_drag() {
+        let mut tui = TUI::default();
+        setup_areas(&mut tui);
+
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 5));
+
+        // State should be clean after Up
+        assert_eq!(tui.mouse_selection_start.get(), None);
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 5. Orphan Drag (no prior Down) sets start to current position
+    #[test]
+    fn test_mouse_selection_orphan_drag() {
+        let mut tui = TUI::default();
+
+        // Send Drag without a preceding Down
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 15, 10));
+
+        // Orphan drag sets start to current position, does not set dragged
+        assert_eq!(tui.mouse_selection_start.get(), Some((15, 10)));
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 6. Orphan Up (no prior Down) is a no-op, doesn't crash
+    #[test]
+    fn test_mouse_selection_orphan_up() {
+        let mut tui = TUI::default();
+
+        // Send Up without a preceding Down — should not panic
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 25, 7));
+
+        assert_eq!(tui.mouse_selection_start.get(), None);
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 7. State is fully reset after complete Down+Drag+Up cycle
+    #[test]
+    fn test_mouse_selection_state_reset_after_up() {
+        let mut tui = TUI::default();
+        setup_areas(&mut tui);
+
+        // Full cycle
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 10));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 10));
+
+        // Verify clean slate
+        assert_eq!(tui.mouse_selection_start.get(), None);
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 8. Second Down starts fresh after first selection cycle
+    #[test]
+    fn test_mouse_selection_second_down_resets() {
+        let mut tui = TUI::default();
+        setup_areas(&mut tui);
+
+        // First cycle
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 8));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 8));
+
+        // Second cycle starts at a different position
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 45, 2));
+
+        assert_eq!(tui.mouse_selection_start.get(), Some((45, 2)));
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 9. Drag within messages area — state resets (message copy attempted)
+    #[test]
+    fn test_mouse_selection_drag_in_messages_area() {
+        let mut tui = TUI::default();
+        setup_areas(&mut tui);
+
+        // Messages area is x:20..80, y:0..24 — click at col 30, row 5
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 10));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 10));
+
+        // State resets regardless of whether messages existed to copy
+        assert_eq!(tui.mouse_selection_start.get(), None);
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 10. Drag within sidebar area — state resets (sidebar copy attempted)
+    #[test]
+    fn test_mouse_selection_drag_in_sidebar_area() {
+        let mut tui = TUI::default();
+        setup_areas(&mut tui);
+
+        // Sidebar area is x:0..20, y:0..24 — click at col 5, row 5
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 5, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 5, 10));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 5, 10));
+
+        // State resets
+        assert_eq!(tui.mouse_selection_start.get(), None);
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 11. Drag outside both areas — no-op, state still resets
+    #[test]
+    fn test_mouse_selection_drag_outside_areas() {
+        let mut tui = TUI::default();
+        setup_areas(&mut tui);
+
+        // Click at col 100, row 50 — outside both sidebar (0..20) and messages (20..80)
+        tui.handle_mouse_input(mouse_event(
+            MouseEventKind::Down(MouseButton::Left),
+            100,
+            50,
+        ));
+        tui.handle_mouse_input(mouse_event(
+            MouseEventKind::Drag(MouseButton::Left),
+            100,
+            55,
+        ));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 100, 55));
+
+        // State still resets cleanly
+        assert_eq!(tui.mouse_selection_start.get(), None);
+        assert_eq!(tui.mouse_selection_dragged.get(), false);
+    }
+
+    // 12. Drag from right-to-left — start stays at original Down position
+    #[test]
+    fn test_mouse_selection_drag_direction_doesnt_matter() {
+        let mut tui = TUI::default();
+
+        // Down at col 60, then drag left to col 20
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 60, 5));
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 20, 5));
+
+        // Start remains at the Down position
+        assert_eq!(tui.mouse_selection_start.get(), Some((60, 5)));
+        assert!(tui.mouse_selection_dragged.get());
+    }
+
+    // 13. Multiple Drag events between Down and Up — all update dragged, start stays
+    #[test]
+    fn test_mouse_selection_multiple_drags() {
+        let mut tui = TUI::default();
+
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
+
+        // Multiple drag events
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 6));
+        assert_eq!(tui.mouse_selection_start.get(), Some((30, 5)));
+        assert!(tui.mouse_selection_dragged.get());
+
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 7));
+        assert_eq!(tui.mouse_selection_start.get(), Some((30, 5)));
+
+        tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 8));
+        assert_eq!(tui.mouse_selection_start.get(), Some((30, 5)));
     }
 }

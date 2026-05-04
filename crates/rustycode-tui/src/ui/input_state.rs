@@ -1112,4 +1112,280 @@ mod tests {
         assert_eq!(state.cursor_row, 1);
         assert_eq!(state.cursor_col, 5);
     }
+
+    // ── Selection API tests ────────────────────────────────────────────────────
+
+    // start_selection / clear_selection / has_selection
+
+    #[test]
+    fn test_selection_start_sets_anchor() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 5;
+        state.cursor_row = 0;
+        state.start_selection();
+        assert_eq!(state.selection_anchor_col, Some(5));
+        assert_eq!(state.selection_anchor_row, Some(0));
+    }
+
+    #[test]
+    fn test_selection_start_idempotent() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.cursor_row = 0;
+        state.start_selection();
+        state.cursor_col = 7;
+        state.start_selection();
+        assert_eq!(state.selection_anchor_col, Some(2));
+        assert_eq!(state.selection_anchor_row, Some(0));
+    }
+
+    #[test]
+    fn test_selection_clear_resets() {
+        let mut state = InputState::new();
+        state.cursor_col = 4;
+        state.start_selection();
+        assert!(state.has_selection());
+        state.clear_selection();
+        assert_eq!(state.selection_anchor_col, None);
+        assert_eq!(state.selection_anchor_row, None);
+    }
+
+    #[test]
+    fn test_selection_has_selection_false_initially() {
+        let state = InputState::new();
+        assert!(!state.has_selection());
+    }
+
+    #[test]
+    fn test_selection_has_selection_true_after_start() {
+        let mut state = InputState::new();
+        state.start_selection();
+        assert!(state.has_selection());
+    }
+
+    // get_selection_range (normalized: returns (start_row, start_col, end_row, end_col))
+
+    #[test]
+    fn test_selection_range_single_line_forward() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 5;
+        assert_eq!(state.get_selection_range(), Some((0, 2, 0, 5)));
+    }
+
+    #[test]
+    fn test_selection_range_single_line_backward() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 5;
+        state.start_selection();
+        state.cursor_col = 2;
+        assert_eq!(state.get_selection_range(), Some((0, 2, 0, 5)));
+    }
+
+    #[test]
+    fn test_selection_range_multi_line_forward() {
+        let mut state = InputState::new();
+        state.lines = vec![
+            "Line0".to_string(),
+            "Line1".to_string(),
+            "Line2".to_string(),
+        ];
+        state.cursor_row = 0;
+        state.cursor_col = 3;
+        state.start_selection();
+        state.cursor_row = 2;
+        state.cursor_col = 1;
+        assert_eq!(state.get_selection_range(), Some((0, 3, 2, 1)));
+    }
+
+    #[test]
+    fn test_selection_range_multi_line_backward() {
+        let mut state = InputState::new();
+        state.lines = vec![
+            "Line0".to_string(),
+            "Line1".to_string(),
+            "Line2".to_string(),
+        ];
+        state.cursor_row = 2;
+        state.cursor_col = 1;
+        state.start_selection();
+        state.cursor_row = 0;
+        state.cursor_col = 3;
+        assert_eq!(state.get_selection_range(), Some((0, 3, 2, 1)));
+    }
+
+    #[test]
+    fn test_selection_range_none_when_no_selection() {
+        let state = InputState::new();
+        assert_eq!(state.get_selection_range(), None);
+    }
+
+    #[test]
+    fn test_selection_range_same_position() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello".to_string();
+        state.cursor_col = 3;
+        state.cursor_row = 0;
+        state.start_selection();
+        assert_eq!(state.get_selection_range(), Some((0, 3, 0, 3)));
+    }
+
+    // get_selected_text
+
+    #[test]
+    fn test_selection_text_single_line() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 7;
+        assert_eq!(state.get_selected_text(), Some("llo W".to_string()));
+    }
+
+    #[test]
+    fn test_selection_text_entire_line() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello".to_string();
+        state.cursor_col = 0;
+        state.start_selection();
+        state.cursor_col = 5;
+        assert_eq!(state.get_selected_text(), Some("Hello".to_string()));
+    }
+
+    #[test]
+    fn test_selection_text_multi_line() {
+        let mut state = InputState::new();
+        state.lines = vec!["Hello".to_string(), "World".to_string(), "Foo".to_string()];
+        state.cursor_row = 0;
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_row = 2;
+        state.cursor_col = 1;
+        assert_eq!(state.get_selected_text(), Some("llo\nWorld\nF".to_string()));
+    }
+
+    #[test]
+    fn test_selection_text_adjacent_lines() {
+        let mut state = InputState::new();
+        state.lines = vec!["Hello".to_string(), "World".to_string()];
+        state.cursor_row = 0;
+        state.cursor_col = 3;
+        state.start_selection();
+        state.cursor_row = 1;
+        state.cursor_col = 2;
+        assert_eq!(state.get_selected_text(), Some("lo\nWo".to_string()));
+    }
+
+    #[test]
+    fn test_selection_text_none_when_no_selection() {
+        let state = InputState::new();
+        assert_eq!(state.get_selected_text(), None);
+    }
+
+    #[test]
+    fn test_selection_text_empty_input() {
+        let state = InputState::new();
+        assert_eq!(state.get_selected_text(), None);
+    }
+
+    // is_byte_selected
+
+    #[test]
+    fn test_is_byte_selected_within_range() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 7;
+        assert!(state.is_byte_selected(0, 3));
+        assert!(state.is_byte_selected(0, 4));
+        assert!(state.is_byte_selected(0, 6));
+    }
+
+    #[test]
+    fn test_is_byte_selected_before_range() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 7;
+        assert!(!state.is_byte_selected(0, 1));
+    }
+
+    #[test]
+    fn test_is_byte_selected_after_range() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 7;
+        assert!(!state.is_byte_selected(0, 7));
+    }
+
+    #[test]
+    fn test_is_byte_selected_on_boundary() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hello World".to_string();
+        state.cursor_col = 2;
+        state.start_selection();
+        state.cursor_col = 7;
+        assert!(state.is_byte_selected(0, 2));
+    }
+
+    #[test]
+    fn test_is_byte_selected_no_selection() {
+        let state = InputState::new();
+        assert!(!state.is_byte_selected(0, 0));
+    }
+
+    #[test]
+    fn test_is_byte_selected_multi_line() {
+        let mut state = InputState::new();
+        state.lines = vec!["Hello".to_string(), "World".to_string(), "Foo".to_string()];
+        state.cursor_row = 0;
+        state.cursor_col = 3;
+        state.start_selection();
+        state.cursor_row = 2;
+        state.cursor_col = 2;
+        assert!(!state.is_byte_selected(0, 2));
+        assert!(state.is_byte_selected(0, 3));
+        assert!(state.is_byte_selected(0, 4));
+        assert!(state.is_byte_selected(1, 0));
+        assert!(state.is_byte_selected(1, 4));
+        assert!(state.is_byte_selected(2, 0));
+        assert!(state.is_byte_selected(2, 1));
+        assert!(!state.is_byte_selected(2, 2));
+        assert!(!state.is_byte_selected(3, 0));
+    }
+
+    // Edge cases
+
+    #[test]
+    fn test_selection_with_unicode_text() {
+        let mut state = InputState::new();
+        // 'é' is 2 bytes UTF-8; byte 0='H', bytes 1-2='é', byte 3='l', byte 4='l', byte 5='o'
+        state.lines[0] = "Héllo Wörld".to_string();
+        state.cursor_col = 3;
+        state.start_selection();
+        state.cursor_col = 6;
+        assert_eq!(state.get_selected_text(), Some("llo".to_string()));
+        assert!(state.is_byte_selected(0, 3));
+        assert!(state.is_byte_selected(0, 5));
+        assert!(!state.is_byte_selected(0, 6));
+    }
+
+    #[test]
+    fn test_selection_cursor_beyond_line_length() {
+        let mut state = InputState::new();
+        state.lines[0] = "Hi".to_string();
+        state.cursor_col = 0;
+        state.start_selection();
+        state.cursor_col = 100;
+        assert_eq!(state.get_selected_text(), Some("Hi".to_string()));
+    }
 }
