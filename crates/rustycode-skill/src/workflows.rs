@@ -173,7 +173,7 @@ pub mod builtin {
                 WorkflowPhase {
                     name: "RED".to_string(),
                     agent: TeamRole::Builder,
-                    instructions: "Write a failing test that defines the desired behavior. Run the test and verify it fails as expected.".to_string(),
+                    instructions: "Write a failing test defining the desired behavior. MANDATORY: Use mutation-resistant 'Skeptic Assertions' (e.g., assert_eq!(value, expected)) rather than generic success checks. Ensure the test fails as expected.".to_string(),
                     verification: Some(VerificationRule {
                         check: "Test fails with expected error".to_string(),
                         retry_max: 2,
