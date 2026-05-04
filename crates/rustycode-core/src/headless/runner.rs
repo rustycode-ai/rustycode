@@ -149,9 +149,9 @@ pub async fn run_headless_task_core(
         });
     }
 
-    let config = rustycode_agent::AgentConfig::from_env();
+    let config = rustycode_agent_runtime::AgentConfig::from_env();
     let mut events = crate::headless::events::HeadlessAgentBridge::new();
-    let mut session = rustycode_agent::AgentSession::new(config, cwd.to_path_buf());
+    let mut session = rustycode_agent_runtime::AgentSession::new(config, cwd.to_path_buf());
     let result = session
         .run(
             provider,

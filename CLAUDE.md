@@ -50,7 +50,7 @@ See `crates/rustycode-orchestration/README.md` for full module map.
 | `rustycode-tools` | Tool execution framework + permissions |
 | `rustycode-protocol` | Cross-crate shared types |
 | `rustycode-bus` | Event bus (pub/sub) |
-| `rustycode-agent` | Agent definitions (headless) |
+| `rustycode-agent-runtime` | Agent definitions (headless) |
 | `rustycode-bench` | rtk-bench: native/Docker benchmark runner |
 
 Other top-level dirs: `docs/`, `scripts/`, `tests/`, `benches/`, `examples/`, `harbor-agent/`, `mcp-test-server/`.

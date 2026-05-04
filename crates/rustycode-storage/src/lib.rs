@@ -98,7 +98,7 @@ pub mod session_capture;
 pub mod llm_summarizer;
 
 // Event sourcing
-// pub mod event_store; // broken: needs rustycode-agent dep (cycle) — fix pending
+// pub mod event_store; // broken: needs rustycode-agent-runtime dep (cycle) — fix pending
 
 // Memory effectiveness metrics
 pub mod memory_metrics;

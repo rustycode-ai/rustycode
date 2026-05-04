@@ -10,7 +10,7 @@ use crate::bus::OrchestrationEvent;
 use crate::error::{OrchestrationError, Result};
 use crate::musician::ToolExecutor;
 use crate::types::StepResult;
-use rustycode_agent::{
+use rustycode_agent_runtime::{
     AgentConfig, AgentEvents, AgentResult, AgentSession, ApprovalDecision, StoppedReason,
 };
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageContent, MessageRole};

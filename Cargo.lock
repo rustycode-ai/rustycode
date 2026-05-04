@@ -5879,7 +5879,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustycode-agent"
+name = "rustycode-agent-runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5946,7 +5946,7 @@ dependencies = [
  "indicatif",
  "regex",
  "reqwest 0.13.3",
- "rustycode-agent",
+ "rustycode-agent-runtime",
  "rustycode-llm",
  "rustycode-orchestration",
  "rustycode-protocol",
@@ -6008,7 +6008,7 @@ dependencies = [
  "futures-util",
  "num_cpus",
  "regex",
- "rustycode-agent",
+ "rustycode-agent-runtime",
  "rustycode-bench",
  "rustycode-bus",
  "rustycode-config",
@@ -6075,7 +6075,7 @@ dependencies = [
  "lru 0.18.0",
  "rand 0.10.1",
  "regex",
- "rustycode-agent",
+ "rustycode-agent-runtime",
  "rustycode-bus",
  "rustycode-config",
  "rustycode-git",
@@ -6399,7 +6399,7 @@ dependencies = [
  "rand 0.10.1",
  "regex",
  "rusqlite",
- "rustycode-agent",
+ "rustycode-agent-runtime",
  "rustycode-executable",
  "rustycode-llm",
  "rustycode-prompt",
@@ -6721,7 +6721,7 @@ dependencies = [
  "ratatui",
  "regex",
  "reqwest 0.13.3",
- "rustycode-agent",
+ "rustycode-agent-runtime",
  "rustycode-auth",
  "rustycode-classification",
  "rustycode-config",

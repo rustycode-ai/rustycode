@@ -495,8 +495,8 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
     let tool_registry =
         tool_registry.unwrap_or_else(|| std::sync::Arc::new(rustycode_tools::ToolRegistry::new()));
     let tools_schema = tools_schema.unwrap_or_default();
-    let agent_config = rustycode_agent::AgentConfig::from_env();
-    let mut session = rustycode_agent::AgentSession::new(agent_config, cwd);
+    let agent_config = rustycode_agent_runtime::AgentConfig::from_env();
+    let mut session = rustycode_agent_runtime::AgentSession::new(agent_config, cwd);
     // Interactive TUI needs all tools — default tier (6 hardcoded names) filters everything out
     session
         .activation

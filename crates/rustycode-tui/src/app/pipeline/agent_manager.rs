@@ -1,5 +1,5 @@
 use anyhow::Result;
-use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 use rustycode_tools_api::tiers::ToolTier;
 use std::path::PathBuf;

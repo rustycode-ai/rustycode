@@ -130,7 +130,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ---
 
-## Layer 3: Agent & Execution (7 crates)
+## Layer 3: Agent & Execution (6 crates)
 
 ### rustycode-agents
 **Purpose:** Agent implementations for specialized development tasks  
@@ -275,7 +275,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ---
 
-## Layer 7: Tool Registry & Discovery (4 crates)
+## Layer 7: Integration & Support (17 crates)
 
 ### rustycode-tools-registry
 **Purpose:** Tool registry and discovery system  
@@ -345,13 +345,13 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **Dependencies:** tokio, rustycode-llm
 **See Also:** [README](../../crates/rustycode-litert/README.md)
 
-### rustycode-agent
+### rustycode-agent-runtime
 **Purpose:** Shared thin LLM↔tool loop (no heuristics, no behavioral injection)
 **Key Types:** Agent, AgentConfig
 **Features:** Headless execution, clean LLM↔tool iteration
 **Dependencies:** rustycode-llm, rustycode-tools, rustycode-protocol
 **Used By:** rustycode-core, rustycode-bench
-**See Also:** [README](../../crates/rustycode-agent/README.md)
+**See Also:** [README](../../crates/rustycode-agent-runtime/README.md)
 
 ### rustycode-vector-memory
 **Purpose:** Vector-based semantic memory for knowledge retrieval
@@ -449,9 +449,10 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 │  - rustycode-guard, rustycode-auth                 │
 │  - rustycode-providers, rustycode-macros           │
 ├─────────────────────────────────────────────────────┤
-│ Layer 7: Tool Discovery & Registry                  │
+│ Layer 7: Integration & Support                      │
 │  - rustycode-tools-registry, rustycode-tool-server │
-│  - rustycode-tasks                                 │
+│  - rustycode-tool-integration, rustycode-tasks     │
+│  - +13 supporting crates (see section)             │
 ├─────────────────────────────────────────────────────┤
 │ Layer 8: Protocol Integration                       │
 │  - rustycode-acp, rustycode-mcp                    │
@@ -501,30 +502,24 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 **Beta (feature-complete, ongoing refinement):**
 - Agents: CodeAgent, ReviewAgent, TestAgent, DebugAgent
+- Orchestration: reasoning strategies, quality gates, AST pipeline
 - UI: TUI components, event loop
-- Plugins: plugin loading and discovery
 - Skills: workflow system
 - LLM: all providers, streaming, tool use
 
 **Active Development:**
-- Orchestra: autonomous framework
 - MCP/ACP: protocol implementations
 - Tools: expanding tool ecosystem
+- Bench: benchmark runner framework
 
 **Skeleton (intended but incomplete):**
 - Tasks: task management (needs implementation)
 
 ---
 
-## Total Documentation Coverage
+## Archived Crates
 
-**Documented Crates:** 35 of ~50 total workspace crates  
-**Completion:** 70% of major crates documented
-
-**Not yet documented (future):**
-- rustycode-vector-memory — Vector-based semantic memory
-- rustycode-learning — Conversation learning and extraction
-- ~~rustycode-deep-thinker~~ — Deleted; thinking module lives in `rustycode-orchestration`
+- ~~rustycode-deep-thinker~~ — Thinking module lives in `rustycode-orchestration`
 - ~~rustycode-load~~ — Archived to `_archived/`
 - ~~rustycode-plugins~~ — Archived to `_archived/`
 - ~~rustycode-tui-agents~~ — Archived to `_archived/`
@@ -532,16 +527,10 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 - ~~rustycode-tui-memory~~ — Archived to `_archived/`
 - ~~rustycode-tui-widgets~~ — Archived to `_archived/`
 - ~~rustycode-web-native~~ — Archived to `_archived/`
-- rustycode-id — ID system internals
-- rustycode-thread-guard — Thread safety utilities
-- rustycode-tool-integration — Tool-LLM integration layer
-- rustycode-connector — Terminal connector abstraction
-- rustycode-web — Web UI (WASM)
-- And others...
 
 ---
 
-**Last Updated:** 2026-04-22  
-**Total Documented Crates:** 35  
+**Last Updated:** 2026-05-04  
+**Total Documented Crates:** 47  
 **Layers:** 8  
-**Major Components:** 40+
+**Major Components:** 47

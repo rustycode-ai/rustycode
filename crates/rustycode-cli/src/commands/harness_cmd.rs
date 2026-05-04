@@ -11,7 +11,7 @@ use super::cli_args::HarnessCommand;
 struct HarnessEvents;
 
 #[async_trait::async_trait]
-impl rustycode_agent::AgentEvents for HarnessEvents {
+impl rustycode_agent_runtime::AgentEvents for HarnessEvents {
     async fn on_event(&mut self, event: StreamEvent) {
         match event {
             StreamEvent::TextDelta { content } => {
@@ -42,7 +42,7 @@ impl rustycode_agent::AgentEvents for HarnessEvents {
         }
     }
 
-    async fn on_done(&mut self, _result: &rustycode_agent::AgentResult) {
+    async fn on_done(&mut self, _result: &rustycode_agent_runtime::AgentResult) {
         eprintln!();
     }
 }
@@ -570,7 +570,7 @@ pub async fn execute(cwd: &Path, command: HarnessCommand) -> Result<()> {
             let project_dir = &root;
 
             // Load provider
-            use rustycode_agent::{AgentConfig, AgentSession, LocalIntelligence};
+            use rustycode_agent_runtime::{AgentConfig, AgentSession, LocalIntelligence};
             use rustycode_llm::{create_provider_with_config, load_provider_config_from_env};
             use rustycode_tools::ToolRegistry;
 

@@ -318,10 +318,10 @@ Build finished with errors";
         lines.push("Final result: 42 items processed".to_string());
         let output = lines.join("\n");
 
-        let summarized = summarizer.summarize_bash_output(&output);
+        let result = summarizer.summarize_bash_output(&output);
 
         // Should achieve at least 50% reduction.
-        let ratio = summarizer.reduction_ratio(&output, &summarized);
+        let ratio = summarizer.reduction_ratio(&output, &result);
         assert!(
             ratio >= 0.5,
             "expected at least 50% reduction, got {:.1}%",

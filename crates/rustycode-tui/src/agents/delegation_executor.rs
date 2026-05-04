@@ -10,7 +10,7 @@
 //! tasks to inline execution while spawning complex ones.
 
 use anyhow::Result;
-use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageRole};
 use rustycode_orchestration::cost_table::calculate_cost;
 use rustycode_orchestration::delegation::{

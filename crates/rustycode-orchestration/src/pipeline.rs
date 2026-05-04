@@ -68,7 +68,7 @@ pub trait PipelineInteraction: Send + Sync {
         &self,
         tool_name: &str,
         input: &serde_json::Value,
-    ) -> rustycode_agent::ApprovalDecision;
+    ) -> rustycode_agent_runtime::ApprovalDecision;
 
     fn is_cancelled(&self) -> bool;
 }
@@ -82,8 +82,8 @@ impl PipelineInteraction for SilentInteraction {
         &self,
         _tool_name: &str,
         _input: &serde_json::Value,
-    ) -> rustycode_agent::ApprovalDecision {
-        rustycode_agent::ApprovalDecision::AutoApproved
+    ) -> rustycode_agent_runtime::ApprovalDecision {
+        rustycode_agent_runtime::ApprovalDecision::AutoApproved
     }
 
     fn is_cancelled(&self) -> bool {

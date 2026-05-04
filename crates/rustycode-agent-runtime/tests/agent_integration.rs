@@ -5,7 +5,7 @@
 )]
 
 use futures::stream::Stream;
-use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::{
     CompletionRequest, CompletionResponse, LLMProvider, ProviderError, Usage,
 };

@@ -1,4 +1,4 @@
-# rustycode-agent
+# rustycode-agent-runtime
 
 The shared thin LLM↔tool loop. No heuristics. No nudges. No behavioral injection.
 

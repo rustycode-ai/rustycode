@@ -4,14 +4,16 @@
 //! tiered routing, and streaming to ensure they work together correctly.
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod integration_tests {
     use rustycode_orchestration::{
         cache::PromptCacheManager,
         config::{OrchestrationConfig, ParallelExecutionConfig, PromptCachingConfig},
         optimization_metrics::OptimizationMetrics,
-        routing::{ComplexityClassifier, ModelRouter, TaskComplexity},
-        summary::ResultSummarizer,
+        routing::{ComplexityClassifier, ModelRouter, RoutingPolicy, TaskComplexity},
+        summary::{ResultSummarizer, SummaryConfig},
     };
+    use std::fmt::Write;
 
     #[test]
     fn test_all_optimizations_enabled() {
@@ -58,18 +60,19 @@ mod integration_tests {
     }
 
     #[test]
+    #[allow(clippy::format_push_string)]
     fn test_summarization_reduces_tokens() {
-        let summarizer = ResultSummarizer::new(Default::default());
+        let summarizer = ResultSummarizer::new(SummaryConfig::default());
 
         // Input must exceed max_output_chars (2000) to trigger summarization
         let mut original = String::from("key data: value\n");
         for i in 0..200 {
-            original.push_str(&format!("[DEBUG] processing step {i} of 100\n"));
+            writeln!(original, "[DEBUG] processing step {i} of 100").unwrap();
         }
         original.push_str("[ERROR] unexpected error occurred\n");
         original.push_str("Final result: success\n");
 
-        let summary = summarizer.summarize("bash", &original).unwrap();
+        let summary = summarizer.summarize("bash", &original).expect("summarization should succeed");
 
         let original_tokens = summarizer.estimate_tokens(&original);
         let summary_tokens = summarizer.estimate_tokens(&summary);
@@ -83,7 +86,7 @@ mod integration_tests {
     #[test]
     fn test_complexity_classification_for_routing() {
         let classifier = ComplexityClassifier::default();
-        let router = ModelRouter::new(Default::default());
+        let router = ModelRouter::new(RoutingPolicy::default());
 
         // Simple task
         let simple_task = rustycode_orchestration::routing::TaskDescriptor {

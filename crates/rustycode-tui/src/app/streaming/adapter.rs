@@ -1,6 +1,6 @@
 use crate::app::async_::{QuestionOption, StreamChunk, StreamError};
 use async_trait::async_trait;
-use rustycode_agent::{AgentEvents, AgentResult, ApprovalDecision};
+use rustycode_agent_runtime::{AgentEvents, AgentResult, ApprovalDecision};
 use rustycode_core::streaming::ToolCall;
 use rustycode_orchestration::bus::OrchestrationEvent;
 use rustycode_protocol::stream_event::StreamEvent;

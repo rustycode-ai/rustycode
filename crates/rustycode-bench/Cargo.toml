@@ -14,7 +14,7 @@ path = "src/bin/main.rs"
 default = []
 # Enable the real-agent mode (delegates to AgentSession instead of the
 # heuristic-heavy CodeAgent).  Requires unsafe for sync→async env bridge.
-real-agent = ["dep:rustycode-agent", "dep:rustycode-tools-api", "dep:rustycode-orchestration"]
+real-agent = ["dep:rustycode-agent-runtime", "dep:rustycode-tools-api", "dep:rustycode-orchestration"]
 
 [dependencies]
 anyhow.workspace = true
@@ -29,7 +29,7 @@ chrono.workspace = true
 async-trait.workspace = true
 bollard = "0.17"
 rustycode-llm = { path = "../rustycode-llm" }
-rustycode-agent = { path = "../rustycode-agent", optional = true }
+rustycode-agent-runtime = { path = "../rustycode-agent-runtime", optional = true }
 rustycode-tools = { path = "../rustycode-tools" }
 rustycode-tools-api = { path = "../rustycode-tools-api", optional = true }
 rustycode-orchestration = { path = "../rustycode-orchestration", optional = true }

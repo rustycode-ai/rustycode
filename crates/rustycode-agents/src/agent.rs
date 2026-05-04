@@ -15,7 +15,7 @@ pub struct AgentResult {
 }
 
 impl AgentResult {
-    pub fn success(content: String) -> Self {
+    pub const fn success(content: String) -> Self {
         Self {
             success: true,
             content,
@@ -25,7 +25,7 @@ impl AgentResult {
         }
     }
 
-    pub fn failure(error: String) -> Self {
+    pub const fn failure(error: String) -> Self {
         Self {
             success: false,
             content: String::new(),
@@ -63,7 +63,7 @@ impl AgentConfig {
         self
     }
 
-    pub fn with_max_iterations(mut self, n: usize) -> Self {
+    pub const fn with_max_iterations(mut self, n: usize) -> Self {
         self.max_iterations = n;
         self
     }

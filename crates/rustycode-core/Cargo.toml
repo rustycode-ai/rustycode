@@ -40,7 +40,7 @@ rustycode-mcp = { path = "../rustycode-mcp", default-features = false }
 rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 rustycode-session = { path = "../rustycode-session" }
-rustycode-agent = { path = "../rustycode-agent" }
+rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
 
 
 [features]

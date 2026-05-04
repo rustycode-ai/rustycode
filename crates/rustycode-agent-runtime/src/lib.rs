@@ -1,4 +1,4 @@
-//! `rustycode-agent` — the shared thin LLM↔tool loop.
+//! `rustycode-agent-runtime` — the shared thin LLM↔tool loop.
 //!
 //! Three-layer architecture:
 //!

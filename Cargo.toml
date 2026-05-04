@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/rustycode-acp",
-    "crates/rustycode-agent",
+    "crates/rustycode-agent-runtime",
     "crates/rustycode-agents",
     "crates/rustycode-auth",
     "crates/rustycode-bench",

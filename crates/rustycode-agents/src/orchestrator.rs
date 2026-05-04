@@ -58,13 +58,13 @@ impl OrchestratorConfig {
     }
 
     /// Set max tokens
-    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+    pub const fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self
     }
 
     /// Enable/disable auto delegation
-    pub fn with_auto_delegate(mut self, enabled: bool) -> Self {
+    pub const fn with_auto_delegate(mut self, enabled: bool) -> Self {
         self.auto_delegate = enabled;
         self
     }
@@ -92,12 +92,12 @@ impl Orchestrator {
     }
 
     /// Get the subagent registry
-    pub fn subagents(&self) -> &SubagentRegistry {
+    pub const fn subagents(&self) -> &SubagentRegistry {
         &self.subagents
     }
 
     /// Get a mutable reference to the subagent registry
-    pub fn subagents_mut(&mut self) -> &mut SubagentRegistry {
+    pub const fn subagents_mut(&mut self) -> &mut SubagentRegistry {
         &mut self.subagents
     }
 
@@ -139,7 +139,7 @@ impl Orchestrator {
     }
 
     /// Process a request through the orchestrator
-    pub async fn process(&self, request: &str) -> Result<AgentResult> {
+    pub fn process(&self, request: &str) -> Result<AgentResult> {
         let system_prompt = self
             .config
             .system_prompt
@@ -156,7 +156,7 @@ impl Orchestrator {
     }
 
     /// Delegate a task to a specific subagent
-    pub async fn delegate_to(&self, subagent_id: &str, task: &str) -> Result<AgentResult> {
+    pub fn delegate_to(&self, subagent_id: &str, task: &str) -> Result<AgentResult> {
         let subagent = self
             .subagents
             .get(subagent_id)
@@ -204,6 +204,7 @@ impl Orchestrator {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -248,12 +249,11 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_delegate_to() {
+    #[test]
+    fn test_delegate_to() {
         let orchestrator = Orchestrator::with_defaults();
         let result = orchestrator
             .delegate_to("coder", "Write hello world")
-            .await
             .unwrap();
         assert!(result.success);
         // The result format is "[Delegated to {name}]: {task}"
@@ -308,17 +308,17 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_delegate_to_nonexistent_fails() {
+    #[test]
+    fn test_delegate_to_nonexistent_fails() {
         let orchestrator = Orchestrator::with_defaults();
-        let result = orchestrator.delegate_to("nonexistent_agent", "task").await;
+        let result = orchestrator.delegate_to("nonexistent_agent", "task");
         assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_process_request() {
+    #[test]
+    fn test_process_request() {
         let orchestrator = Orchestrator::with_defaults();
-        let result = orchestrator.process("Write a hello world function").await;
+        let result = orchestrator.process("Write a hello world function");
         assert!(result.is_ok());
         let agent_result = result.unwrap();
         assert!(agent_result.success);

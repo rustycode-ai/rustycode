@@ -27,7 +27,7 @@ pub struct Dependency {
 }
 
 use async_trait::async_trait;
-use rustycode_agent::AgentConfig;
+use rustycode_agent_runtime::AgentConfig;
 use rustycode_llm::provider::LLMProvider;
 
 #[async_trait]

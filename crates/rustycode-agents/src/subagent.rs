@@ -71,13 +71,13 @@ impl SubagentConfig {
     }
 
     /// Set max tokens
-    pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
+    pub const fn with_max_tokens(mut self, max_tokens: u32) -> Self {
         self.max_tokens = Some(max_tokens);
         self
     }
 
     /// Set temperature
-    pub fn with_temperature(mut self, temperature: f32) -> Self {
+    pub const fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = Some(temperature);
         self
     }
@@ -96,7 +96,7 @@ impl SubagentConfig {
     /// ```
     pub fn from_markdown_file(path: &Path) -> Result<Self> {
         let content = std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read subagent file: {:?}", path))?;
+            .with_context(|| format!("Failed to read subagent file: {}", path.display()))?;
 
         Self::from_markdown(&content)
     }
@@ -121,10 +121,10 @@ impl SubagentConfig {
 
         let description = yaml["description"].as_str().unwrap_or("").to_string();
 
-        let id = yaml["id"]
-            .as_str()
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| name.to_lowercase().replace(' ', "-"));
+        let id = yaml["id"].as_str().map_or_else(
+            || name.to_lowercase().replace(' ', "-"),
+            ToString::to_string,
+        );
 
         let model = yaml["model"]
             .as_str()
@@ -135,15 +135,15 @@ impl SubagentConfig {
         let system_prompt = content.split("---").nth(2).unwrap_or("").trim().to_string();
 
         // Parse allowed_tools if present
-        let allowed_tools = if let Some(tools) = yaml["allowed_tools"].as_sequence() {
-            tools
-                .iter()
-                .filter_map(|v| v.as_str())
-                .map(|s| s.to_string())
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let allowed_tools = yaml["allowed_tools"]
+            .as_sequence()
+            .map_or_else(Vec::new, |tools| {
+                tools
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .map(ToString::to_string)
+                    .collect()
+            });
 
         // Parse max_tokens
         let max_tokens = yaml["max_tokens"].as_u64().map(|v| v as u32);
@@ -172,12 +172,12 @@ pub struct Subagent {
 
 impl Subagent {
     /// Create a new subagent from configuration
-    pub fn new(config: SubagentConfig) -> Self {
+    pub const fn new(config: SubagentConfig) -> Self {
         Self { config }
     }
 
     /// Get the subagent's configuration
-    pub fn config(&self) -> &SubagentConfig {
+    pub const fn config(&self) -> &SubagentConfig {
         &self.config
     }
 
@@ -246,7 +246,7 @@ impl SubagentRegistry {
         }
 
         let entries = std::fs::read_dir(dir)
-            .with_context(|| format!("Failed to read subagent directory: {:?}", dir))?;
+            .with_context(|| format!("Failed to read subagent directory: {}", dir.display()))?;
 
         let mut loaded = 0;
         for entry in entries {
@@ -258,8 +258,7 @@ impl SubagentRegistry {
                 || path
                     .file_name()
                     .and_then(|n| n.to_str())
-                    .map(|n| n.starts_with('.'))
-                    .unwrap_or(true)
+                    .is_none_or(|n| n.starts_with('.'))
             {
                 continue;
             }
@@ -354,6 +353,7 @@ impl Default for SubagentRegistry {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_subagent_from_markdown() {
-        let markdown = r#"---
+        let markdown = r"---
 name: Test Agent
 description: A test agent
 model: claude-haiku-4-5
@@ -387,7 +387,7 @@ temperature: 0.5
 You are a test agent.
 
 Your job is to help with testing.
-"#;
+";
 
         let config = SubagentConfig::from_markdown(markdown).unwrap();
         assert_eq!(config.name, "Test Agent");

@@ -208,8 +208,9 @@ pub use zhipu::ZhipuProvider;
 
 // Export provider types
 pub use provider::{
-    sanitize_error_message, validate_endpoint, ChatMessage, CompletionRequest, CompletionResponse,
-    LLMProvider, MessageRole, ProviderConfig, ProviderError, ProviderType, StreamChunk, Usage,
+    ApiMode, sanitize_error_message, validate_endpoint, ChatMessage, CompletionRequest,
+    CompletionResponse, LLMProvider, MessageRole, ProviderConfig, ProviderError, ProviderType,
+    StreamChunk, Usage,
 };
 
 // Export unified LLMProvider trait from protocol

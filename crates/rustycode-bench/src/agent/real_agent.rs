@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::{ChatMessage, MessageContent, MessageRole};
 use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};

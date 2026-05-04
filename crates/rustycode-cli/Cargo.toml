@@ -36,7 +36,7 @@ num_cpus.workspace = true
 rustycode-bench = { path = "../rustycode-bench" }
 rustycode-bus = { path = "../rustycode-bus" }
 rustycode-config = { path = "../rustycode-config" }
-rustycode-agent = { path = "../rustycode-agent" }
+rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
 rustycode-core = { path = "../rustycode-core", default-features = false }
 rustycode-runtime = { path = "../rustycode-runtime" }
 rustycode-protocol = { path = "../rustycode-protocol" }

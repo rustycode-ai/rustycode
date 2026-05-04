@@ -7,6 +7,7 @@
 //! - **Routing**: Classify requests and route to appropriate handler
 
 use serde::{Deserialize, Serialize};
+use std::fmt::Write;
 
 /// Configuration for prompt chaining
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,7 +43,7 @@ pub struct PromptChain {
 
 impl PromptChain {
     /// Create a new prompt chain
-    pub fn new(config: PromptChainConfig) -> Self {
+    pub const fn new(config: PromptChainConfig) -> Self {
         Self {
             config,
             chain: Vec::new(),
@@ -71,19 +72,19 @@ impl PromptChain {
 
         for (i, output) in self.chain.iter().enumerate() {
             result.push_str(&self.config.separator);
-            result.push_str(&format!("Iteration {}:\n{}", i + 1, output));
+            let _ = write!(result, "Iteration {}:\n{}", i + 1, output);
         }
 
         result
     }
 
     /// Get the number of iterations completed
-    pub fn iterations(&self) -> usize {
+    pub const fn iterations(&self) -> usize {
         self.chain.len()
     }
 
     /// Check if max iterations reached
-    pub fn is_complete(&self) -> bool {
+    pub const fn is_complete(&self) -> bool {
         self.chain.len() >= self.config.max_iterations
     }
 
@@ -156,7 +157,7 @@ pub struct EvaluatorOptimizer {
 
 impl EvaluatorOptimizer {
     /// Create a new evaluator-optimizer
-    pub fn new(config: EvaluatorOptimizerConfig) -> Self {
+    pub const fn new(config: EvaluatorOptimizerConfig) -> Self {
         Self { config }
     }
 
@@ -172,12 +173,12 @@ impl EvaluatorOptimizer {
         // For now, return a simple evaluation
         // In a full implementation, this would call an LLM to evaluate
 
-        let word_count = content.split_whitespace().count() as f32;
+        let word_count = content.split_whitespace().count();
 
         // Simple heuristic: longer content with specific criteria gets better score
-        let quality_score = if word_count > 10.0 {
+        let quality_score = if word_count > 10 {
             0.9
-        } else if word_count > 5.0 {
+        } else if word_count > 5 {
             0.7
         } else {
             0.5
@@ -195,7 +196,7 @@ impl EvaluatorOptimizer {
                     quality_score
                 )
             },
-            issues: if word_count < 5.0 {
+            issues: if word_count < 5 {
                 vec!["Content is too short".to_string()]
             } else {
                 Vec::new()
@@ -222,7 +223,7 @@ impl EvaluatorOptimizer {
     /// Run the full evaluator-optimizer cycle
     ///
     /// Returns the final optimized content and evaluation results
-    pub async fn run(
+    pub fn run(
         &self,
         initial_content: &str,
         criteria: &str,
@@ -273,7 +274,7 @@ pub struct Route {
 
 impl Router {
     /// Create a new router
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self { routes: Vec::new() }
     }
 
@@ -340,6 +341,7 @@ impl Default for Router {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 
@@ -389,7 +391,7 @@ mod tests {
         });
 
         let initial = "Too short content.";
-        let (final_content, evaluations) = eo.run(initial, "Should be longer").await;
+        let (final_content, evaluations) = eo.run(initial, "Should be longer");
 
         // Should have run at least one evaluation
         assert!(!evaluations.is_empty());
@@ -568,7 +570,7 @@ mod tests {
 
         // Long content that should pass immediately
         let long = "This is a well-written piece of content with sufficient length to meet quality standards easily.";
-        let (content, evaluations) = eo.run(long, "quality").await;
+        let (content, evaluations) = eo.run(long, "quality");
 
         // Should only need one evaluation since it passes immediately
         assert_eq!(evaluations.len(), 1);

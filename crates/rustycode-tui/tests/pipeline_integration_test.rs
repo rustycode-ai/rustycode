@@ -188,7 +188,7 @@ async fn test_e2e_artifact_registration_through_context() -> Result<()> {
     // -- Arrange -----------------------------------------------------------
     let ctx = PipelineContext::new(
         Arc::new(MockProvider::from_text("ok")),
-        rustycode_agent::AgentConfig::default(),
+        rustycode_agent_runtime::AgentConfig::default(),
         "test-model".to_string(),
         rustycode_tui::app::pipeline::tool_registry::ToolRegistry::new(),
     );

@@ -1,4 +1,4 @@
-use rustycode_agent::{AgentEvents, AgentResult};
+use rustycode_agent_runtime::{AgentEvents, AgentResult};
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 
 #[derive(Default)]

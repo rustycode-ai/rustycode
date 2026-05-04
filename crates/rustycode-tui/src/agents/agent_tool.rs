@@ -6,7 +6,7 @@
 //! following Claude Code's pattern.
 
 use anyhow::Result;
-use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageRole};
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_protocol::MessageContent;

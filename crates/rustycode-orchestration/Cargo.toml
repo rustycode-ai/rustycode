@@ -24,7 +24,7 @@ regex = "1"
 rusqlite = { version = "0.39", features = ["bundled", "chrono"] }
 rustycode-llm = { path = "../rustycode-llm" }
 rustycode-protocol = { path = "../rustycode-protocol" }
-rustycode-agent = { path = "../rustycode-agent" }
+rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
 rustycode-executable = { path = "../rustycode-executable" }
 rustycode-skill = { path = "../rustycode-skill" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }

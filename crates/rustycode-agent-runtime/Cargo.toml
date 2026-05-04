@@ -1,5 +1,5 @@
 [package]
-name = "rustycode-agent"
+name = "rustycode-agent-runtime"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

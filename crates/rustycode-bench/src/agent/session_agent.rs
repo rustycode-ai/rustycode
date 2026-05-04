@@ -1,7 +1,7 @@
 use crate::agent::BenchAgent;
 use crate::environment::BenchEnvironment;
 use anyhow::Result;
-use rustycode_agent::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::LLMProvider;
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_tools::ToolRegistry;

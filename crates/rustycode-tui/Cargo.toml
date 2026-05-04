@@ -44,7 +44,7 @@ rustycode-session = { path = "../rustycode-session" }
 rustycode-skill = { path = "../rustycode-skill" }
 rustycode-auth = { path = "../rustycode-auth" }
 rustycode-mcp = { path = "../rustycode-mcp", default-features = false }
-rustycode-agent = { path = "../rustycode-agent" }
+rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-observability = { path = "../rustycode-observability" }
 rustycode-classification = { path = "../rustycode-classification" }
