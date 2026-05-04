@@ -15,7 +15,7 @@ LLMProvider + ToolRegistry
 ## Usage
 
 ```rust
-use rustycode_agent::{AgentSession, AgentConfig, AgentEvents, AgentResult};
+use rustycode_agent_runtime::{AgentSession, AgentConfig, AgentEvents, AgentResult};
 
 struct MyEvents;
 impl AgentEvents for MyEvents {

@@ -186,6 +186,9 @@ enum Command {
         /// Override the AI model for this session
         #[arg(long, value_name = "MODEL")]
         model: Option<String>,
+        /// Override workspace directory (default: current directory)
+        #[arg(short, long, value_name = "PATH")]
+        workspace: Option<PathBuf>,
     },
     /// Launch the web-native interface.
     Web {
@@ -405,6 +408,7 @@ async fn async_main() -> Result<()> {
             reconfigure: false,
             resume: false,
             model: None,
+            workspace: None,
         }
     };
 
@@ -453,8 +457,13 @@ async fn async_main() -> Result<()> {
         reconfigure,
         resume,
         model,
+        workspace,
     } = command
     {
+        let cwd = workspace
+            .map(|p| p.canonicalize().context("--workspace path does not exist"))
+            .transpose()?
+            .unwrap_or(cwd);
         // Apply model override via env var (read by LLM provider config loader)
         if let Some(ref m) = model {
             std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", m);

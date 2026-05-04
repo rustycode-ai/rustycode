@@ -37,7 +37,7 @@ pub fn execute_tool(
     }
 }
 
-/// Truncate tool output to fit within budget, preserving error context in the tail.
+/// Truncate tool output to fit within budget, preserving pagination info in the tail.
 pub fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
     if output.len() <= max_bytes {
         return output.to_string();
@@ -50,6 +50,8 @@ pub fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
         || out_lower.contains("segmentation fault")
         || out_lower.contains("command not found");
 
+    // When there are errors, preserve more of the tail (error details + pagination).
+    // Otherwise, keep the last quarter for pagination/hint lines.
     let (head_bytes, tail_bytes) = if has_errors {
         (max_bytes / 6, max_bytes * 5 / 6)
     } else {
@@ -87,6 +89,7 @@ fn normalize_tool_name(name: &str) -> &str {
         "Read" | "read" | "view" => "read_file",
         "Write" | "Create" | "create" => "write_file",
         "Bash" | "Shell" | "shell" | "execute" | "run_command" => "bash",
+        "PowerShell" | "pwsh" => "powershell",
         "Grep" | "Search" | "search" => "grep",
         "Glob" | "Find" | "find" => "glob",
         "NotebookEdit" | "notebook_edit" => "notebook_edit",
