@@ -29,7 +29,7 @@ function extractText(children: ReactNode): string {
 
 function CodeBlock({ className, children }: CodeBlockProps) {
   const { copied, copy } = useCopyToClipboard();
-  const lang = className?.replace("language-", "") || "";
+  const lang = className?.match(/language-(\w+)/)?.[1] || "";
   const codeText = extractText(children).replace(/\n$/, "");
 
   return (

@@ -58,10 +58,12 @@ export function MessageList({ messages, toolOutputsVisible, pending, scrollConta
   const bottomRef = useRef<HTMLDivElement>(null);
   const ownRef = useRef<HTMLDivElement>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
+  const programmaticScroll = useRef(false);
 
   const container = scrollContainerRef?.current;
 
   const handleScroll = useCallback(() => {
+    if (programmaticScroll.current) return;
     const el = container;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
@@ -69,8 +71,10 @@ export function MessageList({ messages, toolOutputsVisible, pending, scrollConta
   }, [container]);
 
   const scrollToBottom = useCallback(() => {
+    programmaticScroll.current = true;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     setUserScrolledUp(false);
+    setTimeout(() => { programmaticScroll.current = false; }, 500);
   }, []);
 
   useEffect(() => {

@@ -145,7 +145,7 @@ function AppInner({ pendingApproval, handleToolApprovalResponse, sendPlanApprova
             <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
             <SectionErrorBoundary name="Sidebar">
               <SessionSidebar
-                currentSessionId={null}
+                currentSessionId={getSessionToken()}
                 onSelectSession={handleSelectSession}
                 onNewSession={handleNewSession}
                 open={sidebarOpen}

@@ -44,7 +44,7 @@ export function InputBar({ onSend, onAbort, pending, onRegenerate }: InputBarPro
 
   const handleHistoryUp = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     const textarea = e.currentTarget;
-    if (textarea.selectionStart > 0 || value.length === 0) return;
+    if (textarea.selectionStart > 0) return;
     const history = historyRef.current;
     if (history.length === 0) return;
     e.preventDefault();

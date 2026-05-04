@@ -88,13 +88,13 @@ export function ToolCallCard({ part, defaultOpen = true }: ToolCallCardProps) {
       {expanded && (part.input || part.output) && (
         <div className="tool-call-body">
           {part.input && (
-            <details open={part.status !== "completed"}>
+            <details open>
               <summary>Input <CopyButton text={part.input} /></summary>
               <ToolOutput text={part.input} />
             </details>
           )}
           {part.output && (
-            <details open={part.status === "error" || !part.input}>
+            <details open>
               <summary>Output <CopyButton text={part.output} /></summary>
               <ToolOutput text={part.output} isError={part.status === "error"} />
             </details>
