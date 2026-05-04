@@ -26,6 +26,12 @@ pub enum StreamEvent {
     TextDelta { content: String },
     /// LLM thinking/reasoning arriving incrementally.
     ThinkingDelta { content: String },
+    /// A thinking or redacted_thinking block completed with round-trip metadata.
+    ThinkingBlockCompleted {
+        block_type: String,
+        signature: String,
+        data: String,
+    },
     /// A tool call block has started.
     ToolCallStarted { id: String, name: String },
     /// Tool input JSON arriving incrementally.

@@ -912,6 +912,101 @@ mod tests {
         assert!(state.lock().unwrap().is_empty());
     }
 
+    struct DeferredTool;
+    impl Tool for DeferredTool {
+        fn name(&self) -> &'static str {
+            "deferred_tool"
+        }
+        fn description(&self) -> &'static str {
+            "First line\nSecond line"
+        }
+        fn parameters_schema(&self) -> Value {
+            serde_json::json!({"type": "object", "properties": {"q": {"type": "string"}}})
+        }
+        fn defer_loading(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn execute(&self, _: Value, _: &ToolContext) -> anyhow::Result<ToolOutput> {
+            Ok(ToolOutput::text(""))
+        }
+    }
+
+    struct ToolSearchMock;
+    impl Tool for ToolSearchMock {
+        fn name(&self) -> &'static str {
+            "tool_search"
+        }
+        fn description(&self) -> &'static str {
+            "Searches for tools"
+        }
+        fn parameters_schema(&self) -> Value {
+            serde_json::json!({"type": "object"})
+        }
+        fn defer_loading(&self) -> Option<bool> {
+            Some(true) // tool_search itself is deferred but should always be in immediate
+        }
+        fn execute(&self, _: Value, _: &ToolContext) -> anyhow::Result<ToolOutput> {
+            Ok(ToolOutput::text(""))
+        }
+    }
+
+    #[test]
+    fn test_list_immediate_excludes_deferred() {
+        let mut registry = ToolRegistry::new();
+        registry.register(MockTool);
+        registry.register(DeferredTool);
+
+        let immediate = registry.list_immediate();
+        assert!(immediate.iter().any(|t| t.name == "mock"));
+        assert!(!immediate.iter().any(|t| t.name == "deferred_tool"));
+    }
+
+    #[test]
+    fn test_list_immediate_always_includes_tool_search() {
+        let mut registry = ToolRegistry::new();
+        registry.register(ToolSearchMock); // marked deferred but must still appear
+
+        let immediate = registry.list_immediate();
+        assert!(immediate.iter().any(|t| t.name == "tool_search"));
+    }
+
+    #[test]
+    fn test_list_deferred_stubs_only_deferred() {
+        let mut registry = ToolRegistry::new();
+        registry.register(MockTool);
+        registry.register(DeferredTool);
+
+        let stubs = registry.list_deferred_stubs();
+        assert_eq!(stubs.len(), 1);
+        assert_eq!(stubs[0].name, "deferred_tool");
+        assert!(stubs[0].description.contains("Deferred tool"));
+        assert!(stubs[0].description.contains("tool_search"));
+        // Stub has empty schema
+        assert_eq!(stubs[0].parameters_schema["properties"], serde_json::json!({}));
+        assert_eq!(stubs[0].defer_loading, Some(true));
+    }
+
+    #[test]
+    fn test_list_deferred_stubs_excludes_tool_search() {
+        let mut registry = ToolRegistry::new();
+        registry.register(ToolSearchMock);
+        registry.register(DeferredTool);
+
+        let stubs = registry.list_deferred_stubs();
+        assert!(!stubs.iter().any(|t| t.name == "tool_search"));
+        assert!(stubs.iter().any(|t| t.name == "deferred_tool"));
+    }
+
+    #[test]
+    fn test_list_deferred_stubs_description_first_line_only() {
+        let mut registry = ToolRegistry::new();
+        registry.register(DeferredTool);
+
+        let stubs = registry.list_deferred_stubs();
+        assert!(stubs[0].description.starts_with("First line"));
+        assert!(!stubs[0].description.contains("Second line\n"));
+    }
+
     #[test]
     fn test_get_tool_permission_git_tools() {
         assert!(matches!(

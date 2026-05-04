@@ -15,7 +15,19 @@ use std::sync::{Mutex, OnceLock};
 use url::Url as FileUrl;
 
 static LSP_CLIENTS: OnceLock<Mutex<HashMap<String, LspClient>>> = OnceLock::new();
+static LSP_BACKOFF: OnceLock<Mutex<HashMap<String, std::time::Instant>>> = OnceLock::new();
 const MAX_LSP_CLIENTS: usize = 10;
+const CRASH_BACKOFF_SECS: u64 = 60;
+
+fn lsp_backoff() -> &'static Mutex<HashMap<String, std::time::Instant>> {
+    LSP_BACKOFF.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn set_lsp_backoff(key: &str, secs: u64) {
+    if let Ok(mut map) = lsp_backoff().lock() {
+        map.insert(key.to_string(), std::time::Instant::now() + std::time::Duration::from_secs(secs));
+    }
+}
 
 fn clients() -> &'static Mutex<HashMap<String, LspClient>> {
     LSP_CLIENTS.get_or_init(|| Mutex::new(HashMap::new()))
@@ -212,6 +224,16 @@ pub(crate) fn with_lsp_client<T>(
         .lock()
         .map_err(|_| anyhow!("failed to lock lsp client registry"))?;
 
+    // Crash-loop backoff: if this key failed recently, refuse immediately
+    if let Some(backoff_until) = lsp_backoff().lock().ok().and_then(|mut m| m.remove(&key)) {
+        if std::time::Instant::now() < backoff_until {
+            return Err(anyhow!(
+                "language server for {language_str} crashed repeatedly — \
+                 waiting before retry. Try again in a moment."
+            ));
+        }
+    }
+
     if !map.contains_key(&key) {
         cleanup_clients_if_needed(&mut map);
         let mut cfg = create_client_config_with_override(language, lsp_config)
@@ -220,15 +242,39 @@ pub(crate) fn with_lsp_client<T>(
         map.insert(key.clone(), LspClient::new(cfg));
     }
 
-    let client = map
-        .get_mut(&key)
-        .ok_or_else(|| anyhow!("failed to retrieve lsp client"))?;
+    // Start + readiness probe (separate block so we can remove dead client on failure)
+    let probe_result = {
+        let client = map
+            .get_mut(&key)
+            .ok_or_else(|| anyhow!("failed to retrieve lsp client"))?;
 
-    if !client.is_running() {
-        run_async_result(async { client.start().await })
-            .context("failed to auto-start language server")?;
+        if !client.is_running() {
+            run_async_result(async { client.start().await })
+                .context("failed to auto-start language server")?;
+        }
+
+        if client.is_ready() {
+            Ok(())
+        } else {
+            let timeout_secs: u64 = std::env::var("RUSTYCODE_LSP_READY_TIMEOUT_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(30);
+            let timeout = std::time::Duration::from_secs(timeout_secs);
+            run_async_result(async { client.wait_for_ready(timeout).await })
+        }
+    };
+
+    if let Err(e) = probe_result {
+        // Server crashed or failed to index — remove from pool and set backoff
+        map.remove(&key);
+        set_lsp_backoff(&key, CRASH_BACKOFF_SECS);
+        return Err(e.context("LSP server not ready"));
     }
 
+    let client = map
+        .get_mut(&key)
+        .ok_or_else(|| anyhow!("lsp client removed during readiness probe"))?;
     op(client)
 }
 

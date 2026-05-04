@@ -157,6 +157,9 @@ pub enum ResponsesApiOutputContent {
     /// Text output.
     #[serde(rename = "output_text")]
     OutputText { #[serde(default)] text: String },
+    /// Model refusal (content moderation / safety filter).
+    #[serde(rename = "refusal")]
+    Refusal { #[serde(default)] refusal: String },
 }
 
 /// Token usage from the Responses API.
@@ -166,6 +169,24 @@ pub struct ResponsesApiUsage {
     pub output_tokens: u32,
     #[serde(default)]
     pub total_tokens: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_tokens_details: Option<ResponsesApiInputTokenDetails>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output_tokens_details: Option<ResponsesApiOutputTokenDetails>,
+}
+
+/// Input token breakdown (cached tokens, etc.).
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct ResponsesApiInputTokenDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cached_tokens: Option<u32>,
+}
+
+/// Output token breakdown (reasoning tokens, etc.).
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct ResponsesApiOutputTokenDetails {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +214,11 @@ pub fn build_responses_completion_response(
                         ResponsesApiOutputContent::OutputText { text } => {
                             if !text.is_empty() {
                                 text_parts.push(text.clone());
+                            }
+                        }
+                        ResponsesApiOutputContent::Refusal { refusal } => {
+                            if !refusal.is_empty() {
+                                tracing::warn!(refusal = %refusal, "model refused request");
                             }
                         }
                     }
@@ -230,17 +256,14 @@ pub fn build_responses_completion_response(
                     name,
                     input,
                 } => {
-                    let mut m = serde_json::Map::new();
-                    m.insert("id".into(), serde_json::Value::String(id.clone()));
-                    m.insert(
-                        "type".into(),
-                        serde_json::Value::String("function".into()),
-                    );
-                    let mut func = serde_json::Map::new();
-                    func.insert("name".into(), serde_json::Value::String(name.clone()));
-                    func.insert("arguments".into(), input.clone());
-                    m.insert("function".into(), serde_json::Value::Object(func));
-                    serde_json::Value::Object(m)
+                    serde_json::json!({
+                        "id": id,
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": input,
+                        }
+                    })
                 }
                 _ => serde_json::Value::Null,
             })
@@ -250,7 +273,7 @@ pub fn build_responses_completion_response(
             if !content_text.is_empty() {
                 content_text.push('\n');
             }
-            content_text.push_str(&formatted);
+            content_text.push_str(&format!("```tool\n{}\n```", formatted));
         }
     }
 
@@ -258,9 +281,16 @@ pub fn build_responses_completion_response(
         input_tokens: u.input_tokens,
         output_tokens: u.output_tokens,
         total_tokens: u.total_tokens,
-        cache_read_input_tokens: 0,
+        cache_read_input_tokens: u
+            .input_tokens_details
+            .as_ref()
+            .and_then(|d| d.cached_tokens)
+            .unwrap_or(0),
         cache_creation_input_tokens: 0,
-        reasoning_tokens: None,
+        reasoning_tokens: u
+            .output_tokens_details
+            .as_ref()
+            .and_then(|d| d.reasoning_tokens),
     });
 
     let stop_reason = if !tool_calls.is_empty() {
@@ -397,6 +427,8 @@ mod tests {
                 input_tokens: 8,
                 output_tokens: 3,
                 total_tokens: 11,
+                input_tokens_details: None,
+                output_tokens_details: None,
             }),
         };
         let result = build_responses_completion_response(&resp).unwrap();
@@ -422,9 +454,11 @@ mod tests {
             usage: None,
         };
         let result = build_responses_completion_response(&resp).unwrap();
-        // Tool calls are serialized into content as JSON (matching Chat Completions behavior)
+        // Tool calls wrapped in ```tool ... ``` markdown block (matching Chat Completions format)
+        assert!(result.content.contains("```tool"));
         assert!(result.content.contains("call_1"));
         assert!(result.content.contains("bash"));
+        assert!(result.content.contains("\"function\""));
         assert_eq!(result.stop_reason.as_deref(), Some("tool_use"));
     }
 

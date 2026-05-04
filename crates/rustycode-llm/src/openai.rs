@@ -601,6 +601,13 @@ impl OpenAiProvider {
         }
     }
 
+    /// Check if an error from the Responses API indicates the endpoint is unavailable,
+    /// signalling that Auto mode should fall back to Chat Completions.
+    fn is_responses_unsupported_error(err: &ProviderError) -> bool {
+        matches!(err, ProviderError::InvalidModel(_))
+            || matches!(err, ProviderError::Api(msg) if msg.starts_with("404"))
+    }
+
     pub fn endpoint(&self) -> String {
         let base = self
             .config
@@ -841,7 +848,8 @@ impl OpenAiProvider {
             .expose_secret();
 
         // Convert HTTP endpoint to WebSocket URL
-        let base = self.endpoint().trim_end_matches('/');
+        let endpoint = self.endpoint();
+        let base = endpoint.trim_end_matches('/');
         let ws_url = base
             .replace("https://", "wss://")
             .replace("http://", "ws://")
@@ -935,8 +943,36 @@ impl LLMProvider for OpenAiProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        if request.api_mode == Some(ApiMode::Responses) {
-            return self.complete_responses(request).await;
+        match request.api_mode {
+            Some(ApiMode::Responses) => return self.complete_responses(request).await,
+            Some(ApiMode::Auto) => {
+                let cached = self
+                    .responses_api_supported
+                    .lock()
+                    .ok()
+                    .and_then(|g| *g);
+                if cached != Some(false) {
+                    match self.complete_responses(request.clone()).await {
+                        Ok(resp) => {
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(true);
+                            }
+                            return Ok(resp);
+                        }
+                        Err(ref e) if Self::is_responses_unsupported_error(e) => {
+                            tracing::info!(
+                                "Responses API unavailable, falling back to Chat Completions"
+                            );
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(false);
+                            }
+                            // Fall through to Chat Completions below
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+            _ => {}
         }
 
         let retry_config = self.config.retry_config.clone().unwrap_or_default();
@@ -968,8 +1004,37 @@ impl LLMProvider for OpenAiProvider {
             return self.complete_responses_ws(request).await;
         }
 
-        if request.api_mode == Some(ApiMode::Responses) {
-            return self.complete_responses_stream(request).await;
+        match request.api_mode {
+            Some(ApiMode::Responses) => return self.complete_responses_stream(request).await,
+            Some(ApiMode::Auto) => {
+                let cached = self
+                    .responses_api_supported
+                    .lock()
+                    .ok()
+                    .and_then(|g| *g);
+                if cached != Some(false) {
+                    match self.complete_responses_stream(request.clone()).await {
+                        Ok(stream) => {
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(true);
+                            }
+                            return Ok(stream);
+                        }
+                        Err(ref e) if Self::is_responses_unsupported_error(e) => {
+                            tracing::info!(
+                                "Responses API streaming unavailable, falling back to Chat \
+                                 Completions"
+                            );
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(false);
+                            }
+                            // Fall through to Chat Completions below
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+            _ => {}
         }
 
         let retry_config = self.config.retry_config.clone().unwrap_or_default();
@@ -1198,6 +1263,13 @@ impl OpenAiProvider {
             })
         } else {
             None
+        };
+
+        // temperature not supported by reasoning models
+        let temperature = if Self::is_reasoning_model(&model) {
+            None
+        } else {
+            temperature
         };
 
         let response_format = output_config.and_then(|cfg| {

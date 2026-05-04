@@ -153,6 +153,41 @@ pub(crate) enum AnthropicRequestContent {
     Blocks(Vec<ContentBlock>),
 }
 
+/// Content for tool_result blocks: either a plain string or an array of typed blocks.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub(crate) enum ToolResultContent {
+    Text(String),
+    Blocks(Vec<ToolResultBlock>),
+}
+
+impl PartialEq<&str> for ToolResultContent {
+    fn eq(&self, other: &&str) -> bool {
+        match self {
+            Self::Text(s) => s == *other,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<String> for ToolResultContent {
+    fn eq(&self, other: &String) -> bool {
+        match self {
+            Self::Text(s) => s == other,
+            _ => false,
+        }
+    }
+}
+
+/// A single block inside a tool_result content array.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub(crate) struct ToolResultBlock {
+    #[serde(rename = "type")]
+    pub(crate) block_type: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) text: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub(crate) enum ContentBlock {
@@ -181,7 +216,7 @@ pub(crate) enum ContentBlock {
         #[serde(rename = "type")]
         content_type: &'static str,
         tool_use_id: String,
-        content: String,
+        content: ToolResultContent,
         #[serde(skip_serializing_if = "Option::is_none")]
         is_error: Option<bool>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -197,6 +232,19 @@ pub(crate) enum ContentBlock {
         citations: Option<CitationMetadata>,
         #[serde(skip_serializing_if = "Option::is_none")]
         cache_control: Option<CacheControl>,
+    },
+    Thinking {
+        #[serde(rename = "type")]
+        content_type: &'static str,
+        thinking: String,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        signature: String,
+    },
+    RedactedThinking {
+        #[serde(rename = "type")]
+        content_type: &'static str,
+        #[serde(skip_serializing_if = "String::is_empty")]
+        data: String,
     },
 }
 
@@ -968,7 +1016,7 @@ impl AnthropicProvider {
                             } => ContentBlock::ToolResult {
                                 content_type: "tool_result",
                                 tool_use_id: tool_use_id.clone(),
-                                content: content.clone(),
+                                content: ToolResultContent::Text(content.clone()),
                                 is_error: if *is_error { Some(true) } else { None },
                                 cache_control: None,
                             },
@@ -998,11 +1046,11 @@ impl AnthropicProvider {
                                     },
                                 }
                             }
-                            rustycode_protocol::ContentBlock::Thinking { thinking, .. } => {
-                                ContentBlock::Text {
-                                    content_type: "text",
-                                    text: format!("[thinking: {}]", thinking),
-                                    cache_control: None,
+                            rustycode_protocol::ContentBlock::Thinking { thinking, signature } => {
+                                ContentBlock::Thinking {
+                                    content_type: "thinking",
+                                    thinking: thinking.clone(),
+                                    signature: signature.clone(),
                                 }
                             }
                             _ => ContentBlock::Text {
@@ -1049,10 +1097,7 @@ impl AnthropicProvider {
                                         .as_str()
                                         .unwrap_or("")
                                         .to_string(),
-                                    content: tool_result_json["content"]
-                                        .as_str()
-                                        .unwrap_or("")
-                                        .to_string(),
+                                    content: parse_tool_result_content(&tool_result_json["content"]),
                                     is_error: if is_error { Some(true) } else { None },
                                     cache_control: None,
                                 },
@@ -1563,6 +1608,9 @@ impl AnthropicProvider {
         let stream_state = Arc::new(std::sync::Mutex::new((
             None::<String>,
             HashMap::<usize, String>::new(),
+            HashMap::<usize, String>::new(),
+            HashMap::<usize, String>::new(),
+            HashMap::<usize, String>::new(),
         )));
         let event_stream = bytes_stream.flat_map(move |chunk_result| {
             let chunk = match chunk_result {
@@ -1577,7 +1625,7 @@ impl AnthropicProvider {
 
             let lines = byte_buffer.feed_chunk(&chunk);
             let mut state = stream_state.lock().unwrap_or_else(|e| e.into_inner());
-            let (current_event_type, tool_ids_by_index) = &mut *state;
+            let (current_event_type, tool_ids_by_index, thinking_signatures, thinking_block_types, redacted_data) = &mut *state;
 
             let mut events = Vec::new();
 
@@ -1642,7 +1690,19 @@ impl AnthropicProvider {
                                                     name,
                                                 }));
                                             }
-                                            "text" | "thinking" => {}
+                                            "thinking" => {
+                                                thinking_block_types.insert(index, "thinking".to_string());
+                                            }
+                                            "redacted_thinking" => {
+                                                thinking_block_types.insert(index, "redacted_thinking".to_string());
+                                                let data = block_obj
+                                                    .get("data")
+                                                    .and_then(|d| d.as_str())
+                                                    .unwrap_or("")
+                                                    .to_string();
+                                                redacted_data.insert(index, data);
+                                            }
+                                            "text" => {}
                                             _ => {}
                                         }
                                     }
@@ -1700,7 +1760,16 @@ impl AnthropicProvider {
                                                     }));
                                                 }
                                             }
-                                            "signature_delta" => {}
+                                            "signature_delta" => {
+                                                if let Some(sig) =
+                                                    delta_obj.get("signature").and_then(|s| s.as_str())
+                                                {
+                                                    thinking_signatures
+                                                        .entry(index)
+                                                        .and_modify(|existing| existing.push_str(sig))
+                                                        .or_insert_with(|| sig.to_string());
+                                                }
+                                            }
                                             "citations_delta" => {}
                                             _ => {
                                                 if let Some(text) =
@@ -1721,6 +1790,17 @@ impl AnthropicProvider {
                                 let index = data.get("index").and_then(|i| i.as_u64()).unwrap_or(0)
                                     as usize;
                                 tool_ids_by_index.remove(&index);
+
+                                if let Some(block_type) = thinking_block_types.remove(&index) {
+                                    let signature =
+                                        thinking_signatures.remove(&index).unwrap_or_default();
+                                    let data = redacted_data.remove(&index).unwrap_or_default();
+                                    events.push(Ok(StreamEvent::ThinkingBlockCompleted {
+                                        block_type,
+                                        signature,
+                                        data,
+                                    }));
+                                }
                             }
                             Some("message_delta") => {
                                 let stop_reason = data
@@ -1826,6 +1906,35 @@ impl AnthropicProvider {
     }
 }
 
+/// Parse the `content` field of a tool_result JSON value.
+/// Anthropic allows either a plain string or an array of typed blocks.
+fn parse_tool_result_content(value: &serde_json::Value) -> ToolResultContent {
+    if let Some(s) = value.as_str() {
+        ToolResultContent::Text(s.to_string())
+    } else if let Some(arr) = value.as_array() {
+        let blocks: Vec<ToolResultBlock> = arr
+            .iter()
+            .filter_map(|block| {
+                let bt = block.get("type").and_then(|t| t.as_str()).unwrap_or("text");
+                match bt {
+                    "text" => Some(ToolResultBlock {
+                        block_type: "text",
+                        text: block.get("text").and_then(|t| t.as_str()).map(String::from),
+                    }),
+                    "image" => Some(ToolResultBlock {
+                        block_type: "image",
+                        text: None,
+                    }),
+                    _ => None,
+                }
+            })
+            .collect();
+        ToolResultContent::Blocks(blocks)
+    } else {
+        ToolResultContent::Text(String::new())
+    }
+}
+
 /// Map Anthropic API errors to ProviderError
 fn map_anthropic_error(
     status: reqwest::StatusCode,
@@ -1841,6 +1950,7 @@ fn map_anthropic_error(
         400 => ProviderError::Api(error_text.to_string()),
         404 => ProviderError::InvalidModel(error_text.to_string()),
         502..=504 => ProviderError::Network(format!("service unavailable: {}", error_text)),
+        529 => ProviderError::Network(format!("Anthropic API overloaded: {}", error_text)),
         _ => ProviderError::Api(format!("HTTP {}: {}", status.as_u16(), error_text)),
     }
 }

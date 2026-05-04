@@ -233,9 +233,7 @@ pub fn convert_messages_to_responses_input(
                                         });
                                     }
                                     items.push(ResponsesApiInputItem::FunctionCall {
-                                        // ContentBlock::ToolUse stores a single id; both item id and
-                                        // call_id derive from it since RustyCode doesn't track them separately.
-                                        id: id.clone(),
+                                        id: format!("fc_{}", id),
                                         call_id: id.clone(),
                                         name: name.clone(),
                                         arguments: input.to_string(),

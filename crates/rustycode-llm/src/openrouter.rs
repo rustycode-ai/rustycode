@@ -20,6 +20,8 @@
 //!    export OPENROUTER_MODEL=google/gemma-2-9b:free
 //!    ```
 
+use std::sync::Arc;
+
 use crate::provider::{
     build_openai_response_format, ApiMode, CompletionRequest, CompletionResponse, LLMProvider,
     ProviderConfig, ProviderError, StreamChunk, Usage,
@@ -141,6 +143,9 @@ pub struct OpenRouterProvider {
     client: Client,
     #[allow(dead_code)] // Kept for future use
     default_model: String,
+    /// Cached result of Responses API availability probe.
+    /// `None` = not yet probed, `Some(true)` = supported, `Some(false)` = unsupported.
+    responses_api_supported: Arc<std::sync::Mutex<Option<bool>>>,
 }
 
 impl OpenRouterProvider {
@@ -166,6 +171,7 @@ impl OpenRouterProvider {
             config,
             client,
             default_model,
+            responses_api_supported: Arc::new(std::sync::Mutex::new(None)),
         })
     }
 
@@ -192,6 +198,7 @@ impl OpenRouterProvider {
             config,
             client,
             default_model,
+            responses_api_supported: Arc::new(std::sync::Mutex::new(None)),
         })
     }
 
@@ -379,6 +386,13 @@ impl OpenRouterProvider {
                 },
             ],
         }
+    }
+
+    /// Check if an error from the Responses API indicates the endpoint is unavailable,
+    /// signalling that Auto mode should fall back to Chat Completions.
+    fn is_responses_unsupported_error(err: &ProviderError) -> bool {
+        matches!(err, ProviderError::InvalidModel(_))
+            || matches!(err, ProviderError::Api(msg) if msg.starts_with("404"))
     }
 
     pub fn endpoint(&self) -> String {
@@ -631,8 +645,37 @@ impl LLMProvider for OpenRouterProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        if request.api_mode == Some(ApiMode::Responses) {
-            return self.complete_responses(request).await;
+        match request.api_mode {
+            Some(ApiMode::Responses) => return self.complete_responses(request).await,
+            Some(ApiMode::Auto) => {
+                let cached = self
+                    .responses_api_supported
+                    .lock()
+                    .ok()
+                    .and_then(|g| *g);
+                if cached != Some(false) {
+                    match self.complete_responses(request.clone()).await {
+                        Ok(resp) => {
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(true);
+                            }
+                            return Ok(resp);
+                        }
+                        Err(ref e) if Self::is_responses_unsupported_error(e) => {
+                            tracing::info!(
+                                "Responses API unavailable on OpenRouter, falling back to Chat \
+                                 Completions"
+                            );
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(false);
+                            }
+                            // Fall through to Chat Completions below
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+            _ => {}
         }
 
         let api_key = get_api_key!(self, "OPENROUTER_API_KEY")?;
@@ -799,8 +842,37 @@ impl LLMProvider for OpenRouterProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        if request.api_mode == Some(ApiMode::Responses) {
-            return self.complete_responses_stream(request).await;
+        match request.api_mode {
+            Some(ApiMode::Responses) => return self.complete_responses_stream(request).await,
+            Some(ApiMode::Auto) => {
+                let cached = self
+                    .responses_api_supported
+                    .lock()
+                    .ok()
+                    .and_then(|g| *g);
+                if cached != Some(false) {
+                    match self.complete_responses_stream(request.clone()).await {
+                        Ok(stream) => {
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(true);
+                            }
+                            return Ok(stream);
+                        }
+                        Err(ref e) if Self::is_responses_unsupported_error(e) => {
+                            tracing::info!(
+                                "Responses API streaming unavailable on OpenRouter, falling \
+                                 back to Chat Completions"
+                            );
+                            if let Ok(mut g) = self.responses_api_supported.lock() {
+                                *g = Some(false);
+                            }
+                            // Fall through to Chat Completions below
+                        }
+                        Err(e) => return Err(e),
+                    }
+                }
+            }
+            _ => {}
         }
 
         let api_key = self

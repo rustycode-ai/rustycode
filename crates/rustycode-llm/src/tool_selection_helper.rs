@@ -316,4 +316,94 @@ pub mod formatters {
             })
             .collect()
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use rustycode_tools_api::ToolPermission;
+
+        fn eager_tool() -> ToolInfo {
+            ToolInfo {
+                name: "bash".to_string(),
+                description: "Run a shell command".to_string(),
+                parameters_schema: serde_json::json!({"type": "object", "properties": {"command": {"type": "string"}}}),
+                permission: ToolPermission::Execute,
+                defer_loading: None,
+                annotations: None,
+                tags: vec![],
+            }
+        }
+
+        fn deferred_tool() -> ToolInfo {
+            ToolInfo {
+                name: "lsp_hover".to_string(),
+                description: "Show hover info".to_string(),
+                parameters_schema: serde_json::json!({"type": "object", "properties": {"file": {"type": "string"}}}),
+                permission: ToolPermission::Read,
+                defer_loading: Some(true),
+                annotations: None,
+                tags: vec![],
+            }
+        }
+
+        #[test]
+        fn test_anthropic_eager_full_schema() {
+            let tools = vec![eager_tool()];
+            let result = format_for_anthropic(&tools);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0]["name"], "bash");
+            assert_eq!(result[0]["input_schema"]["properties"]["command"]["type"], "string");
+        }
+
+        #[test]
+        fn test_anthropic_deferred_stub() {
+            let tools = vec![deferred_tool()];
+            let result = format_for_anthropic(&tools);
+            assert_eq!(result[0]["input_schema"]["properties"], serde_json::json!({}));
+            assert!(result[0]["description"].as_str().unwrap().contains("DEFERRED"));
+            assert!(result[0]["description"].as_str().unwrap().contains("tool_search"));
+        }
+
+        #[test]
+        fn test_openai_deferred_stub() {
+            let tools = vec![deferred_tool()];
+            let result = format_for_openai(&tools);
+            assert_eq!(result[0]["type"], "function");
+            assert_eq!(result[0]["function"]["parameters"]["properties"], serde_json::json!({}));
+            assert!(result[0]["function"]["description"].as_str().unwrap().contains("DEFERRED"));
+        }
+
+        #[test]
+        fn test_openai_eager_full_schema() {
+            let tools = vec![eager_tool()];
+            let result = format_for_openai(&tools);
+            assert_eq!(result[0]["function"]["parameters"]["properties"]["command"]["type"], "string");
+        }
+
+        #[test]
+        fn test_gemini_deferred_stub() {
+            let tools = vec![deferred_tool()];
+            let result = format_for_gemini(&tools);
+            assert_eq!(result[0]["parameters"]["properties"], serde_json::json!({}));
+            assert!(result[0]["description"].as_str().unwrap().contains("DEFERRED"));
+        }
+
+        #[test]
+        fn test_gemini_eager_full_schema() {
+            let tools = vec![eager_tool()];
+            let result = format_for_gemini(&tools);
+            assert_eq!(result[0]["parameters"]["properties"]["command"]["type"], "string");
+        }
+
+        #[test]
+        fn test_mixed_deferred_and_eager() {
+            let tools = vec![eager_tool(), deferred_tool()];
+            let result = format_for_anthropic(&tools);
+            assert_eq!(result.len(), 2);
+            // Eager keeps full schema
+            assert!(result[0]["input_schema"]["properties"].get("command").is_some());
+            // Deferred has stub
+            assert_eq!(result[1]["input_schema"]["properties"], serde_json::json!({}));
+        }
+    }
 }

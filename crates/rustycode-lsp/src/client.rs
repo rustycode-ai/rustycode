@@ -13,6 +13,7 @@ use lsp_types::Uri as Url;
 use lsp_types::*;
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
+use std::time::Duration;
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
@@ -68,6 +69,7 @@ pub enum LspClientState {
 pub struct LspClient {
     config: LspClientConfig,
     state: LspClientState,
+    ready: bool,
     child: Option<Child>,
     child_stdin: Arc<Mutex<Option<tokio::process::ChildStdin>>>,
     request_id: i64,
@@ -83,6 +85,7 @@ impl Clone for LspClient {
         Self {
             config: self.config.clone(),
             state: self.state,
+            ready: self.ready,
             child: None,
             child_stdin: Arc::new(Mutex::new(None)),
             request_id: self.request_id,
@@ -101,6 +104,7 @@ impl LspClient {
         Self {
             config,
             state: LspClientState::Stopped,
+            ready: false,
             child: None,
             child_stdin: Arc::new(Mutex::new(None)),
             request_id: 0,
@@ -813,6 +817,7 @@ impl LspClient {
 
         self.send_request("shutdown", JsonValue::Null).await?;
         self.state = LspClientState::ShuttingDown;
+        self.ready = false;
 
         Ok(())
     }
@@ -829,6 +834,7 @@ impl LspClient {
         }
 
         self.state = LspClientState::Stopped;
+        self.ready = false;
         info!("LSP server stopped: {}", self.config.server_name);
 
         Ok(())
@@ -842,6 +848,71 @@ impl LspClient {
     /// Check if the client is running
     pub const fn is_running(&self) -> bool {
         matches!(self.state, LspClientState::Running)
+    }
+
+    /// Check if the server has completed initial indexing
+    pub const fn is_ready(&self) -> bool {
+        self.ready
+    }
+
+    /// Wait for the server to finish initial indexing.
+    ///
+    /// Uses `workspace_symbols("")` as a probe: a cold server returns an empty
+    /// result, while a warm one returns at least one symbol. Retries every
+    /// 500 ms until the server responds with symbols or the timeout elapses.
+    pub async fn wait_for_ready(&mut self, timeout: Duration) -> Result<()> {
+        if self.ready {
+            return Ok(());
+        }
+
+        let probe_interval = Duration::from_millis(500);
+        let deadline = tokio::time::Instant::now() + timeout;
+        let mut attempts = 0u32;
+
+        loop {
+            attempts += 1;
+            match self.workspace_symbols("").await {
+                Ok(symbols) if !symbols.is_empty() => {
+                    info!(
+                        server = %self.config.server_name,
+                        attempts,
+                        elapsed_ms = timeout
+                            .saturating_sub(deadline.duration_since(tokio::time::Instant::now()))
+                            .as_millis(),
+                        "LSP server ready"
+                    );
+                    self.ready = true;
+                    return Ok(());
+                }
+                Ok(_) => {
+                    debug!(
+                        server = %self.config.server_name,
+                        attempts,
+                        "LSP server not yet indexed, retrying..."
+                    );
+                }
+                Err(e) => {
+                    debug!(
+                        server = %self.config.server_name,
+                        attempts,
+                        error = %e,
+                        "LSP readiness probe failed, retrying..."
+                    );
+                }
+            }
+
+            if tokio::time::Instant::now() + probe_interval >= deadline {
+                self.ready = false;
+                return Err(anyhow::anyhow!(
+                    "language server '{}' did not finish indexing within {}s — \
+                     still warming up. Retry the request in a moment.",
+                    self.config.server_name,
+                    timeout.as_secs(),
+                ));
+            }
+
+            tokio::time::sleep(probe_interval).await;
+        }
     }
 
     pub const fn is_healthy(&self) -> bool {
