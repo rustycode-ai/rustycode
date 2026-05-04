@@ -94,7 +94,7 @@ impl ThinkingConfig {
 /// and structured output format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputConfig {
-    /// Reasoning effort level (low/medium/high/max)
+    /// Reasoning effort level (low/medium/high/xhigh/max)
     /// Controls how much reasoning effort the model expends
     #[serde(skip_serializing_if = "Option::is_none")]
     pub effort: Option<EffortLevel>,
@@ -401,16 +401,21 @@ impl CompletionRequest {
         self
     }
 
-    /// Set reasoning effort level (low/medium/high/max)
+    /// Set reasoning effort level (low/medium/high/xhigh/max)
     ///
     /// This controls how much reasoning effort the model expends.
     /// Higher effort produces more thorough analysis but is slower.
+    /// Merges with existing output_config, preserving format if set.
     pub fn with_effort(mut self, effort: EffortLevel) -> Self {
-        // Create or update output_config with the effort level
-        self.output_config = Some(OutputConfig {
-            effort: Some(effort),
-            format: None,
-        });
+        match &mut self.output_config {
+            Some(cfg) => cfg.effort = Some(effort),
+            None => {
+                self.output_config = Some(OutputConfig {
+                    effort: Some(effort),
+                    format: None,
+                });
+            }
+        }
         self
     }
 

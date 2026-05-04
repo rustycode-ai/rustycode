@@ -2683,8 +2683,10 @@ impl TUI {
             .unwrap_or(1);
 
         let mut next_idx = (start_idx + 1) % all_levels.len();
-        while !supports_xhigh && all_levels[next_idx] == "xhigh" {
+        let mut attempts = 0;
+        while !supports_xhigh && all_levels[next_idx] == "xhigh" && attempts < all_levels.len() {
             next_idx = (next_idx + 1) % all_levels.len();
+            attempts += 1;
         }
 
         self.current_effort = all_levels[next_idx].to_string();

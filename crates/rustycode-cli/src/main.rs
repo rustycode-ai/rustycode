@@ -416,6 +416,13 @@ async fn async_main() -> Result<()> {
     }
 
     if let Some(ref effort) = cli.effort {
+        if rustycode_llm::provider::EffortLevel::try_from(effort.as_str()).is_err() {
+            eprintln!(
+                "error: invalid effort level '{}'. Valid values: low, medium, high, xhigh, max",
+                effort
+            );
+            std::process::exit(1);
+        }
         std::env::set_var("RUSTYCODE_EFFORT_OVERRIDE", effort);
     }
 

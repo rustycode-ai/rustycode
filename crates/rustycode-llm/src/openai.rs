@@ -1109,7 +1109,10 @@ impl OpenAiProvider {
                 crate::provider::EffortLevel::Low => "low".to_string(),
                 crate::provider::EffortLevel::Medium => "medium".to_string(),
                 crate::provider::EffortLevel::High => "high".to_string(),
-                crate::provider::EffortLevel::Xhigh => "high".to_string(),
+                crate::provider::EffortLevel::Xhigh => {
+                    tracing::info!("effort xhigh not supported by OpenAI, using high");
+                    "high".to_string()
+                }
                 crate::provider::EffortLevel::Max => "high".to_string(),
             })
         } else {
