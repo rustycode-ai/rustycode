@@ -102,12 +102,11 @@ impl AgentTool {
 
     /// Execute the agent loop.
     async fn execute_agent(&self, def: &AgentDefinition, prompt: &str) -> Result<String> {
-        let config = AgentConfig {
-            max_turns: 25,
-            timeout_secs: 300,
-            max_tool_result_bytes: 8_000,
-            temperature: 0.2,
-        };
+        let mut config = AgentConfig::from_env();
+        config.max_turns = 25;
+        config.timeout_secs = 300;
+        config.max_tool_result_bytes = 8_000;
+        config.temperature = 0.2;
 
         let mut session = AgentSession::new(config, &self.cwd);
         session.activation.promote(ToolTier::Full);

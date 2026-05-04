@@ -79,6 +79,7 @@ pub struct StreamConfig {
     pub orchestration:
         Option<Arc<StdMutex<crate::app::orchestration_integration::OrchestrationIntegration>>>,
     pub image_blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
+    pub effort: Option<String>,
 }
 
 impl StreamConfig {
@@ -105,6 +106,7 @@ impl StreamConfig {
             phase_context: None,
             orchestration: None,
             image_blocks: None,
+            effort: None,
         }
     }
 
@@ -204,6 +206,11 @@ impl StreamConfig {
         blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
     ) -> Self {
         self.image_blocks = blocks;
+        self
+    }
+
+    pub fn effort_opt(mut self, effort: Option<String>) -> Self {
+        self.effort = effort;
         self
     }
 }
@@ -330,6 +337,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         phase_context,
         orchestration: _,
         image_blocks,
+        effort: _,
     } = config;
 
     let _done_guard = DoneGuard::new(stream_tx.clone());
@@ -573,11 +581,11 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
         phase_context,
         orchestration,
         image_blocks,
+        effort,
     } = config;
 
     let _done_guard = DoneGuard::new(stream_tx.clone());
 
-    // Load provider type and model from config
     let (provider_type, model, v2_config) = match rustycode_llm::load_provider_config_from_env() {
         Ok(v) => v,
         Err(e) => {
@@ -919,6 +927,20 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
             .with_streaming(true)
             .with_max_tokens(8192)
             .with_temperature(0.1);
+
+        // Apply effort level if configured
+        if let Some(ref effort_str) = effort {
+            if let Ok(effort_level) =
+                rustycode_llm::provider::EffortLevel::try_from(effort_str.as_str())
+            {
+                request = request.with_effort(effort_level);
+                request =
+                    request.with_output_config(rustycode_llm::provider::OutputConfig {
+                        effort: Some(effort_level),
+                        format: None,
+                    });
+            }
+        }
 
         // Add tools schema if provided (only on first request)
         if let Some(ref tools) = tools_schema {

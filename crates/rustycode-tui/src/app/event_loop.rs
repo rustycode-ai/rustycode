@@ -291,6 +291,7 @@ pub struct TUI {
     pub(crate) file_selector: FileSelector,
     pub(crate) showing_provider_selector: bool,
     pub(crate) current_model: String,
+    pub(crate) current_effort: String,
 
     // Session sidebar
     pub(crate) session_sidebar: SessionSidebar,
@@ -706,6 +707,7 @@ impl TUI {
                 tracing::warn!("Failed to load model config: {}", e);
                 String::new()
             }),
+            current_effort: "medium".to_string(),
             session_sidebar: SessionSidebar::new(),
             session_recovery:
                 crate::app::session_recovery_integration::SessionRecoveryManager::new(
@@ -992,6 +994,7 @@ impl TUI {
                 tracing::warn!("Failed to load model config: {}", e);
                 String::new()
             }),
+            current_effort: "medium".to_string(),
             session_sidebar: SessionSidebar::new(),
             session_recovery:
                 crate::app::session_recovery_integration::SessionRecoveryManager::new(
@@ -2664,6 +2667,29 @@ impl TUI {
             .wrap(Wrap { trim: false });
 
         frame.render_widget(paragraph, area);
+    }
+
+    pub(crate) fn cycle_effort_level(&mut self) -> String {
+        let all_levels = ["low", "medium", "high", "xhigh", "max"];
+        let supports_xhigh = self
+            .current_model
+            .contains("opus-4-7")
+            || self.current_model.contains("opus-4.7");
+
+        let current = self.current_effort.as_str();
+        let start_idx = all_levels
+            .iter()
+            .position(|&l| l == current)
+            .unwrap_or(1);
+
+        let mut next_idx = (start_idx + 1) % all_levels.len();
+        while !supports_xhigh && all_levels[next_idx] == "xhigh" {
+            next_idx = (next_idx + 1) % all_levels.len();
+        }
+
+        self.current_effort = all_levels[next_idx].to_string();
+        self.services.set_effort(self.current_effort.clone());
+        self.current_effort.clone()
     }
 
     /// Save command history on exit

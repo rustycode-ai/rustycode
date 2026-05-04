@@ -38,9 +38,6 @@ struct AnthropicRequest {
     stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<serde_json::Value>>,
-    /// Reasoning effort level (only supported on Claude 3.7 and later)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    effort: Option<String>,
     /// Thinking configuration (Opus 4.5+, Sonnet 4.5+)
     #[serde(skip_serializing_if = "Option::is_none")]
     thinking: Option<serde_json::Value>,
@@ -291,20 +288,47 @@ fn is_opus_47_or_later(model: &str) -> bool {
 ///
 /// Opus 4.7+ removed `thinking.type="enabled"` — only `"adaptive"` is accepted.
 /// This function auto-downgrades `Enabled → Adaptive` for incompatible models.
+///
+/// When effort is Xhigh or Max on a thinking-capable model and no thinking config
+/// is provided, adaptive thinking is auto-enabled.
 fn normalize_thinking_for_model(
-    mut thinking: crate::provider::ThinkingConfig,
+    thinking: Option<crate::provider::ThinkingConfig>,
+    effort: Option<crate::provider::EffortLevel>,
     model: &str,
-) -> serde_json::Value {
+) -> Option<serde_json::Value> {
     use crate::provider::ThinkingType;
 
-    if matches!(thinking.thinking_type, ThinkingType::Enabled) && is_opus_47_or_later(model) {
-        tracing::warn!(
-            "Model {model} does not support thinking.type=enabled, auto-downgrading to adaptive"
-        );
-        thinking.thinking_type = ThinkingType::Adaptive;
-    }
+    let thinking = match thinking {
+        Some(mut t) => {
+            if matches!(t.thinking_type, ThinkingType::Enabled) && is_opus_47_or_later(model) {
+                tracing::warn!(
+                    "Model {model} does not support thinking.type=enabled, auto-downgrading to adaptive"
+                );
+                t.thinking_type = ThinkingType::Adaptive;
+            }
+            Some(t)
+        }
+        None => {
+            let should_auto_enable = matches!(
+                effort,
+                Some(
+                    crate::provider::EffortLevel::Xhigh | crate::provider::EffortLevel::Max
+                )
+            ) && ThinkingType::Adaptive.supports_model(model);
 
-    serde_json::to_value(thinking).unwrap_or_default()
+            if should_auto_enable {
+                tracing::debug!(
+                    "Auto-enabling adaptive thinking for {model} with {:?} effort",
+                    effort
+                );
+                Some(crate::provider::ThinkingConfig::adaptive())
+            } else {
+                None
+            }
+        }
+    };
+
+    thinking.map(|t| serde_json::to_value(t).unwrap_or_default())
 }
 
 /// Apply `cache_control: { type: "ephemeral" }` to the last N messages' content blocks.
@@ -473,14 +497,11 @@ impl AnthropicProvider {
             system,
             stream: Some(false),
             tools,
-            effort: request
-                .output_config
-                .as_ref()
-                .and_then(|c| c.effort)
-                .map(|e| e.to_string()),
-            thinking: request
-                .thinking
-                .map(|t| normalize_thinking_for_model(t, &request.model)),
+            thinking: normalize_thinking_for_model(
+                request.thinking,
+                request.output_config.as_ref().and_then(|c| c.effort),
+                &request.model,
+            ),
             output_config: request.output_config,
             container: request.container.clone(),
             tool_choice: request.tool_choice.as_ref().map(|tc| match tc.as_str() {
@@ -1462,14 +1483,11 @@ impl AnthropicProvider {
             system,
             stream: Some(true),
             tools,
-            effort: request
-                .output_config
-                .as_ref()
-                .and_then(|c| c.effort)
-                .map(|e| e.to_string()),
-            thinking: request
-                .thinking
-                .map(|t| normalize_thinking_for_model(t, &request.model)),
+            thinking: normalize_thinking_for_model(
+                request.thinking,
+                request.output_config.as_ref().and_then(|c| c.effort),
+                &request.model,
+            ),
             output_config: request.output_config,
             container: request.container.clone(),
             tool_choice: request.tool_choice.as_ref().map(|tc| match tc.as_str() {
@@ -1928,6 +1946,7 @@ impl UnifiedLLMProvider for AnthropicProvider {
             tool_choice: None,
             parallel_tool_calls: None,
             session_id: None,
+            api_mode: None,
         };
 
         // Call provider complete
@@ -2314,7 +2333,6 @@ mod tests {
             }])),
             stream: Some(false),
             tools: None,
-            effort: None,
             thinking: None,
             output_config: None,
             container: None,
@@ -2359,7 +2377,6 @@ mod tests {
                     "cache_control": {"type": "ephemeral"}
                 }),
             ]),
-            effort: None,
             thinking: None,
             output_config: None,
             container: None,
@@ -2845,7 +2862,6 @@ mod tests {
             system: None,
             stream: Some(false),
             tools: None,
-            effort: None,
             thinking: None,
             output_config: Some(crate::provider::OutputConfig::with_effort(
                 crate::provider::EffortLevel::High,
@@ -2876,7 +2892,6 @@ mod tests {
             system: None,
             stream: Some(false),
             tools: None,
-            effort: None,
             thinking: None,
             output_config: Some(crate::provider::OutputConfig::with_json_schema(schema)),
             container: None,
@@ -3003,7 +3018,8 @@ mod tests {
     #[test]
     fn test_normalize_thinking_downgrades_enabled_for_opus_47() {
         let config = crate::provider::ThinkingConfig::enabled(10000);
-        let value = normalize_thinking_for_model(config, "claude-opus-4-7");
+        let value = normalize_thinking_for_model(Some(config), None, "claude-opus-4-7");
+        let value = value.expect("should return Some");
         assert_eq!(value["type"], "adaptive");
         assert_eq!(value["budget_tokens"], 10000);
     }
@@ -3011,21 +3027,24 @@ mod tests {
     #[test]
     fn test_normalize_thinking_keeps_enabled_for_older_models() {
         let config = crate::provider::ThinkingConfig::enabled(10000);
-        let value = normalize_thinking_for_model(config, "claude-opus-4-6");
+        let value = normalize_thinking_for_model(Some(config), None, "claude-opus-4-6");
+        let value = value.expect("should return Some");
         assert_eq!(value["type"], "enabled");
     }
 
     #[test]
     fn test_normalize_thinking_handles_date_suffixed_model() {
         let config = crate::provider::ThinkingConfig::enabled(10000);
-        let value = normalize_thinking_for_model(config, "claude-opus-4-7-20250515");
+        let value = normalize_thinking_for_model(Some(config), None, "claude-opus-4-7-20250515");
+        let value = value.expect("should return Some");
         assert_eq!(value["type"], "adaptive");
     }
 
     #[test]
     fn test_normalize_thinking_adaptive_unchanged() {
         let config = crate::provider::ThinkingConfig::adaptive();
-        let value = normalize_thinking_for_model(config, "claude-opus-4-7");
+        let value = normalize_thinking_for_model(Some(config), None, "claude-opus-4-7");
+        let value = value.expect("should return Some");
         assert_eq!(value["type"], "adaptive");
     }
 

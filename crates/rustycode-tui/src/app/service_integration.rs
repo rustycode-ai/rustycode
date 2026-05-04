@@ -155,6 +155,9 @@ pub struct ServiceManager {
     /// Unified orchestration pipeline
     pub(crate) orchestration_pipeline:
         Option<Arc<rustycode_orchestration::pipeline::OrchestrationPipeline>>,
+
+    /// Current reasoning effort level (low/medium/high/xhigh/max)
+    effort: String,
 }
 
 /// Context passed to background streaming threads.
@@ -177,6 +180,8 @@ struct StreamingContext {
     phase_context: Option<String>,
     /// Base64-encoded image blocks from clipboard paste, threaded through to the LLM.
     image_blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
+    /// Reasoning effort level for LLM requests.
+    effort: String,
 }
 
 impl ServiceManager {
@@ -202,6 +207,7 @@ impl ServiceManager {
             tool_registry: None,
             orchestration: Arc::new(StdMutex::new(OrchestrationIntegration::default())),
             orchestration_pipeline: None,
+            effort: "medium".to_string(),
         }
     }
 
@@ -535,6 +541,7 @@ impl ServiceManager {
             orchestration_guidance,
             phase_context,
             image_blocks,
+            effort: self.effort.clone(),
         };
 
         // 5. Dispatch
@@ -683,7 +690,8 @@ impl ServiceManager {
                     .orchestration_guidance_opt(ctx.orchestration_guidance)
                     .phase_context_opt(ctx.phase_context)
                     .orchestration_opt(Some(ctx.orchestration))
-                    .image_blocks_opt(ctx.image_blocks);
+                    .image_blocks_opt(ctx.image_blocks)
+                    .effort_opt(Some(ctx.effort.clone()));
 
                     stream_llm_response(config).await
                 });
@@ -769,6 +777,12 @@ impl ServiceManager {
         if let Some(conv) = &mut self.conversation {
             conv.set_agent_mode(mode);
         }
+    }
+
+    /// Set the effort level for LLM requests
+    pub fn set_effort(&mut self, effort: String) {
+        std::env::set_var("RUSTYCODE_EFFORT_OVERRIDE", &effort);
+        self.effort = effort;
     }
 
     /// Cycle to the next agent mode

@@ -62,6 +62,10 @@ struct Cli {
     #[arg(long, global = true)]
     model: Option<String>,
 
+    /// Override the effort level for this invocation (low, medium, high, xhigh, max)
+    #[arg(long, global = true)]
+    effort: Option<String>,
+
     /// Enable verbose logging
     #[arg(long, global = true)]
     verbose: bool,
@@ -409,6 +413,10 @@ async fn async_main() -> Result<()> {
     // Apply model override via env var (read by LLM provider config loader)
     if let Some(ref model) = cli.model {
         std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", model);
+    }
+
+    if let Some(ref effort) = cli.effort {
+        std::env::set_var("RUSTYCODE_EFFORT_OVERRIDE", effort);
     }
 
     // Configure colored output

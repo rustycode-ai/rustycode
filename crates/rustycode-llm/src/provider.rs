@@ -23,6 +23,7 @@ pub struct SkillRef {
 /// - `low`: Quick responses, minimal reasoning (fastest, cheapest)
 /// - `medium`: Balanced reasoning (default)
 /// - `high`: Deeper analysis, more thorough (slower, more expensive)
+/// - `xhigh`: Extended capability for long-horizon work, recommended starting point for Opus 4.7+ coding/agentic tasks
 /// - `max`: Maximum reasoning depth (slowest, most expensive)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Display, EnumString)]
 #[serde(rename_all = "lowercase")]
@@ -33,6 +34,7 @@ pub enum EffortLevel {
     #[default]
     Medium,
     High,
+    Xhigh,
     Max,
 }
 
@@ -292,6 +294,17 @@ impl ThinkingType {
     }
 }
 
+/// API mode for providers that support multiple endpoints.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum ApiMode {
+    /// Chat Completions API (`POST /v1/chat/completions`) — default.
+    ChatCompletions,
+    /// Responses API (`POST /v1/responses`) — HTTP.
+    Responses,
+    /// Responses API via WebSocket (OpenAI only, feature-gated).
+    ResponsesWs,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionRequest {
     pub model: String,
@@ -322,6 +335,10 @@ pub struct CompletionRequest {
     /// Requests with the same session_id share a cache prefix for higher hit rates.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    /// API mode: Chat Completions (default), Responses API, or Responses WebSocket.
+    /// When `None`, providers use their default endpoint (Chat Completions).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_mode: Option<ApiMode>,
 }
 
 impl CompletionRequest {
@@ -340,6 +357,7 @@ impl CompletionRequest {
             tool_choice: None,
             parallel_tool_calls: None,
             session_id: None,
+            api_mode: None,
         }
     }
 
@@ -1567,6 +1585,10 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&EffortLevel::Max).unwrap(),
             r#""max""#
+        );
+        assert_eq!(
+            serde_json::to_string(&EffortLevel::Xhigh).unwrap(),
+            r#""xhigh""#
         );
         assert_eq!(
             serde_json::to_string(&EffortLevel::High).unwrap(),

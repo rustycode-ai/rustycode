@@ -653,6 +653,11 @@ impl TUI {
                 self.expand_all_messages();
                 self.add_system_message("Expanded all messages".to_string());
             }
+            (KeyCode::Char('f'), KeyModifiers::ALT) => {
+                // Alt+F: Cycle effort level
+                let new_effort = self.cycle_effort_level();
+                self.add_system_message(format!("Effort: {}", new_effort));
+            }
             (KeyCode::Char('w'), KeyModifiers::ALT) => {
                 // Alt+W: Collapse all except user messages
                 self.collapse_all_except_user();

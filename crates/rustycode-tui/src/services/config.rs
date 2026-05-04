@@ -309,6 +309,9 @@ pub struct ModelConfig {
     pub max_tokens: usize,
     pub top_p: f32,
     pub stream: bool,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effort: Option<String>,
 }
 
 impl Default for ModelConfig {
@@ -320,6 +323,7 @@ impl Default for ModelConfig {
             max_tokens: 4096,
             top_p: 1.0,
             stream: true,
+            effort: None,
         }
     }
 }

@@ -1,7 +1,7 @@
 //! OpenAI LLM provider implementation.
 use crate::provider::{
-    ChatMessage, CompletionRequest, CompletionResponse, LLMProvider, MessageRole, ProviderConfig,
-    ProviderError, StreamChunk, ThinkingBlock, Usage,
+    ApiMode, ChatMessage, CompletionRequest, CompletionResponse, LLMProvider, MessageRole,
+    ProviderConfig, ProviderError, StreamChunk, ThinkingBlock, Usage,
 };
 use crate::provider_metadata::{
     ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
@@ -160,6 +160,8 @@ pub struct OpenAiProvider {
     default_model: String,
     tool_registry: Arc<ToolRegistry>,
     tool_selector: ToolSelector,
+    /// Last Responses API response ID for server-side conversation state.
+    last_response_id: Arc<std::sync::Mutex<Option<String>>>,
 }
 
 impl OpenAiProvider {
@@ -394,6 +396,7 @@ impl OpenAiProvider {
                 default_model,
                 tool_registry,
                 tool_selector,
+                last_response_id: Arc::new(std::sync::Mutex::new(None)),
             })
         }
     }
@@ -428,6 +431,7 @@ impl OpenAiProvider {
             default_model,
             tool_registry,
             tool_selector,
+            last_response_id: Arc::new(std::sync::Mutex::new(None)),
         })
     }
 
@@ -601,6 +605,219 @@ impl OpenAiProvider {
             .unwrap_or("https://api.openai.com/v1");
         base.trim_end_matches('/').to_string()
     }
+
+    /// Complete a request using the Responses API (`POST /v1/responses`).
+    async fn complete_responses(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<CompletionResponse, ProviderError> {
+        let api_key = get_api_key!(self, "OPENAI_API_KEY")?;
+
+        let url = format!("{}/responses", self.endpoint());
+
+        let (instructions, input_items) =
+            crate::openai_compatible::convert_messages_to_responses_input(&request);
+
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| crate::tools::normalize_tools_for_responses(t))
+            .unwrap_or_default();
+        let tools_opt = if tools.is_empty() {
+            None
+        } else {
+            let parsed: Vec<crate::openai_compatible::ResponsesApiTool> = tools
+                .iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                .collect();
+            if parsed.is_empty() { None } else { Some(parsed) }
+        };
+
+        let prev_id = self
+            .last_response_id
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone());
+
+        let body = crate::openai_compatible::ResponsesApiRequest {
+            model: request.model.clone(),
+            input: input_items,
+            instructions,
+            tools: tools_opt,
+            temperature: request.temperature,
+            max_output_tokens: request.max_tokens,
+            stream: Some(false),
+            previous_response_id: prev_id,
+            tool_choice: request.tool_choice,
+            parallel_tool_calls: request.parallel_tool_calls,
+        };
+
+        let req = build_request!(
+            self.client.post(&url),
+            headers = [
+                ("Authorization", format!("Bearer {}", api_key)),
+                ("Content-Type", "application/json"),
+            ],
+            extra_headers = &self.config.extra_headers
+        );
+
+        let response = req
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::network(format!("failed to send request: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let headers = response.headers().clone();
+            let text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unable to read error".to_string());
+
+            return Err(match status.as_u16() {
+                401 => ProviderError::auth(format!(
+                    "Authentication failed. Check your OPENAI_API_KEY env var. {}",
+                    text
+                )),
+                404 => ProviderError::InvalidModel(format!("model not found: {}", text)),
+                429 => ProviderError::RateLimited {
+                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
+                },
+                500..=599 => ProviderError::network(format!(
+                    "OpenAI service error ({}): {}",
+                    status, text
+                )),
+                _ => ProviderError::api(format!("{}: {}", status, text)),
+            });
+        }
+
+        let resp: crate::openai_compatible::ResponsesApiResponse = response
+            .json()
+            .await
+            .map_err(|e| ProviderError::api(format!("failed to parse response: {}", e)))?;
+
+        // Store response ID for server-side conversation state
+        if let Ok(mut guard) = self.last_response_id.lock() {
+            *guard = Some(resp.id.clone());
+        }
+
+        crate::openai_compatible::build_responses_completion_response(&resp)
+    }
+
+    /// Stream a request using the Responses API (`POST /v1/responses` with `stream: true`).
+    async fn complete_responses_stream(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
+        let api_key = self
+            .config
+            .api_key
+            .as_ref()
+            .ok_or_else(|| ProviderError::auth("OpenAI API key is required. Set api_key in config or OPENAI_API_KEY env var"))?
+            .expose_secret();
+
+        let url = format!("{}/responses", self.endpoint());
+
+        let (instructions, input_items) =
+            crate::openai_compatible::convert_messages_to_responses_input(&request);
+
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| crate::tools::normalize_tools_for_responses(t))
+            .unwrap_or_default();
+        let tools_opt = if tools.is_empty() {
+            None
+        } else {
+            let parsed: Vec<crate::openai_compatible::ResponsesApiTool> = tools
+                .iter()
+                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                .collect();
+            if parsed.is_empty() { None } else { Some(parsed) }
+        };
+
+        let prev_id = self
+            .last_response_id
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone());
+
+        let body = crate::openai_compatible::ResponsesApiRequest {
+            model: request.model.clone(),
+            input: input_items,
+            instructions,
+            tools: tools_opt,
+            temperature: request.temperature,
+            max_output_tokens: request.max_tokens,
+            stream: Some(true),
+            previous_response_id: prev_id,
+            tool_choice: request.tool_choice,
+            parallel_tool_calls: request.parallel_tool_calls,
+        };
+
+        let req = build_request!(
+            self.client.post(&url),
+            headers = [
+                ("Authorization", format!("Bearer {}", api_key)),
+                ("Content-Type", "application/json"),
+            ],
+            extra_headers = &self.config.extra_headers
+        );
+
+        let response = req
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::network(format!("failed to send request: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "unable to read error".to_string());
+
+            return Err(match status.as_u16() {
+                401 => ProviderError::auth(format!(
+                    "Authentication failed. Check your OPENAI_API_KEY env var. {}",
+                    error_text
+                )),
+                404 => ProviderError::InvalidModel(format!("model not found: {}", error_text)),
+                429 => ProviderError::RateLimited { retry_delay: None },
+                500..=599 => ProviderError::network(format!(
+                    "OpenAI service error ({}): {}",
+                    status, error_text
+                )),
+                _ => ProviderError::api(format!("{}: {}", status, error_text)),
+            });
+        }
+
+        let bytes_stream = response.bytes_stream();
+        let line_buffer = crate::sse::SseByteBuffer::new();
+        let state = crate::openai_compatible::ResponsesSseState::default();
+
+        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
+            let state = state.clone();
+
+            let chunk = match chunk_result {
+                Ok(c) => c,
+                Err(e) => {
+                    return futures::stream::iter(vec![Err(ProviderError::Network(
+                        e.to_string(),
+                    ))]);
+                }
+            };
+
+            let lines = line_buffer.feed_chunk(&chunk);
+            let joined = lines.join("\n");
+            let events = crate::openai_compatible::parse_responses_sse_lines(&joined, &state);
+
+            futures::stream::iter(events)
+        });
+
+        Ok(Box::pin(sse_stream))
+    }
 }
 
 #[async_trait]
@@ -642,6 +859,10 @@ impl LLMProvider for OpenAiProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
+        if request.api_mode == Some(ApiMode::Responses) {
+            return self.complete_responses(request).await;
+        }
+
         let retry_config = self.config.retry_config.clone().unwrap_or_default();
 
         crate::retry::retry_with_backoff(retry_config, || {
@@ -666,6 +887,10 @@ impl LLMProvider for OpenAiProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
+        if request.api_mode == Some(ApiMode::Responses) {
+            return self.complete_responses_stream(request).await;
+        }
+
         let retry_config = self.config.retry_config.clone().unwrap_or_default();
 
         crate::retry::retry_with_backoff(retry_config, || {
@@ -884,6 +1109,7 @@ impl OpenAiProvider {
                 crate::provider::EffortLevel::Low => "low".to_string(),
                 crate::provider::EffortLevel::Medium => "medium".to_string(),
                 crate::provider::EffortLevel::High => "high".to_string(),
+                crate::provider::EffortLevel::Xhigh => "high".to_string(),
                 crate::provider::EffortLevel::Max => "high".to_string(),
             })
         } else {
@@ -1526,6 +1752,7 @@ impl UnifiedLLMProvider for OpenAiProvider {
             tool_choice: None,
             parallel_tool_calls: None,
             session_id: None,
+            api_mode: None,
         };
 
         // Call provider complete
@@ -3146,6 +3373,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             (crate::provider::EffortLevel::Low, "low"),
             (crate::provider::EffortLevel::Medium, "medium"),
             (crate::provider::EffortLevel::High, "high"),
+            (crate::provider::EffortLevel::Xhigh, "high"),
             (crate::provider::EffortLevel::Max, "high"),
         ];
 

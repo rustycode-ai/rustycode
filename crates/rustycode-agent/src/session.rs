@@ -6,7 +6,8 @@
 use anyhow::Result;
 use futures::Stream;
 use rustycode_llm::provider::{
-    ChatMessage, CompletionRequest, CompletionResponse, LLMProvider, MessageRole, StreamChunk,
+    ChatMessage, CompletionRequest, CompletionResponse, EffortLevel, LLMProvider, MessageRole,
+    OutputConfig, StreamChunk,
 };
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 use rustycode_protocol::{ContentBlock, MessageContent};
@@ -33,6 +34,8 @@ pub struct AgentConfig {
     pub max_tool_result_bytes: usize,
     /// LLM temperature (default: 0.2).
     pub temperature: f32,
+    /// Effort level for LLM requests (default: None, letting the provider decide).
+    pub effort: Option<EffortLevel>,
 }
 
 impl Default for AgentConfig {
@@ -42,6 +45,7 @@ impl Default for AgentConfig {
             timeout_secs: 900,
             max_tool_result_bytes: 8_000,
             temperature: 0.2,
+            effort: None,
         }
     }
 }
@@ -52,8 +56,13 @@ impl AgentConfig {
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(900);
+        let effort = std::env::var("RUSTYCODE_EFFORT_OVERRIDE")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .and_then(|s| s.parse::<EffortLevel>().ok());
         Self {
             timeout_secs,
+            effort,
             ..Default::default()
         }
     }
@@ -272,13 +281,22 @@ async fn run_loop(
             "AgentSession tool filter"
         );
 
-        let request = CompletionRequest::new(model.to_string(), messages.clone())
+        let mut request = CompletionRequest::new(model.to_string(), messages.clone())
             .with_streaming(true)
             .with_max_tokens(32_768)
             .with_temperature(config.temperature)
             .with_system_prompt(system.to_string())
             .with_tools(active_tools_schema)
             .with_tool_choice(serde_json::json!("auto"));
+
+        if let Some(effort_level) = config.effort {
+            request = request
+                .with_effort(effort_level)
+                .with_output_config(OutputConfig {
+                    effort: Some(effort_level),
+                    format: None,
+                });
+        }
 
         let state = match start_turn_with_retry(provider, &mut messages, request, MAX_RETRIES)
             .await?
@@ -693,13 +711,26 @@ fn rebuild_request(
     messages: &[ChatMessage],
     streaming: bool,
 ) -> CompletionRequest {
-    CompletionRequest::new(original.model.clone(), messages.to_vec())
+    let mut request = CompletionRequest::new(original.model.clone(), messages.to_vec())
         .with_streaming(streaming)
         .with_max_tokens(32_768)
         .with_temperature(original.temperature.unwrap_or(0.2))
         .with_system_prompt(original.system_prompt.clone().unwrap_or_default())
         .with_tools(original.tools.clone().unwrap_or_default())
-        .with_tool_choice(serde_json::json!("auto"))
+        .with_tool_choice(serde_json::json!("auto"));
+
+    if let Some(ref output_config) = original.output_config {
+        if let Some(effort_level) = output_config.effort {
+            request = request
+                .with_effort(effort_level)
+                .with_output_config(OutputConfig {
+                    effort: Some(effort_level),
+                    format: None,
+                });
+        }
+    }
+
+    request
 }
 
 /// Classify an error string for retry logic.

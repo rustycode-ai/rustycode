@@ -161,12 +161,11 @@ impl DelegationExecutor {
         prompt: &str,
         cwd: &std::path::Path,
     ) -> Result<(AgentResult, usize)> {
-        let config = AgentConfig {
-            max_turns: 20,
-            timeout_secs: 300,
-            max_tool_result_bytes: 8_000,
-            temperature: 0.2,
-        };
+        let mut config = AgentConfig::from_env();
+        config.max_turns = 20;
+        config.timeout_secs = 300;
+        config.max_tool_result_bytes = 8_000;
+        config.temperature = 0.2;
 
         let mut session = AgentSession::new(config, cwd);
         session.activation.promote(ToolTier::Full);
