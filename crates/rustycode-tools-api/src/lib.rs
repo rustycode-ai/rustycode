@@ -187,6 +187,9 @@ pub struct ToolContext {
     pub cancellation_token: Option<CancellationToken>,
     /// Optional registry reference for self-introspection (used by `tool_search`).
     pub registry: Option<Arc<ToolRegistry>>,
+    /// When true, file tools may access paths outside the workspace root.
+    /// Security-sensitive paths (.env, .ssh, credentials) remain blocked regardless.
+    pub allow_outside_workspace: bool,
 }
 
 impl std::fmt::Debug for ToolContext {
@@ -215,6 +218,7 @@ impl ToolContext {
             project_id: None,
             cancellation_token: None,
             registry: None,
+            allow_outside_workspace: false,
         }
     }
     pub fn with_sandbox(mut self, sandbox: SandboxConfig) -> Self {
@@ -234,6 +238,13 @@ impl ToolContext {
     #[allow(clippy::missing_const_for_fn)]
     pub fn with_role(mut self, role: AgentRole) -> Self {
         self.role = role;
+        self
+    }
+
+    /// Allow or deny file access outside the workspace root.
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn with_allow_outside_workspace(mut self, allow: bool) -> Self {
+        self.allow_outside_workspace = allow;
         self
     }
     /// Attach a cancellation token for interruptible operations.
@@ -318,6 +329,49 @@ pub trait Tool: Send + Sync {
         &[]
     }
     fn execute(&self, params: Value, ctx: &ToolContext) -> anyhow::Result<ToolOutput>;
+
+    /// Whether this specific invocation is read-only (input-aware).
+    ///
+    /// Unlike `permission()` which is static, this can inspect the parameters
+    /// to determine if a particular call is safe (e.g., `bash ls` vs `bash rm`).
+    /// Default: true if permission is None or Read.
+    fn is_read_only(&self, _params: &Value) -> bool {
+        matches!(self.permission(), ToolPermission::None | ToolPermission::Read)
+    }
+
+    /// Whether this invocation is destructive and should warn the user.
+    ///
+    /// Return true for operations that cannot be undone (e.g., `rm`, `DROP TABLE`).
+    fn is_destructive(&self, _params: &Value) -> bool {
+        false
+    }
+
+    /// Whether this tool invocation can safely run concurrently with other tools.
+    ///
+    /// Return false for tools that mutate shared state (e.g., file writes, git operations).
+    fn is_concurrency_safe(&self, _params: &Value) -> bool {
+        true
+    }
+
+    /// Maximum result size in characters before output is persisted to disk.
+    ///
+    /// Return `None` to disable persistence (e.g., `FileReadTool` to avoid read→persist→read loops).
+    /// Default: 30,000 characters.
+    fn max_result_size_chars(&self) -> Option<usize> {
+        Some(30_000)
+    }
+
+    /// Pre-permission validation. Runs before the approval gate.
+    ///
+    /// Use this for lightweight checks that should block execution early:
+    /// - Stale file detection (file modified since last read)
+    /// - Binary file rejection
+    /// - Input sanitization
+    ///
+    /// Return `Err` to block execution with a user-facing message.
+    fn validate_input(&self, _params: &Value, _ctx: &ToolContext) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 /// Metadata about a registered tool — safe to serialize and send to surfaces.
@@ -330,6 +384,8 @@ pub struct ToolInfo {
     pub defer_loading: Option<bool>,
     pub annotations: Option<ToolAnnotations>,
     pub tags: Vec<ToolTag>,
+    pub max_result_size_chars: Option<usize>,
+    pub is_destructive_default: bool,
 }
 
 impl ToolInfo {
@@ -343,6 +399,8 @@ impl ToolInfo {
             defer_loading: tool.defer_loading(),
             annotations: None,
             tags: tool.tags().to_vec(),
+            max_result_size_chars: tool.max_result_size_chars(),
+            is_destructive_default: tool.is_destructive(&Value::Null),
         }
     }
 }
@@ -815,6 +873,8 @@ mod tests {
             defer_loading: None,
             annotations: None,
             tags: vec![],
+            max_result_size_chars: Some(30_000),
+            is_destructive_default: false,
         };
         let json = serde_json::to_string(&info).unwrap();
         assert!(json.contains("read_file"));
