@@ -2177,6 +2177,74 @@ impl TUI {
             return Ok(());
         }
 
+        // Handle AI mode switching commands
+        if matches!(parts[0], "/yolo" | "/auto") {
+            let current_mode = self.services.ai_mode();
+            if matches!(current_mode, crate::services::agent_mode::AiMode::Yolo) {
+                self.services
+                    .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
+                self.add_system_message(
+                    "🔒 YOLO mode deactivated — tools require approval again.".to_string(),
+                );
+            } else {
+                self.services
+                    .set_ai_mode(crate::services::agent_mode::AiMode::Yolo);
+                self.add_system_message(
+                    "🚀 YOLO mode activated — tools auto-approved, fully autonomous.\n\
+                     Use /yolo again or /ask to return to approval mode."
+                        .to_string(),
+                );
+            }
+            self.dirty = true;
+            self.auto_scroll();
+            if parts.len() > 1 {
+                let task = parts[1..].join(" ");
+                self.services.send_message(task)?;
+            }
+            return Ok(());
+        }
+
+        if matches!(parts[0], "/act") {
+            let current_mode = self.services.ai_mode();
+            if matches!(current_mode, crate::services::agent_mode::AiMode::Act) {
+                self.services
+                    .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
+                self.add_system_message(
+                    "💬 ACT mode deactivated — tools require approval again.".to_string(),
+                );
+            } else {
+                self.services
+                    .set_ai_mode(crate::services::agent_mode::AiMode::Act);
+                self.add_system_message(
+                    "⚡ ACT mode — execute with brief summaries, minimal approval.\n\
+                     Use /act again or /ask to return to full approval mode."
+                        .to_string(),
+                );
+            }
+            self.dirty = true;
+            self.auto_scroll();
+            if parts.len() > 1 {
+                let task = parts[1..].join(" ");
+                self.services.send_message(task)?;
+            }
+            return Ok(());
+        }
+
+        if matches!(parts[0], "/ask") {
+            self.services
+                .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
+            self.add_system_message(
+                "💬 ASK mode — tools require approval, full summaries.".to_string(),
+            );
+            self.dirty = true;
+            self.auto_scroll();
+            if parts.len() > 1 {
+                let task = parts[1..].join(" ");
+                self.services.send_message(task)?;
+            }
+            return Ok(());
+        }
+
         if let Some(command_tx) = self.services.command_sender() {
             let cwd = self.services.cwd().clone();
             let effect = dispatch_registered_slash_command(

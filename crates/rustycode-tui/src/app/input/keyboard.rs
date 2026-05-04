@@ -192,7 +192,7 @@ impl TUI {
                     }
                 } else {
                     // Not streaming — just dismiss overlays, don't quit.
-                    // Use Ctrl+D or Ctrl+Q to quit. This prevents accidental exits.
+                    // Use Ctrl+Q to quit. This prevents accidental exits.
 
                     // Cancel rate limit auto-retry if active (users naturally press Ctrl+C)
                     if self.rate_limit.until.is_some() {
@@ -214,7 +214,7 @@ impl TUI {
                             self.input_mode = self.input_handler.state.mode;
                         } else {
                             // No overlays and empty input — show quit hint
-                            self.add_system_message("Press Ctrl+D or Ctrl+Q to quit".to_string());
+                            self.add_system_message("Press Ctrl+Q to quit".to_string());
                         }
                     }
                 }
@@ -472,18 +472,12 @@ impl TUI {
                 return Ok(());
             }
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-                // Ctrl+L: When input has text, clear it (readline convention).
-                // When input is empty, toggle sidebar (tmux alternative for Ctrl+B).
-                let input_empty = self.input_handler.state.is_empty();
-                if input_empty {
-                    self.handle_sidebar_toggle();
-                    self.message_renderer.invalidate_cache();
-                    self.dirty = true;
-                } else {
-                    self.input_handler.state.clear();
-                    self.input_mode = self.input_handler.state.mode;
-                    self.dirty = true;
-                }
+                // Ctrl+L: Toggle session sidebar.
+                // Works alongside Ctrl+B (which conflicts with tmux prefix).
+                // Use Ctrl+U to clear input line (readline convention).
+                self.handle_sidebar_toggle();
+                self.message_renderer.invalidate_cache();
+                self.dirty = true;
                 return Ok(());
             }
             (KeyCode::Esc, KeyModifiers::NONE) => {

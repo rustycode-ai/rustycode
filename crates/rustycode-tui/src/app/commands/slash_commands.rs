@@ -241,6 +241,54 @@ pub fn handle_plan_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
     )))
 }
 
+pub fn handle_yolo_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
+    let task = if parts.len() > 1 {
+        parts[1..].join(" ")
+    } else {
+        String::new()
+    };
+    Ok(CommandEffect::SystemMessage(format!(
+        "🚀 YOLO mode — fully autonomous, tools auto-approved.\n{}",
+        if task.is_empty() {
+            "Enter a task to execute.".to_string()
+        } else {
+            format!("Task: {}", task)
+        }
+    )))
+}
+
+pub fn handle_act_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
+    let task = if parts.len() > 1 {
+        parts[1..].join(" ")
+    } else {
+        String::new()
+    };
+    Ok(CommandEffect::SystemMessage(format!(
+        "⚡ ACT mode — execute with brief summaries, minimal approval.\n{}",
+        if task.is_empty() {
+            "Enter a task to execute.".to_string()
+        } else {
+            format!("Task: {}", task)
+        }
+    )))
+}
+
+pub fn handle_ask_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
+    let task = if parts.len() > 1 {
+        parts[1..].join(" ")
+    } else {
+        String::new()
+    };
+    Ok(CommandEffect::SystemMessage(format!(
+        "💬 ASK mode — tools require approval, full summaries.\n{}",
+        if task.is_empty() {
+            "Enter a task to execute.".to_string()
+        } else {
+            format!("Task: {}", task)
+        }
+    )))
+}
+
 /// Handle /clear command
 pub fn handle_clear_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
     ctx.messages.clear();

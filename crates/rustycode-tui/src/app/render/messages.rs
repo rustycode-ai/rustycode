@@ -87,7 +87,7 @@ impl PolishedRenderer {
                         "Ctrl+X editor  ·  Ctrl+S stash  ·  Ctrl+R search history",
                         "Shift+Up/Down = turn jump  ·  Alt+E/W expand/collapse all",
                         "Tab = toggle tools  ·  Ctrl+P tool panel  ·  Ctrl+B sessions",
-                        "Ctrl+D to quit  ·  Ctrl+C to cancel  ·  Esc to stop",
+                        "Ctrl+Q to quit  ·  Ctrl+C to cancel  ·  Esc to stop",
                     ];
                     let tip_idx = (greeting_idx + tui.animator.current_frame().progress_frame / 20)
                         % TIPS.len();

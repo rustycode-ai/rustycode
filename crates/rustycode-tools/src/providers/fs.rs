@@ -777,14 +777,70 @@ impl Tool for WriteFileTool {
             Vec::new()
         };
 
+        // Compute pre-write hash for debug logging
+        let expected_bytes: &[u8] = binary_bytes
+            .as_deref()
+            .unwrap_or(content.as_bytes());
+        let pre_hash = {
+            let mut hasher = Sha256::new();
+            hasher.update(expected_bytes);
+            let hash = hasher.finalize();
+            let mut hex = String::with_capacity(8);
+            for b in &hash[..4] {
+                use std::fmt::Write;
+                let _ = write!(hex, "{b:02x}");
+            }
+            hex
+        };
+        tracing::debug!(
+            "write_file: preparing to write {} bytes to {} (sha256 prefix: {pre_hash})",
+            write_size,
+            path_display,
+        );
+
         let mut file = create_file_symlink_safe(&path)?;
         use std::io::Write;
-        if let Some(bytes) = binary_bytes.as_ref() {
-            file.write_all(bytes)?;
-        } else {
-            file.write_all(content.as_bytes())?;
-        }
+        file.write_all(expected_bytes)?;
         file.sync_all()?;
+        drop(file);
+
+        // Round-trip verification for non-large files (skip >1MB)
+        if write_size <= 1_048_576 {
+            match verify_written(&path, expected_bytes) {
+                Ok(()) => {
+                    tracing::debug!(
+                        "write_file: verified {write_size} bytes for {path_display} (sha256 prefix: {pre_hash})"
+                    );
+                }
+                Err(first_mismatch) => {
+                    tracing::warn!(
+                        "write_file: readback mismatch for {path_display} at byte offset {} \
+                         (expected 0x{:02x}, got 0x{:02x}) — retrying write",
+                        first_mismatch.offset,
+                        first_mismatch.expected,
+                        first_mismatch.actual,
+                    );
+                    // Retry once
+                    let mut retry_file = create_file_symlink_safe(&path)?;
+                    retry_file.write_all(expected_bytes)?;
+                    retry_file.sync_all()?;
+                    drop(retry_file);
+
+                    if let Err(retry_mismatch) = verify_written(&path, expected_bytes) {
+                        return Err(anyhow!(
+                            "write_file: persistent readback mismatch for {path_display} \
+                             after retry at byte offset {} (expected 0x{:02x}, got 0x{:02x})",
+                            retry_mismatch.offset,
+                            retry_mismatch.expected,
+                            retry_mismatch.actual,
+                        ));
+                    }
+                    tracing::debug!(
+                        "write_file: retry verified {write_size} bytes for {path_display}"
+                    );
+                }
+            }
+        }
 
         let bytes = write_size;
         let lines = content.lines().count();
@@ -876,6 +932,62 @@ impl WriteFileTool {
             }),
         ))
     }
+}
+
+/// Details of the first byte mismatch found during readback verification.
+struct MismatchDetail {
+    offset: usize,
+    expected: u8,
+    actual: u8,
+}
+
+/// Read back a file and compare its contents to `expected`.
+///
+/// Returns `Ok(())` if the bytes match exactly, or `Err(MismatchDetail)` with
+/// the first differing byte.
+fn verify_written(path: &Path, expected: &[u8]) -> Result<(), MismatchDetail> {
+    use std::io::Read;
+
+    let mut f = match fs::File::open(path) {
+        Ok(f) => f,
+        Err(_) => {
+            return Err(MismatchDetail {
+                offset: 0,
+                expected: expected.first().copied().unwrap_or(0),
+                actual: 0,
+            });
+        }
+    };
+
+    let mut actual = Vec::with_capacity(expected.len());
+    if f.read_to_end(&mut actual).is_err() {
+        return Err(MismatchDetail {
+            offset: 0,
+            expected: expected.first().copied().unwrap_or(0),
+            actual: 0,
+        });
+    }
+
+    if actual.len() != expected.len() {
+        let offset = expected.len().min(actual.len());
+        return Err(MismatchDetail {
+            offset,
+            expected: expected.get(offset).copied().unwrap_or(0),
+            actual: actual.get(offset).copied().unwrap_or(0),
+        });
+    }
+
+    for (i, (e, a)) in expected.iter().zip(actual.iter()).enumerate() {
+        if e != a {
+            return Err(MismatchDetail {
+                offset: i,
+                expected: *e,
+                actual: *a,
+            });
+        }
+    }
+
+    Ok(())
 }
 
 impl Tool for ListDirTool {

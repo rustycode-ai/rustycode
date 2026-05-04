@@ -209,7 +209,13 @@ pub fn validate_path(
             fs::canonicalize(&resolved).map_err(|e| anyhow!("failed to canonicalize path: {e}"))?;
 
         if !path_canonical.starts_with(&workspace_canonical) {
-            return Err(anyhow!("path '{path}' is outside workspace and is blocked"));
+            return Err(anyhow!(
+                "path '{}' is outside workspace '{}' and is blocked. \
+                 Use a relative path within the workspace, or use the bash tool \
+                 to access files outside the workspace.",
+                path,
+                workspace.display()
+            ));
         }
     } else {
         // Path doesn't exist or is a write target — validate parent is within workspace
@@ -229,8 +235,11 @@ pub fn validate_path(
 
                 if !parent_canonical.starts_with(&workspace_canonical) {
                     return Err(anyhow!(
-                        "path parent '{}' is outside workspace and is blocked",
-                        parent.display()
+                        "path parent '{}' is outside workspace '{}' and is blocked. \
+                         Use a relative path within the workspace, or use the bash tool \
+                         to access files outside the workspace.",
+                        parent.display(),
+                        workspace.display()
                     ));
                 }
             }

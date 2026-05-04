@@ -173,28 +173,23 @@ pub(crate) fn run_async_result<F, T>(fut: F) -> Result<T>
 where
     F: Future<Output = Result<T>>,
 {
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        // If we're inside a runtime use block_in_place to execute the
-        // future synchronously without blocking the runtime's async tasks.
-        tokio::task::block_in_place(|| handle.block_on(fut))
-    } else {
-        // No current runtime, use the shared process-wide runtime to avoid
-        // creating short-lived runtimes in tools.
-        shared_runtime::block_on_shared(fut)
-    }
+    // Delegate to shared_runtime::block_on_shared which correctly handles
+    // both "no runtime" and "inside runtime" cases. When inside a runtime
+    // it uses block_in_place + futures::executor::block_on instead of
+    // handle.block_on, avoiding the "Tokio context is being shutdown" panic.
+    shared_runtime::block_on_shared(fut)
 }
 
 /// Read a file's contents, using blocking I/O safely from async contexts.
-/// This wraps `std::fs::read_to_string` in `spawn_blocking` to avoid blocking
-/// the async runtime.
 pub(crate) fn read_file_blocking(file_path: &Path) -> Result<String> {
     let path = file_path.to_path_buf();
-    if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        // We're in an async runtime, use spawn_blocking and block_in_place
-        let result = tokio::task::block_in_place(|| {
-            handle.block_on(async { tokio::fs::read_to_string(&path).await })
-        });
-        result.with_context(|| format!("failed to read file {}", path.display()))
+    if tokio::runtime::Handle::try_current().is_ok() {
+        // We're in an async runtime — use block_on_shared to avoid
+        // handle.block_on panics when the runtime is shutting down.
+        shared_runtime::block_on_shared(async {
+            tokio::fs::read_to_string(&path).await
+        })
+        .with_context(|| format!("failed to read file {}", path.display()))
     } else {
         // No runtime, use symlink-safe direct I/O
         safe_read_file_to_string(&path)
@@ -329,7 +324,7 @@ impl Tool for LspHoverTool {
     }
 
     fn description(&self) -> &'static str {
-        "Get hover information (documentation, type info) for code at a specific position. Use this to understand what a function, variable, or parameter does. Requires file_path, line, and character position."
+        "Get type information, documentation, and signature at a specific position. Use when: you need to know the type of a variable, the signature of a function, or the docs for a method. Faster than reading the whole file. Requires: file_path, line, character."
     }
 
     fn permission(&self) -> ToolPermission {
@@ -399,7 +394,7 @@ impl Tool for LspDefinitionTool {
     }
 
     fn description(&self) -> &'static str {
-        "Jump to the definition of a function, variable, or type at a specific position. Use this to find where symbols are defined in the codebase. Requires file_path, line, and character position."
+        "Jump to the definition of a function, variable, type, or import at a specific position. PREFER THIS OVER GREP for navigation — gives the exact definition location. Use when: you see a symbol used in code and want to find where it's defined, you need to trace an import to its source. Requires: file_path, line, character."
     }
 
     fn permission(&self) -> ToolPermission {
@@ -624,13 +619,7 @@ impl Tool for LspReferencesTool {
     }
 
     fn description(&self) -> &'static str {
-        "Find all references to a symbol across the codebase. Use this to:
-- Find all usages of a function or variable
-- See where a symbol is being used
-- Understand the impact of changing a symbol
-
-Requires: file_path, line, character
-Returns: List of locations where the symbol is referenced"
+        "Find ALL references (usages) of a symbol across the codebase. PREFER THIS OVER GREP for finding usages — it understands scope, imports, and renames. Use when: you need to refactor and want to know all call sites, you want to understand how a function/type is used, you're checking impact of a change. Requires: file_path, line, character."
     }
 
     fn permission(&self) -> ToolPermission {
@@ -702,14 +691,7 @@ impl Tool for LspFullDiagnosticsTool {
     }
 
     fn description(&self) -> &'static str {
-        "Get comprehensive diagnostics and build status for a file. Use this to:
-- Show all errors, warnings, and hints in a file
-- Check build status before committing
-- Get detailed error information with related locations
-- Understand compilation issues
-
-Requires: file_path
-Returns: List of diagnostics with severity, messages, and related information"
+        "Get diagnostics (errors, warnings, hints) for a file WITHOUT running a build. PREFER THIS OVER cargo check for quick feedback on recent edits — faster and shows inline error locations. Use when: you just edited a file and want to check for errors, you need to verify types/signatures match. Requires: file_path."
     }
 
     fn permission(&self) -> ToolPermission {
@@ -1305,7 +1287,7 @@ impl Tool for LspFindSymbolTool {
     }
 
     fn description(&self) -> &'static str {
-        "Find symbols by name path pattern"
+        "Search for symbols (functions, structs, enums, traits, modules) by qualified name path. FASTER and MORE PRECISE than grep for finding definitions — use this instead of grep when you know a symbol name. Returns symbol kind, file path, and location. Examples: 'main', 'Session::new', 'hash_map::Entry'. Requires: query (symbol name or path), language."
     }
 
     fn permission(&self) -> ToolPermission {
@@ -2069,7 +2051,7 @@ impl Tool for LspAnalyzeSymbolTool {
     }
 
     fn description(&self) -> &'static str {
-        "Analyze a symbol to get references, implementations, and complexity metrics"
+        "Analyze a symbol to get its references, implementations, call hierarchy, and complexity metrics. Use when: you need a comprehensive understanding of a symbol's role in the codebase, you're planning a refactor, or you need to understand inheritance/implementation chains. Requires: file_path, line, character."
     }
 
     fn permission(&self) -> ToolPermission {
@@ -2619,7 +2601,7 @@ impl Tool for LspWorkspaceSymbolsTool {
     }
 
     fn description(&self) -> &'static str {
-        "Search for symbols across the entire workspace by name. Returns matching classes, functions, methods, variables, and other symbols with their locations. Use this to find definitions of identifiers in other files."
+        "Search for symbols across the entire workspace by name. PREFER THIS OVER GREP for finding function, struct, enum, or trait definitions — it returns exact locations with symbol kinds. Use when: you need to find where a type/function is defined, you know the symbol name but not the file. Requires: query (symbol name), language."
     }
 
     fn permission(&self) -> ToolPermission {
@@ -2661,14 +2643,26 @@ impl Tool for LspWorkspaceSymbolsTool {
         let language_id = LanguageId::from_path(&PathBuf::from(format!("dummy.{language_str}")));
         let lsp_config = get_lsp_config_for_project(&ctx.cwd);
 
-        let symbols = with_lsp_client(ctx, language_id, lsp_config.as_ref(), |client| {
-            run_async_result(async {
-                client
-                    .workspace_symbols(query)
-                    .await
-                    .context("failed to search workspace symbols")
-            })
-        })?;
+        let symbols = match with_lsp_client(ctx, language_id, lsp_config.as_ref(), |client| {
+            run_async_result(async { client.workspace_symbols(query).await })
+        }) {
+            Ok(syms) => syms,
+            Err(e) => {
+                // Workspace symbols may fail if the language server hasn't finished
+                // indexing or doesn't support the request. Return empty results with
+                // a helpful message so callers can fall back to grep.
+                tracing::debug!("workspace_symbols failed (server may still be indexing): {e:#}");
+                return Ok(ToolOutput::with_structured(
+                    format!("Workspace symbol search unavailable for '{query}'. The language server may still be indexing. Try lsp_document_symbols on a specific file instead, or use grep.\n"),
+                    json!({
+                        "query": query,
+                        "count": 0,
+                        "symbols": [],
+                        "error": format!("{e:#}")
+                    }),
+                ));
+            }
+        };
 
         // Format the output
         let symbol_info: Vec<Value> = symbols

@@ -99,7 +99,7 @@ impl BrutalistRenderer<'_> {
             let hints = if self.is_streaming {
                 "Ctrl+C stop"
             } else {
-                "? help · / cmds · Ctrl+D quit"
+                "? help · / cmds · Ctrl+Q quit"
             };
             let hint_len = hints.len();
             let sep_count = remaining.saturating_sub(hint_len + 2);

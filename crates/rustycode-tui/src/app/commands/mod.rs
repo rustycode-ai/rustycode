@@ -152,6 +152,18 @@ const REGISTERED_SLASH_COMMANDS: &[SlashCommandPlugin] = &[
         handler: handle_plan_command,
     },
     SlashCommandPlugin {
+        names: &["/yolo", "/auto"],
+        handler: handle_yolo_command,
+    },
+    SlashCommandPlugin {
+        names: &["/act"],
+        handler: handle_act_command,
+    },
+    SlashCommandPlugin {
+        names: &["/ask"],
+        handler: handle_ask_command,
+    },
+    SlashCommandPlugin {
         names: &["/harness"],
         handler: handle_harness_command,
     },
@@ -326,4 +338,10 @@ pub fn dispatch_registered_slash_command(
     }
 
     Ok(None)
+}
+
+pub fn is_registered_command(name: &str) -> bool {
+    REGISTERED_SLASH_COMMANDS
+        .iter()
+        .any(|plugin| plugin.names.contains(&name))
 }

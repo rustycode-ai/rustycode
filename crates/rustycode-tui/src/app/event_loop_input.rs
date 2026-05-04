@@ -204,7 +204,7 @@ impl TUI {
                             // Fall through to global shortcut handler below
                         }
                         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                            // Pass through Ctrl+D so user can quit while viewing tool result
+                            // Pass through Ctrl+D for overlay dismiss/scroll
                             // Fall through to global shortcut handler below
                         }
                         _ => {

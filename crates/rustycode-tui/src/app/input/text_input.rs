@@ -103,6 +103,25 @@ impl TUI {
                 Ok(true)
             }
             (KeyCode::Enter, _) => {
+                // Check if the current input text is an exact command match.
+                // If the user typed "/act" exactly, prefer that over the palette's
+                // fuzzy selection (which might be "/compact" for query "act").
+                let typed_text = self.input_handler.state.all_text();
+                let typed_base = typed_text
+                    .split_whitespace()
+                    .next()
+                    .unwrap_or(&typed_text);
+                let has_exact_match = crate::app::commands::is_registered_command(typed_base);
+
+                if has_exact_match {
+                    // User typed an exact command name — close palette and submit as-is
+                    self.showing_command_palette = false;
+                    self.command_palette.hide();
+                    self.command_palette.state_mut().clear_query();
+                    self.dirty = true;
+                    return Ok(false);
+                }
+
                 // Insert selected command into input and submit
                 if let Some(command) = self.command_palette.state().selected_command() {
                     let cmd_name = command.name.clone();

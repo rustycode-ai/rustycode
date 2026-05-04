@@ -47,8 +47,8 @@ pub fn get_all_topics() -> Vec<HelpTopic> {
         HelpTopic {
             title: "Session sidebar".to_string(),
             category: HelpCategory::Navigation,
-            content: "Toggle the session sidebar to browse and switch between conversation sessions. Use Ctrl+Shift+N/P to navigate sessions directly.".to_string(),
-            key_bindings: vec!["Ctrl+B".to_string(), "Ctrl+Shift+N/P".to_string()],
+            content: "Toggle the session sidebar to browse and switch between conversation sessions. Use Ctrl+Shift+N/P to navigate sessions directly. Ctrl+L also toggles the sidebar (useful when running inside tmux, where Ctrl+B is the prefix key).".to_string(),
+            key_bindings: vec!["Ctrl+B".to_string(), "Ctrl+L".to_string(), "Ctrl+Shift+N/P".to_string()],
         },
         HelpTopic {
             title: "File finder".to_string(),
@@ -59,8 +59,8 @@ pub fn get_all_topics() -> Vec<HelpTopic> {
         HelpTopic {
             title: "Exit TUI".to_string(),
             category: HelpCategory::Navigation,
-            content: "Quit the TUI and return to the terminal. Ctrl+Z suspends the process (resume with `fg`). Ctrl+C no longer quits — use Ctrl+D or Ctrl+Q instead.".to_string(),
-            key_bindings: vec!["Ctrl+D".to_string(), "Ctrl+Q".to_string(), "Ctrl+Z (suspend)".to_string()],
+            content: "Quit the TUI and return to the terminal. Ctrl+Z suspends the process (resume with `fg`). Ctrl+C cancels the current stream but does not quit.".to_string(),
+            key_bindings: vec!["Ctrl+Q".to_string(), "Ctrl+Z (suspend)".to_string()],
         },
 
         // Editing topics
@@ -79,8 +79,8 @@ pub fn get_all_topics() -> Vec<HelpTopic> {
         HelpTopic {
             title: "Clear input".to_string(),
             category: HelpCategory::Editing,
-            content: "Clear the current input field by double-tapping Escape quickly, or use Ctrl+L to clear the current line. When input is empty, Ctrl+U scrolls half-page up (Vim) and Ctrl+L forces a screen redraw.".to_string(),
-            key_bindings: vec!["Double Esc".to_string(), "Ctrl+L".to_string(), "Ctrl+U (scroll when empty)".to_string()],
+            content: "Clear the current input field by double-tapping Escape quickly, or use Ctrl+U to clear the current line (readline convention). When input is empty, Ctrl+U scrolls half-page up (Vim).".to_string(),
+            key_bindings: vec!["Double Esc".to_string(), "Ctrl+U".to_string()],
         },
         HelpTopic {
             title: "Stash input".to_string(),
@@ -177,7 +177,7 @@ pub fn get_all_topics() -> Vec<HelpTopic> {
         HelpTopic {
             title: "Cancel generation".to_string(),
             category: HelpCategory::Tools,
-            content: "Cancel the current AI generation or tool execution by pressing Esc or Ctrl+C. Content received so far is preserved. When not streaming, Ctrl+C dismisses overlays. Use Ctrl+D or Ctrl+Q to quit.".to_string(),
+            content: "Cancel the current AI generation or tool execution by pressing Esc or Ctrl+C. Content received so far is preserved. When not streaming, Ctrl+C dismisses overlays. Use Ctrl+Q to quit.".to_string(),
             key_bindings: vec!["Esc".to_string(), "Ctrl+C".to_string()],
         },
         HelpTopic {
