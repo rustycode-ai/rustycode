@@ -1,0 +1,72 @@
+# Ralph Progress — RustyCode Capability Test
+
+## Session: 2026-05-04
+
+### Goal
+Test RustyCode across 6 dimensions: planning, code review, performance review, security review, refactoring, and TUI testing.
+
+### Starting State
+- Deferred tool loading just committed (7af53b4a)
+- Workspace builds clean, all tests pass
+- 35+ crates, ~10K+ tests
+
+## Progress Log
+
+### US-001: Planning — PASS
+- Identified TUI event_loop.rs as god object (2,756 LOC, 5,628 graph nodes, 22 deps)
+- Architecture hotspot analysis via code-review-graph found 5 god objects:
+  1. TUI event_loop.rs (2,756 LOC)
+  2. rustycode-git/src/lib.rs (3,872 LOC)
+  3. rustycode-llm/src/openai.rs (3,727 LOC)
+  4. rustycode-storage/src/lib.rs (3,855 LOC)
+  5. rustycode-tools/src/providers/lsp.rs (3,558 LOC)
+- Plan written: docs/superpowers/plans/2026-05-04-tui-god-object-extraction.md
+- Before/after metrics, file lists, risk assessment included
+
+### US-002: Code Review — PASS
+- Reviewed rustycode-tools-api/src/lib.rs, rustycode-llm/src/tool_selection_helper.rs, rustycode-tools/src/security/validation.rs
+- 15 findings: 2 CRITICAL, 6 HIGH, 4 MEDIUM, 3 LOW
+- CRITICAL: TOCTOU race in validate_path (symlink swap between check and open)
+- CRITICAL: Command injection via env var expansion in bash provider
+
+### US-003: Performance Review — PASS
+- Analyzed tool execution pipeline (ToolContext → Tool::execute → ToolOutput)
+- 6 bottlenecks identified:
+  1. ToolInfo allocation on every list_immediate() — .to_string() + .to_vec() for 87 tools per LLM request
+  2. call.arguments.clone() of serde_json::Value in execute() dispatch (line 490)
+  3. sort_by on every list call despite immutable registry
+  4. keys().cloned() in list_all_names() (line 386)
+  5. bash provider spawns 2 threads per execution for stdout/stderr reading
+  6. parameters_schema() recomputed per listing call
+
+### US-004: Security Review — PASS
+- Reviewed rustycode-tools/src/security/ and rustycode-tools/src/providers/bash.rs
+- 6 findings with OWASP classification:
+  - CRITICAL: TOCTOU race in validate_path (OWASP A01:2021 Broken Access Control)
+  - CRITICAL: Command injection via env var expansion (OWASP A03:2021 Injection)
+  - HIGH: Sandbox bypass via absolute paths
+  - HIGH: Insufficient command blocklist coverage
+  - MEDIUM: Missing rate limiting on tool calls
+  - MEDIUM: Error messages leak path information
+
+### US-005: Refactoring — PASS
+- Extracted ToolInfo::from_tool() helper method
+- Replaced 5 identical manual ToolInfo construction blocks across list(), list_for_tags(), list_immediate(), list_deferred_stubs(), get_tool_info()
+- 1 file touched (rustycode-tools-api/src/lib.rs)
+- 90 tests pass, zero clippy warnings
+
+### US-006: TUI Testing — PASS
+- Launched TUI via mcpretentious open terminal
+- 6 interactions: typed query, Ctrl-R history, Ctrl-X editor, navigation, quit
+- 6 usability findings documented:
+  1. Ctrl-X opens external editor (pico), not command palette — label "edit" ambiguous
+  2. "Editor returned empty - input unchanged" message is jarring
+  3. Model made 3 redundant identical list_dir calls for simple "list files"
+  4. Markdown tables render as raw text in TUI
+  5. Response took 25.4s for simple listing due to redundant tool calls
+  6. Ctrl-R is bash history search, label "search" suggests codebase search
+
+## Learnings
+- code-review-graph architecture overview is 3.1MB for this codebase — too large to parse inline, need grep
+- mcpretentious works well for TUI testing but needs careful key handling (Ctrl-X opens editor)
+- Pre-existing clippy error in rustycode-llm (Deserialize lifetime in anthropic.rs) — not related to changes
