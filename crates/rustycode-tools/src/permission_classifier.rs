@@ -67,6 +67,7 @@ impl DecisionKey {
 /// A cached user decision.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct CachedDecision {
+    command: String,
     level: PermissionRiskLevel,
     timestamp_secs: u64,
     ttl_secs: u64,
@@ -77,6 +78,7 @@ pub struct PermissionClassifier {
     cache: HashMap<DecisionKey, CachedDecision>,
     cache_path: Option<PathBuf>,
     default_ttl_secs: u64,
+    cache_dirty: bool,
 }
 
 impl PermissionClassifier {
@@ -87,6 +89,7 @@ impl PermissionClassifier {
             cache: HashMap::new(),
             cache_path,
             default_ttl_secs: 3600, // 1 hour default
+            cache_dirty: false,
         };
         let path_clone = classifier.cache_path.clone();
         if let Some(path) = path_clone {
@@ -167,13 +170,21 @@ impl PermissionClassifier {
         self.cache.insert(
             key,
             CachedDecision {
+                command: command.to_string(),
                 level,
                 timestamp_secs: now,
                 ttl_secs: self.default_ttl_secs,
             },
         );
-        if let Some(ref path) = self.cache_path {
-            self.save_cache(path);
+        self.cache_dirty = true;
+    }
+
+    /// Flush dirty cache to disk if needed.
+    pub fn flush_cache(&self) {
+        if self.cache_dirty {
+            if let Some(ref path) = self.cache_path {
+                self.save_cache(path);
+            }
         }
     }
 
@@ -303,10 +314,10 @@ impl PermissionClassifier {
     }
 
     fn save_cache(&self, path: &Path) {
-        let serializable: HashMap<String, &CachedDecision> = self
+        let serializable: HashMap<&str, &CachedDecision> = self
             .cache
             .values()
-            .map(|v| (format!("{:016x}", v.timestamp_secs), v))
+            .map(|v| (v.command.as_str(), v))
             .collect();
         if let Ok(json) = serde_json::to_string(&serializable) {
             let _ = std::fs::write(path, json);

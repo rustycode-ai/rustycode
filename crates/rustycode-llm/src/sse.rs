@@ -268,8 +268,15 @@ mod tests {
         assert!(lines1.is_empty(), "No complete line yet");
 
         let lines2 = buf.feed_chunk(&full_bytes[split_at..]);
-        assert_eq!(lines2.len(), 1, "Should have one complete line after second chunk");
-        assert_eq!(lines2[0], "data: 你好世界", "Multi-byte UTF-8 should be preserved across chunk boundaries");
+        assert_eq!(
+            lines2.len(),
+            1,
+            "Should have one complete line after second chunk"
+        );
+        assert_eq!(
+            lines2[0], "data: 你好世界",
+            "Multi-byte UTF-8 should be preserved across chunk boundaries"
+        );
     }
 
     #[test]
@@ -289,7 +296,10 @@ mod tests {
 
         let lines2 = buf.feed_chunk(&full_bytes[emoji_start + 1..]);
         assert_eq!(lines2.len(), 1);
-        assert_eq!(lines2[0], "data: hello🌍world", "4-byte emoji should be preserved across chunk boundaries");
+        assert_eq!(
+            lines2[0], "data: hello🌍world",
+            "4-byte emoji should be preserved across chunk boundaries"
+        );
     }
 
     #[test]

@@ -90,9 +90,7 @@ impl TUI {
             }
             // Ctrl+D when input is empty and user has scrolled: half-page down (Vim Ctrl+D).
             // Must come before the quit handler to intercept when scrolled.
-            (KeyCode::Char('d'), KeyModifiers::CONTROL)
-                if input_is_empty && !self.is_streaming =>
-            {
+            (KeyCode::Char('d'), KeyModifiers::CONTROL) if input_is_empty && !self.is_streaming => {
                 if self.user_scrolled && !self.messages.is_empty() {
                     self.push_undo_position();
                     self.half_page_down();

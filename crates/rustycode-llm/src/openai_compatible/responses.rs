@@ -92,10 +92,7 @@ pub enum ResponsesApiInputItem {
     },
     /// The output of a function call.
     #[serde(rename = "function_call_output")]
-    FunctionCallOutput {
-        call_id: String,
-        output: String,
-    },
+    FunctionCallOutput { call_id: String, output: String },
 }
 
 /// Content can be a plain string or an array of typed content parts.
@@ -204,10 +201,16 @@ pub enum ResponsesApiOutputItem {
 pub enum ResponsesApiOutputContent {
     /// Text output.
     #[serde(rename = "output_text")]
-    OutputText { #[serde(default)] text: String },
+    OutputText {
+        #[serde(default)]
+        text: String,
+    },
     /// Model refusal (content moderation / safety filter).
     #[serde(rename = "refusal")]
-    Refusal { #[serde(default)] refusal: String },
+    Refusal {
+        #[serde(default)]
+        refusal: String,
+    },
 }
 
 /// Token usage from the Responses API.
@@ -241,7 +244,9 @@ pub struct ResponsesApiOutputTokenDetails {
 // Conversion helpers
 // ---------------------------------------------------------------------------
 
-use crate::provider::{CompletionResponse, ThinkingBlock, Usage, normalize_stop_reason, ProviderError};
+use crate::provider::{
+    normalize_stop_reason, CompletionResponse, ProviderError, ThinkingBlock, Usage,
+};
 
 /// Build a `CompletionResponse` from a Responses API response.
 ///
@@ -310,9 +315,7 @@ pub fn build_responses_completion_response(
                     .collect::<Vec<&str>>()
                     .join("\n");
 
-                let has_encrypted = encrypted_content
-                    .as_ref()
-                    .is_some_and(|e| !e.is_empty());
+                let has_encrypted = encrypted_content.as_ref().is_some_and(|e| !e.is_empty());
 
                 if !summary_text.is_empty() || has_encrypted {
                     thinking_blocks.push(ThinkingBlock {
@@ -333,11 +336,7 @@ pub fn build_responses_completion_response(
         let tool_calls_json: Vec<serde_json::Value> = tool_calls
             .iter()
             .map(|tc| match tc {
-                ProtoContentBlock::ToolUse {
-                    id,
-                    name,
-                    input,
-                } => {
+                ProtoContentBlock::ToolUse { id, name, input } => {
                     serde_json::json!({
                         "id": id,
                         "type": "function",
@@ -532,14 +531,12 @@ mod tests {
         let resp = ResponsesApiResponse {
             id: "resp_004".to_string(),
             model: "gpt-4o".to_string(),
-            output: vec![
-                ResponsesApiOutputItem::FunctionCall {
-                    id: "fc_1".to_string(),
-                    call_id: "call_1".to_string(),
-                    name: "bash".to_string(),
-                    arguments: r#"{"command":"ls"}"#.to_string(),
-                },
-            ],
+            output: vec![ResponsesApiOutputItem::FunctionCall {
+                id: "fc_1".to_string(),
+                call_id: "call_1".to_string(),
+                name: "bash".to_string(),
+                arguments: r#"{"command":"ls"}"#.to_string(),
+            }],
             status: "completed".to_string(),
             usage: None,
         };
@@ -558,7 +555,9 @@ mod tests {
             tool_type: "function".to_string(),
             name: "read_file".to_string(),
             description: Some("Read a file".to_string()),
-            parameters: Some(serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}})),
+            parameters: Some(
+                serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+            ),
         };
         let json = serde_json::to_string(&tool).unwrap();
         assert!(json.contains("\"name\":\"read_file\""));
@@ -677,9 +676,7 @@ mod tests {
                 summary: Some("auto".to_string()),
                 encrypted_content: None,
             }),
-            include: Some(vec![
-                "reasoning_encrypted_content".to_string(),
-            ]),
+            include: Some(vec!["reasoning_encrypted_content".to_string()]),
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("\"reasoning\":{"));
@@ -728,8 +725,12 @@ mod tests {
         let blocks = result.thinking_blocks.expect("should have thinking blocks");
         assert_eq!(blocks.len(), 1);
         assert_eq!(blocks[0].block_type, "thinking");
-        assert!(blocks[0].thinking.contains("First, I need to analyze the problem."));
-        assert!(blocks[0].thinking.contains("Then, I should check edge cases."));
+        assert!(blocks[0]
+            .thinking
+            .contains("First, I need to analyze the problem."));
+        assert!(blocks[0]
+            .thinking
+            .contains("Then, I should check edge cases."));
         assert_eq!(blocks[0].data, "enc_data_abc");
         assert!(blocks[0].signature.is_empty());
     }
@@ -768,13 +769,11 @@ mod tests {
         let resp = ResponsesApiResponse {
             id: "resp_enc_only".to_string(),
             model: "o3".to_string(),
-            output: vec![
-                ResponsesApiOutputItem::Reasoning {
-                    id: "rs_enc".to_string(),
-                    summary: vec![],
-                    encrypted_content: Some("enc_only_data".to_string()),
-                },
-            ],
+            output: vec![ResponsesApiOutputItem::Reasoning {
+                id: "rs_enc".to_string(),
+                summary: vec![],
+                encrypted_content: Some("enc_only_data".to_string()),
+            }],
             status: "completed".to_string(),
             usage: None,
         };

@@ -640,7 +640,11 @@ impl OpenAiProvider {
                 .iter()
                 .filter_map(|v| serde_json::from_value(v.clone()).ok())
                 .collect();
-            if parsed.is_empty() { None } else { Some(parsed) }
+            if parsed.is_empty() {
+                None
+            } else {
+                Some(parsed)
+            }
         };
 
         let prev_id = self
@@ -696,10 +700,9 @@ impl OpenAiProvider {
                 429 => ProviderError::RateLimited {
                     retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
                 },
-                500..=599 => ProviderError::network(format!(
-                    "OpenAI service error ({}): {}",
-                    status, text
-                )),
+                500..=599 => {
+                    ProviderError::network(format!("OpenAI service error ({}): {}", status, text))
+                }
                 _ => ProviderError::api(format!("{}: {}", status, text)),
             });
         }
@@ -726,7 +729,11 @@ impl OpenAiProvider {
             .config
             .api_key
             .as_ref()
-            .ok_or_else(|| ProviderError::auth("OpenAI API key is required. Set api_key in config or OPENAI_API_KEY env var"))?
+            .ok_or_else(|| {
+                ProviderError::auth(
+                    "OpenAI API key is required. Set api_key in config or OPENAI_API_KEY env var",
+                )
+            })?
             .expose_secret();
 
         let url = format!("{}/responses", self.endpoint());
@@ -746,7 +753,11 @@ impl OpenAiProvider {
                 .iter()
                 .filter_map(|v| serde_json::from_value(v.clone()).ok())
                 .collect();
-            if parsed.is_empty() { None } else { Some(parsed) }
+            if parsed.is_empty() {
+                None
+            } else {
+                Some(parsed)
+            }
         };
 
         let prev_id = self
@@ -817,9 +828,7 @@ impl OpenAiProvider {
             let chunk = match chunk_result {
                 Ok(c) => c,
                 Err(e) => {
-                    return futures::stream::iter(vec![Err(ProviderError::Network(
-                        e.to_string(),
-                    ))]);
+                    return futures::stream::iter(vec![Err(ProviderError::Network(e.to_string()))]);
                 }
             };
 
@@ -847,7 +856,11 @@ impl OpenAiProvider {
             .config
             .api_key
             .as_ref()
-            .ok_or_else(|| ProviderError::auth("OpenAI API key is required. Set api_key in config or OPENAI_API_KEY env var"))?
+            .ok_or_else(|| {
+                ProviderError::auth(
+                    "OpenAI API key is required. Set api_key in config or OPENAI_API_KEY env var",
+                )
+            })?
             .expose_secret();
 
         // Convert HTTP endpoint to WebSocket URL
@@ -873,7 +886,11 @@ impl OpenAiProvider {
                 .iter()
                 .filter_map(|v| serde_json::from_value(v.clone()).ok())
                 .collect();
-            if parsed.is_empty() { None } else { Some(parsed) }
+            if parsed.is_empty() {
+                None
+            } else {
+                Some(parsed)
+            }
         };
 
         let prev_id = self
@@ -897,15 +914,11 @@ impl OpenAiProvider {
             include: None,
         };
 
-        let body_json = serde_json::to_value(&body)
-            .map_err(|e| ProviderError::Serialization(e.to_string()))?;
+        let body_json =
+            serde_json::to_value(&body).map_err(|e| ProviderError::Serialization(e.to_string()))?;
 
-        crate::openai_compatible::responses_ws::stream_responses_ws(
-            &ws_url,
-            api_key,
-            body_json,
-        )
-        .await
+        crate::openai_compatible::responses_ws::stream_responses_ws(&ws_url, api_key, body_json)
+            .await
     }
 }
 
@@ -951,11 +964,7 @@ impl LLMProvider for OpenAiProvider {
         match request.api_mode {
             Some(ApiMode::Responses) => return self.complete_responses(request).await,
             Some(ApiMode::Auto) => {
-                let cached = self
-                    .responses_api_supported
-                    .lock()
-                    .ok()
-                    .and_then(|g| *g);
+                let cached = self.responses_api_supported.lock().ok().and_then(|g| *g);
                 if cached != Some(false) {
                     match self.complete_responses(request.clone()).await {
                         Ok(resp) => {
@@ -1012,11 +1021,7 @@ impl LLMProvider for OpenAiProvider {
         match request.api_mode {
             Some(ApiMode::Responses) => return self.complete_responses_stream(request).await,
             Some(ApiMode::Auto) => {
-                let cached = self
-                    .responses_api_supported
-                    .lock()
-                    .ok()
-                    .and_then(|g| *g);
+                let cached = self.responses_api_supported.lock().ok().and_then(|g| *g);
                 if cached != Some(false) {
                     match self.complete_responses_stream(request.clone()).await {
                         Ok(stream) => {

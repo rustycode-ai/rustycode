@@ -225,17 +225,13 @@ pub fn convert_messages_to_responses_input(
                                         image_url: url,
                                     });
                                 }
-                                ContentBlock::ToolUse {
-                                    id,
-                                    name,
-                                    input,
-                                } => {
+                                ContentBlock::ToolUse { id, name, input } => {
                                     if !text_parts.is_empty() {
                                         items.push(ResponsesApiInputItem::Message {
                                             role: role.to_string(),
-                                            content: ResponsesApiContent::Parts(
-                                                std::mem::take(&mut text_parts),
-                                            ),
+                                            content: ResponsesApiContent::Parts(std::mem::take(
+                                                &mut text_parts,
+                                            )),
                                         });
                                     }
                                     items.push(ResponsesApiInputItem::FunctionCall {

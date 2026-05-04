@@ -189,7 +189,9 @@ pub fn execute_tool(
 
     // Create tool executor with custom registry if provided
     let mut executor = if let Some(registry) = tool_registry {
-        let ctx = rustycode_tools::ToolContext::new(cwd).with_registry(Arc::clone(registry)).with_allow_outside_workspace(allow_outside_workspace);
+        let ctx = rustycode_tools::ToolContext::new(cwd)
+            .with_registry(Arc::clone(registry))
+            .with_allow_outside_workspace(allow_outside_workspace);
         ToolExecutor::new(Arc::clone(registry), ctx)
     } else if let Some(_state) = todo_state {
         // todo_state was used to seed the executor; fall back to from_cwd

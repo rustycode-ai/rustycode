@@ -934,11 +934,10 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
             if let Ok(effort_level) =
                 rustycode_llm::provider::EffortLevel::try_from(effort_str.as_str())
             {
-                request =
-                    request.with_output_config(rustycode_llm::provider::OutputConfig {
-                        effort: Some(effort_level),
-                        format: None,
-                    });
+                request = request.with_output_config(rustycode_llm::provider::OutputConfig {
+                    effort: Some(effort_level),
+                    format: None,
+                });
             }
         }
 

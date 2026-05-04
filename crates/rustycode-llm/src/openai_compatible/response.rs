@@ -81,7 +81,11 @@ pub fn build_completion_response(
                             })
                     })
                     .collect();
-                if blocks.is_empty() { None } else { Some(blocks) }
+                if blocks.is_empty() {
+                    None
+                } else {
+                    Some(blocks)
+                }
             } else {
                 None
             }

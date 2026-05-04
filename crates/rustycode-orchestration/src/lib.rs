@@ -24,8 +24,11 @@
         clippy::format_push_string,
     )
 )]
-// Pre-existing pattern in task_decomposer.rs
+// Pre-existing patterns in task_decomposer.rs
 #![allow(clippy::format_push_string)]
+#![allow(clippy::nonminimal_bool)]
+#![allow(clippy::if_not_else)]
+#![allow(clippy::missing_const_for_fn)]
 // usize→f64 casts in metrics/stats code: values stay well below 2^52 in practice.
 #![allow(clippy::cast_precision_loss)]
 

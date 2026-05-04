@@ -240,7 +240,9 @@ fn test_tool_selection_relevance() {
     }
 
     // Debug profile should prioritize diagnostic tools
-    let debug_tools = selector.with_profile(ToolProfile::Debug).select_tools(&registry);
+    let debug_tools = selector
+        .with_profile(ToolProfile::Debug)
+        .select_tools(&registry);
 
     println!("\nDebug profile tools ({}):", debug_tools.len());
     for tool in &debug_tools {

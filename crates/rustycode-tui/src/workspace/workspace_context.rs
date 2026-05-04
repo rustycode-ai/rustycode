@@ -265,10 +265,9 @@ fn build_file_tree(dir: &Path, _ignore_patterns: &[String], is_large_workspace: 
         // Skip binary files
         if is_file {
             let binary_exts = [
-                ".o", ".so", ".dylib", ".dll", ".exe", ".pyc", ".pyo", ".class",
-                ".wasm", ".gz", ".zip", ".tar", ".bz2", ".xz", ".zst",
-                ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp",
-                ".woff", ".woff2", ".ttf", ".eot", ".mp3", ".mp4",
+                ".o", ".so", ".dylib", ".dll", ".exe", ".pyc", ".pyo", ".class", ".wasm", ".gz",
+                ".zip", ".tar", ".bz2", ".xz", ".zst", ".png", ".jpg", ".jpeg", ".gif", ".ico",
+                ".webp", ".woff", ".woff2", ".ttf", ".eot", ".mp3", ".mp4",
             ];
             if binary_exts.iter().any(|ext| name.ends_with(ext)) {
                 continue;

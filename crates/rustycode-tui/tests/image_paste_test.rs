@@ -99,17 +99,15 @@ fn test_image_cleanup() {
 
     // Create input state with image
     let mut state = InputState::new();
-    state
-        .images
-        .push(ImageAttachment {
-            id: "cleanup_test".to_string(),
-            path: test_file.clone(),
-            mime_type: "image/png".to_string(),
-            preview: None,
-            data_base64: None,
-            width: None,
-            height: None,
-        });
+    state.images.push(ImageAttachment {
+        id: "cleanup_test".to_string(),
+        path: test_file.clone(),
+        mime_type: "image/png".to_string(),
+        preview: None,
+        data_base64: None,
+        width: None,
+        height: None,
+    });
 
     // Clear should cleanup the file
     state.clear();

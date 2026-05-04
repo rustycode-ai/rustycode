@@ -6,8 +6,23 @@ use crate::error::SandboxError;
 use crate::policy::NetworkAccess;
 use crate::{SandboxPolicy, SandboxResult};
 
+/// Characters that could break out of SBPL string literals.
+const SBPL_DANGEROUS: &[char] = &['"', '\\', '(', ')', '\n', '\r', '\0'];
+
+/// Validate a path is safe to embed in SBPL. Returns the display form or an error.
+fn validate_sbpl_path(path: &std::path::Path) -> Result<std::path::Display<'_>, SandboxError> {
+    let s = path.to_string_lossy();
+    if s.contains(SBPL_DANGEROUS) {
+        return Err(SandboxError::ExecutionFailed(format!(
+            "Path contains disallowed characters: {}",
+            s
+        )));
+    }
+    Ok(path.display())
+}
+
 /// Generate SBPL (Seatbelt Policy Language) from a `SandboxPolicy`.
-fn generate_sbpl(policy: &SandboxPolicy) -> String {
+fn generate_sbpl(policy: &SandboxPolicy) -> Result<String, SandboxError> {
     let mut rules = Vec::new();
 
     rules.push("(version 1)".to_string());
@@ -15,13 +30,13 @@ fn generate_sbpl(policy: &SandboxPolicy) -> String {
 
     // Allow reading from specified paths
     for path in &policy.read_paths {
-        let p = path.display();
+        let p = validate_sbpl_path(path)?;
         rules.push(format!(r#"(allow file-read* (subpath "{p}"))"#));
     }
 
     // Allow writing to specified paths
     for path in &policy.write_paths {
-        let p = path.display();
+        let p = validate_sbpl_path(path)?;
         rules.push(format!(r#"(allow file-write* (subpath "{p}"))"#));
     }
 
@@ -45,7 +60,7 @@ fn generate_sbpl(policy: &SandboxPolicy) -> String {
     rules.push("(allow signal)".to_string());
     rules.push("(allow sysctl-read)".to_string());
 
-    rules.join("\n")
+    Ok(rules.join("\n"))
 }
 
 /// Check if sandbox-exec is available on this system.
@@ -64,7 +79,7 @@ pub async fn execute_sandboxed(
         ));
     }
 
-    let sbpl = generate_sbpl(policy);
+    let sbpl = generate_sbpl(policy)?;
 
     let mut cmd = tokio::process::Command::new("/usr/bin/sandbox-exec");
     cmd.arg("-p")
@@ -93,10 +108,15 @@ pub async fn execute_sandboxed(
         .await
         {
             Ok(Ok(output)) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                if stdout.contains('\u{fffd}') || stderr.contains('\u{fffd}') {
+                    tracing::debug!("sandbox output contained non-UTF-8 bytes (replaced with U+FFFD)");
+                }
                 return Ok(SandboxResult {
                     exit_code: output.status.code(),
-                    stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-                    stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                    stdout: stdout.to_string(),
+                    stderr: stderr.to_string(),
                     timed_out: false,
                 });
             }
@@ -105,10 +125,15 @@ pub async fn execute_sandboxed(
         }
     } else {
         let output = cmd.output().await.map_err(SandboxError::Io)?;
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        if stdout.contains('\u{fffd}') || stderr.contains('\u{fffd}') {
+            tracing::debug!("sandbox output contained non-UTF-8 bytes (replaced with U+FFFD)");
+        }
         return Ok(SandboxResult {
             exit_code: output.status.code(),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            stdout: stdout.to_string(),
+            stderr: stderr.to_string(),
             timed_out: false,
         });
     };
@@ -130,7 +155,7 @@ mod tests {
     #[test]
     fn test_generate_sbpl_restrictive() {
         let policy = SandboxPolicy::restrictive(PathBuf::from("/tmp/workspace").as_path());
-        let sbpl = generate_sbpl(&policy);
+        let sbpl = generate_sbpl(&policy).unwrap();
         assert!(sbpl.contains("(deny default)"));
         assert!(sbpl.contains("(deny network*)"));
         assert!(sbpl.contains(r#"(allow file-read* (subpath "/tmp/workspace"))"#));
@@ -139,7 +164,7 @@ mod tests {
     #[test]
     fn test_generate_sbpl_permissive() {
         let policy = SandboxPolicy::permissive(PathBuf::from("/tmp/workspace").as_path());
-        let sbpl = generate_sbpl(&policy);
+        let sbpl = generate_sbpl(&policy).unwrap();
         assert!(sbpl.contains("(allow network*)"));
     }
 }

@@ -307,6 +307,7 @@ impl ContextWindow {
     /// Updates the used_tokens counter to reflect the new item. This is
     /// intended for test helpers and internal crate operations that need
     /// to populate a window beyond its normal capacity constraints.
+    #[cfg(test)]
     pub(crate) fn push_item_unchecked(&mut self, item: ContextItem<String>) {
         self.used_tokens = self.used_tokens.saturating_add(item.token_count);
         self.content.push(item);

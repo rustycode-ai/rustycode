@@ -107,10 +107,7 @@ impl TUI {
                 // If the user typed "/act" exactly, prefer that over the palette's
                 // fuzzy selection (which might be "/compact" for query "act").
                 let typed_text = self.input_handler.state.all_text();
-                let typed_base = typed_text
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or(&typed_text);
+                let typed_base = typed_text.split_whitespace().next().unwrap_or(&typed_text);
                 let has_exact_match = crate::app::commands::is_registered_command(typed_base);
 
                 if has_exact_match {

@@ -179,7 +179,9 @@ fn test_tool_selector_filters_by_profile() {
         .with_profile(ToolProfile::Implement)
         .select_tools(&registry);
 
-    let debug_tools = selector.with_profile(ToolProfile::Debug).select_tools(&registry);
+    let debug_tools = selector
+        .with_profile(ToolProfile::Debug)
+        .select_tools(&registry);
 
     // Verify that different profiles produce different tool selections
     println!("Explore tools: {:?}", explore_tools);

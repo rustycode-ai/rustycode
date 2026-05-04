@@ -23,9 +23,9 @@
 //! ```
 
 use crate::openai_compatible::{
-    build_completion_response, build_request_with_auth, map_http_error,
-    parse_openai_sse_lines, OpenAiCompatibleMessage, OpenAiCompatibleResponse, OpenAiFunction,
-    OpenAiToolCall, SseParseConfig, SseParseState,
+    build_completion_response, build_request_with_auth, map_http_error, parse_openai_sse_lines,
+    OpenAiCompatibleMessage, OpenAiCompatibleResponse, OpenAiFunction, OpenAiToolCall,
+    SseParseConfig, SseParseState,
 };
 use crate::provider::{
     build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,
@@ -154,7 +154,9 @@ impl HuggingFaceProvider {
         })
     }
 
-    fn convert_messages(messages: Vec<crate::provider::ChatMessage>) -> Vec<OpenAiCompatibleMessage> {
+    fn convert_messages(
+        messages: Vec<crate::provider::ChatMessage>,
+    ) -> Vec<OpenAiCompatibleMessage> {
         use crate::provider::MessageRole;
         use rustycode_protocol::message::{ContentBlock, MessageContent};
 
@@ -268,7 +270,10 @@ impl LLMProvider for HuggingFaceProvider {
         };
 
         let messages = Self::convert_messages(request.messages.clone());
-        let tools = request.tools.as_ref().map(|t| normalize_tools_for_openai(t));
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| normalize_tools_for_openai(t));
 
         let mut body = serde_json::json!({
             "model": model,
@@ -333,7 +338,10 @@ impl LLMProvider for HuggingFaceProvider {
         };
 
         let messages = Self::convert_messages(request.messages.clone());
-        let tools = request.tools.as_ref().map(|t| normalize_tools_for_openai(t));
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| normalize_tools_for_openai(t));
 
         let mut request_body = serde_json::json!({
             "model": model,
@@ -355,9 +363,11 @@ impl LLMProvider for HuggingFaceProvider {
             self.config.extra_headers.as_ref(),
         );
 
-        let response = req.json(&request_body).send().await.map_err(|e| {
-            ProviderError::Network(format!("failed to connect: {}", e))
-        })?;
+        let response = req
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| ProviderError::Network(format!("failed to connect: {}", e)))?;
 
         if !response.status().is_success() {
             let headers = response.headers().clone();

@@ -20,8 +20,8 @@ pub const MAX_PASTE_SIZE_BYTES: usize = 10 * 1024 * 1024;
 
 // Re-export from sibling modules
 use super::input_image::generate_image_preview;
-use super::message_types::ImageAttachment;
 use super::input_state::InputState;
+use super::message_types::ImageAttachment;
 
 // ── Paste Result ───────────────────────────────────────────────────────────────
 

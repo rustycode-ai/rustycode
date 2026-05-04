@@ -23,8 +23,8 @@
 //! ```
 
 use crate::openai_compatible::{
-    build_completion_response, build_request_with_auth, convert_messages_simple,
-    map_http_error, parse_openai_sse_lines, OpenAiCompatibleResponse, SseParseConfig, SseParseState,
+    build_completion_response, build_request_with_auth, convert_messages_simple, map_http_error,
+    parse_openai_sse_lines, OpenAiCompatibleResponse, SseParseConfig, SseParseState,
 };
 use crate::provider::{
     build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,

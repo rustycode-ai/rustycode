@@ -5,8 +5,8 @@
 //! - Complete input state with cursor tracking
 //! - Image attachment metadata
 
-use crate::unicode::{display_width, next_grapheme_boundary, prev_grapheme_boundary};
 use crate::ui::message_types::ImageAttachment;
+use crate::unicode::{display_width, next_grapheme_boundary, prev_grapheme_boundary};
 use unicode_segmentation::UnicodeSegmentation;
 
 // ── Input Mode States ───────────────────────────────────────────────────────

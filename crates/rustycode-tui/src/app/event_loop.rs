@@ -744,7 +744,8 @@ impl TUI {
             session_manager: crate::services::session_manager::SessionManager::new(
                 crate::app::session_recovery_integration::SessionRecoveryManager::new(
                     crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
-                ).ok()
+                )
+                .ok(),
             ),
             // Team agent timeline panel
             team_panel: crate::ui::team_panel::TeamPanel::new(),
@@ -1138,26 +1139,27 @@ impl TUI {
             return false;
         }
 
-        let connected_servers: HashSet<String> = if let Some(mcp_proxies) = self.tool_manager.mcp_proxies() {
-            let proxies = mcp_proxies.clone();
-            rustycode_shared_runtime::SHARED_RUNTIME.block_on(async move {
-                let proxies = proxies.read().await;
-                let snapshot: Vec<(String, rustycode_mcp::proxy::ToolProxy)> = proxies
-                    .iter()
-                    .map(|(server_id, proxy)| (server_id.clone(), proxy.clone()))
-                    .collect();
+        let connected_servers: HashSet<String> =
+            if let Some(mcp_proxies) = self.tool_manager.mcp_proxies() {
+                let proxies = mcp_proxies.clone();
+                rustycode_shared_runtime::SHARED_RUNTIME.block_on(async move {
+                    let proxies = proxies.read().await;
+                    let snapshot: Vec<(String, rustycode_mcp::proxy::ToolProxy)> = proxies
+                        .iter()
+                        .map(|(server_id, proxy)| (server_id.clone(), proxy.clone()))
+                        .collect();
 
-                let mut connected = HashSet::new();
-                for (server_id, proxy) in snapshot {
-                    if proxy.is_connected().await {
-                        connected.insert(server_id);
+                    let mut connected = HashSet::new();
+                    for (server_id, proxy) in snapshot {
+                        if proxy.is_connected().await {
+                            connected.insert(server_id);
+                        }
                     }
-                }
-                connected
-            })
-        } else {
-            HashSet::new()
-        };
+                    connected
+                })
+            } else {
+                HashSet::new()
+            };
 
         let mut seen = HashSet::new();
         let mut mcp_servers = Vec::new();
@@ -1261,7 +1263,11 @@ impl TUI {
                     self.selected_message = self.messages.len().saturating_sub(1);
                 }
 
-                let display_id = session.session_id.split('-').next().unwrap_or(&session.session_id);
+                let display_id = session
+                    .session_id
+                    .split('-')
+                    .next()
+                    .unwrap_or(&session.session_id);
                 self.add_system_message(format!(
                     "Resumed session '{}' ({} messages, {} min ago)",
                     display_id, session.message_count, session.age_minutes

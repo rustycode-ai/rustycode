@@ -188,10 +188,7 @@ fn extract_tool_call_delta(
     events: &mut Vec<Result<StreamEvent, ProviderError>>,
     state: &SseParseState,
 ) {
-    let index = tc_delta
-        .get("index")
-        .and_then(|i| i.as_u64())
-        .unwrap_or(0) as usize;
+    let index = tc_delta.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
 
     let resolved_id = tc_delta
         .get("id")
@@ -252,8 +249,8 @@ fn extract_finish_events(
         }
     }
 
-    let stop_reason = normalize_stop_reason(Some(finish_reason))
-        .unwrap_or_else(|| finish_reason.to_string());
+    let stop_reason =
+        normalize_stop_reason(Some(finish_reason)).unwrap_or_else(|| finish_reason.to_string());
     events.push(Ok(StreamEvent::TurnCompleted { stop_reason }));
 }
 
@@ -399,8 +396,16 @@ mod tests {
 
         let state = SseParseState::default();
         let mut events = Vec::new();
-        events.extend(parse_openai_sse_lines(input1, SseParseConfig::all(), &state));
-        events.extend(parse_openai_sse_lines(input2, SseParseConfig::all(), &state));
+        events.extend(parse_openai_sse_lines(
+            input1,
+            SseParseConfig::all(),
+            &state,
+        ));
+        events.extend(parse_openai_sse_lines(
+            input2,
+            SseParseConfig::all(),
+            &state,
+        ));
 
         assert!(matches!(
             &events[1],
@@ -436,7 +441,10 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert!(matches!(
             &events[0],
-            Ok(StreamEvent::TokenUsage { input_tokens: 10, output_tokens: 20 })
+            Ok(StreamEvent::TokenUsage {
+                input_tokens: 10,
+                output_tokens: 20
+            })
         ));
         assert!(matches!(
             &events[1],
@@ -468,7 +476,8 @@ mod tests {
 
     #[test]
     fn error_object_extraction() {
-        let input = "data: {\"error\":{\"code\":\"rate_limit\",\"message\":\"Too many requests\"}}\n";
+        let input =
+            "data: {\"error\":{\"code\":\"rate_limit\",\"message\":\"Too many requests\"}}\n";
         let events = parse(input, SseParseConfig::minimal());
         assert_eq!(events.len(), 1);
         assert!(events[0].is_err());
@@ -549,7 +558,10 @@ mod tests {
         // Should still parse usage correctly
         assert!(matches!(
             &events[0],
-            Ok(StreamEvent::TokenUsage { input_tokens: 100, output_tokens: 50 })
+            Ok(StreamEvent::TokenUsage {
+                input_tokens: 100,
+                output_tokens: 50
+            })
         ));
     }
 }

@@ -10,17 +10,16 @@ use futures::{SinkExt, Stream, StreamExt};
 use rustycode_protocol::stream_event::StreamEvent;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
-use crate::openai_compatible::{dispatch_responses_event, extract_responses_error, ResponsesSseState};
+use crate::openai_compatible::{
+    dispatch_responses_event, extract_responses_error, ResponsesSseState,
+};
 use crate::provider::{ProviderError, StreamChunk};
 
 /// Parse a single WebSocket text message into stream events.
 ///
 /// WebSocket delivers complete JSON objects (no SSE `event:/data:` framing),
 /// so we extract the `type` field and dispatch directly.
-fn parse_ws_message(
-    msg: &str,
-    state: &ResponsesSseState,
-) -> Vec<StreamChunk> {
+fn parse_ws_message(msg: &str, state: &ResponsesSseState) -> Vec<StreamChunk> {
     let data: serde_json::Value = match serde_json::from_str(msg) {
         Ok(d) => d,
         Err(_) => return Vec::new(),

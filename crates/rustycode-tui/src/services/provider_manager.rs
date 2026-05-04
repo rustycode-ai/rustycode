@@ -32,8 +32,7 @@ pub fn compute_api_key_warning() -> String {
 /// Skips "xhigh" if the model doesn't support it (currently only opus-4-7).
 pub fn cycle_effort_level(current_effort: &str, current_model: &str) -> String {
     let all_levels = ["low", "medium", "high", "xhigh", "max"];
-    let supports_xhigh =
-        current_model.contains("opus-4-7") || current_model.contains("opus-4.7");
+    let supports_xhigh = current_model.contains("opus-4-7") || current_model.contains("opus-4.7");
 
     let start_idx = all_levels
         .iter()

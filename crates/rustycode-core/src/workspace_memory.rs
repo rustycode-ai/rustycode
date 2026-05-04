@@ -10,7 +10,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[allow(dead_code)] // TODO: enforce size limit on write
 const MAX_MEMORY_SIZE_KB: usize = 50;
+#[allow(dead_code)] // default prune age
 const DEFAULT_TTL_DAYS: i64 = 30;
 
 /// Memory type classification.
@@ -237,15 +239,17 @@ impl WorkspaceMemory {
             if let Some(end) = rest.find("\n---\n") {
                 let fm_str = &rest[..end];
                 let body = rest[end + 5..].trim_start();
-                let fm: MemoryFrontmatter = serde_yaml::from_str(fm_str)
-                    .unwrap_or(MemoryFrontmatter {
+                let fm: MemoryFrontmatter = serde_yaml::from_str(fm_str).unwrap_or_else(|e| {
+                    tracing::warn!(name, "Failed to parse memory frontmatter: {e}, using defaults");
+                    MemoryFrontmatter {
                         name: name.to_string(),
                         description: String::new(),
                         memory_type: MemoryType::Reference,
                         tags: vec![],
                         created_at: Utc::now(),
                         updated_at: Utc::now(),
-                    });
+                    }
+                });
                 (fm, body.to_string())
             } else {
                 (

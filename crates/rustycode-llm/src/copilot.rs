@@ -269,7 +269,10 @@ impl LLMProvider for CopilotProvider {
     ) -> Result<CompletionResponse, ProviderError> {
         let url = format!("{}/chat/completions", self.endpoint());
         let messages = Self::convert_messages(request.messages.clone());
-        let tools = request.tools.as_ref().map(|t| normalize_tools_for_openai(t));
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| normalize_tools_for_openai(t));
 
         let mut body = serde_json::json!({
             "model": request.model,
@@ -325,7 +328,10 @@ impl LLMProvider for CopilotProvider {
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
         let url = format!("{}/chat/completions", self.endpoint());
         let messages = Self::convert_messages(request.messages.clone());
-        let tools = request.tools.as_ref().map(|t| normalize_tools_for_openai(t));
+        let tools = request
+            .tools
+            .as_ref()
+            .map(|t| normalize_tools_for_openai(t));
 
         let mut body = serde_json::json!({
             "model": request.model,

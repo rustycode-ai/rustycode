@@ -328,7 +328,12 @@ impl LLMToolExecutor {
             .into_iter()
             .map(|tool| {
                 if tool.defer_loading == Some(true) {
-                    let desc = tool.description.lines().next().filter(|s| !s.is_empty()).unwrap_or("(no description)");
+                    let desc = tool
+                        .description
+                        .lines()
+                        .next()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or("(no description)");
                     let stub_desc = format!(
                         "{} [DEFERRED: call tool_search with name=\"{}\" to load full schema]",
                         desc, tool.name
@@ -365,7 +370,12 @@ impl LLMToolExecutor {
             .into_iter()
             .map(|tool| {
                 if tool.defer_loading == Some(true) {
-                    let desc = tool.description.lines().next().filter(|s| !s.is_empty()).unwrap_or("(no description)");
+                    let desc = tool
+                        .description
+                        .lines()
+                        .next()
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or("(no description)");
                     let stub_desc = format!(
                         "{} [DEFERRED: call tool_search with name=\"{}\" to load full schema]",
                         desc, tool.name

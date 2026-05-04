@@ -426,9 +426,20 @@ impl OpenRouterProvider {
         } else {
             let parsed: Vec<crate::openai_compatible::ResponsesApiTool> = tools
                 .iter()
-                .filter_map(|v| serde_json::from_value(v.clone()).map_err(|e| { tracing::warn!("failed to parse tool for Responses API: {e}"); e }).ok())
+                .filter_map(|v| {
+                    serde_json::from_value(v.clone())
+                        .map_err(|e| {
+                            tracing::warn!("failed to parse tool for Responses API: {e}");
+                            e
+                        })
+                        .ok()
+                })
                 .collect();
-            if parsed.is_empty() { None } else { Some(parsed) }
+            if parsed.is_empty() {
+                None
+            } else {
+                Some(parsed)
+            }
         };
 
         let body = crate::openai_compatible::ResponsesApiRequest {
@@ -523,9 +534,20 @@ impl OpenRouterProvider {
         } else {
             let parsed: Vec<crate::openai_compatible::ResponsesApiTool> = tools
                 .iter()
-                .filter_map(|v| serde_json::from_value(v.clone()).map_err(|e| { tracing::warn!("failed to parse tool for Responses API: {e}"); e }).ok())
+                .filter_map(|v| {
+                    serde_json::from_value(v.clone())
+                        .map_err(|e| {
+                            tracing::warn!("failed to parse tool for Responses API: {e}");
+                            e
+                        })
+                        .ok()
+                })
                 .collect();
-            if parsed.is_empty() { None } else { Some(parsed) }
+            if parsed.is_empty() {
+                None
+            } else {
+                Some(parsed)
+            }
         };
 
         let body = crate::openai_compatible::ResponsesApiRequest {
@@ -592,9 +614,7 @@ impl OpenRouterProvider {
             let chunk = match chunk_result {
                 Ok(c) => c,
                 Err(e) => {
-                    return futures::stream::iter(vec![Err(ProviderError::Network(
-                        e.to_string(),
-                    ))]);
+                    return futures::stream::iter(vec![Err(ProviderError::Network(e.to_string()))]);
                 }
             };
 
@@ -652,11 +672,7 @@ impl LLMProvider for OpenRouterProvider {
         match request.api_mode {
             Some(ApiMode::Responses) => return self.complete_responses(request).await,
             Some(ApiMode::Auto) => {
-                let cached = self
-                    .responses_api_supported
-                    .lock()
-                    .ok()
-                    .and_then(|g| *g);
+                let cached = self.responses_api_supported.lock().ok().and_then(|g| *g);
                 if cached != Some(false) {
                     match self.complete_responses(request.clone()).await {
                         Ok(resp) => {
@@ -849,11 +865,7 @@ impl LLMProvider for OpenRouterProvider {
         match request.api_mode {
             Some(ApiMode::Responses) => return self.complete_responses_stream(request).await,
             Some(ApiMode::Auto) => {
-                let cached = self
-                    .responses_api_supported
-                    .lock()
-                    .ok()
-                    .and_then(|g| *g);
+                let cached = self.responses_api_supported.lock().ok().and_then(|g| *g);
                 if cached != Some(false) {
                     match self.complete_responses_stream(request.clone()).await {
                         Ok(stream) => {

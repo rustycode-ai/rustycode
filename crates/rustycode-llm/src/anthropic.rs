@@ -368,9 +368,7 @@ fn normalize_thinking_for_model(
         None => {
             let should_auto_enable = matches!(
                 effort,
-                Some(
-                    crate::provider::EffortLevel::Xhigh | crate::provider::EffortLevel::Max
-                )
+                Some(crate::provider::EffortLevel::Xhigh | crate::provider::EffortLevel::Max)
             ) && ThinkingType::Adaptive.supports_model(model);
 
             if should_auto_enable {
@@ -1051,9 +1049,7 @@ impl AnthropicProvider {
                                 let (source_type, media_type, data) =
                                     if source.source_type == "file" {
                                         match crate::provider::resolve_image_to_base64(source) {
-                                            Some((mime, b64)) => {
-                                                ("base64".to_string(), mime, b64)
-                                            }
+                                            Some((mime, b64)) => ("base64".to_string(), mime, b64),
                                             None => {
                                                 tracing::warn!(
                                                     "Skipping image with unreadable file source"
@@ -1081,13 +1077,14 @@ impl AnthropicProvider {
                                     },
                                 }
                             }
-                            rustycode_protocol::ContentBlock::Thinking { thinking, signature } => {
-                                ContentBlock::Thinking {
-                                    content_type: "thinking",
-                                    thinking: thinking.clone(),
-                                    signature: signature.clone(),
-                                }
-                            }
+                            rustycode_protocol::ContentBlock::Thinking {
+                                thinking,
+                                signature,
+                            } => ContentBlock::Thinking {
+                                content_type: "thinking",
+                                thinking: thinking.clone(),
+                                signature: signature.clone(),
+                            },
                             rustycode_protocol::ContentBlock::RedactedThinking { data } => {
                                 ContentBlock::RedactedThinking {
                                     content_type: "redacted_thinking",
@@ -1138,7 +1135,9 @@ impl AnthropicProvider {
                                         .as_str()
                                         .unwrap_or("")
                                         .to_string(),
-                                    content: parse_tool_result_content(&tool_result_json["content"]),
+                                    content: parse_tool_result_content(
+                                        &tool_result_json["content"],
+                                    ),
                                     is_error: if is_error { Some(true) } else { None },
                                     cache_control: None,
                                 },
@@ -1664,12 +1663,17 @@ impl AnthropicProvider {
 
             let lines = byte_buffer.feed_chunk(&chunk);
             let mut state = stream_state.lock().unwrap_or_else(|e| e.into_inner());
-            let (current_event_type, tool_ids_by_index, thinking_signatures, thinking_block_types, redacted_data) = &mut *state;
+            let (
+                current_event_type,
+                tool_ids_by_index,
+                thinking_signatures,
+                thinking_block_types,
+                redacted_data,
+            ) = &mut *state;
 
             let mut events = Vec::new();
 
             for line in &lines {
-
                 if line.starts_with("event: ") {
                     *current_event_type = Some(line.trim_start_matches("event: ").to_string());
                     continue;
@@ -1730,10 +1734,12 @@ impl AnthropicProvider {
                                                 }));
                                             }
                                             "thinking" => {
-                                                thinking_block_types.insert(index, "thinking".to_string());
+                                                thinking_block_types
+                                                    .insert(index, "thinking".to_string());
                                             }
                                             "redacted_thinking" => {
-                                                thinking_block_types.insert(index, "redacted_thinking".to_string());
+                                                thinking_block_types
+                                                    .insert(index, "redacted_thinking".to_string());
                                                 let data = block_obj
                                                     .get("data")
                                                     .and_then(|d| d.as_str())
@@ -1800,12 +1806,15 @@ impl AnthropicProvider {
                                                 }
                                             }
                                             "signature_delta" => {
-                                                if let Some(sig) =
-                                                    delta_obj.get("signature").and_then(|s| s.as_str())
+                                                if let Some(sig) = delta_obj
+                                                    .get("signature")
+                                                    .and_then(|s| s.as_str())
                                                 {
                                                     thinking_signatures
                                                         .entry(index)
-                                                        .and_modify(|existing| existing.push_str(sig))
+                                                        .and_modify(|existing| {
+                                                            existing.push_str(sig);
+                                                        })
                                                         .or_insert_with(|| sig.to_string());
                                                 }
                                             }

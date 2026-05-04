@@ -13,7 +13,9 @@ pub use rustycode_protocol::{ContentBlock, ImageSource, MessageContent};
 /// If the source is already base64, return as-is.
 /// If the source is a file path, read the file and base64-encode it.
 /// If the source is a URL, return None (provider should handle URL passthrough).
-pub fn resolve_image_to_base64(source: &rustycode_protocol::ImageSource) -> Option<(String, String)> {
+pub fn resolve_image_to_base64(
+    source: &rustycode_protocol::ImageSource,
+) -> Option<(String, String)> {
     match source.source_type.as_str() {
         "base64" => Some((source.media_type.clone(), source.data.clone())),
         "file" => {

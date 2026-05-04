@@ -166,12 +166,17 @@ impl RolloutRecorder {
     }
 
     /// Record an event. Returns immediately; actual I/O is async.
+    /// Logs a warning if the channel is full and the event is dropped.
     pub fn record(&self, event: RolloutEvent) {
         if !self.enabled {
             return;
         }
-        // Send is non-blocking; if the channel is full the event is dropped.
-        let _ = self.sender.try_send(event);
+        if self.sender.try_send(event).is_err() {
+            tracing::warn!(
+                session_id = %self.session_id,
+                "rollout: event dropped (channel full)"
+            );
+        }
     }
 
     /// Convenience: record a session start event.

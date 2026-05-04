@@ -36,7 +36,10 @@ impl SandboxManager {
         policy: &SandboxPolicy,
     ) -> Result<SandboxResult, SandboxError> {
         if !self.available {
-            tracing::warn!("Sandbox unavailable, running unsandboxed");
+            tracing::warn!(
+                command = command,
+                "SECURITY: sandbox unavailable, running unsandboxed (this is a security downgrade)"
+            );
             return self.execute_unsandboxed(command).await;
         }
 

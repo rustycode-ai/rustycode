@@ -25,9 +25,7 @@ pub(crate) struct ToolManager {
 impl ToolManager {
     /// Create a new `ToolManager` with no active MCP connections.
     pub fn new() -> Self {
-        Self {
-            mcp_proxies: None,
-        }
+        Self { mcp_proxies: None }
     }
 
     /// Register all built-in tools for AI coding assistant functionality.

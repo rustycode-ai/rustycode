@@ -109,7 +109,10 @@ pub fn parse_responses_sse_lines(
             }
         };
 
-        let evt_type = match (&current_event_type, data.get("type").and_then(|t| t.as_str())) {
+        let evt_type = match (
+            &current_event_type,
+            data.get("type").and_then(|t| t.as_str()),
+        ) {
             (Some(t), _) => t.clone(),
             (_, Some(t)) => t.to_string(),
             _ => {
@@ -207,10 +210,7 @@ pub fn dispatch_responses_event(
                     } else {
                         state.register_call(call_id.clone(), item_id, name.clone());
 
-                        events.push(Ok(StreamEvent::ToolCallStarted {
-                            id: call_id,
-                            name,
-                        }));
+                        events.push(Ok(StreamEvent::ToolCallStarted { id: call_id, name }));
                     }
                 } else {
                     // Message item added — treat as turn start
@@ -226,10 +226,7 @@ pub fn dispatch_responses_event(
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let delta = data
-                .get("delta")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let delta = data.get("delta").and_then(|v| v.as_str()).unwrap_or("");
 
             if !call_id.is_empty() && !delta.is_empty() {
                 events.push(Ok(StreamEvent::ToolInputDelta {
@@ -276,13 +273,16 @@ pub fn dispatch_responses_event(
                     _ => Some("stop"),
                 };
                 events.push(Ok(StreamEvent::TurnCompleted {
-                    stop_reason: normalize_stop_reason(reason).unwrap_or_else(|| "end_turn".to_string()),
+                    stop_reason: normalize_stop_reason(reason)
+                        .unwrap_or_else(|| "end_turn".to_string()),
                 }));
             }
         }
 
         // Informational events — skip
-        "response.created" | "response.in_progress" | "response.output_item.done"
+        "response.created"
+        | "response.in_progress"
+        | "response.output_item.done"
         | "response.content_part.added" => {}
 
         // Error
@@ -305,10 +305,7 @@ pub fn extract_responses_error(
 ) -> Option<Result<StreamEvent, ProviderError>> {
     // Responses API errors: {"type":"error","code":"...","message":"..."}
     // Or nested: {"error":{"type":"...","code":"...","message":"..."}}
-    let err_obj = data
-        .get("error")
-        .cloned()
-        .unwrap_or_else(|| data.clone());
+    let err_obj = data.get("error").cloned().unwrap_or_else(|| data.clone());
 
     if err_obj.get("type").and_then(|t| t.as_str()) == Some("error")
         || err_obj.get("code").is_some()
@@ -322,10 +319,7 @@ pub fn extract_responses_error(
             .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown error");
-        Some(Err(ProviderError::Api(format!(
-            "[{}] {}",
-            code, message
-        ))))
+        Some(Err(ProviderError::Api(format!("[{}] {}", code, message))))
     } else {
         None
     }
