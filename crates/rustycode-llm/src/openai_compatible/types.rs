@@ -91,6 +91,9 @@ pub struct OpenAiCompatibleResponseMessage {
     pub tool_calls: Option<Vec<OpenAiToolCall>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_content: Option<String>,
+    /// Interleaved reasoning details (MiniMax M2.7 and similar providers).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_details: Option<Vec<serde_json::Value>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub refusal: Option<String>,
 }

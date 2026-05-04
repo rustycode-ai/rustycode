@@ -704,6 +704,7 @@ impl AnthropicProvider {
                     thinking: block.thinking.clone(),
                     signature: block.signature.clone(),
                     data: String::new(),
+                    display: None,
                 });
             } else if block.content_type == "redacted_thinking" {
                 tracing::debug!(
@@ -715,6 +716,7 @@ impl AnthropicProvider {
                     thinking: String::new(),
                     signature: String::new(),
                     data: block.data.clone(),
+                    display: None,
                 });
             } else if block.content_type == "refusal" {
                 // Handle refusal content blocks (Claude 4 models)
@@ -3072,6 +3074,7 @@ mod tests {
             thinking: "I need to think about this...".to_string(),
             signature: "sig_abc123".to_string(),
             data: String::new(),
+            display: None,
         };
         let json = serde_json::to_string(&thinking).unwrap();
         let back: ThinkingBlock = serde_json::from_str(&json).unwrap();
@@ -3094,6 +3097,7 @@ mod tests {
                 thinking: "Deep analysis...".to_string(),
                 signature: "sig_xyz".to_string(),
                 data: String::new(),
+                display: None,
             }]),
             structured_output: None,
         };

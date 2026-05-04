@@ -359,6 +359,7 @@ impl OpenAiProvider {
                     thinking: rc,
                     signature: String::new(),
                     data: String::new(),
+                    display: None,
                 }]
             }),
             structured_output: None,

@@ -320,6 +320,7 @@ pub fn build_responses_completion_response(
                         thinking: summary_text,
                         signature: String::new(),
                         data: encrypted_content.clone().unwrap_or_default(),
+                        display: None,
                     });
                 }
             }

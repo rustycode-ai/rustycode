@@ -56,14 +56,36 @@ pub fn build_completion_response(
         usage,
         stop_reason: normalize_stop_reason(choice.finish_reason.as_deref()),
         citations: None,
-        thinking_blocks: choice.message.reasoning_content.clone().map(|r| {
-            vec![crate::provider::ThinkingBlock {
-                block_type: "thinking".to_string(),
-                thinking: r,
-                signature: String::new(),
-                data: String::new(),
-            }]
-        }),
+        thinking_blocks: {
+            if let Some(r) = &choice.message.reasoning_content {
+                Some(vec![crate::provider::ThinkingBlock {
+                    block_type: "thinking".to_string(),
+                    thinking: r.clone(),
+                    signature: String::new(),
+                    data: String::new(),
+                    display: None,
+                }])
+            } else if let Some(details) = &choice.message.reasoning_details {
+                let blocks: Vec<crate::provider::ThinkingBlock> = details
+                    .iter()
+                    .filter_map(|d| {
+                        d.get("content")
+                            .and_then(|c| c.as_str())
+                            .filter(|s| !s.is_empty())
+                            .map(|text| crate::provider::ThinkingBlock {
+                                block_type: "thinking".to_string(),
+                                thinking: text.to_string(),
+                                signature: String::new(),
+                                data: String::new(),
+                                display: None,
+                            })
+                    })
+                    .collect();
+                if blocks.is_empty() { None } else { Some(blocks) }
+            } else {
+                None
+            }
+        },
         structured_output: None,
     })
 }

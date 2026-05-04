@@ -685,6 +685,9 @@ pub struct ThinkingBlock {
     /// Encrypted data for redacted_thinking blocks
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub data: String,
+    /// Display mode: "summarized" or "omitted" (Claude adaptive thinking)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<ThinkingDisplay>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
