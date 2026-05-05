@@ -10,7 +10,7 @@ impl TUI {
     /// This method checks what memories would be injected and returns a summary string
     /// for display purposes only.
     pub(crate) fn get_injection_summary_display(&self, user_message: &str) -> String {
-        use crate::memory_injection::get_injection_summary;
+        use crate::memory::memory_injection::get_injection_summary;
 
         // Skip if auto-memory is not available
         let auto_memory = match &self.auto_memory {
@@ -54,7 +54,7 @@ impl TUI {
     /// This method automatically enhances user messages with relevant memory context
     /// by scoring memories against the message content and injecting high-confidence matches.
     pub(crate) fn inject_memory_if_needed(&mut self, user_message: &str) -> String {
-        use crate::memory_injection::{get_injection_summary, inject_memories};
+        use crate::memory::memory_injection::{get_injection_summary, inject_memories};
 
         // Skip if auto-memory is not available
         let auto_memory = match &self.auto_memory {
@@ -208,7 +208,7 @@ impl TUI {
         }
     }
 
-    pub(crate) fn check_auto_compaction(&mut self) {
+    pub(crate) fn maybe_auto_compact(&mut self) {
         if !self.compaction_config.auto_compact_enabled {
             return;
         }

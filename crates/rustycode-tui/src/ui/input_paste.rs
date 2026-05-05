@@ -1,16 +1,6 @@
 //! Paste handling for clipboard operations.
-//!
-//! This module provides clipboard paste support for:
-//! - Text paste (single-line and multi-line)
-//! - Image paste with automatic preview generation
-//!
-//! ## Security
-//!
-//! All paste operations are subject to size limits to prevent memory exhaustion:
-//! - Text paste: MAX_PASTE_SIZE_BYTES (10MB default)
-//! - Image paste: MAX_IMAGE_SIZE_BYTES (5MB)
 
-use crate::clipboard;
+use crate::services::clipboard;
 use anyhow::{Context, Result};
 use ulid::Ulid;
 

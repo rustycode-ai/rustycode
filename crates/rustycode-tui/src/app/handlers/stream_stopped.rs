@@ -52,7 +52,7 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
     }
 
     tui.context_monitor.update(&tui.messages);
-    tui.check_auto_compaction();
+    tui.maybe_auto_compact();
     if let Some(ref mut recovery) = tui.session_recovery {
         recovery.mark_dirty();
     }

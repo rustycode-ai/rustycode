@@ -1,16 +1,4 @@
 //! Tool-specific error messages and recovery suggestions
-//!
-//! Provides helpful error messages and recovery strategies for common
-//! tool failures. Inspired by cline's responses.ts which offers
-//! context-specific guidance when tools fail.
-//!
-//! # Error Categories
-//!
-//! - **File not found**: Suggest using glob/grep to find the file
-//! - **Permission denied**: Suggest checking file permissions or using sudo
-//! - **Syntax errors**: Suggest reading the full file to identify issues
-//! - **Build failures**: Suggest breaking changes into smaller steps
-//! - **Repeated failures**: Suggest alternative approaches
 
 use std::collections::HashMap;
 

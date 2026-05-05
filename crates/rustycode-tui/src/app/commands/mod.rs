@@ -37,10 +37,10 @@ use workers_commands::{handle_cron_command, handle_workers_command};
 
 use crate::agents::AgentManager;
 use crate::app::service_integration::ServiceManager;
-use crate::compaction::{CompactionConfig, ContextMonitor};
-use crate::memory_injection::InjectionConfig;
+use crate::memory::compaction::{CompactionConfig, ContextMonitor};
+use crate::memory::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
-use crate::tasks::WorkspaceTasks;
+use crate::app::tasks::WorkspaceTasks;
 use crate::ui::message::Message;
 use anyhow::Result;
 use std::sync::RwLock;
@@ -60,7 +60,7 @@ pub struct CommandContext<'a> {
     /// Whether a response is currently streaming
     pub is_streaming: &'a mut bool,
     /// Last extracted tasks/todos snapshot
-    pub last_extraction: &'a mut Option<(Vec<crate::tasks::Task>, Vec<crate::tasks::Todo>)>,
+    pub last_extraction: &'a mut Option<(Vec<crate::app::tasks::Task>, Vec<crate::app::tasks::Todo>)>,
     /// Service manager for workspace reloads and other async services
     pub services: &'a mut ServiceManager,
     pub agent_manager: &'a mut AgentManager,

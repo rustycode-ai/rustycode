@@ -1,11 +1,4 @@
 //! Thinking block rendering for AI reasoning display
-//!
-//! This module provides rendering for thinking/reasoning blocks that show
-//! the AI's internal thought process, with expandable sections.
-//!
-//! Note: The main thinking rendering is now integrated directly into
-//! `app/render/messages.rs` as `render_thinking_block()`. This module
-//! is kept for the `MessageRenderer`-based rendering path.
 
 use anyhow::Result as anyhowResult;
 use ratatui::{

@@ -71,7 +71,7 @@ impl SessionManager {
     pub fn load_session_state(
         &self,
         session_id: &str,
-    ) -> Result<crate::session_recovery::SessionState> {
+    ) -> Result<crate::services::session_recovery::SessionState> {
         match self.session_recovery {
             Some(ref recovery) => recovery.load_state(session_id),
             None => anyhow::bail!("session recovery not available"),
@@ -80,11 +80,11 @@ impl SessionManager {
 
     /// Save command history on exit.
     ///
-    /// Delegates to [`crate::session::save_command_history`].
+    /// Delegates to [`crate::services::session::save_command_history`].
     /// Logs a warning on failure but does not propagate the error — history
     /// saving is best-effort and should not block shutdown.
     pub fn save_history(history: &[String]) {
-        if let Err(e) = crate::session::save_command_history(history) {
+        if let Err(e) = crate::services::session::save_command_history(history) {
             tracing::warn!("Failed to save command history: {}", e);
         }
     }

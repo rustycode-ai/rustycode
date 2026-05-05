@@ -1,13 +1,4 @@
 //! Streaming markdown buffer for safe incremental rendering.
-//!
-//! Ported from goose's `MarkdownBuffer`. Provides a buffer that accumulates streaming
-//! markdown chunks and determines safe points to flush content for rendering. It tracks
-//! open markdown constructs (code blocks, bold, links, etc.) to ensure we only output
-//! complete, well-formed markdown.
-//!
-//! Unlike `rustycode_tools::markdown_stream::MarkdownStream` which focuses on element
-//! classification, this module focuses on **safe render boundaries** - finding the latest
-//! position in a buffer where all markdown constructs are balanced/closed.
 
 use regex::Regex;
 use std::io::Write;

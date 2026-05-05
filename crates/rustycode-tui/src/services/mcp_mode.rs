@@ -1,13 +1,4 @@
 //! MCP Tools Mode
-//!
-//! Provides a comprehensive UI for managing MCP (Model Context Protocol) integration:
-//! - Show available MCP servers
-//! - Tool discovery and browsing
-//! - Tool execution interface
-//! - Resource management
-//! - Server health monitoring
-//! - Parallel tool execution
-//! - Tool result display
 
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},

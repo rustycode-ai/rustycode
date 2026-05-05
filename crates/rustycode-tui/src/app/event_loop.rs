@@ -1,6 +1,6 @@
 //! Responsive Event Loop
 
-use crate::agent_mode::AiMode;
+use crate::services::agent_mode::AiMode;
 use crate::agents::AgentManager;
 use crate::app::auto_continue_state::AutoContinueState;
 use crate::app::commands::{dispatch_registered_slash_command, CommandContext, CommandEffect};
@@ -13,19 +13,19 @@ use crate::app::team_mode_handler::TeamModeHandler;
 use crate::app::tool_panel_state::ToolPanelState;
 use crate::app::wizard_handler::WizardHandler;
 use crate::app::{service_integration::*, FRAME_BUDGET_60FPS};
-use crate::compaction::{CompactionConfig, ContextMonitor};
-use crate::config::load_config;
-use crate::config::TUIConfig;
-use crate::conversation_service::ConversationConfig;
+use crate::memory::compaction::{CompactionConfig, ContextMonitor};
+use crate::services::config::load_config;
+use crate::services::config::TUIConfig;
+use crate::services::conversation_service::ConversationConfig;
 use crate::help::HelpState;
 use crate::memory::memory_auto::ThreadSafeAutoMemory;
-use crate::memory_injection::InjectionConfig;
+use crate::memory::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
 use crate::plugin::PluginManagerUI;
-use crate::providers::all_available_models;
-use crate::session::load_command_history;
+use crate::services::providers::all_available_models;
+use crate::services::session::load_command_history;
 use crate::skills::{SkillLoader, SkillStateManager};
-use crate::tasks::{load_tasks, WorkspaceTasks};
+use crate::app::tasks::{load_tasks, WorkspaceTasks};
 use crate::theme::{Theme, ThemeColors};
 use crate::tool_approval::ToolApprovalManager;
 use crate::ui::animator::Animator;
@@ -153,7 +153,7 @@ pub struct TUI {
     pub(crate) scheduler_rx: Option<mpsc::Receiver<crate::app::pipeline::ScheduledPhaseEvent>>,
     pub(crate) active_scheduled_phases: std::collections::HashSet<String>,
     pub(crate) max_concurrent_phases: usize,
-    pub(crate) last_extraction: Option<(Vec<crate::tasks::Task>, Vec<crate::tasks::Todo>)>,
+    pub(crate) last_extraction: Option<(Vec<crate::app::tasks::Task>, Vec<crate::app::tasks::Todo>)>,
     pub(crate) workspace_scan_progress: Option<(usize, usize)>, // (scanned, total)
     pub(crate) git_branch: Option<String>,                      // Current git branch for status bar
 

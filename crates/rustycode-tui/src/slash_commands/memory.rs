@@ -374,10 +374,10 @@ fn format_created_time(timestamp: &str) -> String {
 pub fn handle_inject_command(
     cwd: &Path,
     args: Option<String>,
-    injection_config: &mut crate::memory_injection::InjectionConfig,
+    injection_config: &mut crate::memory::memory_injection::InjectionConfig,
 ) -> Result<String> {
     use crate::memory::memory_auto::ThreadSafeAutoMemory;
-    use crate::memory_injection::preview_injection;
+    use crate::memory::memory_injection::preview_injection;
 
     let args_default = args.as_deref().unwrap_or_default();
     let args_str = args_default.trim();

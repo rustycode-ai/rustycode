@@ -5,7 +5,7 @@ use anyhow::Result;
 /// Lists available sessions or loads a specific session
 ///
 pub async fn handle_load_command(session_id: Option<String>) -> Result<String> {
-    use crate::session::{load_session, load_session_history_list};
+    use crate::services::session::{load_session, load_session_history_list};
 
     if let Some(id) = session_id {
         // Load specific session

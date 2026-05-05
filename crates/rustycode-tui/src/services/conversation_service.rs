@@ -2,7 +2,7 @@
 
 #![allow(dead_code)]
 
-use crate::agent_mode::{AgentMode, AiMode};
+use crate::services::agent_mode::{AgentMode, AiMode};
 use anyhow::Result;
 use rustycode_config::Config;
 use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
@@ -686,7 +686,7 @@ Unused Memories (candidates for pruning):
         }
 
         if tool_search_enabled {
-            tools_json.push(crate::tool_search::ToolSearch::tool_definition_for_provider(provider));
+            tools_json.push(crate::app::tool_search::ToolSearch::tool_definition_for_provider(provider));
         }
 
         serde_json::json!({

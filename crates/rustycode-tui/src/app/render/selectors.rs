@@ -1,5 +1,5 @@
     pub fn render_model_selector(frame: &mut Frame) {
-        use crate::providers::all_available_models;
+        use crate::services::providers::all_available_models;
         use crate::app::render::shared::centered_rect;
         use ratatui::layout::Alignment;
         use ratatui::style::{Color, Style};
@@ -72,7 +72,7 @@
 
     /// Render provider selector overlay
     pub fn render_provider_selector(frame: &mut Frame) {
-        use crate::providers::available_providers;
+        use crate::services::providers::available_providers;
         use crate::app::render::shared::centered_rect;
         use ratatui::layout::Alignment;
         use ratatui::style::{Color, Style};

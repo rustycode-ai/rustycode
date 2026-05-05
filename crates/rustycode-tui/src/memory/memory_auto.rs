@@ -503,7 +503,7 @@ impl ThreadSafeAutoMemory {
     pub fn preferences(&self) -> Vec<AutoMemory> {
         self.0
             .lock()
-            .map(|mut m| m.get_memories_by_type(MemoryType::Preference))
+            .map(|mut m| m.fetch_memories_by_type(MemoryType::Preference))
             .unwrap_or_default()
     }
 
@@ -511,7 +511,7 @@ impl ThreadSafeAutoMemory {
     pub fn decisions(&self) -> Vec<AutoMemory> {
         self.0
             .lock()
-            .map(|mut m| m.get_memories_by_type(MemoryType::Decision))
+            .map(|mut m| m.fetch_memories_by_type(MemoryType::Decision))
             .unwrap_or_default()
     }
 
@@ -519,7 +519,7 @@ impl ThreadSafeAutoMemory {
     pub fn errors(&self) -> Vec<AutoMemory> {
         self.0
             .lock()
-            .map(|mut m| m.get_memories_by_type(MemoryType::Error))
+            .map(|mut m| m.fetch_memories_by_type(MemoryType::Error))
             .unwrap_or_default()
     }
 
@@ -527,7 +527,7 @@ impl ThreadSafeAutoMemory {
     pub fn recent(&self, days: i64) -> Vec<AutoMemory> {
         self.0
             .lock()
-            .map(|mut m| m.get_recent_memories(days))
+            .map(|mut m| m.fetch_recent_memories(days))
             .unwrap_or_default()
     }
 
@@ -535,7 +535,7 @@ impl ThreadSafeAutoMemory {
     pub fn important(&self, threshold: f64) -> Vec<AutoMemory> {
         self.0
             .lock()
-            .map(|mut m| m.get_important_memories(threshold))
+            .map(|mut m| m.fetch_important_memories(threshold))
             .unwrap_or_default()
     }
 

@@ -1,14 +1,4 @@
 //! Deep-thinking integration bridge for the TUI.
-//!
-//! Analyzes incoming user messages for complexity using the
-//! `rustycode_orchestration::thinking` activation policy. When a complex task is
-//! detected, the message is prefixed with a structured planning prompt
-//! that instructs the LLM to plan first before implementing.
-//!
-//! This is the **prompt-injection** integration path: lightweight, zero
-//! additional LLM calls, and works with any provider. The full
-//! Graph-of-Thoughts engine (`RealExecutor`) can be wired in later as a
-//! pre-processing step.
 
 use rustycode_orchestration::thinking::{
     ActivationSignals, DefaultActivationPolicy, SignalRisk, SignalTier, ThinkingActivationPolicy,

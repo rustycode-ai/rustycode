@@ -49,7 +49,7 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     }
 
     tui.context_monitor.update(&tui.messages);
-    tui.check_auto_compaction();
+    tui.maybe_auto_compact();
 
     // Mark session dirty so the 30-second auto-save persists this turn
     if let Some(ref mut recovery) = tui.session_recovery {

@@ -23,7 +23,7 @@ pub fn handle_extract_command(parts: &[&str], ctx: CommandContext<'_>) -> Result
         if let Some((old_tasks, old_todos)) = ctx.last_extraction.take() {
             ctx.workspace_tasks.tasks = old_tasks;
             ctx.workspace_tasks.todos = old_todos;
-            if let Err(e) = crate::tasks::save_tasks(ctx.workspace_tasks) {
+            if let Err(e) = crate::app::tasks::save_tasks(ctx.workspace_tasks) {
                 return Ok(CommandEffect::SystemMessage(format!(
                     "Failed to save reverted tasks: {}",
                     e
@@ -53,23 +53,23 @@ pub fn handle_rename_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
         "Untitled Session".to_string()
     };
 
-    let serialized: Vec<crate::session::SerializedMessage> = ctx
+    let serialized: Vec<crate::services::session::SerializedMessage> = ctx
         .messages
         .iter()
         .map(|m| {
             let role = match m.role {
-                MessageRole::User => crate::session::SerializedMessageType::User,
-                MessageRole::Assistant => crate::session::SerializedMessageType::AI,
-                MessageRole::System => crate::session::SerializedMessageType::System,
+                MessageRole::User => crate::services::session::SerializedMessageType::User,
+                MessageRole::Assistant => crate::services::session::SerializedMessageType::AI,
+                MessageRole::System => crate::services::session::SerializedMessageType::System,
             };
-            crate::session::SerializedMessage {
+            crate::services::session::SerializedMessage {
                 role,
                 content: m.content.clone(),
             }
         })
         .collect();
 
-    match crate::session::save_current_session(&title, &serialized) {
+    match crate::services::session::save_current_session(&title, &serialized) {
         Ok(_) => Ok(CommandEffect::SystemMessage(format!(
             "Session renamed: {}",
             title
@@ -86,14 +86,14 @@ pub fn handle_save_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<Co
     let name = parts.get(1).map(|s| s.to_string());
 
     // Serialize current messages for saving
-    let serialized: Vec<crate::session::SerializedMessage> = ctx
+    let serialized: Vec<crate::services::session::SerializedMessage> = ctx
         .messages
         .iter()
-        .map(|m| crate::session::SerializedMessage {
+        .map(|m| crate::services::session::SerializedMessage {
             role: match m.role {
-                MessageRole::User => crate::session::SerializedMessageType::User,
-                MessageRole::Assistant => crate::session::SerializedMessageType::AI,
-                MessageRole::System => crate::session::SerializedMessageType::System,
+                MessageRole::User => crate::services::session::SerializedMessageType::User,
+                MessageRole::Assistant => crate::services::session::SerializedMessageType::AI,
+                MessageRole::System => crate::services::session::SerializedMessageType::System,
             },
             content: m.content.clone(),
         })
@@ -137,7 +137,7 @@ pub fn handle_load_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
         Some(id) => id.to_string(),
         None => {
             // List available sessions
-            let sessions = crate::session::load_session_history_list("Current Session", 0);
+            let sessions = crate::services::session::load_session_history_list("Current Session", 0);
             if sessions.is_empty() {
                 return Ok(CommandEffect::SystemMessage(
                     "No saved sessions found".to_string(),
@@ -153,7 +153,7 @@ pub fn handle_load_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
     };
 
     // Load synchronously — it's just file I/O
-    match crate::session::load_session(&session_id) {
+    match crate::services::session::load_session(&session_id) {
         Ok((name, serialized_messages, age)) => {
             let msg_count = serialized_messages.len();
             // Convert serialized messages to TUI Message types
@@ -161,10 +161,10 @@ pub fn handle_load_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
                 .into_iter()
                 .map(|sm| {
                     let role = match sm.role {
-                        crate::session::SerializedMessageType::User => MessageRole::User,
-                        crate::session::SerializedMessageType::AI => MessageRole::Assistant,
-                        crate::session::SerializedMessageType::System => MessageRole::System,
-                        crate::session::SerializedMessageType::Tool => MessageRole::System,
+                        crate::services::session::SerializedMessageType::User => MessageRole::User,
+                        crate::services::session::SerializedMessageType::AI => MessageRole::Assistant,
+                        crate::services::session::SerializedMessageType::System => MessageRole::System,
+                        crate::services::session::SerializedMessageType::Tool => MessageRole::System,
                     };
                     crate::ui::message::Message::new(role, sm.content)
                 })
@@ -184,7 +184,7 @@ pub fn handle_load_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
 }
 
 pub fn handle_resume_command(_parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    let sessions = crate::session::load_session_history_list("Current Session", 0);
+    let sessions = crate::services::session::load_session_history_list("Current Session", 0);
 
     // Skip synthetic "current" entry (id="current") — it has no backing file.
     // Take the first real saved session instead.
@@ -198,17 +198,17 @@ pub fn handle_resume_command(_parts: &[&str], _ctx: CommandContext<'_>) -> Resul
 
     let session_id = target.id.clone();
 
-    match crate::session::load_session(&session_id) {
+    match crate::services::session::load_session(&session_id) {
         Ok((name, serialized_messages, age)) => {
             let msg_count = serialized_messages.len();
             let messages: Vec<crate::ui::message::Message> = serialized_messages
                 .into_iter()
                 .map(|sm| {
                     let role = match sm.role {
-                        crate::session::SerializedMessageType::User => MessageRole::User,
-                        crate::session::SerializedMessageType::AI => MessageRole::Assistant,
-                        crate::session::SerializedMessageType::System => MessageRole::System,
-                        crate::session::SerializedMessageType::Tool => MessageRole::System,
+                        crate::services::session::SerializedMessageType::User => MessageRole::User,
+                        crate::services::session::SerializedMessageType::AI => MessageRole::Assistant,
+                        crate::services::session::SerializedMessageType::System => MessageRole::System,
+                        crate::services::session::SerializedMessageType::Tool => MessageRole::System,
                     };
                     crate::ui::message::Message::new(role, sm.content)
                 })
@@ -247,7 +247,7 @@ pub fn handle_sessions_command(parts: &[&str], _ctx: CommandContext<'_>) -> Resu
                 }
             };
 
-            match crate::session::delete_session(id) {
+            match crate::services::session::delete_session(id) {
                 Ok(()) => Ok(CommandEffect::SystemMessage(format!(
                     "Deleted session '{}'",
                     id
@@ -260,7 +260,7 @@ pub fn handle_sessions_command(parts: &[&str], _ctx: CommandContext<'_>) -> Resu
         }
         "clear" => {
             let keep: usize = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(10);
-            match crate::session::cleanup_old_sessions(keep) {
+            match crate::services::session::cleanup_old_sessions(keep) {
                 Ok(removed) => Ok(CommandEffect::SystemMessage(format!(
                     "Cleaned up {} old sessions (kept {} most recent)",
                     removed, keep
@@ -273,7 +273,7 @@ pub fn handle_sessions_command(parts: &[&str], _ctx: CommandContext<'_>) -> Resu
         }
         _ => {
             // List sessions
-            let sessions = crate::session::load_session_history_list("Current Session", 0);
+            let sessions = crate::services::session::load_session_history_list("Current Session", 0);
             if sessions.is_empty() {
                 return Ok(CommandEffect::SystemMessage(
                     "No saved sessions found".to_string(),

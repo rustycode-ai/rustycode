@@ -1,23 +1,6 @@
 //! Task execution dashboard display for the TUI.
-//!
-//! Ported from goose's `task_execution_display` pattern. Provides formatted
-//! display of task execution progress with status icons, timing, and output
-//! previews. Designed to be rendered inline in the message stream.
-//!
-//! # Example
-//!
-//! ```ignore
-//! let dashboard = TaskDashboard::new(&tasks, &agents);
-//! let display = dashboard.render();
-//! // Returns formatted string like:
-//! // ━━ Task Dashboard ━━━━━━━━━━━━━━━━━
-//! // ⏳ 2 pending | 🏃 1 running | ✅ 3 done
-//! // 🏃 Implement auth [00:12] 💬 Writing middleware...
-//! // ✅ Setup database [00:05]
-//! // ⏳ Write tests
-//! ```
 
-use crate::tasks::{ActiveAgent, AgentStatus, Task, TaskStatus};
+use crate::app::tasks::{ActiveAgent, AgentStatus, Task, TaskStatus};
 
 /// Dashboard for displaying task execution status.
 pub struct TaskDashboard<'a> {

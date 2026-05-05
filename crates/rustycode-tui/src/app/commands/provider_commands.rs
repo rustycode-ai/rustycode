@@ -6,7 +6,7 @@ use anyhow::Result;
 
 /// Handle /model command
 pub fn handle_model_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    use crate::providers::all_available_models;
+    use crate::services::providers::all_available_models;
 
     if parts.len() < 2 {
         let override_model = std::env::var("RUSTYCODE_MODEL_OVERRIDE").ok();
@@ -117,7 +117,7 @@ pub fn handle_model_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<
 
 /// Handle /provider command
 pub fn handle_provider_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    use crate::providers::available_providers;
+    use crate::services::providers::available_providers;
 
     let cwd = ctx.cwd;
 

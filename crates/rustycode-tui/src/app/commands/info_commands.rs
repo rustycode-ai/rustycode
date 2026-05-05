@@ -495,9 +495,9 @@ pub fn handle_track_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<C
 
     std::thread::spawn(move || {
         let output = if detail_mode {
-            crate::workspace_progress::render_workspace_progress(&cwd, &tasks, &agents)
+            crate::workspace::workspace_progress::render_workspace_progress(&cwd, &tasks, &agents)
         } else {
-            crate::workspace_progress::render_workspace_progress_compact(&cwd, &tasks, &agents)
+            crate::workspace::workspace_progress::render_workspace_progress_compact(&cwd, &tasks, &agents)
         };
         let _ = tx.send(crate::app::async_::SlashCommandResult::Success(output));
     });

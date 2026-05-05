@@ -38,7 +38,8 @@ impl Drop for DoneGuard {
         send_chunk(&self.stream_tx, StreamChunk::Done);
     }
 }
-use crate::{ErrorTracker, FileReadCache};
+use crate::app::tool_errors::ErrorTracker;
+use crate::services::file_read_cache::FileReadCache;
 
 use rustycode_llm::provider::ChatMessage;
 #[cfg(test)]
@@ -56,14 +57,14 @@ pub struct StreamConfig {
     pub tools_schema: Option<Vec<serde_json::Value>>,
     pub approval_rx: Option<std::sync::mpsc::Receiver<bool>>,
     pub question_rx: Option<std::sync::mpsc::Receiver<String>>,
-    pub agent_mode: Option<crate::agent_mode::AgentMode>,
+    pub agent_mode: Option<crate::services::agent_mode::AgentMode>,
     pub file_read_cache: Option<Arc<StdMutex<FileReadCache>>>,
     pub error_tracker: Option<Arc<StdMutex<ErrorTracker>>>,
     pub todo_state: Option<rustycode_tools::todo::TodoState>,
     pub conversation_history: Option<Vec<ChatMessage>>,
     pub tool_registry: Option<Arc<rustycode_tools::ToolRegistry>>,
     pub plan_mode: Option<rustycode_orchestration::plan_mode::PlanMode>,
-    pub ai_mode: Option<crate::agent_mode::AiMode>,
+    pub ai_mode: Option<crate::services::agent_mode::AiMode>,
     pub orchestration_guidance: Option<String>,
     pub phase_context: Option<String>,
     pub orchestration:
@@ -126,7 +127,7 @@ impl StreamConfig {
         self
     }
 
-    pub fn agent_mode_opt(mut self, mode: Option<crate::agent_mode::AgentMode>) -> Self {
+    pub fn agent_mode_opt(mut self, mode: Option<crate::services::agent_mode::AgentMode>) -> Self {
         self.agent_mode = mode;
         self
     }
@@ -167,7 +168,7 @@ impl StreamConfig {
         self
     }
 
-    pub fn ai_mode_opt(mut self, mode: Option<crate::agent_mode::AiMode>) -> Self {
+    pub fn ai_mode_opt(mut self, mode: Option<crate::services::agent_mode::AiMode>) -> Self {
         self.ai_mode = mode;
         self
     }
@@ -555,7 +556,7 @@ pub async fn stream_llm_response(config: StreamConfig) -> Result<()> {
 #[cfg(test)]
 #[cfg(test)]
 mod tests {
-    use crate::workspace_context::find_project_instruction_file;
+    use crate::workspace::workspace_context::find_project_instruction_file;
     use tempfile::TempDir;
 
     #[test]

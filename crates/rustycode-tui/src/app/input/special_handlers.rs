@@ -451,23 +451,23 @@ impl TUI {
                     .map(|s| s.id.clone())
                 {
                     // Load the selected session directly (synchronous file I/O)
-                    match crate::session::load_session(&session_id) {
+                    match crate::services::session::load_session(&session_id) {
                         Ok((name, serialized_messages, age)) => {
                             let msg_count = serialized_messages.len();
                             let messages: Vec<crate::ui::message::Message> = serialized_messages
                                 .into_iter()
                                 .map(|sm| {
                                     let role = match sm.role {
-                                        crate::session::SerializedMessageType::User => {
+                                        crate::services::session::SerializedMessageType::User => {
                                             crate::ui::message::MessageRole::User
                                         }
-                                        crate::session::SerializedMessageType::AI => {
+                                        crate::services::session::SerializedMessageType::AI => {
                                             crate::ui::message::MessageRole::Assistant
                                         }
-                                        crate::session::SerializedMessageType::System => {
+                                        crate::services::session::SerializedMessageType::System => {
                                             crate::ui::message::MessageRole::System
                                         }
-                                        crate::session::SerializedMessageType::Tool => {
+                                        crate::services::session::SerializedMessageType::Tool => {
                                             crate::ui::message::MessageRole::System
                                         }
                                     };

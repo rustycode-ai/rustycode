@@ -1,11 +1,4 @@
 //! Turn-level snapshot for tracking file changes across agent turns.
-//!
-//! Captures git state before each agent turn and computes diffs after.
-//! Enables verification ("did the agent actually change anything?"), undo
-//! support, and doom-loop detection.
-//!
-//! Inspired by OpenCode's `snapshot.track()/patch()` pattern. Reuses
-//! [`rustycode_core::ultrawork`] primitives where possible.
 
 use std::path::Path;
 

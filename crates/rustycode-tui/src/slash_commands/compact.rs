@@ -1,6 +1,6 @@
 //! Compaction slash command
 
-use crate::compaction::{compact_context, CompactionPreview, CompactionStrategy, ContextMonitor};
+use crate::memory::compaction::{compact_context, CompactionPreview, CompactionStrategy, ContextMonitor};
 use crate::ui::message::Message;
 use anyhow::Result;
 

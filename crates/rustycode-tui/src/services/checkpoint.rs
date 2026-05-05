@@ -1,6 +1,6 @@
 //! Checkpoint save/restore for session state (conversation, tasks, git info).
 
-use crate::tasks::WorkspaceTasks;
+use crate::app::tasks::WorkspaceTasks;
 use crate::ui::message::Message;
 use anyhow::Result;
 use chrono::{DateTime, Utc};

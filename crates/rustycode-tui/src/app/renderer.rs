@@ -105,13 +105,13 @@ impl RendererState {
             .workspace_tasks
             .tasks
             .iter()
-            .filter(|t| matches!(t.status, crate::tasks::TaskStatus::Completed))
+            .filter(|t| matches!(t.status, crate::app::tasks::TaskStatus::Completed))
             .count();
         let pending_count = tui
             .workspace_tasks
             .tasks
             .iter()
-            .filter(|t| matches!(t.status, crate::tasks::TaskStatus::Pending))
+            .filter(|t| matches!(t.status, crate::app::tasks::TaskStatus::Pending))
             .count();
         let task_summary = if done_count > 0 || pending_count > 0 {
             format!("{}/{} tasks", done_count, done_count + pending_count)

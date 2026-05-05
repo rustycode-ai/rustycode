@@ -7,7 +7,7 @@ use anyhow::Result;
 
 /// Copy a single message to clipboard
 pub fn copy_message_to_clipboard(message: &Message) -> Result<(usize, String)> {
-    use crate::clipboard::copy_text_to_clipboard_both;
+    use crate::services::clipboard::copy_text_to_clipboard_both;
 
     let content = message.content.clone();
     let chars = content.chars().count();
@@ -20,7 +20,7 @@ pub fn copy_message_to_clipboard(message: &Message) -> Result<(usize, String)> {
 
 /// Copy the last assistant (AI) response to clipboard
 pub fn copy_last_ai_response(messages: &[Message]) -> Result<String> {
-    use crate::clipboard::copy_text_to_clipboard_both;
+    use crate::services::clipboard::copy_text_to_clipboard_both;
 
     // Find the last assistant message
     let last_ai_idx = messages
@@ -39,7 +39,7 @@ pub fn copy_last_ai_response(messages: &[Message]) -> Result<String> {
 
 /// Copy entire conversation to clipboard (excludes system messages)
 pub fn copy_conversation_to_clipboard(messages: &[Message]) -> Result<String> {
-    use crate::clipboard::copy_text_to_clipboard_both;
+    use crate::services::clipboard::copy_text_to_clipboard_both;
 
     // Build conversation text with just user/assistant messages
     let mut conversation = Vec::new();

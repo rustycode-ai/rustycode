@@ -1,7 +1,7 @@
 //! Text input and composition handling
 
 use crate::app::event_loop::TUI;
-use crate::session::save_command_history;
+use crate::services::session::save_command_history;
 use crate::ui::input::InputAction;
 use crate::ui::message_search::SearchEngine;
 use anyhow::Result;

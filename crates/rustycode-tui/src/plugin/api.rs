@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 /// Result type for plugin commands
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[non_exhaustive]
-pub enum CommandResult {
+pub enum PluginCommandResult {
     /// Command succeeded with a message
     Message(String),
 
@@ -21,7 +21,7 @@ pub enum CommandResult {
 }
 
 /// Plugin command handler function type
-pub type CommandHandler = fn(&mut PluginAPI, Vec<String>) -> CommandResult;
+pub type CommandHandler = fn(&mut PluginAPI, Vec<String>) -> PluginCommandResult;
 
 /// Callback types for plugin UI and context
 pub type MessageSenderCallback = Arc<Mutex<Option<Box<dyn Fn(String) + Send>>>>;
@@ -366,11 +366,11 @@ mod tests {
 
     #[test]
     fn test_command_result() {
-        let result = CommandResult::Message("Success".to_string());
-        assert!(matches!(result, CommandResult::Message(_)));
+        let result = PluginCommandResult::Message("Success".to_string());
+        assert!(matches!(result, PluginCommandResult::Message(_)));
 
-        let error = CommandResult::Error("Failed".to_string());
-        assert!(matches!(error, CommandResult::Error(_)));
+        let error = PluginCommandResult::Error("Failed".to_string());
+        assert!(matches!(error, PluginCommandResult::Error(_)));
     }
 
     #[test]
@@ -385,7 +385,7 @@ mod tests {
     fn test_plugin_commands() {
         let mut commands = PluginCommands::new();
 
-        let handler: CommandHandler = |_api, _args| CommandResult::Ok;
+        let handler: CommandHandler = |_api, _args| PluginCommandResult::Ok;
         commands.register("test".to_string(), handler);
 
         assert!(commands.get("test").is_some());
@@ -405,7 +405,7 @@ mod tests {
         assert_eq!(api.config("key"), Some("value".to_string()));
 
         // Test commands
-        let handler: CommandHandler = |_api, _args| CommandResult::Message("Test".to_string());
+        let handler: CommandHandler = |_api, _args| PluginCommandResult::Message("Test".to_string());
         api.register_command("cmd".to_string(), handler);
     }
 }

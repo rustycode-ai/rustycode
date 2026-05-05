@@ -206,7 +206,7 @@ impl TUI {
                         if !input_text.is_empty() {
                             // Copy input to clipboard, then clear
                             if let Err(e) =
-                                crate::clipboard::copy_text_to_clipboard_both(&input_text)
+                                crate::services::clipboard::copy_text_to_clipboard_both(&input_text)
                             {
                                 tracing::error!("Failed to copy input: {}", e);
                                 self.add_system_message(format!("[X] Failed to copy: {}", e));

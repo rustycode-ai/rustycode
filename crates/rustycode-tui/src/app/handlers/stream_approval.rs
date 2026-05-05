@@ -24,7 +24,7 @@ pub(super) fn handle_approval_request_chunk(
         tui.services.ai_mode()
     );
 
-    if tui.services.ai_mode() == crate::agent_mode::AiMode::Yolo {
+    if tui.services.ai_mode() == crate::services::agent_mode::AiMode::Yolo {
         match risk_level {
             risk::RiskLevel::Safe => {}
             risk::RiskLevel::Medium | risk::RiskLevel::High => {

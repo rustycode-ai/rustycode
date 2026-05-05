@@ -13,7 +13,7 @@ use tracing;
 /// Safety: capped at MAX_AUTO_CONTINUE_ITERATIONS (100) to prevent infinite loops
 /// if the AI keeps creating new tasks faster than it completes them.
 pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
-    use crate::tasks::TaskStatus;
+    use crate::app::tasks::TaskStatus;
 
     const MAX_AUTO_CONTINUE_ITERATIONS: usize = 100;
     const MAX_STAGNANT_ITERATIONS: usize = 5;

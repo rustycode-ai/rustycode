@@ -8,7 +8,7 @@ use anyhow::Result;
 
 impl TUI {
     fn copy_text_with_feedback(&mut self, content: String, success_label: &str) -> Result<()> {
-        use crate::clipboard::copy_text_to_clipboard_both;
+        use crate::services::clipboard::copy_text_to_clipboard_both;
 
         let chars = content.chars().count();
         match copy_text_to_clipboard_both(&content) {
@@ -269,13 +269,13 @@ impl TUI {
             self.workspace_tasks.todos = old_todos;
 
             // Save the reverted tasks
-            if let Err(e) = crate::tasks::save_tasks(&self.workspace_tasks) {
+            if let Err(e) = crate::app::tasks::save_tasks(&self.workspace_tasks) {
                 self.add_system_message(format!("❌ Failed to save reverted tasks: {}", e));
                 return Err(e.into());
             }
 
             // Update analytics
-            if let Err(e) = crate::extraction_analytics::record_undo() {
+            if let Err(e) = crate::app::extraction_analytics::record_undo() {
                 tracing::warn!("Failed to record extraction undo: {}", e);
             }
 

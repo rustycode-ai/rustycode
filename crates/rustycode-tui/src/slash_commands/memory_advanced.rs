@@ -1,12 +1,4 @@
 //! Advanced memory slash commands
-//!
-//! Provides commands for managing auto-memories:
-//! /memory preferences - Show all preferences
-//! /memory decisions - Show all decisions
-//! /memory errors - Show all errors
-//! /memory recent - Show recent memories
-//! /memory important - Show important memories
-//! /memory cleanup - Clean up old memories
 
 use crate::memory::memory_auto::{MemoryType, ThreadSafeAutoMemory};
 use anyhow::Result;
@@ -14,7 +6,7 @@ use std::sync::Arc;
 
 /// Handle /memory commands
 pub fn handle_memory_command(
-    _state: &mut crate::tasks::WorkspaceTasks,
+    _state: &mut crate::app::tasks::WorkspaceTasks,
     args: &[String],
     auto_memory: &Option<Arc<ThreadSafeAutoMemory>>,
 ) -> Result<String> {
@@ -399,7 +391,7 @@ mod tests {
     #[test]
     fn test_handle_memory_command_help() {
         let temp_dir = TempDir::new().unwrap();
-        let mut state = crate::tasks::WorkspaceTasks {
+        let mut state = crate::app::tasks::WorkspaceTasks {
             tasks: Vec::new(),
             todos: Vec::new(),
             active_agents: Vec::new(),
@@ -418,7 +410,7 @@ mod tests {
     #[test]
     fn test_handle_memory_command_unknown() {
         let temp_dir = TempDir::new().unwrap();
-        let mut state = crate::tasks::WorkspaceTasks {
+        let mut state = crate::app::tasks::WorkspaceTasks {
             tasks: Vec::new(),
             todos: Vec::new(),
             active_agents: Vec::new(),

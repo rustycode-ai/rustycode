@@ -5,7 +5,7 @@
 //! - Tool outputs (TODO/FIXME comments, file analysis results)
 //! - Conversation patterns (agreed upon actions, next steps)
 
-use crate::tasks::{create_task, create_todo, WorkspaceTasks};
+use crate::app::tasks::{create_task, create_todo, WorkspaceTasks};
 
 /// Extract actionable items from text and add them to workspace tasks
 pub fn extract_action_items(text: &str, tasks: &mut WorkspaceTasks) {

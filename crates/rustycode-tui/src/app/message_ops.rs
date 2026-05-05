@@ -27,7 +27,7 @@ impl TUI {
 
         // Update context monitor and check for auto-compaction
         self.context_monitor.update(&self.messages);
-        self.check_auto_compaction();
+        self.maybe_auto_compact();
     }
 
     /// Add a system message
@@ -51,21 +51,21 @@ impl TUI {
 
         // Update context monitor and check for auto-compaction
         self.context_monitor.update(&self.messages);
-        self.check_auto_compaction();
+        self.maybe_auto_compact();
     }
 
     /// Show an error with the error manager
     ///
     /// Converts an anyhow::Error into a user-friendly ErrorDisplay and shows it.
     pub fn show_error(&mut self, error: anyhow::Error) {
-        use crate::error_messages::classify_error;
+        use crate::ui::error_messages::classify_error;
         use crate::ui::errors::{ErrorSeverity, ErrorSuggestion};
 
         let error_msg = error.to_string();
         let category = classify_error(&error);
 
         let (_severity, title, _description, suggestions) = match category {
-            crate::error_messages::ErrorCategory::Network => (
+            crate::ui::error_messages::ErrorCategory::Network => (
                 ErrorSeverity::Warning,
                 "Network Connection Failed",
                 "Could not connect to the API server. This may be due to network issues.",
@@ -75,7 +75,7 @@ impl TUI {
                     ErrorSuggestion::new("Check API service status"),
                 ],
             ),
-            crate::error_messages::ErrorCategory::Authentication => (
+            crate::ui::error_messages::ErrorCategory::Authentication => (
                 ErrorSeverity::Error,
                 "Authentication Failed",
                 "Your API key appears to be invalid or missing.",
@@ -85,7 +85,7 @@ impl TUI {
                     ErrorSuggestion::new("Run /wizard to configure"),
                 ],
             ),
-            crate::error_messages::ErrorCategory::RateLimit => (
+            crate::ui::error_messages::ErrorCategory::RateLimit => (
                 ErrorSeverity::Warning,
                 "Rate Limited",
                 "API rate limit reached. Requests will auto-retry after the cooldown period.",
@@ -95,7 +95,7 @@ impl TUI {
                     ErrorSuggestion::new("Consider upgrading your API plan for higher limits"),
                 ],
             ),
-            crate::error_messages::ErrorCategory::Streaming => (
+            crate::ui::error_messages::ErrorCategory::Streaming => (
                 ErrorSeverity::Warning,
                 "Response Interrupted",
                 "The connection was interrupted while receiving the response.",
@@ -104,7 +104,7 @@ impl TUI {
                     ErrorSuggestion::new("Try resending"),
                 ],
             ),
-            crate::error_messages::ErrorCategory::ToolExecution => (
+            crate::ui::error_messages::ErrorCategory::ToolExecution => (
                 ErrorSeverity::Error,
                 "Tool Execution Failed",
                 "A tool command failed to execute successfully.",
@@ -113,7 +113,7 @@ impl TUI {
                     ErrorSuggestion::new("Verify permissions"),
                 ],
             ),
-            crate::error_messages::ErrorCategory::FileOperation => (
+            crate::ui::error_messages::ErrorCategory::FileOperation => (
                 ErrorSeverity::Error,
                 "File Operation Failed",
                 "Could not perform the file operation.",
@@ -122,7 +122,7 @@ impl TUI {
                     ErrorSuggestion::new("Verify file path"),
                 ],
             ),
-            crate::error_messages::ErrorCategory::Configuration => (
+            crate::ui::error_messages::ErrorCategory::Configuration => (
                 ErrorSeverity::Error,
                 "Configuration Error",
                 "There's an issue with the application configuration.",
@@ -131,7 +131,7 @@ impl TUI {
                     ErrorSuggestion::new("Run /wizard to reconfigure"),
                 ],
             ),
-            crate::error_messages::ErrorCategory::Other => (
+            crate::ui::error_messages::ErrorCategory::Other => (
                 ErrorSeverity::Error,
                 "An Error Occurred",
                 "An unexpected error occurred.",

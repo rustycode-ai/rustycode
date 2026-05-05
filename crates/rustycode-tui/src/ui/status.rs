@@ -16,7 +16,7 @@ use super::animator::AnimationFrame;
 use super::progress::ToolProgress;
 
 // Import compaction types for token display
-use crate::compaction::{ContextMonitor, UsageColor};
+use crate::memory::compaction::{ContextMonitor, UsageColor};
 
 /// Configuration for status display
 #[derive(Clone, Debug)]

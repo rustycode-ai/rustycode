@@ -1,7 +1,7 @@
 //! Unified workspace progress snapshot and renderer.
 
 use crate::agents::{AgentStatus, AgentTask};
-use crate::tasks::{TaskStatus, Todo, WorkspaceTasks};
+use crate::app::tasks::{TaskStatus, Todo, WorkspaceTasks};
 use chrono::{DateTime, Utc};
 use rustycode_orchestration::state_derivation::StateDeriver;
 use serde_json::Value;
@@ -440,7 +440,7 @@ fn summarize_orchestra(cwd: &Path) -> Option<Vec<String>> {
     Some(lines)
 }
 
-fn format_task_lines(tasks: &[crate::tasks::Task]) -> Vec<String> {
+fn format_task_lines(tasks: &[crate::app::tasks::Task]) -> Vec<String> {
     let mut sorted: Vec<_> = tasks.iter().collect();
     sorted.sort_by_key(|task| task_status_rank(&task.status));
     sorted
@@ -577,7 +577,7 @@ fn task_status_icon(status: &TaskStatus) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tasks::{Task, Todo};
+    use crate::app::tasks::{Task, Todo};
     use std::time::SystemTime;
 
     fn sample_task(id: &str, description: &str, status: TaskStatus) -> Task {

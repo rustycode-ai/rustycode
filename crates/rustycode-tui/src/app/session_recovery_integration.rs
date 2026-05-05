@@ -6,7 +6,7 @@
 //! - Offering recovery prompts
 //! - Graceful shutdown with state flush
 
-use crate::session_recovery::{CrashRecovery, SessionPersistence, SessionState};
+use crate::services::session_recovery::{CrashRecovery, SessionPersistence, SessionState};
 use crate::ui::message::Message;
 use anyhow::Result;
 use std::path::PathBuf;

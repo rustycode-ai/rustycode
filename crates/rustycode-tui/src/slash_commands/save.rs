@@ -6,9 +6,9 @@ use anyhow::Result;
 ///
 pub async fn handle_save_command(
     name: Option<String>,
-    messages: &[crate::session::SerializedMessage],
+    messages: &[crate::services::session::SerializedMessage],
 ) -> Result<String> {
-    use crate::session::save_current_session;
+    use crate::services::session::save_current_session;
     use chrono::Utc;
 
     let session_name =
@@ -26,7 +26,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_save_command_with_name() {
-        let messages: Vec<crate::session::SerializedMessage> = vec![];
+        let messages: Vec<crate::services::session::SerializedMessage> = vec![];
         let result = handle_save_command(Some("test-session".to_string()), &messages).await;
         assert!(result.is_ok());
         let message = result.unwrap();
@@ -35,7 +35,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_save_command_without_name() {
-        let messages: Vec<crate::session::SerializedMessage> = vec![];
+        let messages: Vec<crate::services::session::SerializedMessage> = vec![];
         let result = handle_save_command(None, &messages).await;
         assert!(result.is_ok());
         let message = result.unwrap();

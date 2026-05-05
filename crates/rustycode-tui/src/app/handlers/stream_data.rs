@@ -1,7 +1,7 @@
 //! Miscellaneous stream chunk handlers — task extraction, questions, snapshots, tokens, traces.
 
 use crate::app::TUI;
-use crate::task_extraction::extract_action_items;
+use crate::app::task_extraction::extract_action_items;
 use chrono;
 use tracing;
 
@@ -30,7 +30,7 @@ pub(super) fn handle_extract_tasks_chunk(tui: &mut TUI, text: String) {
         .saturating_sub(initial_tasks);
 
     // Save the updated tasks
-    if let Err(e) = crate::tasks::save_tasks(&tui.workspace_tasks) {
+    if let Err(e) = crate::app::tasks::save_tasks(&tui.workspace_tasks) {
         tracing::warn!("Failed to save extracted tasks: {}", e);
     }
 

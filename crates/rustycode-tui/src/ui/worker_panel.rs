@@ -1,16 +1,4 @@
 //! Worker status panel for the TUI.
-//!
-//! Displays real-time sub-agent states during orchestration:
-//!
-//! ```text
-//! ┌─ Workers ────────────────────────────┐
-//! │ Total: 3 │ Running: 1 │ Done: 2     │
-//! ├──────────────────────────────────────┤
-//! │ 🔄 wkr_1743892_1  Running   Fix auth │
-//! │ ✅ wkr_1743891_1  Done      Add API  │
-//! │ ❌ wkr_1743890_1  Failed    Tests    │
-//! └──────────────────────────────────────┘
-//! ```
 
 use ratatui::{
     buffer::Buffer,

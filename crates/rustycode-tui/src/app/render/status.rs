@@ -303,7 +303,7 @@ impl PolishedRenderer {
             .filter(|t| {
                 matches!(
                     t.status,
-                    crate::tasks::TaskStatus::InProgress
+                    crate::app::tasks::TaskStatus::InProgress
                 )
             })
             .count();

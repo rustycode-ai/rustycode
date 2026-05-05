@@ -1,13 +1,14 @@
 //! Integration between the TUI event loop and background services (LLM streaming,
 
-use crate::agent_mode::AiMode;
+use crate::services::agent_mode::AiMode;
 use crate::app::async_::*;
 use crate::app::orchestration_integration::OrchestrationIntegration;
 use crate::app::streaming::stream_llm_response;
-use crate::conversation_service::{ConversationConfig, ConversationService};
+use crate::services::conversation_service::{ConversationConfig, ConversationService};
 // sessions_dir import used by auto-session feature
-use crate::workspace_context;
-use crate::{ErrorTracker, FileReadCache};
+use crate::workspace::workspace_context;
+use crate::app::tool_errors::ErrorTracker;
+use crate::services::file_read_cache::FileReadCache;
 use anyhow::{Context, Result};
 use rustycode_llm::provider::LLMProvider;
 use rustycode_protocol::QueryGuard;
@@ -57,7 +58,7 @@ pub struct ServiceManager {
     ai_mode: AiMode,
 
     /// Current specialized agent mode
-    agent_mode: crate::agent_mode::AgentMode,
+    agent_mode: crate::services::agent_mode::AgentMode,
 
     /// Current working directory
     cwd: PathBuf,
@@ -104,7 +105,7 @@ struct StreamingContext {
     content: String,
     cwd: PathBuf,
     stop_flag: Arc<AtomicBool>,
-    agent_mode: crate::agent_mode::AgentMode,
+    agent_mode: crate::services::agent_mode::AgentMode,
     ai_mode: AiMode,
     orchestration: Arc<StdMutex<OrchestrationIntegration>>,
     file_read_cache: Arc<StdMutex<FileReadCache>>,
@@ -133,7 +134,7 @@ impl ServiceManager {
             approval_tx: None,
             question_tx: None,
             ai_mode,
-            agent_mode: crate::agent_mode::AgentMode::Code,
+            agent_mode: crate::services::agent_mode::AgentMode::Code,
             cwd,
             stream_stop_requested: Arc::new(AtomicBool::new(false)),
             forwarding_thread_stop: Arc::new(AtomicBool::new(false)),
@@ -628,11 +629,11 @@ impl ServiceManager {
         self.approval_tx.is_some()
     }
 
-    pub fn agent_mode(&self) -> crate::agent_mode::AgentMode {
+    pub fn agent_mode(&self) -> crate::services::agent_mode::AgentMode {
         self.agent_mode
     }
 
-    pub fn set_agent_mode(&mut self, mode: crate::agent_mode::AgentMode) {
+    pub fn set_agent_mode(&mut self, mode: crate::services::agent_mode::AgentMode) {
         self.agent_mode = mode;
         if let Some(conv) = &mut self.conversation {
             conv.set_agent_mode(mode);
@@ -648,12 +649,12 @@ impl ServiceManager {
         self.hook_manager = Some(hm);
     }
 
-    pub fn next_agent_mode(&mut self) -> crate::agent_mode::AgentMode {
+    pub fn next_agent_mode(&mut self) -> crate::services::agent_mode::AgentMode {
         self.agent_mode = self.agent_mode.next_mode();
         self.agent_mode
     }
 
-    pub fn prev_agent_mode(&mut self) -> crate::agent_mode::AgentMode {
+    pub fn prev_agent_mode(&mut self) -> crate::services::agent_mode::AgentMode {
         self.agent_mode = self.agent_mode.prev();
         self.agent_mode
     }

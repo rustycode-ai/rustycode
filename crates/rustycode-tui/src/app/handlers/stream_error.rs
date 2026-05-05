@@ -51,7 +51,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     }
 
     tui.context_monitor.update(&tui.messages);
-    tui.check_auto_compaction();
+    tui.maybe_auto_compact();
 
     // On cancellation, keep the queued message so the user can retry.
     // On retryable errors (rate limit, network), preserve it for auto-retry.

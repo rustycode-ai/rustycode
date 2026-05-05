@@ -1,17 +1,5 @@
 //! UI Components - Plugin-based Architecture
-//!
-//! This module provides independent, reusable UI components following a **plugin-based architecture**.
-//! Each component is self-contained with clear responsibilities and can be used independently or
-//! combined as needed.
 #![allow(unexpected_cfgs)]
-//!
-//! # Architecture Principles
-//!
-//! - **Components, not monoliths**: Each module is a focused, single-purpose component
-//! - **Independent plugins**: Components can be used standalone or combined
-//! - **Clear APIs**: Each component exposes a clean, well-documented public API
-//! - **Testable in isolation**: Components have their own comprehensive tests
-//! - **No tight coupling**: Components communicate via well-defined interfaces, not direct dependencies
 
 // MODULE DECLARATIONS
 

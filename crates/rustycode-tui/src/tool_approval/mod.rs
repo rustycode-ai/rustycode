@@ -173,7 +173,7 @@ impl Default for ToolApprovalManager {
 ///
 /// Returns `(panel_height, panel_width)`. When the request contains diff content,
 /// the panel expands to show more lines (up to half the terminal height).
-/// Otherwise, returns the compact 7×70 default.
+/// Otherwise, returns the compact 7x70 default.
 pub fn approval_panel_size(request: &ApprovalRequest, terminal_size: ratatui::layout::Rect) -> (u16, u16) {
     if request.has_diff_content() {
         let diff_lines = request.command.lines().count();
@@ -373,4 +373,110 @@ fn render_diff_approval(
         .alignment(Alignment::Left);
 
     frame.render_widget(paragraph, area);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diff_scroll_stops_at_zero() {
+        let mut req = ApprovalRequest::new(
+            "edit_file".into(),
+            risk::ToolType::WriteFile,
+            "Edit src/main.rs".into(),
+            "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new".into(),
+        );
+        assert!(req.has_diff_content());
+        req.scroll_diff_up();
+        assert_eq!(req.diff_scroll.scroll_offset, 0);
+    }
+
+    #[test]
+    fn diff_scroll_clamps_at_max() {
+        let content = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new";
+        let mut req = ApprovalRequest::new(
+            "edit_file".into(),
+            risk::ToolType::WriteFile,
+            "Edit".into(),
+            content.into(),
+        );
+        // content has 5 lines, visible=2 → max_offset=3
+        req.scroll_diff_down(2);
+        assert_eq!(req.diff_scroll.scroll_offset, 1);
+        req.scroll_diff_down(2);
+        assert_eq!(req.diff_scroll.scroll_offset, 2);
+        req.scroll_diff_down(2);
+        assert_eq!(req.diff_scroll.scroll_offset, 3);
+        req.scroll_diff_down(2);
+        assert_eq!(req.diff_scroll.scroll_offset, 3, "should clamp at max");
+    }
+
+    #[test]
+    fn has_diff_content_true_for_git_diff() {
+        let req = ApprovalRequest::new(
+            "edit_file".into(),
+            risk::ToolType::WriteFile,
+            "desc".into(),
+            "diff --git a/foo b/foo\n--- a/foo\n+++ b/foo".into(),
+        );
+        assert!(req.has_diff_content());
+    }
+
+    #[test]
+    fn has_diff_content_false_for_plain_command() {
+        let req = ApprovalRequest::new(
+            "bash".into(),
+            risk::ToolType::Bash,
+            "desc".into(),
+            "ls -la".into(),
+        );
+        assert!(!req.has_diff_content());
+    }
+
+    #[test]
+    fn approval_panel_size_compact_without_diff() {
+        let req = ApprovalRequest::new(
+            "bash".into(),
+            risk::ToolType::Bash,
+            "desc".into(),
+            "ls -la".into(),
+        );
+        let size = ratatui::layout::Rect::new(0, 0, 120, 40);
+        let (h, w) = approval_panel_size(&req, size);
+        assert_eq!(h, 7);
+        assert_eq!(w, 70);
+    }
+
+    #[test]
+    fn approval_panel_size_expanded_with_diff() {
+        let req = ApprovalRequest::new(
+            "edit_file".into(),
+            risk::ToolType::WriteFile,
+            "desc".into(),
+            "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new".into(),
+        );
+        let size = ratatui::layout::Rect::new(0, 0, 120, 40);
+        let (h, w) = approval_panel_size(&req, size);
+        // 5 diff lines + 6 overhead = 11, capped at height/2=20 → 11
+        assert_eq!(h, 11);
+        assert_eq!(w, 80);
+    }
+
+    #[test]
+    fn approval_state_checks() {
+        let mut req = ApprovalRequest::new(
+            "bash".into(),
+            risk::ToolType::Bash,
+            "desc".into(),
+            "ls".into(),
+        );
+        assert!(!req.is_approved());
+        req.approve();
+        assert!(req.is_approved());
+        req.reject();
+        assert!(!req.is_approved());
+        req.approve_all();
+        assert!(req.is_approved());
+    }
 }

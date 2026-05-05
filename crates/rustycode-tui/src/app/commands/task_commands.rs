@@ -116,18 +116,18 @@ pub fn handle_review_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
 /// Handle /task and /todo commands
 pub fn handle_task_todo_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
     let input = parts.join(" ");
-    let result = crate::task_commands::handle_command(&input, ctx.workspace_tasks);
+    let result = crate::app::task_commands::handle_command(&input, ctx.workspace_tasks);
 
     match result {
-        crate::task_commands::CommandResult::Success(output) => {
+        crate::app::task_commands::TaskCommandResult::Success(output) => {
             Ok(CommandEffect::SystemMessage(output))
         }
-        crate::task_commands::CommandResult::Error(err) => {
+        crate::app::task_commands::TaskCommandResult::Error(err) => {
             // Show the actual error message to help users understand what went wrong
             let user_msg = format!("⚠️  {}", err);
             Ok(CommandEffect::SystemMessage(user_msg))
         }
-        crate::task_commands::CommandResult::Consumed => Ok(CommandEffect::None),
+        crate::app::task_commands::TaskCommandResult::Consumed => Ok(CommandEffect::None),
     }
 }
 

@@ -1,11 +1,4 @@
 //! Message tagging system
-//!
-//! Provides tag management for messages:
-//! - Predefined tags: "important", "idea", "bug", "solution"
-//! - Custom tags: arbitrary user-created tags
-//! - Tag operations: add, remove, list tags
-//! - Tag filtering: show only messages with specific tag
-//! - Persistence: tags survive session recovery
 
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};

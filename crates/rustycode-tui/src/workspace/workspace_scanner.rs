@@ -1,11 +1,4 @@
 //! Workspace Scanning with .gitignore support
-//!
-//! Uses the `ignore` crate (from ripgrep) for automatic .gitignore respect.
-//! Features:
-//! - Automatic .gitignore, .ignore, and global gitignore respect
-//! - Custom .rustycodeignore file support
-//! - Cached metadata with TTL for incremental updates
-//! - Binary file filtering
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
