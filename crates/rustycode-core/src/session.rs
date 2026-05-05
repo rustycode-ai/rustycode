@@ -842,6 +842,7 @@ mod tests {
     fn session_state_new_defaults() {
         let s = make_session();
         assert!(s.conversation.messages.is_empty());
+        assert!(s.input_nav.input.is_empty());
         assert_eq!(s.input_nav.scroll_offset, 0);
         assert_eq!(s.performance.total_requests, 0);
         assert_eq!(s.performance.tokens_used, 0);
@@ -856,10 +857,10 @@ mod tests {
     fn add_message_user() {
         let mut s = make_session();
         s.add_message("Hello".to_string(), MessageType::User);
-        assert_eq!(s.messages.len(), 1);
-        assert_eq!(s.messages[0].content.as_text(), "Hello");
+        assert_eq!(s.conversation.messages.len(), 1);
+        assert_eq!(s.conversation.messages[0].content.as_text(), "Hello");
         assert_eq!(
-            MessageType::from_role(s.messages[0].role.as_str()),
+            MessageType::from_role(s.conversation.messages[0].role.as_str()),
             MessageType::User
         );
     }
@@ -870,7 +871,7 @@ mod tests {
         s.add_message("Hi".to_string(), MessageType::User);
         s.add_message("Response".to_string(), MessageType::AI);
         s.add_message("Error occurred".to_string(), MessageType::Error);
-        assert_eq!(s.messages.len(), 3);
+        assert_eq!(s.conversation.messages.len(), 3);
     }
 
     #[test]
@@ -953,9 +954,9 @@ mod tests {
         s.complete_streaming_response();
         assert!(!s.streaming.is_streaming);
         assert!(s.streaming.current_response.is_empty());
-        assert_eq!(s.messages.len(), 1);
-        assert_eq!(s.messages[0].content.as_text(), "Hello World");
-        assert_eq!(MessageType::from_role(s.messages[0].role.as_str()), MessageType::AI);
+        assert_eq!(s.conversation.messages.len(), 1);
+        assert_eq!(s.conversation.messages[0].content.as_text(), "Hello World");
+        assert_eq!(MessageType::from_role(s.conversation.messages[0].role.as_str()), MessageType::AI);
     }
 
     #[test]
@@ -963,7 +964,7 @@ mod tests {
         let mut s = make_session();
         s.set_streaming(true);
         s.complete_streaming_response();
-        assert!(s.messages.is_empty());
+        assert!(s.conversation.messages.is_empty());
     }
 
     #[test]
@@ -1052,8 +1053,7 @@ mod tests {
         };
         s.add_tool_calls(vec![tc]);
 
-        // Check that ToolUse block was added to content
-        match &s.messages[0].content {
+        match &s.conversation.messages[0].content {
             MessageContent::Blocks(blocks) => {
                 let tool_use_blocks: Vec<_> = blocks
                     .iter()
@@ -1076,8 +1076,7 @@ mod tests {
             arguments: serde_json::json!({}),
         };
         s.add_tool_calls(vec![tc]);
-        // Should not be added to User messages - content should remain unchanged
-        assert_eq!(s.messages[0].content.as_text(), "User message");
+        assert_eq!(s.conversation.messages[0].content.as_text(), "User message");
     }
 
     #[test]
@@ -1233,12 +1232,12 @@ mod tests {
             s.add_message(format!("user_{i}"), MessageType::User);
         }
         assert!(
-            s.messages.len() <= MAX_SESSION_MESSAGES,
+            s.conversation.messages.len() <= MAX_SESSION_MESSAGES,
             "should be at or below cap: got {}",
-            s.messages.len()
+            s.conversation.messages.len()
         );
         assert!(
-            s.messages
+            s.conversation.messages
                 .iter()
                 .any(|m| m.content.as_text() == "system prompt"),
             "system message should be preserved"
