@@ -1534,7 +1534,7 @@ mod tests {
 
     #[test]
     fn test_bash_tool_definition() {
-        let tools = get_tui_tools();
+        let tools = tui_tools();
         let bash = tools.iter().find(|t| t.name == "bash").unwrap();
 
         assert_eq!(bash.name, "bash");
@@ -1547,7 +1547,7 @@ mod tests {
 
     #[test]
     fn test_anthropic_conversion() {
-        let tools = get_tui_tools();
+        let tools = tui_tools();
         let anthropic_tools = to_anthropic_tools(&tools);
 
         assert!(!anthropic_tools.is_empty());
@@ -1566,7 +1566,7 @@ mod tests {
 
     #[test]
     fn test_server_tools_included_with_type() {
-        let tools = get_tui_tools();
+        let tools = tui_tools();
         let anthropic_tools = to_anthropic_tools(&tools);
 
         // web_search is a server tool, so it should appear with an Anthropic tool type
@@ -1592,7 +1592,7 @@ mod tests {
 
     #[test]
     fn test_web_search_is_server_tool() {
-        let tools = get_tui_tools();
+        let tools = tui_tools();
         let web_search = tools.iter().find(|t| t.name == "web_search").unwrap();
         assert!(
             web_search.is_server_tool,

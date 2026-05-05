@@ -696,7 +696,7 @@ mod tests {
         let instance_id = discovery.register_service(registration).await.unwrap();
         discovery.send_heartbeat(&instance_id).await.unwrap();
 
-        let instance = discovery.get_instance(&instance_id).await.unwrap();
+        let instance = discovery.instance(&instance_id).await.unwrap();
         assert_eq!(instance.status, ServiceStatus::Healthy);
     }
 
@@ -719,7 +719,7 @@ mod tests {
         let instance_id = discovery.register_service(registration).await.unwrap();
         discovery.deregister_service(&instance_id).await.unwrap();
 
-        let instance = discovery.get_instance(&instance_id).await;
+        let instance = discovery.instance(&instance_id).await;
         assert!(instance.is_none());
     }
 
@@ -824,7 +824,7 @@ mod tests {
         discovery.register_service(reg1).await.unwrap();
         discovery.register_service(reg2).await.unwrap();
 
-        let all = discovery.get_all_services().await;
+        let all = discovery.all_services().await;
         assert_eq!(all.len(), 2);
         assert!(all.contains_key("svc_alpha"));
         assert!(all.contains_key("svc_beta"));
@@ -862,11 +862,11 @@ mod tests {
         };
 
         let id = discovery.register_service(reg).await.unwrap();
-        let instance = discovery.get_instance(&id).await.unwrap();
+        let instance = discovery.instance(&id).await.unwrap();
         assert_eq!(instance.status, ServiceStatus::Starting);
 
         discovery.send_heartbeat(&id).await.unwrap();
-        let instance = discovery.get_instance(&id).await.unwrap();
+        let instance = discovery.instance(&id).await.unwrap();
         assert_eq!(instance.status, ServiceStatus::Healthy);
     }
 
@@ -974,13 +974,13 @@ mod tests {
 
         discovery.register_service(reg).await.unwrap();
 
-        let web_services = discovery.get_services_by_tag("web").await;
+        let web_services = discovery.services_by_tag("web").await;
         assert_eq!(web_services, vec!["svc_a"]);
 
-        let public_services = discovery.get_services_by_tag("public").await;
+        let public_services = discovery.services_by_tag("public").await;
         assert_eq!(public_services, vec!["svc_a"]);
 
-        let unknown = discovery.get_services_by_tag("unknown").await;
+        let unknown = discovery.services_by_tag("unknown").await;
         assert!(unknown.is_empty());
     }
 
@@ -1011,7 +1011,7 @@ mod tests {
 
         discovery.update_instance(&id, update).await.unwrap();
 
-        let instance = discovery.get_instance(&id).await.unwrap();
+        let instance = discovery.instance(&id).await.unwrap();
         assert_eq!(instance.status, ServiceStatus::Healthy);
         assert_eq!(instance.capabilities, vec!["read", "write"]);
         assert_eq!(instance.tags, vec!["v2"]);
@@ -1161,7 +1161,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_instance_nonexistent() {
         let discovery = ServiceDiscovery::new(ServiceDiscoveryConfig::default());
-        let result = discovery.get_instance("nonexistent").await;
+        let result = discovery.instance("nonexistent").await;
         assert!(result.is_none());
     }
 
@@ -1368,12 +1368,12 @@ mod tests {
         let id = discovery.register_service(reg).await.unwrap();
 
         // Service should appear under the "solo" tag
-        let tagged = discovery.get_services_by_tag("solo").await;
+        let tagged = discovery.services_by_tag("solo").await;
         assert_eq!(tagged, vec!["tagged_svc"]);
 
         // After deregister, the tag index should be cleaned up
         discovery.deregister_service(&id).await.unwrap();
-        let tagged_after = discovery.get_services_by_tag("solo").await;
+        let tagged_after = discovery.services_by_tag("solo").await;
         assert!(tagged_after.is_empty());
     }
 
@@ -1399,7 +1399,7 @@ mod tests {
             discovery.send_heartbeat(&id).await.unwrap();
         }
 
-        let all = discovery.get_all_services().await;
+        let all = discovery.all_services().await;
         let registry = all.get("multi_svc").unwrap();
         assert_eq!(registry.instances.len(), 3);
 
@@ -1617,7 +1617,7 @@ mod tests {
 
         discovery.update_instance(&id, update).await.unwrap();
 
-        let instance = discovery.get_instance(&id).await.unwrap();
+        let instance = discovery.instance(&id).await.unwrap();
         assert_eq!(instance.metadata.weight, 5.0);
         assert_eq!(instance.metadata.priority, 100);
         assert_eq!(instance.metadata.region.as_ref().unwrap(), "ap-south");

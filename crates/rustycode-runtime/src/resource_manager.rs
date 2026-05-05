@@ -925,7 +925,7 @@ mod tests {
         assert!(decision.approved);
 
         // Verify resources are allocated
-        let pools = manager.get_pool_status().await;
+        let pools = manager.pool_status().await;
         let cpu_pool = pools.get(&ResourceType::Cpu).unwrap();
         assert_eq!(cpu_pool.allocated, 50.0);
 
@@ -933,7 +933,7 @@ mod tests {
         manager.release_resources("test_req").await.unwrap();
 
         // Verify resources are released
-        let pools = manager.get_pool_status().await;
+        let pools = manager.pool_status().await;
         let cpu_pool = pools.get(&ResourceType::Cpu).unwrap();
         assert_eq!(cpu_pool.allocated, 0.0);
     }
@@ -946,7 +946,7 @@ mod tests {
 
         let manager = ResourceManager::new(initial_pools, ResourceManagerConfig::default());
 
-        let metrics = manager.get_utilization_metrics().await;
+        let metrics = manager.utilization_metrics().await;
         assert_eq!(metrics.cpu_utilization_percent, 0.0);
         assert_eq!(metrics.memory_utilization_percent, 0.0);
         assert_eq!(metrics.active_allocations, 0);
@@ -1079,7 +1079,7 @@ mod tests {
         let manager = ResourceManager::new(initial_pools, ResourceManagerConfig::default());
 
         // Initially empty
-        let stats = manager.get_allocation_stats().await;
+        let stats = manager.allocation_stats().await;
         assert_eq!(stats.total_requests, 0);
         assert_eq!(stats.approval_rate, 0.0);
 
@@ -1101,7 +1101,7 @@ mod tests {
 
         manager.request_resources(request).await.unwrap();
 
-        let stats = manager.get_allocation_stats().await;
+        let stats = manager.allocation_stats().await;
         assert_eq!(stats.total_requests, 1);
         assert_eq!(stats.approved_requests, 1);
         assert_eq!(stats.rejected_requests, 0);
@@ -1154,7 +1154,7 @@ mod tests {
 
         let manager = ResourceManager::new(initial_pools, ResourceManagerConfig::default());
 
-        let status = manager.get_pool_status().await;
+        let status = manager.pool_status().await;
         assert_eq!(status.len(), 2);
         assert!(status.contains_key(&ResourceType::Cpu));
         assert!(status.contains_key(&ResourceType::Memory));

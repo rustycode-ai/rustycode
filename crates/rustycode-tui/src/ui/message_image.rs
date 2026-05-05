@@ -3,7 +3,6 @@
 //! This module provides rendering for image attachments with ASCII previews
 //! and support for multiple images in a grid layout.
 
-// Complete implementation - pending integration with message rendering flow
 #![allow(dead_code)]
 
 use super::message_types::ImageAttachment;

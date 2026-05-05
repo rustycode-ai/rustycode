@@ -169,16 +169,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_thinking_message_deterministic() {
-        assert_eq!(get_thinking_message(0), "Compiling thoughts");
-        assert_eq!(get_thinking_message(1), "Analyzing AST nodes");
-        assert_eq!(get_thinking_message(4), "Optimizing lifetimes");
+    fn test_thinking_message_deterministic() {
+        assert_eq!(thinking_message(0), "Compiling thoughts");
+        assert_eq!(thinking_message(1), "Analyzing AST nodes");
+        assert_eq!(thinking_message(4), "Optimizing lifetimes");
         assert_eq!(
-            get_thinking_message(THINKING_MESSAGES.len()),
+            thinking_message(THINKING_MESSAGES.len()),
             "Compiling thoughts"
         );
         assert_eq!(
-            get_thinking_message(THINKING_MESSAGES.len() + 1),
+            thinking_message(THINKING_MESSAGES.len() + 1),
             "Analyzing AST nodes"
         );
     }

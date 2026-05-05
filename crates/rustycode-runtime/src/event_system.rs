@@ -1201,7 +1201,7 @@ mod tests {
         let system = EventSystem::new(EventStoreConfig::default());
 
         // Initially empty
-        let dles = system.get_dead_letter_events().await;
+        let dles = system.dead_letter_events().await;
         assert!(dles.is_empty());
 
         // Add a dead letter event
@@ -1227,7 +1227,7 @@ mod tests {
 
         system.add_to_dead_letter(dle).await;
 
-        let dles = system.get_dead_letter_events().await;
+        let dles = system.dead_letter_events().await;
         assert_eq!(dles.len(), 1);
         assert_eq!(dles[0].reason, "Handler panicked");
 
@@ -1237,7 +1237,7 @@ mod tests {
 
         // Clear the queue
         system.clear_dead_letter_queue().await;
-        let dles = system.get_dead_letter_events().await;
+        let dles = system.dead_letter_events().await;
         assert!(dles.is_empty());
     }
 
@@ -1730,7 +1730,7 @@ mod tests {
         }
 
         // Queue should be capped at 1000
-        let dles = system.get_dead_letter_events().await;
+        let dles = system.dead_letter_events().await;
         assert_eq!(
             dles.len(),
             1000,
@@ -1814,10 +1814,10 @@ mod tests {
             system.add_to_dead_letter(dle).await;
         }
 
-        assert_eq!(system.get_dead_letter_events().await.len(), 5);
+        assert_eq!(system.dead_letter_events().await.len(), 5);
 
         system.clear_dead_letter_queue().await;
-        assert!(system.get_dead_letter_events().await.is_empty());
+        assert!(system.dead_letter_events().await.is_empty());
 
         // Stats should still reflect the historical count
         let stats = system.statistics().await;

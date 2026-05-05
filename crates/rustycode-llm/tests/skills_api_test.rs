@@ -22,7 +22,7 @@
 
 use rustycode_llm::provider::{CompletionRequest, SkillRef};
 use rustycode_llm::tools::{
-    get_anthropic_skills_beta_headers, get_skills_tools, to_anthropic_tools,
+    anthropic_skills_beta_headers, skills_tools, to_anthropic_tools,
 };
 
 #[test]
@@ -61,8 +61,8 @@ fn test_completion_request_without_skills() {
 }
 
 #[test]
-fn test_get_skills_tools() {
-    let tools = get_skills_tools();
+fn test_skills_tools() {
+    let tools = skills_tools();
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].name, "code_execution");
     assert!(tools[0].is_server_tool);
@@ -74,7 +74,7 @@ fn test_get_skills_tools() {
 
 #[test]
 fn test_code_execution_tool_anthropic_format() {
-    let tools = get_skills_tools();
+    let tools = skills_tools();
     let anthropic_tools = to_anthropic_tools(&tools);
     assert_eq!(anthropic_tools.len(), 1);
     assert_eq!(anthropic_tools[0]["type"], "code_execution_20250825");
@@ -83,7 +83,7 @@ fn test_code_execution_tool_anthropic_format() {
 
 #[test]
 fn test_skills_beta_headers() {
-    let headers = get_anthropic_skills_beta_headers();
+    let headers = anthropic_skills_beta_headers();
     assert_eq!(headers.len(), 2);
     assert!(headers.contains(&"code-execution-2025-08-25"));
     assert!(headers.contains(&"skills-2025-10-02"));

@@ -686,7 +686,7 @@ mod tests {
     #[tokio::test]
     async fn test_queue_statistics() {
         let scheduler = TaskScheduler::new(SchedulerConfig::default());
-        let stats = scheduler.get_queue_statistics().await;
+        let stats = scheduler.queue_statistics().await;
 
         assert_eq!(stats.queue_size, 0);
         assert_eq!(stats.active_tasks, 0);
@@ -876,7 +876,7 @@ mod tests {
     #[tokio::test]
     async fn test_scheduler_new() {
         let scheduler = TaskScheduler::new(SchedulerConfig::default());
-        let stats = scheduler.get_queue_statistics().await;
+        let stats = scheduler.queue_statistics().await;
         assert_eq!(stats.queue_size, 0);
     }
 
@@ -1010,7 +1010,7 @@ mod tests {
     #[tokio::test]
     async fn get_task_status_unknown_returns_none() {
         let scheduler = TaskScheduler::new(SchedulerConfig::default());
-        let status = scheduler.get_task_status("nonexistent").await;
+        let status = scheduler.task_status("nonexistent").await;
         assert!(status.is_none());
     }
 

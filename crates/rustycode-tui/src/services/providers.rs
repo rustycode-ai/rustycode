@@ -587,11 +587,11 @@ mod tests {
 
     #[test]
     fn test_get_provider_by_type() {
-        let anthropic = get_provider_by_type("anthropic");
+        let anthropic = provider_by_type("anthropic");
         assert!(anthropic.is_some());
         assert_eq!(anthropic.unwrap().provider_type, "anthropic");
 
-        let nonexistent = get_provider_by_type("nonexistent");
+        let nonexistent = provider_by_type("nonexistent");
         assert!(nonexistent.is_none());
     }
 

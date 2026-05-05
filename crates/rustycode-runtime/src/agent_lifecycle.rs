@@ -893,7 +893,7 @@ mod tests {
             manager.initialize_agent(&agent_id).await.unwrap();
         }
 
-        let stats = manager.get_lifecycle_statistics().await;
+        let stats = manager.lifecycle_statistics().await;
         assert_eq!(stats.total_agents, 3);
         assert_eq!(stats.active_agents, 3);
     }
@@ -1277,7 +1277,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_all_agents() {
         let manager = AgentLifecycleManager::new(LifecycleConfig::default());
-        assert!(manager.get_all_agents().await.is_empty());
+        assert!(manager.all_agents().await.is_empty());
 
         manager
             .create_agent("a1".to_string(), AgentRole::Reviewer, vec![])
@@ -1288,7 +1288,7 @@ mod tests {
             .await
             .unwrap();
 
-        let all = manager.get_all_agents().await;
+        let all = manager.all_agents().await;
         assert_eq!(all.len(), 2);
     }
 
@@ -1310,10 +1310,10 @@ mod tests {
             .await
             .unwrap();
 
-        let seniors = manager.get_agents_by_role(AgentRole::Reviewer).await;
+        let seniors = manager.agents_by_role(AgentRole::Reviewer).await;
         assert_eq!(seniors.len(), 2);
 
-        let juniors = manager.get_agents_by_role(AgentRole::Skeptic).await;
+        let juniors = manager.agents_by_role(AgentRole::Skeptic).await;
         assert_eq!(juniors.len(), 1);
     }
 
@@ -1339,14 +1339,14 @@ mod tests {
     #[tokio::test]
     async fn test_get_ready_agents() {
         let manager = AgentLifecycleManager::new(LifecycleConfig::default());
-        assert!(manager.get_ready_agents().await.is_empty());
+        assert!(manager.ready_agents().await.is_empty());
 
         let a1 = manager
             .create_agent("a1".to_string(), AgentRole::Reviewer, vec![])
             .await
             .unwrap();
         manager.initialize_agent(&a1).await.unwrap();
-        assert_eq!(manager.get_ready_agents().await.len(), 1);
+        assert_eq!(manager.ready_agents().await.len(), 1);
     }
 
     // --- Manager: lifecycle events tracking ---
@@ -1360,12 +1360,12 @@ mod tests {
             .unwrap();
 
         // Created event
-        let events = manager.get_lifecycle_events(None).await;
+        let events = manager.lifecycle_events(None).await;
         assert!(!events.is_empty());
         assert!(events.iter().any(|e| e.agent_id == agent_id));
 
         // Filter by agent_id
-        let agent_events = manager.get_lifecycle_events(Some(&agent_id)).await;
+        let agent_events = manager.lifecycle_events(Some(&agent_id)).await;
         assert!(agent_events.iter().all(|e| e.agent_id == agent_id));
     }
 

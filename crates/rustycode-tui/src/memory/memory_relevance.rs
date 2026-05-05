@@ -3,7 +3,6 @@
 //! This module provides intelligent scoring of memories against user queries
 //! to determine which memories should be automatically injected into conversations.
 
-// Complete implementation - pending integration with memory auto-injection
 #![allow(dead_code)]
 
 use crate::memory_auto::AutoMemory;

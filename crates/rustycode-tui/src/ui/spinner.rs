@@ -3,7 +3,6 @@
 //! Provides visual feedback for long-running operations with multiple
 //! spinner styles, color-coded status, and accessibility support.
 
-// Complete implementation - pending integration with status indicators
 #![allow(dead_code)]
 
 use super::animator::AnimationFrame;

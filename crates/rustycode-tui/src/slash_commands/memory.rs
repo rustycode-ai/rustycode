@@ -662,7 +662,7 @@ mod tests {
         let cwd = temp_dir.path();
 
         // Initially empty
-        assert_eq!(get_memory_count(cwd), 0);
+        assert_eq!(memory_count(cwd), 0);
 
         // Add memories
         let mut memories = HashMap::new();
@@ -679,6 +679,6 @@ mod tests {
         );
         save_memories(cwd, &memories).unwrap();
 
-        assert_eq!(get_memory_count(cwd), 1);
+        assert_eq!(memory_count(cwd), 1);
     }
 }

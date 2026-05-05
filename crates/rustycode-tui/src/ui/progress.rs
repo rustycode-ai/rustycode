@@ -3,7 +3,6 @@
 //! Provides progress bars, percentage completion, and ETA calculation
 //! for tool execution and other long operations.
 
-// Complete implementation - pending integration with tool execution display
 #![allow(dead_code)]
 
 use ratatui::style::{Color, Style};

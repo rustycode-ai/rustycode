@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_get_all_cost_entries() {
-        let entries = get_all_cost_entries();
+        let entries = all_cost_entries();
         assert!(entries.len() > 10);
 
         // Check that known models are present

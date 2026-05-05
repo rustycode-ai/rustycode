@@ -2,7 +2,6 @@
 //!
 //! VS Code-style command palette for skills with fuzzy search and keyboard navigation.
 
-// Complete implementation - pending integration with skills UI
 #![allow(dead_code)]
 
 use crate::skills::{fuzzy_match, Skill};

@@ -14,7 +14,6 @@
 //!
 //! ```rust,no_run
 
-// Complete implementation - pending integration with keyboard shortcuts
 //! use rustycode_tui::ui::command_palette::{CommandPalette, Command};
 //! use crossterm::event::{KeyCode, KeyEvent};
 //!

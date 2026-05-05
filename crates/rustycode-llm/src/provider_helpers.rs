@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_get_cheapest_model() {
-        let model = get_cheapest_model();
+        let model = cheapest_model();
         assert!(model.is_some());
     }
 
@@ -281,14 +281,14 @@ mod tests {
 
     #[test]
     fn test_get_model_cost() {
-        let (input, output) = get_model_cost("claude-3-5-sonnet").unwrap();
+        let (input, output) = model_cost("claude-3-5-sonnet").unwrap();
         assert!(input > 0.0);
         assert!(output > 0.0);
     }
 
     #[test]
     fn test_get_context_window() {
-        let ctx = get_context_window("claude-3-5-sonnet").unwrap();
+        let ctx = context_window("claude-3-5-sonnet").unwrap();
         assert_eq!(ctx, 200000);
     }
 }

@@ -3,7 +3,6 @@
 //! Provides a comprehensive status system showing current application state,
 //! tool execution progress, and visual feedback for all operations.
 
-// Complete implementation - pending integration with main UI layout
 #![allow(dead_code)]
 
 use ratatui::style::{Color, Style};

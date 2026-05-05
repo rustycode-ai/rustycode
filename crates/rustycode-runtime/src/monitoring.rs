@@ -758,7 +758,7 @@ mod tests {
 
         monitoring.register_metric(definition).await.unwrap();
 
-        let definitions = monitoring.get_metric_definitions().await;
+        let definitions = monitoring.metric_definitions().await;
         assert_eq!(definitions.len(), 1);
         assert_eq!(definitions[0].name, "test_metric");
     }
@@ -784,7 +784,7 @@ mod tests {
             .await
             .unwrap();
 
-        let value = monitoring.get_metric("test_metric", &labels).await;
+        let value = monitoring.metric("test_metric", &labels).await;
         assert_eq!(value, Some(42.0));
     }
 
@@ -934,12 +934,12 @@ mod tests {
         let alert_id = &triggered_alerts[0].id;
         monitoring.acknowledge_alert(alert_id).await.unwrap();
 
-        let active_alerts = monitoring.get_active_alerts().await;
+        let active_alerts = monitoring.active_alerts().await;
         assert_eq!(active_alerts[0].status, AlertStatus::Acknowledged);
 
         monitoring.resolve_alert(alert_id).await.unwrap();
 
-        let active_alerts = monitoring.get_active_alerts().await;
+        let active_alerts = monitoring.active_alerts().await;
         assert_eq!(active_alerts.len(), 0);
     }
 
@@ -962,7 +962,7 @@ mod tests {
 
         monitoring.record_performance(metrics.clone()).await;
 
-        let retrieved = monitoring.get_performance_metrics().await;
+        let retrieved = monitoring.performance_metrics().await;
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().cpu_usage_percent, 50.0);
     }
@@ -997,7 +997,7 @@ mod tests {
         let cleaned = monitoring.cleanup_old_data().await.unwrap();
         assert_eq!(cleaned, 0);
 
-        let value = monitoring.get_metric("test_metric", &labels).await;
+        let value = monitoring.metric("test_metric", &labels).await;
         assert_eq!(value, Some(42.0));
     }
 
@@ -1243,7 +1243,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_metric_nonexistent() {
         let monitoring = MonitoringSystem::new(MonitoringConfig::default());
-        let result = monitoring.get_metric("nonexistent", &HashMap::new()).await;
+        let result = monitoring.metric("nonexistent", &HashMap::new()).await;
         assert!(result.is_none());
     }
 
@@ -1267,7 +1267,7 @@ mod tests {
             monitoring.record_performance(metrics).await;
         }
 
-        let avg = monitoring.get_average_performance(5).await;
+        let avg = monitoring.average_performance(5).await;
         assert!(avg.is_some());
         let avg = avg.unwrap();
         // Average of 10, 20, 30 = 20.0
@@ -1277,7 +1277,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_average_performance_no_data() {
         let monitoring = MonitoringSystem::new(MonitoringConfig::default());
-        let avg = monitoring.get_average_performance(5).await;
+        let avg = monitoring.average_performance(5).await;
         assert!(avg.is_none());
     }
 
@@ -1319,11 +1319,11 @@ mod tests {
 
         monitoring.evaluate_alerts().await.unwrap();
 
-        let history = monitoring.get_alert_history(None).await;
+        let history = monitoring.alert_history(None).await;
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].severity, AlertSeverity::Critical);
 
-        let limited = monitoring.get_alert_history(Some(5)).await;
+        let limited = monitoring.alert_history(Some(5)).await;
         assert_eq!(limited.len(), 1);
     }
 
@@ -1380,7 +1380,7 @@ mod tests {
 
         monitoring.create_alert(alert).await.unwrap();
 
-        let defs = monitoring.get_alert_definitions().await;
+        let defs = monitoring.alert_definitions().await;
         assert_eq!(defs.len(), 1);
         assert_eq!(defs[0].name, "Alert One");
     }

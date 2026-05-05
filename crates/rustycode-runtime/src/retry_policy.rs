@@ -541,7 +541,7 @@ mod tests {
         let result = policy.execute(operation).await;
         assert!(matches!(result, RetryOutcome::Success(_)));
 
-        let attempts = policy.get_attempts().await;
+        let attempts = policy.attempts().await;
         assert_eq!(attempts.len(), 3);
     }
 
@@ -714,13 +714,13 @@ mod tests {
 
         let _ = policy.execute(operation).await;
 
-        let attempts_before = policy.get_attempts().await;
+        let attempts_before = policy.attempts().await;
         assert!(!attempts_before.is_empty());
 
         // Reset
         policy.reset().await;
 
-        let attempts_after = policy.get_attempts().await;
+        let attempts_after = policy.attempts().await;
         assert!(attempts_after.is_empty());
 
         let stats = policy.stats().await;
@@ -744,11 +744,11 @@ mod tests {
         registry.register(policy1.clone()).await;
         registry.register(policy2.clone()).await;
 
-        let retrieved = registry.get_policy("policy1").await;
+        let retrieved = registry.policy("policy1").await;
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().name(), "policy1");
 
-        let all_policies = registry.get_all_policies().await;
+        let all_policies = registry.all_policies().await;
         assert_eq!(all_policies.len(), 2);
     }
 
@@ -884,7 +884,7 @@ mod tests {
         };
         let _ = policy.execute(op).await;
 
-        let recent = policy.get_recent_attempts(2).await;
+        let recent = policy.recent_attempts(2).await;
         assert_eq!(recent.len(), 2);
         // Most recent first
         assert!(recent[0].attempt_number >= recent[1].attempt_number);
@@ -933,7 +933,7 @@ mod tests {
     #[tokio::test]
     async fn test_registry_get_missing_policy() {
         let registry = RetryPolicyRegistry::new();
-        let result = registry.get_policy("nonexistent").await;
+        let result = registry.policy("nonexistent").await;
         assert!(result.is_none());
     }
 
@@ -947,7 +947,7 @@ mod tests {
         registry.register(p1).await;
         registry.register(p2).await;
 
-        let all_stats = registry.get_all_stats().await;
+        let all_stats = registry.all_stats().await;
         assert_eq!(all_stats.len(), 2);
 
         let names: Vec<&str> = all_stats.iter().map(|(n, _)| n.as_str()).collect();

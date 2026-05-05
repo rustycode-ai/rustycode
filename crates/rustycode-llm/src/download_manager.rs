@@ -590,7 +590,7 @@ mod tests {
 
     #[test]
     fn test_global_singleton() {
-        let manager = get_download_manager();
+        let manager = download_manager();
         assert!(manager.active_downloads().is_empty());
     }
 

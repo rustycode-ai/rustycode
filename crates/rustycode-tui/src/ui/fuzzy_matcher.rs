@@ -10,7 +10,6 @@
 //! - **Highlight support**: Helper for highlighting matched text in UI
 //! - **Ranking**: Sort results by relevance score
 
-// Complete implementation - pending integration with search/filter components
 #![allow(dead_code)]
 
 use ratatui::{
