@@ -255,6 +255,14 @@ pub struct MemoryState {
     pub memory_entries: Vec<MemoryEntry>,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct ToolRuntimeState {
+    pub active_tools: Vec<ToolExecution>,
+    pub current_session_tools: Vec<String>,
+    pub tool_iteration_count: u32,
+    pub pending_tool_call: Option<ToolCall>,
+}
+
 /// Core session state - independent of UI implementation
 pub struct SessionState {
     // Conversation state
@@ -279,11 +287,8 @@ pub struct SessionState {
     // Provider configuration
     pub provider: ProviderConfig,
 
-    // Tool execution
-    pub active_tools: Vec<ToolExecution>,
-    pub current_session_tools: Vec<String>,
-    pub tool_iteration_count: u32,
-    pub pending_tool_call: Option<ToolCall>,
+    // Tool execution runtime
+    pub tool_runtime: ToolRuntimeState,
 
     // Mode and first-run detection
     pub mode: SessionModeState,
@@ -428,10 +433,7 @@ impl SessionState {
             session_title: "New Session".to_string(),
             performance: PerformanceMetrics::new(),
             provider: ProviderConfig::new(),
-            active_tools: Vec::new(),
-            current_session_tools: Vec::new(),
-            tool_iteration_count: 0,
-            pending_tool_call: None,
+            tool_runtime: ToolRuntimeState::default(),
             mode: SessionModeState { ai_mode: AiMode::Act, is_first_run: false },
             memory: MemoryState { memory_entries: Vec::new() },
             token_budget: TokenBudgetState { budget: None },
@@ -603,22 +605,20 @@ impl SessionState {
 
     /// Start a tool execution
     pub fn start_tool_execution(&mut self, name: String) {
-        self.active_tools.push(ToolExecution {
+        self.tool_runtime.active_tools.push(ToolExecution {
             name: name.clone(),
             status: ToolStatus::Running,
             start_time: Instant::now(),
             output_preview: String::new(),
         });
-        self.current_session_tools.push(name);
+        self.tool_runtime.current_session_tools.push(name);
     }
 
-    /// Complete a tool execution
     pub fn complete_tool_execution(&mut self, name: &str, output: String) {
-        if let Some(tool) = self.active_tools.iter_mut().find(|t| t.name == name) {
+        if let Some(tool) = self.tool_runtime.active_tools.iter_mut().find(|t| t.name == name) {
             tool.output_preview = output.chars().take(100).collect();
         }
-        // Remove completed tool to prevent unbounded growth
-        self.active_tools.retain(|t| t.name != name);
+        self.tool_runtime.active_tools.retain(|t| t.name != name);
     }
 
     /// Set streaming state
@@ -815,7 +815,7 @@ mod tests {
         assert_eq!(s.performance.tokens_used, 0);
         assert!(!s.streaming.is_streaming);
         assert!(s.streaming.current_response.is_empty());
-        assert!(s.active_tools.is_empty());
+        assert!(s.tool_runtime.active_tools.is_empty());
         assert!(!s.provider.provider_configured);
         assert_eq!(s.performance.error_count, 0);
     }
@@ -886,15 +886,15 @@ mod tests {
     fn start_and_complete_tool_execution() {
         let mut s = make_session();
         s.start_tool_execution("bash".to_string());
-        assert_eq!(s.active_tools.len(), 1);
-        assert_eq!(s.active_tools[0].name, "bash");
-        assert_eq!(s.active_tools[0].status, ToolStatus::Running);
-        assert!(s.current_session_tools.contains(&"bash".to_string()));
+        assert_eq!(s.tool_runtime.active_tools.len(), 1);
+        assert_eq!(s.tool_runtime.active_tools[0].name, "bash");
+        assert_eq!(s.tool_runtime.active_tools[0].status, ToolStatus::Running);
+        assert!(s.tool_runtime.current_session_tools.contains(&"bash".to_string()));
 
         s.complete_tool_execution("bash", "output text".to_string());
         // Completed tools are removed from active_tools to prevent unbounded growth
-        assert!(s.active_tools.is_empty());
-        assert!(s.current_session_tools.contains(&"bash".to_string()));
+        assert!(s.tool_runtime.active_tools.is_empty());
+        assert!(s.tool_runtime.current_session_tools.contains(&"bash".to_string()));
     }
 
     #[test]
@@ -1052,11 +1052,11 @@ mod tests {
     fn tool_execution_completed_and_removed() {
         let mut s = make_session();
         s.start_tool_execution("bash".to_string());
-        assert_eq!(s.active_tools.len(), 1);
+        assert_eq!(s.tool_runtime.active_tools.len(), 1);
         let long_output = "x".repeat(200);
         s.complete_tool_execution("bash", long_output);
         // Completed tools are removed from active_tools
-        assert!(s.active_tools.is_empty());
+        assert!(s.tool_runtime.active_tools.is_empty());
     }
 
     // --- Checkpoint recovery integration tests ---
