@@ -289,11 +289,11 @@ fn cmd_reload_skills(
     let home = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let skills_path = home.join(".claude").join("skills");
 
-    // Use existing tokio runtime handle (avoid nested runtime panic)
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(skill_manager.load_skills())
-    })
-    .map_err(|e| format!("Failed to reload skills: {}", e))?;
+    // Create a new runtime since TUI render thread has no Tokio context
+    tokio::runtime::Runtime::new()
+        .expect("Failed to create runtime")
+        .block_on(skill_manager.load_skills())
+        .map_err(|e| format!("Failed to reload skills: {}", e))?;
 
     let count = skill_manager.skill_count();
     if count == 0 {
@@ -317,9 +317,10 @@ fn cmd_install_skill(parts: &[&str]) -> Result<Option<String>, String> {
 
     let name = parts[1];
 
-    match tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(crate::skills::install_skill(name))
-    }) {
+    match tokio::runtime::Runtime::new()
+        .expect("Failed to create runtime")
+        .block_on(crate::skills::install_skill(name))
+    {
         Ok(_) => Ok(Some(format!(
             "✓ Successfully installed skill '{}'\n\
              Use /skill activate {} to enable auto-triggering",
@@ -345,9 +346,10 @@ fn cmd_uninstall_skill(parts: &[&str]) -> Result<Option<String>, String> {
         return Ok(Some(format!("❌ Skill '{}' is not installed", name)));
     }
 
-    match tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(crate::skills::uninstall_skill(name))
-    }) {
+    match tokio::runtime::Runtime::new()
+        .expect("Failed to create runtime")
+        .block_on(crate::skills::uninstall_skill(name))
+    {
         Ok(_) => Ok(Some(format!("✓ Successfully uninstalled skill '{}'", name))),
         Err(e) => Ok(Some(format!(
             "❌ Failed to uninstall skill '{}': {}",
@@ -365,9 +367,10 @@ fn cmd_update_skill(parts: &[&str]) -> Result<Option<String>, String> {
     };
 
     if let Some(skill_name) = name {
-        match tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(crate::skills::update_skill(skill_name))
-        }) {
+        match tokio::runtime::Runtime::new()
+            .expect("Failed to create runtime")
+            .block_on(crate::skills::update_skill(skill_name))
+        {
             Ok(info) => {
                 if info.update_available {
                     Ok(Some(format!(
@@ -387,9 +390,10 @@ fn cmd_update_skill(parts: &[&str]) -> Result<Option<String>, String> {
             ))),
         }
     } else {
-        match tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(crate::skills::update_all_skills())
-        }) {
+        match tokio::runtime::Runtime::new()
+            .expect("Failed to create runtime")
+            .block_on(crate::skills::update_all_skills())
+        {
             Ok(updates) => {
                 if updates.is_empty() {
                     Ok(Some("✓ All skills are already up to date".to_string()))
