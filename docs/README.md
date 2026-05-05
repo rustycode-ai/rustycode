@@ -1,77 +1,56 @@
 # RustyCode Documentation
 
-This is the documentation hub for the repository. If you are not sure where to start, start here.
+Documentation hub for the RustyCode project. Start here if you're not sure where to go.
 
 ## Choose By Goal
 
 ### Use RustyCode
 
-1. [Quickstart](guides/QUICKSTART.md)
-2. [Tutorial](guides/TUTORIAL.md)
-3. [Troubleshooting](guides/troubleshooting.md)
-4. [Integration Guide](guides/INTEGRATION.md)
+1. [Comprehensive Project Doc](RUSTYCODE.md) — Full architecture, crate reference, CLI guide, all systems
+2. [Quickstart](guides/QUICKSTART.md) — Get running in minutes
+3. [Tutorial](guides/TUTORIAL.md) — Walkthrough of key features
+4. [Troubleshooting](guides/troubleshooting.md) — Common issues and fixes
+5. [Integration Guide](guides/INTEGRATION.md) — Embed RustyCode in your workflow
 
 ### Contribute Or Develop
 
-1. [Developer Guide](guides/developer-guide.md)
-2. [Contributing](../CONTRIBUTING.md)
-3. [Agent Governance](project/agent-governance.md)
-4. [Reference Index](reference/index.md)
+1. [Developer Guide](guides/developer-guide.md) — Build, test, lint, debug
+2. [Contributing](contributing/CONTRIBUTING.md) — Contribution workflow
+3. [Coding Standards](reference/coding-standards.md) — Style and conventions
+4. [Agent Governance](project/agent-governance.md) — How AI agents work in this repo
 
 ### Understand The System
 
-1. [System Architecture](architecture/architecture.md)
-2. [Architecture Review](architecture/ARCHITECTURE-REVIEW-2026-04-20.md)
-3. [Orchestra Architecture](orchestra/orchestra-architecture.md)
-4. [Architecture Decisions](adr/)
+1. [Architecture Review](architecture/ARCHITECTURE-REVIEW-2026-04-20.md) — Current architecture analysis
+2. [Architecture Overview](architecture/architecture.md) — System structure
+3. [Architecture Decisions](adr/) — Why key choices were made
+4. [Crate Index](crates/CRATES.md) — All workspace crates
 
 ## Documentation Map
 
 | Area | Use It For |
 | --- | --- |
-| [guides/](guides/) | Reader-oriented docs for setup, workflows, troubleshooting, and developer onboarding |
-| [architecture/](architecture/) | Current system structure, subsystem relationships, and integration notes |
-| [orchestra/](orchestra/) | Canonical docs for autonomous mode behavior, workflow, commands, and prompts |
-| [reference/](reference/) | Stable reference material such as APIs, specs, standards, permissions, and release notes |
-| [adr/](adr/) | Architecture decisions that record why key choices were made |
-| [security/](security/) | Provider security assumptions and review checklists |
-| [project/](project/) | Project operating rules and contributor-facing governance |
-| [design/](design/) | Working design documents and proposal-stage material |
-| [research/](research/) | Exploratory investigations and comparative analysis |
-| [superpowers/](superpowers/) | Active planning and implementation artifacts for ongoing work |
-| [diagrams/](diagrams/) | Supporting diagrams and visual aids |
-| [crates/](crates/) | Workspace-level crate documentation index |
-
-Most top-level sections now have a local `README.md` or index page. If you add a new section, give it a landing page immediately.
-
-## Stable Vs Working Docs
-
-Use these sections differently:
-
-- Stable docs: `guides`, `architecture`, `orchestra`, `reference`, `adr`, `security`, `project`
-- Working docs: `design`, `research`, `superpowers`
-
-If you are adding a new long-lived document, prefer a stable section. If you are capturing analysis, planning, or in-flight design work, place it in a working section.
+| [RUSTYCODE.md](RUSTYCODE.md) | Comprehensive project documentation (start here) |
+| [guides/](guides/) | Setup, workflows, tutorials, troubleshooting |
+| [architecture/](architecture/) | System structure, subsystem relationships, integration |
+| [reference/](reference/) | API reference, specs, standards, permissions |
+| [adr/](adr/) | Architecture Decision Records (why, not what) |
+| [security/](security/) | Provider security assumptions and checklists |
+| [design/](design/) | Design docs for key subsystems (event bus, streaming, etc.) |
+| [project/](project/) | Project governance and operating rules |
+| [crates/](crates/) | Workspace-level crate documentation |
 
 ## Root-Level Docs
 
-Only a small set of documents should live at the repository root:
-
-- [README.md](../README.md) for repo entry
-- [CONTRIBUTING.md](../CONTRIBUTING.md) for contributor workflow
-- [CLAUDE.md](../CLAUDE.md) for project-wide development instructions
-- [TEAM_LEARNINGS.md](../TEAM_LEARNINGS.md) because the runtime reads and updates it directly
+| File | Purpose |
+| --- | --- |
+| [README.md](../README.md) | Repo entry point |
+| [CLAUDE.md](../CLAUDE.md) | Development instructions for AI agents and humans |
+| [AGENTS.md](../AGENTS.md) | Agent-specific coding guidance |
+| [TEAM_LEARNINGS.md](../TEAM_LEARNINGS.md) | Runtime-updated team knowledge |
 
 ## Docs Outside `docs/`
 
-Some documentation stays close to the subsystem it describes:
-
-- [scripts/README.md](../scripts/README.md) for automation scripts
-- [tests/README.md](../tests/README.md) and related test reports under `tests/`
-- crate-specific READMEs under `crates/*/README.md`
-
-## If You Are Cleaning Up Docs
-
-1. Put the canonical version in one place.
-2. Link it from this hub or the relevant section index.
-3. Leave short compatibility stubs only when an old location is still referenced by tools or people.
+- [scripts/README.md](../scripts/README.md) — Automation scripts
+- [tests/README.md](../tests/README.md) — Test infrastructure
+- `crates/*/README.md` — Per-crate documentation (47 crates)
