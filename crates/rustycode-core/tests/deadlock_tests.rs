@@ -133,6 +133,6 @@ async fn test_get_deadlock_reports_nonempty_on_cycle() {
         g.add_dependency(a, b);
         g.add_dependency(b, a);
     }
-    let reports = detector.get_deadlock_reports().await;
+    let reports = detector.deadlock_reports().await;
     assert!(!reports.is_empty());
 }

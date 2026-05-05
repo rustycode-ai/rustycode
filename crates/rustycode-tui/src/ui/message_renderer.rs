@@ -25,9 +25,7 @@ use unicode_width::UnicodeWidthStr;
 
 // MessageTheme removed as it is now defined in ui::markdown
 
-// ============================================================================
 // MESSAGE RENDERER
-// ============================================================================
 
 /// Message renderer - handles hierarchical display
 pub struct MessageRenderer {
@@ -57,7 +55,6 @@ impl Default for MessageRenderer {
 }
 
 impl MessageRenderer {
-    /// Create a new message renderer
     pub fn new() -> Self {
         Self::default()
     }
@@ -751,9 +748,7 @@ impl Default for MessageLayoutCache {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

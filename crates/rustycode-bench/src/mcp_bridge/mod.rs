@@ -36,7 +36,6 @@ pub struct BenchMcpBridge<'a> {
 }
 
 impl<'a> BenchMcpBridge<'a> {
-    /// Create a new bridge wrapping the given environment.
     pub fn new(env: &'a mut dyn BenchEnvironment) -> Self {
         Self { env }
     }
@@ -103,9 +102,6 @@ impl<'a> BenchMcpBridge<'a> {
 
     /// Execute a tool call by name.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the tool name is unknown or the execution fails.
     pub async fn execute_tool(
         &mut self,
         name: &str,

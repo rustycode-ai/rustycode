@@ -21,9 +21,7 @@ use rustycode_llm::provider::ChatMessage;
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 
-// ---------------------------------------------------------------------------
 // Mock LLM Client for E2E
-// ---------------------------------------------------------------------------
 
 /// A mock LLM client that returns prescripted responses in LIFO order.
 struct MockLLM {
@@ -49,9 +47,7 @@ impl TeamLLMClient for MockLLM {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /// Create a temp project directory with a Cargo.toml + src/lib.rs
 fn setup_temp_project() -> TempDir {
@@ -135,9 +131,7 @@ fn three_step_plan_responses() -> Vec<String> {
     ]
 }
 
-// ==============================
 // Test 1: Happy path — all 3 steps complete
-// ==============================
 
 #[tokio::test]
 async fn team_e2e_happy_path() {
@@ -162,9 +156,7 @@ async fn team_e2e_happy_path() {
     assert!(outcome.final_trust > 0.0 && outcome.final_trust <= 1.0);
 }
 
-// ==============================
 // Test 2: Skeptic veto causes step failure, retry exhausts budget
-// ==============================
 
 #[tokio::test]
 async fn team_e2e_skeptic_veto() {
@@ -202,9 +194,7 @@ async fn team_e2e_skeptic_veto() {
     );
 }
 
-// ==============================
 // Test 3: Scalpel heuristic
-// ==============================
 
 #[test]
 fn team_e2e_scalpel_heuristic() {
@@ -221,9 +211,7 @@ fn team_e2e_scalpel_heuristic() {
     ));
 }
 
-// ==============================
 // Test 4: Orchestrator outcome tracks all fields
-// ==============================
 
 #[tokio::test]
 async fn team_e2e_outcome_structure() {

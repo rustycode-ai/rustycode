@@ -83,7 +83,6 @@ pub struct AutoMemory {
 }
 
 impl AutoMemory {
-    /// Create a new auto-memory
     pub fn new(key: impl Into<String>, value: impl Into<String>, memory_type: MemoryType) -> Self {
         let key = key.into();
         let value = value.into();
@@ -153,9 +152,8 @@ pub struct AutoMemoryManager {
 }
 
 impl AutoMemoryManager {
-    /// Create a new auto-memory manager
     pub fn new(cwd: &Path) -> Result<Self> {
-        let memory_dir = rustycode_memory::get_memory_dir(cwd);
+        let memory_dir = rustycode_memory::memory_dir(cwd);
         let storage_path = cwd.join(AUTO_MEMORY_FILE);
 
         // Load existing auto-memories
@@ -229,7 +227,7 @@ impl AutoMemoryManager {
     }
 
     /// Get a memory by key and type
-    pub fn get_memory(&mut self, key: &str, memory_type: MemoryType) -> Option<AutoMemory> {
+    pub fn memory(&mut self, key: &str, memory_type: MemoryType) -> Option<AutoMemory> {
         if let Some(idx) = self
             .memories
             .iter()
@@ -379,7 +377,7 @@ impl AutoMemoryManager {
             let config = MemoryEntryConfig {
                 id: auto_mem.id.clone(),
                 trigger: auto_mem.key.clone(),
-                confidence: auto_mem.importance as f32, // Convert f64 to f32
+                confidence: auto_mem.importance as f32,
                 domain: auto_mem.memory_type.to_domain(),
                 source: MemorySource::SessionObservation, // Use existing variant
                 scope: MemoryScope::Global,
@@ -403,9 +401,9 @@ impl AutoMemoryManager {
             .any(|e| e.id == format!("auto-{}", auto_mem.id)))
     }
 
-    /// Get smart suggestions based on context
+    /// Get smart get_suggestions based on context
     pub fn get_suggestions(&self, context: &str) -> Vec<String> {
-        let mut suggestions = Vec::new();
+        let mut get_suggestions = Vec::new();
 
         // Find relevant memories based on context keywords
         let context_lower = context.to_lowercase();
@@ -418,18 +416,18 @@ impl AutoMemoryManager {
             if (key_lower.contains(&context_lower) || value_lower.contains(&context_lower))
                 && memory.importance > 0.5
             {
-                suggestions.push(format!("💡 {}: {}", memory.key, memory.value));
+                get_suggestions.push(format!("💡 {}: {}", memory.key, memory.value));
             }
         }
 
         // Sort by importance
-        suggestions.sort_by(|a, b| {
+        get_suggestions.sort_by(|a, b| {
             // Extract importance from suggestion text (simplified)
             b.cmp(a) // Reverse alphabetical for now
         });
 
-        suggestions.truncate(5); // Max 5 suggestions
-        suggestions
+        get_suggestions.truncate(5); // Max 5 get_suggestions
+        get_suggestions
     }
 }
 
@@ -437,7 +435,6 @@ impl AutoMemoryManager {
 pub struct ThreadSafeAutoMemory(Arc<Mutex<AutoMemoryManager>>);
 
 impl ThreadSafeAutoMemory {
-    /// Create a new thread-safe manager
     pub fn new(cwd: &Path) -> Result<Self> {
         Ok(Self(Arc::new(Mutex::new(AutoMemoryManager::new(cwd)?))))
     }
@@ -498,15 +495,15 @@ impl ThreadSafeAutoMemory {
     }
 
     /// Get a specific memory by key and type
-    pub fn get_memory(&self, key: &str, memory_type: MemoryType) -> Option<AutoMemory> {
+    pub fn memory(&self, key: &str, memory_type: MemoryType) -> Option<AutoMemory> {
         self.0
             .lock()
             .ok()
-            .and_then(|mut m| m.get_memory(key, memory_type))
+            .and_then(|mut m| m.memory(key, memory_type))
     }
 
     /// Get all preferences
-    pub fn get_preferences(&self) -> Vec<AutoMemory> {
+    pub fn preferences(&self) -> Vec<AutoMemory> {
         self.0
             .lock()
             .map(|mut m| m.get_memories_by_type(MemoryType::Preference))
@@ -514,7 +511,7 @@ impl ThreadSafeAutoMemory {
     }
 
     /// Get all decisions
-    pub fn get_decisions(&self) -> Vec<AutoMemory> {
+    pub fn decisions(&self) -> Vec<AutoMemory> {
         self.0
             .lock()
             .map(|mut m| m.get_memories_by_type(MemoryType::Decision))
@@ -522,7 +519,7 @@ impl ThreadSafeAutoMemory {
     }
 
     /// Get all errors
-    pub fn get_errors(&self) -> Vec<AutoMemory> {
+    pub fn errors(&self) -> Vec<AutoMemory> {
         self.0
             .lock()
             .map(|mut m| m.get_memories_by_type(MemoryType::Error))
@@ -530,7 +527,7 @@ impl ThreadSafeAutoMemory {
     }
 
     /// Get recent memories
-    pub fn get_recent(&self, days: i64) -> Vec<AutoMemory> {
+    pub fn recent(&self, days: i64) -> Vec<AutoMemory> {
         self.0
             .lock()
             .map(|mut m| m.get_recent_memories(days))
@@ -538,14 +535,14 @@ impl ThreadSafeAutoMemory {
     }
 
     /// Get important memories
-    pub fn get_important(&self, threshold: f64) -> Vec<AutoMemory> {
+    pub fn important(&self, threshold: f64) -> Vec<AutoMemory> {
         self.0
             .lock()
             .map(|mut m| m.get_important_memories(threshold))
             .unwrap_or_default()
     }
 
-    /// Get suggestions
+    /// Get get_suggestions
     pub fn get_suggestions(&self, context: &str) -> Vec<String> {
         self.0
             .lock()
@@ -652,7 +649,7 @@ mod tests {
         assert_eq!(manager.memory_count(), 2);
 
         // Get memory by key
-        let found = manager.get_memory("theme", MemoryType::Preference);
+        let found = manager.memory("theme", MemoryType::Preference);
         assert!(found.is_some());
         assert_eq!(found.unwrap().value, "dark");
     }
@@ -693,12 +690,12 @@ mod tests {
         assert_eq!(manager.count(), 2);
 
         // Get preferences
-        let prefs = manager.get_preferences();
+        let prefs = manager.preferences();
         assert_eq!(prefs.len(), 2);
     }
 
     #[test]
-    fn test_suggestions() {
+    fn test_get_suggestions() {
         let temp_dir = TempDir::new().unwrap();
         let cwd = temp_dir.path();
 
@@ -708,8 +705,8 @@ mod tests {
         manager.save_preference("theme", "dark").unwrap();
         manager.save_context("recent_file", "main.rs").unwrap();
 
-        // Get suggestions
-        let suggestions = manager.get_suggestions("theme");
-        assert!(!suggestions.is_empty());
+        // Get get_suggestions
+        let get_suggestions = manager.get_suggestions("theme");
+        assert!(!get_suggestions.is_empty());
     }
 }

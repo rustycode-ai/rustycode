@@ -89,12 +89,12 @@ impl SkillRegistry {
     }
 
     /// Get all active skills.
-    pub fn get_all(&self) -> Vec<&SkillDefinition> {
+    pub fn all(&self) -> Vec<&SkillDefinition> {
         self.skills.values().collect()
     }
 
     /// Get all conditional (latent) skills.
-    pub fn get_conditional(&self) -> Vec<&SkillDefinition> {
+    pub fn conditional(&self) -> Vec<&SkillDefinition> {
         self.conditional.values().collect()
     }
 
@@ -279,7 +279,7 @@ mod tests {
         assert_eq!(reg.active_count(), 0);
         assert_eq!(reg.conditional_count(), 1);
 
-        let conditional = reg.get_conditional();
+        let conditional = reg.conditional();
         assert_eq!(conditional.len(), 1);
         assert_eq!(conditional[0].name, "rust-skill");
         assert_eq!(conditional[0].activation.mode, ActivationMode::Conditional);
@@ -414,6 +414,6 @@ mod tests {
 
         let mut reg = SkillRegistry::new();
         reg.load_from_dir(&dir, SkillSource::User).unwrap();
-        assert_eq!(reg.get_all().len(), 3);
+        assert_eq!(reg.all().len(), 3);
     }
 }

@@ -377,7 +377,6 @@ pub enum EventOutcome {
 }
 
 impl EnsembleCoordinator {
-    /// Create a new team coordinator
     pub fn new() -> Self {
         Self {
             teams: HashMap::new(),
@@ -649,17 +648,17 @@ impl EnsembleCoordinator {
     }
 
     /// Get team by ID
-    pub fn get_team(&self, team_id: &str) -> Option<&Ensemble> {
+    pub fn team(&self, team_id: &str) -> Option<&Ensemble> {
         self.teams.get(team_id)
     }
 
     /// Get all teams
-    pub fn get_all_teams(&self) -> Vec<&Ensemble> {
+    pub fn all_teams(&self) -> Vec<&Ensemble> {
         self.teams.values().collect()
     }
 
     /// Get hierarchy structure
-    pub fn get_hierarchy(&self) -> &HierarchyStructure {
+    pub fn hierarchy(&self) -> &HierarchyStructure {
         &self.hierarchy
     }
 
@@ -689,7 +688,7 @@ impl EnsembleCoordinator {
     }
 
     /// Get coordination history
-    pub fn get_history(&self) -> &[CoordinationEvent] {
+    pub fn history(&self) -> &[CoordinationEvent] {
         &self.history
     }
 
@@ -843,7 +842,7 @@ mod tests {
         };
 
         coordinator.add_member(&team_id, member).unwrap();
-        let team = coordinator.get_team(&team_id).unwrap();
+        let team = coordinator.team(&team_id).unwrap();
         assert_eq!(team.members.len(), 1);
     }
 
@@ -1234,7 +1233,7 @@ mod tests {
     fn team_coordinator_default_matches_new() {
         let c1 = EnsembleCoordinator::new();
         let c2 = EnsembleCoordinator::default();
-        assert_eq!(c1.get_all_teams().len(), c2.get_all_teams().len());
+        assert_eq!(c1.all_teams().len(), c2.all_teams().len());
     }
 
     // 7. create_standard_structure creates 4 teams
@@ -1243,21 +1242,21 @@ mod tests {
         let mut coordinator = EnsembleCoordinator::new();
         let team_ids = coordinator.create_standard_structure().unwrap();
         assert_eq!(team_ids.len(), 4);
-        assert_eq!(coordinator.get_all_teams().len(), 4);
+        assert_eq!(coordinator.all_teams().len(), 4);
     }
 
     // 8. get_all_teams returns empty initially
     #[test]
     fn team_coordinator_get_all_teams_empty() {
         let coordinator = EnsembleCoordinator::new();
-        assert!(coordinator.get_all_teams().is_empty());
+        assert!(coordinator.all_teams().is_empty());
     }
 
     // 9. get_hierarchy returns empty structure initially
     #[test]
     fn team_coordinator_get_hierarchy_empty() {
         let coordinator = EnsembleCoordinator::new();
-        let h = coordinator.get_hierarchy();
+        let h = coordinator.hierarchy();
         assert!(h.root_teams.is_empty());
         assert!(h.hierarchy.is_empty());
     }
@@ -1266,7 +1265,7 @@ mod tests {
     #[test]
     fn team_coordinator_get_history_empty() {
         let coordinator = EnsembleCoordinator::new();
-        assert!(coordinator.get_history().is_empty());
+        assert!(coordinator.history().is_empty());
     }
 
     // 11. add_member to nonexistent team fails

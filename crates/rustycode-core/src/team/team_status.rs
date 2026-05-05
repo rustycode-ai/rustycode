@@ -52,7 +52,6 @@ pub struct TeamStatusRenderer {
 }
 
 impl TeamStatusRenderer {
-    /// Create a new status renderer for the given task.
     pub fn new(task: &str, max_turns: u32) -> Self {
         let mut agents = HashMap::new();
         for role in &["Architect", "Builder", "Skeptic", "Judge", "Scalpel"] {

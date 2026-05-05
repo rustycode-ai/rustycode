@@ -41,7 +41,7 @@ impl ToolMetadataProvider for DummyProvider {
     fn list_tools(&self) -> Vec<ToolInfo> {
         Vec::new()
     }
-    fn get_tool_info(&self, name: &str) -> Option<ToolInfo> {
+    fn tool_info(&self, name: &str) -> Option<ToolInfo> {
         Some(ToolInfo {
             name: name.to_string(),
             description: format!("{} (dummy)", name),

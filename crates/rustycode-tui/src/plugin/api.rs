@@ -67,8 +67,8 @@ impl PluginAPI {
     }
 
     /// Get current input text
-    pub fn get_input(&self) -> String {
-        self.ui.get_input()
+    pub fn input(&self) -> String {
+        self.ui.input()
     }
 
     /// Set input text
@@ -82,7 +82,7 @@ impl PluginAPI {
     }
 
     /// Get plugin configuration value
-    pub fn get_config(&self, key: &str) -> Option<String> {
+    pub fn config(&self, key: &str) -> Option<String> {
         self.config.get(key)
     }
 
@@ -186,7 +186,7 @@ impl PluginUI {
         }
     }
 
-    pub fn get_input(&self) -> String {
+    pub fn input(&self) -> String {
         if let Some(getter) = self
             .input_getter
             .lock()
@@ -303,7 +303,7 @@ impl PluginContext {
     }
 
     /// Get workspace context
-    pub fn get_workspace(&self) -> String {
+    pub fn workspace(&self) -> String {
         if let Some(getter) = self
             .workspace_getter
             .lock()
@@ -317,7 +317,7 @@ impl PluginContext {
     }
 
     /// Get current working directory
-    pub fn get_cwd(&self) -> std::path::PathBuf {
+    pub fn cwd(&self) -> std::path::PathBuf {
         if let Some(getter) = self
             .cwd_getter
             .lock()
@@ -331,7 +331,7 @@ impl PluginContext {
     }
 
     /// Get conversation history
-    pub fn get_history(&self) -> Vec<String> {
+    pub fn history(&self) -> Vec<String> {
         if let Some(getter) = self
             .history_getter
             .lock()
@@ -408,7 +408,7 @@ mod tests {
 
         // Test config
         api.set_config("key".to_string(), "value".to_string());
-        assert_eq!(api.get_config("key"), Some("value".to_string()));
+        assert_eq!(api.config("key"), Some("value".to_string()));
 
         // Test commands
         let handler: CommandHandler = |_api, _args| CommandResult::Message("Test".to_string());

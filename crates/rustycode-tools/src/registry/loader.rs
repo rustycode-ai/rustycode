@@ -173,7 +173,6 @@ impl Default for LoaderConfig {
 }
 
 impl LazyToolLoader {
-    /// Create a new lazy tool loader
     pub fn new(config: LoaderConfig) -> Self {
         Self {
             tools: RwLock::new(HashMap::new()),

@@ -16,7 +16,6 @@ pub struct TruncateTier {
 }
 
 impl TruncateTier {
-    /// Create a new TruncateTier that keeps the last `tail_turns` turns.
     pub fn new(tail_turns: usize) -> Self {
         Self { tail_turns }
     }

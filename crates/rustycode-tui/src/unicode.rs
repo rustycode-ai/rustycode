@@ -30,14 +30,6 @@ pub fn display_width(text: &str) -> usize {
 
 /// Get the byte offset of the previous grapheme cluster.
 ///
-/// # Arguments
-///
-/// * `text` - The text to search
-/// * `byte_pos` - Current byte position
-///
-/// # Returns
-///
-/// Byte position of the previous grapheme, or 0 if at start
 pub fn prev_grapheme_boundary(text: &str, byte_pos: usize) -> usize {
     use unicode_segmentation::UnicodeSegmentation;
     let mut prev = 0;
@@ -52,14 +44,6 @@ pub fn prev_grapheme_boundary(text: &str, byte_pos: usize) -> usize {
 
 /// Get the byte offset of the next grapheme cluster.
 ///
-/// # Arguments
-///
-/// * `text` - The text to search
-/// * `byte_pos` - Current byte position
-///
-/// # Returns
-///
-/// Byte position of the next grapheme, or text.len() if at end
 pub fn next_grapheme_boundary(text: &str, byte_pos: usize) -> usize {
     use unicode_segmentation::UnicodeSegmentation;
     text.grapheme_indices(true)

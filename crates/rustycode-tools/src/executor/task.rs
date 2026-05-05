@@ -36,13 +36,6 @@ pub const MAX_SUB_AGENT_DURATION_SECS: u64 = 300;
 pub trait SubAgentRunner: Send + Sync {
     /// Run a sub-agent task and return the final output.
     ///
-    /// # Arguments
-    /// * `cwd` - Working directory for tool execution
-    /// * `description` - Short task description (for logging)
-    /// * `prompt` - Detailed instructions for the sub-agent
-    ///
-    /// # Returns
-    /// The sub-agent's final response text.
     fn run(&self, cwd: &Path, description: &str, prompt: &str) -> Result<String>;
 }
 

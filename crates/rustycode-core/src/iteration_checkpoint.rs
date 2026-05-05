@@ -63,7 +63,6 @@ pub struct IterationCheckpoint {
 }
 
 impl IterationCheckpoint {
-    /// Create a new checkpoint for an iteration.
     pub fn new(sequence_id: u32, tool_calls: Vec<CheckpointToolCall>, prompt: String) -> Self {
         let prompt_hash = Self::hash_prompt(&prompt);
         let total_output_bytes = tool_calls.iter().map(|tc| tc.output_size_bytes).sum();
@@ -230,7 +229,7 @@ impl CheckpointStorage {
     }
 
     /// Get the latest checkpoint.
-    pub fn get_latest(&self) -> Result<Option<IterationCheckpoint>> {
+    pub fn latest(&self) -> Result<Option<IterationCheckpoint>> {
         let checkpoints = self.list_all()?;
         Ok(checkpoints.into_iter().last())
     }

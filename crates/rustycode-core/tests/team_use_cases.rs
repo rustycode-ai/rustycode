@@ -8,9 +8,7 @@ use rustycode_core::team::orchestrator::is_scalpel_appropriate;
 use rustycode_core::team::{AgentState, AgentTimeline, TaskStatus};
 use rustycode_protocol::agent_protocol::AgentRole;
 
-// ---------------------------------------------------------------------------
 // Scalpel Heuristics Test (Use Case 5)
-// ---------------------------------------------------------------------------
 
 /// Use Case 5: Compile Error Resolution - Scalpel appropriateness heuristics
 #[test]
@@ -28,9 +26,7 @@ fn use_case_5_scalpel_heuristics() {
     assert!(!is_scalpel_appropriate("wrong result from function"));
 }
 
-// ---------------------------------------------------------------------------
 // Agent Timeline Integration Test
-// ---------------------------------------------------------------------------
 
 /// Test that AgentTimeline correctly tracks agent activations
 #[test]
@@ -106,9 +102,7 @@ fn agent_timeline_tracking() {
     assert!(visualization.contains("Skeptic"));
 }
 
-// ---------------------------------------------------------------------------
 // Use Case Validation Summary
-// ---------------------------------------------------------------------------
 
 /// Validates that all 8 use cases from docs/TEAM_AGENT_USE_CASES.md have
 /// corresponding test coverage or validation logic.

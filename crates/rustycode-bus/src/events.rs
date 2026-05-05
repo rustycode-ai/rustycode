@@ -35,24 +35,6 @@ pub struct SessionStartedEvent {
 impl SessionStartedEvent {
     /// Create a new `SessionStartedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `task` - Task description
-    /// * `detail` - Additional details about the session
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::SessionStartedEvent;
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// let event = SessionStartedEvent::new(
-    ///     SessionId::new(),
-    ///     "Analyze codebase".to_string(),
-    ///     "Initial session".to_string(),
-    /// );
-    /// ```
     pub fn new(session_id: SessionId, task: String, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -109,28 +91,6 @@ pub struct ContextAssembledEvent {
 impl ContextAssembledEvent {
     /// Create a new `ContextAssembledEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `context_plan` - Context plan with budget allocation
-    /// * `detail` - Additional details about the context
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::ContextAssembledEvent;
-    /// use rustycode_protocol::{SessionId, ContextPlan};
-    ///
-    /// let event = ContextAssembledEvent::new(
-    ///     SessionId::new(),
-    ///     ContextPlan {
-    ///         total_budget: 200000,
-    ///         reserved_budget: 150000,
-    ///         sections: vec![],
-    ///     },
-    ///     "Context ready".to_string(),
-    /// );
-    /// ```
     pub fn new(session_id: SessionId, context_plan: ContextPlan, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -196,31 +156,6 @@ pub struct ToolExecutedEvent {
 impl ToolExecutedEvent {
     /// Create a new `ToolExecutedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `tool_name` - Name of the tool that was executed
-    /// * `arguments` - Tool arguments as JSON
-    /// * `success` - Whether the tool execution succeeded
-    /// * `output` - Tool output text
-    /// * `error` - Optional error message
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::ToolExecutedEvent;
-    /// use rustycode_protocol::SessionId;
-    /// use serde_json::json;
-    ///
-    /// let event = ToolExecutedEvent::new(
-    ///     SessionId::new(),
-    ///     "read_file".to_string(),
-    ///     json!({ "path": "/path/to/file" }),
-    ///     true,
-    ///     "File contents".to_string(),
-    ///     None,
-    /// );
-    /// ```
     pub fn new(
         session_id: SessionId,
         tool_name: String,
@@ -370,7 +305,6 @@ pub struct PlanCreatedEvent {
 }
 
 impl PlanCreatedEvent {
-    /// Create a new `PlanCreatedEvent`
     pub fn new(session_id: SessionId, plan: Plan, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -422,7 +356,6 @@ pub struct PlanApprovedEvent {
 }
 
 impl PlanApprovedEvent {
-    /// Create a new `PlanApprovedEvent`
     pub fn new(session_id: SessionId, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -473,7 +406,6 @@ pub struct PlanRejectedEvent {
 }
 
 impl PlanRejectedEvent {
-    /// Create a new `PlanRejectedEvent`
     pub fn new(session_id: SessionId, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -532,26 +464,6 @@ pub struct SessionCompletedEvent {
 impl SessionCompletedEvent {
     /// Create a new `SessionCompletedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `task` - Task that was completed
-    /// * `status` - Final session status
-    /// * `detail` - Additional details about completion
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::SessionCompletedEvent;
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// let event = SessionCompletedEvent::new(
-    ///     SessionId::new(),
-    ///     "Analyze codebase".to_string(),
-    ///     "completed".to_string(),
-    ///     "Task completed successfully".to_string(),
-    /// );
-    /// ```
     pub fn new(session_id: SessionId, task: String, status: String, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -612,26 +524,6 @@ pub struct SessionFailedEvent {
 impl SessionFailedEvent {
     /// Create a new `SessionFailedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `task` - Task that failed
-    /// * `error` - Error message
-    /// * `detail` - Additional details about the failure
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::SessionFailedEvent;
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// let event = SessionFailedEvent::new(
-    ///     SessionId::new(),
-    ///     "Analyze codebase".to_string(),
-    ///     "Network error".to_string(),
-    ///     "Failed to connect to LLM".to_string(),
-    /// );
-    /// ```
     pub fn new(session_id: SessionId, task: String, error: String, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -692,26 +584,6 @@ pub struct ModeChangedEvent {
 impl ModeChangedEvent {
     /// Create a new `ModeChangedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `old_mode` - Previous mode
-    /// * `new_mode` - New mode
-    /// * `detail` - Additional details about the mode change
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::ModeChangedEvent;
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// let event = ModeChangedEvent::new(
-    ///     SessionId::new(),
-    ///     "chat".to_string(),
-    ///     "planning".to_string(),
-    ///     "User requested planning mode".to_string(),
-    /// );
-    /// ```
     pub fn new(session_id: SessionId, old_mode: String, new_mode: String, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -772,26 +644,6 @@ pub struct PlanExecutionStartedEvent {
 impl PlanExecutionStartedEvent {
     /// Create a new `PlanExecutionStartedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `plan_id` - Plan being executed
-    /// * `step_count` - Number of steps in the plan
-    /// * `detail` - Additional details about execution start
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::PlanExecutionStartedEvent;
-    /// use rustycode_protocol::{SessionId, PlanId};
-    ///
-    /// let event = PlanExecutionStartedEvent::new(
-    ///     SessionId::new(),
-    ///     PlanId::new(),
-    ///     5,
-    ///     "Starting plan execution".to_string(),
-    /// );
-    /// ```
     pub fn new(session_id: SessionId, plan_id: PlanId, step_count: usize, detail: String) -> Self {
         Self {
             event_id: Some(Uuid::new_v4()),
@@ -858,30 +710,6 @@ pub struct PlanExecutionCompletedEvent {
 impl PlanExecutionCompletedEvent {
     /// Create a new `PlanExecutionCompletedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `plan_id` - Plan that completed
-    /// * `steps_executed` - Total steps executed
-    /// * `steps_succeeded` - Steps that succeeded
-    /// * `steps_failed` - Steps that failed
-    /// * `detail` - Additional details about completion
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::PlanExecutionCompletedEvent;
-    /// use rustycode_protocol::{SessionId, PlanId};
-    ///
-    /// let event = PlanExecutionCompletedEvent::new(
-    ///     SessionId::new(),
-    ///     PlanId::new(),
-    ///     5,
-    ///     5,
-    ///     0,
-    ///     "Plan executed successfully".to_string(),
-    /// );
-    /// ```
     pub fn new(
         session_id: SessionId,
         plan_id: PlanId,
@@ -954,28 +782,6 @@ pub struct PlanExecutionFailedEvent {
 impl PlanExecutionFailedEvent {
     /// Create a new `PlanExecutionFailedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `plan_id` - Plan that failed
-    /// * `error` - Error message
-    /// * `failed_at_step` - Optional step index where failure occurred
-    /// * `detail` - Additional details about the failure
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::PlanExecutionFailedEvent;
-    /// use rustycode_protocol::{SessionId, PlanId};
-    ///
-    /// let event = PlanExecutionFailedEvent::new(
-    ///     SessionId::new(),
-    ///     PlanId::new(),
-    ///     "Tool timeout".to_string(),
-    ///     Some(3),
-    ///     "Step 3 timed out".to_string(),
-    /// );
-    /// ```
     pub fn new(
         session_id: SessionId,
         plan_id: PlanId,
@@ -1046,29 +852,6 @@ pub struct ToolBlockedEvent {
 impl ToolBlockedEvent {
     /// Create a new `ToolBlockedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique session identifier
-    /// * `tool_name` - Name of the tool that was blocked
-    /// * `arguments` - Tool arguments
-    /// * `reason` - Reason for blocking
-    /// * `detail` - Additional details
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::ToolBlockedEvent;
-    /// use rustycode_protocol::SessionId;
-    /// use serde_json::json;
-    ///
-    /// let event = ToolBlockedEvent::new(
-    ///     SessionId::new(),
-    ///     "write_file".to_string(),
-    ///     json!({"path": "test.txt"}),
-    ///     "Planning mode".to_string(),
-    ///     "Tool not permitted in planning mode".to_string(),
-    /// );
-    /// ```
     pub fn new(
         session_id: SessionId,
         tool_name: String,
@@ -1142,29 +925,6 @@ pub struct InspectionCompletedEvent {
 impl InspectionCompletedEvent {
     /// Create a new `InspectionCompletedEvent`
     ///
-    /// # Arguments
-    ///
-    /// * `working_dir` - Directory that was inspected
-    /// * `git_status` - Git repository status summary
-    /// * `lsp_server_count` - Number of LSP servers found
-    /// * `memory_entry_count` - Number of memory entries loaded
-    /// * `skill_count` - Number of skills discovered
-    /// * `detail` - Additional details about the inspection
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_bus::InspectionCompletedEvent;
-    ///
-    /// let event = InspectionCompletedEvent::new(
-    ///     "/path/to/project".to_string(),
-    ///     "main branch, clean".to_string(),
-    ///     3,
-    ///     5,
-    ///     2,
-    ///     "Inspection complete".to_string(),
-    /// );
-    /// ```
     pub fn new(
         working_dir: String,
         git_status: String,

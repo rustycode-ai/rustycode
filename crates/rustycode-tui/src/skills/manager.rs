@@ -137,7 +137,6 @@ pub struct SkillStateManager {
 }
 
 impl SkillStateManager {
-    /// Create a new skill state manager
     pub fn new() -> Self {
         Self {
             skills: Vec::new(),
@@ -197,7 +196,7 @@ impl SkillStateManager {
     }
 
     /// Get skills that should trigger on a condition
-    pub fn get_triggered_skills(&self, condition: &TriggerCondition) -> Vec<&SkillState> {
+    pub fn triggered_skills(&self, condition: &TriggerCondition) -> Vec<&SkillState> {
         self.skills
             .iter()
             .filter(|s| s.should_trigger(condition))
@@ -205,14 +204,14 @@ impl SkillStateManager {
     }
 
     /// Get active skills
-    pub fn get_active_skills(&self) -> Vec<&SkillState> {
+    pub fn active_skills(&self) -> Vec<&SkillState> {
         self.skills.iter().filter(|s| s.auto_enabled).collect()
     }
 
     /// Generate skill context for LLM - includes instructions from all active skills
     /// that help the LLM determine when to use them
     pub fn get_llm_skill_context(&self) -> String {
-        let active_skills = self.get_active_skills();
+        let active_skills = self.active_skills();
 
         if active_skills.is_empty() {
             return String::new();

@@ -16,9 +16,7 @@ use rustycode_executable::{
     UnitSource,
 };
 
-// ---------------------------------------------------------------------------
 // Helpers (self-contained, no dependency on tests/common which has issues)
-// ---------------------------------------------------------------------------
 
 /// Simple callable that echoes input data back
 struct EchoCallable;
@@ -78,9 +76,7 @@ fn make_tool_unit(id: &str) -> ExecutableUnit {
     }
 }
 
-// ---------------------------------------------------------------------------
 // MockLoader for testing the trait interface without filesystem I/O
-// ---------------------------------------------------------------------------
 
 struct MockLoader {
     units: Vec<ExecutableUnit>,
@@ -103,9 +99,7 @@ impl UnitLoader for MockLoader {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Trait interface tests
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_loader_basic_interface() {
@@ -130,9 +124,7 @@ async fn test_loader_missing_unit() {
     assert!(matches!(result, Err(ExecutableError::NotFound(_))));
 }
 
-// ---------------------------------------------------------------------------
 // Registry + loader integration tests
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_registry_register_from_loader() {
@@ -174,9 +166,7 @@ async fn test_registry_register_from_loader_multiple_units() {
     assert!(registry.get_sync("nonexistent").is_none());
 }
 
-// ---------------------------------------------------------------------------
 // NativeToolLoader tests
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_native_tool_loader_creates_units() {
@@ -220,9 +210,7 @@ async fn test_native_tool_loader_stale_default() {
     assert!(!loader.is_stale().await);
 }
 
-// ---------------------------------------------------------------------------
 // SkillLoader tests
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_skill_loader_name() {
@@ -282,9 +270,7 @@ async fn test_skill_loader_ignores_non_md_files() {
     assert_eq!(units[0].id, "skill:valid");
 }
 
-// ---------------------------------------------------------------------------
 // AgentLoader tests
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_agent_loader_name() {

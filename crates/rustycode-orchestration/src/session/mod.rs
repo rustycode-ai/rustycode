@@ -58,7 +58,7 @@ impl OrchestrationSession {
         });
     }
 
-    pub fn get_messages(&self) -> Vec<(String, String)> {
+    pub fn messages(&self) -> Vec<(String, String)> {
         self.conversation
             .messages
             .iter()

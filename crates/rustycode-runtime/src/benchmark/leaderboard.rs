@@ -106,7 +106,6 @@ pub struct BenchmarkLeaderboard {
 }
 
 impl BenchmarkLeaderboard {
-    /// Create a new leaderboard
     pub fn new(storage_path: PathBuf, max_entries: usize) -> Self {
         Self {
             entries: Vec::new(),
@@ -131,17 +130,17 @@ impl BenchmarkLeaderboard {
     }
 
     /// Get the top N entries
-    pub fn get_top(&self, n: usize) -> Vec<&LeaderboardEntry> {
+    pub fn top(&self, n: usize) -> Vec<&LeaderboardEntry> {
         self.entries.iter().take(n).collect()
     }
 
     /// Get the current best score
-    pub fn get_best_score(&self) -> Option<f64> {
+    pub fn best_score(&self) -> Option<f64> {
         self.entries.first().map(|e| e.overall_score)
     }
 
     /// Get average score across all entries
-    pub fn get_average_score(&self) -> f64 {
+    pub fn average_score(&self) -> f64 {
         if self.entries.is_empty() {
             return 0.0;
         }
@@ -288,8 +287,8 @@ impl BenchmarkLeaderboard {
             "\n**Best Score**: {:.1}\n\
              **Average Score**: {:.1}\n\
              **Total Entries**: {}\n",
-            self.get_best_score().unwrap_or(0.0),
-            self.get_average_score(),
+            self.best_score().unwrap_or(0.0),
+            self.average_score(),
             self.entries.len()
         ));
 
@@ -333,7 +332,6 @@ impl Default for AlertThresholds {
 }
 
 impl ContinuousMonitor {
-    /// Create a new continuous monitor
     pub fn new(storage_path: PathBuf) -> Self {
         Self {
             leaderboard: BenchmarkLeaderboard::new(storage_path, 100),
@@ -424,8 +422,8 @@ impl ContinuousMonitor {
             total_evaluations: self.historical_evaluations.len(),
             trend,
             difficulty_performance: difficulty_perf,
-            best_score: self.leaderboard.get_best_score().unwrap_or(0.0),
-            average_score: self.leaderboard.get_average_score(),
+            best_score: self.leaderboard.best_score().unwrap_or(0.0),
+            average_score: self.leaderboard.average_score(),
         }
     }
 }
@@ -494,7 +492,7 @@ mod tests {
 
         leaderboard.add_entry(entry);
         assert_eq!(leaderboard.entries.len(), 1);
-        assert_eq!(leaderboard.get_best_score(), Some(85.0));
+        assert_eq!(leaderboard.best_score(), Some(85.0));
     }
 
     #[test]
@@ -651,8 +649,8 @@ mod tests {
                 },
             });
         }
-        assert_eq!(lb.get_best_score(), Some(90.0));
-        let top = lb.get_top(3);
+        assert_eq!(lb.best_score(), Some(90.0));
+        let top = lb.top(3);
         assert_eq!(top[0].overall_score, 90.0);
         assert_eq!(top[1].overall_score, 80.0);
         assert_eq!(top[2].overall_score, 70.0);
@@ -680,13 +678,13 @@ mod tests {
             });
         }
         assert_eq!(lb.entries.len(), 2);
-        assert_eq!(lb.get_best_score(), Some(90.0));
+        assert_eq!(lb.best_score(), Some(90.0));
     }
 
     #[test]
     fn leaderboard_average_score() {
         let mut lb = BenchmarkLeaderboard::new(PathBuf::from("lb.json"), 10);
-        assert!((lb.get_average_score() - 0.0).abs() < f64::EPSILON);
+        assert!((lb.average_score() - 0.0).abs() < f64::EPSILON);
         lb.add_entry(LeaderboardEntry {
             session_id: "s1".into(),
             timestamp: Utc::now(),
@@ -703,7 +701,7 @@ mod tests {
                 tags: vec![],
             },
         });
-        assert!((lb.get_average_score() - 80.0).abs() < f64::EPSILON);
+        assert!((lb.average_score() - 80.0).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -727,7 +725,7 @@ mod tests {
                 },
             });
         }
-        let top2 = lb.get_top(2);
+        let top2 = lb.top(2);
         assert_eq!(top2.len(), 2);
         assert_eq!(top2[0].overall_score, 50.0);
     }

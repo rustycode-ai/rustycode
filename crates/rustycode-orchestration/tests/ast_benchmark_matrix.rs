@@ -42,9 +42,7 @@ use rustycode_orchestration::ast::{
     ToolHarness, VerificationStatus,
 };
 
-// ---------------------------------------------------------------------------
 // Capturing runner — records every step execution for metrics
-// ---------------------------------------------------------------------------
 
 /// A `StepRunner` that records calls and returns simulated success results.
 struct CapturingRunner {
@@ -93,9 +91,7 @@ impl StepRunner for CapturingRunner {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 fn tmp_dir() -> PathBuf {
     tempfile::tempdir().unwrap().path().to_path_buf()
@@ -112,9 +108,7 @@ fn pipeline_config(workspace: &PathBuf) -> AstConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Benchmark task definitions (13 tasks, 3 complexity levels)
-// ---------------------------------------------------------------------------
 
 /// A single benchmark task with expected classification.
 struct BenchmarkTask {
@@ -214,9 +208,7 @@ const BENCHMARK_TASKS: &[BenchmarkTask] = &[
     },
 ];
 
-// ---------------------------------------------------------------------------
 // Main benchmark matrix test
-// ---------------------------------------------------------------------------
 
 #[test]
 fn benchmark_matrix_13_tasks_3_repetitions() {
@@ -348,9 +340,7 @@ fn benchmark_matrix_13_tasks_3_repetitions() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Targeted: trivial tasks use DirectExecute route
-// ---------------------------------------------------------------------------
 
 #[test]
 fn trivial_tasks_use_direct_execute_route() {
@@ -398,9 +388,7 @@ fn trivial_tasks_use_direct_execute_route() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Targeted: complex tasks use RollingWave route
-// ---------------------------------------------------------------------------
 
 #[test]
 fn complex_tasks_use_rolling_wave_route() {
@@ -448,9 +436,7 @@ fn complex_tasks_use_rolling_wave_route() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Targeted: classification is deterministic (10 reps, same result each time)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn classification_is_deterministic() {

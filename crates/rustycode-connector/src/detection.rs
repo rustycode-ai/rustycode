@@ -173,7 +173,7 @@ pub fn inside_multiplexer() -> bool {
 }
 
 /// Get connector availability information
-pub fn get_connector_availability() -> ConnectorAvailability {
+pub fn connector_availability() -> ConnectorAvailability {
     let terminal_type = detect_terminal();
     let tmux_available = TmuxConnector::check_available();
     let it2_available = It2Connector::check_available();
@@ -271,7 +271,7 @@ fn determine_best_connector(
 
 /// Find and create the best available connector
 pub fn find_best_connector() -> Option<DetectedConnector> {
-    let availability = get_connector_availability();
+    let availability = connector_availability();
 
     #[allow(clippy::option_if_let_else)]
     match availability.recommended {
@@ -311,8 +311,8 @@ pub fn find_best_connector() -> Option<DetectedConnector> {
 }
 
 /// Get a human-readable summary of terminal capabilities
-pub fn get_capability_summary() -> String {
-    let avail = get_connector_availability();
+pub fn capability_summary() -> String {
+    let avail = connector_availability();
 
     let mut summary = String::new();
     summary.push_str(&format!("Terminal: {}\n", avail.terminal_type));
@@ -335,14 +335,14 @@ pub fn get_capability_summary() -> String {
         summary.push_str(&format!("Recommended: {} - {}\n", rec.name, rec.reason));
     } else {
         summary.push_str("No connector available - limited terminal automation\n");
-        summary.push_str(&get_installation_help());
+        summary.push_str(&installation_help());
     }
 
     summary
 }
 
 /// Get installation help for connectors
-pub fn get_installation_help() -> String {
+pub fn installation_help() -> String {
     let mut help = String::new();
     help.push_str("\n--- Installation Help ---\n");
     help.push_str("To enable terminal automation, install one of the following:\n\n");
@@ -417,8 +417,8 @@ mod tests {
     }
 
     #[test]
-    fn test_get_connector_availability() {
-        let avail = get_connector_availability();
+    fn test_connector_availability() {
+        let avail = connector_availability();
         println!("Connector availability: {avail:?}");
 
         // Basic sanity checks
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_capability_summary() {
-        let summary = get_capability_summary();
+        let summary = capability_summary();
         println!("Capability summary:\n{summary}");
         assert!(summary.contains("Terminal:"));
     }
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn test_connector_availability_clone() {
-        let avail = get_connector_availability();
+        let avail = connector_availability();
         let cloned = avail.clone();
         assert_eq!(cloned.terminal_type, avail.terminal_type);
         assert_eq!(cloned.tmux_available, avail.tmux_available);
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_connector_availability_debug() {
-        let avail = get_connector_availability();
+        let avail = connector_availability();
         let debug = format!("{avail:?}");
         assert!(debug.contains("ConnectorAvailability"));
     }
@@ -600,8 +600,8 @@ mod tests {
     }
 
     #[test]
-    fn test_get_installation_help() {
-        let help = get_installation_help();
+    fn test_installation_help() {
+        let help = installation_help();
         assert!(help.contains("Installation Help"));
     }
 

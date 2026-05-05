@@ -451,9 +451,6 @@ where
 {
     /// Create a new bounded channel with specified capacity
     ///
-    /// # Panics
-    ///
-    /// Panics if capacity is 0
     pub fn new(capacity: usize) -> Self {
         assert!(capacity > 0, "Channel capacity must be > 0");
         let (tx, rx) = mpsc::sync_channel(capacity);
@@ -610,7 +607,6 @@ impl<T> Snapshot<T>
 where
     T: Clone,
 {
-    /// Create a new snapshot
     pub fn new(inner: T) -> Self {
         Self { inner }
     }

@@ -27,9 +27,7 @@ use rustycode_tui::app::pipeline::types::{
     Artifact, ArtifactPayload, ArtifactQuery, FailureStrategy, PhaseResult, RetryPolicy,
 };
 
-// ---------------------------------------------------------------------------
 // Mock step implementation
-// ---------------------------------------------------------------------------
 
 /// A mock pipeline step that records its execution and optionally registers
 /// an artifact via shared state.
@@ -97,9 +95,7 @@ impl PipelineStep for MockStep {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 fn hard_block_strategy() -> FailureStrategy {
     FailureStrategy::HardBlock {
@@ -119,9 +115,7 @@ fn make_artifact(id: &str, type_tag: &str, source_phase: &str) -> Artifact {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_e2e_dag_executes_phases_with_deps() -> Result<()> {

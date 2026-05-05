@@ -37,7 +37,7 @@ pub fn is_installed(item: &MarketplaceItem) -> bool {
 }
 
 /// Get installed version of an item
-pub fn get_installed_version(item: &MarketplaceItem) -> Option<String> {
+pub fn installed_version(item: &MarketplaceItem) -> Option<String> {
     if !is_installed(item) {
         return None;
     }

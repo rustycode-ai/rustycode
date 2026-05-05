@@ -39,7 +39,7 @@ impl ResponsesSseState {
     }
 
     /// Look up the tool name for a given `call_id`.
-    pub fn get_name(&self, call_id: &str) -> Option<String> {
+    pub fn name(&self, call_id: &str) -> Option<String> {
         let map = self.calls.lock().unwrap_or_else(|e| e.into_inner());
         map.get(call_id).map(|(_, name)| name.clone())
     }
@@ -58,9 +58,6 @@ impl ResponsesSseState {
 /// data: {"type":"response.function_call_arguments.delta","call_id":"call_1","delta":"{\""}
 /// ```
 ///
-/// # Arguments
-/// * `lines` - Complete SSE lines (may span multiple `\n`-separated lines)
-/// * `state` - Mutable state for tracking tool call IDs across chunks
 pub fn parse_responses_sse_lines(
     lines: &str,
     state: &ResponsesSseState,
@@ -449,9 +446,9 @@ data: [DONE]\n\n";
         state.register_call("c1".into(), "fc_1".into(), "tool_a".into());
         state.register_call("c2".into(), "fc_2".into(), "tool_b".into());
 
-        assert_eq!(state.get_name("c1"), Some("tool_a".to_string()));
-        assert_eq!(state.get_name("c2"), Some("tool_b".to_string()));
-        assert_eq!(state.get_name("c3"), None);
+        assert_eq!(state.name("c1"), Some("tool_a".to_string()));
+        assert_eq!(state.name("c2"), Some("tool_b".to_string()));
+        assert_eq!(state.name("c3"), None);
     }
 
     #[test]

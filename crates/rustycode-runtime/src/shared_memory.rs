@@ -251,7 +251,6 @@ impl Default for SharedWorkingMemory {
 }
 
 impl SharedWorkingMemory {
-    /// Create a new shared working memory
     pub fn new() -> Self {
         Self {
             storage: HashMap::new(),
@@ -572,12 +571,12 @@ impl SharedWorkingMemory {
     }
 
     /// Get memory statistics
-    pub fn get_stats(&self) -> &MemoryStats {
+    pub fn stats(&self) -> &MemoryStats {
         &self.stats
     }
 
     /// Get pending conflicts
-    pub fn get_conflicts(&self) -> &[MemoryConflict] {
+    pub fn conflicts(&self) -> &[MemoryConflict] {
         &self.pending_conflicts
     }
 
@@ -739,7 +738,7 @@ mod tests {
 
         memory.read("agent1", "dummy").unwrap_err(); // This will fail but should count as a read attempt
 
-        let stats = memory.get_stats();
+        let stats = memory.stats();
         assert_eq!(stats.current_entries, 1);
         assert!(stats.total_writes > 0);
     }
@@ -1054,7 +1053,7 @@ mod tests {
         memory.clear();
         assert_eq!(memory.entry_count(), 0);
 
-        let stats = memory.get_stats();
+        let stats = memory.stats();
         assert_eq!(stats.current_entries, 0);
         assert_eq!(stats.memory_usage, 0);
     }
@@ -1093,7 +1092,7 @@ mod tests {
     fn default_is_empty() {
         let memory = SharedWorkingMemory::default();
         assert_eq!(memory.entry_count(), 0);
-        assert!(memory.get_conflicts().is_empty());
+        assert!(memory.conflicts().is_empty());
     }
 
     // 15. Reading a nonexistent entry returns NotFound error
@@ -1123,7 +1122,7 @@ mod tests {
             .update("agent1", &id, MemoryData::Text("update2".to_string()))
             .unwrap();
 
-        let conflicts = memory.get_conflicts();
+        let conflicts = memory.conflicts();
         assert!(
             !conflicts.is_empty(),
             "Expected conflict detection for rapid successive updates"
@@ -1154,7 +1153,7 @@ mod tests {
             .update("agent1", &id, MemoryData::Text("update1".to_string()))
             .unwrap();
 
-        let conflicts = memory.get_conflicts();
+        let conflicts = memory.conflicts();
         assert!(
             conflicts.is_empty(),
             "No conflict expected for old entry, got {}",

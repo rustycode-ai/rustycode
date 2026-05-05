@@ -76,7 +76,6 @@ pub struct TeamPanel {
 const ROLES: &[&str] = &["Architect", "Builder", "Skeptic", "Judge", "Scalpel"];
 
 impl TeamPanel {
-    /// Create a new team panel (hidden by default).
     pub fn new() -> Self {
         let agents = ROLES
             .iter()

@@ -378,13 +378,6 @@ fn process() -> Result<()> {
 /// assert_eq!(result, expected);
 /// ```
 ///
-/// # Errors
-///
-/// This function will return an error if...
-///
-/// # Panics
-///
-/// This function will panic if...
 pub fn function() -> Result<Type> {
     // ...
 }

@@ -133,7 +133,7 @@ mod operation_pipeline {
         }
 
         // Step 4: Verify scoring improved confidence for matching thoughts
-        let initial_after = graph.get_thought(initial_id).unwrap();
+        let initial_after = graph.thought(initial_id).unwrap();
         assert!(
             initial_after.metadata.confidence >= 0.6,
             "Initial thought with matching criteria should have equal or higher confidence"
@@ -356,7 +356,7 @@ mod error_api {
     fn test_graph_get_nonexistent_returns_error() {
         let graph = ReasoningGraph::new();
         let fake_id = uuid::Uuid::new_v4();
-        let result = graph.get_thought(fake_id);
+        let result = graph.thought(fake_id);
         assert!(result.is_err());
     }
 }

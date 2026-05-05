@@ -61,7 +61,7 @@ fn show_preferences(auto_memory: &Option<Arc<ThreadSafeAutoMemory>>) -> Result<S
         return Ok("❌ Auto-memory not available".to_string());
     };
 
-    let preferences = manager.get_preferences();
+    let preferences = manager.preferences();
 
     if preferences.is_empty() {
         return Ok("📋 No preferences saved yet".to_string());
@@ -88,7 +88,7 @@ fn show_decisions(auto_memory: &Option<Arc<ThreadSafeAutoMemory>>) -> Result<Str
         return Ok("❌ Auto-memory not available".to_string());
     };
 
-    let decisions = manager.get_decisions();
+    let decisions = manager.decisions();
 
     if decisions.is_empty() {
         return Ok("🎯 No decisions saved yet".to_string());
@@ -115,7 +115,7 @@ fn show_errors(auto_memory: &Option<Arc<ThreadSafeAutoMemory>>) -> Result<String
         return Ok("❌ Auto-memory not available".to_string());
     };
 
-    let errors = manager.get_errors();
+    let errors = manager.errors();
 
     if errors.is_empty() {
         return Ok("✅ No errors recorded yet".to_string());
@@ -148,7 +148,7 @@ fn show_recent(auto_memory: &Option<Arc<ThreadSafeAutoMemory>>, args: &[String])
         .unwrap_or(7)
         .max(1) as i64;
 
-    let recent = manager.get_recent(days);
+    let recent = manager.recent(days);
 
     if recent.is_empty() {
         return Ok(format!("📅 No memories in the last {} days", days));
@@ -187,7 +187,7 @@ fn show_important(
         .and_then(|s| s.parse::<f64>().ok())
         .unwrap_or(0.7);
 
-    let important = manager.get_important(threshold);
+    let important = manager.important(threshold);
 
     if important.is_empty() {
         return Ok(format!(
@@ -273,9 +273,9 @@ fn show_stats(auto_memory: &Option<Arc<ThreadSafeAutoMemory>>) -> Result<String>
     };
 
     let count = manager.count();
-    let preferences = manager.get_preferences();
-    let decisions = manager.get_decisions();
-    let errors = manager.get_errors();
+    let preferences = manager.preferences();
+    let decisions = manager.decisions();
+    let errors = manager.errors();
 
     let total_access: usize = preferences
         .iter()

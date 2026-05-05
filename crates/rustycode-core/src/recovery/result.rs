@@ -31,7 +31,6 @@ pub struct RecoveryLogEntry {
 }
 
 impl RecoveryLogEntry {
-    /// Create a new recovery log entry.
     pub fn new(
         attempt: u32,
         strategy: RecoveryStrategy,
@@ -85,7 +84,6 @@ pub struct RecoveryResult<T> {
 }
 
 impl<T> RecoveryResult<T> {
-    /// Create a new recovery result.
     pub fn new(
         result: anyhow::Result<T>,
         strategy_used: RecoveryStrategy,

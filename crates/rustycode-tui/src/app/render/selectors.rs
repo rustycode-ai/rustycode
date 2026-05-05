@@ -1,5 +1,5 @@
     pub fn render_model_selector(frame: &mut Frame) {
-        use crate::providers::get_all_available_models;
+        use crate::providers::all_available_models;
         use crate::app::render::shared::centered_rect;
         use ratatui::layout::Alignment;
         use ratatui::style::{Color, Style};
@@ -17,7 +17,7 @@
         frame.render_widget(Clear, modal_area);
 
         // Get available models
-        let models = get_all_available_models();
+        let models = all_available_models();
 
         // Create content lines
         let mut lines = vec![
@@ -72,7 +72,7 @@
 
     /// Render provider selector overlay
     pub fn render_provider_selector(frame: &mut Frame) {
-        use crate::providers::get_available_providers;
+        use crate::providers::available_providers;
         use crate::app::render::shared::centered_rect;
         use ratatui::layout::Alignment;
         use ratatui::style::{Color, Style};
@@ -90,7 +90,7 @@
         frame.render_widget(Clear, modal_area);
 
         // Get available providers
-        let providers = get_available_providers();
+        let providers = available_providers();
 
         // Create content lines
         let mut lines = vec![

@@ -13,7 +13,6 @@ pub struct DependencyResolver {
 }
 
 impl DependencyResolver {
-    /// Create a new dependency resolver
     pub fn new() -> Self {
         Self {
             plugins: HashMap::new(),
@@ -36,7 +35,7 @@ impl DependencyResolver {
     }
 
     /// Get a plugin manifest by name
-    pub fn get_plugin(&self, name: &str) -> Option<&PluginManifest> {
+    pub fn plugin(&self, name: &str) -> Option<&PluginManifest> {
         self.plugins.get(name)
     }
 
@@ -73,7 +72,7 @@ impl DependencyResolver {
         rec_stack.insert(plugin_name.to_string());
 
         if let Some(manifest) = self.plugins.get(plugin_name) {
-            for dep_name in manifest.get_dependencies() {
+            for dep_name in manifest.dependencies() {
                 if !visited.contains(dep_name) {
                     self.check_cycles(dep_name, visited, rec_stack)?;
                 } else if rec_stack.contains(dep_name) {
@@ -116,7 +115,7 @@ impl DependencyResolver {
         visited.insert(current.to_string());
 
         if let Some(manifest) = self.plugins.get(current) {
-            for dep_name in manifest.get_dependencies() {
+            for dep_name in manifest.dependencies() {
                 path.push(dep_name.to_string());
                 if self.build_path(dep_name, target, path, visited) {
                     return true;
@@ -142,13 +141,13 @@ impl DependencyResolver {
         visited.insert(plugin_name.to_string());
 
         if let Some(manifest) = self.plugins.get(plugin_name) {
-            for dep_name in manifest.get_dependencies() {
+            for dep_name in manifest.dependencies() {
                 if !self.plugins.contains_key(dep_name) {
                     return Err(PluginError::missing_dependency(plugin_name, dep_name));
                 }
 
                 let dep_manifest = &self.plugins[dep_name];
-                if let Some(version_spec) = manifest.get_dependency_version(dep_name) {
+                if let Some(version_spec) = manifest.dependency_version(dep_name) {
                     let spec = DependencySpec::parse_from_str(version_spec)?;
                     if !spec.satisfies(&dep_manifest.version) {
                         return Err(PluginError::version_mismatch(

@@ -92,7 +92,7 @@ pub fn export_conversation_to_file(
 }
 
 /// Get the default export directory
-pub fn get_default_export_dir() -> std::path::PathBuf {
+pub fn default_export_dir() -> std::path::PathBuf {
     use dirs::home_dir;
 
     if let Some(home) = home_dir() {

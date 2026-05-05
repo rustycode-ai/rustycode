@@ -266,7 +266,7 @@ pub fn check_iterm2_applescript() -> InstallStatus {
 }
 
 /// Get information about all connectors
-pub fn get_all_connectors() -> Vec<ConnectorInfo> {
+pub fn all_connectors() -> Vec<ConnectorInfo> {
     vec![
         ConnectorInfo {
             name: "tmux",
@@ -306,7 +306,7 @@ pub fn print_connector_status() {
     println!("{}", "=".repeat(70));
     println!();
 
-    let connectors = get_all_connectors();
+    let connectors = all_connectors();
 
     for connector in &connectors {
         let status_icon = match &connector.status {
@@ -390,8 +390,8 @@ mod tests {
     }
 
     #[test]
-    fn test_get_all_connectors() {
-        let connectors = get_all_connectors();
+    fn test_all_connectors() {
+        let connectors = all_connectors();
         assert_eq!(connectors.len(), 4);
 
         for connector in &connectors {
@@ -512,7 +512,7 @@ mod tests {
 
     #[test]
     fn test_get_all_connectors_names() {
-        let connectors = get_all_connectors();
+        let connectors = all_connectors();
         let names: Vec<&str> = connectors.iter().map(|c| c.name).collect();
         assert!(names.contains(&"tmux"));
         assert!(names.contains(&"iterm2-native"));
@@ -522,7 +522,7 @@ mod tests {
 
     #[test]
     fn test_get_all_connectors_performance_tiers() {
-        let connectors = get_all_connectors();
+        let connectors = all_connectors();
         for connector in &connectors {
             assert!(
                 connector.performance_tier > 0,

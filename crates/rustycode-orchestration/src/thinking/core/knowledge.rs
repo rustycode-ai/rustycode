@@ -69,9 +69,6 @@ impl KnowledgeIntegrator {
 
     /// Validate a thought against knowledge.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the knowledge source fails to validate.
     pub async fn validate_claim(&self, claim: &str) -> Result<ValidationResult> {
         match &self.source {
             Some(source) => source.validate(claim).await,
@@ -81,9 +78,6 @@ impl KnowledgeIntegrator {
 
     /// Find supporting evidence for a thought.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the knowledge source fails to find evidence.
     pub async fn find_evidence(&self, claim: &str) -> Result<Vec<String>> {
         match &self.source {
             Some(source) => source.find_evidence(claim).await,
@@ -93,9 +87,6 @@ impl KnowledgeIntegrator {
 
     /// Look up related facts.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the knowledge source fails to look up facts.
     pub async fn lookup_facts(&self, query: &str) -> Result<Vec<Fact>> {
         match &self.source {
             Some(source) => source.lookup(query).await,

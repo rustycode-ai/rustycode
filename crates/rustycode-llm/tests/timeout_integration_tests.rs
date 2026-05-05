@@ -130,7 +130,7 @@ async fn test_timeout_tracking_accumulation() {
 
     // Verify tracking
     let tracker = handler.tracker();
-    let events = tracker.get_events();
+    let events = tracker.events();
     assert_eq!(events.len(), 5);
 
     let stats = tracker.stats();
@@ -143,8 +143,8 @@ async fn test_model_specific_timeouts() {
     let handler = TimeoutHandler::default_config();
 
     // Haiku should have tighter timeout
-    let haiku_timeout = handler.config().get_model_timeout("claude-haiku");
-    let opus_timeout = handler.config().get_model_timeout("claude-opus");
+    let haiku_timeout = handler.config().model_timeout("claude-haiku");
+    let opus_timeout = handler.config().model_timeout("claude-opus");
 
     assert!(haiku_timeout < opus_timeout);
     assert_eq!(haiku_timeout, Duration::from_secs(20));
@@ -200,7 +200,7 @@ async fn test_tool_timeout_handling() {
     assert!(matches!(result.unwrap_err(), ProviderError::Timeout(_)));
 
     // Verify tracking
-    let events = handler.tracker().get_events();
+    let events = handler.tracker().events();
     assert!(events.iter().any(|e| e.endpoint == "tool:slow-tool"));
 }
 
@@ -259,7 +259,7 @@ async fn test_concurrent_timeouts_multiple_endpoints() {
 
     // All should be tracked
     let tracker = handler.tracker();
-    let events = tracker.get_events();
+    let events = tracker.events();
     assert_eq!(events.len(), 5);
 }
 

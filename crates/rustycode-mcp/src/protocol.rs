@@ -85,7 +85,6 @@ pub enum McpEvent {
 }
 
 impl JsonRpcRequest {
-    /// Create a new JSON-RPC request
     pub fn new(id: impl Into<JsonRpcId>, method: impl Into<String>) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
@@ -173,7 +172,6 @@ impl JsonRpcResponse {
 }
 
 impl JsonRpcNotification {
-    /// Create a new notification
     pub fn new(method: impl Into<String>) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),

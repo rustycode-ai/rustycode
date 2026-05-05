@@ -84,7 +84,6 @@ pub struct ExecutionMiddleware {
 }
 
 impl ExecutionMiddleware {
-    /// Create a new middleware instance
     pub fn new(config: MiddlewareConfig) -> Self {
         Self {
             config: config.clone(),

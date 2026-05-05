@@ -182,7 +182,6 @@ pub struct CancellationToken {
 }
 
 impl CancellationToken {
-    /// Create a new token that is not yet cancelled.
     pub const fn new() -> Self {
         Self { cancelled: false }
     }
@@ -490,7 +489,7 @@ impl ToolInfo {
 /// tool discovery from the concrete registry implementation.
 pub trait ToolMetadataProvider: Send + Sync {
     fn list_tools(&self) -> Vec<ToolInfo>;
-    fn get_tool_info(&self, name: &str) -> Option<ToolInfo>;
+    fn tool_info(&self, name: &str) -> Option<ToolInfo>;
     /// Return only tools that should be eagerly loaded (deferred tools excluded).
     fn list_immediate_tools(&self) -> Vec<ToolInfo> {
         self.list_tools()
@@ -655,7 +654,7 @@ impl ToolMetadataProvider for ToolRegistry {
         self.list()
     }
 
-    fn get_tool_info(&self, name: &str) -> Option<ToolInfo> {
+    fn tool_info(&self, name: &str) -> Option<ToolInfo> {
         self.get(name).map(ToolInfo::from_tool)
     }
 }
@@ -689,7 +688,7 @@ pub fn new_todo_state() -> TodoState {
 
 // ── Permission helpers (facade) ────────────────────────────────────────────
 /// Map tool name to protocol permission (same mapping as full tools crate)
-pub fn get_tool_permission(tool_name: &str) -> Option<ProtocolToolPermission> {
+pub fn tool_permission(tool_name: &str) -> Option<ProtocolToolPermission> {
     match tool_name {
         // Read-only tools - auto-allow (safe operations)
         "read_file" | "list_dir" | "grep" | "glob" | "find" | "inspect" | "git_status"
@@ -702,7 +701,7 @@ pub fn get_tool_permission(tool_name: &str) -> Option<ProtocolToolPermission> {
 
 /// Check if a tool is allowed in the given session mode.
 pub fn check_tool_permission(tool_name: &str, mode: SessionMode) -> bool {
-    let Some(permission) = get_tool_permission(tool_name) else {
+    let Some(permission) = tool_permission(tool_name) else {
         return true;
     };
 
@@ -791,7 +790,7 @@ mod tests {
         for tool in &["read_file", "list_dir", "grep", "glob"] {
             assert!(
                 matches!(
-                    get_tool_permission(tool),
+                    tool_permission(tool),
                     Some(ProtocolToolPermission::AutoAllow)
                 ),
                 "{tool} should be AutoAllow",
@@ -804,7 +803,7 @@ mod tests {
         for tool in &["write_file", "git_commit", "bash"] {
             assert!(
                 matches!(
-                    get_tool_permission(tool),
+                    tool_permission(tool),
                     Some(ProtocolToolPermission::RequiresConfirmation)
                 ),
                 "{tool} should be RequiresConfirmation",
@@ -994,7 +993,7 @@ mod tests {
 
     #[test]
     fn test_get_tool_permission_unknown() {
-        let perm = get_tool_permission("custom_tool_xyz");
+        let perm = tool_permission("custom_tool_xyz");
         assert!(matches!(
             perm,
             Some(ProtocolToolPermission::RequiresConfirmation)
@@ -1162,19 +1161,19 @@ mod tests {
     #[test]
     fn test_get_tool_permission_git_tools() {
         assert!(matches!(
-            get_tool_permission("git_status"),
+            tool_permission("git_status"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            get_tool_permission("git_diff"),
+            tool_permission("git_diff"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            get_tool_permission("git_log"),
+            tool_permission("git_log"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            get_tool_permission("git_commit"),
+            tool_permission("git_commit"),
             Some(ProtocolToolPermission::RequiresConfirmation)
         ));
     }
@@ -1182,19 +1181,19 @@ mod tests {
     #[test]
     fn test_get_tool_permission_lsp_tools() {
         assert!(matches!(
-            get_tool_permission("lsp_diagnostics"),
+            tool_permission("lsp_diagnostics"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            get_tool_permission("lsp_hover"),
+            tool_permission("lsp_hover"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            get_tool_permission("lsp_definition"),
+            tool_permission("lsp_definition"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            get_tool_permission("lsp_completion"),
+            tool_permission("lsp_completion"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
     }

@@ -56,9 +56,7 @@ fn create_test_request(prompt: &str) -> CompletionRequest {
     )
 }
 
-// ============================================================================
 // Unit Tests (No API Key Required)
-// ============================================================================
 
 #[test]
 fn test_anthropic_api_key_validation_requires_key() {
@@ -184,9 +182,7 @@ fn test_anthropic_custom_base_url() {
     assert!(result.is_ok());
 }
 
-// ============================================================================
 // Integration Tests (Require API Key)
-// ============================================================================
 
 #[tokio::test]
 #[cfg_attr(
@@ -386,9 +382,7 @@ async fn test_anthropic_with_max_tokens() {
     );
 }
 
-// ============================================================================
 // Tool Format Tests
-// ============================================================================
 
 #[test]
 fn test_anthropic_tool_format_structure() {
@@ -564,9 +558,7 @@ fn test_anthropic_multiple_tools_format() {
     assert_eq!(unique_names.len(), names.len(), "Tool names must be unique");
 }
 
-// ============================================================================
 // Error Handling Tests
-// ============================================================================
 
 #[tokio::test]
 #[cfg_attr(
@@ -608,9 +600,7 @@ async fn test_anthropic_invalid_api_key() {
     }
 }
 
-// ============================================================================
 // Provider Availability Tests
-// ============================================================================
 
 #[tokio::test]
 #[cfg_attr(

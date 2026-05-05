@@ -43,9 +43,7 @@ use ratatui::{
 };
 use std::sync::{Arc, Mutex};
 
-// ============================================================================
 // THEME PREVIEW STATE
-// ============================================================================
 
 /// Theme preview state
 #[derive(Debug, Clone)]
@@ -209,9 +207,7 @@ impl Default for ThemePreviewState {
     }
 }
 
-// ============================================================================
 // THEME PREVIEW RENDERER
-// ============================================================================
 
 /// Theme preview renderer
 pub struct ThemePreviewRenderer {
@@ -224,7 +220,6 @@ pub struct ThemePreviewRenderer {
 }
 
 impl ThemePreviewRenderer {
-    /// Create a new theme preview
     pub fn new(theme_colors: Arc<Mutex<ThemeColors>>) -> Self {
         Self {
             state: ThemePreviewState::new(),
@@ -605,9 +600,7 @@ impl ThemePreviewRenderer {
     }
 }
 
-// ============================================================================
 // HIGH-LEVEL API
-// ============================================================================
 
 /// High-level theme preview API
 pub struct ThemePreview {
@@ -616,7 +609,6 @@ pub struct ThemePreview {
 }
 
 impl ThemePreview {
-    /// Create a new theme preview
     pub fn new(theme_colors: Arc<Mutex<ThemeColors>>) -> Self {
         Self {
             renderer: ThemePreviewRenderer::new(theme_colors),
@@ -680,9 +672,7 @@ impl ThemePreview {
     }
 }
 
-// ============================================================================
 // THEME SWITCHER (SIMPLIFIED API)
-// ============================================================================
 
 /// Simple theme switcher for quick theme changes
 ///
@@ -694,7 +684,6 @@ pub struct ThemeSwitcher {
 }
 
 impl ThemeSwitcher {
-    /// Create a new theme switcher
     pub fn new(theme_colors: Arc<Mutex<ThemeColors>>) -> Self {
         let themes = builtin_themes();
         Self {
@@ -758,9 +747,7 @@ impl ThemeSwitcher {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

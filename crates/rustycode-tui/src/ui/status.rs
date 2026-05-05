@@ -68,7 +68,6 @@ pub struct StatusIndicator {
 }
 
 impl StatusIndicator {
-    /// Create a new status indicator
     pub fn new(icon: &'static str, text: impl Into<String>, animating: bool, color: Color) -> Self {
         Self {
             icon,
@@ -164,7 +163,6 @@ pub struct StatusBar {
 }
 
 impl StatusBar {
-    /// Create a new status bar
     pub fn new(config: StatusConfig) -> Self {
         Self {
             config,
@@ -479,7 +477,6 @@ pub struct ToolExecutions {
 }
 
 impl ToolExecutions {
-    /// Create a new collection
     pub fn new() -> Self {
         Self::default()
     }

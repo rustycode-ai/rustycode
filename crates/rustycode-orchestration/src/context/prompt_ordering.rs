@@ -60,27 +60,6 @@ pub struct CacheEfficiencyAnalysis {
 /// Content before the first ## heading is treated as a preamble
 /// and always placed first (it's usually static instructions).
 ///
-/// # Arguments
-/// * `prompt` - The assembled prompt string
-///
-/// # Returns
-/// Reordered prompt string
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::prompt_ordering::*;
-///
-/// let prompt = r#"
-/// ## Dynamic Task
-/// Task-specific content here
-///
-/// ## Static Template
-/// Template content here
-/// "#;
-///
-/// let reordered = reorder_for_caching(prompt);
-/// // Static Template section now comes before Dynamic Task
-/// ```
 pub fn reorder_for_caching(prompt: &str) -> String {
     let (preamble, sections) = split_sections(prompt);
 
@@ -108,20 +87,6 @@ pub fn reorder_for_caching(prompt: &str) -> String {
 ///
 /// Returns stats about how much of the prompt is cacheable.
 ///
-/// # Arguments
-/// * `prompt` - The assembled prompt string
-///
-/// # Returns
-/// Cache efficiency analysis
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::prompt_ordering::*;
-///
-/// let prompt = "## Static\nStatic content\n## Dynamic\nDynamic content";
-/// let analysis = analyze_cache_efficiency(prompt);
-/// println!("Cache efficiency: {:.1}%", analysis.cache_efficiency * 100.0);
-/// ```
 pub fn analyze_cache_efficiency(prompt: &str) -> CacheEfficiencyAnalysis {
     let (preamble, sections) = split_sections(prompt);
 

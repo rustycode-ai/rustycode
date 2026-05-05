@@ -108,7 +108,6 @@ pub struct CostTracker {
 }
 
 impl CostTracker {
-    /// Create a new cost tracker with optional budget limit
     pub fn new(budget_limit: Option<f64>) -> Self {
         Self {
             calls: Vec::new(),

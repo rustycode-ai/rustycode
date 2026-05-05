@@ -125,7 +125,6 @@ pub struct ContextMonitor {
 }
 
 impl ContextMonitor {
-    /// Create a new context monitor
     pub fn new(max_tokens: usize, warning_threshold: f64) -> Self {
         Self {
             current_tokens: 0,

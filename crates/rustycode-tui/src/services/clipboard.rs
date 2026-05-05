@@ -119,7 +119,6 @@ pub struct ClipboardImage {
 }
 
 impl ClipboardImage {
-    /// Create a new ClipboardImage with validation and auto-compression
     pub fn new(data: Vec<u8>) -> Result<Self> {
         Self::new_with_compression(data, false)
     }
@@ -324,7 +323,7 @@ pub fn has_image_in_clipboard() -> Result<bool> {
 }
 
 /// Get image from clipboard (with automatic compression for large images)
-pub fn get_image_from_clipboard() -> Result<ClipboardImage> {
+pub fn image_from_clipboard() -> Result<ClipboardImage> {
     let mut clipboard = match arboard::Clipboard::new() {
         Ok(c) => c,
         Err(e) => {
@@ -476,7 +475,7 @@ fn encode_arboard_image_as_png(width: usize, height: usize, bytes: Vec<u8>) -> R
 }
 
 /// Get text from clipboard (fallback)
-pub fn get_text_from_clipboard() -> Result<String> {
+pub fn text_from_clipboard() -> Result<String> {
     let mut clipboard = match arboard::Clipboard::new() {
         Ok(c) => c,
         Err(e) => {
@@ -511,12 +510,6 @@ pub fn get_text_from_clipboard() -> Result<String> {
 ///
 /// This version temporarily suspends raw mode to write the sequence properly.
 ///
-/// # Arguments
-/// * `text` - The text to copy to clipboard
-///
-/// # Returns
-/// * `Ok(())` if the copy command was sent (doesn't guarantee clipboard worked)
-/// * `Err(...)` if encoding failed
 pub fn copy_text_to_clipboard_osc52(text: &str) -> Result<()> {
     use base64::Engine;
 
@@ -556,12 +549,6 @@ pub fn copy_text_to_clipboard_osc52(text: &str) -> Result<()> {
 ///
 /// Falls back to OSC 52 if system clipboard is unavailable.
 ///
-/// # Arguments
-/// * `text` - The text to copy to clipboard
-///
-/// # Returns
-/// * `Ok(())` if copy succeeded
-/// * `Err(...)` if both system clipboard and OSC 52 failed
 pub fn copy_text_to_clipboard(text: &str) -> Result<()> {
     // Try system clipboard first (more reliable)
     match arboard::Clipboard::new() {
@@ -589,12 +576,6 @@ pub fn copy_text_to_clipboard(text: &str) -> Result<()> {
 /// Tries system clipboard (arboard), platform-specific tools, and OSC 52
 /// to ensure the text is copied regardless of terminal capabilities.
 ///
-/// # Arguments
-/// * `text` - The text to copy to clipboard
-///
-/// # Returns
-/// * `Ok(())` if at least one method succeeded
-/// * `Err(...)` if all methods failed
 pub fn copy_text_to_clipboard_both(text: &str) -> Result<()> {
     let mut last_error: Option<anyhow::Error> = None;
     // Prefixed with underscore to verify usage while suppressing false positive warning

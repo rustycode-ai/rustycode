@@ -61,7 +61,6 @@ impl Default for SemanticIndex {
 }
 
 impl SemanticIndex {
-    /// Create a new semantic index
     pub fn new() -> Result<Self> {
         let embedder = TextEmbedding::try_new(
             InitOptions::new(EmbeddingModel::BGESmallENV15).with_show_download_progress(false),

@@ -81,7 +81,6 @@ pub struct Spinner {
 }
 
 impl Spinner {
-    /// Create a new spinner
     pub fn new(style: SpinnerStyle) -> Self {
         Self {
             style,

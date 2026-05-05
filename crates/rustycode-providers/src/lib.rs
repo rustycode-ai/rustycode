@@ -44,13 +44,13 @@
 //!
 //!     // List available providers
 //!     for provider_id in registry.list_providers().await {
-//!         if let Some(provider) = registry.get_provider(&provider_id).await {
+//!         if let Some(provider) = registry.provider(&provider_id).await {
 //!             println!("Provider: {} ({})", provider.name, provider.id);
 //!         }
 //!     }
 //!
 //!     // Get cost tracking
-//!     let costs = registry.get_cost_summary().await;
+//!     let costs = registry.cost_summary().await;
 //!     println!("Total cost: ${:.2}", costs.total_cost);
 //! }
 //! ```

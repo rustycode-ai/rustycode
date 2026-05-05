@@ -553,7 +553,7 @@ impl BrutalistRenderer<'_> {
                 }
             } else if y_offset < area.height {
                 let slow_frame = self.animation_frame / 8;
-                let thinking_msg = thinking_messages::get_thinking_message(slow_frame);
+                let thinking_msg = thinking_messages::thinking_message(slow_frame);
                 let think_area = Rect {
                     x: area.x,
                     y: area.y + y_offset,

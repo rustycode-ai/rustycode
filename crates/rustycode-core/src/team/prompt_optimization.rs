@@ -31,9 +31,7 @@ use tracing::{debug, info};
 
 use super::execution_trace::{DiscoveredPattern, PatternCategory};
 
-// ============================================================================
 // Core Types
-// ============================================================================
 
 /// A prompt optimization derived from execution traces.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,9 +64,7 @@ pub enum OptimizationCategory {
     TestingStrategy,
 }
 
-// ============================================================================
 // Optimization Generation
-// ============================================================================
 
 /// Generate prompt optimizations from mined patterns.
 ///
@@ -239,9 +235,7 @@ fn classify_success_task_pattern(description: &str) -> String {
     }
 }
 
-// ============================================================================
 // Briefing Formatting
-// ============================================================================
 
 /// Format optimizations as an injectable prompt fragment for a given task.
 ///
@@ -300,9 +294,7 @@ pub fn format_for_briefing(optimizations: &[PromptOptimization], task: &str) -> 
     result
 }
 
-// ============================================================================
 // Relevance Selection
-// ============================================================================
 
 /// Select the most relevant optimizations for a task description.
 ///
@@ -396,9 +388,7 @@ fn token_matches(task_lower: &str, token: &str) -> bool {
     false
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

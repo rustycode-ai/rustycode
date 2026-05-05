@@ -26,7 +26,6 @@ pub struct TaskDashboard<'a> {
 }
 
 impl<'a> TaskDashboard<'a> {
-    /// Create a new dashboard with the given tasks and agents.
     pub fn new(tasks: &'a [Task], agents: &'a [ActiveAgent]) -> Self {
         Self { tasks, agents }
     }

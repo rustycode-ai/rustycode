@@ -23,7 +23,6 @@ pub struct HttpTransport {
 }
 
 impl HttpTransport {
-    /// Create a new HTTP transport with a per-request timeout of 30 seconds.
     pub fn new(url: &str, headers: HashMap<String, String>) -> McpResult<Self> {
         let client = Client::builder()
             .timeout(Duration::from_secs(30))

@@ -109,14 +109,6 @@ pub fn estimate_tokens(base64_len: usize) -> usize {
 /// `max_tokens` estimated tokens. Token estimation uses
 /// `estimate_tokens(base64_len)`.
 ///
-/// # Arguments
-///
-/// * `buffer` - Raw image bytes (PNG, JPEG, GIF, `WebP`, etc.)
-/// * `max_tokens` - Target token budget (use `DEFAULT_MAX_TOKENS` for 16k)
-///
-/// # Errors
-///
-/// Returns an error if the buffer is not a valid image format.
 pub fn process_image(buffer: &[u8], max_tokens: usize) -> Result<ProcessedImage> {
     let original_size = buffer.len();
 

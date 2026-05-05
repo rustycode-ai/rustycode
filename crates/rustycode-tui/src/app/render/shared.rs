@@ -7,9 +7,7 @@
 use ratatui::layout::Rect;
 use unicode_width::UnicodeWidthStr;
 
-// ============================================================================
 // LINE ESTIMATION
-// ============================================================================
 
 /// Estimate line count for a string without iterating all content.
 ///
@@ -64,9 +62,7 @@ pub fn estimate_line_count_wrapped(s: &str, max_width: usize) -> usize {
     (s.len() as f64 * ratio) as usize + 1
 }
 
-// ============================================================================
 // SIZE / DURATION FORMATTING
-// ============================================================================
 
 /// Format a byte count as a human-readable string.
 ///
@@ -97,9 +93,7 @@ pub fn format_duration_ms(ms: u64) -> String {
     }
 }
 
-// ============================================================================
 // PATH SHORTENING
-// ============================================================================
 
 /// Goose-inspired smart path shortening for compact tool display.
 ///
@@ -166,9 +160,7 @@ pub fn safe_truncate(s: &str, max_chars: usize) -> String {
     }
 }
 
-// ============================================================================
 // LAYOUT HELPERS
-// ============================================================================
 
 /// Build a fixed-size rectangle centered within the given area.
 ///
@@ -182,9 +174,7 @@ pub fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
     Rect::new(x, y, width, height)
 }
 
-// ============================================================================
 // TOOL KIND ICONS
-// ============================================================================
 
 /// Map a tool name to a single-character kind icon for compact display.
 ///
@@ -217,9 +207,7 @@ pub fn tool_kind_icon(name: &str) -> &'static str {
     "*"
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

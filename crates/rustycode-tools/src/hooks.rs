@@ -153,7 +153,6 @@ pub struct HookManager {
 }
 
 impl HookManager {
-    /// Create a new hook manager
     pub const fn new(hooks_dir: PathBuf, profile: HookProfile, session_id: String) -> Self {
         Self {
             hooks_dir,

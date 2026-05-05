@@ -152,9 +152,6 @@ impl McpMode {
 
     /// Create new MCP mode with filters
     ///
-    /// # Arguments
-    /// * `enabled_tags` - If Some, only load servers with at least one of these tags
-    /// * `enabled_server_ids` - If Some, only load servers with these IDs
     pub async fn new_with_filters(
         enabled_tags: Option<Vec<String>>,
         enabled_server_ids: Option<Vec<String>>,
@@ -270,7 +267,7 @@ impl McpMode {
                             }
 
                             // Get tools from this server
-                            let proxied_tools = proxy.get_tools().await;
+                            let proxied_tools = proxy.tools().await;
 
                             // Apply tool filtering
                             let filtered_tools: Vec<_> = proxied_tools

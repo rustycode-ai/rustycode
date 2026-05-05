@@ -28,9 +28,7 @@ use std::sync::Arc;
 
 use super::definitions::{self, AgentDefinition};
 
-// ---------------------------------------------------------------------------
 // Role mapping helpers
-// ---------------------------------------------------------------------------
 
 /// Parse a string role (from LLM tool call) into a `TaskRole` enum.
 fn parse_task_role(role: &str) -> TaskRole {
@@ -92,9 +90,7 @@ fn enrich_task_prompt(
     prompt
 }
 
-// ---------------------------------------------------------------------------
 // DelegationExecutor
-// ---------------------------------------------------------------------------
 
 /// Tool that executes delegated tasks by spawning real `AgentSession` sub-agents.
 ///
@@ -120,7 +116,6 @@ pub struct DelegationExecutor {
 }
 
 impl DelegationExecutor {
-    /// Create a new `DelegationExecutor`.
     pub fn new(
         provider: Arc<dyn LLMProvider>,
         model: String,
@@ -226,9 +221,7 @@ impl DelegationExecutor {
     }
 }
 
-// ---------------------------------------------------------------------------
 // TaskRunner implementation
-// ---------------------------------------------------------------------------
 
 impl TaskRunner for DelegationExecutor {
     fn run_task(
@@ -307,9 +300,7 @@ impl TaskRunner for DelegationExecutor {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tool trait implementation
-// ---------------------------------------------------------------------------
 
 impl Tool for DelegationExecutor {
     fn name(&self) -> &'static str {
@@ -482,9 +473,7 @@ impl Tool for DelegationExecutor {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Event collector
-// ---------------------------------------------------------------------------
 
 /// Simple event collector for delegated sub-agent runs.
 #[derive(Default)]
@@ -513,9 +502,7 @@ impl AgentEvents for DelegationCollector {
     async fn on_done(&mut self, _result: &AgentResult) {}
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

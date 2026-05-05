@@ -62,7 +62,6 @@ pub struct SessionRecoveryManager {
 }
 
 impl SessionRecoveryManager {
-    /// Create a new session recovery manager
     pub fn new(config: SessionRecoveryConfig) -> Result<Self> {
         // Generate or load session ID
         let session_id = generate_session_id();
@@ -225,9 +224,7 @@ fn generate_session_id() -> String {
     format!("{}-{}", timestamp, random)
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

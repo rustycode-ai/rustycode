@@ -54,11 +54,6 @@ pub struct RateLimitConfig {
 impl RateLimitConfig {
     /// Create a new rate limit configuration
     ///
-    /// # Arguments
-    ///
-    /// * `max_units` - Maximum units allowed per time window
-    /// * `window_duration` - Duration of the time window
-    /// * `limit_type` - Type of rate limit (requests or tokens)
     pub fn new(max_units: u64, window_duration: Duration, limit_type: RateLimitType) -> Self {
         Self {
             max_units,
@@ -176,9 +171,6 @@ struct RateLimiterInner {
 impl RateLimiter {
     /// Create a new rate limiter with custom configuration
     ///
-    /// # Arguments
-    ///
-    /// * `limits` - Vector of rate limit configurations
     pub fn new(limits: Vec<RateLimitConfig>) -> Self {
         let buckets = limits
             .into_iter()
@@ -203,24 +195,6 @@ impl RateLimiter {
     /// This method checks all rate limits and waits until the request can proceed.
     /// It automatically consumes tokens for the request based on the limit type.
     ///
-    /// # Arguments
-    ///
-    /// * `tokens` - Number of tokens to consume (used for token-based limits)
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// # use rustycode_llm::RateLimiter;
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// # let mut limiter = RateLimiter::builder()
-    /// #     .requests_per_minute(10)
-    /// #     .build()?;
-    /// // Wait until rate limit allows the request
-    /// limiter.rate_limit(100).await;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn rate_limit(&self, tokens: u64) {
         loop {
             let mut inner = self.inner.lock().await;
@@ -256,13 +230,6 @@ impl RateLimiter {
 
     /// Check if a request would be allowed without waiting
     ///
-    /// # Arguments
-    ///
-    /// * `tokens` - Number of tokens that would be consumed
-    ///
-    /// # Returns
-    ///
-    /// `true` if the request would be allowed immediately, `false` otherwise
     pub async fn try_acquire(&self, tokens: u64) -> bool {
         let mut inner = self.inner.lock().await;
 
@@ -291,13 +258,6 @@ impl RateLimiter {
 
     /// Get available tokens for a specific limit type
     ///
-    /// # Arguments
-    ///
-    /// * `limit_type` - Type of rate limit to query
-    ///
-    /// # Returns
-    ///
-    /// Available tokens as a float, or `None` if limit type not found
     pub async fn available_tokens(&self, limit_type: RateLimitType) -> Option<f64> {
         let inner = self.inner.lock().await;
 
@@ -369,9 +329,6 @@ impl RateLimiterBuilder {
 
     /// Build the rate limiter
     ///
-    /// # Errors
-    ///
-    /// Returns an error if no rate limits have been configured.
     pub fn build(self) -> anyhow::Result<RateLimiter> {
         if self.limits.is_empty() {
             anyhow::bail!("RateLimiter must have at least one rate limit configured");

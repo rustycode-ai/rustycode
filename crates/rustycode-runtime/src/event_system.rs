@@ -120,14 +120,14 @@ impl EventData {
         matches!(self, EventData::Empty)
     }
 
-    pub fn get_text(&self) -> Option<&String> {
+    pub fn text(&self) -> Option<&String> {
         match self {
             EventData::Text(s) => Some(s),
             _ => None,
         }
     }
 
-    pub fn get_json(&self) -> Option<&serde_json::Value> {
+    pub fn json(&self) -> Option<&serde_json::Value> {
         match self {
             EventData::Json(v) => Some(v),
             _ => None,
@@ -452,7 +452,7 @@ impl EventSystem {
     }
 
     /// Get a receiver for a subscription
-    pub fn get_receiver(&self) -> broadcast::Receiver<Event> {
+    pub fn receiver(&self) -> broadcast::Receiver<Event> {
         self.event_channel.subscribe()
     }
 
@@ -496,13 +496,13 @@ impl EventSystem {
     }
 
     /// Get event statistics
-    pub async fn get_statistics(&self) -> EventStatistics {
+    pub async fn statistics(&self) -> EventStatistics {
         let stats = self.statistics.read().await;
         stats.clone()
     }
 
     /// Get dead letter events
-    pub async fn get_dead_letter_events(&self) -> Vec<DeadLetterEvent> {
+    pub async fn dead_letter_events(&self) -> Vec<DeadLetterEvent> {
         let queue = self.dead_letter_queue.read().await;
         queue.iter().cloned().collect()
     }
@@ -553,7 +553,7 @@ impl EventSystem {
     }
 
     /// Get events from store
-    pub async fn get_events(
+    pub async fn events(
         &self,
         event_type: Option<EventType>,
         source: Option<String>,
@@ -643,7 +643,7 @@ impl EventSystem {
     where
         F: FnMut(Event) -> Result<(), String>,
     {
-        let mut rx = self.get_receiver();
+        let mut rx = self.receiver();
 
         // Get subscription filter
         let filter = {
@@ -870,7 +870,7 @@ mod tests {
 
         system.publish(event).await.unwrap();
 
-        let stats = system.get_statistics().await;
+        let stats = system.statistics().await;
         assert_eq!(stats.total_events_published, 1);
     }
 
@@ -888,7 +888,7 @@ mod tests {
         system.publish(event).await.unwrap();
 
         let events = system
-            .get_events(Some(EventType::TaskCreated), None, None)
+            .events(Some(EventType::TaskCreated), None, None)
             .await;
         assert_eq!(events.len(), 1);
     }
@@ -926,23 +926,23 @@ mod tests {
     fn test_event_data_accessors() {
         let empty = EventData::Empty;
         assert!(empty.is_empty());
-        assert!(empty.get_text().is_none());
-        assert!(empty.get_json().is_none());
+        assert!(empty.text().is_none());
+        assert!(empty.json().is_none());
 
         let text = EventData::Text("hello".to_string());
         assert!(!text.is_empty());
-        assert_eq!(text.get_text(), Some(&"hello".to_string()));
-        assert!(text.get_json().is_none());
+        assert_eq!(text.text(), Some(&"hello".to_string()));
+        assert!(text.json().is_none());
 
         let json_val = serde_json::json!({"key": "value"});
         let json = EventData::Json(json_val.clone());
         assert!(!json.is_empty());
-        assert!(json.get_text().is_none());
-        assert_eq!(json.get_json(), Some(&json_val));
+        assert!(json.text().is_none());
+        assert_eq!(json.json(), Some(&json_val));
 
         let binary = EventData::Binary(vec![1, 2, 3]);
         assert!(!binary.is_empty());
-        assert!(binary.get_text().is_none());
+        assert!(binary.text().is_none());
 
         let mut structured_data = HashMap::new();
         structured_data.insert("k".to_string(), serde_json::json!(42));
@@ -1081,12 +1081,12 @@ mod tests {
         let original = EventData::Text("test payload".to_string());
         let json = serde_json::to_string(&original).unwrap();
         let deserialized: EventData = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized.get_text(), Some(&"test payload".to_string()));
+        assert_eq!(deserialized.text(), Some(&"test payload".to_string()));
 
         let json_data = EventData::Json(serde_json::json!({"count": 42}));
         let json_str = serde_json::to_string(&json_data).unwrap();
         let back: EventData = serde_json::from_str(&json_str).unwrap();
-        assert!(back.get_json().is_some());
+        assert!(back.json().is_some());
     }
 
     #[tokio::test]
@@ -1135,7 +1135,7 @@ mod tests {
         assert_eq!(event.event_type, EventType::SystemStarted);
         assert_eq!(event.priority, EventPriority::High);
         assert_eq!(event.source, "boot_manager");
-        assert!(event.data.get_text().is_some());
+        assert!(event.data.text().is_some());
     }
 
     #[tokio::test]
@@ -1184,7 +1184,7 @@ mod tests {
         let result = system.unsubscribe(&sub_id).await;
         assert!(result.is_ok());
 
-        let stats = system.get_statistics().await;
+        let stats = system.statistics().await;
         assert_eq!(stats.active_subscriptions, 0);
     }
 
@@ -1231,7 +1231,7 @@ mod tests {
         assert_eq!(dles.len(), 1);
         assert_eq!(dles[0].reason, "Handler panicked");
 
-        let stats = system.get_statistics().await;
+        let stats = system.statistics().await;
         assert_eq!(stats.total_events_failed, 1);
         assert_eq!(stats.dead_letter_count, 1);
 
@@ -1331,11 +1331,11 @@ mod tests {
         system.publish(e2).await.unwrap();
 
         let alpha_events = system
-            .get_events(None, Some("alpha".to_string()), None)
+            .events(None, Some("alpha".to_string()), None)
             .await;
         assert_eq!(alpha_events.len(), 1);
 
-        let limited = system.get_events(None, None, Some(1)).await;
+        let limited = system.events(None, None, Some(1)).await;
         assert_eq!(limited.len(), 1);
     }
 
@@ -1354,7 +1354,7 @@ mod tests {
         system.publish(event).await.unwrap();
 
         // Verify the stored event got an ID
-        let stored = system.get_events(None, None, None).await;
+        let stored = system.events(None, None, None).await;
         assert_eq!(stored.len(), 1);
         assert!(!stored[0].id.is_empty());
         assert!(stored[0].id.starts_with("event_"));
@@ -1598,7 +1598,7 @@ mod tests {
     fn event_data_clone_equal() {
         let data = EventData::Text("clone me".into());
         let cloned = data.clone();
-        assert_eq!(cloned.get_text(), data.get_text());
+        assert_eq!(cloned.text(), data.text());
     }
 
     // 13. Event debug format contains key fields
@@ -1682,7 +1682,7 @@ mod tests {
 
         // Verify the remaining events are the newest ones
         let events = system
-            .get_events(Some(EventType::TaskCreated), None, None)
+            .events(Some(EventType::TaskCreated), None, None)
             .await;
         assert_eq!(events.len(), 3);
         // The surviving events should be event_2, event_3, event_4
@@ -1776,12 +1776,12 @@ mod tests {
         system.publish(e2).await.unwrap();
 
         let events = system
-            .get_events(Some(EventType::SystemStarted), None, None)
+            .events(Some(EventType::SystemStarted), None, None)
             .await;
         assert!(events.is_empty(), "SystemStarted should have been evicted");
 
         let events = system
-            .get_events(Some(EventType::SystemStopped), None, None)
+            .events(Some(EventType::SystemStopped), None, None)
             .await;
         assert_eq!(events.len(), 1, "only SystemStopped should remain");
     }
@@ -1820,7 +1820,7 @@ mod tests {
         assert!(system.get_dead_letter_events().await.is_empty());
 
         // Stats should still reflect the historical count
-        let stats = system.get_statistics().await;
+        let stats = system.statistics().await;
         assert_eq!(
             stats.dead_letter_count, 5,
             "historical count should persist"
@@ -1851,7 +1851,7 @@ mod tests {
         system.publish(e2).await.unwrap();
 
         let events = system
-            .get_events(Some(EventType::AgentSpawned), None, None)
+            .events(Some(EventType::AgentSpawned), None, None)
             .await;
         assert_eq!(events.len(), 2);
         assert_ne!(

@@ -82,7 +82,6 @@ pub struct CheckpointManager {
 }
 
 impl CheckpointManager {
-    /// Create a new checkpoint manager
     pub fn new(checkpoints_dir: PathBuf) -> Self {
         Self {
             checkpoints_dir,

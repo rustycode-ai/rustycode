@@ -48,9 +48,7 @@
 
 use serde::{Deserialize, Serialize};
 
-// ============================================================================
 // HOOK EVENT ENUM
-// ============================================================================
 
 /// The nine hook lifecycle events, matching Claude Code's protocol exactly.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -104,9 +102,7 @@ impl std::fmt::Display for HookEvent {
     }
 }
 
-// ============================================================================
 // HOOK CONFIGURATION (settings.json format)
-// ============================================================================
 
 /// Top-level hooks configuration from `settings.json`.
 ///
@@ -247,9 +243,7 @@ pub const fn default_timeout() -> u64 {
 /// Default timeout for all hooks (seconds).
 pub const DEFAULT_HOOK_TIMEOUT_SECS: u64 = 60;
 
-// ============================================================================
 // HOOK INPUT (JSON passed via stdin)
-// ============================================================================
 
 /// Input payload sent to hook scripts via stdin as JSON.
 ///
@@ -412,9 +406,7 @@ impl HookInputBuilder {
     }
 }
 
-// ============================================================================
 // HOOK OUTPUT (parsed from stdout, exit code 0)
-// ============================================================================
 
 /// Parsed JSON output from a hook script (exit code 0).
 ///
@@ -489,9 +481,7 @@ pub struct HookSpecificOutput {
     pub additional_context: Option<String>,
 }
 
-// ============================================================================
 // EXIT CODE SEMANTICS
-// ============================================================================
 
 /// Exit code interpretation per Claude Code protocol.
 #[derive(Clone, Debug)]
@@ -527,9 +517,7 @@ impl HookExitCode {
     }
 }
 
-// ============================================================================
 // HOOK EXECUTION RESULT
-// ============================================================================
 
 /// Result of executing all hooks for a single event.
 #[derive(Clone, Debug, Default)]
@@ -569,9 +557,7 @@ pub struct SingleHookResult {
     pub duration_ms: u128,
 }
 
-// ============================================================================
 // MATCHER LOGIC
-// ============================================================================
 
 /// Check if a tool name matches a hook's matcher pattern.
 ///
@@ -585,9 +571,7 @@ pub fn tool_matches_matcher(tool_name: &str, matcher: &Option<String>) -> bool {
     })
 }
 
-// ============================================================================
 // ENVIRONMENT VARIABLES
-// ============================================================================
 
 /// Environment variable set for all hook commands.
 pub const ENV_CLAUDE_PROJECT_DIR: &str = "CLAUDE_PROJECT_DIR";

@@ -29,7 +29,6 @@ pub struct RateLimitHandler {
 }
 
 impl RateLimitHandler {
-    /// Create a new rate limit handler
     pub fn new() -> Self {
         Self {
             until: None,

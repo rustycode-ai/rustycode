@@ -77,7 +77,7 @@ impl PolishedRenderer {
             RenderStatus::Thinking { chunks_received, thinking_chunks_received } => {
                 let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
                 let frame_idx = (anim_frame.progress_frame / 5) % frames.len();
-                let thinking_msg = crate::app::thinking_messages::get_thinking_message(
+                let thinking_msg = crate::app::thinking_messages::thinking_message(
                     anim_frame.progress_frame / 60,
                 );
                 spans.push(Span::styled(
@@ -277,7 +277,7 @@ impl PolishedRenderer {
 
         // Input mode and agent mode are already shown in the input area — skip here
 
-        let agents = tui.agent_manager.get_agents();
+        let agents = tui.agent_manager.agents();
         let running_agents: Vec<_> = agents
             .iter()
             .filter(|a| matches!(a.status, crate::agents::AgentStatus::Running))

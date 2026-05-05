@@ -32,7 +32,6 @@ pub struct SnapshotManager {
 }
 
 impl SnapshotManager {
-    /// Create a new snapshot manager for the given working directory.
     pub fn new(worktree: PathBuf) -> Self {
         Self { worktree }
     }

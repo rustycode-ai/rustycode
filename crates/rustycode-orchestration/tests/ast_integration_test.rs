@@ -44,9 +44,7 @@ use rustycode_orchestration::structured_thinking_tool::{
     should_use_ast, StructuredThinkingToolSchema,
 };
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /// Build a pipeline backed by SimulatedRunner writing its ledger into a temp dir.
 fn make_pipeline() -> (AstPipeline, tempfile::TempDir) {
@@ -65,9 +63,7 @@ fn classify(request: &str) -> TaskAssessment {
     TaskClassifier::new().classify(request)
 }
 
-// ===========================================================================
 // Group 1: Classification tests
-// ===========================================================================
 
 mod classification {
     use super::*;
@@ -172,9 +168,7 @@ mod classification {
     }
 }
 
-// ===========================================================================
 // Group 2: AST Pipeline tests
-// ===========================================================================
 
 mod ast_pipeline {
     use super::*;
@@ -286,9 +280,7 @@ mod ast_pipeline {
     }
 }
 
-// ===========================================================================
 // Group 3: AstPhaseState tests
-// ===========================================================================
 //
 // NOTE: AstPhaseState lives in rustycode-tui (ratatui widget). It cannot be
 // imported from this orchestration crate's integration tests because the
@@ -512,9 +504,7 @@ mod ast_phase_state_logic {
     }
 }
 
-// ===========================================================================
 // Group 4: StructuredThinkingTool schema tests
-// ===========================================================================
 
 mod structured_thinking_tool_schema {
     use super::*;
@@ -612,9 +602,7 @@ mod structured_thinking_tool_schema {
     }
 }
 
-// ===========================================================================
 // Cross-cutting integration: classify -> pipeline consistency
-// ===========================================================================
 
 mod cross_cutting {
     use super::*;

@@ -390,7 +390,6 @@ pub struct AutonomyDecider<'a> {
 }
 
 impl<'a> AutonomyDecider<'a> {
-    /// Create a new decider for the given autonomy config.
     pub const fn new(config: &'a AutonomyConfig) -> Self {
         Self { config }
     }

@@ -25,7 +25,6 @@ pub struct ToolCall {
 }
 
 impl ToolCall {
-    /// Create a new tool call
     pub const fn new(server_id: String, tool_name: String, arguments: Value) -> Self {
         Self {
             server_id,
@@ -73,7 +72,6 @@ pub struct ToolCache {
 }
 
 impl ToolCache {
-    /// Create a new tool cache
     pub fn new(ttl: Duration, max_size: usize) -> Self {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
@@ -174,7 +172,6 @@ pub struct ToolRegistry {
 }
 
 impl ToolRegistry {
-    /// Create a new tool registry
     pub fn new() -> Self {
         Self {
             tools: Arc::new(RwLock::new(HashMap::new())),
@@ -283,7 +280,7 @@ impl ToolRegistry {
     }
 
     /// Get tool by name
-    pub async fn get_tool(&self, name: &str) -> Option<McpTool> {
+    pub async fn find_tool(&self, name: &str) -> Option<McpTool> {
         let tools = self.tools.read().await;
         tools.get(name).cloned()
     }
@@ -351,7 +348,6 @@ pub struct ToolExecutionEngine {
 }
 
 impl ToolExecutionEngine {
-    /// Create a new tool execution engine
     pub fn new(cache_ttl: Duration, cache_size: usize, max_concurrent: usize) -> Self {
         Self {
             registry: ToolRegistry::new(),
@@ -497,22 +493,22 @@ impl ToolExecutionEngine {
     }
 
     /// Get tool by name
-    pub async fn get_tool(&self, name: &str) -> Option<McpTool> {
-        self.registry.get_tool(name).await
+    pub async fn find_tool(&self, name: &str) -> Option<McpTool> {
+        self.registry.find_tool(name).await
     }
 
     /// Get metrics
-    pub async fn get_metrics(&self, key: &str) -> Option<crate::enterprise::Metrics> {
-        self.metrics.get_metrics(key).await
+    pub async fn metrics(&self, key: &str) -> Option<crate::enterprise::Metrics> {
+        self.metrics.metrics(key).await
     }
 
     /// Get all metrics
-    pub async fn get_all_metrics(&self) -> HashMap<String, crate::enterprise::Metrics> {
-        self.metrics.get_all_metrics().await
+    pub async fn all_metrics(&self) -> HashMap<String, crate::enterprise::Metrics> {
+        self.metrics.all_metrics().await
     }
 
     /// Get cache statistics
-    pub async fn get_cache_stats(&self) -> CacheStats {
+    pub async fn cache_stats(&self) -> CacheStats {
         self.cache.stats().await
     }
 
@@ -626,11 +622,11 @@ mod tests {
         let engine = ToolExecutionEngine::new(Duration::from_mins(1), 100, 5);
 
         // Test default configuration
-        let metrics = engine.get_all_metrics().await;
+        let metrics = engine.all_metrics().await;
         assert_eq!(metrics.len(), 0);
 
         // Test cache stats
-        let cache_stats = engine.get_cache_stats().await;
+        let cache_stats = engine.cache_stats().await;
         assert_eq!(cache_stats.total_entries, 0);
         assert_eq!(cache_stats.total_hits, 0);
 
@@ -767,7 +763,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_registry_get_tool_not_found() {
         let registry = ToolRegistry::new();
-        assert!(registry.get_tool("nonexistent").await.is_none());
+        assert!(registry.find_tool("nonexistent").await.is_none());
     }
 
     #[tokio::test]
@@ -790,7 +786,7 @@ mod tests {
     #[tokio::test]
     async fn test_tool_execution_engine_default() {
         let engine = ToolExecutionEngine::default();
-        assert_eq!(engine.get_cache_stats().await.total_entries, 0);
+        assert_eq!(engine.cache_stats().await.total_entries, 0);
     }
 
     #[tokio::test]
@@ -804,7 +800,7 @@ mod tests {
         let engine =
             ToolExecutionEngine::new(Duration::from_mins(1), 100, 5).with_retry_config(config);
         // Engine created successfully with custom retry config
-        assert_eq!(engine.get_all_metrics().await.len(), 0);
+        assert_eq!(engine.all_metrics().await.len(), 0);
     }
 
     #[test]

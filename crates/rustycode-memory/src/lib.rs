@@ -179,7 +179,6 @@ pub struct MemoryEntryConfig {
 }
 
 impl MemoryEntry {
-    /// Create a new memory entry
     pub fn new(config: MemoryEntryConfig) -> Self {
         let clamped_confidence = config.confidence.clamp(0.3, 0.9);
 
@@ -343,7 +342,7 @@ fn extract_project_name(url: &str) -> String {
 }
 
 /// Get memory directory for current context
-pub fn get_memory_dir(cwd: &Path) -> PathBuf {
+pub fn memory_dir(cwd: &Path) -> PathBuf {
     if let Some(project) = detect_project_context(cwd) {
         // Project-scoped memory
         PathBuf::from(".rustycode")
@@ -584,7 +583,7 @@ pub struct SessionContext {
 impl MemoryManager {
     /// Get the session context: the index (always loaded) and any
     /// topic files that should be pre-loaded.
-    pub fn get_context_for_session(&self) -> SessionContext {
+    pub fn context_for_session(&self) -> SessionContext {
         SessionContext {
             index: self.index.clone(),
             topic_files: Vec::new(),
@@ -1105,7 +1104,7 @@ build_commands:
     #[test]
     fn get_memory_dir_returns_rustycode_path() {
         let cwd = Path::new("/tmp/myproject");
-        let dir = get_memory_dir(cwd);
+        let dir = memory_dir(cwd);
         assert!(dir.starts_with(".rustycode"));
     }
 

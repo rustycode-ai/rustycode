@@ -25,7 +25,6 @@ impl Default for ContextPruner {
 }
 
 impl ContextPruner {
-    /// Create a new context pruner with default settings.
     pub fn new() -> Self {
         Self {
             min_priority: Priority::Low,
@@ -54,13 +53,6 @@ impl ContextPruner {
 
     /// Prune context items that don't meet criteria.
     ///
-    /// # Arguments
-    ///
-    /// * `window` - Context window to prune
-    ///
-    /// # Returns
-    ///
-    /// Number of items pruned
     pub fn prune(&self, window: &mut ContextWindow) -> usize {
         let original_len = window.content().len();
         let now = chrono::Utc::now();
@@ -106,14 +98,6 @@ impl ContextPruner {
 
     /// Prune to fit within a token budget.
     ///
-    /// # Arguments
-    ///
-    /// * `window` - Context window to prune
-    /// * `target_tokens` - Target token count
-    ///
-    /// # Returns
-    ///
-    /// Number of items pruned
     pub fn prune_to_fit(&self, window: &mut ContextWindow, target_tokens: usize) -> usize {
         while window.used_tokens() > target_tokens && !window.content().is_empty() {
             // Find and remove the lowest-value item

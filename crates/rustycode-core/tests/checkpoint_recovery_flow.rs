@@ -16,9 +16,7 @@ use rustycode_core::recovery::CheckpointRecovery;
 use std::fs;
 use tempfile::TempDir;
 
-// ---------------------------------------------------------------------------
 // Test helpers
-// ---------------------------------------------------------------------------
 
 /// Create a test git repository with initial commit
 fn create_test_repo() -> Result<(TempDir, String)> {
@@ -63,9 +61,7 @@ fn create_commit(repo_path: &str, filename: &str, content: &str) -> Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Integration Tests
-// ---------------------------------------------------------------------------
 
 /// Test the complete checkpoint recovery flow from creation through rewind.
 ///

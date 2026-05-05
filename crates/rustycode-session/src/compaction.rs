@@ -226,9 +226,6 @@ impl std::fmt::Debug for CompactionStrategy {
 impl CompactionStrategy {
     /// Create a token threshold strategy
     ///
-    /// # Arguments
-    /// * `target_ratio` - Target ratio of tokens to keep (0.0-1.0)
-    /// * `min_messages` - Minimum number of messages to keep
     pub const fn token_threshold(target_ratio: f64, min_messages: usize) -> Self {
         Self::TokenThreshold {
             target_ratio,
@@ -238,9 +235,6 @@ impl CompactionStrategy {
 
     /// Create a message age strategy
     ///
-    /// # Arguments
-    /// * `max_age` - Maximum age of messages to keep
-    /// * `keep_recent` - Always keep this many most recent messages
     pub const fn message_age(max_age: Duration, keep_recent: usize) -> Self {
         Self::MessageAge {
             max_age,
@@ -250,9 +244,6 @@ impl CompactionStrategy {
 
     /// Create a semantic importance strategy
     ///
-    /// # Arguments
-    /// * `importance_threshold` - Threshold for importance (0.0-1.0)
-    /// * `min_messages` - Minimum number of messages to keep
     pub const fn semantic_importance(importance_threshold: f32, min_messages: usize) -> Self {
         Self::SemanticImportance {
             importance_threshold,
@@ -269,7 +260,6 @@ pub struct CompactionEngine {
 }
 
 impl CompactionEngine {
-    /// Create a new compaction engine
     pub const fn new(strategy: CompactionStrategy) -> Self {
         Self {
             strategy,
@@ -745,7 +735,7 @@ mod tests {
         assert!(report.messages_removed > 0);
         // Should not start with a system message about compaction
         if let Some(first) = compacted.first() {
-            let text = first.get_text();
+            let text = first.text();
             assert!(!text.contains("Compacted"));
         }
     }
@@ -759,7 +749,7 @@ mod tests {
         // Should start with a system summary message
         if let Some(first) = compacted.first() {
             assert_eq!(first.role, MessageRole::System);
-            assert!(first.get_text().contains("Compacted"));
+            assert!(first.text().contains("Compacted"));
         }
     }
 

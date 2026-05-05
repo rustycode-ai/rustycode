@@ -103,7 +103,6 @@ pub struct AstPipeline<R: StepRunner = SimulatedRunner> {
 }
 
 impl AstPipeline<SimulatedRunner> {
-    /// Create a new pipeline for planning/dry-run mode.
     pub fn new(workspace: PathBuf) -> Self {
         Self::with_config(AstConfig::default(), workspace)
     }

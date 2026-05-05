@@ -344,7 +344,7 @@ async fn handle_mcp_debug() -> Result<Option<String>, String> {
     } else {
         for server_id in &servers {
             output.push_str(&format!("* {}\n", server_id));
-            let display = manager.get_server_display_state(server_id).await;
+            let display = manager.server_display_state(server_id).await;
             output.push_str(&format!("  Enabled: {}\n", display.enabled));
             if display.is_session_disabled {
                 output.push_str("  ! Disabled for session\n");
@@ -579,7 +579,7 @@ async fn handle_mcp_call(parts: &[&str]) -> Result<Option<String>, String> {
         match ToolProxy::with_discovery(proxy_config).await {
             Ok(proxy) => {
                 // Verify tool exists
-                let tools = proxy.get_tools().await;
+                let tools = proxy.tools().await;
                 let tool_exists = tools.iter().any(|t| t.name == tool_name);
 
                 if !tool_exists {

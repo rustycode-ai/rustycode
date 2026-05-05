@@ -218,7 +218,6 @@ struct SearchableTool {
 }
 
 impl ToolSearch {
-    /// Create a new tool search engine from tool info
     pub fn new(tools: Vec<rustycode_tools::ToolInfo>) -> Self {
         let searchable: Vec<SearchableTool> = tools
             .into_iter()
@@ -429,7 +428,7 @@ impl ToolSearch {
     }
 
     /// Get a tool reference by name
-    pub fn get_tool(&self, name: &str) -> Option<ToolReference> {
+    pub fn tool(&self, name: &str) -> Option<ToolReference> {
         self.tools
             .iter()
             .find(|t| t.name == name)
@@ -660,7 +659,7 @@ mod tests {
         let tools = make_test_tools();
         let search = ToolSearch::new(tools);
 
-        let tool = search.get_tool("read_file");
+        let tool = search.tool("read_file");
         assert!(tool.is_some());
         assert_eq!(tool.unwrap().name, "read_file");
     }

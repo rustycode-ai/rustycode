@@ -21,7 +21,6 @@ pub struct BudgetSummary {
 }
 
 impl BudgetSummary {
-    /// Create a new budget summary.
     pub const fn new(
         tier: u8,
         tokens_used: u64,

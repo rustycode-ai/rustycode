@@ -15,7 +15,6 @@ use async_trait::async_trait;
 pub struct DebugAgent;
 
 impl DebugAgent {
-    /// Create a new debug agent
     pub const fn new() -> Self {
         Self
     }

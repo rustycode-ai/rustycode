@@ -80,9 +80,7 @@ const DEFAULT_L1_CAPACITY: usize = 1000;
 /// Default TTL (5 minutes)
 const DEFAULT_TTL_SECS: u64 = 300;
 
-// ============================================================================
 // Cache Trait
-// ============================================================================
 
 /// Core cache trait defining the cache operations
 #[async_trait::async_trait]
@@ -107,9 +105,7 @@ pub trait Cache: Send + Sync {
     fn stats(&self) -> CacheStats;
 }
 
-// ============================================================================
 // Cache Configuration
-// ============================================================================
 
 /// Configuration for the multi-level cache
 #[derive(Debug, Clone)]
@@ -145,7 +141,7 @@ impl CacheConfig {
     }
 
     /// Get the cache directory path
-    pub fn get_cache_dir(&self) -> Result<PathBuf> {
+    pub fn cache_dir(&self) -> Result<PathBuf> {
         if let Some(dir) = &self.cache_dir {
             Ok(dir.clone())
         } else {
@@ -195,9 +191,7 @@ impl CacheConfigBuilder {
     }
 }
 
-// ============================================================================
 // Cache Statistics
-// ============================================================================
 
 /// Statistics tracking cache performance
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -259,9 +253,7 @@ impl Default for CacheStats {
     }
 }
 
-// ============================================================================
 // Cache Entry
-// ============================================================================
 
 /// A single cache entry with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -307,9 +299,7 @@ impl CacheEntry {
     }
 }
 
-// ============================================================================
 // Memory Cache (L1)
-// ============================================================================
 
 /// L1 memory cache with LRU eviction
 struct MemoryCache {
@@ -418,9 +408,7 @@ impl MemoryCache {
     }
 }
 
-// ============================================================================
 // Disk Cache (L2)
-// ============================================================================
 
 /// L2 disk cache for persistent storage
 struct DiskCache {
@@ -557,9 +545,7 @@ impl DiskCache {
     }
 }
 
-// ============================================================================
 // Multi-Level Cache
-// ============================================================================
 
 /// Multi-level cache combining L1 (memory) and L2 (disk)
 pub struct MultiLevelCache {
@@ -577,10 +563,9 @@ pub struct MultiLevelCache {
 }
 
 impl MultiLevelCache {
-    /// Create a new multi-level cache
     pub fn new(config: CacheConfig) -> Result<Self> {
         let l2 = if config.enable_l2 {
-            let cache_dir = config.get_cache_dir()?;
+            let cache_dir = config.cache_dir()?;
             Some(DiskCache::new(cache_dir)?)
         } else {
             None
@@ -741,7 +726,7 @@ impl Cache for MultiLevelCache {
 
 impl MultiLevelCache {
     /// Get current statistics (async version)
-    pub async fn get_stats(&self) -> CacheStats {
+    pub async fn stats(&self) -> CacheStats {
         self.update_stats().await;
         let stats = self.stats.read().await;
         stats.clone()
@@ -813,9 +798,7 @@ impl MultiLevelCache {
     }
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

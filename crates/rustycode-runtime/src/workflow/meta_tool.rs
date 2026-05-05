@@ -92,7 +92,6 @@ pub struct MetaToolParameter {
 }
 
 impl MetaTool {
-    /// Create a new meta tool
     pub fn new(id: String, name: String, description: String) -> Self {
         Self {
             id,

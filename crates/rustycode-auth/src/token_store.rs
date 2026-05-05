@@ -39,7 +39,7 @@ impl TokenStore {
         Ok(())
     }
 
-    pub fn get_token(&self, provider_id: &str) -> AuthResult<AuthToken> {
+    pub fn token(&self, provider_id: &str) -> AuthResult<AuthToken> {
         let entry = Entry::new(&self.service, provider_id)
             .map_err(|e| AuthError::Keyring(e.to_string()))?;
 
@@ -63,7 +63,7 @@ impl TokenStore {
     }
 
     pub fn is_token_valid(&self, provider_id: &str) -> AuthResult<bool> {
-        let token = self.get_token(provider_id)?;
+        let token = self.token(provider_id)?;
 
         Ok(token.expires_at.is_none_or(|expires_at| {
             #[allow(clippy::cast_possible_wrap)]
@@ -191,7 +191,7 @@ mod tests {
     #[test]
     fn test_get_token_missing_provider_returns_error() {
         let store = TokenStore::new();
-        let result = store.get_token("nonexistent-provider-xyz");
+        let result = store.token("nonexistent-provider-xyz");
         assert!(result.is_err());
         match result {
             Err(AuthError::Keyring(_)) => {} // Expected

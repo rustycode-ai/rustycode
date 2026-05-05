@@ -881,12 +881,12 @@ impl AsyncRuntime {
         self.inner.upsert_memory(scope, key, value)
     }
 
-    pub async fn get_memory(&self, scope: &str) -> Result<Vec<rustycode_storage::MemoryRecord>> {
-        self.inner.get_memory(scope)
+    pub async fn memory(&self, scope: &str) -> Result<Vec<rustycode_storage::MemoryRecord>> {
+        self.inner.memory(scope)
     }
 
-    pub async fn get_memory_entry(&self, scope: &str, key: &str) -> Result<Option<String>> {
-        self.inner.get_memory_entry(scope, key)
+    pub async fn memory_entry(&self, scope: &str, key: &str) -> Result<Option<String>> {
+        self.inner.memory_entry(scope, key)
     }
 
     pub async fn load_plan(&self, plan_id: &PlanId) -> Result<Option<Plan>> {

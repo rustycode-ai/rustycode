@@ -19,7 +19,7 @@ pub trait CodeIntelligence: Send + Sync {
     fn repo_map(&self, budget_tokens: usize) -> String;
 
     /// Files/functions that depend on the given path.
-    fn dependents(&self, path: &str) -> Vec<SymbolRef>;
+    fn get_dependents(&self, path: &str) -> Vec<SymbolRef>;
 
     /// Functions/symbols that call the given symbol.
     fn callers(&self, symbol: &str) -> Vec<SymbolRef>;
@@ -69,9 +69,7 @@ pub struct CodeLocation {
     pub context: String,
 }
 
-// ---------------------------------------------------------------------------
 // Noop implementation (testing / when no intelligence is available)
-// ---------------------------------------------------------------------------
 
 /// No-op intelligence — returns empty results for all queries.
 /// Used when no code analysis infrastructure is available.
@@ -81,7 +79,7 @@ impl CodeIntelligence for NoopIntelligence {
     fn repo_map(&self, _budget_tokens: usize) -> String {
         String::new()
     }
-    fn dependents(&self, _path: &str) -> Vec<SymbolRef> {
+    fn get_dependents(&self, _path: &str) -> Vec<SymbolRef> {
         Vec::new()
     }
     fn callers(&self, _symbol: &str) -> Vec<SymbolRef> {
@@ -98,9 +96,7 @@ impl CodeIntelligence for NoopIntelligence {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Concrete implementation wrapping existing infrastructure
-// ---------------------------------------------------------------------------
 
 use rustycode_tools::indexing::{watcher::FileEvent, CodeIndex, FileSystemWatcher, RepoMap};
 use std::sync::{Arc, Mutex};
@@ -141,7 +137,7 @@ impl LocalIntelligence {
                                 .lock()
                                 .unwrap_or_else(std::sync::PoisonError::into_inner);
                             let _ = idx.update_file(path.clone());
-                            idx.get_file_symbols(path)
+                            idx.file_symbols(path)
                                 .iter()
                                 .map(|s| s.name.clone())
                                 .collect::<Vec<_>>()
@@ -214,7 +210,7 @@ impl CodeIntelligence for LocalIntelligence {
             .map_or_else(String::new, |c| c.to_map_string().to_string())
     }
 
-    fn dependents(&self, path: &str) -> Vec<SymbolRef> {
+    fn get_dependents(&self, path: &str) -> Vec<SymbolRef> {
         let file_path = PathBuf::from(path);
         let idx = self
             .index
@@ -223,7 +219,7 @@ impl CodeIntelligence for LocalIntelligence {
         idx.get_dependents(&file_path)
             .into_iter()
             .filter_map(|dep| {
-                let symbols = idx.get_file_symbols(&dep);
+                let symbols = idx.file_symbols(&dep);
                 let sym = symbols.first()?;
                 Some(SymbolRef {
                     name: sym.name.clone(),
@@ -299,7 +295,7 @@ mod tests {
     fn noop_returns_empty() {
         let intel = NoopIntelligence;
         assert!(intel.repo_map(2000).is_empty());
-        assert!(intel.dependents("foo.rs").is_empty());
+        assert!(intel.get_dependents("foo.rs").is_empty());
         assert!(intel.callers("bar").is_empty());
         assert!(intel.changes().is_empty());
         assert!(intel.search("query", 10).is_empty());

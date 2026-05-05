@@ -51,7 +51,6 @@ pub struct AuditEntry {
 }
 
 impl AuditEntry {
-    /// Create a new audit entry.
     pub fn new(
         tool_name: impl Into<String>,
         args_summary: &str,
@@ -276,7 +275,6 @@ pub struct ToolAuditLogger {
 }
 
 impl ToolAuditLogger {
-    /// Create a new audit logger with the given maximum entry count.
     pub fn new(max_entries: usize) -> Self {
         Self {
             inner: std::sync::Arc::new(Mutex::new(ToolAuditLoggerInner {

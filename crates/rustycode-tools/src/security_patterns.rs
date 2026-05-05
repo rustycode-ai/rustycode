@@ -426,7 +426,6 @@ pub struct ThreatScanner {
 }
 
 impl ThreatScanner {
-    /// Create a new threat scanner with pre-compiled patterns
     pub fn new() -> Self {
         Self {
             patterns: &COMPILED_PATTERNS,

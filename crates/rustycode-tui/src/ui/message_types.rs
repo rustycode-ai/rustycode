@@ -10,13 +10,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::path::PathBuf;
 
-// ============================================================================
 // PUBLIC EXPORTS
-// ============================================================================
 
-// ============================================================================
 // MESSAGE ROLE
-// ============================================================================
 
 /// Message role in the conversation
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,9 +36,7 @@ impl fmt::Display for MessageRole {
     }
 }
 
-// ============================================================================
 // TOOL EXECUTION
-// ============================================================================
 
 /// Tool execution status
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -130,7 +124,6 @@ impl ToolExecution {
         Self::new("simple".to_string(), name.clone(), format!("{}...", name))
     }
 
-    /// Create a new tool execution
     pub fn new(tool_id: String, name: String, result_summary: String) -> Self {
         Self {
             tool_id,
@@ -306,9 +299,7 @@ impl ToolExecution {
     }
 }
 
-// ============================================================================
 // IMAGE ATTACHMENT
-// ============================================================================
 
 /// Image attachment for messages and input state
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -333,9 +324,7 @@ pub struct ImageAttachment {
     pub height: Option<u32>,
 }
 
-// ============================================================================
 // MESSAGE METADATA
-// ============================================================================
 
 /// Message metadata (model, tokens, etc.)
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
@@ -357,9 +346,7 @@ pub struct MessageMetadata {
     pub images: Option<Vec<ImageAttachment>>,
 }
 
-// ============================================================================
 // EXPANSION LEVEL
-// ============================================================================
 
 /// Expansion level for tools/thinking display
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -376,9 +363,7 @@ pub enum ExpansionLevel {
     Deep,
 }
 
-// ============================================================================
 // MESSAGE STRUCT
-// ============================================================================
 
 /// A message in the conversation
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -430,7 +415,6 @@ pub struct Message {
 }
 
 impl Message {
-    /// Create a new message
     pub fn new(role: MessageRole, content: String) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -652,7 +636,7 @@ impl Message {
     }
 
     /// Get all tags
-    pub fn get_tags(&self) -> &[Tag] {
+    pub fn tags(&self) -> &[Tag] {
         &self.tags
     }
 
@@ -667,9 +651,7 @@ impl Message {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -836,7 +818,7 @@ mod tests {
         let tag = Tag::new(TagType::Important);
         assert!(msg.add_tag(tag.clone()));
         assert!(msg.has_tag(&TagType::Important));
-        assert_eq!(msg.get_tags().len(), 1);
+        assert_eq!(msg.tags().len(), 1);
 
         assert!(msg.remove_tag(&tag));
         assert!(!msg.has_tag(&TagType::Important));
@@ -851,7 +833,7 @@ mod tests {
 
         assert!(msg.add_tag(tag.clone()));
         assert!(!msg.add_tag(tag)); // Duplicate should fail
-        assert_eq!(msg.get_tags().len(), 1);
+        assert_eq!(msg.tags().len(), 1);
     }
 
     #[test]
@@ -877,7 +859,7 @@ mod tests {
 
         msg.clear_tags();
         assert!(!msg.has_any_tags());
-        assert_eq!(msg.get_tags().len(), 0);
+        assert_eq!(msg.tags().len(), 0);
     }
 
     #[test]

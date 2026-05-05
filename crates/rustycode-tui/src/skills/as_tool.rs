@@ -181,7 +181,6 @@ pub struct SkillToolRegistry {
 }
 
 impl SkillToolRegistry {
-    /// Create a new skill tool registry
     pub fn new(state_manager: Arc<RwLock<SkillStateManager>>) -> Self {
         Self { state_manager }
     }

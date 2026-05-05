@@ -60,7 +60,6 @@ pub struct McpPromptGenerator {
 }
 
 impl McpPromptGenerator {
-    /// Create a new prompt generator
     pub fn new() -> Self {
         Self {
             prompts: HashMap::new(),

@@ -105,7 +105,6 @@ impl ModelCapabilities {
 }
 
 impl ModelInfo {
-    /// Create a new ModelInfo with just name and context limit.
     pub fn new(name: impl Into<String>, context_limit: usize) -> Self {
         Self {
             name: name.into(),

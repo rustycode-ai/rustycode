@@ -23,9 +23,6 @@ impl ReasoningGraph {
 
     /// Add a thought to the graph.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if a thought with the same ID already exists.
     pub fn add_thought(&mut self, thought: Thought) -> Result<ThoughtId> {
         let id = thought.id;
         if self.thoughts.contains_key(&id) {
@@ -38,10 +35,7 @@ impl ReasoningGraph {
 
     /// Get a thought by ID.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if no thought with the given ID exists.
-    pub fn get_thought(&self, id: ThoughtId) -> Result<&Thought> {
+    pub fn thought(&self, id: ThoughtId) -> Result<&Thought> {
         self.thoughts
             .get(&id)
             .ok_or_else(|| Error::ThoughtNotFound(id.to_string()))
@@ -49,10 +43,7 @@ impl ReasoningGraph {
 
     /// Get a mutable thought by ID.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if no thought with the given ID exists.
-    pub fn get_thought_mut(&mut self, id: ThoughtId) -> Result<&mut Thought> {
+    pub fn thought_mut(&mut self, id: ThoughtId) -> Result<&mut Thought> {
         self.thoughts
             .get_mut(&id)
             .ok_or_else(|| Error::ThoughtNotFound(id.to_string()))
@@ -60,10 +51,6 @@ impl ReasoningGraph {
 
     /// Add an edge between two thoughts.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if either the source or target thought does not exist,
-    /// or if adding the edge would create a cycle.
     pub fn add_edge(&mut self, from: ThoughtId, to: ThoughtId, kind: EdgeKind) -> Result<()> {
         if !self.thoughts.contains_key(&from) {
             return Err(Error::ThoughtNotFound(format!("Source thought {from}")));
@@ -184,9 +171,6 @@ impl ReasoningGraph {
 
     /// Remove a thought and its edges.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if no thought with the given ID exists.
     pub fn remove_thought(&mut self, id: ThoughtId) -> Result<Thought> {
         let thought = self
             .thoughts
@@ -200,9 +184,6 @@ impl ReasoningGraph {
 
     /// Prune a thought and all its descendants from the graph.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the thought does not exist.
     pub fn prune_branch(&mut self, id: ThoughtId) -> Result<HashSet<ThoughtId>> {
         if !self.thoughts.contains_key(&id) {
             return Err(Error::ThoughtNotFound(id.to_string()));
@@ -236,14 +217,6 @@ impl ReasoningGraph {
 
     /// Topological sort of thoughts.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the graph contains a cycle.
-    ///
-    /// # Panics
-    ///
-    /// Panics if internal graph state is inconsistent (all successors should
-    /// have an in-degree entry after initialization).
     pub fn topological_sort(&self) -> Result<Vec<ThoughtId>> {
         let mut in_degree = HashMap::new();
         for &id in self.thoughts.keys() {
@@ -334,7 +307,7 @@ mod tests {
 
         assert!(graph.add_thought(thought).is_ok());
         assert_eq!(graph.len(), 1);
-        assert!(graph.get_thought(id).is_ok());
+        assert!(graph.thought(id).is_ok());
     }
 
     #[test]
@@ -464,7 +437,7 @@ mod tests {
         assert!(removed.contains(&id2));
         assert!(removed.contains(&id3));
         assert_eq!(graph.len(), 1);
-        assert!(graph.get_thought(id1).is_ok());
+        assert!(graph.thought(id1).is_ok());
     }
 
     #[test]
@@ -495,14 +468,14 @@ mod tests {
     #[test]
     fn test_get_thought_nonexistent() {
         let graph = ReasoningGraph::new();
-        let result = graph.get_thought(uuid::Uuid::new_v4());
+        let result = graph.thought(uuid::Uuid::new_v4());
         assert!(result.is_err());
     }
 
     #[test]
     fn test_get_thought_mut_nonexistent() {
         let mut graph = ReasoningGraph::new();
-        let result = graph.get_thought_mut(uuid::Uuid::new_v4());
+        let result = graph.thought_mut(uuid::Uuid::new_v4());
         assert!(result.is_err());
     }
 

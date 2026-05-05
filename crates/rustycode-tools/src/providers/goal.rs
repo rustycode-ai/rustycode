@@ -67,7 +67,7 @@ impl GoalManager {
     }
 
     /// Get a goal by ID.
-    pub fn get_goal(&self, id: &str) -> Option<Goal> {
+    pub fn goal(&self, id: &str) -> Option<Goal> {
         self.goals
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -170,7 +170,7 @@ mod tests {
     fn test_create_and_get_goal() {
         let mgr = GoalManager::new();
         let id = mgr.create_goal("Fix the auth bug", Some(10_000));
-        let goal = mgr.get_goal(&id).unwrap();
+        let goal = mgr.goal(&id).unwrap();
         assert_eq!(goal.objective, "Fix the auth bug");
         assert_eq!(goal.status, GoalStatus::Active);
         assert_eq!(goal.token_budget, Some(10_000));

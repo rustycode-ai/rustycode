@@ -9,16 +9,6 @@ use crate::provider::{ChatMessage, CompletionRequest, ContentBlock, MessageConte
 /// This is sufficient for most OpenAI-compatible providers (Azure, Together,
 /// OpenRouter, Zhipu, Perplexity, Copilot) that only support text content.
 ///
-/// # Arguments
-/// * `request` - The completion request containing messages and optional system prompt
-///
-/// # Returns
-/// A vector of OpenAI-compatible messages
-///
-/// # Example
-/// ```rust,ignore
-/// let messages = convert_messages_simple(&request);
-/// ```
 pub fn convert_messages_simple(request: &CompletionRequest) -> Vec<OpenAiCompatibleMessage> {
     let mut messages = Vec::new();
 
@@ -60,9 +50,6 @@ pub fn convert_messages_simple(request: &CompletionRequest) -> Vec<OpenAiCompati
 /// provided separately from the request. Used by providers like Azure that
 /// may need special system message handling.
 ///
-/// # Arguments
-/// * `messages` - The chat messages
-/// * `system_prompt` - Optional system prompt to prepend
 pub fn convert_messages_with_system(
     messages: &[ChatMessage],
     system_prompt: Option<&str>,
@@ -106,9 +93,6 @@ pub fn convert_messages_with_system(
 /// Some providers (like Zhipu) may need custom role mapping for edge cases.
 /// This function allows providing a custom role mapper.
 ///
-/// # Arguments
-/// * `request` - The completion request
-/// * `role_mapper` - Function to map MessageRole to provider-specific role string
 pub fn convert_messages_with_role_mapper<F>(
     request: &CompletionRequest,
     role_mapper: F,

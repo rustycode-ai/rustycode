@@ -189,7 +189,6 @@ pub struct AdvancedOrchestratedAnalysis {
 }
 
 impl AdvancedOrchestrator {
-    /// Create a new advanced orchestrator
     pub fn new(config: AdvancedOrchestratorConfig) -> Self {
         let semaphore = Arc::new(Semaphore::new(config.max_concurrent_agents));
 
@@ -561,7 +560,7 @@ impl AdvancedOrchestrator {
             return Ok(Vec::new());
         }
 
-        let all_teams = self.team_coordinator.get_all_teams();
+        let all_teams = self.team_coordinator.all_teams();
         let team_ids: Vec<String> = all_teams
             .iter()
             .filter(|team| {
@@ -743,7 +742,7 @@ impl AdvancedOrchestrator {
     }
 
     /// Get enhanced session statistics
-    pub async fn get_session_stats(&self) -> AdvancedSessionStats {
+    pub async fn session_stats(&self) -> AdvancedSessionStats {
         let state = self.session_state.read().await;
         AdvancedSessionStats {
             session_id: state.session_id.clone(),
@@ -1062,12 +1061,12 @@ mod tests {
             .orchestrate_analysis_advanced("Test task".into(), vec![AgentRole::Reviewer])
             .await;
 
-        let stats_before = orchestrator.get_session_stats().await;
+        let stats_before = orchestrator.session_stats().await;
         assert!(stats_before.tasks_completed > 0);
 
         orchestrator.reset().await.unwrap();
 
-        let stats_after = orchestrator.get_session_stats().await;
+        let stats_after = orchestrator.session_stats().await;
         assert_eq!(stats_after.tasks_completed, 0);
         assert_eq!(stats_after.cache_hits, 0);
         assert_eq!(stats_after.parallel_executions, 0);

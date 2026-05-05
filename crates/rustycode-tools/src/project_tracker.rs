@@ -180,7 +180,7 @@ impl ProjectTracker {
     }
 
     /// Get info for a specific project by path.
-    pub fn get_project(&self, project_dir: &Path) -> Option<&ProjectInfo> {
+    pub fn project(&self, project_dir: &Path) -> Option<&ProjectInfo> {
         let dir_str = project_dir.to_string_lossy().to_string();
         self.projects.get(&dir_str)
     }
@@ -198,9 +198,6 @@ impl ProjectTracker {
 
 /// Convenience function: update the project tracker for the current working directory.
 ///
-/// # Arguments
-/// * `instruction` - Optional instruction that was sent
-/// * `session_id` - Optional session ID associated with this project
 pub fn update_project_tracker(instruction: Option<&str>, session_id: Option<&str>) -> Result<()> {
     let current_dir = std::env::current_dir()?;
     let mut tracker = ProjectTracker::load()?;
@@ -240,7 +237,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(tracker.len(), 1);
-        let info = tracker.get_project(Path::new("/tmp/test-project")).unwrap();
+        let info = tracker.project(Path::new("/tmp/test-project")).unwrap();
         assert_eq!(info.path, "/tmp/test-project");
         assert_eq!(info.last_instruction, Some("build it".to_string()));
         assert!(info.last_session_id.is_none());
@@ -259,7 +256,7 @@ mod tests {
         // Reload from same path
         let reloaded = ProjectTracker::load_from(&path).unwrap();
         assert_eq!(reloaded.len(), 1);
-        let info = reloaded.get_project(Path::new("/tmp/project-a")).unwrap();
+        let info = reloaded.project(Path::new("/tmp/project-a")).unwrap();
         assert_eq!(info.last_session_id, Some("sess-1".to_string()));
     }
 
@@ -275,7 +272,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(tracker.len(), 1);
-        let info = tracker.get_project(Path::new("/tmp/project")).unwrap();
+        let info = tracker.project(Path::new("/tmp/project")).unwrap();
         assert_eq!(info.last_instruction, Some("second".to_string()));
         assert_eq!(info.last_session_id, Some("sess-2".to_string()));
     }
@@ -320,7 +317,7 @@ mod tests {
     #[test]
     fn test_get_project_not_found() {
         let (tracker, _temp) = isolated_tracker();
-        assert!(tracker.get_project(Path::new("/nonexistent")).is_none());
+        assert!(tracker.project(Path::new("/nonexistent")).is_none());
     }
 
     #[test]

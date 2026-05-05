@@ -39,7 +39,7 @@ pub fn auto_worktree_branch(milestone_id: &str) -> String {
 /// Get original project root (before entering worktree)
 ///
 /// Returns None if not in a worktree.
-pub fn get_original_base() -> Option<PathBuf> {
+pub fn original_base() -> Option<PathBuf> {
     ORIGINAL_BASE.get().and_then(|m| {
         m.lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -49,7 +49,7 @@ pub fn get_original_base() -> Option<PathBuf> {
 
 /// Check if currently in a worktree
 pub fn in_worktree() -> bool {
-    get_original_base().is_some()
+    original_base().is_some()
 }
 
 /// Worktree manager
@@ -61,7 +61,6 @@ pub struct WorktreeManager {
 }
 
 impl WorktreeManager {
-    /// Create a new worktree manager
     pub fn new(project_root: PathBuf) -> Self {
         let worktrees_dir = project_root.join(".orchestra").join("worktrees");
 

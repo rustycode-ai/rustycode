@@ -27,12 +27,6 @@ use rustycode_tool_integration::TokenCounter;
 /// If `response.usage` is `None` or all-zero, estimates token counts using
 /// character-based approximation via `TokenCounter`.
 ///
-/// # Arguments
-///
-/// * `response` - The completion response to fill in
-/// * `system_prompt` - The system prompt sent with the request
-/// * `messages` - The chat messages sent with the request
-/// * `tools` - Tool definitions as `(name, description, schema)` tuples
 pub fn ensure_usage(
     response: &mut CompletionResponse,
     system_prompt: &str,

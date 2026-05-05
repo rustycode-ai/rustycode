@@ -434,7 +434,6 @@ pub struct WorkflowEngine {
 }
 
 impl WorkflowEngine {
-    /// Create a new workflow engine.
     pub fn new() -> Self {
         Self {
             active_workflows: std::collections::HashMap::new(),

@@ -107,9 +107,7 @@ fn test_ollama_no_api_key_required() {
     assert!(!wizard.config.model.is_empty());
 }
 
-// ============================================================
 // EDGE CASE TESTS
-// ============================================================
 
 #[test]
 fn test_empty_api_key_all_providers() {
@@ -242,9 +240,7 @@ fn test_whitespace_api_key() {
     assert!(!wizard.validate_api_key());
 }
 
-// ============================================================
 // ALL PROVIDER CONFIGURATION TESTS
-// ============================================================
 
 #[test]
 fn test_anthropic_provider_configuration() {
@@ -346,9 +342,7 @@ fn test_all_provider_models() {
     }
 }
 
-// ============================================================
 // STATE TRANSITION TESTS
-// ============================================================
 
 #[test]
 fn test_full_wizard_flow() {
@@ -450,9 +444,7 @@ fn test_all_step_transitions() {
     }
 }
 
-// ============================================================
 // KEYBOARD NAVIGATION TESTS
-// ============================================================
 
 #[test]
 fn test_arrow_key_navigation_providers() {
@@ -535,9 +527,7 @@ fn test_unknown_keys_handled() {
     // Step might change for some keys, but shouldn't crash
 }
 
-// ============================================================
 // ERROR HANDLING TESTS
-// ============================================================
 
 #[test]
 fn test_error_message_display() {
@@ -605,9 +595,7 @@ fn test_provider_requires_api_key_flag() {
     assert!(!wizard.providers[9].requires_api_key); // Ollama
 }
 
-// ============================================================
 // CONFIG SAVE/LOAD TESTS
-// ============================================================
 
 #[test]
 fn test_config_structure_after_update() {
@@ -654,12 +642,10 @@ fn test_model_in_provider_list() {
     }
 }
 
-// ============================================================
 // API KEY URL GENERATION TESTS
-// ============================================================
 
 #[test]
-fn test_api_key_urls() {
+fn test_get_api_key_urls() {
     let wizard = FirstRunWizard::new(PathBuf::from("/tmp/test/config.json"));
 
     // Test that each provider has a valid URL
@@ -680,9 +666,7 @@ fn test_api_key_urls() {
     }
 }
 
-// ============================================================
 // ADVANCED EDGE CASES
-// ============================================================
 
 #[test]
 fn test_very_long_api_key() {

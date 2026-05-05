@@ -92,11 +92,6 @@ pub struct SandboxCapabilities {
 impl Sandbox {
     /// Create a new sandbox with the given configuration
     ///
-    /// # Arguments
-    ///
-    /// * `cwd` - Working directory (always allowed)
-    /// * `config` - Sandbox configuration
-    /// * `level` - Security level
     pub fn new(cwd: PathBuf, config: &SandboxConfig, level: SandboxLevel) -> Self {
         // Detect platform capabilities
         let capabilities = Self::detect_capabilities();

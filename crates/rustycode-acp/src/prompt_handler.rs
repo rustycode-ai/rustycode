@@ -39,7 +39,6 @@ pub struct PromptHandler {
 }
 
 impl PromptHandler {
-    /// Create a new prompt handler
     pub fn new(cwd: String, default_model: String) -> Self {
         Self {
             llm: Arc::new(Mutex::new(LLMIntegration::new(default_model))),
@@ -109,7 +108,7 @@ impl PromptHandler {
             let tool_definitions = {
                 let executor = self.tool_executor.lock().await;
                 if executor.is_available().await {
-                    Some(executor.get_tool_definitions().await?)
+                    Some(executor.tool_definitions().await?)
                 } else {
                     None
                 }

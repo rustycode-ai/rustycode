@@ -118,7 +118,7 @@ impl BehaviorConfig {
     }
 
     /// Get validated mouse scroll speed
-    pub fn get_mouse_scroll_speed(&self) -> u8 {
+    pub fn mouse_scroll_speed(&self) -> u8 {
         self.mouse_scroll_speed.clamp(1, 10)
     }
 }
@@ -165,7 +165,7 @@ impl Default for TUIConfig {
 }
 
 /// Get the configuration file path
-pub fn config_path() -> PathBuf {
+pub fn get_config_path() -> PathBuf {
     RustyCodePath::tui_config_file().unwrap_or_else(|_| PathBuf::from(".rustycode/tui-config.json"))
 }
 
@@ -185,7 +185,7 @@ pub fn config_schema_path() -> PathBuf {
 
 /// Load configuration from disk
 pub fn load_config() -> TUIConfig {
-    let path = config_path();
+    let path = get_config_path();
     if path.exists() {
         if let Ok(content) = std::fs::read_to_string(&path) {
             if let Ok(config_value) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -206,7 +206,7 @@ pub fn load_config() -> TUIConfig {
 
 /// Save configuration to disk
 pub fn save_config(config: &TUIConfig) -> std::io::Result<()> {
-    let path = config_path();
+    let path = get_config_path();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -331,9 +331,6 @@ impl Default for ModelConfig {
 impl ModelConfig {
     /// Validate configuration parameters.
     ///
-    /// # Returns
-    ///
-    /// `true` if all parameters are within valid ranges
     pub fn is_valid(&self) -> bool {
         self.temperature >= 0.0
             && self.temperature <= 1.0
@@ -428,7 +425,7 @@ mod tests {
 
     #[test]
     fn test_config_path() {
-        let path = config_path();
+        let path = get_config_path();
         assert!(path.ends_with("tui-config.json"));
     }
 
@@ -466,14 +463,14 @@ mod tests {
             reduced_motion: false,
         };
 
-        assert_eq!(config.get_mouse_scroll_speed(), 1);
+        assert_eq!(config.mouse_scroll_speed(), 1);
     }
 
     #[test]
     fn test_behavior_config_default_scroll_speed() {
         let config = TUIConfig::default();
         assert_eq!(config.behavior.mouse_scroll_speed, 3);
-        assert_eq!(config.behavior.get_mouse_scroll_speed(), 3);
+        assert_eq!(config.behavior.mouse_scroll_speed(), 3);
     }
 
     #[test]

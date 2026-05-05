@@ -179,7 +179,6 @@ pub struct ProviderMetadataRegistry {
 }
 
 impl ProviderMetadataRegistry {
-    /// Create a new provider registry with all supported providers
     pub fn new() -> Self {
         let mut registry = Self {
             providers: HashMap::new(),
@@ -395,23 +394,23 @@ impl ProviderMetadataRegistry {
     }
 
     /// Get all providers
-    pub fn get_all_providers(&self) -> Vec<&ProviderMetadata> {
+    pub fn all_providers(&self) -> Vec<&ProviderMetadata> {
         self.providers.values().collect()
     }
 
     /// Get a specific provider
-    pub fn get_provider(&self, id: &str) -> Option<&ProviderMetadata> {
+    pub fn provider(&self, id: &str) -> Option<&ProviderMetadata> {
         self.providers.get(id)
     }
 
     /// Get provider for a model
-    pub fn get_provider_for_model(&self, model: &str) -> Option<&ProviderMetadata> {
+    pub fn provider_for_model(&self, model: &str) -> Option<&ProviderMetadata> {
         let provider_id = self.model_to_provider.get(model)?;
         self.providers.get(provider_id)
     }
 
     /// Get all models
-    pub fn get_all_models(&self) -> Vec<&ModelInfo> {
+    pub fn all_models(&self) -> Vec<&ModelInfo> {
         self.providers
             .values()
             .flat_map(|p| p.models.iter())
@@ -419,7 +418,7 @@ impl ProviderMetadataRegistry {
     }
 
     /// Get models for a provider
-    pub fn get_models_for_provider(&self, provider_id: &str) -> Vec<&ModelInfo> {
+    pub fn models_for_provider(&self, provider_id: &str) -> Vec<&ModelInfo> {
         self.providers
             .get(provider_id)
             .map(|p| p.models.iter().collect())
@@ -427,22 +426,22 @@ impl ProviderMetadataRegistry {
     }
 
     /// Get models by tier
-    pub fn get_models_by_tier(&self, tier: ModelTier) -> Vec<&ModelInfo> {
-        self.get_all_models()
+    pub fn models_by_tier(&self, tier: ModelTier) -> Vec<&ModelInfo> {
+        self.all_models()
             .into_iter()
             .filter(|m| m.tier == tier)
             .collect()
     }
 
     /// Get cheapest model
-    pub fn get_cheapest_model(&self) -> Option<&ModelInfo> {
-        self.get_models_by_tier(ModelTier::Budget).first().copied()
+    pub fn cheapest_model(&self) -> Option<&ModelInfo> {
+        self.models_by_tier(ModelTier::Budget).first().copied()
     }
 
     /// Get default model
-    pub fn get_default_model(&self) -> Option<&ModelInfo> {
+    pub fn default_model(&self) -> Option<&ModelInfo> {
         let default_id = "claude-3-5-sonnet";
-        self.get_all_models()
+        self.all_models()
             .into_iter()
             .find(|m| m.id == default_id)
     }
@@ -459,7 +458,7 @@ impl ProviderMetadataRegistry {
             .get(&task)
             .or(Some(&config.default_model))?;
 
-        self.get_all_models()
+        self.all_models()
             .into_iter()
             .find(|m| &m.id == model_id)
     }
@@ -579,13 +578,13 @@ mod tests {
     #[test]
     fn test_provider_registry_creation() {
         let registry = ProviderMetadataRegistry::new();
-        assert!(!registry.get_all_providers().is_empty());
+        assert!(!registry.all_providers().is_empty());
     }
 
     #[test]
     fn test_get_provider() {
         let registry = ProviderMetadataRegistry::new();
-        let anthropic = registry.get_provider("anthropic");
+        let anthropic = registry.provider("anthropic");
         assert!(anthropic.is_some());
         assert_eq!(anthropic.unwrap().name, "Anthropic");
     }
@@ -593,14 +592,14 @@ mod tests {
     #[test]
     fn test_get_all_models() {
         let registry = ProviderMetadataRegistry::new();
-        let models = registry.get_all_models();
+        let models = registry.all_models();
         assert!(!models.is_empty());
     }
 
     #[test]
     fn test_get_provider_for_model() {
         let registry = ProviderMetadataRegistry::new();
-        let provider = registry.get_provider_for_model("claude-3-5-sonnet");
+        let provider = registry.provider_for_model("claude-3-5-sonnet");
         assert!(provider.is_some());
         assert_eq!(provider.unwrap().id, "anthropic");
     }
@@ -608,10 +607,10 @@ mod tests {
     #[test]
     fn test_get_models_by_tier() {
         let registry = ProviderMetadataRegistry::new();
-        let budget_models = registry.get_models_by_tier(ModelTier::Budget);
+        let budget_models = registry.models_by_tier(ModelTier::Budget);
         assert!(!budget_models.is_empty());
 
-        let premium_models = registry.get_models_by_tier(ModelTier::Premium);
+        let premium_models = registry.models_by_tier(ModelTier::Premium);
         assert!(!premium_models.is_empty());
     }
 

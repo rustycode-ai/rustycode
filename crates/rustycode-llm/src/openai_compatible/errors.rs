@@ -10,20 +10,6 @@ use std::time::Duration;
 /// This is the standard error mapping used across all OpenAI-compatible
 /// providers. Only the provider name and environment variable name vary.
 ///
-/// # Arguments
-/// * `status` - HTTP status code
-/// * `text` - Response body text
-/// * `headers` - Response headers (for retry-after extraction)
-/// * `provider_name` - Human-readable provider name (e.g., "OpenAI")
-/// * `env_var_name` - Environment variable name for API key (e.g., "OPENAI_API_KEY")
-///
-/// # Returns
-/// A ProviderError with appropriate classification.
-///
-/// # Example
-/// ```rust,ignore
-/// let err = map_http_error(status, text, &headers, "OpenAI", "OPENAI_API_KEY");
-/// ```
 pub fn map_http_error(
     status: StatusCode,
     text: String,
@@ -56,13 +42,6 @@ pub fn map_http_error(
 
 /// Build an HTTP request with standard OpenAI-compatible headers.
 ///
-/// # Arguments
-/// * `builder` - The reqwest RequestBuilder
-/// * `api_key` - The API key for Bearer authentication
-/// * `extra_headers` - Optional extra headers from provider config
-///
-/// # Returns
-/// The configured RequestBuilder
 pub fn build_request_with_auth(
     builder: reqwest::RequestBuilder,
     api_key: &str,

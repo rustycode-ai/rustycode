@@ -6,9 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-// ---------------------------------------------------------------------------
 // Reasoning types
-// ---------------------------------------------------------------------------
 
 /// Reasoning configuration for the Responses API.
 ///
@@ -35,9 +33,7 @@ pub enum ResponsesApiReasoningSummary {
     SummaryText { text: String },
 }
 
-// ---------------------------------------------------------------------------
 // Request
-// ---------------------------------------------------------------------------
 
 /// Responses API request body.
 #[derive(Serialize, Debug, Clone)]
@@ -139,9 +135,7 @@ pub struct ResponsesApiTool {
     pub parameters: Option<serde_json::Value>,
 }
 
-// ---------------------------------------------------------------------------
 // Response
-// ---------------------------------------------------------------------------
 
 /// Responses API response body.
 #[derive(Deserialize, Debug, Clone)]
@@ -240,9 +234,7 @@ pub struct ResponsesApiOutputTokenDetails {
     pub reasoning_tokens: Option<u32>,
 }
 
-// ---------------------------------------------------------------------------
 // Conversion helpers
-// ---------------------------------------------------------------------------
 
 use crate::provider::{
     normalize_stop_reason, CompletionResponse, ProviderError, ThinkingBlock, Usage,

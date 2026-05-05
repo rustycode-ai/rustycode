@@ -136,7 +136,6 @@ pub struct ErrorTracker {
 }
 
 impl ErrorTracker {
-    /// Create a new error tracker
     pub fn new() -> Self {
         Self {
             error_counts: HashMap::new(),

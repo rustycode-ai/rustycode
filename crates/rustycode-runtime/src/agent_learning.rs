@@ -493,7 +493,7 @@ impl AgentLearningSystem {
     }
 
     /// Get recommended strategy for a task
-    pub fn get_recommended_strategy(
+    pub fn recommended_strategy(
         &self,
         role: AgentRole,
         task_description: &str,
@@ -510,12 +510,12 @@ impl AgentLearningSystem {
     }
 
     /// Get agent knowledge
-    pub fn get_agent_knowledge(&self, role: AgentRole) -> Option<&AgentKnowledge> {
+    pub fn agent_knowledge(&self, role: AgentRole) -> Option<&AgentKnowledge> {
         self.agent_knowledge.get(&role)
     }
 
     /// Get learning statistics
-    pub fn get_learning_statistics(&self, role: AgentRole) -> LearningStatistics {
+    pub fn learning_statistics(&self, role: AgentRole) -> LearningStatistics {
         let experiences = self.experiences.get(&role).map_or(0, Vec::len);
         let strategies = self.learned_strategies.get(&role).map_or(0, Vec::len);
         let knowledge = self.agent_knowledge.get(&role);
@@ -531,7 +531,7 @@ impl AgentLearningSystem {
     }
 
     /// Get cross-agent learning insights (if enabled)
-    pub fn get_cross_agent_insights(&self) -> Vec<CrossAgentInsight> {
+    pub fn cross_agent_insights(&self) -> Vec<CrossAgentInsight> {
         if !self.config.enable_cross_agent_learning {
             return Vec::new();
         }
@@ -678,7 +678,7 @@ mod tests {
         let result = learning_system.record_experience(experience);
         assert!(result.is_ok());
 
-        let stats = learning_system.get_learning_statistics(AgentRole::Skeptic);
+        let stats = learning_system.learning_statistics(AgentRole::Skeptic);
         assert_eq!(stats.total_experiences, 1);
     }
 
@@ -724,7 +724,7 @@ mod tests {
         }
 
         // Check that strategies were learned (even if not recommended due to low confidence)
-        let stats = learning_system.get_learning_statistics(AgentRole::Researcher);
+        let stats = learning_system.learning_statistics(AgentRole::Researcher);
         assert!(stats.total_experiences >= 15);
         // Note: Strategy recommendation requires confidence > threshold (0.7)
         // With 50% success rate, confidence is 0.5, so no strategy is recommended
@@ -768,7 +768,7 @@ mod tests {
             learning_system.record_experience(experience).unwrap();
         }
 
-        let insights = learning_system.get_cross_agent_insights();
+        let insights = learning_system.cross_agent_insights();
         // Should have some cross-agent insights
         assert!(!insights.is_empty());
     }
@@ -1077,7 +1077,7 @@ mod tests {
             };
             system.record_experience(exp).unwrap();
         }
-        let stats = system.get_learning_statistics(AgentRole::Judge);
+        let stats = system.learning_statistics(AgentRole::Judge);
         assert_eq!(stats.total_experiences, 5);
     }
 
@@ -1124,7 +1124,7 @@ mod tests {
     fn get_recommended_strategy_none_when_empty() {
         let system = AgentLearningSystem::new(LearningConfig::default());
         assert!(system
-            .get_recommended_strategy(AgentRole::Reviewer, "Review code")
+            .recommended_strategy(AgentRole::Reviewer, "Review code")
             .is_none());
     }
 
@@ -1132,7 +1132,7 @@ mod tests {
     #[test]
     fn get_agent_knowledge_none_for_unknown() {
         let system = AgentLearningSystem::new(LearningConfig::default());
-        assert!(system.get_agent_knowledge(AgentRole::Reviewer).is_none());
+        assert!(system.agent_knowledge(AgentRole::Reviewer).is_none());
     }
 
     // 14. Cross-agent insights disabled when config disabled
@@ -1143,7 +1143,7 @@ mod tests {
             ..LearningConfig::default()
         };
         let system = AgentLearningSystem::new(config);
-        let insights = system.get_cross_agent_insights();
+        let insights = system.cross_agent_insights();
         assert!(insights.is_empty());
     }
 

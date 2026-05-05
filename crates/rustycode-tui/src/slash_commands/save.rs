@@ -4,12 +4,6 @@ use anyhow::Result;
 ///
 /// Saves the current session state to disk with a timestamp
 ///
-/// # Arguments
-/// * `name` - Optional session name. If not provided, uses timestamp
-/// * `messages` - Optional pre-serialized messages to save
-///
-/// # Returns
-/// Result with success message or error
 pub async fn handle_save_command(
     name: Option<String>,
     messages: &[crate::session::SerializedMessage],

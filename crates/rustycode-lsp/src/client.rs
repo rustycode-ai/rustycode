@@ -99,7 +99,6 @@ impl Clone for LspClient {
 }
 
 impl LspClient {
-    /// Create a new LSP client
     pub fn new(config: LspClientConfig) -> Self {
         Self {
             config,
@@ -117,7 +116,7 @@ impl LspClient {
     }
 
     /// Get diagnostics for all documents
-    pub async fn get_diagnostics(&self, uri: &Url) -> Vec<Diagnostic> {
+    pub async fn fetch_diagnostics(&self, uri: &Url) -> Vec<Diagnostic> {
         self.diagnostics
             .read()
             .await
@@ -665,7 +664,7 @@ impl LspClient {
     pub async fn diagnostic(&mut self, uri: Url) -> Result<Vec<Diagnostic>> {
         // For now, use cached diagnostics from publishDiagnostics notifications
         // These are pushed by the language server as files are analyzed
-        Ok(self.get_diagnostics(&uri).await)
+        Ok(self.fetch_diagnostics(&uri).await)
     }
 
     /// Get code actions for a document range
@@ -1173,7 +1172,7 @@ mod tests {
         let config = LspClientConfig::default();
         let client = LspClient::new(config);
         let uri = parse_uri("file:///test.rs");
-        let diags = client.get_diagnostics(&uri).await;
+        let diags = client.fetch_diagnostics(&uri).await;
         assert!(diags.is_empty());
     }
 
@@ -1194,7 +1193,7 @@ mod tests {
         );
 
         client.set_diagnostics(uri.clone(), vec![diagnostic]).await;
-        let diags = client.get_diagnostics(&uri).await;
+        let diags = client.fetch_diagnostics(&uri).await;
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].message, "test error");
     }
@@ -1216,7 +1215,7 @@ mod tests {
 
         client.set_diagnostics(uri.clone(), vec![d1]).await;
         client.set_diagnostics(uri.clone(), vec![d2]).await;
-        let diags = client.get_diagnostics(&uri).await;
+        let diags = client.fetch_diagnostics(&uri).await;
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].message, "second");
     }
@@ -1235,8 +1234,8 @@ mod tests {
 
         client.set_diagnostics(uri1.clone(), vec![d.clone()]).await;
 
-        assert_eq!(client.get_diagnostics(&uri1).await.len(), 1);
-        assert!(client.get_diagnostics(&uri2).await.is_empty());
+        assert_eq!(client.fetch_diagnostics(&uri1).await.len(), 1);
+        assert!(client.fetch_diagnostics(&uri2).await.is_empty());
     }
 
     #[test]

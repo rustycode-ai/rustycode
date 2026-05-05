@@ -17,9 +17,7 @@ use rustycode_tools::{
 use std::path::PathBuf;
 use tempfile::TempDir;
 
-// ============================================================================
 // Dispatch Benchmarks
-// ============================================================================
 
 /// Benchmark runtime tool dispatch
 fn bench_runtime_dispatch(c: &mut Criterion) {
@@ -97,9 +95,7 @@ fn bench_dispatch_comparison(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Metadata Benchmarks
-// ============================================================================
 
 /// Benchmark tool metadata access
 fn bench_tool_metadata(c: &mut Criterion) {
@@ -141,9 +137,7 @@ fn bench_permission_check(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Throughput Benchmarks
-// ============================================================================
 
 /// Benchmark high-throughput dispatch
 fn bench_dispatch_throughput(c: &mut Criterion) {
@@ -191,9 +185,7 @@ fn bench_dispatch_throughput(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // JSON Parsing Benchmarks
-// ============================================================================
 
 /// Benchmark JSON parameter parsing overhead
 fn bench_json_parsing(c: &mut Criterion) {
@@ -223,9 +215,7 @@ fn bench_json_parsing(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Tool-Specific Benchmarks
-// ============================================================================
 
 /// Benchmark Grep tool
 fn bench_grep_tool(c: &mut Criterion) {
@@ -303,9 +293,7 @@ fn bench_bash_tool(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Zero-Cost Benchmarks
-// ============================================================================
 
 /// Verify dispatcher is zero-cost
 fn bench_zero_cost_dispatcher(c: &mut Criterion) {
@@ -337,9 +325,7 @@ fn bench_compile_time_validation(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Error Handling Benchmarks
-// ============================================================================
 
 /// Benchmark error handling
 fn bench_error_handling(c: &mut Criterion) {
@@ -375,9 +361,7 @@ fn bench_error_handling(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Different Tools Benchmarks
-// ============================================================================
 
 /// Benchmark different tool types
 fn bench_different_tools(c: &mut Criterion) {
@@ -409,9 +393,7 @@ fn bench_different_tools(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Registry Operations
-// ============================================================================
 
 /// Benchmark tool registry operations
 fn bench_registry_operations(c: &mut Criterion) {
@@ -434,9 +416,7 @@ fn bench_registry_operations(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Main Benchmark Group
-// ============================================================================
 
 criterion_group!(
     benches,

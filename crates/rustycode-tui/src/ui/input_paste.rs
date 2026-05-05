@@ -77,7 +77,7 @@ impl PasteHandler {
     /// Tries image first (with platform fallbacks), then text.
     pub fn handle_paste(&mut self, input_state: &mut InputState) -> Result<PasteResult> {
         // Try image first (better platform support)
-        if let Ok(image) = clipboard::get_image_from_clipboard() {
+        if let Ok(image) = clipboard::image_from_clipboard() {
             tracing::info!(
                 "Pasted image: {}x{} ({} bytes, format: {})",
                 image.width,
@@ -90,7 +90,7 @@ impl PasteHandler {
         }
 
         // Fall back to text
-        if let Ok(text) = clipboard::get_text_from_clipboard() {
+        if let Ok(text) = clipboard::text_from_clipboard() {
             tracing::info!("Pasted text: {} characters", text.len());
             self.paste_text(input_state, &text)?;
             return Ok(PasteResult::Text);

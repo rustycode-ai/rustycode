@@ -22,9 +22,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-// ============================================================================
 // TASK PROFILING — assesses what team and attitude a task needs
-// ============================================================================
 
 /// Assessment of a task's characteristics. Used to assemble the right team
 /// with the right attitude. Derived from signals (keywords, file patterns,
@@ -247,9 +245,7 @@ pub enum SignalKind {
     CriticalPath,
 }
 
-// ============================================================================
 // TEAM COMPOSITION — who's on the team and how they behave
-// ============================================================================
 
 /// Which agent roles are active and with what attitude.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -326,9 +322,7 @@ pub enum ToolSet {
     TargetedFix,
 }
 
-// ============================================================================
 // AGENT ATTITUDE — how strict/helpful/adversarial each agent should be
-// ============================================================================
 
 /// Configurable attitude for an agent. Not binary — multiple knobs that shift
 /// based on task profile and trust dynamics.
@@ -494,9 +488,7 @@ pub enum VetoAction {
     EscalateToUser,
 }
 
-// ============================================================================
 // TRUST TRACKING — how much do we trust each agent
-// ============================================================================
 
 /// Trust score for an agent. Starts at 0.7 (moderate trust), adjusts based
 /// on outcomes. This is NOT about the LLM — it's about whether this specific
@@ -519,7 +511,6 @@ impl Default for TrustScore {
 }
 
 impl TrustScore {
-    /// Create a new trust score with default starting value.
     pub fn new() -> Self {
         Self::default()
     }
@@ -603,9 +594,7 @@ impl TrustEventKind {
     }
 }
 
-// ============================================================================
 // BRIEFING — the structured context that replaces raw conversation history
-// ============================================================================
 
 /// A structured briefing rebuilt from disk every turn. This is what an agent
 /// sees — NOT the raw conversation transcript. Fresh mind, curated context.
@@ -728,9 +717,7 @@ pub struct TestSummary {
     pub failed_names: Vec<String>,
 }
 
-// ============================================================================
 // APPROACH FINGERPRINT — for doom loop detection at the strategy level
-// ============================================================================
 
 /// A fingerprint of the *strategy* being used, not the exact tool calls.
 /// Used to detect when the builder is repeating an approach it already tried.
@@ -818,9 +805,7 @@ impl ApproachCategory {
     }
 }
 
-// ============================================================================
 // TEAM LOOP STATE — the coordinator's view of the team's progress
-// ============================================================================
 
 /// The coordinator's view of where the team is in the execution loop.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1074,9 +1059,7 @@ pub struct EscalationOption {
     pub description: String,
 }
 
-// ============================================================================
 // TEAM ASSEMBLY — how profiles map to teams
-// ============================================================================
 
 impl TaskProfile {
     /// Assemble the right team for this profile.
@@ -1153,9 +1136,7 @@ impl fmt::Display for TeamRole {
     }
 }
 
-// ============================================================================
 // STRUCTURED TURNS — typed agent outputs, not free-form prose
-// ============================================================================
 
 /// A single file change with a diff summary, not the full diff.
 ///
@@ -1304,9 +1285,7 @@ pub struct JudgeTurn {
     pub compile_errors: Vec<String>,
 }
 
-// ============================================================================
 // STRUCTURAL DECLARATION — the Architect's binding contract
-// ============================================================================
 
 /// The Architect's output — a binding contract for all subsequent Builder work.
 ///
@@ -1513,9 +1492,7 @@ pub struct ScalpelFix {
     pub action: String,
 }
 
-// ============================================================================
 // ROLE-FILTERED BRIEFINGS — each role sees a different slice of reality
-// ============================================================================
 
 /// Token budget allocation per role. Derived from task profile.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -63,7 +63,6 @@ pub struct MetaAgent {
 }
 
 impl MetaAgent {
-    /// Create a new Meta-Agent.
     pub fn new(min_confidence: f32, min_occurrences: usize) -> Self {
         Self {
             traces: Vec::new(),

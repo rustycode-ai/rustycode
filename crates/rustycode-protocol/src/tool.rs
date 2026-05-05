@@ -20,7 +20,6 @@ pub struct ToolCall {
 }
 
 impl ToolCall {
-    /// Create a new tool call
     pub fn new(
         call_id: impl Into<String>,
         name: impl Into<String>,
@@ -156,7 +155,6 @@ pub struct ToolMetadata {
 }
 
 impl ToolMetadata {
-    /// Create a new tool metadata
     pub fn new(
         name: impl Into<String>,
         description: impl Into<String>,

@@ -491,7 +491,7 @@ impl InputState {
         self.selection_anchor_row = None;
     }
 
-    pub fn get_selection_range(&self) -> Option<(usize, usize, usize, usize)> {
+    pub fn selection_range(&self) -> Option<(usize, usize, usize, usize)> {
         let anchor_row = self.selection_anchor_row?;
         let anchor_col = self.selection_anchor_col?;
 
@@ -508,8 +508,8 @@ impl InputState {
         Some((start_row, start_col, end_row, end_col))
     }
 
-    pub fn get_selected_text(&self) -> Option<String> {
-        let (start_row, start_col, end_row, end_col) = self.get_selection_range()?;
+    pub fn selected_text(&self) -> Option<String> {
+        let (start_row, start_col, end_row, end_col) = self.selection_range()?;
 
         if start_row == end_row {
             let line = self.lines.get(start_row)?;
@@ -543,7 +543,7 @@ impl InputState {
 
     /// Check if a given byte position on a given row falls within the active selection.
     pub fn is_byte_selected(&self, row: usize, byte_idx: usize) -> bool {
-        let (start_row, start_col, end_row, end_col) = match self.get_selection_range() {
+        let (start_row, start_col, end_row, end_col) = match self.selection_range() {
             Some(range) => range,
             None => return false,
         };
@@ -1174,7 +1174,7 @@ mod tests {
         state.cursor_col = 2;
         state.start_selection();
         state.cursor_col = 5;
-        assert_eq!(state.get_selection_range(), Some((0, 2, 0, 5)));
+        assert_eq!(state.selection_range(), Some((0, 2, 0, 5)));
     }
 
     #[test]
@@ -1184,7 +1184,7 @@ mod tests {
         state.cursor_col = 5;
         state.start_selection();
         state.cursor_col = 2;
-        assert_eq!(state.get_selection_range(), Some((0, 2, 0, 5)));
+        assert_eq!(state.selection_range(), Some((0, 2, 0, 5)));
     }
 
     #[test]
@@ -1200,7 +1200,7 @@ mod tests {
         state.start_selection();
         state.cursor_row = 2;
         state.cursor_col = 1;
-        assert_eq!(state.get_selection_range(), Some((0, 3, 2, 1)));
+        assert_eq!(state.selection_range(), Some((0, 3, 2, 1)));
     }
 
     #[test]
@@ -1216,13 +1216,13 @@ mod tests {
         state.start_selection();
         state.cursor_row = 0;
         state.cursor_col = 3;
-        assert_eq!(state.get_selection_range(), Some((0, 3, 2, 1)));
+        assert_eq!(state.selection_range(), Some((0, 3, 2, 1)));
     }
 
     #[test]
     fn test_selection_range_none_when_no_selection() {
         let state = InputState::new();
-        assert_eq!(state.get_selection_range(), None);
+        assert_eq!(state.selection_range(), None);
     }
 
     #[test]
@@ -1232,7 +1232,7 @@ mod tests {
         state.cursor_col = 3;
         state.cursor_row = 0;
         state.start_selection();
-        assert_eq!(state.get_selection_range(), Some((0, 3, 0, 3)));
+        assert_eq!(state.selection_range(), Some((0, 3, 0, 3)));
     }
 
     // get_selected_text
@@ -1244,7 +1244,7 @@ mod tests {
         state.cursor_col = 2;
         state.start_selection();
         state.cursor_col = 7;
-        assert_eq!(state.get_selected_text(), Some("llo W".to_string()));
+        assert_eq!(state.selected_text(), Some("llo W".to_string()));
     }
 
     #[test]
@@ -1254,7 +1254,7 @@ mod tests {
         state.cursor_col = 0;
         state.start_selection();
         state.cursor_col = 5;
-        assert_eq!(state.get_selected_text(), Some("Hello".to_string()));
+        assert_eq!(state.selected_text(), Some("Hello".to_string()));
     }
 
     #[test]
@@ -1266,7 +1266,7 @@ mod tests {
         state.start_selection();
         state.cursor_row = 2;
         state.cursor_col = 1;
-        assert_eq!(state.get_selected_text(), Some("llo\nWorld\nF".to_string()));
+        assert_eq!(state.selected_text(), Some("llo\nWorld\nF".to_string()));
     }
 
     #[test]
@@ -1278,19 +1278,19 @@ mod tests {
         state.start_selection();
         state.cursor_row = 1;
         state.cursor_col = 2;
-        assert_eq!(state.get_selected_text(), Some("lo\nWo".to_string()));
+        assert_eq!(state.selected_text(), Some("lo\nWo".to_string()));
     }
 
     #[test]
     fn test_selection_text_none_when_no_selection() {
         let state = InputState::new();
-        assert_eq!(state.get_selected_text(), None);
+        assert_eq!(state.selected_text(), None);
     }
 
     #[test]
     fn test_selection_text_empty_input() {
         let state = InputState::new();
-        assert_eq!(state.get_selected_text(), None);
+        assert_eq!(state.selected_text(), None);
     }
 
     // is_byte_selected
@@ -1373,7 +1373,7 @@ mod tests {
         state.cursor_col = 3;
         state.start_selection();
         state.cursor_col = 6;
-        assert_eq!(state.get_selected_text(), Some("llo".to_string()));
+        assert_eq!(state.selected_text(), Some("llo".to_string()));
         assert!(state.is_byte_selected(0, 3));
         assert!(state.is_byte_selected(0, 5));
         assert!(!state.is_byte_selected(0, 6));
@@ -1386,6 +1386,6 @@ mod tests {
         state.cursor_col = 0;
         state.start_selection();
         state.cursor_col = 100;
-        assert_eq!(state.get_selected_text(), Some("Hi".to_string()));
+        assert_eq!(state.selected_text(), Some("Hi".to_string()));
     }
 }

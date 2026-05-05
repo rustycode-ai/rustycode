@@ -134,23 +134,6 @@ pub struct QueryRecord {
 impl QueryRecord {
     /// Create a new query record
     ///
-    /// # Arguments
-    ///
-    /// * `query_text` - The text that was searched
-    /// * `memory_type` - Type of memory system used
-    /// * `results_count` - Number of results returned
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::memory_metrics::QueryRecord;
-    ///
-    /// let record = QueryRecord::new(
-    ///     "authentication code".to_string(),
-    ///     "vector".to_string(),
-    ///     5,
-    /// );
-    /// ```
     pub fn new(query_text: String, memory_type: String, results_count: usize) -> Self {
         Self {
             query_text,
@@ -163,23 +146,6 @@ impl QueryRecord {
 
     /// Mark results as relevant for precision calculation
     ///
-    /// # Arguments
-    ///
-    /// * `count` - Number of relevant results from this query
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::memory_metrics::QueryRecord;
-    ///
-    /// let mut record = QueryRecord::new(
-    ///     "find auth".to_string(),
-    ///     "keyword".to_string(),
-    ///     5,
-    /// );
-    /// record.mark_relevant(3);
-    /// assert_eq!(record.relevant_count, 3);
-    /// ```
     pub fn mark_relevant(&mut self, count: usize) {
         self.relevant_count = count.min(self.results_count);
     }
@@ -267,20 +233,6 @@ impl MemoryMetrics {
     ///
     /// Increments query counters and stores the query record for analysis.
     ///
-    /// # Arguments
-    ///
-    /// * `query` - The query text
-    /// * `results_count` - Number of results returned
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::memory_metrics::MemoryMetrics;
-    ///
-    /// let mut metrics = MemoryMetrics::new();
-    /// metrics.record_query("authentication", 5);
-    /// assert_eq!(metrics.memory_queries, 1);
-    /// ```
     pub fn record_query(&mut self, query: impl Into<String>, results_count: usize) {
         let query_text = query.into();
         self.memory_queries = self.memory_queries.saturating_add(1);
@@ -297,11 +249,6 @@ impl MemoryMetrics {
     ///
     /// Like `record_query` but specifies which memory type was used.
     ///
-    /// # Arguments
-    ///
-    /// * `query` - The query text
-    /// * `memory_type` - Type of memory ("vector", "keyword", "hybrid")
-    /// * `results_count` - Number of results returned
     pub fn record_query_with_type(
         &mut self,
         query: impl Into<String>,
@@ -325,19 +272,6 @@ impl MemoryMetrics {
     /// Updates the most recent query with relevance feedback for
     /// precision calculation.
     ///
-    /// # Arguments
-    ///
-    /// * `relevant_count` - Number of results that were actually relevant
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::memory_metrics::MemoryMetrics;
-    ///
-    /// let mut metrics = MemoryMetrics::new();
-    /// metrics.record_query("test", 5);
-    /// metrics.record_relevance_feedback(3);
-    /// ```
     pub fn record_relevance_feedback(&mut self, relevant_count: usize) {
         if let Some(record) = self.query_history.last_mut() {
             record.mark_relevant(relevant_count);
@@ -349,9 +283,6 @@ impl MemoryMetrics {
     ///
     /// Increments the usage counter for a specific memory.
     ///
-    /// # Arguments
-    ///
-    /// * `memory_id` - Unique identifier for the memory
     pub fn record_memory_used(&mut self, memory_id: impl Into<String>) {
         let id = memory_id.into();
         let count = self.memory_usage.entry(id).or_insert(0);
@@ -364,9 +295,6 @@ impl MemoryMetrics {
     ///
     /// Increments the boosted counter for memories that provided value.
     ///
-    /// # Arguments
-    ///
-    /// * `memory_id` - Unique identifier for the memory
     pub fn record_memory_boosted(&mut self, memory_id: impl Into<String>) {
         let id = memory_id.into();
         let count = self.memory_usage.entry(id).or_insert(0);
@@ -379,9 +307,6 @@ impl MemoryMetrics {
     ///
     /// Increments the counter for memories removed due to non-use.
     ///
-    /// # Arguments
-    ///
-    /// * `memory_id` - Unique identifier for the pruned memory
     pub fn record_memory_pruned(&mut self, memory_id: impl Into<String>) {
         self.memories_pruned += 1;
         self.memory_usage.remove(&memory_id.into());
@@ -485,26 +410,6 @@ impl MemoryMetrics {
 
     /// Save metrics to a JSON file
     ///
-    /// # Arguments
-    ///
-    /// * `path` - Path to save the metrics file
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization or file writing fails
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::memory_metrics::MemoryMetrics;
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let metrics = MemoryMetrics::new();
-    /// metrics.save_to_file(Path::new("metrics.json"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn save_to_file(&self, path: &Path) -> Result<()> {
         let json =
             serde_json::to_string_pretty(self).context("failed to serialize memory metrics")?;
@@ -515,25 +420,6 @@ impl MemoryMetrics {
 
     /// Load metrics from a JSON file
     ///
-    /// # Arguments
-    ///
-    /// * `path` - Path to the metrics file
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if file reading or deserialization fails
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::memory_metrics::MemoryMetrics;
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let metrics = MemoryMetrics::load_from_file(Path::new("metrics.json"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn load_from_file(path: &Path) -> Result<Self> {
         let json = std::fs::read_to_string(path)
             .with_context(|| format!("failed to read metrics from {}", path.display()))?;
@@ -603,25 +489,6 @@ impl MemoryMetrics {
 ///
 /// Helper function for external precision calculations.
 ///
-/// # Arguments
-///
-/// * `queries` - Slice of query records to analyze
-///
-/// # Returns
-///
-/// Precision as a float between 0.0 and 1.0
-///
-/// # Example
-///
-/// ```
-/// use rustycode_storage::memory_metrics::{QueryRecord, calculate_retrieval_precision};
-///
-/// let queries = vec![
-///     QueryRecord { query_text: "test".to_string(), memory_type: "vector".to_string(), results_count: 10, relevant_count: 7, timestamp: chrono::Utc::now() },
-/// ];
-/// let precision = calculate_retrieval_precision(&queries);
-/// assert!((precision - 0.7).abs() < 0.01);
-/// ```
 pub fn calculate_retrieval_precision(queries: &[QueryRecord]) -> f32 {
     let total_retrieved: usize = queries.iter().map(|q| q.results_count).sum();
     let total_relevant: usize = queries.iter().map(|q| q.relevant_count).sum();
@@ -636,26 +503,6 @@ pub fn calculate_retrieval_precision(queries: &[QueryRecord]) -> f32 {
 ///
 /// Helper function for external coverage calculations.
 ///
-/// # Arguments
-///
-/// * `sessions_captured` - Number of sessions
-/// * `total_memories` - Total memories stored
-/// * `used_memories` - Count of memories that were used
-/// * `memories_injected` - Total memories injected
-/// * `memories_boosted` - Memories that provided value
-///
-/// # Returns
-///
-/// Coverage score between 0.0 and 1.0
-///
-/// # Example
-///
-/// ```
-/// use rustycode_storage::memory_metrics::calculate_session_coverage;
-///
-/// let coverage = calculate_session_coverage(10, 50, 40, 30, 25);
-/// assert!(coverage > 0.0 && coverage <= 1.0);
-/// ```
 pub fn calculate_session_coverage(
     sessions_captured: u64,
     total_memories: usize,

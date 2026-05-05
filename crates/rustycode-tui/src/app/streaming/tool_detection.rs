@@ -10,14 +10,6 @@ use super::ToolUseAction;
 /// Determines what action to take based on the LLM's stop reason.
 /// This controls conversation continuation flow.
 ///
-/// # Arguments
-/// * `stop_reason` - The stop reason from the LLM response
-///
-/// # Returns
-/// * `ToolUseAction::ExecuteTools` - Execute tools and continue conversation
-/// * `ToolUseAction::Stop` - Conversation is complete
-/// * `ToolUseAction::ContinueServerTools` - Server-side tools requested
-/// * `ToolUseAction::None` - No specific action
 pub fn handle_message_delta(stop_reason: Option<&str>) -> ToolUseAction {
     match stop_reason {
         Some(reason @ ("tool_use" | "tool_calls")) => {
@@ -52,12 +44,6 @@ pub fn handle_message_delta(stop_reason: Option<&str>) -> ToolUseAction {
 /// in the UI. It detects common patterns used by various LLM providers for
 /// tool calls.
 ///
-/// # Arguments
-/// * `text` - The text to check
-///
-/// # Returns
-/// * `true` if the text appears to be a tool call
-/// * `false` otherwise
 pub fn looks_like_tool_call(text: &str) -> bool {
     // Fast path: tool calls always contain structural markers ({, ", <).
     // Normal prose rarely has all three. Skip the expensive to_lowercase()

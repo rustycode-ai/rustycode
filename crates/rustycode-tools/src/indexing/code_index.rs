@@ -349,7 +349,6 @@ pub struct CodeIndex {
 }
 
 impl CodeIndex {
-    /// Create a new empty index for the given project root
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
             root: root.into(),
@@ -535,7 +534,7 @@ impl CodeIndex {
     }
 
     /// Get all symbols in a file
-    pub fn get_file_symbols(&self, file: &Path) -> Vec<&Symbol> {
+    pub fn file_symbols(&self, file: &Path) -> Vec<&Symbol> {
         self.symbol_index
             .all_symbols()
             .iter()
@@ -638,7 +637,7 @@ impl CodeIndex {
 
     /// Get the outline of a file (all symbols, no bodies)
     pub fn file_outline(&self, file: &Path) -> String {
-        let symbols = self.get_file_symbols(file);
+        let symbols = self.file_symbols(file);
         if symbols.is_empty() {
             return "No symbols found in file.".to_string();
         }

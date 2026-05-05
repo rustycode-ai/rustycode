@@ -32,9 +32,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// ============================================================================
 // BOOKMARK MANAGER
-// ============================================================================
 
 /// Manager for message bookmarks
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -52,56 +50,30 @@ impl BookmarkManager {
 
     /// Add a bookmark
     ///
-    /// # Arguments
-    ///
-    /// * `index` - Message index to bookmark
-    /// * `description` - Description for the bookmark
     pub fn add(&mut self, index: usize, description: String) {
         self.bookmarks.insert(index, description);
     }
 
     /// Remove a bookmark
     ///
-    /// # Arguments
-    ///
-    /// * `index` - Message index to unbookmark
-    ///
-    /// # Returns
-    ///
-    /// * `Some(description)` - If the bookmark existed
-    /// * `None` - If there was no bookmark at this index
     pub fn remove(&mut self, index: usize) -> Option<String> {
         self.bookmarks.remove(&index)
     }
 
     /// Check if a message is bookmarked
     ///
-    /// # Arguments
-    ///
-    /// * `index` - Message index to check
     pub fn is_bookmarked(&self, index: usize) -> bool {
         self.bookmarks.contains_key(&index)
     }
 
     /// Get bookmark description
     ///
-    /// # Arguments
-    ///
-    /// * `index` - Message index
-    ///
-    /// # Returns
-    ///
-    /// * `Some(description)` - If the message is bookmarked
-    /// * `None` - If the message is not bookmarked
     pub fn get(&self, index: usize) -> Option<&String> {
         self.bookmarks.get(&index)
     }
 
     /// List all bookmarks sorted by index
     ///
-    /// # Returns
-    ///
-    /// A vector of (index, description) pairs sorted by index
     pub fn list(&self) -> Vec<(usize, String)> {
         let mut bookmarks: Vec<_> = self
             .bookmarks
@@ -126,14 +98,6 @@ impl BookmarkManager {
 
     /// Get the next bookmark after a given index
     ///
-    /// # Arguments
-    ///
-    /// * `index` - Current message index
-    ///
-    /// # Returns
-    ///
-    /// * `Some(next_index)` - If there is a bookmark after the given index
-    /// * `None` - If there is no next bookmark (wraps to first)
     pub fn next_bookmark(&self, index: usize) -> Option<usize> {
         let sorted = self.list();
 
@@ -154,14 +118,6 @@ impl BookmarkManager {
 
     /// Get the previous bookmark before a given index
     ///
-    /// # Arguments
-    ///
-    /// * `index` - Current message index
-    ///
-    /// # Returns
-    ///
-    /// * `Some(prev_index)` - If there is a bookmark before the given index
-    /// * `None` - If there is no previous bookmark (wraps to last)
     pub fn prev_bookmark(&self, index: usize) -> Option<usize> {
         let sorted = self.list();
 
@@ -181,9 +137,7 @@ impl BookmarkManager {
     }
 }
 
-// ============================================================================
 // BOOKMARK UI STATE
-// ============================================================================
 
 /// UI state for the bookmarks list popup
 #[derive(Clone, Debug, Default)]
@@ -235,10 +189,6 @@ impl BookmarkListState {
 
     /// Get the currently selected bookmark
     ///
-    /// # Returns
-    ///
-    /// * `Some((index, description))` - If there is a selection
-    /// * `None` - If the list is empty or not visible
     pub fn selected(&self) -> Option<(usize, String)> {
         if !self.visible || self.cached_bookmarks.is_empty() {
             return None;

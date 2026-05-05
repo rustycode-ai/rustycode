@@ -13,9 +13,7 @@
 //! - **Testable in isolation**: Components have their own comprehensive tests
 //! - **No tight coupling**: Components communicate via well-defined interfaces, not direct dependencies
 
-// ============================================================================
 // MODULE DECLARATIONS
-// ============================================================================
 
 // Message system
 pub mod message;
@@ -121,9 +119,7 @@ pub mod diff_renderer;
 // Accessibility features
 pub mod accessibility;
 
-// ============================================================================
 // PUBLIC API RE-EXPORTS
-// ============================================================================
 
 // Message system
 pub use message::{Message, MessageRole};

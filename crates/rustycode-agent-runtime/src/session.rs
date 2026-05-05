@@ -207,9 +207,7 @@ impl AgentSession {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Internal loop
-// ---------------------------------------------------------------------------
 
 #[allow(clippy::too_many_lines)]
 async fn run_loop(
@@ -545,7 +543,7 @@ fn inject_turn_context(messages: &mut Vec<ChatMessage>, intel: &dyn CodeIntellig
 
             // Show what depends on this file so the model understands impact
             if let Some(path_str) = change.path.to_str() {
-                let deps = intel.dependents(path_str);
+                let deps = intel.get_dependents(path_str);
                 if !deps.is_empty() {
                     let dep_names: Vec<&str> =
                         deps.iter().map(|d| d.name.as_str()).take(8).collect();
@@ -816,9 +814,7 @@ fn trim_context(messages: &mut Vec<ChatMessage>) -> bool {
     true
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -1266,9 +1266,7 @@ Returns: Text edits to apply for formatting"
     }
 }
 
-// ============================================================================
 // Symbol-Level Editing Tools
-// ============================================================================
 
 /// Get a compact overview of symbols in a file, grouped by kind.
 ///

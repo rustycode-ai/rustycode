@@ -16,7 +16,6 @@ pub struct TeamModeHandler {
 }
 
 impl TeamModeHandler {
-    /// Create a new team mode handler
     pub fn new() -> Self {
         Self {
             event_rx: None,

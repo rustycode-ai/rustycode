@@ -31,30 +31,6 @@ impl Default for InjectionConfig {
 
 /// Prepare memory injection text for a user message
 ///
-/// # Arguments
-///
-/// * `user_message` - The user's message
-/// * `memories` - Available auto-memories
-/// * `config` - Injection configuration
-///
-/// # Returns
-///
-/// * `Some(String)` - Formatted injection text if relevant memories found
-/// * `None` - No relevant memories or injection disabled
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use rustycode_tui::memory_injection::prepare_injection;
-/// use rustycode_tui::memory_auto::{AutoMemory, MemoryType};
-///
-/// let memories = vec![
-///     AutoMemory::new("theme", "dark mode", MemoryType::Preference),
-/// ];
-///
-/// let injection = prepare_injection("What's my theme?", &memories, &Default::default());
-/// assert!(injection.is_some());
-/// ```
 pub fn prepare_injection(
     user_message: &str,
     memories: &[AutoMemory],
@@ -101,15 +77,6 @@ pub fn prepare_injection(
 
 /// Inject memories into a user message
 ///
-/// # Arguments
-///
-/// * `user_message` - The user's message
-/// * `memories` - Available auto-memories
-/// * `config` - Injection configuration
-///
-/// # Returns
-///
-/// The enhanced message with memory context (if relevant memories found)
 pub fn inject_memories(
     user_message: &str,
     memories: &[AutoMemory],
@@ -124,15 +91,6 @@ pub fn inject_memories(
 
 /// Get injection summary for display
 ///
-/// # Arguments
-///
-/// * `user_message` - The user's message
-/// * `memories` - Available auto-memories
-/// * `config` - Injection configuration
-///
-/// # Returns
-///
-/// Summary text like "Using 3 related memories" or empty string if no injection
 pub fn get_injection_summary(
     user_message: &str,
     memories: &[AutoMemory],
@@ -152,15 +110,6 @@ pub fn get_injection_summary(
 
 /// Preview what would be injected for a message
 ///
-/// # Arguments
-///
-/// * `user_message` - The user's message
-/// * `memories` - Available auto-memories
-/// * `config` - Injection configuration
-///
-/// # Returns
-///
-/// Vec of (key, value, confidence) tuples that would be injected
 pub fn preview_injection(
     user_message: &str,
     memories: &[AutoMemory],

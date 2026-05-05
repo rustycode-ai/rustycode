@@ -55,9 +55,7 @@ impl Callable for BenchCallable {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /// Tool names and descriptions used to populate the registry.
 /// Covers a realistic mix of file ops, search, VCS, and LSP tools.
@@ -170,9 +168,7 @@ fn populate_registry(count: usize) -> ExecutableRegistry {
     registry
 }
 
-// ---------------------------------------------------------------------------
 // Benchmarks
-// ---------------------------------------------------------------------------
 
 /// Benchmark: how long to register 50 units one-by-one.
 fn bench_registration_50_units(c: &mut Criterion) {

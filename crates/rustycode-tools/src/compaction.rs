@@ -258,7 +258,6 @@ pub struct Compactor {
 }
 
 impl Compactor {
-    /// Create a new compactor with the given configuration
     pub const fn new(config: CompactionConfig) -> Self {
         Self {
             config,

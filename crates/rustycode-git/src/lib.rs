@@ -41,7 +41,7 @@
 //! let git = GitClient::new(Path::new("/path/to/repo"))?;
 //!
 //! // Get repository status
-//! let status = git.get_status()?;
+//! let status = git.status()?;
 //! println!("Branch: {:?}", status.branch);
 //! println!("Dirty: {:?}", status.dirty);
 //!
@@ -68,9 +68,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, RwLock};
 
-// ============================================================================
 // Error Types
-// ============================================================================
 
 /// Git operation errors
 #[derive(Debug, thiserror::Error)]
@@ -98,9 +96,7 @@ pub enum GitError {
     InvalidOperation(String),
 }
 
-// ============================================================================
 // Git Operation Type
-// ============================================================================
 
 /// Type-safe enum representing all git operations
 ///
@@ -369,9 +365,7 @@ pub struct GitOperationResult {
     pub duration_ms: u64,
 }
 
-// ============================================================================
 // Git Hooks
-// ============================================================================
 
 /// Git hook types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -443,9 +437,7 @@ pub type GitHookResult = HookResult;
 /// Alias to disambiguate from protocol's `HookContext`.
 pub type GitHookContext = HookContext;
 
-// ============================================================================
 // Main Git Client
-// ============================================================================
 
 /// Main git client for executing git operations
 ///
@@ -466,7 +458,7 @@ pub type GitHookContext = HookContext;
 /// let git = GitClient::new(Path::new("/path/to/repo"))?;
 ///
 /// // Get status
-/// let status = git.get_status()?;
+/// let status = git.status()?;
 /// println!("Current branch: {:?}", status.branch);
 ///
 /// // Create and switch to a new branch
@@ -495,24 +487,6 @@ pub struct GitClient {
 impl GitClient {
     /// Create a new git client for a repository
     ///
-    /// # Arguments
-    ///
-    /// * `path` - Path to the git repository (can be any directory within the repo)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the path is not in a git repository
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use rustycode_git::GitClient;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn new(path: &Path) -> Result<Self> {
         let repository_root =
             Self::find_repository_root(path).context("Failed to find git repository root")?;
@@ -529,38 +503,6 @@ impl GitClient {
 
     /// Register a git hook
     ///
-    /// # Arguments
-    ///
-    /// * `hook` - Hook to register
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// use rustycode_git::{GitClient, GitHook, GitHookType, HookContext, HookResult};
-    /// use anyhow::Result;
-    ///
-    /// struct MyHook;
-    ///
-    /// impl GitHook for MyHook {
-    ///     fn execute(&self, context: &HookContext) -> Result<HookResult> {
-    ///         Ok(HookResult {
-    ///             passed: true,
-    ///             output: "Hook passed".to_string(),
-    ///             error: None,
-    ///         })
-    ///     }
-    ///
-    ///     fn hook_type(&self) -> GitHookType {
-    ///         GitHookType::PreCommit
-    ///     }
-    /// }
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.register_hook(Box::new(MyHook));
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn register_hook(&self, hook: Box<dyn GitHook>) {
         let mut hooks = self
             .hooks
@@ -620,22 +562,6 @@ impl GitClient {
 
     /// Create a new branch
     ///
-    /// # Arguments
-    ///
-    /// * `name` - Name of the new branch
-    /// * `base` - Optional base commit/branch to create from (defaults to current HEAD)
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.create_branch("feature-branch", None)?;
-    /// git.create_branch("feature-from-main", Some("main"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn create_branch(&self, name: &str, base: Option<&str>) -> Result<GitOperationResult> {
         let operation = GitOperation::CreateBranch {
             name: name.to_string(),
@@ -661,22 +587,6 @@ impl GitClient {
 
     /// Switch to a branch
     ///
-    /// # Arguments
-    ///
-    /// * `name` - Name of the branch to switch to
-    /// * `force` - Force switch even if there are uncommitted changes
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.switch_branch("main", false)?;
-    /// git.switch_branch("feature-branch", true)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn switch_branch(&self, name: &str, force: bool) -> Result<GitOperationResult> {
         let operation = GitOperation::SwitchBranch {
             name: name.to_string(),
@@ -708,22 +618,6 @@ impl GitClient {
 
     /// Delete a branch
     ///
-    /// # Arguments
-    ///
-    /// * `name` - Name of the branch to delete
-    /// * `force` - Force delete even if not merged
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.delete_branch("old-feature", false)?;
-    /// git.delete_branch("unmerged-branch", true)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn delete_branch(&self, name: &str, force: bool) -> Result<GitOperationResult> {
         let operation = GitOperation::DeleteBranch {
             name: name.to_string(),
@@ -746,23 +640,6 @@ impl GitClient {
 
     /// List all branches
     ///
-    /// # Returns
-    ///
-    /// Vector of branch names
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// let branches = git.list_branches()?;
-    /// for branch in branches {
-    ///     println!("{}", branch);
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn list_branches(&self) -> Result<Vec<String>> {
         let output = git_output(
             &self.repository_root,
@@ -786,23 +663,6 @@ impl GitClient {
 
     /// Create a commit
     ///
-    /// # Arguments
-    ///
-    /// * `message` - Commit message
-    /// * `amend` - Amend the previous commit
-    /// * `allow_empty` - Allow empty commits
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.commit_changes("Add new feature", None, None)?;
-    /// git.commit_changes("Fix typo", Some(true), None)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn commit_changes(
         &self,
         message: &str,
@@ -847,30 +707,6 @@ impl GitClient {
 
     /// Get diff output
     ///
-    /// # Arguments
-    ///
-    /// * `path` - Optional path to limit diff to
-    /// * `cached` - Show staged changes instead of unstaged
-    /// * `context_lines` - Number of context lines to show
-    ///
-    /// # Returns
-    ///
-    /// Diff output as a string
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// // Get all unstaged changes
-    /// let diff = git.get_diff(None, false, None)?;
-    ///
-    /// // Get staged changes for a specific file
-    /// let staged_diff = git.get_diff(Some("src/main.rs".to_string()), true, Some(5))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn get_diff(
         &self,
         path: Option<String>,
@@ -895,23 +731,7 @@ impl GitClient {
 
     /// Get diff between two commits
     ///
-    /// # Arguments
-    ///
-    /// * `from` - Starting commit
-    /// * `to` - Ending commit
-    /// * `path` - Optional path to limit diff to
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// let diff = git.get_diff_commits("HEAD~1", "HEAD", None)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn get_diff_commits(&self, from: &str, to: &str, path: Option<&str>) -> Result<String> {
+    pub fn diff_commits(&self, from: &str, to: &str, path: Option<&str>) -> Result<String> {
         let mut args = vec!["diff", from, to];
         if let Some(path) = path {
             args.push("--");
@@ -927,46 +747,13 @@ impl GitClient {
 
     /// Get repository status
     ///
-    /// # Returns
-    ///
-    /// `GitStatus` struct with repository information
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// let status = git.get_status()?;
-    /// println!("Branch: {:?}", status.branch);
-    /// println!("Dirty: {:?}", status.dirty);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn get_status(&self) -> Result<GitStatus> {
+    pub fn status(&self) -> Result<GitStatus> {
         inspect(&self.repository_root)
     }
 
     /// Get detailed status with file changes
     ///
-    /// # Returns
-    ///
-    /// Vector of file status entries
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// let files = git.get_status_files()?;
-    /// for file in files {
-    ///     println!("{}: {}", file.status, file.path);
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn get_status_files(&self) -> Result<Vec<FileStatus>> {
+    pub fn status_files(&self) -> Result<Vec<FileStatus>> {
         let output = git_output(&self.repository_root, &["status", "--porcelain"])?;
         let mut files = Vec::new();
 
@@ -992,22 +779,6 @@ impl GitClient {
 
     /// Merge a branch
     ///
-    /// # Arguments
-    ///
-    /// * `source` - Branch or commit to merge
-    /// * `no_commit` - Perform merge but don't commit
-    /// * `squash` - Squash all commits from source branch
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.merge_branch("feature-branch", false, false)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn merge_branch(
         &self,
         source: &str,
@@ -1096,22 +867,6 @@ impl GitClient {
 
     /// Stage files for commit
     ///
-    /// # Arguments
-    ///
-    /// * `paths` - Paths to files to stage
-    /// * `update` - Update the index only where files already exist
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.stage_files(&["src/main.rs", "README.md"], false)?;
-    /// git.stage_files(&["*.rs"], true)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn stage_files(&self, paths: &[&str], update: bool) -> Result<GitOperationResult> {
         let operation = GitOperation::StageFiles {
             paths: paths.iter().map(ToString::to_string).collect(),
@@ -1154,20 +909,6 @@ impl GitClient {
 
     /// Unstage files
     ///
-    /// # Arguments
-    ///
-    /// * `paths` - Paths to files to unstage
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.unstage_files(&["src/main.rs"])?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn unstage_files(&self, paths: &[&str]) -> Result<GitOperationResult> {
         let operation = GitOperation::UnstageFiles {
             paths: paths.iter().map(ToString::to_string).collect(),
@@ -1208,22 +949,6 @@ impl GitClient {
 
     /// Fetch from a remote
     ///
-    /// # Arguments
-    ///
-    /// * `remote` - Remote name
-    /// * `refspec` - Optional refspec to fetch
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.fetch("origin", None)?;
-    /// git.fetch("origin", Some("refs/heads/main:refs/remotes/origin/main"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn fetch(&self, remote: &str, refspec: Option<&str>) -> Result<GitOperationResult> {
         let operation = GitOperation::Fetch {
             remote: remote.to_string(),
@@ -1242,22 +967,6 @@ impl GitClient {
 
     /// Pull from a remote
     ///
-    /// # Arguments
-    ///
-    /// * `remote` - Remote name
-    /// * `branch` - Optional branch name
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.pull("origin", None)?;
-    /// git.pull("origin", Some("main"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn pull(&self, remote: &str, branch: Option<&str>) -> Result<GitOperationResult> {
         let operation = GitOperation::Pull {
             remote: remote.to_string(),
@@ -1276,22 +985,6 @@ impl GitClient {
 
     /// Push to a remote
     ///
-    /// # Arguments
-    ///
-    /// * `remote` - Remote name
-    /// * `branch` - Branch to push
-    /// * `force` - Force push
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.push("origin", "main", false)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn push(&self, remote: &str, branch: &str, force: bool) -> Result<GitOperationResult> {
         let operation = GitOperation::Push {
             remote: remote.to_string(),
@@ -1322,22 +1015,6 @@ impl GitClient {
 
     /// Stash changes
     ///
-    /// # Arguments
-    ///
-    /// * `message` - Optional stash message
-    /// * `keep_index` - Keep the index intact
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.stash(None, false)?;
-    /// git.stash(Some("Work in progress"), true)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn stash(&self, message: Option<&str>, keep_index: bool) -> Result<GitOperationResult> {
         let operation = GitOperation::Stash {
             message: message.map(ToString::to_string),
@@ -1361,21 +1038,6 @@ impl GitClient {
 
     /// Pop the most recent stash
     ///
-    /// # Arguments
-    ///
-    /// * `stash_ref` - Optional specific stash reference
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.stash_pop(None)?;
-    /// git.stash_pop(Some("stash@{1}"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn stash_pop(&self, stash_ref: Option<&str>) -> Result<GitOperationResult> {
         let operation = GitOperation::StashPop {
             stash_ref: stash_ref.map(ToString::to_string),
@@ -1397,22 +1059,6 @@ impl GitClient {
 
     /// Reset the repository
     ///
-    /// # Arguments
-    ///
-    /// * `mode` - Reset mode
-    /// * `commit` - Optional commit to reset to (defaults to HEAD)
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::{GitClient, ResetMode};
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.reset(ResetMode::Soft, None)?;
-    /// git.reset(ResetMode::Hard, Some("HEAD~1"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn reset(&self, mode: ResetMode, commit: Option<&str>) -> Result<GitOperationResult> {
         let operation = GitOperation::Reset {
             mode,
@@ -1441,23 +1087,6 @@ impl GitClient {
 
     /// Rebase the current branch
     ///
-    /// # Arguments
-    ///
-    /// * `upstream` - Upstream branch to rebase onto
-    /// * `branch` - Optional branch to rebase (defaults to current)
-    /// * `interactive` - Interactive rebase
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.rebase("main", None, false)?;
-    /// git.rebase("main", Some("feature"), true)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn rebase(
         &self,
         upstream: &str,
@@ -1561,21 +1190,6 @@ impl GitClient {
 
     /// Get the current HEAD commit hash
     ///
-    /// # Returns
-    ///
-    /// The SHA-1 hash of the current HEAD commit
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// let commit_hash = git.current_commit()?;
-    /// println!("Current commit: {}", commit_hash);
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn current_commit(&self) -> Result<String> {
         let hash = git_output(&self.repository_root, &["rev-parse", "HEAD"])?;
         Ok(hash)
@@ -1583,25 +1197,8 @@ impl GitClient {
 
     /// Get list of modified files in the working directory
     ///
-    /// # Returns
-    ///
-    /// Vector of file paths that are modified (both staged and unstaged)
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// let files = git.modified_files()?;
-    /// for file in files {
-    ///     println!("Modified: {}", file);
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn modified_files(&self) -> Result<Vec<String>> {
-        let status_files = self.get_status_files()?;
+        let status_files = self.status_files()?;
         Ok(status_files.iter().map(|f| f.path.clone()).collect())
     }
 
@@ -1609,20 +1206,6 @@ impl GitClient {
     ///
     /// This performs a hard reset, discarding all uncommitted changes.
     ///
-    /// # Arguments
-    ///
-    /// * `commit_hash` - The commit hash (or ref) to reset to
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.reset_to_commit("abc123def456")?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn reset_to_commit(&self, commit_hash: &str) -> Result<GitOperationResult> {
         self.reset(ResetMode::Hard, Some(commit_hash))
     }
@@ -1633,9 +1216,7 @@ impl GitClient {
     }
 }
 
-// ============================================================================
 // File Status
-// ============================================================================
 
 /// Status of a single file
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1650,9 +1231,7 @@ pub struct FileStatus {
     pub unstaged: bool,
 }
 
-// ============================================================================
 // Conflict Detection (Re-export from existing code)
-// ============================================================================
 
 // Re-export existing conflict detection types
 pub use crate::conflict::*;
@@ -1781,9 +1360,7 @@ mod conflict {
     }
 }
 
-// ============================================================================
 // Git Status (Existing)
-// ============================================================================
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GitStatus {
@@ -1824,9 +1401,7 @@ fn git_output(cwd: &Path, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 #[allow(clippy::clone_on_copy)] // Clone tests on Copy types verify derive correctness
@@ -2026,7 +1601,7 @@ mod tests {
         commit_test_file(&repo_path, "test.txt", "test content").unwrap();
 
         let git = GitClient::new(&repo_path).unwrap();
-        let status = git.get_status().unwrap();
+        let status = git.status().unwrap();
 
         assert!(status.root.is_some());
         assert!(status.branch.is_some());
@@ -2042,7 +1617,7 @@ mod tests {
         File::create(repo_path.join("untracked.txt")).unwrap();
 
         let git = GitClient::new(&repo_path).unwrap();
-        let status = git.get_status().unwrap();
+        let status = git.status().unwrap();
 
         assert_eq!(status.dirty, Some(true));
     }
@@ -2058,7 +1633,7 @@ mod tests {
         writeln!(file, "modified content").unwrap();
 
         let git = GitClient::new(&repo_path).unwrap();
-        let files = git.get_status_files().unwrap();
+        let files = git.status_files().unwrap();
 
         // Just check that the operation works and returns results
         assert!(!files.is_empty() || files.is_empty()); // Either way is fine
@@ -2081,7 +1656,7 @@ mod tests {
         assert!(result.success);
 
         // Check that files are staged
-        let files = git.get_status_files().unwrap();
+        let files = git.status_files().unwrap();
         let a_status = files.iter().find(|f| f.path == "a.txt").unwrap();
         assert!(a_status.staged);
     }
@@ -2393,7 +1968,7 @@ mod tests {
         git.commit_changes("Second commit", None, None).unwrap();
 
         // Get diff between commits
-        let diff = git.get_diff_commits("HEAD~1", "HEAD", None);
+        let diff = git.diff_commits("HEAD~1", "HEAD", None);
         assert!(diff.is_ok());
         let diff = diff.unwrap();
         assert!(diff.contains("test2.txt"));

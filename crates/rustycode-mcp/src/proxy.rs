@@ -36,7 +36,6 @@ pub struct ToolProxy {
 }
 
 impl ToolProxy {
-    /// Create a new tool proxy
     pub async fn new(config: ProxyConfig) -> McpResult<Self> {
         // Connect to the server
         let args: Vec<&str> = config.args.iter().map(String::as_str).collect();
@@ -96,7 +95,7 @@ impl ToolProxy {
     }
 
     /// Get cached tools
-    pub async fn get_tools(&self) -> Vec<ProxiedTool> {
+    pub async fn tools(&self) -> Vec<ProxiedTool> {
         let cache = self.tool_cache.read().await;
 
         cache
@@ -172,7 +171,7 @@ impl ToolProxy {
     }
 
     /// Get the allowlist status for a tool
-    pub async fn get_allowlist_status(&self, tool_name: &str) -> AllowlistStatus {
+    pub async fn allowlist_status(&self, tool_name: &str) -> AllowlistStatus {
         let allowlist = self.allowlist.read().await;
         let server_name = &self.config.server_name;
 
@@ -341,7 +340,6 @@ pub struct ProxyManager {
 }
 
 impl ProxyManager {
-    /// Create a new proxy manager
     pub fn new() -> Self {
         Self {
             proxies: Arc::new(RwLock::new(HashMap::new())),
@@ -358,12 +356,12 @@ impl ProxyManager {
     }
 
     /// Get all tools from all proxies
-    pub async fn get_all_tools(&self) -> Vec<ProxiedTool> {
+    pub async fn all_tools(&self) -> Vec<ProxiedTool> {
         let proxies = self.proxies.read().await;
         let mut all_tools = Vec::new();
 
         for proxy in proxies.values() {
-            all_tools.extend(proxy.get_tools().await);
+            all_tools.extend(proxy.tools().await);
         }
 
         all_tools
@@ -404,7 +402,7 @@ mod tests {
     #[tokio::test]
     async fn test_proxy_manager() {
         let manager = ProxyManager::new();
-        let tools = manager.get_all_tools().await;
+        let tools = manager.all_tools().await;
         assert_eq!(tools.len(), 0);
     }
 
@@ -424,7 +422,7 @@ mod tests {
     #[tokio::test]
     async fn test_proxy_manager_get_all_tools_empty() {
         let manager = ProxyManager::new();
-        let tools = manager.get_all_tools().await;
+        let tools = manager.all_tools().await;
         assert!(tools.is_empty());
     }
 

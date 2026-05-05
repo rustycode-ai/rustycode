@@ -111,7 +111,6 @@ impl Default for SpanTracker {
 }
 
 impl SpanTracker {
-    /// Create a new empty span tracker.
     pub fn new() -> Self {
         Self {
             active_spans: HashMap::new(),
@@ -125,7 +124,7 @@ impl SpanTracker {
     }
 
     /// Get a span's observation ID.
-    pub fn get_span(&self, span_id: u64) -> Option<&String> {
+    pub fn span(&self, span_id: u64) -> Option<&String> {
         self.active_spans.get(&span_id)
     }
 
@@ -145,7 +144,6 @@ pub struct ObservationLayer {
 }
 
 impl ObservationLayer {
-    /// Create a new observation layer with the given batch manager.
     pub fn new(batch_manager: Arc<Mutex<dyn BatchManager>>) -> Self {
         Self {
             batch_manager,
@@ -164,7 +162,7 @@ impl ObservationLayer {
 
         let parent_id = if let Some(parent_span_id) = span_data.parent_span_id {
             let spans = self.span_tracker.lock().await;
-            spans.get_span(parent_span_id).cloned()
+            spans.span(parent_span_id).cloned()
         } else {
             None
         };
@@ -276,7 +274,7 @@ impl ObservationLayer {
 
         let observation_id = {
             let spans = self.span_tracker.lock().await;
-            spans.get_span(span_id).cloned()
+            spans.span(span_id).cloned()
         };
 
         if let Some(observation_id) = observation_id {
@@ -432,7 +430,6 @@ pub struct ConsoleBatchManager {
 }
 
 impl ConsoleBatchManager {
-    /// Create a new console batch manager.
     pub const fn new() -> Self {
         Self { events: Vec::new() }
     }
@@ -466,7 +463,6 @@ pub struct InMemoryBatchManager {
 }
 
 impl InMemoryBatchManager {
-    /// Create a new in-memory batch manager.
     pub const fn new() -> Self {
         Self { events: Vec::new() }
     }
@@ -523,13 +519,13 @@ mod tests {
         tracker.add_span(1, "obs-1".to_string());
         tracker.add_span(2, "obs-2".to_string());
 
-        assert_eq!(tracker.get_span(1), Some(&"obs-1".to_string()));
-        assert_eq!(tracker.get_span(2), Some(&"obs-2".to_string()));
-        assert_eq!(tracker.get_span(99), None);
+        assert_eq!(tracker.span(1), Some(&"obs-1".to_string()));
+        assert_eq!(tracker.span(2), Some(&"obs-2".to_string()));
+        assert_eq!(tracker.span(99), None);
 
         let removed = tracker.remove_span(1);
         assert_eq!(removed, Some("obs-1".to_string()));
-        assert_eq!(tracker.get_span(1), None);
+        assert_eq!(tracker.span(1), None);
     }
 
     #[test]

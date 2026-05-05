@@ -580,7 +580,7 @@ impl WorkflowExecutor {
             .unwrap_or_else(|| "items".to_string());
 
         let collection = state
-            .get_variable(&collection_var_name)
+            .variable(&collection_var_name)
             .and_then(|v| v.as_array().cloned())
             .ok_or_else(|| {
                 WorkflowError::Validation(format!(
@@ -694,7 +694,7 @@ impl WorkflowExecutor {
         state: &mut WorkflowState,
     ) -> Result<serde_json::Value> {
         let input_value = state
-            .get_variable(input)
+            .variable(input)
             .ok_or_else(|| WorkflowError::Validation(format!("Variable not found: {}", input)))?;
 
         let result = match transform_type {
@@ -791,7 +791,7 @@ impl WorkflowExecutor {
                 let var_name = &result[absolute_open + 2..absolute_close - 2];
 
                 // Look up variable
-                if let Some(value) = state.get_variable(var_name) {
+                if let Some(value) = state.variable(var_name) {
                     let value_str = match value {
                         serde_json::Value::String(s) => s.clone(),
                         _ => value.to_string(),

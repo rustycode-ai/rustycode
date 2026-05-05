@@ -12,9 +12,7 @@ use serde::{Deserialize, Serialize};
 use super::tree::AstTree;
 use super::types::{AstPhase, AstSnapshot, ContextBrief};
 
-// ---------------------------------------------------------------------------
 // Milestone status state machine
-// ---------------------------------------------------------------------------
 
 /// Lifecycle status for a single milestone.
 ///
@@ -57,9 +55,7 @@ impl std::fmt::Display for MilestoneStatus {
     }
 }
 
-// ---------------------------------------------------------------------------
 // New section types (spec 10.1)
-// ---------------------------------------------------------------------------
 
 /// A milestone entry with full status tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,9 +147,7 @@ pub struct NextAction {
     pub description: String,
 }
 
-// ---------------------------------------------------------------------------
 // LedgerData -- full structured data for the spec 10.1 template
-// ---------------------------------------------------------------------------
 
 /// Complete data bag for rendering a spec 10.1 task ledger.
 ///
@@ -375,9 +369,7 @@ impl LedgerData {
     }
 }
 
-// ---------------------------------------------------------------------------
 // TaskLedger -- markdown renderer
-// ---------------------------------------------------------------------------
 
 /// Writes and reads the task ledger as markdown (spec 10.1 format).
 pub struct TaskLedger;
@@ -630,9 +622,7 @@ impl TaskLedger {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

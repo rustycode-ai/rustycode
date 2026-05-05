@@ -46,7 +46,7 @@ pub struct HttpResponse {
 }
 
 impl HttpResponse {
-    pub fn get_header(&self, name: &str) -> Option<&String> {
+    pub fn header(&self, name: &str) -> Option<&String> {
         self.headers
             .iter()
             .find(|(k, _)| k.eq_ignore_ascii_case(name))
@@ -173,7 +173,7 @@ mod tests {
             duration_ms: 100,
         };
         assert_eq!(
-            resp.get_header("content-type"),
+            resp.header("content-type"),
             Some(&"application/json".to_string())
         );
     }
@@ -190,7 +190,7 @@ mod tests {
             method: HttpMethod::GET,
             duration_ms: 0,
         };
-        assert!(resp.get_header("X-Missing").is_none());
+        assert!(resp.header("X-Missing").is_none());
     }
 
     #[test]
@@ -206,11 +206,11 @@ mod tests {
             duration_ms: 0,
         };
         assert_eq!(
-            resp.get_header("x-custom-header"),
+            resp.header("x-custom-header"),
             Some(&"value".to_string())
         );
         assert_eq!(
-            resp.get_header("X-CUSTOM-HEADER"),
+            resp.header("X-CUSTOM-HEADER"),
             Some(&"value".to_string())
         );
     }

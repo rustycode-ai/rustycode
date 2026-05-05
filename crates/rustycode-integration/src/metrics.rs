@@ -174,7 +174,6 @@ impl Default for MetricsConfig {
 }
 
 impl MetricsCollector {
-    /// Create a new metrics collector
     pub fn new(config: MetricsConfig) -> Self {
         Self {
             metrics: tokio::sync::Mutex::new(IntegrationMetrics {
@@ -497,7 +496,7 @@ impl MetricsCollector {
     }
 
     /// Get current metrics
-    pub async fn get_metrics(&self) -> IntegrationMetrics {
+    pub async fn metrics(&self) -> IntegrationMetrics {
         self.metrics.lock().await.clone()
     }
 }
@@ -557,7 +556,7 @@ mod tests {
         };
         collector.record_routing(&legacy_decision, 0.9).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.routing_stats.total_tasks_routed, 2);
         assert_eq!(metrics.routing_stats.orchestration_routed, 1);
         assert_eq!(metrics.routing_stats.legacy_routed, 1);
@@ -603,7 +602,7 @@ mod tests {
             )
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         let expected = f64::midpoint(0.7 * 1.0, 0.9);
         assert!((metrics.routing_stats.avg_classification_confidence - expected).abs() < 0.001);
     }
@@ -621,7 +620,7 @@ mod tests {
             )
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.routing_stats.rejected_tasks, 1);
         assert_eq!(metrics.routing_stats.total_tasks_routed, 1);
     }
@@ -651,7 +650,7 @@ mod tests {
         };
         collector.record_execution(&result).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.error_tracking.total_errors, 0);
         assert!(metrics.performance_metrics.avg_orchestration_execution_time > 0.0);
     }
@@ -676,7 +675,7 @@ mod tests {
         };
         collector.record_execution(&result).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.error_tracking.total_errors, 1);
         assert_eq!(metrics.error_tracking.legacy_errors, 1);
     }
@@ -696,7 +695,7 @@ mod tests {
         };
         collector.record_shadow_comparison(&comparison).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.shadow_stats.total_comparisons, 1);
         assert_eq!(metrics.shadow_stats.orchestration_better, 1);
     }
@@ -716,7 +715,7 @@ mod tests {
         };
         collector.record_shadow_comparison(&comparison).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.shadow_stats.legacy_better, 1);
     }
 
@@ -735,7 +734,7 @@ mod tests {
         };
         collector.record_shadow_comparison(&comparison).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.shadow_stats.equivalent_performance, 1);
     }
 
@@ -754,7 +753,7 @@ mod tests {
         };
         collector.record_shadow_comparison(&comparison).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.shadow_stats.both_failed, 1);
     }
 
@@ -852,7 +851,7 @@ mod tests {
             )
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.routing_stats.total_tasks_routed, 0);
     }
 
@@ -897,7 +896,7 @@ mod tests {
     fn test_integration_metrics_serde_roundtrip() {
         let collector = create_metrics_collector();
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let metrics = rt.block_on(collector.get_metrics());
+        let metrics = rt.block_on(collector.metrics());
 
         let json = serde_json::to_string(&metrics).unwrap();
         let back: IntegrationMetrics = serde_json::from_str(&json).unwrap();
@@ -1004,7 +1003,7 @@ mod tests {
             )
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.routing_stats.total_tasks_routed, 0);
     }
 
@@ -1024,7 +1023,7 @@ mod tests {
             })
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.error_tracking.total_errors, 0);
     }
 
@@ -1048,7 +1047,7 @@ mod tests {
             })
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.shadow_stats.total_comparisons, 0);
     }
 
@@ -1235,7 +1234,7 @@ mod tests {
         };
         collector.record_execution(&result).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         // Unknown path failures still increment total_errors
         assert_eq!(metrics.error_tracking.total_errors, 1);
         // But not orchestration or legacy specific counters
@@ -1266,7 +1265,7 @@ mod tests {
         };
         collector.record_execution(&result).await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.error_tracking.total_errors, 0);
     }
 
@@ -1572,7 +1571,7 @@ mod tests {
             })
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert_eq!(metrics.shadow_stats.total_comparisons, 1);
         // Pending does not increment any specific counter
         assert_eq!(metrics.shadow_stats.orchestration_better, 0);
@@ -1653,7 +1652,7 @@ mod tests {
             })
             .await;
 
-        let metrics = collector.get_metrics().await;
+        let metrics = collector.metrics().await;
         assert!((metrics.performance_metrics.avg_orchestration_cost - 0.05).abs() < 0.001);
     }
 }

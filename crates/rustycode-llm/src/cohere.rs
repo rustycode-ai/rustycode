@@ -301,7 +301,7 @@ impl CohereProvider {
             .clone()
     }
 
-    fn get_api_key(&self) -> Result<String, ProviderError> {
+    fn api_key(&self) -> Result<String, ProviderError> {
         let config_key = self
             .config
             .api_key
@@ -538,7 +538,7 @@ impl CohereProvider {
         request: &CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
         let url = self.endpoint();
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let model = request.model.clone();
         let body = self.build_request(request);
 
@@ -619,11 +619,11 @@ impl LLMProvider for CohereProvider {
     }
 
     async fn is_available(&self) -> bool {
-        if self.get_api_key().is_err() {
+        if self.api_key().is_err() {
             return false;
         }
 
-        let api_key = match self.get_api_key() {
+        let api_key = match self.api_key() {
             Ok(key) => key,
             Err(_) => return false,
         };
@@ -663,7 +663,7 @@ impl LLMProvider for CohereProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let endpoint = self.endpoint();
         let model = request.model.clone();
 
@@ -1142,7 +1142,7 @@ mod tests {
     fn test_get_api_key_from_config() {
         let config = make_config(Some("my-cohere-key"));
         let provider = CohereProvider::new(config).unwrap();
-        let key = provider.get_api_key().unwrap();
+        let key = provider.api_key().unwrap();
         assert_eq!(key, "my-cohere-key");
     }
 }

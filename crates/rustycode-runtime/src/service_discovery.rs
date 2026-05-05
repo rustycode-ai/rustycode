@@ -297,7 +297,7 @@ impl ServiceDiscovery {
     }
 
     /// Get service instance by ID
-    pub async fn get_instance(&self, instance_id: &str) -> Option<ServiceInstance> {
+    pub async fn instance(&self, instance_id: &str) -> Option<ServiceInstance> {
         let services = self.services.read().await;
 
         for registry in services.values() {
@@ -419,13 +419,13 @@ impl ServiceDiscovery {
     }
 
     /// Get all services
-    pub async fn get_all_services(&self) -> HashMap<String, ServiceRegistry> {
+    pub async fn all_services(&self) -> HashMap<String, ServiceRegistry> {
         let services = self.services.read().await;
         services.clone()
     }
 
     /// Get services by tag
-    pub async fn get_services_by_tag(&self, tag: &str) -> Vec<String> {
+    pub async fn services_by_tag(&self, tag: &str) -> Vec<String> {
         let index = self.service_index.read().await;
         index
             .get(tag)

@@ -8,9 +8,7 @@
 
 use serde::{Deserialize, Serialize};
 
-// ============================================================================
 // Type Definitions
-// ============================================================================
 
 /// Content classification for cache optimization
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -91,9 +89,7 @@ pub enum Provider {
     Other,
 }
 
-// ============================================================================
 // Label Classification
-// ============================================================================
 
 /// Labels that never change within a session
 const STATIC_LABELS: &[&str] = &["system-prompt", "base-instructions", "executor-constraints"];
@@ -122,28 +118,11 @@ const DYNAMIC_LABELS: &[&str] = &[
     "verification-commands",
 ];
 
-// ============================================================================
 // Public API
-// ============================================================================
 
 /// Classify common Orchestra prompt sections by their caching potential.
 /// Returns the appropriate `ContentRole` for a section label.
 ///
-/// # Arguments
-/// * `label` - Section label (e.g., "slice-plan", "task-instructions")
-///
-/// # Returns
-/// Appropriate `ContentRole` for the label
-///
-/// # Examples
-/// ```
-/// use rustycode_orchestration::prompt_cache_optimizer::{classify_section, ContentRole};
-///
-/// assert_eq!(classify_section("system-prompt"), ContentRole::Static);
-/// assert_eq!(classify_section("slice-plan"), ContentRole::SemiStatic);
-/// assert_eq!(classify_section("task-instructions"), ContentRole::Dynamic);
-/// assert_eq!(classify_section("unknown-label"), ContentRole::Dynamic);
-/// ```
 pub fn classify_section(label: &str) -> ContentRole {
     if STATIC_LABELS.contains(&label) {
         return ContentRole::Static;
@@ -167,24 +146,6 @@ pub fn classify_section(label: &str) -> ContentRole {
 
 /// Build a `PromptSection` from content with automatic role classification.
 ///
-/// # Arguments
-/// * `label` - Section label (e.g., "slice-plan", "task-instructions")
-/// * `content` - The section content
-/// * `role` - Optional explicit role override
-///
-/// # Returns
-/// `PromptSection` with classified or explicit role
-///
-/// # Examples
-/// ```
-/// use rustycode_orchestration::prompt_cache_optimizer::{section, ContentRole};
-///
-/// let section = section("task-instructions", "Do the work", None);
-/// assert_eq!(section.role, ContentRole::Dynamic);
-///
-/// let section2 = section("custom-label", "Static content", Some(ContentRole::Static));
-/// assert_eq!(section2.role, ContentRole::Static);
-/// ```
 pub fn section(
     label: impl Into<String>,
     content: impl Into<String>,
@@ -205,26 +166,6 @@ pub fn section(
 /// Reorders sections: static first, then semi-static, then dynamic.
 /// Preserves relative order within each role group.
 ///
-/// # Arguments
-/// * `sections` - Array of labeled prompt sections
-///
-/// # Returns
-/// Cache-optimized prompt with statistics
-///
-/// # Examples
-/// ```
-/// use rustycode_orchestration::prompt_cache_optimizer::{optimize_for_caching, section, ContentRole};
-///
-/// let sections = vec![
-///     section("task-instructions", "Do task 1", None),
-///     section("system-prompt", "You are helpful", None),
-///     section("slice-plan", "Plan: build X", None),
-/// ];
-///
-/// let result = optimize_for_caching(&sections);
-/// assert!(result.prompt.starts_with("You are helpful")); // Static first
-/// assert!(result.cache_efficiency > 0.5); // Most is cacheable
-/// ```
 pub fn optimize_for_caching(sections: &[PromptSection]) -> CacheOptimizedPrompt {
     let mut groups = [
         Vec::new(), // Static
@@ -311,28 +252,6 @@ pub fn optimize_for_caching(sections: &[PromptSection]) -> CacheOptimizedPrompt 
 /// - Anthropic: 90% savings on cached tokens
 /// - `OpenAI`: 50% savings on cached tokens
 ///
-/// # Arguments
-/// * `result` - The cache-optimized prompt
-/// * `provider` - Provider type for savings calculation
-///
-/// # Returns
-/// Estimated savings as a decimal (0.0-1.0)
-///
-/// # Examples
-/// ```
-/// use rustycode_orchestration::prompt_cache_optimizer::{estimate_cache_savings, optimize_for_caching, section, Provider};
-///
-/// let sections = vec![
-///     section("system-prompt", "Static", None),
-///     section("task-instructions", "Dynamic", None),
-/// ];
-/// let result = optimize_for_caching(&sections);
-///
-/// let anthropic_savings = estimate_cache_savings(&result, Provider::Anthropic);
-/// let openai_savings = estimate_cache_savings(&result, Provider::OpenAI);
-///
-/// assert!(anthropic_savings > openai_savings); // Anthropic has higher savings
-/// ```
 pub fn estimate_cache_savings(result: &CacheOptimizedPrompt, provider: Provider) -> f64 {
     match provider {
         Provider::Anthropic => result.cache_efficiency * 0.9,
@@ -344,25 +263,6 @@ pub fn estimate_cache_savings(result: &CacheOptimizedPrompt, provider: Provider)
 /// Compute cache hit rate from token usage metrics.
 /// Returns a percentage 0-100.
 ///
-/// # Arguments
-/// * `usage` - Cache usage metrics
-///
-/// # Returns
-/// Cache hit rate percentage (0-100)
-///
-/// # Examples
-/// ```
-/// use rustycode_orchestration::prompt_cache_optimizer::compute_cache_hit_rate;
-///
-/// let usage = rustycode_orchestration::prompt_cache_optimizer::CacheUsage {
-///     cache_read: 1000,
-///     cache_write: 100,
-///     input: 500,
-/// };
-///
-/// let hit_rate = compute_cache_hit_rate(usage);
-/// assert_eq!(hit_rate, 66.0); // 1000 / (1000 + 500) = 0.666...
-/// ```
 pub fn compute_cache_hit_rate(usage: CacheUsage) -> f64 {
     let denominator = usage.cache_read + usage.input;
     if denominator == 0 {
@@ -371,9 +271,7 @@ pub fn compute_cache_hit_rate(usage: CacheUsage) -> f64 {
     ((usage.cache_read as f64) / (denominator as f64)) * 100.0
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

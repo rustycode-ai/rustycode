@@ -61,7 +61,7 @@ impl CapabilityCurator {
     }
 
     pub fn detect_unmatched_signals(&self, registry: &SkillRegistry) -> Vec<String> {
-        let all_skills = registry.get_all();
+        let all_skills = registry.all();
         let covered_signals: Vec<String> = all_skills
             .iter()
             .flat_map(|s| -> Vec<String> {

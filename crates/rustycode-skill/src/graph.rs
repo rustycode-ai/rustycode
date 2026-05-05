@@ -75,7 +75,7 @@ impl CapabilityGraph {
         )
     }
 
-    pub fn get_node(&self, name: &str) -> Option<&GraphNode> {
+    pub fn node(&self, name: &str) -> Option<&GraphNode> {
         self.name_index.get(name).map(|idx| &self.graph[*idx])
     }
 
@@ -242,21 +242,21 @@ mod tests {
         let mut g = CapabilityGraph::new();
         let _idx = g.add_skill("code-review");
         assert_eq!(g.node_count(), 1);
-        assert_eq!(g.get_node("code-review").unwrap().kind, NodeType::Skill);
+        assert_eq!(g.node("code-review").unwrap().kind, NodeType::Skill);
     }
 
     #[test]
     fn add_tool() {
         let mut g = CapabilityGraph::new();
         g.add_tool("bash");
-        assert_eq!(g.get_node("bash").unwrap().kind, NodeType::Tool);
+        assert_eq!(g.node("bash").unwrap().kind, NodeType::Tool);
     }
 
     #[test]
     fn add_agent() {
         let mut g = CapabilityGraph::new();
         g.add_agent("reviewer");
-        assert_eq!(g.get_node("reviewer").unwrap().kind, NodeType::Agent);
+        assert_eq!(g.node("reviewer").unwrap().kind, NodeType::Agent);
     }
 
     #[test]
@@ -346,8 +346,8 @@ mod tests {
 
         assert_eq!(g2.node_count(), 2);
         assert_eq!(g2.edge_count(), 1);
-        assert!(g2.get_node("s1").is_some());
-        assert!(g2.get_node("t1").is_some());
+        assert!(g2.node("s1").is_some());
+        assert!(g2.node("t1").is_some());
     }
 
     #[test]

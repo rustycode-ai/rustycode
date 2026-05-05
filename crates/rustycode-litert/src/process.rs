@@ -408,7 +408,7 @@ impl ProcessPool {
     }
 
     /// Get the next available process using round-robin selection.
-    pub fn get_process(&self) -> Result<Arc<LitProcess>> {
+    pub fn process(&self) -> Result<Arc<LitProcess>> {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
         if self.processes.is_empty() {
@@ -427,7 +427,7 @@ impl ProcessPool {
 
     /// Convenience method: pick a process via round-robin and send a prompt.
     pub async fn send_prompt(&self, prompt: &str) -> Result<String> {
-        let process = self.get_process()?;
+        let process = self.process()?;
         process.send_prompt(prompt).await
     }
 }
@@ -446,7 +446,7 @@ mod tests {
     #[test]
     fn process_pool_get_process_fails_when_empty() {
         let pool = ProcessPool::new(PathBuf::from("/fake/binary"), "test-model".into(), 2);
-        let result = pool.get_process();
+        let result = pool.process();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("not initialized"));
     }

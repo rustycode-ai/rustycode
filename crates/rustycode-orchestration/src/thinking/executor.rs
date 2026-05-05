@@ -190,7 +190,7 @@ impl RealExecutor {
 
         let mut sections: Vec<String> = Vec::new();
         for id in &sorted_ids {
-            let Ok(thought) = graph.get_thought(*id) else {
+            let Ok(thought) = graph.thought(*id) else {
                 continue;
             };
             let score = all_scores.get(id).copied().unwrap_or(0.0);
@@ -222,7 +222,7 @@ impl RealExecutor {
                 || Ok("No valid result found.".to_string()),
                 |id| {
                     graph
-                        .get_thought(*id)
+                        .thought(*id)
                         .map(|t| t.content.clone())
                         .or_else(|_| Ok("Unable to extract result.".to_string()))
                 },

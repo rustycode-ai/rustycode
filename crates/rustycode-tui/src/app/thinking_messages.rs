@@ -151,13 +151,13 @@ const THINKING_MESSAGES: &[&str] = &[
 /// Returns a thinking message by animation frame index.
 ///
 /// Use `frame % len` to cycle through messages predictably.
-pub fn get_thinking_message(frame: usize) -> &'static str {
+pub fn thinking_message(frame: usize) -> &'static str {
     let idx = frame % THINKING_MESSAGES.len();
     THINKING_MESSAGES[idx]
 }
 
 /// Returns a random thinking message from the list.
-pub fn get_random_thinking_message() -> &'static str {
+pub fn random_thinking_message() -> &'static str {
     let mut rng = rand::rng();
     THINKING_MESSAGES
         .choose(&mut rng)

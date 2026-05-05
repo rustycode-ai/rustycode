@@ -657,30 +657,6 @@ pub fn sanitize_for_log(input: &str) -> String {
 /// This prevents TOCTOU (Time-of-Check-Time-of-Use) attacks where an
 /// attacker could replace a file with a symlink between validation and opening.
 ///
-/// # Arguments
-///
-/// * `path` - Path to the file to open
-///
-/// # Returns
-///
-/// A `std::fs::File` handle if successful, or an error if:
-/// - The path is a symbolic link (Unix)
-/// - The file doesn't exist
-/// - Permission denied
-///
-/// # Platform Differences
-///
-/// - **Unix**: Uses `O_NOFOLLOW` to prevent following symlinks
-/// - **Windows**: Uses regular open (Windows has different symlink semantics)
-///
-/// # Example
-///
-/// ```ignore
-/// use rustycode_tools::security::open_file_symlink_safe;
-///
-/// // This will fail if target.txt is a symlink
-/// let file = open_file_symlink_safe("target.txt")?;
-/// ```
 pub fn open_file_symlink_safe<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     let path = path.as_ref();
 
@@ -724,13 +700,6 @@ pub fn open_file_symlink_safe<P: AsRef<Path>>(path: P) -> Result<fs::File> {
 /// Creates a new file or truncates an existing file, but fails if
 /// the path is a symbolic link.
 ///
-/// # Arguments
-///
-/// * `path` - Path to the file to open/create
-///
-/// # Returns
-///
-/// A `std::fs::File` handle for writing
 pub fn create_file_symlink_safe<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     let path = path.as_ref();
 
@@ -773,16 +742,6 @@ pub fn create_file_symlink_safe<P: AsRef<Path>>(path: P) -> Result<fs::File> {
 /// is created only if it doesn't exist. This is the safe way to implement
 /// "create if not exists" without TOCTOU vulnerabilities.
 ///
-/// # Arguments
-///
-/// * `path` - Path to the file to create
-///
-/// # Returns
-///
-/// A `std::fs::File` handle for writing, or an error if:
-/// - The file already exists
-/// - The path is a symbolic link
-/// - Permission denied
 pub fn create_file_exclusive<P: AsRef<Path>>(path: P) -> Result<fs::File> {
     let path = path.as_ref();
 

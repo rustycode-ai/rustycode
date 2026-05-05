@@ -11,18 +11,14 @@ use crate::app::handlers::handle_workspace_update;
 use crate::app::service_integration::{WorkspaceUpdate, WorkspaceChannelSender};
 use std::time::Duration;
 
-// ============================================================================
 // TEST HELPERS
-// ============================================================================
 
 /// Create a test TUI instance
 fn create_test_tui() -> TUI {
     TUI::new_for_test()
 }
 
-// ============================================================================
 // SCAN PROGRESS STATE TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod scan_progress_tests {
@@ -124,9 +120,7 @@ mod scan_progress_tests {
     }
 }
 
-// ============================================================================
 // WORKSPACE UPDATE HANDLER TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod workspace_update_handler_tests {
@@ -219,9 +213,7 @@ mod workspace_update_handler_tests {
     }
 }
 
-// ============================================================================
 // INTEGRATION TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod integration_tests {

@@ -255,7 +255,6 @@ pub struct RecipeBuilder {
 }
 
 impl RecipeBuilder {
-    /// Create a new builder with the given title.
     pub fn new(title: impl Into<String>) -> Self {
         Self {
             title: title.into(),
@@ -371,7 +370,6 @@ pub struct RecipeRegistry {
 }
 
 impl RecipeRegistry {
-    /// Create a new empty registry
     pub fn new() -> Self {
         Self::default()
     }

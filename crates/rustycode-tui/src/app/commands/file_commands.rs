@@ -116,7 +116,7 @@ pub fn handle_diff_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<C
 
 /// Handle /export command - export conversation to markdown file
 pub fn handle_export_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    let export_dir = crate::app::clipboard_export::get_default_export_dir();
+    let export_dir = crate::app::clipboard_export::default_export_dir();
 
     match crate::app::clipboard_export::export_conversation_to_file(ctx.messages, &export_dir) {
         Ok(path) => Ok(CommandEffect::SystemMessage(format!(

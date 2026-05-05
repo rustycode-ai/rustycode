@@ -508,7 +508,7 @@ impl TaskScheduler {
     }
 
     /// Get task status
-    pub async fn get_task_status(&self, task_id: &str) -> Option<TaskStatus> {
+    pub async fn task_status(&self, task_id: &str) -> Option<TaskStatus> {
         // Check active tasks
         {
             let active = self.active_tasks.read().await;
@@ -529,7 +529,7 @@ impl TaskScheduler {
     }
 
     /// Get queue statistics
-    pub async fn get_queue_statistics(&self) -> QueueStatistics {
+    pub async fn queue_statistics(&self) -> QueueStatistics {
         let queue = self.task_queue.read().await;
         let active = self.active_tasks.read().await;
         let completed = self.completed_tasks.read().await;

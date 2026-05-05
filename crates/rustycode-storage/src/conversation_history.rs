@@ -72,26 +72,6 @@ pub struct ConversationHistory {
 impl ConversationHistory {
     /// Create a new conversation history manager with a custom storage directory
     ///
-    /// # Arguments
-    ///
-    /// * `storage_dir` - Directory where conversation JSON files will be stored
-    ///
-    /// # Returns
-    ///
-    /// Returns a `Result` with the `ConversationHistory` instance or an error
-    /// if the directory cannot be created.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::ConversationHistory;
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::new(Path::new("/tmp/conversations"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn new(storage_dir: impl AsRef<Path>) -> anyhow::Result<Self> {
         let dir = storage_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&dir).with_context(|| {
@@ -105,21 +85,6 @@ impl ConversationHistory {
 
     /// Use the default storage directory (~/.rustycode/conversations)
     ///
-    /// # Returns
-    ///
-    /// Returns a `Result` with the `ConversationHistory` instance or an error
-    /// if the home directory cannot be determined or the directory cannot be created.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::ConversationHistory;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::default_dir()?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn default_dir() -> anyhow::Result<Self> {
         let home =
             dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Cannot determine home directory"))?;
@@ -129,38 +94,6 @@ impl ConversationHistory {
 
     /// Save a conversation to disk
     ///
-    /// # Arguments
-    ///
-    /// * `conversation` - The conversation to save
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if successful, or an error if serialization or writing fails.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::{ConversationHistory, Conversation, new_conversation_id};
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::default_dir()?;
-    /// let conv = Conversation {
-    ///     id: new_conversation_id(),
-    ///     title: "Test".to_string(),
-    ///     created_at: 0,
-    ///     updated_at: 0,
-    ///     model: "test".to_string(),
-    ///     provider: "test".to_string(),
-    ///     messages: vec![],
-    ///     tags: vec![],
-    ///     total_tokens: 0,
-    ///     total_cost_cents: 0,
-    ///     workspace_path: None,
-    /// };
-    /// history.save(&conv)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn save(&self, conversation: &Conversation) -> anyhow::Result<()> {
         validate_id(&conversation.id)?;
         let filename = format!("{}.json", conversation.id);
@@ -182,25 +115,6 @@ impl ConversationHistory {
 
     /// Load a conversation by ID
     ///
-    /// # Arguments
-    ///
-    /// * `id` - The conversation ID to load
-    ///
-    /// # Returns
-    ///
-    /// Returns the loaded `Conversation` or an error if not found or invalid.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::ConversationHistory;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::default_dir()?;
-    /// let conv = history.load("conversation-id")?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn load(&self, id: &str) -> anyhow::Result<Conversation> {
         validate_id(id)?;
         let filename = format!("{id}.json");
@@ -215,25 +129,6 @@ impl ConversationHistory {
 
     /// Delete a conversation by ID
     ///
-    /// # Arguments
-    ///
-    /// * `id` - The conversation ID to delete
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if successful, or an error if the file cannot be removed.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::ConversationHistory;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::default_dir()?;
-    /// history.delete("conversation-id")?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn delete(&self, id: &str) -> anyhow::Result<()> {
         validate_id(id)?;
         let filename = format!("{id}.json");
@@ -245,28 +140,6 @@ impl ConversationHistory {
 
     /// List all conversations, sorted by `updated_at` descending
     ///
-    /// # Arguments
-    ///
-    /// * `limit` - Maximum number of conversations to return
-    ///
-    /// # Returns
-    ///
-    /// A vector of `ConversationSummary` objects with conversation metadata.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::ConversationHistory;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::default_dir()?;
-    /// let conversations = history.list(10)?;
-    /// for conv in conversations {
-    ///     println!("{}: {}", conv.id, conv.title);
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn list(&self, limit: usize) -> anyhow::Result<Vec<ConversationSummary>> {
         let mut summaries = Vec::new();
 
@@ -299,30 +172,6 @@ impl ConversationHistory {
 
     /// Search conversations by query text, tags, model, or date range
     ///
-    /// # Arguments
-    ///
-    /// * `filter` - Search criteria including query, tags, model, and date range
-    ///
-    /// # Returns
-    ///
-    /// A vector of `ConversationSummary` objects matching the filter criteria.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::{ConversationHistory, ConversationFilter};
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::default_dir()?;
-    /// let filter = ConversationFilter {
-    ///     query: Some("rust".to_string()),
-    ///     limit: 10,
-    ///     ..Default::default()
-    /// };
-    /// let results = history.search(&filter)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn search(&self, filter: &ConversationFilter) -> anyhow::Result<Vec<ConversationSummary>> {
         let mut results = Vec::new();
 
@@ -396,28 +245,6 @@ impl ConversationHistory {
 
     /// Export a conversation to the specified format
     ///
-    /// # Arguments
-    ///
-    /// * `id` - The conversation ID to export
-    /// * `format` - The export format (JSON or Markdown)
-    /// * `output_path` - Where to write the exported file
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if successful, or an error if loading, serialization, or writing fails.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::conversation_history::{ConversationHistory, ExportFormat};
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let history = ConversationHistory::default_dir()?;
-    /// history.export("conversation-id", ExportFormat::Markdown, Path::new("output.md"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn export(&self, id: &str, format: ExportFormat, output_path: &Path) -> anyhow::Result<()> {
         let conv = self.load(id)?;
 
@@ -497,27 +324,12 @@ pub struct ConversationSummary {
 
 /// Create a new unique conversation ID using UUID v4
 ///
-/// # Returns
-///
-/// A new UUID string suitable for use as a conversation ID.
-///
-/// # Example
-///
-/// ```no_run
-/// use rustycode_storage::conversation_history::new_conversation_id;
-///
-/// let id = new_conversation_id();
-/// println!("New conversation ID: {}", id);
-/// ```
 pub fn new_conversation_id() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
 /// Get the current Unix timestamp in seconds
 ///
-/// # Returns
-///
-/// The current time as seconds since the Unix epoch.
 pub fn now_timestamp() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

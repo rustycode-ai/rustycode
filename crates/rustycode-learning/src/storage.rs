@@ -106,12 +106,12 @@ impl PatternStorage {
     }
 
     /// Get a pattern by ID
-    pub fn get_pattern(&self, id: &str) -> Option<&Pattern> {
+    pub fn pattern(&self, id: &str) -> Option<&Pattern> {
         self.patterns.get(id)
     }
 
     /// Get an instinct by ID
-    pub fn get_instinct(&self, id: &str) -> Option<&Instinct> {
+    pub fn instinct(&self, id: &str) -> Option<&Instinct> {
         self.instincts.get(id)
     }
 
@@ -303,7 +303,7 @@ mod tests {
         );
 
         storage.add_pattern(pattern.clone());
-        let retrieved = storage.get_pattern("test-1");
+        let retrieved = storage.pattern("test-1");
 
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().name, "Test Pattern");
@@ -329,7 +329,7 @@ mod tests {
         let mut storage2 = PatternStorage::new(storage_path).unwrap();
         storage2.load().unwrap();
 
-        let retrieved = storage2.get_pattern("test-2");
+        let retrieved = storage2.pattern("test-2");
         assert!(retrieved.is_some());
     }
 
@@ -337,14 +337,14 @@ mod tests {
     fn test_get_pattern_nonexistent() {
         let temp_dir = TempDir::new().unwrap();
         let storage = PatternStorage::new(temp_dir.path()).unwrap();
-        assert!(storage.get_pattern("no-such-id").is_none());
+        assert!(storage.pattern("no-such-id").is_none());
     }
 
     #[test]
     fn test_get_instinct_nonexistent() {
         let temp_dir = TempDir::new().unwrap();
         let storage = PatternStorage::new(temp_dir.path()).unwrap();
-        assert!(storage.get_instinct("no-such-id").is_none());
+        assert!(storage.instinct("no-such-id").is_none());
     }
 
     #[test]
@@ -383,7 +383,7 @@ mod tests {
         let instinct = Instinct::new("i1".to_string(), pattern, trigger, action);
 
         storage.add_instinct(instinct);
-        let retrieved = storage.get_instinct("i1");
+        let retrieved = storage.instinct("i1");
         assert!(retrieved.is_some());
     }
 
@@ -421,7 +421,7 @@ mod tests {
         storage.record_instinct_success("i2");
         storage.record_instinct_failure("i2");
 
-        let inst = storage.get_instinct("i2").unwrap();
+        let inst = storage.instinct("i2").unwrap();
         assert_eq!(inst.usage_count, 3); // 2 successes + 1 failure
         assert!(inst.success_rate > 0.0);
         assert!(inst.last_used.is_some());
@@ -466,7 +466,7 @@ mod tests {
         storage.add_pattern(p1);
         storage.add_pattern(p2);
 
-        let retrieved = storage.get_pattern("dup").unwrap();
+        let retrieved = storage.pattern("dup").unwrap();
         assert_eq!(retrieved.name, "V2");
         assert_eq!(storage.patterns().len(), 1);
     }

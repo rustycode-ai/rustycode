@@ -207,15 +207,15 @@ fn build_bundled_cost_table() -> HashMap<String, ModelCostEntry> {
 // ─── Cost Table Access ─────────────────────────────────────────────────────────
 
 /// Get the bundled cost table
-pub fn get_bundled_cost_table() -> &'static HashMap<String, ModelCostEntry> {
+pub fn bundled_cost_table() -> &'static HashMap<String, ModelCostEntry> {
     use std::sync::OnceLock;
     static COST_TABLE: OnceLock<HashMap<String, ModelCostEntry>> = OnceLock::new();
     COST_TABLE.get_or_init(build_bundled_cost_table)
 }
 
 /// Get all cost entries as a vector
-pub fn get_all_cost_entries() -> Vec<ModelCostEntry> {
-    get_bundled_cost_table().values().cloned().collect()
+pub fn all_cost_entries() -> Vec<ModelCostEntry> {
+    bundled_cost_table().values().cloned().collect()
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ pub fn get_all_cost_entries() -> Vec<ModelCostEntry> {
 /// Extracts the bare model ID if a provider prefix is present, then
 /// performs exact and partial matching against the bundled table.
 pub fn lookup_model_cost(model_id: &str) -> Option<ModelCostEntry> {
-    let table = get_bundled_cost_table();
+    let table = bundled_cost_table();
 
     // Extract bare ID if provider prefix present
     let bare_id = if model_id.contains('/') {

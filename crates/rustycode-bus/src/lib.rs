@@ -128,19 +128,6 @@ pub enum SubscriptionFilter {
 impl SubscriptionFilter {
     /// Create a new subscription filter from a pattern
     ///
-    /// # Arguments
-    ///
-    /// * `pattern` - A pattern that may contain wildcards (* or ?)
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rustycode_bus::SubscriptionFilter;
-    ///
-    /// let exact = SubscriptionFilter::new("session.started").unwrap();
-    /// let wildcard = SubscriptionFilter::new("session.*").unwrap();
-    /// let all = SubscriptionFilter::new("*").unwrap();
-    /// ```
     pub fn new(pattern: &str) -> std::result::Result<Self, regex::Error> {
         if pattern.contains('*') || pattern.contains('?') {
             // Convert wildcard to regex
@@ -289,16 +276,12 @@ pub struct EventBus {
 }
 
 impl EventBus {
-    /// Create a new event bus with default configuration
     pub fn new() -> Self {
         Self::with_config(EventBusConfig::default())
     }
 
     /// Create a new event bus with custom configuration
     ///
-    /// # Arguments
-    ///
-    /// * `config` - Event bus configuration options
     pub fn with_config(config: EventBusConfig) -> Self {
         Self {
             config,
@@ -316,34 +299,6 @@ impl EventBus {
     /// 3. Run `PostPublish` hooks
     /// 4. Update metrics
     ///
-    /// # Arguments
-    ///
-    /// * `event` - Event to publish (must implement Event trait)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if hook execution fails
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rustycode_bus::{EventBus, SessionStartedEvent};
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// let bus = EventBus::default();
-    ///
-    /// let event = SessionStartedEvent::new(
-    ///     SessionId::new(),
-    ///     "Test task".to_string(),
-    ///     "Test detail".to_string(),
-    /// );
-    ///
-    /// bus.publish(event).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn publish<E>(&self, event: E) -> Result<()>
     where
         E: Event + Clone,
@@ -418,39 +373,6 @@ impl EventBus {
 
     /// Subscribe to events matching a pattern
     ///
-    /// # Arguments
-    ///
-    /// * `pattern` - Event pattern (supports wildcards: *, ?)
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the subscription ID and a receiver channel
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the pattern is invalid or max subscribers reached
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rustycode_bus::EventBus;
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// let bus = EventBus::default();
-    ///
-    /// // Subscribe to session events
-    /// let (_id, mut rx) = bus.subscribe("session.*").await?;
-    ///
-    /// // Spawn task to handle events
-    /// tokio::spawn(async move {
-    ///     while let Ok(event) = rx.recv().await {
-    ///         println!("Received: {}", event.event_type());
-    ///     }
-    /// });
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn subscribe(
         &self,
         pattern: &str,
@@ -497,42 +419,6 @@ impl EventBus {
     /// This is the most efficient way to handle events when you have a single
     /// subscriber, as it avoids channel overhead completely.
     ///
-    /// # Arguments
-    ///
-    /// * `pattern` - Event pattern (supports wildcards: *, ?)
-    /// * `callback` - Function to call when events are published
-    ///
-    /// # Returns
-    ///
-    /// The subscription ID for unsubscribing later
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the pattern is invalid or max subscribers reached
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rustycode_bus::EventBus;
-    /// use std::sync::Arc;
-    /// use std::sync::atomic::{AtomicUsize, Ordering};
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// let bus = EventBus::default();
-    /// let event_count = Arc::new(AtomicUsize::new(0));
-    /// let event_count_clone = event_count.clone();
-    ///
-    /// // Subscribe with callback
-    /// let _id = bus.subscribe_callback("session.*", move |_event| {
-    ///     event_count_clone.fetch_add(1, Ordering::SeqCst);
-    ///     Ok(())
-    /// }).await?;
-    ///
-    /// // Publish events...
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn subscribe_callback<F>(
         &self,
         pattern: &str,
@@ -585,47 +471,6 @@ impl EventBus {
     /// This is useful when you want to handle events immediately via callback
     /// but also want to support multiple receivers via channel.
     ///
-    /// # Arguments
-    ///
-    /// * `pattern` - Event pattern (supports wildcards: *, ?)
-    /// * `callback` - Function to call when events are published
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the subscription ID and a receiver channel
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the pattern is invalid or max subscribers reached
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rustycode_bus::EventBus;
-    /// use std::sync::Arc;
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// let bus = EventBus::default();
-    ///
-    /// // Subscribe with both callback and channel
-    /// let (_id, mut rx) = bus.subscribe_hybrid(
-    ///     "session.*",
-    ///     |event| {
-    ///         println!("Callback received: {}", event.event_type());
-    ///         Ok(())
-    ///     }
-    /// ).await?;
-    ///
-    /// // Also receive via channel in another task
-    /// tokio::spawn(async move {
-    ///     while let Ok(event) = rx.recv().await {
-    ///         println!("Channel received: {}", event.event_type());
-    ///     }
-    /// });
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn subscribe_hybrid<F>(
         &self,
         pattern: &str,
@@ -676,28 +521,6 @@ impl EventBus {
 
     /// Unsubscribe from events
     ///
-    /// # Arguments
-    ///
-    /// * `id` - Subscription ID returned by `subscribe()`
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the subscription is not found
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rustycode_bus::EventBus;
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// let bus = EventBus::default();
-    ///
-    /// let (id, _rx) = bus.subscribe("session.*").await?;
-    /// bus.unsubscribe(id).await?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn unsubscribe(&self, id: Uuid) -> Result<()> {
         let mut subscribers = self.subscribers.write().await;
         subscribers
@@ -718,28 +541,6 @@ impl EventBus {
     ///
     /// Hooks are executed in the order they are registered.
     ///
-    /// # Arguments
-    ///
-    /// * `phase` - When to execute the hook
-    /// * `hook` - Function to call during the phase
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use rustycode_bus::{EventBus, HookPhase};
-    ///
-    /// # #[tokio::main]
-    /// # async fn main() -> anyhow::Result<()> {
-    /// let bus = EventBus::default();
-    ///
-    /// // Register logging hook
-    /// bus.register_hook(HookPhase::PrePublish, |event| {
-    ///     tracing::info!("Event: {}", event.event_type());
-    ///     Ok(())
-    /// }).await;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub async fn register_hook<F>(&self, phase: HookPhase, hook: F)
     where
         F: Fn(&dyn Event) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>>
@@ -837,10 +638,6 @@ pub struct SubscriptionHandle {
 impl SubscriptionHandle {
     /// Create a new subscription handle
     ///
-    /// # Arguments
-    ///
-    /// * `id` - Subscription ID
-    /// * `bus` - Event bus instance
     pub const fn new(id: Uuid, bus: Arc<EventBus>) -> Self {
         Self { id, bus }
     }

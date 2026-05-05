@@ -65,7 +65,6 @@ pub struct ConnectionPool {
 }
 
 impl ConnectionPool {
-    /// Create a new connection pool
     pub fn new(config: PoolConfig) -> Self {
         let semaphore = Arc::new(Semaphore::new(config.max_size));
         Self {
@@ -232,7 +231,6 @@ impl TokenBucket {
 }
 
 impl RateLimiter {
-    /// Create a new rate limiter
     pub fn new(config: RateLimiterConfig) -> Self {
         Self {
             config,
@@ -341,7 +339,6 @@ pub struct MetricsCollector {
 }
 
 impl MetricsCollector {
-    /// Create a new metrics collector
     pub fn new() -> Self {
         Self {
             metrics: Arc::new(RwLock::new(HashMap::new())),
@@ -363,13 +360,13 @@ impl MetricsCollector {
     }
 
     /// Get metrics for a key
-    pub async fn get_metrics(&self, key: &str) -> Option<Metrics> {
+    pub async fn metrics(&self, key: &str) -> Option<Metrics> {
         let metrics = self.metrics.read().await;
         metrics.get(key).cloned()
     }
 
     /// Get all metrics
-    pub async fn get_all_metrics(&self) -> HashMap<String, Metrics> {
+    pub async fn all_metrics(&self) -> HashMap<String, Metrics> {
         let metrics = self.metrics.read().await;
         metrics.clone()
     }
@@ -491,7 +488,7 @@ mod tests {
             .record_failure(key, "test error".to_string())
             .await;
 
-        let metrics = collector.get_metrics(key).await;
+        let metrics = collector.metrics(key).await;
         assert!(metrics.is_some());
         let metrics = metrics.unwrap();
         assert_eq!(metrics.total_calls, 3);
@@ -689,13 +686,13 @@ mod tests {
         collector.record_failure("key", "err".to_string()).await;
 
         collector.reset_metrics("key").await;
-        assert!(collector.get_metrics("key").await.is_none());
+        assert!(collector.metrics("key").await.is_none());
 
         // Test reset_all
         collector.record_success("key1", 10).await;
         collector.record_success("key2", 20).await;
         collector.reset_all().await;
-        assert!(collector.get_all_metrics().await.is_empty());
+        assert!(collector.all_metrics().await.is_empty());
     }
 
     #[tokio::test]
@@ -704,7 +701,7 @@ mod tests {
         collector.record_success("a", 100).await;
         collector.record_success("b", 200).await;
 
-        let all = collector.get_all_metrics().await;
+        let all = collector.all_metrics().await;
         assert_eq!(all.len(), 2);
         assert!(all.contains_key("a"));
         assert!(all.contains_key("b"));

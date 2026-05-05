@@ -66,11 +66,11 @@ fn cmd_list_providers(format: &str) -> anyhow::Result<()> {
     let providers = provider_helpers::list_providers();
 
     if format == "json" {
-        let registry = provider_helpers::get_registry();
+        let registry = provider_helpers::registry();
         let provider_list: Vec<serde_json::Value> = providers
             .iter()
             .filter_map(|pid| {
-                registry.get_provider(pid).map(|p| {
+                registry.provider(pid).map(|p| {
                     serde_json::json!({
                         "id": p.id,
                         "name": p.name,
@@ -86,8 +86,8 @@ fn cmd_list_providers(format: &str) -> anyhow::Result<()> {
         println!("{}", "-".repeat(55));
 
         for provider_id in providers {
-            let registry = provider_helpers::get_registry();
-            if let Some(provider) = registry.get_provider(&provider_id) {
+            let registry = provider_helpers::registry();
+            if let Some(provider) = registry.provider(&provider_id) {
                 println!("{:<15} {:<40}", provider.id, provider.description);
             }
         }
@@ -100,8 +100,8 @@ fn cmd_list_providers(format: &str) -> anyhow::Result<()> {
 fn cmd_list_models(provider: Option<String>, format: &str) -> anyhow::Result<()> {
     if let Some(provider_id) = provider {
         // Show models for specific provider
-        let registry = provider_helpers::get_registry();
-        if let Some(provider_meta) = registry.get_provider(&provider_id) {
+        let registry = provider_helpers::registry();
+        if let Some(provider_meta) = registry.provider(&provider_id) {
             if format == "json" {
                 let models_json: Vec<serde_json::Value> = provider_meta
                     .models
@@ -142,9 +142,9 @@ fn cmd_list_models(provider: Option<String>, format: &str) -> anyhow::Result<()>
             let mut models_json = Vec::new();
             for model_id in &models {
                 if let Some((_, pid)) = provider_helpers::find_model_provider(model_id) {
-                    let registry = provider_helpers::get_registry();
+                    let registry = provider_helpers::registry();
                     if let Some(model_info) = registry
-                        .get_provider(&pid)
+                        .provider(&pid)
                         .and_then(|p| p.models.iter().find(|m| m.id == *model_id))
                     {
                         models_json.push(serde_json::json!({
@@ -164,9 +164,9 @@ fn cmd_list_models(provider: Option<String>, format: &str) -> anyhow::Result<()>
 
             for model_id in models {
                 if let Some((_, provider_id)) = provider_helpers::find_model_provider(&model_id) {
-                    let registry = provider_helpers::get_registry();
+                    let registry = provider_helpers::registry();
                     if let Some(model_info) = registry
-                        .get_provider(&provider_id)
+                        .provider(&provider_id)
                         .and_then(|p| p.models.iter().find(|m| m.id == model_id))
                     {
                         let tier = format!("{:?}", model_info.tier);
@@ -183,8 +183,8 @@ fn cmd_list_models(provider: Option<String>, format: &str) -> anyhow::Result<()>
 
 fn cmd_model_info(model: &str) -> anyhow::Result<()> {
     if let Some((_, provider_id)) = provider_helpers::find_model_provider(model) {
-        let registry = provider_helpers::get_registry();
-        if let Some(provider) = registry.get_provider(&provider_id) {
+        let registry = provider_helpers::registry();
+        if let Some(provider) = registry.provider(&provider_id) {
             if let Some(model_info) = provider.models.iter().find(|m| m.id == model) {
                 println!("\n📊 Model Information: {}\n", model);
                 println!("Provider:        {}", provider.name);
@@ -211,12 +211,12 @@ fn cmd_model_info(model: &str) -> anyhow::Result<()> {
 }
 
 fn cmd_show_tiers() -> anyhow::Result<()> {
-    let registry = provider_helpers::get_registry();
+    let registry = provider_helpers::registry();
 
     println!("\n💰 Models by Cost Tier:\n");
 
     // Budget tier
-    let budget_models = registry.get_models_by_tier(ModelTier::Budget);
+    let budget_models = registry.models_by_tier(ModelTier::Budget);
     println!("🟢 Budget Tier (Cheapest):");
     for model in budget_models {
         println!(
@@ -226,7 +226,7 @@ fn cmd_show_tiers() -> anyhow::Result<()> {
     }
 
     // Balanced tier
-    let balanced_models = registry.get_models_by_tier(ModelTier::Balanced);
+    let balanced_models = registry.models_by_tier(ModelTier::Balanced);
     println!("\n🟡 Balanced Tier (Good value):");
     for model in balanced_models {
         println!(
@@ -236,7 +236,7 @@ fn cmd_show_tiers() -> anyhow::Result<()> {
     }
 
     // Premium tier
-    let premium_models = registry.get_models_by_tier(ModelTier::Premium);
+    let premium_models = registry.models_by_tier(ModelTier::Premium);
     println!("\n🔴 Premium Tier (Most capable):");
     for model in premium_models {
         println!(
@@ -250,7 +250,7 @@ fn cmd_show_tiers() -> anyhow::Result<()> {
 }
 
 fn cmd_estimate_cost(input_tokens: usize, output_tokens: usize) -> anyhow::Result<()> {
-    let registry = provider_helpers::get_registry();
+    let registry = provider_helpers::registry();
 
     println!(
         "\n💸 Cost Estimation (input: {} tokens, output: {} tokens):\n",
@@ -261,7 +261,7 @@ fn cmd_estimate_cost(input_tokens: usize, output_tokens: usize) -> anyhow::Resul
     println!("{}", "-".repeat(60));
 
     // Budget tier
-    let budget_models = registry.get_models_by_tier(ModelTier::Budget);
+    let budget_models = registry.models_by_tier(ModelTier::Budget);
     if !budget_models.is_empty() {
         let first = &budget_models[0];
         let cost = (first.cost_per_1m_input * input_tokens as f64 / 1_000_000_f64)
@@ -270,7 +270,7 @@ fn cmd_estimate_cost(input_tokens: usize, output_tokens: usize) -> anyhow::Resul
     }
 
     // Balanced tier
-    let balanced_models = registry.get_models_by_tier(ModelTier::Balanced);
+    let balanced_models = registry.models_by_tier(ModelTier::Balanced);
     if !balanced_models.is_empty() {
         let first = &balanced_models[0];
         let cost = (first.cost_per_1m_input * input_tokens as f64 / 1_000_000_f64)
@@ -279,7 +279,7 @@ fn cmd_estimate_cost(input_tokens: usize, output_tokens: usize) -> anyhow::Resul
     }
 
     // Premium tier
-    let premium_models = registry.get_models_by_tier(ModelTier::Premium);
+    let premium_models = registry.models_by_tier(ModelTier::Premium);
     if !premium_models.is_empty() {
         let first = &premium_models[0];
         let cost = (first.cost_per_1m_input * input_tokens as f64 / 1_000_000_f64)

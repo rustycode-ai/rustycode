@@ -384,9 +384,7 @@ pub fn decompose_local(
     plan
 }
 
-// ---------------------------------------------------------------------------
 // Trait-based interface (for async/LLM-based decomposition in the future)
-// ---------------------------------------------------------------------------
 
 #[allow(async_fn_in_trait)]
 pub trait TaskDecomposer: Send + Sync {

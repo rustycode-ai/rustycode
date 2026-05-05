@@ -43,14 +43,12 @@ pub enum AgentAction {
 }
 
 /// Generate the JSON schema for AgentAction
-pub fn get_agent_action_schema() -> serde_json::Value {
+pub fn agent_action_schema() -> serde_json::Value {
     serde_json::to_value(schemars::schema_for!(AgentAction))
         .unwrap_or_else(|_| serde_json::json!({}))
 }
 
-// ============================================================================
 // Core Protocol Message Types
-// ============================================================================
 
 /// The envelope for any agent message.
 ///
@@ -91,9 +89,7 @@ impl<T> AgentMessage<T> {
     }
 }
 
-// ============================================================================
 // Agent Roles
-// ============================================================================
 
 /// The specialized roles in the team system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -139,9 +135,7 @@ impl fmt::Display for AgentRole {
     }
 }
 
-// ============================================================================
 // Architect Protocol
-// ============================================================================
 
 /// The Architect's output — a binding structural contract.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -276,9 +270,7 @@ pub struct DependencySpec {
     pub reason: String,
 }
 
-// ============================================================================
 // Builder Protocol
-// ============================================================================
 
 /// The Builder's output — proposed changes with escalation signals.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -368,9 +360,7 @@ pub struct AgentSignals {
     pub insights: Vec<String>,
 }
 
-// ============================================================================
 // Skeptic Protocol
-// ============================================================================
 
 /// The Skeptic's output — review verdict with evidence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -443,9 +433,7 @@ pub struct StructuralCompliance {
     pub violations: Vec<String>,
 }
 
-// ============================================================================
 // Judge Protocol
-// ============================================================================
 
 /// The Judge's output — verification results.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -498,9 +486,7 @@ pub struct TestSummary {
     pub failed_names: Vec<String>,
 }
 
-// ============================================================================
 // Scalpel Protocol
-// ============================================================================
 
 /// The Scalpel's output — targeted surgical fix.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -538,9 +524,7 @@ pub struct LinesChanged {
     pub removed: usize,
 }
 
-// ============================================================================
 // File Changes
-// ============================================================================
 
 /// A file change with context.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -560,9 +544,7 @@ pub struct FileChange {
     pub lines_removed: usize,
 }
 
-// ============================================================================
 // Validation
-// ============================================================================
 
 /// Result of validating a protocol message.
 #[derive(Debug, Clone, Default)]
@@ -596,9 +578,7 @@ impl fmt::Display for ValidationResult {
     }
 }
 
-// ============================================================================
 // Protocol Constants
-// ============================================================================
 
 /// Maximum lines a Scalpel should change per file.
 pub const SCALPEL_MAX_LINES_PER_FILE: usize = 10;

@@ -18,9 +18,7 @@
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
-// ============================================================================
 // Execution Trace
-// ============================================================================
 
 /// Complete trace of a task execution.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -247,9 +245,7 @@ pub struct FailureRecovery {
     pub avg_recovery_turns: f64,
 }
 
-// ============================================================================
 // Pattern Miner
-// ============================================================================
 
 /// Mines patterns from execution traces.
 pub struct PatternMiner {
@@ -264,7 +260,6 @@ pub struct PatternMiner {
 }
 
 impl PatternMiner {
-    /// Create a new pattern miner.
     pub fn new(min_confidence: f32, min_occurrences: u32) -> Self {
         Self {
             traces: Vec::new(),
@@ -574,9 +569,7 @@ pub struct PatternMinerStats {
     pub avg_confidence: f32,
 }
 
-// ============================================================================
 // Trace Builder (for easy construction)
-// ============================================================================
 
 /// Builder for ExecutionTrace.
 pub struct ExecutionTraceBuilder {
@@ -655,9 +648,7 @@ impl ExecutionTraceBuilder {
     }
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

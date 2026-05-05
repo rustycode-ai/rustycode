@@ -83,7 +83,6 @@ pub struct SessionManager {
 }
 
 impl SessionManager {
-    /// Create a new session manager
     pub fn new(storage_dir: PathBuf) -> Self {
         if let Err(e) = fs::create_dir_all(&storage_dir) {
             warn!("Failed to create session storage directory: {}", e);
@@ -303,7 +302,7 @@ impl SessionManager {
     }
 
     /// Get session statistics
-    pub fn get_stats(&self) -> Result<SessionStats> {
+    pub fn stats(&self) -> Result<SessionStats> {
         let sessions = self.list_sessions()?;
 
         let total_sessions = sessions.len();

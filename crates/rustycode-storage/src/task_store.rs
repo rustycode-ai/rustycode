@@ -148,7 +148,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_project_by_path(&self, path: &str) -> Result<Option<Project>> {
+    pub fn project_by_path(&self, path: &str) -> Result<Option<Project>> {
         let conn = self
             .conn
             .lock()
@@ -166,8 +166,8 @@ impl Storage {
         Ok(project)
     }
 
-    pub fn get_or_create_project(&self, path: &str) -> Result<Project> {
-        if let Some(project) = self.get_project_by_path(path)? {
+    pub fn or_create_project(&self, path: &str) -> Result<Project> {
+        if let Some(project) = self.project_by_path(path)? {
             return Ok(project);
         }
         let project = Project {
@@ -210,7 +210,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_todos(&self, session_id: &str) -> Result<Vec<TodoItem>> {
+    pub fn todos(&self, session_id: &str) -> Result<Vec<TodoItem>> {
         let conn = self
             .conn
             .lock()
@@ -238,7 +238,7 @@ impl Storage {
         Ok(todos)
     }
 
-    pub fn get_todos_by_project(&self, project_id: &str) -> Result<Vec<TodoItem>> {
+    pub fn todos_by_project(&self, project_id: &str) -> Result<Vec<TodoItem>> {
         let conn = self
             .conn
             .lock()
@@ -338,7 +338,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_task(&self, task_id: &str) -> Result<Option<Task>> {
+    pub fn task(&self, task_id: &str) -> Result<Option<Task>> {
         let conn = self
             .conn
             .lock()
@@ -370,7 +370,7 @@ impl Storage {
         Ok(task)
     }
 
-    pub fn get_tasks_by_project(&self, project_id: &str) -> Result<Vec<Task>> {
+    pub fn tasks_by_project(&self, project_id: &str) -> Result<Vec<Task>> {
         let conn = self
             .conn
             .lock()
@@ -403,7 +403,7 @@ impl Storage {
         Ok(tasks)
     }
 
-    pub fn get_tasks_by_owner(&self, owner: &str) -> Result<Vec<Task>> {
+    pub fn tasks_by_owner(&self, owner: &str) -> Result<Vec<Task>> {
         let conn = self
             .conn
             .lock()
@@ -487,15 +487,15 @@ mod tests {
         let project = test_project();
         storage.insert_project(&project).unwrap();
 
-        let found = storage.get_project_by_path("/tmp/test").unwrap().unwrap();
+        let found = storage.project_by_path("/tmp/test").unwrap().unwrap();
         assert_eq!(found.id, project.id);
     }
 
     #[test]
     fn get_or_create_project_idempotent() {
         let storage = test_storage();
-        let p1 = storage.get_or_create_project("/tmp/test").unwrap();
-        let p2 = storage.get_or_create_project("/tmp/test").unwrap();
+        let p1 = storage.or_create_project("/tmp/test").unwrap();
+        let p2 = storage.or_create_project("/tmp/test").unwrap();
         assert_eq!(p1.id, p2.id);
     }
 
@@ -532,7 +532,7 @@ mod tests {
 
         storage.replace_todos("sess-1", &todos).unwrap();
 
-        let retrieved = storage.get_todos("sess-1").unwrap();
+        let retrieved = storage.todos("sess-1").unwrap();
         assert_eq!(retrieved.len(), 2);
         assert_eq!(retrieved[0].content, "Task A");
         assert_eq!(retrieved[1].status, TodoStatus::Completed);
@@ -560,7 +560,7 @@ mod tests {
         let second: Vec<TodoItem> = vec![];
         storage.replace_todos("sess-1", &second).unwrap();
 
-        let retrieved = storage.get_todos("sess-1").unwrap();
+        let retrieved = storage.todos("sess-1").unwrap();
         assert!(retrieved.is_empty());
     }
 
@@ -586,14 +586,14 @@ mod tests {
         };
         storage.insert_task(&task).unwrap();
 
-        let found = storage.get_task("task-1").unwrap().unwrap();
+        let found = storage.task("task-1").unwrap().unwrap();
         assert_eq!(found.description, "Implement auth");
         assert_eq!(found.status, TaskStatus::Pending);
 
         storage
             .update_task_status("task-1", TaskStatus::Completed)
             .unwrap();
-        let found = storage.get_task("task-1").unwrap().unwrap();
+        let found = storage.task("task-1").unwrap().unwrap();
         assert_eq!(found.status, TaskStatus::Completed);
         assert!(found.completed_at.is_some());
     }
@@ -626,7 +626,7 @@ mod tests {
         let claimed_again = storage.claim_task("task-1", "agent-2").unwrap();
         assert!(!claimed_again);
 
-        let found = storage.get_task("task-1").unwrap().unwrap();
+        let found = storage.task("task-1").unwrap().unwrap();
         assert_eq!(found.owner.unwrap(), "agent-1");
         assert_eq!(found.status, TaskStatus::Running);
     }
@@ -655,10 +655,10 @@ mod tests {
             storage.insert_task(&task).unwrap();
         }
 
-        let by_project = storage.get_tasks_by_project(&project.id).unwrap();
+        let by_project = storage.tasks_by_project(&project.id).unwrap();
         assert_eq!(by_project.len(), 3);
 
-        let by_owner = storage.get_tasks_by_owner("agent-a").unwrap();
+        let by_owner = storage.tasks_by_owner("agent-a").unwrap();
         assert_eq!(by_owner.len(), 1);
         assert_eq!(by_owner[0].id, "task-0");
     }

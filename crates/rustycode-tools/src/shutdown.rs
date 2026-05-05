@@ -109,7 +109,6 @@ pub struct ShutdownGuard {
 }
 
 impl ShutdownGuard {
-    /// Create a new shutdown guard (not yet triggered).
     pub fn new() -> Self {
         Self {
             triggered: Arc::new(AtomicBool::new(false)),

@@ -1262,9 +1262,7 @@ impl ProviderError {
     }
 }
 
-// ============================================================================
 // Macros for reducing boilerplate in provider implementations
-// ============================================================================
 
 /// Macro for getting shared global HTTP client
 ///
@@ -1469,16 +1467,6 @@ macro_rules! parse_openai_sse {
 /// 2. Blocking override of security-critical headers
 /// 3. Validating header values for CRLF injection
 ///
-/// # Arguments
-/// * `extra_headers` - Optional HashMap of custom headers
-///
-/// # Returns
-/// * `Result<Vec<(HeaderName, HeaderValue)>, ProviderError>` - Validated headers or error
-///
-/// # Security
-/// - Blocks: authorization, host, content-type, proxy-authorization
-/// - Allows: X-* custom headers
-/// - Validates: No CRLF characters in values
 pub fn validate_extra_headers(
     extra_headers: &Option<std::collections::HashMap<String, String>>,
 ) -> Result<Vec<(reqwest::header::HeaderName, reqwest::header::HeaderValue)>, ProviderError> {

@@ -67,7 +67,6 @@ pub struct SessionEvent {
 }
 
 impl SessionEvent {
-    /// Create a new session event
     pub fn new(session_id: SessionId, kind: EventKind, detail: impl Into<String>) -> Self {
         Self {
             session_id,

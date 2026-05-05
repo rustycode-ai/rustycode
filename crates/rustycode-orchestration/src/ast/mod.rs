@@ -100,7 +100,7 @@ pub use research::ResearchBriefGenerator;
 pub use shared_memory::{AgentMemory, LedgerMemory, ProgressStoreMemory};
 pub use skeleton::SkeletonBuilder;
 pub use tool_adapter::{
-    get_adapter, ClaudeCodeAdapter, CodexAdapter, GeminiAdapter, RustyCodeAdapter, ToolAdapter,
+    adapter, ClaudeCodeAdapter, CodexAdapter, GeminiAdapter, RustyCodeAdapter, ToolAdapter,
     ToolHarness,
 };
 pub use tree::{AstTree, AstTreeExplanation, AstTreeNode, AstTreeNodeKind, AstTreeStatus};

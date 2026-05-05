@@ -101,7 +101,6 @@ pub struct PlanExecutor {
 }
 
 impl PlanExecutor {
-    /// Create a new executor with the given options.
     pub fn new(options: ExecutionOptions) -> Self {
         Self { options }
     }

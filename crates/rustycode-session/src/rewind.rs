@@ -119,7 +119,6 @@ pub struct RewindState {
 }
 
 impl RewindState {
-    /// Create a new rewind state
     pub fn new(max_history: usize) -> Self {
         Self {
             interactions: VecDeque::new(),

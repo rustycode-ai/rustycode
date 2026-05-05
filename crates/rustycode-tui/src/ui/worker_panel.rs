@@ -50,7 +50,6 @@ pub struct WorkerPanel {
 }
 
 impl WorkerPanel {
-    /// Create a new worker panel (hidden by default).
     pub fn new() -> Self {
         Self {
             visible: false,

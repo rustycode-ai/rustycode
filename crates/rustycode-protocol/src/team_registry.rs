@@ -101,28 +101,6 @@ impl TeamRegistry {
 
     /// Create a new team
     ///
-    /// # Arguments
-    ///
-    /// * `name` - Human-readable team name
-    /// * `task_ids` - List of task IDs to assign to the team
-    ///
-    /// # Returns
-    ///
-    /// The newly created Team with status `Created`
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_protocol::team_registry::{TeamRegistry, TeamStatus};
-    ///
-    /// let registry = TeamRegistry::new();
-    /// let team = registry.create(
-    ///     "Security Team",
-    ///     vec!["task_001".to_string(), "task_002".to_string()],
-    /// );
-    /// assert_eq!(team.name, "Security Team");
-    /// assert_eq!(team.status, TeamStatus::Created);
-    /// ```
     pub fn create(&self, name: &str, task_ids: Vec<String>) -> Team {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.counter += 1;
@@ -144,9 +122,6 @@ impl TeamRegistry {
 
     /// Get a team by ID
     ///
-    /// # Returns
-    ///
-    /// `Some(Team)` if found, `None` otherwise
     #[must_use]
     pub fn get(&self, team_id: &str) -> Option<Team> {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -162,13 +137,6 @@ impl TeamRegistry {
 
     /// Delete a team (marks as Deleted)
     ///
-    /// # Arguments
-    ///
-    /// * `team_id` - ID of team to delete
-    ///
-    /// # Returns
-    ///
-    /// `Ok(Team)` with status Deleted, `Err(String)` if not found
     pub fn delete(&self, team_id: &str) -> Result<Team, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let team = inner
@@ -182,13 +150,6 @@ impl TeamRegistry {
 
     /// Remove a team from the registry entirely
     ///
-    /// # Arguments
-    ///
-    /// * `team_id` - ID of team to remove
-    ///
-    /// # Returns
-    ///
-    /// `Some(Team)` if removed, `None` if not found
     #[must_use]
     pub fn remove(&self, team_id: &str) -> Option<Team> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -197,13 +158,6 @@ impl TeamRegistry {
 
     /// Mark a team as Running
     ///
-    /// # Arguments
-    ///
-    /// * `team_id` - ID of team to update
-    ///
-    /// # Returns
-    ///
-    /// `Ok(Team)` with status Running, `Err(String)` if not found
     pub fn mark_running(&self, team_id: &str) -> Result<Team, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let team = inner
@@ -217,13 +171,6 @@ impl TeamRegistry {
 
     /// Mark a team as Completed
     ///
-    /// # Arguments
-    ///
-    /// * `team_id` - ID of team to update
-    ///
-    /// # Returns
-    ///
-    /// `Ok(Team)` with status Completed, `Err(String)` if not found
     pub fn mark_completed(&self, team_id: &str) -> Result<Team, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let team = inner
@@ -237,14 +184,6 @@ impl TeamRegistry {
 
     /// Add a task to a team
     ///
-    /// # Arguments
-    ///
-    /// * `team_id` - ID of team to update
-    /// * `task_id` - Task ID to add
-    ///
-    /// # Returns
-    ///
-    /// `Ok(Team)` with updated task list, `Err(String)` if not found
     pub fn add_task(&self, team_id: &str, task_id: &str) -> Result<Team, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let team = inner

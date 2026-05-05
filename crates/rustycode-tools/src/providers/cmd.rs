@@ -22,9 +22,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-// ---------------------------------------------------------------------------
 // cmd.exe session
-// ---------------------------------------------------------------------------
 
 /// Persistent cmd.exe session that maintains shell state across commands.
 ///
@@ -260,9 +258,7 @@ impl Drop for CmdSession {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Session registry
-// ---------------------------------------------------------------------------
 
 /// Global registry of cmd.exe sessions keyed by working directory.
 static CMD_SESSION_REGISTRY: std::sync::LazyLock<CmdSessionRegistry> =
@@ -314,9 +310,7 @@ impl CmdSessionRegistry {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Rate limiter
-// ---------------------------------------------------------------------------
 
 static CMD_CONCURRENCY_LIMIT: usize = 4;
 static CMD_ACTIVE_COUNT: AtomicUsize = AtomicUsize::new(0);
@@ -348,9 +342,7 @@ impl Drop for CmdPermit {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Command validation
-// ---------------------------------------------------------------------------
 
 /// Extract the binary/command name from a cmd command string.
 fn extract_binary_name(command: &str) -> Result<String> {
@@ -381,15 +373,15 @@ fn extract_binary_name(command: &str) -> Result<String> {
 fn validate_cmd_command(command: &str) -> Result<()> {
     let binary = extract_binary_name(command)?;
 
-    use crate::security::cross_platform::{get_allowed_commands, get_blocked_commands, ShellType};
+    use crate::security::cross_platform::{allowed_commands, blocked_commands, ShellType};
 
     let shell_type = ShellType::Cmd;
-    let allowed = get_allowed_commands(shell_type);
+    let allowed = allowed_commands(shell_type);
     if !allowed.contains(&binary.as_str()) {
         anyhow::bail!("command '{}' is not in allowed list for cmd", binary);
     }
 
-    let blocked = get_blocked_commands(shell_type);
+    let blocked = blocked_commands(shell_type);
     if blocked.contains(&binary.as_str()) {
         anyhow::bail!("command '{}' is blocked for security reasons", binary);
     }
@@ -397,9 +389,7 @@ fn validate_cmd_command(command: &str) -> Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // CmdTool
-// ---------------------------------------------------------------------------
 
 /// Windows cmd.exe tool for executing native Windows commands.
 ///
@@ -575,9 +565,7 @@ impl Tool for CmdTool {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

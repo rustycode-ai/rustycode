@@ -185,7 +185,6 @@ struct StreamingContext {
 }
 
 impl ServiceManager {
-    /// Create a new service manager
     pub fn new(cwd: PathBuf, ai_mode: AiMode) -> Self {
         Self {
             conversation: None,
@@ -491,7 +490,7 @@ impl ServiceManager {
             } else {
                 None
             };
-            let ctx = orch.get_phase_context().map(|v| v.to_string());
+            let ctx = orch.phase_context().map(|v| v.to_string());
             (analysis, guidance, ctx)
         };
 
@@ -897,15 +896,6 @@ impl ServiceManager {
     /// This method is called once per frame in the event loop.
     /// It processes at most ONE chunk, ensuring responsiveness.
     ///
-    /// # Arguments
-    ///
-    /// * `callback` - Function to handle the received chunk
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(true)` if a chunk was processed
-    /// * `Ok(false)` if no chunk was available
-    /// * `Err` if there was an error
     pub fn poll_stream_one<F>(&mut self, callback: F) -> Result<bool>
     where
         F: FnOnce(StreamChunk),

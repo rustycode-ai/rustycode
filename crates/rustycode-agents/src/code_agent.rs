@@ -15,7 +15,6 @@ use async_trait::async_trait;
 pub struct CodeAgent;
 
 impl CodeAgent {
-    /// Create a new code agent
     pub const fn new() -> Self {
         Self
     }

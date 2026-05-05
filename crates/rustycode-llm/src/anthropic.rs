@@ -592,7 +592,7 @@ impl AnthropicProvider {
         }
 
         if request.container.is_some() {
-            for header in crate::tools::get_anthropic_skills_beta_headers() {
+            for header in crate::tools::anthropic_skills_beta_headers() {
                 request_builder = request_builder.header("anthropic-beta", header);
             }
         }
@@ -1590,7 +1590,7 @@ impl AnthropicProvider {
         }
 
         if request.container.is_some() {
-            for header in crate::tools::get_anthropic_skills_beta_headers() {
+            for header in crate::tools::anthropic_skills_beta_headers() {
                 request_builder = request_builder.header("anthropic-beta", header);
             }
         }

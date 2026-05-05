@@ -13,9 +13,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 
-// ============================================================================
 // EXPORT OPTIONS
-// ============================================================================
 
 /// Options for conversation export
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,9 +39,7 @@ impl Default for ExportOptions {
     }
 }
 
-// ============================================================================
 // EXPORT FORMAT
-// ============================================================================
 
 /// Export format
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -68,9 +64,7 @@ impl ExportFormat {
     }
 }
 
-// ============================================================================
 // EXPORTER
-// ============================================================================
 
 /// Conversation exporter
 pub struct ConversationExporter {
@@ -78,7 +72,6 @@ pub struct ConversationExporter {
 }
 
 impl ConversationExporter {
-    /// Create a new exporter with the given export directory
     pub fn new(export_dir: PathBuf) -> Result<Self> {
         // Create directory if it doesn't exist
         fs::create_dir_all(&export_dir)?;
@@ -384,9 +377,7 @@ impl ConversationExporter {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

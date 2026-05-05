@@ -131,30 +131,6 @@ impl CronRegistry {
 
     /// Create a new scheduled cron entry
     ///
-    /// # Arguments
-    ///
-    /// * `schedule` - Cron expression (e.g., "0 9 * * *" for daily at 9am)
-    /// * `prompt` - The prompt/task to execute on schedule
-    /// * `description` - Optional human-readable description
-    ///
-    /// # Returns
-    ///
-    /// The newly created CronEntry with `enabled=true`
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_protocol::cron_registry::CronRegistry;
-    ///
-    /// let registry = CronRegistry::new();
-    /// let entry = registry.create(
-    ///     "0 9 * * *",
-    ///     "Run morning test suite and report results",
-    ///     Some("Daily morning tests"),
-    ///     None,
-    /// );
-    /// assert!(entry.enabled);
-    /// ```
     pub fn create(
         &self,
         schedule: &str,
@@ -332,9 +308,6 @@ impl CronRegistry {
 
     /// Get a cron entry by ID
     ///
-    /// # Returns
-    ///
-    /// `Some(CronEntry)` if found, `None` otherwise
     #[must_use]
     pub fn get(&self, cron_id: &str) -> Option<CronEntry> {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -343,13 +316,6 @@ impl CronRegistry {
 
     /// List all cron entries
     ///
-    /// # Arguments
-    ///
-    /// * `enabled_only` - If true, only return enabled entries
-    ///
-    /// # Returns
-    ///
-    /// Vec of CronEntry matching the filter
     #[must_use]
     pub fn list(&self, enabled_only: bool) -> Vec<CronEntry> {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -363,13 +329,6 @@ impl CronRegistry {
 
     /// Delete a cron entry
     ///
-    /// # Arguments
-    ///
-    /// * `cron_id` - ID of cron to delete
-    ///
-    /// # Returns
-    ///
-    /// `Ok(CronEntry)` if deleted, `Err(String)` if not found
     pub fn delete(&self, cron_id: &str) -> Result<CronEntry, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner
@@ -380,13 +339,6 @@ impl CronRegistry {
 
     /// Disable a cron entry without removing it
     ///
-    /// # Arguments
-    ///
-    /// * `cron_id` - ID of cron to disable
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if disabled, `Err(String)` if not found
     pub fn disable(&self, cron_id: &str) -> Result<(), String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let entry = inner
@@ -400,13 +352,6 @@ impl CronRegistry {
 
     /// Enable a previously disabled cron entry
     ///
-    /// # Arguments
-    ///
-    /// * `cron_id` - ID of cron to enable
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if enabled, `Err(String)` if not found
     pub fn enable(&self, cron_id: &str) -> Result<(), String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let entry = inner
@@ -422,13 +367,6 @@ impl CronRegistry {
     ///
     /// Updates `last_run_at` and increments `run_count`.
     ///
-    /// # Arguments
-    ///
-    /// * `cron_id` - ID of cron that ran
-    ///
-    /// # Returns
-    ///
-    /// `Ok(())` if recorded, `Err(String)` if not found
     pub fn record_run(&self, cron_id: &str) -> Result<(), String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let entry = inner
@@ -467,14 +405,6 @@ impl CronRegistry {
 
     /// Update the prompt for a cron entry
     ///
-    /// # Arguments
-    ///
-    /// * `cron_id` - ID of cron to update
-    /// * `new_prompt` - New prompt to execute on schedule
-    ///
-    /// # Returns
-    ///
-    /// `Ok(CronEntry)` with updated prompt, `Err(String)` if not found
     pub fn update_prompt(&self, cron_id: &str, new_prompt: &str) -> Result<CronEntry, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let entry = inner

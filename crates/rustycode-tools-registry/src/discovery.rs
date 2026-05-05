@@ -10,7 +10,6 @@ impl Default for ToolDiscovery {
 }
 
 impl ToolDiscovery {
-    /// Create a new tool discovery instance
     pub const fn new() -> Self {
         Self
     }

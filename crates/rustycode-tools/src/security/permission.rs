@@ -24,7 +24,6 @@ pub struct PermissionRequest {
 }
 
 impl PermissionRequest {
-    /// Create a new permission request
     pub fn new(
         operation: impl Into<String>,
         path: impl Into<String>,
@@ -148,7 +147,6 @@ impl std::hash::Hash for ApprovalRule {
 }
 
 impl ApprovalRule {
-    /// Create a new approval rule
     pub fn new(path_pattern: impl Into<String>, operation: impl Into<String>) -> Self {
         Self {
             path_pattern: path_pattern.into(),
@@ -215,7 +213,6 @@ pub struct PermissionManager {
 }
 
 impl PermissionManager {
-    /// Create a new permission manager
     pub fn new(interactive: bool, auto_approve_low: bool) -> Self {
         Self {
             interactive,
@@ -537,7 +534,6 @@ pub struct ToolConfirmationRouter {
 }
 
 impl ToolConfirmationRouter {
-    /// Create a new confirmation router
     pub fn new() -> Self {
         Self {
             pending: tokio::sync::Mutex::new(std::collections::HashMap::new()),

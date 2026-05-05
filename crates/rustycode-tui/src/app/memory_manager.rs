@@ -34,7 +34,6 @@ pub struct MemoryManager {
 }
 
 impl MemoryManager {
-    /// Create a new memory manager
     pub fn new(config: MemoryConfig) -> Self {
         Self {
             config,
@@ -181,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn test_injection_summary_display() {
+    fn test_get_injection_summary_display() {
         let config = MemoryConfig::default();
         let manager = MemoryManager::new(config);
 

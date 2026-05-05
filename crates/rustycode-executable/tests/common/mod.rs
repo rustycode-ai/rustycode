@@ -181,13 +181,11 @@ pub fn make_input(data: serde_json::Value) -> ExecutionInput {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Custom executor implementations for verifying routing behavior.
 //
 // Each handler returns an output with a `"handler"` field identifying which
 // path was selected, allowing tests to assert on the routing decision rather
 // than just checking for errors from the default stubs.
-// ---------------------------------------------------------------------------
 
 /// Direct executor that tags its output as `"direct"`.
 pub struct TagDirectExecutor;

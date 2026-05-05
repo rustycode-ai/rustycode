@@ -72,7 +72,6 @@ pub struct McpClient {
 }
 
 impl McpClient {
-    /// Create a new MCP client
     pub fn new(config: McpClientConfig) -> Self {
         let (event_sender, _) = broadcast::channel(1024);
         Self {
@@ -408,7 +407,7 @@ impl McpClient {
     }
 
     /// Get a prompt from a server
-    pub async fn get_prompt(
+    pub async fn prompt(
         &self,
         server_name: &str,
         prompt_name: &str,
@@ -477,7 +476,7 @@ impl McpClient {
     }
 
     /// Get server capabilities
-    pub async fn get_capabilities(&self, server_name: &str) -> Option<McpServerCapabilities> {
+    pub async fn capabilities(&self, server_name: &str) -> Option<McpServerCapabilities> {
         let caps = self.server_capabilities.read().await;
         caps.get(server_name).cloned()
     }
@@ -529,7 +528,7 @@ mod tests {
             .await
             .is_err());
         assert!(client
-            .get_prompt("nonexistent", "test", None)
+            .prompt("nonexistent", "test", None)
             .await
             .is_err());
     }
@@ -569,6 +568,6 @@ mod tests {
     #[tokio::test]
     async fn test_client_get_capabilities_none() {
         let client = McpClient::default_config();
-        assert!(client.get_capabilities("nonexistent").await.is_none());
+        assert!(client.capabilities("nonexistent").await.is_none());
     }
 }

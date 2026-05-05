@@ -362,7 +362,7 @@ impl ContextFetcher for StoreFetcher<'_> {
     fn fetch_artifact_index(&self, task_id: &str) -> Vec<String> {
         let mut result = Vec::new();
         for kind in &["decision", "finding", "artifact", "note"] {
-            if let Ok(artifacts) = self.store.get_artifacts_by_kind(task_id, kind) {
+            if let Ok(artifacts) = self.store.artifacts_by_kind(task_id, kind) {
                 for a in &artifacts {
                     if let Some(ref summary) = a.summary {
                         result.push(format!("{}: {}", a.id, summary));
@@ -379,7 +379,7 @@ impl ContextFetcher for StoreFetcher<'_> {
 
     fn fetch_subagent_findings(&self, task_id: &str) -> Vec<String> {
         let mut result = Vec::new();
-        if let Ok(runs) = self.store.get_subagent_history(task_id) {
+        if let Ok(runs) = self.store.subagent_history(task_id) {
             for run in &runs {
                 result.push(format!(
                     "[{}] {} -> {} ({})",

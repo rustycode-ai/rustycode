@@ -149,7 +149,6 @@ impl Default for WorktreeConfig {
 }
 
 impl WorktreeManager {
-    /// Create a new worktree manager
     pub fn new(repo_path: PathBuf, config: WorktreeConfig) -> Result<Self, String> {
         if !repo_path.exists() {
             return Err("Repository path does not exist".to_string());
@@ -242,7 +241,7 @@ impl WorktreeManager {
     }
 
     /// Get a specific worktree
-    pub async fn get_worktree(&self, name: &str) -> Option<Worktree> {
+    pub async fn worktree(&self, name: &str) -> Option<Worktree> {
         let worktrees = self.worktrees.read().await;
         worktrees.get(name).cloned()
     }
@@ -312,7 +311,7 @@ impl WorktreeManager {
     }
 
     /// Get worktree statistics
-    pub async fn get_stats(&self) -> WorktreeStats {
+    pub async fn stats(&self) -> WorktreeStats {
         self.refresh_worktrees().await;
 
         let worktrees = self.worktrees.read().await;
@@ -377,8 +376,8 @@ impl WorktreeManager {
     }
 
     /// Get worktree status
-    pub async fn get_worktree_status(&self, name: &str) -> Option<WorktreeStatus> {
-        let worktree = self.get_worktree(name).await?;
+    pub async fn worktree_status(&self, name: &str) -> Option<WorktreeStatus> {
+        let worktree = self.worktree(name).await?;
         Some(self.check_worktree_status(&worktree.path).await)
     }
 
@@ -664,7 +663,7 @@ mod tests {
             .await
             .unwrap();
 
-        let worktree = manager.get_worktree("test-worktree").await;
+        let worktree = manager.worktree("test-worktree").await;
         assert!(worktree.is_some());
         assert_eq!(worktree.unwrap().name, "test-worktree");
     }
@@ -715,7 +714,7 @@ mod tests {
             .await
             .unwrap();
 
-        let stats = manager.get_stats().await;
+        let stats = manager.stats().await;
         // Main repo + 2 created worktrees = at least 3 total
         assert!(stats.total_worktrees >= 3);
     }
@@ -733,7 +732,7 @@ mod tests {
             .await
             .unwrap();
 
-        let before = manager.get_worktree("test-worktree").await.unwrap();
+        let before = manager.worktree("test-worktree").await.unwrap();
         let accessed_before = before.accessed_at;
 
         // Sleep a bit to ensure time difference
@@ -741,7 +740,7 @@ mod tests {
 
         manager.update_access("test-worktree").await;
 
-        let after = manager.get_worktree("test-worktree").await.unwrap();
+        let after = manager.worktree("test-worktree").await.unwrap();
         let accessed_after = after.accessed_at;
 
         assert!(accessed_after > accessed_before);
@@ -946,7 +945,7 @@ mod tests {
     async fn test_get_nonexistent_worktree() {
         let (manager, _temp_dir) = create_test_manager();
 
-        let result = manager.get_worktree("does-not-exist").await;
+        let result = manager.worktree("does-not-exist").await;
         assert!(result.is_none());
     }
 

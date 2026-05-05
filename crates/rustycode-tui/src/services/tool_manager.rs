@@ -23,7 +23,6 @@ pub(crate) struct ToolManager {
 }
 
 impl ToolManager {
-    /// Create a new `ToolManager` with no active MCP connections.
     pub fn new() -> Self {
         Self { mcp_proxies: None }
     }
@@ -221,7 +220,7 @@ impl ToolManager {
                         });
 
                         // Get all tools from the proxy and register them
-                        let proxied_tools = SHARED_RUNTIME.block_on(proxy.get_tools());
+                        let proxied_tools = SHARED_RUNTIME.block_on(proxy.tools());
                         for proxied_tool in proxied_tools {
                             let tool_name = proxied_tool.name.clone();
 

@@ -31,9 +31,7 @@ use tracing::warn;
 
 use super::coordinator::{BuilderAction, SkepticReview, SkepticVerdict as CoordVerdict, TurnInput};
 
-// ============================================================================
 // Role-specific system prompts
-// ============================================================================
 
 /// System prompts per a sub-module so `format!` strings with `#` don't confuse the parser.
 pub(crate) mod prompts {
@@ -275,9 +273,7 @@ pub(crate) mod prompts {
     }
 }
 
-// ============================================================================
 // Tool sets per role
-// ============================================================================
 
 /// Returns tool names appropriate for each role.
 pub fn tools_for_role(role: TeamRole) -> Vec<&'static str> {
@@ -293,9 +289,7 @@ pub fn tools_for_role(role: TeamRole) -> Vec<&'static str> {
     }
 }
 
-// ============================================================================
 // Turn parsing — extract structured turns from LLM responses
-// ============================================================================
 
 /// The result of parsing an LLM response into a structured turn.
 #[derive(Debug, Clone)]
@@ -587,9 +581,7 @@ impl ParsedTurn {
     }
 }
 
-// ============================================================================
 // Local capabilities — deterministic operations without LLM calls
-// ============================================================================
 
 pub mod local_capabilities {
     use std::path::Path;
@@ -698,9 +690,7 @@ pub mod local_capabilities {
     }
 }
 
-// ============================================================================
 // TeamExecutor — the full execution engine
-// ============================================================================
 
 /// Configuration for the executor.
 #[derive(Debug, Clone)]

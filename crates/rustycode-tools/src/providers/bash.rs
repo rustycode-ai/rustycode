@@ -70,13 +70,6 @@ fn filter_shell_boilerplate(text: &str) -> String {
 impl BashSession {
     /// Create a new persistent bash session.
     ///
-    /// # Arguments
-    ///
-    /// * `cwd` - Working directory for the session
-    ///
-    /// # Returns
-    ///
-    /// A new `BashSession` with a spawned bash process
     fn new(cwd: PathBuf) -> Result<Self> {
         let session_id = uuid::Uuid::new_v4().to_string();
         let shell = SHELL_INFO.binary;
@@ -247,14 +240,6 @@ impl BashSession {
 
     /// Execute a command in the persistent bash session.
     ///
-    /// # Arguments
-    ///
-    /// * `command` - The shell command to execute
-    /// * `timeout_secs` - Maximum execution time in seconds
-    ///
-    /// # Returns
-    ///
-    /// Tuple of (stdout, stderr, `exit_code`)
     fn execute(&self, command: &str, timeout_secs: u64) -> Result<(String, String, i32)> {
         // Write command to shell stdin (short-lived lock)
         {
@@ -407,15 +392,6 @@ impl BashSession {
 
     /// Execute a command and stream output incrementally.
     ///
-    /// # Arguments
-    ///
-    /// * `command` - The shell command to execute
-    /// * `timeout_secs` - Maximum execution time in seconds
-    /// * `sender` - Channel sender for streaming output chunks
-    ///
-    /// # Returns
-    ///
-    /// Tuple of (`exit_code`, error)
     fn execute_stream(
         &self,
         command: &str,
@@ -978,7 +954,7 @@ impl Tool for BashTool {
 
         // Cross-platform path validation (handles Windows, WSL, Cygwin)
         use crate::security::cross_platform::{
-            get_allowed_commands, get_blocked_commands, validate_path_in_workspace, ShellType,
+            allowed_commands, blocked_commands, validate_path_in_workspace, ShellType,
         };
 
         let shell_type = ShellType::Bash;
@@ -987,13 +963,13 @@ impl Tool for BashTool {
 
         // Validate command is in platform-specific allowlist
         let binary_name = extract_binary_name(&command)?;
-        let allowed_commands = get_allowed_commands(shell_type);
+        let allowed_commands = allowed_commands(shell_type);
         if !allowed_commands.contains(&binary_name.as_str()) {
             anyhow::bail!("command '{}' is not in allowed list for bash", binary_name);
         }
 
         // Validate command is NOT in platform-specific blocklist
-        let blocked_commands = get_blocked_commands(shell_type);
+        let blocked_commands = blocked_commands(shell_type);
         if blocked_commands.contains(&binary_name.as_str()) {
             anyhow::bail!("command '{}' is blocked for security reasons", binary_name);
         }
@@ -1313,9 +1289,7 @@ fn extract_binary_name(command: &str) -> anyhow::Result<String> {
     Ok(binary_name.to_lowercase())
 }
 
-// ---------------------------------------------------------------------------
 // Module-level constants for command safety validation
-// ---------------------------------------------------------------------------
 
 /// Shells and interpreters where `-c`/`-e` flags mean "execute arbitrary code".
 const SHELLS_AND_INTERPRETERS: &[&str] = &[
@@ -1551,9 +1525,7 @@ const PLATFORM_COMMANDS: &[&str] = &[];
 /// Shell targets blocked from pipe destinations to prevent allowlist bypass.
 const BLOCKED_PIPE_TARGETS: &[&str] = &["sh", "bash", "zsh", "fish", "dash", "ksh", "csh", "tcsh"];
 
-// ---------------------------------------------------------------------------
 // Helper functions for validate_command_safety
-// ---------------------------------------------------------------------------
 
 /// Checks for excessive quote nesting that may indicate obfuscation.
 ///
@@ -1785,9 +1757,7 @@ fn check_dangerous_patterns(command: &str, binary_name: &str, tokens: &[String])
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Public API
-// ---------------------------------------------------------------------------
 
 /// Validates that a command is safe to execute.
 ///

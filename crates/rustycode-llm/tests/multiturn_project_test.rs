@@ -135,10 +135,10 @@ async fn test_conversation_state_tracking() {
             "assistant",
             "Let me help debug. Can you share the function code and the line where it panics?",
         ),
-        ("user", "Here's the code:\n```rust\nfn get_item(data: &Vec<i32>, index: usize) -> i32 {\n    data[index]\n}\n```"),
+        ("user", "Here's the code:\n```rust\nfn item(data: &Vec<i32>, index: usize) -> i32 {\n    data[index]\n}\n```"),
         (
             "assistant",
-            "I see the issue. The function doesn't check if `index` is valid before accessing. Let me fix it:\n```rust\nfn get_item(data: &Vec<i32>, index: usize) -> Option<i32> {\n    data.get(index).copied()\n}\n```\nThis uses `get()` which returns `Option` and safely handles out-of-bounds access.",
+            "I see the issue. The function doesn't check if `index` is valid before accessing. Let me fix it:\n```rust\nfn item(data: &Vec<i32>, index: usize) -> Option<i32> {\n    data.get(index).copied()\n}\n```\nThis uses `get()` which returns `Option` and safely handles out-of-bounds access.",
         ),
         ("user", "That works! Now how do I use it?"),
         (

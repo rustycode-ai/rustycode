@@ -55,7 +55,7 @@ impl ToolSelectionState {
             // Get actual tool objects via provider
             let tool_infos: Vec<ToolInfo> = filtered_tools
                 .iter()
-                .filter_map(|name| self.provider.get_tool_info(name))
+                .filter_map(|name| self.provider.tool_info(name))
                 .collect();
 
             if tool_infos.is_empty() {

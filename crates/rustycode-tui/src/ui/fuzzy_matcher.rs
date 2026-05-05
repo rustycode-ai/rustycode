@@ -18,9 +18,7 @@ use ratatui::{
     text::{Line, Span},
 };
 
-// ============================================================================
 // MATCH SCORE
-// ============================================================================
 
 /// Match relevance score for ranking search results
 ///
@@ -53,9 +51,7 @@ impl MatchScore {
     }
 }
 
-// ============================================================================
 // FUZZY MATCHER
-// ============================================================================
 
 /// Generic fuzzy matcher for searching collections of items
 ///
@@ -65,21 +61,12 @@ impl MatchScore {
 pub struct FuzzyMatcher;
 
 impl FuzzyMatcher {
-    /// Create a new fuzzy matcher
     pub fn new() -> Self {
         Self
     }
 
     /// Calculate match score for a query against a single text string
     ///
-    /// # Arguments
-    ///
-    /// * `query` - The search query
-    /// * `text` - The text to match against
-    ///
-    /// # Returns
-    ///
-    /// A `MatchScore` indicating the quality of the match
     pub fn match_score(&self, query: &str, text: &str) -> MatchScore {
         let query_lower = query.to_lowercase();
         let text_lower = text.to_lowercase();
@@ -112,14 +99,6 @@ impl FuzzyMatcher {
     /// This is useful when you want to search across multiple properties
     /// (e.g., name and description). Returns the highest score from all fields.
     ///
-    /// # Arguments
-    ///
-    /// * `query` - The search query
-    /// * `fields` - Slice of text fields to search
-    ///
-    /// # Returns
-    ///
-    /// The highest `MatchScore` from all fields
     pub fn match_score_multi(&self, query: &str, fields: &[&str]) -> MatchScore {
         fields
             .iter()
@@ -130,15 +109,6 @@ impl FuzzyMatcher {
 
     /// Filter and index items by query using a scoring function
     ///
-    /// # Arguments
-    ///
-    /// * `query` - The search query
-    /// * `items` - Slice of items to filter
-    /// * `score_fn` - Function that returns a match score for each item
-    ///
-    /// # Returns
-    ///
-    /// A vector of (index, score) tuples sorted by score (descending)
     pub fn filter_and_rank<T, F>(
         &self,
         _query: &str,
@@ -171,14 +141,6 @@ impl FuzzyMatcher {
     ///
     /// Returns a `Line` with matching portions highlighted in yellow/bold.
     ///
-    /// # Arguments
-    ///
-    /// * `text` - The text to highlight
-    /// * `query` - The query to highlight (all occurrences)
-    ///
-    /// # Returns
-    ///
-    /// A `Line` with highlighted spans
     pub fn highlight_matches(&self, text: &str, query: &str) -> Line<'_> {
         if query.is_empty() {
             return Line::from(text.to_string());
@@ -270,9 +232,7 @@ impl Default for FuzzyMatcher {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

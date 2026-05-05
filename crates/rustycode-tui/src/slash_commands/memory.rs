@@ -115,13 +115,6 @@ struct KeyValueMemory {
 ///
 /// Saves a key-value pair to memory
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-/// * `key` - Memory key (alphanumeric, underscores, hyphens)
-/// * `value` - Value to store (max 10KB)
-///
-/// # Returns
-/// Result with success message or error
 pub async fn handle_save_command(
     cwd: &Path,
     key: String,
@@ -171,12 +164,6 @@ pub async fn handle_save_command(
 ///
 /// Retrieves a value from memory by key
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-/// * `key` - Memory key to retrieve
-///
-/// # Returns
-/// Result with memory value or error
 pub async fn handle_recall_command(cwd: &Path, key: String) -> Result<String, MemoryError> {
     let mut memories = load_memories(cwd)?;
 
@@ -210,12 +197,6 @@ pub async fn handle_recall_command(cwd: &Path, key: String) -> Result<String, Me
 ///
 /// Searches memories by key or value content
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-/// * `query` - Search query string
-///
-/// # Returns
-/// Result with matching memories or error
 pub async fn handle_search_command(cwd: &Path, query: String) -> Result<String> {
     let memories = load_memories(cwd)?;
 
@@ -257,11 +238,6 @@ pub async fn handle_search_command(cwd: &Path, query: String) -> Result<String> 
 ///
 /// Lists all saved memories
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-///
-/// # Returns
-/// Result with list of all memories or error
 pub async fn handle_list_command(cwd: &Path) -> Result<String> {
     let memories = load_memories(cwd)?;
 
@@ -292,12 +268,6 @@ pub async fn handle_list_command(cwd: &Path) -> Result<String> {
 ///
 /// Deletes a memory by key
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-/// * `key` - Memory key to delete
-///
-/// # Returns
-/// Result with success message or error
 pub async fn handle_delete_command(cwd: &Path, key: String) -> Result<String, MemoryError> {
     let mut memories = load_memories(cwd)?;
 
@@ -313,11 +283,6 @@ pub async fn handle_delete_command(cwd: &Path, key: String) -> Result<String, Me
 ///
 /// Clears all saved memories
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-///
-/// # Returns
-/// Result with success message or error
 pub async fn handle_clear_command(cwd: &Path) -> Result<String, MemoryError> {
     let memories = load_memories(cwd)?;
     let count = memories.len();
@@ -334,12 +299,7 @@ pub async fn handle_clear_command(cwd: &Path) -> Result<String, MemoryError> {
 
 /// Get memory count for status bar
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-///
-/// # Returns
-/// Number of stored memories
-pub fn get_memory_count(cwd: &Path) -> usize {
+pub fn memory_count(cwd: &Path) -> usize {
     load_memories(cwd).map(|m| m.len()).unwrap_or(0)
 }
 
@@ -423,12 +383,6 @@ fn format_created_time(timestamp: &str) -> String {
 /// - /memory inject max `<n>` - Set max memories to inject (default 5)
 /// - /memory inject show - Show what would be injected for current input
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-/// * `args` - Command arguments
-///
-/// # Returns
-/// Result with status message or error
 pub fn handle_inject_command(
     cwd: &Path,
     args: Option<String>,
@@ -493,8 +447,8 @@ pub fn handle_inject_command(
                     // Load auto-memories
                     let auto_memory = ThreadSafeAutoMemory::new(cwd);
                     if let Ok(memory_manager) = auto_memory {
-                        let recent_memories = memory_manager.get_recent(7);
-                        let important_memories = memory_manager.get_important(0.6);
+                        let recent_memories = memory_manager.recent(7);
+                        let important_memories = memory_manager.important(0.6);
 
                         use std::collections::HashMap;
                         let mut memory_map: HashMap<String, _> = HashMap::new();

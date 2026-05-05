@@ -64,7 +64,6 @@ pub struct FileReadCache {
 }
 
 impl FileReadCache {
-    /// Create a new file read cache
     pub fn new() -> Self {
         Self {
             entries: HashMap::new(),

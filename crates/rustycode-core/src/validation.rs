@@ -102,15 +102,6 @@ impl ValidationResult {
 pub trait PlanValidator: Send + Sync {
     /// Validate a plan and return detailed results.
     ///
-    /// # Arguments
-    ///
-    /// * `plan` - The plan to validate
-    /// * `tool_registry` - Registry of available tools
-    /// * `workspace_root` - Root path for resolving relative file paths
-    ///
-    /// # Returns
-    ///
-    /// `Ok(ValidationResult)` indicating validation success or failure with details.
     fn validate(
         &self,
         plan: &Plan,
@@ -129,7 +120,6 @@ pub struct ComprehensivePlanValidator {
 }
 
 impl ComprehensivePlanValidator {
-    /// Create a new comprehensive validator with all standard validators.
     pub fn new() -> Self {
         Self {
             validators: vec![
@@ -560,52 +550,6 @@ impl PlanValidator for FieldCompletenessValidator {
 /// This is the main entry point for plan validation. It runs all validation rules
 /// and returns detailed errors if validation fails.
 ///
-/// # Arguments
-///
-/// * `plan` - The plan to validate
-/// * `tool_registry` - Registry of available tools
-/// * `workspace_root` - Root path for resolving relative file paths
-///
-/// # Returns
-///
-/// * `Ok(())` if validation passes
-/// * `Err(anyhow::Error)` with detailed validation context if validation fails
-///
-/// # Example
-///
-/// ```ignore
-/// use rustycode_core::validation::validate_plan;
-/// use rustycode_protocol::{Plan, PlanStep, PlanId, PlanStatus, SessionId};
-/// use rustycode_tools::ToolRegistry;
-/// use std::path::Path;
-/// use chrono::Utc;
-///
-/// # fn main() -> anyhow::Result<()> {
-/// let plan = Plan {
-///     id: PlanId::new(),
-///     session_id: SessionId::new(),
-///     task: "Example task".to_string(),
-///     created_at: Utc::now(),
-///     status: PlanStatus::Draft,
-///     summary: "Example summary".to_string(),
-///     approach: "Example approach".to_string(),
-///     steps: vec![],
-///     files_to_modify: vec![],
-///     risks: vec![],
-///     current_step_index: None,
-///     execution_started_at: None,
-///     execution_completed_at: None,
-///     execution_error: None,
-/// };
-/// let tool_registry = ToolRegistry::new();
-/// let workspace_root = Path::new("/my/project");
-///
-/// // This will fail with empty plan error
-/// let result = validate_plan(&plan, &tool_registry, workspace_root);
-/// assert!(result.is_err());
-/// # Ok(())
-/// # }
-/// ```
 pub fn validate_plan(
     plan: &Plan,
     tool_registry: &ToolRegistry,
@@ -638,15 +582,6 @@ pub fn validate_plan(
 /// Use this when you want to handle validation results programmatically
 /// rather than just failing on error.
 ///
-/// # Arguments
-///
-/// * `plan` - The plan to validate
-/// * `tool_registry` - Registry of available tools
-/// * `workspace_root` - Root path for resolving relative file paths
-///
-/// # Returns
-///
-/// `ValidationResult` indicating success or detailed failures
 pub fn validate_plan_detailed(
     plan: &Plan,
     tool_registry: &ToolRegistry,

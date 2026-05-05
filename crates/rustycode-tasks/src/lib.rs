@@ -26,9 +26,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
 
-// ============================================================================
 // Error Types
-// ============================================================================
 
 /// Errors that can occur during task operations.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -56,9 +54,7 @@ pub enum TaskError {
     Validation(String),
 }
 
-// ============================================================================
 // Task Status
-// ============================================================================
 
 /// Status of a task in its lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -131,9 +127,7 @@ impl std::fmt::Display for TaskStatus {
     }
 }
 
-// ============================================================================
 // Task Priority
-// ============================================================================
 
 /// Priority level for a task.
 #[derive(
@@ -195,9 +189,7 @@ impl std::fmt::Display for TaskPriority {
     }
 }
 
-// ============================================================================
 // Task
-// ============================================================================
 
 /// An individual task with description, status, owner, and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -317,9 +309,7 @@ impl Task {
     }
 }
 
-// ============================================================================
 // Task Dependency
-// ============================================================================
 
 /// A dependency relationship between two tasks.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -331,7 +321,6 @@ pub struct TaskDependency {
 }
 
 impl TaskDependency {
-    /// Create a new dependency relationship.
     pub fn new(task_id: impl Into<String>, depends_on_id: impl Into<String>) -> Self {
         Self {
             task_id: task_id.into(),
@@ -340,9 +329,7 @@ impl TaskDependency {
     }
 }
 
-// ============================================================================
 // Task Filter
-// ============================================================================
 
 /// Builder for filtering tasks by various criteria.
 #[derive(Debug, Clone, Default)]
@@ -364,7 +351,6 @@ pub struct TaskFilter {
 }
 
 impl TaskFilter {
-    /// Create a new empty filter.
     pub fn new() -> Self {
         Self::default()
     }
@@ -446,9 +432,7 @@ impl TaskFilter {
     }
 }
 
-// ============================================================================
 // Task Manager
-// ============================================================================
 
 /// In-memory task manager for creating, tracking, and querying tasks.
 #[derive(Debug, Clone)]
@@ -459,7 +443,6 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
-    /// Create a new task manager for the given project.
     pub fn new(project_id: impl Into<String>) -> Self {
         Self {
             project_id: project_id.into(),
@@ -511,12 +494,12 @@ impl TaskManager {
     }
 
     /// Get a task by ID.
-    pub fn get_task(&self, task_id: &str) -> Option<&Task> {
+    pub fn task(&self, task_id: &str) -> Option<&Task> {
         self.tasks.get(task_id)
     }
 
     /// Get a mutable reference to a task by ID.
-    pub fn get_task_mut(&mut self, task_id: &str) -> Option<&mut Task> {
+    pub fn task_mut(&mut self, task_id: &str) -> Option<&mut Task> {
         self.tasks.get_mut(task_id)
     }
 
@@ -658,7 +641,7 @@ impl TaskManager {
     }
 
     /// Get all tasks that the given task depends on.
-    pub fn get_dependencies(&self, task_id: &str) -> Vec<&Task> {
+    pub fn dependencies(&self, task_id: &str) -> Vec<&Task> {
         self.dependencies
             .iter()
             .filter(|d| d.task_id == task_id)
@@ -742,9 +725,7 @@ impl TaskManager {
     }
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 #[allow(
@@ -1357,7 +1338,7 @@ mod tests {
         let id = mgr.create_task(task).unwrap();
 
         assert_eq!(mgr.len(), 1);
-        let found = mgr.get_task(&id).unwrap();
+        let found = mgr.task(&id).unwrap();
         assert_eq!(found.description, "Implement auth");
         assert_eq!(found.project_id, "proj-1"); // auto-filled
     }
@@ -1368,7 +1349,7 @@ mod tests {
         let task = Task::new("Task").with_project("proj-2");
         let id = mgr.create_task(task).unwrap();
 
-        let found = mgr.get_task(&id).unwrap();
+        let found = mgr.task(&id).unwrap();
         assert_eq!(found.project_id, "proj-2"); // preserved
     }
 
@@ -1401,16 +1382,16 @@ mod tests {
     #[test]
     fn manager_get_task_not_found() {
         let mgr = TaskManager::new("proj-1");
-        assert!(mgr.get_task("nonexistent").is_none());
+        assert!(mgr.task("nonexistent").is_none());
     }
 
     #[test]
     fn manager_get_task_mut() {
         let mut mgr = TaskManager::new("proj-1");
         let id = mgr.create_task(Task::new("Task")).unwrap();
-        let task = mgr.get_task_mut(&id).unwrap();
+        let task = mgr.task_mut(&id).unwrap();
         task.output = Some("result".to_string());
-        assert_eq!(mgr.get_task(&id).unwrap().output.as_deref(), Some("result"));
+        assert_eq!(mgr.task(&id).unwrap().output.as_deref(), Some("result"));
     }
 
     #[test]
@@ -1419,8 +1400,8 @@ mod tests {
         let id = mgr.create_task(Task::new("Task")).unwrap();
 
         mgr.update_status(&id, TaskStatus::InProgress).unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().status, TaskStatus::InProgress);
-        assert!(mgr.get_task(&id).unwrap().started_at.is_some());
+        assert_eq!(mgr.task(&id).unwrap().status, TaskStatus::InProgress);
+        assert!(mgr.task(&id).unwrap().started_at.is_some());
     }
 
     #[test]
@@ -1429,7 +1410,7 @@ mod tests {
         let id = mgr.create_task(Task::new("Task")).unwrap();
 
         mgr.update_status(&id, TaskStatus::Completed).unwrap();
-        let task = mgr.get_task(&id).unwrap();
+        let task = mgr.task(&id).unwrap();
         assert_eq!(task.status, TaskStatus::Completed);
         assert!(task.completed_at.is_some());
     }
@@ -1478,7 +1459,7 @@ mod tests {
         let mut mgr = TaskManager::new("proj-1");
         let id = mgr.create_task(Task::new("Task")).unwrap();
         mgr.complete_task(&id).unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().status, TaskStatus::Completed);
+        assert_eq!(mgr.task(&id).unwrap().status, TaskStatus::Completed);
     }
 
     #[test]
@@ -1486,7 +1467,7 @@ mod tests {
         let mut mgr = TaskManager::new("proj-1");
         let id = mgr.create_task(Task::new("Task")).unwrap();
         mgr.fail_task(&id).unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().status, TaskStatus::Failed);
+        assert_eq!(mgr.task(&id).unwrap().status, TaskStatus::Failed);
     }
 
     #[test]
@@ -1494,7 +1475,7 @@ mod tests {
         let mut mgr = TaskManager::new("proj-1");
         let id = mgr.create_task(Task::new("Task")).unwrap();
         mgr.assign_owner(&id, "alice").unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().owner.as_deref(), Some("alice"));
+        assert_eq!(mgr.task(&id).unwrap().owner.as_deref(), Some("alice"));
     }
 
     #[test]
@@ -1510,7 +1491,7 @@ mod tests {
         let id = mgr.create_task(Task::new("Task")).unwrap();
         mgr.set_output(&id, "All tests passed").unwrap();
         assert_eq!(
-            mgr.get_task(&id).unwrap().output.as_deref(),
+            mgr.task(&id).unwrap().output.as_deref(),
             Some("All tests passed")
         );
     }
@@ -1535,18 +1516,18 @@ mod tests {
 
         // Pending -> InProgress
         mgr.update_status(&id, TaskStatus::InProgress).unwrap();
-        assert!(mgr.get_task(&id).unwrap().is_active());
-        assert!(mgr.get_task(&id).unwrap().started_at.is_some());
+        assert!(mgr.task(&id).unwrap().is_active());
+        assert!(mgr.task(&id).unwrap().started_at.is_some());
 
         // Set output
         mgr.set_output(&id, "Feature complete").unwrap();
 
         // InProgress -> Completed
         mgr.complete_task(&id).unwrap();
-        assert!(mgr.get_task(&id).unwrap().is_finished());
-        assert!(mgr.get_task(&id).unwrap().completed_at.is_some());
+        assert!(mgr.task(&id).unwrap().is_finished());
+        assert!(mgr.task(&id).unwrap().completed_at.is_some());
         assert_eq!(
-            mgr.get_task(&id).unwrap().output.as_deref(),
+            mgr.task(&id).unwrap().output.as_deref(),
             Some("Feature complete")
         );
     }
@@ -1558,7 +1539,7 @@ mod tests {
         let removed = mgr.remove_task(&id).unwrap();
         assert_eq!(removed.description, "Task");
         assert!(mgr.is_empty());
-        assert!(mgr.get_task(&id).is_none());
+        assert!(mgr.task(&id).is_none());
     }
 
     #[test]
@@ -1591,7 +1572,7 @@ mod tests {
         // t-2 depends on t-1
         mgr.add_dependency(&id2, &id1).unwrap();
 
-        let deps = mgr.get_dependencies("t-2");
+        let deps = mgr.dependencies("t-2");
         assert_eq!(deps.len(), 1);
         assert_eq!(deps[0].id, "t-1");
 
@@ -1644,7 +1625,7 @@ mod tests {
         mgr.add_dependency("t-2", "t-1").unwrap();
         mgr.add_dependency("t-2", "t-1").unwrap(); // should not fail
 
-        let deps = mgr.get_dependencies("t-2");
+        let deps = mgr.dependencies("t-2");
         assert_eq!(deps.len(), 1);
     }
 
@@ -1656,7 +1637,7 @@ mod tests {
         mgr.add_dependency("t-2", "t-1").unwrap();
 
         mgr.remove_dependency("t-2", "t-1").unwrap();
-        assert!(mgr.get_dependencies("t-2").is_empty());
+        assert!(mgr.dependencies("t-2").is_empty());
         assert!(mgr.get_dependents("t-1").is_empty());
     }
 
@@ -1690,7 +1671,7 @@ mod tests {
         mgr.add_dependency("t-2", "t-1").unwrap();
 
         mgr.remove_task("t-1");
-        assert!(mgr.get_dependencies("t-2").is_empty());
+        assert!(mgr.dependencies("t-2").is_empty());
     }
 
     // ========================================================================
@@ -1841,20 +1822,20 @@ mod tests {
         // Setup has one dependent (Build)
         assert_eq!(mgr.get_dependents(&id1).len(), 1);
         // Test has two dependencies (Setup, Build) via chain
-        assert_eq!(mgr.get_dependencies(&id3).len(), 1); // direct only
+        assert_eq!(mgr.dependencies(&id3).len(), 1); // direct only
     }
 
     #[test]
     fn manager_update_status_updates_timestamp() {
         let mut mgr = TaskManager::new("proj-1");
         let id = mgr.create_task(Task::new("Task")).unwrap();
-        let original_updated = mgr.get_task(&id).unwrap().updated_at;
+        let original_updated = mgr.task(&id).unwrap().updated_at;
 
         // Small delay to ensure timestamp differs
         std::thread::sleep(std::time::Duration::from_millis(1));
         mgr.update_status(&id, TaskStatus::InProgress).unwrap();
 
-        let new_updated = mgr.get_task(&id).unwrap().updated_at;
+        let new_updated = mgr.task(&id).unwrap().updated_at;
         assert!(new_updated >= original_updated);
     }
 
@@ -1864,10 +1845,10 @@ mod tests {
         let id = mgr.create_task(Task::new("Task")).unwrap();
 
         mgr.update_status(&id, TaskStatus::InProgress).unwrap();
-        let first_start = mgr.get_task(&id).unwrap().started_at;
+        let first_start = mgr.task(&id).unwrap().started_at;
 
         mgr.update_status(&id, TaskStatus::Running).unwrap();
-        let second_start = mgr.get_task(&id).unwrap().started_at;
+        let second_start = mgr.task(&id).unwrap().started_at;
 
         assert_eq!(first_start, second_start); // not overwritten
     }
@@ -1882,8 +1863,8 @@ mod tests {
         mgr.fail_task(&id1).unwrap();
         mgr.update_status(&id2, TaskStatus::Killed).unwrap();
 
-        assert!(mgr.get_task(&id1).unwrap().completed_at.is_some());
-        assert!(mgr.get_task(&id2).unwrap().completed_at.is_some());
+        assert!(mgr.task(&id1).unwrap().completed_at.is_some());
+        assert!(mgr.task(&id2).unwrap().completed_at.is_some());
     }
 
     #[test]
@@ -1891,7 +1872,7 @@ mod tests {
         let mut mgr = TaskManager::new("proj-1");
         let id = mgr.create_task(Task::new("Task")).unwrap();
         mgr.update_status(&id, TaskStatus::Running).unwrap();
-        assert!(mgr.get_task(&id).unwrap().started_at.is_some());
+        assert!(mgr.task(&id).unwrap().started_at.is_some());
     }
 
     #[test]
@@ -1899,10 +1880,10 @@ mod tests {
         let mut mgr = TaskManager::new("proj-1");
         let id = mgr.create_task(Task::new("Task")).unwrap();
         mgr.update_status(&id, TaskStatus::Blocked).unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().status, TaskStatus::Blocked);
+        assert_eq!(mgr.task(&id).unwrap().status, TaskStatus::Blocked);
         // Blocked is not terminal, should still be able to transition
         mgr.update_status(&id, TaskStatus::InProgress).unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().status, TaskStatus::InProgress);
+        assert_eq!(mgr.task(&id).unwrap().status, TaskStatus::InProgress);
     }
 
     #[test]
@@ -1940,7 +1921,7 @@ mod tests {
             .unwrap();
 
         mgr.assign_owner(&id, "bob").unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().owner.as_deref(), Some("bob"));
+        assert_eq!(mgr.task(&id).unwrap().owner.as_deref(), Some("bob"));
     }
 
     #[test]
@@ -1951,7 +1932,7 @@ mod tests {
         mgr.set_output(&id, "First output").unwrap();
         mgr.set_output(&id, "Updated output").unwrap();
         assert_eq!(
-            mgr.get_task(&id).unwrap().output.as_deref(),
+            mgr.task(&id).unwrap().output.as_deref(),
             Some("Updated output")
         );
     }
@@ -2004,7 +1985,7 @@ mod tests {
     fn manager_get_dependencies_empty() {
         let mut mgr = TaskManager::new("proj-1");
         mgr.create_task(Task::new("A").with_id("t-1")).unwrap();
-        assert!(mgr.get_dependencies("t-1").is_empty());
+        assert!(mgr.dependencies("t-1").is_empty());
     }
 
     #[test]
@@ -2028,11 +2009,11 @@ mod tests {
 
         let cloned = mgr.clone();
         assert_eq!(cloned.len(), 1);
-        assert_eq!(cloned.get_task(&id).unwrap().description, "Task");
+        assert_eq!(cloned.task(&id).unwrap().description, "Task");
 
         // Modifying original doesn't affect clone
         mgr.complete_task(&id).unwrap();
-        assert_eq!(cloned.get_task(&id).unwrap().status, TaskStatus::Pending);
+        assert_eq!(cloned.task(&id).unwrap().status, TaskStatus::Pending);
     }
 
     #[test]
@@ -2041,8 +2022,8 @@ mod tests {
         let id = mgr.create_task(Task::new("Task")).unwrap();
         mgr.update_status(&id, TaskStatus::Blocked).unwrap();
         mgr.update_status(&id, TaskStatus::Running).unwrap();
-        assert_eq!(mgr.get_task(&id).unwrap().status, TaskStatus::Running);
-        assert!(mgr.get_task(&id).unwrap().started_at.is_some());
+        assert_eq!(mgr.task(&id).unwrap().status, TaskStatus::Running);
+        assert!(mgr.task(&id).unwrap().started_at.is_some());
     }
 
     #[test]

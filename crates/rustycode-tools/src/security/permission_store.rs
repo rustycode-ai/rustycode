@@ -50,7 +50,6 @@ pub struct PermissionRecord {
 }
 
 impl PermissionRecord {
-    /// Create a new permission record.
     pub fn new(
         tool_name: impl Into<String>,
         context: &str,
@@ -140,11 +139,6 @@ impl PermissionStore {
 
     /// Allow a tool+context combination.
     ///
-    /// # Arguments
-    ///
-    /// * `tool_name` - Name of the tool (e.g., "bash")
-    /// * `context` - Tool arguments/context (empty string = all contexts)
-    /// * `ttl_secs` - Optional time-to-live in seconds (None = permanent)
     pub fn allow(&mut self, tool_name: &str, context: &str, ttl_secs: Option<u64>) {
         let record = PermissionRecord::new(tool_name, context, true, ttl_secs);
         let key = Self::key(tool_name, &record.context_hash);
@@ -228,7 +222,7 @@ impl PermissionStore {
     }
 
     /// Get a specific record if it exists.
-    pub fn get_record(&self, tool_name: &str, context: &str) -> Option<&PermissionRecord> {
+    pub fn record(&self, tool_name: &str, context: &str) -> Option<&PermissionRecord> {
         let context_hash = hash_context(context);
         let key = Self::key(tool_name, &context_hash);
         self.records.get(&key)
@@ -543,11 +537,11 @@ mod tests {
         let mut store = PermissionStore::in_memory();
         store.allow("bash", "ls -la", None);
 
-        let record = store.get_record("bash", "ls -la");
+        let record = store.record("bash", "ls -la");
         assert!(record.is_some());
         assert!(record.unwrap().allowed);
 
-        let missing = store.get_record("bash", "nonexistent");
+        let missing = store.record("bash", "nonexistent");
         assert!(missing.is_none());
     }
 }

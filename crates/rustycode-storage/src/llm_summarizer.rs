@@ -119,7 +119,6 @@ pub struct SummaryRequest {
 }
 
 impl SummaryRequest {
-    /// Create a new summary request
     pub const fn new(events: Vec<InteractionEvent>, metrics: SessionMetrics) -> Self {
         Self {
             session_events: events,
@@ -325,18 +324,6 @@ pub struct SessionSummarizer {
 impl SessionSummarizer {
     /// Create a new session summarizer with the given configuration
     ///
-    /// # Arguments
-    ///
-    /// * `config` - Configuration for model selection and extraction options
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::llm_summarizer::{SessionSummarizer, SummarizerConfig};
-    ///
-    /// let config = SummarizerConfig::default();
-    /// let summarizer = SessionSummarizer::new(config);
-    /// ```
     pub const fn new(config: SummarizerConfig) -> Self {
         Self {
             config,
@@ -350,32 +337,6 @@ impl SessionSummarizer {
     /// to produce a comprehensive `RichSummary` with narrative content,
     /// technical details, and extracted insights.
     ///
-    /// # Arguments
-    ///
-    /// * `request` - The summary request containing session events and metrics
-    ///
-    /// # Returns
-    ///
-    /// A `RichSummary` containing the enhanced session analysis
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if LLM generation fails or if the response cannot be parsed
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::llm_summarizer::{
-    ///     SessionSummarizer, SummarizerConfig, SummaryRequest
-    /// };
-    /// use rustycode_storage::session_capture::SessionMetrics;
-    ///
-    /// let summarizer = SessionSummarizer::new(SummarizerConfig::default());
-    /// let request = SummaryRequest::new(vec![], SessionMetrics::default());
-    ///
-    /// // Note: This uses placeholder LLM responses in current implementation
-    /// let summary = summarizer.summarize_session(request).unwrap();
-    /// ```
     pub fn summarize_session(&self, request: SummaryRequest) -> Result<RichSummary> {
         // Extract base information from events
         let files_touched = self.extract_files_touched(&request.session_events);
@@ -453,13 +414,6 @@ impl SessionSummarizer {
     /// Uses LLM to create a coherent story of what happened during the session,
     /// including the problem being solved, approach taken, and outcomes.
     ///
-    /// # Arguments
-    ///
-    /// * `events` - The session events to analyze
-    ///
-    /// # Returns
-    ///
-    /// A narrative string describing the session
     pub fn generate_narrative(&self, events: &[InteractionEvent]) -> String {
         if events.is_empty() {
             return "No session events recorded.".to_string();
@@ -535,13 +489,6 @@ impl SessionSummarizer {
     /// Analyzes file operations and tool calls to identify
     /// what code changes were made during the session.
     ///
-    /// # Arguments
-    ///
-    /// * `events` - The session events to analyze
-    ///
-    /// # Returns
-    ///
-    /// A vector of `CodeChange` records
     pub fn extract_code_changes(&self, events: &[InteractionEvent]) -> Vec<CodeChange> {
         use crate::session_capture::FileOperationType;
 
@@ -617,13 +564,6 @@ impl SessionSummarizer {
     /// Analyzes user messages and assistant responses to identify
     /// key decisions, particularly architectural or design choices.
     ///
-    /// # Arguments
-    ///
-    /// * `events` - The session events to analyze
-    ///
-    /// # Returns
-    ///
-    /// A vector of `Decision` records
     pub fn extract_decisions(&self, events: &[InteractionEvent]) -> Vec<Decision> {
         let mut decisions = Vec::new();
 
@@ -967,9 +907,7 @@ fn truncate_to_char_boundary(input: &str, max_chars: usize) -> &str {
     }
 }
 
-// =============================================================================
 // Prompt Templates
-// =============================================================================
 
 /// Prompt template for generating narrative summaries
 ///
@@ -1053,9 +991,7 @@ For each pattern, provide:
 
 Return your response as structured data that can be used to build a pattern library.";
 
-// =============================================================================
 // Tests
-// =============================================================================
 
 #[cfg(test)]
 mod tests {

@@ -135,7 +135,7 @@ impl LitManager {
     ) -> Result<impl Stream<Item = Result<String>>> {
         tracing::debug!(model = %model, prompt_length = prompt.len(), "Starting streaming completion");
         let pool = self.get_pool(model).await?;
-        let process = pool.get_process()?;
+        let process = pool.process()?;
         let stream = process.send_prompt_stream(prompt).await?;
         Ok(stream)
     }

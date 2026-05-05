@@ -40,7 +40,6 @@ impl Default for OrchestratorConfig {
 }
 
 impl OrchestratorConfig {
-    /// Create a new orchestrator configuration
     pub fn new() -> Self {
         Self::default()
     }
@@ -78,7 +77,6 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    /// Create a new orchestrator
     pub fn new(config: OrchestratorConfig) -> Self {
         Self {
             config,

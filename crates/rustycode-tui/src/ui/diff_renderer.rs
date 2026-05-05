@@ -34,7 +34,6 @@ pub struct DiffRenderer {
 }
 
 impl DiffRenderer {
-    /// Create a new diff renderer
     pub fn new() -> Self {
         Self { _priv: () }
     }

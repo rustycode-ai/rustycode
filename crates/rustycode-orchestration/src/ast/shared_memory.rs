@@ -114,7 +114,7 @@ impl AgentMemory for ProgressStoreMemory {
         });
         let kinds = ["decision", "finding", "artifact", "note"];
         for kind in kinds {
-            if let Ok(artifacts) = store.get_artifacts_by_kind(&self.task_id, kind) {
+            if let Ok(artifacts) = store.artifacts_by_kind(&self.task_id, kind) {
                 if let Some(found) = artifacts.iter().find(|a| a.id == artifact_id) {
                     return found.summary.clone();
                 }

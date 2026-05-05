@@ -269,7 +269,7 @@ impl TUI {
 
         // Skip polling if the worker panel isn't visible and there are no active agents
         // This avoids needless global_worker_registry() calls every frame
-        if !self.worker_panel.visible && self.agent_manager.get_agents().is_empty() {
+        if !self.worker_panel.visible && self.agent_manager.agents().is_empty() {
             return;
         }
 

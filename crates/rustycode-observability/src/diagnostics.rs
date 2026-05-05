@@ -10,9 +10,7 @@ use std::path::{Path, PathBuf};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-// ---------------------------------------------------------------------------
 // CheckStatus
-// ---------------------------------------------------------------------------
 
 /// Outcome of a single diagnostic check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,9 +40,7 @@ impl std::fmt::Display for CheckStatus {
     }
 }
 
-// ---------------------------------------------------------------------------
 // DiagnosticCheck
-// ---------------------------------------------------------------------------
 
 /// A single named check within a diagnostic suite.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,7 +60,6 @@ pub struct DiagnosticCheck {
 }
 
 impl DiagnosticCheck {
-    /// Create a new check with the given id, description, and category.
     pub fn new(
         id: impl Into<String>,
         description: impl Into<String>,
@@ -134,9 +129,7 @@ impl DiagnosticCheck {
     }
 }
 
-// ---------------------------------------------------------------------------
 // DiagnosticReport
-// ---------------------------------------------------------------------------
 
 /// Aggregated report produced after running a [`DiagnosticSuite`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,9 +157,7 @@ impl DiagnosticReport {
     }
 }
 
-// ---------------------------------------------------------------------------
 // DiagnosticSuite
-// ---------------------------------------------------------------------------
 
 /// Builder and runner for a standard set of environment diagnostics.
 pub struct DiagnosticSuite {
@@ -175,7 +166,6 @@ pub struct DiagnosticSuite {
 }
 
 impl DiagnosticSuite {
-    /// Create a new suite rooted at the given directory.
     pub fn new(root: impl AsRef<Path>) -> Self {
         Self {
             root: root.as_ref().to_path_buf(),
@@ -343,9 +333,7 @@ impl DiagnosticSuite {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

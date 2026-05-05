@@ -32,9 +32,7 @@ use rustycode_protocol::{Plan, PlanId, PlanStatus, PlanStep, SessionId, StepStat
 use rustycode_tools::ToolRegistry;
 use std::path::{Path, PathBuf};
 
-// ============================================================================
 // RUNTIME MODULE ERROR TESTS
-// ============================================================================
 
 mod runtime_error_tests {
     use super::*;
@@ -144,9 +142,7 @@ mod runtime_error_tests {
     }
 }
 
-// ============================================================================
 // EXECUTION MODULE ERROR TESTS
-// ============================================================================
 
 mod execution_error_tests {
     use super::*;
@@ -254,9 +250,7 @@ mod execution_error_tests {
     }
 }
 
-// ============================================================================
 // CONTEXT MODULE ERROR TESTS
-// ============================================================================
 
 mod context_error_tests {
     use super::*;
@@ -391,9 +385,7 @@ mod context_error_tests {
     }
 }
 
-// ============================================================================
 // RECOVERY MODULE ERROR TESTS
-// ============================================================================
 
 mod recovery_error_tests {
     use super::*;
@@ -640,9 +632,7 @@ mod recovery_error_tests {
     }
 }
 
-// ============================================================================
 // ERROR CLASSIFICATION TESTS
-// ============================================================================
 
 mod error_classification_tests {
     use super::*;
@@ -796,9 +786,7 @@ mod error_classification_tests {
     }
 }
 
-// ============================================================================
 // VALIDATION ERROR TESTS
-// ============================================================================
 
 mod validation_error_tests {
     use super::*;
@@ -989,9 +977,7 @@ mod validation_error_tests {
     }
 }
 
-// ============================================================================
 // ERROR MESSAGE QUALITY TESTS
-// ============================================================================
 
 mod error_message_tests {
     use super::*;

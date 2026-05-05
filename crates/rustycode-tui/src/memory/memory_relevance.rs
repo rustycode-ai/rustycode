@@ -35,7 +35,6 @@ pub struct ScoreCache {
 }
 
 impl ScoreCache {
-    /// Create a new score cache with TTL
     pub fn new(ttl_secs: u64) -> Self {
         Self {
             cache: Arc::new(Mutex::new(HashMap::new())),
@@ -93,36 +92,6 @@ static SCORE_CACHE: once_cell::sync::Lazy<ScoreCache> =
 
 /// Score a memory's relevance to a query
 ///
-/// # Arguments
-///
-/// * `query` - The user's message/query
-/// * `memory` - The auto-memory to score
-///
-/// # Returns
-///
-/// A relevance score between 0.0 and 1.0
-///
-/// # Scoring Factors
-///
-/// 1. **Exact keyword match** (0.5 weight): If query contains memory key
-/// 2. **Semantic similarity** (0.3 weight): Word overlap between query and memory value
-/// 3. **Importance weighting** (multiplier): Memory importance score (0.0-1.0)
-/// 4. **Recent access boost** (0.1 bonus): If accessed in last 24 hours
-///
-/// # Performance
-///
-/// Results are cached for 5 minutes to avoid repeated calculations.
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use rustycode_tui::memory_relevance::score_relevance;
-/// use rustycode_tui::memory_auto::{AutoMemory, MemoryType};
-///
-/// let memory = AutoMemory::new("theme", "dark mode preference", MemoryType::Preference);
-/// let score = score_relevance("What's my theme preference?", &memory);
-/// assert!(score > 0.7); // High relevance
-/// ```
 pub fn score_relevance(query: &str, memory: &AutoMemory) -> f64 {
     // Create cache key from query and memory ID
     let cache_key = format!("{}:{}", query.to_lowercase(), memory.id);
@@ -182,14 +151,6 @@ pub fn score_relevance(query: &str, memory: &AutoMemory) -> f64 {
 
 /// Score multiple memories against a query
 ///
-/// # Arguments
-///
-/// * `query` - The user's message/query
-/// * `memories` - Slice of auto-memories to score
-///
-/// # Returns
-///
-/// Vec of (memory, score) tuples sorted by score (highest first)
 pub fn score_memories(query: &str, memories: &[AutoMemory]) -> Vec<(AutoMemory, f64)> {
     let start = std::time::Instant::now();
 
@@ -219,16 +180,6 @@ pub fn score_memories(query: &str, memories: &[AutoMemory]) -> Vec<(AutoMemory, 
 
 /// Get top N relevant memories for a query
 ///
-/// # Arguments
-///
-/// * `query` - The user's message/query
-/// * `memories` - Slice of auto-memories
-/// * `threshold` - Minimum relevance score (0.0-1.0)
-/// * `max_results` - Maximum number of memories to return
-///
-/// # Returns
-///
-/// Vec of (memory, score) tuples for memories above threshold
 pub fn get_relevant_memories(
     query: &str,
     memories: &[AutoMemory],

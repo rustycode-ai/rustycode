@@ -15,7 +15,6 @@ pub struct TodoReadTool {
 }
 
 impl TodoReadTool {
-    /// Create a new `TodoReadTool` with shared state
     pub const fn new(state: TodoState) -> Self {
         Self { state }
     }

@@ -4,7 +4,6 @@
 pub struct ExecutionMonitor;
 
 impl ExecutionMonitor {
-    /// Create a new execution monitor
     pub const fn new() -> Self {
         Self
     }

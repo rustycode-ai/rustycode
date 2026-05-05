@@ -14,7 +14,6 @@ pub struct LLMIntegration {
 }
 
 impl LLMIntegration {
-    /// Create a new LLM integration
     pub fn new(default_model: String) -> Self {
         Self {
             provider: Arc::new(Mutex::new(None)),

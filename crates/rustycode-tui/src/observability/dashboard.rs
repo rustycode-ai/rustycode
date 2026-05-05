@@ -14,7 +14,6 @@ pub struct DashboardWidget {
 }
 
 impl DashboardWidget {
-    /// Create a new dashboard widget
     pub fn new(session_id: String) -> Self {
         DashboardWidget {
             session_id,

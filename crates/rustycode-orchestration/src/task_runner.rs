@@ -50,11 +50,6 @@ impl TaskRunResult {
 pub trait TaskRunner: Send + Sync {
     /// Execute a single task.
     ///
-    /// # Arguments
-    /// * `task_description` - What the task should do
-    /// * `role` - The semantic role (determines system prompt and allowed tools)
-    /// * `path_scope` - Optional list of paths the task should focus on (first is used as cwd)
-    /// * `resume_from` - Optional checkpoint to resume from
     fn run_task(
         &self,
         task_description: &str,

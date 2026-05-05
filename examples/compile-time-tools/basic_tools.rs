@@ -6,9 +6,7 @@ use std::fs;
 use std::io;
 use std::error::Error;
 
-// ============================================================================
 // Core Trait Definitions
-// ============================================================================
 
 /// Core tool trait with associated types
 pub trait Tool {
@@ -66,9 +64,7 @@ pub enum ToolValidationError {
     InvalidType(&'static str, &'static str),
 }
 
-// ============================================================================
 // Tool Implementations
-// ============================================================================
 
 /// Read file tool
 #[derive(Debug, Clone)]
@@ -202,9 +198,7 @@ pub enum ExecuteError {
     CommandNotFound(String),
 }
 
-// ============================================================================
 // Type-Safe Tool Dispatcher
-// ============================================================================
 
 /// Zero-cost tool dispatcher (static dispatch)
 pub struct ToolDispatcher<T: Tool> {
@@ -222,9 +216,7 @@ impl<T: Tool> ToolDispatcher<T> {
     }
 }
 
-// ============================================================================
 // Usage Examples
-// ============================================================================
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("=== Compile-Time Tool System Examples ===\n");
@@ -269,9 +261,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-// ============================================================================
 // Comparison with Runtime Tool System
-// ============================================================================
 
 #[cfg(test)]
 mod comparisons {

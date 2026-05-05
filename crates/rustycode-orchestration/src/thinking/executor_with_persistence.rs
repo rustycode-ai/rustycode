@@ -20,9 +20,6 @@ pub struct PersistentExecutor {
 impl PersistentExecutor {
     /// Create a new persistent executor
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session directory cannot be created.
     pub fn new(llm_provider: Arc<dyn LLMProvider>, session_dir: impl AsRef<Path>) -> Result<Self> {
         let inner = RealExecutor::new(llm_provider);
         let session_manager = SessionManager::new(session_dir)?;
@@ -34,9 +31,6 @@ impl PersistentExecutor {
 
     /// Create with custom config
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session directory cannot be created.
     pub fn with_config(
         llm_provider: Arc<dyn LLMProvider>,
         session_dir: impl AsRef<Path>,
@@ -52,9 +46,6 @@ impl PersistentExecutor {
 
     /// Execute thinking and save the session
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the thinking process or session save fails.
     pub async fn think_and_save(
         &self,
         prompt: &str,
@@ -73,9 +64,6 @@ impl PersistentExecutor {
 
     /// List all available sessions
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session directory cannot be read.
     pub fn list_sessions(&self) -> Result<Vec<String>> {
         self.session_manager.list_sessions()
     }
@@ -88,9 +76,6 @@ impl PersistentExecutor {
 
     /// Delete a session
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session files cannot be deleted.
     pub fn delete_session(&self, session_id: &str) -> Result<()> {
         self.session_manager.delete_session(session_id)
     }
@@ -127,13 +112,6 @@ pub struct SessionRecovery;
 impl SessionRecovery {
     /// Create a checkpoint of current session state
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the system time is before the Unix epoch.
-    ///
-    /// # Panics
-    ///
-    /// Will not panic in practice; system time is always after the Unix epoch.
     #[allow(clippy::cast_possible_wrap)]
     pub fn create_checkpoint(
         graph: &ReasoningGraph,
@@ -168,9 +146,6 @@ impl SessionRecovery {
 
     /// Save a checkpoint to disk
     ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization or file writing fails.
     pub fn save_checkpoint(
         checkpoint: &SessionCheckpoint,
         session_manager: &SessionManager,
@@ -195,9 +170,6 @@ impl SessionRecovery {
 
     /// Recover a session from disk
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session file cannot be read or deserialized.
     pub fn recover_session(
         session_id: &str,
         session_manager: &SessionManager,
@@ -216,9 +188,6 @@ impl SessionRecovery {
 
     /// List all available checkpoints
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session directory cannot be read.
     pub fn list_checkpoints(session_manager: &SessionManager) -> Result<Vec<String>> {
         session_manager.list_sessions()
     }

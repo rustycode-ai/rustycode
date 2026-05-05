@@ -31,7 +31,6 @@ impl Default for TmuxConnector {
 }
 
 impl TmuxConnector {
-    /// Create a new tmux connector with the given session name prefix
     pub fn new(session_prefix: impl Into<String>) -> Self {
         Self {
             session_prefix: session_prefix.into(),

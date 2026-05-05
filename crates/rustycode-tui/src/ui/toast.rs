@@ -104,7 +104,6 @@ pub struct Toast {
 impl Toast {
     const SLIDE_OFFSET_COLS: u16 = 4;
 
-    /// Create a new toast notification
     pub fn new(level: ToastLevel, message: impl Into<String>) -> Self {
         let now = Instant::now();
         Self {
@@ -256,7 +255,6 @@ pub struct ToastManager {
 }
 
 impl ToastManager {
-    /// Create a new toast manager
     pub fn new() -> Self {
         Self {
             toasts: Vec::new(),

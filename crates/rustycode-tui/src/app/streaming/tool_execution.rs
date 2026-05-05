@@ -347,16 +347,6 @@ pub fn snapshot_files_for_undo(
 /// This function extends `execute_tool` with pre and post execution hooks.
 /// Hooks can be used for logging, permission checks, or custom processing.
 ///
-/// # Arguments
-/// * `cwd` - Current working directory
-/// * `tool_name` - Name of the tool to execute
-/// * `parameters_json` - JSON string containing tool parameters
-/// * `hook_registry` - Registry of hooks to execute
-/// * `context` - Hook context for passing data to hooks
-///
-/// # Returns
-/// * Tool output on success
-/// * Error message if execution is denied or fails
 #[allow(clippy::await_holding_lock)]
 pub fn execute_tool_with_hooks(
     cwd: &Path,

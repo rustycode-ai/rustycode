@@ -21,9 +21,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-// ---------------------------------------------------------------------------
 // SilentEvents — discards streaming deltas; only collects final text
-// ---------------------------------------------------------------------------
 
 /// Event sink that absorbs agent events and forwards UI-relevant ones to the bus.
 struct BusAgentEvents {
@@ -136,9 +134,7 @@ impl AgentEvents for BusAgentEvents {
     }
 }
 
-// ---------------------------------------------------------------------------
 // BridgeEvents — streaming events + interactive approval via PipelineInteraction
-// ---------------------------------------------------------------------------
 
 struct BridgeEvents {
     bus: crate::bus::BusHandle,
@@ -294,9 +290,7 @@ impl AgentEvents for BridgeEvents {
     }
 }
 
-// ---------------------------------------------------------------------------
 // AgentSessionExecutor
-// ---------------------------------------------------------------------------
 
 /// Wraps an [`AgentSession`] to implement the orchestration [`ToolExecutor`]
 /// trait.

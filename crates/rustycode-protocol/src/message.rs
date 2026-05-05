@@ -848,7 +848,6 @@ pub struct Conversation {
 }
 
 impl Conversation {
-    /// Create a new conversation
     pub fn new(session_id: SessionId) -> Self {
         let now = Utc::now();
         Self {

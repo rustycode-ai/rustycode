@@ -9,7 +9,7 @@
 
 use anyhow::{Context, Result};
 use rustycode_llm::provider::{ChatMessage, CompletionRequest, LLMProvider};
-use rustycode_llm::{caching::CachingStrategy, get_metadata};
+use rustycode_llm::{caching::CachingStrategy, metadata};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -49,7 +49,7 @@ impl AgentRoleExt for AgentRole {
     /// Build layered system prompt combining provider metadata + provider-specific agent role + task context
     fn build_layered_prompt(&self, provider_id: &str, task_context: &str) -> String {
         // Layer 1: Provider base prompt (capabilities, tools, security, format)
-        let provider_base = if let Some(metadata) = get_metadata(provider_id) {
+        let provider_base = if let Some(metadata) = metadata(provider_id) {
             metadata.generate_system_prompt("") // Empty context, we'll add agent role next
         } else {
             // Fallback if provider metadata not found
@@ -300,7 +300,6 @@ pub struct AgentCommunicationHub {
 }
 
 impl AgentCommunicationHub {
-    /// Create a new communication hub
     pub fn new() -> Self {
         Self {
             pending_requests: Vec::new(),
@@ -374,7 +373,7 @@ impl AgentCommunicationHub {
     }
 
     /// Get messages pending for a specific agent
-    pub fn get_pending_for_agent(&self, agent: &AgentRole) -> Vec<&AgentMessage> {
+    pub fn pending_for_agent(&self, agent: &AgentRole) -> Vec<&AgentMessage> {
         self.pending_requests
             .iter()
             .filter(|msg| match msg {
@@ -386,7 +385,7 @@ impl AgentCommunicationHub {
     }
 
     /// Get conversation history between two agents
-    pub fn get_conversation_history(
+    pub fn conversation_history(
         &self,
         agent1: &AgentRole,
         agent2: &AgentRole,
@@ -430,7 +429,7 @@ impl AgentCommunicationHub {
     }
 
     /// Get all broadcasts sorted by priority
-    pub fn get_broadcasts_by_priority(&self) -> Vec<AgentMessage> {
+    pub fn broadcasts_by_priority(&self) -> Vec<AgentMessage> {
         let mut broadcasts: Vec<AgentMessage> = self.broadcasts.clone();
         broadcasts.sort_by(|a, b| {
             let priority_a = match a {
@@ -534,7 +533,6 @@ pub struct MultiAgentOrchestrator {
 }
 
 impl MultiAgentOrchestrator {
-    /// Create a new multi-agent orchestrator
     pub fn new(provider: Box<dyn LLMProvider>, config: MultiAgentConfig) -> Self {
         Self {
             provider: Arc::from(provider),
@@ -1396,7 +1394,7 @@ mod tests {
             "Deploy ready".into(),
             BroadcastPriority::High,
         );
-        let by_priority = hub.get_broadcasts_by_priority();
+        let by_priority = hub.broadcasts_by_priority();
         assert_eq!(by_priority.len(), 1);
     }
 

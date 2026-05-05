@@ -18,7 +18,6 @@ pub struct SchemaValidator {
 }
 
 impl SchemaValidator {
-    /// Create a new schema validator with built-in schemas
     pub fn new() -> Self {
         let mut validator = Self {
             schemas: HashMap::new(),

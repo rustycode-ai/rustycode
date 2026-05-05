@@ -61,7 +61,6 @@ pub struct TokenCounter {
 }
 
 impl TokenCounter {
-    /// Create a new token counter with default settings.
     pub fn new() -> Self {
         Self {
             cache: Arc::new(DashMap::with_capacity(MAX_TOKEN_CACHE_SIZE)),
@@ -103,9 +102,6 @@ impl TokenCounter {
     /// including function names, descriptions, parameter names, types,
     /// and enum values. Based on goose's formula.
     ///
-    /// # Arguments
-    ///
-    /// * `tools` - List of (name, description, `parameters_json`) tuples
     pub fn count_tool_tokens(&self, tools: &[(String, String, serde_json::Value)]) -> usize {
         let mut count = 0;
 

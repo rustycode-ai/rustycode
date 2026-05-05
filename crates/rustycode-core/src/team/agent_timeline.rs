@@ -147,7 +147,6 @@ pub struct AgentTrack {
 }
 
 impl AgentTrack {
-    /// Create a new empty track for the given role.
     pub fn new(role: AgentRole) -> Self {
         Self {
             role,
@@ -227,7 +226,6 @@ impl Default for AgentTimeline {
 }
 
 impl AgentTimeline {
-    /// Create a new timeline for the given task.
     pub fn new(task_id: &str) -> Self {
         let mut agents = HashMap::new();
 

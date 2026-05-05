@@ -11,9 +11,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-// ---------------------------------------------------------------------------
 // ProjectProfile
-// ---------------------------------------------------------------------------
 
 /// A fully-detected project profile describing how to build, test, lint, and
 /// format a codebase.
@@ -43,9 +41,7 @@ pub struct ProjectProfile {
     pub max_turns_hint: u32,
 }
 
-// ---------------------------------------------------------------------------
 // ProjectProfiler
-// ---------------------------------------------------------------------------
 
 /// Detects project characteristics from the filesystem.
 pub struct ProjectProfiler;
@@ -493,9 +489,7 @@ impl Default for ProjectProfiler {
     }
 }
 
-// ---------------------------------------------------------------------------
 // ProfileCache
-// ---------------------------------------------------------------------------
 
 const CACHE_DIR: &str = ".rustycode";
 const CACHE_FILE: &str = "profile.json";
@@ -548,9 +542,7 @@ impl ProfileCache {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

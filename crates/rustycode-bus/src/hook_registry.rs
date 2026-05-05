@@ -22,15 +22,12 @@ pub struct HookRegistry {
 }
 
 impl HookRegistry {
-    /// Create a new hook registry
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Register a hook
     ///
-    /// # Arguments
-    /// * `hook` - The hook to register
     pub async fn register(&self, hook: Arc<dyn Hook>) {
         match hook.phase() {
             HookPhase::PrePublish => {
@@ -56,12 +53,6 @@ impl HookRegistry {
 
     /// Execute pre-publish hooks
     ///
-    /// # Arguments
-    /// * `context` - The hook context
-    ///
-    /// # Returns
-    /// * `Ok(())` - All hooks executed successfully
-    /// * `Err(EventBusError)` - A hook failed
     pub async fn execute_pre_publish(&self, context: &HookContext) -> Result<()> {
         let hooks = self.pre_publish.read().await;
         for hook in hooks.iter() {
@@ -72,12 +63,6 @@ impl HookRegistry {
 
     /// Execute post-publish hooks
     ///
-    /// # Arguments
-    /// * `context` - The hook context
-    ///
-    /// # Returns
-    /// * `Ok(())` - All hooks executed successfully
-    /// * `Err(EventBusError)` - A hook failed
     pub async fn execute_post_publish(&self, context: &HookContext) -> Result<()> {
         let hooks = self.post_publish.read().await;
         for hook in hooks.iter() {
@@ -88,12 +73,6 @@ impl HookRegistry {
 
     /// Execute error hooks
     ///
-    /// # Arguments
-    /// * `context` - The hook context
-    ///
-    /// # Returns
-    /// * `Ok(())` - All hooks executed successfully
-    /// * `Err(EventBusError)` - A hook failed
     pub async fn execute_on_error(&self, context: &HookContext) -> Result<()> {
         let hooks = self.on_error.read().await;
         for hook in hooks.iter() {

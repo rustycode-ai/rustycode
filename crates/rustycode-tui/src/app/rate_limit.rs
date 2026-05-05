@@ -18,7 +18,6 @@ pub struct RateLimitState {
 }
 
 impl RateLimitState {
-    /// Create a new rate limit state
     pub fn new() -> Self {
         Self::default()
     }

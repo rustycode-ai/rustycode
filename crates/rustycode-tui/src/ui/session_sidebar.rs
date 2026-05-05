@@ -130,7 +130,6 @@ pub struct FileConflict {
 }
 
 impl FileConflict {
-    /// Create a new conflict
     pub fn new(path: PathBuf, session_id: String) -> Self {
         Self {
             path,
@@ -323,7 +322,6 @@ pub struct SessionSidebar {
 }
 
 impl SessionSidebar {
-    /// Create a new session sidebar
     pub fn new() -> Self {
         Self {
             state: SessionSidebarState::default(),
@@ -518,12 +516,12 @@ impl SessionSidebar {
     }
 
     /// Get all active conflicts
-    pub fn get_conflicts(&self) -> &[FileConflict] {
+    pub fn conflicts(&self) -> &[FileConflict] {
         &self.conflicts
     }
 
     /// Get conflicts for a specific session
-    pub fn get_session_conflicts(&self, session_id: &str) -> Vec<&FileConflict> {
+    pub fn session_conflicts(&self, session_id: &str) -> Vec<&FileConflict> {
         self.conflicts
             .iter()
             .filter(|c| c.involves_session(session_id))
@@ -538,7 +536,7 @@ impl SessionSidebar {
     }
 
     /// Get the highest conflict severity for the current session
-    pub fn get_conflict_severity(&self) -> ConflictSeverity {
+    pub fn conflict_severity(&self) -> ConflictSeverity {
         self.conflicts
             .iter()
             .filter(|c| c.involves_session(&self.current_session_id))
@@ -552,7 +550,7 @@ impl SessionSidebar {
     }
 
     /// Get modified files for this session
-    pub fn get_modified_files(&self) -> &HashSet<PathBuf> {
+    pub fn modified_files(&self) -> &HashSet<PathBuf> {
         &self.modified_files
     }
 
@@ -574,7 +572,7 @@ impl SessionSidebar {
     }
 
     /// Get all crashed sessions that need recovery
-    pub fn get_crashed_sessions(&self) -> Vec<&SessionInfo> {
+    pub fn crashed_sessions(&self) -> Vec<&SessionInfo> {
         self.sessions
             .iter()
             .filter(|s| s.state == SessionState::Crashed)
@@ -582,7 +580,7 @@ impl SessionSidebar {
     }
 
     /// Get recovery preview for a session
-    pub fn get_recovery_preview(&self, session_id: &str) -> Option<&str> {
+    pub fn recovery_preview(&self, session_id: &str) -> Option<&str> {
         self.sessions
             .iter()
             .find(|s| s.id == session_id)
@@ -625,7 +623,7 @@ impl SessionSidebar {
     }
 
     /// Get available recovery actions for a session
-    pub fn get_recovery_actions(&self, session_id: &str) -> Vec<RecoveryAction> {
+    pub fn recovery_actions(&self, session_id: &str) -> Vec<RecoveryAction> {
         if self
             .sessions
             .iter()
@@ -981,7 +979,7 @@ impl SessionSidebar {
         }
 
         // Recovery section (shown when there are crashed sessions)
-        let crashed_sessions: Vec<_> = self.get_crashed_sessions();
+        let crashed_sessions: Vec<_> = self.crashed_sessions();
         if !crashed_sessions.is_empty() && self.showing_recovery {
             let mut recovery_lines = Vec::new();
 
@@ -996,7 +994,7 @@ impl SessionSidebar {
                 ]));
 
                 // Recovery actions
-                let actions = self.get_recovery_actions(&session.id);
+                let actions = self.recovery_actions(&session.id);
                 let action_str = actions
                     .iter()
                     .map(|a| format!("{}{}", a.icon(), a.label()))
@@ -1347,7 +1345,7 @@ mod tests {
         let mut sidebar = SessionSidebar::new();
         let path = PathBuf::from("/test/file.txt");
         sidebar.record_file_modification(path.clone());
-        assert!(sidebar.get_modified_files().contains(&path));
+        assert!(sidebar.modified_files().contains(&path));
     }
 
     #[test]
@@ -1364,8 +1362,8 @@ mod tests {
         other_files.insert("session2".to_string(), other_session_files);
 
         sidebar.detect_conflicts(&other_files);
-        assert_eq!(sidebar.get_conflicts().len(), 1);
-        assert_eq!(sidebar.get_conflicts()[0].path, path);
+        assert_eq!(sidebar.conflicts().len(), 1);
+        assert_eq!(sidebar.conflicts()[0].path, path);
     }
 
     #[test]
@@ -1383,13 +1381,13 @@ mod tests {
 
         sidebar.detect_conflicts(&other_files);
 
-        let session1_conflicts = sidebar.get_session_conflicts("session1");
+        let session1_conflicts = sidebar.session_conflicts("session1");
         assert_eq!(session1_conflicts.len(), 1);
 
-        let session2_conflicts = sidebar.get_session_conflicts("session2");
+        let session2_conflicts = sidebar.session_conflicts("session2");
         assert_eq!(session2_conflicts.len(), 1);
 
-        let session3_conflicts = sidebar.get_session_conflicts("session3");
+        let session3_conflicts = sidebar.session_conflicts("session3");
         assert_eq!(session3_conflicts.len(), 0);
     }
 
@@ -1407,10 +1405,10 @@ mod tests {
         other_files.insert("session2".to_string(), other_session_files);
 
         sidebar.detect_conflicts(&other_files);
-        assert_eq!(sidebar.get_conflicts().len(), 1);
+        assert_eq!(sidebar.conflicts().len(), 1);
 
         sidebar.resolve_conflict(&path);
-        assert!(sidebar.get_conflicts()[0].resolved);
+        assert!(sidebar.conflicts()[0].resolved);
     }
 
     #[test]
@@ -1530,7 +1528,7 @@ mod tests {
             crash_time: Some(Instant::now()),
         });
 
-        let crashed = sidebar.get_crashed_sessions();
+        let crashed = sidebar.crashed_sessions();
         assert_eq!(crashed.len(), 1);
         assert_eq!(crashed[0].id, "session2");
     }
@@ -1552,7 +1550,7 @@ mod tests {
 
         sidebar.set_recovery_preview("session1", "This is a recovery preview".to_string());
         assert_eq!(
-            sidebar.get_recovery_preview("session1"),
+            sidebar.recovery_preview("session1"),
             Some("This is a recovery preview")
         );
     }
@@ -1574,7 +1572,7 @@ mod tests {
 
         let long_preview = "a".repeat(600);
         sidebar.set_recovery_preview("session1", long_preview.clone());
-        let preview = sidebar.get_recovery_preview("session1");
+        let preview = sidebar.recovery_preview("session1");
         assert!(preview.is_some());
         assert!(preview.unwrap().len() < long_preview.len());
         assert!(preview.unwrap().ends_with("..."));
@@ -1623,14 +1621,14 @@ mod tests {
             crash_time: Some(Instant::now()),
         });
 
-        let actions = sidebar.get_recovery_actions("session1");
+        let actions = sidebar.recovery_actions("session1");
         assert_eq!(actions.len(), 3);
         assert!(actions.contains(&RecoveryAction::Inspect));
         assert!(actions.contains(&RecoveryAction::Recover));
         assert!(actions.contains(&RecoveryAction::Discard));
 
         // Active session should have no recovery actions
-        let actions = sidebar.get_recovery_actions("nonexistent");
+        let actions = sidebar.recovery_actions("nonexistent");
         assert_eq!(actions.len(), 0);
     }
 }

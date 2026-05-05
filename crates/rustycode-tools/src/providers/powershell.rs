@@ -23,9 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-// ---------------------------------------------------------------------------
 // PowerShell session
-// ---------------------------------------------------------------------------
 
 /// Persistent PowerShell session that maintains shell state across commands.
 ///
@@ -589,9 +587,7 @@ impl Drop for PowerShellSession {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Session registry (same pattern as BashSessionRegistry)
-// ---------------------------------------------------------------------------
 
 struct PSSessionRegistry {
     sessions: Mutex<Option<HashMap<PathBuf, Arc<Mutex<PowerShellSession>>>>>,
@@ -732,9 +728,7 @@ impl PSSessionRegistry {
 
 static PS_SESSION_REGISTRY: PSSessionRegistry = PSSessionRegistry::new();
 
-// ---------------------------------------------------------------------------
 // Rate limiter
-// ---------------------------------------------------------------------------
 
 struct PSRateLimiter {
     active: AtomicUsize,
@@ -782,9 +776,7 @@ impl Drop for PSPermit<'_> {
 
 static PS_RATE_LIMITER: PSRateLimiter = PSRateLimiter::new(4);
 
-// ---------------------------------------------------------------------------
 // PowerShellTool
-// ---------------------------------------------------------------------------
 
 pub struct PowerShellTool;
 
@@ -860,13 +852,13 @@ impl Tool for PowerShellTool {
 
         // Validate command safety
         use crate::security::cross_platform::{
-            get_allowed_commands, get_blocked_commands, validate_path_in_workspace, ShellType,
+            allowed_commands, blocked_commands, validate_path_in_workspace, ShellType,
         };
         validate_path_in_workspace(&ctx.cwd, &ctx.cwd)?;
 
         let shell_type = ShellType::PowerShell;
         let binary_name = extract_binary_name(&command)?;
-        let allowed_commands = get_allowed_commands(shell_type);
+        let allowed_commands = allowed_commands(shell_type);
         if !allowed_commands
             .iter()
             .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
@@ -877,7 +869,7 @@ impl Tool for PowerShellTool {
             );
         }
 
-        let blocked_commands = get_blocked_commands(shell_type);
+        let blocked_commands = blocked_commands(shell_type);
         if blocked_commands
             .iter()
             .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
@@ -1053,18 +1045,18 @@ impl ToolStreaming for PowerShellTool {
 
         // Validate
         use crate::security::cross_platform::{
-            get_allowed_commands, get_blocked_commands, ShellType,
+            allowed_commands, blocked_commands, ShellType,
         };
         let shell_type = ShellType::PowerShell;
         let binary_name = extract_binary_name(&command).unwrap_or_default();
-        let allowed_commands = get_allowed_commands(shell_type);
+        let allowed_commands = allowed_commands(shell_type);
         if !allowed_commands
             .iter()
             .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
         {
             return Err(anyhow!("command not in allowed list for PowerShell"));
         }
-        let blocked_commands = get_blocked_commands(shell_type);
+        let blocked_commands = blocked_commands(shell_type);
         if blocked_commands
             .iter()
             .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
@@ -1119,9 +1111,7 @@ impl ToolStreaming for PowerShellTool {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Helpers
-// ---------------------------------------------------------------------------
 
 /// Extract the binary/command name from a PowerShell command string.
 /// Handles both cmdlet names (`Get-ChildItem`) and external binaries (`git`).
@@ -1150,9 +1140,7 @@ fn extract_binary_name(command: &str) -> anyhow::Result<String> {
     Ok(name.to_lowercase())
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

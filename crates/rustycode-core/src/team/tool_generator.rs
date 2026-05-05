@@ -103,7 +103,6 @@ pub struct ToolGenerator {
 }
 
 impl ToolGenerator {
-    /// Create a new tool generator.
     pub fn new(llm: Arc<dyn LLMProvider>) -> Self {
         Self {
             llm,
@@ -118,14 +117,6 @@ impl ToolGenerator {
 
     /// Generate a tool from a natural language description.
     ///
-    /// # Arguments
-    ///
-    /// * `description` - Natural language description of what the tool should do
-    /// * `context` - Optional context about existing tools and patterns
-    ///
-    /// # Returns
-    ///
-    /// A `GeneratedTool` with the tool definition and optionally generated code.
     pub async fn generate_from_description(
         &self,
         description: &str,

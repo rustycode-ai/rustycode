@@ -41,13 +41,13 @@ mod tests {
         registry.add_tag(msg3_id.clone(), Tag::new(TagType::Bug));
 
         // Test filtering
-        let important_msgs = registry.get_messages_with_tag(&TagType::Important);
+        let important_msgs = registry.messages_with_tag(&TagType::Important);
         assert_eq!(important_msgs.len(), 2);
 
-        let idea_msgs = registry.get_messages_with_tag(&TagType::Idea);
+        let idea_msgs = registry.messages_with_tag(&TagType::Idea);
         assert_eq!(idea_msgs.len(), 1);
 
-        let bug_msgs = registry.get_messages_with_tag(&TagType::Bug);
+        let bug_msgs = registry.messages_with_tag(&TagType::Bug);
         assert_eq!(bug_msgs.len(), 1);
     }
 
@@ -71,7 +71,7 @@ mod tests {
 
         let filtered: Vec<_> = messages
             .iter()
-            .filter(|m| filter.matches(m.get_tags()))
+            .filter(|m| filter.matches(m.tags()))
             .collect();
 
         assert_eq!(filtered.len(), 2);
@@ -93,7 +93,7 @@ mod tests {
         let filter = TagFilter::new();
         let filtered: Vec<_> = messages
             .iter()
-            .filter(|m| filter.matches(m.get_tags()))
+            .filter(|m| filter.matches(m.tags()))
             .collect();
 
         assert_eq!(filtered.len(), 3); // All shown when no filter
@@ -108,7 +108,7 @@ mod tests {
 
         let filtered: Vec<_> = messages
             .iter()
-            .filter(|m| filter.matches(m.get_tags()))
+            .filter(|m| filter.matches(m.tags()))
             .collect();
 
         assert_eq!(filtered.len(), 0);
@@ -134,9 +134,9 @@ mod tests {
         let mut filter_bug = TagFilter::new();
         filter_bug.set_active(Some(TagType::Bug));
 
-        assert!(filter_important.matches(msg.get_tags()));
-        assert!(filter_idea.matches(msg.get_tags()));
-        assert!(!filter_bug.matches(msg.get_tags()));
+        assert!(filter_important.matches(msg.tags()));
+        assert!(filter_idea.matches(msg.tags()));
+        assert!(!filter_bug.matches(msg.tags()));
     }
 
     #[test]
@@ -172,10 +172,10 @@ mod tests {
             Tag::new(TagType::Custom("urgent".to_string())),
         );
 
-        let tags = registry.get_tags(&msg_id).unwrap();
+        let tags = registry.tags(&msg_id).unwrap();
         assert_eq!(tags.len(), 2);
 
-        let tag_types = registry.get_all_tag_types();
+        let tag_types = registry.all_tag_types();
         assert!(tag_types.contains(&TagType::Custom("review".to_string())));
         assert!(tag_types.contains(&TagType::Custom("urgent".to_string())));
     }
@@ -253,7 +253,7 @@ mod tests {
         msg.add_tag(Tag::new(TagType::Bug));
 
         // Tags should be sorted
-        let tags = msg.get_tags();
+        let tags = msg.tags();
         assert!(tags[0].tag_type <= tags[1].tag_type);
         assert!(tags[1].tag_type <= tags[2].tag_type);
         assert!(tags[2].tag_type <= tags[3].tag_type);
@@ -266,16 +266,16 @@ mod tests {
         // Add tags
         msg.add_tag(Tag::new(TagType::Important));
         msg.add_tag(Tag::new(TagType::Idea));
-        assert_eq!(msg.get_tags().len(), 2);
+        assert_eq!(msg.tags().len(), 2);
 
         // Clear tags
         msg.clear_tags();
-        assert_eq!(msg.get_tags().len(), 0);
+        assert_eq!(msg.tags().len(), 0);
         assert!(!msg.has_any_tags());
 
         // Add new tags
         msg.add_tag(Tag::new(TagType::Bug));
-        assert_eq!(msg.get_tags().len(), 1);
+        assert_eq!(msg.tags().len(), 1);
         assert!(msg.has_tag(&TagType::Bug));
     }
 

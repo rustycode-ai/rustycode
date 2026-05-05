@@ -126,8 +126,8 @@ pub use context::{
     analyze_cache_efficiency, budget_usage_percent, chunk_by_relevance, classify_section,
     clear_cache, compress_prompt, compress_to_target, compute_budgets, compute_cache_hit_rate,
     content_fits_budget, count_tokens, count_tokens_sync, distill_single, distill_summaries,
-    estimate_cache_savings, estimate_tokens_for_provider, format_chunks, get_base_dir,
-    get_chars_per_token, init_token_counter, inline_template, is_accurate_counting_available,
+    estimate_cache_savings, estimate_tokens_for_provider, format_chunks, base_dir,
+    chars_per_token, init_token_counter, inline_template, is_accurate_counting_available,
     load_prompt, load_template, optimize_for_caching, parse_token_provider, prompt_loader,
     remaining_budget, reorder_for_caching, resolve_executor_context_window, score_chunks,
     section as prompt_section, set_base_dir, split_into_chunks, truncate_at_section_boundary,
@@ -151,7 +151,7 @@ pub use handoff::{BudgetSummary, CodeSnippet, HandoffBuilder, HandoffPackage};
 pub use harness::{TieredExecutionResult, TieredHarness};
 pub use hook_points::{HookContext, HookPoint, HookRegistry, HookResult};
 pub use isolation::{
-    auto_worktree_branch, classify_tool, generate_worktree_name, get_original_base, in_worktree,
+    auto_worktree_branch, classify_tool, generate_worktree_name, original_base, in_worktree,
     ContextBudget, IsolationConfig, TierIsolation, ToolCapability, ToolPolicy, Worktree,
     WorktreeLock, WorktreeManager,
 };

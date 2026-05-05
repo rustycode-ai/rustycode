@@ -406,7 +406,6 @@ criterion_group!(
     bench_concurrent_publish
 );
 
-// ========== Hybrid Event Publishing Benchmarks ==========
 
 /// Benchmark callback subscription (zero-cost abstraction)
 fn bench_callback_subscription(c: &mut Criterion) {

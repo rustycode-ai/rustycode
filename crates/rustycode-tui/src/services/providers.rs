@@ -18,7 +18,6 @@ pub struct ProviderInfo {
 }
 
 impl ProviderInfo {
-    /// Create a new ProviderInfo
     pub fn new(
         name: impl Into<String>,
         provider_type: impl Into<String>,
@@ -45,7 +44,7 @@ impl ProviderInfo {
     }
 
     /// Get the API key from environment
-    pub fn get_api_key(&self) -> Option<String> {
+    pub fn api_key(&self) -> Option<String> {
         if self.api_key_env == "N/A" {
             Some("no-api-key-required".to_string())
         } else {
@@ -64,9 +63,7 @@ impl ProviderInfo {
 /// This function checks the environment for API keys and returns
 /// a list of all supported providers with their configuration status.
 ///
-/// # Returns
-/// Vector of ProviderInfo objects
-pub fn get_available_providers() -> Vec<ProviderInfo> {
+pub fn available_providers() -> Vec<ProviderInfo> {
     vec![
         ProviderInfo::new(
             "Anthropic Claude",
@@ -161,15 +158,13 @@ fn provider_has_credentials(provider_type: &str) -> bool {
 /// Models from providers with configured credentials appear first.
 /// Models from unconfigured providers are still shown but marked.
 ///
-/// # Returns
-/// Vector of ModelInfo objects with provider, context window, costs, etc.
-pub fn get_all_available_models() -> Vec<SelectorModelInfo> {
+pub fn all_available_models() -> Vec<SelectorModelInfo> {
     let mut configured = Vec::new();
     let mut unconfigured = Vec::new();
 
     // Helper: add models from provider metadata
     let add_provider_models = |provider: &str, list: &mut Vec<SelectorModelInfo>| {
-        if let Some(metadata) = rustycode_llm::provider_metadata::get_metadata(provider) {
+        if let Some(metadata) = rustycode_llm::provider_metadata::metadata(provider) {
             for (idx, model) in metadata.recommended_models.iter().enumerate() {
                 list.push(
                     SelectorModelInfo::new(
@@ -429,26 +424,15 @@ pub fn get_all_available_models() -> Vec<SelectorModelInfo> {
 
 /// Get provider info by provider type
 ///
-/// # Arguments
-/// * `provider_type` - The provider type identifier (e.g., "anthropic", "openai")
-///
-/// # Returns
-/// Option of ProviderInfo
 #[cfg(test)]
-pub fn get_provider_by_type(provider_type: &str) -> Option<ProviderInfo> {
-    get_available_providers()
+pub fn provider_by_type(provider_type: &str) -> Option<ProviderInfo> {
+    available_providers()
         .into_iter()
         .find(|p| p.provider_type == provider_type)
 }
 
 /// Filter providers by search query
 ///
-/// # Arguments
-/// * `query` - Search query string
-/// * `providers` - Slice of providers to filter
-///
-/// # Returns
-/// Vector of providers matching the query
 #[cfg(test)]
 pub fn filter_providers<'a>(query: &str, providers: &'a [ProviderInfo]) -> Vec<&'a ProviderInfo> {
     let query_lower = query.to_lowercase();
@@ -474,7 +458,6 @@ pub struct OAuthFlowState {
 
 #[cfg(test)]
 impl OAuthFlowState {
-    /// Create a new inactive OAuth flow
     pub fn new() -> Self {
         Self {
             provider_name: None,
@@ -548,7 +531,6 @@ pub struct ProviderConfigCache {
 }
 
 impl ProviderConfigCache {
-    /// Create a new provider configuration cache
     pub fn new(
         provider_type: impl Into<String>,
         api_key: impl Into<String>,
@@ -591,8 +573,8 @@ mod tests {
     }
 
     #[test]
-    fn test_get_available_providers() {
-        let providers = get_available_providers();
+    fn test_available_providers() {
+        let providers = available_providers();
 
         assert!(!providers.is_empty());
         assert!(providers.len() >= 6);
@@ -615,7 +597,7 @@ mod tests {
 
     #[test]
     fn test_filter_providers() {
-        let providers = get_available_providers();
+        let providers = available_providers();
 
         // Filter by name
         let results = filter_providers("anthropic", &providers);
@@ -704,17 +686,17 @@ mod tests {
             "model",
         );
         // Should return None because env var doesn't exist
-        assert!(provider.get_api_key().is_none());
+        assert!(provider.api_key().is_none());
 
         // Test with Ollama (N/A)
         let provider = ProviderInfo::new("Ollama", "ollama", "Desc", "N/A", "model");
-        assert!(provider.get_api_key().is_some());
-        assert_eq!(provider.get_api_key().unwrap(), "no-api-key-required");
+        assert!(provider.api_key().is_some());
+        assert_eq!(provider.api_key().unwrap(), "no-api-key-required");
     }
 
     #[test]
     fn test_ollama_always_configured() {
-        let providers = get_available_providers();
+        let providers = available_providers();
         let ollama = providers
             .iter()
             .find(|p| p.provider_type == "ollama")

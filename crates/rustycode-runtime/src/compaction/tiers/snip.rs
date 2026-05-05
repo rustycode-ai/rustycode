@@ -19,7 +19,6 @@ pub struct SnipTier {
 }
 
 impl SnipTier {
-    /// Create a new SnipTier with the given line limit for tool output.
     pub fn new(max_tool_output_lines: usize) -> Self {
         Self {
             max_tool_output_lines,

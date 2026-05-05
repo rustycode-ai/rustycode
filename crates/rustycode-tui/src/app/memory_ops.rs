@@ -24,8 +24,8 @@ impl TUI {
         }
 
         // Get all recent and important memories for scoring
-        let recent_memories = auto_memory.get_recent(7); // Last 7 days
-        let important_memories = auto_memory.get_important(0.6); // Importance > 0.6
+        let recent_memories = auto_memory.recent(7); // Last 7 days
+        let important_memories = auto_memory.important(0.6); // Importance > 0.6
 
         // Combine and deduplicate memories
         use std::collections::HashMap;
@@ -68,8 +68,8 @@ impl TUI {
         }
 
         // Get all recent and important memories for scoring
-        let recent_memories = auto_memory.get_recent(7); // Last 7 days
-        let important_memories = auto_memory.get_important(0.6); // Importance > 0.6
+        let recent_memories = auto_memory.recent(7); // Last 7 days
+        let important_memories = auto_memory.important(0.6); // Importance > 0.6
 
         // Combine and deduplicate memories
         use std::collections::HashMap;

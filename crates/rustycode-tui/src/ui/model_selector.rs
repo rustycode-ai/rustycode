@@ -44,9 +44,7 @@ use ratatui::{
 // Re-export the shared fuzzy matcher types for convenience
 pub use super::fuzzy_matcher::{FuzzyMatcher as ModelFuzzyMatcher, MatchScore};
 
-// ============================================================================
 // MODEL INFO
-// ============================================================================
 
 /// Information about an available model
 #[derive(Clone, Debug)]
@@ -80,7 +78,6 @@ pub struct ModelInfo {
 }
 
 impl ModelInfo {
-    /// Create a new model info
     pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
@@ -149,9 +146,7 @@ impl ModelInfo {
     }
 }
 
-// ============================================================================
 // MODEL SELECTOR STATE
-// ============================================================================
 
 /// Model selector state
 #[derive(Debug, Clone)]
@@ -328,9 +323,7 @@ impl ModelSelectorState {
     }
 }
 
-// ============================================================================
 // MODEL SELECTOR RENDERER
-// ============================================================================
 
 /// Model selector renderer
 pub struct ModelSelectorRenderer {
@@ -339,7 +332,6 @@ pub struct ModelSelectorRenderer {
 }
 
 impl ModelSelectorRenderer {
-    /// Create a new model selector with default models
     pub fn new() -> Self {
         Self::with_models(Self::default_models())
     }
@@ -680,9 +672,7 @@ impl Default for ModelSelectorRenderer {
     }
 }
 
-// ============================================================================
 // MODEL SELECTOR (HIGH-LEVEL API)
-// ============================================================================
 
 /// High-level model selector API
 ///
@@ -693,7 +683,6 @@ pub struct ModelSelector {
 }
 
 impl ModelSelector {
-    /// Create a new model selector with default models
     pub fn new() -> Self {
         Self {
             renderer: ModelSelectorRenderer::new(),
@@ -761,9 +750,7 @@ impl Default for ModelSelector {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

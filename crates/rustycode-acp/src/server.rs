@@ -27,7 +27,6 @@ pub struct ACPServerInner {
 }
 
 impl ACPServer {
-    /// Create a new ACP server
     pub fn new() -> Self {
         let server_info = ServerInfo {
             name: "RustyCode".to_string(),

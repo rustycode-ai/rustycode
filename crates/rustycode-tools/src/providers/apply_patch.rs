@@ -14,9 +14,7 @@ use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-// ---------------------------------------------------------------------------
 // Input
-// ---------------------------------------------------------------------------
 
 #[derive(Debug)]
 enum PatchSource {
@@ -24,9 +22,7 @@ enum PatchSource {
     File(PathBuf),
 }
 
-// ---------------------------------------------------------------------------
 // Patch data structures
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 enum PatchOperation {
@@ -60,9 +56,7 @@ enum PatchLine {
     Add(String),
 }
 
-// ---------------------------------------------------------------------------
 // Tool implementation
-// ---------------------------------------------------------------------------
 
 pub struct ApplyPatchTool;
 
@@ -136,9 +130,7 @@ impl Tool for ApplyPatchTool {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Source resolution
-// ---------------------------------------------------------------------------
 
 fn resolve_source(params: &Value, ctx: &ToolContext) -> Result<PatchSource> {
     if let Some(text) = params.get("patch").and_then(Value::as_str) {
@@ -169,9 +161,7 @@ fn read_source(source: &PatchSource, _ctx: &ToolContext) -> Result<String> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Unified diff parser
-// ---------------------------------------------------------------------------
 
 fn parse_multi_file_patch(patch_text: &str) -> Result<Vec<FilePatch>> {
     let normalized = patch_text.replace("\r\n", "\n");
@@ -306,9 +296,7 @@ fn parse_range(s: &str) -> Result<(usize, usize)> {
     Ok((start.max(1), count))
 }
 
-// ---------------------------------------------------------------------------
 // Patch application
-// ---------------------------------------------------------------------------
 
 fn parse_and_apply(patch_text: &str, strip: usize, ctx: &ToolContext) -> Result<ToolOutput> {
     let patches = parse_multi_file_patch(patch_text)?;
@@ -524,9 +512,7 @@ fn read_file(path: &Path) -> Result<String> {
     Ok(content)
 }
 
-// ---------------------------------------------------------------------------
 // Git apply fallback
-// ---------------------------------------------------------------------------
 
 fn git_apply_fallback(patch_text: &str, strip: usize, ctx: &ToolContext) -> Result<ToolOutput> {
     // Write patch to temp file.
@@ -570,9 +556,7 @@ fn git_apply_fallback(patch_text: &str, strip: usize, ctx: &ToolContext) -> Resu
     Ok(ToolOutput::text(result))
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

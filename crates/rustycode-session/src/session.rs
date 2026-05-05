@@ -18,7 +18,6 @@ use crate::message::Message;
 pub struct SessionId(String);
 
 impl SessionId {
-    /// Create a new session ID
     pub fn new() -> Self {
         Self(format!("sess_{}", nanoid::nanoid!(10)))
     }
@@ -162,7 +161,6 @@ pub struct Session {
 }
 
 impl Session {
-    /// Create a new session
     pub fn new(name: impl Into<String>) -> Self {
         let now = SystemTime::now();
         Self {

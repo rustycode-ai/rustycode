@@ -98,7 +98,6 @@ pub struct TaskRetryConfig {
 }
 
 impl TaskRetryConfig {
-    /// Create a new retry config with the given max retries
     pub const fn new(max_retries: u32) -> Self {
         Self {
             max_retries,
@@ -149,7 +148,6 @@ pub struct TaskRetryManager {
 }
 
 impl TaskRetryManager {
-    /// Create a new retry manager with the given configuration
     pub fn new(config: TaskRetryConfig) -> Self {
         Self {
             config,

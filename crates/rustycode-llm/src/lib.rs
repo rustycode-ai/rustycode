@@ -244,7 +244,7 @@ pub use utils::{
 
 // Provider metadata system for dynamic configuration and prompt optimization
 pub use provider_metadata::{
-    get_metadata, ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptOptimizations,
+    metadata, ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptOptimizations,
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat, ToolSchema,
 };
 
@@ -255,8 +255,8 @@ pub use model_info::{
 
 // Provider helpers for convenient access to registry functions
 pub use provider_helpers::{
-    find_model_provider, find_provider, get_cheapest_model, get_context_window, get_default_model,
-    get_model_cost, get_models_by_tier, get_provider_info_json, get_registry, is_model_available,
+    find_model_provider, find_provider, cheapest_model, context_window, default_model,
+    model_cost, models_by_tier, provider_info_json, registry, is_model_available,
     is_provider_available, list_models, list_provider_models, list_providers, select_model,
     select_model_with_config,
 };
@@ -441,7 +441,7 @@ fn resolve_api_key(provider_type: &str, file_config: Option<&FileConfig>) -> Opt
     if matches!(provider_type.to_lowercase().as_str(), "copilot" | "github") {
         let store = rustycode_auth::TokenStore::new();
         if let Ok(true) = store.is_token_valid("copilot") {
-            if let Ok(token) = store.get_token("copilot") {
+            if let Ok(token) = store.token("copilot") {
                 return Some(token.access_token);
             }
         }

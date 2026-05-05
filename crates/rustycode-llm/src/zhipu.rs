@@ -123,7 +123,7 @@ impl ZhipuProvider {
             .unwrap_or_else(|| ZHIPU_DEFAULT_ENDPOINT.to_string())
     }
 
-    fn get_api_key(&self) -> Result<String, ProviderError> {
+    fn api_key(&self) -> Result<String, ProviderError> {
         self.config
             .api_key
             .as_ref()
@@ -235,7 +235,7 @@ impl LLMProvider for ZhipuProvider {
             .get(&url)
             .header(
                 "Authorization",
-                format!("Bearer {}", self.get_api_key().unwrap_or_default()),
+                format!("Bearer {}", self.api_key().unwrap_or_default()),
             )
             .send()
             .await
@@ -250,7 +250,7 @@ impl LLMProvider for ZhipuProvider {
         let req = self
             .client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.get_api_key()?));
+            .header("Authorization", format!("Bearer {}", self.api_key()?));
         let response = req
             .send()
             .await
@@ -279,7 +279,7 @@ impl LLMProvider for ZhipuProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let url = format!("{}/chat/completions", self.endpoint());
         let mut messages = Vec::new();
         if let Some(system_prompt) = &request.system_prompt {
@@ -393,7 +393,7 @@ impl LLMProvider for ZhipuProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let url = format!("{}/chat/completions", self.endpoint());
         let mut messages = Vec::new();
         if let Some(system_prompt) = &request.system_prompt {

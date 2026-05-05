@@ -49,19 +49,12 @@ pub struct StreamEventProcessor {
 }
 
 impl StreamEventProcessor {
-    /// Create a new processor
     pub fn new() -> Self {
         Self { active_tool: None }
     }
 
     /// Process one stream event, calling appropriate callbacks
     ///
-    /// # Returns
-    /// - `Ok(true)` to continue processing
-    /// - `Ok(false)` to stop (on TurnCompleted)
-    ///
-    /// # Errors
-    /// Returns error only for internal failures
     pub fn process_event<C: StreamingCallbacks>(
         &mut self,
         event: StreamEvent,

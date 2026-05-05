@@ -39,15 +39,6 @@ pub struct CompressionResult {
 
 /// Compress context using the specified strategy.
 ///
-/// # Arguments
-///
-/// * `window` - Context window to compress
-/// * `strategy` - Compression strategy to use
-/// * `target_tokens` - Target token count (must be less than current usage)
-///
-/// # Returns
-///
-/// Compression result with statistics
 pub fn compress_context(
     window: &mut ContextWindow,
     strategy: CompressionStrategy,

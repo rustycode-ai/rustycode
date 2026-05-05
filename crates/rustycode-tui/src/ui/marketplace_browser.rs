@@ -7,7 +7,7 @@ use std::cell::Cell;
 
 use crate::marketplace::client::{fetch_marketplace_index_with_config, RegistryConfig};
 use crate::marketplace::index::{ItemType, MarketplaceItem};
-use crate::marketplace::installer::{get_installed_version, is_installed};
+use crate::marketplace::installer::{installed_version, is_installed};
 use crate::marketplace::registry::RegistryManager;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
@@ -107,7 +107,6 @@ impl MarketplaceTab {
 }
 
 impl MarketplaceBrowser {
-    /// Create a new marketplace browser.
     pub fn new(registry: RegistryManager) -> Self {
         Self {
             registry,
@@ -630,7 +629,7 @@ impl MarketplaceBrowser {
             .cloned()
             .map(|mut item| {
                 item.installed = is_installed(&item);
-                item.installed_version = get_installed_version(&item);
+                item.installed_version = installed_version(&item);
                 item
             })
             .collect();

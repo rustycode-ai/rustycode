@@ -83,7 +83,6 @@ pub struct StreamConfig {
 }
 
 impl StreamConfig {
-    /// Create a new config with required parameters
     pub fn new(content: &str, cwd: &Path, stream_tx: SyncSender<StreamChunk>) -> Self {
         Self {
             content: content.to_string(),
@@ -307,14 +306,6 @@ fn fix_conversation_messages(messages: &mut Vec<ChatMessage>) {
 /// It handles the full lifecycle: loading provider config, streaming responses,
 /// detecting and executing tool calls, and continuing conversations with tool results.
 ///
-/// # Arguments
-///
-/// * `config` - Stream configuration containing all parameters
-///
-/// # Returns
-///
-/// Returns `Ok(())` on successful completion, or an error if setup fails.
-/// Note that stream errors are sent via the channel rather than returned.
 async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
     let StreamConfig {
         content,

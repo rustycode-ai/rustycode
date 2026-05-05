@@ -110,18 +110,6 @@ const LARGE_WORKSPACE_THRESHOLD: usize = 300;
 /// Combines the default ignore patterns with any patterns found in
 /// the `.rustycodeignore` file in the project root.
 ///
-/// # Arguments
-/// * `cwd` - Current working directory (project root)
-///
-/// # Returns
-/// * Vector of ignore patterns as strings
-///
-/// # Pattern Syntax
-///
-/// - Simple names match any directory or file with that name (e.g., "node_modules")
-/// - Wildcards match file extensions (e.g., "*.pyc")
-/// - Lines starting with `#` are treated as comments
-/// - Empty lines are ignored
 fn load_ignore_patterns(cwd: &Path) -> Vec<String> {
     let mut patterns: Vec<String> = DEFAULT_IGNORE_PATTERNS
         .iter()
@@ -168,24 +156,6 @@ pub fn find_project_instruction_file(cwd: &Path) -> Option<(String, String)> {
 /// - Wildcards (e.g., "*.pyc") - matches files with that extension
 /// - Path components - matches any component in the path
 ///
-/// # Arguments
-/// * `path` - The path to check
-/// * `patterns` - List of ignore patterns
-///
-/// # Returns
-/// * `true` if the path should be ignored
-/// * `false` otherwise
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// let patterns = vec!["node_modules".to_string(), "*.pyc".to_string()];
-///
-/// assert!(matches_ignore_pattern(Path::new("node_modules"), &patterns));
-/// assert!(matches_ignore_pattern(Path::new("src/node_modules"), &patterns));
-/// assert!(matches_ignore_pattern(Path::new("test.pyc"), &patterns));
-/// assert!(!matches_ignore_pattern(Path::new("src/main.py"), &patterns));
-/// ```
 fn matches_ignore_pattern(path: &Path, patterns: &[String]) -> bool {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
@@ -289,82 +259,6 @@ fn build_file_tree(dir: &Path, _ignore_patterns: &[String], is_large_workspace: 
 /// progress tracking. It scans the project directory and returns a
 /// formatted string containing project information.
 ///
-/// # Arguments
-/// * `cwd` - Current working directory to scan
-/// * `file_preview_max_lines` - Maximum lines for file previews
-/// * `status_max_lines` - Maximum lines for git status
-///
-/// # Returns
-/// * Formatted string containing workspace information
-///
-/// # Content Structure
-///
-/// The returned string includes:
-/// 1. Workspace path
-/// 2. Project files found (with previews for markdown/config files)
-/// 3. Directory structure (limited to MAX_FILES_DISPLAY entries)
-/// 4. Git status and current branch
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let context = load_workspace_context(&PathBuf::from("/project"), 10, 20);
-/// println!("{}", context);
-/// // Output:
-/// // Workspace: /project
-/// //
-/// // ## Project Files Found:
-/// //   ✓ README.md
-/// //     --- Preview ---
-/// //     # My Project
-/// //     ...
-/// //
-/// // ## Directory Structure:
-/// //   📁 src/
-/// //   📄 Cargo.toml
-/// //
-/// // ## Git Status:
-/// //   Working directory clean
-/// //   Branch: main
-/// ```
-///
-/// Load workspace context with progress tracking
-///
-/// Extended version of `load_workspace_context` that supports progress
-/// callbacks for UI feedback during scanning.
-///
-/// # Arguments
-/// * `cwd` - Current working directory
-/// * `file_preview_max_lines` - Maximum lines for file previews
-/// * `status_max_lines` - Maximum lines for git status
-/// * `progress_callback` - Optional callback for progress updates (scanned, total)
-///
-/// # Progress Tracking
-///
-/// The progress callback is called with `(scanned, total)` where:
-/// - `scanned` increases as files/directories are processed
-/// - `total` is an estimate based on initial directory sampling
-/// - Final call will have `scanned == total` indicating completion
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let progress_callback: ScanProgressCallback = Box::new(|scanned, total| {
-///     let percent = if total > 0 {
-///         (scanned as f64 / total as f64) * 100.0
-///     } else {
-///         0.0
-///     };
-///     update_progress_bar(percent);
-/// });
-///
-/// let context = load_workspace_context_with_progress(
-///     &PathBuf::from("/project"),
-///     10,
-///     20,
-///     Some(progress_callback),
-/// );
-/// ```
 pub fn load_workspace_context_with_progress(
     cwd: &PathBuf,
     file_preview_max_lines: usize,
@@ -538,12 +432,6 @@ pub fn load_workspace_context_with_progress(
 /// Uses `ignore::WalkBuilder` at depth 2 with .gitignore support for fast estimation.
 /// Capped at 500 entries to keep the estimate fast.
 ///
-/// # Arguments
-/// * `cwd` - Current working directory to estimate
-/// * `ignore_patterns` - Unused (kept for API compatibility)
-///
-/// # Returns
-/// * Estimated file count (minimum MIN_FILE_COUNT_ESTIMATE)
 fn estimate_file_count(cwd: &PathBuf, _ignore_patterns: &[String]) -> usize {
     // Use WalkBuilder at depth 2 for fast .gitignore-aware estimation.
     // Capped at 500 entries to keep estimation fast.

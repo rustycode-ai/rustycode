@@ -25,7 +25,6 @@ pub struct Progress {
 }
 
 impl Progress {
-    /// Create a new progress tracker
     pub fn new(current: usize, total: usize, message: impl Into<String>) -> Self {
         Self {
             current,
@@ -96,7 +95,6 @@ pub enum ToolStatus {
 }
 
 impl ToolProgress {
-    /// Create a new tool progress tracker
     pub fn new(name: impl Into<String>) -> Self {
         let name = name.into();
         Self {
@@ -206,7 +204,6 @@ pub struct ProgressRenderer {
 }
 
 impl ProgressRenderer {
-    /// Create a new progress renderer
     pub fn new(bar_width: usize) -> Self {
         Self { bar_width }
     }

@@ -61,7 +61,7 @@ impl ConfidenceScorer {
     /// Score a thought based on the graph structure and its properties
     #[must_use]
     pub fn score(&self, thought_id: ThoughtId, graph: &ReasoningGraph) -> f64 {
-        let Ok(thought) = graph.get_thought(thought_id) else {
+        let Ok(thought) = graph.thought(thought_id) else {
             return 0.0;
         };
 
@@ -99,7 +99,7 @@ impl ConfidenceScorer {
 
         let avg_predecessor_confidence: f64 = predecessors
             .iter()
-            .filter_map(|&pred_id| graph.get_thought(pred_id).ok())
+            .filter_map(|&pred_id| graph.thought(pred_id).ok())
             .map(|t| t.metadata.confidence)
             .sum::<f64>()
             / predecessors.len() as f64;
@@ -217,7 +217,7 @@ impl ConfidenceScorer {
         goal: &str,
     ) -> f64 {
         let base = self.score(thought_id, graph);
-        let Ok(thought) = graph.get_thought(thought_id) else {
+        let Ok(thought) = graph.thought(thought_id) else {
             return base;
         };
         let relevance = self.relevance_score(thought, goal);
@@ -241,7 +241,7 @@ impl ConfidenceScorer {
                 if *score >= confidence_threshold {
                     return false;
                 }
-                if let Ok(thought) = graph.get_thought(*id) {
+                if let Ok(thought) = graph.thought(*id) {
                     let rel = self.relevance_score(thought, goal);
                     return rel < relevance_threshold;
                 }

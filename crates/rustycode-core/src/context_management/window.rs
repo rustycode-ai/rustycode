@@ -78,9 +78,6 @@ impl Default for WindowMetadata {
 impl ContextWindow {
     /// Create a new context window with the specified maximum capacity.
     ///
-    /// # Arguments
-    ///
-    /// * `max_tokens` - Maximum token capacity (e.g., 200_000 for Claude 3.5 Sonnet)
     pub fn new(max_tokens: usize) -> Self {
         let now = Utc::now();
         Self {
@@ -98,9 +95,6 @@ impl ContextWindow {
     ///
     /// Reserves 20% of the window for system prompts and responses by default.
     ///
-    /// # Arguments
-    ///
-    /// * `max_tokens` - Maximum token capacity
     pub fn with_reserved(max_tokens: usize) -> Self {
         let reserved = (max_tokens as f64 * 0.2) as usize;
         let mut window = Self::new(max_tokens);
@@ -147,14 +141,6 @@ impl ContextWindow {
 
     /// Reserve tokens for system use (prompts, responses, etc.).
     ///
-    /// # Arguments
-    ///
-    /// * `tokens` - Number of tokens to reserve
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if reservation succeeded
-    /// * `Err` if would exceed capacity
     pub fn reserve(&mut self, tokens: usize) -> Result<()> {
         let new_reserved = self.reserved_tokens.saturating_add(tokens);
         let total_used = self.used_tokens.saturating_add(new_reserved);
@@ -176,15 +162,6 @@ impl ContextWindow {
 
     /// Add content to the window with optional priority.
     ///
-    /// # Arguments
-    ///
-    /// * `content` - Content to add
-    /// * `priority` - Optional priority level (defaults to Medium)
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if content was added
-    /// * `Err` if content exceeds available space
     pub fn add_content(&mut self, content: &str, priority: Option<Priority>) -> Result<()> {
         let priority = priority.unwrap_or_default();
         let item = ContextItem::new(content.to_string(), priority);
@@ -193,14 +170,6 @@ impl ContextWindow {
 
     /// Add a context item to the window.
     ///
-    /// # Arguments
-    ///
-    /// * `item` - Context item to add
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if item was added
-    /// * `Err` if item exceeds available space
     pub fn add_item(&mut self, item: ContextItem<String>) -> Result<()> {
         let tokens = item.token_count;
 
@@ -220,14 +189,6 @@ impl ContextWindow {
 
     /// Remove content by index.
     ///
-    /// # Arguments
-    ///
-    /// * `index` - Index of content to remove
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(item)` if removed
-    /// * `Err` if index is out of bounds
     pub fn remove(&mut self, index: usize) -> Result<ContextItem<String>> {
         if index >= self.content.len() {
             return Err(CoreError::Validation(format!(

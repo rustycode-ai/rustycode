@@ -121,7 +121,6 @@ pub struct RolloutRecorder {
 }
 
 impl RolloutRecorder {
-    /// Create a new recorder. Spawns a background writer task.
     pub async fn new(session_id: &str, config: &RolloutConfig) -> Result<Self> {
         if !config.enabled {
             return Ok(Self {

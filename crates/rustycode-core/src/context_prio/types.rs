@@ -85,10 +85,6 @@ where
 {
     /// Create a new context item with the given priority.
     ///
-    /// # Arguments
-    ///
-    /// * `content` - The content/data
-    /// * `priority` - Priority level
     pub fn new(content: T, priority: Priority) -> Self {
         let token_count = TokenCounter::estimate_tokens(content.as_ref());
 
@@ -102,9 +98,6 @@ where
 
     /// Set the ID metadata field.
     ///
-    /// # Arguments
-    ///
-    /// * `id` - Identifier for this item
     pub fn with_id(mut self, id: impl Into<String>) -> Self {
         self.metadata.id = Some(id.into());
         self
@@ -112,10 +105,6 @@ where
 
     /// Set metadata by key.
     ///
-    /// # Arguments
-    ///
-    /// * `key` - Metadata key
-    /// * `value` - Metadata value
     pub fn with_metadata(mut self, key: &str, value: impl Into<String>) -> Self {
         match key {
             "id" => self.metadata.id = Some(value.into()),
@@ -143,9 +132,6 @@ where
 
     /// Set the timestamp metadata.
     ///
-    /// # Arguments
-    ///
-    /// * `timestamp` - Timestamp for recency scoring
     pub fn with_timestamp(mut self, timestamp: chrono::DateTime<chrono::Utc>) -> Self {
         self.metadata.timestamp = Some(timestamp);
         self
@@ -153,9 +139,6 @@ where
 
     /// Add a tag to the metadata.
     ///
-    /// # Arguments
-    ///
-    /// * `tag` - Tag to add
     pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
         self.metadata.tags.push(tag.into());
         self
@@ -163,9 +146,6 @@ where
 
     /// Set the score multiplier.
     ///
-    /// # Arguments
-    ///
-    /// * `multiplier` - Score multiplier (0.0 to 10.0)
     pub fn with_score_multiplier(mut self, multiplier: f64) -> Self {
         self.metadata.score_multiplier = multiplier.clamp(0.0, 10.0);
         self
@@ -173,9 +153,6 @@ where
 
     /// Set the usage count.
     ///
-    /// # Arguments
-    ///
-    /// * `count` - Usage frequency
     pub fn with_usage_count(mut self, count: usize) -> Self {
         self.metadata.usage_count = count;
         self
@@ -189,9 +166,6 @@ where
     /// score = priority_score * multiplier * (1 + usage_bonus + recency_bonus)
     /// ```
     ///
-    /// # Returns
-    ///
-    /// Composite score (higher is better)
     pub fn score(&self) -> f64 {
         let base = self.priority as usize as f64;
 
@@ -218,9 +192,6 @@ where
     ///
     /// Higher values indicate more priority per token cost.
     ///
-    /// # Returns
-    ///
-    /// Score per token (higher is better)
     pub fn score_per_token(&self) -> f64 {
         if self.token_count == 0 {
             0.0

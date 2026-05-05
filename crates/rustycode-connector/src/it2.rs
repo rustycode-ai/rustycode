@@ -37,7 +37,6 @@ impl Default for It2Connector {
 }
 
 impl It2Connector {
-    /// Create a new iTerm2 connector using it2 CLI
     pub const fn new() -> Self {
         Self {
             sessions: Mutex::new(Vec::new()),

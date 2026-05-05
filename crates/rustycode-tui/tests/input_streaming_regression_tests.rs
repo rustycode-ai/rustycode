@@ -30,9 +30,7 @@ use std::time::Duration;
 /// env vars and produce flaky failures.
 static PROVIDER_LOCK: Mutex<()> = Mutex::new(());
 
-// ============================================================================
 // Test 1: Enter Key Submission Tests
-// ============================================================================
 
 #[test]
 fn test_enter_key_submits_message_in_single_line_mode() {
@@ -179,9 +177,7 @@ fn test_empty_enter_does_not_crash() {
     }
 }
 
-// ============================================================================
 // Test 2: Streaming Done Signal Tests
-// ============================================================================
 
 /// Helper: temporarily override provider env vars for isolated streaming tests.
 /// Prevents tests from hitting real API endpoints when ~/.rustycode/config.json
@@ -348,9 +344,7 @@ fn test_streaming_done_signal_is_last() {
     );
 }
 
-// ============================================================================
 // Test 3: Integration Tests
-// ============================================================================
 
 #[test]
 fn test_input_handler_ignores_unknown_keys() {
@@ -492,9 +486,7 @@ fn test_enter_never_returns_ignored() {
     }
 }
 
-// ============================================================================
 // Test 4: Regression Tests for Specific Bugs
-// ============================================================================
 
 #[test]
 #[ignore = "Requires full TUI setup - run manually to verify"]

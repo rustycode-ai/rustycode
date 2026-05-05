@@ -201,7 +201,6 @@ pub struct AgentTask {
 }
 
 impl AgentTask {
-    /// Create a new agent task
     pub fn new(id: AgentId, role: AgentRole, task: String) -> Self {
         Self {
             id,
@@ -278,7 +277,6 @@ pub struct AgentManager {
 }
 
 impl AgentManager {
-    /// Create a new agent manager
     pub fn new() -> Self {
         Self {
             agents: Arc::new(Mutex::new(HashMap::new())),
@@ -336,13 +334,13 @@ impl AgentManager {
     }
 
     /// Get all agents
-    pub fn get_agents(&self) -> Vec<AgentTask> {
+    pub fn agents(&self) -> Vec<AgentTask> {
         let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         agents.values().cloned().collect()
     }
 
     /// Get a specific agent by ID
-    pub fn get_agent(&self, id: AgentId) -> Option<AgentTask> {
+    pub fn agent(&self, id: AgentId) -> Option<AgentTask> {
         let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         agents.get(&id).cloned()
     }
@@ -489,7 +487,7 @@ impl AgentManager {
     }
 
     /// Get the current success rate (0.0 to 1.0)
-    pub fn get_success_rate(&self) -> f64 {
+    pub fn success_rate(&self) -> f64 {
         self.metrics.success_rate()
     }
 

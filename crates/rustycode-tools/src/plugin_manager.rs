@@ -106,7 +106,6 @@ struct LoadedPlugin {
 }
 
 impl PluginManager {
-    /// Create a new plugin manager with default capability limits
     pub fn new() -> Self {
         Self {
             plugins: HashMap::new(),
@@ -130,12 +129,6 @@ impl PluginManager {
     /// 3. Register all tools from the plugin
     /// 4. Store the plugin for later management
     ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The plugin's capabilities exceed allowed limits
-    /// - Plugin initialization fails
-    /// - A plugin with the same name is already registered
     pub fn register_plugin(
         &mut self,
         plugin: impl ToolPlugin + 'static,
@@ -203,9 +196,6 @@ impl PluginManager {
     /// Note: This does not unregister tools from the registry.
     /// Tools will remain but calls to them may fail.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the plugin is not found or unload fails.
     pub fn unload_plugin(&mut self, name: &str) -> Result<()> {
         let loaded = self
             .plugins
@@ -236,7 +226,7 @@ impl PluginManager {
     }
 
     /// Get information about a loaded plugin
-    pub fn get_plugin(&self, name: &str) -> Option<PluginInfo> {
+    pub fn plugin(&self, name: &str) -> Option<PluginInfo> {
         self.plugins.get(name).map(|p| PluginInfo {
             name: p.metadata.name.clone(),
             version: p.metadata.version.clone(),
@@ -289,7 +279,6 @@ pub struct AsyncPluginManager {
 }
 
 impl AsyncPluginManager {
-    /// Create a new async plugin manager
     pub fn new() -> Self {
         Self {
             inner: Arc::new(RwLock::new(PluginManager::new())),
@@ -358,7 +347,7 @@ mod tests {
     #[test]
     fn test_get_nonexistent_plugin() {
         let manager = PluginManager::new();
-        assert!(manager.get_plugin("nonexistent").is_none());
+        assert!(manager.plugin("nonexistent").is_none());
     }
 
     #[test]

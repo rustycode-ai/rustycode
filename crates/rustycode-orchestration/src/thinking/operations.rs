@@ -23,8 +23,6 @@ impl OperationExecutor {
 
     /// Execute a specific operation on the graph
     ///
-    /// # Errors
-    /// Returns an error if the operation fails (e.g., thought not found).
     #[allow(clippy::unused_async)]
     pub async fn execute(
         &self,
@@ -61,8 +59,6 @@ impl OperationExecutor {
 
     /// Generate new thoughts from a source thought
     ///
-    /// # Errors
-    /// Returns an error if the source thought is not found.
     #[allow(clippy::unused_self)]
     fn execute_generate(
         &self,
@@ -72,7 +68,7 @@ impl OperationExecutor {
         context: &PromptContext,
     ) -> Result<()> {
         let (source_content_preview, source_confidence) = {
-            let source = graph.get_thought(from_id)?;
+            let source = graph.thought(from_id)?;
             let end = source.content.len().min(50);
             let end = source.content.floor_char_boundary(end);
             let preview = source.content[..end].to_string();
@@ -105,8 +101,6 @@ impl OperationExecutor {
 
     /// Aggregate multiple thoughts into synthesis
     ///
-    /// # Errors
-    /// Returns an error if any source thought is not found.
     #[allow(clippy::cast_precision_loss)]
     #[allow(clippy::unused_self)]
     fn execute_aggregate(
@@ -121,7 +115,7 @@ impl OperationExecutor {
 
         let mut sources = Vec::new();
         for id in from_ids {
-            sources.push(graph.get_thought(*id)?.clone());
+            sources.push(graph.thought(*id)?.clone());
         }
 
         let kind = match method {
@@ -150,8 +144,6 @@ impl OperationExecutor {
 
     /// Score and update confidence of a thought
     ///
-    /// # Errors
-    /// Returns an error if the thought is not found.
     #[allow(clippy::unused_self)]
     fn execute_score(
         &self,
@@ -159,7 +151,7 @@ impl OperationExecutor {
         criteria: &[String],
         graph: &mut ReasoningGraph,
     ) -> Result<()> {
-        let thought = graph.get_thought(thought_id)?;
+        let thought = graph.thought(thought_id)?;
 
         let mut total_score = thought.metadata.confidence;
         for criterion in criteria {
@@ -177,7 +169,7 @@ impl OperationExecutor {
 
         total_score = total_score.clamp(0.0, 1.0);
 
-        let updated = graph.get_thought_mut(thought_id)?;
+        let updated = graph.thought_mut(thought_id)?;
         updated.metadata.confidence = total_score;
 
         tracing::debug!(
@@ -189,8 +181,6 @@ impl OperationExecutor {
 
     /// Refine a thought with deeper analysis
     ///
-    /// # Errors
-    /// Returns an error if the thought is not found.
     #[allow(clippy::unused_self)]
     fn execute_refine(
         &self,
@@ -198,7 +188,7 @@ impl OperationExecutor {
         graph: &mut ReasoningGraph,
         context: &PromptContext,
     ) -> Result<()> {
-        let source = graph.get_thought(thought_id)?;
+        let source = graph.thought(thought_id)?;
 
         let refined = Thought::new(
             ThoughtKind::Refinement,
@@ -243,7 +233,7 @@ impl OperationExecutor {
             }
             SelectionStrategy::Diversity => {
                 scored_ids
-                    .sort_by_key(|a| graph.get_thought(a.0).map_or(0, |t| t.content.len() % 100));
+                    .sort_by_key(|a| graph.thought(a.0).map_or(0, |t| t.content.len() % 100));
             }
             SelectionStrategy::Support => {
                 scored_ids.sort_by(|a, b| {
@@ -255,11 +245,11 @@ impl OperationExecutor {
             SelectionStrategy::Coverage => {
                 scored_ids.sort_by(|a, b| {
                     let a_kind = graph
-                        .get_thought(a.0)
+                        .thought(a.0)
                         .map(|t| format!("{:?}", t.kind))
                         .unwrap_or_default();
                     let b_kind = graph
-                        .get_thought(b.0)
+                        .thought(b.0)
                         .map(|t| format!("{:?}", t.kind))
                         .unwrap_or_default();
                     a_kind.cmp(&b_kind)
@@ -356,7 +346,7 @@ mod tests {
             .await;
         assert!(result.is_ok());
 
-        let scored = graph.get_thought(thought_id).expect("get scored");
+        let scored = graph.thought(thought_id).expect("get scored");
         assert!(scored.metadata.confidence > 0.5);
     }
 
@@ -625,7 +615,7 @@ mod tests {
             .expect("exec");
 
         // No criteria match, so confidence should stay at 0.5
-        let thought = graph.get_thought(id).expect("get");
+        let thought = graph.thought(id).expect("get");
         assert!((thought.metadata.confidence - 0.5).abs() < f64::EPSILON);
     }
 

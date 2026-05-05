@@ -14,9 +14,8 @@ pub struct WizardHandler {
 }
 
 impl WizardHandler {
-    /// Create a new wizard handler
     pub fn new(cwd: &Path, reconfigure: bool) -> Self {
-        let config_path = Self::get_config_path(cwd);
+        let config_path = Self::config_path(cwd);
         let showing_wizard = Self::should_show_wizard(&config_path, reconfigure);
 
         Self {
@@ -85,7 +84,7 @@ impl WizardHandler {
     }
 
     /// Get the configuration file path (matches ConfigLoader search paths)
-    pub(crate) fn get_config_path(cwd: &Path) -> PathBuf {
+    pub(crate) fn config_path(cwd: &Path) -> PathBuf {
         // Check for local .rustycode/config.json first
         let local_config = cwd.join(".rustycode").join("config.json");
         if local_config.exists() {

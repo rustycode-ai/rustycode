@@ -284,7 +284,6 @@ pub struct StreamingRenderBuffer {
 
 #[allow(clippy::string_slice)]
 impl StreamingRenderBuffer {
-    /// Create a new empty buffer.
     pub fn new() -> Self {
         Self::default()
     }

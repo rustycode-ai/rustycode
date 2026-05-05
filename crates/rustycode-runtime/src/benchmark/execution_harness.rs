@@ -108,7 +108,6 @@ pub struct BenchmarkHarness {
 }
 
 impl BenchmarkHarness {
-    /// Create a new benchmark harness
     pub fn new(config: BenchmarkConfig) -> Self {
         Self {
             config,

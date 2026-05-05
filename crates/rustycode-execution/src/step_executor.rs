@@ -8,7 +8,6 @@ use async_trait::async_trait;
 pub struct StepExecutor;
 
 impl StepExecutor {
-    /// Create a new step executor
     pub const fn new() -> Self {
         Self
     }

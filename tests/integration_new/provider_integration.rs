@@ -58,7 +58,7 @@ async fn test_model_registry() {
 
     assert!(registry.has_provider("test-provider").await);
 
-    let provider = registry.get_provider("test-provider").await;
+    let provider = registry.provider("test-provider").await;
     assert!(provider.is_some());
     let provider = provider.unwrap();
     assert_eq!(provider.id, "test-provider");
@@ -163,13 +163,13 @@ async fn test_provider_capabilities() {
         .register_provider(rustycode_providers::providers::openai())
         .await;
 
-    let anthropic = registry.get_provider("anthropic").await.unwrap();
+    let anthropic = registry.provider("anthropic").await.unwrap();
     assert!(anthropic.capabilities.supports_streaming);
     assert!(anthropic.capabilities.supports_function_calling);
     assert!(anthropic.capabilities.supports_vision);
     assert_eq!(anthropic.capabilities.max_context_window, 200_000);
 
-    let openai = registry.get_provider("openai").await.unwrap();
+    let openai = registry.provider("openai").await.unwrap();
     assert!(openai.capabilities.supports_streaming);
     assert!(openai.capabilities.supports_function_calling);
     assert!(openai.capabilities.supports_vision);
@@ -244,13 +244,13 @@ async fn test_provider_pricing_currency() {
         .register_provider(rustycode_providers::providers::openai())
         .await;
 
-    let anthropic = registry.get_provider("anthropic").await.unwrap();
+    let anthropic = registry.provider("anthropic").await.unwrap();
     assert_eq!(
         anthropic.pricing.currency,
         rustycode_providers::Currency::Usd
     );
 
-    let openai = registry.get_provider("openai").await.unwrap();
+    let openai = registry.provider("openai").await.unwrap();
     assert_eq!(openai.pricing.currency, rustycode_providers::Currency::Usd);
 }
 
@@ -293,7 +293,7 @@ async fn test_model_registry_persistence() {
 async fn test_unknown_provider_handling() {
     let registry = ModelRegistry::new();
 
-    let unknown = registry.get_provider("unknown-provider").await;
+    let unknown = registry.provider("unknown-provider").await;
     assert!(unknown.is_none());
 
     let models = registry.list_models("unknown-provider").await;

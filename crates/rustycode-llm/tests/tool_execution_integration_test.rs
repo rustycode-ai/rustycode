@@ -151,7 +151,7 @@ fn test_parse_openai_tool_call() {
 #[test]
 fn test_get_anthropic_tool_definitions() {
     let executor = create_executor();
-    let tools = executor.get_anthropic_tool_definitions();
+    let tools = executor.anthropic_tool_definitions();
 
     assert!(!tools.is_empty());
 
@@ -176,7 +176,7 @@ fn test_get_anthropic_tool_definitions() {
 #[test]
 fn test_get_openai_tool_definitions() {
     let executor = create_executor();
-    let tools = executor.get_openai_tool_definitions();
+    let tools = executor.openai_tool_definitions();
 
     assert!(!tools.is_empty());
 

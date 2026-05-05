@@ -106,7 +106,6 @@ impl SortableId {
     /// Maximum ID length: prefix (5) + timestamp (10) + random (15)
     const MAX_LENGTH: usize = 30;
 
-    /// Create a new `SortableId` with the given prefix
     pub fn new(prefix: impl Into<String>) -> Self {
         let prefix = prefix.into();
 
@@ -306,9 +305,7 @@ impl<'de> Deserialize<'de> for SortableId {
     }
 }
 
-// ============================================================================
 // Type-Safe ID Wrappers
-// ============================================================================
 
 macro_rules! define_id_wrapper {
     ($name:ident, $prefix:expr) => {
@@ -316,7 +313,6 @@ macro_rules! define_id_wrapper {
         pub struct $name(SortableId);
 
         impl $name {
-            /// Create a new ID
             pub fn new() -> Self {
                 Self(SortableId::new($prefix))
             }
@@ -421,9 +417,7 @@ define_id_wrapper!(MilestoneId, "mile_");
 define_id_wrapper!(SliceId, "slic_");
 define_id_wrapper!(TaskId, "task_");
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

@@ -25,9 +25,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-// ---------------------------------------------------------------------------
 // AstHookPoint
-// ---------------------------------------------------------------------------
 
 /// Hook points corresponding to the 6 AST pipeline phases.
 ///
@@ -120,9 +118,7 @@ impl fmt::Display for AstHookPoint {
     }
 }
 
-// ---------------------------------------------------------------------------
 // AstHookPayload
-// ---------------------------------------------------------------------------
 
 /// Data payload passed to AST hook callbacks.
 ///
@@ -163,9 +159,7 @@ impl Default for AstHookPayload {
     }
 }
 
-// ---------------------------------------------------------------------------
 // AstHookResponse
-// ---------------------------------------------------------------------------
 
 /// Response returned by an AST hook callback.
 ///
@@ -199,9 +193,7 @@ pub enum AstHookResponse {
     RequestHumanReview { reason: String },
 }
 
-// ---------------------------------------------------------------------------
 // AstHookCallbackFn
-// ---------------------------------------------------------------------------
 
 /// Type alias for AST hook callbacks.
 ///
@@ -209,9 +201,7 @@ pub enum AstHookResponse {
 pub type AstHookCallbackFn =
     dyn Fn(&AstHookPayload) -> anyhow::Result<AstHookResponse> + Send + Sync;
 
-// ---------------------------------------------------------------------------
 // AstHookBridge
-// ---------------------------------------------------------------------------
 
 /// Bridge between AST hook points and the existing [`HookRegistry`].
 ///
@@ -240,7 +230,6 @@ impl Default for AstHookBridge {
 }
 
 impl AstHookBridge {
-    /// Create a new bridge with an empty hook registry.
     pub fn new() -> Self {
         Self {
             handlers: HashMap::new(),
@@ -333,9 +322,7 @@ impl AstHookBridge {
     }
 }
 
-// ---------------------------------------------------------------------------
 // AstPhaseController
-// ---------------------------------------------------------------------------
 
 /// Controller that wraps the AST pipeline and emits hook events after
 /// each phase completes.
@@ -356,7 +343,6 @@ impl Default for AstPhaseController {
 }
 
 impl AstPhaseController {
-    /// Create a new controller with a fresh bridge.
     pub fn new() -> Self {
         Self {
             bridge: AstHookBridge::new(),
@@ -452,9 +438,7 @@ impl AstPhaseController {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Integration functions
-// ---------------------------------------------------------------------------
 
 /// Convert an AST phase and payload into a [`SupervisionEvent`].
 ///
@@ -560,9 +544,7 @@ pub fn supervision_directive_to_hook_response(
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]

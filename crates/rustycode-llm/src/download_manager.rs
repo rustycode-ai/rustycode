@@ -20,7 +20,7 @@
 //! ).await?;
 //!
 //! // Check progress
-//! if let Some(progress) = manager.get_progress("llama-3.1-8b") {
+//! if let Some(progress) = manager.progress("llama-3.1-8b") {
 //!     println!("{}% ({}/{} bytes)", progress.progress_percent(), progress.bytes_downloaded, progress.total_bytes);
 //! }
 //! ```
@@ -137,7 +137,6 @@ impl Default for DownloadManager {
 }
 
 impl DownloadManager {
-    /// Create a new download manager.
     pub fn new() -> Self {
         Self {
             downloads: Arc::new(Mutex::new(HashMap::new())),
@@ -145,7 +144,7 @@ impl DownloadManager {
     }
 
     /// Get the progress for a specific download.
-    pub fn get_progress(&self, id: &str) -> Option<DownloadProgress> {
+    pub fn progress(&self, id: &str) -> Option<DownloadProgress> {
         self.downloads.lock().ok()?.get(id).cloned()
     }
 
@@ -194,12 +193,6 @@ impl DownloadManager {
     /// The download runs in a spawned tokio task. Progress can be tracked
     /// via `get_progress()`.
     ///
-    /// # Arguments
-    ///
-    /// * `id` - Unique identifier for this download
-    /// * `url` - URL to download from
-    /// * `destination` - Local file path to save to
-    /// * `on_complete` - Optional callback when download finishes
     pub async fn download(
         &self,
         id: String,
@@ -426,7 +419,7 @@ static DOWNLOAD_MANAGER: once_cell::sync::Lazy<DownloadManager> =
     once_cell::sync::Lazy::new(DownloadManager::new);
 
 /// Get the global download manager singleton.
-pub fn get_download_manager() -> &'static DownloadManager {
+pub fn download_manager() -> &'static DownloadManager {
     &DOWNLOAD_MANAGER
 }
 
@@ -506,7 +499,7 @@ mod tests {
     #[test]
     fn test_get_progress_nonexistent() {
         let manager = DownloadManager::new();
-        assert!(manager.get_progress("nonexistent").is_none());
+        assert!(manager.progress("nonexistent").is_none());
     }
 
     #[test]
@@ -531,7 +524,7 @@ mod tests {
         );
         manager.clear("test");
         // Should NOT be cleared because it's still downloading
-        assert!(manager.get_progress("test").is_some());
+        assert!(manager.progress("test").is_some());
     }
 
     #[test]
@@ -549,7 +542,7 @@ mod tests {
             },
         );
         manager.clear("test");
-        assert!(manager.get_progress("test").is_none());
+        assert!(manager.progress("test").is_none());
     }
 
     #[test]
@@ -567,7 +560,7 @@ mod tests {
             },
         );
         manager.cancel_download("test").unwrap();
-        let progress = manager.get_progress("test").unwrap();
+        let progress = manager.progress("test").unwrap();
         assert_eq!(progress.status, DownloadStatus::Cancelled);
     }
 

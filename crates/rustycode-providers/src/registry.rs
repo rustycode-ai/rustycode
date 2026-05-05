@@ -37,7 +37,6 @@ pub struct ModelRegistry {
 }
 
 impl ModelRegistry {
-    /// Create a new model registry
     pub fn new() -> Self {
         Self {
             providers: Arc::new(RwLock::new(HashMap::new())),
@@ -62,13 +61,13 @@ impl ModelRegistry {
     }
 
     /// Get provider metadata by ID
-    pub async fn get_provider(&self, id: &str) -> Option<ProviderMetadata> {
+    pub async fn provider(&self, id: &str) -> Option<ProviderMetadata> {
         let providers = self.providers.read().await;
         providers.get(id).cloned()
     }
 
     /// Get model info by provider and model ID
-    pub async fn get_model(&self, provider_id: &str, model_id: &str) -> Option<ModelInfo> {
+    pub async fn model(&self, provider_id: &str, model_id: &str) -> Option<ModelInfo> {
         let models = self.models.read().await;
         models
             .get(provider_id)
@@ -100,7 +99,7 @@ impl ModelRegistry {
     }
 
     /// Get cost summary
-    pub async fn get_cost_summary(&self) -> super::CostSummary {
+    pub async fn cost_summary(&self) -> super::CostSummary {
         self.cost_tracker.summary().await
     }
 
@@ -996,7 +995,7 @@ mod tests {
         };
 
         registry.register_model("test", model).await;
-        let retrieved = registry.get_model("test", "test-model").await;
+        let retrieved = registry.model("test", "test-model").await;
 
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
@@ -1053,7 +1052,7 @@ mod tests {
             .track_usage("anthropic", "claude-3-5-sonnet", 1000, 500, 0.0105)
             .await;
 
-        let summary = registry.get_cost_summary().await;
+        let summary = registry.cost_summary().await;
         assert_eq!(summary.total_requests, 1);
         assert!((summary.total_cost - 0.0105).abs() < 0.0001);
     }
@@ -1119,14 +1118,14 @@ mod tests {
     #[tokio::test]
     async fn test_get_provider_nonexistent() {
         let registry = ModelRegistry::new();
-        assert!(registry.get_provider("nonexistent").await.is_none());
+        assert!(registry.provider("nonexistent").await.is_none());
     }
 
     #[tokio::test]
     async fn test_get_model_nonexistent() {
         let registry = ModelRegistry::new();
         assert!(registry
-            .get_model("no-provider", "no-model")
+            .model("no-provider", "no-model")
             .await
             .is_none());
     }
@@ -1208,7 +1207,7 @@ mod tests {
 
         registry.clear().await;
         assert_eq!(registry.count().await, 0);
-        assert_eq!(registry.get_cost_summary().await.total_requests, 0);
+        assert_eq!(registry.cost_summary().await.total_requests, 0);
     }
 
     #[test]
@@ -1480,7 +1479,7 @@ mod tests {
         };
         registry.register_provider(provider.clone()).await;
 
-        let fetched = registry.get_provider("fetch-test").await.unwrap();
+        let fetched = registry.provider("fetch-test").await.unwrap();
         assert_eq!(fetched.name, "Fetch Test");
         assert_eq!(fetched.base_url, "https://fetch.example.com");
         assert!(fetched.capabilities.supports_function_calling);

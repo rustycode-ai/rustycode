@@ -109,7 +109,6 @@ pub struct SummaryGenerator {
 }
 
 impl SummaryGenerator {
-    /// Create a new summary generator
     pub const fn new(config: SummaryConfig) -> Self {
         Self { config }
     }
@@ -226,7 +225,7 @@ impl SummaryGenerator {
 
         // Extract from messages (simple heuristic)
         for message in &session.messages {
-            let text = message.get_text();
+            let text = message.text();
 
             // Look for common patterns
             if text.to_lowercase().contains("decided to") {

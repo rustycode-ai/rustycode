@@ -250,7 +250,7 @@ impl AgentHealthMonitor {
     }
 
     /// Get current health status for all agents
-    pub async fn get_all_health_status(&self) -> HashMap<AgentRole, HealthStatus> {
+    pub async fn all_health_status(&self) -> HashMap<AgentRole, HealthStatus> {
         let health_map = self.health_metrics.read().await;
         health_map
             .iter()
@@ -259,19 +259,19 @@ impl AgentHealthMonitor {
     }
 
     /// Get health metrics for a specific agent
-    pub async fn get_agent_metrics(&self, role: AgentRole) -> Option<HealthMetrics> {
+    pub async fn agent_metrics(&self, role: AgentRole) -> Option<HealthMetrics> {
         let health_map = self.health_metrics.read().await;
         health_map.get(&role).cloned()
     }
 
     /// Get health history for an agent
-    pub async fn get_agent_history(&self, role: AgentRole) -> Option<HealthHistory> {
+    pub async fn agent_history(&self, role: AgentRole) -> Option<HealthHistory> {
         let history_map = self.health_history.read().await;
         history_map.get(&role).cloned()
     }
 
     /// Get active recovery attempts
-    pub async fn get_active_recoveries(&self) -> Vec<RecoveryAttempt> {
+    pub async fn active_recoveries(&self) -> Vec<RecoveryAttempt> {
         let recoveries_map = self.active_recoveries.read().await;
         recoveries_map
             .values()
@@ -633,7 +633,7 @@ impl AgentHealthMonitor {
     }
 
     /// Get health statistics
-    pub async fn get_health_statistics(&self) -> HealthStatistics {
+    pub async fn health_statistics(&self) -> HealthStatistics {
         let health_map = self.health_metrics.read().await;
         let history_map = self.health_history.read().await;
 
@@ -1289,7 +1289,7 @@ mod tests {
 
         monitor.update_metrics(metrics.clone()).await.unwrap();
 
-        let retrieved = monitor.get_agent_metrics(AgentRole::Judge).await;
+        let retrieved = monitor.agent_metrics(AgentRole::Judge).await;
         assert!(retrieved.is_some());
         let r = retrieved.unwrap();
         assert_eq!(r.agent_role, AgentRole::Judge);
@@ -1327,7 +1327,7 @@ mod tests {
             monitor.update_metrics(metrics).await.unwrap();
         }
 
-        let statuses = monitor.get_all_health_status().await;
+        let statuses = monitor.all_health_status().await;
         assert_eq!(statuses.len(), 3);
         assert_eq!(statuses[&AgentRole::Reviewer], HealthStatus::Healthy);
         assert_eq!(statuses[&AgentRole::Skeptic], HealthStatus::Healthy);
@@ -1356,7 +1356,7 @@ mod tests {
             monitor.update_metrics(metrics).await.unwrap();
         }
 
-        let history = monitor.get_agent_history(AgentRole::Reviewer).await;
+        let history = monitor.agent_history(AgentRole::Reviewer).await;
         assert!(history.is_some());
         let h = history.unwrap();
         assert_eq!(h.metrics.len(), 5);
@@ -1388,7 +1388,7 @@ mod tests {
             monitor.update_metrics(metrics).await.unwrap();
         }
 
-        let history = monitor.get_agent_history(AgentRole::Researcher).await;
+        let history = monitor.agent_history(AgentRole::Researcher).await;
         assert!(history.is_some());
         let h = history.unwrap();
         // Should be capped at 1000
@@ -1451,7 +1451,7 @@ mod tests {
         monitor.update_metrics(healthy2).await.unwrap();
         monitor.update_metrics(degraded).await.unwrap();
 
-        let stats = monitor.get_health_statistics().await;
+        let stats = monitor.health_statistics().await;
         assert_eq!(stats.total_agents, 3);
         assert_eq!(stats.healthy_agents, 2);
         assert_eq!(stats.degraded_agents, 1);
@@ -1480,7 +1480,7 @@ mod tests {
         };
         monitor.update_metrics(metrics).await.unwrap();
 
-        let stats = monitor.get_health_statistics().await;
+        let stats = monitor.health_statistics().await;
         assert_eq!(stats.total_recoveries, 0);
         assert!((stats.recovery_success_rate - 1.0).abs() < f64::EPSILON);
     }
@@ -1501,7 +1501,7 @@ mod tests {
     async fn get_agent_metrics_returns_none_for_unknown_agent() {
         let monitor = AgentHealthMonitor::new(HealthCheckConfig::default());
 
-        let result = monitor.get_agent_metrics(AgentRole::Judge).await;
+        let result = monitor.agent_metrics(AgentRole::Judge).await;
         assert!(result.is_none());
     }
 
@@ -1539,7 +1539,7 @@ mod tests {
         let monitor = AgentHealthMonitor::new(HealthCheckConfig::default());
 
         // Before any recovery attempts, the list should be empty
-        let recoveries = monitor.get_active_recoveries().await;
+        let recoveries = monitor.active_recoveries().await;
         assert!(recoveries.is_empty());
     }
 

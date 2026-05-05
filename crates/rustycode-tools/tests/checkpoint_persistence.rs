@@ -175,7 +175,7 @@ async fn test_get_checkpoint_by_id() {
         .expect("failed to create checkpoint");
 
     let retrieved = manager
-        .get_checkpoint(&checkpoint.id.0)
+        .checkpoint(&checkpoint.id.0)
         .expect("checkpoint should be found");
 
     assert_eq!(retrieved.id, checkpoint.id);
@@ -191,7 +191,7 @@ async fn test_get_nonexistent_checkpoint() {
     let config = CheckpointConfig::default();
     let manager = CheckpointManager::new(workspace_dir, config).expect("failed to create manager");
 
-    let result = manager.get_checkpoint("nonexistent-id");
+    let result = manager.checkpoint("nonexistent-id");
     assert!(result.is_none());
 }
 

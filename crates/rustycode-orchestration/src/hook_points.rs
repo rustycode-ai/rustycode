@@ -37,9 +37,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
-// ---------------------------------------------------------------------------
 // HookPoint enum
-// ---------------------------------------------------------------------------
 
 /// Lifecycle hook points for the expanded hook system.
 ///
@@ -192,9 +190,7 @@ impl fmt::Display for HookPoint {
     }
 }
 
-// ---------------------------------------------------------------------------
 // HookResult
-// ---------------------------------------------------------------------------
 
 /// Result returned by a hook callback to control execution flow.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -208,9 +204,7 @@ pub enum HookResult {
     ModifyOutput(serde_json::Value),
 }
 
-// ---------------------------------------------------------------------------
 // HookContext
-// ---------------------------------------------------------------------------
 
 /// Context data passed to hook callbacks.
 ///
@@ -233,7 +227,6 @@ pub struct HookContext {
 }
 
 impl HookContext {
-    /// Create a new hook context.
     pub fn new(hook: HookPoint, subject: impl Into<String>, metadata: serde_json::Value) -> Self {
         Self {
             hook,
@@ -251,9 +244,7 @@ impl HookContext {
     }
 }
 
-// ---------------------------------------------------------------------------
 // HookCallback trait
-// ---------------------------------------------------------------------------
 
 /// Type alias for the boxed callback function.
 ///
@@ -261,9 +252,7 @@ impl HookContext {
 /// The callback must be `Send + Sync` for safe cross-thread dispatch.
 pub type HookCallbackFn = dyn Fn(&HookContext) -> anyhow::Result<HookResult> + Send + Sync;
 
-// ---------------------------------------------------------------------------
 // HookRegistry
-// ---------------------------------------------------------------------------
 
 /// Registry for managing and dispatching lifecycle hooks.
 ///
@@ -285,7 +274,6 @@ impl fmt::Debug for HookRegistry {
 }
 
 impl HookRegistry {
-    /// Create a new empty registry.
     pub fn new() -> Self {
         Self::default()
     }
@@ -359,9 +347,7 @@ impl HookRegistry {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Protocol type conversions
-// ---------------------------------------------------------------------------
 
 impl From<HookPoint> for Option<rustycode_protocol::HookEvent> {
     #[allow(clippy::use_self)]
@@ -416,9 +402,7 @@ impl From<HookResult> for rustycode_protocol::HookOutput {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]

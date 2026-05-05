@@ -90,7 +90,6 @@ impl Default for RetryConfig {
 }
 
 impl RetryConfig {
-    /// Create a new RetryConfig with default values
     pub fn new() -> Self {
         Self::default()
     }
@@ -257,34 +256,6 @@ fn retryable_error_keywords(msg: &str) -> bool {
 
 /// Retry an operation with exponential backoff
 ///
-/// # Arguments
-///
-/// * `config` - Retry configuration
-/// * `operation` - Async operation to retry
-///
-/// # Returns
-///
-/// * `Ok(T)` - Successful result from the operation
-/// * `Err(anyhow::Error)` - Final error after all retries exhausted
-///
-/// # Example
-///
-/// ```rust
-/// use anyhow::Result;
-/// use rustycode_llm::retry::{retry_with_backoff, RetryConfig};
-///
-/// async fn fetch_data() -> Result<String> {
-///     // Your API call here
-///     Ok("data".to_string())
-/// }
-///
-/// #[tokio::main]
-/// async fn main() -> Result<()> {
-///     let config = RetryConfig::new().with_max_attempts(5);
-///     let result = retry_with_backoff(config, fetch_data).await?;
-///     Ok(())
-/// }
-/// ```
 pub async fn retry_with_backoff<F, Fut, T>(config: RetryConfig, mut operation: F) -> Result<T>
 where
     F: FnMut() -> Fut,

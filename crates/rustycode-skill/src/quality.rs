@@ -114,18 +114,18 @@ impl QualityScorer {
         rec.quality = quality;
     }
 
-    pub fn get_quality(&self, skill_id: &str) -> Option<&SkillQuality> {
+    pub fn quality(&self, skill_id: &str) -> Option<&SkillQuality> {
         self.records.get(skill_id).map(|r| &r.quality)
     }
 
     #[allow(clippy::missing_const_for_fn)]
-    pub fn get_grade(&self, skill_id: &str) -> QualityGrade {
+    pub fn grade(&self, skill_id: &str) -> QualityGrade {
         self.records
             .get(skill_id)
             .map_or(QualityGrade::Fair, |r| r.quality.grade())
     }
 
-    pub fn get_record(&self, skill_id: &str) -> Option<&QualityRecord> {
+    pub fn record(&self, skill_id: &str) -> Option<&QualityRecord> {
         self.records.get(skill_id)
     }
 
@@ -202,7 +202,7 @@ mod tests {
     fn new_scorer_is_empty() {
         let s = QualityScorer::new();
         assert_eq!(s.record_count(), 0);
-        assert!(s.get_quality("test").is_none());
+        assert!(s.quality("test").is_none());
     }
 
     #[test]
@@ -242,8 +242,8 @@ mod tests {
     fn observe_usage_increments() {
         let mut s = QualityScorer::new();
         let _q = s.observe_usage("test");
-        assert_eq!(s.get_record("test").unwrap().usage_count, 1);
-        assert!(s.get_record("test").unwrap().last_used.is_some());
+        assert_eq!(s.record("test").unwrap().usage_count, 1);
+        assert!(s.record("test").unwrap().last_used.is_some());
     }
 
     #[test]
@@ -252,7 +252,7 @@ mod tests {
         s.observe_usage("test");
         s.observe_usage("test");
         s.observe_usage("test");
-        assert_eq!(s.get_record("test").unwrap().usage_count, 3);
+        assert_eq!(s.record("test").unwrap().usage_count, 3);
     }
 
     #[test]
@@ -260,7 +260,7 @@ mod tests {
         let mut s = QualityScorer::new();
         let q = SkillQuality::new(0.9, 0.8, 0.7, 0.6);
         s.observe_score("test", q.clone());
-        let stored = s.get_quality("test").unwrap();
+        let stored = s.quality("test").unwrap();
         assert!((stored.telemetry_score - 0.9).abs() < f64::EPSILON);
     }
 
@@ -268,13 +268,13 @@ mod tests {
     fn get_grade_returns_quality_grade() {
         let mut s = QualityScorer::new();
         s.observe_score("test", SkillQuality::new(0.9, 0.9, 0.9, 0.9));
-        assert_eq!(s.get_grade("test"), QualityGrade::Excellent);
+        assert_eq!(s.grade("test"), QualityGrade::Excellent);
     }
 
     #[test]
     fn get_grade_missing_defaults_to_fair() {
         let s = QualityScorer::new();
-        assert_eq!(s.get_grade("missing"), QualityGrade::Fair);
+        assert_eq!(s.grade("missing"), QualityGrade::Fair);
     }
 
     #[test]
@@ -287,7 +287,7 @@ mod tests {
         let mut s2 = QualityScorer::new();
         s2.load_from_dir(&dir).unwrap();
         assert_eq!(s2.record_count(), 1);
-        let q = s2.get_quality("my-skill").unwrap();
+        let q = s2.quality("my-skill").unwrap();
         assert!((q.telemetry_score - 0.9).abs() < f64::EPSILON);
 
         std::fs::remove_dir_all(&dir).ok();

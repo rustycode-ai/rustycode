@@ -116,7 +116,7 @@ impl PluginManifest {
     }
 
     /// Get dependencies as a list of names
-    pub fn get_dependencies(&self) -> Vec<&str> {
+    pub fn dependencies(&self) -> Vec<&str> {
         self.dependencies
             .as_ref()
             .map(|deps| deps.keys().map(String::as_str).collect())
@@ -131,7 +131,7 @@ impl PluginManifest {
     }
 
     /// Get the version spec for a dependency
-    pub fn get_dependency_version(&self, plugin_name: &str) -> Option<&str> {
+    pub fn dependency_version(&self, plugin_name: &str) -> Option<&str> {
         self.dependencies
             .as_ref()
             .and_then(|deps| deps.get(plugin_name).map(String::as_str))

@@ -172,7 +172,7 @@ async fn build_transport_for_server(
                 merge_headers(&static_headers, config.headers_helper.as_deref()).await;
 
             if oauth_manager.has_oauth_config(&config.server_id).await {
-                let token = oauth_manager.get_access_token(&config.server_id).await?;
+                let token = oauth_manager.access_token(&config.server_id).await?;
                 headers.insert("Authorization".to_string(), format!("Bearer {token}"));
             }
 
@@ -236,7 +236,7 @@ impl McpConfigFile {
     }
 
     /// Get all servers from this config
-    pub fn get_servers(&self) -> Vec<&ServerConfig> {
+    pub fn servers(&self) -> Vec<&ServerConfig> {
         self.servers.values().collect()
     }
 }
@@ -304,7 +304,6 @@ pub struct McpServerManager {
 }
 
 impl McpServerManager {
-    /// Create a new server manager
     pub fn new(config: ManagerConfig) -> Self {
         Self {
             servers: Arc::new(RwLock::new(HashMap::new())),
@@ -489,7 +488,7 @@ impl McpServerManager {
     }
 
     /// Get server by ID
-    pub async fn get_server(&self, server_id: &str) -> Option<McpServer> {
+    pub async fn server(&self, server_id: &str) -> Option<McpServer> {
         let servers = self.servers.read().await;
         servers.get(server_id).cloned()
     }
@@ -738,11 +737,11 @@ impl McpServerManager {
     }
 
     /// Get display state for a server
-    pub async fn get_server_display_state(
+    pub async fn server_display_state(
         &self,
         server_id: &str,
     ) -> crate::server_enablement::ServerDisplayState {
-        self.enablement_manager.get_display_state(server_id).await
+        self.enablement_manager.display_state(server_id).await
     }
 }
 
@@ -782,7 +781,7 @@ impl McpServer {
     }
 
     /// Get cached tools (zero network calls)
-    pub async fn get_cached_tools(&self) -> Vec<McpTool> {
+    pub async fn cached_tools(&self) -> Vec<McpTool> {
         let state = self.state.read().await;
         state.cached_tools.clone()
     }
@@ -821,12 +820,12 @@ impl McpServer {
     }
 
     /// Get tools, refreshing from cache if stale
-    pub async fn get_tools(&self) -> McpResult<Vec<McpTool>> {
+    pub async fn tools(&self) -> McpResult<Vec<McpTool>> {
         // If tools are stale or empty, refresh them
         if self.are_tools_stale().await {
             self.refresh_cached_tools().await?;
         }
-        Ok(self.get_cached_tools().await)
+        Ok(self.cached_tools().await)
     }
 
     /// Get reconnection attempts
@@ -1013,7 +1012,7 @@ mod tests {
             },
         );
 
-        let servers = config.get_servers();
+        let servers = config.servers();
         assert_eq!(servers.len(), 1);
         assert_eq!(servers[0].name, "Server 1");
     }
@@ -1197,7 +1196,7 @@ mod tests {
     #[tokio::test]
     async fn test_manager_get_server_not_found() {
         let manager = McpServerManager::default_config();
-        assert!(manager.get_server("nonexistent").await.is_none());
+        assert!(manager.server("nonexistent").await.is_none());
     }
 
     #[tokio::test]

@@ -118,7 +118,7 @@ async fn test_metrics_collector() {
         .await;
 
     // Get metrics
-    let metrics = collector.get_metrics("test-tool").await;
+    let metrics = collector.metrics("test-tool").await;
     assert!(metrics.is_some());
 
     let metrics = metrics.unwrap();
@@ -134,7 +134,7 @@ async fn test_metrics_collector() {
 
     // Test reset
     collector.reset_metrics("test-tool").await;
-    assert!(collector.get_metrics("test-tool").await.is_none());
+    assert!(collector.metrics("test-tool").await.is_none());
 }
 
 #[tokio::test]
@@ -278,7 +278,7 @@ async fn test_tool_registry() {
     assert_eq!(registry.server_count().await, 0);
 
     // Test get non-existent tool
-    let tool = registry.get_tool("non-existent").await;
+    let tool = registry.find_tool("non-existent").await;
     assert!(tool.is_none());
 }
 
@@ -400,9 +400,7 @@ async fn test_metrics_success_rate() {
     assert!((rate - 0.666).abs() < 0.01);
 }
 
-// ============================================================================
 // MCP Lifecycle Tests
-// ============================================================================
 
 /// Test tool caching functionality
 #[tokio::test]

@@ -57,9 +57,8 @@ pub struct FirstRunWizard {
 }
 
 impl FirstRunWizard {
-    /// Create a new first-run wizard
     pub fn new(config_path: PathBuf) -> Self {
-        let providers = Self::get_available_providers();
+        let providers = Self::available_providers();
         let config = Config::default();
 
         Self {
@@ -80,7 +79,7 @@ impl FirstRunWizard {
     }
 
     /// Get available providers for the wizard
-    fn get_available_providers() -> Vec<ProviderInfo> {
+    fn available_providers() -> Vec<ProviderInfo> {
         vec![
             ProviderInfo {
                 id: "anthropic".to_string(),

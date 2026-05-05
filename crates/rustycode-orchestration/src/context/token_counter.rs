@@ -63,7 +63,7 @@ pub const fn is_accurate_counting_available() -> bool {
 }
 
 /// Get characters per token ratio for a provider
-pub const fn get_chars_per_token(provider: TokenProvider) -> f64 {
+pub const fn chars_per_token(provider: TokenProvider) -> f64 {
     match provider {
         TokenProvider::OpenAI | TokenProvider::Google | TokenProvider::Unknown => 4.0,
         TokenProvider::Mistral => 3.8,
@@ -84,7 +84,7 @@ pub fn set_chars_per_token(ratio: f64) {
 
 /// Estimate tokens for a specific provider
 pub fn estimate_tokens_for_provider(text: &str, provider: TokenProvider) -> usize {
-    let ratio = get_chars_per_token(provider);
+    let ratio = chars_per_token(provider);
     if text.is_empty() {
         return 0;
     }
@@ -130,12 +130,12 @@ mod tests {
 
     #[test]
     fn test_get_chars_per_token() {
-        assert_eq!(get_chars_per_token(TokenProvider::Anthropic), 3.5);
-        assert_eq!(get_chars_per_token(TokenProvider::OpenAI), 4.0);
-        assert_eq!(get_chars_per_token(TokenProvider::Google), 4.0);
-        assert_eq!(get_chars_per_token(TokenProvider::Mistral), 3.8);
-        assert_eq!(get_chars_per_token(TokenProvider::Bedrock), 3.5);
-        assert_eq!(get_chars_per_token(TokenProvider::Unknown), 4.0);
+        assert_eq!(chars_per_token(TokenProvider::Anthropic), 3.5);
+        assert_eq!(chars_per_token(TokenProvider::OpenAI), 4.0);
+        assert_eq!(chars_per_token(TokenProvider::Google), 4.0);
+        assert_eq!(chars_per_token(TokenProvider::Mistral), 3.8);
+        assert_eq!(chars_per_token(TokenProvider::Bedrock), 3.5);
+        assert_eq!(chars_per_token(TokenProvider::Unknown), 4.0);
     }
 
     #[test]

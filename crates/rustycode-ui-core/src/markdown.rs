@@ -228,7 +228,6 @@ impl InlineState {
 }
 
 impl MarkdownRenderer {
-    /// Create a new markdown renderer with default config
     pub fn new() -> Self {
         Self::with_config(MarkdownConfig::default())
     }
@@ -1110,7 +1109,6 @@ pub struct StreamingMessage {
 }
 
 impl StreamingMessage {
-    /// Create a new streaming message
     pub fn new() -> Self {
         Self {
             content: String::new(),

@@ -170,7 +170,6 @@ impl fmt::Debug for ExecutionContext {
 }
 
 impl ExecutionContext {
-    /// Create a new execution context.
     pub fn new(config: ExecutionConfig, cwd: PathBuf) -> Self {
         let tool_registry = create_tool_registry();
 
@@ -235,7 +234,6 @@ pub struct StepExecutorRegistry {
 }
 
 impl StepExecutorRegistry {
-    /// Create a new empty executor registry.
     pub fn new() -> Self {
         Self {
             executors: HashMap::new(),
@@ -453,7 +451,6 @@ impl StepExecutor for GenericStepExecutor {
 pub struct ToolInvocationWrapper;
 
 impl ToolInvocationWrapper {
-    /// Create a new tool invocation wrapper.
     pub fn new(_tool_name: String, _args: String) -> Self {
         Self
     }

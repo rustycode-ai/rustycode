@@ -326,7 +326,7 @@ impl PluginManager {
     pub fn update_all_plugins(&mut self) -> Result<Vec<String>> {
         let mut updated = Vec::new();
         let names: Vec<String> = self
-            .get_plugins()
+            .plugins()
             .iter()
             .map(|plugin| plugin.manifest.name.clone())
             .collect();
@@ -367,22 +367,22 @@ impl PluginManager {
     }
 
     /// Get all plugins
-    pub fn get_plugins(&self) -> Vec<&Plugin> {
+    pub fn plugins(&self) -> Vec<&Plugin> {
         self.plugins.values().collect()
     }
 
     /// Get enabled plugins
-    pub fn get_enabled_plugins(&self) -> Vec<&Plugin> {
+    pub fn enabled_plugins(&self) -> Vec<&Plugin> {
         self.plugins.values().filter(|p| p.enabled).collect()
     }
 
     /// Get a specific plugin
-    pub fn get_plugin(&self, name: &str) -> Option<&Plugin> {
+    pub fn plugin(&self, name: &str) -> Option<&Plugin> {
         self.plugins.get(name)
     }
 
     /// Get plugin mutable
-    pub fn get_plugin_mut(&mut self, name: &str) -> Option<&mut Plugin> {
+    pub fn plugin_mut(&mut self, name: &str) -> Option<&mut Plugin> {
         self.plugins.get_mut(name)
     }
 
@@ -432,10 +432,10 @@ impl PluginManager {
     }
 
     /// Get all slash commands from enabled plugins
-    pub fn get_all_commands(&self) -> Vec<(String, String, String)> {
+    pub fn all_commands(&self) -> Vec<(String, String, String)> {
         let mut commands = Vec::new();
 
-        for plugin in self.get_enabled_plugins() {
+        for plugin in self.enabled_plugins() {
             for cmd in &plugin.manifest.slash_commands {
                 commands.push((
                     plugin.manifest.name.clone(),
@@ -647,8 +647,8 @@ mod tests {
         let manifest_path = plugin_dir.join("plugin.toml");
         assert!(manager.load_plugin(&manifest_path).is_ok());
 
-        assert_eq!(manager.get_plugins().len(), 1);
-        assert!(manager.get_plugin("test-plugin").is_some());
+        assert_eq!(manager.plugins().len(), 1);
+        assert!(manager.plugin("test-plugin").is_some());
     }
 
     #[test]
@@ -663,15 +663,15 @@ mod tests {
         manager.load_plugin(&manifest_path).unwrap();
 
         // Plugin is enabled by default
-        assert!(manager.get_plugin("test-plugin").unwrap().enabled);
+        assert!(manager.plugin("test-plugin").unwrap().enabled);
 
         // Disable
         manager.disable_plugin("test-plugin").unwrap();
-        assert!(!manager.get_plugin("test-plugin").unwrap().enabled);
+        assert!(!manager.plugin("test-plugin").unwrap().enabled);
 
         // Enable
         manager.enable_plugin("test-plugin").unwrap();
-        assert!(manager.get_plugin("test-plugin").unwrap().enabled);
+        assert!(manager.plugin("test-plugin").unwrap().enabled);
     }
 
     #[test]
@@ -685,10 +685,10 @@ mod tests {
         let manifest_path = plugin_dir.join("plugin.toml");
         manager.load_plugin(&manifest_path).unwrap();
 
-        assert_eq!(manager.get_plugins().len(), 1);
+        assert_eq!(manager.plugins().len(), 1);
 
         manager.unload_plugin("test-plugin").unwrap();
-        assert_eq!(manager.get_plugins().len(), 0);
+        assert_eq!(manager.plugins().len(), 0);
     }
 
     #[test]
@@ -709,7 +709,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(installed_name, "local-plugin");
-        assert!(manager.get_plugin("local-plugin").is_some());
+        assert!(manager.plugin("local-plugin").is_some());
         assert!(manager
             .plugin_dir()
             .join("local-plugin")
@@ -728,12 +728,12 @@ mod tests {
 
         manager.update_plugin("local-plugin").unwrap();
         assert_eq!(
-            manager.get_plugin("local-plugin").unwrap().manifest.version,
+            manager.plugin("local-plugin").unwrap().manifest.version,
             "0.2.0"
         );
 
         manager.unload_plugin("local-plugin").unwrap();
-        assert!(manager.get_plugin("local-plugin").is_none());
+        assert!(manager.plugin("local-plugin").is_none());
         std::fs::remove_dir_all(manager.plugin_dir().join("local-plugin")).unwrap();
         assert!(!manager.plugin_dir().join("local-plugin").exists());
     }

@@ -54,9 +54,7 @@ fn create_test_request(prompt: &str) -> CompletionRequest {
     )
 }
 
-// ============================================================================
 // Unit Tests (No API Key Required)
-// ============================================================================
 
 #[test]
 fn test_openai_api_key_validation_requires_valid_format() {
@@ -204,9 +202,7 @@ fn test_openai_list_models() {
     assert!(models.iter().any(|m| m.starts_with("gpt-")));
 }
 
-// ============================================================================
 // Integration Tests (Require API Key)
-// ============================================================================
 
 #[tokio::test]
 #[cfg_attr(
@@ -391,9 +387,7 @@ async fn test_openai_with_max_tokens() {
     assert!(!response.content.is_empty());
 }
 
-// ============================================================================
 // Tool Format Tests
-// ============================================================================
 
 #[test]
 fn test_openai_function_calling_format() {
@@ -633,9 +627,7 @@ fn test_openai_function_response_format() {
     assert!(call["function"]["arguments"].is_string());
 }
 
-// ============================================================================
 // Error Handling Tests
-// ============================================================================
 
 #[test]
 fn test_openai_new_without_validation_bypasses_checks() {
@@ -652,9 +644,7 @@ fn test_openai_new_without_validation_bypasses_checks() {
     assert!(result.is_ok());
 }
 
-// ============================================================================
 // Provider Availability Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_openai_is_available_with_key() {
@@ -701,9 +691,7 @@ async fn test_openai_is_available_without_key() {
     assert!(!available);
 }
 
-// ============================================================================
 // Model-Specific Tests
-// ============================================================================
 
 #[test]
 fn test_openai_gpt4o_model_string() {

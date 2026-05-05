@@ -87,7 +87,6 @@ impl Default for RecoveryConfig {
 }
 
 impl RecoveryConfig {
-    /// Create a new recovery config with custom settings.
     pub fn new() -> Self {
         Self::default()
     }

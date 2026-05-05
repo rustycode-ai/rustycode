@@ -42,7 +42,6 @@ pub struct PromptTemplateEngine {
 }
 
 impl PromptTemplateEngine {
-    /// Create a new template engine with built-in templates
     pub fn new() -> Self {
         let mut registry = handlebars::Handlebars::new();
         registry.register_escape_fn(handlebars::no_escape);
@@ -182,9 +181,7 @@ impl PromptContext {
     }
 }
 
-// ============================================================================
 // Prompt Layers - Composable Prompt Construction
-// ============================================================================
 
 /// A composable layer in a prompt stack.
 ///
@@ -265,7 +262,6 @@ pub struct PromptComposer {
 }
 
 impl PromptComposer {
-    /// Create a new composer with the given layers.
     pub const fn new(layers: Vec<PromptLayer>) -> Self {
         Self { layers }
     }

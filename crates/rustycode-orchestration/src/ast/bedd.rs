@@ -19,9 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use super::types::{ComplexityLevel, ContextBrief, TaskAssessment};
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /// A proposed approach generated during the Brainstorm phase.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,9 +53,7 @@ pub struct EvaluatedProposal {
     pub score: f64,
 }
 
-// ---------------------------------------------------------------------------
 // Multi-Round Dialogue (Gap 1)
-// ---------------------------------------------------------------------------
 
 /// A critique of a single proposal from one perspective.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,9 +73,7 @@ pub struct CritiqueRound {
     pub consensus_score: f64,
 }
 
-// ---------------------------------------------------------------------------
 // Voting and Consensus (Gap 2)
-// ---------------------------------------------------------------------------
 
 /// A single voter's scores for each proposal.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,9 +100,7 @@ pub struct VotingResult {
     pub method: VotingMethod,
 }
 
-// ---------------------------------------------------------------------------
 // Diminishing Returns Detection (Gap 5)
-// ---------------------------------------------------------------------------
 
 /// Reason for stopping iteration.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -252,9 +244,7 @@ impl BeddResult {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
 
 /// Configuration for the BEDD funnel.
 #[derive(Debug, Clone)]
@@ -320,9 +310,7 @@ impl BeddConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
 // BEDD Funnel
-// ---------------------------------------------------------------------------
 
 /// The BEDD funnel: Brainstorm -> Evaluate -> Drop -> Expand.
 ///
@@ -333,7 +321,6 @@ pub struct BeddFunnel {
 }
 
 impl BeddFunnel {
-    /// Create a new funnel with default configuration.
     pub fn new() -> Self {
         Self {
             config: BeddConfig::default(),
@@ -1064,9 +1051,7 @@ impl Default for BeddFunnel {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Internal template type
-// ---------------------------------------------------------------------------
 
 /// A proposal template used internally during brainstorming.
 struct ProposalTemplate {
@@ -1078,9 +1063,7 @@ struct ProposalTemplate {
     alignment: u8,
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used)]

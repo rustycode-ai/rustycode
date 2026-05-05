@@ -215,30 +215,6 @@ fn format_entry(entry: &DistilledEntry) -> String {
 
 /// Distill a single SUMMARY.md content into compact structured block
 ///
-/// # Arguments
-/// * `summary` - Raw SUMMARY.md content
-///
-/// # Returns
-/// Distilled structured content
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::summary_distiller::*;
-///
-/// let summary = r#"
-/// ---
-/// id: T01
-/// provides: [auth]
-/// requires: [user_model]
-/// ---
-/// # T01: Implement authentication
-///
-/// Added login and logout functionality.
-/// "#;
-///
-/// let distilled = distill_single(summary);
-/// assert!(distilled.contains("T01"));
-/// ```
 pub fn distill_single(summary: &str) -> String {
     let fm = parse_frontmatter(summary);
     let body = get_body_after_frontmatter(summary);
@@ -265,25 +241,6 @@ pub fn distill_single(summary: &str) -> String {
 
 /// Distill multiple SUMMARY.md contents into budget-constrained output
 ///
-/// # Arguments
-/// * `summaries` - Vector of raw SUMMARY.md contents
-/// * `budget_chars` - Maximum character budget
-///
-/// # Returns
-/// Distillation result with content and metadata
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::summary_distiller::*;
-///
-/// let summaries = vec![
-///     "id: T01\n---\n# Task 1".to_string(),
-///     "id: T02\n---\n# Task 2".to_string(),
-/// ];
-///
-/// let result = distill_summaries(&summaries, 1000);
-/// assert!(result.savings_percent > 0);
-/// ```
 pub fn distill_summaries(summaries: &[String], budget_chars: usize) -> DistillationResult {
     let original_chars: usize = summaries.iter().map(String::len).sum();
 

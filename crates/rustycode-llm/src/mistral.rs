@@ -136,7 +136,7 @@ impl MistralProvider {
         }
     }
 
-    fn get_api_key(&self) -> Result<String, ProviderError> {
+    fn api_key(&self) -> Result<String, ProviderError> {
         let config_key = self
             .config
             .api_key
@@ -237,7 +237,7 @@ impl LLMProvider for MistralProvider {
     }
 
     async fn is_available(&self) -> bool {
-        self.get_api_key().is_ok()
+        self.api_key().is_ok()
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
@@ -255,7 +255,7 @@ impl LLMProvider for MistralProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let messages = Self::convert_messages(request.messages.clone());
         let tools = request
             .tools
@@ -317,7 +317,7 @@ impl LLMProvider for MistralProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let messages = Self::convert_messages(request.messages.clone());
         let tools = request
             .tools

@@ -1455,7 +1455,6 @@ pub struct User {
 }
 
 impl User {
-    /// Creates a new user.
     pub fn new(name: &str, age: u32) -> Self {
         Self { name: name.to_string(), age }
     }

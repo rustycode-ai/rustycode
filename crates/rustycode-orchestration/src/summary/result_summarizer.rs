@@ -25,7 +25,6 @@ pub struct ResultSummarizer {
 }
 
 impl ResultSummarizer {
-    /// Create a new summarizer with the given configuration.
     pub const fn new(config: SummaryConfig) -> Self {
         Self { config }
     }

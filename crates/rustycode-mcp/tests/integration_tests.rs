@@ -92,7 +92,7 @@ async fn test_tool_registry_workflow() {
     assert_eq!(tools.len(), 0);
 
     // Test getting non-existent tool
-    let tool = registry.get_tool("non-existent").await;
+    let tool = registry.find_tool("non-existent").await;
     assert!(tool.is_none());
 }
 
@@ -157,30 +157,30 @@ async fn test_metrics_workflow() {
         .await;
 
     // Get individual metrics
-    let tool1_metrics = collector.get_metrics("tool1").await;
+    let tool1_metrics = collector.metrics("tool1").await;
     assert!(tool1_metrics.is_some());
     let tool1_metrics = tool1_metrics.unwrap();
     assert_eq!(tool1_metrics.total_calls, 3);
     assert_eq!(tool1_metrics.successful_calls, 2);
 
-    let tool2_metrics = collector.get_metrics("tool2").await;
+    let tool2_metrics = collector.metrics("tool2").await;
     assert!(tool2_metrics.is_some());
     let tool2_metrics = tool2_metrics.unwrap();
     assert_eq!(tool2_metrics.total_calls, 2);
     assert_eq!(tool2_metrics.successful_calls, 1);
 
     // Get all metrics
-    let all_metrics = collector.get_all_metrics().await;
+    let all_metrics = collector.all_metrics().await;
     assert_eq!(all_metrics.len(), 2);
 
     // Reset one tool
     collector.reset_metrics("tool1").await;
-    assert!(collector.get_metrics("tool1").await.is_none());
-    assert!(collector.get_metrics("tool2").await.is_some());
+    assert!(collector.metrics("tool1").await.is_none());
+    assert!(collector.metrics("tool2").await.is_some());
 
     // Reset all
     collector.reset_all().await;
-    assert!(collector.get_metrics("tool2").await.is_none());
+    assert!(collector.metrics("tool2").await.is_none());
 }
 
 #[tokio::test]
@@ -250,7 +250,7 @@ async fn test_enterprise_integration() {
     assert_eq!(stats.idle, 1);
 
     // 6. Verify metrics
-    let metrics = collector.get_metrics(server_id).await;
+    let metrics = collector.metrics(server_id).await;
     assert!(metrics.is_some());
     let metrics = metrics.unwrap();
     assert_eq!(metrics.total_calls, 1);
@@ -282,7 +282,7 @@ async fn test_concurrent_operations() {
     }
 
     // Verify all metrics were recorded
-    let all_metrics = collector.get_all_metrics().await;
+    let all_metrics = collector.all_metrics().await;
     assert_eq!(all_metrics.len(), 10);
 }
 
@@ -351,7 +351,7 @@ async fn test_metrics_aggregation() {
     }
 
     // Get all metrics
-    let all_metrics = collector.get_all_metrics().await;
+    let all_metrics = collector.all_metrics().await;
     assert_eq!(all_metrics.len(), 5);
 
     // Verify each server has 10 calls

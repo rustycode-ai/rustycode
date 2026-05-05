@@ -218,7 +218,6 @@ pub struct OAuthManager {
 }
 
 impl OAuthManager {
-    /// Create a new OAuth manager
     pub fn new() -> Self {
         Self {
             stores: Arc::new(RwLock::new(HashMap::new())),
@@ -421,7 +420,7 @@ impl OAuthManager {
     }
 
     /// Get a valid access token (refresh if needed)
-    pub async fn get_access_token(&self, server_id: &str) -> McpResult<String> {
+    pub async fn access_token(&self, server_id: &str) -> McpResult<String> {
         let stores = self.stores.read().await;
         let store = stores.get(server_id).ok_or_else(|| {
             McpError::ProtocolError(format!("No OAuth configuration for server '{server_id}'"))

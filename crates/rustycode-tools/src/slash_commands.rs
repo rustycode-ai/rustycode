@@ -54,7 +54,6 @@ pub struct SlashCommandRegistry {
 }
 
 impl SlashCommandRegistry {
-    /// Create a new empty registry
     pub fn new(recipes: RecipeRegistry) -> Self {
         Self {
             commands: HashMap::new(),

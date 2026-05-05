@@ -31,24 +31,6 @@ use std::fmt::Write;
 /// specified fields to use YAML's literal block scalar (`|`) syntax instead,
 /// which is more readable and compatible with template engines.
 ///
-/// # Arguments
-///
-/// * `yaml` - The YAML string to reformat
-/// * `multiline_fields` - Field names that should be converted to block scalars
-///
-/// # Example
-///
-/// Before:
-/// ```text
-/// prompt: "Hello \"World\"\n{% if admin %}Welcome{% endif %}"
-/// ```
-///
-/// After:
-/// ```text
-/// prompt: |
-///   Hello "World"
-///   {% if admin %}Welcome{% endif %}
-/// ```
 pub fn reformat_fields_with_multiline_values(yaml: &str, multiline_fields: &[&str]) -> String {
     let mut result = String::new();
 

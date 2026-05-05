@@ -49,9 +49,6 @@ impl GraphPruner {
 
     /// Apply pruning strategy to graph.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if individual pruning operations fail due to invalid graph state.
     pub fn prune(&self, graph: &mut ReasoningGraph, strategy: PruningStrategy) -> Result<usize> {
         let pruned_count = match strategy {
             PruningStrategy::ConfidenceThreshold => self.prune_low_confidence(graph),
@@ -154,9 +151,6 @@ impl GraphPruner {
 
     /// Enforce maximum node limit by removing lowest-scoring thoughts.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if removing thoughts fails due to invalid graph state.
     pub fn enforce_max_nodes(&self, graph: &mut ReasoningGraph) -> Result<usize> {
         if graph.len() <= self.max_nodes {
             return Ok(0);

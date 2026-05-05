@@ -84,8 +84,8 @@ impl InputHandler {
     }
 
     /// Get command history for persistence
-    pub fn get_history(&self) -> &[String] {
-        self.history.get_history()
+    pub fn history(&self) -> &[String] {
+        self.history.history()
     }
 
     /// Check if currently browsing history
@@ -1049,7 +1049,7 @@ mod tests {
         assert_eq!(handler.state.selection_anchor_col, Some(5));
         assert_eq!(handler.state.selection_anchor_row, Some(0));
         assert_eq!(handler.state.cursor_col, 4);
-        assert_eq!(handler.state.get_selected_text(), Some("o".to_string()));
+        assert_eq!(handler.state.selected_text(), Some("o".to_string()));
     }
 
     #[test]
@@ -1065,7 +1065,7 @@ mod tests {
         assert_eq!(handler.state.selection_anchor_col, Some(2));
         assert_eq!(handler.state.selection_anchor_row, Some(0));
         assert_eq!(handler.state.cursor_col, 3);
-        assert_eq!(handler.state.get_selected_text(), Some("l".to_string()));
+        assert_eq!(handler.state.selected_text(), Some("l".to_string()));
     }
 
     #[test]
@@ -1084,7 +1084,7 @@ mod tests {
         assert!(handler.state.has_selection());
         assert_eq!(handler.state.selection_anchor_col, Some(5));
         assert_eq!(handler.state.cursor_col, 2);
-        assert_eq!(handler.state.get_selected_text(), Some("llo".to_string()));
+        assert_eq!(handler.state.selected_text(), Some("llo".to_string()));
     }
 
     #[test]
@@ -1103,7 +1103,7 @@ mod tests {
         assert!(handler.state.has_selection());
         assert_eq!(handler.state.selection_anchor_col, Some(0));
         assert_eq!(handler.state.cursor_col, 3);
-        assert_eq!(handler.state.get_selected_text(), Some("Hel".to_string()));
+        assert_eq!(handler.state.selected_text(), Some("Hel".to_string()));
     }
 
     // -- Shift+Up/Down multi-line --
@@ -1125,7 +1125,7 @@ mod tests {
         assert_eq!(handler.state.cursor_row, 0);
         assert_eq!(handler.state.cursor_col, 3);
 
-        let selected = handler.state.get_selected_text();
+        let selected = handler.state.selected_text();
         assert!(selected.is_some());
         let text = selected.unwrap();
         assert!(text.contains("lo"));
@@ -1163,7 +1163,7 @@ mod tests {
         assert_eq!(handler.state.selection_anchor_col, Some(3));
         assert_eq!(handler.state.cursor_row, 0);
         assert_eq!(handler.state.cursor_col, 3);
-        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+        assert_eq!(handler.state.selected_text(), Some(String::new()));
     }
 
     // -- Shift+Home/End --
@@ -1181,7 +1181,7 @@ mod tests {
         assert_eq!(handler.state.selection_anchor_col, Some(7));
         assert_eq!(handler.state.cursor_col, 0);
         assert_eq!(
-            handler.state.get_selected_text(),
+            handler.state.selected_text(),
             Some("Hello W".to_string())
         );
     }
@@ -1199,7 +1199,7 @@ mod tests {
         assert_eq!(handler.state.selection_anchor_col, Some(2));
         assert_eq!(handler.state.cursor_col, 11);
         assert_eq!(
-            handler.state.get_selected_text(),
+            handler.state.selected_text(),
             Some("llo World".to_string())
         );
     }
@@ -1310,7 +1310,7 @@ mod tests {
         assert!(handler.state.has_selection());
         assert_eq!(handler.state.selection_anchor_col, Some(0));
         assert_eq!(handler.state.cursor_col, 0);
-        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+        assert_eq!(handler.state.selected_text(), Some(String::new()));
     }
 
     #[test]
@@ -1325,7 +1325,7 @@ mod tests {
         assert!(handler.state.has_selection());
         assert_eq!(handler.state.selection_anchor_col, Some(5));
         assert_eq!(handler.state.cursor_col, 5);
-        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+        assert_eq!(handler.state.selected_text(), Some(String::new()));
     }
 
     #[test]
@@ -1337,16 +1337,16 @@ mod tests {
         let _ = handler.handle_key_event(KeyCode::Left, KeyModifiers::SHIFT);
         assert_eq!(handler.state.selection_anchor_col, Some(5));
         assert_eq!(handler.state.cursor_col, 4);
-        assert_eq!(handler.state.get_selected_text(), Some("o".to_string()));
+        assert_eq!(handler.state.selected_text(), Some("o".to_string()));
 
         let _ = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
         assert_eq!(handler.state.selection_anchor_col, Some(5));
         assert_eq!(handler.state.cursor_col, 5);
-        assert_eq!(handler.state.get_selected_text(), Some(String::new()));
+        assert_eq!(handler.state.selected_text(), Some(String::new()));
 
         let _ = handler.handle_key_event(KeyCode::Right, KeyModifiers::SHIFT);
         assert_eq!(handler.state.selection_anchor_col, Some(5));
         assert_eq!(handler.state.cursor_col, 6);
-        assert_eq!(handler.state.get_selected_text(), Some(" ".to_string()));
+        assert_eq!(handler.state.selected_text(), Some(" ".to_string()));
     }
 }

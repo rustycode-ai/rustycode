@@ -59,7 +59,6 @@ pub struct Hooks {
 }
 
 impl Hooks {
-    /// Create a new hook manager.
     pub fn new() -> Self {
         Self::default()
     }

@@ -24,7 +24,6 @@ pub struct RecoveryEngine {
 }
 
 impl RecoveryEngine {
-    /// Create a new recovery engine with default configuration.
     pub fn new(config: RecoveryConfig) -> Self {
         Self {
             config,

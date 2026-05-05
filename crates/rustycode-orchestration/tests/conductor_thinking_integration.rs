@@ -402,7 +402,7 @@ mod thinking_trace_integration {
             .iter()
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
             .unwrap();
-        let best_thought = graph.get_thought(*best.0).unwrap();
+        let best_thought = graph.thought(*best.0).unwrap();
         assert!(best_thought.content.contains("mutex"));
 
         // Create an execution trace entry from the thinking result

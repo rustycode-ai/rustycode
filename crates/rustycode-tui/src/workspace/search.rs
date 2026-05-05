@@ -14,7 +14,6 @@ pub struct MessageSearchState {
 }
 
 impl MessageSearchState {
-    /// Create a new inactive search state
     pub fn new() -> Self {
         Self::default()
     }
@@ -131,12 +130,6 @@ impl MessageSearchState {
 
 /// Perform case-insensitive search in text
 ///
-/// # Arguments
-/// * `query` - Search query string
-/// * `texts` - Iterator of (index, text) pairs to search
-///
-/// # Returns
-/// Vector of matching indices
 pub fn search_texts<'a, I>(query: &str, texts: I) -> Vec<usize>
 where
     I: Iterator<Item = (usize, &'a str)>,
@@ -154,13 +147,6 @@ where
 
 /// Perform search and return first match index
 ///
-/// # Arguments
-/// * `search_state` - Mutable reference to search state
-/// * `query` - Search query string
-/// * `texts` - Iterator of (index, text) pairs to search
-///
-/// # Returns
-/// Option of first match index
 pub fn perform_search<'a, I>(
     search_state: &mut MessageSearchState,
     query: &str,
@@ -184,7 +170,6 @@ pub struct ProviderSearchState {
 }
 
 impl ProviderSearchState {
-    /// Create a new provider search state
     pub fn new() -> Self {
         Self::default()
     }
@@ -258,12 +243,6 @@ impl ProviderSearchState {
 
 /// Filter items by search query with fuzzy matching support
 ///
-/// # Arguments
-/// * `query` - Search query string
-/// * `items` - Iterator of (index, searchable strings) to filter
-///
-/// # Returns
-/// Vector of matching indices
 #[cfg(test)]
 pub fn filter_items<'a, I, S>(query: &str, items: I) -> Vec<usize>
 where
@@ -286,12 +265,6 @@ where
 
 /// Multi-string search (search across multiple fields per item)
 ///
-/// # Arguments
-/// * `query` - Search query string
-/// * `items` - Iterator of (index, array of searchable strings)
-///
-/// # Returns
-/// Vector of matching indices
 #[cfg(test)]
 pub fn filter_items_multi<'a, I>(query: &str, items: I) -> Vec<usize>
 where
@@ -314,14 +287,6 @@ where
 
 /// Highlight search matches in text
 ///
-/// # Arguments
-/// * `text` - Original text
-/// * `query` - Search query to highlight
-/// * `highlight_prefix` - String to add before matches
-/// * `highlight_suffix` - String to add after matches
-///
-/// # Returns
-/// Text with highlighted matches
 #[cfg(test)]
 pub fn highlight_matches(
     text: &str,
@@ -375,11 +340,6 @@ pub fn highlight_matches(
 
 /// Get unique search terms from a query (splits by whitespace)
 ///
-/// # Arguments
-/// * `query` - Search query string
-///
-/// # Returns
-/// Vector of unique, non-empty search terms
 #[cfg(test)]
 pub fn parse_search_terms(query: &str) -> Vec<String> {
     use std::collections::HashSet;

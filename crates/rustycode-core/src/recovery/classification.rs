@@ -23,7 +23,6 @@ pub struct ErrorClassification {
 }
 
 impl ErrorClassification {
-    /// Create a new error classification.
     pub fn new(
         category: ErrorCategory,
         retryable: bool,
@@ -110,7 +109,6 @@ pub struct ErrorClassifier {
 }
 
 impl ErrorClassifier {
-    /// Create a new error classifier with default patterns.
     pub fn new() -> Self {
         let mut classifier = Self {
             patterns: HashMap::new(),

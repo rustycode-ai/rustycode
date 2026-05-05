@@ -63,7 +63,7 @@ pub fn set_base_dir(dir: PathBuf) {
 }
 
 /// Get the base directory
-pub fn get_base_dir() -> Option<PathBuf> {
+pub fn base_dir() -> Option<PathBuf> {
     let c = cache()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -74,17 +74,6 @@ pub fn get_base_dir() -> Option<PathBuf> {
 
 /// Load a prompt template and substitute variables.
 ///
-/// # Arguments
-/// * `name` - Template filename without .md extension (e.g. "execute-task")
-/// * `vars` - Key-value pairs to substitute for {{key}} placeholders
-///
-/// # Returns
-/// The template content with variables substituted
-///
-/// # Errors
-/// Returns `OrchestrationError::PromptLoad` if:
-/// - Template file cannot be read
-/// - Template declares variables not provided in vars
 #[allow(clippy::implicit_hasher)]
 #[allow(clippy::items_after_statements)]
 pub fn load_prompt(name: &str, vars: &HashMap<String, String>) -> Result<String> {
@@ -140,11 +129,6 @@ pub fn load_prompt(name: &str, vars: &HashMap<String, String>) -> Result<String>
 ///
 /// Templates are cached with a `tpl:` prefix to avoid collisions with prompt cache keys.
 ///
-/// # Arguments
-/// * `name` - Template filename without .md extension
-///
-/// # Returns
-/// The template content
 pub fn load_template(name: &str) -> Result<String> {
     let cache_key = format!("{TEMPLATE_PREFIX}{name}");
     let mut c = cache()
@@ -172,12 +156,6 @@ pub fn load_template(name: &str) -> Result<String> {
 /// The template body is emitted first so that any YAML frontmatter (---) remains
 /// at the first non-whitespace line of the template content.
 ///
-/// # Arguments
-/// * `name` - Template filename without .md extension
-/// * `label` - Label to add in the footer
-///
-/// # Returns
-/// The template content with labeled footer
 pub fn inline_template(name: &str, label: &str) -> Result<String> {
     let content = load_template(name)?;
     Ok(format!(

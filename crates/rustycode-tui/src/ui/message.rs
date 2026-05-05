@@ -105,14 +105,14 @@ mod message_tools_impl {
         }
 
         /// Get a reference to a tool by index
-        pub fn get_tool(&self, index: usize) -> Option<&ToolExecution> {
+        pub fn tool(&self, index: usize) -> Option<&ToolExecution> {
             self.tool_executions
                 .as_ref()
                 .and_then(|tools| tools.get(index))
         }
 
         /// Get a mutable reference to a tool by index
-        pub fn get_tool_mut(&mut self, index: usize) -> Option<&mut ToolExecution> {
+        pub fn tool_mut(&mut self, index: usize) -> Option<&mut ToolExecution> {
             self.tool_executions
                 .as_mut()
                 .and_then(|tools| tools.get_mut(index))

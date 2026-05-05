@@ -17,7 +17,6 @@ pub struct ScalpelPhase {
 }
 
 impl ScalpelPhase {
-    /// Create a new ScalpelPhase for the given project root.
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
         Self {
             project_root: project_root.into(),

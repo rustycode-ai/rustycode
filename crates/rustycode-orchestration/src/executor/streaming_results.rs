@@ -58,7 +58,6 @@ impl fmt::Debug for ToolResult {
 pub struct StreamingToolExecutor;
 
 impl StreamingToolExecutor {
-    /// Create a new streaming executor (stateless; the type is a namespace).
     pub const fn new() -> Self {
         Self
     }

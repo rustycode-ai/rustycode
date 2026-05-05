@@ -56,36 +56,14 @@ pub struct GitRewindSnapshot {
 pub trait CheckpointStorage: Send + Sync {
     /// Save a checkpoint to storage.
     ///
-    /// # Arguments
-    ///
-    /// * `checkpoint` - The checkpoint to save
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the checkpoint cannot be saved.
     fn save_checkpoint(&self, checkpoint: &Checkpoint) -> Result<()>;
 
     /// Load a checkpoint from storage.
     ///
-    /// # Arguments
-    ///
-    /// * `id` - The identifier for the checkpoint to load
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(Some(checkpoint))` if found, `Ok(None)` if not found,
-    /// or an error if the load operation fails.
     fn load_checkpoint(&self, id: &str) -> Result<Option<Checkpoint>>;
 
     /// Delete a checkpoint from storage.
     ///
-    /// # Arguments
-    ///
-    /// * `id` - The identifier for the checkpoint to delete
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the checkpoint cannot be deleted.
     fn delete_checkpoint(&self, id: &str) -> Result<()>;
 
     /// Rewind the repository to a given snapshot.
@@ -126,9 +104,6 @@ pub struct GitCheckpointStorage {
 impl GitCheckpointStorage {
     /// Create a new git checkpoint storage instance.
     ///
-    /// # Arguments
-    ///
-    /// * `repo_path` - Path to the git repository
     pub fn new(repo_path: impl Into<String>) -> Self {
         let repo_path = repo_path.into();
         let checkpoint_dir = PathBuf::from(&repo_path)

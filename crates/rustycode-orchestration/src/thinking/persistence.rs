@@ -73,9 +73,6 @@ pub struct SessionManager {
 impl SessionManager {
     /// Create a new session manager with a base directory
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the directory cannot be created.
     pub fn new(base_path: impl AsRef<Path>) -> Result<Self> {
         let path = base_path.as_ref().to_path_buf();
         fs::create_dir_all(&path)?;
@@ -101,9 +98,6 @@ impl SessionManager {
 
     /// Save a graph to a JSON file
     ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization or file writing fails.
     pub fn save_json(&self, graph: &SerializedGraph, session_id: &str) -> Result<PathBuf> {
         let safe_id = Self::sanitize_session_id(session_id)?;
         let file_path = self.base_path.join(format!("{safe_id}.json"));
@@ -120,9 +114,6 @@ impl SessionManager {
 
     /// Load a graph from a JSON file
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the file cannot be read or deserialized.
     pub fn load_json(&self, session_id: &str) -> Result<SerializedGraph> {
         let safe_id = Self::sanitize_session_id(session_id)?;
         let file_path = self.base_path.join(format!("{safe_id}.json"));
@@ -139,9 +130,6 @@ impl SessionManager {
 
     /// Save a graph to a binary file (bincode format)
     ///
-    /// # Errors
-    ///
-    /// Returns an error if serialization or file writing fails.
     pub fn save_bincode(&self, graph: &SerializedGraph, session_id: &str) -> Result<PathBuf> {
         let safe_id = Self::sanitize_session_id(session_id)?;
         let file_path = self.base_path.join(format!("{safe_id}.bin"));
@@ -158,9 +146,6 @@ impl SessionManager {
 
     /// Load a graph from a binary file
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the file cannot be read or deserialized.
     pub fn load_bincode(&self, session_id: &str) -> Result<SerializedGraph> {
         let safe_id = Self::sanitize_session_id(session_id)?;
         let file_path = self.base_path.join(format!("{safe_id}.bin"));
@@ -172,9 +157,6 @@ impl SessionManager {
 
     /// List all saved sessions
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session directory cannot be read.
     pub fn list_sessions(&self) -> Result<Vec<String>> {
         let mut sessions = Vec::new();
         for entry in fs::read_dir(&self.base_path)? {
@@ -194,9 +176,6 @@ impl SessionManager {
 
     /// Delete a saved session
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the session files cannot be deleted.
     pub fn delete_session(&self, session_id: &str) -> Result<()> {
         let safe_id = Self::sanitize_session_id(session_id)?;
         // Try deleting both JSON and binary formats

@@ -106,7 +106,7 @@ impl SkillManagerV2Builder {
             }
         }
 
-        let total_skills = registry.get_all().len() + registry.get_conditional().len();
+        let total_skills = registry.all().len() + registry.conditional().len();
         info!(
             "SkillManagerV2 initialized with {} skills (budget: {} tokens)",
             total_skills, self.token_budget
@@ -179,7 +179,7 @@ impl SkillManager {
     }
 
     fn active_skills(&self) -> Vec<&crate::activation::ActiveSkill> {
-        self.activation.get_active_skills().into_iter().collect()
+        self.activation.active_skills().into_iter().collect()
     }
 
     // -- Activation --
@@ -325,15 +325,15 @@ impl SkillManager {
     // -- Registry --
 
     pub fn all_definitions(&self) -> Vec<&SkillDefinition> {
-        self.registry.get_all()
+        self.registry.all()
     }
 
-    pub fn get_definition(&self, name: &str) -> Option<&SkillDefinition> {
+    pub fn definition(&self, name: &str) -> Option<&SkillDefinition> {
         self.registry.get(name)
     }
 
     pub fn total_count(&self) -> usize {
-        self.registry.get_all().len() + self.registry.get_conditional().len()
+        self.registry.all().len() + self.registry.conditional().len()
     }
 
     // -- Curator --
@@ -370,8 +370,8 @@ impl SkillManager {
         quality
     }
 
-    pub fn get_quality(&self, skill_id: &str) -> Option<&SkillQuality> {
-        self.quality_scorer.get_quality(skill_id)
+    pub fn quality(&self, skill_id: &str) -> Option<&SkillQuality> {
+        self.quality_scorer.quality(skill_id)
     }
 
     // -- Lifecycle --
@@ -559,7 +559,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(mgr.total_count(), 1);
-        assert!(mgr.get_definition("test-skill").is_some());
+        assert!(mgr.definition("test-skill").is_some());
     }
 
     #[test]
@@ -578,7 +578,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert!(mgr.get_definition("my-skill").is_some());
+        assert!(mgr.definition("my-skill").is_some());
         fs::remove_dir_all(&dir).ok();
     }
 
@@ -703,7 +703,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert!(mgr.get_definition("coder").is_some());
+        assert!(mgr.definition("coder").is_some());
 
         mgr.activate_skill("coder", "manual").unwrap();
         assert!(mgr.is_active("coder"));

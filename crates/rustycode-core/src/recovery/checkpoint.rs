@@ -44,13 +44,6 @@ impl std::fmt::Debug for CheckpointRecovery {
 impl CheckpointRecovery {
     /// Create a new CheckpointRecovery instance
     ///
-    /// # Arguments
-    ///
-    /// * `repo_path` - Path to the git repository
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the repository cannot be opened
     pub fn new(repo_path: &str) -> Result<Self> {
         let path = std::path::Path::new(repo_path);
         let git = GitClient::new(path).context("Failed to open git repository")?;
@@ -59,13 +52,6 @@ impl CheckpointRecovery {
 
     /// Create a checkpoint at the current state
     ///
-    /// # Returns
-    ///
-    /// A SessionSnapshot containing the current git hash and modified files
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if git operations fail
     pub fn create(&self) -> Result<SessionSnapshot> {
         let git_hash = self
             .git
@@ -95,13 +81,6 @@ impl CheckpointRecovery {
     /// checkpoint are discarded, including untracked files that were created
     /// after the checkpoint.
     ///
-    /// # Arguments
-    ///
-    /// * `checkpoint` - The checkpoint to rewind to
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the git reset operation fails
     pub async fn rewind(&self, checkpoint: &SessionSnapshot) -> Result<()> {
         let git_hash = checkpoint
             .checkpoint_git_hash

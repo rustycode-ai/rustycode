@@ -86,7 +86,6 @@ pub enum SessionState {
 }
 
 impl SessionSnapshot {
-    /// Create a new SessionSnapshot with optional checkpoint information.
     pub fn new(
         id: String,
         created_at: String,
@@ -447,7 +446,6 @@ pub struct SessionBuilder {
 }
 
 impl SessionBuilder {
-    /// Create a new SessionBuilder with default values
     pub fn new() -> Self {
         Self {
             task: String::new(),
@@ -489,10 +487,6 @@ impl SessionBuilder {
 
     /// Build the Session instance
     ///
-    /// # Panics
-    ///
-    /// Panics if task is empty
-    /// Set the tool approval mode
     pub fn with_tool_approval(mut self, mode: ToolApprovalMode) -> Self {
         self.tool_approval_mode = mode;
         self

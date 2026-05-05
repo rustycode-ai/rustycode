@@ -516,9 +516,7 @@ fn handle_prune(dry_run: bool) -> Result<()> {
     Ok(())
 }
 
-// =============================================================================
 // Helper Functions
-// =============================================================================
 
 /// Format similarity score as colored percentage string
 fn format_similarity(score: f32) -> String {
@@ -705,9 +703,7 @@ fn should_prune(memory: &MemoryEntry) -> bool {
     false
 }
 
-// =============================================================================
 // Data Structures
-// =============================================================================
 
 /// Memory entry for display
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -756,9 +752,7 @@ pub struct ExportData {
     pub memories: Vec<MemoryEntry>,
 }
 
-// =============================================================================
 // Storage Interface
-// =============================================================================
 
 /// Load memory metrics from storage
 fn load_memory_metrics() -> Result<MemoryMetrics> {
@@ -905,7 +899,7 @@ fn load_legacy_memories() -> Result<Vec<MemoryEntry>> {
     use rustycode_memory::{load, MemoryDomain};
 
     let cwd = std::env::current_dir().context("Failed to get current directory")?;
-    let memory_dir = rustycode_memory::get_memory_dir(&cwd);
+    let memory_dir = rustycode_memory::memory_dir(&cwd);
 
     if !memory_dir.exists() {
         return Ok(Vec::new());

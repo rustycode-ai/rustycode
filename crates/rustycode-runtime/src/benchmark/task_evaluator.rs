@@ -327,7 +327,6 @@ impl Default for TaskEvaluator {
 }
 
 impl TaskEvaluator {
-    /// Create a new task evaluator
     pub fn new() -> Self {
         Self::default()
     }

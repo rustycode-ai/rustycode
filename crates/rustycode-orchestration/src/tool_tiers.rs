@@ -13,9 +13,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::isolation::ToolCapability;
 
-// ---------------------------------------------------------------------------
 // ToolTier enum
-// ---------------------------------------------------------------------------
 
 /// Tool activation tier. Tools are loaded progressively based on task demands.
 #[derive(
@@ -42,9 +40,7 @@ impl std::fmt::Display for ToolTier {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Static tool sets
-// ---------------------------------------------------------------------------
 
 /// The default tool set -- always available in every session.
 pub fn default_tool_set() -> HashSet<&'static str> {
@@ -101,9 +97,7 @@ pub fn capability_for_tool(tool_name: &str) -> ToolCapability {
     crate::isolation::classify_tool(tool_name)
 }
 
-// ---------------------------------------------------------------------------
 // UsageTracker
-// ---------------------------------------------------------------------------
 
 /// Per-tool usage statistics.
 #[derive(Debug, Clone, Default)]
@@ -119,7 +113,6 @@ pub struct UsageTracker {
 }
 
 impl UsageTracker {
-    /// Create a new empty tracker.
     pub fn new() -> Self {
         Self::default()
     }
@@ -169,9 +162,7 @@ impl UsageTracker {
     }
 }
 
-// ---------------------------------------------------------------------------
 // ToolActivationManager
-// ---------------------------------------------------------------------------
 
 /// Manages which tools are currently active based on tier and skill scoping.
 ///
@@ -318,9 +309,7 @@ impl Default for ToolActivationManager {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]

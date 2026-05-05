@@ -40,10 +40,6 @@ pub struct ResponseParser;
 impl ResponseParser {
     /// Parse JSON response into Thought objects.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the input is not valid JSON or does not match
-    /// the expected `ThoughtResponse` structure.
     pub fn parse_json(text: &str) -> Result<ThoughtResponse> {
         serde_json::from_str(text)
             .map_err(|e| Error::SerializationError(format!("Failed to parse response JSON: {e}")))
@@ -51,10 +47,6 @@ impl ResponseParser {
 
     /// Convert response data to Thought objects.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if any thought conversion fails (currently infallible,
-    /// but preserved for forward compatibility).
     pub fn to_thoughts(response: &ThoughtResponse) -> Result<Vec<Thought>> {
         Ok(response
             .thoughts
@@ -91,10 +83,6 @@ impl ResponseParser {
 
     /// Attempt to parse response as JSON, fallback to regex.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if neither JSON nor fallback parsing can extract
-    /// any thoughts from the response text.
     pub fn parse_response(text: &str) -> Result<ThoughtResponse> {
         // Try JSON first
         match Self::parse_json(text) {

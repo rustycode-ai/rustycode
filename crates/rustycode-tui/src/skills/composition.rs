@@ -157,7 +157,6 @@ pub struct CompositionManager {
 }
 
 impl CompositionManager {
-    /// Create a new composition manager
     pub fn new(storage_path: PathBuf) -> Result<Self> {
         let mut manager = Self {
             aliases: HashMap::new(),
@@ -186,7 +185,7 @@ impl CompositionManager {
     }
 
     /// Get an alias
-    pub fn get_alias(&self, name: &str) -> Option<&SkillAlias> {
+    pub fn alias(&self, name: &str) -> Option<&SkillAlias> {
         self.aliases.get(name)
     }
 
@@ -213,7 +212,7 @@ impl CompositionManager {
     }
 
     /// Get a composition
-    pub fn get_composition(&self, id: &str) -> Option<&SkillComposition> {
+    pub fn composition(&self, id: &str) -> Option<&SkillComposition> {
         self.compositions.get(id)
     }
 
@@ -238,7 +237,7 @@ impl CompositionManager {
     }
 
     /// Get execution history for a skill
-    pub fn get_history(&self, skill_id: &str) -> Vec<&SkillExecutionEntry> {
+    pub fn history(&self, skill_id: &str) -> Vec<&SkillExecutionEntry> {
         self.history
             .iter()
             .filter(|e| e.skill_id == skill_id)
@@ -246,7 +245,7 @@ impl CompositionManager {
     }
 
     /// Get all execution history
-    pub fn get_all_history(&self) -> &[SkillExecutionEntry] {
+    pub fn all_history(&self) -> &[SkillExecutionEntry] {
         &self.history
     }
 
@@ -258,12 +257,12 @@ impl CompositionManager {
     }
 
     /// Get available templates
-    pub fn get_templates(&self) -> &[SkillTemplate] {
+    pub fn templates(&self) -> &[SkillTemplate] {
         &self.templates
     }
 
     /// Get a specific template
-    pub fn get_template(&self, id: &str) -> Option<&SkillTemplate> {
+    pub fn template(&self, id: &str) -> Option<&SkillTemplate> {
         self.templates.iter().find(|t| t.id == id)
     }
 
@@ -274,7 +273,7 @@ impl CompositionManager {
         params: &HashMap<String, String>,
     ) -> Result<HashMap<String, String>> {
         let template = self
-            .get_template(template_id)
+            .template(template_id)
             .ok_or_else(|| anyhow::anyhow!("Template '{}' not found", template_id))?;
 
         let mut result = HashMap::new();
@@ -603,7 +602,7 @@ mod tests {
 
         manager.create_composition(composition).unwrap();
 
-        let retrieved = manager.get_composition("test-comp");
+        let retrieved = manager.composition("test-comp");
         assert!(retrieved.is_some());
     }
 
@@ -624,7 +623,7 @@ mod tests {
 
         manager.record_execution(entry).unwrap();
 
-        let history = manager.get_history("test-skill");
+        let history = manager.history("test-skill");
         assert_eq!(history.len(), 1);
     }
 

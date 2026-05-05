@@ -20,9 +20,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
 
-// ============================================================================
 // TEST RESULT TYPES
-// ============================================================================
 
 /// Result of running tests
 #[derive(Debug, Clone)]
@@ -75,9 +73,7 @@ pub struct TestConfig {
     pub release_mode: bool,
 }
 
-// ============================================================================
 // TEST EXECUTION
-// ============================================================================
 
 /// Run cargo test and parse the output
 pub fn run_cargo_test(
@@ -362,9 +358,7 @@ fn parse_test_results(output: &str) -> Result<Vec<IndividualTestResult>> {
     Ok(results)
 }
 
-// ============================================================================
 // TOOL IMPLEMENTATIONS
-// ============================================================================
 
 /// Tool for running cargo test
 pub struct RunTestsTool;
@@ -742,9 +736,7 @@ impl Tool for CoverageTool {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

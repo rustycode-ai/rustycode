@@ -74,9 +74,7 @@ lsp_servers = []
     }
 }
 
-// ============================================================================
 // Basic Tool Execution Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_write_file_with_small_content() {
@@ -327,9 +325,7 @@ async fn test_bash_tool_with_working_dir() {
     assert!(result.output.contains("subdir"), "Output should contain subdir: {}", result.output);
 }
 
-// ============================================================================
 // Eager Streaming Parameter Parsing Tests
-// ============================================================================
 
 /// These tests specifically validate the eager streaming fix where tool parameters
 /// sent via "eager streaming" (complete parameters in content_block_start event)
@@ -400,9 +396,7 @@ fn test_eager_streaming_complex_nested_parameters() {
     assert_eq!(nested["nested"]["key2"], 42);
 }
 
-// ============================================================================
 // Delta-Based Parameter Accumulation Tests
-// ============================================================================
 
 /// These tests validate the traditional streaming approach where parameters
 /// are accumulated from delta events.
@@ -454,9 +448,7 @@ fn test_delta_based_large_content_accumulation() {
     assert!(parsed["content"].as_str().unwrap().contains("validate_email"));
 }
 
-// ============================================================================
 // Multiple Tool Calls in Sequence Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_multiple_tools_in_sequence() {
@@ -591,9 +583,7 @@ async fn test_write_read_verify_cycle() {
     assert_eq!(disk_content, test_content);
 }
 
-// ============================================================================
 // Compile-Time Tool Dispatch Tests
-// ============================================================================
 
 #[test]
 fn test_compile_time_write_file_dispatch() {
@@ -650,9 +640,7 @@ fn test_compile_time_bash_dispatch() {
     assert!(result.stderr.is_empty());
 }
 
-// ============================================================================
 // Error Handling Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_read_nonexistent_file() {
@@ -733,9 +721,7 @@ async fn test_invalid_tool_parameters() {
     }
 }
 
-// ============================================================================
 // Tool Execution Event Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_tool_execution_publishes_correct_events() {
@@ -814,9 +800,7 @@ async fn test_tool_execution_event_contains_arguments() {
     assert!(event_data["arguments"].is_object());
 }
 
-// ============================================================================
 // Concurrent Tool Execution Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_concurrent_tool_executions() {
@@ -861,9 +845,7 @@ async fn test_concurrent_tool_executions() {
     assert_eq!(count, 5, "Expected 5 tool events");
 }
 
-// ============================================================================
 // End-to-End Integration Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_end_to_end_file_workflow() {
@@ -1035,9 +1017,7 @@ async fn test_complex_parameter_handling() {
     }
 }
 
-// ============================================================================
 // Tool Execution Metrics Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_tool_execution_metrics() {

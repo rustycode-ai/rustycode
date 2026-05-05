@@ -22,9 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-// ============================================================================
 // Task Profile Extensions
-// ============================================================================
 
 /// Specialized task types that warrant a dedicated agent
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -151,9 +149,7 @@ impl SpecialistType {
     }
 }
 
-// ============================================================================
 // Agent Definition
-// ============================================================================
 
 /// A specialist agent definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,7 +173,6 @@ pub struct SpecialistAgent {
 }
 
 impl SpecialistAgent {
-    /// Create a new specialist agent
     pub fn new(
         name: String,
         specialist_type: SpecialistType,
@@ -203,9 +198,7 @@ impl SpecialistAgent {
     }
 }
 
-// ============================================================================
 // Agent Registry
-// ============================================================================
 
 /// Registry of available agents (built-in + generated specialists)
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -228,7 +221,6 @@ pub struct TaskAgentMatch {
 }
 
 impl AgentRegistry {
-    /// Create a new registry with built-in agents
     pub fn new() -> Self {
         let mut built_in = HashMap::new();
         built_in.insert("Architect".to_string(), AgentRole::Architect);
@@ -249,7 +241,7 @@ impl AgentRegistry {
     ///
     /// Returns the agent ID to use for this task. May create a new specialist
     /// if the task type warrants it and no similar task has been solved before.
-    pub fn get_agent_for_task(&mut self, task: &str, _profile: &TaskProfile) -> AgentSelection {
+    pub fn agent_for_task(&mut self, task: &str, _profile: &TaskProfile) -> AgentSelection {
         // Check if this is a specialist-worthy task
         if let Some(specialist_type) = SpecialistType::from_task(task) {
             // Check if we've solved a similar task before
@@ -382,7 +374,7 @@ impl AgentRegistry {
     }
 
     /// Get a specialist by ID
-    pub fn get_specialist(&self, id: &str) -> Option<&SpecialistAgent> {
+    pub fn specialist(&self, id: &str) -> Option<&SpecialistAgent> {
         self.generated.get(id)
     }
 }
@@ -487,7 +479,7 @@ mod tests {
         let mut registry = AgentRegistry::new();
         let profile = TaskProfile::default();
 
-        let selection = registry.get_agent_for_task("Fix database migration", &profile);
+        let selection = registry.agent_for_task("Fix database migration", &profile);
 
         match selection {
             AgentSelection::NewSpecialist {
@@ -505,7 +497,7 @@ mod tests {
         let profile = TaskProfile::default();
 
         // First call creates specialist
-        let selection1 = registry.get_agent_for_task("Fix database migration", &profile);
+        let selection1 = registry.agent_for_task("Fix database migration", &profile);
         let agent_id = match &selection1 {
             AgentSelection::NewSpecialist { agent_id, .. } => agent_id.clone(),
             _ => panic!("Expected NewSpecialist"),
@@ -515,7 +507,7 @@ mod tests {
         registry.record_task_outcome("DatabaseMigrationAgent", &agent_id, true);
 
         // Second call should reuse
-        let selection2 = registry.get_agent_for_task("Schema migration for users table", &profile);
+        let selection2 = registry.agent_for_task("Schema migration for users table", &profile);
 
         match selection2 {
             AgentSelection::Reuse {
@@ -593,7 +585,7 @@ mod tests {
         let mut registry = AgentRegistry::new();
         let profile = TaskProfile::default();
 
-        let selection = registry.get_agent_for_task("Add a comment", &profile);
+        let selection = registry.agent_for_task("Add a comment", &profile);
         // Simple task should use a built-in agent
         match selection {
             AgentSelection::StandardTeam { .. } => {}
@@ -607,7 +599,7 @@ mod tests {
         let mut registry = AgentRegistry::new();
         let profile = TaskProfile::default();
 
-        let selection = registry.get_agent_for_task("Fix database migration", &profile);
+        let selection = registry.agent_for_task("Fix database migration", &profile);
         let agent_id = match &selection {
             AgentSelection::NewSpecialist { agent_id, .. } => agent_id.clone(),
             _ => panic!("Expected NewSpecialist"),
@@ -617,7 +609,7 @@ mod tests {
         registry.record_task_outcome("DatabaseMigrationAgent", &agent_id, false);
 
         // Should not reuse after failure
-        let selection2 = registry.get_agent_for_task("Database migration for orders", &profile);
+        let selection2 = registry.agent_for_task("Database migration for orders", &profile);
         match selection2 {
             AgentSelection::NewSpecialist { .. } => {} // expected
             AgentSelection::Reuse { .. } => panic!("Should not reuse failed agent"),
@@ -634,7 +626,7 @@ mod tests {
         assert!(!registry.all_agents().is_empty());
 
         // Generate a specialist
-        let _ = registry.get_agent_for_task("Security audit", &profile);
+        let _ = registry.agent_for_task("Security audit", &profile);
         assert!(registry.generated.len() == 1);
     }
 }

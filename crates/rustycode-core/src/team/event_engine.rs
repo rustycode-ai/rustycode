@@ -43,9 +43,7 @@ use tracing::{debug, info};
 
 use super::orchestrator::TeamEvent;
 
-// ============================================================================
 // Event Type (for subscription matching)
-// ============================================================================
 
 /// Event types for subscription matching.
 #[non_exhaustive]
@@ -106,9 +104,7 @@ impl TeamEventType {
     }
 }
 
-// ============================================================================
 // Agent Action (what an agent does in response to an event)
-// ============================================================================
 
 /// Action an agent should take in response to an event.
 #[non_exhaustive]
@@ -143,9 +139,7 @@ pub enum AgentAction {
     ParallelExecute { agents: Vec<String>, task: String },
 }
 
-// ============================================================================
 // Agent Listener (subscribes to events, produces actions)
-// ============================================================================
 
 /// A listener that subscribes to specific event types and produces actions.
 pub type EventHandler = dyn Fn(&TeamEvent) -> AgentAction + Send + Sync;
@@ -184,9 +178,7 @@ impl AgentListener {
     }
 }
 
-// ============================================================================
 // Event Engine (dispatches events to listeners)
-// ============================================================================
 
 /// Event engine that dispatches events to registered listeners.
 pub struct EventEngine {
@@ -199,7 +191,6 @@ pub struct EventEngine {
 }
 
 impl EventEngine {
-    /// Create a new event engine.
     pub fn new() -> Self {
         Self {
             listeners: Vec::new(),
@@ -285,9 +276,7 @@ impl Default for EventEngine {
     }
 }
 
-// ============================================================================
 // Built-in Listeners (pre-configured for standard team)
-// ============================================================================
 
 impl EventEngine {
     /// Register built-in listeners for the standard team.
@@ -386,9 +375,7 @@ impl EventEngine {
     }
 }
 
-// ============================================================================
 // Integration with TeamOrchestrator
-// ============================================================================
 
 /// Extension trait for TeamOrchestrator to integrate with EventEngine.
 pub trait EventDrivenOrchestrator {
@@ -400,9 +387,7 @@ pub trait EventDrivenOrchestrator {
     fn emit_and_dispatch(&mut self, event: TeamEvent) -> Vec<(String, AgentAction)>;
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

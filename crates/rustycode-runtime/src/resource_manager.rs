@@ -502,7 +502,7 @@ impl ResourceManager {
     }
 
     /// Get current utilization metrics
-    pub async fn get_utilization_metrics(&self) -> UtilizationMetrics {
+    pub async fn utilization_metrics(&self) -> UtilizationMetrics {
         let pools = self.resource_pools.read().await;
         let active = self.active_allocations.read().await;
 
@@ -663,7 +663,7 @@ impl ResourceManager {
     }
 
     /// Get resource pool status
-    pub async fn get_pool_status(&self) -> HashMap<ResourceType, ResourcePool> {
+    pub async fn pool_status(&self) -> HashMap<ResourceType, ResourcePool> {
         let pools = self.resource_pools.read().await;
         pools.clone()
     }
@@ -675,7 +675,7 @@ impl ResourceManager {
     }
 
     /// Get allocation statistics
-    pub async fn get_allocation_stats(&self) -> AllocationStatistics {
+    pub async fn allocation_stats(&self) -> AllocationStatistics {
         let active = self.active_allocations.read().await;
         let history = self.allocation_history.read().await;
 

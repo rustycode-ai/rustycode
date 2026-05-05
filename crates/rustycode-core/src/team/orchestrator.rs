@@ -51,9 +51,7 @@ use super::profiler::TaskProfiler;
 use super::prompt_optimization::{self, PromptOptimization};
 use rustycode_protocol::agent_registry::{AgentRegistry, AgentSelection};
 
-// ============================================================================
 // Team Event broadcasting
-// ============================================================================
 
 /// Events emitted by the TeamOrchestrator during execution.
 ///
@@ -197,9 +195,7 @@ pub enum TeamEvent {
     },
 }
 
-// ============================================================================
 // LLM Client abstraction
-// ============================================================================
 
 /// Events emitted during streaming LLM responses.
 #[derive(Debug, Clone)]
@@ -350,9 +346,7 @@ impl TeamLLMClient for RealLLMClient {
     }
 }
 
-// ============================================================================
 // Configuration
-// ============================================================================
 
 /// Configuration for the orchestrator.
 #[derive(Debug, Clone)]
@@ -406,9 +400,7 @@ impl Default for ToolLoopConfig {
     }
 }
 
-// ============================================================================
 // Step execution result
-// ============================================================================
 
 /// Result of a single plan step execution.
 #[derive(Debug, Clone)]
@@ -421,9 +413,7 @@ enum StepResult {
     Stop(StopReason),
 }
 
-// ============================================================================
 // Orchestrator outcome
-// ============================================================================
 
 /// The outcome of a full team orchestration run.
 #[derive(Debug, Clone)]
@@ -442,9 +432,7 @@ pub struct OrchestratorOutcome {
     pub timeline: Option<AgentTimeline>,
 }
 
-// ============================================================================
 // TeamOrchestrator
-// ============================================================================
 
 /// The full team orchestration engine.
 ///
@@ -865,7 +853,7 @@ impl TeamOrchestrator {
                 .agent_registry
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());
-            registry.get_agent_for_task(task, &profile)
+            registry.agent_for_task(task, &profile)
         };
 
         // Log agent selection and configure coordinator if specialist
@@ -1765,7 +1753,7 @@ impl TeamOrchestrator {
             TeamRole::Scalpel => &self.tool_loop_config.scalpel_tools,
             _ => &self.tool_loop_config.builder_tools,
         };
-        let all_tool_defs = self.tool_executor.get_openai_tool_definitions();
+        let all_tool_defs = self.tool_executor.openai_tool_definitions();
         let filtered_tools: Vec<serde_json::Value> = all_tool_defs
             .into_iter()
             .filter(|t| {
@@ -1953,9 +1941,7 @@ pub fn is_scalpel_appropriate(errors: &str) -> bool {
     })
 }
 
-// ============================================================================
 // Mock client for testing
-// ============================================================================
 
 /// A mock LLM client for testing. Returns scripted responses in order.
 pub struct MockLLMClient {

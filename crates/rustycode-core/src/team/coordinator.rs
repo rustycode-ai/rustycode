@@ -100,7 +100,6 @@ pub enum SkepticVerdict {
 }
 
 impl Coordinator {
-    /// Create a new coordinator for a task.
     pub fn new(project_root: PathBuf, profile: TaskProfile) -> Self {
         let team_config = profile.assemble_team();
         let state = TeamLoopState::new(team_config);

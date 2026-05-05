@@ -44,7 +44,6 @@ pub struct RegistryDownloader {
 }
 
 impl RegistryDownloader {
-    /// Create a new downloader using the default cache directory.
     pub fn new() -> Self {
         let cache_dir = Self::default_cache_dir();
         Self {

@@ -4,7 +4,6 @@
 pub struct ExecutionContextUtils;
 
 impl ExecutionContextUtils {
-    /// Create a new execution context
     pub const fn new() -> Self {
         Self
     }

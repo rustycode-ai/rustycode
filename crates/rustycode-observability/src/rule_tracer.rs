@@ -8,9 +8,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-// ---------------------------------------------------------------------------
 // TraceLevel
-// ---------------------------------------------------------------------------
 
 /// The outcome of a rule evaluation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -33,9 +31,7 @@ impl std::fmt::Display for TraceLevel {
     }
 }
 
-// ---------------------------------------------------------------------------
 // TraceEntry
-// ---------------------------------------------------------------------------
 
 /// A single recorded rule evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,9 +54,7 @@ pub struct TraceEntry {
     pub precedence: u32,
 }
 
-// ---------------------------------------------------------------------------
 // RuleTracer
-// ---------------------------------------------------------------------------
 
 /// Collects and queries rule evaluation traces.
 #[derive(Debug, Clone, Default)]
@@ -196,9 +190,7 @@ impl RuleTracer {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

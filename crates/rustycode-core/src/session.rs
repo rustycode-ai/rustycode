@@ -447,7 +447,6 @@ impl std::fmt::Display for TokenBudgetStatus {
 }
 
 impl SessionState {
-    /// Create a new session state
     pub fn new(cwd: PathBuf) -> Self {
         let session_id = SessionId::new();
         let conversation = Conversation::new(session_id);
@@ -688,7 +687,7 @@ impl SessionState {
     }
 
     /// Safely get pending LLM request flag
-    pub fn get_pending_request(&self) -> bool {
+    pub fn pending_request(&self) -> bool {
         self.conversation.pending_llm_request
             .lock()
             .map(|guard| *guard)
@@ -970,13 +969,13 @@ mod tests {
     #[test]
     fn pending_request_flag() {
         let s = make_session();
-        assert!(!s.get_pending_request());
+        assert!(!s.pending_request());
 
         s.set_pending_request(true);
-        assert!(s.get_pending_request());
+        assert!(s.pending_request());
 
         s.set_pending_request(false);
-        assert!(!s.get_pending_request());
+        assert!(!s.pending_request());
     }
 
     #[test]

@@ -268,7 +268,7 @@ impl SessionManager {
         Ok((state, false))
     }
 
-    pub async fn get_session(&self, token: &str) -> Option<SessionState> {
+    pub async fn session(&self, token: &str) -> Option<SessionState> {
         let sessions = self.sessions.read().await;
         sessions.get(token).cloned()
     }
@@ -840,11 +840,11 @@ mod tests {
         mgr.client_connected(&token).await.unwrap();
         mgr.client_connected(&token).await.unwrap();
 
-        let state = mgr.get_session(&token).await.unwrap();
+        let state = mgr.session(&token).await.unwrap();
         assert_eq!(state.client_count, 2);
 
         mgr.client_disconnected(&token).await;
-        let state = mgr.get_session(&token).await.unwrap();
+        let state = mgr.session(&token).await.unwrap();
         assert_eq!(state.client_count, 1);
     }
 
@@ -987,7 +987,7 @@ mod tests {
 
         mgr.abort(&token).await.unwrap();
 
-        let state = mgr.get_session(&token).await.unwrap();
+        let state = mgr.session(&token).await.unwrap();
         assert!(state.cancel_token.is_cancelled());
     }
 

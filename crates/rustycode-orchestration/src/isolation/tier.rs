@@ -18,7 +18,6 @@ pub struct ContextBudget {
 }
 
 impl ContextBudget {
-    /// Create a new budget with the given token limit and zero usage.
     pub const fn new(limit: u64) -> Self {
         Self { limit, used: 0 }
     }
@@ -193,7 +192,6 @@ impl Default for IsolationConfig {
 }
 
 impl IsolationConfig {
-    /// Create a new config with the given token limits.
     pub const fn new(
         tier_2_tokens: u64,
         tier_3_tokens: u64,
@@ -232,7 +230,6 @@ pub struct TierIsolation {
 }
 
 impl TierIsolation {
-    /// Create a new isolation manager with the given configuration.
     pub fn new(config: &IsolationConfig) -> Self {
         let mut budgets = std::collections::HashMap::new();
         let mut policies = std::collections::HashMap::new();

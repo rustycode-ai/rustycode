@@ -18,9 +18,7 @@ use rustycode_executable::{
 };
 use std::sync::Arc;
 
-// ---------------------------------------------------------------------------
 // Test infrastructure: delegating executors that route to the unit handler
-// ---------------------------------------------------------------------------
 
 /// Delegates to the unit's `Callable` handler using `DirectTool` context.
 struct DelegatingDirectExecutor;
@@ -101,9 +99,7 @@ fn setup_delegating_router() -> (Arc<ExecutableRegistry>, ExecutionRouter) {
     (registry, router)
 }
 
-// ===================================================================
 // A. Full pipeline: register -> discover -> execute
-// ===================================================================
 
 #[tokio::test]
 async fn full_pipeline_register_discover_execute_tool() {
@@ -193,9 +189,7 @@ async fn full_pipeline_discover_agent_and_execute() {
     assert_eq!(output.data["error"], "SIGSEGV");
 }
 
-// ===================================================================
 // B. Call chain multi-unit test
-// ===================================================================
 
 #[tokio::test]
 async fn call_chain_three_units_sequential() {
@@ -237,9 +231,7 @@ async fn call_chain_reports_total_duration() {
     assert!(result.total_duration_ms >= 2);
 }
 
-// ===================================================================
 // C. Capability enforcement
-// ===================================================================
 
 #[tokio::test]
 async fn tool_unit_rejects_skill_context() {
@@ -402,9 +394,7 @@ async fn programmatic_call_context_requires_direct_capability() {
     assert_eq!(result.data["k"], "ok");
 }
 
-// ===================================================================
 // D. Discovery accuracy
-// ===================================================================
 
 #[tokio::test]
 async fn discovery_exact_name_scores_highest() {
@@ -501,9 +491,7 @@ async fn discovery_limits_results_correctly() {
     );
 }
 
-// ===================================================================
 // E. Metadata consistency
-// ===================================================================
 
 #[tokio::test]
 async fn metadata_defer_loading_flags_accurate() {
@@ -553,9 +541,7 @@ async fn metadata_search_hints_preserved() {
     assert!(hinted.search_hints.contains(&"agent".to_string()));
 }
 
-// ===================================================================
 // F. Edge cases
-// ===================================================================
 
 #[tokio::test]
 async fn empty_query_returns_all_results() {
@@ -691,9 +677,7 @@ async fn concurrent_read_while_registering() {
     assert!(pre.is_some());
 }
 
-// ===================================================================
 // G. Examples accuracy
-// ===================================================================
 
 #[tokio::test]
 async fn examples_preserved_through_register_get_cycle() {

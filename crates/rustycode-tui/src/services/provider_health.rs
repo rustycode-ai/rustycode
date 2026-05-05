@@ -31,7 +31,6 @@ pub struct ProviderHealthResult {
 }
 
 impl ProviderHealthResult {
-    /// Create a new health check result
     pub fn new(provider_type: String, provider_name: String) -> Self {
         Self {
             provider_type,

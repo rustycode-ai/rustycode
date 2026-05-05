@@ -94,11 +94,12 @@ impl TUI {
 
         match event {
             Ok(CrosstermEvent::Key(key)) => {
-                if ((key.code == KeyCode::Char('k')
+                let is_cmd_palette_shortcut = (key.code == KeyCode::Char('k')
                     && key.modifiers.contains(KeyModifiers::CONTROL))
                     || (key.code == KeyCode::Char('P')
                         && key.modifiers.contains(KeyModifiers::CONTROL)
-                        && key.modifiers.contains(KeyModifiers::SHIFT)))
+                        && key.modifiers.contains(KeyModifiers::SHIFT));
+                if is_cmd_palette_shortcut
                     && !self.wizard.showing_wizard
                     && self.pending_approval_request.is_empty()
                     && !self.error_manager.is_showing()
@@ -250,7 +251,7 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::End => {
-                            self.help_state.scroll_offset = 10000;
+                            self.help_state.scroll_offset = usize::MAX;
                             self.dirty = true;
                             return Ok(());
                         }
@@ -818,10 +819,10 @@ impl TUI {
     }
 
     /// Get all unique tag types in current messages
-    pub fn get_all_tag_types(&self) -> Vec<crate::ui::message_tags::TagType> {
+    pub fn all_tag_types(&self) -> Vec<crate::ui::message_tags::TagType> {
         let mut tag_types = std::collections::HashSet::new();
         for message in &self.messages {
-            for tag in message.get_tags() {
+            for tag in message.tags() {
                 tag_types.insert(tag.tag_type.clone());
             }
         }

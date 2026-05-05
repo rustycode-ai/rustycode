@@ -31,9 +31,6 @@ pub struct CircularBuffer<T> {
 impl<T> CircularBuffer<T> {
     /// Create a new circular buffer with the given capacity.
     ///
-    /// # Panics
-    ///
-    /// Panics if capacity is 0.
     pub fn new(capacity: usize) -> Self {
         assert!(capacity > 0, "CircularBuffer capacity must be > 0");
         let mut buffer = Vec::with_capacity(capacity);

@@ -82,9 +82,7 @@ pub fn format_result_string(result: &HookResult) -> String {
     serde_json::to_string(result).unwrap_or_else(|_| String::from("{}"))
 }
 
-// ---------------------------------------------------------------------------
 // Protocol type conversions
-// ---------------------------------------------------------------------------
 
 #[allow(clippy::use_self)]
 impl From<HookInput> for rustycode_protocol::HookInput {

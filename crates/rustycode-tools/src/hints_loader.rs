@@ -155,21 +155,6 @@ fn expand_hints_content(
 /// `@file` references with gitignore filtering. Returns a structured
 /// string with global and project hints sections.
 ///
-/// # Arguments
-///
-/// * `cwd` - Current working directory
-/// * `config_dir` - Global config directory (e.g., `~/.config/rustycode`)
-/// * `hints_filenames` - Filenames to search for (e.g., `.rustycodehints`, `CLAUDE.md`)
-/// * `gitignore` - Pre-built gitignore rules
-///
-/// # Example
-///
-/// ```ignore
-/// use rustycode_tools::hints_loader::{load_hint_files, build_gitignore, default_hints_filenames};
-///
-/// let gitignore = build_gitignore(&cwd);
-/// let hints = load_hint_files(&cwd, &config_dir, &default_hints_filenames(), &gitignore);
-/// ```
 pub fn load_hint_files(
     cwd: &Path,
     config_dir: &Path,
@@ -265,7 +250,6 @@ pub struct SubdirectoryHintTracker {
 }
 
 impl SubdirectoryHintTracker {
-    /// Create a new tracker with default hint filenames.
     pub fn new() -> Self {
         Self {
             loaded_dirs: HashSet::new(),

@@ -33,7 +33,6 @@ pub struct StringZone {
 }
 
 impl StringZone {
-    /// Create a new static zone with the given name and content.
     pub fn new(name: &str, content: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -94,7 +93,6 @@ pub struct SessionContextBlock {
 }
 
 impl SessionContextBlock {
-    /// Create a new context block from four zone providers.
     pub fn new(
         environment: Box<dyn ContextZone>,
         session_state: Box<dyn ContextZone>,

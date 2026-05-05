@@ -20,9 +20,7 @@ use ratatui::Terminal;
 use rustycode_core::team::orchestrator::TeamEvent;
 use rustycode_tui::ui::team_panel::{AgentState, TeamPanel};
 
-// =============================================================================
 // Test: Agent activation updates panel state
-// =============================================================================
 #[test]
 fn agent_activation_updates_panel() {
     let mut panel = TeamPanel::new();
@@ -37,9 +35,7 @@ fn agent_activation_updates_panel() {
     assert_eq!(panel.current_turn(), 1);
 }
 
-// =============================================================================
 // Test: Agent deactivation clears state
-// =============================================================================
 #[test]
 fn agent_deactivation_clears_state() {
     let mut panel = TeamPanel::new();
@@ -56,9 +52,7 @@ fn agent_deactivation_clears_state() {
     assert!(!panel.has_active_agents());
 }
 
-// =============================================================================
 // Test: Deactivation with failure reason
-// =============================================================================
 #[test]
 fn deactivation_with_failure() {
     let mut panel = TeamPanel::new();
@@ -75,9 +69,7 @@ fn deactivation_with_failure() {
     assert_eq!(panel.agent_state("Builder"), Some(AgentState::Failed));
 }
 
-// =============================================================================
 // Test: Task completion shows success + files
-// =============================================================================
 #[test]
 fn task_completion_shows_success() {
     let mut panel = TeamPanel::new();
@@ -94,9 +86,7 @@ fn task_completion_shows_success() {
     assert_eq!(panel.files_modified(), &["src/lib.rs".to_string()]);
 }
 
-// =============================================================================
 // Test: Task failure shows failure state
-// =============================================================================
 #[test]
 fn task_failure_shows_failure() {
     let mut panel = TeamPanel::new();
@@ -111,9 +101,7 @@ fn task_failure_shows_failure() {
     assert!(panel.trust_value() < 0.5);
 }
 
-// =============================================================================
 // Test: Panel visibility toggle
-// =============================================================================
 #[test]
 fn panel_visibility_toggle() {
     let mut panel = TeamPanel::new();
@@ -124,9 +112,7 @@ fn panel_visibility_toggle() {
     assert!(!panel.visible);
 }
 
-// =============================================================================
 // Test: Step completed resets completed agents
-// =============================================================================
 #[test]
 fn step_completed_resets_agents() {
     let mut panel = TeamPanel::new();
@@ -150,9 +136,7 @@ fn step_completed_resets_agents() {
     assert_eq!(panel.agent_state("Builder"), Some(AgentState::Waiting));
 }
 
-// =============================================================================
 // Test: Reset clears all state
-// =============================================================================
 #[test]
 fn reset_clears_state() {
     let mut panel = TeamPanel::new();
@@ -169,9 +153,7 @@ fn reset_clears_state() {
     assert!(panel.files_modified().is_empty());
 }
 
-// =============================================================================
 // Test: Esc key hides panel with active agents (cancellation scenario)
-// =============================================================================
 #[test]
 fn esc_key_hides_panel() {
     let mut panel = TeamPanel::new();
@@ -186,9 +168,7 @@ fn esc_key_hides_panel() {
     assert!(!panel.visible);
 }
 
-// =============================================================================
 // Test: Render doesn't crash with normal area
-// =============================================================================
 #[test]
 fn render_does_not_crash() {
     let mut panel = TeamPanel::new();
@@ -209,9 +189,7 @@ fn render_does_not_crash() {
         .unwrap();
 }
 
-// =============================================================================
 // Test: Render doesn't crash with small area
-// =============================================================================
 #[test]
 fn render_too_small_does_not_crash() {
     let panel = TeamPanel::new();
@@ -225,9 +203,7 @@ fn render_too_small_does_not_crash() {
         .unwrap();
 }
 
-// =============================================================================
 // Test: Build content shows empty state
-// =============================================================================
 #[test]
 fn build_content_shows_empty_state() {
     let panel = TeamPanel::new();
@@ -238,9 +214,7 @@ fn build_content_shows_empty_state() {
     assert!(has_awaiting);
 }
 
-// =============================================================================
 // Test: Build content shows success on completion
-// =============================================================================
 #[test]
 fn build_content_shows_success() {
     let mut panel = TeamPanel::new();
@@ -257,9 +231,7 @@ fn build_content_shows_success() {
     assert!(has_success);
 }
 
-// =============================================================================
 // Test: Phase 4 events handled gracefully
-// =============================================================================
 #[test]
 fn phase4_events_handled() {
     let mut panel = TeamPanel::new();
@@ -290,9 +262,7 @@ fn phase4_events_handled() {
     assert!(!panel.has_active_agents());
 }
 
-// =============================================================================
 // Test: TrustChanged event updates trust score
-// =============================================================================
 #[test]
 fn trust_changed_updates_trust() {
     let mut panel = TeamPanel::new();
@@ -312,9 +282,7 @@ fn trust_changed_updates_trust() {
     );
 }
 
-// =============================================================================
 // Test: Insight event updates detail
-// =============================================================================
 #[test]
 fn insight_event_updates_detail() {
     let mut panel = TeamPanel::new();
@@ -330,9 +298,7 @@ fn insight_event_updates_detail() {
     assert_eq!(panel.agent_detail("Skeptic"), Some("Found potential issue"));
 }
 
-// =============================================================================
 // Test: Agent state change updates detail
-// =============================================================================
 #[test]
 fn agent_state_change_updates_detail() {
     let mut panel = TeamPanel::new();
@@ -349,9 +315,7 @@ fn agent_state_change_updates_detail() {
     assert_eq!(panel.agent_detail("Builder"), Some("Verifying code"));
 }
 
-// =============================================================================
 // Test: Trust bar rendering
-// =============================================================================
 #[test]
 fn trust_bar_rendering() {
     let mut panel = TeamPanel::new();
@@ -368,9 +332,7 @@ fn trust_bar_rendering() {
     assert!(has_bar);
 }
 
-// =============================================================================
 // Test: File changes display on completion
-// =============================================================================
 #[test]
 fn file_changes_display() {
     let mut panel = TeamPanel::new();
@@ -387,18 +349,14 @@ fn file_changes_display() {
     assert!(has_file);
 }
 
-// =============================================================================
 // Test: Max turns getter
-// =============================================================================
 #[test]
 fn max_turns_default() {
     let panel = TeamPanel::new();
     assert_eq!(panel.max_turns(), 50);
 }
 
-// =============================================================================
 // Test: Set max turns
-// =============================================================================
 #[test]
 fn set_max_turns() {
     let mut panel = TeamPanel::new();

@@ -8,9 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::types::{AstPhase, ComplexityLevel};
 
-// ---------------------------------------------------------------------------
 // Constants
-// ---------------------------------------------------------------------------
 
 /// The AST system prompt template.
 ///
@@ -73,9 +71,7 @@ const VALID_PHASE_NAMES: [&str; 6] = [
     "CLASSIFY", "RESEARCH", "SKELETON", "EXPAND", "EXECUTE", "VERIFY",
 ];
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /// Parsed AST output from a model response.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,9 +95,7 @@ pub struct ParsedPhase {
     pub line_number: usize,
 }
 
-// ---------------------------------------------------------------------------
 // Parsing
-// ---------------------------------------------------------------------------
 
 /// Parse and validate AST output from a model response.
 ///
@@ -164,9 +158,7 @@ fn parse_phase_header(line: &str) -> Option<&'static str> {
         .copied()
 }
 
-// ---------------------------------------------------------------------------
 // Validation
-// ---------------------------------------------------------------------------
 
 /// Validate extracted phases without complexity context.
 ///
@@ -251,9 +243,7 @@ fn canonical_index(name: &str) -> Option<usize> {
     CANONICAL_PHASES.iter().position(|p| p.to_string() == name)
 }
 
-// ---------------------------------------------------------------------------
 // Phase prompt builder
-// ---------------------------------------------------------------------------
 
 /// Build the prompt for a specific AST phase.
 ///
@@ -346,9 +336,7 @@ pub fn build_phase_prompt(phase: AstPhase, complexity: ComplexityLevel, context:
     format!("{phase_instruction}{context_section}")
 }
 
-// ---------------------------------------------------------------------------
 // Token estimation
-// ---------------------------------------------------------------------------
 
 /// Estimate the token count of a string.
 ///
@@ -359,9 +347,7 @@ pub fn estimate_tokens(text: &str) -> usize {
     text.split_whitespace().count()
 }
 
-// ---------------------------------------------------------------------------
 // Extra section detection
-// ---------------------------------------------------------------------------
 
 /// Detect non-phase `##` headers in raw output text.
 ///
@@ -383,9 +369,7 @@ pub fn detect_extra_sections(output: &str) -> Vec<(String, usize)> {
     extras
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

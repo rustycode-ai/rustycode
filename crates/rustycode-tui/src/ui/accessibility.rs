@@ -227,7 +227,6 @@ pub struct AccessibilityRenderer {
 }
 
 impl AccessibilityRenderer {
-    /// Create a new accessibility renderer
     pub fn new(settings: SharedAccessibility) -> Self {
         Self { settings }
     }
@@ -334,7 +333,6 @@ pub struct ScreenReadableElement {
 }
 
 impl ScreenReadableElement {
-    /// Create a new screen readable element
     pub fn new(element_type: impl Into<String>, label: impl Into<String>) -> Self {
         Self {
             element_type: element_type.into(),
@@ -409,7 +407,6 @@ pub struct FocusHistory {
 }
 
 impl FocusHistory {
-    /// Create a new focus history
     pub fn new(max_size: usize) -> Self {
         Self {
             elements: Vec::new(),
@@ -455,7 +452,6 @@ pub struct AnnouncementQueue {
 }
 
 impl AnnouncementQueue {
-    /// Create a new announcement queue
     pub fn new(max_size: usize) -> Self {
         Self {
             announcements: Vec::new(),
@@ -472,7 +468,7 @@ impl AnnouncementQueue {
     }
 
     /// Get all pending announcements in priority order
-    pub fn get_all(&self) -> Vec<String> {
+    pub fn all(&self) -> Vec<String> {
         let mut announcements = self.announcements.clone();
         // Sort by priority (critical first)
         announcements.sort_by(|a, b| match (&a.1, &b.1) {
@@ -775,7 +771,7 @@ mod tests {
 
         assert_eq!(queue.len(), 3);
 
-        let all = queue.get_all();
+        let all = queue.all();
         // Critical should be first
         assert_eq!(all[0], "Error!");
     }
@@ -790,7 +786,7 @@ mod tests {
         queue.announce("Medium 1", AnnouncementPriority::Medium);
         queue.announce("Low 2", AnnouncementPriority::Low);
 
-        let all = queue.get_all();
+        let all = queue.all();
         assert_eq!(all[0], "Critical 1");
         assert_eq!(all[1], "High 1");
         assert_eq!(all[2], "Medium 1");

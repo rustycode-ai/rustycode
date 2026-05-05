@@ -44,14 +44,14 @@ impl ExecutionCheckpointStore {
         self.len() == 0
     }
 
-    pub fn get_all(&self) -> Vec<CheckpointSnapshot> {
+    pub fn all(&self) -> Vec<CheckpointSnapshot> {
         self.checkpoints
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone()
     }
 
-    pub fn get_latest(&self) -> Option<CheckpointSnapshot> {
+    pub fn latest(&self) -> Option<CheckpointSnapshot> {
         self.checkpoints
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -135,7 +135,6 @@ pub struct ExecutionContext {
 }
 
 impl ExecutionContext {
-    /// Create a new execution context.
     pub fn new(config: ExecutionConfig, cwd: PathBuf) -> Self {
         let tool_registry = create_tool_registry();
 
@@ -213,7 +212,6 @@ pub struct StepExecutorRegistry {
 }
 
 impl StepExecutorRegistry {
-    /// Create a new empty executor registry.
     pub fn new() -> Self {
         Self {
             executors: HashMap::new(),
@@ -478,7 +476,6 @@ impl StepExecutor for GenericStepExecutor {
 pub struct ToolInvocationWrapper;
 
 impl ToolInvocationWrapper {
-    /// Create a new tool invocation wrapper.
     pub fn new(_tool_name: String, _args: String) -> Self {
         Self
     }
@@ -653,10 +650,10 @@ mod tests {
             .unwrap();
 
         assert!(
-            !store.get_all().is_empty(),
+            !store.all().is_empty(),
             "at least pre-checkpoint must be saved"
         );
-        let first = &store.get_all()[0];
+        let first = &store.all()[0];
         assert_eq!(first.session_id, "test-session");
     }
 
@@ -698,7 +695,7 @@ mod tests {
             .execute(make_step("phase-check"), &mut conv, &ctx)
             .unwrap();
 
-        let all = store.get_all();
+        let all = store.all();
         assert!(all.iter().all(|cp| cp.phase == ExecutionPhase::Act));
     }
 
@@ -713,7 +710,7 @@ mod tests {
             .execute(make_step("ctx-check"), &mut conv, &ctx)
             .unwrap();
 
-        let all = store.get_all();
+        let all = store.all();
         assert!(all.iter().all(|cp| cp.session_id == "test-session"));
         assert!(all.iter().all(|cp| !cp.id.is_empty()));
         assert!(all.iter().all(|cp| !cp.context_hash.is_empty()));

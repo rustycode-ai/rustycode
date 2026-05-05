@@ -10,16 +10,6 @@ use crate::provider::{normalize_stop_reason, CompletionResponse, ProviderError, 
 /// providers. It handles content extraction, tool call formatting, and usage
 /// mapping.
 ///
-/// # Arguments
-/// * `response` - The parsed OpenAI-compatible response
-///
-/// # Returns
-/// A CompletionResponse or a ProviderError if the response is malformed.
-///
-/// # Example
-/// ```rust,ignore
-/// let completion = build_completion_response(&parsed_response)?;
-/// ```
 pub fn build_completion_response(
     response: &OpenAiCompatibleResponse,
 ) -> Result<CompletionResponse, ProviderError> {
@@ -99,11 +89,6 @@ pub fn build_completion_response(
 /// Useful when providers need custom content extraction logic but still
 /// want to use the standard usage mapping.
 ///
-/// # Arguments
-/// * `content` - The response content string
-/// * `model` - The model name
-/// * `stop_reason` - Optional stop reason
-/// * `usage` - Optional usage information
 pub fn build_completion_response_from_parts(
     content: String,
     model: String,

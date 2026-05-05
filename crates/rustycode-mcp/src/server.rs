@@ -73,7 +73,6 @@ pub struct McpPromptTemplate {
 }
 
 impl McpServer {
-    /// Create a new MCP server
     pub fn new(_name: impl Into<String>, config: McpServerConfig) -> Self {
         Self {
             config,

@@ -16,9 +16,7 @@ use rustycode_orchestration::pipeline::OrchestrationPipeline;
 use rustycode_tools_api::{Tool, ToolContext, ToolOutput, ToolPermission, ToolRegistry};
 use serde_json::Value;
 
-// ---------------------------------------------------------------------------
 // Stub tool for registration tests
-// ---------------------------------------------------------------------------
 
 /// Minimal tool implementation used only in these tests.
 struct StubTool;
@@ -46,9 +44,7 @@ impl Tool for StubTool {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Test 1: Pipeline constructed with an external tool registry exposes tools
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_pipeline_with_external_tool_registry_has_tools() {
@@ -75,9 +71,7 @@ async fn test_pipeline_with_external_tool_registry_has_tools() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Test 2: Default pipeline has zero tools (regression guard)
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_pipeline_default_has_no_tools() {
@@ -96,9 +90,7 @@ async fn test_pipeline_default_has_no_tools() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Test 3: Pipeline accepts a custom system prompt
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn test_pipeline_with_custom_system_prompt() {
@@ -128,9 +120,7 @@ async fn test_pipeline_with_custom_system_prompt() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Test 4: conduct accepts conversation history
-// ---------------------------------------------------------------------------
 
 /// A single previous message in the conversation.
 /// Mirrors the shape that rustycode-protocol uses for messages.

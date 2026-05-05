@@ -19,7 +19,7 @@ async fn test_storage_creation() {
     let storage = storage.unwrap();
 
     // Verify we can perform basic operations
-    let result = storage.get_events(10);
+    let result = storage.events(10);
     assert!(result.is_ok());
 }
 

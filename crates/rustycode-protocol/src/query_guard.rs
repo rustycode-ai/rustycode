@@ -58,7 +58,6 @@ pub enum QueryState {
 }
 
 impl QueryGuard {
-    /// Create a new guard in the idle state.
     pub fn new() -> Self {
         Self {
             state: QueryState::Idle,

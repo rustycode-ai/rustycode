@@ -75,8 +75,8 @@ impl Default for HelpState {
 }
 
 /// Get all help topics
-pub fn get_help_topics() -> Vec<HelpTopic> {
-    topics::get_all_topics()
+pub fn help_topics() -> Vec<HelpTopic> {
+    topics::all_topics()
 }
 
 /// Filter topics by category and search query
@@ -105,7 +105,7 @@ pub fn render_help(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, stat
         return;
     }
 
-    let topics = get_help_topics();
+    let topics = help_topics();
     let filtered = filter_topics(&topics, state.selected_category, &state.search_query);
 
     // Calculate dialog dimensions (80% of screen, centered)

@@ -123,7 +123,7 @@ impl ToolApprovalManager {
     }
 
     /// Get approval state for a tool
-    pub fn get_approval_state(&self, tool_name: &str) -> Option<&ApprovalState> {
+    pub fn approval_state(&self, tool_name: &str) -> Option<&ApprovalState> {
         self.session_approvals
             .iter()
             .find(|(name, _)| name == tool_name)

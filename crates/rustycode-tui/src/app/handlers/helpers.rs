@@ -143,6 +143,9 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     }
 }
 
+const TOOL_SUMMARY_MAX_LEN: usize = 60;
+const TOOL_SUMMARY_TRUNCATE_AT: usize = 57;
+
 pub(super) fn build_tool_summary_arg(
     tool_name: &str,
     input_json: &serde_json::Value,
@@ -150,12 +153,11 @@ pub(super) fn build_tool_summary_arg(
     let lower = tool_name.to_lowercase();
     if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
         return input_json.get("command").and_then(|v| v.as_str()).map(|s| {
-            let truncated = if s.len() > 60 {
-                format!("{}…", &s[..s.floor_char_boundary(57)])
+            if s.len() > TOOL_SUMMARY_MAX_LEN {
+                format!("{}…", &s[..s.floor_char_boundary(TOOL_SUMMARY_TRUNCATE_AT)])
             } else {
                 s.to_string()
-            };
-            truncated
+            }
         });
     }
     if lower.contains("read") || lower.contains("cat") || lower.contains("view") {
@@ -215,11 +217,10 @@ pub(super) fn build_tool_summary_arg(
             .and_then(|v| v.as_str())
             .or_else(|| {
                 input_json.get("prompt").and_then(|v| {
-                    // Truncate prompt to first line or 60 chars
                     let s = v.as_str()?;
                     let first_line = s.split('\n').next().unwrap_or(s);
-                    Some(if first_line.len() > 60 {
-                        &first_line[..first_line.floor_char_boundary(57)]
+                    Some(if first_line.len() > TOOL_SUMMARY_MAX_LEN {
+                        &first_line[..first_line.floor_char_boundary(TOOL_SUMMARY_TRUNCATE_AT)]
                     } else {
                         first_line
                     })

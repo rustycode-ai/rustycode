@@ -41,7 +41,6 @@ pub struct EditHistory {
 }
 
 impl EditHistory {
-    /// Create a new edit history for the given workspace.
     pub fn new(workspace_root: PathBuf) -> Self {
         Self {
             undo_stack: VecDeque::with_capacity(DEFAULT_MAX_DEPTH),

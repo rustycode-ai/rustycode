@@ -18,7 +18,6 @@ pub struct ArchitectPhase {
 }
 
 impl ArchitectPhase {
-    /// Create a new ArchitectPhase for the given project root.
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
         Self {
             project_root: project_root.into(),

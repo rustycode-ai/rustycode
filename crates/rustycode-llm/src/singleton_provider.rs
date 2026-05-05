@@ -30,7 +30,6 @@ pub struct SharedLLMProvider {
 }
 
 impl SharedLLMProvider {
-    /// Create a new shared provider instance
     pub fn new(config: ProviderConfig, model: String) -> Result<Self> {
         let provider = AnthropicProvider::new(config.clone(), model.clone())
             .map_err(|e| anyhow::anyhow!("Failed to create AnthropicProvider: {}", e))?;
@@ -68,10 +67,6 @@ impl SharedLLMProvider {
 /// This should be called once at application startup. If called multiple times
 /// with different configurations, it will recreate the provider.
 ///
-/// # Arguments
-///
-/// * `config` - Provider configuration
-/// * `model` - Model to use
 pub fn initialize_provider(config: ProviderConfig, model: String) -> Result<()> {
     let mut provider_lock = SHARED_PROVIDER
         .lock()
@@ -83,7 +78,7 @@ pub fn initialize_provider(config: ProviderConfig, model: String) -> Result<()> 
 /// Get the shared provider instance
 ///
 /// Returns an error if the provider hasn't been initialized.
-pub fn get_provider() -> Result<Arc<SharedLLMProvider>> {
+pub fn provider() -> Result<Arc<SharedLLMProvider>> {
     let provider_lock = SHARED_PROVIDER
         .lock()
         .map_err(|e| anyhow::anyhow!("Provider mutex poisoned: {}", e))?;

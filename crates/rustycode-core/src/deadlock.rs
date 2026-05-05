@@ -288,7 +288,7 @@ impl DeadlockDetector {
         false
     }
 
-    pub async fn get_deadlock_reports(&self) -> Vec<DeadlockReport> {
+    pub async fn deadlock_reports(&self) -> Vec<DeadlockReport> {
         // For now, return single report if any
         let r = self.detect_deadlocks().await;
         if r.has_deadlock() {
@@ -393,7 +393,7 @@ mod tests {
     #[tokio::test]
     async fn get_deadlock_reports_empty() {
         let detector = DeadlockDetector::new();
-        let reports = detector.get_deadlock_reports().await;
+        let reports = detector.deadlock_reports().await;
         assert!(reports.is_empty());
     }
 }

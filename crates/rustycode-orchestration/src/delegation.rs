@@ -11,9 +11,7 @@ use crate::types::ExecutionTier;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-// ---------------------------------------------------------------------------
 // TaskRole
-// ---------------------------------------------------------------------------
 
 /// Semantic role assigned to a delegated task.
 ///
@@ -89,9 +87,7 @@ impl TaskRole {
     }
 }
 
-// ---------------------------------------------------------------------------
 // TaskSpec
-// ---------------------------------------------------------------------------
 
 /// Full specification for a delegated (spawned) task.
 #[derive(Debug, Clone)]
@@ -115,7 +111,6 @@ pub struct TaskSpec {
 }
 
 impl TaskSpec {
-    /// Create a new task spec with an auto-generated ID.
     pub fn new(prompt: impl Into<String>, role: TaskRole) -> Self {
         let task_id = format!(
             "task-{}",
@@ -172,9 +167,7 @@ impl TaskSpec {
     }
 }
 
-// ---------------------------------------------------------------------------
 // EnsemblePlan
-// ---------------------------------------------------------------------------
 
 /// Plan for an ensemble strategy execution with mapped participants.
 #[derive(Debug, Clone)]
@@ -185,9 +178,7 @@ pub struct EnsemblePlan {
     pub participants: Vec<(ParticipantSpec, TaskSpec)>,
 }
 
-// ---------------------------------------------------------------------------
 // SpawnDecision
-// ---------------------------------------------------------------------------
 
 /// Decision outcome from the delegation planner.
 #[derive(Debug, Clone)]
@@ -202,9 +193,7 @@ pub enum SpawnDecision {
     Ensemble(EnsemblePlan),
 }
 
-// ---------------------------------------------------------------------------
 // DelegationContext
-// ---------------------------------------------------------------------------
 
 /// Snapshot of the current execution context used for delegation decisions.
 #[derive(Debug, Clone)]
@@ -258,9 +247,7 @@ impl DelegationContext {
     }
 }
 
-// ---------------------------------------------------------------------------
 // DelegationConfig
-// ---------------------------------------------------------------------------
 
 /// Tunable thresholds for the delegation planner.
 #[derive(Debug, Clone)]
@@ -286,9 +273,7 @@ impl Default for DelegationConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
 // DelegationPlanner
-// ---------------------------------------------------------------------------
 
 /// Three-gate delegation decision engine.
 ///
@@ -305,7 +290,6 @@ pub struct DelegationPlanner {
 }
 
 impl DelegationPlanner {
-    /// Create a new planner with the given configuration.
     pub const fn new(config: DelegationConfig) -> Self {
         Self {
             strategy_selector: StrategySelector::new(),
@@ -417,9 +401,7 @@ impl DelegationPlanner {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Role inference
-// ---------------------------------------------------------------------------
 
 /// Infer a task role from the description text using keyword matching.
 pub fn infer_role_from_description(description: &str) -> TaskRole {
@@ -469,9 +451,7 @@ fn contains_any(text: &str, keywords: &[&str]) -> bool {
     keywords.iter().any(|kw| text.contains(*kw))
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]

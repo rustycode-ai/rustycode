@@ -164,7 +164,6 @@ pub struct LockManager {
 }
 
 impl LockManager {
-    /// Create a new `LockManager`. Advisory lock files go in `lock_dir`.
     pub fn new(lock_dir: PathBuf) -> Self {
         Self {
             inner: Arc::new(Mutex::new(LockManagerInner::default())),

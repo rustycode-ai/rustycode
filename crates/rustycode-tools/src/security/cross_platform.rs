@@ -127,7 +127,7 @@ pub fn normalize_path_syntax(path: &str) -> String {
 }
 
 /// Get platform-specific allowed commands
-pub fn get_allowed_commands(shell: ShellType) -> &'static [&'static str] {
+pub fn allowed_commands(shell: ShellType) -> &'static [&'static str] {
     match shell {
         ShellType::Bash => BASH_ALLOWED_COMMANDS,
         ShellType::PowerShell => POWERSHELL_ALLOWED_COMMANDS,
@@ -136,7 +136,7 @@ pub fn get_allowed_commands(shell: ShellType) -> &'static [&'static str] {
 }
 
 /// Get platform-specific dangerous commands to block
-pub fn get_blocked_commands(shell: ShellType) -> &'static [&'static str] {
+pub fn blocked_commands(shell: ShellType) -> &'static [&'static str] {
     match shell {
         ShellType::Bash => BASH_BLOCKED_COMMANDS,
         ShellType::PowerShell => POWERSHELL_BLOCKED_COMMANDS,
@@ -524,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_bash_allowed_commands() {
-        let commands = get_allowed_commands(ShellType::Bash);
+        let commands = allowed_commands(ShellType::Bash);
         assert!(commands.contains(&"ls"));
         assert!(commands.contains(&"grep"));
         assert!(commands.contains(&"cargo"));
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn test_bash_blocked_commands() {
-        let commands = get_blocked_commands(ShellType::Bash);
+        let commands = blocked_commands(ShellType::Bash);
         assert!(commands.contains(&"mkfs"));
         assert!(commands.contains(&"dd"));
         assert!(commands.contains(&"shutdown"));
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn test_powershell_allowed_commands() {
-        let commands = get_allowed_commands(ShellType::PowerShell);
+        let commands = allowed_commands(ShellType::PowerShell);
         assert!(commands.contains(&"Get-ChildItem"));
         assert!(commands.contains(&"Get-Content"));
         assert!(commands.contains(&"cargo"));
@@ -550,7 +550,7 @@ mod tests {
 
     #[test]
     fn test_powershell_blocked_commands() {
-        let commands = get_blocked_commands(ShellType::PowerShell);
+        let commands = blocked_commands(ShellType::PowerShell);
         assert!(commands.contains(&"Format-Volume"));
         assert!(commands.contains(&"Restart-Computer"));
         assert!(!commands.contains(&"Get-ChildItem"));
@@ -558,7 +558,7 @@ mod tests {
 
     #[test]
     fn test_cmd_allowed_commands() {
-        let commands = get_allowed_commands(ShellType::Cmd);
+        let commands = allowed_commands(ShellType::Cmd);
         assert!(commands.contains(&"dir"));
         assert!(commands.contains(&"tasklist"));
         assert!(commands.contains(&"npm"));
@@ -566,7 +566,7 @@ mod tests {
 
     #[test]
     fn test_cmd_blocked_commands() {
-        let commands = get_blocked_commands(ShellType::Cmd);
+        let commands = blocked_commands(ShellType::Cmd);
         assert!(commands.contains(&"format"));
         assert!(commands.contains(&"diskpart"));
         assert!(!commands.contains(&"dir"));

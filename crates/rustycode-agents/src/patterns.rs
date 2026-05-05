@@ -42,7 +42,6 @@ pub struct PromptChain {
 }
 
 impl PromptChain {
-    /// Create a new prompt chain
     pub const fn new(config: PromptChainConfig) -> Self {
         Self {
             config,
@@ -156,7 +155,6 @@ pub struct EvaluatorOptimizer {
 }
 
 impl EvaluatorOptimizer {
-    /// Create a new evaluator-optimizer
     pub const fn new(config: EvaluatorOptimizerConfig) -> Self {
         Self { config }
     }
@@ -269,7 +267,6 @@ pub struct Route {
 }
 
 impl Router {
-    /// Create a new router
     pub const fn new() -> Self {
         Self { routes: Vec::new() }
     }

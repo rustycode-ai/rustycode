@@ -74,7 +74,6 @@ impl Default for CompactionControl {
 }
 
 impl CompactionControl {
-    /// Create a new compaction control with default settings
     pub fn new() -> Self {
         Self::default()
     }
@@ -159,7 +158,6 @@ pub struct Conversation {
 }
 
 impl Conversation {
-    /// Create a new empty conversation
     pub fn new() -> Self {
         Self {
             messages: Vec::new(),
@@ -293,7 +291,6 @@ pub struct CompactionEngine {
 }
 
 impl CompactionEngine {
-    /// Create a new compaction engine with the given configuration
     pub fn new(config: CompactionControl) -> Self {
         Self { config }
     }

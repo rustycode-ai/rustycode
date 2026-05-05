@@ -124,9 +124,7 @@
 // See the crate-level documentation for details on the ID system.
 pub use rustycode_id::{EventId, FileId, MemoryId, PlanId, SessionId, SkillId, SortableId, ToolId};
 
-// ============================================================================
 // MODULE DECLARATIONS
-// ============================================================================
 
 // Session management types
 pub mod session;
@@ -226,9 +224,7 @@ pub use frontmatter::{
     normalize_paths, parse_frontmatter_map, split_frontmatter, FrontmatterMap, FrontmatterValue,
 };
 
-// ============================================================================
 // PUBLIC RE-EXPORTS
-// ============================================================================
 
 // Session types
 pub use session::{

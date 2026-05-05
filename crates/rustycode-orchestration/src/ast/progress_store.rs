@@ -14,9 +14,7 @@ use rusqlite::{params, Connection};
 
 use crate::error::OrchestrationError;
 
-// ---------------------------------------------------------------------------
 // Record types
-// ---------------------------------------------------------------------------
 
 /// A single tracked task in the progress store.
 #[derive(Debug, Clone)]
@@ -82,9 +80,7 @@ pub struct SubagentRunRecord {
     pub finished_at: Option<String>,
 }
 
-// ---------------------------------------------------------------------------
 // Legal state transitions
-// ---------------------------------------------------------------------------
 
 /// Linear phase progression for the AST pipeline.
 const PHASE_ORDER: &[&str] = &[
@@ -135,9 +131,7 @@ pub fn validate_milestone_transition(from: &str, to: &str) -> bool {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Schema DDL
-// ---------------------------------------------------------------------------
 
 const SCHEMA_SQL: &str = "
 CREATE TABLE IF NOT EXISTS tasks (
@@ -211,9 +205,7 @@ CREATE INDEX IF NOT EXISTS idx_events_task_created ON events(task_id, created_at
 CREATE INDEX IF NOT EXISTS idx_artifacts_task_kind ON artifacts(task_id, kind);
 ";
 
-// ---------------------------------------------------------------------------
 // ProgressStore
-// ---------------------------------------------------------------------------
 
 /// SQLite-backed progress store for AST task state.
 ///
@@ -274,7 +266,7 @@ impl ProgressStore {
     }
 
     /// Retrieve a task by ID. Returns `None` if not found.
-    pub fn get_task(&self, id: &str) -> Result<Option<TaskRecord>> {
+    pub fn task(&self, id: &str) -> Result<Option<TaskRecord>> {
         let mut stmt = self
             .conn
             .prepare("SELECT id, title, complexity, goal, current_phase, status, ledger_path, created_at, updated_at FROM tasks WHERE id = ?1")
@@ -301,7 +293,7 @@ impl ProgressStore {
     /// Update a task's current phase. Validates the transition first.
     pub fn update_task_phase(&self, id: &str, phase: &str) -> Result<()> {
         let task = self
-            .get_task(id)?
+            .task(id)?
             .with_context(|| format!("Task {id} not found for phase update"))?;
         if !validate_phase_transition(&task.current_phase, phase) {
             return Err(OrchestrationError::AstConfig {
@@ -378,7 +370,7 @@ impl ProgressStore {
     }
 
     /// Retrieve all milestones for a task, ordered by ordinal.
-    pub fn get_milestones_for_task(&self, task_id: &str) -> Result<Vec<MilestoneRecord>> {
+    pub fn milestones_for_task(&self, task_id: &str) -> Result<Vec<MilestoneRecord>> {
         let mut stmt = self
             .conn
             .prepare(
@@ -409,7 +401,7 @@ impl ProgressStore {
     }
 
     /// Get the first milestone with status "active" for a given task.
-    pub fn get_active_milestone(&self, task_id: &str) -> Result<Option<MilestoneRecord>> {
+    pub fn active_milestone(&self, task_id: &str) -> Result<Option<MilestoneRecord>> {
         let mut stmt = self
             .conn
             .prepare(
@@ -488,7 +480,7 @@ impl ProgressStore {
     }
 
     /// Get all milestone IDs that `milestone_id` directly depends on.
-    pub fn get_dependencies(&self, milestone_id: &str) -> Result<Vec<String>> {
+    pub fn dependencies(&self, milestone_id: &str) -> Result<Vec<String>> {
         let mut stmt = self
             .conn
             .prepare(
@@ -544,7 +536,7 @@ impl ProgressStore {
         }
 
         // Collect all milestones for this task.
-        let milestones = self.get_milestones_for_task(task_id)?;
+        let milestones = self.milestones_for_task(task_id)?;
         if milestones.is_empty() {
             return Ok(true);
         }
@@ -554,7 +546,7 @@ impl ProgressStore {
         // Build adjacency list: node -> nodes it depends on.
         let mut adj: HashMap<String, Vec<String>> = HashMap::new();
         for mid in &milestone_ids {
-            let deps = self.get_dependencies(mid)?;
+            let deps = self.dependencies(mid)?;
             adj.insert(mid.clone(), deps);
         }
 
@@ -597,7 +589,7 @@ impl ProgressStore {
 
     /// Retrieve the most recent events for a task, ordered by creation time
     /// descending (newest first).
-    pub fn get_events(&self, task_id: &str, limit: usize) -> Result<Vec<EventRecord>> {
+    pub fn events(&self, task_id: &str, limit: usize) -> Result<Vec<EventRecord>> {
         let mut stmt = self
             .conn
             .prepare(
@@ -655,7 +647,7 @@ impl ProgressStore {
     }
 
     /// Retrieve all artifacts of a given kind for a task.
-    pub fn get_artifacts_by_kind(&self, task_id: &str, kind: &str) -> Result<Vec<ArtifactRecord>> {
+    pub fn artifacts_by_kind(&self, task_id: &str, kind: &str) -> Result<Vec<ArtifactRecord>> {
         let mut stmt = self
             .conn
             .prepare(
@@ -723,7 +715,7 @@ impl ProgressStore {
     }
 
     /// Retrieve the full subagent run history for a task, ordered by start time.
-    pub fn get_subagent_history(&self, task_id: &str) -> Result<Vec<SubagentRunRecord>> {
+    pub fn subagent_history(&self, task_id: &str) -> Result<Vec<SubagentRunRecord>> {
         let mut stmt = self
             .conn
             .prepare(
@@ -755,9 +747,7 @@ impl ProgressStore {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -813,7 +803,7 @@ mod tests {
         let task = sample_task();
         store.create_task(&task).unwrap();
 
-        let retrieved = store.get_task(&task.id).unwrap().unwrap();
+        let retrieved = store.task(&task.id).unwrap().unwrap();
         assert_eq!(retrieved.id, task.id);
         assert_eq!(retrieved.title, task.title);
         assert_eq!(retrieved.complexity, task.complexity);
@@ -826,7 +816,7 @@ mod tests {
     #[test]
     fn get_task_returns_none_for_missing() {
         let store = ProgressStore::open_in_memory().unwrap();
-        let result = store.get_task("nonexistent").unwrap();
+        let result = store.task("nonexistent").unwrap();
         assert!(result.is_none());
     }
 
@@ -837,7 +827,7 @@ mod tests {
         store.create_task(&task).unwrap();
 
         store.update_task_phase(&task.id, "RESEARCH").unwrap();
-        let updated = store.get_task(&task.id).unwrap().unwrap();
+        let updated = store.task(&task.id).unwrap().unwrap();
         assert_eq!(updated.current_phase, "RESEARCH");
     }
 
@@ -848,7 +838,7 @@ mod tests {
         store.create_task(&task).unwrap();
 
         store.update_task_phase(&task.id, "BLOCKED").unwrap();
-        let updated = store.get_task(&task.id).unwrap().unwrap();
+        let updated = store.task(&task.id).unwrap().unwrap();
         assert_eq!(updated.current_phase, "BLOCKED");
     }
 
@@ -860,7 +850,7 @@ mod tests {
         store.create_task(&task).unwrap();
 
         store.update_task_phase(&task.id, "EXPAND").unwrap();
-        let updated = store.get_task(&task.id).unwrap().unwrap();
+        let updated = store.task(&task.id).unwrap().unwrap();
         assert_eq!(updated.current_phase, "EXPAND");
     }
 
@@ -936,7 +926,7 @@ mod tests {
         store.create_milestone(&m1).unwrap();
         store.create_milestone(&m2).unwrap();
 
-        let milestones = store.get_milestones_for_task(&task.id).unwrap();
+        let milestones = store.milestones_for_task(&task.id).unwrap();
         assert_eq!(milestones.len(), 2);
         assert_eq!(milestones[0].title, "Setup module");
         assert_eq!(milestones[1].title, "Implement logic");
@@ -969,7 +959,7 @@ mod tests {
         store.create_milestone(&m1).unwrap();
         store.create_milestone(&m2).unwrap();
 
-        let active = store.get_active_milestone(&task.id).unwrap().unwrap();
+        let active = store.active_milestone(&task.id).unwrap().unwrap();
         assert_eq!(active.title, "Active milestone");
     }
 
@@ -979,7 +969,7 @@ mod tests {
         let task = sample_task();
         store.create_task(&task).unwrap();
 
-        let result = store.get_active_milestone(&task.id).unwrap();
+        let result = store.active_milestone(&task.id).unwrap();
         assert!(result.is_none());
     }
 
@@ -1103,7 +1093,7 @@ mod tests {
 
         store.add_dependency(&task.id, &m2_id, &m1_id).unwrap();
 
-        let deps = store.get_dependencies(&m2_id).unwrap();
+        let deps = store.dependencies(&m2_id).unwrap();
         assert_eq!(deps.len(), 1);
         assert_eq!(deps[0], m1_id);
     }
@@ -1214,7 +1204,7 @@ mod tests {
             events.push(evt);
         }
 
-        let retrieved = store.get_events(&task.id, 3).unwrap();
+        let retrieved = store.events(&task.id, 3).unwrap();
         // Should return the 3 most recent (last 3 inserted), newest first.
         assert_eq!(retrieved.len(), 3);
         // Most recent event should be "Completed step 4".
@@ -1240,7 +1230,7 @@ mod tests {
         };
         store.append_event(&evt).unwrap();
 
-        let retrieved = store.get_events(&task.id, 10).unwrap();
+        let retrieved = store.events(&task.id, 10).unwrap();
         assert_eq!(retrieved.len(), 1);
     }
 
@@ -1273,18 +1263,18 @@ mod tests {
         store.store_artifact(&a1).unwrap();
         store.store_artifact(&a2).unwrap();
 
-        let files = store.get_artifacts_by_kind(&task.id, "file").unwrap();
+        let files = store.artifacts_by_kind(&task.id, "file").unwrap();
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, Some("/src/main.rs".into()));
 
         let tests = store
-            .get_artifacts_by_kind(&task.id, "test_result")
+            .artifacts_by_kind(&task.id, "test_result")
             .unwrap();
         assert_eq!(tests.len(), 1);
         assert_eq!(tests[0].summary, Some("All tests pass".into()));
 
         let empty = store
-            .get_artifacts_by_kind(&task.id, "nonexistent")
+            .artifacts_by_kind(&task.id, "nonexistent")
             .unwrap();
         assert!(empty.is_empty());
     }
@@ -1312,7 +1302,7 @@ mod tests {
         let output_id = new_id();
         store.finish_subagent_run(&run.id, &output_id).unwrap();
 
-        let history = store.get_subagent_history(&task.id).unwrap();
+        let history = store.subagent_history(&task.id).unwrap();
         assert_eq!(history.len(), 1);
         assert_eq!(history[0].status, "done");
         assert_eq!(history[0].output_artifact_id, Some(output_id));
@@ -1339,7 +1329,7 @@ mod tests {
             store.start_subagent_run(&run).unwrap();
         }
 
-        let history = store.get_subagent_history(&task.id).unwrap();
+        let history = store.subagent_history(&task.id).unwrap();
         assert_eq!(history.len(), 3);
         assert_eq!(history[0].role, "coder");
         assert_eq!(history[1].role, "reviewer");

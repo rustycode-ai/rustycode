@@ -43,9 +43,7 @@ use ratatui::{
 use std::cell::Cell;
 use std::fmt;
 
-// ============================================================================
 // COMMAND SYSTEM
-// ============================================================================
 
 /// Command that can be executed from the palette
 #[derive(Clone)]
@@ -105,7 +103,6 @@ impl CommandResult {
 }
 
 impl Command {
-    /// Create a new command
     pub fn new(
         name: impl Into<String>,
         description: impl Into<String>,
@@ -140,9 +137,7 @@ impl Command {
     }
 }
 
-// ============================================================================
 // FUZZY MATCHING
-// ============================================================================
 
 /// Match relevance score
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -261,7 +256,6 @@ fn command_tab(command: &Command) -> PaletteTab {
 pub struct FuzzyMatcher;
 
 impl FuzzyMatcher {
-    /// Create a new fuzzy matcher
     pub fn new() -> Self {
         Self
     }
@@ -415,9 +409,7 @@ impl Default for FuzzyMatcher {
     }
 }
 
-// ============================================================================
 // COMMAND PALETTE STATE
-// ============================================================================
 
 /// Command palette state
 #[derive(Debug, Clone)]
@@ -738,9 +730,7 @@ impl CommandPaletteState {
     }
 }
 
-// ============================================================================
 // COMMAND PALETTE RENDERER
-// ============================================================================
 
 /// Command palette renderer
 pub struct CommandPaletteRenderer {
@@ -749,7 +739,6 @@ pub struct CommandPaletteRenderer {
 }
 
 impl CommandPaletteRenderer {
-    /// Create a new command palette with default commands
     pub fn new() -> Self {
         Self::with_commands(Self::default_commands())
     }
@@ -1466,9 +1455,7 @@ impl Default for CommandPaletteRenderer {
     }
 }
 
-// ============================================================================
 // COMMAND PALETTE (HIGH-LEVEL API)
-// ============================================================================
 
 /// High-level command palette API
 ///
@@ -1479,7 +1466,6 @@ pub struct CommandPalette {
 }
 
 impl CommandPalette {
-    /// Create a new command palette with default commands
     pub fn new() -> Self {
         Self {
             renderer: CommandPaletteRenderer::new(),
@@ -1552,9 +1538,7 @@ impl Default for CommandPalette {
     }
 }
 
-// ============================================================================
 // EXAMPLE USAGE
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

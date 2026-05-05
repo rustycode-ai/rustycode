@@ -65,10 +65,6 @@ impl Clone for SseParseState {
 /// Callers should feed complete lines (e.g., from `SseByteBuffer::feed_chunk`)
 /// joined by `\n`. Returns both the parsed events and the updated parse state.
 ///
-/// # Arguments
-/// * `lines` - Complete SSE lines (may span multiple `\n`-separated lines)
-/// * `config` - Feature toggles for what to extract
-/// * `state` - Mutable state for tracking tool call IDs across chunks
 pub fn parse_openai_sse_lines(
     lines: &str,
     config: SseParseConfig,

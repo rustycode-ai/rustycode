@@ -96,7 +96,7 @@ impl CheckpointSnapshot {
     }
 
     /// Retrieve a metadata value by key.
-    pub fn get_metadata(&self, key: &str) -> Option<&str> {
+    pub fn metadata(&self, key: &str) -> Option<&str> {
         self.metadata.get(key).map(|s| s.as_str())
     }
 }

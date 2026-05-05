@@ -22,14 +22,6 @@ pub struct SearchResult {
 /// - Substring match: 60 points
 /// - Fuzzy match: 40 points
 ///
-/// # Arguments
-///
-/// * `query` - Search query string
-/// * `skills` - List of skills to search
-///
-/// # Returns
-///
-/// Vector of search results sorted by relevance (highest score first)
 pub fn fuzzy_match(query: &str, skills: &[Skill]) -> Vec<Skill> {
     if query.is_empty() {
         // Return all skills if no query

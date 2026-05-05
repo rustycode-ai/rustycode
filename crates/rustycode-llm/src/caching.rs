@@ -269,7 +269,6 @@ pub struct CachedMessageBuilder {
 }
 
 impl CachedMessageBuilder {
-    /// Create a new builder with the given caching strategy
     pub fn new(strategy: CachingStrategy) -> Self {
         Self { strategy }
     }

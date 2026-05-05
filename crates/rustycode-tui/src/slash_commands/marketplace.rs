@@ -5,8 +5,8 @@
 
 use crate::marketplace::{
     client::{
-        fetch_marketplace_index, filter_by_category, filter_by_type, get_installed_items,
-        get_updatable_items, search_marketplace,
+        fetch_marketplace_index, filter_by_category, filter_by_type, installed_items,
+        updatable_items, search_marketplace,
     },
     index::ItemType,
     installer::{install_item, uninstall_item},
@@ -243,8 +243,8 @@ async fn cmd_list_items(parts: &[&str]) -> Result<Option<String>, String> {
     let (items_to_show, label) = if parts.len() > 2 {
         match parts[2] {
             "all" => (items.clone(), "All"),
-            "installed" => (get_installed_items(&items), "Installed"),
-            "updates" => (get_updatable_items(&items), "Updates Available"),
+            "installed" => (installed_items(&items), "Installed"),
+            "updates" => (updatable_items(&items), "Updates Available"),
             category => (filter_by_category(&items, category), category),
         }
     } else {

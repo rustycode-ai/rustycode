@@ -18,9 +18,7 @@
 
 use ratatui::{layout::Rect, Frame};
 
-// ============================================================================
 // RENDERER FRAME — lightweight snapshot passed to every backend each frame
-// ============================================================================
 
 /// Lightweight, renderer-agnostic context passed to every backend on each frame.
 ///
@@ -102,9 +100,7 @@ impl RendererFrame {
     }
 }
 
-// ============================================================================
 // TUI RENDERER TRAIT
-// ============================================================================
 
 /// Core renderer trait — implement this to add a new TUI rendering backend.
 ///
@@ -139,9 +135,7 @@ pub trait TuiRenderer: Send {
     fn name(&self) -> &'static str;
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

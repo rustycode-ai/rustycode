@@ -137,13 +137,11 @@ async fn programmatic_call_context_uses_direct_executor() {
     assert!(result.is_err());
 }
 
-// ---------------------------------------------------------------------------
 // Phase 5: Hybrid mode tests for ExecutionRouter
 //
 // These tests verify that `execute_hybrid()` selects the correct execution
 // path based on unit capabilities and execution_strategy, and that context
 // validation properly gates access based on declared capabilities.
-// ---------------------------------------------------------------------------
 
 /// Verify that a tool-only unit (Direct strategy, can_execute_directly only)
 /// routes to the DirectExecutor in hybrid mode.

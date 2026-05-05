@@ -37,7 +37,6 @@ pub struct AgentTool {
 }
 
 impl AgentTool {
-    /// Create a new functional AgentTool.
     pub fn new(
         provider: Arc<dyn LLMProvider>,
         model: String,

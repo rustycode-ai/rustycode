@@ -36,10 +36,6 @@ impl ParallelExecutor {
     /// Create a new executor that allows at most `max_concurrent` tools in
     /// flight at once.
     ///
-    /// # Panics
-    ///
-    /// Panics if `max_concurrent` is zero (a semaphore with zero permits would
-    /// deadlock every acquisition).
     pub fn new(max_concurrent: usize) -> Self {
         assert!(max_concurrent > 0, "max_concurrent must be > 0");
         Self { max_concurrent }

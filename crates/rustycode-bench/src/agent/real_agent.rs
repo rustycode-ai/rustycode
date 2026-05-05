@@ -24,9 +24,7 @@ use crate::agent::tools::build_bench_registry;
 use crate::agent::BenchAgent;
 use crate::environment::BenchEnvironment;
 
-// ---------------------------------------------------------------------------
 // BenchObserver — collects metrics from the agent loop
-// ---------------------------------------------------------------------------
 
 struct BenchObserver {
     turns: usize,
@@ -74,9 +72,7 @@ impl AgentEvents for BenchObserver {
     }
 }
 
-// ---------------------------------------------------------------------------
 // System prompt
-// ---------------------------------------------------------------------------
 
 const REAL_SYSTEM_PROMPT: &str = "\
 You are an expert software engineer. Your job is to complete the given task correctly.
@@ -106,9 +102,7 @@ make test, or whatever test runner the project uses.
 - Use edit_file for targeted changes. Use write_file only for new files.
 - Check exit codes: 0 = success, non-zero = failure.";
 
-// ---------------------------------------------------------------------------
 // RealBenchAgent
-// ---------------------------------------------------------------------------
 
 pub struct RealBenchAgent {
     provider: Arc<dyn rustycode_llm::LLMProvider>,
@@ -194,9 +188,7 @@ impl BenchAgent for RealBenchAgent {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Factory
-// ---------------------------------------------------------------------------
 
 /// Create a RealBenchAgent from model string.
 pub fn real_agent_factory(
@@ -259,9 +251,7 @@ fn create_provider(provider: &str, model: &str) -> Result<Arc<dyn rustycode_llm:
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

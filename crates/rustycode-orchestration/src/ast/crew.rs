@@ -24,9 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use super::types::ComplexityLevel;
 
-// ---------------------------------------------------------------------------
 // Crew role
-// ---------------------------------------------------------------------------
 
 /// Crew role in the AST construction crew.
 ///
@@ -79,9 +77,7 @@ impl std::fmt::Display for CrewRole {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Handoff types
-// ---------------------------------------------------------------------------
 
 /// Status of a crew handoff.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -150,9 +146,7 @@ pub struct ConsultationReport {
     pub findings: Vec<String>,
 }
 
-// ---------------------------------------------------------------------------
 // Legal handoff table
-// ---------------------------------------------------------------------------
 
 /// Returns the set of legal `(source, target, source_artifact)` triples.
 ///
@@ -232,9 +226,7 @@ const fn output_artifact_for(role: CrewRole) -> Option<ArtifactKind> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // CrewDispatcher
-// ---------------------------------------------------------------------------
 
 /// Number of consecutive failures on the same milestone before escalation.
 const ESCALATION_THRESHOLD: u32 = 3;
@@ -248,7 +240,6 @@ pub struct CrewDispatcher {
 }
 
 impl CrewDispatcher {
-    /// Create a new dispatcher with an empty handoff history.
     pub const fn new() -> Self {
         Self {
             handoffs: Vec::new(),
@@ -345,9 +336,7 @@ impl Default for CrewDispatcher {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Dynamic Roles (Gap 4)
-// ---------------------------------------------------------------------------
 
 /// Configuration for how many of each role to dispatch based on task complexity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -432,9 +421,7 @@ pub fn assign_subroles(roles: &RoleDispatchConfig) -> Vec<(CrewRole, String)> {
     subroles
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

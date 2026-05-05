@@ -15,7 +15,6 @@ pub struct WorkspaceState {
 }
 
 impl WorkspaceState {
-    /// Create a new workspace state
     pub fn new(path: PathBuf) -> Self {
         Self {
             loaded: false,
@@ -30,7 +29,7 @@ impl WorkspaceState {
     }
 
     /// Get the workspace context
-    pub fn get_context(&self) -> Option<&str> {
+    pub fn context(&self) -> Option<&str> {
         self.context.as_deref()
     }
 
@@ -71,7 +70,6 @@ pub struct WorkspaceSummary {
 }
 
 impl WorkspaceSummary {
-    /// Create a new summary
     pub fn new(file_count: usize, dir_count: usize, total_size: u64) -> Self {
         Self {
             file_count,
@@ -114,7 +112,7 @@ mod tests {
         let state = WorkspaceState::new(path);
 
         assert!(!state.is_loaded());
-        assert_eq!(state.get_context(), None);
+        assert_eq!(state.context(), None);
         assert_eq!(state.path(), &PathBuf::from("/test/path"));
     }
 
@@ -124,7 +122,7 @@ mod tests {
         state.set_context("context here".to_string());
 
         assert!(state.is_loaded());
-        assert_eq!(state.get_context(), Some("context here"));
+        assert_eq!(state.context(), Some("context here"));
     }
 
     #[test]

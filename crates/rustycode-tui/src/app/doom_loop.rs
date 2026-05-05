@@ -52,7 +52,6 @@ pub struct DoomLoopDetector {
 }
 
 impl DoomLoopDetector {
-    /// Create a new detector with an empty history.
     pub fn new() -> Self {
         Self::default()
     }

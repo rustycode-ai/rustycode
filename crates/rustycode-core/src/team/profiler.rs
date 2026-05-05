@@ -9,7 +9,6 @@ use rustycode_protocol::team::*;
 pub struct TaskProfiler;
 
 impl TaskProfiler {
-    /// Create a new TaskProfiler.
     pub fn new() -> Self {
         Self
     }

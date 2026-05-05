@@ -5,7 +5,7 @@
 use super::{HelpCategory, HelpTopic};
 
 /// Get all help topics
-pub fn get_all_topics() -> Vec<HelpTopic> {
+pub fn all_topics() -> Vec<HelpTopic> {
     vec![
         // Navigation topics
         HelpTopic {

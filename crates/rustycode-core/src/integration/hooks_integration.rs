@@ -49,7 +49,6 @@ pub struct HookContext {
 }
 
 impl HookContext {
-    /// Create a new hook context
     pub fn new(agent_id: String, session_id: String) -> Self {
         Self {
             agent_id,
@@ -197,7 +196,6 @@ pub struct HookRegistry {
 }
 
 impl HookRegistry {
-    /// Create a new empty hook registry
     pub fn new() -> Self {
         Self {
             pre_tool_use_hooks: Vec::new(),
@@ -348,9 +346,7 @@ impl Default for HookRegistry {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Protocol type conversions
-// ---------------------------------------------------------------------------
 
 impl From<HookAction> for rustycode_protocol::HookOutput {
     fn from(action: HookAction) -> Self {

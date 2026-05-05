@@ -20,7 +20,6 @@ pub struct StateManager {
 }
 
 impl StateManager {
-    /// Create a new state manager
     pub fn new() -> Self {
         Self {
             scroll_offset: 0,

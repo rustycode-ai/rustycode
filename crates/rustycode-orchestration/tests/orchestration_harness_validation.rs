@@ -185,7 +185,7 @@ fn test_mips_interpreter_thought_persistence() {
     );
     store.store_thought(task_id, 2, &thought3).unwrap();
 
-    let context = store.get_context_for_next_phase(task_id, 3).unwrap();
+    let context = store.context_for_next_phase(task_id, 3).unwrap();
     assert_eq!(context["phase"], 3);
     assert!(
         context["previous_summary"]["decisions_made"].is_array(),

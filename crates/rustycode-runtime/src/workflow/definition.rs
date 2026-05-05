@@ -389,7 +389,7 @@ impl Default for WorkflowState {
 
 impl WorkflowState {
     /// Get a variable value by name
-    pub fn get_variable(&self, name: &str) -> Option<&serde_json::Value> {
+    pub fn variable(&self, name: &str) -> Option<&serde_json::Value> {
         self.variables.get(name)
     }
 
@@ -399,7 +399,7 @@ impl WorkflowState {
     }
 
     /// Get a step result by step ID
-    pub fn get_step_result(&self, step_id: &str) -> Option<&serde_json::Value> {
+    pub fn step_result(&self, step_id: &str) -> Option<&serde_json::Value> {
         self.step_results.get(step_id)
     }
 
@@ -430,7 +430,6 @@ pub enum WorkflowStatus {
 }
 
 impl Workflow {
-    /// Create a new workflow
     pub fn new(id: String, name: String, description: String) -> Self {
         Self {
             id,
@@ -570,7 +569,6 @@ impl Workflow {
 }
 
 impl WorkflowStep {
-    /// Create a new workflow step
     pub fn new(id: String, step_type: StepType) -> Self {
         Self {
             id,
@@ -715,7 +713,7 @@ impl Expression {
     pub fn evaluate(&self, state: &WorkflowState) -> Result<bool> {
         match self {
             Expression::Equals { variable, value } => {
-                let var_value = state.get_variable(variable).ok_or_else(|| {
+                let var_value = state.variable(variable).ok_or_else(|| {
                     WorkflowError::Validation(format!("Variable not found: {}", variable))
                 })?;
 
@@ -723,7 +721,7 @@ impl Expression {
             }
 
             Expression::NotEquals { variable, value } => {
-                let var_value = state.get_variable(variable).ok_or_else(|| {
+                let var_value = state.variable(variable).ok_or_else(|| {
                     WorkflowError::Validation(format!("Variable not found: {}", variable))
                 })?;
 
@@ -731,7 +729,7 @@ impl Expression {
             }
 
             Expression::GreaterThan { variable, value } => {
-                let var_value = state.get_variable(variable).ok_or_else(|| {
+                let var_value = state.variable(variable).ok_or_else(|| {
                     WorkflowError::Validation(format!("Variable not found: {}", variable))
                 })?;
 
@@ -739,7 +737,7 @@ impl Expression {
             }
 
             Expression::LessThan { variable, value } => {
-                let var_value = state.get_variable(variable).ok_or_else(|| {
+                let var_value = state.variable(variable).ok_or_else(|| {
                     WorkflowError::Validation(format!("Variable not found: {}", variable))
                 })?;
 
@@ -1500,18 +1498,18 @@ mod tests {
     #[test]
     fn workflow_state_get_set_variable() {
         let mut state = WorkflowState::default();
-        assert!(state.get_variable("x").is_none());
+        assert!(state.variable("x").is_none());
         state.set_variable("x".into(), serde_json::json!(42));
-        assert_eq!(state.get_variable("x").unwrap(), &serde_json::json!(42));
+        assert_eq!(state.variable("x").unwrap(), &serde_json::json!(42));
     }
 
     #[test]
     fn workflow_state_get_set_step_result() {
         let mut state = WorkflowState::default();
-        assert!(state.get_step_result("s1").is_none());
+        assert!(state.step_result("s1").is_none());
         state.set_step_result("s1".into(), serde_json::json!("ok"));
         assert_eq!(
-            state.get_step_result("s1").unwrap(),
+            state.step_result("s1").unwrap(),
             &serde_json::json!("ok")
         );
     }
@@ -1542,7 +1540,7 @@ mod tests {
         });
         let state = wf.create_state(&HashMap::new()).unwrap();
         assert_eq!(
-            state.get_variable("p").unwrap(),
+            state.variable("p").unwrap(),
             &serde_json::json!("fallback")
         );
     }
@@ -1559,7 +1557,7 @@ mod tests {
         let mut params = HashMap::new();
         params.insert("p".into(), serde_json::json!(42));
         let state = wf.create_state(&params).unwrap();
-        assert_eq!(state.get_variable("p").unwrap(), &serde_json::json!(42));
+        assert_eq!(state.variable("p").unwrap(), &serde_json::json!(42));
     }
 
     // --- parse_default_value ---

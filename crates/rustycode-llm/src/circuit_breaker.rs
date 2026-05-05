@@ -108,7 +108,6 @@ pub struct CircuitBreaker {
 }
 
 impl CircuitBreaker {
-    /// Create a new circuit breaker for an endpoint
     pub fn new(endpoint: impl Into<String>, config: CircuitBreakerConfig) -> Self {
         let endpoint = endpoint.into();
         debug!("Creating circuit breaker for endpoint: {}", endpoint);
@@ -325,7 +324,6 @@ pub struct CircuitBreakerRegistry {
 }
 
 impl CircuitBreakerRegistry {
-    /// Create a new registry with default configuration
     pub fn new(config: CircuitBreakerConfig) -> Self {
         Self {
             breakers: Arc::new(Mutex::new(std::collections::HashMap::new())),

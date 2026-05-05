@@ -168,12 +168,6 @@ fn resolve_task_count_max(context_window: usize) -> usize {
 /// Splits on `### ` headings and `---` dividers. Keeps whole sections that fit.
 /// Appends `[...truncated N sections]` when content is dropped.
 ///
-/// # Arguments
-/// * `content` - The content to potentially truncate
-/// * `budget_chars` - Maximum characters to keep
-///
-/// # Returns
-/// * `TruncationResult` with (possibly truncated) content and count of dropped sections
 pub fn truncate_at_section_boundary(content: &str, budget_chars: usize) -> TruncationResult {
     // If content fits within budget, return unchanged
     if content.len() <= budget_chars {
@@ -275,12 +269,6 @@ fn split_into_sections(content: &str) -> Vec<String> {
 /// Matches orchestra-2's `resolveExecutorContextWindow()` function.
 /// Uses fallback chain: configured model → session context window → default (200K)
 ///
-/// # Arguments
-/// * `model_context_window` - Optional context window from model
-/// * `session_context_window` - Optional session context window override
-///
-/// # Returns
-/// * Resolved context window size in tokens
 pub const fn resolve_executor_context_window(
     model_context_window: Option<usize>,
     session_context_window: Option<usize>,

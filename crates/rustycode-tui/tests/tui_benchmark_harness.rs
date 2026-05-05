@@ -55,9 +55,7 @@ use std::time::Instant;
 
 use anyhow::Context;
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 /// Task category matching the benchmark domains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -131,9 +129,7 @@ struct CategorySummary {
     average_reward: f64,
 }
 
-// ---------------------------------------------------------------------------
 // Task Definitions
-// ---------------------------------------------------------------------------
 
 /// Return all 10 benchmark task definitions.
 fn get_all_bench_tasks() -> Vec<BenchTask> {
@@ -266,9 +262,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
     ]
 }
 
-// ---------------------------------------------------------------------------
 // Setup Functions
-// ---------------------------------------------------------------------------
 
 fn setup_buggy_reverse_string(workspace: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(workspace.join("src"))?;
@@ -416,9 +410,7 @@ fn setup_users_csv(workspace: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Verification Logic
-// ---------------------------------------------------------------------------
 
 /// Verify a completed task by inspecting the workspace filesystem state.
 /// Returns a reward score between 0.0 (total failure) and 1.0 (full success).
@@ -716,9 +708,7 @@ fn verify_multi_step_transform(workspace: &Path) -> f64 {
     score.min(1.0)
 }
 
-// ---------------------------------------------------------------------------
 // Runner Helpers
-// ---------------------------------------------------------------------------
 
 /// Build the tool schema array from the registry for `run_headless_task`.
 fn build_tools_schema(tool_registry: &rustycode_tools::ToolRegistry) -> Vec<serde_json::Value> {
@@ -843,9 +833,7 @@ async fn run_bench_task(
     }
 }
 
-// ---------------------------------------------------------------------------
 // Report Generation
-// ---------------------------------------------------------------------------
 
 /// Build the aggregate report from individual results.
 fn build_report(model: &str, results: Vec<TaskBenchmarkResult>) -> BenchmarkReport {
@@ -941,9 +929,7 @@ fn print_results_table(results: &[TaskBenchmarkResult]) {
     println!("{}", "-".repeat(72));
 }
 
-// ---------------------------------------------------------------------------
 // Unit Tests (always run)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn test_benchmark_task_definitions() {
@@ -1031,9 +1017,7 @@ fn test_workspace_setup_functions() -> anyhow::Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Integration Tests (live API, feature-gated and ignored by default)
-// ---------------------------------------------------------------------------
 
 /// Helper: run a subset of tasks and produce the report.
 async fn run_benchmark_suite(

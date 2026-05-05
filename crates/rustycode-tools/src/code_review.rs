@@ -96,7 +96,6 @@ impl Default for CodeReviewAnalyzer {
 }
 
 impl CodeReviewAnalyzer {
-    /// Create a new code review analyzer with default rules
     pub fn new() -> Self {
         let rules = vec![
             // Security patterns

@@ -37,7 +37,7 @@ impl TUI {
     /// The sidebar is visible by default, so it must only consume wheel input when the
     /// cursor is actually over the sidebar area.
     pub(crate) fn handle_mouse_scroll(&mut self, mouse: MouseEvent) {
-        let scroll_speed = self.tui_config.behavior.get_mouse_scroll_speed();
+        let scroll_speed = self.tui_config.behavior.mouse_scroll_speed();
 
         if self.tool_panel.showing_tool_result {
             match mouse.kind {

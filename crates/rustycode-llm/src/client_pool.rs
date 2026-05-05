@@ -82,7 +82,6 @@ pub struct PoolStats {
 }
 
 impl ClientPool {
-    /// Create a new client pool with default configuration
     pub fn new() -> Result<Self> {
         Self::with_config(ClientPoolConfig::default())
     }

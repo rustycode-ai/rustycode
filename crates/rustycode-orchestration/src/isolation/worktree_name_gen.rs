@@ -161,8 +161,6 @@ const NOUNS: &[&str] = &[
 /// // Or: "brave-flying-phoenix"
 /// ```
 ///
-/// # Returns
-/// A randomly generated worktree name in the format `adjective-verbing-noun`
 pub fn generate_worktree_name() -> String {
     let mut rng = rand::rng();
 

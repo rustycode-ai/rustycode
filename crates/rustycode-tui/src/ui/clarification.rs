@@ -87,7 +87,6 @@ pub struct ClarificationPanel {
 }
 
 impl ClarificationPanel {
-    /// Create a new clarification panel
     pub fn new(questions: Vec<Question>) -> Self {
         let answers = vec![String::new(); questions.len()];
         let selected_option_indices = vec![0usize; questions.len()];

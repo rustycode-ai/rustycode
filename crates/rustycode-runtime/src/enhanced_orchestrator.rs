@@ -125,7 +125,6 @@ pub struct OrchestratedAnalysis {
 }
 
 impl EnhancedOrchestrator {
-    /// Create a new enhanced orchestrator
     pub fn new(config: OrchestratorConfig) -> Self {
         Self {
             team_coordinator: EnsembleCoordinator::new(),
@@ -364,7 +363,7 @@ impl EnhancedOrchestrator {
         }
 
         // Get all teams and collect IDs to release borrow
-        let all_teams = self.team_coordinator.get_all_teams();
+        let all_teams = self.team_coordinator.all_teams();
         let team_ids: Vec<String> = all_teams
             .iter()
             .filter(|team| {
@@ -458,7 +457,7 @@ impl EnhancedOrchestrator {
     }
 
     /// Get session statistics
-    pub async fn get_session_stats(&self) -> SessionStats {
+    pub async fn session_stats(&self) -> SessionStats {
         let state = self.session_state.read().await;
         SessionStats {
             session_id: state.session_id.clone(),
@@ -530,7 +529,7 @@ mod tests {
         let mut orchestrator = EnhancedOrchestrator::new(OrchestratorConfig::default());
         orchestrator.initialize().await.unwrap();
 
-        let stats = orchestrator.get_session_stats().await;
+        let stats = orchestrator.session_stats().await;
         assert_eq!(stats.tasks_completed, 0);
     }
 
@@ -707,7 +706,7 @@ mod tests {
         let mut orchestrator = EnhancedOrchestrator::new(config);
         orchestrator.initialize().await.unwrap();
 
-        let stats = orchestrator.get_session_stats().await;
+        let stats = orchestrator.session_stats().await;
         assert!(stats.active_teams == 0);
     }
 
@@ -763,12 +762,12 @@ mod tests {
             .orchestrate_analysis("Task".into(), vec![AgentRole::Reviewer])
             .await;
 
-        let stats_before = orchestrator.get_session_stats().await;
+        let stats_before = orchestrator.session_stats().await;
         assert!(stats_before.tasks_completed > 0);
 
         orchestrator.reset().await.unwrap();
 
-        let stats_after = orchestrator.get_session_stats().await;
+        let stats_after = orchestrator.session_stats().await;
         assert_eq!(stats_after.tasks_completed, 0);
     }
 
@@ -782,7 +781,7 @@ mod tests {
             .orchestrate_analysis("Task".into(), vec![AgentRole::Reviewer])
             .await;
 
-        let stats = orchestrator.get_session_stats().await;
+        let stats = orchestrator.session_stats().await;
         assert!(stats.coordination_events > 0);
     }
 
@@ -853,7 +852,7 @@ mod tests {
                 .await;
         }
 
-        let stats = orchestrator.get_session_stats().await;
+        let stats = orchestrator.session_stats().await;
         assert_eq!(stats.tasks_completed, 3);
     }
 
@@ -1083,7 +1082,7 @@ mod tests {
     async fn default_creates_instance() {
         let orchestrator = EnhancedOrchestrator::default();
         // Verify through session stats — session should start with 0 tasks
-        let stats = orchestrator.get_session_stats().await;
+        let stats = orchestrator.session_stats().await;
         assert!(!stats.session_id.is_empty());
         assert_eq!(stats.tasks_completed, 0);
     }
@@ -1098,7 +1097,7 @@ mod tests {
             .orchestrate_analysis("Stat check".into(), vec![AgentRole::Reviewer])
             .await;
 
-        let stats = orchestrator.get_session_stats().await;
+        let stats = orchestrator.session_stats().await;
         assert!(!stats.session_id.is_empty());
         assert!(stats.tasks_completed > 0);
         assert!(stats.active_teams > 0);

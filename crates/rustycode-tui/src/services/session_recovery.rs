@@ -71,7 +71,6 @@ pub struct SessionPreferences {
 }
 
 impl SessionState {
-    /// Create a new session state
     pub fn new(session_id: String) -> Self {
         let now = Utc::now();
         Self {
@@ -158,7 +157,6 @@ pub struct SessionPersistence {
 }
 
 impl SessionPersistence {
-    /// Create a new session persistence manager
     pub fn new(base_dir: PathBuf) -> Self {
         Self {
             base_dir,
@@ -334,7 +332,6 @@ pub struct CrashRecovery {
 }
 
 impl CrashRecovery {
-    /// Create a new crash recovery manager
     pub fn new(persistence: SessionPersistence) -> Self {
         Self { persistence }
     }
@@ -435,9 +432,7 @@ impl Clone for SessionPersistence {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

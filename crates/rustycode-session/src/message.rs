@@ -97,7 +97,7 @@ impl Message {
     }
 
     /// Get the primary text content of the message
-    pub fn get_text(&self) -> String {
+    pub fn text(&self) -> String {
         self.parts
             .iter()
             .filter_map(|part| {
@@ -343,7 +343,7 @@ mod tests {
     fn test_message_creation() {
         let msg = Message::user("Hello, world!");
         assert_eq!(msg.role, MessageRole::User);
-        assert_eq!(msg.get_text(), "Hello, world!");
+        assert_eq!(msg.text(), "Hello, world!");
         assert!(!msg.has_tool_calls());
         assert!(!msg.has_images());
     }
@@ -530,7 +530,7 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         let de: Message = serde_json::from_str(&json).unwrap();
         assert_eq!(de.role, MessageRole::User);
-        assert_eq!(de.get_text(), "Hello, world!");
+        assert_eq!(de.text(), "Hello, world!");
     }
 
     #[test]
@@ -539,7 +539,7 @@ mod tests {
         let json = serde_json::to_string(&msg).unwrap();
         let de: Message = serde_json::from_str(&json).unwrap();
         assert_eq!(de.role, MessageRole::Assistant);
-        assert_eq!(de.get_text(), "Hi there!");
+        assert_eq!(de.text(), "Hi there!");
     }
 
     #[test]
@@ -681,7 +681,7 @@ mod tests {
     fn test_message_empty_parts() {
         let mut msg = Message::user("Hello");
         msg.parts.clear();
-        assert_eq!(msg.get_text(), "");
+        assert_eq!(msg.text(), "");
         assert_eq!(msg.estimate_tokens(), 0);
         assert_eq!(msg.char_count(), 0);
     }
@@ -689,7 +689,7 @@ mod tests {
     #[test]
     fn test_message_empty_text_content() {
         let msg = Message::user("");
-        assert_eq!(msg.get_text(), "");
+        assert_eq!(msg.text(), "");
         assert_eq!(msg.estimate_tokens(), 0);
     }
 
@@ -702,7 +702,7 @@ mod tests {
         msg.add_part(MessagePart::Text {
             content: "Part 3".to_string(),
         });
-        assert_eq!(msg.get_text(), "Part 1\nPart 2\nPart 3");
+        assert_eq!(msg.text(), "Part 1\nPart 2\nPart 3");
     }
 
     #[test]
@@ -717,7 +717,7 @@ mod tests {
             content: "World".to_string(),
         });
         // get_text should only return text parts
-        assert_eq!(msg.get_text(), "Hello\nWorld");
+        assert_eq!(msg.text(), "Hello\nWorld");
     }
 
     #[test]

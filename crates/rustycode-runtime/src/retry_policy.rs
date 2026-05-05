@@ -374,18 +374,18 @@ impl RetryPolicy {
     }
 
     /// Get retry attempts
-    pub async fn get_attempts(&self) -> Vec<RetryAttempt> {
+    pub async fn attempts(&self) -> Vec<RetryAttempt> {
         self.attempts.read().await.clone()
     }
 
     /// Get recent attempts
-    pub async fn get_recent_attempts(&self, limit: usize) -> Vec<RetryAttempt> {
+    pub async fn recent_attempts(&self, limit: usize) -> Vec<RetryAttempt> {
         let attempts = self.attempts.read().await;
         attempts.iter().rev().take(limit).cloned().collect()
     }
 
     /// Get statistics
-    pub async fn get_stats(&self) -> RetryStats {
+    pub async fn stats(&self) -> RetryStats {
         self.stats.read().await.clone()
     }
 
@@ -443,24 +443,24 @@ impl RetryPolicyRegistry {
     }
 
     /// Get a policy by name
-    pub async fn get_policy(&self, name: &str) -> Option<Arc<RetryPolicy>> {
+    pub async fn policy(&self, name: &str) -> Option<Arc<RetryPolicy>> {
         let policies = self.policies.read().await;
         policies.iter().find(|p| p.name() == name).cloned()
     }
 
     /// Get all policies
-    pub async fn get_all_policies(&self) -> Vec<Arc<RetryPolicy>> {
+    pub async fn all_policies(&self) -> Vec<Arc<RetryPolicy>> {
         let policies = self.policies.read().await;
         policies.iter().cloned().collect()
     }
 
     /// Get all stats
-    pub async fn get_all_stats(&self) -> Vec<(String, RetryStats)> {
+    pub async fn all_stats(&self) -> Vec<(String, RetryStats)> {
         let policies = self.policies.read().await;
         let mut stats = Vec::new();
 
         for policy in policies.iter() {
-            let policy_stats = policy.get_stats().await;
+            let policy_stats = policy.stats().await;
             stats.push((policy.name().to_string(), policy_stats));
         }
 
@@ -509,7 +509,7 @@ mod tests {
         let result = policy.execute(operation).await;
         assert!(matches!(result, RetryOutcome::Success(_)));
 
-        let stats = policy.get_stats().await;
+        let stats = policy.stats().await;
         assert_eq!(stats.total_attempts, 1);
         assert_eq!(stats.successful_attempts, 1);
     }
@@ -561,7 +561,7 @@ mod tests {
         let result = policy.execute(operation).await;
         assert!(matches!(result, RetryOutcome::MaxAttemptsExceeded));
 
-        let stats = policy.get_stats().await;
+        let stats = policy.stats().await;
         assert_eq!(stats.total_attempts, 2);
         assert_eq!(stats.failed_attempts, 1);
     }
@@ -698,7 +698,7 @@ mod tests {
 
         let _ = policy.execute(operation).await;
 
-        let stats = policy.get_stats().await;
+        let stats = policy.stats().await;
         assert_eq!(stats.total_attempts, 1);
         assert_eq!(stats.successful_attempts, 1);
         assert_eq!(stats.failed_attempts, 0);
@@ -723,7 +723,7 @@ mod tests {
         let attempts_after = policy.get_attempts().await;
         assert!(attempts_after.is_empty());
 
-        let stats = policy.get_stats().await;
+        let stats = policy.stats().await;
         assert_eq!(stats.total_attempts, 0);
     }
 
@@ -904,7 +904,7 @@ mod tests {
         let config = RetryConfig::default();
         let policy = RetryPolicy::new("test".to_string(), config);
 
-        let stats = policy.get_stats().await;
+        let stats = policy.stats().await;
         assert_eq!(stats.total_attempts, 0);
         assert_eq!(stats.successful_attempts, 0);
         assert_eq!(stats.failed_attempts, 0);

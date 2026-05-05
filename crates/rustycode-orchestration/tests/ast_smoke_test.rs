@@ -44,9 +44,7 @@ use rustycode_orchestration::ast::{
     VerificationStatus,
 };
 
-// ---------------------------------------------------------------------------
 // Capturing runner — records every step execution for assertion
-// ---------------------------------------------------------------------------
 
 /// A `StepRunner` that records calls and returns configurable results.
 struct CapturingRunner {
@@ -108,9 +106,7 @@ impl StepRunner for CapturingRunner {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Helper: create a temp pipeline
-// ---------------------------------------------------------------------------
 
 fn tmp_dir() -> PathBuf {
     tempfile::tempdir().unwrap().path().to_path_buf()
@@ -127,9 +123,7 @@ fn pipeline_config(workspace: &PathBuf) -> AstConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
 // T8.1: Full pipeline on moderate-complexity "build-pmars" task
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_build_pmars_moderate() {
@@ -186,9 +180,7 @@ fn smoke_test_build_pmars_moderate() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // T8.2: Phase-by-phase on trivial task (direct execute path)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_trivial_direct_execute() {
@@ -214,9 +206,7 @@ fn smoke_test_trivial_direct_execute() {
     assert_eq!(skeleton.milestones.len(), 1);
 }
 
-// ---------------------------------------------------------------------------
 // T8.3: Phase-by-phase manual control (step through each phase)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_manual_phase_control() {
@@ -278,9 +268,7 @@ fn smoke_test_manual_phase_control() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // T8.4: Complex task with rolling wave (2-milestone batches)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_complex_rolling_wave() {
@@ -311,9 +299,7 @@ fn smoke_test_complex_rolling_wave() {
     assert_eq!(status, VerificationStatus::Pass);
 }
 
-// ---------------------------------------------------------------------------
 // T8.5: Evidence capture — verify all artifacts are recorded
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_evidence_capture() {
@@ -364,9 +350,7 @@ fn smoke_test_evidence_capture() {
     assert!(!captured.is_empty(), "StepRunner should have been invoked");
 }
 
-// ---------------------------------------------------------------------------
 // T8.6: Crew orchestrator smoke test (handler chain)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_crew_orchestrator() {
@@ -413,9 +397,7 @@ fn smoke_test_crew_orchestrator() {
     assert!(roles.contains(&rustycode_orchestration::ast::CrewRole::Inspector));
 }
 
-// ---------------------------------------------------------------------------
 // T8.7: Individual handler smoke tests
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_scout_handler() {
@@ -566,9 +548,7 @@ fn smoke_test_inspector_handler() {
         .all(|r| r.status == VerificationStatus::Pass));
 }
 
-// ---------------------------------------------------------------------------
 // T8.8: Ledger transcript verification
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_ledger_transcript() {
@@ -605,9 +585,7 @@ fn smoke_test_ledger_transcript() {
     assert!(!content.contains('\0'), "Ledger should be plain text");
 }
 
-// ---------------------------------------------------------------------------
 // T8.9: Recovery count should be 0 for well-understood task
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_no_recovery_on_simple_task() {
@@ -624,9 +602,7 @@ fn smoke_test_no_recovery_on_simple_task() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // T8.10: Phase order enforcement
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_phase_order_enforcement() {
@@ -648,9 +624,7 @@ fn smoke_test_phase_order_enforcement() {
     assert!(pipeline.classify("another task").is_err());
 }
 
-// ---------------------------------------------------------------------------
 // T8.11: Metrics summary (wall-clock, phase count, etc.)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn smoke_test_metrics_summary() {

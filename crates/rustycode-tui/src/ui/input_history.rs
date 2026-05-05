@@ -69,7 +69,7 @@ impl HistoryManager {
     }
 
     /// Get command history for persistence
-    pub fn get_history(&self) -> &[String] {
+    pub fn history(&self) -> &[String] {
         &self.history
     }
 
@@ -352,9 +352,9 @@ mod tests {
         manager.add_to_history("command one".to_string());
         manager.add_to_history("command two".to_string());
 
-        assert_eq!(manager.get_history().len(), 2);
-        assert_eq!(manager.get_history()[0], "command one");
-        assert_eq!(manager.get_history()[1], "command two");
+        assert_eq!(manager.history().len(), 2);
+        assert_eq!(manager.history()[0], "command one");
+        assert_eq!(manager.history()[1], "command two");
     }
 
     #[test]
@@ -363,7 +363,7 @@ mod tests {
         manager.add_to_history("same command".to_string());
         manager.add_to_history("same command".to_string());
 
-        assert_eq!(manager.get_history().len(), 1);
+        assert_eq!(manager.history().len(), 1);
     }
 
     #[test]
@@ -373,7 +373,7 @@ mod tests {
         manager.add_to_history("   ".to_string());
         manager.add_to_history("valid command".to_string());
 
-        assert_eq!(manager.get_history().len(), 1);
+        assert_eq!(manager.history().len(), 1);
     }
 
     #[test]
@@ -383,7 +383,7 @@ mod tests {
             manager.add_to_history(format!("command {}", i));
         }
 
-        assert_eq!(manager.get_history().len(), 1000);
+        assert_eq!(manager.history().len(), 1000);
     }
 
     #[test]

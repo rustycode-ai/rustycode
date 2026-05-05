@@ -78,7 +78,7 @@ pub async fn set_log_context(context: LogContext) {
 }
 
 /// Get the current global log context
-pub async fn get_log_context() -> Option<LogContext> {
+pub async fn log_context() -> Option<LogContext> {
     let global = GLOBAL_LOG_CONTEXT.read().await;
     global.clone()
 }
@@ -172,7 +172,7 @@ mod tests {
         set_log_context(context).await;
 
         // Retrieve — another test may have overwritten between set and get
-        let retrieved = get_log_context().await;
+        let retrieved = log_context().await;
         if let Some(ref r) = retrieved {
             if r.trace_id == trace_id {
                 assert_eq!(r.session_id, session_id);
@@ -267,7 +267,7 @@ mod tests {
         let uid = format!("t-{}", std::process::id());
         let ctx1 = LogContext::new(uid.clone(), format!("{}-s1", uid));
         set_log_context(ctx1).await;
-        let retrieved = get_log_context().await;
+        let retrieved = log_context().await;
         // Another test may have overwritten the context, so only assert
         // if we still hold our value. Otherwise skip gracefully.
         if let Some(ref r) = retrieved {
@@ -279,7 +279,7 @@ mod tests {
         let uid2 = format!("t2-{}", std::process::id());
         let ctx2 = LogContext::new(uid2.clone(), format!("{}-s2", uid2));
         set_log_context(ctx2).await;
-        let retrieved2 = get_log_context().await;
+        let retrieved2 = log_context().await;
         if let Some(ref r) = retrieved2 {
             if r.trace_id == uid2 {
                 assert_eq!(r.session_id, format!("{}-s2", uid2));

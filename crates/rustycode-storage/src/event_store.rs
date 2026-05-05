@@ -69,9 +69,6 @@ impl EventStore {
     /// The store must be created within a `Storage` instance to share the same
     /// database connection pool.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the database cannot be opened or migrated.
     pub fn open(path: &Path) -> Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
@@ -118,10 +115,6 @@ impl EventStore {
 
     /// Persist a `SyncEvent` to the store.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the event cannot be serialized or if the database
-    /// insertion fails (e.g., due to a duplicate sequence number).
     #[instrument(skip(self, event), fields(id = %event.id, session_id = %event.session_id, seq = event.sequence))]
     pub fn insert_event(&self, event: &SyncEvent) -> Result<()> {
         let payload = serde_json::to_string(&event.payload)

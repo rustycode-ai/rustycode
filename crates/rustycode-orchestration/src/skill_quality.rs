@@ -85,7 +85,6 @@ impl Default for QualityThreshold {
 }
 
 impl QualityThreshold {
-    /// Create a new threshold with a custom minimum overall score.
     pub fn new(min_overall: f64) -> Self {
         Self {
             min_overall,

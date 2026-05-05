@@ -215,11 +215,10 @@ use std::error::Error;
 use std::fmt;
 
 pub use detection::{
-    detect_terminal, get_capability_summary, get_installation_help, ConnectorAvailability,
-    TerminalType,
+    capability_summary, detect_terminal, installation_help, ConnectorAvailability, TerminalType,
 };
 pub use install::{
-    check_connector, get_all_connectors, print_connector_status, ConnectorInfo, InstallStatus,
+    all_connectors, check_connector, print_connector_status, ConnectorInfo, InstallStatus,
 };
 pub use it2::It2Connector;
 pub use iterm::ITermConnector;

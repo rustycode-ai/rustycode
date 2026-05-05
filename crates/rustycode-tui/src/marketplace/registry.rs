@@ -61,7 +61,6 @@ pub struct RegistryManager {
 }
 
 impl RegistryManager {
-    /// Create a new registry manager from a list of items
     pub fn new(items: Vec<MarketplaceItem>) -> Self {
         let mut item_index = HashMap::new();
         for (idx, item) in items.iter().enumerate() {
@@ -77,12 +76,12 @@ impl RegistryManager {
     }
 
     /// Get an item by ID
-    pub fn get_item(&self, id: &str) -> Option<&MarketplaceItem> {
+    pub fn item(&self, id: &str) -> Option<&MarketplaceItem> {
         self.item_index.get(id).and_then(|&idx| self.items.get(idx))
     }
 
     /// Get all items of a specific type
-    pub fn get_items_by_type(&self, item_type: &ItemType) -> Vec<&MarketplaceItem> {
+    pub fn items_by_type(&self, item_type: &ItemType) -> Vec<&MarketplaceItem> {
         self.items
             .iter()
             .filter(|item| &item.item_type == item_type)
@@ -90,7 +89,7 @@ impl RegistryManager {
     }
 
     /// Get all items in a category
-    pub fn get_items_by_category(&self, category: &str) -> Vec<&MarketplaceItem> {
+    pub fn items_by_category(&self, category: &str) -> Vec<&MarketplaceItem> {
         self.items
             .iter()
             .filter(|item| item.category.eq_ignore_ascii_case(category))
@@ -156,7 +155,7 @@ impl RegistryManager {
 
         // Get the item
         let item = self
-            .get_item(item_id)
+            .item(item_id)
             .ok_or_else(|| RegistryError::ItemNotFound {
                 id: item_id.to_string(),
             })?;
@@ -170,7 +169,7 @@ impl RegistryManager {
             }
 
             // Check if dependency is in registry
-            if let Some(dep_item) = self.get_item(dep_id) {
+            if let Some(dep_item) = self.item(dep_id) {
                 // Check if installed version is compatible
                 if let Some(installed_ver) = installed_versions.get(dep_id) {
                     if let Some(min_ver) = &dep_item.min_compatible_version {
@@ -212,7 +211,7 @@ impl RegistryManager {
         let mut conflicts = Vec::new();
 
         for (id, version) in installed {
-            if let Some(item) = self.get_item(id) {
+            if let Some(item) = self.item(id) {
                 // Check if installed version is compatible
                 if let Some(min_ver) = &item.min_compatible_version {
                     if !is_version_compatible(version, min_ver) {
@@ -225,7 +224,7 @@ impl RegistryManager {
 
                 // Check dependencies
                 for dep_id in &item.dependencies {
-                    if let Some(dep_item) = self.get_item(dep_id) {
+                    if let Some(dep_item) = self.item(dep_id) {
                         if let Some(dep_version) = installed.get(dep_id) {
                             if let Some(min_ver) = &dep_item.min_compatible_version {
                                 if !is_version_compatible(dep_version, min_ver) {
@@ -429,11 +428,11 @@ mod tests {
         let items = create_test_items();
         let manager = RegistryManager::new(items);
 
-        let item = manager.get_item("base");
+        let item = manager.item("base");
         assert!(item.is_some());
         assert_eq!(item.unwrap().id, "base");
 
-        let missing = manager.get_item("nonexistent");
+        let missing = manager.item("nonexistent");
         assert!(missing.is_none());
     }
 
@@ -442,10 +441,10 @@ mod tests {
         let items = create_test_items();
         let manager = RegistryManager::new(items);
 
-        let skills = manager.get_items_by_type(&ItemType::Skill);
+        let skills = manager.items_by_type(&ItemType::Skill);
         assert_eq!(skills.len(), 2);
 
-        let tools = manager.get_items_by_type(&ItemType::Tool);
+        let tools = manager.items_by_type(&ItemType::Tool);
         assert_eq!(tools.len(), 0);
     }
 
@@ -479,7 +478,7 @@ mod tests {
         let items = create_test_items();
         let manager = RegistryManager::new(items);
 
-        let item = manager.get_item("base").unwrap();
+        let item = manager.item("base").unwrap();
         assert!(manager.validate_item(item).is_ok());
     }
 

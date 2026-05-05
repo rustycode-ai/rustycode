@@ -4,11 +4,6 @@ use anyhow::Result;
 ///
 /// Lists available sessions or loads a specific session
 ///
-/// # Arguments
-/// * `session_id` - Optional session ID or name. If not provided, lists available sessions
-///
-/// # Returns
-/// Result with session info or list of available sessions
 pub async fn handle_load_command(session_id: Option<String>) -> Result<String> {
     use crate::session::{load_session, load_session_history_list};
 

@@ -13,9 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::types::{ExecutionStep, RecoveryAction, StepEvidence};
 
-// ---------------------------------------------------------------------------
 // FailureType
-// ---------------------------------------------------------------------------
 
 /// Classification of what went wrong during step execution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,9 +57,7 @@ impl fmt::Display for FailureType {
     }
 }
 
-// ---------------------------------------------------------------------------
 // RecoveryStrategy
-// ---------------------------------------------------------------------------
 
 /// Recommended recovery action for a diagnosed failure.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,9 +72,7 @@ pub enum RecoveryStrategy {
     AbortTask,
 }
 
-// ---------------------------------------------------------------------------
 // FailureDiagnosis
-// ---------------------------------------------------------------------------
 
 /// Result of analyzing `StepEvidence` for failure root cause.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,9 +83,7 @@ pub struct FailureDiagnosis {
     pub confidence: f64,
 }
 
-// ---------------------------------------------------------------------------
 // FailureClassifier
-// ---------------------------------------------------------------------------
 
 /// Pattern-matching classifier that inspects exit codes and stderr to produce
 /// a structured diagnosis.
@@ -250,9 +242,7 @@ impl FailureClassifier {
     }
 }
 
-// ---------------------------------------------------------------------------
 // RecoveryOutcome
-// ---------------------------------------------------------------------------
 
 /// High-level outcome of the recovery planning process.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -267,9 +257,7 @@ pub enum RecoveryOutcome {
     Abort { reason: String },
 }
 
-// ---------------------------------------------------------------------------
 // MilestoneRecovery
-// ---------------------------------------------------------------------------
 
 /// Orchestrates milestone-level recovery decisions.
 #[derive(Debug, Clone)]
@@ -286,7 +274,6 @@ const DEFAULT_MAX_RETRIES: u32 = 2;
 const DEFAULT_MAX_MILESTONE_FAILURES: u32 = 3;
 
 impl MilestoneRecovery {
-    /// Create a new recovery orchestrator with default limits.
     pub const fn new() -> Self {
         Self {
             classifier: FailureClassifier,
@@ -523,9 +510,7 @@ impl Default for MilestoneRecovery {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Markdown rendering
-// ---------------------------------------------------------------------------
 
 /// Render a recovery section in the EXECUTE phase output format.
 ///
@@ -567,9 +552,7 @@ pub fn render_recovery_markdown(evidence: &StepEvidence, recovery: &RecoveryActi
     lines.join("\n")
 }
 
-// ---------------------------------------------------------------------------
 // Private helpers
-// ---------------------------------------------------------------------------
 
 fn retry_step(step: &ExecutionStep, attempt: u32) -> ExecutionStep {
     ExecutionStep {
@@ -754,9 +737,7 @@ fn truncate_str(s: &str, max: usize) -> String {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

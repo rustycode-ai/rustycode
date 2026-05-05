@@ -151,7 +151,6 @@ pub struct MistakeTracker {
 }
 
 impl MistakeTracker {
-    /// Create a new mistake tracker
     pub fn new() -> Self {
         Self {
             mistakes: CircularBuffer::new(MAX_MISTAKE_HISTORY),

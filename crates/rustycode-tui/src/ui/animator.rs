@@ -65,9 +65,6 @@ pub struct Animator {
 impl Animator {
     /// Create a new animator
     ///
-    /// # Arguments
-    /// * `target_fps` - Target frames per second (2-4 recommended for status)
-    /// * `reduced_motion` - Disable animations for accessibility
     pub fn new(target_fps: u32, reduced_motion: bool) -> Self {
         let frame_duration_ms = if target_fps == 0 {
             500u64 // Default to 2 FPS

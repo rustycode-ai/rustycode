@@ -28,9 +28,7 @@ use super::context_block::SessionContextBlock;
 use super::plan::CompactionPlan;
 use super::tiers::{SnipTier, SummarizeTier, TruncateTier};
 
-// ---------------------------------------------------------------------------
 // CompactPipeline
-// ---------------------------------------------------------------------------
 
 /// Main orchestration layer for context compaction.
 ///
@@ -43,7 +41,6 @@ pub struct CompactPipeline {
 }
 
 impl CompactPipeline {
-    /// Create a new pipeline from the given configuration.
     pub fn new(config: HybridCompactionConfig) -> Self {
         Self {
             config,
@@ -240,9 +237,7 @@ impl CompactPipeline {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Free helper functions
-// ---------------------------------------------------------------------------
 
 /// Rough token estimate: sum of `content.len() / 4` across all messages.
 ///
@@ -313,9 +308,7 @@ fn split_summary_and_tail(
     (summary.to_vec(), tail.to_vec())
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

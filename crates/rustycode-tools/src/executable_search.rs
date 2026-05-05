@@ -145,9 +145,6 @@ impl SearchPathBuilder {
     /// Searches the configured paths first, then falls back to the
     /// system PATH. Returns the first match found.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the executable cannot be found.
     pub fn resolve(self, name: impl AsRef<OsStr>) -> Result<PathBuf, SearchPathError> {
         let name = name.as_ref();
 

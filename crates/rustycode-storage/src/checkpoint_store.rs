@@ -175,7 +175,7 @@ impl CheckpointStore {
 
     /// Return the most recent checkpoint for a session, or `None` if no
     /// checkpoints exist.
-    pub fn get_latest(&self, session_id: &str) -> Result<Option<CheckpointSnapshot>> {
+    pub fn latest(&self, session_id: &str) -> Result<Option<CheckpointSnapshot>> {
         let mut all = self.list_for_session(session_id)?;
         Ok(all.pop())
     }
@@ -297,7 +297,7 @@ mod tests {
         store.save(&cp_old).expect("save");
         store.save(&cp_new).expect("save");
 
-        let latest = store.get_latest("sess-X").expect("latest").expect("some");
+        let latest = store.latest("sess-X").expect("latest").expect("some");
         assert_eq!(latest.id, cp_new.id);
     }
 

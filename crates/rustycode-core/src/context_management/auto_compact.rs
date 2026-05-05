@@ -139,17 +139,6 @@ pub fn should_compact_default(window: &ContextWindow) -> bool {
 /// and replaced by a single summary context item. If the LLM call fails, the
 /// function falls back to simple truncation of old items.
 ///
-/// # Arguments
-///
-/// * `window` - Mutable reference to the context window.
-/// * `provider` - LLM provider used for summarization.
-/// * `model` - Model name to use for the summarization request.
-/// * `metrics` - Optional metrics accumulator for tracking compaction events.
-///
-/// # Returns
-///
-/// `Ok(Some(CompressionResult))` if compaction was performed,
-/// `Ok(None)` if compaction was not needed.
 pub async fn auto_compact_if_needed(
     window: &mut ContextWindow,
     provider: &dyn rustycode_llm::provider::LLMProvider,

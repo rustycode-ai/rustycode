@@ -19,7 +19,6 @@ impl Default for PluginLoader {
 }
 
 impl PluginLoader {
-    /// Create a new plugin loader.
     pub fn new() -> Self {
         Self {
             resolver: DependencyResolver::new(),
@@ -49,8 +48,8 @@ impl PluginLoader {
     }
 
     /// Get a registered plugin manifest by name.
-    pub fn get_plugin(&self, name: &str) -> Option<&PluginManifest> {
-        self.resolver.get_plugin(name)
+    pub fn plugin(&self, name: &str) -> Option<&PluginManifest> {
+        self.resolver.plugin(name)
     }
 }
 
@@ -131,8 +130,8 @@ mod tests {
         let mut loader = PluginLoader::new();
         loader.add_manifest(manifest("a", "2.0.0", None)).unwrap();
 
-        let m = loader.get_plugin("a").unwrap();
+        let m = loader.plugin("a").unwrap();
         assert_eq!(m.version, "2.0.0");
-        assert!(loader.get_plugin("b").is_none());
+        assert!(loader.plugin("b").is_none());
     }
 }

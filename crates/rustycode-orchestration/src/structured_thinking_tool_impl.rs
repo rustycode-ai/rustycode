@@ -166,7 +166,7 @@ impl StructuredThinkingTool {
     }
 
     /// Get phase context for multi-phase orchestration.
-    pub fn get_phase_context(&self) -> Option<Value> {
+    pub fn phase_context(&self) -> Option<Value> {
         let state = self
             .state
             .lock()
@@ -174,7 +174,7 @@ impl StructuredThinkingTool {
         let store = state.reasoning_store.as_ref()?;
         let task_id = state.task_id.as_ref()?;
         store
-            .get_context_for_next_phase(task_id, state.current_phase)
+            .context_for_next_phase(task_id, state.current_phase)
             .ok()
     }
 

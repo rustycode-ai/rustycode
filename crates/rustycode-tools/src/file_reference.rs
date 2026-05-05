@@ -181,12 +181,6 @@ fn process_file_reference(
 /// - Path traversal prevention
 /// - Missing files (left as-is)
 ///
-/// # Arguments
-///
-/// * `file_path` - The file to read and expand
-/// * `import_boundary` - Root directory for security (no references above this)
-/// * `visited` - Set of already-visited paths for circular reference detection
-/// * `depth` - Current recursion depth
 pub fn expand_file_references(
     file_path: &Path,
     import_boundary: &Path,

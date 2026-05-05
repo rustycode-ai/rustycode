@@ -395,7 +395,7 @@ pub struct ToolSchema {
 }
 
 /// Get metadata for a provider by ID
-pub fn get_metadata(provider_id: &str) -> Option<ProviderMetadata> {
+pub fn metadata(provider_id: &str) -> Option<ProviderMetadata> {
     match provider_id.to_lowercase().as_str() {
         "anthropic" => Some(crate::anthropic::AnthropicProvider::metadata()),
         "openai" => Some(crate::openai::OpenAiProvider::metadata()),
@@ -463,26 +463,26 @@ mod tests {
     }
 
     #[test]
-    fn test_get_metadata() {
-        let anthropic = get_metadata("anthropic");
+    fn test_metadata() {
+        let anthropic = metadata("anthropic");
         assert!(anthropic.is_some());
         assert_eq!(anthropic.unwrap().provider_id, "anthropic");
 
-        let openai = get_metadata("openai");
+        let openai = metadata("openai");
         assert!(openai.is_some());
 
         #[cfg(feature = "litert")]
         {
-            let litert = get_metadata("litert-lm");
+            let litert = metadata("litert-lm");
             assert!(litert.is_some());
             assert_eq!(litert.unwrap().provider_id, "litert-lm");
         }
         #[cfg(not(feature = "litert"))]
         {
-            assert!(get_metadata("litert-lm").is_none());
+            assert!(metadata("litert-lm").is_none());
         }
 
-        let unknown = get_metadata("unknown_provider");
+        let unknown = metadata("unknown_provider");
         assert!(unknown.is_none());
     }
 }

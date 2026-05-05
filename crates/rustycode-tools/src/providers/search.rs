@@ -23,17 +23,17 @@ static REGEX_CACHE: std::sync::LazyLock<RegexCache> = std::sync::LazyLock::new(|
 
 /// Get or compile a regex pattern from cache
 /// Made public for benchmarking and external use
-pub fn get_regex(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
+pub fn regex(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
     get_regex_with_flags(pattern, false, false)
 }
 
 /// Get or compile a case-insensitive regex pattern from cache
-pub fn get_regex_insensitive(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
+pub fn regex_insensitive(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
     get_regex_with_flags(pattern, true, false)
 }
 
 /// Get or compile a multiline (dotall) regex pattern from cache
-pub fn get_regex_multiline(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
+pub fn regex_multiline(pattern: &str) -> Result<Arc<Regex>, regex::Error> {
     get_regex_with_flags(pattern, false, true)
 }
 
@@ -152,13 +152,13 @@ impl Tool for GrepTool {
             get_regex_with_flags(pattern, true, true)
                 .map_err(|e| anyhow!("Invalid regex pattern '{pattern}': {e}"))?
         } else if case_insensitive {
-            get_regex_insensitive(pattern)
+            regex_insensitive(pattern)
                 .map_err(|e| anyhow!("Invalid regex pattern '{pattern}': {e}"))?
         } else if multiline {
-            get_regex_multiline(pattern)
+            regex_multiline(pattern)
                 .map_err(|e| anyhow!("Invalid regex pattern '{pattern}': {e}"))?
         } else {
-            get_regex(pattern).map_err(|e| anyhow!("Invalid regex pattern '{pattern}': {e}"))?
+            regex(pattern).map_err(|e| anyhow!("Invalid regex pattern '{pattern}': {e}"))?
         };
 
         // Get context parameters — support both internal and LLM schema field names
@@ -734,20 +734,20 @@ mod tests {
 
     #[test]
     fn get_regex_valid_pattern() {
-        let re = get_regex(r"\d+").unwrap();
+        let re = regex(r"\d+").unwrap();
         assert!(re.is_match("123"));
         assert!(!re.is_match("abc"));
     }
 
     #[test]
     fn get_regex_invalid_pattern() {
-        assert!(get_regex(r"[invalid").is_err());
+        assert!(regex(r"[invalid").is_err());
     }
 
     #[test]
     fn get_regex_caches_compiled() {
-        let re1 = get_regex(r"test").unwrap();
-        let re2 = get_regex(r"test").unwrap();
+        let re1 = regex(r"test").unwrap();
+        let re2 = regex(r"test").unwrap();
         assert!(re1.is_match("test"));
         assert!(re2.is_match("test"));
     }
@@ -896,7 +896,7 @@ mod tests {
 
     #[test]
     fn case_insensitive_regex() {
-        let re = get_regex_insensitive("hello").unwrap();
+        let re = regex_insensitive("hello").unwrap();
         assert!(re.is_match("HELLO"));
         assert!(re.is_match("Hello"));
         assert!(re.is_match("hello"));
@@ -904,7 +904,7 @@ mod tests {
 
     #[test]
     fn case_sensitive_regex_default() {
-        let re = get_regex("hello").unwrap();
+        let re = regex("hello").unwrap();
         assert!(!re.is_match("HELLO"));
         assert!(re.is_match("hello"));
     }

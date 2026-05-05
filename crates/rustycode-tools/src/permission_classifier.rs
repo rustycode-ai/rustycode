@@ -82,7 +82,6 @@ pub struct PermissionClassifier {
 }
 
 impl PermissionClassifier {
-    /// Create a new classifier with optional disk-backed decision cache.
     pub fn new(cache_dir: Option<&Path>) -> Self {
         let cache_path = cache_dir.map(|d| d.join("permission_cache.json"));
         let mut classifier = Self {

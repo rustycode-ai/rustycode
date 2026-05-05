@@ -44,9 +44,6 @@ impl PromptTemplateRegistry {
 
     /// Register a custom template at runtime.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the template string cannot be parsed by Handlebars.
     pub fn register_template(&mut self, name: &str, template: &str) -> Result<()> {
         self.hb
             .register_template_string(name, template)
@@ -55,10 +52,6 @@ impl PromptTemplateRegistry {
 
     /// Render a strategy template with context.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the template for the given strategy cannot be found
-    /// or if rendering fails due to invalid template data.
     pub fn render(&self, strategy: &str, context: &PromptContext) -> Result<String> {
         let data = json!({
             "problem": context.problem,

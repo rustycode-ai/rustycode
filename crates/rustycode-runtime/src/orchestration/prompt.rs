@@ -3,7 +3,7 @@ use crate::orchestration::routing::resolve_task_routing;
 use anyhow::Result;
 use rustycode_config::TaskRoutingConfig;
 use rustycode_prompt::{context, TemplateManager};
-use rustycode_protocol::agent_protocol::get_agent_action_schema;
+use rustycode_protocol::agent_protocol::agent_action_schema;
 
 /// Central orchestrator for building system prompts.
 ///
@@ -19,7 +19,6 @@ impl Default for PromptOrchestrator {
 }
 
 impl PromptOrchestrator {
-    /// Create a new prompt orchestrator with default template manager.
     pub fn new() -> Self {
         Self {
             template_manager: TemplateManager::default(),
@@ -83,7 +82,7 @@ impl PromptOrchestrator {
             .coding_assistant_prompt(&base_context)?;
 
         // Wrap with Anthropic Cache Boundaries
-        let schema = get_agent_action_schema();
+        let schema = agent_action_schema();
         let cached_prompt = format!(
             "<anthropic-cache>\n{}\n<agent_action_schema>\n{}\n</agent_action_schema>\n</anthropic-cache>",
             base_prompt, schema

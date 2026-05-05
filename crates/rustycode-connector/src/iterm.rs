@@ -39,7 +39,6 @@ impl Default for ITermConnector {
 }
 
 impl ITermConnector {
-    /// Create a new iTerm2 connector
     pub const fn new() -> Self {
         Self {
             sessions: Mutex::new(Vec::new()),

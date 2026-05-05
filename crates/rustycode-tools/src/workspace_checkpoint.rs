@@ -113,7 +113,6 @@ pub struct StorageBasedCheckpointStore {
 }
 
 impl StorageBasedCheckpointStore {
-    /// Create a new storage-based checkpoint store
     pub const fn new(storage: Arc<rustycode_storage::Storage>) -> Self {
         Self { storage }
     }
@@ -194,7 +193,6 @@ pub struct CheckpointManager {
 }
 
 impl CheckpointManager {
-    /// Create a new checkpoint manager
     pub fn new(workspace_path: PathBuf, config: CheckpointConfig) -> Result<Self> {
         Self::with_store(workspace_path, config, None, "default".to_string())
     }
@@ -451,7 +449,7 @@ impl CheckpointManager {
     }
 
     /// Get a specific checkpoint by ID
-    pub fn get_checkpoint(&self, id: &str) -> Option<WorkspaceCheckpoint> {
+    pub fn checkpoint(&self, id: &str) -> Option<WorkspaceCheckpoint> {
         let cache = self.checkpoints.read();
         cache.get(id).cloned()
     }
@@ -461,7 +459,7 @@ impl CheckpointManager {
         // Delegate to async restore run on the shared runtime to ensure
         // blocking git operations don't run on caller's thread.
         let checkpoint = self
-            .get_checkpoint(checkpoint_id)
+            .checkpoint(checkpoint_id)
             .context("checkpoint not found")?;
 
         if checkpoint.commit_hash.is_empty() {
@@ -545,7 +543,7 @@ impl CheckpointManager {
     /// blocking the caller. This is useful for callers that already run inside a tokio context.
     pub async fn restore_async(&self, checkpoint_id: &str, mode: RestoreMode) -> Result<()> {
         let checkpoint = self
-            .get_checkpoint(checkpoint_id)
+            .checkpoint(checkpoint_id)
             .context("checkpoint not found")?;
 
         if checkpoint.commit_hash.is_empty() {
@@ -634,10 +632,10 @@ impl CheckpointManager {
     /// Get diff between two checkpoints
     pub fn diff(&self, from_id: &str, to_id: &str) -> Result<String> {
         let from = self
-            .get_checkpoint(from_id)
+            .checkpoint(from_id)
             .context("from checkpoint not found")?;
         let to = self
-            .get_checkpoint(to_id)
+            .checkpoint(to_id)
             .context("to checkpoint not found")?;
 
         if from.commit_hash.is_empty() || to.commit_hash.is_empty() {

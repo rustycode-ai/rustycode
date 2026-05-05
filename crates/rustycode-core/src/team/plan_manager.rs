@@ -157,7 +157,6 @@ pub enum PlanStopReason {
 }
 
 impl PlanManager {
-    /// Create a new PlanManager with a pre-built plan.
     pub fn new(plan: Plan) -> Self {
         let step_count = plan.steps.len();
         Self {

@@ -33,9 +33,7 @@ static DANGEROUS_PATTERNS: &[(&str, &str)] = &[
     (r"(?i)\bDROP\s+USER\b", "DROP USER is not allowed"),
 ];
 
-// ============================================================================
 // DATABASE TYPES
-// ============================================================================
 
 /// Supported database types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -283,9 +281,7 @@ pub fn classify_query(sql: &str) -> QueryType {
     QueryType::Other
 }
 
-// ============================================================================
 // QUERY VALIDATION
-// ============================================================================
 
 /// Validate a SQL query for safety
 pub fn validate_query(sql: &str) -> Result<()> {
@@ -323,9 +319,7 @@ pub fn validate_query(sql: &str) -> Result<()> {
     Ok(())
 }
 
-// ============================================================================
 // QUERY EXECUTION (SQLite)
-// ============================================================================
 
 /// Execute a query on a `SQLite` database
 pub fn execute_sqlite_query(
@@ -375,9 +369,7 @@ pub fn execute_sqlite_query(
     })
 }
 
-// ============================================================================
 // SCHEMA INSPECTION
-// ============================================================================
 
 /// Schema information for a table
 #[derive(Debug, Clone)]
@@ -461,9 +453,7 @@ pub fn list_sqlite_tables(
     Ok(vec![])
 }
 
-// ============================================================================
 // TOOLS
-// ============================================================================
 
 /// Tool for executing SQL queries
 pub struct QueryTool;
@@ -865,9 +855,7 @@ impl Tool for TransactionTool {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

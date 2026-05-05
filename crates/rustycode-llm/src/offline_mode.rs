@@ -77,7 +77,6 @@ pub struct OfflineMode {
 }
 
 impl OfflineMode {
-    /// Create a new offline mode manager
     pub fn new(config: OfflineModeConfig) -> Self {
         let available_services = config
             .fallback_services

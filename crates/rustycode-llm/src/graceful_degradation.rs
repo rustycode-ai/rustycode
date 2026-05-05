@@ -257,7 +257,6 @@ pub struct DegradationMetadataBuilder {
 }
 
 impl DegradationMetadataBuilder {
-    /// Create a new builder
     pub fn new() -> Self {
         Self {
             is_degraded: false,
@@ -423,7 +422,6 @@ pub struct DegradationHandler {
 }
 
 impl DegradationHandler {
-    /// Create a new degradation handler
     pub fn new() -> Self {
         Self {
             retry_config: RetryConfig::default(),

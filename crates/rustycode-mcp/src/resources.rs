@@ -58,7 +58,6 @@ pub struct ResourceManager {
 }
 
 impl ResourceManager {
-    /// Create a new resource manager
     pub fn new() -> Self {
         Self {
             resources: Arc::new(RwLock::new(HashMap::new())),
@@ -142,7 +141,7 @@ impl ResourceManager {
     }
 
     /// Get resource by URI
-    pub async fn get_resource(&self, uri: &str) -> Option<Resource> {
+    pub async fn resource(&self, uri: &str) -> Option<Resource> {
         let resources = self.resources.read().await;
         resources.get(uri).cloned()
     }
@@ -228,7 +227,6 @@ pub struct ResourceBatch {
 }
 
 impl ResourceBatch {
-    /// Create a new batch operation
     pub const fn new(manager: Arc<RwLock<ResourceManager>>) -> Self {
         Self { manager }
     }
@@ -591,7 +589,7 @@ mod tests {
     #[tokio::test]
     async fn test_resource_manager_get_not_found() {
         let manager = ResourceManager::new();
-        assert!(manager.get_resource("nonexistent").await.is_none());
+        assert!(manager.resource("nonexistent").await.is_none());
     }
 
     #[tokio::test]

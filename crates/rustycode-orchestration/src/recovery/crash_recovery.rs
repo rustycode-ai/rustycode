@@ -63,7 +63,6 @@ pub struct CrashLock {
 const DATA_DIR: &str = ".orchestration";
 
 impl CrashLock {
-    /// Create a new lock file
     pub fn new(unit_id: &str, phase: &str) -> Self {
         Self {
             unit_id: unit_id.to_string(),
@@ -275,7 +274,6 @@ pub enum UnitStatus {
 }
 
 impl UnitRuntimeRecord {
-    /// Create a new runtime record
     pub fn new(unit_id: &str, phase: &str) -> Self {
         Self {
             unit_id: unit_id.to_string(),

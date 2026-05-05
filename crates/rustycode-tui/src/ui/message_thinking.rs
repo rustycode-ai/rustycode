@@ -17,14 +17,6 @@ use ratatui::{
 
 /// Render thinking block header
 ///
-/// # Arguments
-///
-/// * `f` - The ratatui frame for rendering
-/// * `area` - The area to render in
-/// * `thinking` - The thinking content
-/// * `pipe` - The pipe character for visual consistency
-/// * `color` - The color for styling
-/// * `theme` - The message theme
 pub fn render_thinking_header(
     f: &mut Frame,
     area: Rect,
@@ -58,14 +50,6 @@ pub fn render_thinking_header(
 
 /// Render expanded thinking content with border
 ///
-/// # Arguments
-///
-/// * `f` - The ratatui frame for rendering
-/// * `area` - The area to render in
-/// * `thinking` - The thinking content
-/// * `pipe` - The pipe character for visual consistency
-/// * `color` - The color for styling
-/// * `theme` - The message theme
 pub fn render_thinking_content(
     f: &mut Frame,
     area: Rect,
@@ -117,14 +101,6 @@ pub fn render_thinking_content(
 
 /// Calculate the height needed for thinking block rendering
 ///
-/// # Arguments
-///
-/// * `has_thinking` - Whether there is thinking content
-/// * `is_expanded` - Whether the thinking block is expanded
-///
-/// # Returns
-///
-/// The number of lines needed for rendering
 pub fn calculate_thinking_height(has_thinking: bool, is_expanded: bool) -> usize {
     if !has_thinking {
         return 0;
@@ -139,9 +115,7 @@ pub fn calculate_thinking_height(has_thinking: bool, is_expanded: bool) -> usize
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

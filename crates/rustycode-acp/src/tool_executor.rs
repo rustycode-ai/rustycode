@@ -19,7 +19,6 @@ pub struct ToolExecutor {
 }
 
 impl ToolExecutor {
-    /// Create a new tool executor
     pub fn new(cwd: String) -> Self {
         Self {
             tool_registry: Arc::new(Mutex::new(None)),
@@ -104,7 +103,7 @@ impl ToolExecutor {
     }
 
     /// Get tool definitions for the LLM
-    pub async fn get_tool_definitions(&self) -> Result<Vec<serde_json::Value>> {
+    pub async fn tool_definitions(&self) -> Result<Vec<serde_json::Value>> {
         let registry_guard = self.tool_registry.lock().await;
         let registry = registry_guard
             .as_ref()

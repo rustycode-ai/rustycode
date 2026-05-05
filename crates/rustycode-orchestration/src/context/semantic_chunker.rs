@@ -168,22 +168,6 @@ fn tokenize(text: &str) -> Vec<String> {
 
 /// Split content into semantic chunks
 ///
-/// # Arguments
-/// * `content` - Content to split
-/// * `options` - Optional chunk configuration
-///
-/// # Returns
-/// Vector of chunks
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::semantic_chunker::*;
-///
-/// let chunks = split_into_chunks(
-///     "function foo() {}\n\nfunction bar() {}",
-///     Some(ChunkOptions { min_lines: Some(2), max_lines: Some(50) }),
-/// );
-/// ```
 pub fn split_into_chunks(content: &str, options: Option<&ChunkOptions>) -> Vec<Chunk> {
     if content.trim().is_empty() {
         return Vec::new();
@@ -330,20 +314,6 @@ fn find_text_boundaries(lines: &[String]) -> Vec<usize> {
 
 /// Score chunks by relevance to query using TF-IDF
 ///
-/// # Arguments
-/// * `chunks` - Chunks to score
-/// * `query` - Query to score against
-///
-/// # Returns
-/// Chunks with relevance scores (0-1)
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::semantic_chunker::*;
-///
-/// let chunks = vec![Chunk { /* ... */ }];
-/// let scored = score_chunks(chunks, "authentication login");
-/// ```
 pub fn score_chunks(chunks: &[Chunk], query: &str) -> Vec<Chunk> {
     if chunks.is_empty() {
         return Vec::new();
@@ -432,28 +402,6 @@ pub fn score_chunks(chunks: &[Chunk], query: &str) -> Vec<Chunk> {
 
 /// Select chunks by relevance to query
 ///
-/// # Arguments
-/// * `content` - Content to chunk and select from
-/// * `query` - Query to score against
-/// * `options` - Optional relevance configuration
-///
-/// # Returns
-/// Chunk result with selected chunks and metadata
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::semantic_chunker::*;
-///
-/// let result = chunk_by_relevance(
-///     "long code...",
-///     "authentication",
-///     Some(&RelevanceOptions {
-///         max_chunks: Some(3),
-///         min_score: Some(0.2),
-///         ..Default::default()
-///     }),
-/// );
-/// ```
 pub fn chunk_by_relevance(
     content: &str,
     query: &str,
@@ -526,20 +474,6 @@ pub fn chunk_by_relevance(
 
 /// Format chunks with omission indicators
 ///
-/// # Arguments
-/// * `result` - Chunk result to format
-/// * `file_path` - File path for context
-///
-/// # Returns
-/// Formatted string with line ranges and content
-///
-/// # Example
-/// ```rust,no_run
-/// use rustycode_orchestration::semantic_chunker::*;
-///
-/// let formatted = format_chunks(&result, "src/auth.rs");
-/// println!("{}", formatted);
-/// ```
 pub fn format_chunks(result: &ChunkResult, file_path: &str) -> String {
     if result.chunks.is_empty() {
         return format!("[{file_path}: empty or no relevant chunks]");

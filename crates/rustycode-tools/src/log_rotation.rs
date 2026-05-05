@@ -66,15 +66,6 @@ impl LogConfig {
 /// Creates the directory structure if it doesn't exist. Optionally creates
 /// a date-based subdirectory. Also triggers cleanup of old logs.
 ///
-/// # Arguments
-///
-/// * `config` - Log rotation configuration
-/// * `component` - Component name (e.g., "cli", "server", "debug", "llm")
-/// * `use_date_subdir` - Whether to create a date-based subdirectory
-///
-/// # Returns
-///
-/// The path to the log directory.
 pub fn prepare_log_directory(
     config: &LogConfig,
     component: &str,

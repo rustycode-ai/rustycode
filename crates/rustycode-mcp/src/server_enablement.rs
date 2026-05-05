@@ -75,7 +75,6 @@ pub struct ServerEnablementManager {
 impl ServerEnablementManager {
     const FILENAME: &'static str = "mcp-server-enablement.json";
 
-    /// Create a new enablement manager
     pub fn new() -> Result<Self, std::io::Error> {
         Self::with_config_path(None)
     }
@@ -228,7 +227,7 @@ impl ServerEnablementManager {
     }
 
     /// Get display state for a server
-    pub async fn get_display_state(&self, server_id: &str) -> ServerDisplayState {
+    pub async fn display_state(&self, server_id: &str) -> ServerDisplayState {
         let normalized_id = server_id.to_lowercase().trim().to_string();
 
         let is_session_disabled = self.is_session_disabled(&normalized_id);
@@ -302,13 +301,13 @@ impl ServerEnablementManager {
     }
 
     /// Get all display states
-    pub async fn get_all_display_states(
+    pub async fn all_display_states(
         &self,
         server_ids: &[String],
     ) -> HashMap<String, ServerDisplayState> {
         let mut result = HashMap::new();
         for server_id in server_ids {
-            result.insert(server_id.clone(), self.get_display_state(server_id).await);
+            result.insert(server_id.clone(), self.display_state(server_id).await);
         }
         result
     }
@@ -442,7 +441,7 @@ mod tests {
     async fn test_display_state() {
         let manager = create_test_manager();
 
-        let state = manager.get_display_state("test-server").await;
+        let state = manager.display_state("test-server").await;
         assert!(state.enabled);
         assert!(!state.is_session_disabled);
         assert!(!state.is_persistent_disabled);
@@ -574,7 +573,7 @@ mod tests {
     async fn test_get_all_display_states() {
         let manager = create_test_manager();
         let server_ids = vec!["srv1".to_string(), "srv2".to_string()];
-        let states = manager.get_all_display_states(&server_ids).await;
+        let states = manager.all_display_states(&server_ids).await;
         assert_eq!(states.len(), 2);
         assert!(states.get("srv1").unwrap().enabled);
         assert!(states.get("srv2").unwrap().enabled);

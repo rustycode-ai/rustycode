@@ -103,9 +103,7 @@ pub fn handle_agent_command(task: &str, tasks: &mut WorkspaceTasks) -> CommandRe
     cmd_agent_spawn(task, tasks)
 }
 
-// ============================================================================
 // Task Commands
-// ============================================================================
 
 /// List all tasks
 fn cmd_task_list(tasks: &WorkspaceTasks) -> CommandResult {
@@ -295,9 +293,7 @@ fn cmd_task_block(args: &[String], tasks: &mut WorkspaceTasks) -> CommandResult 
     }
 }
 
-// ============================================================================
 // Todo Commands
-// ============================================================================
 
 /// List all todos
 fn cmd_todo_list(tasks: &WorkspaceTasks) -> CommandResult {
@@ -448,9 +444,7 @@ fn cmd_todo_delete(args: &[String], tasks: &mut WorkspaceTasks) -> CommandResult
     CommandResult::Success(format!("🗑️ Deleted: {}", text))
 }
 
-// ============================================================================
 // Agent Commands
-// ============================================================================
 
 /// Spawn a new agent
 fn cmd_agent_spawn(task: &str, tasks: &mut WorkspaceTasks) -> CommandResult {
@@ -484,9 +478,7 @@ fn cmd_agent_spawn(task: &str, tasks: &mut WorkspaceTasks) -> CommandResult {
     CommandResult::Success(format!("🤖 Agent {} spawned for: {}", agent_short_id, task))
 }
 
-// ============================================================================
 // Schedule Commands
-// ============================================================================
 
 /// Handle a schedule command
 fn handle_schedule_command(action: &str, _args: &[String]) -> CommandResult {
@@ -535,9 +527,7 @@ fn cmd_schedule_stats() -> CommandResult {
     )
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

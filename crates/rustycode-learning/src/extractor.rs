@@ -114,7 +114,7 @@ impl InstinctExtractor {
     }
 
     /// Get a pattern by ID
-    pub fn get_pattern(&self, id: &str) -> Option<&Pattern> {
+    pub fn pattern(&self, id: &str) -> Option<&Pattern> {
         self.patterns.iter().find(|p| p.id == id)
     }
 
@@ -356,7 +356,7 @@ mod tests {
         ext.learn_pattern(pattern);
         assert_eq!(ext.patterns().len(), 1);
 
-        let found = ext.get_pattern("test-pattern");
+        let found = ext.pattern("test-pattern");
         assert!(found.is_some());
         assert_eq!(found.unwrap().name, "Test");
     }
@@ -364,7 +364,7 @@ mod tests {
     #[test]
     fn test_get_pattern_not_found() {
         let ext = InstinctExtractor::new();
-        assert!(ext.get_pattern("nonexistent").is_none());
+        assert!(ext.pattern("nonexistent").is_none());
     }
 
     #[test]
@@ -388,7 +388,7 @@ mod tests {
         // Should not grow (existing is found but merge is a no-op)
         assert_eq!(ext.patterns().len(), 1);
         // Name should remain "First" since merge is no-op
-        assert_eq!(ext.get_pattern("dup").unwrap().name, "First");
+        assert_eq!(ext.pattern("dup").unwrap().name, "First");
     }
 
     #[test]

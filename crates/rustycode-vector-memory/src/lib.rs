@@ -495,7 +495,7 @@ impl VectorMemory {
     }
 
     /// Get all active (non-empty, non-expired) memories
-    pub fn get_active(&self, memory_type: MemoryType) -> Vec<&MemoryEntry> {
+    pub fn active(&self, memory_type: MemoryType) -> Vec<&MemoryEntry> {
         let now = Utc::now().timestamp();
         self.indices
             .get(&memory_type)
@@ -527,7 +527,7 @@ impl VectorMemory {
             .unwrap_or_default()
     }
 
-    pub fn get_all(&self, memory_type: MemoryType) -> Vec<&MemoryEntry> {
+    pub fn all(&self, memory_type: MemoryType) -> Vec<&MemoryEntry> {
         self.indices
             .get(&memory_type)
             .map(|index| {
@@ -713,10 +713,10 @@ mod tests {
         assert_eq!(memory.count_active(MemoryType::CodePatterns), 1);
 
         // get_active should filter out expired
-        let active_traces = memory.get_active(MemoryType::TaskTraces);
+        let active_traces = memory.active(MemoryType::TaskTraces);
         assert!(active_traces.is_empty(), "No active task traces expected");
 
-        let active_patterns = memory.get_active(MemoryType::CodePatterns);
+        let active_patterns = memory.active(MemoryType::CodePatterns);
         assert_eq!(active_patterns.len(), 1, "One active pattern expected");
     }
 
@@ -958,7 +958,7 @@ mod tests {
             )
             .unwrap();
 
-        let all = memory.get_all(MemoryType::Learnings);
+        let all = memory.all(MemoryType::Learnings);
         assert_eq!(all.len(), 2);
     }
 
@@ -1258,7 +1258,7 @@ mod tests {
     fn test_get_active_uninitialized_type() {
         let temp_dir = TempDir::new().unwrap();
         let memory = VectorMemory::new(temp_dir.path());
-        let active = memory.get_active(MemoryType::Learnings);
+        let active = memory.active(MemoryType::Learnings);
         assert!(active.is_empty());
     }
 
@@ -1266,7 +1266,7 @@ mod tests {
     fn test_get_all_uninitialized_type() {
         let temp_dir = TempDir::new().unwrap();
         let memory = VectorMemory::new(temp_dir.path());
-        let all = memory.get_all(MemoryType::Learnings);
+        let all = memory.all(MemoryType::Learnings);
         assert!(all.is_empty());
     }
 
@@ -1294,7 +1294,7 @@ mod tests {
             .unwrap();
         let after = Utc::now().timestamp();
 
-        let all = memory.get_all(MemoryType::Learnings);
+        let all = memory.all(MemoryType::Learnings);
         assert_eq!(all.len(), 1);
         let ts = all[0].metadata.created_timestamp.unwrap();
         assert!(ts >= before && ts <= after);
@@ -1318,7 +1318,7 @@ mod tests {
             )
             .unwrap();
 
-        let all = memory.get_all(MemoryType::Learnings);
+        let all = memory.all(MemoryType::Learnings);
         assert_eq!(all[0].metadata.created_timestamp.unwrap(), custom_ts);
     }
 
@@ -1477,7 +1477,7 @@ mod tests {
         assert!(memory.remove(MemoryType::Learnings, &id1));
         // First entry removed, second should still be there
         assert_eq!(memory.count_active(MemoryType::Learnings), 1);
-        let all = memory.get_all(MemoryType::Learnings);
+        let all = memory.all(MemoryType::Learnings);
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].content, "second entry");
     }
@@ -1529,7 +1529,7 @@ mod tests {
             let mut mem2 = VectorMemory::new(temp_dir.path());
             mem2.init().unwrap();
             assert_eq!(mem2.count_active(MemoryType::Learnings), 1);
-            let all = mem2.get_all(MemoryType::Learnings);
+            let all = mem2.all(MemoryType::Learnings);
             assert_eq!(all[0].content, "to keep");
         }
     }
@@ -1571,7 +1571,7 @@ mod tests {
             let mut mem2 = VectorMemory::new(temp_dir.path());
             mem2.init().unwrap();
             assert_eq!(mem2.count_active(MemoryType::Learnings), 1);
-            let all = mem2.get_all(MemoryType::Learnings);
+            let all = mem2.all(MemoryType::Learnings);
             assert_eq!(all[0].content, "permanent entry");
         }
     }
@@ -1777,7 +1777,7 @@ mod tests {
         let removed = memory.consolidate(MemoryType::Learnings, 0.3).unwrap();
         assert_eq!(removed, 1);
 
-        let remaining = memory.get_all(MemoryType::Learnings);
+        let remaining = memory.all(MemoryType::Learnings);
         assert_eq!(remaining.len(), 1);
         // The surviving entry should have merged metadata
         let entry = &remaining[0];
@@ -1848,7 +1848,7 @@ mod tests {
             .unwrap();
 
         // get_active filters by TTL
-        let active = memory.get_active(MemoryType::TaskTraces);
+        let active = memory.active(MemoryType::TaskTraces);
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].content, "active");
     }
@@ -1872,7 +1872,7 @@ mod tests {
             )
             .unwrap();
 
-        let active = memory.get_active(MemoryType::Learnings);
+        let active = memory.active(MemoryType::Learnings);
         assert_eq!(active.len(), 1);
     }
 

@@ -119,9 +119,6 @@ impl SubprocessExt for StdCommand {
 /// doesn't propagate to it. On Linux, it also receives SIGTERM when
 /// the parent dies. On Windows, no console window is created.
 ///
-/// # Arguments
-///
-/// * `command` - The async command to configure
 #[allow(unused_variables)]
 pub fn configure_subprocess(command: &mut TokioCommand) {
     // Isolate into own process group so SIGINT from terminal doesn't reach it

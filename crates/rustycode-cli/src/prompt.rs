@@ -81,7 +81,6 @@ impl Default for PromptConfig {
 }
 
 impl PromptConfig {
-    /// Create a new prompt configuration
     pub fn new() -> Self {
         Self::default()
     }
@@ -183,7 +182,6 @@ pub struct Confirm {
 }
 
 impl Confirm {
-    /// Create a new confirmation prompt
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -280,7 +278,6 @@ pub struct Select<T: Clone> {
 }
 
 impl<T: Clone> Select<T> {
-    /// Create a new selection prompt
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -427,7 +424,6 @@ pub struct Input {
 }
 
 impl Input {
-    /// Create a new input prompt
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -548,7 +544,6 @@ pub struct MultiSelect<T: Clone> {
 }
 
 impl<T: Clone> MultiSelect<T> {
-    /// Create a new multi-select prompt
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),

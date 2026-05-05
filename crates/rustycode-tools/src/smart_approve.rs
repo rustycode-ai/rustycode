@@ -45,7 +45,6 @@ pub struct SmartApprove {
 }
 
 impl SmartApprove {
-    /// Create a new classifier with built-in heuristics.
     pub fn new() -> Self {
         Self {
             read_only_tools: HashSet::from([
@@ -251,10 +250,6 @@ impl SmartApprove {
 
     /// Classify a tool operation by tool name and optional arguments.
     ///
-    /// # Arguments
-    ///
-    /// * `tool_name` - Name of the tool being invoked
-    /// * `args` - Optional JSON string of tool arguments (used for bash command inspection)
     pub fn classify(&self, tool_name: &str, args: Option<&str>) -> OperationClass {
         // Normalize tool name
         let name = tool_name.trim().to_lowercase();

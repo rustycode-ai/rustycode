@@ -46,8 +46,6 @@ pub fn set_test_sessions_dir(path: Option<PathBuf>) {
 
 /// Get the sessions directory path
 ///
-/// # Returns
-/// PathBuf pointing to ~/.rustycode/sessions or ./rustycode/sessions
 pub fn sessions_dir() -> PathBuf {
     #[cfg(test)]
     {
@@ -65,8 +63,6 @@ pub fn sessions_dir() -> PathBuf {
 
 /// Get the command history file path
 ///
-/// # Returns
-/// PathBuf pointing to .rustycode_command_history in the current workspace
 pub fn command_history_path() -> PathBuf {
     // Store in workspace directory for workspace-specific history
     PathBuf::from(".rustycode_command_history")
@@ -74,12 +70,6 @@ pub fn command_history_path() -> PathBuf {
 
 /// Save current session to disk
 ///
-/// # Arguments
-/// * `title` - The session title
-/// * `messages` - Slice of serialized messages to save
-///
-/// # Returns
-/// Result indicating success or error
 pub fn save_current_session(
     title: &str,
     messages: &[SerializedMessage],
@@ -128,11 +118,6 @@ pub fn save_current_session(
 /// Tries recovery directories first (which have real messages),
 /// then falls back to flat JSON files.
 ///
-/// # Arguments
-/// * `session_id` - The ID of the session to load
-///
-/// # Returns
-/// Result containing (title, messages, age_description) or error
 pub fn load_session(session_id: &str) -> std::io::Result<(String, Vec<SerializedMessage>, String)> {
     use std::fs;
 
@@ -276,12 +261,6 @@ pub fn load_session(session_id: &str) -> std::io::Result<(String, Vec<Serialized
 /// Reads from recovery directories (which contain full session state with messages)
 /// and falls back to flat JSON files. Results are sorted newest first.
 ///
-/// # Arguments
-/// * `current_title` - The title of the current (unsaved) session
-/// * `current_message_count` - The number of messages in the current session
-///
-/// # Returns
-/// Vector of SessionHistoryEntry objects
 pub fn load_session_history_list(
     current_title: &str,
     current_message_count: usize,
@@ -412,8 +391,6 @@ pub fn delete_session(session_id: &str) -> std::io::Result<()> {
 /// Removes both recovery directories and flat JSON files for sessions
 /// beyond the keep limit. Also removes sessions with 0 messages.
 ///
-/// # Returns
-/// Number of sessions removed.
 pub fn cleanup_old_sessions(keep: usize) -> std::io::Result<usize> {
     use std::fs;
 
@@ -465,8 +442,6 @@ pub fn cleanup_old_sessions(keep: usize) -> std::io::Result<usize> {
 
 /// Load command history from disk
 ///
-/// # Returns
-/// Vector of command strings
 pub fn load_command_history() -> Vec<String> {
     let path = command_history_path();
     if path.exists() {
@@ -483,11 +458,6 @@ pub fn load_command_history() -> Vec<String> {
 
 /// Save command history to disk
 ///
-/// # Arguments
-/// * `history` - Slice of command strings to save
-///
-/// # Returns
-/// Result indicating success or error
 pub fn save_command_history(history: &[String]) -> std::io::Result<()> {
     let path = command_history_path();
     std::fs::write(&path, history.join("\n"))

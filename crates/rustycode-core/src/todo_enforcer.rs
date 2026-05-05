@@ -62,7 +62,6 @@ pub struct IdleDetector {
 }
 
 impl IdleDetector {
-    /// Create a new detector with the original task description.
     pub fn new(original_task: &str) -> Self {
         Self {
             consecutive_idle: 0,
@@ -153,7 +152,7 @@ impl IdleDetector {
 
     /// Get a nudge message to inject into the conversation, if the agent is idle.
     /// Returns None if the agent is active.
-    pub fn get_nudge_message(&self) -> Option<String> {
+    pub fn nudge_message(&self) -> Option<String> {
         match self.idle_level() {
             IdleLevel::Active => None,
             IdleLevel::GentleNudge => Some(
@@ -235,7 +234,7 @@ mod tests {
     fn test_new_detector_is_active() {
         let detector = IdleDetector::new("implement auth");
         assert_eq!(detector.idle_level(), IdleLevel::Active);
-        assert!(detector.get_nudge_message().is_none());
+        assert!(detector.nudge_message().is_none());
     }
 
     #[test]
@@ -244,7 +243,7 @@ mod tests {
         detector.record_iteration(false, &[]);
         detector.record_iteration(false, &[]);
         assert_eq!(detector.idle_level(), IdleLevel::GentleNudge);
-        assert!(detector.get_nudge_message().is_some());
+        assert!(detector.nudge_message().is_some());
     }
 
     #[test]
@@ -254,7 +253,7 @@ mod tests {
             detector.record_iteration(false, &[]);
         }
         assert_eq!(detector.idle_level(), IdleLevel::TaskReminder);
-        let msg = detector.get_nudge_message().unwrap();
+        let msg = detector.nudge_message().unwrap();
         assert!(msg.contains("implement auth"));
     }
 
@@ -265,7 +264,7 @@ mod tests {
             detector.record_iteration(false, &[]);
         }
         assert_eq!(detector.idle_level(), IdleLevel::StopAndAssess);
-        let msg = detector.get_nudge_message().unwrap();
+        let msg = detector.nudge_message().unwrap();
         assert!(msg.contains("STOP AND ASSESS"));
     }
 
@@ -316,7 +315,7 @@ mod tests {
         let mut detector = IdleDetector::new("fix the bug");
         detector.record_iteration(false, &[]);
         detector.record_iteration(false, &[]);
-        let msg = detector.get_nudge_message().unwrap();
+        let msg = detector.nudge_message().unwrap();
         assert!(msg.contains("tools"));
     }
 

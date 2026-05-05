@@ -107,6 +107,7 @@ USAGE.md
 # Agent / Tool Specific
 .harness*
 .sparv
+.desloppify/
 .rustycode/
 .orchestra/
 .claude/

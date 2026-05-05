@@ -6,9 +6,7 @@
 use crate::message::Message;
 use serde::{Deserialize, Serialize};
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
 
 /// Configuration for the hybrid compaction pipeline.
 ///
@@ -49,9 +47,7 @@ impl Default for HybridCompactionConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Summary progression
-// ---------------------------------------------------------------------------
 
 /// Template granularity for the Summarize tier.
 ///
@@ -87,9 +83,7 @@ impl SummaryTemplate {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tier record
-// ---------------------------------------------------------------------------
 
 /// Records which compaction tier(s) were applied during a pass.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,9 +113,7 @@ pub enum CompactionTierUsed {
     Emergency,
 }
 
-// ---------------------------------------------------------------------------
 // Result
-// ---------------------------------------------------------------------------
 
 /// Result of a single compaction pass.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,9 +138,7 @@ pub struct CompactionResult {
     pub tiers_used: Vec<CompactionTierUsed>,
 }
 
-// ---------------------------------------------------------------------------
 // Error
-// ---------------------------------------------------------------------------
 
 /// Non-fatal errors that can occur during compaction.
 ///
@@ -176,9 +166,7 @@ pub enum CompactionError {
     AlreadyCompacting,
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

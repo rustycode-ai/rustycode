@@ -22,9 +22,7 @@ use std::process::Command;
 use tokio::sync::Semaphore;
 use tracing::{debug, info, warn};
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
 
 /// Configuration for parallel execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,9 +60,7 @@ pub enum MergeStrategy {
     Rebase,
 }
 
-// ---------------------------------------------------------------------------
 // Task types
-// ---------------------------------------------------------------------------
 
 /// A task to be executed in isolation inside its own worktree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,9 +106,7 @@ pub struct TaskResult {
     pub error: Option<String>,
 }
 
-// ---------------------------------------------------------------------------
 // Conflict detection
-// ---------------------------------------------------------------------------
 
 /// Warning about file-level overlap between two tasks.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,9 +119,7 @@ pub struct ConflictWarning {
     pub overlapping_files: Vec<String>,
 }
 
-// ---------------------------------------------------------------------------
 // Merge report
-// ---------------------------------------------------------------------------
 
 /// Summary of merging all parallel results back to main.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -153,9 +145,7 @@ pub struct TaskMergeDetail {
     pub conflict_description: Option<String>,
 }
 
-// ---------------------------------------------------------------------------
 // Executor
-// ---------------------------------------------------------------------------
 
 /// The main parallel worktree executor.
 ///
@@ -177,7 +167,6 @@ impl std::fmt::Debug for ParallelWorktreeExecutor {
 }
 
 impl ParallelWorktreeExecutor {
-    /// Create a new executor for the repository at `repo_path`.
     pub fn new(repo_path: PathBuf, config: ParallelConfig) -> Result<Self, String> {
         if !repo_path.exists() {
             return Err(format!(
@@ -752,9 +741,7 @@ impl ParallelWorktreeExecutor {
     }
 }
 
-// ===========================================================================
 // Tests
-// ===========================================================================
 
 #[cfg(test)]
 mod tests {

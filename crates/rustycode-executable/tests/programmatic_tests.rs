@@ -16,9 +16,7 @@ use rustycode_executable::{
 
 use common::{make_input, make_tool_unit, FixedCallable};
 
-// ---------------------------------------------------------------------------
 // Test infrastructure
-// ---------------------------------------------------------------------------
 
 /// A direct executor that delegates to the unit's Callable handler
 struct DelegatingDirectExecutor;
@@ -110,9 +108,7 @@ fn fixed_unit(id: &str, value: serde_json::Value) -> ExecutableUnit {
     }
 }
 
-// ---------------------------------------------------------------------------
 // 1. Single-step chain
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn single_step_chain_executes_and_returns_one_output() {
@@ -149,9 +145,7 @@ async fn single_step_chain_with_echo_callable_returns_input() {
     assert_eq!(result.outputs[0].data["msg"], "hello");
 }
 
-// ---------------------------------------------------------------------------
 // 2. Multi-step chain
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn multi_step_chain_executes_in_sequence() {
@@ -223,9 +217,7 @@ async fn multi_step_chain_then_without_prev_uses_current_input() {
     assert_eq!(result.outputs[1].data["val"], 99);
 }
 
-// ---------------------------------------------------------------------------
 // 3. Input transform: Fixed
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn input_transform_fixed_ignores_previous_output() {
@@ -265,9 +257,7 @@ async fn input_transform_fixed_ignores_previous_output() {
     assert_eq!(result.outputs[1].data["injected"], "fixed_value");
 }
 
-// ---------------------------------------------------------------------------
 // 4. Input transform: Merge
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn input_transform_merge_combines_with_current_input() {
@@ -336,9 +326,7 @@ async fn input_transform_merge_with_non_object_current_input_is_noop() {
     assert_eq!(result.outputs[0].data, serde_json::json!("just a string"));
 }
 
-// ---------------------------------------------------------------------------
 // 5. Input transform: PreviousOutput edge case
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn input_transform_previous_output_on_first_step_falls_through() {
@@ -361,9 +349,7 @@ async fn input_transform_previous_output_on_first_step_falls_through() {
     assert_eq!(result.outputs[0].data["fallback"], true);
 }
 
-// ---------------------------------------------------------------------------
 // 6. Empty chain
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn empty_chain_returns_execution_failed_error() {
@@ -398,9 +384,7 @@ async fn default_chain_is_empty_and_fails() {
     assert!(result.is_err());
 }
 
-// ---------------------------------------------------------------------------
 // 7. Chain with nonexistent unit
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn chain_with_nonexistent_unit_returns_not_found() {
@@ -438,9 +422,7 @@ async fn chain_with_nonexistent_unit_in_second_step_errors() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // 8. ChainResult structure
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn chain_result_has_correct_field_shapes() {
@@ -489,9 +471,7 @@ async fn chain_result_duration_is_sum_of_step_durations() {
     assert_eq!(result.total_duration_ms, 3);
 }
 
-// ---------------------------------------------------------------------------
 // 9. ChainStep structure
-// ---------------------------------------------------------------------------
 
 #[test]
 fn chain_step_fields_are_set_correctly_by_then() {
@@ -543,9 +523,7 @@ fn chain_step_manual_construction_with_all_fields() {
     ));
 }
 
-// ---------------------------------------------------------------------------
 // 10. InputTransform enum variants
-// ---------------------------------------------------------------------------
 
 #[test]
 fn input_transform_variants_construct_correctly() {
@@ -559,9 +537,7 @@ fn input_transform_variants_construct_correctly() {
     assert!(matches!(merge, InputTransform::Merge(_)));
 }
 
-// ---------------------------------------------------------------------------
 // 11. OutputTransform enum variants
-// ---------------------------------------------------------------------------
 
 #[test]
 fn output_transform_variants_construct_correctly() {
@@ -612,9 +588,7 @@ fn output_transform_stored_on_chain_step() {
     ));
 }
 
-// ---------------------------------------------------------------------------
 // 12. ProgrammaticCall context details
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn chain_sets_programmatic_call_context_with_position() {
@@ -643,9 +617,7 @@ async fn chain_sets_programmatic_call_context_with_position() {
     assert_eq!(result.unwrap().outputs.len(), 3);
 }
 
-// ---------------------------------------------------------------------------
 // 13. Passthrough semantics
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn chain_passthrough_true_for_non_final_steps() {
@@ -663,9 +635,7 @@ async fn chain_passthrough_true_for_non_final_steps() {
     assert_eq!(result.outputs.len(), 2);
 }
 
-// ---------------------------------------------------------------------------
 // 14. Caller info preservation
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn chain_preserves_input_data_across_steps() {
@@ -683,9 +653,7 @@ async fn chain_preserves_input_data_across_steps() {
     assert_eq!(result.outputs[0].data["x"], 1);
 }
 
-// ---------------------------------------------------------------------------
 // 15. Clone and Debug traits
-// ---------------------------------------------------------------------------
 
 #[test]
 fn call_chain_is_cloneable() {
@@ -746,9 +714,7 @@ fn chain_result_implements_debug() {
     assert!(debug_str.contains("total_duration_ms"));
 }
 
-// ---------------------------------------------------------------------------
 // 16. Builder chaining pattern
-// ---------------------------------------------------------------------------
 
 #[test]
 fn builder_returns_new_chain_on_each_call() {

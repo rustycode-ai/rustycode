@@ -48,7 +48,6 @@ impl Default for ToolRegistry {
 }
 
 impl ToolRegistry {
-    /// Create a new tool registry with default configuration
     pub fn new() -> Self {
         Self::with_config(RegistryConfig::default())
     }
@@ -132,7 +131,7 @@ impl ToolRegistry {
     }
 
     /// Get tool metadata
-    pub fn get_metadata(&self, name: &str) -> Option<&ToolMetadata> {
+    pub fn metadata(&self, name: &str) -> Option<&ToolMetadata> {
         self.metadata.get(name)
     }
 
@@ -341,7 +340,7 @@ mod tests {
     #[test]
     fn test_get_metadata_not_found() {
         let registry = ToolRegistry::new();
-        assert!(registry.get_metadata("nonexistent").is_none());
+        assert!(registry.metadata("nonexistent").is_none());
     }
 
     #[test]
@@ -451,7 +450,7 @@ mod tests {
             .register(MockTool::new("grep", "Search files"))
             .unwrap();
 
-        let meta = registry.get_metadata("grep");
+        let meta = registry.metadata("grep");
         assert!(meta.is_some());
         let meta = meta.unwrap();
         assert_eq!(meta.name, "grep");

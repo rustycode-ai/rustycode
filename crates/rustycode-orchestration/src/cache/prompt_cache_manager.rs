@@ -45,7 +45,6 @@ pub struct PromptCacheManager {
 }
 
 impl PromptCacheManager {
-    /// Create a new, empty cache manager.
     pub fn new() -> Self {
         Self {
             cached_items: HashMap::new(),

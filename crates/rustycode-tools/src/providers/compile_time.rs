@@ -54,9 +54,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use walkdir::WalkDir;
 
-// ============================================================================
 // Core Tool Trait
-// ============================================================================
 
 /// Core tool trait with associated types for compile-time type safety.
 ///
@@ -252,9 +250,7 @@ impl<T: Tool> ToolDispatcher<T> {
 // Send + Sync are automatically derived through PhantomData<T> now that
 // Tool requires Send + Sync as supertraits.
 
-// ============================================================================
 // Compile-Time ReadFile Tool
-// ============================================================================
 
 /// Compile-time `ReadFile` tool with type-safe parameters
 #[derive(Debug, Clone)]
@@ -363,9 +359,7 @@ impl Tool for CompileTimeReadFile {
     }
 }
 
-// ============================================================================
 // Compile-Time WriteFile Tool
-// ============================================================================
 
 /// Compile-time `WriteFile` tool with type-safe parameters
 #[derive(Debug, Clone)]
@@ -434,9 +428,7 @@ impl Tool for CompileTimeWriteFile {
     }
 }
 
-// ============================================================================
 // Compile-Time Bash Tool
-// ============================================================================
 
 /// Compile-time Bash tool with type-safe parameters
 #[derive(Debug, Clone)]
@@ -547,9 +539,7 @@ impl Tool for CompileTimeBash {
     }
 }
 
-// ============================================================================
 // Compile-Time Grep Tool
-// ============================================================================
 
 /// Compile-time Grep tool for regex pattern matching
 #[derive(Debug, Clone)]
@@ -672,9 +662,7 @@ impl Tool for CompileTimeGrep {
     }
 }
 
-// ============================================================================
 // Compile-Time Glob Tool
-// ============================================================================
 
 /// Compile-time Glob tool for file pattern matching
 #[derive(Debug, Clone)]
@@ -834,9 +822,7 @@ fn should_skip_path(path: &std::path::Path) -> bool {
     })
 }
 
-// ============================================================================
 // Tool Registry (Compile-Time)
-// ============================================================================
 
 /// Compile-time tool registry with zero-cost lookups
 ///
@@ -859,7 +845,7 @@ impl CompileTimeToolRegistry {
     }
 
     /// Get tool metadata by name (runtime version due to const fn limitations)
-    pub fn get_tool(name: &str) -> Option<ToolMetadata> {
+    pub fn tool(name: &str) -> Option<ToolMetadata> {
         match name {
             "read_file" => Some(CompileTimeReadFile::METADATA),
             "write_file" => Some(CompileTimeWriteFile::METADATA),
@@ -872,13 +858,11 @@ impl CompileTimeToolRegistry {
 
     /// Check if a tool exists (runtime version due to const fn limitations)
     pub fn has_tool(name: &str) -> bool {
-        Self::get_tool(name).is_some()
+        Self::tool(name).is_some()
     }
 }
 
-// ============================================================================
 // Documentation and Examples
-// ============================================================================
 
 // # Compile-Time Tool System Usage Guide
 //
@@ -1012,9 +996,7 @@ impl CompileTimeToolRegistry {
 // assert_eq!(std::mem::size_of::<ToolDispatcher<CompileTimeReadFile>>(), 0);
 // ```
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -1407,11 +1389,11 @@ mod tests {
 
     #[test]
     fn test_registry_get_tool() {
-        let metadata = CompileTimeToolRegistry::get_tool("read_file");
+        let metadata = CompileTimeToolRegistry::tool("read_file");
         assert!(metadata.is_some());
         assert_eq!(metadata.unwrap().name, "read_file");
 
-        let metadata = CompileTimeToolRegistry::get_tool("nonexistent");
+        let metadata = CompileTimeToolRegistry::tool("nonexistent");
         assert!(metadata.is_none());
     }
 
@@ -1458,9 +1440,7 @@ mod tests {
     }
 }
 
-// ============================================================================
 // Benchmarks
-// ============================================================================
 
 #[cfg(test)]
 mod benchmarks {

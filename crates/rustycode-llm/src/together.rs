@@ -148,7 +148,7 @@ impl TogetherProvider {
         }
     }
 
-    fn get_api_key(&self) -> Result<String, ProviderError> {
+    fn api_key(&self) -> Result<String, ProviderError> {
         get_api_key!(self, "TOGETHER_API_KEY")
     }
 }
@@ -161,12 +161,12 @@ impl LLMProvider for TogetherProvider {
 
     async fn is_available(&self) -> bool {
         // Check if API key is available
-        if self.get_api_key().is_err() {
+        if self.api_key().is_err() {
             return false;
         }
 
         // Try to make a simple request to verify connectivity
-        let api_key = match self.get_api_key() {
+        let api_key = match self.api_key() {
             Ok(key) => key,
             Err(_) => return false,
         };
@@ -190,7 +190,7 @@ impl LLMProvider for TogetherProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
 
         let response = self
             .client
@@ -218,7 +218,7 @@ impl LLMProvider for TogetherProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let messages = convert_messages_simple(&request);
 
         let mut body = serde_json::json!({
@@ -270,7 +270,7 @@ impl LLMProvider for TogetherProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
         let messages = convert_messages_simple(&request);
 
         let request_body = serde_json::json!({

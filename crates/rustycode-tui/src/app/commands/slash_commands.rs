@@ -23,7 +23,7 @@ pub fn handle_agent_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<C
 
     match subcommand {
         "list" => {
-            let agents = ctx.agent_manager.get_agents();
+            let agents = ctx.agent_manager.agents();
 
             if agents.is_empty() {
                 return Ok(CommandEffect::SystemMessage(

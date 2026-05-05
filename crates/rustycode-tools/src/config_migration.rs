@@ -47,7 +47,6 @@ impl fmt::Debug for Migration {
 }
 
 impl Migration {
-    /// Create a new migration with a name and transform function.
     pub fn new(name: &'static str, migrate: fn(&mut Mapping) -> bool) -> Self {
         Self { name, migrate }
     }

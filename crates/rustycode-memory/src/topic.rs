@@ -43,7 +43,6 @@ pub struct TopicLoader {
 }
 
 impl TopicLoader {
-    /// Create a new topic loader pointing at the given topics directory.
     pub fn new(topics_dir: &Path) -> Self {
         Self {
             topics_dir: topics_dir.to_path_buf(),

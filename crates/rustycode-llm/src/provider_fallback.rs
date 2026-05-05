@@ -86,7 +86,6 @@ pub struct ProviderFallbackChain {
 }
 
 impl ProviderFallbackChain {
-    /// Create a new fallback chain with ordered providers
     pub fn new(providers: Vec<Box<dyn LLMProvider>>, retry_policy: RetryPolicy) -> Self {
         Self {
             providers,

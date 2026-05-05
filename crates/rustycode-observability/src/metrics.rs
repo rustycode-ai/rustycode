@@ -12,7 +12,6 @@ pub struct Counter {
 }
 
 impl Counter {
-    /// Create a new counter starting at 0
     pub fn new() -> Self {
         Self {
             value: Arc::new(AtomicU64::new(0)),
@@ -54,7 +53,6 @@ pub struct Gauge {
 }
 
 impl Gauge {
-    /// Create a new gauge with initial value 0.0
     pub fn new() -> Self {
         Self {
             value: Arc::new(RwLock::new(0.0)),
@@ -97,7 +95,6 @@ pub struct Histogram {
 }
 
 impl Histogram {
-    /// Create a new histogram with a maximum size
     pub fn new(max_size: usize) -> Self {
         Self {
             values: Arc::new(RwLock::new(VecDeque::with_capacity(max_size))),
@@ -223,7 +220,6 @@ pub struct SessionMetrics {
 }
 
 impl SessionMetrics {
-    /// Create a new `SessionMetrics` instance
     pub fn new() -> Self {
         Self {
             total_tokens: Counter::new(),

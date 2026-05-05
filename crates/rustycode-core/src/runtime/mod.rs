@@ -214,7 +214,7 @@ impl Runtime {
 
         // Add MCP tools if available
         if let Some(mcp) = &self.mcp_integration {
-            let mcp_tools = mcp.get_mcp_tools();
+            let mcp_tools = mcp.mcp_tools();
             for mcp_tool in mcp_tools {
                 tools.push(ToolInfo {
                     name: mcp_tool.name.clone(),
@@ -293,7 +293,7 @@ impl Runtime {
     /// Get session statistics
     pub fn session_stats(&self) -> Result<SessionStats> {
         if let Some(manager) = &self.session_manager {
-            manager.get_stats()
+            manager.stats()
         } else {
             Err(anyhow::anyhow!("Session manager not initialized"))
         }
@@ -504,7 +504,7 @@ impl Runtime {
             .collect();
         let memory_entries = self
             .storage
-            .get_memory("project")
+            .memory("project")
             .map(|v| v.len())
             .unwrap_or(0);
         // Count built-in skills (always available)
@@ -951,13 +951,13 @@ impl Runtime {
     }
 
     /// Get all memory entries for a scope.
-    pub fn get_memory(&self, scope: &str) -> Result<Vec<rustycode_storage::MemoryRecord>> {
-        self.storage.get_memory(scope)
+    pub fn memory(&self, scope: &str) -> Result<Vec<rustycode_storage::MemoryRecord>> {
+        self.storage.memory(scope)
     }
 
     /// Get a single memory entry.
-    pub fn get_memory_entry(&self, scope: &str, key: &str) -> Result<Option<String>> {
-        self.storage.get_memory_entry(scope, key)
+    pub fn memory_entry(&self, scope: &str, key: &str) -> Result<Option<String>> {
+        self.storage.memory_entry(scope, key)
     }
 
     // === Plan Loading ===

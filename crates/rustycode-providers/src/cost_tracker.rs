@@ -24,7 +24,6 @@ pub struct CostAccumulator {
 }
 
 impl CostAccumulator {
-    /// Create a new cost accumulator
     pub fn new() -> Self {
         Self {
             total_cost: 0.0,
@@ -122,7 +121,6 @@ pub struct CostTracker {
 }
 
 impl CostTracker {
-    /// Create a new cost tracker
     pub fn new() -> Self {
         Self {
             accumulators: Arc::new(RwLock::new(HashMap::new())),
@@ -131,12 +129,6 @@ impl CostTracker {
 
     /// Track a request
     ///
-    /// # Arguments
-    ///
-    /// * `key` - Unique key (e.g., "anthropic/claude-3-5-sonnet" or "anthropic")
-    /// * `input_tokens` - Number of input tokens
-    /// * `output_tokens` - Number of output tokens
-    /// * `cost` - Cost in USD
     pub async fn track(&self, key: &str, input_tokens: u64, output_tokens: u64, cost: f64) {
         let mut accumulators = self.accumulators.write().await;
         let accumulator = accumulators.entry(key.to_string()).or_default();

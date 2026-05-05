@@ -173,7 +173,7 @@ pub fn write_skill_to_dir(
     })
 }
 
-pub fn get_bundled_skills() -> Vec<SkillDefinition> {
+pub fn bundled_skills() -> Vec<SkillDefinition> {
     vec![
         SkillifyBuilder::new("debug")
             .description("Systematic debugging tool using instrumentation for stepping, variable inspection, and stack traces.")

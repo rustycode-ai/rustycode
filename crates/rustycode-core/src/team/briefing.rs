@@ -53,7 +53,6 @@ pub struct BriefingBuilder {
 }
 
 impl BriefingBuilder {
-    /// Create a new BriefingBuilder for the given project root.
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
         Self {
             project_root: project_root.into(),
@@ -306,7 +305,7 @@ impl BriefingBuilder {
 
                 // Also include markdown learnings for full context
                 if let Ok(learnings) = TeamLearnings::load(&self.project_root) {
-                    formatted.push_str(&learnings.get_all());
+                    formatted.push_str(&learnings.all());
                 }
 
                 return formatted;
@@ -315,7 +314,7 @@ impl BriefingBuilder {
 
         // Fallback to markdown-only learnings
         match TeamLearnings::load(&self.project_root) {
-            Ok(learnings) => learnings.get_all(),
+            Ok(learnings) => learnings.all(),
             Err(_) => String::new(),
         }
     }
@@ -326,7 +325,7 @@ impl BriefingBuilder {
         use crate::team::team_learnings::TeamLearnings;
 
         match TeamLearnings::load(&self.project_root) {
-            Ok(learnings) => learnings.get_all(),
+            Ok(learnings) => learnings.all(),
             Err(_) => String::new(),
         }
     }
@@ -534,9 +533,7 @@ fn extract_quoted_string(s: &str) -> Option<String> {
     }
 }
 
-// ============================================================================
 // Tests
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

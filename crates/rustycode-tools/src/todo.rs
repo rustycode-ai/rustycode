@@ -745,7 +745,7 @@ mod tests {
         assert_eq!(guard.len(), 2);
         drop(guard);
 
-        let db_todos = storage.get_todos("sess-1").unwrap();
+        let db_todos = storage.todos("sess-1").unwrap();
         assert_eq!(db_todos.len(), 2);
         assert_eq!(db_todos[0].content, "Task A");
         assert_eq!(db_todos[1].content, "Task B");
@@ -797,7 +797,7 @@ mod tests {
         )
         .unwrap();
 
-        let db_todos = storage.get_todos("sess-1").unwrap();
+        let db_todos = storage.todos("sess-1").unwrap();
         assert_eq!(db_todos.len(), 2);
         assert_eq!(db_todos[0].content, "D");
         assert_eq!(db_todos[1].content, "E");
@@ -839,7 +839,7 @@ mod tests {
             .execute(json!({"id": "1", "status": "completed"}), &ctx)
             .unwrap();
 
-        let db_todos = storage.get_todos("sess-1").unwrap();
+        let db_todos = storage.todos("sess-1").unwrap();
         assert_eq!(db_todos.len(), 1);
         assert_eq!(
             db_todos[0].status,

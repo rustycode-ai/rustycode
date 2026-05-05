@@ -199,7 +199,6 @@ pub struct RegistryToolExecutor {
 }
 
 impl RegistryToolExecutor {
-    /// Create a new executor with a custom handler function.
     pub fn new(
         handler: impl Fn(&str, &HashMap<String, String>) -> std::result::Result<serde_json::Value, String>
             + Send

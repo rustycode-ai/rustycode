@@ -62,7 +62,6 @@ pub struct ConversationService {
 }
 
 impl ConversationService {
-    /// Create a new conversation service
     pub fn new(config: ConversationConfig, tool_registry: Arc<ToolRegistry>) -> Self {
         let session_id = SessionId::new();
         let conversation = Conversation::new(session_id);

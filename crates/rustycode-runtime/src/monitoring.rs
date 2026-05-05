@@ -108,7 +108,7 @@ impl TimeSeries {
         self.data_points.push_back(point);
     }
 
-    pub fn get_latest(&self) -> Option<&MetricDataPoint> {
+    pub fn latest(&self) -> Option<&MetricDataPoint> {
         self.data_points.back()
     }
 
@@ -314,7 +314,7 @@ impl MonitoringSystem {
     }
 
     /// Get metric value
-    pub async fn get_metric(
+    pub async fn metric(
         &self,
         metric_name: &str,
         labels: &HashMap<String, String>,
@@ -322,7 +322,7 @@ impl MonitoringSystem {
         let series_key = self.series_key(metric_name, labels);
         let metrics = self.metrics.read().await;
 
-        metrics.get(&series_key)?.get_latest().map(|p| p.value)
+        metrics.get(&series_key)?.latest().map(|p| p.value)
     }
 
     /// Query metric range
@@ -421,13 +421,13 @@ impl MonitoringSystem {
     }
 
     /// Get current performance metrics
-    pub async fn get_performance_metrics(&self) -> Option<PerformanceMetrics> {
+    pub async fn performance_metrics(&self) -> Option<PerformanceMetrics> {
         let perf_metrics = self.performance_metrics.read().await;
         perf_metrics.back().cloned()
     }
 
     /// Get average performance metrics
-    pub async fn get_average_performance(
+    pub async fn average_performance(
         &self,
         duration_minutes: u64,
     ) -> Option<PerformanceMetrics> {
@@ -491,7 +491,7 @@ impl MonitoringSystem {
             // Find matching time series
             for (series_key, series) in metrics.iter() {
                 if series.metric_name == alert_def.condition.metric_name {
-                    if let Some(latest) = series.get_latest() {
+                    if let Some(latest) = series.latest() {
                         let triggered = match alert_def.condition.operator {
                             AlertOperator::GreaterThan => {
                                 latest.value > alert_def.condition.threshold
@@ -558,7 +558,7 @@ impl MonitoringSystem {
     }
 
     /// Get active alerts
-    pub async fn get_active_alerts(&self) -> Vec<AlertEvent> {
+    pub async fn active_alerts(&self) -> Vec<AlertEvent> {
         let active_alerts = self.active_alerts.read().await;
         active_alerts.values().cloned().collect()
     }
@@ -608,7 +608,7 @@ impl MonitoringSystem {
     }
 
     /// Get alert history
-    pub async fn get_alert_history(&self, limit: Option<usize>) -> Vec<AlertEvent> {
+    pub async fn alert_history(&self, limit: Option<usize>) -> Vec<AlertEvent> {
         let history = self.alert_history.read().await;
 
         match limit {
@@ -618,7 +618,7 @@ impl MonitoringSystem {
     }
 
     /// Get all metrics
-    pub async fn get_all_metrics(&self) -> HashMap<String, Vec<String>> {
+    pub async fn all_metrics(&self) -> HashMap<String, Vec<String>> {
         let metrics = self.metrics.read().await;
 
         let mut result: HashMap<String, Vec<String>> = HashMap::new();
@@ -634,13 +634,13 @@ impl MonitoringSystem {
     }
 
     /// Get metric definitions
-    pub async fn get_metric_definitions(&self) -> Vec<MetricDefinition> {
+    pub async fn metric_definitions(&self) -> Vec<MetricDefinition> {
         let definitions = self.metric_definitions.read().await;
         definitions.values().cloned().collect()
     }
 
     /// Get alert definitions
-    pub async fn get_alert_definitions(&self) -> Vec<AlertDefinition> {
+    pub async fn alert_definitions(&self) -> Vec<AlertDefinition> {
         let alerts = self.alerts.read().await;
         alerts.values().cloned().collect()
     }
@@ -662,7 +662,7 @@ impl MonitoringSystem {
     }
 
     /// Get system statistics
-    pub async fn get_statistics(&self) -> MonitoringStatistics {
+    pub async fn statistics(&self) -> MonitoringStatistics {
         let metrics = self.metrics.read().await;
         let definitions = self.metric_definitions.read().await;
         let alerts = self.alerts.read().await;
@@ -1014,7 +1014,7 @@ mod tests {
 
         monitoring.register_metric(definition).await.unwrap();
 
-        let stats = monitoring.get_statistics().await;
+        let stats = monitoring.statistics().await;
         assert_eq!(stats.registered_metrics, 1);
         assert_eq!(stats.total_time_series, 0);
         assert_eq!(stats.active_alerts, 0);
@@ -1071,7 +1071,7 @@ mod tests {
     fn test_time_series_get_latest() {
         let mut series = TimeSeries::new("test".to_string(), HashMap::new(), 10);
 
-        assert!(series.get_latest().is_none());
+        assert!(series.latest().is_none());
 
         series.add_point(MetricDataPoint {
             timestamp: Utc::now(),
@@ -1080,7 +1080,7 @@ mod tests {
             metadata: MetricMetadata::default(),
         });
 
-        let latest = series.get_latest().unwrap();
+        let latest = series.latest().unwrap();
         assert_eq!(latest.value, 10.0);
     }
 
@@ -1354,7 +1354,7 @@ mod tests {
             .await
             .unwrap();
 
-        let all = monitoring.get_all_metrics().await;
+        let all = monitoring.all_metrics().await;
         assert!(all.contains_key("cpu_usage"));
         assert_eq!(all["cpu_usage"].len(), 2);
     }
@@ -1388,7 +1388,7 @@ mod tests {
     #[tokio::test]
     async fn test_monitoring_statistics_initial() {
         let monitoring = MonitoringSystem::new(MonitoringConfig::default());
-        let stats = monitoring.get_statistics().await;
+        let stats = monitoring.statistics().await;
 
         assert_eq!(stats.total_time_series, 0);
         assert_eq!(stats.total_data_points, 0);

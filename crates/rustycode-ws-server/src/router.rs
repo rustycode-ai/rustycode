@@ -54,7 +54,7 @@ impl WsRouter {
         shutdown_token: tokio_util::sync::CancellationToken,
     ) -> Router {
         let mut skill_registry = rustycode_skill::SkillRegistry::new();
-        for skill in rustycode_skill::bundled::get_bundled_skills() {
+        for skill in rustycode_skill::bundled::bundled_skills() {
             skill_registry.register_bundled(skill);
         }
 
@@ -402,7 +402,7 @@ fn validate_path_param(
 async fn get_providers(State(state): State<AppState>) -> Json<ProviderListResponse> {
     let current = state.session_manager.provider_info().await;
     let providers = rustycode_llm::registry::ProviderMetadataRegistry::new()
-        .get_all_providers()
+        .all_providers()
         .iter()
         .map(|meta| {
             let available = std::env::var(&meta.api_key_env).is_ok_and(|k| !k.is_empty());
@@ -441,7 +441,7 @@ async fn switch_provider(
 async fn list_skills(State(state): State<AppState>) -> Json<SkillListResponse> {
     let skills: Vec<SkillInfo> = state
         .skill_registry
-        .get_all()
+        .all()
         .into_iter()
         .filter(|s| s.user_invocable)
         .map(|s| SkillInfo {

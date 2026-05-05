@@ -6,7 +6,7 @@ impl<'a> BrutalistRenderer<'a> {
             } else if self.active_tool_count > 0 {
                 "tools"
             } else {
-                thinking_messages::get_thinking_message(self.animation_frame / 60)
+                thinking_messages::thinking_message(self.animation_frame / 60)
             }
         } else {
             "ready"

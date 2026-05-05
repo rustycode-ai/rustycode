@@ -44,7 +44,6 @@ impl Default for Footer {
 }
 
 impl Footer {
-    /// Create a new footer with default styling
     pub fn new() -> Self {
         Self::default()
     }

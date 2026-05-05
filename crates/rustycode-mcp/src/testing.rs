@@ -16,7 +16,6 @@ pub struct McpTestContext {
 }
 
 impl McpTestContext {
-    /// Create a new test context
     pub async fn new() -> McpResult<Self> {
         // Use system temp directory
         let test_dir = std::env::temp_dir();
@@ -50,7 +49,6 @@ pub struct MockMcpServer {
 }
 
 impl MockMcpServer {
-    /// Create a new mock server
     pub const fn new() -> Self {
         Self {
             tools: Vec::new(),

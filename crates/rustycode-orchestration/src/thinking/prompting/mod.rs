@@ -19,10 +19,6 @@ pub trait PromptTemplate: Send + Sync {
 
     /// Render the prompt with given context.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if template rendering fails due to invalid context
-    /// data or missing template definitions.
     fn render(&self, context: &PromptContext) -> Result<String>;
 
     /// Maximum tokens expected in response

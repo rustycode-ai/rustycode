@@ -1124,11 +1124,11 @@ fn execute_learnings_command(
                 println!(
                     "{}",
                     serde_json::json!({
-                        "learnings": learnings.get_all(),
+                        "learnings": learnings.all(),
                     })
                 );
             } else {
-                println!("{}", learnings.get_all());
+                println!("{}", learnings.all());
             }
         }
         LearningsCommand::Add { category, content } => {

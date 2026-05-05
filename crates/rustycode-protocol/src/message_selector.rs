@@ -112,7 +112,6 @@ pub struct MessageSelector {
 }
 
 impl MessageSelector {
-    /// Create a new message selector with the given configuration
     pub fn new(config: SelectionConfig) -> Self {
         Self { config }
     }

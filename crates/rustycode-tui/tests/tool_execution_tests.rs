@@ -75,9 +75,7 @@ use rustycode_tui::auto_tool_parser;
 use rustycode_tui::tool_helpers;
 use std::sync::mpsc::channel;
 
-// ============================================
 // Section 1: Tool Call Extraction Tests
-// ============================================
 
 #[test]
 fn test_extract_inline_tool_json() {
@@ -156,9 +154,7 @@ This should not be extracted"#;
     );
 }
 
-// ============================================
 // Section 2: Tool Call Parsing Tests
-// ============================================
 
 #[test]
 fn test_parse_single_tool_call() {
@@ -206,9 +202,7 @@ fn test_parse_invalid_tool_json() {
     assert!(result.is_err(), "Should fail on invalid JSON");
 }
 
-// ============================================
 // Section 3: Command Sanitization Tests
-// ============================================
 
 #[test]
 fn test_sanitize_simple_safe_command() {
@@ -297,9 +291,7 @@ fn test_sanitize_empty_command() {
     assert!(result.is_err(), "Empty command should be blocked");
 }
 
-// ============================================
 // Section 4: Auto-Execute Tests
-// ============================================
 
 #[test]
 fn test_should_auto_execute_ls() {
@@ -345,9 +337,7 @@ fn test_should_not_auto_execute_dangerous_commands() {
     );
 }
 
-// ============================================
 // Section 5: Tool Result Formatting Tests
-// ============================================
 
 #[test]
 fn test_format_tool_result_success() {
@@ -436,13 +426,11 @@ fn test_format_long_output_truncation() {
     assert!(summary.contains("output_lines=1"), "Should show line count");
 }
 
-// ============================================
 // Section 6: Error Hint Tests
-// ============================================
 
 #[test]
 fn test_tool_error_hint_permission() {
-    let hint = tool_helpers::tool_error_hint("Permission denied while opening file");
+    let hint = tool_helpers::get_tool_error_hint("Permission denied while opening file");
     assert_eq!(
         hint,
         Some("💡 Tip: Check file permissions or try with elevated privileges")
@@ -451,7 +439,7 @@ fn test_tool_error_hint_permission() {
 
 #[test]
 fn test_tool_error_hint_not_found() {
-    let hint = tool_helpers::tool_error_hint("File not found: /tmp/test.txt");
+    let hint = tool_helpers::get_tool_error_hint("File not found: /tmp/test.txt");
     assert_eq!(
         hint,
         Some("💡 Tip: Check if the file/path exists and is correct")
@@ -460,7 +448,7 @@ fn test_tool_error_hint_not_found() {
 
 #[test]
 fn test_tool_error_hint_timeout() {
-    let hint = tool_helpers::tool_error_hint("Operation timeout");
+    let hint = tool_helpers::get_tool_error_hint("Operation timeout");
     assert_eq!(
         hint,
         Some("💡 Tip: Operation timed out. Try again or break into smaller steps")
@@ -469,7 +457,7 @@ fn test_tool_error_hint_timeout() {
 
 #[test]
 fn test_tool_error_hint_unknown() {
-    let hint = tool_helpers::tool_error_hint("Some random error");
+    let hint = tool_helpers::get_tool_error_hint("Some random error");
     assert!(hint.is_none(), "Unknown errors should not return hints");
 }
 
@@ -497,9 +485,7 @@ fn test_command_error_hint_no_such_file() {
     assert!(hint.is_some(), "Should provide hint for missing file");
 }
 
-// ============================================
 // Section 7: Tool Result Collection Tests
-// ============================================
 
 #[test]
 fn test_tool_result_channel_send_receive() {
@@ -520,9 +506,7 @@ fn test_tool_result_channel_send_receive() {
     assert_eq!(received.call_id, "test-channel");
 }
 
-// ============================================
 // Section 8: Complex Integration Tests
-// ============================================
 
 #[test]
 fn test_full_tool_execution_flow() {

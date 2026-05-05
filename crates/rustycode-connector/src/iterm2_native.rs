@@ -59,7 +59,6 @@ impl Default for ITerm2NativeConnector {
 }
 
 impl ITerm2NativeConnector {
-    /// Create a new iTerm2 native connector
     pub const fn new() -> Self {
         Self {
             app: RwLock::new(None),

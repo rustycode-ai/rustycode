@@ -284,7 +284,7 @@ async fn test_mcp_prompt_templates() {
         }
 
         // get_prompt requires server_name, prompt_name, and optional args
-        let _ = client.get_prompt("test-server", "test_prompt", None).await;
+        let _ = client.prompt("test-server", "test_prompt", None).await;
     }
 }
 

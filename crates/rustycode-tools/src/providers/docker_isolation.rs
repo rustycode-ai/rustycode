@@ -119,14 +119,6 @@ impl DockerIsolation {
 
     /// Execute a command in an isolated Docker container.
     ///
-    /// # Arguments
-    ///
-    /// * `command` - The shell command to execute
-    /// * `workspace` - The working directory to mount in the container
-    ///
-    /// # Returns
-    ///
-    /// The command result with stdout, stderr, exit code, and timing.
     pub fn execute(
         &self,
         command: &str,

@@ -51,7 +51,6 @@ impl Default for LargeResponseHandler {
 }
 
 impl LargeResponseHandler {
-    /// Create a new handler with default settings
     pub fn new() -> Self {
         Self::default()
     }

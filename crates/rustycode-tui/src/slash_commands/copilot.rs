@@ -6,8 +6,6 @@ use anyhow::Result;
 /// Displays the user code and verification URL, then polls
 /// for authorization and exchanges the token.
 ///
-/// # Returns
-/// Result with success message or error
 pub async fn handle_copilot_login_command() -> Result<String> {
     use rustycode_auth::GitHubCopilotAuth;
 

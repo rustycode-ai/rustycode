@@ -45,9 +45,7 @@ use std::path::{Path, PathBuf};
 // Re-export the shared fuzzy matcher types for convenience
 pub use super::fuzzy_matcher::{FuzzyMatcher as FileFuzzyMatcher, MatchScore as FuzzyScore};
 
-// ============================================================================
 // FILE INFO
-// ============================================================================
 
 /// Information about a file in the project
 #[derive(Clone, Debug)]
@@ -117,7 +115,6 @@ impl GitStatus {
 }
 
 impl FileInfo {
-    /// Create a new file info
     pub fn new(path: PathBuf) -> Self {
         let name = path
             .file_name()
@@ -171,9 +168,7 @@ impl FileInfo {
     }
 }
 
-// ============================================================================
 // FILE FINDER STATE
-// ============================================================================
 
 /// File finder state
 #[derive(Debug, Clone)]
@@ -481,9 +476,7 @@ impl FileFinderState {
     }
 }
 
-// ============================================================================
 // FILE FINDER RENDERER
-// ============================================================================
 
 /// File finder renderer
 pub struct FileFinderRenderer {
@@ -492,7 +485,6 @@ pub struct FileFinderRenderer {
 }
 
 impl FileFinderRenderer {
-    /// Create a new file finder
     pub fn new(project_root: PathBuf) -> Self {
         Self {
             state: FileFinderState::new(project_root),
@@ -766,9 +758,7 @@ impl FileFinderRenderer {
     }
 }
 
-// ============================================================================
 // FILE FINDER (HIGH-LEVEL API)
-// ============================================================================
 
 /// High-level file finder API
 ///
@@ -779,7 +769,6 @@ pub struct FileFinder {
 }
 
 impl FileFinder {
-    /// Create a new file finder for the given project
     pub fn new(project_root: PathBuf) -> Self {
         Self {
             renderer: FileFinderRenderer::new(project_root),
@@ -834,9 +823,7 @@ impl FileFinder {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

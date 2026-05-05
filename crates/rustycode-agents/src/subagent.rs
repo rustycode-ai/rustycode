@@ -38,7 +38,6 @@ pub struct SubagentConfig {
 }
 
 impl SubagentConfig {
-    /// Create a new subagent configuration
     pub fn new(id: String, name: String, description: String) -> Self {
         Self {
             id,
@@ -171,7 +170,6 @@ pub struct Subagent {
 }
 
 impl Subagent {
-    /// Create a new subagent from configuration
     pub const fn new(config: SubagentConfig) -> Self {
         Self { config }
     }
@@ -205,7 +203,6 @@ pub struct SubagentRegistry {
 }
 
 impl SubagentRegistry {
-    /// Create a new empty registry
     pub fn new() -> Self {
         Self {
             subagents: HashMap::new(),

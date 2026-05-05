@@ -200,11 +200,11 @@ impl OrchestrationIntegration {
     }
 
     /// Get phase context for multi-phase orchestration.
-    pub fn get_phase_context(&self) -> Option<serde_json::Value> {
+    pub fn phase_context(&self) -> Option<serde_json::Value> {
         let store = self.reasoning_store.as_ref()?;
         let task_id = self.current_task_id.as_ref()?;
         store
-            .get_context_for_next_phase(task_id, self.current_phase)
+            .context_for_next_phase(task_id, self.current_phase)
             .ok()
     }
 
@@ -318,7 +318,7 @@ mod tests {
             .unwrap();
         integration.advance_phase();
 
-        let ctx = integration.get_phase_context();
+        let ctx = integration.phase_context();
         assert!(ctx.is_some());
         assert_eq!(ctx.unwrap()["phase"], 2);
     }
@@ -401,14 +401,14 @@ mod tests {
     #[test]
     fn test_phase_context_without_persistence_is_none() {
         let integration = OrchestrationIntegration::default();
-        assert!(integration.get_phase_context().is_none());
+        assert!(integration.phase_context().is_none());
     }
 
     #[test]
     fn test_phase_context_without_task_is_none() {
         let dir = tempfile::tempdir().unwrap();
         let integration = OrchestrationIntegration::new(Some(dir.path().to_path_buf()));
-        assert!(integration.get_phase_context().is_none());
+        assert!(integration.phase_context().is_none());
     }
 
     #[test]
@@ -462,7 +462,7 @@ mod tests {
             .unwrap();
         integration.advance_phase();
 
-        let ctx = integration.get_phase_context();
+        let ctx = integration.phase_context();
         assert!(ctx.is_some());
         let ctx = ctx.unwrap();
         assert_eq!(ctx["phase"], 3);

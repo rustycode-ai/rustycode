@@ -239,22 +239,6 @@ pub struct SessionCapture {
 impl SessionCapture {
     /// Create a new session capture
     ///
-    /// # Arguments
-    ///
-    /// * `session_id` - Unique identifier for this session
-    /// * `task` - Description of the task or goal
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::session_capture::SessionCapture;
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// let capture = SessionCapture::new(
-    ///     SessionId::new(),
-    ///     "Implement feature X".to_string(),
-    /// );
-    /// ```
     pub fn new(session_id: SessionId, task: String) -> Self {
         Self {
             session_id,
@@ -274,24 +258,6 @@ impl SessionCapture {
     /// This method records an interaction and updates internal metrics.
     /// Can be called multiple times throughout the session.
     ///
-    /// # Arguments
-    ///
-    /// * `event` - The interaction event to capture
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::session_capture::{SessionCapture, InteractionEvent, FileOperationType};
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// let mut capture = SessionCapture::new(SessionId::new(), "test".to_string());
-    ///
-    /// capture.capture_interaction(InteractionEvent::FileOperation {
-    ///     path: "/tmp/test.txt".to_string(),
-    ///     operation: FileOperationType::Modified,
-    ///     content_hash: None,
-    /// });
-    /// ```
     pub fn capture_interaction(&mut self, event: InteractionEvent) {
         match &event {
             InteractionEvent::UserMessage { .. } | InteractionEvent::AssistantMessage { .. } => {
@@ -341,25 +307,6 @@ impl SessionCapture {
     /// This method should be called once at the end of a session.
     /// It calculates final metrics and extracts key information.
     ///
-    /// # Returns
-    ///
-    /// A `SessionSummary` containing all captured information
-    ///
-    /// # Panics
-    /// Returns `Err` if called more than once on the same capture instance.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use rustycode_storage::session_capture::SessionCapture;
-    /// use rustycode_protocol::SessionId;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let mut capture = SessionCapture::new(SessionId::new(), "test".to_string());
-    /// let summary = capture.finalize_session()?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn finalize_session(&mut self) -> Result<SessionSummary> {
         if self.is_finalized {
             anyhow::bail!("session {} already finalized", self.session_id);
@@ -397,29 +344,6 @@ impl SessionCapture {
 
     /// Store a session summary to disk
     ///
-    /// # Arguments
-    ///
-    /// * `summary` - The session summary to store
-    /// * `storage_dir` - Directory where the summary should be saved
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if successful, or an error if writing fails
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::session_capture::{SessionCapture, SessionSummary};
-    /// use rustycode_protocol::SessionId;
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let mut capture = SessionCapture::new(SessionId::new(), "test".to_string());
-    /// let summary = capture.finalize_session()?;
-    /// SessionCapture::store_summary(&summary, Path::new("/tmp/sessions"))?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn store_summary(summary: &SessionSummary, storage_dir: &Path) -> Result<()> {
         std::fs::create_dir_all(storage_dir).with_context(|| {
             format!(

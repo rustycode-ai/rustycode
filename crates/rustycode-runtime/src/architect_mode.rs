@@ -12,9 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, info};
 
-// ---------------------------------------------------------------------------
 // Configuration
-// ---------------------------------------------------------------------------
 
 /// Configuration for the architect→coder model pair.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,9 +38,7 @@ impl Default for ArchitectConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Plan types
-// ---------------------------------------------------------------------------
 
 /// A structured plan produced by the architect phase.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,9 +76,7 @@ pub enum PlannedChange {
     Rename,
 }
 
-// ---------------------------------------------------------------------------
 // Result
-// ---------------------------------------------------------------------------
 
 /// Result of the full architect→coder pipeline.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,9 +109,7 @@ impl From<&rustycode_llm::Usage> for UsageStats {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Executor
-// ---------------------------------------------------------------------------
 
 /// The architect mode executor.
 ///
@@ -129,7 +121,6 @@ pub struct ArchitectMode {
 }
 
 impl ArchitectMode {
-    /// Create a new architect mode executor.
     pub fn new(config: ArchitectConfig, provider: Arc<dyn LLMProvider>) -> Self {
         Self { config, provider }
     }
@@ -255,9 +246,7 @@ Use standard diff or search-replace format for modifications."#;
     }
 }
 
-// ---------------------------------------------------------------------------
 // Plan parsing
-// ---------------------------------------------------------------------------
 
 /// Parse an ArchitectPlan from the LLM response text.
 fn parse_plan_from_response(content: &str) -> Result<ArchitectPlan, String> {
@@ -317,9 +306,7 @@ fn extract_json(content: &str) -> Result<String, String> {
     Err("Could not extract JSON plan from architect response".to_string())
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

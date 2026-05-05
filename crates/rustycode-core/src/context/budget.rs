@@ -30,9 +30,6 @@ pub struct ContextBudget {
 impl ContextBudget {
     /// Create a new context budget with the specified total.
     ///
-    /// # Arguments
-    ///
-    /// * `total_budget` - Maximum tokens allowed in context
     pub fn new(total_budget: usize) -> Self {
         Self {
             total_budget,
@@ -65,14 +62,6 @@ impl ContextBudget {
 
     /// Reserve tokens for a potential context item.
     ///
-    /// # Arguments
-    ///
-    /// * `tokens` - Number of tokens to reserve
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if reservation succeeded
-    /// * `Err` if would exceed budget
     pub fn reserve(&mut self, tokens: usize) -> anyhow::Result<()> {
         let would_be_reserved = self.reserved.saturating_add(tokens);
         let total_allocated = would_be_reserved.saturating_add(self.used);
@@ -95,14 +84,6 @@ impl ContextBudget {
     ///
     /// This is called when a reserved item is actually added to context.
     ///
-    /// # Arguments
-    ///
-    /// * `tokens` - Number of tokens to mark as used
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(())` if usage succeeded
-    /// * `Err` if trying to use more than reserved
     pub fn use_reserved(&mut self, tokens: usize) -> anyhow::Result<()> {
         if tokens > self.reserved {
             Err(anyhow::anyhow!(
@@ -119,9 +100,6 @@ impl ContextBudget {
 
     /// Release unused reservation back to the budget.
     ///
-    /// # Arguments
-    ///
-    /// * `tokens` - Number of tokens to release
     pub fn release(&mut self, tokens: usize) {
         self.reserved = self.reserved.saturating_sub(tokens);
     }

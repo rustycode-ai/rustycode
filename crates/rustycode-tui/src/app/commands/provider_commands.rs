@@ -6,7 +6,7 @@ use anyhow::Result;
 
 /// Handle /model command
 pub fn handle_model_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    use crate::providers::get_all_available_models;
+    use crate::providers::all_available_models;
 
     if parts.len() < 2 {
         let override_model = std::env::var("RUSTYCODE_MODEL_OVERRIDE").ok();
@@ -30,7 +30,7 @@ pub fn handle_model_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<
 
     // Handle /model list subcommand
     if parts[1] == "list" {
-        let models = get_all_available_models();
+        let models = all_available_models();
         if models.is_empty() {
             return Ok(CommandEffect::SystemMessage(
                 "No models available. Configure a provider first with /provider.".to_string(),
@@ -45,7 +45,7 @@ pub fn handle_model_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<
     }
 
     if let Ok(num) = parts[1].parse::<usize>() {
-        let models = get_all_available_models();
+        let models = all_available_models();
         if let Some(model) = models.get(num - 1) {
             std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", &model.id);
             return Ok(CommandEffect::ModelSwitch {
@@ -62,7 +62,7 @@ pub fn handle_model_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<
     let new_model = parts[1].to_string();
 
     // Validate against available models
-    let available = get_all_available_models();
+    let available = all_available_models();
     let is_known = available.iter().any(|m| m.id == new_model);
     if !is_known {
         let suggestions: Vec<String> = available
@@ -117,7 +117,7 @@ pub fn handle_model_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<
 
 /// Handle /provider command
 pub fn handle_provider_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    use crate::providers::get_available_providers;
+    use crate::providers::available_providers;
 
     let cwd = ctx.cwd;
 
@@ -125,7 +125,7 @@ pub fn handle_provider_command(parts: &[&str], ctx: CommandContext<'_>) -> Resul
         let current = std::env::var("RUSTYCODE_PROVIDER")
             .ok()
             .unwrap_or_else(|| "default".to_string());
-        let providers = get_available_providers();
+        let providers = available_providers();
 
         let mut lines = vec![
             format!("Current provider: {}", current),
@@ -153,7 +153,7 @@ pub fn handle_provider_command(parts: &[&str], ctx: CommandContext<'_>) -> Resul
         let current = std::env::var("RUSTYCODE_PROVIDER")
             .ok()
             .unwrap_or_else(|| "default".to_string());
-        let providers = get_available_providers();
+        let providers = available_providers();
         let mut lines = vec![
             format!("Current provider: {}", current),
             "".to_string(),
@@ -184,7 +184,7 @@ pub fn handle_provider_command(parts: &[&str], ctx: CommandContext<'_>) -> Resul
             }
         };
 
-        let providers = get_available_providers();
+        let providers = available_providers();
         if num == 0 || num > providers.len() {
             return Ok(CommandEffect::SystemMessage(format!(
                 "Invalid provider number {}. Valid range: 1-{}",
@@ -238,7 +238,7 @@ pub fn handle_provider_command(parts: &[&str], ctx: CommandContext<'_>) -> Resul
     }
 
     if let Ok(num) = parts[1].parse::<usize>() {
-        let providers = get_available_providers();
+        let providers = available_providers();
         if let Some(provider) = providers.get(num - 1) {
             std::env::set_var("RUSTYCODE_PROVIDER", &provider.provider_type);
             return Ok(CommandEffect::SystemMessage(format!(
@@ -267,7 +267,7 @@ fn disconnect_provider(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use rustycode_config::Config;
 
-    let config_path = crate::app::wizard_handler::WizardHandler::get_config_path(cwd);
+    let config_path = crate::app::wizard_handler::WizardHandler::config_path(cwd);
     if !config_path.exists() {
         return Err("No config file found".into());
     }

@@ -254,7 +254,7 @@ fn test_tool_builder_chaining() {
 
 #[test]
 fn test_production_tools_have_eager_streaming() {
-    let tools = rustycode_llm::tools::get_tui_tools();
+    let tools = rustycode_llm::tools::tui_tools();
     let anthropic_tools = to_anthropic_tools(&tools);
 
     let eager_tools = ["bash", "read_file", "write_file", "web_fetch"];
@@ -273,7 +273,7 @@ fn test_production_tools_have_eager_streaming() {
 
 #[test]
 fn test_lsp_tools_do_not_have_eager_streaming() {
-    let tools = rustycode_llm::tools::get_tui_tools();
+    let tools = rustycode_llm::tools::tui_tools();
     let anthropic_tools = to_anthropic_tools(&tools);
 
     let non_eager_tools = [

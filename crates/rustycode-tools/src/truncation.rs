@@ -366,12 +366,6 @@ pub fn truncate_bytes(content: &str, max_bytes: usize, source_name: &str) -> Tru
 /// This prevents context window bloat from large tool outputs while
 /// keeping the full data accessible.
 ///
-/// # Arguments
-/// * `content` - Full tool output
-/// * `cwd` - Working directory (spill files are saved relative to this)
-///
-/// # Returns
-/// Truncated output with a spill file hint
 pub fn truncate_with_spill(content: &str, cwd: &Path) -> TruncatedOutput {
     let total_lines = content.lines().count();
     let total_bytes = content.len();
@@ -592,12 +586,6 @@ fn detect_build_summary(output: &str) -> Option<String> {
 /// This function ensures that multi-byte UTF-8 characters (like Japanese, emoji, etc.)
 /// are not split in the middle, which would cause a panic.
 ///
-/// # Arguments
-/// * `s` - The string to truncate
-/// * `max_chars` - Maximum number of characters to keep
-///
-/// # Returns
-/// A truncated string with "..." appended if truncation occurred
 pub fn safe_truncate(s: &str, max_chars: usize) -> String {
     let char_count = s.chars().count();
     if char_count <= max_chars {

@@ -321,7 +321,7 @@ impl LLMToolExecutor {
 
     /// Get tool definitions for Anthropic format.
     /// Deferred tools emit stubs using the canonical schema from `formatters`.
-    pub fn get_anthropic_tool_definitions(&self) -> Vec<Value> {
+    pub fn anthropic_tool_definitions(&self) -> Vec<Value> {
         let stub_schema = crate::tool_selection_helper::formatters::deferred_stub_schema();
         self.executor
             .list()
@@ -363,7 +363,7 @@ impl LLMToolExecutor {
 
     /// Get tool definitions for OpenAI format.
     /// Deferred tools emit stubs using the canonical schema from `formatters`.
-    pub fn get_openai_tool_definitions(&self) -> Vec<Value> {
+    pub fn openai_tool_definitions(&self) -> Vec<Value> {
         let stub_schema = crate::tool_selection_helper::formatters::deferred_stub_schema();
         self.executor
             .list()
@@ -607,7 +607,7 @@ mod tests {
     #[test]
     fn test_get_anthropic_tool_definitions() {
         let executor = create_executor();
-        let tools = executor.get_anthropic_tool_definitions();
+        let tools = executor.anthropic_tool_definitions();
 
         assert!(!tools.is_empty());
         let tool = &tools[0];
@@ -619,7 +619,7 @@ mod tests {
     #[test]
     fn test_get_openai_tool_definitions() {
         let executor = create_executor();
-        let tools = executor.get_openai_tool_definitions();
+        let tools = executor.openai_tool_definitions();
 
         assert!(!tools.is_empty());
         let tool = &tools[0];

@@ -5,7 +5,7 @@ use super::CommandEffect;
 use anyhow::Result;
 
 fn plugin_summary(manager: &crate::plugin::PluginManager) -> String {
-    let mut plugins = manager.get_plugins();
+    let mut plugins = manager.plugins();
     plugins.sort_by(|a, b| a.manifest.name.cmp(&b.manifest.name));
 
     if plugins.is_empty() {
@@ -37,7 +37,7 @@ fn plugin_summary(manager: &crate::plugin::PluginManager) -> String {
 }
 
 fn plugin_detail(manager: &crate::plugin::PluginManager, name: &str) -> String {
-    let Some(plugin) = manager.get_plugin(name) else {
+    let Some(plugin) = manager.plugin(name) else {
         return format!(
             "Plugin '{}' not found. Use /plugin list to see available plugins.",
             name
@@ -489,7 +489,7 @@ pub fn handle_stats_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<
 pub fn handle_track_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
     let cwd = ctx.cwd.to_path_buf();
     let tasks = ctx.workspace_tasks.clone();
-    let agents = ctx.agent_manager.get_agents();
+    let agents = ctx.agent_manager.agents();
     let tx = ctx.command_tx;
     let detail_mode = matches!(parts.get(1), Some(&"full" | &"detail" | &"details"));
 

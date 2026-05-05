@@ -45,7 +45,7 @@ fn brace_expansion_in_paths() {
     let mut reg = SkillRegistry::new();
     reg.load_from_dir(dir.path(), SkillSource::User).unwrap();
 
-    let conditional = reg.get_conditional();
+    let conditional = reg.conditional();
     let brace = conditional.iter().find(|s| s.id == "brace-skill").unwrap();
 
     assert!(brace.activation.paths.contains(&"src/*.ts".to_string()));
@@ -60,7 +60,7 @@ fn comma_separated_paths() {
     let mut reg = SkillRegistry::new();
     reg.load_from_dir(dir.path(), SkillSource::User).unwrap();
 
-    let conditional = reg.get_conditional();
+    let conditional = reg.conditional();
     let comma = conditional.iter().find(|s| s.id == "comma-skill").unwrap();
 
     assert!(comma.activation.paths.contains(&"*.rs".to_string()));
@@ -74,7 +74,7 @@ fn nested_brace_expansion() {
     let mut reg = SkillRegistry::new();
     reg.load_from_dir(dir.path(), SkillSource::User).unwrap();
 
-    let conditional = reg.get_conditional();
+    let conditional = reg.conditional();
     let nested = conditional.iter().find(|s| s.id == "nested-skill").unwrap();
 
     let expected = ["src/**/*.rs", "src/**/*.ts", "lib/**/*.rs", "lib/**/*.ts"];
@@ -94,7 +94,7 @@ fn combined_brace_and_comma() {
     let mut reg = SkillRegistry::new();
     reg.load_from_dir(dir.path(), SkillSource::User).unwrap();
 
-    let conditional = reg.get_conditional();
+    let conditional = reg.conditional();
     let multi = conditional.iter().find(|s| s.id == "multi-skill").unwrap();
 
     assert!(multi.activation.paths.contains(&"src/*.ts".to_string()));
@@ -141,7 +141,7 @@ fn path_matching_after_normalization() {
     let mut reg = SkillRegistry::new();
     reg.load_from_dir(dir.path(), SkillSource::User).unwrap();
 
-    let conditional = reg.get_conditional();
+    let conditional = reg.conditional();
     let brace = conditional.iter().find(|s| s.id == "brace-skill").unwrap();
 
     assert!(brace.activation.matches_path("src/app.tsx"));
@@ -157,7 +157,7 @@ fn body_content_extracted_correctly() {
     let mut reg = SkillRegistry::new();
     reg.load_from_dir(dir.path(), SkillSource::User).unwrap();
 
-    let brace = reg.get_conditional();
+    let brace = reg.conditional();
     let skill = brace.iter().find(|s| s.id == "brace-skill").unwrap();
 
     let content = skill.content.as_ref().unwrap();
@@ -172,7 +172,7 @@ fn frontmatter_fields_parsed_correctly() {
     let mut reg = SkillRegistry::new();
     reg.load_from_dir(dir.path(), SkillSource::User).unwrap();
 
-    let cond = reg.get_conditional();
+    let cond = reg.conditional();
     let skill = cond.iter().find(|s| s.id == "cond-skill").unwrap();
 
     assert!(skill.user_invocable);

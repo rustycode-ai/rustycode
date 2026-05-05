@@ -106,7 +106,7 @@ impl ActivationConfig {
     }
 
     /// Get triggers for a skill
-    pub fn get_triggers(&self, name: &str) -> Option<&[crate::skills::manager::TriggerCondition]> {
+    pub fn triggers(&self, name: &str) -> Option<&[crate::skills::manager::TriggerCondition]> {
         self.skill_triggers.get(name).map(|v| v.as_slice())
     }
 
@@ -186,7 +186,7 @@ pub fn toggle_skill(name: &str) -> Result<bool> {
 }
 
 /// Get all active skills
-pub fn get_active_skills() -> Result<Vec<String>> {
+pub fn active_skills() -> Result<Vec<String>> {
     let config = ActivationConfig::load()?;
     Ok(config.active_skill_names())
 }
@@ -203,9 +203,9 @@ pub fn set_skill_triggers(
 }
 
 /// Get trigger conditions for a skill
-pub fn get_skill_triggers(name: &str) -> Option<Vec<crate::skills::manager::TriggerCondition>> {
+pub fn skill_triggers(name: &str) -> Option<Vec<crate::skills::manager::TriggerCondition>> {
     match ActivationConfig::load() {
-        Ok(config) => config.get_triggers(name).map(|v| v.to_vec()),
+        Ok(config) => config.triggers(name).map(|v| v.to_vec()),
         Err(e) => {
             warn!("Failed to load activation config: {}", e);
             None
@@ -321,7 +321,7 @@ mod tests {
         ];
 
         config.set_triggers("test-skill", triggers.clone());
-        assert_eq!(config.get_triggers("test-skill"), Some(triggers.as_slice()));
+        assert_eq!(config.triggers("test-skill"), Some(triggers.as_slice()));
     }
 
     #[test]

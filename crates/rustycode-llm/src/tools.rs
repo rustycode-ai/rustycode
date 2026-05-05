@@ -32,7 +32,6 @@ pub struct ToolDefinition {
 }
 
 impl ToolDefinition {
-    /// Create a new tool definition
     pub fn new(
         name: impl Into<String>,
         description: impl Into<String>,
@@ -1206,7 +1205,7 @@ fn todo_write_tool() -> ToolDefinition {
 }
 
 /// Get all available tools for the TUI
-pub fn get_tui_tools() -> Vec<ToolDefinition> {
+pub fn tui_tools() -> Vec<ToolDefinition> {
     vec![
         bash_tool(),
         read_file_tool(),
@@ -1247,12 +1246,12 @@ pub fn get_tui_tools() -> Vec<ToolDefinition> {
 
 /// Get tools required for the Anthropic Agent Skills API.
 /// Callers should append these to their tool list when using `container.skills`.
-pub fn get_skills_tools() -> Vec<ToolDefinition> {
+pub fn skills_tools() -> Vec<ToolDefinition> {
     vec![code_execution_tool()]
 }
 
 /// Get Anthropic beta headers required for Agent Skills API.
-pub fn get_anthropic_skills_beta_headers() -> Vec<&'static str> {
+pub fn anthropic_skills_beta_headers() -> Vec<&'static str> {
     vec!["code-execution-2025-08-25", "skills-2025-10-02"]
 }
 

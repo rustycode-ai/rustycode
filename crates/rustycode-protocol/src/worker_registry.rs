@@ -208,13 +208,6 @@ impl WorkerRegistry {
 
     /// Spawn a new worker and register it
     ///
-    /// # Arguments
-    ///
-    /// * `cwd` - Working directory for the worker
-    ///
-    /// # Returns
-    ///
-    /// The newly created Worker with status `Spawning`
     #[must_use]
     pub fn spawn(&self, cwd: &str) -> Worker {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -263,9 +256,6 @@ impl WorkerRegistry {
 
     /// Assign a task to a worker
     ///
-    /// # Errors
-    ///
-    /// Returns error if worker not found
     pub fn assign_task(
         &self,
         worker_id: &str,
@@ -296,9 +286,6 @@ impl WorkerRegistry {
 
     /// Mark worker as running (processing task)
     ///
-    /// # Errors
-    ///
-    /// Returns error if worker not found
     pub fn mark_running(&self, worker_id: &str) -> Result<Worker, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let worker = inner
@@ -332,14 +319,6 @@ impl WorkerRegistry {
 
     /// Mark worker as finished (successful completion)
     ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - ID of worker to update
-    /// * `result_summary` - Brief summary of what was accomplished
-    ///
-    /// # Errors
-    ///
-    /// Returns error if worker not found
     pub fn mark_finished(&self, worker_id: &str, result_summary: &str) -> Result<Worker, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let worker = inner
@@ -363,15 +342,6 @@ impl WorkerRegistry {
 
     /// Mark worker as failed
     ///
-    /// # Arguments
-    ///
-    /// * `worker_id` - ID of worker to update
-    /// * `kind` - Type of failure
-    /// * `message` - Error message
-    ///
-    /// # Errors
-    ///
-    /// Returns error if worker not found
     pub fn mark_failed(
         &self,
         worker_id: &str,
@@ -403,9 +373,6 @@ impl WorkerRegistry {
 
     /// Remove a worker from the registry
     ///
-    /// # Returns
-    ///
-    /// `Some(Worker)` if worker existed and was removed, `None` otherwise
     #[must_use]
     pub fn remove(&self, worker_id: &str) -> Option<Worker> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -439,9 +406,6 @@ impl WorkerRegistry {
 
     /// Clear trust gate for a worker (auto-resolve)
     ///
-    /// # Errors
-    ///
-    /// Returns error if worker not found
     pub fn clear_trust_gate(&self, worker_id: &str) -> Result<Worker, String> {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         let worker = inner

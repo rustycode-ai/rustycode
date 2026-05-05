@@ -106,7 +106,6 @@ pub struct AgentProfiler {
 }
 
 impl AgentProfiler {
-    /// Create a new agent profiler
     pub fn new() -> Self {
         Self {
             profiles: HashMap::new(),
@@ -320,17 +319,17 @@ impl AgentProfiler {
     }
 
     /// Get performance profile for an agent
-    pub fn get_profile(&self, role: AgentRole) -> Option<&AgentPerformanceProfile> {
+    pub fn profile(&self, role: AgentRole) -> Option<&AgentPerformanceProfile> {
         self.profiles.get(&role)
     }
 
     /// Get all profiles
-    pub fn get_all_profiles(&self) -> &HashMap<AgentRole, AgentPerformanceProfile> {
+    pub fn all_profiles(&self) -> &HashMap<AgentRole, AgentPerformanceProfile> {
         &self.profiles
     }
 
     /// Calculate performance statistics
-    pub fn get_statistics(&self) -> ProfilerStatistics {
+    pub fn statistics(&self) -> ProfilerStatistics {
         let total_analyses: usize = self.profiles.values().map(|p| p.total_analyses).sum();
 
         let total_successful: usize = self.profiles.values().map(|p| p.successful_analyses).sum();
@@ -406,7 +405,7 @@ mod tests {
     #[test]
     fn test_profiler_creation() {
         let profiler = AgentProfiler::new();
-        assert_eq!(profiler.get_all_profiles().len(), 0);
+        assert_eq!(profiler.all_profiles().len(), 0);
     }
 
     #[test]
@@ -428,7 +427,7 @@ mod tests {
             },
         );
 
-        let profile = profiler.get_profile(AgentRole::Skeptic);
+        let profile = profiler.profile(AgentRole::Skeptic);
         assert!(profile.is_some());
         let profile = profile.unwrap();
         assert_eq!(profile.total_analyses, 1);
@@ -609,7 +608,7 @@ mod tests {
     fn profiler_default_matches_new() {
         let p1 = AgentProfiler::new();
         let p2 = AgentProfiler::default();
-        assert_eq!(p1.get_all_profiles().len(), p2.get_all_profiles().len());
+        assert_eq!(p1.all_profiles().len(), p2.all_profiles().len());
     }
 
     #[test]
@@ -634,7 +633,7 @@ mod tests {
             );
         }
 
-        let profile = profiler.get_profile(AgentRole::Reviewer).unwrap();
+        let profile = profiler.profile(AgentRole::Reviewer).unwrap();
         assert_eq!(profile.total_analyses, 5);
         assert_eq!(profile.successful_analyses, 5);
         assert!((profile.avg_confidence - 0.9).abs() < 0.001);
@@ -653,7 +652,7 @@ mod tests {
 
         profiler.record_performance(AgentRole::Reviewer, "task".to_string(), 200, 0.3, false, qm);
 
-        let profile = profiler.get_profile(AgentRole::Reviewer).unwrap();
+        let profile = profiler.profile(AgentRole::Reviewer).unwrap();
         assert_eq!(profile.total_analyses, 1);
         assert_eq!(profile.successful_analyses, 0);
     }
@@ -681,14 +680,14 @@ mod tests {
             );
         }
 
-        let profile = profiler.get_profile(AgentRole::Skeptic).unwrap();
+        let profile = profiler.profile(AgentRole::Skeptic).unwrap();
         assert!(profile.specializations.contains(&"Security".to_string()));
     }
 
     #[test]
     fn profiler_get_statistics_empty() {
         let profiler = AgentProfiler::new();
-        let stats = profiler.get_statistics();
+        let stats = profiler.statistics();
         assert_eq!(stats.total_agents, 0);
         assert_eq!(stats.total_analyses, 0);
         assert_eq!(stats.overall_success_rate, 0.0);
@@ -715,7 +714,7 @@ mod tests {
         );
         profiler.record_performance(AgentRole::Skeptic, "task2".to_string(), 200, 0.8, false, qm);
 
-        let stats = profiler.get_statistics();
+        let stats = profiler.statistics();
         assert_eq!(stats.total_agents, 2);
         assert_eq!(stats.total_analyses, 2);
         assert_eq!(stats.total_successful, 1);
@@ -740,10 +739,10 @@ mod tests {
         profiler2.import_profiles(&json).unwrap();
 
         assert_eq!(
-            profiler.get_all_profiles().len(),
-            profiler2.get_all_profiles().len()
+            profiler.all_profiles().len(),
+            profiler2.all_profiles().len()
         );
-        let p2 = profiler2.get_profile(AgentRole::Reviewer).unwrap();
+        let p2 = profiler2.profile(AgentRole::Reviewer).unwrap();
         assert_eq!(p2.total_analyses, 1);
     }
 
@@ -926,7 +925,7 @@ mod tests {
                 qm.clone(),
             );
         }
-        let profile = profiler.get_profile(AgentRole::Researcher).unwrap();
+        let profile = profiler.profile(AgentRole::Researcher).unwrap();
         assert!(profile.specializations.contains(&"Performance".to_string()));
     }
 
@@ -951,7 +950,7 @@ mod tests {
                 qm.clone(),
             );
         }
-        let profile = profiler.get_profile(AgentRole::Reviewer).unwrap();
+        let profile = profiler.profile(AgentRole::Reviewer).unwrap();
         assert!(profile.specializations.contains(&"Testing".to_string()));
     }
 
@@ -976,7 +975,7 @@ mod tests {
                 qm.clone(),
             );
         }
-        let profile = profiler.get_profile(AgentRole::Worker).unwrap();
+        let profile = profiler.profile(AgentRole::Worker).unwrap();
         assert!(profile
             .specializations
             .contains(&"Documentation".to_string()));
@@ -1003,7 +1002,7 @@ mod tests {
                 qm.clone(),
             );
         }
-        let profile = profiler.get_profile(AgentRole::Reviewer).unwrap();
+        let profile = profiler.profile(AgentRole::Reviewer).unwrap();
         assert!(profile
             .specializations
             .contains(&"Architecture".to_string()));
@@ -1013,7 +1012,7 @@ mod tests {
     #[test]
     fn profiler_get_profile_unknown_returns_none() {
         let profiler = AgentProfiler::new();
-        assert!(profiler.get_profile(AgentRole::Reviewer).is_none());
+        assert!(profiler.profile(AgentRole::Reviewer).is_none());
     }
 
     // 9. QualityMetrics with zero values serde roundtrip
@@ -1100,7 +1099,7 @@ mod tests {
         for role in &roles {
             profiler.record_performance(*role, "task".into(), 100, 0.9, true, qm.clone());
         }
-        assert_eq!(profiler.get_all_profiles().len(), 3);
+        assert_eq!(profiler.all_profiles().len(), 3);
     }
 
     // 14. Export empty profiles produces valid JSON
@@ -1129,9 +1128,9 @@ mod tests {
                 overall_quality: 0.85,
             },
         );
-        assert_eq!(profiler.get_all_profiles().len(), 1);
+        assert_eq!(profiler.all_profiles().len(), 1);
         profiler.import_profiles("{}").unwrap();
-        assert_eq!(profiler.get_all_profiles().len(), 0);
+        assert_eq!(profiler.all_profiles().len(), 0);
     }
 
     #[test]

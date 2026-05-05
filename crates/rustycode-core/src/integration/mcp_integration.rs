@@ -42,7 +42,6 @@ pub struct McpIntegration {
 }
 
 impl McpIntegration {
-    /// Create a new MCP integration from config
     pub async fn new(config: &Config) -> Result<Self> {
         info!("Initializing MCP integration");
 
@@ -261,12 +260,12 @@ impl McpIntegration {
     }
 
     /// Get all MCP tools for tool listing
-    pub fn get_mcp_tools(&self) -> Vec<McpToolInfo> {
+    pub fn mcp_tools(&self) -> Vec<McpToolInfo> {
         self.mcp_tools.values().cloned().collect()
     }
 
     /// Get tool info by name
-    pub fn get_tool_info(&self, tool_name: &str) -> Option<&McpToolInfo> {
+    pub fn tool_info(&self, tool_name: &str) -> Option<&McpToolInfo> {
         self.mcp_tools.get(tool_name)
     }
 

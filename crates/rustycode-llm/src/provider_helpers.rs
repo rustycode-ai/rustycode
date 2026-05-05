@@ -8,7 +8,7 @@ use crate::registry::{ModelTier, ProviderMetadataRegistry, TaskModelConfig, Task
 static REGISTRY: std::sync::OnceLock<ProviderMetadataRegistry> = std::sync::OnceLock::new();
 
 /// Get the global provider registry
-pub fn get_registry() -> &'static ProviderMetadataRegistry {
+pub fn registry() -> &'static ProviderMetadataRegistry {
     REGISTRY.get_or_init(ProviderMetadataRegistry::new)
 }
 
@@ -21,7 +21,7 @@ pub fn get_registry() -> &'static ProviderMetadataRegistry {
 /// assert!(anthropic.is_some());
 /// ```
 pub fn find_provider(id: &str) -> Option<String> {
-    get_registry().get_provider(id).map(|p| p.id.clone())
+    registry().provider(id).map(|p| p.id.clone())
 }
 
 /// Find a model and its provider
@@ -34,15 +34,15 @@ pub fn find_provider(id: &str) -> Option<String> {
 /// assert_eq!(provider, "anthropic");
 /// ```
 pub fn find_model_provider(model: &str) -> Option<(String, String)> {
-    let registry = get_registry();
-    let provider = registry.get_provider_for_model(model)?;
+    let registry = registry();
+    let provider = registry.provider_for_model(model)?;
     Some((model.to_string(), provider.id.clone()))
 }
 
 /// Get all available provider IDs
 pub fn list_providers() -> Vec<String> {
-    get_registry()
-        .get_all_providers()
+    registry()
+        .all_providers()
         .into_iter()
         .map(|p| p.id.clone())
         .collect()
@@ -50,8 +50,8 @@ pub fn list_providers() -> Vec<String> {
 
 /// Get all available model IDs
 pub fn list_models() -> Vec<String> {
-    get_registry()
-        .get_all_models()
+    registry()
+        .all_models()
         .into_iter()
         .map(|m| m.id.clone())
         .collect()
@@ -66,8 +66,8 @@ pub fn list_models() -> Vec<String> {
 /// assert!(models.contains(&"claude-3-5-sonnet".to_string()));
 /// ```
 pub fn list_provider_models(provider_id: &str) -> Vec<String> {
-    get_registry()
-        .get_models_for_provider(provider_id)
+    registry()
+        .models_for_provider(provider_id)
         .into_iter()
         .map(|m| m.id.clone())
         .collect()
@@ -81,13 +81,13 @@ pub fn list_provider_models(provider_id: &str) -> Vec<String> {
 /// let model = get_cheapest_model().unwrap();
 /// // Returns cheapest model (usually haiku/mini variant)
 /// ```
-pub fn get_cheapest_model() -> Option<String> {
-    get_registry().get_cheapest_model().map(|m| m.id.clone())
+pub fn cheapest_model() -> Option<String> {
+    registry().cheapest_model().map(|m| m.id.clone())
 }
 
 /// Get default model
-pub fn get_default_model() -> Option<String> {
-    get_registry().get_default_model().map(|m| m.id.clone())
+pub fn default_model() -> Option<String> {
+    registry().default_model().map(|m| m.id.clone())
 }
 
 /// Get all models of a specific tier
@@ -98,9 +98,9 @@ pub fn get_default_model() -> Option<String> {
 /// let budget = get_models_by_tier(ModelTier::Budget);
 /// assert!(!budget.is_empty());
 /// ```
-pub fn get_models_by_tier(tier: ModelTier) -> Vec<String> {
-    get_registry()
-        .get_models_by_tier(tier)
+pub fn models_by_tier(tier: ModelTier) -> Vec<String> {
+    registry()
+        .models_by_tier(tier)
         .into_iter()
         .map(|m| m.id.clone())
         .collect()
@@ -116,7 +116,7 @@ pub fn get_models_by_tier(tier: ModelTier) -> Vec<String> {
 /// ```
 pub fn select_model(task: TaskType) -> Option<String> {
     let config = TaskModelConfig::default();
-    get_registry()
+    registry()
         .select_model_for_task(task, &config)
         .map(|m| m.id.clone())
 }
@@ -131,7 +131,7 @@ pub fn select_model(task: TaskType) -> Option<String> {
 /// let model = select_model_with_config(TaskType::CodeGeneration, &config).unwrap();
 /// ```
 pub fn select_model_with_config(task: TaskType, config: &TaskModelConfig) -> Option<String> {
-    get_registry()
+    registry()
         .select_model_for_task(task, config)
         .map(|m| m.id.clone())
 }
@@ -145,12 +145,12 @@ pub fn select_model_with_config(task: TaskType, config: &TaskModelConfig) -> Opt
 /// assert!(!is_model_available("nonexistent-model"));
 /// ```
 pub fn is_model_available(model: &str) -> bool {
-    get_registry().get_provider_for_model(model).is_some()
+    registry().provider_for_model(model).is_some()
 }
 
 /// Check if a provider is available
 pub fn is_provider_available(provider_id: &str) -> bool {
-    get_registry().get_provider(provider_id).is_some()
+    registry().provider(provider_id).is_some()
 }
 
 /// Get cost estimate for using a model
@@ -164,10 +164,10 @@ pub fn is_provider_available(provider_id: &str) -> bool {
 /// println!("Input: ${}/1M tokens", input_cost);
 /// println!("Output: ${}/1M tokens", output_cost);
 /// ```
-pub fn get_model_cost(model: &str) -> Option<(f64, f64)> {
-    let registry = get_registry();
+pub fn model_cost(model: &str) -> Option<(f64, f64)> {
+    let registry = registry();
     let model_info = registry
-        .get_all_models()
+        .all_models()
         .into_iter()
         .find(|m| m.id == model)?;
     Some((model_info.cost_per_1m_input, model_info.cost_per_1m_output))
@@ -181,19 +181,19 @@ pub fn get_model_cost(model: &str) -> Option<(f64, f64)> {
 /// let ctx = get_context_window("claude-3-5-sonnet").unwrap();
 /// assert_eq!(ctx, 200000);
 /// ```
-pub fn get_context_window(model: &str) -> Option<usize> {
-    let registry = get_registry();
+pub fn context_window(model: &str) -> Option<usize> {
+    let registry = registry();
     registry
-        .get_all_models()
+        .all_models()
         .into_iter()
         .find(|m| m.id == model)
         .map(|m| m.context_window)
 }
 
 /// Get provider info as JSON
-pub fn get_provider_info_json(id: &str) -> Option<serde_json::Value> {
-    let registry = get_registry();
-    registry.get_provider(id).map(|p| {
+pub fn provider_info_json(id: &str) -> Option<serde_json::Value> {
+    let registry = registry();
+    registry.provider(id).map(|p| {
         serde_json::json!({
             "id": p.id,
             "name": p.name,
@@ -209,10 +209,10 @@ pub fn get_provider_info_json(id: &str) -> Option<serde_json::Value> {
 }
 
 /// Get all providers as JSON
-pub fn get_all_providers_json() -> serde_json::Value {
-    let registry = get_registry();
+pub fn all_providers_json() -> serde_json::Value {
+    let registry = registry();
     serde_json::json!(registry
-        .get_all_providers()
+        .all_providers()
         .into_iter()
         .map(|p| {
             serde_json::json!({

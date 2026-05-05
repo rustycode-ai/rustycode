@@ -228,7 +228,6 @@ pub struct DegradationReport {
 }
 
 impl DegradationReport {
-    /// Create a new degradation report
     pub fn new(operation: impl Into<String>) -> Self {
         Self {
             operation: operation.into(),

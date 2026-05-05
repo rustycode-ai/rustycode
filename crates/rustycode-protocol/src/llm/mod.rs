@@ -53,9 +53,6 @@ pub trait LLMProvider: Send + Sync {
     /// Returns a vector of ModelInfo structs describing each available model,
     /// including context window size, streaming support, and pricing information.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the provider cannot be queried (e.g., API unavailable).
     async fn list_models(&self) -> Result<Vec<ModelInfo>>;
 
     /// Check if this provider is available and properly configured
@@ -65,9 +62,6 @@ pub trait LLMProvider: Send + Sync {
     /// - The provider service is reachable
     /// - Authentication is valid
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the provider is not available or not properly configured.
     async fn is_available(&self) -> Result<bool>;
 
     /// Execute a completion request against this provider
@@ -75,13 +69,6 @@ pub trait LLMProvider: Send + Sync {
     /// Sends the request to the provider's API and returns the response with
     /// token counts and cost information.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The request is invalid
-    /// - The API call fails
-    /// - The model is not available
-    /// - The provider is not authenticated
     async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse>;
 
     /// Get the name of this provider
@@ -95,9 +82,6 @@ pub trait LLMProvider: Send + Sync {
     /// This should be based on model pricing information and the estimated
     /// token counts without actually executing the request.
     ///
-    /// # Errors
-    ///
-    /// Returns an error if the model is not known or pricing is unavailable.
     fn estimate_cost(&self, request: &CompletionRequest) -> Result<Cost>;
 }
 

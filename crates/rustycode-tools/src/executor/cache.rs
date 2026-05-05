@@ -354,7 +354,7 @@ impl ToolCache {
     }
 
     /// Get cache metrics
-    pub fn get_metrics(&self) -> CacheMetrics {
+    pub fn metrics(&self) -> CacheMetrics {
         self.metrics.read().clone()
     }
 
@@ -522,11 +522,11 @@ mod tests {
         // Cache hit
         cache.get(&key).await;
 
-        // Cache miss - use get_or_track_miss to register miss
+        // Cache miss - use get_get_or_track_miss to register miss
         let missing_key = CacheKey::new("other_tool".to_string(), &json!({"arg": 2}));
         cache.get_or_track_miss(&missing_key).await;
 
-        let metrics = cache.get_metrics();
+        let metrics = cache.metrics();
         assert_eq!(metrics.hits, 1);
         assert_eq!(metrics.misses, 1);
         assert_eq!(metrics.total_puts, 1);

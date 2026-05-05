@@ -17,13 +17,6 @@ use ratatui::{
 
 /// Render image previews header
 ///
-/// # Arguments
-///
-/// * `f` - The ratatui frame for rendering
-/// * `area` - The area to render in
-/// * `image_count` - Number of images to display
-/// * `pipe` - The pipe character for visual consistency
-/// * `color` - The color for styling
 pub fn render_image_header(
     f: &mut Frame,
     area: Rect,
@@ -54,13 +47,6 @@ pub fn render_image_header(
 
 /// Render a single image preview
 ///
-/// # Arguments
-///
-/// * `f` - The ratatui frame for rendering
-/// * `area` - The area to render in
-/// * `img` - The image attachment to render
-/// * `pipe` - The pipe character for visual consistency
-/// * `color` - The color for styling
 pub fn render_single_image_preview(
     f: &mut Frame,
     area: Rect,
@@ -117,14 +103,6 @@ pub fn render_single_image_preview(
 
 /// Calculate image preview area height
 ///
-/// # Arguments
-///
-/// * `has_images` - Whether there are images
-/// * `image_count` - Number of images
-///
-/// # Returns
-///
-/// The number of lines needed for rendering
 pub fn calculate_image_height(has_images: bool, image_count: usize) -> usize {
     if !has_images {
         return 0;
@@ -139,21 +117,12 @@ pub fn calculate_image_height(has_images: bool, image_count: usize) -> usize {
 
 /// Get the number of images that fit per row based on available width
 ///
-/// # Arguments
-///
-/// * `width` - Available width in characters
-///
-/// # Returns
-///
-/// Number of images per row (1-3)
 pub fn images_per_row(width: u16) -> usize {
     let images_per_row = width.saturating_sub(4) / 30;
     images_per_row.clamp(1, 3) as usize
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {

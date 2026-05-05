@@ -59,7 +59,7 @@
 //! storage.insert_event_bus(&event)?;
 //!
 //! // Retrieve recent events
-//! let events = storage.get_events(10)?;
+//! let events = storage.events(10)?;
 //! for event in events {
 //!     println!("{}: {}", event.event_type, event.created_at);
 //! }
@@ -193,7 +193,6 @@ pub struct SessionCaptureManager {
 }
 
 impl SessionCaptureManager {
-    /// Create a new session capture manager
     pub fn new(storage_dir: Option<std::path::PathBuf>) -> Self {
         Self {
             active_captures: StdMutex::new(HashMap::new()),
@@ -297,7 +296,7 @@ impl SessionCaptureManager {
     }
 
     /// Get a session summary by session ID
-    pub fn get_session_summary(&self, session_id: &str) -> Option<SessionSummary> {
+    pub fn session_summary(&self, session_id: &str) -> Option<SessionSummary> {
         // Check active captures first
         if let Ok(captures) = self.active_captures.lock() {
             if let Some(capture) = captures.get(session_id) {
@@ -331,12 +330,12 @@ impl SessionCaptureManager {
     }
 
     /// Get all learnings
-    pub fn get_learnings(&self) -> Vec<String> {
+    pub fn learnings(&self) -> Vec<String> {
         self.learnings.lock().map(|l| l.clone()).unwrap_or_default()
     }
 
     /// Get memory metrics
-    pub fn get_metrics(&self) -> MemoryMetrics {
+    pub fn metrics(&self) -> MemoryMetrics {
         self.metrics.lock().map(|m| m.clone()).unwrap_or_default()
     }
 
@@ -401,10 +400,6 @@ pub struct EventSubscriber {
 impl EventSubscriber {
     /// Create a new event subscriber
     ///
-    /// # Arguments
-    ///
-    /// * `storage` - Storage instance to persist events to
-    /// * `bus` - Event bus to subscribe to
     pub fn new(storage: Storage, bus: Arc<EventBus>) -> Self {
         Self {
             storage,
@@ -418,11 +413,6 @@ impl EventSubscriber {
 
     /// Create a new event subscriber with session capture
     ///
-    /// # Arguments
-    ///
-    /// * `storage` - Storage instance to persist events to
-    /// * `bus` - Event bus to subscribe to
-    /// * `storage_dir` - Optional directory for storing session summaries
     pub fn new_with_capture(
         storage: Storage,
         bus: Arc<EventBus>,
@@ -439,13 +429,13 @@ impl EventSubscriber {
     }
 
     /// Get the number of active sessions being captured
-    pub fn get_active_session_count(&self) -> usize {
+    pub fn active_session_count(&self) -> usize {
         self.capture_manager.active_session_count()
     }
 
     /// Get a session summary by session ID
-    pub fn get_session_summary(&self, session_id: &str) -> Option<SessionSummary> {
-        self.capture_manager.get_session_summary(session_id)
+    pub fn session_summary(&self, session_id: &str) -> Option<SessionSummary> {
+        self.capture_manager.session_summary(session_id)
     }
 
     /// Get the session capture manager
@@ -458,10 +448,6 @@ impl EventSubscriber {
     /// This spawns a background task that subscribes to all events
     /// and persists them to the database.
     ///
-    /// # Returns
-    ///
-    /// Returns an error if the subscriber is already running or if
-    /// subscribing to the event bus fails.
     pub async fn start(&self) -> Result<()> {
         // Check if already running
         if self.running.load(Ordering::Acquire) {
@@ -839,29 +825,6 @@ impl Storage {
     /// This method persists any event that implements the Event trait, storing
     /// its type, serialized data, and timestamp.
     ///
-    /// # Arguments
-    ///
-    /// * `event` - Event to persist (must implement Event trait)
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::Storage;
-    /// use rustycode_bus::SessionStartedEvent;
-    /// use rustycode_protocol::SessionId;
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let storage = Storage::open(Path::new("test.db"))?;
-    /// let event = SessionStartedEvent::new(
-    ///     SessionId::new(),
-    ///     "test task".to_string(),
-    ///     "test detail".to_string(),
-    /// );
-    /// storage.insert_event_bus(&event)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn insert_event_bus(&self, event: &dyn Event) -> Result<()> {
         let serialized = event.serialize();
         let event_data =
@@ -889,30 +852,7 @@ impl Storage {
     ///
     /// Returns events ordered by creation time (most recent first).
     ///
-    /// # Arguments
-    ///
-    /// * `limit` - Maximum number of events to return
-    ///
-    /// # Returns
-    ///
-    /// Vector of `EventRecord` structs containing event data
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::Storage;
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let storage = Storage::open(Path::new("test.db"))?;
-    /// let events = storage.get_events(10)?;
-    /// for event in events {
-    ///     println!("Event {}: {}", event.event_type, event.created_at);
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn get_events(&self, limit: usize) -> Result<Vec<EventRecord>> {
+    pub fn events(&self, limit: usize) -> Result<Vec<EventRecord>> {
         let conn = self
             .conn
             .lock()
@@ -945,7 +885,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn get_memory(&self, scope: &str) -> Result<Vec<MemoryRecord>> {
+    pub fn memory(&self, scope: &str) -> Result<Vec<MemoryRecord>> {
         let conn = self
             .conn
             .lock()
@@ -969,7 +909,7 @@ impl Storage {
         Ok(results)
     }
 
-    pub fn get_memory_entry(&self, scope: &str, key: &str) -> Result<Option<String>> {
+    pub fn memory_entry(&self, scope: &str, key: &str) -> Result<Option<String>> {
         let conn = self
             .conn
             .lock()
@@ -1164,45 +1104,6 @@ impl Storage {
     /// This method allows tracking the progress of individual steps during plan execution.
     /// It serializes the entire steps array with the updated step back to the database.
     ///
-    /// # Arguments
-    ///
-    /// * `plan_id` - The ID of the plan containing the step
-    /// * `step_index` - The zero-based index of the step to update
-    /// * `step` - The updated `PlanStep` with new execution status
-    ///
-    /// # Returns
-    ///
-    /// Ok(()) if the update was successful, Err otherwise
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_storage::Storage;
-    /// use rustycode_protocol::{PlanId, PlanStep, StepStatus};
-    /// use std::path::Path;
-    ///
-    /// # fn main() -> anyhow::Result<()> {
-    /// let storage = Storage::open(Path::new("test.db"))?;
-    /// let plan_id = PlanId::new();
-    /// let mut step = PlanStep {
-    ///     order: 1,
-    ///     title: "Test step".to_string(),
-    ///     description: "Description".to_string(),
-    ///     tools: vec![],
-    ///     expected_outcome: "Success".to_string(),
-    ///     rollback_hint: "Rollback".to_string(),
-    ///     tool_calls: vec![],
-    ///     execution_status: StepStatus::Completed,
-    ///     tool_executions: vec![],
-    ///     results: vec!["Step completed".to_string()],
-    ///     errors: vec![],
-    ///     started_at: None,
-    ///     completed_at: None,
-    /// };
-    /// storage.update_plan_step(&plan_id, 0, &step)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn update_plan_step(
         &self,
         plan_id: &PlanId,
@@ -1849,15 +1750,6 @@ impl Storage {
     /// Uses `SQLite` FTS5 full-text search on conversation content. Falls back
     /// to LIKE-based search if FTS tables are not available.
     ///
-    /// # Arguments
-    ///
-    /// * `query` - The search text to look for
-    /// * `limit` - Maximum number of results to return (default 20)
-    ///
-    /// # Returns
-    ///
-    /// A vector of `ConversationSearchHit` with session ID, matching snippet,
-    /// and timestamp.
     pub fn search_conversations(
         &self,
         query: &str,
@@ -3305,7 +3197,7 @@ mod tests {
             .expect("Failed to insert tool event");
 
         // Retrieve events
-        let events = storage.get_events(10).expect("Failed to get events");
+        let events = storage.events(10).expect("Failed to get events");
 
         // Verify we got 2 events
         assert_eq!(events.len(), 2);
@@ -3341,11 +3233,11 @@ mod tests {
         }
 
         // Request only 3 events
-        let events = storage.get_events(3).unwrap();
+        let events = storage.events(3).unwrap();
         assert_eq!(events.len(), 3);
 
         // Request 10 events but only 5 exist
-        let events = storage.get_events(10).unwrap();
+        let events = storage.events(10).unwrap();
         assert_eq!(events.len(), 5);
     }
 
@@ -3368,7 +3260,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
 
-        let events = storage.get_events(10).unwrap();
+        let events = storage.events(10).unwrap();
 
         // Events should be in reverse chronological order
         assert_eq!(events[0].event_type, "session.started");
@@ -3429,7 +3321,7 @@ mod tests {
             .expect("Failed to insert tool event");
 
         // Retrieve and verify
-        let events = storage.get_events(10).unwrap();
+        let events = storage.events(10).unwrap();
         assert_eq!(events.len(), 2);
 
         // Verify JSON data can be parsed
@@ -3453,7 +3345,7 @@ mod tests {
     fn empty_events_table_returns_empty_vec() {
         let storage = Storage::open(&temp_db_path()).unwrap();
 
-        let events = storage.get_events(10).unwrap();
+        let events = storage.events(10).unwrap();
         assert_eq!(events.len(), 0);
     }
 
@@ -3471,7 +3363,7 @@ mod tests {
 
         storage.insert_event_bus(&event).unwrap();
 
-        let events = storage.get_events(1).unwrap();
+        let events = storage.events(1).unwrap();
         assert_eq!(events.len(), 1);
 
         let record = &events[0];
@@ -3604,13 +3496,13 @@ mod tests {
         storage.upsert_memory("project", "style", "async").unwrap();
         storage.upsert_memory("global", "theme", "dark").unwrap();
 
-        let project_mem = storage.get_memory("project").unwrap();
+        let project_mem = storage.memory("project").unwrap();
         assert_eq!(project_mem.len(), 2);
         assert_eq!(project_mem[0].key, "lang"); // ordered by key
         assert_eq!(project_mem[1].key, "style");
         assert_eq!(project_mem[0].scope, "project");
 
-        let global_mem = storage.get_memory("global").unwrap();
+        let global_mem = storage.memory("global").unwrap();
         assert_eq!(global_mem.len(), 1);
         assert_eq!(global_mem[0].value, "dark");
     }
@@ -3618,7 +3510,7 @@ mod tests {
     #[test]
     fn get_memory_returns_empty_for_unknown_scope() {
         let storage = Storage::open(&temp_db_path()).unwrap();
-        let result = storage.get_memory("nonexistent").unwrap();
+        let result = storage.memory("nonexistent").unwrap();
         assert!(result.is_empty());
     }
 
@@ -3627,10 +3519,10 @@ mod tests {
         let storage = Storage::open(&temp_db_path()).unwrap();
         storage.upsert_memory("project", "style", "async").unwrap();
 
-        let value = storage.get_memory_entry("project", "style").unwrap();
+        let value = storage.memory_entry("project", "style").unwrap();
         assert_eq!(value, Some("async".to_string()));
 
-        let missing = storage.get_memory_entry("project", "missing").unwrap();
+        let missing = storage.memory_entry("project", "missing").unwrap();
         assert!(missing.is_none());
     }
 
@@ -3640,10 +3532,10 @@ mod tests {
         storage.upsert_memory("project", "style", "sync").unwrap();
         storage.upsert_memory("project", "style", "async").unwrap();
 
-        let value = storage.get_memory_entry("project", "style").unwrap();
+        let value = storage.memory_entry("project", "style").unwrap();
         assert_eq!(value, Some("async".to_string()));
 
-        let all = storage.get_memory("project").unwrap();
+        let all = storage.memory("project").unwrap();
         assert_eq!(all.len(), 1); // Still only one entry
     }
 

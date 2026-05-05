@@ -61,7 +61,7 @@
 //! learnings.save()?;
 //!
 //! // Read all learnings (for Architect briefing)
-//! let all = learnings.get_all();
+//! let all = learnings.all();
 //! ```
 
 use anyhow::{Context, Result};
@@ -131,7 +131,6 @@ pub struct TeamLearnings {
 }
 
 impl TeamLearnings {
-    /// Create a new empty learnings store
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
         let project_root = project_root.into();
         let file_path = project_root.join("TEAM_LEARNINGS.md");
@@ -357,12 +356,12 @@ impl TeamLearnings {
     }
 
     /// Get all learnings as formatted text (for briefing)
-    pub fn get_all(&self) -> String {
+    pub fn all(&self) -> String {
         self.to_markdown()
     }
 
     /// Get learnings for a specific category
-    pub fn get_category(&self, category: &LearningCategory) -> Vec<&LearningEntry> {
+    pub fn category(&self, category: &LearningCategory) -> Vec<&LearningEntry> {
         self.entries
             .get(category)
             .map(|entries| entries.iter().collect())
@@ -370,7 +369,7 @@ impl TeamLearnings {
     }
 
     /// Get high-confidence learnings (observed 2+ times)
-    pub fn get_reliable(&self) -> Vec<&LearningEntry> {
+    pub fn reliable(&self) -> Vec<&LearningEntry> {
         let mut reliable = Vec::new();
         for entries in self.entries.values() {
             for entry in entries {
@@ -463,7 +462,7 @@ mod tests {
 
         // Load from file
         let loaded = TeamLearnings::load(temp_dir.path()).unwrap();
-        let prefs = loaded.get_category(&LearningCategory::UserPreference);
+        let prefs = loaded.category(&LearningCategory::UserPreference);
         assert_eq!(prefs.len(), 1);
         assert!(prefs[0].content.contains("Prefers concise answers"));
     }
@@ -485,7 +484,7 @@ mod tests {
             Some("task 2".to_string()),
         );
 
-        let failures = learnings.get_category(&LearningCategory::WhatFailed);
+        let failures = learnings.category(&LearningCategory::WhatFailed);
         assert_eq!(failures.len(), 1); // Should be deduplicated
         assert_eq!(failures[0].occurrence_count, 2);
     }
@@ -511,7 +510,7 @@ mod tests {
             None,
         );
 
-        let reliable = learnings.get_reliable();
+        let reliable = learnings.reliable();
         assert_eq!(reliable.len(), 1); // Only the one with count >= 2
         assert!(reliable[0].content.contains("Small PRs"));
     }

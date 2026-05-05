@@ -92,9 +92,7 @@ use rustycode_tui::ui::message::{Message, MessageRole, ToolExecution, ToolStatus
 use rustycode_tui::ui::status::{StatusBar, StatusConfig, ToolExecutions};
 use std::time::Duration;
 
-// ============================================================================
 // Full Workflow Tests
-// ============================================================================
 
 #[test]
 fn test_full_workflow() {
@@ -154,9 +152,7 @@ fn test_multiline_workflow() {
     assert!(action.is_send_message());
 }
 
-// ============================================================================
 // Input Handling Tests
-// ============================================================================
 
 #[test]
 fn test_multiline_paste() {
@@ -211,9 +207,7 @@ fn test_input_modes() {
     assert_eq!(state.mode(), InputMode::SingleLine);
 }
 
-// ============================================================================
 // Message Rendering Tests
-// ============================================================================
 
 #[test]
 fn test_message_rendering() {
@@ -270,9 +264,7 @@ fn test_large_message_set() {
     assert!(duration < Duration::from_millis(100));
 }
 
-// ============================================================================
 // Tool Execution Tests
-// ============================================================================
 
 #[test]
 fn test_tool_execution_lifecycle() {
@@ -313,9 +305,7 @@ fn test_tool_execution_failure() {
     assert!(tool.output().contains("Error"));
 }
 
-// ============================================================================
 // Status Bar Tests
-// ============================================================================
 
 #[test]
 fn test_status_bar_updates() {
@@ -344,9 +334,7 @@ fn test_status_bar_themes() {
     assert!(!rendered.is_empty());
 }
 
-// ============================================================================
 // Error Recovery Tests
-// ============================================================================
 
 #[test]
 fn test_tool_failure_recovery() {
@@ -392,9 +380,7 @@ fn test_rendering_error_handling() {
     assert!(!rendered.is_empty()); // Should handle gracefully
 }
 
-// ============================================================================
 // Concurrent Operation Tests
-// ============================================================================
 
 #[test]
 fn test_concurrent_tool_execution() {
@@ -448,9 +434,7 @@ fn test_streaming_while_typing() {
     assert_eq!(stream_msg.content(), "Response chunk 1 chunk 2");
 }
 
-// ============================================================================
 // Performance Tests
-// ============================================================================
 
 #[test]
 fn test_performance_1000_messages() {
@@ -522,9 +506,7 @@ fn test_performance_rapid_tools() {
     );
 }
 
-// ============================================================================
 // Memory Tests
-// ============================================================================
 
 #[test]
 fn test_memory_large_conversation() {

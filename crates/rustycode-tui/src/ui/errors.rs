@@ -63,7 +63,6 @@ pub struct ErrorSuggestion {
 }
 
 impl ErrorSuggestion {
-    /// Create a new suggestion
     pub fn new(action: impl Into<String>) -> Self {
         Self {
             action: action.into(),
@@ -111,7 +110,6 @@ pub struct ErrorDisplay {
 }
 
 impl ErrorDisplay {
-    /// Create a new error display
     pub fn new(severity: ErrorSeverity, title: impl Into<String>) -> Self {
         Self {
             severity,

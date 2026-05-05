@@ -59,7 +59,7 @@ impl ReasoningStore {
     }
 
     /// Retrieve all thoughts for a task/phase.
-    pub fn get_phase_thoughts(&self, task_id: &str, phase: u32) -> Result<Vec<StructuredThought>> {
+    pub fn phase_thoughts(&self, task_id: &str, phase: u32) -> Result<Vec<StructuredThought>> {
         let thought_file = self
             .base_path
             .join(sanitize_task_id(task_id))
@@ -79,8 +79,8 @@ impl ReasoningStore {
 
     /// Produce a summary for a completed phase.
     #[allow(clippy::cast_precision_loss)]
-    pub fn get_phase_summary(&self, task_id: &str, phase: u32) -> Result<PhaseSummary> {
-        let thoughts = self.get_phase_thoughts(task_id, phase)?;
+    pub fn phase_summary(&self, task_id: &str, phase: u32) -> Result<PhaseSummary> {
+        let thoughts = self.phase_thoughts(task_id, phase)?;
         let total_conf: u32 = thoughts.iter().map(|t| t.confidence).sum();
         let avg_conf = if thoughts.is_empty() {
             0.0
@@ -106,7 +106,7 @@ impl ReasoningStore {
     }
 
     /// Build a JSON context blob for phase `N+1` from the previous phase.
-    pub fn get_context_for_next_phase(
+    pub fn context_for_next_phase(
         &self,
         task_id: &str,
         next_phase: u32,
@@ -120,8 +120,8 @@ impl ReasoningStore {
         }
 
         let prev_phase = next_phase - 1;
-        let summary = self.get_phase_summary(task_id, prev_phase)?;
-        let thoughts = self.get_phase_thoughts(task_id, prev_phase)?;
+        let summary = self.phase_summary(task_id, prev_phase)?;
+        let thoughts = self.phase_thoughts(task_id, prev_phase)?;
 
         Ok(serde_json::json!({
             "phase": next_phase,
@@ -189,7 +189,7 @@ mod tests {
             .store_thought("task1", 1, &make_thought("Analysis", 1, 70, false))
             .unwrap();
 
-        let retrieved = store.get_phase_thoughts("task1", 1).unwrap();
+        let retrieved = store.phase_thoughts("task1", 1).unwrap();
         assert_eq!(retrieved.len(), 1);
         assert_eq!(retrieved[0].thought, "Analysis");
     }
@@ -198,7 +198,7 @@ mod tests {
     fn test_empty_phase() {
         let temp_dir = TempDir::new().unwrap();
         let store = ReasoningStore::new(temp_dir.path().to_path_buf());
-        let thoughts = store.get_phase_thoughts("nonexistent", 1).unwrap();
+        let thoughts = store.phase_thoughts("nonexistent", 1).unwrap();
         assert!(thoughts.is_empty());
     }
 
@@ -214,7 +214,7 @@ mod tests {
             .store_thought("task2", 1, &make_thought("decide B", 1, 90, true))
             .unwrap();
 
-        let summary = store.get_phase_summary("task2", 1).unwrap();
+        let summary = store.phase_summary("task2", 1).unwrap();
         assert_eq!(summary.phase, 1);
         assert_eq!(summary.thought_count, 2);
         assert!((summary.average_confidence - 80.0).abs() < f64::EPSILON);
@@ -230,7 +230,7 @@ mod tests {
             .store_thought("task3", 1, &make_thought("decided X", 1, 85, true))
             .unwrap();
 
-        let ctx = store.get_context_for_next_phase("task3", 2).unwrap();
+        let ctx = store.context_for_next_phase("task3", 2).unwrap();
         assert_eq!(ctx["phase"], 2);
         assert_eq!(
             ctx["previous_summary"]["decisions_made"]
@@ -246,7 +246,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let store = ReasoningStore::new(temp_dir.path().to_path_buf());
 
-        let ctx = store.get_context_for_next_phase("task4", 1).unwrap();
+        let ctx = store.context_for_next_phase("task4", 1).unwrap();
         assert_eq!(ctx["phase"], 1);
         assert!(ctx["previous_summary"].is_null());
     }
@@ -269,8 +269,8 @@ mod tests {
             .store_thought("multi", 2, &make_thought("phase 2", 2, 80, true))
             .unwrap();
 
-        let p1 = store.get_phase_thoughts("multi", 1).unwrap();
-        let p2 = store.get_phase_thoughts("multi", 2).unwrap();
+        let p1 = store.phase_thoughts("multi", 1).unwrap();
+        let p2 = store.phase_thoughts("multi", 2).unwrap();
         assert_eq!(p1.len(), 1);
         assert_eq!(p2.len(), 1);
         assert_eq!(p2[0].thought, "phase 2");
@@ -298,7 +298,7 @@ mod tests {
             .store_thought("batch", 1, &make_thought("thought C", 1, 80, true))
             .unwrap();
 
-        let thoughts = store.get_phase_thoughts("batch", 1).unwrap();
+        let thoughts = store.phase_thoughts("batch", 1).unwrap();
         assert_eq!(thoughts.len(), 3);
         assert_eq!(thoughts[0].thought, "thought A");
         assert_eq!(thoughts[2].thought, "thought C");
@@ -309,7 +309,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let store = ReasoningStore::new(temp_dir.path().to_path_buf());
 
-        let summary = store.get_phase_summary("empty", 1).unwrap();
+        let summary = store.phase_summary("empty", 1).unwrap();
         assert_eq!(summary.thought_count, 0);
         assert!((summary.average_confidence - 0.0).abs() < f64::EPSILON);
         assert!(summary.decisions_made.is_empty());
@@ -327,7 +327,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let store = ReasoningStore::new(temp_dir.path().to_path_buf());
 
-        let ctx = store.get_context_for_next_phase("new-task", 2).unwrap();
+        let ctx = store.context_for_next_phase("new-task", 2).unwrap();
         assert_eq!(ctx["phase"], 2);
         assert!(ctx["previous_summary"]["thought_count"].as_u64().unwrap() == 0);
     }
@@ -352,7 +352,7 @@ mod tests {
             .unwrap();
 
         // Should return only the valid thought, ignoring corrupted line
-        let thoughts = store.get_phase_thoughts("corrupt", 1);
+        let thoughts = store.phase_thoughts("corrupt", 1);
         assert!(thoughts.is_err() || thoughts.unwrap().len() == 1);
     }
 
@@ -374,7 +374,7 @@ mod tests {
         let write_time = start.elapsed();
 
         let start = std::time::Instant::now();
-        let thoughts = store.get_phase_thoughts("large", 1).unwrap();
+        let thoughts = store.phase_thoughts("large", 1).unwrap();
         let read_time = start.elapsed();
 
         assert_eq!(thoughts.len(), 1000);
@@ -398,7 +398,7 @@ mod tests {
 
         let result = store.store_thought("", 1, &make_thought("test", 1, 70, false));
         assert!(result.is_ok());
-        let thoughts = store.get_phase_thoughts("", 1).unwrap();
+        let thoughts = store.phase_thoughts("", 1).unwrap();
         assert_eq!(thoughts.len(), 1);
     }
 
@@ -429,7 +429,7 @@ mod tests {
             h.join().unwrap();
         }
 
-        let thoughts = store.get_phase_thoughts("concurrent", 1).unwrap();
+        let thoughts = store.phase_thoughts("concurrent", 1).unwrap();
         assert_eq!(thoughts.len(), 5);
     }
 }

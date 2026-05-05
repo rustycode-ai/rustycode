@@ -291,7 +291,7 @@ pub fn filter_by_category(items: &[MarketplaceItem], category: &str) -> Vec<Mark
 }
 
 /// Get installed items
-pub fn get_installed_items(items: &[MarketplaceItem]) -> Vec<MarketplaceItem> {
+pub fn installed_items(items: &[MarketplaceItem]) -> Vec<MarketplaceItem> {
     items
         .iter()
         .filter(|item| item.installed)
@@ -300,7 +300,7 @@ pub fn get_installed_items(items: &[MarketplaceItem]) -> Vec<MarketplaceItem> {
 }
 
 /// Get items with available updates
-pub fn get_updatable_items(items: &[MarketplaceItem]) -> Vec<MarketplaceItem> {
+pub fn updatable_items(items: &[MarketplaceItem]) -> Vec<MarketplaceItem> {
     items
         .iter()
         .filter(|item| item.installed && item.has_update())
@@ -768,7 +768,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_installed_items() {
+    fn test_installed_items() {
         let items = builtin_index();
         let mut items_with_installed = items.clone();
 
@@ -777,13 +777,13 @@ mod tests {
             item.installed = true;
         }
 
-        let installed = get_installed_items(&items_with_installed);
+        let installed = installed_items(&items_with_installed);
         assert_eq!(installed.len(), 1);
         assert!(installed[0].installed);
     }
 
     #[test]
-    fn test_get_updatable_items() {
+    fn test_updatable_items() {
         let items = vec![
             MarketplaceItem {
                 id: "item1".to_string(),
@@ -823,7 +823,7 @@ mod tests {
             },
         ];
 
-        let updatable = get_updatable_items(&items);
+        let updatable = updatable_items(&items);
         assert_eq!(updatable.len(), 1);
         assert_eq!(updatable[0].id, "item1");
     }

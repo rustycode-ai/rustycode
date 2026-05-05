@@ -73,7 +73,7 @@ impl PolishedRenderer {
                     format!(
                         "{} {}",
                         frames[frame_idx],
-                        crate::app::thinking_messages::get_thinking_message(msg_idx)
+                        crate::app::thinking_messages::thinking_message(msg_idx)
                     ),
                     Style::default().fg(Color::Rgb(255, 200, 80)),
                 ),
@@ -260,7 +260,7 @@ impl PolishedRenderer {
             if has_sel {
                 // Selection-aware rendering: highlight selected bytes with REVERSED
                 let sel_style = Style::default().add_modifier(Modifier::REVERSED);
-                let sel_range = state.get_selection_range();
+                let sel_range = state.selection_range();
                 let (sel_start_row, _sel_start_col, sel_end_row, _sel_end_col) =
                     sel_range.unwrap_or((0, 0, 0, 0));
 
@@ -329,7 +329,7 @@ impl PolishedRenderer {
         } else if has_sel {
             // Non-cursor row with selection: highlight entire line if within selection
             let sel_style = Style::default().add_modifier(Modifier::REVERSED);
-            let sel_range = state.get_selection_range();
+            let sel_range = state.selection_range();
             let (sel_start_row, _, sel_end_row, _) = sel_range.unwrap_or((0, 0, 0, 0));
 
             if row_idx > sel_start_row && row_idx < sel_end_row {

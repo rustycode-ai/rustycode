@@ -57,7 +57,6 @@ pub struct TemplateManager {
 }
 
 impl TemplateManager {
-    /// Create a new template manager with built-in templates
     pub fn new() -> Result<Self> {
         let mut registry = Handlebars::new();
         registry.register_escape_fn(handlebars::no_escape);

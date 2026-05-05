@@ -43,13 +43,6 @@ pub struct ExecutionCheckpointDetector;
 impl ExecutionCheckpointDetector {
     /// Check if a command should trigger checkpoint creation
     ///
-    /// # Arguments
-    ///
-    /// * `command` - The command string to check
-    ///
-    /// # Returns
-    ///
-    /// `true` if the command matches a dangerous operation pattern
     pub fn should_checkpoint_before_step(command: &str) -> bool {
         let command = command.trim();
 
@@ -60,14 +53,6 @@ impl ExecutionCheckpointDetector {
 
     /// Get checkpoint reason if a dangerous operation is detected
     ///
-    /// # Arguments
-    ///
-    /// * `command` - The command string to check
-    ///
-    /// # Returns
-    ///
-    /// `Some(reason)` if the command matches a dangerous operation pattern,
-    /// `None` otherwise
     pub fn checkpoint_reason(command: &str) -> Option<String> {
         let command = command.trim();
 

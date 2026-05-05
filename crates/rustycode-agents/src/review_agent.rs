@@ -15,7 +15,6 @@ use async_trait::async_trait;
 pub struct ReviewAgent;
 
 impl ReviewAgent {
-    /// Create a new review agent
     pub const fn new() -> Self {
         Self
     }

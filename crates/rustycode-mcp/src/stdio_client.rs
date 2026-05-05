@@ -89,7 +89,6 @@ const fn default_enabled() -> bool {
 }
 
 impl McpServerConfig {
-    /// Create a new server configuration
     pub fn new(name: impl Into<String>, command: impl Into<String>) -> Self {
         Self {
             name: name.into(),
@@ -241,7 +240,6 @@ pub struct McpStdioClient {
 }
 
 impl McpStdioClient {
-    /// Create a new client (does not connect yet)
     pub const fn new(config: McpServerConfig) -> Self {
         Self {
             config,
@@ -362,14 +360,6 @@ impl McpStdioClient {
 
     /// Call a tool on the server
     ///
-    /// # Arguments
-    ///
-    /// * `name` - The name of the tool to call
-    /// * `arguments` - The arguments to pass to the tool (must be a JSON value)
-    ///
-    /// # Returns
-    ///
-    /// The result of the tool call, including content blocks and error status
     pub fn call_tool(
         &mut self,
         name: &str,
@@ -567,7 +557,6 @@ pub struct McpClientManager {
 }
 
 impl McpClientManager {
-    /// Create a new client manager
     pub fn new() -> Self {
         Self {
             clients: HashMap::new(),
@@ -584,12 +573,12 @@ impl McpClientManager {
     }
 
     /// Get a client by name
-    pub fn get_client(&self, name: &str) -> Option<&McpStdioClient> {
+    pub fn client(&self, name: &str) -> Option<&McpStdioClient> {
         self.clients.get(name)
     }
 
     /// Get a mutable client by name
-    pub fn get_client_mut(&mut self, name: &str) -> Option<&mut McpStdioClient> {
+    pub fn client_mut(&mut self, name: &str) -> Option<&mut McpStdioClient> {
         self.clients.get_mut(name)
     }
 
@@ -658,37 +647,6 @@ impl McpClientManager {
     /// one that has the requested tool and executes it. This is useful when
     /// you don't care which server provides the tool, you just want it to run.
     ///
-    /// # Arguments
-    ///
-    /// * `tool_name` - Name of the tool to call
-    /// * `arguments` - Arguments to pass to the tool
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the server name and the tool result
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if no server has the requested tool
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use rustycode_mcp::stdio_client::{McpClientManager, McpServerConfig};
-    /// use serde_json::json;
-    ///
-    /// let mut manager = McpClientManager::new();
-    /// manager.add_server(McpServerConfig::new("filesystem", "npx")
-    ///     .with_args(vec!["-y".to_string(), "@anthropic/mcp-server-filesystem".to_string()]))
-    ///     .unwrap();
-    ///
-    /// // Call a tool without specifying which server
-    /// let (server_name, result) = manager.call_tool_any("read_file", json!({
-    ///     "path": "/tmp/test.txt"
-    /// })).unwrap();
-    ///
-    /// println!("Called {} on server {}", "read_file", server_name);
-    /// ```
     pub fn call_tool_any(
         &mut self,
         tool_name: &str,
@@ -904,8 +862,8 @@ mod tests {
     #[test]
     fn test_client_manager_get_client_not_found() {
         let mut manager = McpClientManager::new();
-        assert!(manager.get_client("nonexistent").is_none());
-        assert!(manager.get_client_mut("nonexistent").is_none());
+        assert!(manager.client("nonexistent").is_none());
+        assert!(manager.client_mut("nonexistent").is_none());
     }
 
     #[test]

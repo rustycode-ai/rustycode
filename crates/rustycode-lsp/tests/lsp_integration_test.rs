@@ -92,7 +92,7 @@ async fn test_lsp_open_document() {
     assert!(open_result.is_ok());
 
     // Check diagnostics (may be empty)
-    let _diagnostics = client.get_diagnostics(&uri).await;
+    let _diagnostics = client.fetch_diagnostics(&uri).await;
     // We don't assert on diagnostics content since rust-analyzer may not have finished analysis
 
     // Test sending a notification
@@ -116,7 +116,7 @@ async fn test_lsp_open_document() {
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
 
     // Check if we received any diagnostics
-    let diagnostics = client.get_diagnostics(&uri).await;
+    let diagnostics = client.fetch_diagnostics(&uri).await;
     println!("Received {} diagnostics for test.rs", diagnostics.len());
 
     // Cleanup
@@ -218,7 +218,7 @@ edition = "2021"
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
     // Check diagnostics
-    let diagnostics = client.get_diagnostics(&uri).await;
+    let diagnostics = client.fetch_diagnostics(&uri).await;
     println!(
         "Received {} diagnostics for file with errors",
         diagnostics.len()

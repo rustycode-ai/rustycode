@@ -29,9 +29,7 @@ pub use rustycode_ui_core::{RendererFrame, TuiRenderer};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
-// ============================================================================
 // RENDERER STATE — unified snapshot (replaces the old asymmetric RenderContext)
-// ============================================================================
 
 /// Unified snapshot of TUI state for a single render frame.
 ///
@@ -189,9 +187,7 @@ impl RendererState {
     }
 }
 
-// ============================================================================
 // RENDERER CONFIG / LAYOUT
-// ============================================================================
 
 /// Tunable renderer settings for the polished backend.
 ///
@@ -286,9 +282,7 @@ impl RendererLayout {
     }
 }
 
-// ============================================================================
 // POLISHED RENDERER
-// ============================================================================
 
 /// Polished renderer backend — clean chrome + markdown-rendered messages.
 pub struct PolishedRenderer {
@@ -556,9 +550,7 @@ impl PolishedRenderer {
     }
 }
 
-// ============================================================================
 // RENDERER MODE — selector enum
-// ============================================================================
 
 /// Available frame-renderer backends for the TUI.
 ///
@@ -608,9 +600,7 @@ impl RendererMode {
     }
 }
 
-// ============================================================================
 // FRAME RENDERER TRAIT — dispatch interface
-// ============================================================================
 
 /// Common frame-rendering dispatch interface.
 ///
@@ -631,9 +621,7 @@ impl FrameRenderer for RendererMode {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 // Bring in the modular render implementations for PolishedRenderer
 include!("tui_render_impl.rs");

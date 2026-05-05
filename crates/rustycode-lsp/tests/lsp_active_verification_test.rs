@@ -81,7 +81,7 @@ edition = "2021"
     let mut diagnostics = Vec::new();
     for _ in 0..10 {
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-        diagnostics = client.get_diagnostics(&uri).await;
+        diagnostics = client.fetch_diagnostics(&uri).await;
         if !diagnostics.is_empty() {
             break;
         }

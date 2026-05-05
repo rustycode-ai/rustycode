@@ -63,7 +63,6 @@ pub struct SearchState {
 }
 
 impl SearchState {
-    /// Create a new search state
     pub fn new() -> Self {
         Self {
             query: String::new(),

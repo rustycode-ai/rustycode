@@ -54,9 +54,7 @@ fn create_test_request(prompt: &str) -> CompletionRequest {
     )
 }
 
-// ============================================================================
 // Unit Tests (No API Key Required)
-// ============================================================================
 
 #[test]
 fn test_gemini_api_key_validation_requires_key() {
@@ -198,9 +196,7 @@ fn test_gemini_new_without_validation() {
     assert!(result.is_ok());
 }
 
-// ============================================================================
 // Integration Tests (Require API Key)
-// ============================================================================
 
 #[tokio::test]
 #[cfg_attr(
@@ -390,9 +386,7 @@ async fn test_gemini_with_max_tokens() {
     assert!(!response.content.is_empty());
 }
 
-// ============================================================================
 // Tool Format Tests
-// ============================================================================
 
 #[test]
 fn test_gemini_function_declaration_format() {
@@ -679,9 +673,7 @@ fn test_gemini_vs_openai_format_difference() {
     assert!(openai_format["function"].is_object());
 }
 
-// ============================================================================
 // Error Handling Tests
-// ============================================================================
 
 #[test]
 fn test_gemini_metadata_validation() {
@@ -716,9 +708,7 @@ fn test_gemini_config_validation_via_metadata() {
     assert!(api_key_field.validation_pattern.is_some());
 }
 
-// ============================================================================
 // Provider Availability Tests
-// ============================================================================
 
 #[tokio::test]
 async fn test_gemini_is_available_with_key() {
@@ -787,9 +777,7 @@ async fn test_gemini_is_available_with_empty_key() {
     assert!(!available);
 }
 
-// ============================================================================
 // Model-Specific Tests
-// ============================================================================
 
 #[test]
 fn test_gemini_model_names() {

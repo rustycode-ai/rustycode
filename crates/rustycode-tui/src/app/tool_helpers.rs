@@ -250,7 +250,7 @@ pub fn format_tool_result_summary(tool_result: &ToolResult, tool_name: &str) -> 
 }
 
 /// Return a user-facing hint for common tool execution errors.
-pub fn tool_error_hint(error: &str) -> Option<&'static str> {
+pub fn get_tool_error_hint(error: &str) -> Option<&'static str> {
     let error_lower = error.to_lowercase();
     if error_lower.contains("permission denied") || error_lower.contains("access denied") {
         Some("💡 Tip: Check file permissions or try with elevated privileges")
@@ -344,7 +344,7 @@ mod tests {
     #[test]
     fn test_tool_error_hint_permission() {
         assert_eq!(
-            tool_error_hint("Permission denied while opening file"),
+            get_tool_error_hint("Permission denied while opening file"),
             Some("💡 Tip: Check file permissions or try with elevated privileges")
         );
     }

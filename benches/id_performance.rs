@@ -15,9 +15,7 @@ use rustycode_protocol::{EventId, FileId, MemoryId, PlanId, SessionId, SkillId, 
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-// ============================================================================
 // Generation Benchmarks
-// ============================================================================
 
 /// Benchmark UUID v4 generation as baseline
 fn bench_uuid_generation(c: &mut Criterion) {
@@ -72,9 +70,7 @@ fn bench_generation_throughput(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Size and Memory Benchmarks
-// ============================================================================
 
 /// Compare memory footprint
 fn bench_memory_size(c: &mut Criterion) {
@@ -111,9 +107,7 @@ fn bench_memory_size(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Sorting Benchmarks
-// ============================================================================
 
 /// Benchmark sorting performance with varying dataset sizes
 fn bench_sorting_performance(c: &mut Criterion) {
@@ -191,9 +185,7 @@ fn bench_partial_sorting(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Parsing and Serialization Benchmarks
-// ============================================================================
 
 /// Benchmark parsing from string
 fn bench_parsing(c: &mut Criterion) {
@@ -267,9 +259,7 @@ fn bench_roundtrip(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Hash-Based Operations
-// ============================================================================
 
 /// Benchmark HashSet insertion
 fn bench_hashset_insertion(c: &mut Criterion) {
@@ -356,9 +346,7 @@ fn bench_hashmap_operations(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Feature-Specific Benchmarks
-// ============================================================================
 
 /// Benchmark timestamp extraction (sortable ID feature)
 fn bench_timestamp_extraction(c: &mut Criterion) {
@@ -413,9 +401,7 @@ fn bench_time_ordering(c: &mut Criterion) {
     });
 }
 
-// ============================================================================
 // Comparison Benchmarks
-// ============================================================================
 
 /// Direct comparison: generation speed
 fn bench_comparison_generation(c: &mut Criterion) {
@@ -476,9 +462,7 @@ fn bench_comparison_parsing(c: &mut Criterion) {
     group.finish();
 }
 
-// ============================================================================
 // Main Benchmark Groups
-// ============================================================================
 
 criterion_group!(
     generation_benches,

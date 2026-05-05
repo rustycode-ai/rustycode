@@ -141,7 +141,6 @@ pub struct PhaseSkipConfig {
 }
 
 impl PhaseSkipConfig {
-    /// Create a new skip config with both flags false.
     pub const fn new() -> Self {
         Self {
             skip_explore: false,

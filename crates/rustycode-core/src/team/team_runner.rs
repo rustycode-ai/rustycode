@@ -95,7 +95,6 @@ pub struct TeamRunner {
 }
 
 impl TeamRunner {
-    /// Create a new TeamRunner for the given project root.
     pub fn new(project_root: impl Into<PathBuf>) -> Self {
         Self {
             project_root: project_root.into(),

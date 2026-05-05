@@ -171,9 +171,7 @@ pub enum ToolCatalog {
     REPL(REPLInput),
 }
 
-// ============================================================================
 // Input Types
-// ============================================================================
 
 /// Input for reading a file
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -721,9 +719,7 @@ pub struct REPLInput {
     pub execution_timeout: Option<u64>,
 }
 
-// ============================================================================
 // Permission Levels
-// ============================================================================
 
 /// Permission level required for a tool
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -741,9 +737,7 @@ pub enum ToolPermission {
     Network,
 }
 
-// ============================================================================
 // Tool Catalog Implementation
-// ============================================================================
 
 /// Normalize a tool name to `snake_case`.
 ///

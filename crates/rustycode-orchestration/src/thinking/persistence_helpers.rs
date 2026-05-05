@@ -10,9 +10,6 @@ use std::time::SystemTime;
 
 /// Convert a `ReasoningGraph` to a `SerializedGraph` for persistence
 ///
-/// # Panics
-///
-/// Will not panic in practice; system time is always after the Unix epoch.
 #[must_use]
 #[allow(clippy::cast_possible_wrap)]
 pub fn serialize_graph(
@@ -76,9 +73,6 @@ pub fn serialize_graph(
 
 /// Convert a `SerializedGraph` back to a `ReasoningGraph`
 ///
-/// # Errors
-///
-/// Returns an error if thoughts or edges cannot be added to the graph.
 pub fn deserialize_graph(
     serialized: &SerializedGraph,
 ) -> crate::thinking::core::error::Result<ReasoningGraph> {

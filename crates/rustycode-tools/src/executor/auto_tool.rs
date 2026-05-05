@@ -40,7 +40,6 @@ pub struct AutoToolContext {
 }
 
 impl AutoToolContext {
-    /// Create a new auto tool context
     pub fn new(registry: Arc<ToolRegistry>, tool_context: ToolContext) -> Self {
         Self {
             registry,
@@ -71,14 +70,6 @@ impl AutoToolContext {
     /// This allows tools to call other tools directly without going through
     /// the model. This is useful for tool chaining and automation.
     ///
-    /// # Arguments
-    ///
-    /// * `tool_name` - Name of the tool to call
-    /// * `params` - Parameters for the tool
-    ///
-    /// # Returns
-    ///
-    /// Tool execution result
     pub fn call_tool(&mut self, tool_name: &str, params: Value) -> Result<ToolOutput> {
         // Check depth limit
         if self.current_depth >= self.config.max_depth {
@@ -176,15 +167,6 @@ pub trait AutoTool: Tool {
     /// vs when called by the model. For example, a tool might skip certain
     /// validations or use different defaults.
     ///
-    /// # Arguments
-    ///
-    /// * `params` - Tool parameters
-    /// * `ctx` - Tool execution context
-    /// * `auto_ctx` - Auto tool context with registry and history
-    ///
-    /// # Returns
-    ///
-    /// Tool execution output
     fn execute_auto(
         &self,
         params: Value,

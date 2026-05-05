@@ -20,10 +20,6 @@ pub enum SortStrategy {
 
 /// Sort context items by the specified strategy.
 ///
-/// # Arguments
-///
-/// * `items` - Items to sort (will be modified in place)
-/// * `strategy` - Sorting strategy to use
 pub fn sort_by<T>(items: &mut [ContextItem<T>], strategy: SortStrategy)
 where
     T: AsRef<str>,
@@ -53,14 +49,6 @@ where
 /// This function prioritizes items by score and selects as many as will
 /// fit within the budget.
 ///
-/// # Arguments
-///
-/// * `items` - Items to select from
-/// * `budget` - Token budget
-///
-/// # Returns
-///
-/// Selected items that fit within the budget
 pub fn select_best<T>(items: &[ContextItem<T>], budget: usize) -> Vec<&ContextItem<T>>
 where
     T: AsRef<str>,
@@ -93,19 +81,6 @@ where
 /// This is a more sophisticated approach that considers both score and
 /// token cost to maximize total value within the budget.
 ///
-/// # Arguments
-///
-/// * `items` - Items to select from
-/// * `budget` - Token budget
-///
-/// # Returns
-///
-/// Selected items that maximize value within budget
-///
-/// # Note
-///
-/// This is a greedy approximation (not optimal but fast). For optimal
-/// results with small item counts, use dynamic programming.
 pub fn select_knapsack<T>(items: &[ContextItem<T>], budget: usize) -> Vec<&ContextItem<T>>
 where
     T: AsRef<str>,
@@ -136,14 +111,6 @@ where
 
 /// Calculate a relevance score based on keyword matching.
 ///
-/// # Arguments
-///
-/// * `content` - Content to score
-/// * `keywords` - Keywords to look for
-///
-/// # Returns
-///
-/// Relevance score (higher is more relevant)
 pub fn keyword_relevance_score(content: &str, keywords: &[&str]) -> f64 {
     if keywords.is_empty() {
         return 0.0;
@@ -168,13 +135,6 @@ pub fn keyword_relevance_score(content: &str, keywords: &[&str]) -> f64 {
 /// More recent items get higher scores. The score decays exponentially
 /// over time with a half-life of 24 hours.
 ///
-/// # Arguments
-///
-/// * `timestamp` - Timestamp to score
-///
-/// # Returns
-///
-/// Recency score (0.0 to 100.0, higher is more recent)
 pub fn recency_score(timestamp: chrono::DateTime<chrono::Utc>) -> f64 {
     let age_hours = (chrono::Utc::now() - timestamp).num_hours().max(0) as f64;
 
@@ -190,13 +150,6 @@ pub fn recency_score(timestamp: chrono::DateTime<chrono::Utc>) -> f64 {
 /// More frequently used items get higher scores. The score uses
 /// logarithmic scaling to avoid excessive bias.
 ///
-/// # Arguments
-///
-/// * `usage_count` - Number of times the item was used
-///
-/// # Returns
-///
-/// Frequency score (0.0 to 100.0, higher is more frequent)
 pub fn frequency_score(usage_count: usize) -> f64 {
     if usage_count == 0 {
         return 0.0;

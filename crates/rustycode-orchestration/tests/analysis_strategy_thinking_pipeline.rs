@@ -105,7 +105,7 @@ fn thoughts_stored_and_phase_context_retrieved() {
     );
     store.store_thought("pipeline-test", 1, &thought).unwrap();
 
-    let retrieved = store.get_phase_thoughts("pipeline-test", 1).unwrap();
+    let retrieved = store.phase_thoughts("pipeline-test", 1).unwrap();
     assert_eq!(retrieved.len(), 1);
     assert_eq!(
         retrieved[0].thought,
@@ -113,7 +113,7 @@ fn thoughts_stored_and_phase_context_retrieved() {
     );
 
     let ctx = store
-        .get_context_for_next_phase("pipeline-test", 2)
+        .context_for_next_phase("pipeline-test", 2)
         .unwrap();
     assert_eq!(ctx["phase"], 2);
     assert!(
@@ -231,7 +231,7 @@ fn full_pipeline_end_to_end() {
 
     // Phase 4: Verify phase context is available for next phase
     let ctx = store
-        .get_context_for_next_phase("full-pipeline", 2)
+        .context_for_next_phase("full-pipeline", 2)
         .unwrap();
     assert_eq!(ctx["phase"], 2);
     assert!(ctx["previous_summary"]["thought_count"].as_u64().unwrap() > 0);

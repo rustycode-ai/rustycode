@@ -167,7 +167,7 @@ impl SkillManager {
         Ok(manager)
     }
 
-    pub async fn get_skills(&self) -> Result<Vec<Skill>> {
+    pub async fn skills(&self) -> Result<Vec<Skill>> {
         let cache = self.cache.read().await;
         if let Some(entry) = cache.as_ref() {
             if !entry.is_expired(self.cache_ttl) {
@@ -179,7 +179,7 @@ impl SkillManager {
         self.refresh_cache().await
     }
 
-    pub async fn get_skills_refreshed(&self) -> Result<Vec<Skill>> {
+    pub async fn skills_refreshed(&self) -> Result<Vec<Skill>> {
         self.refresh_cache().await
     }
 
@@ -283,7 +283,6 @@ pub struct ProgressiveLoader {
 }
 
 impl ProgressiveLoader {
-    /// Create a new progressive loader
     pub fn new(skills_dir: PathBuf, max_content_cache: usize) -> Self {
         Self {
             skills_dir,
@@ -436,7 +435,7 @@ impl ProgressiveLoader {
     }
 
     /// Get metadata for a specific skill
-    pub fn get_metadata(&self, name: &str) -> Option<&SkillMetadata> {
+    pub fn metadata(&self, name: &str) -> Option<&SkillMetadata> {
         self.metadata_cache.get(name)
     }
 
@@ -583,7 +582,7 @@ mod tests {
         let manager = SkillManager::new(&dir, Duration::from_mins(1))
             .await
             .unwrap();
-        let skills = manager.get_skills().await.unwrap();
+        let skills = manager.skills().await.unwrap();
 
         assert_eq!(skills.len(), 1);
         assert_eq!(skills[0].name, "Writer");
@@ -603,7 +602,7 @@ mod tests {
         let manager = SkillManager::new(&dir, Duration::from_secs(1))
             .await
             .unwrap();
-        let _skills1 = manager.get_skills().await.unwrap();
+        let _skills1 = manager.skills().await.unwrap();
         assert!(!manager.is_cache_expired().await);
     }
 
@@ -613,7 +612,7 @@ mod tests {
         let manager = SkillManager::new(&dir, Duration::from_mins(1))
             .await
             .unwrap();
-        let skills = manager.get_skills().await.unwrap();
+        let skills = manager.skills().await.unwrap();
         assert_eq!(skills.len(), 0);
     }
 
@@ -633,7 +632,7 @@ mod tests {
         let manager = SkillManager::new(&dir, Duration::from_mins(1))
             .await
             .unwrap();
-        let skills = manager.get_skills().await.unwrap();
+        let skills = manager.skills().await.unwrap();
         assert_eq!(skills.len(), 3);
     }
 
@@ -739,7 +738,7 @@ mod tests {
         // Update the skill
         fs::write(skill_dir.join("SKILL.md"), "# Writer\n\nV2.\n").unwrap();
 
-        let refreshed = manager.get_skills_refreshed().await.unwrap();
+        let refreshed = manager.skills_refreshed().await.unwrap();
         assert_eq!(refreshed[0].description.as_deref(), Some("V2."));
     }
 
@@ -953,7 +952,7 @@ mod tests {
         let manager = SkillManager::new(&dir, Duration::from_mins(1))
             .await
             .unwrap();
-        let skills = manager.get_skills().await.unwrap();
+        let skills = manager.skills().await.unwrap();
         assert_eq!(skills[0].name, "alpha");
         assert_eq!(skills[1].name, "middle");
         assert_eq!(skills[2].name, "zebra");
@@ -969,7 +968,7 @@ mod tests {
         let manager = SkillManager::new(&dir, Duration::from_mins(1))
             .await
             .unwrap();
-        let skills = manager.get_skills().await.unwrap();
+        let skills = manager.skills().await.unwrap();
         assert_eq!(skills[0].name, "fallback-name");
     }
 
@@ -1108,6 +1107,6 @@ mod tests {
         rt.block_on(async {
             loader.load_metadata().await.unwrap();
         });
-        assert!(loader.get_metadata("nonexistent").is_none());
+        assert!(loader.metadata("nonexistent").is_none());
     }
 }

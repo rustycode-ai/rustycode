@@ -125,7 +125,6 @@ impl Default for Header {
 }
 
 impl Header {
-    /// Create a new header with default styling
     pub fn new() -> Self {
         Self::default()
     }

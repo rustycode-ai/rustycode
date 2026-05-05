@@ -14,7 +14,6 @@ use async_trait::async_trait;
 pub struct TestAgent;
 
 impl TestAgent {
-    /// Create a new test agent
     pub const fn new() -> Self {
         Self
     }

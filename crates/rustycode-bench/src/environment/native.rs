@@ -40,7 +40,6 @@ pub struct NativeEnvironment {
 }
 
 impl NativeEnvironment {
-    /// Create a new native environment.
     pub fn new(workspace: PathBuf, task_dir: PathBuf) -> Self {
         Self {
             workspace,

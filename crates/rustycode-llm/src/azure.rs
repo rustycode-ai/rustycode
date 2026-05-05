@@ -390,7 +390,7 @@ impl AzureProvider {
         &self.api_version
     }
 
-    fn get_api_key(&self) -> Result<String, ProviderError> {
+    fn api_key(&self) -> Result<String, ProviderError> {
         // Try config first, then environment variable
         let config_key = self
             .config
@@ -410,7 +410,7 @@ impl AzureProvider {
         &self,
         request: &CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
 
         // Azure OpenAI endpoint format: https://{resource}.openai.azure.com/openai/deployments/{deployment}/chat/completions?api-version={api_version}
         let url = format!(
@@ -553,12 +553,12 @@ impl LLMProvider for AzureProvider {
 
     async fn is_available(&self) -> bool {
         // Check if API key is available
-        if self.get_api_key().is_err() {
+        if self.api_key().is_err() {
             return false;
         }
 
         // Try to make a simple request to verify connectivity
-        let api_key = match self.get_api_key() {
+        let api_key = match self.api_key() {
             Ok(key) => key,
             Err(_) => return false,
         };
@@ -641,7 +641,7 @@ impl LLMProvider for AzureProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.get_api_key()?;
+        let api_key = self.api_key()?;
 
         let url = format!(
             "{}/openai/deployments/{}/chat/completions?api-version={}",

@@ -69,7 +69,6 @@ pub struct HookContext {
 }
 
 impl HookContext {
-    /// Create a new hook context
     pub fn new(event: Box<dyn Event>, phase: HookPhase) -> Self {
         Self {
             event,
@@ -116,12 +115,6 @@ pub trait Hook: Send + Sync + 'static {
 
     /// Execute the hook
     ///
-    /// # Arguments
-    /// * `context` - The hook execution context
-    ///
-    /// # Returns
-    /// * `Ok(())` - Hook executed successfully
-    /// * `Err(EventBusError)` - Hook execution failed
     fn execute(&self, context: &HookContext) -> HookResult;
 
     /// Get hook name for debugging
@@ -143,7 +136,6 @@ pub struct FunctionHook {
 }
 
 impl FunctionHook {
-    /// Create a new function-based hook
     pub fn new(
         name: impl Into<String>,
         priority: HookPriority,

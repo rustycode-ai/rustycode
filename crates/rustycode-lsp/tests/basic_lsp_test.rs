@@ -81,7 +81,7 @@ edition = "2021"
     println!("Waiting for diagnostics...");
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-    let diags = client.get_diagnostics(&uri).await;
+    let diags = client.fetch_diagnostics(&uri).await;
     println!("Diagnostics count: {}", diags.len());
 
     for diag in &diags {

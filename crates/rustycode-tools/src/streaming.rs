@@ -53,14 +53,6 @@ pub fn create_stream_channel() -> (StreamSender, StreamReceiver) {
 pub trait ToolStreaming {
     /// Execute tool and return a streaming receiver
     ///
-    /// # Arguments
-    ///
-    /// * `params` - Tool parameters
-    /// * `ctx` - Tool execution context
-    ///
-    /// # Returns
-    ///
-    /// A receiver that yields output chunks as they're produced
     fn execute_stream(
         &self,
         params: serde_json::Value,

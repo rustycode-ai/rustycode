@@ -162,7 +162,6 @@ impl Default for MemoryConfig {
 }
 
 impl MemoryManager {
-    /// Create a new memory manager
     pub fn new(config: MemoryConfig) -> Self {
         Self {
             working: Arc::new(RwLock::new(HashMap::new())),
@@ -435,7 +434,7 @@ impl MemoryManager {
     }
 
     /// Get memory statistics
-    pub async fn get_stats(&self) -> MemoryStats {
+    pub async fn stats(&self) -> MemoryStats {
         self.stats.read().await.clone()
     }
 
@@ -762,7 +761,7 @@ mod tests {
             .await
             .unwrap();
 
-        let stats = manager.get_stats().await;
+        let stats = manager.stats().await;
         assert_eq!(stats.total_entries, 1);
         assert_eq!(stats.entries_by_level.get("working").unwrap(), &1);
     }
@@ -898,7 +897,7 @@ mod tests {
         assert!(manager.get("s").await.is_none());
         assert!(manager.get("l").await.is_none());
 
-        let stats = manager.get_stats().await;
+        let stats = manager.stats().await;
         assert_eq!(stats.total_entries, 0);
     }
 
@@ -1103,7 +1102,7 @@ mod tests {
             .await
             .unwrap();
 
-        let stats = manager.get_stats().await;
+        let stats = manager.stats().await;
         assert_eq!(stats.total_entries, 3);
         assert_eq!(*stats.entries_by_level.get("working").unwrap(), 1);
         assert_eq!(*stats.entries_by_level.get("short_term").unwrap(), 1);
@@ -1128,7 +1127,7 @@ mod tests {
                 .unwrap();
         }
 
-        let stats = manager.get_stats().await;
+        let stats = manager.stats().await;
         assert_eq!(*stats.entries_by_level.get("long_term").unwrap(), 50);
     }
 

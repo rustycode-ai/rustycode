@@ -2,7 +2,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use rustycode_tools_api::{
-    check_tool_permission, get_tool_permission, new_todo_state, SandboxConfig, TodoStatus,
+    check_tool_permission, tool_permission, new_todo_state, SandboxConfig, TodoStatus,
     ToolContext, ToolOutput, ToolPermission, ToolRegistry,
 };
 use serde_json::json;
@@ -208,23 +208,23 @@ fn get_tool_permission_read_only_tools() {
 
     // Read-only tools should be AutoAllow
     assert_eq!(
-        get_tool_permission("read_file"),
+        tool_permission("read_file"),
         Some(ProtocolPermission::AutoAllow)
     );
     assert_eq!(
-        get_tool_permission("list_dir"),
+        tool_permission("list_dir"),
         Some(ProtocolPermission::AutoAllow)
     );
     assert_eq!(
-        get_tool_permission("grep"),
+        tool_permission("grep"),
         Some(ProtocolPermission::AutoAllow)
     );
     assert_eq!(
-        get_tool_permission("git_status"),
+        tool_permission("git_status"),
         Some(ProtocolPermission::AutoAllow)
     );
     assert_eq!(
-        get_tool_permission("lsp_diagnostics"),
+        tool_permission("lsp_diagnostics"),
         Some(ProtocolPermission::AutoAllow)
     );
 }
@@ -235,11 +235,11 @@ fn get_tool_permission_write_tools() {
 
     // Write tools require confirmation
     assert_eq!(
-        get_tool_permission("write_file"),
+        tool_permission("write_file"),
         Some(ProtocolPermission::RequiresConfirmation)
     );
     assert_eq!(
-        get_tool_permission("git_commit"),
+        tool_permission("git_commit"),
         Some(ProtocolPermission::RequiresConfirmation)
     );
 }
@@ -250,7 +250,7 @@ fn get_tool_permission_execute_tools() {
 
     // Bash requires confirmation
     assert_eq!(
-        get_tool_permission("bash"),
+        tool_permission("bash"),
         Some(ProtocolPermission::RequiresConfirmation)
     );
 }
@@ -261,7 +261,7 @@ fn get_tool_permission_unknown_tools() {
 
     // Unknown tools require confirmation for safety
     assert_eq!(
-        get_tool_permission("unknown_tool"),
+        tool_permission("unknown_tool"),
         Some(ProtocolPermission::RequiresConfirmation)
     );
 }

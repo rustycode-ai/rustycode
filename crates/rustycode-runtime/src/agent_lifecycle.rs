@@ -342,7 +342,7 @@ impl AgentLifecycleManager {
 
     /// Initialize an agent
     pub async fn initialize_agent(&self, agent_id: &str) -> Result<(), String> {
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
 
         // Check if we can transition to Initializing first
         if !agent.can_transition_to(AgentState::Initializing) {
@@ -370,7 +370,7 @@ impl AgentLifecycleManager {
         }
 
         // Now check if we can transition to Ready from Initializing
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
         if !agent.can_transition_to(AgentState::Ready) {
             return Err(format!(
                 "Agent {} cannot transition from {:?} to Ready",
@@ -382,7 +382,7 @@ impl AgentLifecycleManager {
         self.transition_state(agent_id, AgentState::Ready).await?;
 
         // Call init hook
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
         self.hooks.on_init(&agent)?;
 
         // Record event
@@ -401,7 +401,7 @@ impl AgentLifecycleManager {
     }
 
     /// Get agent by ID
-    pub async fn get_agent(&self, agent_id: &str) -> Result<AgentInstance, String> {
+    pub async fn agent(&self, agent_id: &str) -> Result<AgentInstance, String> {
         let agents = self.agents.read().await;
         agents
             .get(agent_id)
@@ -415,7 +415,7 @@ impl AgentLifecycleManager {
         agent_id: &str,
         new_state: AgentState,
     ) -> Result<(), String> {
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
         let old_state = agent.state;
 
         // Check if transition is valid
@@ -439,7 +439,7 @@ impl AgentLifecycleManager {
         }
 
         // Call after transition hook
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
         self.hooks.after_transition(&agent, old_state)?;
 
         // Record event
@@ -462,7 +462,7 @@ impl AgentLifecycleManager {
         self.transition_state(agent_id, AgentState::Suspended)
             .await?;
 
-        let _agent = self.get_agent(agent_id).await?;
+        let _agent = self.agent(agent_id).await?;
         self.record_event(LifecycleEvent {
             agent_id: agent_id.to_string(),
             event_type: LifecycleEventType::Suspended,
@@ -481,7 +481,7 @@ impl AgentLifecycleManager {
     pub async fn resume_agent(&self, agent_id: &str) -> Result<(), String> {
         self.transition_state(agent_id, AgentState::Ready).await?;
 
-        let _agent = self.get_agent(agent_id).await?;
+        let _agent = self.agent(agent_id).await?;
         self.record_event(LifecycleEvent {
             agent_id: agent_id.to_string(),
             event_type: LifecycleEventType::Resumed,
@@ -499,7 +499,7 @@ impl AgentLifecycleManager {
     /// Terminate an agent
     pub async fn terminate_agent(&self, agent_id: &str) -> Result<(), String> {
         // Check if agent can be terminated
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
 
         // Check if any agents depend on this one
         if !agent.dependents.is_empty() {
@@ -532,7 +532,7 @@ impl AgentLifecycleManager {
         }
 
         // Call terminate hook
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
         self.hooks.on_terminate(&agent)?;
 
         // Record event
@@ -581,13 +581,13 @@ impl AgentLifecycleManager {
     }
 
     /// Get all agents
-    pub async fn get_all_agents(&self) -> Vec<AgentInstance> {
+    pub async fn all_agents(&self) -> Vec<AgentInstance> {
         let agents = self.agents.read().await;
         agents.values().cloned().collect()
     }
 
     /// Get agents by role
-    pub async fn get_agents_by_role(&self, role: AgentRole) -> Vec<AgentInstance> {
+    pub async fn agents_by_role(&self, role: AgentRole) -> Vec<AgentInstance> {
         let agents = self.agents.read().await;
         agents
             .values()
@@ -597,7 +597,7 @@ impl AgentLifecycleManager {
     }
 
     /// Get agents by state
-    pub async fn get_agents_by_state(&self, state: AgentState) -> Vec<AgentInstance> {
+    pub async fn agents_by_state(&self, state: AgentState) -> Vec<AgentInstance> {
         let agents = self.agents.read().await;
         agents
             .values()
@@ -607,12 +607,12 @@ impl AgentLifecycleManager {
     }
 
     /// Get ready agents
-    pub async fn get_ready_agents(&self) -> Vec<AgentInstance> {
-        self.get_agents_by_state(AgentState::Ready).await
+    pub async fn ready_agents(&self) -> Vec<AgentInstance> {
+        self.agents_by_state(AgentState::Ready).await
     }
 
     /// Get lifecycle statistics
-    pub async fn get_lifecycle_statistics(&self) -> LifecycleStatistics {
+    pub async fn lifecycle_statistics(&self) -> LifecycleStatistics {
         let agents = self.agents.read().await;
 
         let by_state = {
@@ -684,7 +684,7 @@ impl AgentLifecycleManager {
 
     /// Restart a failed agent
     pub async fn restart_agent(&self, agent_id: &str) -> Result<(), String> {
-        let agent = self.get_agent(agent_id).await?;
+        let agent = self.agent(agent_id).await?;
 
         if agent.state != AgentState::Error {
             return Err(format!("Agent {} is not in Error state", agent_id));
@@ -733,7 +733,7 @@ impl AgentLifecycleManager {
     }
 
     /// Get lifecycle events
-    pub async fn get_lifecycle_events(&self, agent_id: Option<&str>) -> Vec<LifecycleEvent> {
+    pub async fn lifecycle_events(&self, agent_id: Option<&str>) -> Vec<LifecycleEvent> {
         let events = self.lifecycle_events.read().await;
         if let Some(id) = agent_id {
             events
@@ -822,7 +822,7 @@ mod tests {
             .await
             .unwrap();
 
-        let agent = manager.get_agent(&agent_id).await.unwrap();
+        let agent = manager.agent(&agent_id).await.unwrap();
         assert_eq!(agent.state, AgentState::Creating);
         assert_eq!(agent.name, "test_agent");
     }
@@ -838,7 +838,7 @@ mod tests {
 
         manager.initialize_agent(&agent_id).await.unwrap();
 
-        let agent = manager.get_agent(&agent_id).await.unwrap();
+        let agent = manager.agent(&agent_id).await.unwrap();
         assert_eq!(agent.state, AgentState::Ready);
         assert!(agent.initialized_at.is_some());
     }
@@ -855,12 +855,12 @@ mod tests {
         manager.initialize_agent(&agent_id).await.unwrap();
         manager.suspend_agent(&agent_id).await.unwrap();
 
-        let agent = manager.get_agent(&agent_id).await.unwrap();
+        let agent = manager.agent(&agent_id).await.unwrap();
         assert_eq!(agent.state, AgentState::Suspended);
 
         manager.resume_agent(&agent_id).await.unwrap();
 
-        let agent = manager.get_agent(&agent_id).await.unwrap();
+        let agent = manager.agent(&agent_id).await.unwrap();
         assert_eq!(agent.state, AgentState::Ready);
     }
 
@@ -875,7 +875,7 @@ mod tests {
 
         manager.terminate_agent(&agent_id).await.unwrap();
 
-        let agent = manager.get_agent(&agent_id).await.unwrap();
+        let agent = manager.agent(&agent_id).await.unwrap();
         assert_eq!(agent.state, AgentState::Terminated);
     }
 
@@ -1213,7 +1213,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_agent_not_found() {
         let manager = AgentLifecycleManager::new(LifecycleConfig::default());
-        let result = manager.get_agent("nonexistent").await;
+        let result = manager.agent("nonexistent").await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
     }
@@ -1328,8 +1328,8 @@ mod tests {
             .unwrap();
         manager.initialize_agent(&a1).await.unwrap();
 
-        let creating = manager.get_agents_by_state(AgentState::Creating).await;
-        let ready = manager.get_agents_by_state(AgentState::Ready).await;
+        let creating = manager.agents_by_state(AgentState::Creating).await;
+        let ready = manager.agents_by_state(AgentState::Ready).await;
         assert!(creating.is_empty());
         assert_eq!(ready.len(), 1);
     }

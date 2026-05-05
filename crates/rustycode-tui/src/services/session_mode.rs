@@ -419,7 +419,7 @@ impl SessionMode {
 
                 // Apply search filter
                 if !self.search_query.is_empty() {
-                    let text = msg.get_text().to_lowercase();
+                    let text = msg.text().to_lowercase();
                     let query = self.search_query.to_lowercase();
                     if !text.contains(&query) {
                         return false;
@@ -708,11 +708,11 @@ impl SessionMode {
                             role_icon,
                             msg.role.as_str(),
                             format_timestamp(msg.timestamp),
-                            msg.get_text()
+                            msg.text()
                         )
                     }
                     MessageDisplayMode::Compact => {
-                        let text = msg.get_text();
+                        let text = msg.text();
                         let preview = if text.chars().count() > 60 {
                             let s: String = text.chars().take(57).collect();
                             format!("{}...", s)
@@ -728,7 +728,7 @@ impl SessionMode {
                             role_icon,
                             msg.role.as_str(),
                             tokens,
-                            msg.get_text()
+                            msg.text()
                         )
                     }
                 };
@@ -772,7 +772,7 @@ impl SessionMode {
                 Line::from(""),
             ];
 
-            let mut text_content = msg.get_text();
+            let mut text_content = msg.text();
             if text_content.chars().count() > 500 {
                 let s: String = text_content.chars().take(497).collect();
                 text_content = format!("{}...", s);

@@ -47,7 +47,7 @@ impl ActivationManager {
         let context_lower = context.to_lowercase();
         let mut recommendations: Vec<SkillRecommendation> = Vec::new();
 
-        for skill in registry.get_all() {
+        for skill in registry.all() {
             let score = self.score_skill(skill, &context_lower);
             if score > 0.3 {
                 recommendations.push(SkillRecommendation {
@@ -119,7 +119,7 @@ impl ActivationManager {
         self.active.contains_key(skill_id)
     }
 
-    pub fn get_active_skills(&self) -> Vec<&ActiveSkill> {
+    pub fn active_skills(&self) -> Vec<&ActiveSkill> {
         self.active.values().collect()
     }
 
@@ -141,7 +141,7 @@ impl ActivationManager {
         let mut activated = Vec::new();
 
         let conditional_skills: Vec<(SkillId, Vec<String>)> = registry
-            .get_conditional()
+            .conditional()
             .iter()
             .map(|s| (s.id.clone(), s.activation.paths.clone()))
             .collect();
@@ -468,7 +468,7 @@ mod tests {
         let _ = mgr.activate(&mut reg, "a", "manual".to_string());
         let _ = mgr.activate(&mut reg, "b", "manual".to_string());
 
-        let active = mgr.get_active_skills();
+        let active = mgr.active_skills();
         assert_eq!(active.len(), 2);
     }
 }

@@ -11,9 +11,7 @@ use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-// ============================================================================
 // TAG TYPES
-// ============================================================================
 
 /// Predefined tag types
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
@@ -105,7 +103,6 @@ pub struct Tag {
 }
 
 impl Tag {
-    /// Create a new tag
     pub fn new(tag_type: TagType) -> Self {
         Self {
             tag_type,
@@ -127,9 +124,7 @@ impl Tag {
     }
 }
 
-// ============================================================================
 // TAG FILTER
-// ============================================================================
 
 /// Filter for displaying messages by tag
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -139,7 +134,6 @@ pub struct TagFilter {
 }
 
 impl TagFilter {
-    /// Create a new tag filter
     pub fn new() -> Self {
         Self::default()
     }
@@ -168,9 +162,7 @@ impl TagFilter {
     }
 }
 
-// ============================================================================
 // TAG REGISTRY
-// ============================================================================
 
 /// Registry of tags for all messages
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -180,7 +172,6 @@ pub struct TagRegistry {
 }
 
 impl TagRegistry {
-    /// Create a new tag registry
     pub fn new() -> Self {
         Self::default()
     }
@@ -227,7 +218,7 @@ impl TagRegistry {
     }
 
     /// Get tags for a message
-    pub fn get_tags(&self, message_id: &str) -> Option<Vec<Tag>> {
+    pub fn tags(&self, message_id: &str) -> Option<Vec<Tag>> {
         self.tags.get(message_id).cloned()
     }
 
@@ -240,7 +231,7 @@ impl TagRegistry {
     }
 
     /// Get all messages with a specific tag
-    pub fn get_messages_with_tag(&self, tag_type: &TagType) -> Vec<String> {
+    pub fn messages_with_tag(&self, tag_type: &TagType) -> Vec<String> {
         self.tags
             .iter()
             .filter(|(_, tags)| tags.iter().any(|t| &t.tag_type == tag_type))
@@ -254,7 +245,7 @@ impl TagRegistry {
     }
 
     /// Get all unique tag types in use
-    pub fn get_all_tag_types(&self) -> Vec<TagType> {
+    pub fn all_tag_types(&self) -> Vec<TagType> {
         let mut tag_types = HashSet::new();
         for tags in self.tags.values() {
             for tag in tags {
@@ -292,9 +283,7 @@ impl TagRegistry {
     }
 }
 
-// ============================================================================
 // TESTS
-// ============================================================================
 
 #[cfg(test)]
 mod tests {
@@ -444,7 +433,7 @@ mod tests {
         let tag = Tag::new(TagType::Important);
 
         assert!(registry.add_tag("msg1".to_string(), tag.clone()));
-        assert_eq!(registry.get_tags("msg1"), Some(vec![tag]));
+        assert_eq!(registry.tags("msg1"), Some(vec![tag]));
     }
 
     #[test]
@@ -454,7 +443,7 @@ mod tests {
 
         assert!(registry.add_tag("msg1".to_string(), tag.clone()));
         assert!(!registry.add_tag("msg1".to_string(), tag)); // Duplicate should fail
-        assert_eq!(registry.get_tags("msg1").unwrap().len(), 1);
+        assert_eq!(registry.tags("msg1").unwrap().len(), 1);
     }
 
     #[test]
@@ -466,7 +455,7 @@ mod tests {
         registry.add_tag("msg1".to_string(), important);
         registry.add_tag("msg1".to_string(), idea);
 
-        assert_eq!(registry.get_tags("msg1").unwrap().len(), 2);
+        assert_eq!(registry.tags("msg1").unwrap().len(), 2);
     }
 
     #[test]
@@ -476,7 +465,7 @@ mod tests {
 
         registry.add_tag("msg1".to_string(), tag.clone());
         assert!(registry.remove_tag("msg1", &tag));
-        assert_eq!(registry.get_tags("msg1"), None);
+        assert_eq!(registry.tags("msg1"), None);
     }
 
     #[test]
@@ -498,7 +487,7 @@ mod tests {
         registry.add_tag("msg1".to_string(), idea.clone());
 
         assert!(registry.remove_tag_type("msg1", &TagType::Important));
-        let tags = registry.get_tags("msg1").unwrap();
+        let tags = registry.tags("msg1").unwrap();
         assert_eq!(tags.len(), 1);
         assert_eq!(tags[0], idea);
     }
@@ -520,7 +509,7 @@ mod tests {
         registry.add_tag("msg2".to_string(), Tag::new(TagType::Idea));
         registry.add_tag("msg3".to_string(), Tag::new(TagType::Important));
 
-        let important_messages = registry.get_messages_with_tag(&TagType::Important);
+        let important_messages = registry.messages_with_tag(&TagType::Important);
         assert_eq!(important_messages.len(), 2);
         assert!(important_messages.contains(&"msg1".to_string()));
         assert!(important_messages.contains(&"msg3".to_string()));
@@ -533,7 +522,7 @@ mod tests {
         registry.add_tag("msg1".to_string(), Tag::new(TagType::Idea));
 
         assert!(registry.clear_message_tags("msg1"));
-        assert_eq!(registry.get_tags("msg1"), None);
+        assert_eq!(registry.tags("msg1"), None);
     }
 
     #[test]
@@ -553,7 +542,7 @@ mod tests {
             Tag::new(TagType::Custom("custom".to_string())),
         );
 
-        let tag_types = registry.get_all_tag_types();
+        let tag_types = registry.all_tag_types();
         assert!(tag_types.contains(&TagType::Important));
         assert!(tag_types.contains(&TagType::Idea));
         assert!(tag_types.contains(&TagType::Custom("custom".to_string())));
@@ -603,7 +592,7 @@ mod tests {
         registry.add_tag("msg1".to_string(), Tag::new(TagType::Bug));
         registry.add_tag("msg1".to_string(), Tag::new(TagType::Important));
 
-        let tags = registry.get_tags("msg1").unwrap();
+        let tags = registry.tags("msg1").unwrap();
         // Tags should be in sorted order
         assert!(tags[0].tag_type <= tags[1].tag_type);
     }

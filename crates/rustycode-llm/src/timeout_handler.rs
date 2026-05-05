@@ -87,7 +87,7 @@ impl Default for TimeoutConfig {
 
 impl TimeoutConfig {
     /// Get timeout for a specific model
-    pub fn get_model_timeout(&self, model: &str) -> Duration {
+    pub fn model_timeout(&self, model: &str) -> Duration {
         match ModelTimeoutPreset::from_model_name(model) {
             ModelTimeoutPreset::Haiku => self.haiku_timeout,
             ModelTimeoutPreset::Sonnet => self.sonnet_timeout,
@@ -151,7 +151,6 @@ pub struct TimeoutTracker {
 }
 
 impl TimeoutTracker {
-    /// Create a new timeout tracker with max capacity
     pub fn new(max_events: usize) -> Self {
         Self {
             events: Arc::new(std::sync::Mutex::new(Vec::with_capacity(max_events))),
@@ -170,7 +169,7 @@ impl TimeoutTracker {
     }
 
     /// Get all recorded events
-    pub fn get_events(&self) -> Vec<TimeoutEvent> {
+    pub fn events(&self) -> Vec<TimeoutEvent> {
         self.events
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -178,7 +177,7 @@ impl TimeoutTracker {
     }
 
     /// Get recent timeout events
-    pub fn get_recent(&self, count: usize) -> Vec<TimeoutEvent> {
+    pub fn recent(&self, count: usize) -> Vec<TimeoutEvent> {
         let events = self.events.lock().unwrap_or_else(|e| e.into_inner());
         events.iter().rev().take(count).cloned().collect()
     }
@@ -253,7 +252,6 @@ pub struct TimeoutHandler {
 }
 
 impl TimeoutHandler {
-    /// Create a new timeout handler
     pub fn new(config: TimeoutConfig) -> Self {
         let tracker = TimeoutTracker::new(config.max_tracked_timeouts);
         Self { config, tracker }
@@ -275,7 +273,7 @@ impl TimeoutHandler {
         F: std::future::Future<Output = Result<T, ProviderError>>,
     {
         let timeout_duration = model
-            .map(|m| self.config.get_model_timeout(m))
+            .map(|m| self.config.model_timeout(m))
             .unwrap_or(self.config.default_timeout);
 
         let start = Instant::now();
@@ -446,10 +444,10 @@ mod tests {
     #[test]
     fn test_timeout_config_get_model_timeout() {
         let config = TimeoutConfig::default();
-        assert_eq!(config.get_model_timeout("haiku"), Duration::from_secs(20));
-        assert_eq!(config.get_model_timeout("sonnet"), Duration::from_mins(1));
-        assert_eq!(config.get_model_timeout("opus"), Duration::from_mins(2));
-        assert_eq!(config.get_model_timeout("unknown"), Duration::from_secs(30));
+        assert_eq!(config.model_timeout("haiku"), Duration::from_secs(20));
+        assert_eq!(config.model_timeout("sonnet"), Duration::from_mins(1));
+        assert_eq!(config.model_timeout("opus"), Duration::from_mins(2));
+        assert_eq!(config.model_timeout("unknown"), Duration::from_secs(30));
     }
 
     #[test]
@@ -504,7 +502,7 @@ mod tests {
         };
 
         tracker.record(event);
-        assert_eq!(tracker.get_events().len(), 1);
+        assert_eq!(tracker.events().len(), 1);
     }
 
     #[test]
@@ -521,7 +519,7 @@ mod tests {
             });
         }
 
-        let events = tracker.get_events();
+        let events = tracker.events();
         assert_eq!(events.len(), 2);
         // Should have most recent events
         assert_eq!(events[0].endpoint, "test-3");
@@ -542,7 +540,7 @@ mod tests {
             });
         }
 
-        let recent = tracker.get_recent(2);
+        let recent = tracker.recent(2);
         assert_eq!(recent.len(), 2);
         assert_eq!(recent[0].endpoint, "test-4");
         assert_eq!(recent[1].endpoint, "test-3");
@@ -587,9 +585,9 @@ mod tests {
             timestamp: std::time::SystemTime::now(),
         });
 
-        assert!(!tracker.get_events().is_empty());
+        assert!(!tracker.events().is_empty());
         tracker.clear();
-        assert!(tracker.get_events().is_empty());
+        assert!(tracker.events().is_empty());
     }
 
     #[test]
@@ -741,7 +739,7 @@ mod tests {
             )
             .await;
 
-        let events = handler.tracker().get_events();
+        let events = handler.tracker().events();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].endpoint, "test-endpoint");
     }

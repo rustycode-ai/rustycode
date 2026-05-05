@@ -387,7 +387,7 @@ impl PluginManagerUI {
             return;
         };
 
-        let Some(plugin) = manager.get_plugin(&plugin_name) else {
+        let Some(plugin) = manager.plugin(&plugin_name) else {
             return;
         };
 
@@ -551,7 +551,7 @@ impl PluginManagerUI {
     ) -> Vec<&'a super::manager::Plugin> {
         let query = self.query.trim().to_lowercase();
         let mut plugins: Vec<&super::manager::Plugin> = manager
-            .get_plugins()
+            .plugins()
             .into_iter()
             .filter(|plugin| self.plugin_matches(plugin, &query))
             .collect();
@@ -593,7 +593,7 @@ impl PluginManagerUI {
             return;
         };
 
-        if let Some(plugin) = manager.get_plugin_mut(&name) {
+        if let Some(plugin) = manager.plugin_mut(&name) {
             action(plugin);
         }
     }

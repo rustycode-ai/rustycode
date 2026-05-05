@@ -40,7 +40,6 @@ pub struct ContextSnapshot {
 }
 
 impl ContextSnapshot {
-    /// Create a new context snapshot.
     pub fn new(
         task_id: impl Into<String>,
         task_description: impl Into<String>,
@@ -114,7 +113,6 @@ pub struct ForkSpec {
 }
 
 impl ForkSpec {
-    /// Create a new fork specification.
     pub fn new(
         fork_id: impl Into<String>,
         description: impl Into<String>,
@@ -251,7 +249,6 @@ pub struct ForkJoinExecutor {
 }
 
 impl ForkJoinExecutor {
-    /// Create a new executor with the given configuration.
     pub const fn new(config: ForkJoinConfig, bus: BusHandle) -> Self {
         Self {
             config,

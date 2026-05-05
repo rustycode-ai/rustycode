@@ -301,7 +301,6 @@ pub struct AgentNegotiator {
 }
 
 impl AgentNegotiator {
-    /// Create a new agent negotiator
     pub fn new() -> Self {
         Self {
             memory: SharedWorkingMemory::new(),
@@ -754,12 +753,12 @@ impl AgentNegotiator {
     }
 
     /// Get negotiation session
-    pub fn get_session(&self, session_id: &str) -> Option<&NegotiationSession> {
+    pub fn session(&self, session_id: &str) -> Option<&NegotiationSession> {
         self.sessions.get(session_id)
     }
 
     /// Get all active sessions
-    pub fn get_active_sessions(&self) -> Vec<&NegotiationSession> {
+    pub fn active_sessions(&self) -> Vec<&NegotiationSession> {
         self.sessions
             .values()
             .filter(|s| matches!(s.state, NegotiationState::Ongoing))
@@ -767,9 +766,9 @@ impl AgentNegotiator {
     }
 
     /// Get negotiation statistics
-    pub fn get_statistics(&self) -> NegotiatorStatistics {
+    pub fn statistics(&self) -> NegotiatorStatistics {
         let total_sessions = self.sessions.len();
-        let active_sessions = self.get_active_sessions().len();
+        let active_sessions = self.active_sessions().len();
         let concluded_sessions = total_sessions - active_sessions;
 
         let consensus_count = self
@@ -815,7 +814,7 @@ mod tests {
     #[test]
     fn test_negotiator_creation() {
         let negotiator = AgentNegotiator::new();
-        assert_eq!(negotiator.get_active_sessions().len(), 0);
+        assert_eq!(negotiator.active_sessions().len(), 0);
     }
 
     #[test]
@@ -831,7 +830,7 @@ mod tests {
             )
             .unwrap();
 
-        assert!(negotiator.get_session(&session_id).is_some());
+        assert!(negotiator.session(&session_id).is_some());
     }
 
     #[test]
@@ -1127,7 +1126,7 @@ mod tests {
             )
             .unwrap();
 
-        let session = negotiator.get_session(&session_id).unwrap();
+        let session = negotiator.session(&session_id).unwrap();
         assert_eq!(session.participants.len(), 2);
         assert_eq!(session.current_round, 0);
     }
@@ -1135,13 +1134,13 @@ mod tests {
     #[test]
     fn get_session_nonexistent() {
         let negotiator = AgentNegotiator::new();
-        assert!(negotiator.get_session("nonexistent").is_none());
+        assert!(negotiator.session("nonexistent").is_none());
     }
 
     #[test]
     fn get_active_sessions_empty() {
         let negotiator = AgentNegotiator::new();
-        assert!(negotiator.get_active_sessions().is_empty());
+        assert!(negotiator.active_sessions().is_empty());
     }
 
     // =========================================================
@@ -1166,7 +1165,7 @@ mod tests {
         let pos = make_position("a1");
         negotiator.submit_proposal(&sid, pos).unwrap();
 
-        let session = negotiator.get_session(&sid).unwrap();
+        let session = negotiator.session(&sid).unwrap();
         assert!(session.proposals.contains_key("a1"));
         assert_eq!(session.proposals.len(), 1);
     }
@@ -1275,7 +1274,7 @@ mod tests {
         let state = negotiator.run_negotiation_round(&sid).unwrap();
         assert!(matches!(state, NegotiationState::ConsensusReached { .. }));
 
-        let session = negotiator.get_session(&sid).unwrap();
+        let session = negotiator.session(&sid).unwrap();
         assert!(session.ended_at.is_some());
         assert!(session.outcome.is_some());
     }
@@ -1481,7 +1480,7 @@ mod tests {
         negotiator.run_negotiation_round(&s3).unwrap();
         negotiator.run_negotiation_round(&s3).unwrap();
 
-        let stats = negotiator.get_statistics();
+        let stats = negotiator.statistics();
         assert_eq!(stats.total_sessions, 3);
         assert_eq!(stats.active_sessions, 2);
         assert_eq!(stats.concluded_sessions, 1);

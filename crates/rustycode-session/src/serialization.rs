@@ -572,14 +572,14 @@ mod tests {
             .iter()
             .filter(|m| m.role == crate::message::MessageRole::User)
             .collect();
-        assert_eq!(user_msg[0].get_text(), "Hello");
+        assert_eq!(user_msg[0].text(), "Hello");
 
         let asst_msg: Vec<_> = deserialized
             .messages
             .iter()
             .filter(|m| m.role == crate::message::MessageRole::Assistant)
             .collect();
-        assert_eq!(asst_msg[0].get_text(), "World with special chars: <>&\"'");
+        assert_eq!(asst_msg[0].text(), "World with special chars: <>&\"'");
     }
 
     #[test]

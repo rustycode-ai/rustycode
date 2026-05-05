@@ -63,7 +63,6 @@ pub struct ToolConfirmationRouter {
 }
 
 impl ToolConfirmationRouter {
-    /// Create a new empty router.
     pub fn new() -> Self {
         Self {
             pending: Mutex::new(HashMap::new()),

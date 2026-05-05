@@ -20,9 +20,7 @@ use rustycode_bench::{
     NativeRunnerConfig, ResolvedTask, RetryConfig,
 };
 
-// ---------------------------------------------------------------------------
 // CLI definition
-// ---------------------------------------------------------------------------
 
 #[derive(Parser)]
 #[command(
@@ -164,9 +162,7 @@ enum HistoryAction {
     },
 }
 
-// ---------------------------------------------------------------------------
 // Entry point
-// ---------------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -271,9 +267,7 @@ async fn main() -> Result<()> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // run subcommand
-// ---------------------------------------------------------------------------
 
 async fn run_benchmark(cfg: &BenchConfig, report_path: Option<&str>) -> Result<()> {
     let agent_name = &cfg.agent.name;
@@ -405,9 +399,7 @@ async fn resolve_dataset(dataset_ref: &str) -> Result<PathBuf> {
         .with_context(|| format!("Failed to resolve dataset '{dataset_ref}'"))
 }
 
-// ---------------------------------------------------------------------------
 // list subcommand
-// ---------------------------------------------------------------------------
 
 async fn list_tasks(dataset_ref: Option<&str>, remote: bool, verbose: bool) -> Result<()> {
     if remote {
@@ -554,9 +546,7 @@ async fn list_remote_datasets(verbose: bool) -> Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // verify subcommand
-// ---------------------------------------------------------------------------
 
 fn verify_task(task_dir: PathBuf) -> Result<()> {
     let task = ResolvedTask::from_dir(&task_dir)
@@ -615,9 +605,7 @@ fn verify_task(task_dir: PathBuf) -> Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // agents subcommand
-// ---------------------------------------------------------------------------
 
 fn list_agents() {
     println!("\n=== Available Agents ===\n");
@@ -643,9 +631,7 @@ fn list_agents() {
     println!("  rtk-bench run --dataset ./my-tasks --agent code --model claude-sonnet-4-6");
 }
 
-// ---------------------------------------------------------------------------
 // history subcommand
-// ---------------------------------------------------------------------------
 
 fn handle_history(action: HistoryAction) -> Result<()> {
     let base_dir = std::env::current_dir()?;
@@ -710,9 +696,7 @@ fn handle_history(action: HistoryAction) -> Result<()> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
 // Result printing
-// ---------------------------------------------------------------------------
 
 fn print_results(results: &BenchmarkResults, format: &str) {
     let formatter: Box<dyn rustycode_bench::report::ReportFormatter> = match format {

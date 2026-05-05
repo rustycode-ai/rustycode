@@ -13,7 +13,6 @@ pub struct ConvoyDispatcher {
 }
 
 impl ConvoyDispatcher {
-    /// Create a new dispatcher with the given gate
     pub fn new(gate: Arc<dyn ToolGate>) -> Self {
         Self { gate }
     }

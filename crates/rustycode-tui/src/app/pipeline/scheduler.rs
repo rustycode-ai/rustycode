@@ -18,9 +18,7 @@ use std::time::{Duration, Instant};
 #[cfg(test)]
 use chrono::Timelike;
 
-// ---------------------------------------------------------------------------
 // Event types
-// ---------------------------------------------------------------------------
 
 /// Events emitted by [`PipelineCronScheduler`] through the `std::sync::mpsc` channel.
 #[derive(Debug)]
@@ -50,9 +48,7 @@ pub enum ScheduledPhaseEvent {
     SchedulerStopped,
 }
 
-// ---------------------------------------------------------------------------
 // Config
-// ---------------------------------------------------------------------------
 
 /// Configuration for [`PipelineCronScheduler`].
 #[derive(Debug, Clone)]
@@ -103,9 +99,7 @@ impl SchedulerConfig {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Scheduler
-// ---------------------------------------------------------------------------
 
 /// Cron-based pipeline scheduler.
 ///
@@ -119,7 +113,6 @@ pub struct PipelineCronScheduler {
 }
 
 impl PipelineCronScheduler {
-    /// Create a new scheduler that sends events through `tx`.
     pub fn new(config: SchedulerConfig, tx: Sender<ScheduledPhaseEvent>) -> Self {
         Self {
             config,
@@ -260,9 +253,7 @@ impl PipelineCronScheduler {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

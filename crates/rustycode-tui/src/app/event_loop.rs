@@ -27,7 +27,7 @@ use crate::memory_auto::ThreadSafeAutoMemory;
 use crate::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
 use crate::plugin::PluginManagerUI;
-use crate::providers::get_all_available_models;
+use crate::providers::all_available_models;
 use crate::session::load_command_history;
 use crate::skills::{SkillLoader, SkillStateManager};
 use crate::tasks::{load_tasks, WorkspaceTasks};
@@ -593,7 +593,7 @@ impl TUI {
             plan_mode_banner: None,
             active_tools: std::collections::HashMap::new(),
             workspace_loaded: false,
-            workspace_context: None, // Initialize workspace context as None
+            workspace_context: None,
             workspace_tasks: load_tasks(),
             pipeline,
             pipeline_ctx: {
@@ -669,7 +669,7 @@ impl TUI {
             footer_collapsed: false,
             last_esc_press: None,
             stashed_prompt: None,
-            model_selector: ModelSelector::with_models(get_all_available_models()),
+            model_selector: ModelSelector::with_models(all_available_models()),
             file_selector: FileSelector::new(Vec::new()),
             showing_provider_selector: false,
             current_model: rustycode_llm::load_model_from_config().unwrap_or_else(|e| {
@@ -923,7 +923,7 @@ impl TUI {
             showing_skill_palette: false,
             status_bar_collapsed: false,
             footer_collapsed: false,
-            model_selector: ModelSelector::with_models(get_all_available_models()),
+            model_selector: ModelSelector::with_models(all_available_models()),
             file_selector: FileSelector::new(Vec::new()),
             showing_provider_selector: false,
             current_model: rustycode_llm::load_model_from_config().unwrap_or_else(|e| {
@@ -2326,7 +2326,7 @@ impl TUI {
 
     /// Save command history on exit
     pub(crate) fn save_history(&mut self) {
-        let history = self.input_handler.get_history();
+        let history = self.input_handler.history();
         crate::services::session_manager::SessionManager::save_history(history);
     }
 }
@@ -2352,11 +2352,9 @@ impl Default for TUI {
 // Slash command handlers and post-command utilities
 include!("event_loop_slash_commands.rs");
 
-// ============================================================================
 // CHANNEL TYPES
 // Note: These types are defined here but wiring to actual services
 // will be done as part of future async service integration
-// ============================================================================
 
 /// Event from async services
 #[derive(Debug, Clone)]

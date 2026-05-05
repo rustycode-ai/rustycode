@@ -210,7 +210,7 @@ impl ToolAdapter for CodexAdapter {
 }
 
 /// Get the appropriate adapter for a given harness.
-pub fn get_adapter(harness: ToolHarness) -> Box<dyn ToolAdapter> {
+pub fn adapter(harness: ToolHarness) -> Box<dyn ToolAdapter> {
     match harness {
         ToolHarness::ClaudeCode => Box::new(ClaudeCodeAdapter),
         ToolHarness::RustyCode => Box::new(RustyCodeAdapter),
@@ -321,19 +321,19 @@ mod tests {
     #[test]
     fn factory_returns_correct_adapter() {
         assert_eq!(
-            get_adapter(ToolHarness::ClaudeCode).harness(),
+            adapter(ToolHarness::ClaudeCode).harness(),
             ToolHarness::ClaudeCode
         );
         assert_eq!(
-            get_adapter(ToolHarness::RustyCode).harness(),
+            adapter(ToolHarness::RustyCode).harness(),
             ToolHarness::RustyCode
         );
         assert_eq!(
-            get_adapter(ToolHarness::GeminiCli).harness(),
+            adapter(ToolHarness::GeminiCli).harness(),
             ToolHarness::GeminiCli
         );
         assert_eq!(
-            get_adapter(ToolHarness::Codex).harness(),
+            adapter(ToolHarness::Codex).harness(),
             ToolHarness::Codex
         );
     }
@@ -355,7 +355,7 @@ mod tests {
             ToolHarness::Codex,
         ];
         for h in harnesses {
-            let adapter = get_adapter(h);
+            let adapter = adapter(h);
             let hint = adapter.format_hint();
             assert!(!hint.is_empty(), "Format hint empty for {h}");
         }
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn rustycode_end_to_end_write_translation() {
-        let adapter = get_adapter(ToolHarness::RustyCode);
+        let adapter = adapter(ToolHarness::RustyCode);
 
         let tool = "Write";
         let args = json!({"file_path": "src/parser.rs", "content": "fn parse() {}"});
@@ -391,7 +391,7 @@ mod tests {
 
     #[test]
     fn claude_code_end_to_end_passthrough() {
-        let adapter = get_adapter(ToolHarness::ClaudeCode);
+        let adapter = adapter(ToolHarness::ClaudeCode);
 
         let tool = "Write";
         let args = json!({"file_path": "src/parser.rs", "content": "fn parse() {}"});

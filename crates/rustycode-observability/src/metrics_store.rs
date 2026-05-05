@@ -14,7 +14,6 @@ pub struct MetricsStore {
 }
 
 impl MetricsStore {
-    /// Create a new `MetricsStore`
     pub fn new() -> Self {
         Self {
             sessions: Arc::new(RwLock::new(HashMap::new())),
@@ -55,7 +54,7 @@ impl MetricsStore {
     }
 
     /// Get metrics for a specific session
-    pub fn get_session(&self, session_id: &str) -> Option<SessionMetrics> {
+    pub fn session(&self, session_id: &str) -> Option<SessionMetrics> {
         self.sessions.read().get(session_id).cloned()
     }
 
@@ -116,10 +115,10 @@ mod tests {
         let store = MetricsStore::new();
         store.create_session("session1".to_string());
 
-        let metrics = store.get_session("session1");
+        let metrics = store.session("session1");
         assert!(metrics.is_some());
 
-        let metrics = store.get_session("nonexistent");
+        let metrics = store.session("nonexistent");
         assert!(metrics.is_none());
     }
 
@@ -159,8 +158,8 @@ mod tests {
         metrics1.record_task(100, 0.5);
         metrics2.record_task(200, 1.0);
 
-        let retrieved1 = store.get_session("session1").unwrap();
-        let retrieved2 = store.get_session("session2").unwrap();
+        let retrieved1 = store.session("session1").unwrap();
+        let retrieved2 = store.session("session2").unwrap();
 
         assert_eq!(retrieved1.total_tokens.value(), 100);
         assert_eq!(retrieved2.total_tokens.value(), 200);
@@ -207,8 +206,8 @@ mod tests {
         assert_eq!(metrics1.total_tokens.value(), 100);
         assert_eq!(metrics2.total_tokens.value(), 50);
 
-        let retrieved1 = store.get_session("session1").unwrap();
-        let retrieved2 = store.get_session("session2").unwrap();
+        let retrieved1 = store.session("session1").unwrap();
+        let retrieved2 = store.session("session2").unwrap();
 
         assert_eq!(retrieved1.total_tokens.value(), 100);
         assert_eq!(retrieved2.total_tokens.value(), 50);

@@ -52,7 +52,6 @@ pub struct ContextSection {
 }
 
 impl ContextSection {
-    /// Create a new context section
     pub fn new(kind: ContextSectionKind, tokens_reserved: usize) -> Self {
         Self {
             kind,
@@ -96,7 +95,6 @@ pub struct ContextPlan {
 }
 
 impl ContextPlan {
-    /// Create a new context plan with the given total budget
     pub fn new(total_budget: usize) -> Self {
         Self {
             total_budget,

@@ -78,7 +78,6 @@ pub struct LspResponseReader {
 }
 
 impl LspResponseReader {
-    /// Create a new response reader
     pub fn new() -> (Self, mpsc::UnboundedReceiver<LspResponse>) {
         let (response_tx, response_rx) = mpsc::unbounded_channel();
         let reader = Self { response_tx };

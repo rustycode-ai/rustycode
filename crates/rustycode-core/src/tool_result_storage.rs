@@ -548,7 +548,6 @@ impl CacheStats {
 }
 
 impl ToolResultCache {
-    /// Create a new tool result cache with the given configuration
     pub fn new(config: CacheConfig) -> Self {
         let capacity = std::num::NonZeroUsize::new(config.max_entries)
             .unwrap_or_else(|| std::num::NonZeroUsize::new(1000).expect("1000 is non-zero"));

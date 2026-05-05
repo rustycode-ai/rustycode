@@ -159,11 +159,11 @@ impl LearningLoop {
         let mut patterns_retired = 0;
 
         // Get feedback statistics
-        let feedback_stats = self.feedback_collector.get_statistics();
+        let feedback_stats = self.feedback_collector.statistics();
 
         // Update patterns based on feedback
         for (instinct_id, avg_rating) in feedback_stats {
-            if let Some(_instinct) = self.storage.get_instinct(&instinct_id) {
+            if let Some(_instinct) = self.storage.instinct(&instinct_id) {
                 // Update pattern confidence based on feedback
                 if avg_rating < 0.3 {
                     // Low rating, consider retiring
@@ -250,7 +250,7 @@ impl FeedbackCollector {
         self.feedback.push(feedback);
     }
 
-    pub fn get_statistics(&self) -> HashMap<String, f32> {
+    pub fn statistics(&self) -> HashMap<String, f32> {
         let mut stats = HashMap::new();
 
         for (instinct_id, ratings) in &self.ratings {
@@ -320,7 +320,7 @@ mod tests {
     fn test_feedback_collector_new() {
         let collector = FeedbackCollector::new();
         assert_eq!(collector.feedback_count(), 0);
-        assert!(collector.get_statistics().is_empty());
+        assert!(collector.statistics().is_empty());
     }
 
     #[test]
@@ -343,7 +343,7 @@ mod tests {
         });
 
         assert_eq!(collector.feedback_count(), 1);
-        let stats = collector.get_statistics();
+        let stats = collector.statistics();
         assert!(stats.contains_key("inst-1"));
         assert!((stats["inst-1"] - 0.8).abs() < 0.01);
     }
@@ -363,7 +363,7 @@ mod tests {
 
         assert_eq!(collector.feedback_count(), 1);
         // No rating — should not appear in statistics
-        assert!(collector.get_statistics().is_empty());
+        assert!(collector.statistics().is_empty());
     }
 
     #[test]
@@ -382,7 +382,7 @@ mod tests {
         }
 
         assert_eq!(collector.feedback_count(), 3);
-        let stats = collector.get_statistics();
+        let stats = collector.statistics();
         let avg = stats["inst-avg"];
         assert!((avg - 0.8).abs() < 0.01);
     }
@@ -408,7 +408,7 @@ mod tests {
             timestamp: chrono::Utc::now(),
         });
 
-        let stats = collector.get_statistics();
+        let stats = collector.statistics();
         assert_eq!(stats.len(), 2);
         assert!((stats["a"] - 0.5).abs() < 0.01);
         assert!((stats["b"] - 0.9).abs() < 0.01);

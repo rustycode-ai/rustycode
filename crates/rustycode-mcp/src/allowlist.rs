@@ -117,7 +117,6 @@ pub struct PersistentAllowlist {
 impl PersistentAllowlist {
     const FILENAME: &'static str = "mcp-allowlist.json";
 
-    /// Create a new persistent allowlist
     pub fn new(file_path: Option<PathBuf>) -> Result<Self, std::io::Error> {
         let file_path = file_path.unwrap_or_else(Self::default_path);
         let entries = Self::load_entries(&file_path)?;
@@ -233,7 +232,6 @@ pub struct AllowlistManager {
 }
 
 impl AllowlistManager {
-    /// Create a new allowlist manager
     pub fn new() -> Result<Self, std::io::Error> {
         Ok(Self {
             session: SessionAllowlist::new(),

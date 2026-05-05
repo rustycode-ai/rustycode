@@ -23,7 +23,6 @@ pub struct FileSystemWatcher {
 }
 
 impl FileSystemWatcher {
-    /// Create a new watcher service
     pub fn new(root: impl AsRef<Path>, event_tx: mpsc::Sender<FileEvent>) -> Result<Self> {
         let tx = event_tx.clone();
 

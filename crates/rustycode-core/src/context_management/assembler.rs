@@ -51,7 +51,6 @@ impl Default for ContextAssembler {
 }
 
 impl ContextAssembler {
-    /// Create a new context assembler with default settings.
     pub fn new() -> Self {
         Self {
             sort_strategy: SortStrategy::ByScore,
@@ -74,14 +73,6 @@ impl ContextAssembler {
 
     /// Assemble an optimized context window from items.
     ///
-    /// # Arguments
-    ///
-    /// * `items` - Items to assemble into context
-    /// * `max_tokens` - Maximum tokens for the assembled context
-    ///
-    /// # Returns
-    ///
-    /// Assembled context window
     pub fn assemble_from_items<T>(
         &mut self,
         items: &[ContextItem<T>],
@@ -144,14 +135,6 @@ impl ContextAssembler {
 
     /// Assemble context from an existing window, optimizing if needed.
     ///
-    /// # Arguments
-    ///
-    /// * `window` - Existing context window
-    /// * `strategy` - Compression strategy if over capacity
-    ///
-    /// # Returns
-    ///
-    /// Optimized context window
     pub fn assemble(
         &mut self,
         window: &ContextWindow,

@@ -8,9 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::agent::{BenchAgent, CodeAgent, CodeAgentConfig, NopAgent, OracleAgent};
 use crate::trial::RetryConfig;
 
-// ---------------------------------------------------------------------------
 // Agent factory
-// ---------------------------------------------------------------------------
 
 /// Create the appropriate agent based on the name.
 pub fn create_agent(
@@ -74,9 +72,7 @@ pub fn resolve_provider_model(model: &str) -> Result<(String, String)> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Benchmark configuration (Harbor-compatible config file support)
-// ---------------------------------------------------------------------------
 
 /// Top-level benchmark configuration, loadable from JSON or TOML.
 ///

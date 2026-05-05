@@ -135,7 +135,7 @@ fn execute_status(cwd: &Path) -> Result<()> {
             for task in &tasks {
                 println!("Task: {} (phase: {})", task.title, task.current_phase);
                 let milestones = store
-                    .get_milestones_for_task(&task.id)
+                    .milestones_for_task(&task.id)
                     .with_context(|| format!("Failed to get milestones for task: {}", task.id))?;
                 for m in &milestones {
                     println!("  Milestone {}: {} - {}", m.ordinal, m.title, m.status);

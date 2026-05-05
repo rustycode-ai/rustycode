@@ -158,7 +158,6 @@ pub struct DataPoint {
 }
 
 impl DataPoint {
-    /// Create a new data point
     pub fn new(value: f64) -> Self {
         Self {
             timestamp: Utc::now(),
@@ -416,7 +415,6 @@ pub struct AnomalyDetector {
 }
 
 impl AnomalyDetector {
-    /// Create a new anomaly detector with default configuration
     pub fn new() -> Self {
         Self::with_config(AnomalyConfig::default())
     }
@@ -432,15 +430,6 @@ impl AnomalyDetector {
 
     /// Observe a metric value
     ///
-    /// # Arguments
-    ///
-    /// * `metric_name` - Name of the metric
-    /// * `value` - Value of the metric
-    /// * `timestamp` - Timestamp of the observation
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` if the metric was recorded successfully.
     pub async fn observe_metric(
         &self,
         metric_name: &str,
@@ -471,13 +460,6 @@ impl AnomalyDetector {
 
     /// Detect anomalies in a metric
     ///
-    /// # Arguments
-    ///
-    /// * `metric_name` - Name of the metric to analyze
-    ///
-    /// # Returns
-    ///
-    /// Returns a vector of detected anomalies.
     pub async fn detect_anomalies(&self, metric_name: &str) -> Result<Vec<Anomaly>> {
         let series = self.time_series.read().await;
         let ts = series
@@ -721,13 +703,6 @@ impl AnomalyDetector {
 
     /// Send alerts for detected anomalies
     ///
-    /// # Arguments
-    ///
-    /// * `metric_name` - Name of the metric
-    ///
-    /// # Returns
-    ///
-    /// Returns a vector of anomalies that triggered alerts.
     pub async fn check_and_alert(&self, metric_name: &str) -> Result<Vec<Anomaly>> {
         let anomalies = self.detect_anomalies(metric_name).await?;
 
@@ -781,7 +756,7 @@ impl AnomalyDetector {
     }
 
     /// Get statistical summary for a metric
-    pub async fn get_metric_summary(&self, metric_name: &str) -> Result<Option<MetricSummary>> {
+    pub async fn metric_summary(&self, metric_name: &str) -> Result<Option<MetricSummary>> {
         let series = self.time_series.read().await;
         let ts = series.get(metric_name);
 
@@ -789,12 +764,12 @@ impl AnomalyDetector {
     }
 
     /// Get all detected anomalies
-    pub async fn get_anomalies(&self) -> Vec<Anomaly> {
+    pub async fn anomalies(&self) -> Vec<Anomaly> {
         self.anomalies.read().await.clone()
     }
 
     /// Get anomalies for a specific metric
-    pub async fn get_metric_anomalies(&self, metric_name: &str) -> Vec<Anomaly> {
+    pub async fn metric_anomalies(&self, metric_name: &str) -> Vec<Anomaly> {
         let anomalies = self.anomalies.read().await;
         anomalies
             .iter()
@@ -811,7 +786,7 @@ impl AnomalyDetector {
     }
 
     /// Get all metric names being tracked
-    pub async fn get_tracked_metrics(&self) -> Vec<String> {
+    pub async fn tracked_metrics(&self) -> Vec<String> {
         let series = self.time_series.read().await;
         series.keys().cloned().collect()
     }
@@ -851,7 +826,7 @@ mod tests {
             .await;
         assert!(result.is_ok());
 
-        let metrics = detector.get_tracked_metrics().await;
+        let metrics = detector.tracked_metrics().await;
         assert!(metrics.contains(&"test_metric".to_string()));
     }
 
@@ -1063,7 +1038,7 @@ mod tests {
                 .unwrap();
         }
 
-        let summary = detector.get_metric_summary("test_metric").await.unwrap();
+        let summary = detector.metric_summary("test_metric").await.unwrap();
         assert!(summary.is_some(), "Should have summary");
 
         let summary = summary.unwrap();
@@ -1086,7 +1061,7 @@ mod tests {
         let result = detector.remove_metric("test_metric").await;
         assert!(result.is_ok());
 
-        let metrics = detector.get_tracked_metrics().await;
+        let metrics = detector.tracked_metrics().await;
         assert!(!metrics.contains(&"test_metric".to_string()));
     }
 
@@ -1108,11 +1083,11 @@ mod tests {
             .unwrap();
 
         let _ = detector.detect_anomalies("test_metric").await.unwrap();
-        let initial_count = detector.get_anomalies().await.len();
+        let initial_count = detector.anomalies().await.len();
 
         // Clear old anomalies (with very short max age)
         detector.clear_old_anomalies(0).await;
-        let final_count = detector.get_anomalies().await.len();
+        let final_count = detector.anomalies().await.len();
 
         assert!(final_count < initial_count, "Should clear old anomalies");
     }
