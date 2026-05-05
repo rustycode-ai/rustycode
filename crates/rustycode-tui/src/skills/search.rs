@@ -1,6 +1,4 @@
 //! Fuzzy search for skills
-//!
-//! Provides fuzzy matching with relevance ranking for skill search.
 
 use crate::skills::loader::Skill;
 

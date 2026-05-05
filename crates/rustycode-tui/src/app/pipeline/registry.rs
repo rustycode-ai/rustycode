@@ -41,7 +41,6 @@ pub trait PipelineStep: Send + Sync {
 /// Shared context for the pipeline execution.
 pub struct PipelineContext {
     pub signals: HashSet<Signal>,
-    pub storage: HashMap<String, String>,
     pub artifact_registry: Arc<Mutex<ArtifactRegistry>>,
     pub provider: Arc<dyn LLMProvider>,
     pub agent_config: AgentConfig,
@@ -58,17 +57,12 @@ impl PipelineContext {
     ) -> Self {
         Self {
             signals: HashSet::new(),
-            storage: HashMap::new(),
             artifact_registry: Arc::new(Mutex::new(ArtifactRegistry::new())),
             provider,
             agent_config,
             current_model,
             agent_tool_registry,
         }
-    }
-
-    pub fn has_artifact_registry(&self) -> bool {
-        true
     }
 
     pub async fn query_artifacts(&self, q: &ArtifactQuery) -> Result<Vec<Artifact>> {
@@ -91,8 +85,6 @@ pub struct PipelineRegistry {
     steps: Vec<Arc<dyn PipelineStep>>,
     factories: HashMap<String, Box<dyn StepFactory>>,
     pub tool_registry: ToolRegistry,
-    #[allow(dead_code)]
-    signals: HashSet<Signal>,
 }
 
 impl Default for PipelineRegistry {
@@ -107,7 +99,6 @@ impl PipelineRegistry {
             steps: Vec::new(),
             factories: HashMap::new(),
             tool_registry: ToolRegistry::new(),
-            signals: HashSet::new(),
         }
     }
 

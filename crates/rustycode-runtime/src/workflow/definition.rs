@@ -141,7 +141,6 @@ pub enum Expression {
 /// Loop configuration
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LoopConfig {
-    /// Loop type
     pub loop_type: LoopType,
 
     /// Maximum iterations (None for unlimited)

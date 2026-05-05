@@ -1,7 +1,4 @@
 //! Polished Header Component
-//!
-//! Single-row header with width-aware layout that prevents text overflow.
-//! Elements check available space before rendering and truncate gracefully.
 
 use ratatui::{
     layout::Rect,

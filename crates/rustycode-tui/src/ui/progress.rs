@@ -1,7 +1,4 @@
 //! Progress tracking for long-running operations
-//!
-//! Provides progress bars, percentage completion, and ETA calculation
-//! for tool execution and other long operations.
 
 #![allow(dead_code)]
 
@@ -52,7 +49,6 @@ impl Progress {
         ((self.current as f32 / self.total as f32) * 100.0).min(100.0) as usize
     }
 
-    /// Check if progress is complete
     pub fn is_complete(&self) -> bool {
         self.current >= self.total
     }
@@ -63,9 +59,7 @@ impl Progress {
 pub struct ToolProgress {
     /// Tool name
     pub name: String,
-    /// Current status
     pub status: ToolStatus,
-    /// Start time
     pub start_time: Instant,
     /// End time (if complete)
     pub end_time: Option<Instant>,

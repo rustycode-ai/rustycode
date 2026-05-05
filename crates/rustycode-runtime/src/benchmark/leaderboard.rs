@@ -17,35 +17,27 @@ pub struct LeaderboardEntry {
     /// Session identifier
     pub session_id: String,
 
-    /// Timestamp
     pub timestamp: DateTime<Utc>,
 
     /// RustyCode version
     pub version: String,
 
-    /// Overall score
     pub overall_score: f64,
 
-    /// Success rate
     pub success_rate: f64,
 
-    /// Average speedup
     pub average_speedup: f64,
 
-    /// Tasks completed
     pub tasks_completed: usize,
 
-    /// Total tasks
     pub total_tasks: usize,
 
-    /// Metadata
     pub metadata: LeaderboardMetadata,
 }
 
 /// Additional metadata for leaderboard entries
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeaderboardMetadata {
-    /// LLM provider
     pub llm_provider: String,
 
     /// Model used
@@ -61,7 +53,6 @@ pub struct LeaderboardMetadata {
 /// Performance trend data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PerformanceTrend {
-    /// Timestamps
     pub timestamps: Vec<DateTime<Utc>>,
 
     /// Overall scores over time
@@ -98,7 +89,6 @@ pub struct BenchmarkLeaderboard {
     /// Leaderboard entries
     entries: Vec<LeaderboardEntry>,
 
-    /// Storage path
     storage_path: PathBuf,
 
     /// Maximum entries to keep
@@ -298,13 +288,10 @@ impl BenchmarkLeaderboard {
 
 /// Continuous monitoring system
 pub struct ContinuousMonitor {
-    /// Leaderboard
     leaderboard: BenchmarkLeaderboard,
 
-    /// Alert thresholds
     pub alert_thresholds: AlertThresholds,
 
-    /// Historical evaluations
     historical_evaluations: Vec<TaskEvaluation>,
 }
 

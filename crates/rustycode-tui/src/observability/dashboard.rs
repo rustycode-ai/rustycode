@@ -39,7 +39,6 @@ impl DashboardWidget {
         self.elapsed_time = metrics.elapsed_secs();
     }
 
-    /// Set the token budget
     pub fn set_token_budget(&mut self, budget: u64) {
         self.token_budget_total = budget;
     }

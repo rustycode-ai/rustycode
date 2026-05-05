@@ -78,13 +78,10 @@ pub struct CostSummary {
     /// Total cost across all providers
     pub total_cost: f64,
 
-    /// Total input tokens
     pub total_input_tokens: u64,
 
-    /// Total output tokens
     pub total_output_tokens: u64,
 
-    /// Total requests
     pub total_requests: usize,
 
     /// Cost breakdown by provider
@@ -94,7 +91,6 @@ pub struct CostSummary {
 /// Cost summary for a single provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderCostSummary {
-    /// Provider ID
     pub provider_id: String,
 
     /// Total cost for this provider

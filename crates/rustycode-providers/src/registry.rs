@@ -32,7 +32,6 @@ pub struct ModelRegistry {
     /// Models keyed by provider ID
     models: Arc<RwLock<HashMap<String, Vec<ModelInfo>>>>,
 
-    /// Cost tracker
     cost_tracker: Arc<super::CostTracker>,
 }
 

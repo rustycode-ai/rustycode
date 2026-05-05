@@ -2,52 +2,16 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
-use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use tokio::sync::RwLock;
 
 use super::types::{Artifact, ArtifactQuery};
 
-/// Pluggable storage backend for artifact persistence.
-#[async_trait]
-pub trait ArtifactStore: Send + Sync {
-    async fn store(&self, artifact: &Artifact) -> Result<()>;
-    async fn retrieve(&self, artifact_id: &str) -> Result<Option<Artifact>>;
-    async fn list(&self, type_tag: &str) -> Result<Vec<Artifact>>;
-    async fn delete(&self, artifact_id: &str) -> Result<()>;
-}
-
-/// Stub backend — all operations are no-ops. Suitable as a default when no
-/// external persistence is needed.
-pub struct InMemoryStore;
-
-#[async_trait]
-impl ArtifactStore for InMemoryStore {
-    async fn store(&self, _artifact: &Artifact) -> Result<()> {
-        Ok(())
-    }
-
-    async fn retrieve(&self, _artifact_id: &str) -> Result<Option<Artifact>> {
-        Ok(None)
-    }
-
-    async fn list(&self, _type_tag: &str) -> Result<Vec<Artifact>> {
-        Ok(vec![])
-    }
-
-    async fn delete(&self, _artifact_id: &str) -> Result<()> {
-        Ok(())
-    }
-}
-
-/// In-memory artifact registry backed by a pluggable [`ArtifactStore`].
-///
-/// Maintains a `HashMap<String, Artifact>` for O(1) ID lookups and a
+/// In-memory artifact registry with O(1) ID lookups and a
 /// `type_tag → [id]` secondary index for type-scoped queries.
 pub struct ArtifactRegistry {
     memory: Arc<RwLock<HashMap<String, Artifact>>>,
     index: Arc<RwLock<HashMap<String, Vec<String>>>>,
-    storage: Arc<dyn ArtifactStore>,
 }
 
 impl ArtifactRegistry {
@@ -55,21 +19,10 @@ impl ArtifactRegistry {
         Self {
             memory: Arc::new(RwLock::new(HashMap::new())),
             index: Arc::new(RwLock::new(HashMap::new())),
-            storage: Arc::new(InMemoryStore),
-        }
-    }
-
-    pub fn with_storage(storage: Arc<dyn ArtifactStore>) -> Self {
-        Self {
-            memory: Arc::new(RwLock::new(HashMap::new())),
-            index: Arc::new(RwLock::new(HashMap::new())),
-            storage,
         }
     }
 
     pub async fn register(&self, artifact: Artifact) -> Result<()> {
-        self.storage.store(&artifact).await?;
-
         let artifact_id = artifact.id.clone();
         let type_tag = artifact.type_tag.clone();
 
@@ -163,10 +116,6 @@ impl ArtifactRegistry {
                     }
                 }
             }
-        }
-
-        for id in &expired_ids {
-            let _ = self.storage.delete(id).await;
         }
 
         Ok(count)

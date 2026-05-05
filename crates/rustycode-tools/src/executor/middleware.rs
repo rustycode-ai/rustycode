@@ -30,7 +30,6 @@ pub struct MiddlewareConfig {
     pub hooks_enabled: bool,
     /// Enable plan mode validation
     pub plan_mode_enabled: bool,
-    /// Enable cost tracking
     pub cost_tracking_enabled: bool,
     /// Maximum cost per session (USD)
     pub max_session_cost: Option<f64>,

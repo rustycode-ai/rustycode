@@ -275,6 +275,19 @@ impl PolishedRenderer {
             }
         }
 
+        // Rate limit status from API headers (remaining/limit/usage)
+        if tui.rate_limit_tracker.has_data() {
+            let rate_color = if tui.rate_limit_tracker.is_approaching_limit() {
+                Color::Yellow
+            } else {
+                Color::DarkGray
+            };
+            if let Some(status) = tui.rate_limit_tracker.format_status() {
+                spans.push(Span::styled(status, Style::default().fg(rate_color)));
+                spans.push(Span::raw(" | "));
+            }
+        }
+
         // Input mode and agent mode are already shown in the input area — skip here
 
         let agents = tui.agent_manager.agents();

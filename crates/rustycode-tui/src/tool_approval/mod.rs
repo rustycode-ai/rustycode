@@ -93,7 +93,6 @@ impl ToolApprovalManager {
         }
     }
 
-    /// Check if a tool requires approval based on session state
     pub fn requires_approval(&self, tool_name: &str, risk_level: risk::RiskLevel) -> bool {
         // Check if we've already approved this tool in the session
         if let Some((_, state)) = self
@@ -130,7 +129,6 @@ impl ToolApprovalManager {
             .map(|(_, state)| state)
     }
 
-    /// Check if a tool has been blocked for the rest of the session
     pub fn is_blocked(&self, tool_name: &str) -> bool {
         self.session_approvals
             .iter()

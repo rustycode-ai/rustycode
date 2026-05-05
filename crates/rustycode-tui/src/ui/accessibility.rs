@@ -1,14 +1,4 @@
 //! Accessibility Features for RustyCode TUI
-//!
-//! This module provides accessibility features including:
-//! - Font scaling (virtual spacing adjustment)
-//! - High contrast mode
-//! - Reduced motion mode
-//! - Screen reader friendly output
-//!
-//! Note: Since TUIs run in terminal emulators, actual font size is controlled
-//! by the terminal application. This module implements "virtual font scaling"
-//! through spacing and layout adjustments.
 
 use ratatui::layout::Rect;
 use serde::{Deserialize, Serialize};
@@ -43,7 +33,6 @@ impl FontScale {
         ]
     }
 
-    /// Get the display name for this scale
     pub fn display_name(&self) -> &str {
         match self {
             FontScale::Normal => "Normal",
@@ -53,9 +42,6 @@ impl FontScale {
         }
     }
 
-    /// Get the spacing multiplier for this scale
-    ///
-    /// This determines how much extra vertical spacing to add between lines.
     pub fn spacing_multiplier(&self) -> f32 {
         match self {
             FontScale::Normal => 1.0,
@@ -65,7 +51,6 @@ impl FontScale {
         }
     }
 
-    /// Get the number of extra blank lines between content sections
     pub fn section_spacing(&self) -> usize {
         match self {
             FontScale::Normal => 1,
@@ -75,7 +60,6 @@ impl FontScale {
         }
     }
 
-    /// Get the padding around content
     pub fn content_padding(&self) -> u16 {
         match self {
             FontScale::Normal => 1,
@@ -98,7 +82,6 @@ impl FontScale {
         }
     }
 
-    /// Get the next larger scale
     pub fn increase(&self) -> FontScale {
         match self {
             FontScale::Normal => FontScale::Medium,
@@ -108,7 +91,6 @@ impl FontScale {
         }
     }
 
-    /// Get the next smaller scale
     pub fn decrease(&self) -> FontScale {
         match self {
             FontScale::Normal => FontScale::Normal, // Min
@@ -231,7 +213,6 @@ impl AccessibilityRenderer {
         Self { settings }
     }
 
-    /// Get the current settings
     pub fn settings(&self) -> AccessibilitySettings {
         self.settings
             .read()
@@ -248,25 +229,21 @@ impl AccessibilityRenderer {
         settings.font_scale.adjust_visible_area(area)
     }
 
-    /// Get the number of blank lines between sections
     pub fn section_spacing(&self) -> usize {
         let settings = self.settings();
         settings.font_scale.section_spacing()
     }
 
-    /// Check if animations should be disabled
     pub fn should_disable_animations(&self) -> bool {
         let settings = self.settings();
         settings.reduced_motion
     }
 
-    /// Check if high contrast mode is enabled
     pub fn is_high_contrast(&self) -> bool {
         let settings = self.settings();
         settings.high_contrast
     }
 
-    /// Check if screen reader mode is enabled
     pub fn is_screen_reader_mode(&self) -> bool {
         let settings = self.settings();
         settings.screen_reader_mode
@@ -322,7 +299,6 @@ pub struct ScreenReadableElement {
     pub element_type: String,
     /// Accessible label
     pub label: String,
-    /// Current value/state
     pub value: Option<String>,
     /// Additional description
     pub description: Option<String>,
@@ -344,13 +320,11 @@ impl ScreenReadableElement {
         }
     }
 
-    /// Set the value
     pub fn with_value(mut self, value: impl Into<String>) -> Self {
         self.value = Some(value.into());
         self
     }
 
-    /// Set the description
     pub fn with_description(mut self, desc: impl Into<String>) -> Self {
         self.description = Some(desc.into());
         self
@@ -362,7 +336,6 @@ impl ScreenReadableElement {
         self
     }
 
-    /// Set the state
     pub fn with_state(mut self, state: impl Into<String>) -> Self {
         self.state = Some(state.into());
         self
@@ -422,12 +395,10 @@ impl FocusHistory {
         }
     }
 
-    /// Get the last focused element
     pub fn last(&self) -> Option<&ScreenReadableElement> {
         self.elements.last()
     }
 
-    /// Get the previous element (before last)
     pub fn previous(&self) -> Option<&ScreenReadableElement> {
         if self.elements.len() >= 2 {
             self.elements.get(self.elements.len() - 2)
@@ -495,12 +466,10 @@ impl AnnouncementQueue {
         self.announcements.clear();
     }
 
-    /// Get the count of pending announcements
     pub fn len(&self) -> usize {
         self.announcements.len()
     }
 
-    /// Check if there are no pending announcements
     pub fn is_empty(&self) -> bool {
         self.announcements.is_empty()
     }

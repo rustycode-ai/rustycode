@@ -13,13 +13,10 @@ pub struct UpdateInfo {
     /// Skill name
     pub name: String,
 
-    /// Current version
     pub current_version: String,
 
-    /// Latest version
     pub latest_version: String,
 
-    /// Whether an update is available
     pub update_available: bool,
 
     /// Changelog or changes description
@@ -299,7 +296,6 @@ pub fn get_update_history(name: &str, limit: usize) -> Result<Vec<String>> {
     Ok(history.lines().map(|s| s.to_string()).collect())
 }
 
-/// Check if skill has uncommitted changes
 pub fn has_uncommitted_changes(name: &str) -> Result<bool> {
     let base_dir = skills_dir()?;
     let skill_path = base_dir.join(name);

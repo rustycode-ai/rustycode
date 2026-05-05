@@ -1,35 +1,12 @@
 //! Unicode helper functions for proper text handling.
-//!
-//! This module provides utilities for working with Unicode text,
-//! with special attention to complex scripts like Thai, Arabic,
-//! and emoji that require grapheme cluster handling.
 
 use unicode_width::UnicodeWidthStr;
 
-/// Calculate true display width of text (accounts for combining marks).
-///
-/// This uses the `unicode-width` crate to properly calculate the display
-/// width of text, taking into account:
-/// - Wide characters (CJK, emoji)
-/// - Combining marks (Thai vowels, Arabic diacritics)
-/// - Zero-width characters
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// use rustycode_tui::unicode::display_width;
-///
-/// assert_eq!(display_width("Hello"), 5);
-/// assert_eq!(display_width("สวัสดี"), 5); // Thai - each char is 1 column
-/// assert_eq!(display_width("👨‍👩‍👧‍👦"), 2); // Family emoji is 2 columns
-/// assert_eq!(display_width("🌍"), 2); // Globe emoji is 2 columns
-/// ```
+/// Calculate display width accounting for wide characters (CJK, emoji).
 pub fn display_width(text: &str) -> usize {
     text.width()
 }
 
-/// Get the byte offset of the previous grapheme cluster.
-///
 pub fn prev_grapheme_boundary(text: &str, byte_pos: usize) -> usize {
     use unicode_segmentation::UnicodeSegmentation;
     let mut prev = 0;
@@ -42,8 +19,6 @@ pub fn prev_grapheme_boundary(text: &str, byte_pos: usize) -> usize {
     prev
 }
 
-/// Get the byte offset of the next grapheme cluster.
-///
 pub fn next_grapheme_boundary(text: &str, byte_pos: usize) -> usize {
     use unicode_segmentation::UnicodeSegmentation;
     text.grapheme_indices(true)

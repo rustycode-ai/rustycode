@@ -1,13 +1,4 @@
 //! Orchestration integration for the TUI message flow.
-//!
-//! Wraps [`QualityDetector`], [`StrategySelector`], and [`ReasoningStore`]
-//! to provide a single integration point. The TUI's `send_message()` path
-//! calls into this module to:
-//!
-//! 1. Analyze message complexity
-//! 2. Select an execution strategy
-//! 3. Inject the structured thinking tool when warranted
-//! 4. Store and retrieve multi-phase reasoning context
 
 use rustycode_orchestration::quality_detector::QualityDetector;
 use rustycode_orchestration::reasoning_store::ReasoningStore;
@@ -38,7 +29,6 @@ pub struct AnalysisResult {
     pub complexity: f64,
     /// Chosen execution strategy.
     pub strategy: ReasoningStrategy,
-    /// Whether the structured thinking tool should be injected.
     pub enable_structured_thinking: bool,
     /// Clarity report from pre-pipeline scoring (only for complex tasks).
     pub clarity_report: Option<rustycode_orchestration::ast::ClarityReport>,
@@ -125,17 +115,14 @@ impl OrchestrationIntegration {
             .select(complexity, quality, confidence)
     }
 
-    /// Whether the structured thinking tool should be added to the tools schema.
     pub fn should_enable_structured_thinking(&self, strategy: ReasoningStrategy) -> bool {
         strategy.requires_structured_thinking()
     }
 
-    /// Get the structured thinking tool schema for injection into the LLM request.
     pub fn structured_thinking_tool_schema() -> serde_json::Value {
         rustycode_orchestration::StructuredThinkingToolSchema::schema()
     }
 
-    /// Get the system prompt guidance for structured thinking.
     pub fn structured_thinking_guidance() -> &'static str {
         rustycode_orchestration::StructuredThinkingToolSchema::system_prompt_guidance()
     }
@@ -163,7 +150,6 @@ impl OrchestrationIntegration {
         self.current_phase = phase;
     }
 
-    /// Get the current phase number.
     pub fn current_phase(&self) -> u32 {
         self.current_phase
     }
@@ -208,7 +194,6 @@ impl OrchestrationIntegration {
             .ok()
     }
 
-    /// Check if reasoning persistence is enabled.
     pub fn has_persistence(&self) -> bool {
         self.reasoning_store.is_some()
     }

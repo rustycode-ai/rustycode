@@ -1,20 +1,4 @@
 //! Renderer dispatch layer for the TUI.
-//!
-//! # Architecture
-//!
-//! ```text
-//! RendererMode (enum)          — selects the active backend
-//! RendererState (struct)       — unified snapshot of TUI state for a frame
-//! PolishedRenderer (struct)    — polished backend implementation
-//! FrameRenderer (trait)        — dispatch interface (kept small + Copy-friendly)
-//! ```
-//!
-//! Adding a new backend only requires:
-//! 1. Implement `rustycode_ui_core::TuiRenderer` for your new struct
-//! 2. Add a `RendererMode::YourName` variant
-//! 3. Add a match arm in `FrameRenderer::render` on `RendererMode`
-//!
-//! No other files need to change.
 
 use crate::app::event_loop::TUI;
 use crate::app::render::shared::centered_rect;
@@ -79,9 +63,7 @@ pub struct RendererState {
     pub session_cost: f64,
 
     // ── Chrome visibility ────────────────────────────────────────────────────
-    /// Whether the status bar / header chrome is collapsed.
     pub status_bar_collapsed: bool,
-    /// Whether the footer chrome is collapsed.
     pub footer_collapsed: bool,
 }
 

@@ -47,7 +47,6 @@ impl BookmarkManager {
         bookmarks
     }
 
-    /// Get the number of bookmarks
     pub fn count(&self) -> usize {
         self.bookmarks.len()
     }
@@ -101,7 +100,6 @@ impl BookmarkManager {
 /// UI state for the bookmarks list popup
 #[derive(Clone, Debug, Default)]
 pub struct BookmarkListState {
-    /// Whether the bookmark list is visible
     pub visible: bool,
 
     /// Currently selected bookmark index in the list
@@ -141,7 +139,6 @@ impl BookmarkListState {
         }
     }
 
-    /// Check if the list is visible
     pub fn is_visible(&self) -> bool {
         self.visible
     }
@@ -168,7 +165,6 @@ impl BookmarkListState {
         }
     }
 
-    /// Get the bookmark count
     pub fn count(&self) -> usize {
         self.cached_bookmarks.len()
     }

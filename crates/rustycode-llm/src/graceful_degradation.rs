@@ -188,7 +188,6 @@ pub struct DegradationMetadata {
     pub error_kind: Option<ErrorKind>,
     /// User-friendly error message
     pub error_message: Option<String>,
-    /// Recovery suggestion
     pub recovery_suggestion: Option<String>,
     /// Whether result came from cache
     pub from_cache: bool,

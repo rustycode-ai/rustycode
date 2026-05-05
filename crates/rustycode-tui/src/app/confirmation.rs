@@ -1,16 +1,10 @@
 //! Simple synchronous confirmation bridge between background tasks and the TUI.
-//!
-//! This lightweight helper provides a global registry where background code can
-//! register a confirmation request and block waiting for the user's decision.
-//! The TUI polls pending requests and displays an in-UI modal; when the user
-//! decides the TUI calls `deliver` to resolve the waiting request.
 
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
-use std::sync::{mpsc, Mutex};
+use std::sync::{mpsc, Mutex, LazyLock};
 
-static GLOBAL_CONFIRMATIONS: Lazy<Mutex<HashMap<String, mpsc::Sender<bool>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+static GLOBAL_CONFIRMATIONS: LazyLock<Mutex<HashMap<String, mpsc::Sender<bool>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Register a new confirmation request. Returns a blocking `Receiver<bool>` that
 /// the caller can `recv()` on (use `spawn_blocking` if calling from async).

@@ -43,7 +43,6 @@ struct WorkerDisplay {
 /// Receives worker updates and renders a live worker dashboard.
 #[derive(Clone)]
 pub struct WorkerPanel {
-    /// Whether the panel is visible.
     pub visible: bool,
     /// Worker display states.
     workers: Vec<WorkerDisplay>,

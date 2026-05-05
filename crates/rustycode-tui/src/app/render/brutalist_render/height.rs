@@ -272,7 +272,7 @@ mod height_tests {
     #[test]
     fn estimate_message_height_accounts_for_code_block_prefix_width() {
         let renderer =
-            crate::app::brutalist_renderer::BrutalistRendererBuilder::new(&[], "").build();
+            crate::app::render::brutalist_renderer::BrutalistRendererBuilder::new(&[], "").build();
         let message =
             crate::ui::message::Message::assistant(format!("```rust\n{}\n```", "a".repeat(40)));
 

@@ -1,6 +1,4 @@
 //! Service polling operations
-//!
-//! Handles polling async services for events.
 
 use super::async_::RecvStatus;
 use super::event_loop::TUI;

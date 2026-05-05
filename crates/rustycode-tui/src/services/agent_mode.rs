@@ -39,7 +39,6 @@ pub enum AgentMode {
 }
 
 impl AgentMode {
-    /// Get the display name for this mode
     pub fn display_name(&self) -> &'static str {
         match self {
             AgentMode::Code => "Code",
@@ -52,7 +51,6 @@ impl AgentMode {
         }
     }
 
-    /// Get the description for this mode
     pub fn description(&self) -> &'static str {
         match self {
             AgentMode::Code => "Full coding capabilities - write, edit, and refactor code",
@@ -65,7 +63,6 @@ impl AgentMode {
         }
     }
 
-    /// Get the system prompt suffix for this mode
     pub fn system_prompt_suffix(&self) -> &'static str {
         match self {
             AgentMode::Code => {
@@ -188,7 +185,6 @@ You can add comments and documentation, but avoid changing code logic.
         }
     }
 
-    /// Check if a tool should be available in this mode
     pub fn allows_tool(&self, tool_name: &str) -> bool {
         let profile = self.tool_profile();
         let tags = profile.required_tags();

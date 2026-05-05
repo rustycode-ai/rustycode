@@ -105,6 +105,26 @@ pub(super) fn handle_approval_request_chunk(
         }
     }
 
+    // PermissionRequest hook: allow hooks to deny before showing approval dialog.
+    let hook_result = tui.hook_manager.execute_blocking(
+        rustycode_tools::hooks::HookTrigger::PermissionRequest,
+        serde_json::json!({
+            "tool_name": tool_name,
+            "args": description,
+            "risk_level": format!("{:?}", risk_level),
+        }),
+    );
+    if hook_result.should_block {
+        tui.services.send_approval_response(false);
+        tui.add_system_message(format!(
+            "✗ Hook blocked: {} ({})",
+            tool_name,
+            hook_result.block_reason.as_deref().unwrap_or("blocked by hook")
+        ));
+        tui.dirty = true;
+        return;
+    }
+
     tui.pending_approval_request
         .push_back(crate::tool_approval::ApprovalRequest {
             tool_name: tool_name.clone(),

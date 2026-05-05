@@ -1,6 +1,4 @@
 //! MCP (Model Context Protocol) slash commands
-//!
-//! Provides commands for managing MCP servers and tools.
 
 /// Handle MCP slash commands
 pub async fn handle_mcp_command(input: &str) -> Result<Option<String>, String> {

@@ -1,11 +1,4 @@
 //! Session Mode
-//!
-//! Provides a comprehensive UI for managing sessions with:
-//! - Session history panel with timestamps and metadata
-//! - Message browser with search/filter capabilities
-//! - Compaction controls with multiple strategies
-//! - Token tracking and cost estimation
-//! - Session management (create, switch, archive, export)
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
@@ -28,19 +21,14 @@ use tokio::sync::RwLock;
 pub struct SessionMode {
     /// Current working directory
     pub cwd: PathBuf,
-    /// Current session
     pub current_session: Arc<RwLock<Session>>,
-    /// Session history
     pub session_history: Vec<SessionHistoryEntry>,
     /// Selected session index
     pub selected_session: usize,
     /// Selected message index
     pub selected_message: usize,
-    /// Current view mode
     pub view_mode: SessionViewMode,
-    /// Compaction strategy
     pub compaction_strategy: CompactionStrategy,
-    /// Last compaction report
     pub last_compaction_report: Option<CompactionReport>,
     /// Search query for messages
     pub search_query: String,
@@ -48,9 +36,7 @@ pub struct SessionMode {
     pub role_filter: Option<MessageRole>,
     /// Token usage tracking
     pub token_usage: TokenUsage,
-    /// Show compaction preview
     pub show_compaction_preview: bool,
-    /// Message display mode
     pub message_display_mode: MessageDisplayMode,
 }
 
@@ -67,13 +53,9 @@ pub struct SessionHistoryEntry {
     pub updated_at: DateTime<Utc>,
     /// Session status
     pub status: SessionStatus,
-    /// Message count
     pub message_count: usize,
-    /// Token count
     pub token_count: usize,
-    /// Total cost
     pub total_cost: f64,
-    /// Tags
     pub tags: Vec<String>,
 }
 

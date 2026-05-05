@@ -28,7 +28,6 @@ impl ThemeColors {
         }
     }
 
-    /// Get the pipe character and color for a message role
     pub fn message_pipe_style(&self, role: &MessageRole) -> (char, Color) {
         match role {
             MessageRole::User => ('▌', self.secondary),

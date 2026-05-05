@@ -50,69 +50,11 @@ pub struct TrackedRequest {
     pub duration_ms: u64,
 }
 
+pub use rustycode_tool_integration::cost::{cost_per_million_tokens_io, estimate_cost};
+
 /// Cost per 1M input tokens by model (approximate, April 2026)
 pub fn cost_per_million_tokens(model: &str) -> f64 {
     cost_per_million_tokens_io(model).0
-}
-
-/// Cost per 1M tokens (input, output) by model (approximate, April 2026)
-///
-/// Returns `(input_cost, output_cost)` per million tokens.
-/// Inspired by Goose's `estimate_cost_usd` pattern.
-pub fn cost_per_million_tokens_io(model: &str) -> (f64, f64) {
-    // Claude 4.x models (latest)
-    if model.contains("claude-opus-4") {
-        (15.0, 75.0)
-    } else if model.contains("claude-sonnet-4") {
-        (3.0, 15.0)
-    } else if model.contains("claude-haiku-4") {
-        (0.80, 4.0)
-    }
-    // Claude 3.x models
-    else if model.starts_with("claude-3-opus") {
-        (15.0, 75.0)
-    } else if model.starts_with("claude-3-7-sonnet") || model.starts_with("claude-3-5-sonnet") {
-        (3.0, 15.0)
-    } else if model.starts_with("claude-3") {
-        (0.25, 1.25)
-    }
-    // GPT-4o series
-    else if model.starts_with("gpt-4o") {
-        (2.5, 10.0)
-    }
-    // o3/o1 series (reasoning models)
-    else if model.starts_with("o4-mini") {
-        (1.10, 4.40)
-    } else if model.starts_with("o3") {
-        (10.0, 40.0)
-    } else if model.starts_with("o1") {
-        (15.0, 60.0)
-    }
-    // GPT-4.x legacy
-    else if model.starts_with("gpt-4") {
-        (30.0, 60.0)
-    } else if model.starts_with("gpt-3.5") {
-        (0.50, 1.50)
-    }
-    // Gemini models
-    else if model.starts_with("gemini-2.5-pro") {
-        (1.25, 10.0)
-    } else if model.starts_with("gemini-2") || model.starts_with("gemini-1.5-pro") {
-        (1.25, 5.0)
-    } else if model.starts_with("gemini") {
-        (0.075, 0.30)
-    }
-    // Local models (ollama, etc.) are free
-    else {
-        (0.0, 0.0)
-    }
-}
-
-/// Estimate cost in USD for a given number of input/output tokens
-pub fn estimate_cost(model: &str, input_tokens: usize, output_tokens: usize) -> f64 {
-    let (input_cost, output_cost) = cost_per_million_tokens_io(model);
-    (input_tokens as f64 / 1_000_000.0) * input_cost
-        + (output_tokens as f64 / 1_000_000.0) * output_cost
 }
 
 #[derive(Debug, Default)]

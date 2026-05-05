@@ -537,7 +537,6 @@ pub struct HookExecutionResult {
     /// The permission decision, if any PreToolUse hook returned one.
     pub permission_decision: Option<HookDecision>,
 
-    /// Reason for the permission decision.
     pub permission_decision_reason: Option<String>,
 }
 

@@ -22,7 +22,6 @@ const BINARY_EXTENSIONS: &[&str] = &[
     ".gif", ".ico", ".webp", ".woff", ".woff2", ".ttf", ".eot", ".mp3", ".mp4", ".avi", ".mov",
 ];
 
-/// Check if a file is a binary/non-editable type
 fn is_binary_file(name: &str) -> bool {
     BINARY_EXTENSIONS.iter().any(|ext| name.ends_with(ext))
 }

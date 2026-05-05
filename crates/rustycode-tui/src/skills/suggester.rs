@@ -1,6 +1,4 @@
 //! Skill suggester
-//!
-//! Generates skill suggestions based on context and user preferences.
 
 // Placeholder module - to be implemented in future tasks
 

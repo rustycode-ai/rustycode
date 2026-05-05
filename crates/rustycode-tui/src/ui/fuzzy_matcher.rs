@@ -1,14 +1,4 @@
 //! Shared Fuzzy Matching Module
-//!
-//! This module provides a common fuzzy matching algorithm used across the TUI
-//! for various search/filter functionality (file finder, model selector, etc.).
-//!
-//! ## Features
-//!
-//! - **Flexible scoring**: Supports different match types (exact, prefix, substring)
-//! - **Case-insensitive**: All matching is done case-insensitively
-//! - **Highlight support**: Helper for highlighting matched text in UI
-//! - **Ranking**: Sort results by relevance score
 
 #![allow(dead_code)]
 
@@ -37,7 +27,6 @@ pub enum MatchScore {
 }
 
 impl MatchScore {
-    /// Check if this score represents any match (non-None)
     #[inline]
     pub fn is_match(self) -> bool {
         self != MatchScore::None

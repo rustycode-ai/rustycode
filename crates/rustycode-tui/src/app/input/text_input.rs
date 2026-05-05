@@ -1,6 +1,4 @@
 //! Text input and composition handling
-//!
-//! Handles text input, search box, command palette, and special input modes.
 
 use crate::app::event_loop::TUI;
 use crate::session::save_command_history;
@@ -41,30 +39,12 @@ impl TUI {
             }
             KeyCode::Char(c) => {
                 SearchEngine::add_char(&mut self.search_state, c);
-                // Perform search with updated query
-                let case_sensitive = self.search_state.case_sensitive;
-                let role_filter = self.search_state.role_filter.clone();
-                self.search_state.matches = SearchEngine::search(
-                    &self.search_state.query,
-                    &self.messages,
-                    case_sensitive,
-                    &role_filter,
-                );
-                SearchEngine::reset_match_position(&mut self.search_state);
+                self.refresh_search_matches();
                 self.dirty = true;
             }
             KeyCode::Backspace => {
                 SearchEngine::backspace(&mut self.search_state);
-                // Perform search with updated query
-                let case_sensitive = self.search_state.case_sensitive;
-                let role_filter = self.search_state.role_filter.clone();
-                self.search_state.matches = SearchEngine::search(
-                    &self.search_state.query,
-                    &self.messages,
-                    case_sensitive,
-                    &role_filter,
-                );
-                SearchEngine::reset_match_position(&mut self.search_state);
+                self.refresh_search_matches();
                 self.dirty = true;
             }
             _ => {
@@ -73,6 +53,19 @@ impl TUI {
             }
         }
         Ok(true)
+    }
+
+    /// Re-run search with current query and reset match position.
+    fn refresh_search_matches(&mut self) {
+        let case_sensitive = self.search_state.case_sensitive;
+        let role_filter = self.search_state.role_filter.clone();
+        self.search_state.matches = SearchEngine::search(
+            &self.search_state.query,
+            &self.messages,
+            case_sensitive,
+            &role_filter,
+        );
+        SearchEngine::reset_match_position(&mut self.search_state);
     }
 
     /// Handle command palette navigation
@@ -312,15 +305,11 @@ impl TUI {
         }
 
         // Check if we're in rate limit state - if so, check if retry is allowed
-        if self.rate_limit.until.is_some() {
-            let can_retry = if let Some(until) = self.rate_limit.until {
-                until
-                    .saturating_duration_since(std::time::Instant::now())
-                    .as_secs()
-                    == 0
-            } else {
-                true
-            };
+        if let Some(until) = self.rate_limit.until {
+            let can_retry = until
+                .saturating_duration_since(std::time::Instant::now())
+                .as_secs()
+                == 0;
 
             if can_retry {
                 // Rate limit expired — clear it and send the new message normally
@@ -343,6 +332,21 @@ impl TUI {
         let content = lines.join("\n");
         let has_images = !self.input_handler.state.images.is_empty();
         if content.trim().is_empty() && !has_images {
+            return Ok(());
+        }
+
+        // Fire UserPromptSubmit hooks — hooks can block submission
+        let hook_result = self.hook_manager.execute_blocking(
+            rustycode_tools::hooks::HookTrigger::UserPromptSubmit,
+            serde_json::json!({
+                "prompt": &content,
+            }),
+        );
+        if hook_result.should_block {
+            if let Some(reason) = &hook_result.block_reason {
+                self.add_system_message(format!("Blocked: {reason}"));
+            }
+            self.dirty = true;
             return Ok(());
         }
 
@@ -589,13 +593,7 @@ impl TUI {
 
             // Set streaming flag BEFORE sending to prevent double-Enter races.
             // If send fails, we clear it below.
-            self.streaming.is_streaming = true;
-            self.streaming.chunks_received = 0;
-            self.streaming.thinking_chunks_received = 0;
-            self.streaming.stream_start_time = Some(std::time::Instant::now());
-            self.streaming.current_stream_content.clear();
-            self.streaming.streaming_render_buffer =
-                crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+            self.streaming.begin_streaming();
 
             // Clear previous turn's tool history so sidebar doesn't show stale calls.
             self.tool_panel.reset();

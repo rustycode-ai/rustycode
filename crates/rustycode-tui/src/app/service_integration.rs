@@ -20,6 +20,12 @@ use std::sync::{Arc, Mutex as StdMutex};
 use std::thread;
 use std::time::Duration;
 
+fn send_chunk<T: std::fmt::Debug>(tx: &SyncSender<T>, value: T) {
+    if let Err(e) = tx.send(value) {
+        tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
+    }
+}
+
 // ── Service Manager ───────────────────────────────────────────────────────────
 
 /// Manages all background services for the TUI
@@ -49,7 +55,6 @@ pub struct ServiceManager {
     /// Channel for question responses (TUI → streaming thread)
     question_tx: Option<std::sync::mpsc::Sender<String>>,
 
-    /// Current AI mode
     ai_mode: AiMode,
 
     /// Current specialized agent mode
@@ -87,6 +92,9 @@ pub struct ServiceManager {
 
     /// Current reasoning effort level (low/medium/high/xhigh/max)
     effort: String,
+
+    /// Hook manager for lifecycle hooks (PermissionRequest, UserPromptSubmit, etc.)
+    hook_manager: Option<rustycode_tools::hooks::HookManager>,
 }
 
 /// Context passed to background streaming threads.
@@ -111,6 +119,8 @@ struct StreamingContext {
     image_blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
     /// Reasoning effort level for LLM requests.
     effort: String,
+    /// Hook manager for PermissionRequest and other lifecycle hooks.
+    hook_manager: Option<rustycode_tools::hooks::HookManager>,
 }
 
 impl ServiceManager {
@@ -136,6 +146,7 @@ impl ServiceManager {
             orchestration: Arc::new(StdMutex::new(OrchestrationIntegration::default())),
             orchestration_pipeline: None,
             effort: "medium".to_string(),
+            hook_manager: None,
         }
     }
 
@@ -484,6 +495,7 @@ impl ServiceManager {
             phase_context,
             image_blocks,
             effort: self.effort.clone(),
+            hook_manager: self.hook_manager.clone(),
         };
 
         // 5. Dispatch
@@ -507,83 +519,6 @@ impl ServiceManager {
         self.query_guard.force_end();
     }
 
-    /// Execute the unified orchestration pipeline in a background thread.
-    #[allow(dead_code)]
-    fn execute_orchestration_pipeline(
-        &self,
-        pipeline: Arc<rustycode_orchestration::pipeline::OrchestrationPipeline>,
-        ctx: StreamingContext,
-        stream_tx: SyncSender<StreamChunk>,
-    ) {
-        let task_id = uuid::Uuid::new_v4().to_string();
-        let thread_history = ctx.history.unwrap_or_default();
-        let thread_system_prompt =
-            "You are an expert software engineer. Complete the task described by the user.";
-        let tool_count = pipeline.tool_count();
-        crate::info_log!("Pipeline dispatching with {} tools", tool_count);
-
-        thread::spawn(move || {
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    let _ = stream_tx.send(StreamChunk::Error(StreamError::RuntimeError {
-                        message: e.to_string(),
-                    }));
-                    return;
-                }
-            };
-            rt.block_on(async {
-                let history_messages: Vec<rustycode_protocol::Message> =
-                    thread_history.into_iter().map(|m| m.into()).collect();
-
-                let res = pipeline
-                    .conduct_with_history(
-                        task_id,
-                        ctx.content,
-                        history_messages,
-                        thread_system_prompt,
-                    )
-                    .await;
-
-                match res {
-                    Ok(rustycode_orchestration::pipeline::TaskResult::Success {
-                        execution_trace,
-                        ..
-                    }) => {
-                        crate::info_log!("Pipeline SUCCESS, sending execution trace");
-                        if let Ok(trace_val) = serde_json::to_value(&execution_trace) {
-                            if let Err(e) = stream_tx.send(StreamChunk::ExecutionTrace(trace_val)) {
-                                tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                            }
-                        }
-                    }
-                    Ok(rustycode_orchestration::pipeline::TaskResult::Failed {
-                        reason, ..
-                    }) => {
-                        crate::info_log!("Pipeline FAILED: {}", reason);
-                        if let Err(e) = stream_tx
-                            .send(StreamChunk::Error(StreamError::PipelineFailed { reason }))
-                        {
-                            tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                        }
-                    }
-                    Err(e) => {
-                        crate::info_log!("Pipeline ERROR: {}", e);
-                        if let Err(e) =
-                            stream_tx.send(StreamChunk::Error(StreamError::PipelineFailed {
-                                reason: e.to_string(),
-                            }))
-                        {
-                            tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                        }
-                    }
-                }
-                if let Err(e) = stream_tx.send(StreamChunk::Done) {
-                    tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                }
-            });
-        });
-    }
 
     /// Execute legacy streaming as a fallback when the pipeline is unavailable.
     fn execute_legacy_streaming(
@@ -601,16 +536,10 @@ impl ServiceManager {
                 let rt = match tokio::runtime::Runtime::new() {
                     Ok(rt) => rt,
                     Err(e) => {
-                        if let Err(e) =
-                            stream_tx.send(StreamChunk::Error(StreamError::RuntimeError {
-                                message: e.to_string(),
-                            }))
-                        {
-                            tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                        }
-                        if let Err(e) = stream_tx.send(StreamChunk::Done) {
-                            tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                        }
+                        send_chunk(&stream_tx, StreamChunk::Error(StreamError::RuntimeError {
+                            message: e.to_string(),
+                        }));
+                        send_chunk(&stream_tx, StreamChunk::Done);
                         return;
                     }
                 };
@@ -636,34 +565,25 @@ impl ServiceManager {
                     .phase_context_opt(ctx.phase_context)
                     .orchestration_opt(Some(ctx.orchestration))
                     .image_blocks_opt(ctx.image_blocks)
-                    .effort_opt(Some(ctx.effort.clone()));
+                    .effort_opt(Some(ctx.effort.clone()))
+                    .hook_manager_opt(ctx.hook_manager);
 
                     stream_llm_response(config).await
                 });
 
                 if let Err(e) = result {
-                    if let Err(e) = stream_tx.send(StreamChunk::Error(StreamError::Provider(
+                    send_chunk(&stream_tx, StreamChunk::Error(StreamError::Provider(
                         rustycode_llm::provider::ProviderError::Api(e.to_string()),
-                    ))) {
-                        tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                    }
-                    if let Err(e) = stream_tx.send(StreamChunk::Done) {
-                        tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                    }
+                    )));
+                    send_chunk(&stream_tx, StreamChunk::Done);
                 }
             }));
 
             if result.is_err() {
-                if let Err(e) =
-                    stream_tx_panic.send(StreamChunk::Error(StreamError::InternalError {
-                        message: "streaming thread panicked".to_string(),
-                    }))
-                {
-                    tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                }
-                if let Err(e) = stream_tx_panic.send(StreamChunk::Done) {
-                    tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                }
+                send_chunk(&stream_tx_panic, StreamChunk::Error(StreamError::InternalError {
+                    message: "streaming thread panicked".to_string(),
+                }));
+                send_chunk(&stream_tx_panic, StreamChunk::Done);
             }
         });
     }
@@ -676,7 +596,6 @@ impl ServiceManager {
         self.query_guard.force_end();
     }
 
-    /// Check if a query is currently active.
     pub fn is_query_active(&self) -> bool {
         self.query_guard.is_active()
     }
@@ -726,6 +645,10 @@ impl ServiceManager {
         self.effort = effort;
     }
 
+    pub fn set_hook_manager(&mut self, hm: rustycode_tools::hooks::HookManager) {
+        self.hook_manager = Some(hm);
+    }
+
     pub fn next_agent_mode(&mut self) -> crate::agent_mode::AgentMode {
         self.agent_mode = self.agent_mode.next_mode();
         self.agent_mode
@@ -771,9 +694,7 @@ impl ServiceManager {
 
                     if should_report {
                         *last_pct = pct;
-                        if let Err(e) = tx.send(WorkspaceUpdate::ScanProgress { scanned, total }) {
-                            tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                        }
+                        send_chunk(&tx, WorkspaceUpdate::ScanProgress { scanned, total });
                     }
                 });
 
@@ -786,17 +707,13 @@ impl ServiceManager {
             );
 
             // Send final context loaded message
-            if let Err(e) = tx_final.send(WorkspaceUpdate::ContextLoaded(context)) {
-                tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-            }
+            send_chunk(&tx_final, WorkspaceUpdate::ContextLoaded(context));
 
             if let Some((filename, _)) = workspace_context::find_project_instruction_file(&cwd) {
-                if let Err(e) = tx_final.send(WorkspaceUpdate::Notice(format!(
+                send_chunk(&tx_final, WorkspaceUpdate::Notice(format!(
                     "Loaded {} from the workspace root",
                     filename
-                ))) {
-                    tracing::debug!("Stream send failed (channel closed): {:?}", e.0);
-                }
+                )));
             }
         });
 
@@ -930,7 +847,6 @@ pub struct ServiceStats {
 }
 
 impl ServiceStats {
-    /// Check if any service is experiencing backpressure
     pub fn has_backpressure(&self) -> bool {
         self.stream_dropped > 0 || self.tool_dropped > 0 || self.workspace_dropped > 0
     }
@@ -943,19 +859,6 @@ impl ServiceStats {
 
 // ── Integration with TUI ───────────────────────────────────────────────────────
 
-/// Integration layer for connecting services to the TUI
-///
-/// This trait provides methods for converting service events into TUI state updates.
-pub trait TUIIntegration {
-    /// Handle a stream chunk from the LLM
-    fn handle_stream_chunk(&mut self, chunk: StreamChunk);
-
-    /// Handle a tool execution result
-    fn handle_tool_result(&mut self, result: ToolResult);
-
-    /// Handle a workspace update
-    fn handle_workspace_update(&mut self, update: WorkspaceUpdate);
-}
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

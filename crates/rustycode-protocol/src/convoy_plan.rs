@@ -47,7 +47,6 @@ pub struct ConvoyPlan {
     pub commands_to_run: Vec<CommandPlan>,
     /// Risks identified during planning.
     pub risks: Vec<ConvoyRisk>,
-    /// Estimated cost in USD.
     pub estimated_cost_usd: f64,
     /// Success criteria defined during planning.
     pub success_criteria: Vec<String>,

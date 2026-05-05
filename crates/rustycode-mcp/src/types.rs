@@ -340,7 +340,6 @@ pub enum McpTaskStatus {
 pub struct McpTask {
     /// Task ID
     pub id: String,
-    /// Current status
     pub status: McpTaskStatus,
     /// Human-readable description
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -452,9 +451,7 @@ pub struct McpServerInfo {
 /// Implementation metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Implementation {
-    /// Name
     pub name: String,
-    /// Version
     pub version: String,
 }
 

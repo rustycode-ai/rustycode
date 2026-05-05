@@ -17,13 +17,11 @@ use tracing::{error, info, warn};
 pub struct McpToolInfo {
     /// Namespaced tool name (`mcp_<server>_<tool>`)
     pub name: String,
-    /// Server name
     pub server_name: String,
     /// Actual tool name (without namespace)
     pub tool_name: String,
     /// Tool description
     pub description: String,
-    /// Input schema
     pub input_schema: serde_json::Value,
 }
 

@@ -68,7 +68,6 @@ pub struct AutoMemory {
     pub key: String,
     /// Memory value
     pub value: String,
-    /// Type of memory
     pub memory_type: MemoryType,
     /// Importance score (0.0 to 1.0)
     pub importance: f64,
@@ -122,7 +121,6 @@ impl AutoMemory {
         self.update_importance();
     }
 
-    /// Check if this memory is low-value and should be cleaned up
     pub fn should_cleanup(&self) -> bool {
         // Keep important memories
         if self.importance > 0.7 {
@@ -244,8 +242,8 @@ impl AutoMemoryManager {
         }
     }
 
-    /// Get all memories of a specific type
-    pub fn get_memories_by_type(&mut self, memory_type: MemoryType) -> Vec<AutoMemory> {
+    /// Fetch memories of a specific type, recording access and persisting to disk.
+    pub fn fetch_memories_by_type(&mut self, memory_type: MemoryType) -> Vec<AutoMemory> {
         // Record access for all memories of this type
         for memory in &mut self.memories {
             if memory.memory_type == memory_type {
@@ -264,8 +262,8 @@ impl AutoMemoryManager {
             .collect()
     }
 
-    /// Get recent memories (accessed in last N days)
-    pub fn get_recent_memories(&mut self, days: i64) -> Vec<AutoMemory> {
+    /// Fetch recent memories, recording access and persisting to disk.
+    pub fn fetch_recent_memories(&mut self, days: i64) -> Vec<AutoMemory> {
         let cutoff = Utc::now() - chrono::Duration::days(days);
 
         // Record access for recent memories
@@ -286,8 +284,8 @@ impl AutoMemoryManager {
             .collect()
     }
 
-    /// Get important memories (importance > threshold)
-    pub fn get_important_memories(&mut self, threshold: f64) -> Vec<AutoMemory> {
+    /// Fetch important memories, recording access and persisting to disk.
+    pub fn fetch_important_memories(&mut self, threshold: f64) -> Vec<AutoMemory> {
         // Record access for important memories
         for memory in &mut self.memories {
             if memory.importance >= threshold {
@@ -393,7 +391,6 @@ impl AutoMemoryManager {
         Ok(())
     }
 
-    /// Check if a memory entry already exists
     fn memory_entry_exists(&self, auto_mem: &AutoMemory) -> Result<bool> {
         let entries = rustycode_memory::load(&self.memory_dir)?;
         Ok(entries

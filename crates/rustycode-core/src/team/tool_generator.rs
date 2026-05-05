@@ -45,7 +45,6 @@ pub struct GeneratedTool {
 pub struct ApiSpec {
     /// API name.
     pub name: String,
-    /// Base URL.
     pub base_url: String,
     /// Authentication type (none, api_key, bearer, oauth).
     pub auth_type: AuthType,

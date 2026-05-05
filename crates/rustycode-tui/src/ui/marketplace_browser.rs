@@ -1,7 +1,4 @@
 //! Marketplace browser component
-//!
-//! Provides a searchable, tabbed browser for marketplace items with
-//! install/update/uninstall actions and a details pane.
 
 use std::cell::Cell;
 

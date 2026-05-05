@@ -29,7 +29,6 @@ pub struct ExecutionTrace {
     pub outcome: TaskOutcome,
     /// Turn-by-turn trace.
     pub turns: Vec<TurnTrace>,
-    /// Files modified.
     pub files_modified: Vec<String>,
     /// Total turns taken.
     pub total_turns: u32,
@@ -159,7 +158,6 @@ pub struct TurnTrace {
     pub files_changed: Vec<String>,
     /// Events emitted (if any).
     pub events: Vec<String>,
-    /// Whether verification passed.
     pub verification_passed: bool,
     /// Error messages (if any).
     pub errors: Vec<String>,

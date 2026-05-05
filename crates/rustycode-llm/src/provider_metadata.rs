@@ -61,7 +61,6 @@ pub struct ConfigField {
     /// Field description
     pub description: String,
 
-    /// Field type
     pub field_type: ConfigFieldType,
 
     /// Placeholder text for input fields

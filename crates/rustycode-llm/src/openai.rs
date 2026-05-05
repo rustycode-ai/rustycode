@@ -18,6 +18,7 @@ use rustycode_protocol::llm::{
 use rustycode_protocol::stream_event::StreamEvent;
 
 // Import macros exported at crate root
+use crate::response_debug::ResponseDebugContext;
 use crate::retry::extract_retry_after_ms;
 use crate::{build_request, get_api_key, shared_client};
 use async_trait::async_trait;
@@ -263,20 +264,21 @@ impl OpenAiProvider {
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
 
+            let debug = ResponseDebugContext::from_response_headers(&headers);
             return Err(match status.as_u16() {
-                401 | 403 => ProviderError::auth(format!(
+                401 | 403 => ProviderError::auth(debug.format_error_message(&format!(
                     "Authentication failed. Check your OPENAI_API_KEY env var. {}",
                     text
-                )),
-                404 => ProviderError::InvalidModel(text.clone()),
+                ))),
+                404 => ProviderError::InvalidModel(debug.format_error_message(&text)),
                 429 => ProviderError::RateLimited {
                     retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
                 },
-                502..=504 => ProviderError::Network(format!(
+                502..=504 => ProviderError::Network(debug.format_error_message(&format!(
                     "OpenAI service temporarily unavailable ({}). Please retry in a few seconds.",
                     text
-                )),
-                _ => ProviderError::api(format!("{}: {}", status, text)),
+                ))),
+                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text))),
             });
         }
 
@@ -692,22 +694,22 @@ impl OpenAiProvider {
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
 
+            let debug = ResponseDebugContext::from_response_headers(&headers);
             return Err(match status.as_u16() {
-                401 => ProviderError::auth(format!(
+                401 => ProviderError::auth(debug.format_error_message(&format!(
                     "Authentication failed. Check your OPENAI_API_KEY env var. {}",
                     text
-                )),
-                404 => ProviderError::InvalidModel(format!("model not found: {}", text)),
+                ))),
+                404 => ProviderError::InvalidModel(debug.format_error_message(&format!("model not found: {}", text))),
                 429 => ProviderError::RateLimited {
                     retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
                 },
                 500..=599 => {
-                    ProviderError::network(format!("OpenAI service error ({}): {}", status, text))
+                    ProviderError::network(debug.format_error_message(&format!("OpenAI service error ({}): {}", status, text)))
                 }
-                _ => ProviderError::api(format!("{}: {}", status, text)),
+                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text))),
             });
         }
-
         let resp: crate::openai_compatible::ResponsesApiResponse = response
             .json()
             .await
@@ -799,23 +801,25 @@ impl OpenAiProvider {
 
         if !response.status().is_success() {
             let status = response.status();
+            let headers = response.headers().clone();
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
 
+            let debug = ResponseDebugContext::from_response_headers(&headers);
             return Err(match status.as_u16() {
-                401 => ProviderError::auth(format!(
+                401 => ProviderError::auth(debug.format_error_message(&format!(
                     "Authentication failed. Check your OPENAI_API_KEY env var. {}",
                     error_text
-                )),
-                404 => ProviderError::InvalidModel(format!("model not found: {}", error_text)),
+                ))),
+                404 => ProviderError::InvalidModel(debug.format_error_message(&format!("model not found: {}", error_text))),
                 429 => ProviderError::RateLimited { retry_delay: None },
-                500..=599 => ProviderError::network(format!(
+                500..=599 => ProviderError::network(debug.format_error_message(&format!(
                     "OpenAI service error ({}): {}",
                     status, error_text
-                )),
-                _ => ProviderError::api(format!("{}: {}", status, error_text)),
+                ))),
+                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, error_text))),
             });
         }
 
@@ -1870,20 +1874,21 @@ impl OpenAiProvider {
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
 
+            let debug = ResponseDebugContext::from_response_headers(&headers);
             return Err(match status.as_u16() {
-                401 | 403 => ProviderError::auth(format!(
+                401 | 403 => ProviderError::auth(debug.format_error_message(&format!(
                     "Authentication failed. Check your OPENAI_API_KEY env var. {}",
                     error_text
-                )),
-                404 => ProviderError::InvalidModel(error_text.clone()),
+                ))),
+                404 => ProviderError::InvalidModel(debug.format_error_message(&error_text)),
                 429 => ProviderError::RateLimited {
                     retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
                 },
-                502..=504 => ProviderError::Network(format!(
+                502..=504 => ProviderError::Network(debug.format_error_message(&format!(
                     "OpenAI service temporarily unavailable ({}). Please retry in a few seconds.",
                     error_text
-                )),
-                _ => ProviderError::api(format!("{}: {}", status, error_text)),
+                ))),
+                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, error_text))),
             });
         }
 

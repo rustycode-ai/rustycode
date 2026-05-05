@@ -1,6 +1,4 @@
 //! Message management utilities
-//!
-//! Handles adding, updating, and managing messages in the conversation.
 
 use crate::ui::message::{Message, MessageRole};
 

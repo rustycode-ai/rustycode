@@ -1,15 +1,4 @@
-//! Slash command handling for the event loop
-//!
-//! Command handlers are organized into modules by category:
-//! - `slash_commands` - Core slash commands (agent, team, plan, etc.)
-//! - `orchestra_commands` - Orchestra (Get Stuff Done) framework commands
-//! - `memory_commands` - Memory management commands
-//! - `provider_commands` - Provider/model configuration
-//! - `lifecycle_commands` - Session lifecycle (clear, quit, save, load)
-//! - `info_commands` - Help, marketplace, skill, mcp, hook, theme, track
-//! - `file_commands` - File operations (undo, diff, extract, rename)
-//! - `task_commands` - Task/todo, review, compact, learnings
-//! - `workers_commands` - Worker and cron management
+//! Slash command dispatch and handler modules.
 
 mod file_commands;
 mod info_commands;
@@ -21,15 +10,30 @@ mod slash_commands;
 mod task_commands;
 mod workers_commands;
 
-pub use file_commands::*;
-pub use info_commands::*;
-pub use lifecycle_commands::*;
-pub use memory_commands::*;
-pub use orchestra_commands::*;
-pub use provider_commands::*;
-pub use slash_commands::*;
-pub use task_commands::*;
-pub use workers_commands::*;
+use file_commands::{handle_diff_command, handle_export_command, handle_undo_command};
+use info_commands::{
+    handle_checkpoint_command, handle_cost_command, handle_hook_command, handle_help_command,
+    handle_lsp_command, handle_mcp_command, handle_marketplace_command, handle_plugin_command,
+    handle_skill_command, handle_skillify_command, handle_stats_command, handle_theme_command,
+    handle_track_command,
+};
+use lifecycle_commands::{
+    handle_extract_command, handle_rename_command, handle_retry_command, handle_load_command,
+    handle_resume_command, handle_save_command, handle_sessions_command, handle_tokens_command,
+};
+use memory_commands::handle_memory_command;
+use orchestra_commands::handle_orchestra_command;
+use provider_commands::{handle_model_command, handle_provider_command};
+use slash_commands::{
+    handle_act_command, handle_agent_command, handle_ask_command, handle_clear_command,
+    handle_copilot_login, handle_harness_command, handle_plan_command, handle_quit_command,
+    handle_team_command, handle_workspace_command, handle_yolo_command,
+};
+use task_commands::{
+    handle_compact_command, handle_learnings_command, handle_review_command,
+    handle_task_todo_command,
+};
+use workers_commands::{handle_cron_command, handle_workers_command};
 
 use crate::agents::AgentManager;
 use crate::app::service_integration::ServiceManager;
@@ -48,7 +52,6 @@ pub struct CommandContext<'a> {
     pub cwd: &'a std::path::Path,
     /// Command sender for async operations
     pub command_tx: std::sync::mpsc::SyncSender<crate::app::async_::SlashCommandResult>,
-    /// Workspace tasks
     pub workspace_tasks: &'a mut WorkspaceTasks,
     /// Messages shown in the TUI
     pub messages: &'a mut Vec<Message>,
@@ -60,9 +63,7 @@ pub struct CommandContext<'a> {
     pub last_extraction: &'a mut Option<(Vec<crate::tasks::Task>, Vec<crate::tasks::Todo>)>,
     /// Service manager for workspace reloads and other async services
     pub services: &'a mut ServiceManager,
-    /// Agent manager
     pub agent_manager: &'a mut AgentManager,
-    /// Memory injection config
     pub memory_injection_config: &'a mut InjectionConfig,
     /// Shared theme colors
     pub theme_colors: &'a Arc<Mutex<crate::theme::ThemeColors>>,
@@ -70,15 +71,12 @@ pub struct CommandContext<'a> {
     pub skill_manager: &'a Arc<RwLock<crate::skills::SkillStateManager>>,
     /// Shared plugin manager
     pub plugin_manager: &'a Arc<RwLock<PluginManager>>,
-    /// Whether the TUI main loop is still running
     pub running: &'a mut bool,
     /// Token compaction context monitor
     pub context_monitor: &'a mut ContextMonitor,
     /// Token compaction configuration
     pub compaction_config: &'a mut CompactionConfig,
-    /// Whether compaction preview is showing
     pub showing_compaction_preview: &'a mut bool,
-    /// Whether compaction is pending
     pub pending_compaction: &'a mut bool,
     /// File undo stack — each entry is a batch of (path, old_content) pairs
     pub file_undo_stack: &'a mut Vec<Vec<(String, String)>>,
@@ -86,7 +84,6 @@ pub struct CommandContext<'a> {
     pub session_input_tokens: usize,
     /// Total session output tokens
     pub session_output_tokens: usize,
-    /// Session cost in USD
     pub session_cost_usd: f64,
     /// Current model name
     pub current_model: String,

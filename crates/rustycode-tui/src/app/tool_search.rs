@@ -1,12 +1,4 @@
 //! Tool Search Tool implementation for dynamic tool discovery.
-//!
-//! This module implements tool search features for both Anthropic and OpenAI:
-//! - Anthropic: <https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-search-tool>
-//! - OpenAI: <https://developers.openai.com/api/docs/guides/tools-tool-search/>
-//!
-//! Tool search allows the model to dynamically search for and load tools into
-//! context as needed, reducing token usage by avoiding loading all tool definitions
-//! upfront.
 
 use regex::Regex;
 use rustycode_prompt::ModelProvider;

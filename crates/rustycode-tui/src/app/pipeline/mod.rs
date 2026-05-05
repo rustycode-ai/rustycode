@@ -3,7 +3,6 @@ pub mod artifact_registry;
 #[cfg(feature = "browser")]
 pub mod browser_manager;
 pub mod executor;
-pub mod guardian;
 pub mod manifest;
 pub mod registry;
 pub mod scheduler;

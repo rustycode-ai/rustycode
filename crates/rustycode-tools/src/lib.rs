@@ -136,6 +136,7 @@ pub mod compaction;
 pub mod config_migration;
 pub mod directory_trust;
 pub mod doom_loop;
+pub mod guardian;
 pub mod edit_format;
 pub mod egress_detector;
 pub mod executable_integration;

@@ -33,16 +33,13 @@ pub type HistoryGetterCallback = Arc<Mutex<Option<Box<dyn Fn() -> Vec<String> + 
 
 /// Plugin API - provides safe access to TUI functionality
 pub struct PluginAPI {
-    /// Plugin name
     pub plugin_name: String,
 
-    /// Configuration
     pub config: PluginConfig,
 
     /// UI control
     pub ui: PluginUI,
 
-    /// Commands
     pub commands: PluginCommands,
 
     /// Context access
@@ -210,7 +207,6 @@ impl PluginUI {
         }
     }
 
-    /// Set the message sender callback
     pub fn set_message_sender(&mut self, sender: Box<dyn Fn(String) + Send>) {
         *self
             .message_sender
@@ -218,12 +214,10 @@ impl PluginUI {
             .unwrap_or_else(|e| e.into_inner()) = Some(sender);
     }
 
-    /// Set the input getter callback
     pub fn set_input_getter(&mut self, getter: Box<dyn Fn() -> String + Send>) {
         *self.input_getter.lock().unwrap_or_else(|e| e.into_inner()) = Some(getter);
     }
 
-    /// Set the input setter callback
     pub fn set_input_setter(&mut self, setter: Box<dyn Fn(String) + Send>) {
         *self.input_setter.lock().unwrap_or_else(|e| e.into_inner()) = Some(setter);
     }

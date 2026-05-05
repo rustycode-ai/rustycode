@@ -81,7 +81,6 @@ pub struct MetaToolParameter {
     /// Parameter type
     pub param_type: String,
 
-    /// Description
     pub description: String,
 
     /// Default value (optional)

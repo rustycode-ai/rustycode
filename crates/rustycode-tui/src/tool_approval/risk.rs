@@ -1,8 +1,4 @@
 //! Tool Risk Classification
-//!
-//! Risk-based classification system for tool execution approval.
-//! Enhanced with SmartApprove from rustycode-tools for fine-grained
-//! bash command analysis.
 
 /// Tool risk level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -153,7 +149,6 @@ pub fn risk_level_description(risk: RiskLevel) -> &'static str {
     }
 }
 
-/// Check if tool should be auto-approved
 pub fn should_auto_approve(tool_type: &ToolType, command: &str) -> bool {
     let risk = classify_tool_risk(tool_type, command);
     // Only automatically approve safe (read-only) operations.

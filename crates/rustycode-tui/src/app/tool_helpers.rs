@@ -5,7 +5,6 @@ use rustycode_protocol::ToolResult;
 
 pub const MAX_TOOL_ITERATIONS: u32 = 3;
 
-/// Check if a shell command should be auto-executed.
 pub fn should_auto_execute(command: &str) -> bool {
     let safe_prefixes = [
         "git add",

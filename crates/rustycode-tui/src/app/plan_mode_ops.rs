@@ -156,7 +156,6 @@ impl TUI {
         }));
     }
 
-    /// Whether the TUI is currently displaying a banner awaiting approval.
     pub(crate) fn is_awaiting_approval(&self) -> bool {
         matches!(
             self.plan_mode_banner,

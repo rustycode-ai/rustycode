@@ -1,7 +1,4 @@
 //! Search functionality for messages and providers
-//!
-//! This module provides search capabilities that can be reused across
-//! different UI implementations.
 #![allow(dead_code)]
 
 /// Search state for message search
@@ -34,12 +31,10 @@ impl MessageSearchState {
         self.current_match = 0;
     }
 
-    /// Check if search is active
     pub fn is_active(&self) -> bool {
         self.is_active
     }
 
-    /// Check if there are any matches
     pub fn has_matches(&self) -> bool {
         !self.matches.is_empty()
     }
@@ -92,7 +87,6 @@ impl MessageSearchState {
         self.query.pop();
     }
 
-    /// Set the search query
     pub fn set_query(&mut self, query: String) {
         self.query = query;
     }

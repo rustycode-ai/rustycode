@@ -22,7 +22,6 @@ pub struct AssemblyMetrics {
     pub selected_items: usize,
     /// Total tokens available
     pub total_tokens: usize,
-    /// Tokens selected
     pub selected_tokens: usize,
     /// Quality score of assembled context
     pub quality_score: f64,

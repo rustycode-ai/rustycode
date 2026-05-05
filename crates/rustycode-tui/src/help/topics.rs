@@ -1,6 +1,4 @@
 //! Help topics for the TUI help system
-//!
-//! Comprehensive documentation of all features, shortcuts, and commands.
 
 use super::{HelpCategory, HelpTopic};
 

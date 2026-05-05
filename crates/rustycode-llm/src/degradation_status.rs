@@ -223,7 +223,6 @@ pub struct DegradationReport {
     pub recovery_actions: Vec<String>,
     /// Whether recovery succeeded
     pub recovered: bool,
-    /// Timestamp
     pub timestamp: String,
 }
 

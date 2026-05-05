@@ -52,7 +52,6 @@ pub struct MemoryEntry {
     pub accessed_at: DateTime<Utc>,
     /// Expiration timestamp
     pub expires_at: Option<DateTime<Utc>>,
-    /// Access count
     pub access_count: u64,
     /// Memory level
     pub level: MemoryLevel,
@@ -77,17 +76,13 @@ pub enum MemoryLevel {
 /// Memory statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryStats {
-    /// Total entries
     pub total_entries: usize,
-    /// Entries by level
     pub entries_by_level: HashMap<String, usize>,
     /// Total memory usage in bytes
     pub total_memory_bytes: u64,
-    /// Cache hit rate
     pub cache_hit_rate: f64,
     /// Average access time in microseconds
     pub avg_access_time_us: f64,
-    /// Eviction count
     pub eviction_count: u64,
 }
 
@@ -100,7 +95,6 @@ pub struct MemoryQuery {
     pub tags: Vec<String>,
     /// Memory level filter
     pub level: Option<MemoryLevel>,
-    /// Time range
     pub time_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
     /// Maximum results
     pub limit: usize,

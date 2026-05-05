@@ -31,7 +31,6 @@ impl BrowserManager {
         }
     }
 
-    /// Get the active browser page, launching a new one if needed.
     pub async fn get_page(&self) -> Result<Page> {
         if let Some(page) = self.page.lock().await.clone() {
             if page.evaluate("1").await.is_ok() {

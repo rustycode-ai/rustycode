@@ -1,7 +1,4 @@
 //! Responsive Event Loop
-//!
-//! Coordinates all UI components via one-item-per-frame processing.
-//! Guarantees <50ms input latency and 60 FPS (16ms frame budget).
 
 use crate::agent_mode::AiMode;
 use crate::agents::AgentManager;
@@ -21,7 +18,7 @@ use crate::config::load_config;
 use crate::config::TUIConfig;
 use crate::conversation_service::ConversationConfig;
 use crate::help::HelpState;
-use crate::memory_auto::ThreadSafeAutoMemory;
+use crate::memory::memory_auto::ThreadSafeAutoMemory;
 use crate::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
 use crate::plugin::PluginManagerUI;
@@ -115,7 +112,6 @@ pub struct TUI {
     pub(crate) input_handler: InputHandler,
     pub(crate) animator: Animator,
     pub(crate) event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
-    #[allow(dead_code)] // Wired to UI in future milestone
     pub(crate) marketplace_browser: crate::ui::marketplace_browser::MarketplaceBrowser,
 
     // Service Manager (background tasks)
@@ -153,11 +149,8 @@ pub struct TUI {
     pub(crate) workspace_tasks: WorkspaceTasks,
     pub(crate) pipeline: crate::app::pipeline::registry::PipelineRegistry,
     pub(crate) pipeline_ctx: crate::app::pipeline::registry::PipelineContext,
-    pub(crate) pipeline_guardian: crate::app::pipeline::guardian::PipelineGuardian,
     // Pipeline cron scheduler (std::sync::mpsc channels, NOT tokio)
     pub(crate) scheduler_rx: Option<mpsc::Receiver<crate::app::pipeline::ScheduledPhaseEvent>>,
-    #[allow(dead_code)]
-    pub(crate) scheduler_tx: Option<mpsc::Sender<crate::app::pipeline::ScheduledPhaseEvent>>,
     pub(crate) active_scheduled_phases: std::collections::HashSet<String>,
     pub(crate) max_concurrent_phases: usize,
     pub(crate) last_extraction: Option<(Vec<crate::tasks::Task>, Vec<crate::tasks::Todo>)>,
@@ -166,6 +159,8 @@ pub struct TUI {
 
     // Rate limit handler
     pub(crate) rate_limit: RateLimitHandler,
+    // Rate limit status tracker (from response headers)
+    pub(crate) rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker,
 
     // Auto-continue mode - automatically continue working on pending tasks
     pub(crate) auto_continue: AutoContinueState,
@@ -316,13 +311,7 @@ pub struct TUI {
     // Active frame renderer backend
     pub(crate) renderer_mode: RendererMode,
 
-    /// Session-long MCP proxy cache - owns live MCP connections for loaded tools
-    #[deprecated(note = "Use self.tool_manager.mcp_proxies() instead")]
-    pub(crate) mcp_proxies: Option<
-        Arc<
-            tokio::sync::RwLock<std::collections::HashMap<String, rustycode_mcp::proxy::ToolProxy>>,
-        >,
-    >,
+
     /// Shared todo state for LLM todo tools (todo_read, todo_write, todo_update)
     pub(crate) todo_state: rustycode_tools::todo::TodoState,
 
@@ -429,7 +418,7 @@ impl TUI {
     }
 
     /// Create a new TUI instance with service integration
-    #[allow(clippy::await_holding_lock, deprecated)]
+    #[allow(clippy::await_holding_lock)]
     pub fn new(
         cwd: PathBuf,
         ai_mode: AiMode,
@@ -437,6 +426,15 @@ impl TUI {
         event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
     ) -> Result<Self> {
         let services = ServiceManager::new(cwd.clone(), ai_mode);
+
+        // Create hook manager early so we can share with services
+        let hook_manager = rustycode_tools::hooks::HookManager::new(
+            PathBuf::from(".rustycode/hooks"),
+            rustycode_tools::hooks::HookProfile::Standard,
+            String::new(),
+        );
+        let mut services = services;
+        services.set_hook_manager(hook_manager.clone());
 
         // Load TUI configuration
         let tui_config = load_config();
@@ -557,10 +555,6 @@ impl TUI {
             let reg = p.tool_registry.clone();
 
             p.register_factory(
-                "rustycode::steps::DataGateStep",
-                Box::new(crate::app::pipeline::steps::data_gate_factory::DataGateFactory),
-            );
-            p.register_factory(
                 "rustycode::steps::AgentStep",
                 Box::new(crate::app::pipeline::steps::agent_factory::AgentStepFactory),
             );
@@ -617,15 +611,14 @@ impl TUI {
                     agent_tool_registry,
                 )
             },
-            pipeline_guardian: crate::app::pipeline::guardian::PipelineGuardian::new(),
             scheduler_rx: None,
-            scheduler_tx: None,
             active_scheduled_phases: std::collections::HashSet::new(),
             max_concurrent_phases: 3,
             last_extraction: None,
             workspace_scan_progress: None,
             git_branch: None,
             rate_limit: RateLimitHandler::new(),
+            rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
             auto_continue: AutoContinueState::from_env(),
             turn_snapshot: None,
             doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
@@ -702,9 +695,7 @@ impl TUI {
             tui_config,
             // Brutalist mode from config (new distinctive look)
             renderer_mode,
-            // MCP proxy cache (initialized in init_services)
-            #[allow(deprecated)]
-            mcp_proxies: None,
+            // MCP proxy cache (managed by tool_manager)
             todo_state: rustycode_tools::todo::new_todo_state(),
             tool_manager: crate::services::tool_manager::ToolManager::new(),
             session_manager: crate::services::session_manager::SessionManager::new(
@@ -725,11 +716,7 @@ impl TUI {
             awaiting_clarification: false,
             // Session token usage and cost tracking
             token_budget: crate::app::token_budget::TokenBudget::new(),
-            hook_manager: rustycode_tools::hooks::HookManager::new(
-                PathBuf::from(".rustycode/hooks"),
-                rustycode_tools::hooks::HookProfile::Standard,
-                String::new(),
-            ),
+            hook_manager,
             plan_mode: {
                 use rustycode_orchestration::plan_mode::{PlanMode, PlanModeConfig};
                 use rustycode_protocol::AgentRole;
@@ -749,7 +736,6 @@ impl TUI {
     }
 
     #[cfg(test)]
-    #[allow(deprecated)]
     /// Create a TUI instance for testing (minimal setup)
     pub fn new_for_test() -> Self {
         use std::path::PathBuf;
@@ -841,10 +827,6 @@ impl TUI {
                 }
 
                 p.register_factory(
-                    "rustycode::steps::DataGateStep",
-                    Box::new(crate::app::pipeline::steps::data_gate_factory::DataGateFactory),
-                );
-                p.register_factory(
                     "rustycode::steps::AgentStep",
                     Box::new(crate::app::pipeline::steps::agent_factory::AgentStepFactory),
                 );
@@ -872,15 +854,14 @@ impl TUI {
                     crate::app::pipeline::tool_registry::ToolRegistry::new(),
                 )
             },
-            pipeline_guardian: crate::app::pipeline::guardian::PipelineGuardian::new(),
             scheduler_rx: None,
-            scheduler_tx: None,
             active_scheduled_phases: std::collections::HashSet::new(),
             max_concurrent_phases: 3,
             last_extraction: None,
             workspace_scan_progress: None,
             git_branch: None,
             rate_limit: RateLimitHandler::new(),
+            rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
             auto_continue: AutoContinueState::from_env(),
             turn_snapshot: None,
             doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
@@ -948,7 +929,6 @@ impl TUI {
             search_state: SearchState::new(),
             tag_filter: TagFilter::new(),
             renderer_mode,
-            mcp_proxies: None,
             todo_state: rustycode_tools::todo::new_todo_state(),
             tool_manager: crate::services::tool_manager::ToolManager::new(),
             session_manager: crate::services::session_manager::SessionManager::new(None),
@@ -1229,90 +1209,6 @@ impl TUI {
     /// Load tools from configured MCP servers
     fn load_mcp_tools(&mut self, tool_registry: &mut ToolRegistry) {
         self.tool_manager.load_mcp_tools(tool_registry);
-        #[allow(deprecated)]
-        {
-            self.mcp_proxies = self.tool_manager.mcp_proxies().clone();
-        }
-    }
-
-    /// Check for tmux compatibility and add warning messages if needed
-    #[allow(dead_code)]
-    pub(crate) fn check_tmux_compatibility(&mut self) {
-        if std::env::var("TMUX").is_err() {
-            return;
-        }
-
-        use std::process::Command;
-
-        // Check escape-time
-        let escape_time = Command::new("tmux")
-            .args(["show-options", "-gv", "escape-time"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .and_then(|s| s.trim().parse::<u32>().ok());
-
-        if let Some(et) = escape_time {
-            if et > 50 {
-                self.add_system_message(format!(
-                    "⚠️ High tmux escape-time detected ({}ms). ESC key may feel sluggish. Recommend: set -sg escape-time 0",
-                    et
-                ));
-            }
-        }
-
-        // tmux mouse mode detection
-        if std::env::var("TMUX").is_ok() {
-            // We're inside tmux — check current mouse mode setting
-            let mouse_enabled = Command::new("tmux")
-                .args(["show-options", "-gv", "mouse"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8(o.stdout).ok())
-                .map(|s| s.trim().starts_with("on"))
-                .unwrap_or(false);
-
-            if !mouse_enabled {
-                // Try to auto-enable mouse mode
-                let enabled = Command::new("tmux")
-                    .args(["set", "-g", "mouse", "on"])
-                    .status()
-                    .map(|s| s.success())
-                    .unwrap_or(false);
-
-                if enabled {
-                    tracing::info!("tmux mouse mode auto-enabled");
-                } else {
-                    self.add_system_message(
-                        "⚠️ Mouse scroll may not work. Run: tmux set -g mouse on".to_string(),
-                    );
-                    tracing::warn!("Failed to auto-enable tmux mouse mode");
-                }
-            }
-        }
-
-        // Check focus-events
-        let focus_events = Command::new("tmux")
-            .args(["show-options", "-gv", "focus-events"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim() == "on");
-
-        if let Some(false) = focus_events {
-            self.add_system_message(
-                "⚠️ Tmux focus-events is off. TUI may not detect when you switch windows. Recommend: set -g focus-events on"
-                    .to_string(),
-            );
-        }
-
-        // Check for Ctrl+B clash
-        self.add_system_message(
-            "💡 Inside tmux: Use Ctrl+L as an alternative to Ctrl+B for toggling the sidebar."
-                .to_string(),
-        );
-
-        self.dirty = true;
     }
 
     /// Run the TUI main loop
@@ -1536,10 +1432,7 @@ impl TUI {
                     );
                 }
             }
-            let pipeline_monitor_start = Instant::now();
-            self.pipeline_guardian
-                .monitor(&self.pipeline, &self.pipeline_ctx)?;
-            let pipeline_monitor_elapsed = pipeline_monitor_start.elapsed();
+            let pipeline_monitor_elapsed = Duration::ZERO;
             let service_poll_elapsed = service_poll_start.elapsed();
 
             // Phase 2.5: Update countdowns (rate limit, agents, etc.)

@@ -119,10 +119,8 @@ pub struct TokenUsage {
     /// Total output tokens
     pub output_tokens: u64,
 
-    /// Cache creation tokens
     pub cache_creation_tokens: u64,
 
-    /// Cache read tokens
     pub cache_read_tokens: u64,
 
     /// Total tokens (input + output)
@@ -248,7 +246,6 @@ pub struct ConversationMetadata {
     /// Task being worked on
     pub task: Option<String>,
 
-    /// Success criteria
     pub success_criteria: Option<String>,
 
     /// Files that have been created or modified

@@ -34,10 +34,8 @@ pub struct AdvancedOrchestrator {
     /// Orchestrator configuration
     config: AdvancedOrchestratorConfig,
 
-    /// Session state
     session_state: Arc<RwLock<SessionState>>,
 
-    /// Result cache
     result_cache: Arc<RwLock<ResultCache>>,
 
     /// Semaphore for limiting parallel agent execution
@@ -50,7 +48,6 @@ pub struct AdvancedOrchestratorConfig {
     /// Enable team coordination
     pub enable_teams: bool,
 
-    /// Enable shared memory
     pub enable_shared_memory: bool,
 
     /// Enable result caching
@@ -65,7 +62,6 @@ pub struct AdvancedOrchestratorConfig {
     /// Cache expiry (seconds)
     pub cache_expiry_seconds: u64,
 
-    /// Enable parallel execution
     pub enable_parallel_execution: bool,
 
     /// Task similarity threshold for caching (0.0 - 1.0)
@@ -90,31 +86,22 @@ impl Default for AdvancedOrchestratorConfig {
 /// Session state with enhanced tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionState {
-    /// Session ID
     pub session_id: String,
 
-    /// Start time
     pub start_time: chrono::DateTime<Utc>,
 
-    /// Tasks completed
     pub tasks_completed: usize,
 
-    /// Active teams
     pub active_teams: Vec<String>,
 
-    /// Agent participation
     pub agent_participation: HashMap<String, usize>,
 
-    /// Coordination events
     pub coordination_events: usize,
 
-    /// Cache hits
     pub cache_hits: usize,
 
-    /// Cache misses
     pub cache_misses: usize,
 
-    /// Parallel executions
     pub parallel_executions: usize,
 }
 
@@ -148,13 +135,11 @@ struct CachedAnalysisResult {
 /// Advanced orchestrated analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AdvancedOrchestratedAnalysis {
-    /// Analysis ID
     pub analysis_id: String,
 
     /// Task description
     pub task: String,
 
-    /// Participating agents
     pub participating_agents: Vec<String>,
 
     /// Ensembles involved
@@ -163,7 +148,6 @@ pub struct AdvancedOrchestratedAnalysis {
     /// Shared memory entries created
     pub memory_entries: Vec<String>,
 
-    /// Messages exchanged
     pub messages_exchanged: usize,
 
     /// Final conclusion
@@ -175,10 +159,8 @@ pub struct AdvancedOrchestratedAnalysis {
     /// Execution time (milliseconds)
     pub execution_time_ms: u64,
 
-    /// Recommendations
     pub recommendations: Vec<String>,
 
-    /// Cache hit
     pub cache_hit: bool,
 
     /// Parallel execution used

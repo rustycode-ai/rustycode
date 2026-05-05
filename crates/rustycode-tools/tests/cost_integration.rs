@@ -47,13 +47,27 @@ fn test_save_and_list_api_calls() {
 }
 
 #[test]
-#[ignore] // TODO: mock cost_tracker to avoid circular dep
 fn test_cost_tracker_in_memory() {
-    todo!("depends on rustycode_llm");
+    use rustycode_tool_integration::cost::CostTracker;
+
+    let mut tracker = CostTracker::unlimited();
+    tracker
+        .record_tokens("claude-sonnet-4", 1000, 500, Some("test".to_string()))
+        .unwrap();
+
+    assert_eq!(tracker.calls_count(), 1);
+    assert!(tracker.total_cost() > 0.0);
+    let summary = tracker.session_summary();
+    assert_eq!(summary.calls_count, 1);
+    assert!(summary.by_model.contains_key("claude-sonnet-4"));
 }
 
 #[test]
-#[ignore] // TODO: mock cost_tracker to avoid circular dep
 fn test_budget_enforcement() {
-    todo!("depends on rustycode_llm");
+    use rustycode_tool_integration::cost::CostTracker;
+
+    let mut tracker = CostTracker::with_budget(0.01);
+    // Cost for 10M tokens will exceed $0.01
+    let result = tracker.record_tokens("claude-sonnet-4", 10_000_000, 0, None);
+    assert!(result.is_err());
 }

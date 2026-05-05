@@ -15,15 +15,12 @@ pub struct HistoryManager {
     history: Vec<String>,
     /// Current position in history (0 = not browsing, 1 = most recent, etc.)
     history_pos: usize,
-    /// Whether we're currently browsing history
     browsing_history: bool,
     /// Temporary storage for unsaved input when browsing history
     pending_input: String,
     /// Reverse search mode
     in_reverse_search: bool,
-    /// Current reverse search query
     reverse_search_query: String,
-    /// Matches for current reverse search
     pub reverse_search_matches: Vec<String>,
     /// Current position in reverse search matches
     pub reverse_search_index: usize,
@@ -73,7 +70,6 @@ impl HistoryManager {
         &self.history
     }
 
-    /// Check if currently browsing history
     pub fn is_browsing_history(&self) -> bool {
         self.browsing_history
     }
@@ -177,7 +173,6 @@ impl HistoryManager {
         }
     }
 
-    /// Check if currently in reverse search mode
     pub fn is_in_reverse_search(&self) -> bool {
         self.in_reverse_search
     }

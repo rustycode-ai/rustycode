@@ -1,8 +1,4 @@
 //! Built-in agent definitions with `when_to_use` descriptions.
-//!
-//! Following Claude Code's prompt-driven auto-activation pattern: each agent
-//! declares what it's for via a `when_to_use` string. The LLM reads these
-//! descriptions and auto-selects the right agent based on user intent.
 
 /// A built-in agent definition.
 pub struct AgentDefinition {

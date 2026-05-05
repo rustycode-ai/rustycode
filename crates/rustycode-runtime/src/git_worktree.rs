@@ -44,11 +44,9 @@ pub struct Worktree {
     pub commit: String,
     /// Worktree status
     pub status: WorktreeStatus,
-    /// Created at
     pub created_at: DateTime<Utc>,
     /// Last accessed at
     pub accessed_at: DateTime<Utc>,
-    /// Worktree type
     pub worktree_type: WorktreeType,
     /// Whether it's tracked by git
     pub is_tracked: bool,

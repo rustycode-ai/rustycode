@@ -149,7 +149,6 @@ pub struct AgentTask {
     pub id: AgentId,
     /// Agent role
     pub role: AgentRole,
-    /// Current status
     pub status: AgentStatus,
     /// Task description
     pub task: String,
@@ -163,9 +162,7 @@ pub struct AgentTask {
     pub error: Option<String>,
     /// Timeout in seconds
     pub timeout_secs: u64,
-    /// Retry count
     pub retry_count: u32,
-    /// Max retries
     pub max_retries: u32,
     /// Cancellation flag
     cancelled: Arc<AtomicBool>,

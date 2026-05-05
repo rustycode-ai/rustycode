@@ -14,7 +14,6 @@ pub struct ReasoningMetrics {
     pub is_stagnant: bool,
     /// Number of contradictions detected
     pub contradiction_count: usize,
-    /// Whether confidence is declining
     pub declining_confidence: bool,
     /// Suggested strategy to try next
     pub suggested_strategy: Option<String>,

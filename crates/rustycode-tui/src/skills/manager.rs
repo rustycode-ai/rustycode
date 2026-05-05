@@ -1,7 +1,4 @@
 //! Skill state manager
-//!
-//! Manages the runtime state of skills, including active skills, status tracking,
-//! and execution lifecycle.
 
 use super::loader::Skill as BaseSkill;
 use serde::{Deserialize, Serialize};
@@ -41,7 +38,6 @@ pub enum SkillStatus {
 pub struct SkillState {
     /// Base skill metadata
     pub base: BaseSkill,
-    /// Current status
     pub status: SkillStatus,
     /// Whether auto-triggering is enabled
     pub auto_enabled: bool,
@@ -49,9 +45,7 @@ pub struct SkillState {
     pub triggers: Vec<TriggerCondition>,
     /// Last run timestamp
     pub last_run: Option<Instant>,
-    /// Run count
     pub run_count: usize,
-    /// Error count
     pub error_count: usize,
 }
 
@@ -69,7 +63,6 @@ impl SkillState {
         }
     }
 
-    /// Check if skill should trigger on the given condition
     pub fn should_trigger(&self, condition: &TriggerCondition) -> bool {
         self.auto_enabled && self.triggers.contains(condition)
     }

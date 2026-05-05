@@ -22,7 +22,6 @@ pub struct OptimizationMetrics {
     pub total_input_tokens: usize,
     /// Input tokens after summarization.
     pub summarized_input_tokens: usize,
-    /// Tokens saved by summarization.
     pub tokens_saved_by_summarization: usize,
     /// Tokens served from cache (no re-computation).
     pub cache_hit_tokens: usize,

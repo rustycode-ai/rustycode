@@ -1,11 +1,4 @@
 //! Unified workspace progress snapshot and renderer.
-//!
-//! This module collects the state that users typically want to scan in one place:
-//! - tasks and todos
-//! - active agent progress
-//! - MCP server configuration
-//! - harness task progress
-//! - Orchestra project state, when present
 
 use crate::agents::{AgentStatus, AgentTask};
 use crate::tasks::{TaskStatus, Todo, WorkspaceTasks};

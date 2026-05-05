@@ -57,10 +57,8 @@ pub struct NegotiationPosition {
     /// Dependencies on other agents
     pub dependencies: Vec<String>,
 
-    /// Resource requirements
     pub resource_requirements: ResourceRequirements,
 
-    /// Timestamp
     pub timestamp: DateTime<Utc>,
 }
 
@@ -146,7 +144,6 @@ pub struct NegotiationSession {
     /// Participating agents
     pub participants: Vec<String>,
 
-    /// Current round
     pub current_round: u32,
 
     /// Maximum rounds
@@ -155,13 +152,11 @@ pub struct NegotiationSession {
     /// Protocol being used
     pub protocol: NegotiationProtocol,
 
-    /// Current state
     pub state: NegotiationState,
 
     /// Messages exchanged
     pub messages: Vec<NegotiationMessage>,
 
-    /// Current proposals
     pub proposals: HashMap<String, NegotiationPosition>,
 
     /// Start time
@@ -200,7 +195,6 @@ pub enum NegotiationState {
 /// Negotiation outcome
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NegotiationOutcome {
-    /// Type of outcome
     pub outcome_type: NegotiationOutcomeType,
 
     /// Final agreement (if reached)

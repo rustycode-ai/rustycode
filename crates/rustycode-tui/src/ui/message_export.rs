@@ -13,13 +13,10 @@ use std::path::PathBuf;
 /// Options for conversation export
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExportOptions {
-    /// Include tool execution outputs
     pub include_tools: bool,
-    /// Include thinking spans
     pub include_thinking: bool,
-    /// Include message timestamps
     pub include_timestamps: bool,
-    /// Include message metadata (model, tokens, cost)
+    /// Include model, tokens, cost per message.
     pub include_metadata: bool,
 }
 
@@ -40,11 +37,8 @@ impl Default for ExportOptions {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum ExportFormat {
-    /// Markdown format
     Markdown,
-    /// JSON format
     Json,
-    /// Plain text format
     PlainText,
 }
 

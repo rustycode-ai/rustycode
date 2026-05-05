@@ -1,7 +1,4 @@
 //! Marketplace client for fetching and searching items
-//!
-//! Provides functions to fetch the marketplace index from remote sources
-//! or use built-in index, and search functionality.
 
 use super::index::{ItemType, MarketplaceItem};
 use anyhow::{Context, Result};
@@ -26,7 +23,6 @@ pub struct RegistryConfig {
     pub registry_url: String,
     /// Whether to use the remote registry
     pub use_remote: bool,
-    /// Cache TTL
     pub cache_ttl: Duration,
     /// Force refresh (bypass cache)
     pub force_refresh: bool,
@@ -79,7 +75,6 @@ struct RegistryCache {
 }
 
 impl RegistryCache {
-    /// Check if the cache is still valid
     fn is_valid(&self, ttl: Duration) -> bool {
         let age: chrono::Duration = chrono::Utc::now() - self.cached_at;
         let age_duration: Duration = age.to_std().unwrap_or(Duration::ZERO);
@@ -231,7 +226,6 @@ fn save_cache(path: &PathBuf, items: &[MarketplaceItem]) -> Result<()> {
     Ok(())
 }
 
-/// Get the cache file path
 fn get_cache_path() -> Result<PathBuf> {
     let cache_dir = dirs::cache_dir()
         .or_else(|| dirs::home_dir().map(|h| h.join(".cache")))

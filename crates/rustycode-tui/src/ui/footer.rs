@@ -1,7 +1,4 @@
 //! Polished Footer Component
-//!
-//! Single-row footer displaying session info, task summary, and model info.
-//! Following the redesigned TUI spec for clean, reference-style information display.
 
 use ratatui::{
     layout::Rect,

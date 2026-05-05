@@ -1,9 +1,4 @@
 //! Skillify slash command — create a new skill from conversation context
-//!
-//! Usage: `/skillify <name> [description]`
-//!
-//! Creates a SKILL.md file with proper frontmatter in either the project-level
-//! `.rustycode/skills/` directory or the user-level `~/.rustycode/skills/` directory.
 
 use rustycode_skill::bundled::{write_skill_to_dir, SkillifyBuilder};
 use std::path::Path;

@@ -457,7 +457,6 @@ pub struct BashOutput {
     pub stdout: String,
     /// Standard error
     pub stderr: String,
-    /// Exit code
     pub exit_code: i32,
     /// Whether the command timed out
     pub timed_out: bool,
@@ -689,7 +688,6 @@ pub struct GlobInput {
 pub struct GlobMatch {
     /// File path
     pub path: PathBuf,
-    /// File type
     pub file_type: String,
 }
 

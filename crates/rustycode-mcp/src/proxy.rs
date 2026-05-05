@@ -14,7 +14,6 @@ use tokio::sync::RwLock;
 /// Proxy configuration
 #[derive(Debug, Clone)]
 pub struct ProxyConfig {
-    /// Server name
     pub server_name: String,
     /// Command to spawn
     pub command: String,

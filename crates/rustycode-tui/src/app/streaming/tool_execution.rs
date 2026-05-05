@@ -1,7 +1,4 @@
 //! Tool execution for LLM streaming
-//!
-//! This module handles the execution of tools detected during LLM streaming,
-//! including timeout handling, caching, and error tracking.
 
 use std::path::Path;
 use std::sync::{Arc, Mutex as StdMutex};

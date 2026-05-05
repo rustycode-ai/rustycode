@@ -53,7 +53,6 @@ pub enum ToolStatus {
 }
 
 impl ToolStatus {
-    /// Get the icon for this status
     pub fn icon(&self) -> &str {
         match self {
             ToolStatus::Running => "◐",   // Half circle (running)
@@ -63,7 +62,6 @@ impl ToolStatus {
         }
     }
 
-    /// Get the color for this status
     pub fn color(&self) -> Color {
         match self {
             ToolStatus::Running => Color::Rgb(255, 200, 80), // Amber
@@ -185,52 +183,6 @@ impl ToolExecution {
         self.detailed_output = Some("Tool execution was cancelled by user".to_string());
     }
 
-    /// Get the status (compatibility for tests)
-    pub fn status(&self) -> ToolStatus {
-        self.status.clone()
-    }
-
-    /// Update status (compatibility for tests)
-    pub fn update_status(&mut self, status: ToolStatus) {
-        let is_terminal = matches!(
-            status,
-            ToolStatus::Complete | ToolStatus::Failed | ToolStatus::Cancelled
-        );
-        self.status = status;
-        if is_terminal {
-            self.end_time = Some(Utc::now());
-        }
-    }
-
-    /// Append output (compatibility for tests)
-    pub fn append_output(&mut self, output: &str) {
-        if let Some(ref mut detailed) = self.detailed_output {
-            detailed.push_str(output);
-        } else {
-            self.detailed_output = Some(output.to_string());
-        }
-    }
-
-    /// Get output (compatibility for tests)
-    pub fn output(&self) -> &str {
-        self.detailed_output.as_deref().unwrap_or("")
-    }
-
-    /// Get start time (compatibility for tests)
-    pub fn start_time(&self) -> Option<DateTime<Utc>> {
-        Some(self.start_time)
-    }
-
-    /// Get end time (compatibility for tests)
-    pub fn end_time(&self) -> Option<DateTime<Utc>> {
-        self.end_time
-    }
-
-    /// Get duration (compatibility for tests)
-    pub fn duration(&self) -> Option<u64> {
-        self.duration_ms
-    }
-
     /// Get a human-readable duration string
     pub fn duration_string(&self) -> String {
         if let Some(ms) = self.duration_ms {
@@ -278,7 +230,6 @@ impl ToolExecution {
         }
     }
 
-    /// Get the size summary for display
     pub fn size_summary(&self) -> String {
         // Try to extract size from detailed_output
         if let Some(ref output) = self.detailed_output {
@@ -308,7 +259,6 @@ pub struct ImageAttachment {
     pub id: String,
     /// Path to the image file (temp file)
     pub path: PathBuf,
-    /// MIME type
     pub mime_type: String,
     /// Base64-encoded image data for API transmission
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -405,7 +355,6 @@ pub struct Message {
     #[serde(default)]
     pub focused_tool_index: Option<usize>,
 
-    /// Whether the message content itself is collapsed
     #[serde(default)]
     pub collapsed: bool,
 
@@ -430,16 +379,6 @@ impl Message {
             collapsed: false,
             tags: Vec::new(),
         }
-    }
-
-    /// Get the role (compatibility for tests)
-    pub fn role(&self) -> MessageRole {
-        self.role.clone()
-    }
-
-    /// Get the content (compatibility for tests)
-    pub fn content(&self) -> &str {
-        &self.content
     }
 
     /// Create a user message
@@ -481,7 +420,6 @@ impl Message {
         self
     }
 
-    /// Check if this message has images
     pub fn has_images(&self) -> bool {
         self.metadata
             .images
@@ -490,12 +428,10 @@ impl Message {
             .unwrap_or(false)
     }
 
-    /// Get the number of images
     pub fn image_count(&self) -> usize {
         self.metadata.images.as_ref().map(|i| i.len()).unwrap_or(0)
     }
 
-    /// Check if this message has tools
     pub fn has_tools(&self) -> bool {
         self.tool_executions
             .as_ref()
@@ -503,7 +439,6 @@ impl Message {
             .unwrap_or(false)
     }
 
-    /// Check if this message has thinking
     pub fn has_thinking(&self) -> bool {
         self.thinking
             .as_ref()
@@ -511,12 +446,10 @@ impl Message {
             .unwrap_or(false)
     }
 
-    /// Get the number of tools
     pub fn tool_count(&self) -> usize {
         self.tool_executions.as_ref().map(|t| t.len()).unwrap_or(0)
     }
 
-    /// Get the number of completed tools
     pub fn completed_tool_count(&self) -> usize {
         self.tool_executions
             .as_ref()
@@ -528,7 +461,6 @@ impl Message {
             .unwrap_or(0)
     }
 
-    /// Get the number of failed tools
     pub fn failed_tool_count(&self) -> usize {
         self.tool_executions
             .as_ref()
@@ -590,7 +522,6 @@ impl Message {
         }
     }
 
-    /// Get the role label color
     pub fn role_color(&self) -> Color {
         match self.role {
             MessageRole::User => Color::Rgb(255, 105, 180), // Hot pink
@@ -630,7 +561,6 @@ impl Message {
         original_len > 0 && self.tags.len() < original_len
     }
 
-    /// Check if message has a specific tag
     pub fn has_tag(&self, tag_type: &crate::ui::message_tags::TagType) -> bool {
         self.tags.iter().any(|t| &t.tag_type == tag_type)
     }
@@ -645,7 +575,6 @@ impl Message {
         self.tags.clear();
     }
 
-    /// Check if message has any tags
     pub fn has_any_tags(&self) -> bool {
         !self.tags.is_empty()
     }

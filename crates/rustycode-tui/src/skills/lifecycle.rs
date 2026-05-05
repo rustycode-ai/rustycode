@@ -1,8 +1,4 @@
 //! Skill lifecycle state management
-//!
-//! This module defines the comprehensive lifecycle states for skills,
-//! including installation, activation, execution, and error states.
-//! It provides state transition validation and tracking.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -65,12 +61,10 @@ impl SkillLifecycleState {
         }
     }
 
-    /// Check if state allows skill execution
     pub fn can_execute(self) -> bool {
         matches!(self, Self::Installed | Self::Active | Self::Inactive)
     }
 
-    /// Check if state is stable (not transitional)
     pub fn is_stable(self) -> bool {
         matches!(
             self,
@@ -97,7 +91,6 @@ pub struct InstallationMetadata {
     /// Latest available version (if known)
     pub latest_version: Option<String>,
 
-    /// Whether an update is available
     pub update_available: bool,
 
     /// Installation path
@@ -339,7 +332,6 @@ impl SkillLifecycle {
         }
     }
 
-    /// Check if update is available
     pub fn has_update(&self) -> bool {
         self.installation
             .as_ref()
@@ -360,7 +352,6 @@ impl SkillLifecycle {
         }
     }
 
-    /// Check if skill can be updated
     pub fn can_update(&self) -> bool {
         !self.builtin && self.installation.is_some()
     }

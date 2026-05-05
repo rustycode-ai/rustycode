@@ -1,10 +1,4 @@
 //! Marketplace registry management
-//!
-//! Provides advanced registry features including:
-//! - Item verification and validation
-//! - Dependency resolution
-//! - Version conflict detection
-//! - Registry signing and verification (placeholder)
 
 use super::index::{ItemType, MarketplaceItem};
 use anyhow::Result;
@@ -48,7 +42,6 @@ pub struct ResolutionResult {
 }
 
 impl ResolutionResult {
-    /// Check if the resolution is successful
     pub fn is_successful(&self) -> bool {
         self.conflicts.is_empty()
     }
@@ -331,7 +324,6 @@ pub struct RegistryStatistics {
     pub total_downloads: usize,
 }
 
-/// Check if a version string is compatible with a minimum version
 fn is_version_compatible(installed: &str, minimum: &str) -> bool {
     let installed_parts: Vec<u32> = parse_version(installed);
     let minimum_parts: Vec<u32> = parse_version(minimum);

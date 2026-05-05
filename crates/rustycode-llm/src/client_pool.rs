@@ -22,7 +22,6 @@ pub struct ClientPoolConfig {
     pub pool_max_idle: usize,
     /// Connection timeout
     pub connect_timeout: Duration,
-    /// Read timeout
     pub read_timeout: Duration,
     /// Whether to use HTTP/2
     pub http2: bool,

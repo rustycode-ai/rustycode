@@ -1,6 +1,11 @@
+pub mod cost;
 pub mod token_counter;
 pub mod tool_executor;
 
+pub use cost::{
+    BudgetExceeded, BudgetStatus, BudgetWarningLevel, CostSummary, CostTracker, ModelCost,
+    cost_per_million_tokens_io, estimate_cost,
+};
 pub use rustycode_protocol::tool::{ApiCall, CostTrackerProvider};
 pub use token_counter::{TokenCounter, CHARS_PER_TOKEN, MAX_TOKEN_CACHE_SIZE};
 pub use tool_executor::{ToolExecutorApi, ToolInfo};

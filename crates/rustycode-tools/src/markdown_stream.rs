@@ -51,7 +51,6 @@ struct StreamState {
     buffer: String,
     /// Whether we're inside a code block
     in_code_block: bool,
-    /// Language of current code block
     code_block_language: Option<String>,
     /// Backtick count for current code fence
     code_fence_len: usize,

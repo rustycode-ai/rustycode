@@ -50,10 +50,6 @@ impl SessionManager {
         }
     }
 
-    /// Check if session recovery is available.
-    ///
-    /// Returns `true` when a [`SessionRecoveryManager`] is present and session
-    /// persistence is enabled.
     pub fn has_recovery(&self) -> bool {
         self.session_recovery.is_some()
     }

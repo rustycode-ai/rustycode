@@ -29,7 +29,6 @@ pub use load::handle_load_command;
 pub use lsp::handle_lsp_command;
 pub use marketplace::handle_marketplace_command;
 pub use mcp::handle_mcp_command;
-pub use memory::*;
 pub use memory_advanced::handle_memory_command;
 pub use review::handle_review_command;
 pub use save::handle_save_command;

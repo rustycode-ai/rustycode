@@ -22,7 +22,6 @@ pub struct ToolExecutionResult {
     /// The unique ID matching the original tool use request
     pub tool_use_id: String,
     /// Name of the tool that was executed
-    #[allow(dead_code)]
     pub tool_name: String,
     /// The output/result content from the tool execution
     pub result_content: String,

@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use unicode_width::UnicodeWidthStr;
 
-use crate::app::brutalist_helpers::{
+use crate::app::render::brutalist_helpers::{
     count_consecutive, extract_tool_key_param, find_byte, find_byte_pair, find_consecutive,
     format_elapsed_short, format_tokens_compact, shorten_tool_param, tool_type_icon,
 };
@@ -271,7 +271,6 @@ impl<'a> BrutalistRendererBuilder<'a> {
 pub struct BrutalistRenderer<'a> {
     /// Messages to display
     pub messages: &'a [Message],
-    /// Current stream content
     pub current_stream_content: &'a str,
     /// Whether currently streaming
     pub is_streaming: bool,
@@ -281,15 +280,11 @@ pub struct BrutalistRenderer<'a> {
     pub user_scrolled: bool,
     /// Selected message index
     pub selected_message: usize,
-    /// Viewport height
     pub viewport_height: usize,
-    /// Theme colors
     pub theme_colors: Arc<Mutex<ThemeColors>>,
-    /// Agent status
     pub agent_status: &'a str,
     /// Auto-memory status
     pub auto_memory_status: &'a str,
-    /// Current input mode
     pub input_mode: InputMode,
     /// Rate limit until time
     pub rate_limit_until: Option<Instant>,
@@ -297,7 +292,6 @@ pub struct BrutalistRenderer<'a> {
     pub thinking_chunks_received: usize,
     /// Animation frame (for streaming pulse)
     pub animation_frame: usize,
-    /// Current input text
     pub input_text: &'a str,
     /// Context usage tracking (token counts)
     pub context_usage: ContextUsage,

@@ -1,11 +1,8 @@
 //! Memory relevance scoring for automatic injection
-//!
-//! This module provides intelligent scoring of memories against user queries
-//! to determine which memories should be automatically injected into conversations.
 
 #![allow(dead_code)]
 
-use crate::memory_auto::AutoMemory;
+use crate::memory::memory_auto::AutoMemory;
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -86,8 +83,8 @@ impl Default for ScoreCache {
 }
 
 /// Global score cache
-static SCORE_CACHE: once_cell::sync::Lazy<ScoreCache> =
-    once_cell::sync::Lazy::new(ScoreCache::default);
+static SCORE_CACHE: std::sync::LazyLock<ScoreCache> =
+    std::sync::LazyLock::new(ScoreCache::default);
 
 /// Score a memory's relevance to a query
 ///
@@ -197,7 +194,7 @@ pub fn get_relevant_memories(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memory_auto::{AutoMemory, MemoryType};
+    use crate::memory::memory_auto::{AutoMemory, MemoryType};
 
     #[test]
     fn test_exact_keyword_match() {

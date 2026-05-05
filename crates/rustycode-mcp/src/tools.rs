@@ -16,7 +16,6 @@ use tracing::{debug, error, info, warn};
 pub struct ToolCall {
     /// Server to call the tool on
     pub server_id: String,
-    /// Tool name
     pub tool_name: String,
     /// Tool arguments
     pub arguments: Value,
@@ -50,7 +49,6 @@ pub struct ToolExecutionResult {
     pub execution_time_ms: u64,
     /// Server that executed the tool
     pub server_id: String,
-    /// Tool name
     pub tool_name: String,
     /// Whether result was cached
     pub cached: bool,

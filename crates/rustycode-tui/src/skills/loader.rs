@@ -1,6 +1,4 @@
 //! Skill loader from filesystem
-//!
-//! Loads skills from `.claude/skills/` directory and parses `skill.md` files.
 
 use anyhow::{Context, Result};
 use std::fs;

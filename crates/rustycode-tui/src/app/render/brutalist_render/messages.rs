@@ -531,7 +531,7 @@ impl BrutalistRenderer<'_> {
                         if <str as unicode_width::UnicodeWidthStr>::width(*preview_line)
                             > (area.width as usize).saturating_sub(4)
                         {
-                            crate::app::brutalist_helpers::truncate_to_display_width(
+                            crate::app::render::brutalist_helpers::truncate_to_display_width(
                                 preview_line,
                                 (area.width as usize).saturating_sub(5),
                             ) + "…"
@@ -745,7 +745,7 @@ impl BrutalistRenderer<'_> {
                         if <str as unicode_width::UnicodeWidthStr>::width(line)
                             > width.saturating_sub(4)
                         {
-                            crate::app::brutalist_helpers::truncate_to_display_width(
+                            crate::app::render::brutalist_helpers::truncate_to_display_width(
                                 line,
                                 width.saturating_sub(5),
                             ) + "…"
@@ -780,7 +780,7 @@ impl BrutalistRenderer<'_> {
             let display: String = if unicode_width::UnicodeWidthStr::width(content)
                 > 100
             {
-                crate::app::brutalist_helpers::truncate_to_display_width(content, 97) + "..."
+                crate::app::render::brutalist_helpers::truncate_to_display_width(content, 97) + "..."
             } else {
                 content.to_string()
             };
@@ -840,7 +840,7 @@ impl BrutalistRenderer<'_> {
                 let first_line = message.content.lines().next().unwrap_or("");
                 let preview =
                     if <str as unicode_width::UnicodeWidthStr>::width(first_line) > 60 {
-                    crate::app::brutalist_helpers::truncate_to_display_width(first_line, 59) + "…"
+                    crate::app::render::brutalist_helpers::truncate_to_display_width(first_line, 59) + "…"
                 } else {
                     first_line.to_string()
                 };
@@ -1257,7 +1257,7 @@ impl BrutalistRenderer<'_> {
                             )
                                 > 80
                             {
-                                crate::app::brutalist_helpers::truncate_to_display_width(
+                                crate::app::render::brutalist_helpers::truncate_to_display_width(
                                     first_line,
                                     79,
                                 ) + "…"
@@ -1294,7 +1294,7 @@ impl BrutalistRenderer<'_> {
                                 if <str as unicode_width::UnicodeWidthStr>::width(last_line)
                                     > 70
                                 {
-                                crate::app::brutalist_helpers::truncate_to_display_width(
+                                crate::app::render::brutalist_helpers::truncate_to_display_width(
                                     last_line,
                                     69,
                                 ) + "…"
@@ -1601,7 +1601,7 @@ impl BrutalistRenderer<'_> {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::brutalist_renderer::BrutalistRendererBuilder;
+    use crate::app::render::brutalist_renderer::BrutalistRendererBuilder;
     use crate::theme::{Theme, ThemeColors};
     use crate::ui::message::{ExpansionLevel, Message};
     use ratatui::style::Color;

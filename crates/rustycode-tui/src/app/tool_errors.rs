@@ -144,7 +144,6 @@ impl ErrorTracker {
         }
     }
 
-    /// Set the threshold for suggesting alternatives
     pub fn with_threshold(mut self, threshold: usize) -> Self {
         self.suggest_alternative_threshold = threshold;
         self
@@ -157,17 +156,14 @@ impl ErrorTracker {
             .insert(tool_name.to_string(), error_message.to_string());
     }
 
-    /// Get the error count for a tool
     pub fn error_count(&self, tool_name: &str) -> usize {
         *self.error_counts.get(tool_name).unwrap_or(&0)
     }
 
-    /// Get the last error message for a tool
     pub fn last_error(&self, tool_name: &str) -> Option<&String> {
         self.last_errors.get(tool_name)
     }
 
-    /// Check if we should suggest an alternative approach
     pub fn should_suggest_alternative(&self, tool_name: &str) -> bool {
         self.error_count(tool_name) >= self.suggest_alternative_threshold
     }

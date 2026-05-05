@@ -37,7 +37,6 @@ struct AgentDisplay {
 /// Receives `TeamEvent` broadcasts and renders a live agent dashboard.
 #[derive(Clone)]
 pub struct TeamPanel {
-    /// Whether the panel is visible.
     pub visible: bool,
     /// Agent display states keyed by role name.
     agents: Vec<(&'static str, AgentDisplay)>,
@@ -45,15 +44,12 @@ pub struct TeamPanel {
     current_turn: u32,
     /// Maximum turns allowed.
     max_turns: u32,
-    /// Current step.
     current_step: u32,
     /// Builder trust score (0.0–1.0).
     trust: f64,
     /// Task description.
     task: String,
-    /// Whether the task is complete.
     complete: bool,
-    /// Whether the task succeeded.
     success: bool,
     /// Files modified during execution.
     files_modified: Vec<String>,
@@ -92,12 +88,10 @@ impl TeamPanel {
         }
     }
 
-    /// Toggle panel visibility.
     pub fn toggle(&mut self) {
         self.visible = !self.visible;
     }
 
-    /// Set the task description.
     pub fn set_task(&mut self, task: &str) {
         self.task = task.to_string();
     }
@@ -192,7 +186,6 @@ impl TeamPanel {
         }
     }
 
-    /// Reset panel state for a new task.
     pub fn reset(&mut self) {
         for (_, agent) in &mut self.agents {
             agent.state = AgentState::Waiting;
@@ -208,22 +201,18 @@ impl TeamPanel {
         self.files_modified.clear();
     }
 
-    /// Check if the task is complete.
     pub fn is_complete(&self) -> bool {
         self.complete
     }
 
-    /// Check if the task succeeded.
     pub fn is_success(&self) -> bool {
         self.success
     }
 
-    /// Get the list of files modified.
     pub fn files_modified(&self) -> &[String] {
         &self.files_modified
     }
 
-    /// Get the detail text for a specific agent role.
     pub fn agent_detail(&self, role: &str) -> Option<&str> {
         self.agents
             .iter()
@@ -231,7 +220,6 @@ impl TeamPanel {
             .map(|(_, a)| a.detail.as_str())
     }
 
-    /// Get the state of a specific agent role.
     pub fn agent_state(&self, role: &str) -> Option<AgentState> {
         self.agents
             .iter()
@@ -239,7 +227,6 @@ impl TeamPanel {
             .map(|(_, a)| a.state)
     }
 
-    /// Build the panel content lines.
     pub fn build_content(&self) -> Vec<Line<'_>> {
         let mut lines = Vec::new();
 
@@ -475,29 +462,24 @@ impl TeamPanel {
         self.agents.iter().map(|(_, a)| a.activation_count).sum()
     }
 
-    /// Check if any agent is currently active.
     pub fn has_active_agents(&self) -> bool {
         self.agents
             .iter()
             .any(|(_, a)| a.state == AgentState::Active)
     }
 
-    /// Get the current turn number.
     pub fn current_turn(&self) -> u32 {
         self.current_turn
     }
 
-    /// Get the current trust score (0.0-1.0).
     pub fn trust_value(&self) -> f64 {
         self.trust
     }
 
-    /// Get the maximum turns allowed.
     pub fn max_turns(&self) -> u32 {
         self.max_turns
     }
 
-    /// Get the name of the currently active agent, if any.
     pub fn active_agent_name(&self) -> Option<String> {
         self.agents
             .iter()

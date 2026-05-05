@@ -1,9 +1,4 @@
 //! Functional Agent tool backed by `AgentSession`.
-//!
-//! Replaces the stub `SpawnAgentTool` with actual LLM↔tool loop execution.
-//! Each agent type has a `when_to_use` description that the parent LLM reads
-//! to decide which agent to invoke — this is prompt-driven auto-activation,
-//! following Claude Code's pattern.
 
 use anyhow::Result;
 use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};

@@ -126,7 +126,7 @@ impl RewindStore for SqlRewindStore {
 
             result.push(InteractionSnapshot {
                 id: rustycode_session::InteractionId(format!("int_db_{}", rec.id)),
-                index: rec.interaction_number as usize,
+                index: rec.interaction_number.max(0) as usize,
                 timestamp,
                 user_message,
                 assistant_message,

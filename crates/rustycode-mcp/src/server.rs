@@ -22,9 +22,7 @@ struct RegisteredTool {
 /// MCP server configuration
 #[derive(Debug, Clone)]
 pub struct McpServerConfig {
-    /// Server name
     pub server_name: String,
-    /// Server version
     pub server_version: String,
     /// Enable tools capability
     pub enable_tools: bool,

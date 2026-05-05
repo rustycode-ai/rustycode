@@ -1,8 +1,4 @@
 //! Cron-based pipeline scheduler with per-phase timer tasks and channel-based event delivery.
-//!
-//! Spawns one `std::thread` per scheduled phase. Each thread sleeps until the next cron fire
-//! time and then sends a [`ScheduledPhaseEvent`] through a `std::sync::mpsc` channel that
-//! the synchronous TUI event loop consumes.
 
 use super::manifest::Manifest;
 use anyhow::{anyhow, Context, Result};

@@ -38,7 +38,6 @@ impl TrialEvent {
 pub struct HookContext {
     /// Name of the task being trialed.
     pub task_name: String,
-    /// Name of the agent.
     pub agent_name: String,
     /// Current attempt number (1-based).
     pub attempt: usize,

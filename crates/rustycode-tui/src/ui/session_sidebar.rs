@@ -1,12 +1,4 @@
 //! Session Sidebar Component
-//!
-//! Provides a collapsible sidebar showing session information including:
-//! - Multi-session list with switching capability
-//! - Session info (duration, message count)
-//! - Active tool executions
-//! - Workspace context
-//! - Rate limit status
-//! - Conflict detection for multi-session mode
 
 use lsp_types::DiagnosticSeverity;
 use ratatui::{
@@ -29,7 +21,6 @@ pub struct SessionInfo {
     pub title: Option<String>,
     /// Session start time
     pub start_time: Instant,
-    /// Message count
     pub message_count: usize,
     /// Active tools count
     pub active_tools: usize,
@@ -68,7 +59,6 @@ pub enum RecoveryAction {
 }
 
 impl RecoveryAction {
-    /// Get the label for this action
     pub fn label(&self) -> &str {
         match self {
             RecoveryAction::Recover => "Recover",
@@ -77,7 +67,6 @@ impl RecoveryAction {
         }
     }
 
-    /// Get the icon for this action
     pub fn icon(&self) -> &str {
         match self {
             RecoveryAction::Recover => "↺",
@@ -86,7 +75,6 @@ impl RecoveryAction {
         }
     }
 
-    /// Get the color for this action
     pub fn color(&self) -> Color {
         match self {
             RecoveryAction::Recover => Color::Green,
@@ -97,7 +85,6 @@ impl RecoveryAction {
 }
 
 impl SessionState {
-    /// Get the icon for this state
     pub fn icon(&self) -> &str {
         match self {
             SessionState::Active => "●",
@@ -106,7 +93,6 @@ impl SessionState {
         }
     }
 
-    /// Get the color for this state
     pub fn color(&self) -> Color {
         match self {
             SessionState::Active => Color::Green,
@@ -151,7 +137,6 @@ impl FileConflict {
         self.resolved = true;
     }
 
-    /// Check if a session is involved in this conflict
     pub fn involves_session(&self, session_id: &str) -> bool {
         self.session_ids.iter().any(|id| id == session_id)
     }
@@ -179,7 +164,6 @@ pub enum ConflictSeverity {
 }
 
 impl ConflictSeverity {
-    /// Get the icon for this severity
     pub fn icon(&self) -> &str {
         match self {
             ConflictSeverity::None => "",
@@ -188,7 +172,6 @@ impl ConflictSeverity {
         }
     }
 
-    /// Get the color for this severity
     pub fn color(&self) -> Color {
         match self {
             ConflictSeverity::None => Color::Reset,
@@ -203,7 +186,6 @@ impl ConflictSeverity {
 pub struct SessionSidebarState {
     /// Which sections are collapsed
     collapsed_sections: HashMap<String, bool>,
-    /// Scroll offset
     scroll_offset: usize,
     /// Total content lines
     content_lines: usize,
@@ -212,7 +194,6 @@ pub struct SessionSidebarState {
 }
 
 impl SessionSidebarState {
-    /// Check if a section is collapsed
     pub fn is_collapsed(&self, key: &str) -> bool {
         self.collapsed_sections.get(key).copied().unwrap_or(false)
     }
@@ -398,7 +379,6 @@ impl SessionSidebar {
         self.visible = !self.visible;
     }
 
-    /// Check if visible
     pub fn is_visible(&self) -> bool {
         self.visible
     }
@@ -441,7 +421,6 @@ impl SessionSidebar {
         self.state.scroll_offset = 0;
     }
 
-    /// Get the current session ID
     pub fn current_session_id(&self) -> &str {
         &self.current_session_id
     }
@@ -480,7 +459,6 @@ impl SessionSidebar {
         }
     }
 
-    /// Get the selected session info
     pub fn selected_session(&self) -> Option<&SessionInfo> {
         self.sessions.get(self.selected_session_index)
     }
@@ -535,7 +513,6 @@ impl SessionSidebar {
         }
     }
 
-    /// Get the highest conflict severity for the current session
     pub fn conflict_severity(&self) -> ConflictSeverity {
         self.conflicts
             .iter()
@@ -566,7 +543,6 @@ impl SessionSidebar {
         self.showing_recovery = false;
     }
 
-    /// Check if recovery options are being shown
     pub fn is_showing_recovery(&self) -> bool {
         self.showing_recovery
     }

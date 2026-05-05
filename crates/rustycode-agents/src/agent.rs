@@ -43,7 +43,6 @@ pub struct AgentConfig {
     pub model: String,
     /// Maximum number of iterations
     pub max_iterations: usize,
-    /// System prompt
     pub system_prompt: Option<String>,
 }
 

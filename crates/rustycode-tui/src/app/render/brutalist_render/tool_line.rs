@@ -113,7 +113,7 @@ impl BrutalistRenderer<'_> {
                 {
                     format!(
                         "{}…",
-                        crate::app::brutalist_helpers::truncate_to_display_width(desc, 39)
+                        crate::app::render::brutalist_helpers::truncate_to_display_width(desc, 39)
                     )
                 } else {
                     desc.clone()

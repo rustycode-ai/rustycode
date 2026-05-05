@@ -83,7 +83,6 @@ pub struct AnomalyConfig {
     /// Enable time-series trend analysis
     pub enable_trend_analysis: bool,
 
-    /// Enable pattern recognition
     pub enable_pattern_recognition: bool,
 
     /// Enable adaptive learning from historical data
@@ -262,7 +261,6 @@ pub struct Anomaly {
     pub score: f64,
     /// Severity level
     pub severity: AnomalySeverity,
-    /// Type of anomaly
     pub anomaly_type: AnomalyType,
     /// Description of what was anomalous
     pub description: String,
@@ -273,7 +271,6 @@ pub struct Anomaly {
 /// Statistical summary of a metric
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricSummary {
-    /// Metric name
     pub metric_name: String,
     /// Number of data points
     pub count: usize,

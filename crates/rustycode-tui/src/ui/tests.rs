@@ -1,7 +1,4 @@
 //! Integration tests for the status indicator system
-//!
-//! This module demonstrates how the status system integrates with the TUI
-//! and tests the complete workflow.
 
 #[cfg(test)]
 mod integration_tests {

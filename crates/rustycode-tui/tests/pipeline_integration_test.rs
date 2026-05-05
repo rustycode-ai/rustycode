@@ -20,7 +20,6 @@ use serde_json::json;
 
 use rustycode_tui::app::pipeline::artifact_registry::ArtifactRegistry;
 use rustycode_tui::app::pipeline::executor::{Phase, PhaseDependency, PipelineDAG};
-use rustycode_tui::app::pipeline::guardian::PipelineGuardian;
 use rustycode_tui::app::pipeline::manifest::Manifest;
 use rustycode_tui::app::pipeline::registry::{Dependency, PipelineContext, PipelineStep, Signal};
 use rustycode_tui::app::pipeline::types::{
@@ -300,38 +299,6 @@ phases:
 }
 
 #[tokio::test]
-async fn test_e2e_guardian_monitor_artifacts() -> Result<()> {
-    // -- Arrange -----------------------------------------------------------
-    let registry = ArtifactRegistry::new();
-
-    // Register several artifacts so the registry is non-empty.
-    for i in 0..5 {
-        let artifact = make_artifact(
-            &format!("guardian-art-{i}"),
-            "team_report",
-            "phase_guardian",
-        );
-        registry.register(artifact).await?;
-    }
-    assert_eq!(
-        registry.count_by_type("team_report").await,
-        5,
-        "pre-condition: 5 team_report artifacts"
-    );
-
-    // -- Act ---------------------------------------------------------------
-    let mut guardian = PipelineGuardian::new();
-    let result = guardian.monitor_artifacts(&registry).await;
-
-    // -- Assert ------------------------------------------------------------
-    // Guardian should return Ok — the check_interval hasn't elapsed yet, so
-    // it short-circuits without performing cleanup.
-    assert!(result.is_ok(), "guardian monitor_artifacts should succeed");
-
-    Ok(())
-}
-
-#[tokio::test]
 async fn test_e2e_full_pipeline_with_artifacts() -> Result<()> {
     // -- Arrange -----------------------------------------------------------
     // Build a mock step that registers an artifact during execution.
@@ -350,9 +317,9 @@ async fn test_e2e_full_pipeline_with_artifacts() -> Result<()> {
         // inner registry instead.
         //
         // Since `PipelineContext::artifact_registry` is `Arc<Mutex<ArtifactRegistry>>`,
-        // we can't block_on here safely. Instead we set a flag in context storage
-        // that we'll pick up later in the test.
-        ctx.storage.insert("step_ran".into(), "true".into());
+        // we can't block_on here safely. The callback is a no-op; we verify the
+        // artifact through the shared_registry below instead.
+        let _ = ctx;
         Ok(())
     });
 

@@ -27,7 +27,6 @@ pub async fn uninstall_item(item: &MarketplaceItem) -> Result<()> {
     }
 }
 
-/// Check if an item is installed
 pub fn is_installed(item: &MarketplaceItem) -> bool {
     match item.item_type {
         ItemType::Skill => is_skill_installed(item),

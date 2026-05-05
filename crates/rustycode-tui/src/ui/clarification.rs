@@ -18,16 +18,13 @@ pub struct QuestionOption {
 /// A detected clarification question
 #[derive(Debug, Clone)]
 pub struct Question {
-    /// The question text
     pub text: String,
-    /// Context line before the question (if any)
+    /// Context line preceding the question.
     pub context: Option<String>,
-    /// Selectable options (if any)
     pub options: Vec<QuestionOption>,
 }
 
 impl Question {
-    /// Create a simple text question (no options)
     pub fn new(text: impl Into<String>) -> Self {
         Self {
             text: text.into(),
@@ -36,7 +33,6 @@ impl Question {
         }
     }
 
-    /// Create a question with selectable options
     pub fn with_options(text: impl Into<String>, options: Vec<QuestionOption>) -> Self {
         Self {
             text: text.into(),
@@ -49,17 +45,13 @@ impl Question {
 /// Panel for displaying and answering clarification questions
 #[derive(Clone)]
 pub struct ClarificationPanel {
-    /// Questions to display
     pub questions: Vec<Question>,
-    /// Currently selected question index
     pub selected_index: usize,
-    /// Whether the panel is visible
     pub visible: bool,
-    /// User answers keyed by question index
+    /// User answers keyed by question index.
     pub answers: Vec<String>,
-    /// Whether all questions have been answered
     pub completed: bool,
-    /// For option-based questions: currently highlighted option index per question
+    /// Per-question highlighted option index (for option-based questions).
     pub selected_option_indices: Vec<usize>,
 }
 
@@ -77,7 +69,6 @@ impl ClarificationPanel {
         }
     }
 
-    /// Create a new hidden clarification panel
     pub fn hidden() -> Self {
         Self {
             questions: vec![],
@@ -89,7 +80,6 @@ impl ClarificationPanel {
         }
     }
 
-    /// Toggle panel visibility
     pub fn toggle(&mut self) {
         self.visible = !self.visible;
     }
@@ -110,14 +100,12 @@ impl ClarificationPanel {
         }
     }
 
-    /// Set the answer for the currently selected question
     pub fn set_current_answer(&mut self, answer: String) {
         if self.selected_index < self.answers.len() {
             self.answers[self.selected_index] = answer;
         }
     }
 
-    /// Get the current answer being typed
     pub fn current_answer(&self) -> &str {
         if self.selected_index < self.answers.len() {
             &self.answers[self.selected_index]
@@ -137,7 +125,6 @@ impl ClarificationPanel {
         self.completed = true;
     }
 
-    /// Reset the panel for new questions
     pub fn reset(&mut self) {
         self.questions.clear();
         self.answers.clear();
@@ -146,7 +133,6 @@ impl ClarificationPanel {
         self.selected_option_indices.clear();
     }
 
-    /// Check if the current question has selectable options
     pub fn current_has_options(&self) -> bool {
         self.questions
             .get(self.selected_index)
@@ -161,7 +147,6 @@ impl ClarificationPanel {
             .unwrap_or(0)
     }
 
-    /// Get the currently highlighted option index for the current question
     pub fn current_option_index(&self) -> usize {
         self.selected_option_indices
             .get(self.selected_index)
@@ -203,7 +188,6 @@ impl ClarificationPanel {
         self.answers.iter().filter(|a| !a.is_empty()).count()
     }
 
-    /// Build the panel content lines
     fn build_content(&self) -> Vec<Line<'_>> {
         let mut lines = Vec::new();
 
@@ -435,7 +419,6 @@ pub fn detect_questions(content: &str) -> Vec<Question> {
     questions
 }
 
-/// Check if a question is likely rhetorical (not needing an answer)
 fn is_rhetorical_question(question: &str) -> bool {
     let lower = question.to_lowercase();
 
@@ -453,7 +436,6 @@ fn is_rhetorical_question(question: &str) -> bool {
     rhetorical_patterns.iter().any(|p| lower.contains(p))
 }
 
-/// Check if text matches interrogative patterns
 fn is_interrogative_pattern(text: &str) -> bool {
     let lower = text.to_lowercase();
 

@@ -208,7 +208,6 @@ impl TUI {
         }
     }
 
-    /// Check if auto-compaction is needed
     pub(crate) fn check_auto_compaction(&mut self) {
         if !self.compaction_config.auto_compact_enabled {
             return;

@@ -22,7 +22,6 @@ pub struct SessionStartedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Task description
@@ -78,10 +77,8 @@ pub struct ContextAssembledEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
-    /// Context plan
     pub context_plan: ContextPlan,
 
     /// Additional detail
@@ -134,10 +131,8 @@ pub struct ToolExecutedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
-    /// Tool name
     pub tool_name: String,
 
     /// Tool arguments
@@ -294,7 +289,6 @@ pub struct PlanCreatedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Plan details
@@ -348,7 +342,6 @@ pub struct PlanApprovedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Additional detail
@@ -398,7 +391,6 @@ pub struct PlanRejectedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Additional detail
@@ -448,7 +440,6 @@ pub struct SessionCompletedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Task that was completed
@@ -508,7 +499,6 @@ pub struct SessionFailedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Task that failed
@@ -568,13 +558,11 @@ pub struct ModeChangedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Previous mode
     pub old_mode: String,
 
-    /// New mode
     pub new_mode: String,
 
     /// Additional detail
@@ -628,10 +616,8 @@ pub struct PlanExecutionStartedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
-    /// Plan ID
     pub plan_id: PlanId,
 
     /// Number of steps to execute
@@ -688,10 +674,8 @@ pub struct PlanExecutionCompletedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
-    /// Plan ID
     pub plan_id: PlanId,
 
     /// Number of steps executed
@@ -763,10 +747,8 @@ pub struct PlanExecutionFailedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
-    /// Plan ID
     pub plan_id: PlanId,
 
     /// Error message
@@ -833,7 +815,6 @@ pub struct ToolBlockedEvent {
     /// Event timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Session ID
     pub session_id: SessionId,
 
     /// Tool name that was blocked
@@ -906,7 +887,6 @@ pub struct InspectionCompletedEvent {
     /// Working directory that was inspected
     pub working_dir: String,
 
-    /// Git status
     pub git_status: String,
 
     /// Number of LSP servers found

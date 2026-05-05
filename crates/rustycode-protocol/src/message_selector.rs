@@ -84,7 +84,6 @@ pub struct SelectionResult {
     pub total_tokens: usize,
     /// Number of messages excluded
     pub excluded_count: usize,
-    /// Tokens excluded
     pub excluded_tokens: usize,
     /// Breakdown by priority
     pub by_priority: PriorityBreakdown,

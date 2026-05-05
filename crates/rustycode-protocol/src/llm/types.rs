@@ -61,10 +61,78 @@ pub struct Cost {
     pub total_cost: f64,
 }
 
-/// Response from an LLM completion request
+/// Token usage information for an LLM response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Usage {
+    /// Tokens after the last cache breakpoint (not eligible for cache)
+    pub input_tokens: u32,
+    pub output_tokens: u32,
+    pub total_tokens: u32,
+
+    /// Cache-aware token tracking (Anthropic prompt caching)
+    /// Tokens read from cache (billed at 0.1× base input price)
+    #[serde(default)]
+    pub cache_read_input_tokens: u32,
+
+    /// Tokens written to cache (billed at 1.25× base input price for 5min TTL)
+    #[serde(default)]
+    pub cache_creation_input_tokens: u32,
+
+    /// Reasoning tokens (if reasoning effort was used)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_tokens: Option<u32>,
+}
+
+impl Usage {
+    pub fn new(input_tokens: u32, output_tokens: u32) -> Self {
+        Self {
+            input_tokens,
+            output_tokens,
+            total_tokens: input_tokens.saturating_add(output_tokens),
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
+            reasoning_tokens: None,
+        }
+    }
+
+    /// Create usage with cache information
+    pub fn with_cache(
+        input_tokens: u32,
+        output_tokens: u32,
+        cache_read_input_tokens: u32,
+        cache_creation_input_tokens: u32,
+    ) -> Self {
+        // Total input = cache read + cache write + non-cached input
+        let total_input = cache_read_input_tokens
+            .saturating_add(cache_creation_input_tokens)
+            .saturating_add(input_tokens);
+        Self {
+            input_tokens,
+            output_tokens,
+            total_tokens: total_input.saturating_add(output_tokens),
+            cache_read_input_tokens,
+            cache_creation_input_tokens,
+            reasoning_tokens: None,
+        }
+    }
+
+    /// Calculate total input tokens (including cache)
+    pub fn total_input_tokens(&self) -> u32 {
+        self.cache_read_input_tokens
+            .saturating_add(self.cache_creation_input_tokens)
+            .saturating_add(self.input_tokens)
+    }
+
+    /// Check if any cache tokens were used
+    pub fn has_cache_usage(&self) -> bool {
+        self.cache_read_input_tokens > 0 || self.cache_creation_input_tokens > 0
+    }
+}
+
+/// A response from an LLM completion request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionResponse {
-    /// Generated text
+    /// The generated text content
     pub text: String,
     /// Token usage information
     pub tokens_used: TokenCount,

@@ -1,9 +1,4 @@
 //! Input state management for multi-line input handling.
-//!
-//! This module provides the core state types for input management:
-//! - Input mode states (single-line vs multi-line)
-//! - Complete input state with cursor tracking
-//! - Image attachment metadata
 
 use crate::ui::message_types::ImageAttachment;
 use crate::unicode::{display_width, next_grapheme_boundary, prev_grapheme_boundary};
@@ -75,7 +70,6 @@ impl InputState {
         self.lines.join("\n")
     }
 
-    /// Check if input is empty (no text content)
     pub fn is_empty(&self) -> bool {
         self.lines.iter().all(|l| l.is_empty())
     }
@@ -128,7 +122,6 @@ impl InputState {
         line.len()
     }
 
-    /// Get the display column of the cursor relative to the display_offset.
     pub fn relative_cursor_display_col(&self) -> usize {
         self.cursor_display_col()
             .saturating_sub(self.display_offset)
@@ -541,7 +534,6 @@ impl InputState {
         }
     }
 
-    /// Check if a given byte position on a given row falls within the active selection.
     pub fn is_byte_selected(&self, row: usize, byte_idx: usize) -> bool {
         let (start_row, start_col, end_row, end_col) = match self.selection_range() {
             Some(range) => range,

@@ -89,7 +89,7 @@ impl TUI {
     pub(crate) fn create_brutalist_renderer<'a>(
         &'a self,
         input_text: &'a str,
-    ) -> crate::app::brutalist_renderer::BrutalistRenderer<'a> {
+    ) -> crate::app::render::brutalist_renderer::BrutalistRenderer<'a> {
         let bs = self.snapshot_brutalist_state(input_text);
 
         // Compute stream elapsed time for live timing display (Goose pattern)
@@ -100,7 +100,7 @@ impl TUI {
             self.input_handler.reverse_search_info();
         let (hist_pos, hist_total) = self.input_handler.history_position();
 
-        crate::app::brutalist_renderer::BrutalistRendererBuilder::new(&self.messages, input_text)
+        crate::app::render::brutalist_renderer::BrutalistRendererBuilder::new(&self.messages, input_text)
             .stream_content(&self.streaming.current_stream_content)
             .cwd(self.services.cwd().clone())
             .is_streaming(self.streaming.is_streaming)

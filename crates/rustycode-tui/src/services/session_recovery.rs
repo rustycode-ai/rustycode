@@ -1,11 +1,4 @@
 //! Session Recovery and Crash Detection
-//!
-//! Provides comprehensive session state persistence and crash recovery:
-//! - Saves conversation history, scroll position, selections to disk
-//! - Detects crashes via lock file presence
-//! - Offers recovery of previous session on startup
-//! - Uses atomic file operations to prevent partial writes
-//! - Validates recovered state before restoring
 
 use crate::ui::message::Message;
 use anyhow::{anyhow, Result};
@@ -64,9 +57,7 @@ pub struct Selection {
 /// User preferences specific to a session
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SessionPreferences {
-    /// Whether tools are expanded
     pub tools_expanded: bool,
-    /// Whether thinking is expanded
     pub thinking_expanded: bool,
 }
 
@@ -133,7 +124,6 @@ pub struct LockFileMetadata {
     pub pid: u32,
     /// When lock was created
     pub created_at: DateTime<Utc>,
-    /// Session ID
     pub session_id: String,
 }
 
@@ -237,7 +227,6 @@ impl SessionPersistence {
         Ok(())
     }
 
-    /// Check if lock file exists
     pub fn lock_exists(&self, session_id: &str) -> bool {
         let lock_path = self.base_dir.join(session_id).join(".lock");
         lock_path.exists()
@@ -383,7 +372,6 @@ impl CrashRecovery {
         Ok(state)
     }
 
-    /// Check if a session is recoverable
     pub fn is_recoverable(&self, session_id: &str) -> bool {
         self.persistence.load_state(session_id).is_ok()
     }

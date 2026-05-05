@@ -1,7 +1,4 @@
 //! Provider management for LLM providers
-//!
-//! This module provides provider information, configuration, and OAuth flow
-//! functionality that can be reused across different UI implementations.
 #![allow(dead_code)]
 
 use crate::ui::model_selector::ModelInfo as SelectorModelInfo;
@@ -43,7 +40,6 @@ impl ProviderInfo {
         }
     }
 
-    /// Get the API key from environment
     pub fn api_key(&self) -> Option<String> {
         if self.api_key_env == "N/A" {
             Some("no-api-key-required".to_string())
@@ -52,7 +48,6 @@ impl ProviderInfo {
         }
     }
 
-    /// Check if provider is configured with valid credentials
     pub fn is_configured(&self) -> bool {
         self.is_configured
     }

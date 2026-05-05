@@ -54,7 +54,6 @@ pub fn in_worktree() -> bool {
 
 /// Worktree manager
 pub struct WorktreeManager {
-    /// Project root
     project_root: PathBuf,
     /// Worktrees directory
     worktrees_dir: PathBuf,
@@ -674,7 +673,6 @@ pub struct Worktree {
 /// Worktree lock file
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorktreeLock {
-    /// Worktree ID
     pub worktree_id: String,
     /// Branch name
     pub branch: String,

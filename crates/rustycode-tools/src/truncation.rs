@@ -185,7 +185,6 @@ pub struct TruncatedOutput {
     pub truncated: bool,
     /// Total count (lines, matches, items, etc.)
     pub total_count: usize,
-    /// Shown count
     pub shown_count: usize,
     /// Metadata about the truncation
     pub metadata: serde_json::Value,

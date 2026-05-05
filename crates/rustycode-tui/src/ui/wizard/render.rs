@@ -763,7 +763,6 @@ impl FirstRunWizard {
         frame.render_widget(help_paragraph, help_area);
     }
 
-    /// Get the API key URL for a provider
     pub(crate) fn get_api_key_url(&self, provider_id: &str) -> String {
         match provider_id {
             "anthropic" => "https://console.anthropic.com/settings/keys".to_string(),

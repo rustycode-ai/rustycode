@@ -1,7 +1,4 @@
 //! Skill installer and uninstaller
-//!
-//! Handles installation, uninstallation, and validation of skills
-//! from the marketplace or git repositories.
 
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -277,7 +274,6 @@ pub fn load_installed_skills() -> Result<HashMap<String, SkillLifecycle>> {
     Ok(registry)
 }
 
-/// Check if skill is installed
 pub fn is_installed(name: &str) -> bool {
     let base_dir = skills_dir();
     if let Ok(dir) = base_dir {

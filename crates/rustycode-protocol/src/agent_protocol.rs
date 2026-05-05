@@ -365,7 +365,6 @@ pub struct AgentSignals {
 /// The Skeptic's output — review verdict with evidence.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkepticMessage {
-    /// The verdict.
     pub verdict: SkepticVerdict,
     /// Claims that were verified.
     #[serde(default)]

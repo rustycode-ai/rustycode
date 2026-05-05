@@ -33,7 +33,6 @@ pub struct EnhancedOrchestrator {
     /// Orchestrator configuration
     config: OrchestratorConfig,
 
-    /// Session state
     session_state: Arc<RwLock<SessionState>>,
 }
 
@@ -43,10 +42,8 @@ pub struct OrchestratorConfig {
     /// Enable team coordination
     pub enable_teams: bool,
 
-    /// Enable shared memory
     pub enable_shared_memory: bool,
 
-    /// Enable benchmarking
     pub enable_benchmarking: bool,
 
     /// Maximum concurrent agents
@@ -71,35 +68,27 @@ impl Default for OrchestratorConfig {
 /// Session state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionState {
-    /// Session ID
     pub session_id: String,
 
-    /// Start time
     pub start_time: chrono::DateTime<Utc>,
 
-    /// Tasks completed
     pub tasks_completed: usize,
 
-    /// Active teams
     pub active_teams: Vec<String>,
 
-    /// Agent participation
     pub agent_participation: HashMap<String, usize>,
 
-    /// Coordination events
     pub coordination_events: usize,
 }
 
 /// Orchestrated analysis result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrchestratedAnalysis {
-    /// Analysis ID
     pub analysis_id: String,
 
     /// Task description
     pub task: String,
 
-    /// Participating agents
     pub participating_agents: Vec<String>,
 
     /// Ensemble coordination used
@@ -108,7 +97,6 @@ pub struct OrchestratedAnalysis {
     /// Shared memory entries created
     pub memory_entries: Vec<String>,
 
-    /// Messages exchanged
     pub messages_exchanged: usize,
 
     /// Final conclusion
@@ -120,7 +108,6 @@ pub struct OrchestratedAnalysis {
     /// Execution time (milliseconds)
     pub execution_time_ms: u64,
 
-    /// Recommendations
     pub recommendations: Vec<String>,
 }
 

@@ -78,82 +78,33 @@
 //! Ratatui-based terminal interface for RustyCode.
 
 mod agents;
-mod handlers;
 
 mod logging;
-pub mod theme;
+pub(crate) mod theme;
 mod unicode;
 
-pub mod compaction_context;
-pub mod memory;
-pub mod services;
-pub mod workspace;
+pub(crate) mod compaction_context;
+pub(crate) mod memory;
+pub(crate) mod services;
+pub(crate) mod workspace;
 
-pub use services::agent_mode;
-pub use services::checkpoint;
-pub use services::clipboard;
-pub use services::config;
-pub use services::conversation_service;
-pub use services::deep_thinking;
-pub use services::file_read_cache;
-pub use services::mcp_mode;
-pub use services::mistake_tracker;
-pub use services::preferences;
-pub use services::providers;
-pub use services::session;
-pub use services::session_recovery;
+pub(crate) mod slash_commands;
 
-pub use memory::compaction;
-pub use memory::memory_auto;
-pub use memory::memory_command;
-pub use memory::memory_injection;
-pub use memory::memory_relevance;
+pub(crate) mod plugin;
 
-pub use workspace::workspace_context;
-pub use workspace::workspace_progress;
-pub use workspace::workspace_scanner;
+pub(crate) mod ui;
 
-pub use app::auto_tool_parser;
-pub use app::extraction_analytics;
-pub use app::task_commands;
-pub use app::task_extraction;
-pub use app::tasks;
-pub use app::tool_errors;
-pub use app::tool_helpers;
-pub use app::tool_search;
+pub(crate) mod app;
 
-pub use ui::accessibility;
-pub use ui::bookmarks;
-pub use ui::error_messages;
+pub(crate) mod skills;
 
-pub mod slash_commands;
+pub(crate) mod marketplace;
 
-pub mod plugin;
+pub(crate) mod help;
 
-pub mod ui;
+pub(crate) mod tool_approval;
 
-pub mod app;
-
-pub mod skills;
-
-pub mod marketplace;
-
-pub mod help;
-
-pub mod tool_approval;
-
-pub mod observability;
-
-pub use agent_mode::AiMode;
-pub use checkpoint::{format_checkpoint, Checkpoint, CheckpointManager, CheckpointMetadata};
-pub use file_read_cache::{format_repeated_read_warning, FileReadCache, FileReadEntry};
-pub use mistake_tracker::{Mistake, MistakeTracker, MistakeType, RecoveryStrategy};
-pub use tool_errors::{
-    format_command_failure, format_file_not_found_error, format_tool_error, ErrorTracker,
-    ToolErrorType,
-};
-pub use ui::input::InputHandler;
-pub use ui::{DiffRenderer, MarkdownRenderer, SyntaxHighlighter};
+pub(crate) mod observability;
 
 use std::path::PathBuf;
 

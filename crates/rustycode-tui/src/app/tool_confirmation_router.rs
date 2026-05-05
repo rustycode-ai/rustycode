@@ -1,21 +1,4 @@
 //! Async tool confirmation router using oneshot channels.
-//!
-//! Ported from goose's `ToolConfirmationRouter` pattern. Provides a clean async
-//! interface for tool approval: tool execution awaits confirmation while the TUI
-//! delivers user decisions through oneshot channels.
-//!
-//! # Example
-//!
-//! ```ignore
-//! let router = ToolConfirmationRouter::new();
-//!
-//! // Tool execution side (async)
-//! let rx = router.register("tool_req_123".to_string()).await;
-//! let confirmation = rx.await?; // blocks until user decides
-//!
-//! // TUI side (event handler)
-//! router.deliver("tool_req_123".to_string(), ToolConfirmation::approved()).await;
-//! ```
 
 use std::collections::HashMap;
 use tokio::sync::{oneshot, Mutex};
@@ -106,7 +89,6 @@ impl ToolConfirmationRouter {
         }
     }
 
-    /// Get the number of pending approval requests.
     pub async fn pending_count(&self) -> usize {
         self.pending.lock().await.len()
     }

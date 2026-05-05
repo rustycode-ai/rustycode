@@ -1,6 +1,4 @@
 //! Hook slash commands
-//!
-//! Provides commands for managing hooks (pre/post execution automation).
 
 /// Handle hook slash commands
 pub fn handle_hook_command(input: &str) -> Result<Option<String>, String> {

@@ -1,11 +1,4 @@
 //! Input handling helpers for the event loop
-//!
-//! Extracted from event_loop.rs to separate input logic from the main loop.
-//! This module now delegates to specialized submodules:
-//! - input::keyboard: Key event handling, Vim keybindings, global shortcuts
-//! - input::mouse: Mouse scroll events
-//! - input::text_input: Text composition, search box, command palette
-//! - input::special_handlers: Wizard, approval, clarification, modal states
 
 use crate::app::event_loop::TUI;
 use crate::ui::message::Message;
@@ -792,7 +785,6 @@ impl TUI {
         Ok(())
     }
 
-    /// Set the active tag filter
     pub fn set_tag_filter(&mut self, tag_type: Option<crate::ui::message_tags::TagType>) {
         self.tag_filter.set_active(tag_type.clone());
         if let Some(ref tag) = tag_type {

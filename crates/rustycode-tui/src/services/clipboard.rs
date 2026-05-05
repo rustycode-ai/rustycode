@@ -1,6 +1,4 @@
 //! Clipboard image detection and processing for TUI
-//!
-//! Supports cross-platform image paste with format detection and validation.
 #![allow(dead_code)]
 
 use anyhow::{Context, Result};
@@ -112,7 +110,6 @@ pub struct ClipboardImage {
     pub width: u32,
     /// Image height in pixels
     pub height: u32,
-    /// Size in bytes
     pub size_bytes: usize,
     /// Whether image was compressed
     pub was_compressed: bool,
@@ -298,7 +295,6 @@ impl ClipboardImage {
     }
 }
 
-/// Check if clipboard contains an image
 pub fn has_image_in_clipboard() -> Result<bool> {
     // Create a new clipboard instance each time to avoid stale connections
     let mut clipboard = match arboard::Clipboard::new() {

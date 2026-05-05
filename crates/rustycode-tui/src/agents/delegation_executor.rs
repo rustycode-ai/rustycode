@@ -1,13 +1,4 @@
 //! Delegation executor — a real `delegate_task` tool backed by `AgentSession`.
-//!
-//! Replaces the intent-only `DelegationTool` (from `rustycode-tools`) with a tool
-//! that actually creates and runs sub-agent sessions. The tool name, description,
-//! and parameters schema are identical so the LLM already knows how to call it.
-//!
-//! This module implements the `TaskRunner` trait from `rustycode-orchestration`,
-//! enabling `ForkJoinExecutor` and `TaskDispatcher` to use it for parallel and
-//! ensemble execution. The `DelegationPlanner` three-gate model gates simple
-//! tasks to inline execution while spawning complex ones.
 
 use anyhow::Result;
 use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};

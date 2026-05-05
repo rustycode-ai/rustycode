@@ -64,7 +64,6 @@ impl std::fmt::Display for TerminalType {
 pub struct ConnectorAvailability {
     /// The detected terminal type
     pub terminal_type: TerminalType,
-    /// Whether tmux is available
     pub tmux_available: bool,
     /// Whether iTerm2 (`AppleScript`) is available (macOS only)
     pub iterm2_applescript_available: bool,

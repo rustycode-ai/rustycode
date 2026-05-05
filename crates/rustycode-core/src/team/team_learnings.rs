@@ -124,7 +124,6 @@ impl LearningCategory {
 pub struct TeamLearnings {
     /// Path to the learnings file
     file_path: PathBuf,
-    /// Last updated date
     last_updated: String,
     /// Learnings by category
     entries: HashMap<LearningCategory, Vec<LearningEntry>>,

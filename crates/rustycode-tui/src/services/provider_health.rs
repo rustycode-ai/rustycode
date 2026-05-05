@@ -1,8 +1,4 @@
 //! Provider health check module
-//!
-//! This module provides realtime connectivity verification for LLM providers.
-//! It performs lightweight health checks to determine if providers are reachable
-//! and responsive, updating the UI with current status and latency information.
 
 use reqwest::Client;
 use std::time::{Duration, Instant};
@@ -40,7 +36,6 @@ impl ProviderHealthResult {
         }
     }
 
-    /// Check if provider is considered available
     pub fn is_available(&self) -> bool {
         matches!(self.health, ProviderHealth::Online { .. })
     }

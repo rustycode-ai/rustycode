@@ -1,9 +1,4 @@
 //! Tool output formatting utilities
-//!
-//! Provides smart truncation, language auto-detection, and structured
-//! formatting for tool execution output displayed in the TUI.
-//!
-//! Inspired by goose's streaming_buffer and task_execution_display patterns.
 
 /// Strip ANSI escape sequences from a string.
 ///

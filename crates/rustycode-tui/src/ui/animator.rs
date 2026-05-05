@@ -52,7 +52,6 @@ pub enum AnimationStyle {
 /// Runs at 2-4 FPS for efficiency (not 60 FPS). Updates animation frames
 /// based on elapsed time since last frame.
 pub struct Animator {
-    /// Current frame count
     frame_count: usize,
     /// Last frame update time
     last_frame_time: Instant,
@@ -149,7 +148,6 @@ impl Animator {
         self.frame_count
     }
 
-    /// Check if reduced motion is enabled
     pub fn is_reduced_motion(&self) -> bool {
         self.reduced_motion
     }

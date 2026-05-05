@@ -1,6 +1,4 @@
 //! Extraction Analytics Module
-//!
-//! Tracks and reports statistics on automatic task/todo extraction
 
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
@@ -82,7 +80,6 @@ impl ExtractionStats {
         (total_items as f64) / (self.total_extractions as f64)
     }
 
-    /// Get the most used patterns
     pub fn top_patterns(&self, limit: usize) -> Vec<(String, usize)> {
         let mut patterns: Vec<_> = self
             .pattern_usage

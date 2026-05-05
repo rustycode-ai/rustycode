@@ -1,6 +1,4 @@
 //! Skill Palette Component
-//!
-//! VS Code-style command palette for skills with fuzzy search and keyboard navigation.
 
 #![allow(dead_code)]
 
@@ -31,7 +29,6 @@ pub struct SkillPalette {
     /// List state for navigation
     list_state: ListState,
 
-    /// Whether palette is visible
     visible: bool,
 
     /// Currently selected skill (after Enter)
@@ -70,7 +67,6 @@ impl SkillPalette {
         self.selected_skill = None;
     }
 
-    /// Check if palette is visible
     pub fn is_visible(&self) -> bool {
         self.visible
     }

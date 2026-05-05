@@ -42,17 +42,14 @@ impl StateManager {
         self.ensure_scroll_offset_valid();
     }
 
-    /// Get the current scroll offset
     pub fn scroll_offset(&self) -> usize {
         self.scroll_offset
     }
 
-    /// Get the viewport height
     pub fn viewport_height(&self) -> usize {
         self.viewport_height
     }
 
-    /// Get the total number of messages
     pub fn message_count(&self) -> usize {
         self.message_count
     }

@@ -19,7 +19,6 @@ pub struct AgentPerformanceProfile {
     pub role: AgentRole,
     /// Total analyses performed
     pub total_analyses: usize,
-    /// Successful analyses
     pub successful_analyses: usize,
     /// Average execution time (milliseconds)
     pub avg_execution_time_ms: f64,
@@ -27,9 +26,7 @@ pub struct AgentPerformanceProfile {
     pub avg_confidence: f64,
     /// Specializations (task types this agent excels at)
     pub specializations: Vec<String>,
-    /// Performance history
     pub performance_history: Vec<PerformanceRecord>,
-    /// Last updated
     pub last_updated: DateTime<Utc>,
 }
 
@@ -46,9 +43,7 @@ pub struct PerformanceRecord {
     pub confidence: f64,
     /// Success status
     pub success: bool,
-    /// Timestamp
     pub timestamp: DateTime<Utc>,
-    /// Quality metrics
     pub quality_metrics: QualityMetrics,
 }
 
@@ -70,7 +65,6 @@ pub struct QualityMetrics {
 /// Agent selection criteria
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SelectionCriteria {
-    /// Required specializations
     pub required_specializations: Vec<String>,
     /// Minimum confidence threshold
     pub min_confidence: f64,

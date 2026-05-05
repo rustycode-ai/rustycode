@@ -13,13 +13,9 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 tokio.workspace = true
-secrecy.workspace = true
-futures.workspace = true
 chrono.workspace = true
-once_cell.workspace = true
 ratatui = { workspace = true, features = ["crossterm"] }
 crossterm.workspace = true
-pulldown-cmark.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 async-trait.workspace = true
@@ -52,11 +48,10 @@ rustycode-orchestration = { path = "../rustycode-orchestration" }
 rustycode-guard = { path = "../rustycode-guard" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 arboard = "3.2"
-image = "0.25"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 base64.workspace = true
 thiserror.workspace = true
 regex.workspace = true
-parking_lot.workspace = true
 ulid = "1.1"
 unicode-segmentation = "1.11"
 unicode-width = "0.2"
@@ -76,6 +71,7 @@ nix = { version = "0.31", features = ["signal", "process"] }
 [dev-dependencies]
 tempfile.workspace = true
 criterion.workspace = true
+pulldown-cmark.workspace = true
 
 [features]
 default = []

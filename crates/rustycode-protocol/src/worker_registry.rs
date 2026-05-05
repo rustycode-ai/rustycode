@@ -129,15 +129,12 @@ pub enum WorkerEvent {
 pub struct Worker {
     /// Unique worker identifier (sortable, time-based)
     pub worker_id: String,
-    /// Current status
     pub status: WorkerStatus,
     /// Working directory for this worker
     pub cwd: String,
     /// Task ID if assigned
     pub task_id: Option<String>,
-    /// Task description
     pub task_description: Option<String>,
-    /// Whether trust gate is cleared
     pub trust_gate_cleared: bool,
     /// Last error if any
     pub last_error: Option<WorkerFailure>,

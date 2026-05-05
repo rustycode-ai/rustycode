@@ -1,14 +1,4 @@
 //! Exploration stall detector for agent tool execution.
-//!
-//! Detects when the AI agent is stuck in an exploration loop — making
-//! read-only tool calls (read_file, grep, bash read-only, etc.) without
-//! ever transitioning to writing code. This is the primary failure mode
-//! for GLM-5.1 with thinking enabled: it reasons extensively but never
-//! produces output.
-//!
-//! Inspired by oh-my-openagent's Todo Continuation Enforcer (14-gate
-//! decision tree, stagnation detection, exponential backoff) but
-//! simplified for RustyCode's architecture.
 
 /// Consecutive read-only turns before triggering the stall nudge.
 pub const STALL_THRESHOLD: usize = 3;

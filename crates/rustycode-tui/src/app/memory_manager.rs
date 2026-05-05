@@ -12,7 +12,6 @@ pub struct MemoryConfig {
     pub max_messages_before_compact: usize,
     /// Maximum tokens per message
     pub max_tokens_per_message: usize,
-    /// Enable memory injection
     pub enable_memory_injection: bool,
 }
 
@@ -48,7 +47,6 @@ impl MemoryManager {
         self.estimated_tokens = estimated_tokens;
     }
 
-    /// Check if auto-compaction should be triggered
     pub fn should_compact(&self) -> bool {
         self.message_count >= self.config.max_messages_before_compact
             || self.estimated_tokens

@@ -1,7 +1,4 @@
 //! Marketplace index structures and data types
-//!
-//! Defines the core data structures for representing marketplace items
-//! including skills, tools, and MCP servers.
 
 use serde::{Deserialize, Serialize};
 
@@ -18,9 +15,7 @@ pub struct MarketplaceItem {
     pub item_type: ItemType,
     /// Category (e.g., "Agent", "Developer", "Utility")
     pub category: String,
-    /// Current version
     pub version: String,
-    /// Author/maintainer
     pub author: String,
     /// User rating (0.0 to 5.0)
     pub rating: f64,
@@ -128,7 +123,6 @@ impl MarketplaceItem {
         }
     }
 
-    /// Check if an update is available
     pub fn has_update(&self) -> bool {
         if let (Some(installed), Some(min)) =
             (&self.installed_version, &self.min_compatible_version)

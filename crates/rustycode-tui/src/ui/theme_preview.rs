@@ -22,7 +22,6 @@ pub struct ThemePreviewState {
     /// Currently selected theme index
     pub selected_index: usize,
 
-    /// Whether the preview is visible
     pub visible: bool,
 
     /// Search query

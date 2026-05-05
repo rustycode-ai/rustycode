@@ -44,7 +44,6 @@ pub struct WorkflowResult {
 /// Result of a single workflow step
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StepResult {
-    /// Step ID
     pub step_id: String,
     /// Whether step succeeded
     pub success: bool,

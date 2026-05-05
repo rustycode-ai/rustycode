@@ -239,13 +239,7 @@ impl TUI {
         let history = self.build_conversation_history();
 
         // Set streaming state before send to prevent double-Enter races
-        self.streaming.is_streaming = true;
-        self.streaming.chunks_received = 0;
-        self.streaming.thinking_chunks_received = 0;
-        self.streaming.stream_start_time = Some(std::time::Instant::now());
-        self.streaming.current_stream_content.clear();
-        self.streaming.streaming_render_buffer =
-            crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+        self.streaming.begin_streaming();
         self.tool_panel.reset();
         self.active_tools.clear();
 

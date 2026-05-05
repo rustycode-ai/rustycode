@@ -1,9 +1,4 @@
 //! Per-frame layout snapshot helpers.
-//!
-//! These helpers centralize the geometry bookkeeping that used to live
-//! directly inside render methods. The renderer still owns drawing, but the
-//! event loop can apply layout state in one shot instead of mutating multiple
-//! fields inline.
 
 use crate::app::event_loop::TUI;
 use ratatui::layout::Rect;

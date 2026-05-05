@@ -8,7 +8,7 @@
 //! /memory important - Show important memories
 //! /memory cleanup - Clean up old memories
 
-use crate::memory_auto::{MemoryType, ThreadSafeAutoMemory};
+use crate::memory::memory_auto::{MemoryType, ThreadSafeAutoMemory};
 use anyhow::Result;
 use std::sync::Arc;
 
@@ -339,7 +339,7 @@ fn format_memory_type(memory_type: &MemoryType) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memory_auto::ThreadSafeAutoMemory;
+    use crate::memory::memory_auto::ThreadSafeAutoMemory;
 
     use tempfile::TempDir;
 

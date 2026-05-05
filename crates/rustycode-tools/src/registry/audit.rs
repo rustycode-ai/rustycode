@@ -104,7 +104,6 @@ impl AuditEntry {
 /// Aggregate statistics for a single tool.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolStats {
-    /// Tool name
     pub tool_name: String,
     /// Total number of invocations
     pub call_count: u64,
@@ -172,7 +171,6 @@ pub struct SessionSummary {
     pub distinct_tools: usize,
     /// Total execution time in ms
     pub total_duration_ms: u64,
-    /// Overall success rate
     pub overall_success_rate: f64,
     /// Per-tool statistics
     pub tool_stats: Vec<ToolStats>,

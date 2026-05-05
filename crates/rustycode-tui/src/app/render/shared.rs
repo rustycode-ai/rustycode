@@ -1,8 +1,4 @@
 //! Shared rendering helpers used by multiple renderer backends.
-//!
-//! Centralises utilities that were previously duplicated across the polished
-//! and brutalist render paths. Both `render/messages.rs` (polished) and
-//! `brutalist_renderer.rs` should import from here.
 
 use ratatui::layout::Rect;
 use unicode_width::UnicodeWidthStr;

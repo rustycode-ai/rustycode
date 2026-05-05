@@ -17,22 +17,15 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum TagType {
-    /// Important message
     Important,
-    /// Idea or suggestion
     Idea,
-    /// Bug report or issue
     Bug,
-    /// Solution or fix
     Solution,
-    /// Clarification question from AI
     Clarification,
-    /// Custom user-defined tag
     Custom(String),
 }
 
 impl TagType {
-    /// Get the display name of this tag
     pub fn display_name(&self) -> String {
         match self {
             TagType::Important => "important".to_string(),
@@ -44,7 +37,6 @@ impl TagType {
         }
     }
 
-    /// Get the color for this tag
     pub fn color(&self) -> Color {
         match self {
             TagType::Important => Color::Rgb(255, 80, 80),  // Red
@@ -56,7 +48,6 @@ impl TagType {
         }
     }
 
-    /// Get the icon for this tag
     pub fn icon(&self) -> &str {
         match self {
             TagType::Important => "⭐",
@@ -68,7 +59,6 @@ impl TagType {
         }
     }
 
-    /// Parse a tag from a string
     pub fn from_string(s: &str) -> Self {
         match s {
             "important" => TagType::Important,
@@ -80,7 +70,6 @@ impl TagType {
         }
     }
 
-    /// Check if this is a predefined tag
     pub fn is_predefined(&self) -> bool {
         matches!(
             self,
@@ -96,9 +85,7 @@ impl TagType {
 /// A tag applied to a message
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Tag {
-    /// Tag type
     pub tag_type: TagType,
-    /// Optional note attached to the tag
     pub note: Option<String>,
 }
 
@@ -110,7 +97,6 @@ impl Tag {
         }
     }
 
-    /// Create a new tag with a note
     pub fn with_note(tag_type: TagType, note: String) -> Self {
         Self {
             tag_type,
@@ -118,7 +104,6 @@ impl Tag {
         }
     }
 
-    /// Get the display name
     pub fn display_name(&self) -> String {
         self.tag_type.display_name()
     }
@@ -126,10 +111,9 @@ impl Tag {
 
 // TAG FILTER
 
-/// Filter for displaying messages by tag
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct TagFilter {
-    /// Active filter (None = show all)
+    /// None means show all messages.
     pub active_tag: Option<TagType>,
 }
 
@@ -138,22 +122,18 @@ impl TagFilter {
         Self::default()
     }
 
-    /// Set the active tag filter
     pub fn set_active(&mut self, tag: Option<TagType>) {
         self.active_tag = tag;
     }
 
-    /// Clear the filter (show all messages)
     pub fn clear(&mut self) {
         self.active_tag = None;
     }
 
-    /// Check if a filter is active
     pub fn is_active(&self) -> bool {
         self.active_tag.is_some()
     }
 
-    /// Check if a set of tags matches the filter
     pub fn matches(&self, tags: &[Tag]) -> bool {
         match &self.active_tag {
             None => true, // No filter, show all
@@ -164,10 +144,8 @@ impl TagFilter {
 
 // TAG REGISTRY
 
-/// Registry of tags for all messages
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TagRegistry {
-    /// Map of message_id -> tags
     tags: HashMap<String, Vec<Tag>>,
 }
 
@@ -176,7 +154,6 @@ impl TagRegistry {
         Self::default()
     }
 
-    /// Add a tag to a message
     pub fn add_tag(&mut self, message_id: String, tag: Tag) -> bool {
         let tags = self.tags.entry(message_id).or_default();
         // Prevent duplicates
@@ -189,7 +166,6 @@ impl TagRegistry {
         }
     }
 
-    /// Remove a specific tag from a message
     pub fn remove_tag(&mut self, message_id: &str, tag: &Tag) -> bool {
         if let Some(tags) = self.tags.get_mut(message_id) {
             let original_len = tags.len();
@@ -206,7 +182,6 @@ impl TagRegistry {
         }
     }
 
-    /// Remove all tags of a specific type from a message
     pub fn remove_tag_type(&mut self, message_id: &str, tag_type: &TagType) -> bool {
         if let Some(tags) = self.tags.get_mut(message_id) {
             let original_len = tags.len();
@@ -217,12 +192,10 @@ impl TagRegistry {
         }
     }
 
-    /// Get tags for a message
     pub fn tags(&self, message_id: &str) -> Option<Vec<Tag>> {
         self.tags.get(message_id).cloned()
     }
 
-    /// Check if a message has a specific tag type
     pub fn has_tag(&self, message_id: &str, tag_type: &TagType) -> bool {
         self.tags
             .get(message_id)
@@ -230,7 +203,6 @@ impl TagRegistry {
             .unwrap_or(false)
     }
 
-    /// Get all messages with a specific tag
     pub fn messages_with_tag(&self, tag_type: &TagType) -> Vec<String> {
         self.tags
             .iter()
@@ -239,12 +211,10 @@ impl TagRegistry {
             .collect()
     }
 
-    /// Clear all tags for a message
     pub fn clear_message_tags(&mut self, message_id: &str) -> bool {
         self.tags.remove(message_id).is_some()
     }
 
-    /// Get all unique tag types in use
     pub fn all_tag_types(&self) -> Vec<TagType> {
         let mut tag_types = HashSet::new();
         for tags in self.tags.values() {
@@ -257,7 +227,6 @@ impl TagRegistry {
         result
     }
 
-    /// Get count of messages with specific tag
     pub fn count_with_tag(&self, tag_type: &TagType) -> usize {
         self.tags
             .values()
@@ -265,7 +234,6 @@ impl TagRegistry {
             .count()
     }
 
-    /// Get total number of messages with any tags
     pub fn count_tagged_messages(&self) -> usize {
         self.tags
             .iter()
@@ -273,7 +241,6 @@ impl TagRegistry {
             .count()
     }
 
-    /// Merge another tag registry into this one
     pub fn merge(&mut self, other: TagRegistry) {
         for (message_id, tags) in other.tags {
             for tag in tags {

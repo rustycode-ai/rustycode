@@ -99,7 +99,6 @@ impl PluginPermissions {
         }
     }
 
-    /// Check if a specific permission is granted
     pub fn has(&self, perm: &Permission) -> bool {
         self.granted && self.permissions.contains(perm)
     }
@@ -152,7 +151,6 @@ impl PermissionManager {
         }
     }
 
-    /// Check if a plugin has a specific permission
     pub fn check(&self, plugin_name: &str, perm: &Permission) -> PermissionCheck {
         if let Some(denied) = self.denied.get(plugin_name) {
             if denied.contains(perm) {

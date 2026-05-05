@@ -33,7 +33,6 @@ pub struct BenchmarkResults {
 /// Aggregated result for a single task.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskResult {
-    /// Task name.
     pub task_name: String,
     /// Agent used.
     pub agent_name: String,

@@ -1,7 +1,4 @@
 //! Status bar and status indicators for RustyCode TUI
-//!
-//! Provides a comprehensive status system showing current application state,
-//! tool execution progress, and visual feedback for all operations.
 
 #![allow(dead_code)]
 
@@ -24,7 +21,6 @@ use crate::compaction::{ContextMonitor, UsageColor};
 /// Configuration for status display
 #[derive(Clone, Debug)]
 pub struct StatusConfig {
-    /// Enable animations
     pub animations_enabled: bool,
     /// Show tool indicators inline
     pub show_tool_indicators: bool,
@@ -32,7 +28,6 @@ pub struct StatusConfig {
     pub show_progress_bars: bool,
     /// Show elapsed time for tools
     pub show_elapsed_time: bool,
-    /// Show thinking indicator
     pub show_thinking_indicator: bool,
     /// Reduced motion mode (accessibility)
     pub reduced_motion: bool,
@@ -58,7 +53,6 @@ pub struct StatusIndicator {
     pub icon: &'static str,
     /// Status text description
     pub text: String,
-    /// Whether the indicator should animate
     pub animating: bool,
     /// Color for the indicator
     pub color: Color,
@@ -367,7 +361,6 @@ pub enum Status {
 }
 
 impl Status {
-    /// Get the status indicator for this status
     pub fn indicator(&self) -> StatusIndicator {
         match self {
             Status::Ready => StatusIndicator::ready(),
@@ -395,7 +388,6 @@ impl Status {
         }
     }
 
-    /// Get the color for this status
     pub fn color(&self) -> Color {
         match self {
             Status::Ready => Color::Green,
@@ -408,7 +400,6 @@ impl Status {
         }
     }
 
-    /// Check if this status should animate
     pub fn is_animating(&self) -> bool {
         matches!(
             self,
@@ -485,7 +476,6 @@ impl ToolExecutions {
         self.tools.push(tool);
     }
 
-    /// Get the number of running tools
     pub fn running_count(&self) -> usize {
         self.tools
             .iter()
@@ -493,14 +483,12 @@ impl ToolExecutions {
             .count()
     }
 
-    /// Get the currently running tool (if any)
     pub fn current_tool(&self) -> Option<&ToolProgress> {
         self.tools
             .iter()
             .find(|t| t.status == super::progress::ToolStatus::Running)
     }
 
-    /// Get the most recent tool
     pub fn most_recent(&self) -> Option<&ToolProgress> {
         self.tools.last()
     }

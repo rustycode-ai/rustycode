@@ -51,7 +51,6 @@ pub struct MemoryEntry {
     /// Confidence score (0.0-1.0)
     pub confidence: f64,
 
-    /// Metadata
     pub metadata: HashMap<String, String>,
 }
 
@@ -139,16 +138,13 @@ pub enum AccessLevel {
 /// Memory conflict
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryConflict {
-    /// Entry ID
     pub entry_id: String,
 
     /// Conflicting versions
     pub versions: Vec<MemoryEntry>,
 
-    /// Conflict type
     pub conflict_type: ConflictType,
 
-    /// Detected at
     pub detected_at: DateTime<Utc>,
 }
 
@@ -180,13 +176,10 @@ pub struct SharedWorkingMemory {
     /// Maximum size per entry (bytes)
     max_entry_size: usize,
 
-    /// Conflict detection
     enable_conflict_detection: bool,
 
-    /// Pending conflicts
     pending_conflicts: Vec<MemoryConflict>,
 
-    /// Access log
     access_log: Vec<AccessLogEntry>,
 
     /// Memory statistics
@@ -196,19 +189,15 @@ pub struct SharedWorkingMemory {
 /// Access log entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessLogEntry {
-    /// Timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Agent ID
     pub agent_id: String,
 
-    /// Entry ID
     pub entry_id: String,
 
     /// Operation type
     pub operation: AccessOperation,
 
-    /// Success
     pub success: bool,
 }
 
@@ -225,22 +214,17 @@ pub enum AccessOperation {
 /// Memory statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryStats {
-    /// Total reads
     pub total_reads: usize,
 
-    /// Total writes
     pub total_writes: usize,
 
-    /// Total conflicts
     pub total_conflicts: usize,
 
-    /// Current entries
     pub current_entries: usize,
 
     /// Memory usage (approximate bytes)
     pub memory_usage: usize,
 
-    /// Last update
     pub last_update: DateTime<Utc>,
 }
 

@@ -157,7 +157,6 @@ pub struct FileFinderState {
     /// Currently selected index (into filtered_indices)
     pub selected_index: usize,
 
-    /// Whether the finder is visible
     pub visible: bool,
 
     /// Fuzzy matcher

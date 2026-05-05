@@ -139,7 +139,6 @@ pub struct CompactionReport {
     /// Summary text (if generated)
     pub summary: Option<String>,
 
-    /// Messages removed
     pub messages_removed: usize,
 }
 

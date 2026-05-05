@@ -1,12 +1,4 @@
 //! Token autocompaction for RustyCode TUI
-//!
-//! Three-tier compaction inspired by opencode/kilocode and claude-code:
-//!
-//! 1. **Prune** (cheapest, no LLM call): Walk backwards through messages,
-//!    protect recent turns, null out old tool `detailed_output` fields.
-//! 2. **Structured summary**: Replace 100-char truncation with
-//!    Goal/Instructions/Discoveries/Accomplished/Files template.
-//! 3. **Compact**: Drop old messages, keep summary + recent messages.
 
 use crate::ui::message::{Message, MessageRole};
 use rustycode_providers::predefined;
@@ -97,7 +89,6 @@ pub enum CompactionStrategy {
 }
 
 impl CompactionStrategy {
-    /// Get the number of recent messages to keep
     pub fn keep_count(&self) -> usize {
         match self {
             CompactionStrategy::Aggressive => 20,
@@ -186,7 +177,6 @@ impl ContextMonitor {
         self.current_tokens as f64 / self.max_tokens as f64
     }
 
-    /// Check if compaction is needed
     pub fn should_compact(&self) -> bool {
         self.needs_compaction
     }
@@ -225,7 +215,6 @@ pub enum UsageColor {
 pub struct CompactionPreview {
     /// Current token count
     pub current_tokens: usize,
-    /// Max tokens
     pub max_tokens: usize,
     /// Number of messages to compact
     pub messages_to_compact: usize,

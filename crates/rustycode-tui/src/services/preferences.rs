@@ -22,7 +22,6 @@ impl Default for UserPreferences {
 }
 
 impl UserPreferences {
-    /// Get the path to the preferences file
     pub fn get_preferences_path() -> Result<PathBuf> {
         let home = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;

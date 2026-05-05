@@ -29,9 +29,7 @@ use unicode_width::UnicodeWidthStr;
 
 /// Message renderer - handles hierarchical display
 pub struct MessageRenderer {
-    /// Whether to show thinking globally
     pub show_thinking: bool,
-    /// Whether to show tools globally
     pub show_tools: bool,
     /// Current animation frame for spinners
     pub anim_frame: AnimationFrame,
@@ -511,7 +509,7 @@ impl MessageRenderer {
             > max_len
         {
             let truncated =
-                crate::app::brutalist_helpers::truncate_to_display_width(detailed_output, max_len);
+                crate::app::render::brutalist_helpers::truncate_to_display_width(detailed_output, max_len);
             format!("{}...", truncated)
         } else {
             detailed_output.clone()

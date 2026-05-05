@@ -15,7 +15,6 @@ pub struct TaskRunResult {
     pub success: bool,
     /// Text output from the task.
     pub output: String,
-    /// Cost in USD.
     pub cost_usd: f64,
     /// Duration in milliseconds.
     pub duration_ms: i64,

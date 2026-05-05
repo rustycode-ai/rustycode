@@ -12,9 +12,7 @@ use tracing::debug;
 /// System prompt configuration for an MCP server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpSystemPrompt {
-    /// Server name
     pub server_name: String,
-    /// Server description
     pub server_description: String,
     /// Available tools with descriptions
     pub tools: Vec<ToolDescription>,

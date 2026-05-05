@@ -1,7 +1,4 @@
 //! Animated spinner component for async operations
-//!
-//! Provides visual feedback for long-running operations with multiple
-//! spinner styles, color-coded status, and accessibility support.
 
 #![allow(dead_code)]
 
@@ -45,7 +42,6 @@ pub enum SpinnerStatus {
 }
 
 impl SpinnerStatus {
-    /// Get the color for this status
     pub fn color(&self) -> Color {
         match self {
             SpinnerStatus::Working => Color::Cyan,
@@ -55,7 +51,6 @@ impl SpinnerStatus {
         }
     }
 
-    /// Get the icon for this status
     pub fn icon(&self) -> &'static str {
         match self {
             SpinnerStatus::Working => "⏳",
@@ -69,13 +64,9 @@ impl SpinnerStatus {
 /// Animated spinner for async operations
 #[derive(Clone, Debug)]
 pub struct Spinner {
-    /// Spinner style
     style: SpinnerStyle,
-    /// Current status
     status: SpinnerStatus,
-    /// Optional label text
     label: Option<String>,
-    /// Reduced motion mode
     reduced_motion: bool,
 }
 
@@ -94,25 +85,21 @@ impl Spinner {
         Self::new(SpinnerStyle::default())
     }
 
-    /// Set the spinner label
     pub fn with_label(mut self, label: impl Into<String>) -> Self {
         self.label = Some(label.into());
         self
     }
 
-    /// Set reduced motion mode
     pub fn with_reduced_motion(mut self, reduced: bool) -> Self {
         self.reduced_motion = reduced;
         self
     }
 
-    /// Set the spinner status
     pub fn with_status(mut self, status: SpinnerStatus) -> Self {
         self.status = status;
         self
     }
 
-    /// Get the current character to display
     fn get_char(&self, frame: &AnimationFrame) -> char {
         if self.reduced_motion || !matches!(self.status, SpinnerStatus::Working) {
             return self.status.icon().chars().next().unwrap_or('⏳');
@@ -160,7 +147,6 @@ impl Spinner {
         }
     }
 
-    /// Get the dots animation (for text labels)
     fn get_dots(&self, frame: &AnimationFrame) -> &'static str {
         if self.reduced_motion || !matches!(self.status, SpinnerStatus::Working) {
             return "";

@@ -39,10 +39,8 @@ pub struct Summary {
     /// Key points extracted
     pub key_points: Vec<String>,
 
-    /// Files mentioned
     pub files_mentioned: Vec<String>,
 
-    /// Decisions made
     pub decisions_made: Vec<String>,
 
     /// Summary generation timestamp
@@ -78,13 +76,11 @@ pub struct SummaryConfig {
     /// Maximum summary length in tokens
     pub max_tokens: usize,
 
-    /// Whether to extract key points
     pub extract_key_points: bool,
 
     /// Whether to extract file mentions
     pub extract_files: bool,
 
-    /// Whether to extract decisions
     pub extract_decisions: bool,
 
     /// Custom summary prompt (optional)

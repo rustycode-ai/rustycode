@@ -28,6 +28,10 @@ pub enum HookTrigger {
     PostToolUse,
     PreCompact,
     PostCompact,
+    /// Fires before processing user input, allowing hooks to inspect or block prompts.
+    UserPromptSubmit,
+    /// Fires before showing approval prompts, allowing hooks to auto-approve.
+    PermissionRequest,
     Error,
 }
 
@@ -40,6 +44,8 @@ impl std::fmt::Display for HookTrigger {
             Self::PostToolUse => write!(f, "post_tool_use"),
             Self::PreCompact => write!(f, "pre_compact"),
             Self::PostCompact => write!(f, "post_compact"),
+            Self::UserPromptSubmit => write!(f, "user_prompt_submit"),
+            Self::PermissionRequest => write!(f, "permission_request"),
             Self::Error => write!(f, "error"),
         }
     }
@@ -145,6 +151,7 @@ pub struct HooksConfig {
 }
 
 /// Hook manager — loads and executes lifecycle hooks
+#[derive(Clone)]
 pub struct HookManager {
     hooks_dir: PathBuf,
     hooks: Vec<Hook>,
@@ -357,6 +364,29 @@ impl HookManager {
         let hook_profile = hook.profile.unwrap_or(HookProfile::Standard);
         hook_profile <= self.profile
     }
+
+    /// Synchronous wrapper for `execute` — uses tokio runtime if available.
+    /// Falls back to returning no-block if no runtime is active (e.g. tests).
+    pub fn execute_blocking(
+        &self,
+        trigger: HookTrigger,
+        context: serde_json::Value,
+    ) -> HookExecutionResult {
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => match handle.block_on(self.execute(trigger, context)) {
+                Ok(result) => result,
+                Err(e) => {
+                    tracing::error!("Hook execution error: {e}");
+                    HookExecutionResult::default()
+                }
+            },
+            Err(_) => {
+                // No tokio runtime — skip hooks gracefully
+                tracing::debug!("No tokio runtime, skipping {trigger} hooks");
+                HookExecutionResult::default()
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -376,6 +406,8 @@ mod tests {
         assert_eq!(HookTrigger::PreToolUse.to_string(), "pre_tool_use");
         assert_eq!(HookTrigger::SessionStart.to_string(), "session_start");
         assert_eq!(HookTrigger::Error.to_string(), "error");
+        assert_eq!(HookTrigger::UserPromptSubmit.to_string(), "user_prompt_submit");
+        assert_eq!(HookTrigger::PermissionRequest.to_string(), "permission_request");
     }
 
     #[test]
@@ -384,6 +416,42 @@ mod tests {
         assert_eq!(json, "\"pre_tool_use\"");
         let parsed: HookTrigger = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed, HookTrigger::PreToolUse);
+    }
+
+    #[test]
+    fn hook_trigger_user_prompt_submit_serde() {
+        let json = serde_json::to_string(&HookTrigger::UserPromptSubmit).unwrap();
+        assert_eq!(json, "\"user_prompt_submit\"");
+        let parsed: HookTrigger = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, HookTrigger::UserPromptSubmit);
+    }
+
+    #[test]
+    fn hook_trigger_permission_request_serde() {
+        let json = serde_json::to_string(&HookTrigger::PermissionRequest).unwrap();
+        assert_eq!(json, "\"permission_request\"");
+        let parsed: HookTrigger = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed, HookTrigger::PermissionRequest);
+    }
+
+    #[test]
+    fn hook_trigger_all_variants_deserialize() {
+        let variants = [
+            ("session_start", HookTrigger::SessionStart),
+            ("session_end", HookTrigger::SessionEnd),
+            ("pre_tool_use", HookTrigger::PreToolUse),
+            ("post_tool_use", HookTrigger::PostToolUse),
+            ("pre_compact", HookTrigger::PreCompact),
+            ("post_compact", HookTrigger::PostCompact),
+            ("user_prompt_submit", HookTrigger::UserPromptSubmit),
+            ("permission_request", HookTrigger::PermissionRequest),
+            ("error", HookTrigger::Error),
+        ];
+        for (json_str, expected) in variants {
+            let parsed: HookTrigger =
+                serde_json::from_str(&format!("\"{json_str}\"")).unwrap();
+            assert_eq!(parsed, expected, "failed for {json_str}");
+        }
     }
 
     #[test]

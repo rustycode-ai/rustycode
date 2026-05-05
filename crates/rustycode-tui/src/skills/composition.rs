@@ -1,10 +1,4 @@
 //! Skill composition and advanced features
-//!
-//! This module provides advanced skill system features including:
-//! - Skill aliases and shortcuts
-//! - Skill composition (chaining skills together)
-//! - Skill execution history
-//! - Skill templates
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -43,7 +37,6 @@ pub struct SkillComposition {
     pub id: String,
     /// Display name
     pub name: String,
-    /// Description
     pub description: String,
     /// The skills in this composition
     pub steps: Vec<CompositionStep>,
@@ -119,7 +112,6 @@ pub struct SkillTemplate {
     pub id: String,
     /// Display name
     pub name: String,
-    /// Description
     pub description: String,
     /// Category of skill this template creates
     pub category: String,
@@ -134,7 +126,6 @@ pub struct SkillTemplate {
 pub struct TemplateParameter {
     /// Parameter name
     pub name: String,
-    /// Description
     pub description: String,
     /// Default value (optional)
     pub default: Option<String>,

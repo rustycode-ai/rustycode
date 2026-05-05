@@ -114,8 +114,6 @@ pub fn calculate_image_height(has_images: bool, image_count: usize) -> usize {
     1 + rows * 8
 }
 
-/// Get the number of images that fit per row based on available width
-///
 pub fn images_per_row(width: u16) -> usize {
     let images_per_row = width.saturating_sub(4) / 30;
     images_per_row.clamp(1, 3) as usize

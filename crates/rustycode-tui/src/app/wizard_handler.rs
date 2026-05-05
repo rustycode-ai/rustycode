@@ -1,6 +1,4 @@
 //! First-run wizard handler
-//!
-//! Handles wizard initialization, visibility, and completion for first-time setup.
 
 use crate::ui::wizard::FirstRunWizard;
 use std::path::{Path, PathBuf};
@@ -9,7 +7,6 @@ use std::path::{Path, PathBuf};
 pub struct WizardHandler {
     /// The wizard component
     pub wizard: Option<FirstRunWizard>,
-    /// Whether the wizard should be shown
     pub showing_wizard: bool,
 }
 

@@ -1,7 +1,4 @@
 //! Conversation service for RustyCode.
-//!
-//! This module provides a clean abstraction for conversation management and prompting,
-//! making it easy to verify and reuse across different UI implementations.
 
 #![allow(dead_code)]
 
@@ -242,7 +239,6 @@ Unused Memories (candidates for pruning):
         )
     }
 
-    /// Set the AI behavior mode
     pub fn set_ai_mode(&mut self, mode: AiMode) {
         self.ai_mode = mode;
         self.cached_system_prompt.clear();
@@ -268,12 +264,10 @@ Unused Memories (candidates for pruning):
         self.conversation_manager.add_message(message);
     }
 
-    /// Get the conversation formatted for LLM input
     pub fn get_conversation_prompt(&self) -> String {
         self.conversation_manager.to_prompt()
     }
 
-    /// Get the current message count
     pub fn message_count(&self) -> usize {
         self.conversation_manager.message_count()
     }
@@ -470,7 +464,6 @@ Unused Memories (candidates for pruning):
         (memory_block, Vec::new())
     }
 
-    /// Get the mode-specific instruction
     fn get_mode_instruction(&self) -> String {
         match self.ai_mode {
             AiMode::Ask => "### Current Mode: ASK (Interactive)\n\

@@ -1,6 +1,4 @@
 //! Theme slash command
-//!
-//! Provides quick theme switching via /theme command.
 
 use crate::theme::{builtin_themes, is_dark_theme, Theme, ThemeColors};
 use std::sync::{Arc, Mutex};

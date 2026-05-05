@@ -2,10 +2,6 @@
 
 pub mod auto_continue_state;
 pub mod auto_tool_parser;
-#[path = "render/brutalist_helpers.rs"]
-pub mod brutalist_helpers;
-#[path = "render/brutalist_renderer.rs"]
-pub mod brutalist_renderer;
 pub mod clipboard_export;
 pub mod clipboard_ops;
 pub mod commands;
@@ -58,34 +54,23 @@ pub mod service_integration;
 pub mod streaming;
 
 pub mod render {
+    pub mod brutalist_helpers;
+    pub mod brutalist_renderer;
+    pub mod event_loop;
     pub mod layout;
     pub mod shared;
 }
 
-#[path = "input/event_loop.rs"]
-pub mod event_loop_input;
-#[path = "render/event_loop.rs"]
-pub mod event_loop_render;
-#[path = "state/scrolling_ops.rs"]
-pub mod scrolling_ops;
-#[path = "state/state_manager.rs"]
-pub mod state_manager;
-#[path = "../agents/event_loop.rs"]
-pub mod event_loop_agents;
+pub mod state;
 
 #[cfg(test)]
 mod event_loop_tests;
 
-pub use async_::*;
 pub use event_loop::TUI;
-pub use event_loop_agents::*;
-pub use event_loop_input::*;
-pub use event_loop_render::*;
 pub use keyboard_shortcuts::{KeyboardAction, KeyboardShortcutHandler};
 pub use memory_manager::MemoryManager;
-pub use service_integration::*;
 pub use session_recovery_integration::{SessionRecoveryConfig, SessionRecoveryManager};
-pub use state_manager::StateManager;
+pub use state::state_manager::StateManager;
 
 use std::time::Duration;
 

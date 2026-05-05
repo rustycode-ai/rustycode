@@ -187,7 +187,6 @@ impl FirstRunWizard {
         ]
     }
 
-    /// Get the currently selected provider
     pub fn selected_provider(&self) -> &ProviderInfo {
         let idx = self
             .selected_provider_index
@@ -200,7 +199,6 @@ impl FirstRunWizard {
         self.selected_provider().default_models.clone()
     }
 
-    /// Get the currently selected model
     pub fn selected_model(&self) -> String {
         let models = self.available_models();
         if self.selected_model_index < models.len() {
@@ -667,5 +665,3 @@ mod render;
 #[cfg(test)]
 mod tests;
 
-#[allow(unused_imports)]
-pub use render::*;

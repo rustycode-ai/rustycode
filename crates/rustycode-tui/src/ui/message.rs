@@ -1,7 +1,4 @@
 //! Message hierarchy with collapsible tool executions.
-//!
-//! Re-exports from `message_types` (core types) and `message_renderer` (rendering).
-//! Tool helpers live in the private `message_tools_impl` module below.
 
 // Re-export all public items from sibling modules
 pub use crate::ui::message_renderer::{MessageRenderer, MessageTheme};

@@ -198,6 +198,15 @@ pub struct ApiCall {
     pub cost_usd: f64,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub tool_name: Option<String>,
+    /// Tokens served from cache (billed at 0.1× base input price)
+    #[serde(default)]
+    pub cache_read_tokens: u32,
+    /// Tokens written to cache (billed at 1.25× base input price)
+    #[serde(default)]
+    pub cache_creation_tokens: u32,
+    /// Estimated cost savings from cache hits (0.9 × base price × cache_read_tokens)
+    #[serde(default)]
+    pub cache_savings_usd: f64,
 }
 
 /// Provider interface for recording API call costs

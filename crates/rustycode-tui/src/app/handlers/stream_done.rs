@@ -40,19 +40,12 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
         }
     }
 
-    if had_stream_content {
-        tui.dirty = true;
-        if !tui.user_scrolled {
-            tui.auto_scroll();
-        }
-    } else {
-        if !was_cancelled {
-            handle_empty_stream_response(tui);
-        }
-        tui.dirty = true;
-        if !tui.user_scrolled {
-            tui.auto_scroll();
-        }
+    if !had_stream_content && !was_cancelled {
+        handle_empty_stream_response(tui);
+    }
+    tui.dirty = true;
+    if !tui.user_scrolled {
+        tui.auto_scroll();
     }
 
     tui.context_monitor.update(&tui.messages);
@@ -241,12 +234,7 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
         );
     }
     tui.rate_limit.last_message = Some(queued);
-    tui.streaming.is_streaming = true;
-    tui.streaming.chunks_received = 0;
-    tui.streaming.thinking_chunks_received = 0;
-    tui.streaming.stream_start_time = Some(std::time::Instant::now());
-    tui.streaming.current_stream_content.clear();
-    tui.streaming.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.begin_streaming();
     let send_start = std::time::Instant::now();
     if let Err(e) = tui
         .services

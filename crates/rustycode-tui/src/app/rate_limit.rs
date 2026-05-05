@@ -1,6 +1,4 @@
 //! Rate limiting and retry logic for LLM API calls
-//!
-//! Handles rate limit detection, exponential backoff, and countdown display.
 
 use std::time::{Duration, Instant, SystemTime};
 
@@ -22,7 +20,6 @@ impl RateLimitState {
         Self::default()
     }
 
-    /// Check if currently rate limited
     pub fn is_rate_limited(&self) -> bool {
         self.until
             .map(|until| until > Instant::now())
@@ -69,7 +66,6 @@ impl RateLimitState {
         self.last_message = None;
     }
 
-    /// Set the last message for retry purposes
     pub fn set_last_message(&mut self, message: String) {
         self.last_message = Some(message);
     }
@@ -106,7 +102,6 @@ impl RateLimitState {
         })
     }
 
-    /// Get the error type based on the error message
     pub fn classify_error(error: &str) -> RateLimitError {
         let error_lower = error.to_lowercase();
 

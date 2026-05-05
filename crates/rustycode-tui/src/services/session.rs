@@ -1,7 +1,4 @@
 //! Session management for the TUI
-//!
-//! This module provides session persistence, history management, and
-//! command history functionality that can be reused across different UI implementations.
 #![allow(dead_code)]
 
 use std::path::PathBuf;
@@ -44,8 +41,6 @@ pub fn set_test_sessions_dir(path: Option<PathBuf>) {
     TEST_SESSIONS_DIR.with(|p| *p.borrow_mut() = path);
 }
 
-/// Get the sessions directory path
-///
 pub fn sessions_dir() -> PathBuf {
     #[cfg(test)]
     {
@@ -61,8 +56,6 @@ pub fn sessions_dir() -> PathBuf {
     }
 }
 
-/// Get the command history file path
-///
 pub fn command_history_path() -> PathBuf {
     // Store in workspace directory for workspace-specific history
     PathBuf::from(".rustycode_command_history")

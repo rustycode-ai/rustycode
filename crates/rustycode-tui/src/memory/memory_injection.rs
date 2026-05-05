@@ -1,10 +1,7 @@
 //! Memory injection for automatic context enhancement
-//!
-//! This module provides intelligent injection of relevant memories into user messages
-//! to automatically provide context to the AI without manual recall commands.
 
-use crate::memory_auto::AutoMemory;
-use crate::memory_relevance::{
+use crate::memory::memory_auto::AutoMemory;
+use crate::memory::memory_relevance::{
     get_relevant_memories, DEFAULT_MAX_INJECTIONS, DEFAULT_RELEVANCE_THRESHOLD,
 };
 
@@ -131,7 +128,7 @@ pub fn preview_injection(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::memory_auto::{AutoMemory, MemoryType};
+    use crate::memory::memory_auto::{AutoMemory, MemoryType};
 
     #[test]
     fn test_prepare_injection_with_relevant_memory() {

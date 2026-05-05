@@ -20,17 +20,12 @@ use tracing::{debug, info, warn};
 /// Configuration for server manager
 #[derive(Debug, Clone)]
 pub struct ManagerConfig {
-    /// Health check interval
     pub health_check_interval: Duration,
     /// Maximum restart attempts
     pub max_restart_attempts: usize,
-    /// Restart backoff multiplier
     pub restart_backoff_multiplier: f64,
-    /// Initial restart delay
     pub initial_restart_delay: Duration,
-    /// Request timeout
     pub request_timeout: Duration,
-    /// Connection timeout
     pub connection_timeout: Duration,
 }
 

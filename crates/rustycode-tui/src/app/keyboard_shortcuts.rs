@@ -1,9 +1,4 @@
 //! Keyboard shortcuts handler for RustyCode TUI
-//!
-//! Provides support for:
-//! - Standard keyboard shortcuts (Ctrl+C, Ctrl+V, Ctrl+Z, Home, End)
-//! - Vim-style keybindings (j, k, gg, G)
-//! - Configurable modes and chord detection
 
 use std::time::{Duration, Instant};
 
@@ -56,7 +51,6 @@ impl VimChordState {
         self.pending_g_time = None;
     }
 
-    /// Check if the pending 'g' has timed out
     pub fn is_chord_timed_out(&self) -> bool {
         if let Some(time) = self.pending_g_time {
             time.elapsed() > self.chord_timeout
@@ -103,7 +97,6 @@ impl KeyboardShortcutHandler {
         }
     }
 
-    /// Check if Vim mode is enabled
     pub fn is_vim_enabled(&self) -> bool {
         self.vim_enabled
     }

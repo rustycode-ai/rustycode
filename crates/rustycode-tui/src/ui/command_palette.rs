@@ -47,21 +47,13 @@ pub type CommandHandler = fn() -> CommandResult;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum CommandResult {
-    /// Command executed successfully
     Success,
-
-    /// Command executed with a message
     SuccessWithMessage(String),
-
-    /// Command failed
     Error(String),
-
-    /// Command should close the palette
     Close,
 }
 
 impl CommandResult {
-    /// Check if result indicates the palette should close
     pub fn should_close(&self) -> bool {
         matches!(self, Self::Close)
     }
@@ -108,13 +100,9 @@ impl Command {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum MatchScore {
-    /// No match
     None = 0,
-    /// Substring match
     Substring = 1,
-    /// Prefix match
     Prefix = 2,
-    /// Exact match
     Exact = 3,
 }
 
@@ -394,7 +382,6 @@ pub struct CommandPaletteState {
     /// Currently selected index (into filtered_indices)
     pub selected_index: usize,
 
-    /// Whether the palette is visible
     pub visible: bool,
 
     /// Active palette tab

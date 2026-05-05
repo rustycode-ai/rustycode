@@ -8,6 +8,7 @@ use crate::provider_metadata::{
     ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
+use crate::response_debug::ResponseDebugContext;
 use crate::retry::extract_retry_after_ms;
 use crate::tool_annotations::anthropic_annotations_for_tool_info;
 use async_trait::async_trait;
@@ -1989,17 +1990,22 @@ fn map_anthropic_error(
     error_text: &str,
     headers: &reqwest::header::HeaderMap,
 ) -> ProviderError {
+    let debug = ResponseDebugContext::from_response_headers(headers);
     match status.as_u16() {
-        401 | 403 => ProviderError::Auth(error_text.to_string()),
+        401 | 403 => ProviderError::Auth(debug.format_error_message(error_text)),
         429 => {
             let retry_delay = extract_retry_after_ms(headers).map(Duration::from_millis);
             ProviderError::RateLimited { retry_delay }
         }
-        400 => ProviderError::Api(error_text.to_string()),
-        404 => ProviderError::InvalidModel(error_text.to_string()),
-        502..=504 => ProviderError::Network(format!("service unavailable: {}", error_text)),
-        529 => ProviderError::Network(format!("Anthropic API overloaded: {}", error_text)),
-        _ => ProviderError::Api(format!("HTTP {}: {}", status.as_u16(), error_text)),
+        400 => ProviderError::Api(debug.format_error_message(error_text)),
+        404 => ProviderError::InvalidModel(debug.format_error_message(error_text)),
+        502..=504 => {
+            ProviderError::Network(debug.format_error_message(&format!("service unavailable: {}", error_text)))
+        }
+        529 => {
+            ProviderError::Network(debug.format_error_message(&format!("Anthropic API overloaded: {}", error_text)))
+        }
+        _ => ProviderError::Api(debug.format_error_message(&format!("HTTP {}: {}", status.as_u16(), error_text))),
     }
 }
 
@@ -2017,20 +2023,24 @@ fn map_anthropic_structured_error(
         error_msg.push_str(&format!(" (parameter: {})", p));
     }
 
+    let mut debug = ResponseDebugContext::from_response_headers(headers);
+    debug.error_type = Some(error_type.to_string());
+
     match error_type {
-        "invalid_request_error" => ProviderError::Api(error_msg),
-        "authentication_error" => ProviderError::Auth(error_msg),
-        "permission_denied_error" => ProviderError::Auth(error_msg),
-        "not_found_error" => ProviderError::InvalidModel(error_msg),
+        "invalid_request_error" => ProviderError::Api(debug.format_error_message(&error_msg)),
+        "authentication_error" | "permission_denied_error" => {
+            ProviderError::Auth(debug.format_error_message(&error_msg))
+        }
+        "not_found_error" => ProviderError::InvalidModel(debug.format_error_message(&error_msg)),
         "rate_limit_error" => {
             let retry_delay = extract_retry_after_ms(headers).map(Duration::from_millis);
             ProviderError::RateLimited { retry_delay }
         }
         "api_error" | "internal_server_error" => {
-            ProviderError::Api(format!("Anthropic API error: {}", message))
+            ProviderError::Api(debug.format_error_message(&format!("Anthropic API error: {}", message)))
         }
         "overloaded_error" => {
-            ProviderError::Network(format!("Anthropic API overloaded: {}", message))
+            ProviderError::Network(debug.format_error_message(&format!("Anthropic API overloaded: {}", message)))
         }
         _ => map_anthropic_error(status, &error_msg, headers),
     }

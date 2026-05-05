@@ -115,13 +115,10 @@ pub struct QualityStandards {
 /// Task execution result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskResult {
-    /// Task ID
     pub task_id: String,
 
-    /// Start time
     pub start_time: DateTime<Utc>,
 
-    /// End time
     pub end_time: DateTime<Utc>,
 
     /// Duration taken
@@ -130,13 +127,10 @@ pub struct TaskResult {
     /// Success status
     pub success: bool,
 
-    /// Files created
     pub files_created: Vec<String>,
 
-    /// Files modified
     pub files_modified: Vec<String>,
 
-    /// Tests passed
     pub tests_passed: usize,
     pub tests_total: usize,
 
@@ -155,7 +149,6 @@ pub struct TaskResult {
     /// Agent iterations used
     pub agent_iterations: usize,
 
-    /// Tokens consumed
     pub tokens_consumed: u64,
 }
 
@@ -209,7 +202,6 @@ pub struct ComparisonScore {
     /// Quality comparison (relative to manual)
     pub quality_ratio: f64,
 
-    /// Cost effectiveness
     pub cost_effectiveness: f64,
 
     /// Overall comparison score (0-100)
@@ -269,7 +261,6 @@ pub struct BaselineComparison {
     /// Time speedup/slowdown
     pub speedup_ratio: f64,
 
-    /// Quality comparison
     pub quality_comparison: QualityComparison,
 }
 
@@ -282,7 +273,6 @@ pub struct QualityComparison {
     /// Automated quality score
     pub automated_quality: u8,
 
-    /// Quality ratio
     pub quality_ratio: f64,
 }
 

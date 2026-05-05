@@ -1,6 +1,4 @@
 //! LSP (Language Server Protocol) slash commands
-//!
-//! Provides commands for inspecting LSP server availability.
 
 pub async fn handle_lsp_command(input: &str) -> Result<Option<String>, String> {
     let parts: Vec<&str> = input.split_whitespace().collect();

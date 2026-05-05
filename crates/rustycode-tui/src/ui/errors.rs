@@ -125,7 +125,6 @@ impl ErrorDisplay {
         }
     }
 
-    /// Set the error message
     pub fn with_message(mut self, message: impl Into<String>) -> Self {
         self.message = message.into();
         self
@@ -137,13 +136,11 @@ impl ErrorDisplay {
         self
     }
 
-    /// Set the path that caused the error
     pub fn with_path(mut self, path: impl Into<String>) -> Self {
         self.path = Some(path.into());
         self
     }
 
-    /// Set the cause or context
     pub fn with_cause(mut self, cause: impl Into<String>) -> Self {
         self.cause = Some(cause.into());
         self

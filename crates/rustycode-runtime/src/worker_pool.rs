@@ -120,9 +120,7 @@ pub struct PoolConfig {
     pub task_timeout: Duration,
     /// Channel buffer size per priority level
     pub queue_buffer: usize,
-    /// Scaling strategy
     pub scaling_strategy: ScalingStrategy,
-    /// Health check interval
     pub health_check_interval: Duration,
     /// Worker idle timeout before scaling down
     pub worker_idle_timeout: Duration,

@@ -1,6 +1,4 @@
 //! Rendering helpers for the event loop
-//!
-//! Extracted from event_loop.rs to separate rendering logic from the main loop.
 
 use crate::ui::message::Message;
 

@@ -496,7 +496,6 @@ pub struct ToolConfirmation {
     pub request_id: String,
     /// Tool name being confirmed
     pub tool_name: String,
-    /// The decision
     pub decision: ConfirmationDecision,
 }
 

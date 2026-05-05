@@ -95,7 +95,6 @@ impl TeamModeHandler {
         }
     }
 
-    /// Check if a team task is currently running
     pub fn is_running(&self) -> bool {
         self.cancel_token.is_some()
     }
@@ -108,7 +107,6 @@ impl TeamModeHandler {
         self.event_rx.take()
     }
 
-    /// Set the event receiver
     pub fn set_event_rx(
         &mut self,
         rx: tokio::sync::broadcast::Receiver<rustycode_core::team::orchestrator::TeamEvent>,
@@ -121,7 +119,6 @@ impl TeamModeHandler {
         self.cancel_token.take()
     }
 
-    /// Set the cancel token
     pub fn set_cancel_token(&mut self, token: Arc<AtomicBool>) {
         self.cancel_token = Some(token);
     }

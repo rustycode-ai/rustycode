@@ -38,7 +38,6 @@ pub struct ModelInfo {
     /// Output cost per million tokens
     pub output_cost: f64,
 
-    /// Capabilities
     pub capabilities: Vec<String>,
 
     /// Quick shortcut number (1-4)
@@ -125,7 +124,6 @@ pub struct ModelSelectorState {
     /// Currently selected index (into filtered_indices)
     pub selected_index: usize,
 
-    /// Whether the selector is visible
     pub visible: bool,
 
     /// Whether the selection was confirmed (Enter/Ctrl+1-4) vs dismissed (Escape)

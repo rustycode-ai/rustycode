@@ -1,16 +1,4 @@
 //! Memory slash commands
-//!
-//! Provides handlers for memory management commands:
-//! - /memory save `<key>` `<value>` - Save a fact to memory
-//! - /memory recall `<key>` - Retrieve from memory
-//! - /memory search `<query>` - Search memory
-//! - /memory list - List all memories
-//! - /memory delete `<key>` - Delete a memory
-//! - /memory clear - Clear all memories
-//! - /memory inject \[on\|off\] - Toggle auto-injection
-//! - /memory inject threshold `<0.0-1.0>` - Set relevance threshold
-//! - /memory inject max `<n>` - Set max memories to inject
-//! - /memory inject show - Show what would be injected
 
 use anyhow::Result;
 use chrono::Utc;
@@ -388,7 +376,7 @@ pub fn handle_inject_command(
     args: Option<String>,
     injection_config: &mut crate::memory_injection::InjectionConfig,
 ) -> Result<String> {
-    use crate::memory_auto::ThreadSafeAutoMemory;
+    use crate::memory::memory_auto::ThreadSafeAutoMemory;
     use crate::memory_injection::preview_injection;
 
     let args_default = args.as_deref().unwrap_or_default();

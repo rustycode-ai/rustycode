@@ -1,7 +1,4 @@
 //! Streaming state sub-struct for the TUI.
-//!
-//! Groups all fields related to active LLM streaming into one cohesive unit,
-//! keeping the main `TUI` struct definition manageable.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -66,6 +63,19 @@ impl StreamingState {
         // Intentionally NOT clearing last_response_duration — it persists
         // to show timing in the status bar after streaming ends.
         // Intentionally NOT clearing queued_message — it's handled separately.
+    }
+
+    /// Prepare state for a new stream, resetting counters and buffers.
+    ///
+    /// Call this before initiating a new LLM response stream.
+    pub(crate) fn begin_streaming(&mut self) {
+        self.is_streaming = true;
+        self.chunks_received = 0;
+        self.thinking_chunks_received = 0;
+        self.stream_start_time = Some(Instant::now());
+        self.current_stream_content.clear();
+        self.streaming_render_buffer =
+            crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
     }
 }
 

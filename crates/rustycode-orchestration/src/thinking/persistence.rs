@@ -55,7 +55,6 @@ pub struct GraphMetadata {
     pub created_at: i64,
     /// When the session was last modified
     pub modified_at: i64,
-    /// Session ID
     pub session_id: String,
     /// Strategy used
     pub strategy: Option<String>,

@@ -3,24 +3,23 @@
 
 use anyhow::{Context, Result};
 use chrono::Local;
-use once_cell::sync::OnceCell;
-use parking_lot::Mutex;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 use tracing::Level;
 
 /// Maximum log file size before rotation (10MB)
 const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024;
 
 /// Log file path
-static LOG_PATH: OnceCell<PathBuf> = OnceCell::new();
+static LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
 /// Global log writer (thread-safe)
-static LOG_WRITER: OnceCell<Mutex<Option<LogWriter>>> = OnceCell::new();
+static LOG_WRITER: OnceLock<Mutex<Option<LogWriter>>> = OnceLock::new();
 
 /// Log level configured from environment
-static LOG_LEVEL: OnceCell<Level> = OnceCell::new();
+static LOG_LEVEL: OnceLock<Level> = OnceLock::new();
 
 /// Log writer with rotation support
 #[derive(Debug)]
@@ -31,19 +30,16 @@ struct LogWriter {
 
 impl LogWriter {
     fn new(path: &PathBuf) -> Result<Self> {
-        // Ensure parent directory exists
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).context("Failed to create log directory")?;
         }
 
-        // Open or create log file
         let file = OpenOptions::new()
             .create(true)
             .append(true)
             .open(path)
             .context("Failed to open log file")?;
 
-        // Get current file size
         let metadata = file.metadata().context("Failed to get log file metadata")?;
         let current_size = metadata.len();
 
@@ -51,7 +47,6 @@ impl LogWriter {
     }
 
     fn write(&mut self, message: &str) -> Result<()> {
-        // Check if rotation is needed
         if self.current_size > MAX_LOG_SIZE {
             self.rotate()?;
         }
@@ -73,14 +68,11 @@ impl LogWriter {
     fn rotate(&mut self) -> Result<()> {
         let log_path = LOG_PATH.get().context("Log path not initialized")?;
 
-        // Create backup filename with timestamp
         let timestamp = Local::now().format("%Y%m%d_%H%M%S");
         let backup_path = log_path.with_extension(format!("log.{}", timestamp));
 
-        // Rename current log file
         std::fs::rename(log_path, &backup_path).context("Failed to rotate log file")?;
 
-        // Create new log file
         self.file = OpenOptions::new()
             .create(true)
             .append(true)
@@ -89,7 +81,6 @@ impl LogWriter {
 
         self.current_size = 0;
 
-        // Keep only last 5 backup files
         self.cleanup_old_logs(&backup_path)?;
 
         Ok(())
@@ -100,12 +91,10 @@ impl LogWriter {
         if let Some(parent) = current_backup.parent() {
             let mut backups = Vec::new();
 
-            // Collect all backup files
             for entry in std::fs::read_dir(parent).context("Failed to read log directory")? {
                 let entry = entry.context("Failed to read directory entry")?;
                 let path = entry.path();
 
-                // Check if it's a backup log file
                 if path
                     .extension()
                     .and_then(|s| s.to_str())
@@ -115,7 +104,6 @@ impl LogWriter {
                 }
             }
 
-            // Sort by modification time (newest first)
             backups.sort_by(|a, b| match (&a.1, &b.1) {
                 (Some(meta_a), Some(meta_b)) => match (meta_a.modified(), meta_b.modified()) {
                     (Ok(time_a), Ok(time_b)) => time_a.cmp(&time_b).reverse(),
@@ -124,7 +112,6 @@ impl LogWriter {
                 _ => std::cmp::Ordering::Equal,
             });
 
-            // Remove old backups (keep 5 most recent)
             for (path, _) in backups.into_iter().skip(5) {
                 let _ = std::fs::remove_file(path); // Ignore errors
             }
@@ -135,7 +122,6 @@ impl LogWriter {
 }
 
 pub fn init() -> Result<()> {
-    // Get log directory from environment or use default
     let log_dir = std::env::var("RUSTYCODE_LOG_DIR").unwrap_or_else(|_| {
         dirs::home_dir()
             .map(|h| h.join(".rustycode"))
@@ -146,10 +132,8 @@ pub fn init() -> Result<()> {
 
     let log_path = PathBuf::from(log_dir).join("debug.log");
 
-    // Store log path globally
     let _ = LOG_PATH.set(log_path.clone());
 
-    // Initialize log level from environment
     let log_level = std::env::var("RUSTYCODE_LOG")
         .unwrap_or_else(|_| "info".to_string())
         .to_lowercase();
@@ -165,14 +149,11 @@ pub fn init() -> Result<()> {
 
     let _ = LOG_LEVEL.set(level);
 
-    // Initialize log writer
     let writer = LogWriter::new(&log_path)
         .with_context(|| format!("Failed to initialize log writer: {:?}", log_path))?;
 
     let _ = LOG_WRITER.set(Mutex::new(Some(writer)));
 
-    // Initialize tracing subscriber to file
-    // Use try_init() to avoid errors if subscriber is already set
     let log_path_clone = log_path.clone();
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(level)
@@ -205,7 +186,7 @@ pub fn info_log(message: &str) {
 
 fn write_log(level: Level, message: &str) {
     if let Some(writer_guard) = LOG_WRITER.get() {
-        let mut writer_opt = writer_guard.lock();
+        let mut writer_opt = writer_guard.lock().expect("log writer mutex poisoned");
 
         if let Some(writer) = writer_opt.as_mut() {
             let level_str = match level {

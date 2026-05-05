@@ -11,7 +11,6 @@ pub struct Context {
     pub file_path: Option<String>,
     /// File type/extension
     pub file_type: Option<String>,
-    /// Language
     pub language: Option<String>,
     /// Error message if present
     pub error: Option<String>,

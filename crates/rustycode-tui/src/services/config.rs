@@ -1,11 +1,4 @@
 //! TUI configuration management
-//!
-//! This module provides comprehensive configuration for the TUI, including:
-//! - Theme selection
-//! - Keybindings customization
-//! - UI preferences
-//! - Behavior settings
-//! - Profile management
 
 use rustycode_config::paths::RustyCodePath;
 use serde::{Deserialize, Serialize};
@@ -164,19 +157,16 @@ impl Default for TUIConfig {
     }
 }
 
-/// Get the configuration file path
 pub fn get_config_path() -> PathBuf {
     RustyCodePath::tui_config_file().unwrap_or_else(|_| PathBuf::from(".rustycode/tui-config.json"))
 }
 
-/// Get the profiles directory
 pub fn profiles_dir() -> PathBuf {
     RustyCodePath::config_dir()
         .map(|p| p.join("profiles"))
         .unwrap_or_else(|_| PathBuf::from(".rustycode/profiles"))
 }
 
-/// Get the config JSON schema path
 pub fn config_schema_path() -> PathBuf {
     RustyCodePath::config_dir()
         .map(|p| p.join("tui-config.schema.json"))

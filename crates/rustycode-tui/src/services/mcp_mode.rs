@@ -43,9 +43,7 @@ pub struct McpMode {
     pub tools: Vec<ToolInfo>,
     /// Tool execution results
     pub execution_results: Vec<ToolExecutionResult>,
-    /// Search query
     pub search_query: String,
-    /// Execution mode
     pub execution_mode: ExecutionMode,
     /// Tool proxies per server (for execution)
     pub server_proxies: HashMap<String, ToolProxy>,
@@ -77,9 +75,7 @@ pub struct ServerHealth {
     pub name: String,
     /// Health status
     pub status: HealthStatus,
-    /// Tool count
     pub tool_count: usize,
-    /// Resource count
     pub resource_count: usize,
     /// Last check timestamp
     pub last_check: chrono::DateTime<chrono::Utc>,
@@ -92,7 +88,6 @@ pub struct ToolInfo {
     pub name: String,
     /// Tool description
     pub description: String,
-    /// Server name
     pub server_name: String,
     /// Input schema (JSON Schema)
     pub input_schema: Option<Value>,
@@ -101,7 +96,6 @@ pub struct ToolInfo {
 /// Tool execution result
 #[derive(Debug, Clone)]
 pub struct ToolExecutionResult {
-    /// Tool name
     pub tool_name: String,
     /// Execution status
     pub status: ExecutionStatus,
@@ -140,7 +134,6 @@ pub struct ResourceInfo {
     pub name: String,
     /// Human-readable description
     pub description: String,
-    /// MIME type
     pub mime_type: Option<String>,
 }
 
@@ -474,7 +467,6 @@ impl McpMode {
         Ok(())
     }
 
-    /// Check if a tool requires confirmation
     async fn tool_requires_confirmation(&self, tool_name: &str) -> bool {
         let server_name = self
             .tools

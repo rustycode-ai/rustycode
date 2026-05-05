@@ -1,7 +1,4 @@
 //! /stats command — display session statistics
-//!
-//! Shows token usage, cost, turn count, context usage, and tool execution stats
-//! in a compact, readable format. Inspired by goose's display_cost_usage pattern.
 
 /// Result of the /stats command
 pub struct StatsResult {

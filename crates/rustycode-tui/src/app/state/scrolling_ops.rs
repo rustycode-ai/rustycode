@@ -71,7 +71,7 @@ impl TUI {
 
     /// Push current position to undo stack with bounded capacity
     pub(crate) fn push_undo_position(&mut self) {
-        if self.undo_stack.len() >= super::MAX_UNDO_ENTRIES {
+        if self.undo_stack.len() >= crate::app::MAX_UNDO_ENTRIES {
             self.undo_stack.pop_front();
         }
         self.undo_stack
@@ -95,8 +95,6 @@ impl TUI {
         false
     }
 
-    /// Check if a point is within a rect
-    #[allow(dead_code)]
     pub(crate) fn point_in_rect(&self, point: (u16, u16), rect: ratatui::layout::Rect) -> bool {
         let (col, row) = point;
         col >= rect.x && col < rect.x + rect.width && row >= rect.y && row < rect.y + rect.height
@@ -378,7 +376,7 @@ mod tests {
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
 
-    use super::TUI;
+    use crate::app::TUI;
 
     #[test]
     fn manual_scroll_starts_from_bottom() {

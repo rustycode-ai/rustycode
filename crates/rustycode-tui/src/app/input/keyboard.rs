@@ -1,6 +1,4 @@
 //! Keyboard input handling
-//!
-//! Handles key events, Vim keybindings, and global shortcuts.
 
 use crate::app::event_loop::TUI;
 use crate::ui::input::InputMode;

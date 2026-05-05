@@ -23,12 +23,10 @@ impl WorkspaceState {
         }
     }
 
-    /// Check if workspace is loaded
     pub fn is_loaded(&self) -> bool {
         self.loaded
     }
 
-    /// Get the workspace context
     pub fn context(&self) -> Option<&str> {
         self.context.as_deref()
     }

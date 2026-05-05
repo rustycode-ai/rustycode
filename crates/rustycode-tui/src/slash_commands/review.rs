@@ -1,10 +1,4 @@
 //! /review slash command implementation
-//!
-//! Provides automated code review functionality including:
-//! - Git diff analysis
-//! - Issue detection (bugs, security, performance, code smells)
-//! - Improvement suggestions
-//! - Code quality grading
 
 use crate::info_log;
 use anyhow::Result;

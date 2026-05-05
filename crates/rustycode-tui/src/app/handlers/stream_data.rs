@@ -153,7 +153,7 @@ pub(super) fn handle_token_usage_chunk(
     if let Err(e) = tui
         .token_budget
         .cost_tracker
-        .record_call(rustycode_llm::cost_tracker::ApiCall {
+        .record_call(rustycode_llm::cost_tracker::LlmApiCall {
             model: model.clone(),
             input_tokens,
             output_tokens,

@@ -152,7 +152,6 @@ impl RateLimitHandler {
         Some(content)
     }
 
-    /// Check if auto-retry should happen
     pub fn should_auto_retry(&self) -> bool {
         self.until.is_none()
             && self.last_message.is_some()

@@ -216,7 +216,6 @@ pub struct HierarchyStructure {
     /// Cross-team relationships
     pub cross_team_relationships: Vec<CrossEnsembleRelation>,
 
-    /// Escalation paths
     pub escalation_paths: HashMap<String, Vec<String>>,
 }
 
@@ -259,13 +258,10 @@ pub struct CommunicationProtocol {
     /// Protocol name
     pub name: String,
 
-    /// Required permissions
     pub required_permissions: Vec<Permission>,
 
-    /// Message format
     pub message_format: MessageFormat,
 
-    /// Response requirements
     pub response_requirements: ResponseRequirements,
 }
 
@@ -295,7 +291,6 @@ pub struct ResponseRequirements {
     /// Acknowledgment required
     pub requires_acknowledgment: bool,
 
-    /// Escalation on failure
     pub escalation_on_failure: bool,
 }
 
@@ -320,10 +315,8 @@ pub struct CoordinationEvent {
     /// Event ID
     pub id: String,
 
-    /// Timestamp
     pub timestamp: DateTime<Utc>,
 
-    /// Event type
     pub event_type: CoordinationEventType,
 
     /// Ensembles involved
@@ -332,7 +325,6 @@ pub struct CoordinationEvent {
     /// Event data
     pub data: serde_json::Value,
 
-    /// Outcome
     pub outcome: EventOutcome,
 }
 
@@ -775,16 +767,13 @@ pub struct DecisionOutcome {
 /// Collaboration result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CollaborationResult {
-    /// Collaboration ID
     pub collaboration_id: String,
 
-    /// Participating teams
     pub participating_teams: Vec<String>,
 
     /// Collaboration status
     pub status: EventOutcome,
 
-    /// Shared artifacts
     pub shared_artifacts: Vec<String>,
 }
 

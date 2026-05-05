@@ -111,12 +111,7 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     let history = tui.build_conversation_history();
 
     // Set streaming state before send to prevent races
-    tui.streaming.is_streaming = true;
-    tui.streaming.chunks_received = 0;
-    tui.streaming.thinking_chunks_received = 0;
-    tui.streaming.stream_start_time = Some(std::time::Instant::now());
-    tui.streaming.current_stream_content.clear();
-    tui.streaming.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.begin_streaming();
 
     if let Err(e) = tui
         .services
@@ -155,15 +150,10 @@ pub(super) fn build_tool_summary_arg(
             }
         });
     }
-    if lower.contains("read") || lower.contains("cat") || lower.contains("view") {
-        return input_json
-            .get("path")
-            .or_else(|| input_json.get("file_path"))
-            .or_else(|| input_json.get("file"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-    }
-    if lower.contains("write") || lower.contains("create") {
+    if lower.contains("read") || lower.contains("cat") || lower.contains("view")
+        || lower.contains("write") || lower.contains("create")
+        || lower.contains("edit") || lower.contains("patch") || lower.contains("replace")
+    {
         return input_json
             .get("path")
             .or_else(|| input_json.get("file_path"))
@@ -191,13 +181,6 @@ pub(super) fn build_tool_summary_arg(
         return input_json
             .get("pattern")
             .or_else(|| input_json.get("path"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-    }
-    if lower.contains("edit") || lower.contains("patch") || lower.contains("replace") {
-        return input_json
-            .get("path")
-            .or_else(|| input_json.get("file_path"))
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
     }

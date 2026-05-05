@@ -96,7 +96,6 @@ impl PersistentExecutor {
 /// Session checkpoint for recovery
 #[derive(Debug, Clone)]
 pub struct SessionCheckpoint {
-    /// Session ID
     pub session_id: String,
     /// The reasoning graph at this checkpoint
     pub graph: ReasoningGraph,

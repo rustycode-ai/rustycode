@@ -1,7 +1,4 @@
 //! Marketplace slash commands
-//!
-//! Provides commands for browsing, searching, installing, and managing
-//! marketplace items (skills, tools, and MCP servers).
 
 use crate::marketplace::{
     client::{

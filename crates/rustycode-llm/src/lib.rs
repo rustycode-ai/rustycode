@@ -142,6 +142,7 @@ pub mod openrouter;
 pub mod perplexity;
 pub mod provider;
 pub mod provider_error_policy;
+pub mod response_debug;
 pub mod provider_fallback;
 pub mod provider_helpers;
 pub mod provider_metadata;
@@ -221,6 +222,7 @@ pub use rustycode_protocol::llm::{
 };
 
 pub use provider_error_policy::{retry_plan_for_error, user_facing_error_for, RetryPlan};
+pub use response_debug::ResponseDebugContext;
 pub use rate_limiter::{RateLimitConfig, RateLimitType, RateLimiter, RateLimiterBuilder};
 pub use registry::{
     ModelInfo as ModelSpec, ModelTier, ProviderMetadata as ProviderMeta, ProviderMetadataRegistry,

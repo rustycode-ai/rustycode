@@ -47,7 +47,6 @@ pub struct McpClientConfig {
     pub enable_progress: bool,
     /// Client name for identification
     pub client_name: String,
-    /// Client version
     pub client_version: String,
 }
 

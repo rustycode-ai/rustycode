@@ -33,7 +33,6 @@ pub struct PromptSection {
     /// Identifier for this section (for metrics/debugging)
     pub label: String,
 
-    /// The content string
     pub content: String,
 
     /// Cache role: static (reused across tasks), semi-static (reused within scope), dynamic (per-task)

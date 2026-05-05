@@ -1,11 +1,4 @@
 //! Doom loop detection for agent tool execution.
-//!
-//! Detects when the AI agent is stuck repeating the same (tool, argument)
-//! combination without making progress. Unlike [`crate::MistakeTracker`]
-//! which counts consecutive failures, this module detects *repetition
-//! patterns* — the same tool called on the same file/argument repeatedly.
-//!
-//! Inspired by OpenCode's `DOOM_LOOP_THRESHOLD` pattern.
 
 /// Number of identical consecutive failures before declaring a doom loop.
 pub const DOOM_LOOP_THRESHOLD: usize = 3;
@@ -21,7 +14,6 @@ struct ToolCallRecord {
     /// Primary argument — file path for file tools, command for bash, etc.
     /// Used to distinguish "edit_file(a.rs)" from "edit_file(b.rs)".
     key_arg: Option<String>,
-    /// Whether the tool execution succeeded.
     success: bool,
 }
 

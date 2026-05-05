@@ -16,7 +16,6 @@ use super::manager::PluginManager;
 
 /// Plugin manager UI state
 pub struct PluginManagerUI {
-    /// Whether the UI is visible
     pub visible: bool,
 
     /// Search query
@@ -88,7 +87,6 @@ impl PluginManagerUI {
         self.visible
     }
 
-    /// Set the current search query.
     pub fn set_query(&mut self, query: impl Into<String>) {
         self.query = query.into();
         self.selected_index = 0;

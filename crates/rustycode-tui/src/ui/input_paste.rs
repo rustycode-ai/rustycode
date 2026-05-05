@@ -170,14 +170,6 @@ impl PasteHandler {
         Ok(())
     }
 
-    /// Paste image from clipboard (legacy, for backward compatibility)
-    pub fn paste_image(&self, input_state: &mut InputState, image_data: &[u8]) -> Result<()> {
-        // Use ClipboardImage for better processing
-        let clipboard_img = clipboard::ClipboardImage::new(image_data.to_vec())
-            .context("Failed to process image data")?;
-        self.paste_clipboard_image(input_state, clipboard_img)
-    }
-
     /// Detect image type from bytes
     pub fn detect_image_type(&self, data: &[u8]) -> String {
         // Check for GIF first (only needs 6 bytes)

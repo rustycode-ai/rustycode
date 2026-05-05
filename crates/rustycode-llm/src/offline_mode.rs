@@ -16,7 +16,6 @@ pub struct OfflineModeConfig {
     pub enabled: bool,
     /// Which services should have offline fallback
     pub fallback_services: Vec<String>,
-    /// Local search enabled
     pub local_search_enabled: bool,
     /// Static tool descriptions enabled
     pub static_tools_enabled: bool,

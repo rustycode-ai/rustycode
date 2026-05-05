@@ -51,25 +51,20 @@ pub struct BenchmarkSession {
     /// Session identifier
     pub session_id: String,
 
-    /// Start time
     pub start_time: DateTime<Utc>,
 
-    /// End time
     pub end_time: DateTime<Utc>,
 
     /// Total duration
     pub duration: Duration,
 
-    /// Tasks executed
     pub tasks_executed: Vec<String>,
 
     /// Overall results
     pub evaluations: Vec<TaskEvaluation>,
 
-    /// Success rate
     pub success_rate: f64,
 
-    /// Average score
     pub average_score: f64,
 
     /// System metadata
@@ -79,7 +74,6 @@ pub struct BenchmarkSession {
 /// Session metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionMetadata {
-    /// RustyCode version
     pub rustycode_version: String,
 
     /// LLM provider used
@@ -103,7 +97,6 @@ pub struct BenchmarkHarness {
     /// Task evaluator
     evaluator: TaskEvaluator,
 
-    /// Current session ID
     current_session_id: Option<String>,
 }
 

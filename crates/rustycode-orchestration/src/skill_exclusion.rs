@@ -163,7 +163,6 @@ pub struct ExclusionContext {
     pub language: Option<String>,
     /// Available tool versions.
     pub tool_versions: HashMap<String, String>,
-    /// Task context string.
     pub task_context: Option<String>,
 }
 

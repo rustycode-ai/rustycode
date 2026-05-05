@@ -25,7 +25,6 @@ pub struct MetricsConfig {
     pub retention_days: u32,
     /// Whether to collect detailed per-task metrics
     pub collect_detailed_metrics: bool,
-    /// Alert thresholds
     pub alert_thresholds: AlertThresholds,
 }
 
@@ -47,9 +46,7 @@ pub struct IntegrationMetrics {
     pub routing_stats: RoutingStats,
     /// Shadow mode comparison statistics
     pub shadow_stats: ShadowComparisonStats,
-    /// Performance metrics
     pub performance_metrics: PerformanceMetrics,
-    /// Error tracking
     pub error_tracking: ErrorTracking,
     /// Collection metadata
     pub metadata: MetricsMetadata,

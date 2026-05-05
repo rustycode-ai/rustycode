@@ -61,7 +61,7 @@ impl PipelineStep for AgentStep {
 
         let (tx, _rx) = std::sync::mpsc::sync_channel(100);
         let mut events = TuiAgentBridge::new(tx);
-        let result = agent_manager
+        let _result = agent_manager
             .run_task(
                 self.model.as_deref().unwrap_or(&ctx.current_model),
                 &self.task,
@@ -71,13 +71,6 @@ impl PipelineStep for AgentStep {
             .await
             .with_context(|| format!("agent step '{}' failed", self.id))?;
 
-        let output = if result.final_text.trim().is_empty() {
-            events.final_text().to_string()
-        } else {
-            result.final_text
-        };
-
-        ctx.storage.insert(self.id.clone(), output);
         Ok(())
     }
 }

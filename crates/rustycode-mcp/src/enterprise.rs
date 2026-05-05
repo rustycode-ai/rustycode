@@ -14,9 +14,7 @@ pub struct PoolConfig {
     pub max_size: usize,
     /// Minimum idle connections
     pub min_idle: usize,
-    /// Connection timeout
     pub connection_timeout: Duration,
-    /// Idle timeout
     pub idle_timeout: Duration,
     /// Max connection lifetime
     pub max_lifetime: Option<Duration>,
@@ -397,7 +395,6 @@ pub struct RetryConfig {
     pub max_attempts: usize,
     /// Initial backoff duration
     pub initial_backoff: Duration,
-    /// Backoff multiplier
     pub backoff_multiplier: f64,
     /// Maximum backoff duration
     pub max_backoff: Duration,

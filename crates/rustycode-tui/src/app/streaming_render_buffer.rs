@@ -332,7 +332,6 @@ impl StreamingRenderBuffer {
         !self.buffer.is_empty()
     }
 
-    /// Get the length of buffered content.
     pub fn pending_len(&self) -> usize {
         self.buffer.len()
     }

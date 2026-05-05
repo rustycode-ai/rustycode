@@ -1,13 +1,4 @@
 //! Mouse input handling
-//!
-//! Handles mouse scroll events and click interactions.
-//!
-//! # Drag Selection
-//!
-//! Mouse drag selection is handled by the app so we can keep copies panel-aware:
-//! - Drag inside the transcript copies transcript text
-//! - Drag inside the sidebar copies sidebar text
-//! - Scroll wheel still works via captured events
 
 use crate::app::event_loop::TUI;
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
@@ -171,7 +162,6 @@ impl TUI {
     }
 
     /// Handle mouse click — toggle collapse on clicked message
-    #[allow(dead_code)]
     pub(crate) fn handle_mouse_click(&mut self, mouse: MouseEvent) {
         let (col, row) = (mouse.column, mouse.row);
 

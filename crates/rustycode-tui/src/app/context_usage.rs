@@ -1,9 +1,4 @@
 //! Context usage tracking and visualization
-//!
-//! Tracks token usage across the conversation and provides
-//! a compact progress bar for the TUI footer.
-//!
-//! Inspired by goose's `display_context_usage` pattern.
 
 /// Context usage state
 #[derive(Debug, Clone, Default)]
@@ -17,18 +12,15 @@ pub struct ContextUsage {
 }
 
 impl ContextUsage {
-    /// Create new empty context usage
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Update with new token counts from a response
     pub fn update(&mut self, input_tokens: usize, output_tokens: usize) {
         self.input_tokens = input_tokens;
         self.output_tokens = output_tokens;
     }
 
-    /// Set the context window limit
     pub fn set_limit(&mut self, limit: usize) {
         self.context_limit = limit;
     }
@@ -73,8 +65,6 @@ impl ContextUsage {
         )
     }
 
-    /// Get the color level for the current usage
-    /// Returns (filled_color, threshold_name)
     pub fn color_level(&self) -> UsageLevel {
         let pct = self.percentage();
         if pct < 50 {

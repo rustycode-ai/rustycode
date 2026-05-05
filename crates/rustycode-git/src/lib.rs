@@ -421,7 +421,6 @@ pub trait GitHook: Send + Sync {
 pub struct HookContext {
     /// Repository root path
     pub repository_root: PathBuf,
-    /// Current branch
     pub current_branch: Option<String>,
     /// Operation being executed
     pub operation: GitOperation,
@@ -480,7 +479,6 @@ pub struct GitClient {
     repository_root: PathBuf,
     /// Registered hooks
     hooks: HooksStorage,
-    /// Conflict detector
     conflict_detector: Option<ConflictDetector>,
 }
 

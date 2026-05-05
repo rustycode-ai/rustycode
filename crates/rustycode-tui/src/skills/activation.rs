@@ -1,7 +1,4 @@
 //! Skill activation management
-//!
-//! Handles activation and deactivation of skills for auto-triggering.
-//! Provides configuration persistence and state management.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -79,7 +76,6 @@ impl ActivationConfig {
         Ok(())
     }
 
-    /// Check if skill is active
     pub fn is_active(&self, name: &str) -> bool {
         self.active_skills.contains(name)
     }
@@ -163,7 +159,6 @@ pub fn deactivate_skill(name: &str) -> Result<()> {
     Ok(())
 }
 
-/// Check if skill is active
 pub fn is_active(name: &str) -> bool {
     match ActivationConfig::load() {
         Ok(config) => config.is_active(name),

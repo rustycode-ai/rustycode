@@ -1,10 +1,4 @@
 //! Message search and filter functionality
-//!
-//! Provides full-text search across conversation history with:
-//! - Case-sensitive/insensitive search
-//! - Role-based filtering (User, Assistant, System)
-//! - Match highlighting and navigation
-//! - Real-time match counting
 
 use crate::ui::message_types::{Message, MessageRole};
 
@@ -23,7 +17,6 @@ pub enum RoleFilter {
 }
 
 impl RoleFilter {
-    /// Check if a role matches this filter
     pub fn matches(&self, role: &MessageRole) -> bool {
         match self {
             RoleFilter::All => true,
@@ -52,13 +45,11 @@ pub struct SearchState {
     pub query: String,
     /// Whether search is case-sensitive
     pub case_sensitive: bool,
-    /// Current role filter
     pub role_filter: RoleFilter,
     /// All match positions (immutable after search)
     pub matches: Vec<MatchPosition>,
     /// Index of currently selected match
     pub current_match_index: usize,
-    /// Whether the search box is visible
     pub visible: bool,
 }
 
@@ -88,7 +79,6 @@ impl SearchState {
         }
     }
 
-    /// Get the current match, if any
     pub fn current_match(&self) -> Option<&MatchPosition> {
         self.matches.get(self.current_match_index)
     }

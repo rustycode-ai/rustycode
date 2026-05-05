@@ -47,7 +47,6 @@ pub enum InputAction {
 pub struct InputHandler {
     /// Current input state
     pub state: InputState,
-    /// Paste handler
     paste_handler: Option<PasteHandler>,
     /// History manager
     history: HistoryManager,
@@ -88,7 +87,6 @@ impl InputHandler {
         self.history.history()
     }
 
-    /// Check if currently browsing history
     pub fn is_browsing_history(&self) -> bool {
         self.history.is_browsing_history()
     }
@@ -98,7 +96,6 @@ impl InputHandler {
         self.history.history_position()
     }
 
-    /// Check if currently in reverse search mode
     pub fn is_in_reverse_search(&self) -> bool {
         self.history.is_in_reverse_search()
     }

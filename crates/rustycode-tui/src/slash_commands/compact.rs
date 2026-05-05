@@ -1,12 +1,4 @@
 //! Compaction slash command
-//!
-//! Provides manual control over context compaction:
-//! - `/compact` - Manual compaction
-//! - `/compact show` - Show what would be compacted
-//! - `/compact status` - Show token usage
-//! - `/compact threshold <0-100>` - Set warning threshold
-//! - `/compact aggressive` - Aggressive compaction (keep last 20)
-//! - `/compact conservative` - Conservative compaction (keep last 100)
 
 use crate::compaction::{compact_context, CompactionPreview, CompactionStrategy, ContextMonitor};
 use crate::ui::message::Message;
@@ -121,7 +113,6 @@ impl CompactAction {
         }
     }
 
-    /// Check if this action requires confirmation
     pub fn requires_confirmation(&self) -> bool {
         matches!(self, CompactAction::Compact | CompactAction::ShowPreview(_))
     }

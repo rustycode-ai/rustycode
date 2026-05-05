@@ -1,6 +1,4 @@
 //! Shared formatting utilities for slash commands.
-//!
-//! Provides consistent output formatting across all slash commands.
 
 /// Create a header box for command output.
 pub fn header_box(title: &str, width: usize) -> String {

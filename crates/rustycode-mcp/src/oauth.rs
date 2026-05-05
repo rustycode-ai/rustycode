@@ -13,7 +13,6 @@ use tokio::sync::RwLock;
 /// OAuth 2.1 token
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuthToken {
-    /// Access token
     pub access_token: String,
     /// Optional refresh token
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -109,7 +108,6 @@ pub struct OAuthMetadata {
 /// OAuth client credentials
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuthClientCredentials {
-    /// Client ID
     pub client_id: String,
     /// Optional client secret
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -200,11 +198,8 @@ pub struct AuthorizationUrl {
 /// Token storage for a server
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ServerTokenStore {
-    /// Current access token
     pub access_token: Option<OAuthToken>,
-    /// Client credentials
     pub client_credentials: Option<OAuthClientCredentials>,
-    /// OAuth metadata
     pub oauth_metadata: Option<OAuthMetadata>,
 }
 

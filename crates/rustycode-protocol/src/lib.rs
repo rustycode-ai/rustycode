@@ -248,7 +248,9 @@ pub use session_event::SyncEvent;
 pub use context::{ContextPlan, ContextSection, ContextSectionKind};
 
 // Tool types
-pub use tool::{ToolCall, ToolMetadata, ToolPermission, ToolResult};
+pub use tool::{
+    ApiCall, CostTrackerProvider, ToolCall, ToolMetadata, ToolPermission, ToolResult,
+};
 
 // Message types
 pub use message::{

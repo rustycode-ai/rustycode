@@ -1,9 +1,4 @@
 //! Toast notification system for transient messages
-//!
-//! Provides temporary notification popups for feedback, errors, warnings,
-//! and success messages. Toasts auto-dismiss after a configurable duration.
-//!
-//! Features smooth slide/fade animations matching modern terminal UIs.
 
 use crate::theme::ThemeColors;
 use ratatui::{
@@ -33,7 +28,6 @@ pub enum ToastPhase {
 }
 
 impl ToastPhase {
-    /// Get the duration for this phase
     pub fn duration(&self) -> Duration {
         match self {
             Self::Entering | Self::Exiting => Duration::from_millis(120),
@@ -131,7 +125,6 @@ impl Toast {
         self
     }
 
-    /// Check if this toast has expired
     pub fn is_expired(&self) -> bool {
         self.created_at.elapsed() > self.duration
     }
@@ -368,7 +361,6 @@ impl ToastManager {
         &self.toasts
     }
 
-    /// Check if any toasts are active
     pub fn has_active(&self) -> bool {
         !self.toasts.is_empty()
     }

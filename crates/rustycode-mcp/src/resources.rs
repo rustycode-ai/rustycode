@@ -18,7 +18,6 @@ pub struct Resource {
     pub name: String,
     /// Resource description
     pub description: String,
-    /// MIME type
     pub mime_type: String,
     /// Server ID that provides this resource
     pub server_id: String,

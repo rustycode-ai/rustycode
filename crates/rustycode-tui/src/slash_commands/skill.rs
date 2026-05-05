@@ -1,6 +1,4 @@
 //! Skill management slash commands
-//!
-//! Provides commands for installing, updating, activating, deactivating, and running skills.
 
 use crate::skills::{SkillStateManager, TriggerCondition};
 use std::sync::{Arc, RwLock};

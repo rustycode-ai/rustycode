@@ -53,7 +53,6 @@ pub struct SessionRecoveryManager {
     crash_recovery: CrashRecovery,
     /// State persistence
     persistence: SessionPersistence,
-    /// Configuration
     config: SessionRecoveryConfig,
     /// Last auto-save time
     last_save_time: Instant,
@@ -95,7 +94,6 @@ impl SessionRecoveryManager {
         })
     }
 
-    /// Get the current session ID
     pub fn session_id(&self) -> &str {
         &self.session_id
     }

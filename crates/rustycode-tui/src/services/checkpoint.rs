@@ -1,6 +1,4 @@
 //! Checkpoint save/restore for session state (conversation, tasks, git info).
-//! Supports resuming work after interruptions and rewinding the workspace to
-//! a captured git commit.
 
 use crate::tasks::WorkspaceTasks;
 use crate::ui::message::Message;

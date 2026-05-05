@@ -106,7 +106,6 @@ impl RetryConfig {
 /// Result of a single benchmark trial.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrialResult {
-    /// Task name.
     pub task_name: String,
     /// Agent that was used.
     pub agent_name: String,

@@ -158,7 +158,6 @@ pub struct SpecialistAgent {
     pub id: String,
     /// Human-readable name (e.g., "DatabaseMigrationAgent")
     pub name: String,
-    /// Specialist type
     pub specialist_type: SpecialistType,
     /// Role this agent fulfills (usually Builder or Architect)
     pub role: AgentRole,

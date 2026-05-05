@@ -2,21 +2,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Signal(pub String);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum BlockingType {
-    Hard,
-    Soft,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Dependency {
-    pub signal: Signal,
-    pub blocking: BlockingType,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetryPolicy {
     pub max_attempts: u32,
@@ -132,35 +117,6 @@ pub enum PhaseStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_signal_creation() {
-        let signal = Signal("test_signal".to_string());
-        assert_eq!(signal.0, "test_signal");
-    }
-
-    #[test]
-    fn test_signal_equality() {
-        let signal1 = Signal("test".to_string());
-        let signal2 = Signal("test".to_string());
-        assert_eq!(signal1, signal2);
-    }
-
-    #[test]
-    fn test_blocking_type() {
-        assert_eq!(BlockingType::Hard, BlockingType::Hard);
-        assert_ne!(BlockingType::Hard, BlockingType::Soft);
-    }
-
-    #[test]
-    fn test_dependency_creation() {
-        let dep = Dependency {
-            signal: Signal("test_signal".to_string()),
-            blocking: BlockingType::Hard,
-        };
-        assert_eq!(dep.signal, Signal("test_signal".to_string()));
-        assert_eq!(dep.blocking, BlockingType::Hard);
-    }
 
     #[test]
     fn test_retry_policy_default() {
@@ -377,14 +333,5 @@ mod tests {
             FailureStrategy::SkipOnFail { retry } => assert_eq!(retry.max_attempts, 3),
             _ => panic!("Expected SkipOnFail variant"),
         }
-    }
-
-    #[test]
-    fn test_signal_hash() {
-        use std::collections::HashSet;
-        let mut set = HashSet::new();
-        set.insert(Signal("test".to_string()));
-        set.insert(Signal("test".to_string()));
-        assert_eq!(set.len(), 1);
     }
 }

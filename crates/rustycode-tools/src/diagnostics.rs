@@ -102,7 +102,6 @@ pub struct DiagnosticsSnapshot {
     pub system_info: SystemInfo,
     /// Files included in the snapshot (relative_path → content)
     pub files: Vec<DiagnosticsFile>,
-    /// Total size in bytes
     pub total_size_bytes: usize,
 }
 
@@ -111,7 +110,6 @@ pub struct DiagnosticsSnapshot {
 pub struct DiagnosticsFile {
     /// Relative path within the diagnostics bundle
     pub path: String,
-    /// Size in bytes
     pub size_bytes: usize,
     /// Whether the file was successfully read
     pub read_success: bool,
