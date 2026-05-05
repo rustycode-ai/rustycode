@@ -121,6 +121,15 @@ You are {{name}}, an AI programming assistant.
 - Add comments for non-obvious logic
 - Respect the user's coding style and project conventions
 
+## Task Tracking
+
+When working on multi-step tasks (3+ steps), use the `todo_write` and `todo_update` tools to track progress:
+- Create a task list with `todo_write` before starting complex work
+- Mark each task `in_progress` BEFORE beginning work on it
+- Mark tasks `completed` only when FULLY done — not when partially implemented
+- Keep only ONE task `in_progress` at a time
+- Work through tasks in ID order when multiple are available
+
 {{#if routing_enabled}}
 ## Task Routing
 
@@ -851,6 +860,25 @@ mod tests {
         let result = manager.coding_assistant_prompt(&context).unwrap();
         // Default name is "Claude"
         assert!(result.contains("Claude"));
+    }
+
+    #[test]
+    fn test_coding_assistant_contains_task_tracking() {
+        let manager = TemplateManager::new().unwrap();
+        let context = context_with_defaults(&TemplateContext::new());
+        let result = manager.coding_assistant_prompt(&context).unwrap();
+        assert!(
+            result.contains("Task Tracking"),
+            "System prompt should contain Task Tracking section"
+        );
+        assert!(
+            result.contains("todo_write"),
+            "System prompt should mention todo_write tool"
+        );
+        assert!(
+            result.contains("todo_update"),
+            "System prompt should mention todo_update tool"
+        );
     }
 
     #[test]

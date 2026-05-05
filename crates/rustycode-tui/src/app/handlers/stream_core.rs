@@ -10,7 +10,7 @@ use super::stream_approval::{
 use super::stream_data::{
     handle_execution_trace_chunk, handle_extract_tasks_chunk, handle_file_snapshot_chunk,
     handle_question_answered_chunk, handle_question_request_chunk, handle_system_message_chunk,
-    handle_tasks_extracted_chunk, handle_token_usage_chunk,
+    handle_tasks_extracted_chunk, handle_todo_sync_chunk, handle_token_usage_chunk,
 };
 use super::stream_done::handle_done_chunk;
 use super::stream_error::handle_error_chunk;
@@ -186,5 +186,6 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
         StreamChunk::ExecutionTrace(trace) => handle_execution_trace_chunk(tui, trace),
         StreamChunk::SystemMessage(msg) => handle_system_message_chunk(tui, msg),
         StreamChunk::Stopped { stop_reason } => handle_stopped_chunk(tui, stop_reason),
+        StreamChunk::TodoSync => handle_todo_sync_chunk(tui),
     }
 }

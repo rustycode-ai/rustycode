@@ -1666,6 +1666,10 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                         },
                     );
                 }
+
+                if tool.name == "todo_write" || tool.name == "todo_update" {
+                    send_chunk(&stream_tx, StreamChunk::TodoSync);
+                }
             }
         }
 

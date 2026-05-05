@@ -326,6 +326,8 @@ pub enum StreamChunk {
     ExecutionTrace(serde_json::Value),
     /// A system-level status message (e.g., tool started, phase changed)
     SystemMessage(String),
+    /// Sync LLM todo state into persisted workspace tasks
+    TodoSync,
 }
 
 /// Result from tool execution

@@ -288,6 +288,60 @@ impl WorkspaceTasks {
     }
 }
 
+const LLM_TODO_OWNER: &str = "llm-todo";
+
+pub fn sync_from_todo_state(
+    workspace: &mut WorkspaceTasks,
+    todo_state: &rustycode_tools::todo::TodoState,
+) -> bool {
+    let items = todo_state
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+
+    let new_tasks: Vec<Task> = items.iter().map(llm_todo_to_task).collect();
+
+    let old_llm_count = workspace
+        .tasks
+        .iter()
+        .filter(|t| t.owner.as_deref() == Some(LLM_TODO_OWNER))
+        .count();
+
+    let changed = old_llm_count != new_tasks.len()
+        || !std::iter::zip(
+            workspace
+                .tasks
+                .iter()
+                .filter(|t| t.owner.as_deref() == Some(LLM_TODO_OWNER)),
+            &new_tasks,
+        )
+        .all(|(a, b)| a.id == b.id && a.status == b.status && a.description == b.description);
+
+    if changed {
+        workspace
+            .tasks
+            .retain(|t| t.owner.as_deref() != Some(LLM_TODO_OWNER));
+        workspace.tasks.extend(new_tasks);
+    }
+
+    changed
+}
+
+fn llm_todo_to_task(item: &rustycode_tools::todo::TodoItem) -> Task {
+    Task {
+        id: item.id.clone(),
+        description: item.title.clone(),
+        status: match item.status {
+            rustycode_tools::todo::TodoStatus::Pending => TaskStatus::Pending,
+            rustycode_tools::todo::TodoStatus::InProgress => TaskStatus::InProgress,
+            rustycode_tools::todo::TodoStatus::Completed => TaskStatus::Completed,
+            _ => TaskStatus::Pending,
+        },
+        created_at: SystemTime::now(),
+        dependencies: Vec::new(),
+        owner: Some(LLM_TODO_OWNER.to_string()),
+    }
+}
+
 /// Update agent status
 pub fn update_agent_status(
     tasks: &mut WorkspaceTasks,
