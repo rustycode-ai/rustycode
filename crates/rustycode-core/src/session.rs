@@ -157,6 +157,82 @@ pub struct CodePanelState {
     pub language: String,
 }
 
+/// Performance metrics - tracks request performance and token usage
+#[derive(Clone, Debug)]
+pub struct PerformanceMetrics {
+    pub tokens_used: usize,
+    pub last_response_tokens: usize,
+    pub total_requests: usize,
+    pub total_input_tokens: usize,
+    pub total_output_tokens: usize,
+    pub current_request_input_tokens: usize,
+    pub request_start_time: Option<Instant>,
+    pub request_latencies: Vec<u128>,
+    pub error_count: usize,
+    pub last_request_latency: Option<u128>,
+}
+
+impl PerformanceMetrics {
+    pub fn new() -> Self {
+        Self {
+            tokens_used: 0,
+            last_response_tokens: 0,
+            total_requests: 0,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            current_request_input_tokens: 0,
+            request_start_time: None,
+            request_latencies: Vec::new(),
+            error_count: 0,
+            last_request_latency: None,
+        }
+    }
+
+    /// Update token usage statistics
+    pub fn update_token_usage(&mut self, input_tokens: usize, output_tokens: usize) {
+        self.total_input_tokens = self.total_input_tokens.saturating_add(input_tokens);
+        self.total_output_tokens = self.total_output_tokens.saturating_add(output_tokens);
+        self.tokens_used = self
+            .total_input_tokens
+            .saturating_add(self.total_output_tokens);
+        self.current_request_input_tokens = input_tokens;
+        self.last_response_tokens = output_tokens;
+    }
+
+    /// Record request latency, keeping last 100
+    pub fn record_latency(&mut self, latency_ms: u128) {
+        self.request_latencies.push(latency_ms);
+        if self.request_latencies.len() > 100 {
+            self.request_latencies
+                .drain(0..self.request_latencies.len() - 100);
+        }
+        self.last_request_latency = Some(latency_ms);
+    }
+
+    /// Increment error count
+    pub fn increment_error_count(&mut self) {
+        self.error_count = self.error_count.saturating_add(1);
+    }
+}
+
+/// Provider configuration - model selection and provider state
+#[derive(Clone, Debug)]
+pub struct ProviderConfig {
+    pub available_models: Vec<String>,
+    pub current_model: String,
+    pub provider_configured: bool,
+}
+
+impl ProviderConfig {
+    pub fn new() -> Self {
+        Self {
+            available_models: Vec::new(),
+            current_model: String::new(),
+            provider_configured: false,
+        }
+    }
+}
+
 /// Core session state - independent of UI implementation
 pub struct SessionState {
     // Conversation state
@@ -174,9 +250,12 @@ pub struct SessionState {
     pub cwd: PathBuf,
     pub workspace_context: String,
     pub session_title: String,
-    pub tokens_used: usize,
-    pub last_response_tokens: usize,
-    pub total_requests: usize,
+
+    // Performance metrics
+    pub performance: PerformanceMetrics,
+
+    // Provider configuration
+    pub provider: ProviderConfig,
 
     // Tool execution
     pub active_tools: Vec<ToolExecution>,
@@ -192,20 +271,6 @@ pub struct SessionState {
 
     // First run detection
     pub is_first_run: bool,
-
-    // Model selection
-    pub available_models: Vec<String>,
-    pub current_model: String,
-    pub provider_configured: bool,
-
-    // Performance monitoring
-    pub request_start_time: Option<Instant>,
-    pub request_latencies: Vec<u128>, // Store last 100 request latencies in ms
-    pub total_input_tokens: usize,
-    pub total_output_tokens: usize,
-    pub current_request_input_tokens: usize,
-    pub error_count: usize,
-    pub last_request_latency: Option<u128>,
 
     // Token budget
     pub token_budget: TokenBudgetState,
@@ -342,9 +407,8 @@ impl SessionState {
             cwd: cwd.clone(),
             workspace_context: String::new(),
             session_title: "New Session".to_string(),
-            tokens_used: 0,
-            last_response_tokens: 0,
-            total_requests: 0,
+            performance: PerformanceMetrics::new(),
+            provider: ProviderConfig::new(),
             active_tools: Vec::new(),
             current_session_tools: Vec::new(),
             tool_iteration_count: 0,
@@ -352,16 +416,6 @@ impl SessionState {
             ai_mode: AiMode::Act,
             memory_entries: Vec::new(),
             is_first_run: false,
-            available_models: Vec::new(),
-            current_model: String::new(),
-            provider_configured: false,
-            request_start_time: None,
-            request_latencies: Vec::new(),
-            total_input_tokens: 0,
-            total_output_tokens: 0,
-            current_request_input_tokens: 0,
-            error_count: 0,
-            last_request_latency: None,
             token_budget: TokenBudgetState { budget: None },
             streaming: StreamingState {
                 is_streaming: false,
@@ -499,13 +553,7 @@ impl SessionState {
 
     /// Update token usage statistics
     pub fn update_token_usage(&mut self, input_tokens: usize, output_tokens: usize) {
-        self.total_input_tokens = self.total_input_tokens.saturating_add(input_tokens);
-        self.total_output_tokens = self.total_output_tokens.saturating_add(output_tokens);
-        self.tokens_used = self
-            .total_input_tokens
-            .saturating_add(self.total_output_tokens);
-        self.current_request_input_tokens = input_tokens;
-        self.last_response_tokens = output_tokens;
+        self.performance.update_token_usage(input_tokens, output_tokens);
     }
 
     /// Set a token budget for this session. When `tokens_used` exceeds this,
@@ -517,27 +565,22 @@ impl SessionState {
     /// Check if the session is within its token budget.
     /// Returns `Ok(())` if within budget, or `Err` with remaining tokens info.
     pub fn check_token_budget(&self) -> Result<(), TokenBudgetStatus> {
-        self.token_budget.check(self.tokens_used)
+        self.token_budget.check(self.performance.tokens_used)
     }
 
     /// Fraction of token budget consumed (0.0 to 1.0+).
     pub fn token_budget_fraction(&self) -> f64 {
-        self.token_budget.fraction(self.tokens_used)
+        self.token_budget.fraction(self.performance.tokens_used)
     }
 
     /// Record request latency
     pub fn record_latency(&mut self, latency_ms: u128) {
-        self.request_latencies.push(latency_ms);
-        if self.request_latencies.len() > 100 {
-            self.request_latencies
-                .drain(0..self.request_latencies.len() - 100);
-        }
-        self.last_request_latency = Some(latency_ms);
+        self.performance.record_latency(latency_ms);
     }
 
     /// Increment error count
     pub fn increment_error_count(&mut self) {
-        self.error_count = self.error_count.saturating_add(1);
+        self.performance.increment_error_count();
     }
 
     /// Start a tool execution
@@ -608,17 +651,17 @@ impl SessionState {
 
     /// Set the current model
     pub fn set_model(&mut self, model: String) {
-        self.current_model = model;
+        self.provider.current_model = model;
     }
 
     /// Set available models
     pub fn set_available_models(&mut self, models: Vec<String>) {
-        self.available_models = models;
+        self.provider.available_models = models;
     }
 
     /// Set provider configured status
     pub fn set_provider_configured(&mut self, configured: bool) {
-        self.provider_configured = configured;
+        self.provider.provider_configured = configured;
     }
 
     /// Update edit preview
@@ -750,13 +793,13 @@ mod tests {
         assert!(s.messages.is_empty());
         assert!(s.input.is_empty());
         assert_eq!(s.scroll_offset, 0);
-        assert_eq!(s.total_requests, 0);
-        assert_eq!(s.tokens_used, 0);
+        assert_eq!(s.performance.total_requests, 0);
+        assert_eq!(s.performance.tokens_used, 0);
         assert!(!s.streaming.is_streaming);
         assert!(s.streaming.current_response.is_empty());
         assert!(s.active_tools.is_empty());
-        assert!(!s.provider_configured);
-        assert_eq!(s.error_count, 0);
+        assert!(!s.provider.provider_configured);
+        assert_eq!(s.performance.error_count, 0);
     }
 
     #[test]
@@ -784,14 +827,14 @@ mod tests {
     fn update_token_usage_accumulates() {
         let mut s = make_session();
         s.update_token_usage(100, 50);
-        assert_eq!(s.total_input_tokens, 100);
-        assert_eq!(s.total_output_tokens, 50);
-        assert_eq!(s.tokens_used, 150);
+        assert_eq!(s.performance.total_input_tokens, 100);
+        assert_eq!(s.performance.total_output_tokens, 50);
+        assert_eq!(s.performance.tokens_used, 150);
 
         s.update_token_usage(200, 100);
-        assert_eq!(s.total_input_tokens, 300);
-        assert_eq!(s.total_output_tokens, 150);
-        assert_eq!(s.tokens_used, 450);
+        assert_eq!(s.performance.total_input_tokens, 300);
+        assert_eq!(s.performance.total_output_tokens, 150);
+        assert_eq!(s.performance.tokens_used, 450);
     }
 
     #[test]
@@ -800,25 +843,25 @@ mod tests {
         for i in 0..105 {
             s.record_latency(i as u128);
         }
-        assert_eq!(s.request_latencies.len(), 100);
+        assert_eq!(s.performance.request_latencies.len(), 100);
         // Oldest entries should have been removed
-        assert_eq!(s.request_latencies[0], 5);
+        assert_eq!(s.performance.request_latencies[0], 5);
     }
 
     #[test]
     fn record_latency_tracks_last() {
         let mut s = make_session();
         s.record_latency(42);
-        assert_eq!(s.last_request_latency, Some(42));
+        assert_eq!(s.performance.last_request_latency, Some(42));
     }
 
     #[test]
     fn increment_error_count() {
         let mut s = make_session();
-        assert_eq!(s.error_count, 0);
+        assert_eq!(s.performance.error_count, 0);
         s.increment_error_count();
         s.increment_error_count();
-        assert_eq!(s.error_count, 2);
+        assert_eq!(s.performance.error_count, 2);
     }
 
     #[test]
@@ -896,24 +939,24 @@ mod tests {
     #[test]
     fn set_model() {
         let mut s = make_session();
-        assert!(s.current_model.is_empty());
+        assert!(s.provider.current_model.is_empty());
         s.set_model("claude-3-opus".to_string());
-        assert_eq!(s.current_model, "claude-3-opus");
+        assert_eq!(s.provider.current_model, "claude-3-opus");
     }
 
     #[test]
     fn set_available_models() {
         let mut s = make_session();
         s.set_available_models(vec!["a".to_string(), "b".to_string()]);
-        assert_eq!(s.available_models.len(), 2);
+        assert_eq!(s.provider.available_models.len(), 2);
     }
 
     #[test]
     fn set_provider_configured() {
         let mut s = make_session();
-        assert!(!s.provider_configured);
+        assert!(!s.provider.provider_configured);
         s.set_provider_configured(true);
-        assert!(s.provider_configured);
+        assert!(s.provider.provider_configured);
     }
 
     #[test]
