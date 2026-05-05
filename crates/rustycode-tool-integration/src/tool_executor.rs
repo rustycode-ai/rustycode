@@ -1,6 +1,7 @@
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use rustycode_protocol::{ApiCall, CostTrackerProvider, ToolCall, ToolPermission, ToolResult};
+use serde::Serialize;
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolInfo {

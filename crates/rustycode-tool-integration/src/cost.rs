@@ -5,8 +5,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use rustycode_protocol::ApiCall;
-use rustycode_protocol::llm::Usage;
+use rustycode_protocol::{ApiCall, Usage};
 
 /// Cost per 1M tokens (input, output) by model (approximate, April 2026)
 ///

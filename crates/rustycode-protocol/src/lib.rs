@@ -266,7 +266,9 @@ pub use message_selector::{
 
 // LLM types
 #[cfg(not(target_arch = "wasm32"))]
-pub use llm::{CompletionRequest, CompletionResponse, Cost, LLMProvider, ModelInfo, TokenCount};
+pub use llm::{
+    CompletionRequest, CompletionResponse, Cost, LLMProvider, ModelInfo, TokenCount, Usage,
+};
 
 // Working modes
 pub use modes::WorkingMode;

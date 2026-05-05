@@ -1,7 +1,4 @@
-//! Slash command implementations
-//!
-//! This module contains handlers for various slash commands available in the TUI.
-//! Each slash command is implemented as a separate module for better organization.
+//! Slash command handler modules.
 
 pub mod compact;
 pub mod copilot;

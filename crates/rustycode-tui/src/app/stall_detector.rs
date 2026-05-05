@@ -159,9 +159,8 @@ impl StallDetector {
         }
     }
 
-    /// Whether a nudge should be injected for the current stall level.
-    /// Returns `false` if already injected this turn.
-    pub fn should_nudge(&mut self) -> bool {
+    /// Check if a nudge should be injected, marking it as injected if true.
+    pub fn try_mark_nudge(&mut self) -> bool {
         if self.nudge_injected_this_turn {
             return false;
         }
@@ -290,8 +289,8 @@ mod tests {
             det.record_tool("read_file", true, false);
             det.end_turn();
         }
-        assert!(det.should_nudge());
-        assert!(!det.should_nudge()); // Already injected
+        assert!(det.try_mark_nudge());
+        assert!(!det.try_mark_nudge()); // Already injected
     }
 
     #[test]
