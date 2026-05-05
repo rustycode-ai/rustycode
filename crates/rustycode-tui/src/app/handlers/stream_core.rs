@@ -21,26 +21,26 @@ use super::stream_tools::{
 
 fn handle_text_chunk(tui: &mut TUI, text: String) {
     // Capture stream start time on first chunk (Goose pattern: response timing)
-    if tui.stream_start_time.is_none() {
-        tui.stream_start_time = Some(std::time::Instant::now());
+    if tui.streaming.stream_start_time.is_none() {
+        tui.streaming.stream_start_time = Some(std::time::Instant::now());
     }
 
     // Feed through the streaming render buffer for safe markdown boundaries.
     // The buffer holds back incomplete markdown (unclosed bold, code blocks, etc.)
     // and returns complete segments safe for rendering.
-    let safe_text = tui.streaming_render_buffer.push(&text);
+    let safe_text = tui.streaming.streaming_render_buffer.push(&text);
 
     if let Some(renderable) = safe_text {
         // Append safe content to current stream content only.
         // The assistant message's .content is set atomically in
         // StreamChunk::Done to avoid text duplication.
-        tui.current_stream_content.reserve(renderable.len());
-        tui.current_stream_content.push_str(&renderable);
+        tui.streaming.current_stream_content.reserve(renderable.len());
+        tui.streaming.current_stream_content.push_str(&renderable);
 
-        tui.is_streaming = true;
-        tui.chunks_received += 1;
+        tui.streaming.is_streaming = true;
+        tui.streaming.chunks_received += 1;
         // Update terminal title on first chunk (state transition to "thinking")
-        if tui.chunks_received == 1 {
+        if tui.streaming.chunks_received == 1 {
             tui.update_terminal_title();
         }
         if tui.renderer_mode.is_brutalist() {
@@ -52,7 +52,7 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
     } else {
         // Buffer is holding incomplete markdown — still mark streaming
         // so the UI shows the spinner, but don't dirty (no render change).
-        tui.is_streaming = true;
+        tui.streaming.is_streaming = true;
     }
     // NOTE: Do NOT clear stream_cancelled here!
     // The user may have pressed Esc/Ctrl+D to cancel while chunks
@@ -65,7 +65,7 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
 
 fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
     const MAX_THINKING_BYTES: usize = 50 * 1024;
-    tui.thinking_chunks_received += 1;
+    tui.streaming.thinking_chunks_received += 1;
     let assistant_msg = tui
         .messages
         .iter_mut()
@@ -90,7 +90,7 @@ fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
         }
     }
 
-    tui.is_streaming = true;
+    tui.streaming.is_streaming = true;
 
     // Take a turn snapshot on first streaming chunk so we can
     // verify file changes when the turn completes.

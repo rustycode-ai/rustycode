@@ -47,9 +47,9 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             // Without this, the stream thread keeps running and its Done
             // handler would trigger auto-continue or queued message on
             // the now-empty conversation.
-            if self.is_streaming {
+            if self.streaming.is_streaming {
                 self.services.request_stop_stream();
-                self.stream_cancelled = true;
+                self.streaming.stream_cancelled = true;
             }
             // Reset all scroll and selection state
             self.selected_message = 0;
@@ -63,7 +63,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             self.dismiss_any_overlay();
             // Reset streaming state
             self.reset_streaming_state();
-            self.queued_message = None;
+            self.streaming.queued_message = None;
             self.stashed_prompt = None;
             self.clear_plan_mode_banner();
             self.rate_limit.clear();
@@ -71,12 +71,12 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             self.auto_continue_pending = false;
             self.auto_continue_iterations = 0;
             // Reset session usage tracking
-            self.session_input_tokens = 0;
-            self.session_output_tokens = 0;
-            self.session_cache_read_tokens = 0;
-            self.session_cache_creation_tokens = 0;
-            self.last_turn_input_tokens = 0;
-            self.session_cost_usd = 0.0;
+            self.token_budget.session_input_tokens = 0;
+            self.token_budget.session_output_tokens = 0;
+            self.token_budget.session_cache_read_tokens = 0;
+            self.token_budget.session_cache_creation_tokens = 0;
+            self.token_budget.last_turn_input_tokens = 0;
+            self.token_budget.session_cost_usd = 0.0;
             self.context_monitor.current_tokens = 0;
             self.context_monitor.needs_compaction = false;
             self.add_system_message("Conversation cleared".to_string());
@@ -93,9 +93,9 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             summary,
         } => {
             // Signal background stream to stop before loading new session
-            if self.is_streaming {
+            if self.streaming.is_streaming {
                 self.services.request_stop_stream();
-                self.stream_cancelled = true;
+                self.streaming.stream_cancelled = true;
             }
             // Reset scroll and selection state
             self.selected_message = 0;
@@ -109,19 +109,19 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             self.dismiss_any_overlay();
             // Reset streaming state
             self.reset_streaming_state();
-            self.queued_message = None;
+            self.streaming.queued_message = None;
             self.stashed_prompt = None;
             self.clear_plan_mode_banner();
             self.rate_limit.clear();
             self.auto_continue_enabled = false;
             self.auto_continue_pending = false;
             // Reset session usage tracking
-            self.session_input_tokens = 0;
-            self.session_output_tokens = 0;
-            self.session_cache_read_tokens = 0;
-            self.session_cache_creation_tokens = 0;
-            self.last_turn_input_tokens = 0;
-            self.session_cost_usd = 0.0;
+            self.token_budget.session_input_tokens = 0;
+            self.token_budget.session_output_tokens = 0;
+            self.token_budget.session_cache_read_tokens = 0;
+            self.token_budget.session_cache_creation_tokens = 0;
+            self.token_budget.last_turn_input_tokens = 0;
+            self.token_budget.session_cost_usd = 0.0;
             self.messages = messages;
             self.context_monitor.update(&self.messages);
             if !self.messages.is_empty() {
@@ -228,19 +228,19 @@ pub(crate) fn cancel_team(&mut self) {
 
 /// Show session cost and usage summary
 fn handle_cost_command(&mut self) {
-    let total_tokens = self.session_input_tokens + self.session_output_tokens;
+    let total_tokens = self.token_budget.session_input_tokens + self.token_budget.session_output_tokens;
     let turn_count = self
         .messages
         .iter()
         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
         .count();
 
-    let cost_str = if self.session_cost_usd < 0.001 {
+    let cost_str = if self.token_budget.session_cost_usd < 0.001 {
         "negligible".to_string()
-    } else if self.session_cost_usd < 0.01 {
-        format!("${:.4}", self.session_cost_usd)
+    } else if self.token_budget.session_cost_usd < 0.01 {
+        format!("${:.4}", self.token_budget.session_cost_usd)
     } else {
-        format!("${:.2}", self.session_cost_usd)
+        format!("${:.2}", self.token_budget.session_cost_usd)
     };
 
     let token_str = if total_tokens >= 1_000_000 {
@@ -251,16 +251,16 @@ fn handle_cost_command(&mut self) {
         total_tokens.to_string()
     };
 
-    let input_str = if self.session_input_tokens >= 1_000 {
-        format!("{:.1}k", self.session_input_tokens as f64 / 1_000.0)
+    let input_str = if self.token_budget.session_input_tokens >= 1_000 {
+        format!("{:.1}k", self.token_budget.session_input_tokens as f64 / 1_000.0)
     } else {
-        self.session_input_tokens.to_string()
+        self.token_budget.session_input_tokens.to_string()
     };
 
-    let output_str = if self.session_output_tokens >= 1_000 {
-        format!("{:.1}k", self.session_output_tokens as f64 / 1_000.0)
+    let output_str = if self.token_budget.session_output_tokens >= 1_000 {
+        format!("{:.1}k", self.token_budget.session_output_tokens as f64 / 1_000.0)
     } else {
-        self.session_output_tokens.to_string()
+        self.token_budget.session_output_tokens.to_string()
     };
 
     let ctx_pct = if self.context_monitor.max_tokens > 0 {
@@ -279,13 +279,13 @@ fn handle_cost_command(&mut self) {
     let summary = format!(
         "Session Usage ({} turns, {}):\n  Tokens: {} total ({} in / {} out)\n  Context: {} used\n  Cost: {} ({})\n  API calls: {}",
         turn_count, model_display, token_str, input_str, output_str, ctx_pct, cost_str,
-        if self.session_cost_usd > 0.0 { "estimated" } else { "free/local model" },
-        self.cost_tracker.calls_count(),
+        if self.token_budget.session_cost_usd > 0.0 { "estimated" } else { "free/local model" },
+        self.token_budget.cost_tracker.calls_count(),
     );
 
     let mut full_summary = summary;
 
-    let by_tool = self.cost_tracker.costs_by_tool();
+    let by_tool = self.token_budget.cost_tracker.costs_by_tool();
     if !by_tool.is_empty() {
         let tool_breakdown: Vec<String> = by_tool
             .iter()
@@ -313,7 +313,7 @@ fn print_session_summary(&self) {
         .iter()
         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
         .count();
-    let total_tokens = self.session_input_tokens + self.session_output_tokens;
+    let total_tokens = self.token_budget.session_input_tokens + self.token_budget.session_output_tokens;
     let model = self
         .current_model
         .rsplit('/')
@@ -330,10 +330,10 @@ fn print_session_summary(&self) {
         }
     };
 
-    let cost = if self.session_cost_usd > 0.01 {
-        format!("${:.2}", self.session_cost_usd)
-    } else if self.session_cost_usd > 0.0 {
-        format!("${:.4}", self.session_cost_usd)
+    let cost = if self.token_budget.session_cost_usd > 0.01 {
+        format!("${:.2}", self.token_budget.session_cost_usd)
+    } else if self.token_budget.session_cost_usd > 0.0 {
+        format!("${:.4}", self.token_budget.session_cost_usd)
     } else {
         "free".to_string()
     };
@@ -344,8 +344,8 @@ fn print_session_summary(&self) {
             "\n  Session: {} turns, {} tokens ({} in / {} out), {}, model: {}",
             turn_count,
             fmt(total_tokens),
-            fmt(self.session_input_tokens),
-            fmt(self.session_output_tokens),
+            fmt(self.token_budget.session_input_tokens),
+            fmt(self.token_budget.session_output_tokens),
             cost,
             model
         );
@@ -359,7 +359,7 @@ fn print_session_summary(&self) {
 pub(crate) fn update_terminal_title(&self) {
     if let Some(dir_name) = self.services.cwd().file_name().and_then(|n| n.to_str()) {
         let sanitized: String = dir_name.chars().filter(|c| !c.is_control()).collect();
-        let state = if self.is_streaming {
+        let state = if self.streaming.is_streaming {
             if self.active_tools.is_empty() {
                 "thinking"
             } else {

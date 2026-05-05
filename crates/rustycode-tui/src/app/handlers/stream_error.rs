@@ -9,8 +9,8 @@ use tracing;
 
 pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     // Streaming encountered an error — release query guard
-    tui.is_streaming = false;
-    tui.stream_cancelled = false; // Reset for next stream
+    tui.streaming.is_streaming = false;
+    tui.streaming.stream_cancelled = false; // Reset for next stream
 
     // Update terminal title back to "ready"
     tui.update_terminal_title();
@@ -19,9 +19,9 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     // Clear stale active tools on error
     tui.active_tools.clear();
     // Reset streaming buffer state so next stream starts clean
-    tui.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
-    tui.chunks_received = 0;
-    tui.thinking_chunks_received = 0;
+    tui.streaming.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.chunks_received = 0;
+    tui.streaming.thinking_chunks_received = 0;
 
     // Preserve partial response content so the user doesn't lose
     // what the AI already wrote before the error. If there's partial
@@ -29,8 +29,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     // Use iter().rev().find() (not .last()) because system messages
     // (auto-approve notifications, doom loop warnings) may have been
     // pushed during streaming, making .last() point to the wrong message.
-    if !tui.current_stream_content.is_empty() {
-        let content = std::mem::take(&mut tui.current_stream_content);
+    if !tui.streaming.current_stream_content.is_empty() {
+        let content = std::mem::take(&mut tui.streaming.current_stream_content);
         let preserved_len = content.len();
         let assistant_msg = tui
             .messages
@@ -57,7 +57,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     // On retryable errors (rate limit, network), preserve it for auto-retry.
     // On non-retryable errors (auth, context), clear it — retrying won't help.
     if !err.should_preserve_queued_message() {
-        tui.queued_message = None;
+        tui.streaming.queued_message = None;
     }
 
     tui.auto_continue_pending = false;

@@ -238,7 +238,7 @@ mod integration_tests {
 
         // 2. LLM is streaming (simulated by setting is_streaming)
         // This should not interfere with scan progress
-        tui.is_streaming = true;
+        tui.streaming.is_streaming = true;
         assert_eq!(tui.workspace_scan_progress, Some((25, 100)));
 
         // 3. Continue scanning
@@ -260,16 +260,16 @@ mod integration_tests {
         // Verify other state fields are not affected
         assert!(!tui.workspace_loaded);
         assert_eq!(tui.messages.len(), 0);
-        assert!(!tui.is_streaming);
+        assert!(!tui.streaming.is_streaming);
 
         // Set other state
         tui.workspace_loaded = true;
-        tui.is_streaming = true;
+        tui.streaming.is_streaming = true;
 
         // Verify scan progress is preserved
         assert_eq!(tui.workspace_scan_progress, Some((33, 100)));
         assert!(tui.workspace_loaded);
-        assert!(tui.is_streaming);
+        assert!(tui.streaming.is_streaming);
     }
 
     #[test]

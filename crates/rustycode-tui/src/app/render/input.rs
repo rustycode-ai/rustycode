@@ -60,7 +60,7 @@ impl PolishedRenderer {
         use ratatui::style::{Color, Style};
         use ratatui::text::Span;
 
-        if tui.is_streaming {
+        if tui.streaming.is_streaming {
             let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
             let anim_frame = tui.animator.current_frame();
             let frame_idx = (anim_frame.progress_frame / 5) % frames.len();
@@ -79,7 +79,7 @@ impl PolishedRenderer {
                 ),
                 Span::styled("  Ctrl+C cancel", Style::default().fg(Color::DarkGray)),
             ];
-            spans.push(if tui.queued_message.is_some() {
+            spans.push(if tui.streaming.queued_message.is_some() {
                 Span::styled("  📝 1 queued", Style::default().fg(Color::Rgb(180, 180, 255)))
             } else {
                 Span::styled("  type to queue", Style::default().fg(Color::Rgb(120, 120, 140)))
@@ -287,7 +287,7 @@ impl PolishedRenderer {
                     if !after.is_empty() {
                         spans.push(Span::raw(after.to_string()));
                     }
-                } else if row.is_empty() && !is_multiline && !tui.is_streaming {
+                } else if row.is_empty() && !is_multiline && !tui.streaming.is_streaming {
                     spans.push(self.cursor_span(tui));
                     spans.push(Span::styled(
                         self.input_placeholder(tui),
@@ -316,7 +316,7 @@ impl PolishedRenderer {
                     if !after.is_empty() {
                         spans.push(Span::raw(after.to_string()));
                     }
-                } else if row.is_empty() && !is_multiline && !tui.is_streaming {
+                } else if row.is_empty() && !is_multiline && !tui.streaming.is_streaming {
                     spans.push(self.cursor_span(tui));
                     spans.push(Span::styled(
                         self.input_placeholder(tui),
@@ -380,7 +380,7 @@ impl PolishedRenderer {
     }
 
     fn input_placeholder(&self, tui: &TUI) -> &'static str {
-        if tui.is_streaming {
+        if tui.streaming.is_streaming {
             ""
         } else if tui.messages.is_empty() {
             " Ask me anything..."
@@ -400,7 +400,7 @@ impl PolishedRenderer {
         use ratatui::text::Line;
         use ratatui::widgets::Paragraph;
 
-        let send_hint = if tui.is_streaming {
+        let send_hint = if tui.streaming.is_streaming {
             "⏎ Queue".to_string()
         } else {
             "⏎ Send".to_string()
@@ -436,7 +436,7 @@ impl PolishedRenderer {
         use ratatui::style::{Color, Style};
         use ratatui::text::Span;
 
-        let hints_text = if tui.is_streaming {
+        let hints_text = if tui.streaming.is_streaming {
             "Ctrl+C cancel · ↑↓ scroll"
         } else {
             "Ctrl+A/E nav · Ctrl+U/D scroll · Ctrl+X edit · Ctrl+R search"

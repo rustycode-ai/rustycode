@@ -136,17 +136,8 @@ pub struct TUI {
     pub(crate) user_scrolled: bool, // Track if user manually scrolled up
     pub(crate) last_user_scroll_time: Instant, // Debounce: prevent auto-scroll for 2s after user scrolls
 
-    // Streaming state
-    pub(crate) current_stream_content: String,
-    pub(crate) streaming_render_buffer: crate::app::streaming_render_buffer::StreamingRenderBuffer,
-    pub(crate) is_streaming: bool,
-    pub(crate) stream_cancelled: bool, // Set by Esc/Ctrl+C, checked by Done handler
-    pub(crate) chunks_received: usize,
-    pub(crate) thinking_chunks_received: usize,
-    pub(crate) queued_message: Option<String>, // Queued while streaming (goose pattern)
-    pub(crate) pending_bash_result: Arc<std::sync::Mutex<Option<String>>>,
-    pub(crate) stream_start_time: Option<Instant>, // Goose pattern: response timing
-    pub(crate) last_response_duration: Option<Duration>, // Shows in status bar after completion
+    // Streaming state (grouped in sub-struct)
+    pub(crate) streaming: crate::app::streaming_state::StreamingState,
     pub(crate) plan_mode_banner: Option<crate::app::plan_mode_ops::PlanModeBanner>,
     pub(crate) execution_trace: Option<serde_json::Value>,
 
@@ -348,14 +339,8 @@ pub struct TUI {
     pub(crate) tool_manager: crate::services::tool_manager::ToolManager,
     pub(crate) session_manager: crate::services::session_manager::SessionManager,
 
-    // Session token usage and cost tracking
-    pub(crate) session_input_tokens: usize,
-    pub(crate) session_output_tokens: usize,
-    pub(crate) session_cache_read_tokens: usize,
-    pub(crate) session_cache_creation_tokens: usize,
-    pub(crate) last_turn_input_tokens: usize,
-    pub(crate) session_cost_usd: f64,
-    pub(crate) cost_tracker: rustycode_llm::cost_tracker::CostTracker,
+    // Session token usage and cost tracking (grouped in sub-struct)
+    pub(crate) token_budget: crate::app::token_budget::TokenBudget,
 
     // Hook manager for lifecycle extensibility
     pub(crate) hook_manager: rustycode_tools::hooks::HookManager,
@@ -429,14 +414,7 @@ impl TUI {
     /// when send fails, or when loading/resuming a session that may have
     /// been saved mid-stream.
     pub(crate) fn reset_streaming_state(&mut self) {
-        self.is_streaming = false;
-        self.stream_cancelled = false;
-        self.chunks_received = 0;
-        self.thinking_chunks_received = 0;
-        self.current_stream_content.clear();
-        self.streaming_render_buffer =
-            crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
-        self.stream_start_time = None;
+        self.streaming.reset();
         self.ast_phase_state.deactivate();
     }
 
@@ -600,17 +578,7 @@ impl TUI {
             mouse_selection_dragged: std::cell::Cell::new(false),
             user_scrolled: false,
             last_user_scroll_time: Instant::now(),
-            current_stream_content: String::new(),
-            streaming_render_buffer:
-                crate::app::streaming_render_buffer::StreamingRenderBuffer::new(),
-            is_streaming: false,
-            stream_cancelled: false,
-            queued_message: None,
-            pending_bash_result: Arc::new(std::sync::Mutex::new(None)),
-            chunks_received: 0,
-            thinking_chunks_received: 0,
-            stream_start_time: None,
-            last_response_duration: None,
+            streaming: crate::app::streaming_state::StreamingState::new(),
             plan_mode_banner: None,
             active_tools: std::collections::HashMap::new(),
             workspace_loaded: false,
@@ -759,13 +727,7 @@ impl TUI {
             clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
             awaiting_clarification: false,
             // Session token usage and cost tracking
-            session_input_tokens: 0,
-            session_output_tokens: 0,
-            session_cache_read_tokens: 0,
-            session_cache_creation_tokens: 0,
-            last_turn_input_tokens: 0,
-            session_cost_usd: 0.0,
-            cost_tracker: rustycode_llm::cost_tracker::CostTracker::new(None),
+            token_budget: crate::app::token_budget::TokenBudget::new(),
             hook_manager: rustycode_tools::hooks::HookManager::new(
                 PathBuf::from(".rustycode/hooks"),
                 rustycode_tools::hooks::HookProfile::Standard,
@@ -849,17 +811,7 @@ impl TUI {
             mouse_selection_dragged: std::cell::Cell::new(false),
             user_scrolled: false,
             last_user_scroll_time: Instant::now(),
-            current_stream_content: String::new(),
-            streaming_render_buffer:
-                crate::app::streaming_render_buffer::StreamingRenderBuffer::new(),
-            is_streaming: false,
-            stream_cancelled: false,
-            queued_message: None,
-            pending_bash_result: Arc::new(std::sync::Mutex::new(None)),
-            chunks_received: 0,
-            thinking_chunks_received: 0,
-            stream_start_time: None,
-            last_response_duration: None,
+            streaming: crate::app::streaming_state::StreamingState::new(),
             plan_mode_banner: None,
             active_tools: std::collections::HashMap::new(),
             workspace_loaded: false,
@@ -1025,13 +977,7 @@ impl TUI {
             // AST pipeline phase progress
             ast_phase_state: crate::ui::ast_progress::AstPhaseState::new(),
             // Session token usage and cost tracking
-            session_input_tokens: 0,
-            session_output_tokens: 0,
-            session_cache_read_tokens: 0,
-            session_cache_creation_tokens: 0,
-            last_turn_input_tokens: 0,
-            session_cost_usd: 0.0,
-            cost_tracker: rustycode_llm::cost_tracker::CostTracker::new(None),
+            token_budget: crate::app::token_budget::TokenBudget::new(),
             hook_manager: rustycode_tools::hooks::HookManager::new(
                 PathBuf::from(".rustycode/hooks"),
                 rustycode_tools::hooks::HookProfile::Standard,
@@ -1258,7 +1204,7 @@ impl TUI {
                 self.tool_panel_selected_index = None;
                 self.showing_tool_result = false;
                 self.reset_streaming_state();
-                self.queued_message = None;
+                self.streaming.queued_message = None;
                 self.messages = session.messages;
                 self.context_monitor.update(&self.messages);
                 if !self.messages.is_empty() {
@@ -1564,7 +1510,7 @@ impl TUI {
             let animation_start = Instant::now();
             if self.animator.update() {
                 // Only mark dirty if an animation is visible (streaming or active tools)
-                if self.is_streaming || !self.active_tools.is_empty() {
+                if self.streaming.is_streaming || !self.active_tools.is_empty() {
                     self.dirty = true;
                 }
             }
@@ -1736,7 +1682,7 @@ impl TUI {
                     input_handled,
                     self.messages.len(),
                     self.active_tools.len(),
-                    self.is_streaming,
+                    self.streaming.is_streaming,
                     self.user_scrolled,
                     self.viewport_height
                 );
@@ -1744,9 +1690,9 @@ impl TUI {
         }
 
         // Cleanup: stop any active stream
-        if self.is_streaming {
+        if self.streaming.is_streaming {
             self.services.request_stop_stream();
-            self.stream_cancelled = true;
+            self.streaming.stream_cancelled = true;
             // Don't set is_streaming=false here — let the async stream task's
             // Done handler clean up to avoid racing with channel receivers.
         }
@@ -1979,8 +1925,8 @@ impl TUI {
                     command_tx,
                     workspace_tasks: &mut self.workspace_tasks,
                     messages: &mut self.messages,
-                    current_stream_content: &mut self.current_stream_content,
-                    is_streaming: &mut self.is_streaming,
+                    current_stream_content: &mut self.streaming.current_stream_content,
+                    is_streaming: &mut self.streaming.is_streaming,
                     last_extraction: &mut self.last_extraction,
                     services: &mut self.services,
                     agent_manager: &mut self.agent_manager,
@@ -1994,9 +1940,9 @@ impl TUI {
                     showing_compaction_preview: &mut self.showing_compaction_preview,
                     pending_compaction: &mut self.pending_compaction,
                     file_undo_stack: &mut self.file_undo_stack,
-                    session_input_tokens: self.session_input_tokens,
-                    session_output_tokens: self.session_output_tokens,
-                    session_cost_usd: self.session_cost_usd,
+                    session_input_tokens: self.token_budget.session_input_tokens,
+                    session_output_tokens: self.token_budget.session_output_tokens,
+                    session_cost_usd: self.token_budget.session_cost_usd,
                     current_model: self.current_model.clone(),
                     session_start: self.start_time,
                 },
@@ -2038,7 +1984,7 @@ impl TUI {
                     frame.area().width,
                     frame.area().height,
                     self.messages.len(),
-                    self.is_streaming,
+                    self.streaming.is_streaming,
                     self.dirty
                 );
             }
@@ -2127,7 +2073,7 @@ impl TUI {
                 draw_elapsed.as_millis(),
                 self.messages.len(),
                 total_lines,
-                self.is_streaming
+                self.streaming.is_streaming
             );
         }
 
@@ -2351,7 +2297,7 @@ impl TUI {
                     layout_elapsed.as_millis(),
                     draw_elapsed.as_millis(),
                     total_elapsed.as_millis(),
-                    self.is_streaming,
+                    self.streaming.is_streaming,
                     self.user_scrolled,
                     self.selected_message
                 );

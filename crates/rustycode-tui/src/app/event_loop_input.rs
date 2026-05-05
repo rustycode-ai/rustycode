@@ -541,7 +541,7 @@ impl TUI {
                 event_summary.as_deref().unwrap_or("unknown"),
                 input_elapsed.as_millis(),
                 self.dirty,
-                self.is_streaming,
+                self.streaming.is_streaming,
                 self.showing_tool_panel,
                 self.showing_command_palette,
                 self.showing_skill_palette,
@@ -554,7 +554,7 @@ impl TUI {
 
     /// Retry the last sent message
     pub(crate) fn retry_last_message(&mut self, message: String) {
-        if self.is_streaming {
+        if self.streaming.is_streaming {
             tracing::warn!("Already streaming, skipping retry");
             return;
         }
@@ -568,12 +568,12 @@ impl TUI {
         self.rate_limit.last_message = Some(message.clone());
 
         // Set streaming state before send to prevent double-Enter races
-        self.is_streaming = true;
-        self.chunks_received = 0;
-        self.thinking_chunks_received = 0;
-        self.stream_start_time = Some(std::time::Instant::now());
-        self.current_stream_content.clear();
-        self.streaming_render_buffer =
+        self.streaming.is_streaming = true;
+        self.streaming.chunks_received = 0;
+        self.streaming.thinking_chunks_received = 0;
+        self.streaming.stream_start_time = Some(std::time::Instant::now());
+        self.streaming.current_stream_content.clear();
+        self.streaming.streaming_render_buffer =
             crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
         self.tool_panel_history.clear();
         self.tool_panel_selected_index = None;
@@ -628,7 +628,7 @@ impl TUI {
                 );
                 self.auto_scroll();
                 // Store result in shared state for polling by poll_services()
-                let result_store = self.pending_bash_result.clone();
+                let result_store = self.streaming.pending_bash_result.clone();
                 std::thread::spawn(move || {
                     if let Ok(result) = rx.recv_timeout(std::time::Duration::from_secs(58)) {
                         let text = match result {

@@ -188,7 +188,7 @@ impl TUI {
         // During active streaming, never fight user scroll position.
         // The user is reading earlier content and the overflow indicator
         // gives them a way to jump back down when ready.
-        if self.is_streaming && self.user_scrolled {
+        if self.streaming.is_streaming && self.user_scrolled {
             return;
         }
 

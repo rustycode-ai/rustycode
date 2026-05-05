@@ -133,11 +133,11 @@ pub(super) fn handle_token_usage_chunk(
     cache_read_tokens: usize,
     cache_creation_tokens: usize,
 ) {
-    tui.session_input_tokens += input_tokens;
-    tui.session_output_tokens += output_tokens;
-    tui.session_cache_read_tokens += cache_read_tokens;
-    tui.session_cache_creation_tokens += cache_creation_tokens;
-    tui.last_turn_input_tokens = input_tokens;
+    tui.token_budget.session_input_tokens += input_tokens;
+    tui.token_budget.session_output_tokens += output_tokens;
+    tui.token_budget.session_cache_read_tokens += cache_read_tokens;
+    tui.token_budget.session_cache_creation_tokens += cache_creation_tokens;
+    tui.token_budget.last_turn_input_tokens = input_tokens;
 
     // Update context monitor with real API token counts
     tui.context_monitor
@@ -145,12 +145,13 @@ pub(super) fn handle_token_usage_chunk(
 
     let model = &tui.current_model;
     let turn_cost = rustycode_llm::token_tracker::estimate_cost(model, input_tokens, output_tokens);
-    tui.session_cost_usd += turn_cost;
+    tui.token_budget.session_cost_usd += turn_cost;
 
     let (input_cost_per_m, _) = rustycode_llm::token_tracker::cost_per_million_tokens_io(model);
     let cache_savings = (cache_read_tokens as f64 / 1_000_000.0) * input_cost_per_m * 0.9;
 
     if let Err(e) = tui
+        .token_budget
         .cost_tracker
         .record_call(rustycode_llm::cost_tracker::ApiCall {
             model: model.clone(),

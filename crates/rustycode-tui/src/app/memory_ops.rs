@@ -225,7 +225,7 @@ impl TUI {
         }
 
         // Only compact when not streaming and user is idle (no active tools)
-        if self.is_streaming || !self.active_tools.is_empty() {
+        if self.streaming.is_streaming || !self.active_tools.is_empty() {
             return;
         }
 
@@ -270,7 +270,7 @@ impl TUI {
                 self.user_scrolled = false;
 
                 self.context_monitor.update(&self.messages);
-                self.last_turn_input_tokens = self.context_monitor.current_tokens;
+                self.token_budget.last_turn_input_tokens = self.context_monitor.current_tokens;
                 self.compaction_config.auto_compact_state.on_success();
 
                 tracing::debug!(

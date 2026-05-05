@@ -59,7 +59,7 @@ impl TUI {
 
         // If channel disconnected while streaming, force cleanup to prevent
         // the TUI from being stuck in is_streaming=true forever.
-        if channel_disconnected && self.is_streaming {
+        if channel_disconnected && self.streaming.is_streaming {
             tracing::warn!("Stream channel disconnected without Done — forcing cleanup");
             self.reset_streaming_state();
             self.active_tools.clear();
@@ -146,6 +146,7 @@ impl TUI {
         // Poll background bash command result
         let bash_result = {
             let mut store = self
+                .streaming
                 .pending_bash_result
                 .lock()
                 .unwrap_or_else(|e| e.into_inner());

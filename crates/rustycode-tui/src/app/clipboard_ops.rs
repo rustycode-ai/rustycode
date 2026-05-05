@@ -183,7 +183,7 @@ impl TUI {
     /// Regenerate the last AI response
     pub(crate) fn regenerate_last_response(&mut self) -> Result<()> {
         // Don't regenerate if we're already streaming
-        if self.is_streaming {
+        if self.streaming.is_streaming {
             self.add_system_message(
                 "⚠️  Cannot regenerate while streaming. Please wait.".to_string(),
             );
@@ -239,12 +239,12 @@ impl TUI {
         let history = self.build_conversation_history();
 
         // Set streaming state before send to prevent double-Enter races
-        self.is_streaming = true;
-        self.chunks_received = 0;
-        self.thinking_chunks_received = 0;
-        self.stream_start_time = Some(std::time::Instant::now());
-        self.current_stream_content.clear();
-        self.streaming_render_buffer =
+        self.streaming.is_streaming = true;
+        self.streaming.chunks_received = 0;
+        self.streaming.thinking_chunks_received = 0;
+        self.streaming.stream_start_time = Some(std::time::Instant::now());
+        self.streaming.current_stream_content.clear();
+        self.streaming.streaming_render_buffer =
             crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
         self.tool_panel_history.clear();
         self.tool_panel_selected_index = None;

@@ -273,7 +273,7 @@ impl TUI {
         let send_start = std::time::Instant::now();
 
         // Queue message if already streaming (goose pattern)
-        if self.is_streaming {
+        if self.streaming.is_streaming {
             let queue_start = std::time::Instant::now();
             let text = lines.join("\n");
             let join_elapsed = queue_start.elapsed();
@@ -281,13 +281,13 @@ impl TUI {
                 let queue_store_start = std::time::Instant::now();
                 let mut replaced = false;
                 let mut clear_elapsed = std::time::Duration::from_micros(0);
-                if self.queued_message.is_some() {
+                if self.streaming.queued_message.is_some() {
                     // Already have a queued message — offer to replace it
-                    self.queued_message = Some(text);
+                    self.streaming.queued_message = Some(text);
                     self.add_system_message("Replaced queued message".to_string());
                     replaced = true;
                 } else {
-                    self.queued_message = Some(text);
+                    self.streaming.queued_message = Some(text);
                     self.add_system_message(
                         "Message queued - will send when generation completes".to_string(),
                     );
@@ -589,12 +589,12 @@ impl TUI {
 
             // Set streaming flag BEFORE sending to prevent double-Enter races.
             // If send fails, we clear it below.
-            self.is_streaming = true;
-            self.chunks_received = 0;
-            self.thinking_chunks_received = 0;
-            self.stream_start_time = Some(std::time::Instant::now());
-            self.current_stream_content.clear();
-            self.streaming_render_buffer =
+            self.streaming.is_streaming = true;
+            self.streaming.chunks_received = 0;
+            self.streaming.thinking_chunks_received = 0;
+            self.streaming.stream_start_time = Some(std::time::Instant::now());
+            self.streaming.current_stream_content.clear();
+            self.streaming.streaming_render_buffer =
                 crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
 
             // Clear previous turn's tool history so sidebar doesn't show stale calls.

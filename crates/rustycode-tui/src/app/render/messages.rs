@@ -514,7 +514,7 @@ impl PolishedRenderer {
         // Show queued message indicator at bottom when auto-scrolled
         // (goose pattern: dimmed preview of queued message)
         if !tui.user_scrolled {
-            if let Some(queued) = &tui.queued_message {
+            if let Some(queued) = &tui.streaming.queued_message {
                 if y_offset < area.height.saturating_sub(2) {
                     const MAX_PREVIEW_WIDTH: usize = 80;
                     let full_width = unicode_width::UnicodeWidthStr::width(queued.as_str());
@@ -591,7 +591,7 @@ impl PolishedRenderer {
             // Bottom indicator — more prominent, clickable
             if below > 0 && (y_offset as usize) < area.height as usize {
                 let anim_frame = tui.animator.current_frame();
-                let is_streaming = tui.is_streaming;
+                let is_streaming = tui.streaming.is_streaming;
                 // Use a brighter color when streaming to attract attention
                 let indicator_color = if is_streaming {
                     let pulse = (anim_frame.progress_frame / 10).is_multiple_of(2);

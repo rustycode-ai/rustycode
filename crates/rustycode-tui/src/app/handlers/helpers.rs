@@ -116,12 +116,12 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     let history = tui.build_conversation_history();
 
     // Set streaming state before send to prevent races
-    tui.is_streaming = true;
-    tui.chunks_received = 0;
-    tui.thinking_chunks_received = 0;
-    tui.stream_start_time = Some(std::time::Instant::now());
-    tui.current_stream_content.clear();
-    tui.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.is_streaming = true;
+    tui.streaming.chunks_received = 0;
+    tui.streaming.thinking_chunks_received = 0;
+    tui.streaming.stream_start_time = Some(std::time::Instant::now());
+    tui.streaming.current_stream_content.clear();
+    tui.streaming.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
 
     if let Err(e) = tui
         .services

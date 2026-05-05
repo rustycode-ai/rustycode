@@ -19,7 +19,7 @@ mod tests {
 
         // Simulate that QuestionRequest already set awaiting_clarification
         tui.awaiting_clarification = true;
-        tui.current_stream_content = "What format? How should I proceed?".to_string();
+        tui.streaming.current_stream_content = "What format? How should I proceed?".to_string();
 
         // Manually test the guard logic (extracted from StreamChunk::Done handler)
         let should_detect = !tui.awaiting_clarification;
@@ -50,7 +50,7 @@ mod tests {
         let mut tui = create_test_tui();
 
         tui.awaiting_clarification = false;
-        tui.current_stream_content = "What format do you prefer?".to_string();
+        tui.streaming.current_stream_content = "What format do you prefer?".to_string();
 
         // The guard should allow detection
         let should_detect = !tui.awaiting_clarification;
@@ -99,25 +99,25 @@ mod tests {
     fn test_handle_stream_chunk_text_appends_content() {
         let mut tui = create_test_tui();
         let initial_content = "Hello";
-        tui.current_stream_content = initial_content.to_string();
+        tui.streaming.current_stream_content = initial_content.to_string();
 
         let chunk = StreamChunk::Text(" World".to_string());
         handle_stream_chunk(&mut tui, chunk);
 
-        assert_eq!(tui.current_stream_content, "Hello World");
-        assert!(tui.is_streaming);
+        assert_eq!(tui.streaming.current_stream_content, "Hello World");
+        assert!(tui.streaming.is_streaming);
     }
 
     #[test]
     fn test_handle_stream_chunk_done_without_clarification() {
         let mut tui = create_test_tui();
-        tui.current_stream_content = "I will implement the feature.".to_string();
+        tui.streaming.current_stream_content = "I will implement the feature.".to_string();
         tui.awaiting_clarification = false;
 
         let initial_msg_count = tui.messages.len();
 
         // Simulate Done handler - text without questions
-        let questions = crate::ui::detect_questions(&tui.current_stream_content);
+        let questions = crate::ui::detect_questions(&tui.streaming.current_stream_content);
 
         assert!(
             questions.is_empty(),
@@ -133,11 +133,11 @@ mod tests {
     #[test]
     fn test_handle_stream_chunk_done_with_clarification_not_awaiting() {
         let mut tui = create_test_tui();
-        tui.current_stream_content = "What format do you prefer?".to_string();
+        tui.streaming.current_stream_content = "What format do you prefer?".to_string();
         tui.awaiting_clarification = false;
 
         // Simulate Done handler - with questions and not awaiting
-        let questions = crate::ui::detect_questions(&tui.current_stream_content);
+        let questions = crate::ui::detect_questions(&tui.streaming.current_stream_content);
 
         assert!(!questions.is_empty(), "Questions should be detected");
 
@@ -151,7 +151,7 @@ mod tests {
         // Verify that ToolProgress uses tool_id for matching when available,
         // so parallel tools with the same name don't cross-contaminate.
         let mut tui = create_test_tui();
-        tui.is_streaming = true;
+        tui.streaming.is_streaming = true;
 
         // Start two tools with the same name but different IDs
         handle_stream_chunk(
@@ -215,7 +215,7 @@ mod tests {
         // uses start_time from active_tools when the tool isn't found
         // in message tool_executions.
         let mut tui = create_test_tui();
-        tui.is_streaming = true;
+        tui.streaming.is_streaming = true;
 
         // Start a tool BEFORE the assistant message exists.
         // ToolStart adds to active_tools but has no message to attach to.
@@ -287,7 +287,7 @@ mod tests {
         // system message pushed during streaming, causing a duplicate
         // assistant message instead of updating the existing one.
         let mut tui = TUI::new_for_test();
-        tui.is_streaming = true;
+        tui.streaming.is_streaming = true;
 
         // Simulate streaming: assistant message exists
         tui.messages.push(Message {
@@ -322,7 +322,7 @@ mod tests {
         });
 
         // Accumulated streaming content
-        tui.current_stream_content = "Here is my partial response".to_string();
+        tui.streaming.current_stream_content = "Here is my partial response".to_string();
 
         // Send error chunk — should update existing assistant, not create duplicate
         handle_stream_chunk(
@@ -363,7 +363,7 @@ mod tests {
         );
 
         // Verify: streaming state cleaned up
-        assert!(!tui.is_streaming);
+        assert!(!tui.streaming.is_streaming);
     }
 
     #[test]
@@ -383,7 +383,7 @@ mod tests {
         }
 
         assert_eq!(
-            tui.current_stream_content, expected,
+            tui.streaming.current_stream_content, expected,
             "All 50 chunks must be accumulated without loss"
         );
     }
@@ -396,7 +396,7 @@ mod tests {
         handle_stream_chunk(&mut tui, StreamChunk::Text(" ".to_string()));
         handle_stream_chunk(&mut tui, StreamChunk::Text("world".to_string()));
 
-        assert_eq!(tui.current_stream_content, "Hello world");
+        assert_eq!(tui.streaming.current_stream_content, "Hello world");
 
         handle_stream_chunk(&mut tui, StreamChunk::Done);
 
@@ -417,10 +417,10 @@ mod tests {
 
         // After Done: stream content should be cleared
         assert_eq!(
-            tui.current_stream_content, "",
+            tui.streaming.current_stream_content, "",
             "current_stream_content should be cleared after Done"
         );
-        assert!(!tui.is_streaming, "is_streaming should be false after Done");
+        assert!(!tui.streaming.is_streaming, "is_streaming should be false after Done");
     }
 
     #[test]
@@ -432,7 +432,7 @@ mod tests {
         handle_stream_chunk(&mut tui, StreamChunk::Text(".".to_string()));
         handle_stream_chunk(&mut tui, StreamChunk::Text(".".to_string()));
 
-        assert_eq!(tui.current_stream_content, "..");
+        assert_eq!(tui.streaming.current_stream_content, "..");
     }
 
     #[test]
@@ -444,7 +444,7 @@ mod tests {
         handle_stream_chunk(&mut tui, StreamChunk::Text("World".to_string()));
 
         assert_eq!(
-            tui.current_stream_content, "HelloWorld",
+            tui.streaming.current_stream_content, "HelloWorld",
             "Empty text chunks should be handled gracefully"
         );
     }
@@ -458,7 +458,7 @@ mod tests {
         handle_stream_chunk(&mut tui, StreamChunk::Text("world".to_string()));
 
         assert_eq!(
-            tui.current_stream_content, "Hello   world",
+            tui.streaming.current_stream_content, "Hello   world",
             "Whitespace-only chunks must be preserved"
         );
     }

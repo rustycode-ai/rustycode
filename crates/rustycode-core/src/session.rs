@@ -271,25 +271,46 @@ impl SessionContext {
     }
 }
 
+pub struct ConversationState {
+    pub messages: Vec<Message>,
+    pub conversation_manager: ConversationManager,
+    pub llm_provider: Option<Box<dyn rustycode_llm::LLMProvider>>,
+    pub pending_llm_request: Arc<Mutex<bool>>,
+}
+
+impl ConversationState {
+    pub fn new(conversation: Conversation) -> Self {
+        Self {
+            messages: Vec::new(),
+            conversation_manager: ConversationManager::new(conversation),
+            llm_provider: None,
+            pending_llm_request: Arc::new(Mutex::new(false)),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
+pub struct InputNavState {
+    pub input: String,
+    pub scroll_offset: usize,
+    pub selected_message: usize,
+}
+
+#[derive(Clone)]
 pub struct ToolRuntimeState {
     pub active_tools: Vec<ToolExecution>,    pub current_session_tools: Vec<String>,
     pub tool_iteration_count: u32,
     pub pending_tool_call: Option<ToolCall>,
+    pub tool_executor: rustycode_tools::ToolExecutor,
 }
 
 /// Core session state - independent of UI implementation
 pub struct SessionState {
     // Conversation state
-    pub messages: Vec<Message>,
-    pub conversation_manager: ConversationManager,
-    pub llm_provider: Option<Box<dyn rustycode_llm::LLMProvider>>,
-    pub pending_llm_request: Arc<Mutex<bool>>,
+    pub conversation: ConversationState,
 
-    // Input state
-    pub input: String,
-    pub scroll_offset: usize,
-    pub selected_message: usize,
+    // Input and navigation state
+    pub input_nav: InputNavState,
 
     // Session context
     pub context: SessionContext,
@@ -323,9 +344,6 @@ pub struct SessionState {
 
     // Todo state for task planning
     pub todo_state: TodoState,
-
-    /// Tool executor for running tools
-    pub tool_executor: rustycode_tools::ToolExecutor,
 
     // Code panel state (for showing file contents)
     pub code_panel: CodePanelState,
@@ -434,13 +452,8 @@ impl SessionState {
         let session_id = SessionId::new();
         let conversation = Conversation::new(session_id);
         Self {
-            messages: Vec::new(),
-            conversation_manager: ConversationManager::new(conversation),
-            llm_provider: None,
-            pending_llm_request: Arc::new(Mutex::new(false)),
-            input: String::new(),
-            scroll_offset: 0,
-            selected_message: 0,
+            conversation: ConversationState::new(conversation),
+            input_nav: InputNavState::default(),
             context: SessionContext {
                 cwd: cwd.clone(),
                 workspace_context: String::new(),
@@ -448,7 +461,13 @@ impl SessionState {
             },
             performance: PerformanceMetrics::new(),
             provider: ProviderConfig::new(),
-            tool_runtime: ToolRuntimeState::default(),
+            tool_runtime: ToolRuntimeState {
+                active_tools: Vec::new(),
+                current_session_tools: Vec::new(),
+                tool_iteration_count: 0,
+                pending_tool_call: None,
+                tool_executor: rustycode_tools::ToolExecutor::from_cwd(cwd.clone()),
+            },
             mode: SessionModeState { ai_mode: AiMode::Act, is_first_run: false },
             memory: MemoryState { memory_entries: Vec::new() },
             token_budget: TokenBudgetState { budget: None },
@@ -470,7 +489,6 @@ impl SessionState {
                 recovery_handler: None,
             },
             todo_state: new_todo_state(),
-            tool_executor: rustycode_tools::ToolExecutor::from_cwd(cwd.clone()),
             code_panel: CodePanelState {
                 file: None,
                 content: String::new(),
@@ -487,12 +505,12 @@ impl SessionState {
             timestamp: Utc::now(),
             metadata: MessageMetadata::default(),
         };
-        self.messages.push(message);
+        self.conversation.messages.push(message);
         // Evict oldest non-system messages when cap exceeded (batch O(n))
-        if self.messages.len() > MAX_SESSION_MESSAGES {
-            let excess = self.messages.len() - MAX_SESSION_MESSAGES;
+        if self.conversation.messages.len() > MAX_SESSION_MESSAGES {
+            let excess = self.conversation.messages.len() - MAX_SESSION_MESSAGES;
             let mut removed = 0usize;
-            self.messages.retain(|m| {
+            self.conversation.messages.retain(|m| {
                 if removed >= excess {
                     return true;
                 }
@@ -504,12 +522,12 @@ impl SessionState {
                 }
             });
         }
-        self.scroll_offset = self.messages.len().saturating_sub(1);
+        self.input_nav.scroll_offset = self.conversation.messages.len().saturating_sub(1);
     }
 
     /// Add tool call blocks to the last AI message
     pub fn add_tool_calls(&mut self, tool_calls: Vec<ToolCall>) {
-        if let Some(msg) = self.messages.last_mut() {
+        if let Some(msg) = self.conversation.messages.last_mut() {
             if MessageType::from_message_role(&msg.role) == MessageType::AI {
                 // Convert ToolCall to ContentBlock::ToolUse and add to message content
                 let tool_use_blocks: Vec<ContentBlock> = tool_calls
@@ -567,7 +585,7 @@ impl SessionState {
             timestamp: Utc::now(),
             metadata: MessageMetadata::default(),
         };
-        self.messages.push(message);
+        self.conversation.messages.push(message);
     }
 
     /// Format tool results for display
@@ -656,13 +674,13 @@ impl SessionState {
                 timestamp: Utc::now(),
                 metadata: MessageMetadata::default(),
             };
-            self.messages.push(message);
+            self.conversation.messages.push(message);
         }
     }
 
     /// Safely set pending LLM request flag
     pub fn set_pending_request(&self, value: bool) {
-        let mut guard = self.pending_llm_request.lock().unwrap_or_else(|e| {
+        let mut guard = self.conversation.pending_llm_request.lock().unwrap_or_else(|e| {
             tracing::warn!("pending_llm_request mutex poisoned, recovering");
             e.into_inner()
         });
@@ -671,7 +689,7 @@ impl SessionState {
 
     /// Safely get pending LLM request flag
     pub fn get_pending_request(&self) -> bool {
-        self.pending_llm_request
+        self.conversation.pending_llm_request
             .lock()
             .map(|guard| *guard)
             .unwrap_or(false)
@@ -733,7 +751,7 @@ impl SessionState {
     /// Execute a tool call
     pub fn execute_tool(&mut self, call: &ToolCall) -> rustycode_protocol::ToolResult {
         self.start_tool_execution(call.name.clone());
-        let result = self.tool_executor.execute(call);
+        let result = self.tool_runtime.tool_executor.execute(call);
         self.complete_tool_execution(&call.name, result.output.clone());
         result
     }
@@ -823,9 +841,8 @@ mod tests {
     #[test]
     fn session_state_new_defaults() {
         let s = make_session();
-        assert!(s.messages.is_empty());
-        assert!(s.input.is_empty());
-        assert_eq!(s.scroll_offset, 0);
+        assert!(s.conversation.messages.is_empty());
+        assert_eq!(s.input_nav.scroll_offset, 0);
         assert_eq!(s.performance.total_requests, 0);
         assert_eq!(s.performance.tokens_used, 0);
         assert!(!s.streaming.is_streaming);

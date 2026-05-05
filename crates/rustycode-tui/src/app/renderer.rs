@@ -105,7 +105,7 @@ impl RendererState {
             banner.header_status()
         } else if tui.error_manager.is_showing() {
             HeaderStatus::Error
-        } else if tui.is_streaming {
+        } else if tui.streaming.is_streaming {
             if tui.active_tools.is_empty() {
                 HeaderStatus::Thinking
             } else {
@@ -168,7 +168,7 @@ impl RendererState {
             task_count: tui.workspace_tasks.tasks.len(),
             task_summary,
             session_secs: tui.start_time.elapsed().as_secs(),
-            session_cost: tui.session_cost_usd,
+            session_cost: tui.token_budget.session_cost_usd,
             status_bar_collapsed: tui.status_bar_collapsed,
             footer_collapsed: tui.footer_collapsed,
         }
@@ -433,7 +433,7 @@ impl PolishedRenderer {
                     tui.messages.len(),
                     messages_elapsed.as_millis(),
                     total_elapsed.as_millis(),
-                    tui.is_streaming,
+                    tui.streaming.is_streaming,
                     tui.user_scrolled
                 );
             }

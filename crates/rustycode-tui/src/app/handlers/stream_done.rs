@@ -12,13 +12,13 @@ use super::helpers::check_and_trigger_auto_continue;
 pub(super) fn handle_done_chunk(tui: &mut TUI) {
     let had_stream_content = flush_and_transfer_stream_content(tui);
 
-    let was_cancelled = tui.stream_cancelled;
-    tui.is_streaming = false;
-    tui.stream_cancelled = false;
+    let was_cancelled = tui.streaming.stream_cancelled;
+    tui.streaming.is_streaming = false;
+    tui.streaming.stream_cancelled = false;
     tui.update_terminal_title();
 
-    if let Some(start) = tui.stream_start_time.take() {
-        tui.last_response_duration = Some(start.elapsed());
+    if let Some(start) = tui.streaming.stream_start_time.take() {
+        tui.streaming.last_response_duration = Some(start.elapsed());
     }
     tui.services.complete_query();
     tui.rate_limit.retry_count = 0;
@@ -85,13 +85,13 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
 /// Flush render buffer and transfer accumulated stream content into the
 /// assistant message. Returns whether any stream content was transferred.
 fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
-    let remaining = tui.streaming_render_buffer.flush();
+    let remaining = tui.streaming.streaming_render_buffer.flush();
     if !remaining.is_empty() {
-        tui.current_stream_content.reserve(remaining.len());
-        tui.current_stream_content.push_str(&remaining);
+        tui.streaming.current_stream_content.reserve(remaining.len());
+        tui.streaming.current_stream_content.push_str(&remaining);
     }
 
-    if !tui.current_stream_content.is_empty() {
+    if !tui.streaming.current_stream_content.is_empty() {
         let needs_message = tui
             .messages
             .iter()
@@ -103,7 +103,7 @@ fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
         }
     }
 
-    let final_content = std::mem::take(&mut tui.current_stream_content);
+    let final_content = std::mem::take(&mut tui.streaming.current_stream_content);
     let had_stream_content = !final_content.is_empty();
     if had_stream_content {
         if let Some(msg) = tui
@@ -146,8 +146,8 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
                     }
                 }
                 tracing::warn!(
-                    chunks_received = tui.chunks_received,
-                    thinking_chunks = tui.thinking_chunks_received,
+                    chunks_received = tui.streaming.chunks_received,
+                    thinking_chunks = tui.streaming.thinking_chunks_received,
                     "Empty response from model — no text, no thinking, no tool executions"
                 );
                 tui.add_system_message(
@@ -177,7 +177,7 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
     if was_cancelled {
         return;
     }
-    let should_bell = tui.last_response_duration.is_some_and(|d| d.as_secs() >= 3);
+    let should_bell = tui.streaming.last_response_duration.is_some_and(|d| d.as_secs() >= 3);
     if !should_bell {
         return;
     }
@@ -187,6 +187,7 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
     );
     let _ = std::io::Write::write_all(&mut std::io::stdout(), b"\x07");
     let duration_str = tui
+        .streaming
         .last_response_duration
         .map(|d| {
             let s = d.as_secs();
@@ -204,14 +205,14 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
 /// Auto-send a queued message if one was waiting, or preserve it on cancellation.
 fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
     if was_cancelled {
-        if tui.queued_message.is_some() {
+        if tui.streaming.queued_message.is_some() {
             tui.add_system_message(
                 "Queued message preserved — it will be sent when ready".to_string(),
             );
         }
         return;
     }
-    let Some(queued) = tui.queued_message.take() else {
+    let Some(queued) = tui.streaming.queued_message.take() else {
         return;
     };
     let auto_send_start = std::time::Instant::now();
@@ -240,12 +241,12 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
         );
     }
     tui.rate_limit.last_message = Some(queued);
-    tui.is_streaming = true;
-    tui.chunks_received = 0;
-    tui.thinking_chunks_received = 0;
-    tui.stream_start_time = Some(std::time::Instant::now());
-    tui.current_stream_content.clear();
-    tui.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.is_streaming = true;
+    tui.streaming.chunks_received = 0;
+    tui.streaming.thinking_chunks_received = 0;
+    tui.streaming.stream_start_time = Some(std::time::Instant::now());
+    tui.streaming.current_stream_content.clear();
+    tui.streaming.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
     let send_start = std::time::Instant::now();
     if let Err(e) = tui
         .services

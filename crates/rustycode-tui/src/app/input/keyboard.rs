@@ -90,7 +90,7 @@ impl TUI {
             }
             // Ctrl+D when input is empty and user has scrolled: half-page down (Vim Ctrl+D).
             // Must come before the quit handler to intercept when scrolled.
-            (KeyCode::Char('d'), KeyModifiers::CONTROL) if input_is_empty && !self.is_streaming => {
+            (KeyCode::Char('d'), KeyModifiers::CONTROL) if input_is_empty && !self.streaming.is_streaming => {
                 if self.user_scrolled && !self.messages.is_empty() {
                     self.push_undo_position();
                     self.half_page_down();
@@ -100,16 +100,16 @@ impl TUI {
             }
             (KeyCode::Char('q'), KeyModifiers::CONTROL) => {
                 // Stop any active stream before quitting
-                if self.is_streaming {
-                    if self.stream_cancelled {
+                if self.streaming.is_streaming {
+                    if self.streaming.stream_cancelled {
                         // Second press during stream — force quit immediately
-                        self.is_streaming = false;
+                        self.streaming.is_streaming = false;
                         self.running = false;
                         self.dirty = true;
                         return Ok(());
                     }
                     self.services.request_stop_stream();
-                    self.stream_cancelled = true;
+                    self.streaming.stream_cancelled = true;
                     // Let Done handler clean up — then quit on next Ctrl+Q
                     self.add_system_message("Generation stopped - press again to quit".to_string());
                     self.dirty = true;
@@ -118,7 +118,7 @@ impl TUI {
                 self.running = false;
             }
             (KeyCode::Char('d'), KeyModifiers::CONTROL)
-                if !self.is_streaming && !input_is_empty =>
+                if !self.streaming.is_streaming && !input_is_empty =>
             {
                 // Ctrl+D with text in input: dismiss overlay if showing one, otherwise do nothing
                 if self.showing_tool_result {
@@ -137,12 +137,12 @@ impl TUI {
             }
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                 // Cancel/Interrupt - matches Claude Code convention
-                if self.is_streaming {
+                if self.streaming.is_streaming {
                     self.services.request_stop_stream();
                     // Don't set is_streaming=false here — let the StreamChunk::Done
                     // handler do it to avoid race with async stream task.
                     // Mark cancelled so Done handler skips auto-continue.
-                    self.stream_cancelled = true;
+                    self.streaming.stream_cancelled = true;
                     // CLEAR THINKING STATE IMMEDIATELY
                     // 1) If the last message is an Assistant and it has thinking content,
                     //    drop that thinking state so the spinner doesn't linger.
@@ -168,14 +168,14 @@ impl TUI {
                     }
                     // If current_stream_content is exactly the thinking text, clear it
                     if let Some(thinking) = thinking_snapshot {
-                        if !self.current_stream_content.is_empty()
-                            && self.current_stream_content.trim() == thinking.trim()
+                        if !self.streaming.current_stream_content.is_empty()
+                            && self.streaming.current_stream_content.trim() == thinking.trim()
                         {
-                            self.current_stream_content.clear();
+                            self.streaming.current_stream_content.clear();
                         }
                     }
 
-                    let preserved = self.current_stream_content.len();
+                    let preserved = self.streaming.current_stream_content.len();
                     if preserved > 0 {
                         self.add_system_message(format!(
                             "Generation stopped ({} chars preserved)",
@@ -185,7 +185,7 @@ impl TUI {
                         self.add_system_message("Generation stopped by user".to_string());
                     }
                     // Also clear any queued message — user explicitly stopped
-                    if self.queued_message.take().is_some() {
+                    if self.streaming.queued_message.take().is_some() {
                         self.add_system_message("Queued message cleared".to_string());
                     }
                 } else {
@@ -389,7 +389,7 @@ impl TUI {
                             .to_string(),
                     );
                     // Trigger immediate check if we're not streaming
-                    if !self.is_streaming {
+                    if !self.streaming.is_streaming {
                         self.auto_continue_pending = true;
                         // Note: Actual continuation will happen on next stream completion
                     }
@@ -452,7 +452,7 @@ impl TUI {
             }
             // Ctrl+X: Open input in external editor (goose pattern)
             (KeyCode::Char('x'), KeyModifiers::CONTROL) => {
-                if !self.is_streaming {
+                if !self.streaming.is_streaming {
                     let current_text = self.input_handler.state.all_text();
                     match self.edit_in_editor(&current_text) {
                         Ok(edited) => {
@@ -501,12 +501,12 @@ impl TUI {
                 }
 
                 // Priority 2: Cancel active operations
-                if self.is_streaming {
+                if self.streaming.is_streaming {
                     self.services.request_stop_stream();
                     // Don't set is_streaming=false here — let the StreamChunk::Done
                     // handler do it. Mark cancelled so Done handler skips auto-continue.
-                    self.stream_cancelled = true;
-                    let preserved = self.current_stream_content.len();
+                    self.streaming.stream_cancelled = true;
+                    let preserved = self.streaming.current_stream_content.len();
                     if preserved > 0 {
                         self.add_system_message(format!(
                             "Generation stopped ({} chars preserved)",
@@ -516,7 +516,7 @@ impl TUI {
                         self.add_system_message("Generation stopped by user".to_string());
                     }
                     // Also clear any queued message — user explicitly stopped
-                    if self.queued_message.take().is_some() {
+                    if self.streaming.queued_message.take().is_some() {
                         self.add_system_message("Queued message cleared".to_string());
                     }
                     self.dirty = true;

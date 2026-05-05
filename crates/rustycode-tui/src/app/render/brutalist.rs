@@ -35,7 +35,7 @@ impl TUI {
         &'a self,
         input_text: &'a str,
     ) -> BrutalistRendererState<'a> {
-        let agent_status = if self.is_streaming {
+        let agent_status = if self.streaming.is_streaming {
             "thinking"
         } else if !self.active_tools.is_empty() {
             "tools"
@@ -61,10 +61,10 @@ impl TUI {
         };
 
         let mut context_usage = crate::app::context_usage::ContextUsage::new();
-        if self.last_turn_input_tokens > 0 {
-            context_usage.update(self.last_turn_input_tokens, self.session_output_tokens);
+        if self.token_budget.last_turn_input_tokens > 0 {
+            context_usage.update(self.token_budget.last_turn_input_tokens, self.token_budget.session_output_tokens);
         } else {
-            context_usage.update(self.session_input_tokens, self.session_output_tokens);
+            context_usage.update(self.token_budget.session_input_tokens, self.token_budget.session_output_tokens);
         }
         context_usage.set_limit(self.context_monitor.max_tokens);
 
@@ -93,7 +93,7 @@ impl TUI {
         let bs = self.snapshot_brutalist_state(input_text);
 
         // Compute stream elapsed time for live timing display (Goose pattern)
-        let stream_elapsed = self.stream_start_time.map(|t| t.elapsed());
+        let stream_elapsed = self.streaming.stream_start_time.map(|t| t.elapsed());
 
         // History/reverse search state for input bar display
         let (reverse_query, reverse_match, reverse_total) =
@@ -101,9 +101,9 @@ impl TUI {
         let (hist_pos, hist_total) = self.input_handler.history_position();
 
         crate::app::brutalist_renderer::BrutalistRendererBuilder::new(&self.messages, input_text)
-            .stream_content(&self.current_stream_content)
+            .stream_content(&self.streaming.current_stream_content)
             .cwd(self.services.cwd().clone())
-            .is_streaming(self.is_streaming)
+            .is_streaming(self.streaming.is_streaming)
             .scroll(self.scroll_offset_line, self.user_scrolled)
             .selection(self.selected_message, self.viewport_height)
             .theme(self.theme_colors.clone())
@@ -111,28 +111,28 @@ impl TUI {
             .input_mode(self.input_mode)
             .rate_limit(self.rate_limit.until)
             .streaming_state(
-                self.chunks_received,
-                self.thinking_chunks_received,
+                self.streaming.chunks_received,
+                self.streaming.thinking_chunks_received,
                 self.animator.current_frame().progress_frame,
             )
             .context_usage(bs.context_usage)
             .tool_status(bs.active_tool_count, bs.active_tool_display)
             .session_info(
-                self.session_cost_usd,
-                self.session_input_tokens,
-                self.session_output_tokens,
-                self.session_cache_read_tokens,
-                self.last_turn_input_tokens,
+                self.token_budget.session_cost_usd,
+                self.token_budget.session_input_tokens,
+                self.token_budget.session_output_tokens,
+                self.token_budget.session_cache_read_tokens,
+                self.token_budget.last_turn_input_tokens,
                 &self.current_model,
             )
             .warnings(self.api_key_warning.clone())
             .collapsed(self.status_bar_collapsed, self.footer_collapsed)
             .input_state(
                 bs.input_line_count,
-                self.queued_message.is_some(),
-                self.queued_message.as_deref().unwrap_or("").to_string(),
+                self.streaming.queued_message.is_some(),
+                self.streaming.queued_message.as_deref().unwrap_or("").to_string(),
             )
-            .timing(self.last_response_duration, stream_elapsed)
+            .timing(self.streaming.last_response_duration, stream_elapsed)
             .git_branch(self.git_branch.as_deref().unwrap_or(""))
             .reverse_search(reverse_query, reverse_match, reverse_total)
             .history_browsing(hist_pos, hist_total)

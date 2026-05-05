@@ -22,10 +22,10 @@ impl PolishedRenderer {
         // Plan-mode banners take priority over other states.
         let status = if let Some(banner) = tui.plan_mode_banner.clone() {
             RenderStatus::PlanMode { banner }
-        } else if tui.is_streaming {
+        } else if tui.streaming.is_streaming {
             RenderStatus::Thinking {
-                chunks_received: tui.chunks_received,
-                thinking_chunks_received: tui.thinking_chunks_received,
+                chunks_received: tui.streaming.chunks_received,
+                thinking_chunks_received: tui.streaming.thinking_chunks_received,
             }
         } else if tui.ast_phase_state.is_active() {
             let ast = &tui.ast_phase_state;
@@ -91,7 +91,7 @@ impl PolishedRenderer {
                     ));
                 }
                 let _ = chunks_received;
-                if let Some(dur) = tui.stream_start_time {
+                if let Some(dur) = tui.streaming.stream_start_time {
                     let elapsed = dur.elapsed();
                     if elapsed.as_secs() >= 2 {
                         spans.push(Span::styled(
@@ -100,8 +100,8 @@ impl PolishedRenderer {
                         ));
                     }
                 }
-                if !tui.current_stream_content.is_empty() {
-                    let words = tui.current_stream_content.split_whitespace().count();
+                if !tui.streaming.current_stream_content.is_empty() {
+                    let words = tui.streaming.current_stream_content.split_whitespace().count();
                     if words > 20 {
                         spans.push(Span::styled(
                             format!("· {} words ", words),
@@ -219,7 +219,7 @@ impl PolishedRenderer {
             }
             RenderStatus::Idle => {
                 spans.push(Span::styled("✓ Ready", Style::default().fg(Color::Green)));
-                if let Some(dur) = tui.last_response_duration {
+                if let Some(dur) = tui.streaming.last_response_duration {
                     spans.push(Span::styled(
                         format!(" {}", format_response_duration(dur)),
                         Style::default().fg(Color::DarkGray),
@@ -396,13 +396,13 @@ impl PolishedRenderer {
             }
         }
 
-        if show_cost && tui.session_cost_usd > 0.0 {
-            let cost_str = if tui.session_cost_usd < 0.01 {
-                format!("${:.4}", tui.session_cost_usd)
-            } else if tui.session_cost_usd < 1.0 {
-                format!("${:.3}", tui.session_cost_usd)
+        if show_cost && tui.token_budget.session_cost_usd > 0.0 {
+            let cost_str = if tui.token_budget.session_cost_usd < 0.01 {
+                format!("${:.4}", tui.token_budget.session_cost_usd)
+            } else if tui.token_budget.session_cost_usd < 1.0 {
+                format!("${:.3}", tui.token_budget.session_cost_usd)
             } else {
-                format!("${:.2}", tui.session_cost_usd)
+                format!("${:.2}", tui.token_budget.session_cost_usd)
             };
             spans.push(Span::raw(" "));
             spans.push(Span::styled(cost_str, Style::default().fg(Color::Yellow)));
