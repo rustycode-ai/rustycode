@@ -1179,7 +1179,7 @@ impl Tool for BashTool {
         let metadata = {
             let mut meta = truncated.into_metadata();
             meta["exit_code"] = json!(exit_code);
-            meta["command"] = json!(command);
+            meta["command"] = json!(crate::security::validation::sanitize_for_log(&command));
             meta["execution_time_ms"] = json!(execution_time.as_millis());
             meta["timeout_secs"] = json!(timeout_secs);
             if exit_code != 0 {
@@ -1816,6 +1816,7 @@ pub fn validate_command_safety(command: &str) -> Result<()> {
     // the agent from doing its job (e.g., `python3 -c "import numpy"`,
     // `wc -c`, `curl -L` are all blocked by the allowlist).
     if std::env::var("RUSTYCODE_SANDBOX").as_deref() == Ok("container") {
+        tracing::warn!("sandbox mode: skipping command safety validation");
         return Ok(());
     }
 

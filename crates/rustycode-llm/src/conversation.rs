@@ -12,6 +12,12 @@ pub struct ConversationManager {
 const TOOL_OUTPUT_MASK_TAG: &str = "[tool-output-masked]";
 const TOOL_OUTPUT_SOFT_LIMIT: usize = 1200;
 const TOOL_OUTPUT_HARD_LIMIT: usize = 4000;
+/// When estimated tokens exceed this fraction of max_tokens, trigger summarization.
+const SUMMARIZATION_THRESHOLD: f64 = 0.8;
+/// Minimum number of messages before summarization kicks in.
+const MIN_MESSAGES_FOR_SUMMARY: usize = 10;
+/// Number of recent turns to keep unsummarized.
+const RECENT_TURNS_TO_KEEP: usize = 4;
 
 impl ConversationManager {
     pub fn new(conversation: ProtocolConversation) -> Self {
@@ -91,6 +97,13 @@ impl ConversationManager {
 
     /// Enforce context windowing limits
     fn enforce_limits(&mut self) {
+        // Try summarization before eviction when context is large
+        if self.conversation.messages.len() >= MIN_MESSAGES_FOR_SUMMARY
+            && self.estimated_tokens() as f64 > self.max_tokens as f64 * SUMMARIZATION_THRESHOLD
+        {
+            self.summarize_old_turns();
+        }
+
         // Use priority-based selection if enabled
         if let Some(ref selector) = self.selector {
             let messages = std::mem::take(&mut self.conversation.messages);
@@ -136,6 +149,76 @@ impl ConversationManager {
                 None => break, // only system messages left
             }
         }
+    }
+
+    /// Compress older turns into a single summary message, preserving
+    /// system messages and the most recent turns.
+    fn summarize_old_turns(&mut self) {
+        let total = self.conversation.messages.len();
+        if total < MIN_MESSAGES_FOR_SUMMARY {
+            return;
+        }
+
+        // Split: system messages + old turns + recent turns
+        let keep_from = total.saturating_sub(RECENT_TURNS_TO_KEEP);
+
+        // Find the first non-system message index
+        let first_non_system = self
+            .conversation
+            .messages
+            .iter()
+            .position(|m| m.role != "system")
+            .unwrap_or(total);
+
+        // Nothing to summarize if all non-system messages are in the recent window
+        if keep_from <= first_non_system {
+            return;
+        }
+
+        // Collect messages to summarize: from first_non_system to keep_from
+        let to_summarize: Vec<&Message> = self.conversation.messages
+            [first_non_system..keep_from]
+            .iter()
+            .collect();
+
+        if to_summarize.is_empty() {
+            return;
+        }
+
+        // Build a compact summary
+        let mut summary_parts: Vec<String> = Vec::new();
+        for msg in &to_summarize {
+            let text = msg.content.as_text();
+            let preview: String = text.chars().take(120).collect();
+            let role_label = match msg.role.as_str() {
+                "assistant" => "AI",
+                _ => &msg.role,
+            };
+            summary_parts.push(format!("[{role_label}] {preview}"));
+        }
+
+        let summary_text = format!(
+            "[conversation-summary] Earlier turns ({} messages compressed):\n{}",
+            to_summarize.len(),
+            summary_parts.join("\n")
+        );
+
+        // Remove the summarized messages
+        self.conversation.messages.drain(first_non_system..keep_from);
+
+        // Insert the summary as a system message right after the last system message
+        let insert_at = self
+            .conversation
+            .messages
+            .iter()
+            .rposition(|m| m.role == "system")
+            .map(|i| i + 1)
+            .unwrap_or(0);
+
+        self.conversation.messages.insert(
+            insert_at,
+            Message::system(summary_text),
+        );
     }
 
     /// Get the conversation ready for LLM input
@@ -499,6 +582,103 @@ mod tests {
         assert!(
             messages.iter().any(|m| m.role == "system"),
             "System message should be preserved during FIFO token limit eviction"
+        );
+    }
+
+    #[test]
+    fn test_summarization_compresses_old_turns() {
+        let session_id = SessionId::new();
+        let conv = ProtocolConversation::new(session_id);
+        // Set limits that allow messages to accumulate before summarization triggers
+        let mut manager = ConversationManager::new(conv)
+            .with_max_messages(30)
+            .with_max_tokens(300);
+
+        manager.add_message(Message::system("System prompt"));
+
+        // Add enough messages to trigger summarization (>10 messages, >80% tokens)
+        for i in 0..12 {
+            manager.add_message(Message::user(format!(
+                "User asks about topic {} with some detail",
+                i
+            )));
+            manager.add_message(Message::assistant(format!(
+                "Assistant responds about topic {} with analysis",
+                i
+            )));
+        }
+
+        let messages = manager.messages();
+
+        // Should have a summary message
+        assert!(
+            messages.iter().any(|m| m.content.as_text().contains("[conversation-summary]")),
+            "Should contain a conversation summary"
+        );
+
+        // System prompt should survive
+        assert!(
+            messages.iter().any(|m| m.content.as_text() == "System prompt"),
+            "System prompt should survive summarization"
+        );
+
+        // Recent turns should survive
+        assert!(
+            messages.iter().any(|m| m.content.as_text().contains("topic 11")),
+            "Recent turns should survive summarization"
+        );
+    }
+
+    #[test]
+    fn test_summarization_not_triggered_below_threshold() {
+        let session_id = SessionId::new();
+        let conv = ProtocolConversation::new(session_id);
+        let mut manager = ConversationManager::new(conv).with_max_tokens(8000);
+
+        manager.add_message(Message::system("System"));
+
+        // Add only a few messages — should not trigger summarization
+        for i in 0..5 {
+            manager.add_message(Message::user(format!("Msg {}", i)));
+        }
+
+        let messages = manager.messages();
+        assert!(
+            !messages.iter().any(|m| m.content.as_text().contains("[conversation-summary]")),
+            "Should not summarize with few messages"
+        );
+    }
+
+    #[test]
+    fn test_summarization_preserves_recent_turns() {
+        let session_id = SessionId::new();
+        let conv = ProtocolConversation::new(session_id);
+        let mut manager = ConversationManager::new(conv)
+            .with_max_messages(30)
+            .with_max_tokens(300);
+
+        manager.add_message(Message::system("System"));
+
+        for i in 0..12 {
+            manager.add_message(Message::user(format!("Question about thing {}", i)));
+            manager.add_message(Message::assistant(format!("Answer about thing {}", i)));
+        }
+
+        let messages = manager.messages();
+        let text = messages
+            .iter()
+            .map(|m| m.content.as_text())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        // Most recent turns should be intact (not in summary)
+        assert!(
+            text.contains("thing 11"),
+            "Latest turn should be preserved"
+        );
+        assert!(
+            text.contains("thing 10"),
+            "Second-to-last turn should be preserved"
         );
     }
 }

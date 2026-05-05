@@ -21,7 +21,6 @@
         clippy::manual_let_else,
         clippy::semicolon_if_nothing_returned,
         clippy::let_unit_value,
-        clippy::format_push_string,
     )
 )]
 // Pre-existing patterns in task_decomposer.rs

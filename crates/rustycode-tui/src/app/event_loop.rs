@@ -441,7 +441,7 @@ impl TUI {
     }
 
     /// Create a new TUI instance with service integration
-    #[allow(clippy::await_holding_lock)]
+    #[allow(clippy::await_holding_lock, deprecated)]
     pub fn new(
         cwd: PathBuf,
         ai_mode: AiMode,
@@ -790,6 +790,7 @@ impl TUI {
     }
 
     #[cfg(test)]
+    #[allow(deprecated)]
     /// Create a TUI instance for testing (minimal setup)
     pub fn new_for_test() -> Self {
         use std::path::PathBuf;

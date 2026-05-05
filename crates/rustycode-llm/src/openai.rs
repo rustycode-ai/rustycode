@@ -217,6 +217,7 @@ impl OpenAiProvider {
             request.tool_choice.clone(),
             request.parallel_tool_calls,
             request.session_id.as_ref(),
+            request.thinking.as_ref(),
         );
 
         // HTTP trace dump for debugging (before send so we capture body even if send hangs)
@@ -1261,6 +1262,7 @@ impl OpenAiProvider {
         tool_choice: Option<serde_json::Value>,
         parallel_tool_calls: Option<bool>,
         session_id: Option<&String>,
+        thinking_config: Option<&crate::provider::ThinkingConfig>,
     ) -> OpenAiRequest {
         let (max_tokens, max_completion_tokens) = if Self::is_reasoning_model(&model) {
             // Reasoning models require max_completion_tokens (max_tokens is not supported)
@@ -1301,10 +1303,25 @@ impl OpenAiProvider {
             })
         });
 
-        let thinking = if model.starts_with("glm-5") {
-            Some(serde_json::json!({"type": "enabled"}))
-        } else {
-            None
+        let thinking = match thinking_config {
+            Some(cfg) => match cfg.thinking_type {
+                crate::provider::ThinkingType::Disabled => None,
+                crate::provider::ThinkingType::Enabled => {
+                    let mut obj = serde_json::json!({"type": "enabled"});
+                    if let Some(budget) = cfg.budget_tokens {
+                        obj["budget_tokens"] = serde_json::json!(budget);
+                    }
+                    Some(obj)
+                }
+                crate::provider::ThinkingType::Adaptive => {
+                    Some(serde_json::json!({"type": "enabled"}))
+                }
+            },
+            None if model.starts_with("glm-5") => {
+                // Default for GLM-5.x: adaptive thinking (model decides)
+                Some(serde_json::json!({"type": "enabled"}))
+            }
+            None => None,
         };
 
         let stream_options = if stream == Some(true) {
@@ -1483,19 +1500,31 @@ impl OpenAiProvider {
                                         .and_then(|d| d.get("cached_tokens"))
                                         .and_then(|t| t.as_u64())
                                         .unwrap_or(0) as u32;
+                                    let reasoning_tokens: u32 = u
+                                        .get("completion_tokens_details")
+                                        .and_then(|d| d.get("reasoning_tokens"))
+                                        .and_then(|t| t.as_u64())
+                                        .unwrap_or(0) as u32;
                                     if cached_tokens > 0 {
                                         let hit_pct = (cached_tokens * 100).checked_div(input_tokens).unwrap_or(0);
                                         tracing::info!(
                                             "Cache: {hit_pct}% hit ({cached_tokens}/{input_tokens} prompt tokens)"
                                         );
                                     }
+                                    tracing::info!(
+                                        input_tokens,
+                                        output_tokens,
+                                        reasoning_tokens,
+                                        total = input_tokens.saturating_add(output_tokens).saturating_add(reasoning_tokens),
+                                        "Usage breakdown (streaming)"
+                                    );
                                     Some(Usage {
                                         input_tokens,
                                         output_tokens,
                                         total_tokens: input_tokens.saturating_add(output_tokens),
                                         cache_read_input_tokens: cached_tokens,
                                         cache_creation_input_tokens: 0,
-                                        reasoning_tokens: None,
+                                        reasoning_tokens: if reasoning_tokens > 0 { Some(reasoning_tokens) } else { None },
                                     })
                                 });
 
@@ -1703,17 +1732,32 @@ impl OpenAiProvider {
             .and_then(|d| d.get("cached_tokens"))
             .and_then(|t| t.as_u64())
             .unwrap_or(0) as u32;
+
+        // Parse reasoning tokens from completion_tokens_details
+        let reasoning_tokens: u32 = u
+            .get("completion_tokens_details")
+            .and_then(|d| d.get("reasoning_tokens"))
+            .and_then(|t| t.as_u64())
+            .unwrap_or(0) as u32;
+
         if cached_tokens > 0 {
             let hit_pct = (cached_tokens * 100).checked_div(input_tokens).unwrap_or(0);
             tracing::info!("Cache: {hit_pct}% hit ({cached_tokens}/{input_tokens} prompt tokens)");
         }
+        tracing::info!(
+            input_tokens,
+            output_tokens,
+            reasoning_tokens,
+            total = input_tokens.saturating_add(output_tokens).saturating_add(reasoning_tokens),
+            "Usage breakdown"
+        );
         Some(Usage {
             input_tokens,
             output_tokens,
             total_tokens: input_tokens.saturating_add(output_tokens),
             cache_read_input_tokens: cached_tokens,
             cache_creation_input_tokens: 0,
-            reasoning_tokens: None,
+            reasoning_tokens: if reasoning_tokens > 0 { Some(reasoning_tokens) } else { None },
         })
     }
 
@@ -1791,6 +1835,7 @@ impl OpenAiProvider {
             request.tool_choice.clone(),
             request.parallel_tool_calls,
             request.session_id.as_ref(),
+            request.thinking.as_ref(),
         );
 
         // Build request with per-request headers
@@ -2255,6 +2300,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
         assert_eq!(body.max_tokens, Some(2048));
         assert_eq!(body.max_completion_tokens, None);
@@ -2272,6 +2318,7 @@ mod tests {
             Some(4096),
             None,
             Some(&crate::provider::EffortLevel::High),
+            None,
             None,
             None,
             None,
@@ -2295,6 +2342,7 @@ mod tests {
             None,
             None,
             Some(true),
+            None,
             None,
             None,
             None,
@@ -2323,6 +2371,7 @@ mod tests {
             None,
             None,
             Some(true),
+            None,
             None,
             None,
             None,
@@ -3497,6 +3546,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             None,
             None,
             None,
+            None,
         );
         assert_eq!(body.max_tokens, Some(1024));
         assert_eq!(body.max_completion_tokens, None);
@@ -3527,6 +3577,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             None,
             Some(&crate::provider::EffortLevel::Max),
             Some(false),
+            None,
             None,
             None,
             None,
@@ -3568,6 +3619,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
                 None,
                 None,
                 None,
+            None,
             );
             assert_eq!(
                 body.reasoning_effort,
@@ -3590,6 +3642,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             Some(2048),
             Some(0.5),
             Some(&crate::provider::EffortLevel::High),
+            None,
             None,
             None,
             None,
@@ -3635,6 +3688,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             None,
             None,
             None,
+            None,
         );
         assert!(body.tools.is_some());
         let tools_val = body.tools.as_ref().unwrap();
@@ -3652,6 +3706,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
             "gpt-4o".to_string(),
             vec![],
             vec![],
+            None,
             None,
             None,
             None,
@@ -3680,6 +3735,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
                 name: None,
             }],
             vec![],
+            None,
             None,
             None,
             None,

@@ -608,6 +608,7 @@ mod tests {
             Some(&registry),
             None,
             None,
+            false,
         );
 
         assert!(output.contains("\"tools\""), "output was: {output}");
@@ -636,6 +637,7 @@ mod tests {
             None,
             None,
             Some(&orch),
+            false,
         );
 
         assert!(
@@ -668,6 +670,7 @@ mod tests {
             None,
             None,
             Some(&orch),
+            false,
         );
 
         assert!(output.contains("recorded"), "output was: {output}");
@@ -687,6 +690,7 @@ mod tests {
             None,
             None,
             Some(&orch),
+            false,
         );
 
         assert!(
@@ -718,6 +722,7 @@ mod tests {
             None,
             None,
             Some(&orch),
+            false,
         );
 
         assert!(output.contains("Validation"), "output was: {output}");
@@ -736,6 +741,7 @@ mod tests {
             None,
             None,
             None,
+            false,
         );
 
         assert!(output.contains("Error:"), "output was: {output}");
@@ -765,6 +771,7 @@ mod tests {
             None,
             None,
             Some(&orch),
+            false,
         );
         assert!(output1.contains("recorded"), "output1: {output1}");
 
@@ -787,6 +794,7 @@ mod tests {
             None,
             None,
             Some(&orch),
+            false,
         );
         assert!(output2.contains("recorded"), "output2: {output2}");
 
@@ -818,6 +826,7 @@ mod tests {
             None,
             None,
             Some(&orch),
+            false,
         );
         assert!(output.contains("recorded"), "output: {output}");
 
@@ -832,7 +841,7 @@ mod tests {
 
         // Simple message
         let guard = orch.lock().unwrap();
-        let simple = guard.analyze_message("list files");
+        let simple = guard.analyze_message("list files", None);
         assert!(
             simple.complexity < 3.0,
             "simple complexity: {}",
@@ -846,6 +855,7 @@ mod tests {
             "Investigate the database connection pool exhaustion issue, \
              analyze the root cause, and implement a fix with proper \
              connection lifecycle management",
+            None,
         );
         assert!(
             complex.complexity > 3.0,
@@ -881,6 +891,7 @@ mod tests {
                 None,
                 None,
                 Some(&orch),
+                false,
             );
             assert!(output.contains("recorded"), "thought {i}: {output}");
         }

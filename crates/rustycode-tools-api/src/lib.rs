@@ -99,6 +99,71 @@ pub use tiers::*;
 pub use tool_selection::*;
 pub use tool_selector::*;
 
+/// A single recorded tool invocation for audit purposes.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AuditEntry {
+    pub tool_name: String,
+    pub call_id: String,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub duration_ms: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<String>,
+    pub output_chars: usize,
+}
+
+/// In-memory audit log with a fixed-size ring buffer.
+pub struct AuditLog {
+    entries: parking_lot::Mutex<Vec<AuditEntry>>,
+    max_entries: usize,
+}
+
+impl AuditLog {
+    pub fn new(max_entries: usize) -> Self {
+        Self {
+            entries: parking_lot::Mutex::new(Vec::with_capacity(max_entries.min(256))),
+            max_entries,
+        }
+    }
+
+    pub fn record(&self, entry: AuditEntry) {
+        let mut entries = self.entries.lock();
+        if entries.len() >= self.max_entries {
+            let excess = entries.len() - self.max_entries + 1;
+            entries.drain(0..excess);
+        }
+        entries.push(entry);
+    }
+
+    pub fn snapshot(&self) -> Vec<AuditEntry> {
+        self.entries.lock().clone()
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.lock().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.lock().is_empty()
+    }
+}
+
+impl Default for AuditLog {
+    fn default() -> Self {
+        Self::new(1000)
+    }
+}
+
+impl std::fmt::Debug for AuditLog {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuditLog")
+            .field("entries", &self.entries)
+            .field("max_entries", &self.max_entries)
+            .finish()
+    }
+}
+
 /// Trait for gating tool access based on agent role and plan state.
 /// This allows low-level tool executors to check permissions without
 /// depending on high-level orchestration logic.
@@ -434,6 +499,7 @@ pub trait ToolMetadataProvider: Send + Sync {
 #[derive(Default)]
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn Tool>>,
+    audit_log: AuditLog,
 }
 
 impl ToolRegistry {
@@ -528,13 +594,15 @@ impl ToolRegistry {
         }
     }
     /// Execute a tool call, looking up the tool by name and dispatching.
-    /// Returns a `ToolResult` on success or error.
+    /// Returns a `ToolResult` on success or error. Records an audit entry.
     pub fn execute(
         &self,
         call: &rustycode_protocol::ToolCall,
         ctx: &ToolContext,
     ) -> rustycode_protocol::ToolResult {
-        self.get(&call.name).map_or_else(
+        let start = std::time::Instant::now();
+
+        let result = self.get(&call.name).map_or_else(
             || {
                 rustycode_protocol::ToolResult::error(
                     &call.call_id,
@@ -545,7 +613,34 @@ impl ToolRegistry {
                 Ok(output) => rustycode_protocol::ToolResult::success(&call.call_id, output.text),
                 Err(e) => rustycode_protocol::ToolResult::error(&call.call_id, e.to_string()),
             },
-        )
+        );
+
+        let duration = start.elapsed();
+        let entry = AuditEntry {
+            tool_name: call.name.clone(),
+            call_id: call.call_id.clone(),
+            success: result.error.is_none(),
+            error: result.error.clone(),
+            duration_ms: duration.as_millis() as u64,
+            session_id: ctx.session_id.clone(),
+            output_chars: result.output.len(),
+        };
+
+        tracing::debug!(
+            tool = %entry.tool_name,
+            success = entry.success,
+            duration_ms = entry.duration_ms,
+            output_chars = entry.output_chars,
+            "tool execution completed"
+        );
+
+        self.audit_log.record(entry);
+        result
+    }
+
+    /// Access the audit log for inspection.
+    pub const fn audit_log(&self) -> &AuditLog {
+        &self.audit_log
     }
 }
 

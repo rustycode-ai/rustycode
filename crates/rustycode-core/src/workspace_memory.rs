@@ -380,7 +380,7 @@ mod tests {
         mgr.write("persistent", MemoryType::Reference, "Persists", "survives reload", vec![]).unwrap();
 
         // Create a new manager pointing to the same dir
-        let mut mgr2 = WorkspaceMemory::new(&dir).unwrap();
+        let mgr2 = WorkspaceMemory::new(&dir).unwrap();
         assert!(mgr2.read("persistent").is_some());
     }
 }

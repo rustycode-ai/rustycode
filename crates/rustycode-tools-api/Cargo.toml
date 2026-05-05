@@ -11,6 +11,7 @@ parking_lot.workspace = true
 regex.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
+tracing.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
 
 [lints]

@@ -377,7 +377,7 @@ mod tests {
         let mut f = std::fs::File::create(&path).unwrap();
         writeln!(f, r#"{{"type":"session_start","session_id":"s1","model":"m","timestamp":"2026-01-01T00:00:00Z"}}"#).unwrap();
         writeln!(f, "not-json").unwrap();
-        writeln!(f, "").unwrap();
+        writeln!(f).unwrap();
         writeln!(f, r#"{{"type":"session_end","reason":"ok","total_tokens":0,"timestamp":"2026-01-01T00:00:00Z"}}"#).unwrap();
 
         let rt = tokio::runtime::Runtime::new().unwrap();

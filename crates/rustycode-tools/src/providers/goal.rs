@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn test_token_budget_enforcement() {
         let mgr = GoalManager::new();
-        let id = mgr.create_goal("Limited task", Some(100));
+        let _id = mgr.create_goal("Limited task", Some(100));
         assert!(mgr.should_continue());
         mgr.add_token_usage(50);
         assert!(mgr.should_continue());
@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn test_continuation_prompt() {
         let mgr = GoalManager::new();
-        let id = mgr.create_goal("Big task", Some(100));
+        let _id = mgr.create_goal("Big task", Some(100));
         assert!(mgr.continuation_prompt().is_none()); // 100% remaining
         mgr.add_token_usage(85);
         let prompt = mgr.continuation_prompt().unwrap();

@@ -14,6 +14,9 @@ use std::time::Instant;
 use crate::checkpoint_recovery::Recovery;
 use crate::checkpoint_store::CheckpointStore;
 
+/// Maximum messages retained in memory before oldest are evicted.
+const MAX_SESSION_MESSAGES: usize = 1000;
+
 /// Todo state - shared list of todo items
 pub type TodoState = Arc<Mutex<Vec<TodoItem>>>;
 
@@ -99,6 +102,9 @@ pub struct SessionState {
     pub error_count: usize,
     pub last_request_latency: Option<u128>,
 
+    // Token budget
+    pub token_budget: Option<usize>,
+
     // Streaming state
     pub is_streaming: bool,
     pub current_response: String,
@@ -154,6 +160,38 @@ pub enum MessageType {
     Error,
 }
 
+/// Token budget check result.
+#[derive(Debug, Clone, PartialEq)]
+pub enum TokenBudgetStatus {
+    /// Over 90% consumed but not yet exceeded.
+    Warning {
+        used: usize,
+        budget: usize,
+        remaining: usize,
+    },
+    /// Budget has been exceeded.
+    Exceeded {
+        used: usize,
+        budget: usize,
+        over_by: usize,
+    },
+}
+
+impl std::fmt::Display for TokenBudgetStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Warning { used, budget, remaining } => {
+                write!(f, "token budget warning: {used}/{budget} used ({remaining} remaining)")
+            }
+            Self::Exceeded { used, budget, over_by } => {
+                write!(f, "token budget exceeded: {used}/{budget} (over by {over_by})")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TokenBudgetStatus {}
+
 impl SessionState {
     /// Create a new session state
     pub fn new(cwd: PathBuf) -> Self {
@@ -190,6 +228,7 @@ impl SessionState {
             current_request_input_tokens: 0,
             error_count: 0,
             last_request_latency: None,
+            token_budget: None,
             is_streaming: false,
             current_response: String::new(),
             edit_file_path: None,
@@ -218,6 +257,14 @@ impl SessionState {
             tool_results: None,
         };
         self.messages.push(message);
+        // Evict oldest non-system messages when cap exceeded
+        while self.messages.len() > MAX_SESSION_MESSAGES {
+            let idx = self.messages.iter().position(|m| m.message_type != MessageType::System);
+            match idx {
+                Some(i) => { self.messages.remove(i); }
+                None => break,
+            }
+        }
         self.scroll_offset = self.messages.len().saturating_sub(1);
     }
 
@@ -265,6 +312,44 @@ impl SessionState {
             .saturating_add(self.total_output_tokens);
         self.current_request_input_tokens = input_tokens;
         self.last_response_tokens = output_tokens;
+    }
+
+    /// Set a token budget for this session. When `tokens_used` exceeds this,
+    /// `check_token_budget()` returns a warning.
+    pub fn set_token_budget(&mut self, budget: usize) {
+        self.token_budget = Some(budget);
+    }
+
+    /// Check if the session is within its token budget.
+    /// Returns `Ok(())` if within budget, or `Err` with remaining tokens info.
+    pub fn check_token_budget(&self) -> Result<(), TokenBudgetStatus> {
+        let Some(budget) = self.token_budget else {
+            return Ok(());
+        };
+        if self.tokens_used > budget {
+            Err(TokenBudgetStatus::Exceeded {
+                used: self.tokens_used,
+                budget,
+                over_by: self.tokens_used.saturating_sub(budget),
+            })
+        } else if self.tokens_used > budget / 10 * 9 {
+            Err(TokenBudgetStatus::Warning {
+                used: self.tokens_used,
+                budget,
+                remaining: budget.saturating_sub(self.tokens_used),
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Fraction of token budget consumed (0.0 to 1.0+).
+    pub fn token_budget_fraction(&self) -> f64 {
+        let budget = self.token_budget.unwrap_or(usize::MAX);
+        if budget == 0 {
+            return 1.0;
+        }
+        self.tokens_used as f64 / budget as f64
     }
 
     /// Record request latency
@@ -790,5 +875,58 @@ mod tests {
     fn pending_effects_returns_empty_when_no_recovery() {
         let s = make_session();
         assert!(s.pending_effects().is_empty());
+    }
+
+    // --- Token budget tests ---
+
+    #[test]
+    fn token_budget_defaults_to_none() {
+        let s = make_session();
+        assert!(s.token_budget.is_none());
+        assert!(s.check_token_budget().is_ok());
+    }
+
+    #[test]
+    fn token_budget_within_limits() {
+        let mut s = make_session();
+        s.set_token_budget(1000);
+        s.update_token_usage(100, 50);
+        assert!(s.check_token_budget().is_ok());
+        assert!(s.token_budget_fraction() < 0.9);
+    }
+
+    #[test]
+    fn token_budget_warning_at_90_percent() {
+        let mut s = make_session();
+        s.set_token_budget(1000);
+        s.update_token_usage(920, 0);
+        let result = s.check_token_budget();
+        assert!(matches!(result, Err(TokenBudgetStatus::Warning { .. })));
+    }
+
+    #[test]
+    fn token_budget_exceeded() {
+        let mut s = make_session();
+        s.set_token_budget(100);
+        s.update_token_usage(150, 0);
+        let result = s.check_token_budget();
+        assert!(matches!(result, Err(TokenBudgetStatus::Exceeded { over_by: 50, .. })));
+    }
+
+    #[test]
+    fn token_budget_fraction_tracks_usage() {
+        let mut s = make_session();
+        s.set_token_budget(1000);
+        s.update_token_usage(250, 250);
+        let frac = s.token_budget_fraction();
+        assert!((frac - 0.5).abs() < 0.01, "Expected ~0.5, got {frac}");
+    }
+
+    #[test]
+    fn token_budget_status_display() {
+        let warn = TokenBudgetStatus::Warning { used: 920, budget: 1000, remaining: 80 };
+        assert!(warn.to_string().contains("warning"));
+        let exceeded = TokenBudgetStatus::Exceeded { used: 1100, budget: 1000, over_by: 100 };
+        assert!(exceeded.to_string().contains("exceeded"));
     }
 }
