@@ -1,9 +1,4 @@
 //! Integration tests for message hierarchy system
-//!
-//! This test file verifies the complete message hierarchy implementation:
-//! - Tool executions are children of AI messages
-//! - Three-level expansion: summary → tool list → detailed output
-//! - Clean conversation flow without tool noise
 
 #[cfg(test)]
 mod integration_tests {

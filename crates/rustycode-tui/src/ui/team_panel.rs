@@ -1,18 +1,4 @@
 //! Team agent timeline panel for the TUI.
-//!
-//! Displays real-time agent states during team orchestration:
-//!
-//! ```text
-//! ┌─ Team: "fix the auth bug" ──────────┐
-//! │ Turn 3/50 │ Trust: 0.85             │
-//! ├──────────────────────────────────────┤
-//! │ ✓ Architect  Complete               │
-//! │ ⟳ Builder    Implementing           │
-//! │ ◌ Skeptic    Waiting                │
-//! │ ◌ Judge      Waiting                │
-//! │ ◌ Scalpel    Waiting                │
-//! └──────────────────────────────────────┘
-//! ```
 
 use std::time::Instant;
 

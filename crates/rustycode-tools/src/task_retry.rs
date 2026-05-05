@@ -35,7 +35,7 @@
 //! ```
 
 use anyhow::{anyhow, Result};
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU32, Ordering};

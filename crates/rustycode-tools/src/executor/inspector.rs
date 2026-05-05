@@ -178,7 +178,7 @@ impl ToolInspectionManager {
             }
 
             let result = inspector.inspect(call, history, ctx);
-            log::debug!(
+            tracing::debug!(
                 "[{}] action={:?} reason={}",
                 inspector.name(),
                 result.action,
@@ -1211,7 +1211,7 @@ impl ToolInspector for EgressInspector {
             .collect::<Vec<_>>()
             .join(", ");
 
-        log::info!(
+        tracing::info!(
             "[egress] {} destinations detected: {}",
             destinations.len(),
             dest_summary

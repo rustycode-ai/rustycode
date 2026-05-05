@@ -1,9 +1,4 @@
-//! Message export functionality
-//!
-//! Provides export of conversations to various formats:
-//! - Markdown: Clean, readable format with syntax highlighting
-//! - JSON: Structured format with all metadata
-//! - Plain Text: Simple text export
+//! Message export to Markdown, JSON, and plain text.
 
 use crate::ui::message_types::{Message, MessageRole, ToolExecution, ToolStatus};
 use anyhow::Result;

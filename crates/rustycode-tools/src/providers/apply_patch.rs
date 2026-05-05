@@ -39,7 +39,6 @@ struct FilePatch {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct Hunk {
     old_start: usize,
     old_count: usize,
@@ -49,7 +48,6 @@ struct Hunk {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 enum PatchLine {
     Context(String),
     Remove(String),

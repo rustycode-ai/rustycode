@@ -6127,7 +6127,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.18",
  "tokio",
 ]
 
@@ -6638,7 +6638,6 @@ dependencies = [
  "image",
  "landlock",
  "libc",
- "log",
  "lru 0.18.0",
  "lsp-types",
  "notify",

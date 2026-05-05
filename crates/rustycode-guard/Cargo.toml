@@ -16,15 +16,15 @@ name = "rustycode-guard"
 path = "src/main.rs"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-anyhow = "1.0"
-regex = "1.5"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+anyhow.workspace = true
+regex.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
 
 [dev-dependencies]
 criterion.workspace = true
-tempfile = "3.3"
+tempfile.workspace = true
 
 [lints]
 workspace = true

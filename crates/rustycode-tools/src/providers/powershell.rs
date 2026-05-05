@@ -33,7 +33,6 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct PowerShellSession {
     child: Arc<Mutex<Option<Child>>>,
-    #[allow(dead_code)]
     cwd: PathBuf,
     _session_id: String,
     stderr_buffer: Arc<Mutex<String>>,

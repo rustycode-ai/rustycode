@@ -3,8 +3,6 @@
 //! Replaces shell-dependent operations (`ls`, `grep`, `cat`) with native
 //! Rust implementations to avoid dependencies on host environment binaries.
 
-#![allow(dead_code)]
-
 use anyhow::{Context, Result};
 use regex::Regex;
 use std::fs;

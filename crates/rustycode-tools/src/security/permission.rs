@@ -564,7 +564,7 @@ impl ToolConfirmationRouter {
     pub async fn deliver(&self, request_id: &str, confirmation: ToolConfirmation) -> bool {
         if let Some(tx) = self.pending.lock().await.remove(request_id) {
             if tx.send(confirmation).is_err() {
-                log::warn!(
+                tracing::warn!(
                     "Confirmation receiver dropped for request {request_id} (task cancelled)"
                 );
                 false
@@ -572,7 +572,7 @@ impl ToolConfirmationRouter {
                 true
             }
         } else {
-            log::warn!("No task waiting for confirmation: {request_id}");
+            tracing::warn!("No task waiting for confirmation: {request_id}");
             false
         }
     }

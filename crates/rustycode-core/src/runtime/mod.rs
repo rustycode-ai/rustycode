@@ -6,9 +6,7 @@
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use rustycode_bus::{
-    EventBus, ModeChangedEvent, PlanExecutionCompletedEvent, PlanExecutionFailedEvent,
-    PlanExecutionStartedEvent, SessionCompletedEvent, SessionFailedEvent, SessionStartedEvent,
-    ToolBlockedEvent,
+    EventBus, SessionCompletedEvent, SessionStartedEvent, ToolBlockedEvent,
 };
 use rustycode_config::Config;
 use rustycode_git::GitStatus;
@@ -324,7 +322,6 @@ impl Runtime {
     }
 
     /// Publish session started event
-    #[allow(dead_code)] // Kept for future use
     pub fn publish_session_started(&self, session_id: SessionId, task: String, detail: String) {
         self.publish_event(SessionStartedEvent::new(session_id, task, detail));
     }
@@ -338,89 +335,6 @@ impl Runtime {
         detail: String,
     ) {
         self.publish_event(SessionCompletedEvent::new(session_id, task, status, detail));
-    }
-
-    /// Publish session failed event
-    #[allow(dead_code)] // Kept for future use
-    pub fn publish_session_failed(
-        &self,
-        session_id: SessionId,
-        task: String,
-        error: String,
-        detail: String,
-    ) {
-        self.publish_event(SessionFailedEvent::new(session_id, task, error, detail));
-    }
-
-    /// Publish mode changed event
-    #[allow(dead_code)] // Kept for future use
-    pub fn publish_mode_changed(
-        &self,
-        session_id: SessionId,
-        old_mode: SessionMode,
-        new_mode: SessionMode,
-        detail: String,
-    ) {
-        self.publish_event(ModeChangedEvent::new(
-            session_id,
-            format!("{:?}", old_mode),
-            format!("{:?}", new_mode),
-            detail,
-        ));
-    }
-
-    /// Publish plan execution started event
-    #[allow(dead_code)] // Kept for future use
-    pub fn publish_plan_execution_started(
-        &self,
-        session_id: SessionId,
-        plan_id: PlanId,
-        step_count: usize,
-        detail: String,
-    ) {
-        self.publish_event(PlanExecutionStartedEvent::new(
-            session_id, plan_id, step_count, detail,
-        ));
-    }
-
-    /// Publish plan execution completed event
-    #[allow(dead_code)] // Kept for future use
-    pub fn publish_plan_execution_completed(
-        &self,
-        session_id: SessionId,
-        plan_id: PlanId,
-        steps_executed: usize,
-        steps_succeeded: usize,
-        steps_failed: usize,
-        detail: String,
-    ) {
-        self.publish_event(PlanExecutionCompletedEvent::new(
-            session_id,
-            plan_id,
-            steps_executed,
-            steps_succeeded,
-            steps_failed,
-            detail,
-        ));
-    }
-
-    /// Publish plan execution failed event
-    #[allow(dead_code)] // Kept for future use
-    pub fn publish_plan_execution_failed(
-        &self,
-        session_id: SessionId,
-        plan_id: PlanId,
-        error: String,
-        failed_at_step: Option<usize>,
-        detail: String,
-    ) {
-        self.publish_event(PlanExecutionFailedEvent::new(
-            session_id,
-            plan_id,
-            error,
-            failed_at_step,
-            detail,
-        ));
     }
 
     /// Publish tool blocked event

@@ -179,10 +179,10 @@ impl Sandbox {
         match self.level {
             SandboxLevel::None => {
                 // No sandboxing
-                log::debug!("Sandbox: No sandboxing enabled");
+                tracing::debug!("Sandbox: No sandboxing enabled");
             }
             SandboxLevel::Path => {
-                log::debug!("Sandbox: Path-based access control only");
+                tracing::debug!("Sandbox: Path-based access control only");
             }
             SandboxLevel::Basic => {
                 self.enforce_basic()?;
@@ -198,7 +198,7 @@ impl Sandbox {
 
     /// Enforce basic sandbox level
     fn enforce_basic(&self) -> Result<()> {
-        log::debug!("Sandbox: Enforcing basic level");
+        tracing::debug!("Sandbox: Enforcing basic level");
 
         // On macOS, use sandbox_exec for basic isolation
         #[cfg(target_os = "macos")]
@@ -221,7 +221,7 @@ impl Sandbox {
 
     /// Enforce strict sandbox level
     fn enforce_strict(&self) -> Result<()> {
-        log::debug!("Sandbox: Enforcing strict level");
+        tracing::debug!("Sandbox: Enforcing strict level");
 
         // Try platform-specific strict enforcement
         #[cfg(target_os = "linux")]
@@ -239,14 +239,14 @@ impl Sandbox {
         }
 
         // Fallback to basic if strict not available
-        log::warn!("Strict sandbox not available on this platform, using basic");
+        tracing::warn!("Strict sandbox not available on this platform, using basic");
         self.enforce_basic()
     }
 
     /// Enforce Landlock basic level (Linux)
     #[cfg(target_os = "linux")]
     fn enforce_landlock_basic(&self) -> Result<()> {
-        log::debug!("Sandbox: Enforcing Landlock basic level");
+        tracing::debug!("Sandbox: Enforcing Landlock basic level");
 
         // Landlock is only available when the feature is enabled and we're on Linux
         #[cfg(feature = "landlock")]
@@ -264,12 +264,12 @@ impl Sandbox {
                 .restrict()
                 .map_err(|e: RuntimeError| anyhow!("Failed to enforce Landlock rules: {}", e))?;
 
-            log::debug!("Sandbox: Landlock basic enforcement successful");
+            tracing::debug!("Sandbox: Landlock basic enforcement successful");
         }
 
         #[cfg(not(feature = "landlock"))]
         {
-            log::warn!("Sandbox: Landlock not enabled, using path validation only");
+            tracing::warn!("Sandbox: Landlock not enabled, using path validation only");
         }
 
         Ok(())
@@ -278,7 +278,7 @@ impl Sandbox {
     /// Enforce Landlock strict level (Linux)
     #[cfg(target_os = "linux")]
     fn enforce_landlock_strict(&self) -> Result<()> {
-        log::debug!("Sandbox: Enforcing Landlock strict level");
+        tracing::debug!("Sandbox: Enforcing Landlock strict level");
 
         #[cfg(feature = "landlock")]
         {
@@ -295,12 +295,12 @@ impl Sandbox {
                 anyhow!("Failed to enforce strict Landlock rules: {}", e)
             })?;
 
-            log::debug!("Sandbox: Landlock strict enforcement successful");
+            tracing::debug!("Sandbox: Landlock strict enforcement successful");
         }
 
         #[cfg(not(feature = "landlock"))]
         {
-            log::warn!("Sandbox: Landlock not enabled, using path validation only");
+            tracing::warn!("Sandbox: Landlock not enabled, using path validation only");
         }
 
         Ok(())
@@ -309,7 +309,7 @@ impl Sandbox {
     /// Enforce macOS basic sandbox
     #[cfg(target_os = "macos")]
     fn enforce_macos_basic(&self) -> Result<()> {
-        log::debug!("Sandbox: Enforcing macOS basic level");
+        tracing::debug!("Sandbox: Enforcing macOS basic level");
 
         // Create a basic sandbox profile that allows file system access
         // but restricts network and other sensitive operations
@@ -326,8 +326,8 @@ impl Sandbox {
         // via Objective-C bindings, which is complex
         //
         // For now, we'll log that sandbox rules would be applied to child processes
-        log::debug!("Sandbox: macOS sandbox profile configured (would apply to child processes)");
-        log::trace!("Sandbox profile: {profile}");
+        tracing::debug!("Sandbox: macOS sandbox profile configured (would apply to child processes)");
+        tracing::trace!("Sandbox profile: {profile}");
 
         // Store profile for use when spawning child processes
         // This could be used by BashTool and other tools that spawn processes
@@ -337,7 +337,7 @@ impl Sandbox {
     /// Enforce macOS strict sandbox
     #[cfg(target_os = "macos")]
     fn enforce_macos_strict(&self) -> Result<()> {
-        log::debug!("Sandbox: Enforcing macOS strict level");
+        tracing::debug!("Sandbox: Enforcing macOS strict level");
 
         // Create a strict sandbox profile
         let profile = r#"(version 1)
@@ -349,8 +349,8 @@ impl Sandbox {
             (deny sysctl*)
         "#;
 
-        log::debug!("Sandbox: macOS strict sandbox profile configured");
-        log::trace!("Sandbox profile: {profile}");
+        tracing::debug!("Sandbox: macOS strict sandbox profile configured");
+        tracing::trace!("Sandbox profile: {profile}");
 
         Ok(())
     }

@@ -871,6 +871,69 @@ impl BashTool {
     }
 }
 
+#[cfg(windows)]
+impl BashTool {
+    fn try_native_fallback(&self, command: &str) -> Option<Result<ToolOutput>> {
+        use crate::native_tools::{native_cat, native_grep, native_ls};
+
+        let trimmed = command.trim();
+        let parts: Vec<&str> = trimmed.split_whitespace().collect();
+        if parts.is_empty() {
+            return None;
+        }
+
+        let binary = parts[0].to_lowercase();
+        match binary.as_str() {
+            "cat" if parts.len() == 2 && !parts[1].starts_with('-') => {
+                let path = std::path::Path::new(parts[1]);
+                Some(
+                    native_cat(path)
+                        .map(ToolOutput::success)
+                        .map_err(|e| anyhow::anyhow!("native cat failed: {e}")),
+                )
+            }
+            "ls" if parts.len() == 1 || (parts.len() == 2 && !parts[1].starts_with('-')) => {
+                let target = if parts.len() == 2 {
+                    std::path::Path::new(parts[1])
+                } else {
+                    std::path::Path::new(".")
+                };
+                Some(
+                    native_ls(target)
+                        .map(|files| ToolOutput::success(files.join("\n")))
+                        .map_err(|e| anyhow::anyhow!("native ls failed: {e}")),
+                )
+            }
+            "grep" => {
+                let mut args = parts[1..].iter().peekable();
+                let mut pattern = None;
+                let mut target_path = None;
+
+                while let Some(&arg) = args.next() {
+                    if arg.starts_with('-') {
+                        continue;
+                    }
+                    if pattern.is_none() {
+                        pattern = Some(arg);
+                    } else {
+                        target_path = Some(arg);
+                    }
+                }
+
+                match (pattern, target_path) {
+                    (Some(pat), Some(path)) => Some(
+                        native_grep(std::path::Path::new(path), pat)
+                            .map(ToolOutput::success)
+                            .map_err(|e| anyhow::anyhow!("native grep failed: {e}")),
+                    ),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
 impl Tool for BashTool {
     fn name(&self) -> &'static str {
         "bash"
@@ -983,6 +1046,13 @@ impl Tool for BashTool {
 
         if docker_requested {
             return self.execute_in_docker(&command, &ctx.cwd);
+        }
+
+        #[cfg(windows)]
+        {
+            if let Some(native_result) = self.try_native_fallback(&command) {
+                return native_result;
+            }
         }
 
         // Apply rate limiting - acquire permit for execution

@@ -132,7 +132,7 @@ impl Tool for TaskTool {
             anyhow::bail!("Parameter 'prompt' must not be empty");
         }
 
-        log::info!("TaskTool: Starting sub-agent for: {description}");
+        tracing::info!("TaskTool: Starting sub-agent for: {description}");
 
         match &self.runner {
             Some(runner) => {
@@ -140,7 +140,7 @@ impl Tool for TaskTool {
                 match runner(&self.cwd, &description, &prompt) {
                     Ok(output) => {
                         let elapsed = start.elapsed();
-                        log::info!(
+                        tracing::info!(
                             "TaskTool: Sub-agent completed '{}' in {:.1}s ({} chars)",
                             description,
                             elapsed.as_secs_f64(),
@@ -150,7 +150,7 @@ impl Tool for TaskTool {
                     }
                     Err(e) => {
                         let elapsed = start.elapsed();
-                        log::warn!(
+                        tracing::warn!(
                             "TaskTool: Sub-agent failed '{}' after {:.1}s: {}",
                             description,
                             elapsed.as_secs_f64(),

@@ -107,7 +107,7 @@ fn expand_hints_content(
     let content = match std::fs::read_to_string(hints_path) {
         Ok(c) => c,
         Err(e) => {
-            log::warn!("Could not read hints file {hints_path:?}: {e}");
+            tracing::warn!("Could not read hints file {hints_path:?}: {e}");
             return String::new();
         }
     };
@@ -126,7 +126,7 @@ fn expand_hints_content(
 
         // Skip gitignored files
         if is_gitignored(&resolved, gitignore) {
-            log::debug!("Skipping gitignored reference: {reference:?}");
+            tracing::debug!("Skipping gitignored reference: {reference:?}");
             continue;
         }
 

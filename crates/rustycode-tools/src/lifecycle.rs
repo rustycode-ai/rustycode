@@ -165,21 +165,21 @@ impl LifecycleHandler for TracingHandler {
     fn handle(&self, event: &LifecycleEvent) -> HookResult {
         match event {
             LifecycleEvent::Start(p) => {
-                log::info!(
+                tracing::info!(
                     "[lifecycle] Start conversation={} model={}",
                     p.conversation_id,
                     p.model
                 );
             }
             LifecycleEvent::Request(p) => {
-                log::debug!(
+                tracing::debug!(
                     "[lifecycle] Request turn={} messages={}",
                     p.turn,
                     p.message_count
                 );
             }
             LifecycleEvent::Response(p) => {
-                log::debug!(
+                tracing::debug!(
                     "[lifecycle] Response turn={} tools={} finish={:?}",
                     p.turn,
                     p.tool_call_count,
@@ -187,17 +187,17 @@ impl LifecycleHandler for TracingHandler {
                 );
             }
             LifecycleEvent::ToolCallStart(p) => {
-                log::debug!("[lifecycle] ToolStart {}", p.tool_name);
+                tracing::debug!("[lifecycle] ToolStart {}", p.tool_name);
             }
             LifecycleEvent::ToolCallEnd(p) => {
                 if p.is_error {
-                    log::warn!("[lifecycle] ToolEnd {} (error)", p.tool_name);
+                    tracing::warn!("[lifecycle] ToolEnd {} (error)", p.tool_name);
                 } else {
-                    log::debug!("[lifecycle] ToolEnd {} (ok)", p.tool_name);
+                    tracing::debug!("[lifecycle] ToolEnd {} (ok)", p.tool_name);
                 }
             }
             LifecycleEvent::End(p) => {
-                log::info!(
+                tracing::info!(
                     "[lifecycle] End turns={} tools={}",
                     p.total_turns,
                     p.total_tool_calls

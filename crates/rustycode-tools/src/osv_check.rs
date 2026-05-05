@@ -79,7 +79,7 @@ impl OsvChecker {
         ecosystem: &str,
         version: Option<&str>,
     ) -> Result<(), OsvError> {
-        log::debug!("OSV query: name={name}, ecosystem={ecosystem:?}, version={version:?}");
+        tracing::debug!("OSV query: name={name}, ecosystem={ecosystem:?}, version={version:?}");
 
         let mut page_token: Option<String> = None;
         let mut malicious: Vec<Vuln> = Vec::new();
@@ -98,7 +98,7 @@ impl OsvChecker {
             let resp = match self.client.post(&self.endpoint).json(&body).send().await {
                 Ok(r) => r,
                 Err(e) => {
-                    log::error!("OSV request failed for {ecosystem} {name}: {e}; failing open");
+                    tracing::error!("OSV request failed for {ecosystem} {name}: {e}; failing open");
                     return Ok(());
                 }
             };
@@ -106,7 +106,7 @@ impl OsvChecker {
             let payload: QueryResponse = match resp.json().await {
                 Ok(p) => p,
                 Err(e) => {
-                    log::error!("OSV parse error for {ecosystem} {name}: {e}; failing open");
+                    tracing::error!("OSV parse error for {ecosystem} {name}: {e}; failing open");
                     return Ok(());
                 }
             };
@@ -138,7 +138,7 @@ impl OsvChecker {
                 .collect::<Vec<_>>()
                 .join("; ");
 
-            log::error!("Blocked malicious package: {name}@{ver} ({ecosystem}) — {details}");
+            tracing::error!("Blocked malicious package: {name}@{ver} ({ecosystem}) — {details}");
 
             return Err(OsvError::MaliciousPackage {
                 name: name.to_string(),
@@ -148,7 +148,7 @@ impl OsvChecker {
             });
         }
 
-        log::debug!("OSV: no MAL advisories for {name} ({ecosystem})");
+        tracing::debug!("OSV: no MAL advisories for {name} ({ecosystem})");
         Ok(())
     }
 }
@@ -156,7 +156,7 @@ impl OsvChecker {
 impl Default for OsvChecker {
     fn default() -> Self {
         Self::new().unwrap_or_else(|e| {
-            log::warn!("OsvChecker::new() failed, using fallback client: {e}");
+            tracing::warn!("OsvChecker::new() failed, using fallback client: {e}");
             Self {
                 client: reqwest::Client::builder()
                     .timeout(Duration::from_secs(10))
@@ -179,7 +179,7 @@ pub async fn deny_if_malicious_cmd_args(cmd: &str, args: &[String]) -> Result<()
     } else if cmd.ends_with("npx") || cmd.ends_with("npm") {
         "npm"
     } else {
-        log::debug!("Unknown ecosystem for command '{cmd}'; skipping OSV check (fail open)");
+        tracing::debug!("Unknown ecosystem for command '{cmd}'; skipping OSV check (fail open)");
         return Ok(());
     };
 
@@ -191,7 +191,7 @@ pub async fn deny_if_malicious_cmd_args(cmd: &str, args: &[String]) -> Result<()
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))?;
     } else {
-        log::debug!("No package token found for '{cmd}'; skipping OSV check");
+        tracing::debug!("No package token found for '{cmd}'; skipping OSV check");
     }
 
     Ok(())

@@ -95,7 +95,7 @@ fn sanitize_reference_path(
 /// Skips email addresses and social handles.
 pub fn parse_file_references(content: &str) -> Vec<PathBuf> {
     if content.len() > MAX_CONTENT_LENGTH {
-        log::warn!(
+        tracing::warn!(
             "Content too large for file reference parsing: {} bytes (limit: {} bytes)",
             content.len(),
             MAX_CONTENT_LENGTH
@@ -131,7 +131,7 @@ fn should_process_reference(
             Some(path)
         }
         Err(e) => {
-            log::warn!("Skipping unsafe file reference {reference:?}: {e}");
+            tracing::warn!("Skipping unsafe file reference {reference:?}: {e}");
             None
         }
     }
@@ -149,7 +149,7 @@ fn process_file_reference(
     depth: usize,
 ) -> Option<(String, String)> {
     if depth >= MAX_DEPTH {
-        log::warn!("Maximum reference depth {MAX_DEPTH} exceeded");
+        tracing::warn!("Maximum reference depth {MAX_DEPTH} exceeded");
         return None;
     }
 
@@ -190,7 +190,7 @@ pub fn expand_file_references(
     let content = match std::fs::read_to_string(file_path) {
         Ok(content) => content,
         Err(e) => {
-            log::warn!("Could not read file {file_path:?}: {e}");
+            tracing::warn!("Could not read file {file_path:?}: {e}");
             return String::new();
         }
     };
