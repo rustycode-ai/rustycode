@@ -97,7 +97,7 @@ impl TruncateTier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustycode_protocol::{ContentBlock, MessageContent};
+    use rustycode_protocol::{ContentBlock, MessageContent, MessageRole};
 
     /// Helper: user message with simple text.
     fn user_msg(text: &str) -> Message {
@@ -113,7 +113,7 @@ mod tests {
     /// returned to the conversation).
     fn tool_result_msg(tool_use_id: &str, content: &str) -> Message {
         Message {
-            role: "user".to_string(),
+            role: MessageRole::User,
             content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                 tool_use_id: tool_use_id.to_string(),
                 content: content.to_string(),
@@ -127,7 +127,7 @@ mod tests {
     /// Helper: assistant message carrying a ToolUse block.
     fn tool_use_msg(id: &str, name: &str) -> Message {
         Message {
-            role: "assistant".to_string(),
+            role: MessageRole::Assistant,
             content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: id.to_string(),
                 name: name.to_string(),

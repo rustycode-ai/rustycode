@@ -502,7 +502,7 @@ mod tests {
 
         // System message should be preserved (Critical priority)
         assert!(
-            messages.iter().any(|m| m.role == "system"),
+            messages.iter().any(|m| m.role == MessageRole::System),
             "System message should be preserved"
         );
     }
@@ -531,7 +531,7 @@ mod tests {
 
         // System should always be included
         assert!(
-            messages.iter().any(|m| m.role == "system"),
+            messages.iter().any(|m| m.role == MessageRole::System),
             "System message should be included"
         );
     }
@@ -553,7 +553,7 @@ mod tests {
         // System message should survive eviction
         let messages = manager.messages();
         assert!(
-            messages.iter().any(|m| m.role == "system"),
+            messages.iter().any(|m| m.role == MessageRole::System),
             "System message should be preserved during FIFO message limit eviction"
         );
         assert!(
@@ -582,7 +582,7 @@ mod tests {
         // System message should survive token eviction
         let messages = manager.messages();
         assert!(
-            messages.iter().any(|m| m.role == "system"),
+            messages.iter().any(|m| m.role == MessageRole::System),
             "System message should be preserved during FIFO token limit eviction"
         );
     }

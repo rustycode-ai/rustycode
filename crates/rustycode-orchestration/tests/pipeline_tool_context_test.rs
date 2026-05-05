@@ -171,7 +171,7 @@ async fn test_conduct_accepts_conversation_history() {
             history
                 .into_iter()
                 .map(|e| rustycode_protocol::Message {
-                    role: e.role,
+                    role: rustycode_protocol::MessageRole::from(e.role),
                     content: rustycode_protocol::MessageContent::simple(e.content),
                     timestamp: chrono::Utc::now(),
                     metadata: rustycode_protocol::MessageMetadata::default(),

@@ -1092,4 +1092,101 @@ mod tests {
         assert!(!deserialized.metadata.user_visible);
         assert!(deserialized.metadata.agent_visible);
     }
+
+    #[test]
+    fn test_message_role_serialization_roundtrip() {
+        // Test standard roles serialize and deserialize correctly
+        let roles = vec![
+            (MessageRole::User, "user"),
+            (MessageRole::Assistant, "assistant"),
+            (MessageRole::System, "system"),
+        ];
+
+        for (role, expected_json) in roles {
+            let json = serde_json::to_string(&role).unwrap();
+            assert_eq!(json, format!("\"{}\"", expected_json));
+
+            let deserialized: MessageRole = serde_json::from_str(&json).unwrap();
+            assert_eq!(role, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_message_role_custom_tool_roundtrip() {
+        // Test custom tool roles preserve their names
+        let custom_roles = vec!["function_call", "tool_use", "custom_role"];
+
+        for role_name in custom_roles {
+            let role = MessageRole::Tool(role_name.to_string());
+            let json = serde_json::to_string(&role).unwrap();
+
+            // Should serialize as the plain string value
+            assert_eq!(json, format!("\"{}\"", role_name));
+
+            let deserialized: MessageRole = serde_json::from_str(&json).unwrap();
+            assert_eq!(role, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_message_with_message_role_roundtrip() {
+        // Test that Message with different roles roundtrips correctly
+        let messages = vec![
+            Message::user("hello"),
+            Message::assistant("hi there"),
+            Message::system("system prompt"),
+        ];
+
+        for original in messages {
+            let json = serde_json::to_string(&original).unwrap();
+            let deserialized: Message = serde_json::from_str(&json).unwrap();
+
+            // Role should be identical after roundtrip
+            assert_eq!(original.role, deserialized.role);
+            // Content should be identical
+            assert_eq!(original.content, deserialized.content);
+        }
+    }
+
+    #[test]
+    fn test_message_role_from_string() {
+        // Test that arbitrary strings create Tool variants
+        assert_eq!(MessageRole::from("user"), MessageRole::User);
+        assert_eq!(MessageRole::from("assistant"), MessageRole::Assistant);
+        assert_eq!(MessageRole::from("system"), MessageRole::System);
+        assert_eq!(
+            MessageRole::from("custom_tool"),
+            MessageRole::Tool("custom_tool".to_string())
+        );
+    }
+
+    #[test]
+    fn test_message_role_as_str() {
+        // Test that role.as_str() returns expected values
+        assert_eq!(MessageRole::User.as_str(), "user");
+        assert_eq!(MessageRole::Assistant.as_str(), "assistant");
+        assert_eq!(MessageRole::System.as_str(), "system");
+        assert_eq!(
+            MessageRole::Tool("custom".to_string()).as_str(),
+            "custom"
+        );
+    }
+
+    #[test]
+    fn test_prompt_cache_compatibility() {
+        // Ensure serialization format matches Claude API expectations
+        let msg = Message::assistant("response content");
+        let json = serde_json::to_value(&msg).unwrap();
+
+        // The JSON should have "assistant" as a string, not an object
+        assert_eq!(json["role"], "assistant");
+
+        // Message should roundtrip without changing serialization
+        let json_str = serde_json::to_string(&msg).unwrap();
+        let deserialized: Message = serde_json::from_str(&json_str).unwrap();
+        let json_str2 = serde_json::to_string(&deserialized).unwrap();
+
+        // JSON serialization should be identical after roundtrip
+        assert_eq!(json_str, json_str2, "Cache key would change after roundtrip!");
+    }
 }

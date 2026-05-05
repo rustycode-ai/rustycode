@@ -695,7 +695,7 @@ mod tests {
         assert_eq!(s.messages.len(), 1);
         assert_eq!(s.messages[0].content.as_text(), "Hello");
         assert_eq!(
-            MessageType::from_role(&s.messages[0].role),
+            MessageType::from_role(s.messages[0].role.as_str()),
             MessageType::User
         );
     }
@@ -791,7 +791,7 @@ mod tests {
         assert!(s.current_response.is_empty());
         assert_eq!(s.messages.len(), 1);
         assert_eq!(s.messages[0].content.as_text(), "Hello World");
-        assert_eq!(MessageType::from_role(&s.messages[0].role), MessageType::AI);
+        assert_eq!(MessageType::from_role(s.messages[0].role.as_str()), MessageType::AI);
     }
 
     #[test]

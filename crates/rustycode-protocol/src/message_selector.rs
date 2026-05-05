@@ -293,7 +293,7 @@ mod tests {
     fn make_message(role: &str, content: &str, offset_secs: i64) -> Message {
         let timestamp = chrono::Utc::now() + chrono::Duration::seconds(offset_secs);
         Message {
-            role: role.to_string(),
+            role: crate::message::MessageRole::from(role),
             content: MessageContent::Simple(content.to_string()),
             timestamp,
             metadata: crate::MessageMetadata::default(),
