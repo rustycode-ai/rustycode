@@ -255,10 +255,25 @@ pub struct MemoryState {
     pub memory_entries: Vec<MemoryEntry>,
 }
 
+pub struct SessionContext {
+    pub cwd: PathBuf,
+    pub workspace_context: String,
+    pub session_title: String,
+}
+
+impl SessionContext {
+    pub fn new(cwd: PathBuf) -> Self {
+        Self {
+            cwd,
+            workspace_context: String::new(),
+            session_title: String::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct ToolRuntimeState {
-    pub active_tools: Vec<ToolExecution>,
-    pub current_session_tools: Vec<String>,
+    pub active_tools: Vec<ToolExecution>,    pub current_session_tools: Vec<String>,
     pub tool_iteration_count: u32,
     pub pending_tool_call: Option<ToolCall>,
 }
@@ -276,10 +291,8 @@ pub struct SessionState {
     pub scroll_offset: usize,
     pub selected_message: usize,
 
-    // Session metadata
-    pub cwd: PathBuf,
-    pub workspace_context: String,
-    pub session_title: String,
+    // Session context
+    pub context: SessionContext,
 
     // Performance metrics
     pub performance: PerformanceMetrics,
@@ -428,9 +441,11 @@ impl SessionState {
             input: String::new(),
             scroll_offset: 0,
             selected_message: 0,
-            cwd: cwd.clone(),
-            workspace_context: String::new(),
-            session_title: "New Session".to_string(),
+            context: SessionContext {
+                cwd: cwd.clone(),
+                workspace_context: String::new(),
+                session_title: "New Session".to_string(),
+            },
             performance: PerformanceMetrics::new(),
             provider: ProviderConfig::new(),
             tool_runtime: ToolRuntimeState::default(),
@@ -664,7 +679,7 @@ impl SessionState {
 
     /// Update workspace context
     pub fn update_workspace_context(&mut self, context: String) {
-        self.workspace_context = context;
+        self.context.workspace_context = context;
     }
 
     /// Set the current model
@@ -949,9 +964,9 @@ mod tests {
     #[test]
     fn update_workspace_context() {
         let mut s = make_session();
-        assert!(s.workspace_context.is_empty());
+        assert!(s.context.workspace_context.is_empty());
         s.update_workspace_context("Rust project".to_string());
-        assert_eq!(s.workspace_context, "Rust project");
+        assert_eq!(s.context.workspace_context, "Rust project");
     }
 
     #[test]
