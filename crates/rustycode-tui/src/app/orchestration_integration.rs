@@ -499,4 +499,19 @@ mod tests {
             assert_eq!(thought.thought, format!("A {thought_type} thought"));
         }
     }
+
+    #[test]
+    fn test_has_native_thinking_edge_cases() {
+        assert!(has_native_thinking("glm-5"), "exact match");
+        assert!(has_native_thinking("GLM-5-FLASH"), "case insensitive");
+        assert!(
+            has_native_thinking("claude-opus-4-20250918"),
+            "with date suffix"
+        );
+        assert!(has_native_thinking("deepseek-r1-distill"), "contains match");
+        assert!(has_native_thinking("o1-preview"), "o1 with suffix");
+        assert!(has_native_thinking("o3-mini"), "o3 variant");
+        assert!(!has_native_thinking("glm-4"), "older generation");
+        assert!(!has_native_thinking("gpt-4o"), "different model family");
+    }
 }

@@ -354,7 +354,7 @@ mod tests {
         let mouse = mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5);
         tui.handle_mouse_input(mouse);
         assert_eq!(tui.mouse_selection_start.get(), Some((30, 5)));
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 2. Down then Drag sets dragged=true
@@ -378,7 +378,7 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 8));
 
         assert_eq!(tui.mouse_selection_start.get(), None);
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 4. Down+Up at same position = click (not drag), state resets
@@ -392,7 +392,7 @@ mod tests {
 
         // State should be clean after Up
         assert_eq!(tui.mouse_selection_start.get(), None);
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 5. Orphan Drag (no prior Down) sets start to current position
@@ -405,7 +405,7 @@ mod tests {
 
         // Orphan drag sets start to current position, does not set dragged
         assert_eq!(tui.mouse_selection_start.get(), Some((15, 10)));
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 6. Orphan Up (no prior Down) is a no-op, doesn't crash
@@ -417,7 +417,7 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 25, 7));
 
         assert_eq!(tui.mouse_selection_start.get(), None);
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 7. State is fully reset after complete Down+Drag+Up cycle
@@ -433,7 +433,7 @@ mod tests {
 
         // Verify clean slate
         assert_eq!(tui.mouse_selection_start.get(), None);
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 8. Second Down starts fresh after first selection cycle
@@ -451,7 +451,7 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 45, 2));
 
         assert_eq!(tui.mouse_selection_start.get(), Some((45, 2)));
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 9. Drag within messages area — state resets (message copy attempted)
@@ -467,7 +467,7 @@ mod tests {
 
         // State resets regardless of whether messages existed to copy
         assert_eq!(tui.mouse_selection_start.get(), None);
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 10. Drag within sidebar area — state resets (sidebar copy attempted)
@@ -483,7 +483,7 @@ mod tests {
 
         // State resets
         assert_eq!(tui.mouse_selection_start.get(), None);
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 11. Drag outside both areas — no-op, state still resets
@@ -507,7 +507,7 @@ mod tests {
 
         // State still resets cleanly
         assert_eq!(tui.mouse_selection_start.get(), None);
-        assert_eq!(tui.mouse_selection_dragged.get(), false);
+        assert!(!tui.mouse_selection_dragged.get());
     }
 
     // 12. Drag from right-to-left — start stays at original Down position

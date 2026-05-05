@@ -373,6 +373,82 @@ mod tests {
         assert_eq!(classifier.classify("pip install x").category, CommandCategory::PackageManage);
     }
 
+    /// Comprehensive cross-category classification test.
+    ///
+    /// Validates that each command receives the correct risk level AND semantic
+    /// category, covering read-only, approval-required, and blocked tiers.
+    #[test]
+    fn test_comprehensive_command_classification() {
+        let classifier = PermissionClassifier::new(None);
+
+        // ── Read-only commands (Safe) ─────────────────────────────────────
+        let read_only: &[(&str, CommandCategory)] = &[
+            ("ls -la", CommandCategory::FileRead),
+            ("cat README.md", CommandCategory::FileRead),
+            ("git status", CommandCategory::GitRead),
+            ("grep -rn 'pattern' src/", CommandCategory::FileRead),
+            ("find . -name '*.rs'", CommandCategory::FileRead),
+            ("cargo test", CommandCategory::Build),
+        ];
+        for (cmd, expected_cat) in read_only {
+            let result = classifier.classify(cmd);
+            assert_eq!(
+                result.level,
+                PermissionRiskLevel::Safe,
+                "Expected Safe for read-only command: {cmd}"
+            );
+            assert_eq!(
+                result.category,
+                *expected_cat,
+                "Wrong category for read-only command: {cmd}"
+            );
+        }
+
+        // ── Blocked commands (Blocked) ───────────────────────────────────
+        let blocked: &[(&str, CommandCategory)] = &[
+            ("rm -rf /", CommandCategory::Destructive),
+            ("git push --force origin main", CommandCategory::Destructive),
+            ("chmod -R 777 /", CommandCategory::Destructive),
+            ("mkfs /dev/sda1", CommandCategory::Destructive),
+        ];
+        for (cmd, expected_cat) in blocked {
+            let result = classifier.classify(cmd);
+            assert_eq!(
+                result.level,
+                PermissionRiskLevel::Blocked,
+                "Expected Blocked for destructive command: {cmd}"
+            );
+            assert_eq!(
+                result.category,
+                *expected_cat,
+                "Wrong category for blocked command: {cmd}"
+            );
+        }
+
+        // ── Approval-required commands (Ask) ─────────────────────────────
+        let ask: &[(&str, CommandCategory)] = &[
+            ("rm unwanted.txt", CommandCategory::FileDelete),
+            ("curl http://example.com/api", CommandCategory::NetworkFetch),
+            ("wget https://example.com/file.tar.gz", CommandCategory::NetworkFetch),
+            ("chmod 777 script.sh", CommandCategory::FileWrite),
+            ("pip install flask", CommandCategory::PackageManage),
+            ("mkdir new_directory", CommandCategory::FileWrite),
+        ];
+        for (cmd, expected_cat) in ask {
+            let result = classifier.classify(cmd);
+            assert_eq!(
+                result.level,
+                PermissionRiskLevel::Ask,
+                "Expected Ask for approval-required command: {cmd}"
+            );
+            assert_eq!(
+                result.category,
+                *expected_cat,
+                "Wrong category for approval-required command: {cmd}"
+            );
+        }
+    }
+
     #[test]
     fn test_cache_decision() {
         let mut classifier = PermissionClassifier::new(None);

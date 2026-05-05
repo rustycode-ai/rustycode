@@ -51,14 +51,17 @@ impl QualityDetector {
         {
             score += 1.0;
         }
-        // Task verbs indicate specificity in instructions
+        // Task verbs indicate specificity in instructions (word-boundary aware)
         let lower = response.to_ascii_lowercase();
         let task_verbs = [
             "fix", "implement", "add", "create", "update", "refactor", "debug",
             "test", "build", "write", "remove", "change", "rename", "optimize",
             "parse", "solve", "convert", "validate", "extract", "generate",
         ];
-        if task_verbs.iter().any(|v| lower.contains(v)) {
+        let has_task_verb = task_verbs.iter().any(|v| {
+            lower.split(|c: char| !c.is_alphanumeric()).any(|word| word == *v)
+        });
+        if has_task_verb {
             score += 1.0;
         }
         score.min(5.0)
@@ -314,6 +317,18 @@ mod tests {
             "reference should boost completeness: {} vs {}",
             with_ref.completeness,
             without.completeness
+        );
+    }
+
+    #[test]
+    fn test_task_verb_no_false_positives() {
+        let detector = QualityDetector::new();
+        let score = detector.evaluate("the prefix and fixture methods need work");
+        // "prefix" contains "fix" but shouldn't match as a task verb
+        let score2 = detector.evaluate("the prefix and fixture methods need work but fix the bug");
+        assert!(
+            score2.specificity > score.specificity,
+            "actual 'fix' should boost score over false-positive 'prefix'/'fixture'"
         );
     }
 }

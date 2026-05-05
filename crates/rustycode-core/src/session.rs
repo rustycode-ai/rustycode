@@ -190,8 +190,6 @@ impl std::fmt::Display for TokenBudgetStatus {
     }
 }
 
-impl std::error::Error for TokenBudgetStatus {}
-
 impl SessionState {
     /// Create a new session state
     pub fn new(cwd: PathBuf) -> Self {
@@ -257,13 +255,21 @@ impl SessionState {
             tool_results: None,
         };
         self.messages.push(message);
-        // Evict oldest non-system messages when cap exceeded
-        while self.messages.len() > MAX_SESSION_MESSAGES {
-            let idx = self.messages.iter().position(|m| m.message_type != MessageType::System);
-            match idx {
-                Some(i) => { self.messages.remove(i); }
-                None => break,
-            }
+        // Evict oldest non-system messages when cap exceeded (batch O(n))
+        if self.messages.len() > MAX_SESSION_MESSAGES {
+            let excess = self.messages.len() - MAX_SESSION_MESSAGES;
+            let mut removed = 0usize;
+            self.messages.retain(|m| {
+                if removed >= excess {
+                    return true;
+                }
+                if m.message_type != MessageType::System {
+                    removed += 1;
+                    false
+                } else {
+                    true
+                }
+            });
         }
         self.scroll_offset = self.messages.len().saturating_sub(1);
     }
@@ -411,9 +417,12 @@ impl SessionState {
 
     /// Safely set pending LLM request flag
     pub fn set_pending_request(&self, value: bool) {
-        if let Ok(mut guard) = self.pending_llm_request.lock() {
-            *guard = value;
-        }
+        let mut guard = self.pending_llm_request.lock()
+            .unwrap_or_else(|e| {
+                tracing::warn!("pending_llm_request mutex poisoned, recovering");
+                e.into_inner()
+            });
+        *guard = value;
     }
 
     /// Safely get pending LLM request flag
@@ -928,5 +937,23 @@ mod tests {
         assert!(warn.to_string().contains("warning"));
         let exceeded = TokenBudgetStatus::Exceeded { used: 1100, budget: 1000, over_by: 100 };
         assert!(exceeded.to_string().contains("exceeded"));
+    }
+
+    #[test]
+    fn message_eviction_preserves_system_messages() {
+        let mut s = make_session();
+        s.add_message("system prompt".to_string(), MessageType::System);
+        for i in 0..=MAX_SESSION_MESSAGES {
+            s.add_message(format!("user_{i}"), MessageType::User);
+        }
+        assert!(
+            s.messages.len() <= MAX_SESSION_MESSAGES,
+            "should be at or below cap: got {}",
+            s.messages.len()
+        );
+        assert!(
+            s.messages.iter().any(|m| m.content == "system prompt"),
+            "system message should be preserved"
+        );
     }
 }

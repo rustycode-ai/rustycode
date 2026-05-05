@@ -32,11 +32,9 @@ pub(super) fn handle_approval_request_chunk(
             risk::RiskLevel::Safe => {}
             risk::RiskLevel::Medium | risk::RiskLevel::High => {
                 tracing::info!("Yolo auto-approved ({:?}): {}", risk_level, tool_name);
-                tui.add_system_message(format!("⚡ Auto-approved: {}", tool_name));
             }
             risk::RiskLevel::Dangerous => {
                 tracing::warn!("Yolo auto-approved (DESTRUCTIVE): {}", tool_name);
-                tui.add_system_message(format!("⚠ Auto-approved (dangerous): {}", tool_name));
             }
         }
         tui.services.send_approval_response(true);

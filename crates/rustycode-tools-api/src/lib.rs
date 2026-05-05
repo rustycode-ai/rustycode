@@ -114,6 +114,9 @@ pub struct AuditEntry {
 }
 
 /// In-memory audit log with a fixed-size ring buffer.
+///
+/// Initial capacity is capped at 256 to avoid over-allocation — most sessions
+/// use fewer than 100 entries.
 pub struct AuditLog {
     entries: parking_lot::Mutex<Vec<AuditEntry>>,
     max_entries: usize,
@@ -1188,5 +1191,63 @@ mod tests {
             get_tool_permission("lsp_completion"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
+    }
+
+    #[test]
+    fn test_audit_log_exact_capacity_ring_buffer() {
+        let log = AuditLog::new(3);
+        log.record(AuditEntry {
+            tool_name: "tool_a".into(),
+            call_id: "1".into(),
+            success: true,
+            error: None,
+            duration_ms: 10,
+            session_id: None,
+            output_chars: 100,
+        });
+        log.record(AuditEntry {
+            tool_name: "tool_b".into(),
+            call_id: "2".into(),
+            success: true,
+            error: None,
+            duration_ms: 20,
+            session_id: None,
+            output_chars: 200,
+        });
+        log.record(AuditEntry {
+            tool_name: "tool_c".into(),
+            call_id: "3".into(),
+            success: false,
+            error: Some("fail".into()),
+            duration_ms: 30,
+            session_id: None,
+            output_chars: 0,
+        });
+        // At capacity
+        assert_eq!(log.len(), 3);
+        let snap = log.snapshot();
+        assert_eq!(snap[0].tool_name, "tool_a");
+
+        // Add one more — should evict oldest
+        log.record(AuditEntry {
+            tool_name: "tool_d".into(),
+            call_id: "4".into(),
+            success: true,
+            error: None,
+            duration_ms: 5,
+            session_id: None,
+            output_chars: 50,
+        });
+        assert_eq!(log.len(), 3);
+        let snap = log.snapshot();
+        assert_eq!(snap[0].tool_name, "tool_b");
+        assert_eq!(snap[2].tool_name, "tool_d");
+    }
+
+    #[test]
+    fn test_audit_log_is_empty_and_snapshot_empty() {
+        let log = AuditLog::new(10);
+        assert!(log.is_empty());
+        assert!(log.snapshot().is_empty());
     }
 }

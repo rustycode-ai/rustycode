@@ -13,6 +13,8 @@ const TOOL_OUTPUT_MASK_TAG: &str = "[tool-output-masked]";
 const TOOL_OUTPUT_SOFT_LIMIT: usize = 1200;
 const TOOL_OUTPUT_HARD_LIMIT: usize = 4000;
 /// When estimated tokens exceed this fraction of max_tokens, trigger summarization.
+/// Set to 80% to leave headroom for the user's next message while avoiding
+/// premature summarization of short conversations.
 const SUMMARIZATION_THRESHOLD: f64 = 0.8;
 /// Minimum number of messages before summarization kicks in.
 const MIN_MESSAGES_FOR_SUMMARY: usize = 10;
@@ -680,5 +682,52 @@ mod tests {
             text.contains("thing 10"),
             "Second-to-last turn should be preserved"
         );
+    }
+
+    #[test]
+    fn test_summarization_end_to_end_with_system_and_recent() {
+        let session_id = SessionId::new();
+        let conv = ProtocolConversation::new(session_id);
+        let mut manager = ConversationManager::new(conv)
+            .with_max_messages(50)
+            .with_max_tokens(200);
+
+        // System message
+        manager.add_message(Message::system("You are a code assistant"));
+
+        // Old turns that should get summarized
+        for i in 0..8 {
+            manager.add_message(Message::user(format!("Explain concept {}", i)));
+            manager.add_message(Message::assistant(format!(
+                "Concept {} is about programming fundamentals with some detail"
+                , i
+            )));
+        }
+
+        // Recent turns that should survive
+        manager.add_message(Message::user("What about concept 99?"));
+        manager.add_message(Message::assistant("Concept 99 is advanced"));
+
+        let messages = manager.messages();
+        let texts: Vec<String> = messages.iter().map(|m| m.content.as_text()).collect();
+
+        // System message must survive
+        assert!(texts.contains(&"You are a code assistant".to_string()), "system prompt preserved");
+
+        // Summary should exist
+        assert!(
+            texts.iter().any(|t| t.contains("[conversation-summary]")),
+            "summary message should exist"
+        );
+
+        // Recent turns must survive
+        assert!(
+            texts.iter().any(|t| t.contains("concept 99")),
+            "recent turn preserved"
+        );
+
+        // Old turn details should be compressed (not as full messages)
+        let old_survivors = texts.iter().any(|t| t.contains("Explain concept 0") && !t.contains("[conversation-summary]"));
+        assert!(!old_survivors, "old turns should be in summary, not standalone");
     }
 }
