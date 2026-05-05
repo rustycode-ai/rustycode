@@ -1,5 +1,6 @@
 //! Main application module
 
+pub mod auto_continue_state;
 pub mod auto_tool_parser;
 pub mod brutalist_helpers;
 pub mod brutalist_renderer;

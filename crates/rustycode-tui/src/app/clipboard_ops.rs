@@ -246,9 +246,7 @@ impl TUI {
         self.streaming.current_stream_content.clear();
         self.streaming.streaming_render_buffer =
             crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
-        self.tool_panel.tool_panel_history.clear();
-        self.tool_panel.tool_panel_selected_index = None;
-        self.tool_panel.showing_tool_result = false;
+        self.tool_panel.reset();
         self.active_tools.clear();
 
         if let Err(e) = self

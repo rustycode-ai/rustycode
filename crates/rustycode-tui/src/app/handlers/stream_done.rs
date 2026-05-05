@@ -58,13 +58,13 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     tui.context_monitor.update(&tui.messages);
     tui.check_auto_compaction();
 
-    tui.auto_continue_pending = false;
-    if !was_cancelled && tui.auto_continue_enabled {
+    tui.auto_continue.auto_continue_pending = false;
+    if !was_cancelled && tui.auto_continue.auto_continue_enabled {
         check_and_trigger_auto_continue(tui);
     }
 
     if !was_cancelled
-        && !tui.auto_continue_enabled
+        && !tui.auto_continue.auto_continue_enabled
         && tui.plan_mode.current_phase() == "planning"
         && !tui.is_awaiting_approval()
     {

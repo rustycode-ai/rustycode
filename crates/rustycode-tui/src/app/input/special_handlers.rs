@@ -457,34 +457,13 @@ impl TUI {
                                 .collect();
 
                             // Apply LoadSession effect inline (private method workaround)
-                            self.selected_message = 0;
-                            self.scroll_offset_line = 0;
-                            self.user_scrolled = false;
-                            self.active_tools.clear();
-                            self.tool_panel.tool_panel_history.clear();
-                            self.tool_panel.tool_panel_selected_index = None;
-                            self.tool_panel.showing_tool_result = false;
-                            self.dismiss_any_overlay();
+                            self.reset_conversation_state();
                             // Stop background stream before resetting state (prevent stale chunks)
                             if self.streaming.is_streaming {
                                 self.services.request_stop_stream();
                             }
-                            self.reset_streaming_state();
-                            self.streaming.queued_message = None;
-                            self.stashed_prompt = None;
                             self.file_undo_stack.clear();
                             self.undo_stack.clear();
-                            self.auto_continue_enabled = false;
-                            self.auto_continue_pending = false;
-                            self.auto_continue_iterations = 0;
-                            self.token_budget.session_input_tokens = 0;
-                            self.token_budget.session_output_tokens = 0;
-                            self.token_budget.session_cache_read_tokens = 0;
-                            self.token_budget.session_cache_creation_tokens = 0;
-                            self.token_budget.last_turn_input_tokens = 0;
-                            self.token_budget.session_cost_usd = 0.0;
-                            self.context_monitor.current_tokens = 0;
-                            self.context_monitor.needs_compaction = false;
                             self.messages = messages;
                             if !self.messages.is_empty() {
                                 self.selected_message = self.messages.len() - 1;

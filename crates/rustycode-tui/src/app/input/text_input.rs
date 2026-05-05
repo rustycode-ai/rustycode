@@ -598,9 +598,7 @@ impl TUI {
                 crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
 
             // Clear previous turn's tool history so sidebar doesn't show stale calls.
-            self.tool_panel.tool_panel_history.clear();
-            self.tool_panel.tool_panel_selected_index = None;
-            self.tool_panel.showing_tool_result = false;
+            self.tool_panel.reset();
             self.active_tools.clear();
 
             let send_call_start = std::time::Instant::now();

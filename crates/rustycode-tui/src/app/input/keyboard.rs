@@ -381,21 +381,21 @@ impl TUI {
             }
             (KeyCode::Char('a'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 // Toggle auto-continue mode
-                self.auto_continue_enabled = !self.auto_continue_enabled;
-                self.auto_continue_iterations = 0; // Reset iteration counter on toggle
-                if self.auto_continue_enabled {
+                self.auto_continue.auto_continue_enabled = !self.auto_continue.auto_continue_enabled;
+                self.auto_continue.auto_continue_iterations = 0; // Reset iteration counter on toggle
+                if self.auto_continue.auto_continue_enabled {
                     self.add_system_message(
                         "🔄 Auto-continue enabled - AI will work through tasks until complete"
                             .to_string(),
                     );
                     // Trigger immediate check if we're not streaming
                     if !self.streaming.is_streaming {
-                        self.auto_continue_pending = true;
+                        self.auto_continue.auto_continue_pending = true;
                         // Note: Actual continuation will happen on next stream completion
                     }
                 } else {
                     self.add_system_message("⏸️  Auto-continue disabled".to_string());
-                    self.auto_continue_pending = false;
+                    self.auto_continue.auto_continue_pending = false;
                 }
                 self.dirty = true;
                 return Ok(());

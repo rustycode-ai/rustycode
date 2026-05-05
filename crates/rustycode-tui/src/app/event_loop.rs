@@ -5,6 +5,7 @@
 
 use crate::agent_mode::AiMode;
 use crate::agents::AgentManager;
+use crate::app::auto_continue_state::AutoContinueState;
 use crate::app::event_loop_commands::{
     dispatch_registered_slash_command, CommandContext, CommandEffect,
 };
@@ -168,9 +169,7 @@ pub struct TUI {
     pub(crate) rate_limit: RateLimitHandler,
 
     // Auto-continue mode - automatically continue working on pending tasks
-    pub(crate) auto_continue_enabled: bool, // Whether auto-continue is active
-    pub(crate) auto_continue_pending: bool, // Whether a continuation is pending
-    pub(crate) auto_continue_iterations: usize, // Number of auto-continue iterations
+    pub(crate) auto_continue: AutoContinueState,
 
     // Turn-level verification (snapshot before agent turn, diff after)
     pub(crate) turn_snapshot: Option<crate::app::turn_snapshot::TurnSnapshot>,
@@ -410,6 +409,26 @@ impl TUI {
         self.ast_phase_state.deactivate();
     }
 
+    /// Reset the conversational state that should not survive a load/resume
+    /// or a full conversation clear.
+    pub(crate) fn reset_conversation_state(&mut self) {
+        self.selected_message = 0;
+        self.scroll_offset_line = 0;
+        self.user_scrolled = false;
+        self.active_tools.clear();
+        self.tool_panel.reset();
+        self.dismiss_any_overlay();
+        self.reset_streaming_state();
+        self.streaming.queued_message = None;
+        self.stashed_prompt = None;
+        self.clear_plan_mode_banner();
+        self.rate_limit.clear();
+        self.auto_continue.reset();
+        self.token_budget.reset();
+        self.context_monitor.current_tokens = 0;
+        self.context_monitor.needs_compaction = false;
+    }
+
     /// Create a new TUI instance with service integration
     #[allow(clippy::await_holding_lock, deprecated)]
     pub fn new(
@@ -608,11 +627,7 @@ impl TUI {
             workspace_scan_progress: None,
             git_branch: None,
             rate_limit: RateLimitHandler::new(),
-            auto_continue_enabled: std::env::var("RUSTYCODE_AUTO_CONTINUE")
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false),
-            auto_continue_pending: false,
-            auto_continue_iterations: 0,
+            auto_continue: AutoContinueState::from_env(),
             turn_snapshot: None,
             doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
             execution_trace: None,
@@ -639,16 +654,8 @@ impl TUI {
             pending_approval_request: VecDeque::new(),
             awaiting_approval: false,
             start_time: Instant::now(),
-            lsp: LspStatus {
-                last_lsp_refresh: Instant::now() - Duration::from_mins(1), // force immediate refresh
-                last_lsp_servers: Vec::new(),
-                last_lsp_connected: false,
-            },
-            mcp: McpStatus {
-                last_mcp_refresh: Instant::now() - Duration::from_mins(1), // force immediate refresh
-                last_mcp_servers: Vec::new(),
-                last_mcp_connected: false,
-            },
+            lsp: LspStatus::new_forced_refresh(),
+            mcp: McpStatus::new_forced_refresh(),
             theme_preview,
             theme_switcher,
             toast_manager,
@@ -875,11 +882,7 @@ impl TUI {
             workspace_scan_progress: None,
             git_branch: None,
             rate_limit: RateLimitHandler::new(),
-            auto_continue_enabled: std::env::var("RUSTYCODE_AUTO_CONTINUE")
-                .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
-                .unwrap_or(false),
-            auto_continue_pending: false,
-            auto_continue_iterations: 0,
+            auto_continue: AutoContinueState::from_env(),
             turn_snapshot: None,
             doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
             reasoning_budget: std::sync::Mutex::new(
@@ -905,16 +908,8 @@ impl TUI {
             pending_approval_request: VecDeque::new(),
             awaiting_approval: false,
             start_time: Instant::now(),
-            lsp: LspStatus {
-                last_lsp_refresh: Instant::now() - Duration::from_mins(1),
-                last_lsp_servers: Vec::new(),
-                last_lsp_connected: false,
-            },
-            mcp: McpStatus {
-                last_mcp_refresh: Instant::now() - Duration::from_mins(1),
-                last_mcp_servers: Vec::new(),
-                last_mcp_connected: false,
-            },
+            lsp: LspStatus::new_forced_refresh(),
+            mcp: McpStatus::new_forced_refresh(),
             theme_preview,
             theme_switcher,
             toast_manager,
@@ -1186,15 +1181,8 @@ impl TUI {
     pub fn resume_most_recent_session(&mut self) {
         match self.session_manager.find_most_recent_session() {
             Ok(Some(session)) => {
-                self.selected_message = 0;
+                self.reset_conversation_state();
                 self.scroll_offset_line = session.scroll_position;
-                self.user_scrolled = false;
-                self.active_tools.clear();
-                self.tool_panel.tool_panel_history.clear();
-                self.tool_panel.tool_panel_selected_index = None;
-                self.tool_panel.showing_tool_result = false;
-                self.reset_streaming_state();
-                self.streaming.queued_message = None;
                 self.messages = session.messages;
                 self.context_monitor.update(&self.messages);
                 if !self.messages.is_empty() {
