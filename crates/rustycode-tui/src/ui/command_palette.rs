@@ -1,35 +1,4 @@
-//! Command Palette Component
-//!
-//! This module provides a VS Code-style command palette for the TUI.
-//!
-//! ## Features
-//!
-//! - **Fuzzy matching**: Substring search with relevance ranking
-//! - **Keyboard navigation**: Arrow keys, Enter to select, Esc to close
-//! - **Modal dialog**: Centered overlay with ~60% width, ~40% height
-//! - **Built-in commands**: Help, clear, quit, theme, model, save, load
-//! - **Extensible**: Easy to add custom commands
-//!
-//! ## Usage
-//!
-//! ```rust,no_run
-
-//! use rustycode_tui::ui::command_palette::{CommandPalette, Command};
-//! use crossterm::event::{KeyCode, KeyEvent};
-//!
-//! // Create command palette with default commands
-//! let mut palette = CommandPalette::new();
-//!
-//! // Handle keyboard input
-//! palette.handle_key(KeyEvent::new(KeyCode::Char('h'), crossterm::event::KeyModifiers::NONE));
-//! palette.handle_key(KeyEvent::new(KeyCode::Down, crossterm::event::KeyModifiers::NONE));
-//! palette.handle_key(KeyEvent::new(KeyCode::Enter, crossterm::event::KeyModifiers::NONE));
-//!
-//! // Check if a command was selected
-//! if let Some(command) = palette.take_selected() {
-//!     (command.handler)();  // Execute command
-//! }
-//! ```
+//! VS Code-style command palette with fuzzy matching, tab filtering, and recent commands.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
@@ -71,10 +40,7 @@ impl fmt::Debug for Command {
     }
 }
 
-/// Command handler function type
-///
-/// This is a callable that executes the command logic.
-/// It returns a `CommandResult` indicating success or failure.
+/// Command handler function type.
 pub type CommandHandler = fn() -> CommandResult;
 
 /// Result of executing a command
@@ -445,7 +411,6 @@ pub struct CommandPaletteState {
 }
 
 impl CommandPaletteState {
-    /// Create new command palette state
     pub fn new(commands: Vec<Command>) -> Self {
         let filtered_indices = (0..commands.len()).collect();
 
@@ -463,7 +428,6 @@ impl CommandPaletteState {
         }
     }
 
-    /// Show the palette
     pub fn show(&mut self) {
         self.visible = true;
         self.query.clear();
@@ -473,7 +437,6 @@ impl CommandPaletteState {
         self.update_filtered();
     }
 
-    /// Hide the palette
     pub fn hide(&mut self) {
         self.visible = false;
         self.query.clear();
@@ -482,7 +445,6 @@ impl CommandPaletteState {
         self.update_filtered();
     }
 
-    /// Mark a command as recently used.
     fn record_recent(&mut self, command_name: &str) {
         self.recent_commands.retain(|name| name != command_name);
         self.recent_commands.insert(0, command_name.to_string());
@@ -496,7 +458,6 @@ impl CommandPaletteState {
             .unwrap_or(usize::MAX)
     }
 
-    /// Toggle palette visibility
     pub fn toggle(&mut self) {
         if self.visible {
             self.hide();
@@ -505,7 +466,6 @@ impl CommandPaletteState {
         }
     }
 
-    /// Update filtered commands based on current query
     pub fn update_filtered(&mut self) {
         let mut matches: Vec<(usize, MatchScore)> = self
             .commands
@@ -563,7 +523,6 @@ impl CommandPaletteState {
         }
     }
 
-    /// Set the active tab and refresh the filtered list.
     pub fn set_active_tab(&mut self, tab: PaletteTab) {
         self.active_tab = tab;
         self.selected_index = 0;
@@ -657,7 +616,6 @@ impl CommandPaletteState {
         self.ensure_visible();
     }
 
-    /// Get currently selected command (if any)
     pub fn selected_command(&self) -> Option<&Command> {
         self.filtered_indices
             .get(self.selected_index)
@@ -668,19 +626,16 @@ impl CommandPaletteState {
         self.filtered_indices.get(self.selected_index).copied()
     }
 
-    /// Add a character to the query
     pub fn insert_char(&mut self, c: char) {
         self.query.push(c);
         self.update_filtered();
     }
 
-    /// Remove last character from query (backspace)
     pub fn backspace(&mut self) {
         self.query.pop();
         self.update_filtered();
     }
 
-    /// Move selection up
     pub fn move_up(&mut self) {
         if !self.filtered_indices.is_empty() && self.selected_index > 0 {
             self.selected_index -= 1;
@@ -688,7 +643,6 @@ impl CommandPaletteState {
         }
     }
 
-    /// Move selection down
     pub fn move_down(&mut self) {
         if !self.filtered_indices.is_empty() {
             self.selected_index = (self.selected_index + 1).min(self.filtered_indices.len() - 1);
@@ -696,12 +650,10 @@ impl CommandPaletteState {
         }
     }
 
-    /// Get number of filtered commands
     pub fn filtered_count(&self) -> usize {
         self.filtered_indices.len()
     }
 
-    /// Register the current selection as recently used.
     pub fn mark_selected_recent(&mut self) {
         if let Some(command) = self.selected_command() {
             let name = command.name.clone();
@@ -709,7 +661,6 @@ impl CommandPaletteState {
         }
     }
 
-    /// Update the current viewport size.
     pub fn set_viewport_rows(&self, rows: usize) {
         self.viewport_rows.set(rows.max(1));
     }
@@ -742,18 +693,15 @@ impl CommandPaletteRenderer {
         Self::with_commands(Self::default_commands())
     }
 
-    /// Create a new command palette with custom commands
     pub fn with_commands(commands: Vec<Command>) -> Self {
         Self {
             state: CommandPaletteState::new(commands),
         }
     }
 
-    /// Get default built-in commands
-    ///
-    /// These match the registered slash commands in `REGISTERED_SLASH_COMMANDS`.
-    /// The palette inserts the command name into the input field; actual execution
-    /// happens through the normal slash command dispatch path.
+    /// Default commands matching `REGISTERED_SLASH_COMMANDS`. The palette inserts
+    /// the command name into the input field; execution goes through the normal
+    /// slash command dispatch path.
     fn default_commands() -> Vec<Command> {
         vec![
             // ── Conversation ──────────────────────────────────────
@@ -1091,34 +1039,27 @@ impl CommandPaletteRenderer {
         ]
     }
 
-    /// Get mutable reference to state
     pub fn state_mut(&mut self) -> &mut CommandPaletteState {
         &mut self.state
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &CommandPaletteState {
         &self.state
     }
 
-    /// Show the palette
     pub fn show(&mut self) {
         self.state.show();
     }
 
-    /// Hide the palette
     pub fn hide(&mut self) {
         self.state.hide();
     }
 
-    /// Toggle palette visibility
     pub fn toggle(&mut self) {
         self.state.toggle();
     }
 
-    /// Handle a key event
-    ///
-    /// Returns true if the event was handled
+    /// Returns true if the event was handled.
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         match (key.code, key.modifiers) {
             // Close palette on Escape
@@ -1210,7 +1151,7 @@ impl CommandPaletteRenderer {
         }
     }
 
-    /// Take the selected command (removes it from state)
+    /// Returns `None` until Enter confirms a selection.
     pub fn take_selected_command(&mut self) -> Option<Command> {
         if let Some(idx) = self.state.selected_command_index() {
             let command = self.state.commands[idx].clone();
@@ -1221,7 +1162,6 @@ impl CommandPaletteRenderer {
         }
     }
 
-    /// Render the command palette
     pub fn render(&self, f: &mut Frame, area: Rect) {
         if !self.state.visible {
             return;
@@ -1456,11 +1396,8 @@ impl Default for CommandPaletteRenderer {
 
 // COMMAND PALETTE (HIGH-LEVEL API)
 
-/// High-level command palette API
-///
-/// This combines state and rendering into a single convenient interface.
+/// Combines state and rendering into a single interface.
 pub struct CommandPalette {
-    /// Renderer with embedded state
     renderer: CommandPaletteRenderer,
 }
 
@@ -1471,36 +1408,29 @@ impl CommandPalette {
         }
     }
 
-    /// Create a new command palette with custom commands
     pub fn with_commands(commands: Vec<Command>) -> Self {
         Self {
             renderer: CommandPaletteRenderer::with_commands(commands),
         }
     }
 
-    /// Check if palette is visible
     pub fn is_visible(&self) -> bool {
         self.renderer.state().visible
     }
 
-    /// Show the palette
     pub fn show(&mut self) {
         self.renderer.show();
     }
 
-    /// Hide the palette
     pub fn hide(&mut self) {
         self.renderer.hide();
     }
 
-    /// Toggle palette visibility
     pub fn toggle(&mut self) {
         self.renderer.toggle();
     }
 
-    /// Handle a key event
-    ///
-    /// Returns true if the event was handled
+    /// Returns true if the event was handled.
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         self.renderer.handle_key(key)
     }
@@ -1510,22 +1440,19 @@ impl CommandPalette {
         self.renderer.take_selected_command()
     }
 
-    /// Render the command palette
     pub fn render(&self, f: &mut Frame, area: Rect) {
         self.renderer.render(f, area);
     }
 
-    /// Get mutable reference to state
     pub fn state_mut(&mut self) -> &mut CommandPaletteState {
         self.renderer.state_mut()
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &CommandPaletteState {
         self.renderer.state()
     }
 
-    /// Sync query from input text (everything after `/`)
+    /// Strips the leading `/` from `input`, updates the query, and returns true if it changed.
     pub fn sync_query_from_input(&mut self, input: &str) -> bool {
         self.renderer.state_mut().sync_query_from_input(input)
     }

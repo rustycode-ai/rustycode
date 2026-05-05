@@ -1,25 +1,4 @@
-//! Agent lifecycle management for TUI
-//!
-//! Submodules:
-//! - `definitions`: Built-in agent types with `when_to_use` auto-activation descriptions
-//! - `agent_tool`: Functional Agent tool backed by AgentSession
-//! - `delegation_executor`: Delegation executor that runs real sub-agent sessions
-//!
-//! Real-time tracking and management of spawned agents:
-//! - Spawn agents with specific tasks
-//! - Monitor agent progress in real-time
-//! - Display agent results when complete
-//! - Manage agent lifecycle (cancel, retry, cleanup)
-//! - Handle failures with proper error recovery
-//!
-//! ## Performance Monitoring
-//!
-//! Agent execution is instrumented with metrics for:
-//! - Execution time tracking
-//! - Retry counts and patterns
-//! - Timeout occurrences
-//! - Cancellation events
-//! - Success/failure rates
+//! Agent lifecycle management: spawning, tracking, cancellation, and retry with metrics.
 
 pub mod agent_tool;
 pub mod definitions;
@@ -67,7 +46,6 @@ impl AgentMetrics {
         }
     }
 
-    /// Record agent spawned
     pub fn record_spawned(&self) {
         self.total_spawned.fetch_add(1, Ordering::Relaxed);
         tracing::debug!(
@@ -76,7 +54,6 @@ impl AgentMetrics {
         );
     }
 
-    /// Record agent completed
     pub fn record_completed(&self) {
         self.total_completed.fetch_add(1, Ordering::Relaxed);
         tracing::debug!(
@@ -85,7 +62,6 @@ impl AgentMetrics {
         );
     }
 
-    /// Record agent failed
     pub fn record_failed(&self) {
         self.total_failed.fetch_add(1, Ordering::Relaxed);
         tracing::debug!(
@@ -94,7 +70,6 @@ impl AgentMetrics {
         );
     }
 
-    /// Record agent cancelled
     pub fn record_cancelled(&self) {
         self.total_cancelled.fetch_add(1, Ordering::Relaxed);
         tracing::debug!(
@@ -103,7 +78,6 @@ impl AgentMetrics {
         );
     }
 
-    /// Record agent timed out
     pub fn record_timed_out(&self) {
         self.total_timed_out.fetch_add(1, Ordering::Relaxed);
         tracing::debug!(
@@ -112,7 +86,6 @@ impl AgentMetrics {
         );
     }
 
-    /// Record retry attempt
     pub fn record_retry(&self) {
         self.total_retries.fetch_add(1, Ordering::Relaxed);
         tracing::debug!(
@@ -238,7 +211,6 @@ impl AgentTask {
         }
     }
 
-    /// Update elapsed time
     pub fn update_elapsed(&mut self) {
         self.elapsed_secs = self.started_at.elapsed().as_secs();
     }
@@ -285,7 +257,6 @@ impl AgentManager {
         }
     }
 
-    /// Spawn a new agent with a task
     pub fn spawn_agent(
         &self,
         role: AgentRole,
@@ -333,7 +304,6 @@ impl AgentManager {
         Ok(id)
     }
 
-    /// Get all agents
     pub fn agents(&self) -> Vec<AgentTask> {
         let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         agents.values().cloned().collect()
@@ -359,7 +329,6 @@ impl AgentManager {
         }
     }
 
-    /// Retry a failed agent
     pub fn retry_agent(&self, id: AgentId) -> Result<()> {
         // Record retry in metrics
         self.metrics.record_retry();
@@ -471,7 +440,6 @@ impl AgentManager {
         removed
     }
 
-    /// Update elapsed time for all running agents
     pub fn update_running_agents(&self) {
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         for agent in agents.values_mut() {
@@ -481,7 +449,6 @@ impl AgentManager {
         }
     }
 
-    /// Get the current metrics summary
     pub fn get_metrics_summary(&self) -> String {
         self.metrics.summary()
     }

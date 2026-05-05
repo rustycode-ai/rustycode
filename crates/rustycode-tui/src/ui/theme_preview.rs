@@ -1,36 +1,4 @@
-//! Theme Preview Component
-//!
-//! This module provides a live theme preview panel with instant switching.
-//!
-//! ## Features
-//!
-//! - **Live preview**: See how themes look before applying
-//! - **Instant switching**: No restart required
-//! - **Visual feedback**: Animations and toasts when theme changes
-//! - **Searchable themes**: Fuzzy search through 16+ built-in themes
-//! - **Categorized**: Dark/light indicators
-//!
-//! ## Usage
-//!
-//! ```rust,ignore
-//! use rustycode_tui::ui::theme_preview::{ThemePreview, ThemePreviewState};
-//! use crossterm::event::{KeyCode, KeyEvent};
-//!
-//! // Create theme preview
-//! let mut preview = ThemePreview::new(theme_colors);
-//!
-//! // Show the preview
-//! preview.show();
-//!
-//! // Handle keyboard input
-//! preview.handle_key(KeyEvent::new(KeyCode::Down, crossterm::event::KeyModifiers::NONE));
-//! preview.handle_key(KeyEvent::new(KeyCode::Enter, crossterm::event::KeyModifiers::NONE));
-//!
-//! // Get selected theme
-//! if let Some(theme) = preview.selected_theme() {
-//!     // Apply theme
-//! }
-//! ```
+//! Live theme preview panel with fuzzy search and instant switching.
 
 use crate::theme::{builtin_themes, is_dark_theme, parse_color, Theme, ThemeColors};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -87,7 +55,6 @@ impl ThemePreviewState {
         }
     }
 
-    /// Show the preview
     pub fn show(&mut self) {
         self.visible = true;
         self.query.clear();
@@ -95,7 +62,6 @@ impl ThemePreviewState {
         self.update_filtered();
     }
 
-    /// Hide the preview
     pub fn hide(&mut self) {
         self.visible = false;
         self.query.clear();
@@ -103,7 +69,6 @@ impl ThemePreviewState {
         self.preview_theme = None;
     }
 
-    /// Toggle preview visibility
     pub fn toggle(&mut self) {
         if self.visible {
             self.hide();
@@ -112,7 +77,6 @@ impl ThemePreviewState {
         }
     }
 
-    /// Update filtered themes based on query
     fn update_filtered(&mut self) {
         self.filtered_indices = if self.query.is_empty() {
             (0..self.themes.len()).collect()
@@ -135,32 +99,27 @@ impl ThemePreviewState {
         }
     }
 
-    /// Get currently selected theme
     pub fn selected_theme(&self) -> Option<&Theme> {
         self.filtered_indices
             .get(self.selected_index)
             .and_then(|&idx| self.themes.get(idx))
     }
 
-    /// Add a character to the query
     pub fn insert_char(&mut self, c: char) {
         self.query.push(c);
         self.update_filtered();
     }
 
-    /// Remove last character from query
     pub fn backspace(&mut self) {
         self.query.pop();
         self.update_filtered();
     }
 
-    /// Clear the query
     pub fn clear_query(&mut self) {
         self.query.clear();
         self.update_filtered();
     }
 
-    /// Move selection up
     pub fn move_up(&mut self) {
         if !self.filtered_indices.is_empty() && self.selected_index > 0 {
             self.selected_index -= 1;
@@ -168,7 +127,6 @@ impl ThemePreviewState {
         }
     }
 
-    /// Move selection down
     pub fn move_down(&mut self) {
         if !self.filtered_indices.is_empty() {
             self.selected_index = (self.selected_index + 1).min(self.filtered_indices.len() - 1);
@@ -233,17 +191,15 @@ impl ThemePreviewRenderer {
         &mut self.state
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &ThemePreviewState {
         &self.state
     }
 
-    /// Show the preview
     pub fn show(&mut self) {
         self.state.show();
     }
 
-    /// Hide the preview
+    /// Restores the original theme before preview, then hides.
     pub fn hide(&mut self) {
         // Restore original theme if we were in preview mode
         if self.original_theme.is_some() {
@@ -352,7 +308,6 @@ impl ThemePreviewRenderer {
         }
     }
 
-    /// Render the theme preview
     pub fn render(&self, f: &mut Frame, area: Rect) {
         if !self.state.visible {
             return;
@@ -397,7 +352,6 @@ impl ThemePreviewRenderer {
         self.render_footer(f, chunks[3]);
     }
 
-    /// Render the header
     fn render_header(&self, f: &mut Frame, area: Rect) {
         let title = if self.state.live_preview {
             "Theme Preview (Live)"
@@ -430,7 +384,6 @@ impl ThemePreviewRenderer {
         f.render_widget(header, area);
     }
 
-    /// Render the theme preview area
     fn render_preview(&self, f: &mut Frame, area: Rect) {
         let theme = self.state.selected_theme();
 
@@ -615,27 +568,22 @@ impl ThemePreview {
         }
     }
 
-    /// Check if preview is visible
     pub fn is_visible(&self) -> bool {
         self.renderer.state().visible
     }
 
-    /// Check if live preview is enabled
     pub fn is_live_preview(&self) -> bool {
         self.renderer.state().live_preview
     }
 
-    /// Show the preview
     pub fn show(&mut self) {
         self.renderer.show();
     }
 
-    /// Hide the preview
     pub fn hide(&mut self) {
         self.renderer.hide();
     }
 
-    /// Toggle preview visibility
     pub fn toggle(&mut self) {
         if self.is_visible() {
             self.hide();
@@ -644,29 +592,22 @@ impl ThemePreview {
         }
     }
 
-    /// Handle a key event
-    ///
-    /// Returns true if the event was handled
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         self.renderer.handle_key(key)
     }
 
-    /// Render the theme preview
     pub fn render(&self, f: &mut Frame, area: Rect) {
         self.renderer.render(f, area);
     }
 
-    /// Get mutable reference to state
     pub fn state_mut(&mut self) -> &mut ThemePreviewState {
         self.renderer.state_mut()
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &ThemePreviewState {
         self.renderer.state()
     }
 
-    /// Get the selected theme (if any)
     pub fn selected_theme(&self) -> Option<&Theme> {
         self.renderer.state().selected_theme()
     }
@@ -674,9 +615,7 @@ impl ThemePreview {
 
 // THEME SWITCHER (SIMPLIFIED API)
 
-/// Simple theme switcher for quick theme changes
-///
-/// This provides a streamlined interface for common theme operations.
+/// Quick theme cycler without a full preview UI.
 pub struct ThemeSwitcher {
     themes: Vec<Theme>,
     current_index: usize,
@@ -693,7 +632,6 @@ impl ThemeSwitcher {
         }
     }
 
-    /// Switch to the next theme
     pub fn next_theme(&mut self) -> Option<&Theme> {
         if self.themes.is_empty() {
             return None;
@@ -703,7 +641,6 @@ impl ThemeSwitcher {
         Some(&self.themes[self.current_index])
     }
 
-    /// Switch to the previous theme
     pub fn prev(&mut self) -> Option<&Theme> {
         if self.themes.is_empty() {
             return None;
@@ -717,7 +654,6 @@ impl ThemeSwitcher {
         Some(&self.themes[self.current_index])
     }
 
-    /// Switch to a theme by name
     pub fn switch_to(&mut self, name: &str) -> Option<&Theme> {
         if let Some(idx) = self.themes.iter().position(|t| t.name == name) {
             self.current_index = idx;
@@ -728,17 +664,14 @@ impl ThemeSwitcher {
         }
     }
 
-    /// Get the current theme
     pub fn current(&self) -> Option<&Theme> {
         self.themes.get(self.current_index)
     }
 
-    /// Get all available themes
     pub fn all_themes(&self) -> &[Theme] {
         &self.themes
     }
 
-    /// Apply the current theme
     fn apply_current(&self) {
         if let Some(theme) = self.themes.get(self.current_index) {
             let colors = ThemeColors::from(theme);

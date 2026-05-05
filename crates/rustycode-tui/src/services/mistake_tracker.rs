@@ -1,68 +1,35 @@
-//! Consecutive mistake tracking and recovery
-//!
-//! This module tracks when the AI makes repeated errors (failed tool executions,
-//! compilation errors, test failures) and implements strategies to break out
-//! of error loops.
-//!
-//! # Mistake Detection
-//!
-//! A "mistake" is tracked when:
-//! - Tool execution fails (non-zero exit code)
-//! - Compilation fails
-//! - Tests fail after changes
-//! - Same tool fails multiple times with similar inputs
-//!
-//! # Recovery Strategies
-//!
-//! After detecting repeated mistakes:
-//! 1. **Warn at 3 mistakes** - Alert user that AI is stuck
-//! 2. **Pause at 5 mistakes** - Stop and ask for guidance
-//! 3. **Suggest alternative approaches** - Offer different strategies
-//! 4. **Enable debug mode** - Add more verbose output
+//! Tracks repeated AI errors (failed tools, build failures, test failures) and
+//! suggests recovery strategies to break out of error loops.
 
 use rustycode_protocol::CircularBuffer;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-/// A single mistake occurrence
 #[derive(Debug, Clone)]
 pub struct Mistake {
-    /// When the mistake occurred
     pub timestamp: Instant,
-    /// Type of mistake
     pub mistake_type: MistakeType,
     /// Tool or operation that failed
     pub operation: String,
-    /// Error message or description
     pub error: String,
     /// Additional context that might help diagnose
     pub context: String,
 }
 
-/// Types of mistakes we track
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum MistakeType {
-    /// Tool execution failed (non-zero exit)
     ToolFailed,
-    /// Compilation/build failed
     BuildFailed,
-    /// Tests failed
     TestsFailed,
-    /// Same operation tried multiple times
     RepeatedOperation,
-    /// File not found or access error
     FileNotFoundError,
-    /// Syntax/parse error
     SyntaxError,
-    /// Type error
     TypeError,
-    /// Other error
     Other,
 }
 
 impl MistakeType {
-    /// Get display name for this mistake type
     pub fn display_name(&self) -> &'static str {
         match self {
             MistakeType::ToolFailed => "Tool execution failed",
@@ -77,35 +44,24 @@ impl MistakeType {
     }
 }
 
-/// Recovery strategy to suggest when mistakes accumulate
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum RecoveryStrategy {
-    /// Suggest taking a different approach
     SuggestAlternative {
-        /// Description of the alternative approach
         description: String,
-        /// Example of what to try instead
         example: String,
     },
-    /// Enable debug/verbose mode
     EnableDebugMode,
-    /// Ask user for guidance
     AskForGuidance {
-        /// Specific question to ask the user
         question: String,
     },
-    /// Take a break and review context
     ReviewContext,
-    /// Try a simpler approach
     SimplifyApproach {
-        /// Suggested simplification
         suggestion: String,
     },
 }
 
 impl RecoveryStrategy {
-    /// Get display message for this strategy
     pub fn display_message(&self) -> String {
         match self {
             RecoveryStrategy::SuggestAlternative {
@@ -133,20 +89,15 @@ impl RecoveryStrategy {
     }
 }
 
-/// Maximum mistakes to keep in the ring buffer
 const MAX_MISTAKE_HISTORY: usize = 100;
 
-/// Tracks mistakes and suggests recovery strategies
 pub struct MistakeTracker {
     /// Bounded history of recent mistakes (auto-evicts oldest)
     mistakes: CircularBuffer<Mistake>,
-    /// Count of mistakes by operation
     operation_counts: HashMap<String, usize>,
-    /// Maximum mistakes before triggering recovery
     max_mistakes: usize,
-    /// Warning threshold
     warning_threshold: usize,
-    /// Time window for counting mistakes (mistakes older than this are ignored)
+    /// Only mistakes within this duration are counted
     time_window: Duration,
 }
 
@@ -161,7 +112,6 @@ impl MistakeTracker {
         }
     }
 
-    /// Record a mistake
     pub fn record_mistake(
         &mut self,
         mistake_type: MistakeType,
@@ -192,23 +142,19 @@ impl MistakeTracker {
         );
     }
 
-    /// Check if we've hit the warning threshold
     pub fn should_warn(&mut self) -> bool {
         self.recent_mistake_count() >= self.warning_threshold
     }
 
-    /// Check if we've hit the max threshold (need recovery)
     pub fn needs_recovery(&mut self) -> bool {
         self.recent_mistake_count() >= self.max_mistakes
     }
 
-    /// Get the count of recent mistakes (within time window)
     pub fn recent_mistake_count(&mut self) -> usize {
         self.cleanup_old_mistakes();
         self.mistakes.len()
     }
 
-    /// Get a recovery strategy based on recent mistakes
     pub fn suggest_recovery(&mut self) -> Option<RecoveryStrategy> {
         if self.mistakes.is_empty() {
             return None;
@@ -267,7 +213,6 @@ impl MistakeTracker {
         }
     }
 
-    /// Get an alternative approach example based on the failing operation
     fn get_alternative_example(&self, operation: &str, mistake_type: &MistakeType) -> String {
         match (operation, mistake_type) {
             ("bash", _) => "Instead of bash, try using the specific tool (read_file, write_file, etc.) directly".to_string(),
@@ -277,7 +222,6 @@ impl MistakeTracker {
         }
     }
 
-    /// Get summary of recent mistakes for display
     pub fn mistake_summary(&self) -> String {
         if self.mistakes.is_empty() {
             return "No mistakes recorded".to_string();
@@ -298,13 +242,11 @@ impl MistakeTracker {
         summary
     }
 
-    /// Clear all mistakes (fresh start)
     pub fn clear(&mut self) {
         self.mistakes.clear();
         self.operation_counts.clear();
     }
 
-    /// Remove mistakes outside the time window
     fn cleanup_old_mistakes(&mut self) {
         let now = Instant::now();
         let recent: Vec<Mistake> = self
@@ -330,12 +272,10 @@ impl MistakeTracker {
         }
     }
 
-    /// Get the most recent mistake
     pub fn last_mistake(&self) -> Option<&Mistake> {
         self.mistakes.last()
     }
 
-    /// Check if a specific operation is failing repeatedly
     pub fn is_operation_failing(&self, operation: &str) -> bool {
         *self.operation_counts.get(operation).unwrap_or(&0) >= 2
     }

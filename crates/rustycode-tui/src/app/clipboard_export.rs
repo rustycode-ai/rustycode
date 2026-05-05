@@ -91,7 +91,6 @@ pub fn export_conversation_to_file(
     Ok(path)
 }
 
-/// Get the default export directory
 pub fn default_export_dir() -> std::path::PathBuf {
     use dirs::home_dir;
 

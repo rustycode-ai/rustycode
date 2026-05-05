@@ -30,7 +30,6 @@ struct LogWriter {
 }
 
 impl LogWriter {
-    /// Create a new log writer
     fn new(path: &PathBuf) -> Result<Self> {
         // Ensure parent directory exists
         if let Some(parent) = path.parent() {
@@ -51,7 +50,6 @@ impl LogWriter {
         Ok(Self { file, current_size })
     }
 
-    /// Write a log entry
     fn write(&mut self, message: &str) -> Result<()> {
         // Check if rotation is needed
         if self.current_size > MAX_LOG_SIZE {
@@ -72,7 +70,6 @@ impl LogWriter {
         Ok(())
     }
 
-    /// Rotate log file
     fn rotate(&mut self) -> Result<()> {
         let log_path = LOG_PATH.get().context("Log path not initialized")?;
 
@@ -137,7 +134,6 @@ impl LogWriter {
     }
 }
 
-/// Initialize the logging system
 pub fn init() -> Result<()> {
     // Get log directory from environment or use default
     let log_dir = std::env::var("RUSTYCODE_LOG_DIR").unwrap_or_else(|_| {
@@ -195,22 +191,18 @@ pub fn init() -> Result<()> {
     Ok(())
 }
 
-/// Get the configured log level
 pub fn log_level() -> Level {
     *LOG_LEVEL.get().unwrap_or(&Level::INFO)
 }
 
-/// Write a debug log message
 pub fn debug_log(message: &str) {
     write_log(Level::DEBUG, message);
 }
 
-/// Write an info log message
 pub fn info_log(message: &str) {
     write_log(Level::INFO, message);
 }
 
-/// Internal log writer
 fn write_log(level: Level, message: &str) {
     if let Some(writer_guard) = LOG_WRITER.get() {
         let mut writer_opt = writer_guard.lock();
@@ -229,7 +221,6 @@ fn write_log(level: Level, message: &str) {
     }
 }
 
-/// Check if debug logging is enabled
 pub fn is_debug_enabled() -> bool {
     log_level() >= Level::DEBUG
 }

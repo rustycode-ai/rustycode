@@ -198,7 +198,6 @@ pub fn is_dangerous_shell_command(command: &str) -> bool {
     blocked.iter().any(|p| cmd.contains(p))
 }
 
-/// Build a canonical conversation summary for a tool result.
 pub fn format_tool_result_summary(tool_result: &ToolResult, tool_name: &str) -> String {
     if tool_result.success {
         let output_lines = tool_result.output.lines().count();
@@ -249,7 +248,6 @@ pub fn format_tool_result_summary(tool_result: &ToolResult, tool_name: &str) -> 
     }
 }
 
-/// Return a user-facing hint for common tool execution errors.
 pub fn get_tool_error_hint(error: &str) -> Option<&'static str> {
     let error_lower = error.to_lowercase();
     if error_lower.contains("permission denied") || error_lower.contains("access denied") {
@@ -263,7 +261,6 @@ pub fn get_tool_error_hint(error: &str) -> Option<&'static str> {
     }
 }
 
-/// Return a user-facing hint for common shell/command errors.
 pub fn command_error_hint(command: &str, stderr: &str) -> Option<String> {
     let error_lower = stderr.to_lowercase();
     if error_lower.contains("permission denied") || error_lower.contains("access denied") {

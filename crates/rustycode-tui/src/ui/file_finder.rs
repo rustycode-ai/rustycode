@@ -1,35 +1,4 @@
-//! Fuzzy File Finder Component
-//!
-//! This module provides a VS Code/Ctrl+P-style fuzzy file finder for the TUI.
-//!
-//! ## Features
-//!
-//! - **Fuzzy matching**: Smart file search with relevance ranking
-//! - **Project indexing**: Fast file discovery in large projects
-//! - **File preview**: Show file contents before opening
-//! - **Keyboard shortcuts**: Arrow keys, Enter to open, Esc to close
-//! - **Modal dialog**: Centered overlay with search and list
-//!
-//! ## Usage
-//!
-//! ```rust,ignore
-//! use rustycode_tui::ui::file_finder::{FileFinder, FileInfo};
-//! use crossterm::event::{KeyCode, KeyEvent};
-//! use std::path::PathBuf;
-//!
-//! // Create file finder
-//! let mut finder = FileFinder::new(PathBuf::from("/path/to/project"));
-//!
-//! // Handle keyboard input
-//! finder.handle_key(KeyEvent::new(KeyCode::Char('s'), crossterm::event::KeyModifiers::NONE));
-//! finder.handle_key(KeyEvent::new(KeyCode::Down, crossterm::event::KeyModifiers::NONE));
-//! finder.handle_key(KeyEvent::new(KeyCode::Enter, crossterm::event::KeyModifiers::NONE));
-//!
-//! // Check if a file was selected
-//! if let Some(file) = finder.take_selected() {
-//!     // Open the file
-//! }
-//! ```
+//! VS Code-style fuzzy file finder with project indexing and modal overlay.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
@@ -368,7 +337,6 @@ impl FileFinderState {
         }
     }
 
-    /// Show the finder
     pub fn show(&mut self) {
         self.visible = true;
         self.query.clear();
@@ -377,7 +345,6 @@ impl FileFinderState {
         self.update_filtered();
     }
 
-    /// Hide the finder
     pub fn hide(&mut self) {
         self.visible = false;
         self.query.clear();
@@ -386,7 +353,6 @@ impl FileFinderState {
         self.update_filtered();
     }
 
-    /// Toggle finder visibility
     pub fn toggle(&mut self) {
         if self.visible {
             self.hide();
@@ -395,7 +361,6 @@ impl FileFinderState {
         }
     }
 
-    /// Update filtered files based on current query
     fn update_filtered(&mut self) {
         self.filtered_indices = if self.query.is_empty() {
             // Show all files when query is empty
@@ -425,51 +390,44 @@ impl FileFinderState {
         }
     }
 
-    /// Get currently selected file (if any)
     pub fn selected_file(&self) -> Option<&FileInfo> {
         self.filtered_indices
             .get(self.selected_index)
             .and_then(|&idx| self.files.get(idx))
     }
 
-    /// Add a character to the query
     pub fn insert_char(&mut self, c: char) {
         self.query.push(c);
         self.update_filtered();
     }
 
-    /// Remove last character from query (backspace)
     pub fn backspace(&mut self) {
         self.query.pop();
         self.update_filtered();
     }
 
-    /// Clear the query
     pub fn clear_query(&mut self) {
         self.query.clear();
         self.update_filtered();
     }
 
-    /// Move selection up
     pub fn move_up(&mut self) {
         if !self.filtered_indices.is_empty() && self.selected_index > 0 {
             self.selected_index -= 1;
         }
     }
 
-    /// Move selection down
     pub fn move_down(&mut self) {
         if !self.filtered_indices.is_empty() {
             self.selected_index = (self.selected_index + 1).min(self.filtered_indices.len() - 1);
         }
     }
 
-    /// Get number of filtered files
     pub fn filtered_count(&self) -> usize {
         self.filtered_indices.len()
     }
 
-    /// Re-index the project (useful after file changes)
+    /// Re-indexes the project filesystem tree.
     pub fn reindex(&mut self) {
         self.files = Self::index_project(&self.project_root);
         self.update_filtered();
@@ -491,34 +449,27 @@ impl FileFinderRenderer {
         }
     }
 
-    /// Get mutable reference to state
     pub fn state_mut(&mut self) -> &mut FileFinderState {
         &mut self.state
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &FileFinderState {
         &self.state
     }
 
-    /// Show the finder
     pub fn show(&mut self) {
         self.state.show();
     }
 
-    /// Hide the finder
     pub fn hide(&mut self) {
         self.state.hide();
     }
 
-    /// Toggle finder visibility
     pub fn toggle(&mut self) {
         self.state.toggle();
     }
 
-    /// Handle a key event
-    ///
-    /// Returns true if the event was handled
+    /// Returns true if the event was handled.
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         match (key.code, key.modifiers) {
             // Close finder on Escape
@@ -575,7 +526,7 @@ impl FileFinderRenderer {
         }
     }
 
-    /// Take the selected file (removes it from state)
+    /// Returns `None` until Enter confirms a selection.
     pub fn take_selected_file(&mut self) -> Option<FileInfo> {
         if !self.state.selection_confirmed {
             return None;
@@ -589,7 +540,6 @@ impl FileFinderRenderer {
         }
     }
 
-    /// Render the file finder
     pub fn render(&self, f: &mut Frame, area: Rect) {
         if !self.state.visible {
             return;
@@ -620,7 +570,6 @@ impl FileFinderRenderer {
         self.render_file_list(f, chunks[1]);
     }
 
-    /// Render the search input field
     fn render_search_input(&self, f: &mut Frame, area: Rect) {
         let file_count = self.state.filtered_count();
         let total_count = self.state.files.len();
@@ -658,7 +607,6 @@ impl FileFinderRenderer {
         f.render_widget(paragraph, area);
     }
 
-    /// Render the filtered file list
     fn render_file_list(&self, f: &mut Frame, area: Rect) {
         if self.state.filtered_indices.is_empty() {
             // Show "no results" message
@@ -760,9 +708,7 @@ impl FileFinderRenderer {
 
 // FILE FINDER (HIGH-LEVEL API)
 
-/// High-level file finder API
-///
-/// This combines state and rendering into a single convenient interface.
+/// Combines state and rendering into a single interface.
 pub struct FileFinder {
     /// Renderer with embedded state
     renderer: FileFinderRenderer,
@@ -775,49 +721,40 @@ impl FileFinder {
         }
     }
 
-    /// Check if finder is visible
     pub fn is_visible(&self) -> bool {
         self.renderer.state().visible
     }
 
-    /// Show the finder
     pub fn show(&mut self) {
         self.renderer.show();
     }
 
-    /// Hide the finder
     pub fn hide(&mut self) {
         self.renderer.hide();
     }
 
-    /// Toggle finder visibility
     pub fn toggle(&mut self) {
         self.renderer.toggle();
     }
 
-    /// Handle a key event
-    ///
-    /// Returns true if the event was handled
+    /// Returns true if the event was handled.
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         self.renderer.handle_key(key)
     }
 
-    /// Take the selected file (removes it from state)
+    /// Returns `None` until Enter confirms a selection.
     pub fn take_selected(&mut self) -> Option<FileInfo> {
         self.renderer.take_selected_file()
     }
 
-    /// Render the file finder
     pub fn render(&self, f: &mut Frame, area: Rect) {
         self.renderer.render(f, area);
     }
 
-    /// Get mutable reference to state
     pub fn state_mut(&mut self) -> &mut FileFinderState {
         self.renderer.state_mut()
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &FileFinderState {
         self.renderer.state()
     }

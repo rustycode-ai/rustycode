@@ -68,3 +68,61 @@ impl StreamingState {
         // Intentionally NOT clearing queued_message — it's handled separately.
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_starts_idle() {
+        let state = StreamingState::new();
+        assert!(!state.is_streaming);
+        assert!(!state.stream_cancelled);
+        assert_eq!(state.chunks_received, 0);
+        assert_eq!(state.thinking_chunks_received, 0);
+        assert!(state.current_stream_content.is_empty());
+        assert!(state.queued_message.is_none());
+        assert!(state.stream_start_time.is_none());
+        assert!(state.last_response_duration.is_none());
+    }
+
+    #[test]
+    fn reset_preserves_last_response_duration() {
+        let mut state = StreamingState::new();
+        state.last_response_duration = Some(Duration::from_secs(5));
+
+        state.reset();
+
+        assert_eq!(state.last_response_duration, Some(Duration::from_secs(5)));
+    }
+
+    #[test]
+    fn reset_preserves_queued_message() {
+        let mut state = StreamingState::new();
+        state.queued_message = Some("hello".into());
+
+        state.reset();
+
+        assert_eq!(state.queued_message.as_deref(), Some("hello"));
+    }
+
+    #[test]
+    fn reset_clears_streaming_fields() {
+        let mut state = StreamingState::new();
+        state.is_streaming = true;
+        state.stream_cancelled = true;
+        state.chunks_received = 42;
+        state.thinking_chunks_received = 10;
+        state.current_stream_content = "some content".into();
+        state.stream_start_time = Some(Instant::now());
+
+        state.reset();
+
+        assert!(!state.is_streaming);
+        assert!(!state.stream_cancelled);
+        assert_eq!(state.chunks_received, 0);
+        assert_eq!(state.thinking_chunks_received, 0);
+        assert!(state.current_stream_content.is_empty());
+        assert!(state.stream_start_time.is_none());
+    }
+}

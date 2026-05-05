@@ -49,3 +49,39 @@ impl TokenBudget {
         self.cost_tracker = rustycode_llm::cost_tracker::CostTracker::new(None);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_starts_at_zero() {
+        let budget = TokenBudget::new();
+        assert_eq!(budget.session_cost_usd, 0.0);
+        assert_eq!(budget.session_input_tokens, 0);
+        assert_eq!(budget.session_output_tokens, 0);
+        assert_eq!(budget.session_cache_read_tokens, 0);
+        assert_eq!(budget.session_cache_creation_tokens, 0);
+        assert_eq!(budget.last_turn_input_tokens, 0);
+    }
+
+    #[test]
+    fn reset_returns_to_zero() {
+        let mut budget = TokenBudget::new();
+        budget.session_cost_usd = 1.5;
+        budget.session_input_tokens = 1000;
+        budget.session_output_tokens = 500;
+        budget.session_cache_read_tokens = 200;
+        budget.session_cache_creation_tokens = 50;
+        budget.last_turn_input_tokens = 300;
+
+        budget.reset();
+
+        assert_eq!(budget.session_cost_usd, 0.0);
+        assert_eq!(budget.session_input_tokens, 0);
+        assert_eq!(budget.session_output_tokens, 0);
+        assert_eq!(budget.session_cache_read_tokens, 0);
+        assert_eq!(budget.session_cache_creation_tokens, 0);
+        assert_eq!(budget.last_turn_input_tokens, 0);
+    }
+}

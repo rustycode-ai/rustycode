@@ -1,37 +1,5 @@
-//! Workspace context loading for project information
-//!
-//! This module provides functionality to load workspace information including
-//! project files, directory structure, and git status. It's used to give the LLM
-//! context about the current project when generating responses.
-//!
-//! # Features
-//!
-//! - **Project file detection**: Automatically finds and previews important files
-//!   like README.md, CLAUDE.md, AGENTS.md, Cargo.toml, package.json, etc.
-//! - **Directory structure scanning**: Lists directories and files with configurable limits
-//! - **Git integration**: Shows current branch and working directory status
-//! - **Ignore pattern support**: Respects .rustycodeignore files and default patterns
-//! - **Progress tracking**: Optional progress callbacks for UI feedback during scanning
-//!
-//! # Usage
-//!
-//! ```rust,ignore
-//! use std::path::PathBuf;
-//!
-//! // Simple usage
-//! let context = load_workspace_context(&PathBuf::from("/project"), 10, 20);
-//!
-//! // With progress tracking
-//! let progress_callback = Box::new(|scanned: usize, total: usize| {
-//!     println!("Scanned {}/{} files", scanned, total);
-//! });
-//! let context = load_workspace_context_with_progress(
-//!     &PathBuf::from("/project"),
-//!     10,
-//!     20,
-//!     Some(progress_callback),
-//! );
-//! ```
+//! Workspace context loading: project files, directory tree, git status, and
+//! optional code-structure map for LLM context, with progress callbacks.
 
 use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
@@ -74,35 +42,19 @@ const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
     "*.log",
 ];
 
-/// Name of the ignore file
 const IGNORE_FILE_NAME: &str = ".rustycodeignore";
 
-/// Report progress every N items to avoid too many updates
-///
-/// This prevents the UI from being flooded with progress updates
-/// during fast directory scans.
 const PROGRESS_UPDATE_INTERVAL: usize = 10;
 
-/// Maximum number of files to display in directory listing
-///
-/// Limits the output to prevent overwhelming the LLM context
-/// with too many file entries.
 const MAX_FILES_DISPLAY: usize = 30;
 
-/// Minimum file count estimate to ensure reasonable progress tracking
-///
-/// Even for empty directories, we report at least this many items
-/// to ensure the progress bar behaves reasonably.
 const MIN_FILE_COUNT_ESTIMATE: usize = 10;
 
-/// Maximum depth for the recursive file tree
 const FILE_TREE_MAX_DEPTH: usize = 3;
 
-/// Maximum total entries in the file tree output
 const FILE_TREE_MAX_ENTRIES: usize = 200;
 
-/// File count threshold for adaptive scanning.
-/// Above this, skip expensive operations like RepoMap tree-sitter parsing.
+/// Above this file count, skip expensive operations like RepoMap tree-sitter parsing.
 const LARGE_WORKSPACE_THRESHOLD: usize = 300;
 
 /// Load ignore patterns from .rustycodeignore file and defaults
@@ -253,12 +205,7 @@ fn build_file_tree(dir: &Path, _ignore_patterns: &[String], is_large_workspace: 
     output
 }
 
-/// Load workspace context for a given directory
-///
-/// This is the main entry point for loading workspace context without
-/// progress tracking. It scans the project directory and returns a
-/// formatted string containing project information.
-///
+/// Main entry point: scans project directory and returns formatted context string.
 pub fn load_workspace_context_with_progress(
     cwd: &PathBuf,
     file_preview_max_lines: usize,
@@ -427,11 +374,7 @@ pub fn load_workspace_context_with_progress(
     context
 }
 
-/// Estimate the total number of files to scan
-///
-/// Uses `ignore::WalkBuilder` at depth 2 with .gitignore support for fast estimation.
-/// Capped at 500 entries to keep the estimate fast.
-///
+/// Fast file-count estimate using WalkBuilder at depth 2, capped at 500 entries.
 fn estimate_file_count(cwd: &PathBuf, _ignore_patterns: &[String]) -> usize {
     // Use WalkBuilder at depth 2 for fast .gitignore-aware estimation.
     // Capped at 500 entries to keep estimation fast.

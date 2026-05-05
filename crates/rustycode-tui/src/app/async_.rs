@@ -1,39 +1,5 @@
-//! Async channel system for TUI event loop
-//!
-//! This module provides bounded channels with backpressure handling for async communication
-//! between background tasks and the main TUI event loop. It ensures the UI never freezes
-//! even under heavy load.
-//!
-//! ## Architecture
-//!
-//! - **BoundedChannel**: Fixed-capacity channel with backpressure handling
-//! - **Event Types**: StreamChunk, ToolResult, CommandResult, WorkspaceUpdate
-//! - **Backpressure Handling**: try_send() and send_with_backpressure()
-//! - **Non-blocking Snapshots**: StateSnapshot trait for thread-safe state access
-//!
-//! ## Example
-//!
-//! ```rust,ignore
-//! use rustycode_tui::app::async_::*;
-//!
-//! // Create a bounded channel with capacity 100
-//! let channel = BoundedChannel::<StreamChunk>::new(100);
-//!
-//! // Producer: Try to send (non-blocking)
-//! match channel.try_send(StreamChunk::Text("Hello".to_string())) {
-//!     Ok(_) => println!("Sent"),
-//!     Err(e) => println!("Channel full: {:?}", e),
-//! }
-//!
-//! // Consumer: Poll one item per frame
-//! if let Some(chunk) = channel.try_recv() {
-//!     match chunk {
-//!         StreamChunk::Text(text) => println!("Received: {}", text),
-//!         StreamChunk::Done => println!("Stream complete"),
-//!         _ => {}
-//!     }
-//! }
-//! ```
+//! Bounded channels, event types (StreamChunk, ToolResult, WorkspaceUpdate), and
+//! non-blocking state snapshots for async communication with the TUI event loop.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
@@ -449,8 +415,6 @@ impl<T> BoundedChannel<T>
 where
     T: Send + 'static,
 {
-    /// Create a new bounded channel with specified capacity
-    ///
     pub fn new(capacity: usize) -> Self {
         assert!(capacity > 0, "Channel capacity must be > 0");
         let (tx, rx) = mpsc::sync_channel(capacity);
@@ -539,22 +503,18 @@ where
         }
     }
 
-    /// Get the number of dropped messages (backpressure indicator)
     pub fn dropped_count(&self) -> usize {
         self.dropped.load(Ordering::Relaxed)
     }
 
-    /// Reset the dropped message counter
     pub fn reset_dropped_count(&self) {
         self.dropped.store(0, Ordering::Relaxed);
     }
 
-    /// Get channel capacity
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
-    /// Clone the sender for use in another thread
     pub fn clone_sender(&self) -> mpsc::SyncSender<T> {
         self.tx.clone()
     }
@@ -566,7 +526,6 @@ where
         self.rx.take()
     }
 
-    /// Check if receiver has been taken
     pub fn has_receiver(&self) -> bool {
         self.rx.is_some()
     }
@@ -611,17 +570,14 @@ where
         Self { inner }
     }
 
-    /// Get a reference to the snapshot data
     pub fn get(&self) -> &T {
         &self.inner
     }
 
-    /// Clone the snapshot data
     pub fn clone_data(&self) -> T {
         self.inner.clone()
     }
 
-    /// Convert into the inner data
     pub fn into_inner(self) -> T {
         self.inner
     }

@@ -196,162 +196,12 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
-/// Build a context plan for LLM context assembly.
-///
-/// Context plan builder — kept for runtime pipeline integration and future use.
-#[allow(dead_code)] // Kept for future use
-fn build_context_plan(
-    task: &str,
-    git: &GitStatus,
-    lsp_servers: &[LspServerStatus],
-    memory: &[MemoryEntry],
-    skills: &[Skill],
-    recent_tasks: &[String],
-    code_excerpts: &[CodeExcerpt],
-) -> ContextPlan {
-    let total_budget = 8_000;
-    let sections = vec![
-        ContextSection {
-            kind: ContextSectionKind::SystemInstructions,
-            tokens_reserved: 1_200,
-            tokens_used: 1_000,
-            items: vec![
-                "core runtime policy".to_string(),
-                "workspace guardrails".to_string(),
-            ],
-            note: "Reserved for static instructions and execution policy.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::ActiveTask,
-            tokens_reserved: 800,
-            tokens_used: estimate_tokens(task),
-            items: vec![task.to_string()],
-            note: "Current user request gets a fixed high-priority budget.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::RecentTurns,
-            tokens_reserved: 900,
-            tokens_used: recent_tasks.iter().map(|task| estimate_tokens(task)).sum(),
-            items: recent_tasks.to_vec(),
-            note: "Recent session tasks are reused as a lightweight prior-turn proxy.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::ToolSchemas,
-            tokens_reserved: 1_200,
-            tokens_used: 600,
-            items: vec!["cli".to_string(), "git".to_string(), "sqlite".to_string()],
-            note: "Reserve space for tool interfaces before file context expands.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::Memory,
-            tokens_reserved: 700,
-            tokens_used: memory
-                .iter()
-                .take(4)
-                .map(|entry| estimate_tokens(&entry.action))
-                .sum(),
-            items: memory
-                .iter()
-                .take(4)
-                .map(|entry| entry.id.clone())
-                .collect(),
-            note: "Memory is capped to a few entries to avoid broad context inclusion.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::GitState,
-            tokens_reserved: 500,
-            tokens_used: estimate_tokens(git.branch.as_deref().unwrap_or("no-git")),
-            items: vec![
-                format!(
-                    "root={}",
-                    git.root
-                        .as_ref()
-                        .map(|p| p.display().to_string())
-                        .unwrap_or_else(|| "none".to_string())
-                ),
-                format!("branch={}", git.branch.as_deref().unwrap_or("none")),
-                format!(
-                    "dirty={}",
-                    git.dirty
-                        .map(|dirty| dirty.to_string())
-                        .unwrap_or_else(|| "unknown".to_string())
-                ),
-            ],
-            note: "Git context stays compact and branch-oriented.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::LspState,
-            tokens_reserved: 500,
-            tokens_used: lsp_servers
-                .iter()
-                .filter(|server| server.installed)
-                .map(|server| estimate_tokens(&server.name))
-                .sum(),
-            items: lsp_servers
-                .iter()
-                .filter(|server| server.installed)
-                .map(|server| server.name.clone())
-                .collect(),
-            note: "Only installed servers are promoted into active context.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::Skills,
-            tokens_reserved: 800,
-            tokens_used: skills
-                .iter()
-                .take(6)
-                .map(|skill| {
-                    let mut tokens = estimate_tokens(&skill.name);
-                    if let Some(desc) = &skill.description {
-                        tokens += estimate_tokens(desc);
-                    }
-                    tokens
-                })
-                .sum(),
-            items: skills
-                .iter()
-                .take(6)
-                .map(|skill| match &skill.description {
-                    Some(desc) if !desc.is_empty() => format!("{}: {}", skill.name, desc),
-                    _ => skill.name.clone(),
-                })
-                .collect(),
-            note: "Active skills with descriptions for context-aware assistance.".to_string(),
-        },
-        ContextSection {
-            kind: ContextSectionKind::CodeExcerpts,
-            tokens_reserved: 1_600,
-            tokens_used: code_excerpts
-                .iter()
-                .map(|excerpt| estimate_tokens(&excerpt.preview))
-                .sum(),
-            items: code_excerpts
-                .iter()
-                .map(|excerpt| format!("{}: {}", excerpt.path, excerpt.preview))
-                .collect(),
-            note:
-                "Focused excerpts are selected by task-keyword overlap and capped to a few files."
-                    .to_string(),
-        },
-    ];
-    let reserved_budget = sections.iter().map(|section| section.tokens_reserved).sum();
-    ContextPlan {
-        total_budget,
-        reserved_budget,
-        sections,
-    }
-}
-
-// Token estimation — used by context budget management
-#[allow(dead_code)] // Kept for future use
-fn estimate_tokens(value: &str) -> usize {
-    let words = value.split_whitespace().count();
-    words.saturating_mul(2).max(1)
+pub fn estimate_tokens(value: &str) -> usize {
+    context::TokenCounter::estimate_tokens(value)
 }
 
 // Code excerpt selector — used by context assembly
-#[allow(dead_code)] // Kept for future use
-fn select_code_excerpts(cwd: &Path, task: &str, limit: usize) -> Result<Vec<CodeExcerpt>> {
+pub fn select_code_excerpts(cwd: &Path, task: &str, limit: usize) -> Result<Vec<CodeExcerpt>> {
     let terms = task_terms(task);
     let mut matches = Vec::new();
     let mut fallback = Vec::new();
@@ -418,8 +268,7 @@ fn select_code_excerpts(cwd: &Path, task: &str, limit: usize) -> Result<Vec<Code
 }
 
 // Task term extractor — used by code excerpt selection
-#[allow(dead_code)] // Kept for future use
-fn task_terms(task: &str) -> Vec<String> {
+pub fn task_terms(task: &str) -> Vec<String> {
     let mut terms = Vec::new();
     for raw in task.split(|char: char| !char.is_alphanumeric()) {
         let term = raw.trim().to_lowercase();
@@ -431,8 +280,7 @@ fn task_terms(task: &str) -> Vec<String> {
 }
 
 // Source file filter — used by code excerpt selection
-#[allow(dead_code)] // Kept for future use
-fn is_supported_source(path: &Path) -> bool {
+pub fn is_supported_source(path: &Path) -> bool {
     matches!(
         path.extension().and_then(|ext| ext.to_str()),
         Some("rs" | "md" | "toml" | "json" | "yaml" | "yml" | "ts" | "js" | "py")
@@ -440,8 +288,7 @@ fn is_supported_source(path: &Path) -> bool {
 }
 
 // Path filter — used by code excerpt selection
-#[allow(dead_code)] // Kept for future use
-fn should_skip_path(path: &Path) -> bool {
+pub fn should_skip_path(path: &Path) -> bool {
     path.components().any(|component| {
         let value = component.as_os_str().to_string_lossy();
         value == "target" || value == ".git" || value == "node_modules"
@@ -449,10 +296,7 @@ fn should_skip_path(path: &Path) -> bool {
 }
 
 /// Render a plan as markdown for human review.
-///
-/// Plan renderer — kept for plan management UI
-#[allow(dead_code)] // Kept for future use
-fn render_plan_markdown(plan: &Plan) -> String {
+pub fn render_plan_markdown(plan: &Plan) -> String {
     let mut out = String::new();
     out.push_str(&format!("# Plan: {}\n\n", plan.task));
     out.push_str(&format!("**Session:** `{}`  \n", plan.session_id));
@@ -716,147 +560,6 @@ Generate a practical, actionable plan with 2-5 steps. Each step should use appro
     })
 }
 
-/// Parse a plan from raw LLM response content. Shared by async and sync paths.
-#[allow(dead_code)] // Kept for future use
-fn parse_plan_from_content(content: &str, task: &str) -> Result<Plan> {
-    // Try to parse JSON from response
-    let json: serde_json::Value = serde_json::from_str(content)
-        .or_else(|_| {
-            // Try extracting JSON from markdown code block
-            if let Some(start) = content.find("```json") {
-                if let Some(end) = content[start + 7..].find("```") {
-                    let json_str = &content[start + 7..start + 7 + end];
-                    serde_json::from_str(json_str)
-                } else {
-                    serde_json::from_str(content)
-                }
-            } else {
-                serde_json::from_str(content)
-            }
-        })
-        .context("Failed to parse LLM response as JSON")?;
-
-    // Extract plan from JSON
-    let summary = json
-        .get("summary")
-        .and_then(|v| v.as_str())
-        .unwrap_or(task)
-        .to_string();
-
-    let approach = json
-        .get("approach")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-
-    let files_to_modify: Vec<String> = json
-        .get("files_to_modify")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let risks: Vec<String> = json
-        .get("risks")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(String::from))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let steps: Vec<PlanStep> = json
-        .get("steps")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .enumerate()
-                .map(|(i, step)| PlanStep {
-                    order: i,
-                    title: step
-                        .get("title")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string(),
-                    description: step
-                        .get("description")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string(),
-                    tools: step
-                        .get("tools")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|v| v.as_str().map(String::from))
-                                .collect()
-                        })
-                        .unwrap_or_default(),
-                    expected_outcome: step
-                        .get("expected_outcome")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string(),
-                    rollback_hint: step
-                        .get("rollback_hint")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string(),
-                    execution_status: StepStatus::default(),
-                    tool_calls: vec![],
-                    tool_executions: vec![],
-                    results: vec![],
-                    errors: vec![],
-                    started_at: None,
-                    completed_at: None,
-                })
-                .collect()
-        })
-        .unwrap_or_else(|| {
-            vec![PlanStep {
-                order: 0,
-                title: "Explore codebase".to_string(),
-                description: "Use available tools to understand the codebase.".to_string(),
-                tools: vec![
-                    "read_file".to_string(),
-                    "grep".to_string(),
-                    "list_dir".to_string(),
-                ],
-                expected_outcome: "Understand the codebase structure.".to_string(),
-                rollback_hint: "N/A — read-only step.".to_string(),
-                execution_status: StepStatus::default(),
-                tool_calls: vec![],
-                tool_executions: vec![],
-                results: vec![],
-                errors: vec![],
-                started_at: None,
-                completed_at: None,
-            }]
-        });
-
-    Ok(Plan {
-        id: PlanId::new(),
-        session_id: SessionId::new(),
-        task: task.to_string(),
-        created_at: Utc::now(),
-        status: PlanStatus::Draft,
-        summary,
-        approach,
-        steps,
-        files_to_modify,
-        risks,
-        current_step_index: None,
-        execution_started_at: None,
-        execution_completed_at: None,
-        execution_error: None,
-        task_profile: None,
-    })
-}
-
 /// Synchronous wrapper kept for compatibility and tests. This executes the
 /// async implementation on a lightweight executor (`futures::executor::block_on`).
 pub fn generate_plan_with_llm(
@@ -873,8 +576,7 @@ pub fn generate_plan_with_llm(
 
 /// Generate a plan from user task, optionally using an LLM provider
 /// Falls back to template if LLM is unavailable or fails
-#[allow(dead_code)] // Kept for future use
-fn generate_smart_plan(
+pub fn generate_smart_plan(
     task: &str,
     available_tools: &[&str],
     provider: Option<&dyn rustycode_llm::provider::LLMProvider>,

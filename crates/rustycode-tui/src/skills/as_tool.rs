@@ -1,23 +1,5 @@
-//! Skill-as-Tool wrapper
-//!
-//! This module provides a wrapper that exposes skills as LLM-callable tools,
-//! enabling natural language invocation like Claude Code.
-//!
-//! ## Architecture
-//!
-//! When a skill is exposed as a tool:
-//! 1. Skill metadata (name, description, parameters) is converted to JSON Schema
-//! 2. LLM can call the skill like any built-in tool (e.g., read_file, bash)
-//! 3. On execution, the skill's instructions are injected into the conversation
-//! 4. The skill's commands are executed with provided parameters
-//!
-//! ## Example
-//!
-//! When user says "review this code for security issues":
-//! - LLM recognizes this matches code-review skill description
-//! - LLM calls tool: { name: "skill_code_review", input: { target: "src/main.rs" } }
-//! - Tool execution injects skill instructions and runs the skill's commands
-//! - Result is returned to LLM for continuation
+//! Exposes skills as LLM-callable tools by converting skill metadata to JSON Schema
+//! and injecting skill instructions into the conversation on execution.
 
 use anyhow::Result;
 use rustycode_tools::{Tool, ToolContext, ToolOutput};
@@ -26,7 +8,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::skills::{Skill, SkillStateManager};
 
-/// Wrapper that exposes a skill as an LLM-callable tool
+/// Exposes a skill as an LLM-callable tool.
 pub struct SkillAsTool {
     skill: Skill,
     state_manager: Arc<RwLock<SkillStateManager>>,
@@ -97,7 +79,6 @@ impl SkillAsTool {
         }
     }
 
-    /// Execute the skill with given parameters
     fn execute_skill(&self, params: &Value) -> Result<String> {
         // Mark skill as running
         {
@@ -175,7 +156,7 @@ impl Tool for SkillAsTool {
     }
 }
 
-/// Registry for skill-as-tool wrappers
+/// Registry for skill-as-tool wrappers.
 pub struct SkillToolRegistry {
     state_manager: Arc<RwLock<SkillStateManager>>,
 }
@@ -185,7 +166,7 @@ impl SkillToolRegistry {
         Self { state_manager }
     }
 
-    /// Convert all active skills to tool wrappers
+    /// Convert all active skills to tool wrappers.
     pub fn build_tools(&self) -> Vec<Box<dyn Tool>> {
         let manager = self.state_manager.read().unwrap_or_else(|e| e.into_inner());
         let mut tools: Vec<Box<dyn Tool>> = Vec::new();
@@ -202,7 +183,6 @@ impl SkillToolRegistry {
         tools
     }
 
-    /// Get tool schema for a specific skill (for provider-specific formatting)
     pub fn get_skill_schema(
         &self,
         skill: &Skill,
@@ -245,7 +225,6 @@ impl SkillToolRegistry {
         }
     }
 
-    /// Build JSON Schema for a skill
     fn build_schema_for_skill(skill: &Skill) -> Value {
         let mut properties = json!({});
         let mut required = Vec::new();
@@ -301,23 +280,7 @@ impl SkillToolRegistry {
     }
 }
 
-/// Tool for spawning specialized agents
-///
-/// This tool allows the LLM to delegate tasks to specialized agents
-/// like code-reviewer, planner, security-reviewer, etc.
-///
-/// ## Example Usage
-///
-/// When LLM needs to delegate a complex task:
-/// ```json
-/// {
-///   "name": "spawn_agent",
-///   "input": {
-///     "role": "code-reviewer",
-///     "task": "Review src/auth.rs for security vulnerabilities and code quality issues"
-///   }
-/// }
-/// ```
+/// Tool for spawning specialized agents (code-reviewer, planner, security-reviewer, etc.).
 pub struct SpawnAgentTool {
     _marker: std::marker::PhantomData<()>,
 }
@@ -431,21 +394,7 @@ impl Tool for SpawnAgentTool {
     }
 }
 
-/// Tool for creating agent teams
-///
-/// This tool allows the LLM to create teams for coordinated multi-agent work.
-///
-/// ## Example Usage
-///
-/// ```json
-/// {
-///   "name": "create_team",
-///   "input": {
-///     "name": "Security Review Team",
-///     "tasks": ["task_001", "task_002"]
-///   }
-/// }
-/// ```
+/// Tool for creating agent teams for coordinated multi-agent work.
 pub struct CreateTeamTool {
     _marker: std::marker::PhantomData<()>,
 }
@@ -538,22 +487,7 @@ impl Tool for CreateTeamTool {
     }
 }
 
-/// Tool for creating scheduled cron tasks
-///
-/// This tool allows the LLM to set up autonomous scheduled operations.
-///
-/// ## Example Usage
-///
-/// ```json
-/// {
-///   "name": "create_cron",
-///   "input": {
-///     "schedule": "0 9 * * *",
-///     "prompt": "Run morning test suite and report results",
-///     "description": "Daily morning tests"
-///   }
-/// }
-/// ```
+/// Tool for creating scheduled cron tasks.
 pub struct CreateCronTool {
     _marker: std::marker::PhantomData<()>,
 }

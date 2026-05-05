@@ -14,7 +14,6 @@ pub mod cmd;
 pub mod codesearch;
 pub mod compile_time;
 pub mod cron;
-pub mod database;
 pub mod decompose;
 pub mod delegation_tool;
 pub mod docker;
@@ -66,8 +65,6 @@ pub use codesearch::*;
 pub use browser_fetch::*;
 #[allow(ambiguous_glob_reexports)]
 pub use cron::*;
-#[allow(ambiguous_glob_reexports)]
-pub use database::*;
 #[allow(ambiguous_glob_reexports)]
 pub use decompose::*;
 #[allow(ambiguous_glob_reexports)]

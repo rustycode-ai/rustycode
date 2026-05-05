@@ -1,27 +1,4 @@
-//! Clarification question detection for AI responses
-//!
-//! This module detects when the AI is asking clarifying questions and
-//! provides a UI component for batch answering them.
-//!
-//! # Detection Strategy
-//!
-//! Uses pattern matching to identify questions:
-//! - Direct questions: sentences ending with "?"
-//! - Interrogative patterns: "Can you...", "Could you...", "Do you...", etc.
-//! - Clarification keywords: "clarify", "confirm", "specify", "which", "what", etc.
-//!
-//! # Usage
-//!
-//! ```rust,ignore
-//! use rustycode_tui::ui::clarification::{detect_questions, ClarificationPanel};
-//!
-//! // Detect questions in AI response
-//! let questions = detect_questions(ai_response_content);
-//!
-//! // Create panel for display
-//! let mut panel = ClarificationPanel::new(questions);
-//! panel.render(area, buf);
-//! ```
+//! Detection of clarification questions in AI responses and a TUI panel for batch answering.
 
 use ratatui::{
     buffer::Buffer,
@@ -117,14 +94,12 @@ impl ClarificationPanel {
         self.visible = !self.visible;
     }
 
-    /// Select the next question
     pub fn select_next(&mut self) {
         if !self.questions.is_empty() {
             self.selected_index = (self.selected_index + 1) % self.questions.len();
         }
     }
 
-    /// Select the previous question
     pub fn select_previous(&mut self) {
         if !self.questions.is_empty() {
             self.selected_index = if self.selected_index == 0 {
@@ -151,7 +126,6 @@ impl ClarificationPanel {
         }
     }
 
-    /// Check if all questions have been answered
     pub fn all_answered(&self) -> bool {
         self.questions
             .iter()
@@ -159,7 +133,6 @@ impl ClarificationPanel {
             .all(|(i, _)| !self.answers.get(i).map(|a| a.is_empty()).unwrap_or(true))
     }
 
-    /// Mark as completed
     pub fn complete(&mut self) {
         self.completed = true;
     }
@@ -181,7 +154,6 @@ impl ClarificationPanel {
             .unwrap_or(false)
     }
 
-    /// Get the number of options for the current question
     pub fn current_option_count(&self) -> usize {
         self.questions
             .get(self.selected_index)
@@ -197,7 +169,6 @@ impl ClarificationPanel {
             .unwrap_or(0)
     }
 
-    /// Move to next option
     pub fn select_next_option(&mut self) {
         let count = self.current_option_count();
         if let Some(idx) = self.selected_option_indices.get_mut(self.selected_index) {
@@ -207,7 +178,6 @@ impl ClarificationPanel {
         }
     }
 
-    /// Move to previous option
     pub fn select_previous_option(&mut self) {
         let count = self.current_option_count();
         if let Some(idx) = self.selected_option_indices.get_mut(self.selected_index) {
@@ -229,7 +199,6 @@ impl ClarificationPanel {
         }
     }
 
-    /// Get the number of answered questions
     pub fn answered_count(&self) -> usize {
         self.answers.iter().filter(|a| !a.is_empty()).count()
     }
@@ -514,7 +483,6 @@ fn is_interrogative_pattern(text: &str) -> bool {
         && !lower.starts_with("would you like")
 }
 
-/// Check if content contains a clarification request
 fn contains_clarification_request(content: &str) -> bool {
     let lower = content.to_lowercase();
 
@@ -531,7 +499,6 @@ fn contains_clarification_request(content: &str) -> bool {
     clarification_phrases.iter().any(|p| lower.contains(p))
 }
 
-/// Check if a sentence contains clarification keywords
 fn contains_clarification_keywords(sentence: &str) -> bool {
     let lower = sentence.to_lowercase();
 

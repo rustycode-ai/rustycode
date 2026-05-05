@@ -1,28 +1,4 @@
-//! LLM streaming response handler with tool execution support
-//!
-//! This module handles streaming LLM responses from various providers (Anthropic, OpenAI, etc.)
-//! and converts SSE (Server-Sent Events) into TUI-compatible stream chunks. It manages
-//! the full conversation lifecycle including tool use detection, execution, and continuation.
-//!
-//! # Tool Streaming Architecture
-//!
-//! The module supports two modes of tool parameter streaming:
-//!
-//! ## 1. Eager Streaming (Anthropic's approach)
-//! When the LLM decides to use a tool, the complete parameters are sent in a single
-//! `content_block_start` event's `input` field. This is more efficient as no additional
-//! delta events are needed for the parameters.
-//!
-//! ## 2. Delta-Based Streaming (Traditional approach)
-//! Tool parameters are streamed incrementally via `content_block_delta` events with
-//! `PartialJson` deltas. The parameters are built up piece by piece.
-//!
-//! # Modules
-//!
-//! - `response` - Main entry point (`stream_llm_response`)
-//! - `events` - SSE event handling
-//! - `tool_detection` - Tool use detection and extraction
-//! - `tool_execution` - Tool execution functions
+//! Streaming LLM response handler with SSE parsing, tool detection, and execution.
 
 pub mod adapter;
 pub mod events;

@@ -172,8 +172,8 @@ pub struct PerformanceMetrics {
     pub last_request_latency: Option<u128>,
 }
 
-impl PerformanceMetrics {
-    pub fn new() -> Self {
+impl Default for PerformanceMetrics {
+    fn default() -> Self {
         Self {
             tokens_used: 0,
             last_response_tokens: 0,
@@ -186,6 +186,12 @@ impl PerformanceMetrics {
             error_count: 0,
             last_request_latency: None,
         }
+    }
+}
+
+impl PerformanceMetrics {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Update token usage statistics
@@ -223,13 +229,19 @@ pub struct ProviderConfig {
     pub provider_configured: bool,
 }
 
-impl ProviderConfig {
-    pub fn new() -> Self {
+impl Default for ProviderConfig {
+    fn default() -> Self {
         Self {
             available_models: Vec::new(),
             current_model: String::new(),
             provider_configured: false,
         }
+    }
+}
+
+impl ProviderConfig {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
@@ -240,12 +252,18 @@ pub struct SessionModeState {
     pub is_first_run: bool,
 }
 
-impl SessionModeState {
-    pub fn new() -> Self {
+impl Default for SessionModeState {
+    fn default() -> Self {
         Self {
             ai_mode: AiMode::default(),
             is_first_run: false,
         }
+    }
+}
+
+impl SessionModeState {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

@@ -1,76 +1,5 @@
-//! Service integration layer for TUI event loop
-//!
-//! This module provides the integration between the TUI event loop and background services:
-//! - ConversationService (LLM streaming)
-//! - ToolRuntime (tool execution)
-//! - WorkspaceContext (workspace loading)
-//!
-//! ## Architecture
-//!
-//! Services run in background threads and send events through bounded channels.
-//! The event loop polls ONE item per frame from each service, ensuring responsiveness.
-//! Backpressure handling prevents memory bloat under heavy load.
-//!
-//! ## Flow
-//!
-//! ```text
-//! Background Thread          Channel          Event Loop
-//!      │                        │                  │
-//!      │ 1. Try send event      │                  │
-//!      ├───────────────────────>│                  │
-//!      │                        │ 2. Queue (bounded)│
-//!      │                        │                  │
-//!      │                        │ 3. Poll ONE item  │
-//!      │                        │<──────────────────┤
-//!      │                        │                  │
-//!      │                        │ 4. Process event  │
-//!      │                        │                  │
-//! ```
-//!
-//! ## Usage
-//!
-//! ```rust,ignore
-//! use rustycode_tui::app::service_integration::*;
-//!
-//! // Create service manager
-//! let mut services = ServiceManager::new()?;
-//!
-//! // Start services with configuration
-//! services.start_conversation(conversation_config, tool_registry)?;
-//! services.start_workspace_loading(cwd)?;
-//!
-//! // In event loop - poll ONE item per frame
-//! let frame_start = Instant::now();
-//!
-//! // Phase 1: Poll services (ONE item each)
-//! services.poll_stream_one(|chunk| {
-//!     // Handle stream chunk
-//!     tui.add_stream_chunk(chunk);
-//! })?;
-//!
-//! services.poll_tools_one(|result| {
-//!     // Handle tool result
-//!     tui.handle_tool_result(result);
-//! })?;
-//!
-//! services.poll_workspace_one(|update| {
-//!     // Handle workspace update
-//!     tui.handle_workspace_update(update);
-//! })?;
-//!
-//! // Phase 2: Check frame budget
-//! let elapsed = frame_start.elapsed();
-//! if elapsed < FRAME_BUDGET_60FPS {
-//!     // Phase 3: Render
-//!     terminal.draw(|f| tui.render(f))?;
-//!
-//!     // Phase 4: Handle input
-//!     let timeout = FRAME_BUDGET_60FPS.saturating_sub(elapsed);
-//!     if crossterm::event::poll(timeout)? {
-//!         tui.handle_input()?;
-//!     }
-//! }
-//! ```
+//! Integration between the TUI event loop and background services (LLM streaming,
+//! tool execution, workspace loading) via bounded channels with backpressure.
 
 use crate::agent_mode::AiMode;
 use crate::app::async_::*;
@@ -210,7 +139,6 @@ impl ServiceManager {
         }
     }
 
-    /// Get the current working directory
     pub fn cwd(&self) -> &PathBuf {
         &self.cwd
     }
@@ -242,12 +170,10 @@ impl ServiceManager {
         Ok(())
     }
 
-    /// Get the file read cache
     pub fn file_read_cache(&self) -> Arc<StdMutex<FileReadCache>> {
         Arc::clone(&self.file_read_cache)
     }
 
-    /// Get the error tracker
     pub fn error_tracker(&self) -> Arc<StdMutex<ErrorTracker>> {
         Arc::clone(&self.error_tracker)
     }
@@ -780,17 +706,14 @@ impl ServiceManager {
         }
     }
 
-    /// Check if there's an active approval channel
     pub fn has_approval_channel(&self) -> bool {
         self.approval_tx.is_some()
     }
 
-    /// Get the current agent mode
     pub fn agent_mode(&self) -> crate::agent_mode::AgentMode {
         self.agent_mode
     }
 
-    /// Set the agent mode
     pub fn set_agent_mode(&mut self, mode: crate::agent_mode::AgentMode) {
         self.agent_mode = mode;
         if let Some(conv) = &mut self.conversation {
@@ -798,33 +721,26 @@ impl ServiceManager {
         }
     }
 
-    /// Set the effort level for LLM requests
     pub fn set_effort(&mut self, effort: String) {
         std::env::set_var("RUSTYCODE_EFFORT_OVERRIDE", &effort);
         self.effort = effort;
     }
 
-    /// Cycle to the next agent mode
     pub fn next_agent_mode(&mut self) -> crate::agent_mode::AgentMode {
         self.agent_mode = self.agent_mode.next_mode();
         self.agent_mode
     }
 
-    /// Cycle to the previous agent mode
     pub fn prev_agent_mode(&mut self) -> crate::agent_mode::AgentMode {
         self.agent_mode = self.agent_mode.prev();
         self.agent_mode
     }
 
-    /// Check if a tool is allowed in the current agent mode
     pub fn allows_tool(&self, tool_name: &str) -> bool {
         self.agent_mode.allows_tool(tool_name)
     }
 
-    /// Start workspace context loading
-    ///
-    /// Spawns a background task that loads workspace information and sends
-    /// progress updates through the workspace channel.
+    /// Spawns a background thread that loads workspace info with progress tracking.
     pub fn start_workspace_loading(&mut self) -> Result<()> {
         // Create bounded channel for workspace updates (capacity 20)
         let workspace_channel = BoundedChannel::new(20);
@@ -891,11 +807,7 @@ impl ServiceManager {
         Ok(())
     }
 
-    /// Poll ONE stream chunk from the LLM
-    ///
-    /// This method is called once per frame in the event loop.
-    /// It processes at most ONE chunk, ensuring responsiveness.
-    ///
+    /// Processes at most ONE chunk per frame, ensuring responsiveness.
     pub fn poll_stream_one<F>(&mut self, callback: F) -> Result<bool>
     where
         F: FnOnce(StreamChunk),
@@ -914,10 +826,7 @@ impl ServiceManager {
         }
     }
 
-    /// Poll ONE tool result from the tool execution
-    ///
-    /// This method is called once per frame in the event loop.
-    /// It processes at most ONE result, ensuring responsiveness.
+    /// Processes at most ONE result per frame, ensuring responsiveness.
     pub fn poll_tools_one<F>(&mut self, callback: F) -> Result<bool>
     where
         F: FnOnce(ToolResult),
@@ -936,10 +845,7 @@ impl ServiceManager {
         }
     }
 
-    /// Poll ONE workspace update from the workspace loader
-    ///
-    /// This method is called once per frame in the event loop.
-    /// It processes at most ONE update, ensuring responsiveness.
+    /// Processes at most ONE update per frame, ensuring responsiveness.
     pub fn poll_workspace_one<F>(&mut self, callback: F) -> Result<bool>
     where
         F: FnOnce(WorkspaceUpdate),
@@ -958,12 +864,10 @@ impl ServiceManager {
         }
     }
 
-    /// Get the current AI mode
     pub fn ai_mode(&self) -> AiMode {
         self.ai_mode
     }
 
-    /// Set the AI mode
     pub fn set_ai_mode(&mut self, mode: AiMode) {
         self.ai_mode = mode;
         if let Some(ref mut service) = self.conversation {
@@ -971,7 +875,6 @@ impl ServiceManager {
         }
     }
 
-    /// Get statistics about channel health
     pub fn channel_stats(&self) -> ServiceStats {
         ServiceStats {
             stream_dropped: self
@@ -992,27 +895,22 @@ impl ServiceManager {
         }
     }
 
-    /// Get mutable reference to stream channel (for event loop polling)
     pub fn stream_channel_mut(&mut self) -> Option<&mut BoundedChannel<StreamChunk>> {
         self.stream_channel.as_mut()
     }
 
-    /// Get mutable reference to tool channel (for event loop polling)
     pub fn tool_channel_mut(&mut self) -> Option<&mut BoundedChannel<ToolResult>> {
         self.tool_channel.as_mut()
     }
 
-    /// Get mutable reference to workspace channel (for event loop polling)
     pub fn workspace_channel_mut(&mut self) -> Option<&mut BoundedChannel<WorkspaceUpdate>> {
         self.workspace_channel.as_mut()
     }
 
-    /// Get a mutable reference to the command channel
     pub fn command_channel_mut(&mut self) -> Option<&mut BoundedChannel<SlashCommandResult>> {
         self.command_channel.as_mut()
     }
 
-    /// Get a sender for the command channel
     pub fn command_sender(&self) -> Option<std::sync::mpsc::SyncSender<SlashCommandResult>> {
         self.command_channel.as_ref().map(|c| c.clone_sender())
     }

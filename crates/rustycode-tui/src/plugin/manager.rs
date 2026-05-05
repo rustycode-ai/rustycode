@@ -1,31 +1,7 @@
-//! Plugin manager - discovers, loads, and manages plugins
+//! Plugin discovery, loading, and lifecycle management.
 //!
-//! # Experimental Status
-//!
-//! The plugin system is currently **experimental**. The core architecture is in place,
-//! but dynamic library loading is not yet implemented.
-//!
-//! ## What Works
-//!
-//! - Plugin discovery via `plugin.toml` manifests
-//! - Plugin enable/disable functionality
-//! - Plugin metadata management
-//! - Command registration from manifests
-//!
-//! ## What's Not Yet Implemented
-//!
-//! - **Dynamic library loading**: Plugins cannot load compiled code (`.so`, `.dylib`, `.dll`)
-//! - **Command execution**: Commands return placeholder messages instead of calling actual handlers
-//! - **Permission enforcement**: Permissions are parsed but not enforced
-//!
-//! ## Future Work
-//!
-//! To complete the plugin system:
-//! 1. Implement dynamic library loading using `libloading` crate
-//! 2. Define a stable plugin ABI (e.g., using `#[no_mangle]` extern "C" functions)
-//! 3. Add permission enforcement before plugin operations
-//! 4. Implement sandboxing for untrusted plugins
-//! 5. Add plugin lifecycle hooks (on_load, on_unload)
+//! Handles manifest-based discovery, install/update/uninstall from local paths or
+//! git URLs, and enable/disable state. Dynamic library loading is not yet implemented.
 
 use super::api::{CommandHandler, CommandResult, PluginAPI};
 use super::manifest::PluginManifest;
@@ -37,39 +13,19 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// Loaded plugin instance
 pub struct Plugin {
-    /// Plugin manifest
     pub manifest: PluginManifest,
-
-    /// Whether the plugin is enabled
     pub enabled: bool,
-
-    /// Plugin permissions
     pub permissions: PluginPermissions,
-
-    /// Registered command handlers
     pub command_handlers: HashMap<String, CommandHandler>,
-
-    /// Plugin-specific API instance
     pub api: PluginAPI,
-
-    /// Source the plugin was installed from, if known
     pub install_source: Option<String>,
-
-    /// When the plugin was installed, if known
     pub installed_at: Option<String>,
-
-    /// When the plugin was last updated, if known
     pub updated_at: Option<String>,
 }
 
-/// Plugin manager
 pub struct PluginManager {
-    /// Loaded plugins
     plugins: HashMap<String, Plugin>,
-
-    /// Plugin directory
     plugin_dir: PathBuf,
 }
 
@@ -85,7 +41,6 @@ struct PluginInstallMetadata {
 }
 
 impl PluginManager {
-    /// Create new plugin manager
     pub fn new() -> Result<Self> {
         let plugin_dir = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
@@ -102,7 +57,6 @@ impl PluginManager {
         })
     }
 
-    /// Discover and load all plugins
     pub fn discover_plugins(&mut self) -> Result<usize> {
         let mut loaded = 0;
 
@@ -148,7 +102,6 @@ impl PluginManager {
         self.discover_plugins()
     }
 
-    /// Load a plugin from its manifest path
     pub fn load_plugin(&mut self, manifest_path: &PathBuf) -> Result<()> {
         // Load and parse manifest
         let manifest =
@@ -247,7 +200,6 @@ impl PluginManager {
         }
     }
 
-    /// Unload a plugin
     pub fn unload_plugin(&mut self, name: &str) -> Result<()> {
         if !self.plugins.contains_key(name) {
             return Err(anyhow::anyhow!("Plugin '{}' not found", name));
@@ -340,7 +292,6 @@ impl PluginManager {
         Ok(updated)
     }
 
-    /// Enable a plugin
     pub fn enable_plugin(&mut self, name: &str) -> Result<()> {
         let plugin = self
             .plugins
@@ -353,7 +304,6 @@ impl PluginManager {
         Ok(())
     }
 
-    /// Disable a plugin
     pub fn disable_plugin(&mut self, name: &str) -> Result<()> {
         let plugin = self
             .plugins
@@ -366,27 +316,23 @@ impl PluginManager {
         Ok(())
     }
 
-    /// Get all plugins
     pub fn plugins(&self) -> Vec<&Plugin> {
         self.plugins.values().collect()
     }
 
-    /// Get enabled plugins
     pub fn enabled_plugins(&self) -> Vec<&Plugin> {
         self.plugins.values().filter(|p| p.enabled).collect()
     }
 
-    /// Get a specific plugin
     pub fn plugin(&self, name: &str) -> Option<&Plugin> {
         self.plugins.get(name)
     }
 
-    /// Get plugin mutable
     pub fn plugin_mut(&mut self, name: &str) -> Option<&mut Plugin> {
         self.plugins.get_mut(name)
     }
 
-    /// Execute a slash command
+    /// Returns a placeholder message; real execution requires dynamic library loading.
     pub fn execute_command(&mut self, command: &str, _args: Vec<String>) -> Result<CommandResult> {
         // Find which plugin handles this command
         let (plugin_name, _handler_name) = self.find_command_handler(command)?;
@@ -415,7 +361,6 @@ impl PluginManager {
         )))
     }
 
-    /// Find which plugin handles a command
     fn find_command_handler(&self, command: &str) -> Result<(String, String)> {
         for (name, plugin) in &self.plugins {
             for cmd in &plugin.manifest.slash_commands {
@@ -431,7 +376,7 @@ impl PluginManager {
         ))
     }
 
-    /// Get all slash commands from enabled plugins
+    /// Returns (plugin_name, command_name, description) tuples.
     pub fn all_commands(&self) -> Vec<(String, String, String)> {
         let mut commands = Vec::new();
 
@@ -448,7 +393,6 @@ impl PluginManager {
         commands
     }
 
-    /// Get plugin directory
     pub fn plugin_dir(&self) -> &PathBuf {
         &self.plugin_dir
     }

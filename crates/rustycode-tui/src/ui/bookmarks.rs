@@ -1,33 +1,4 @@
-//! Bookmark System for Messages
-//!
-//! This module provides a bookmark system for marking important messages
-//! in the conversation.
-//!
-//! ## Features
-//!
-//! - **Add bookmarks**: Mark important messages with descriptions
-//! - **Remove bookmarks**: Unmark messages
-//! - **List bookmarks**: View all bookmarks
-//! - **Navigate**: Quick jump to bookmarked messages
-//!
-//! ## Usage
-//!
-//! ```rust,no_run
-//! use rustycode_tui::bookmarks::BookmarkManager;
-//!
-//! let mut bookmarks = BookmarkManager::new();
-//!
-//! // Add a bookmark
-//! bookmarks.add(5, "Important code example".to_string());
-//!
-//! // List all bookmarks
-//! for (index, description) in bookmarks.list() {
-//!     println!("Message {}: {}", index, description);
-//! }
-//!
-//! // Remove a bookmark
-//! bookmarks.remove(5);
-//! ```
+//! Bookmark system for marking and navigating important conversation messages.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -48,32 +19,22 @@ impl BookmarkManager {
         Self::default()
     }
 
-    /// Add a bookmark
-    ///
     pub fn add(&mut self, index: usize, description: String) {
         self.bookmarks.insert(index, description);
     }
 
-    /// Remove a bookmark
-    ///
     pub fn remove(&mut self, index: usize) -> Option<String> {
         self.bookmarks.remove(&index)
     }
 
-    /// Check if a message is bookmarked
-    ///
     pub fn is_bookmarked(&self, index: usize) -> bool {
         self.bookmarks.contains_key(&index)
     }
 
-    /// Get bookmark description
-    ///
     pub fn get(&self, index: usize) -> Option<&String> {
         self.bookmarks.get(&index)
     }
 
-    /// List all bookmarks sorted by index
-    ///
     pub fn list(&self) -> Vec<(usize, String)> {
         let mut bookmarks: Vec<_> = self
             .bookmarks
@@ -96,8 +57,7 @@ impl BookmarkManager {
         self.bookmarks.clear();
     }
 
-    /// Get the next bookmark after a given index
-    ///
+    /// Wraps to the first bookmark after the last.
     pub fn next_bookmark(&self, index: usize) -> Option<usize> {
         let sorted = self.list();
 
@@ -116,8 +76,7 @@ impl BookmarkManager {
         sorted.first().map(|(index, _)| *index)
     }
 
-    /// Get the previous bookmark before a given index
-    ///
+    /// Wraps to the last bookmark before the first.
     pub fn prev_bookmark(&self, index: usize) -> Option<usize> {
         let sorted = self.list();
 
@@ -187,8 +146,6 @@ impl BookmarkListState {
         self.visible
     }
 
-    /// Get the currently selected bookmark
-    ///
     pub fn selected(&self) -> Option<(usize, String)> {
         if !self.visible || self.cached_bookmarks.is_empty() {
             return None;

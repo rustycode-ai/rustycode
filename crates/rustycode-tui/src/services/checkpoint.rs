@@ -1,31 +1,6 @@
-//! Checkpoint and task resumption system
-//!
-//! This module provides the ability to save checkpoints (snapshots of the current state)
-//! and resume work from a previous checkpoint. This is useful for:
-//! - Saving progress before risky operations
-//! - Resuming work after a crash or interruption
-//! - Branching to explore alternative approaches
-//!
-//! # Checkpoint Contents
-//!
-//! Each checkpoint contains:
-//! - Conversation history
-//! - Current tasks/todos state
-//! - Working directory state
-//! - Timestamp and metadata
-//!
-//! # Usage
-//!
-//! ```rust,ignore
-//! // Create a checkpoint
-//! checkpoint_manager.save("before-refactor").await?;
-//!
-//! // List available checkpoints
-//! let checkpoints = checkpoint_manager.list().await?;
-//!
-//! // Restore from a checkpoint
-//! checkpoint_manager.restore("checkpoint-id").await?;
-//! ```
+//! Checkpoint save/restore for session state (conversation, tasks, git info).
+//! Supports resuming work after interruptions and rewinding the workspace to
+//! a captured git commit.
 
 use crate::tasks::WorkspaceTasks;
 use crate::ui::message::Message;
@@ -37,47 +12,29 @@ use std::path::PathBuf;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
-/// Metadata about a checkpoint
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CheckpointMetadata {
-    /// Unique identifier for this checkpoint
     pub id: String,
-    /// Human-readable name/description
     pub name: String,
-    /// When the checkpoint was created
     pub created_at: DateTime<Utc>,
-    /// Number of messages in the conversation
     pub message_count: usize,
-    /// Number of tasks
     pub task_count: usize,
-    /// Number of incomplete todos
     pub todo_count: usize,
-    /// Current working directory
     pub cwd: PathBuf,
-    /// Git branch (if available)
     pub git_branch: Option<String>,
-    /// Git commit (if available)
     pub git_commit: Option<String>,
-    /// User-provided description
     pub description: Option<String>,
 }
 
-/// Complete checkpoint data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Checkpoint {
-    /// Checkpoint metadata
     pub metadata: CheckpointMetadata,
-    /// Conversation messages
     pub messages: Vec<Message>,
-    /// Workspace tasks state
     pub tasks: WorkspaceTasks,
 }
 
-/// Manager for creating and restoring checkpoints
 pub struct CheckpointManager {
-    /// Directory where checkpoints are stored
     checkpoints_dir: PathBuf,
-    /// Index of all checkpoints
     index: HashMap<String, CheckpointMetadata>,
 }
 
@@ -89,10 +46,7 @@ impl CheckpointManager {
         }
     }
 
-    /// Initialize the checkpoint manager
-    ///
-    /// Creates the checkpoints directory if it doesn't exist
-    /// and loads the existing checkpoint index.
+    /// Creates the checkpoints directory if needed and loads the existing index.
     pub async fn initialize(&mut self) -> Result<()> {
         // Create checkpoints directory if it doesn't exist
         if !self.checkpoints_dir.exists() {
@@ -110,7 +64,6 @@ impl CheckpointManager {
         Ok(())
     }
 
-    /// Save a checkpoint with the given name
     pub async fn save(
         &mut self,
         name: impl AsRef<str>,
@@ -177,7 +130,8 @@ impl CheckpointManager {
         Ok(id)
     }
 
-    /// Restore from a checkpoint
+    /// Rewinds the workspace to the checkpoint's git commit (with user confirmation
+    /// if there are uncommitted changes), then returns the stored checkpoint data.
     pub async fn restore(&self, id: &str) -> Result<Checkpoint> {
         let checkpoint_path = self.checkpoints_dir.join(format!("{}.json", id));
 
@@ -264,19 +218,17 @@ impl CheckpointManager {
         Ok(checkpoint)
     }
 
-    /// List all available checkpoints
+    /// Returns checkpoints sorted newest-first.
     pub fn list(&self) -> Vec<&CheckpointMetadata> {
         let mut checkpoints: Vec<_> = self.index.values().collect();
         checkpoints.sort_by_key(|a| std::cmp::Reverse(a.created_at));
         checkpoints
     }
 
-    /// Get a specific checkpoint by ID
     pub fn get(&self, id: &str) -> Option<&CheckpointMetadata> {
         self.index.get(id)
     }
 
-    /// Delete a checkpoint
     pub async fn delete(&mut self, id: &str) -> Result<()> {
         if !self.index.contains_key(id) {
             anyhow::bail!("Checkpoint not found: {}", id);
@@ -299,7 +251,6 @@ impl CheckpointManager {
         Ok(())
     }
 
-    /// Add a description to a checkpoint
     pub async fn set_description(&mut self, id: &str, description: String) -> Result<()> {
         if let Some(metadata) = self.index.get_mut(id) {
             metadata.description = Some(description);
@@ -310,7 +261,6 @@ impl CheckpointManager {
         }
     }
 
-    /// Load the checkpoint index from disk
     async fn load_index(&mut self) -> Result<()> {
         let index_path = self.checkpoints_dir.join("index.json");
 
@@ -326,7 +276,6 @@ impl CheckpointManager {
         Ok(())
     }
 
-    /// Save the checkpoint index to disk
     async fn save_index(&self) -> Result<()> {
         let index_path = self.checkpoints_dir.join("index.json");
         let data = serde_json::to_string_pretty(&self.index)?;
@@ -338,7 +287,6 @@ impl CheckpointManager {
         Ok(())
     }
 
-    /// Get git branch and commit for the current directory
     async fn get_git_info(&self, cwd: &PathBuf) -> (Option<String>, Option<String>) {
         let mut branch = None;
         let mut commit = None;
@@ -374,7 +322,6 @@ impl CheckpointManager {
         (branch, commit)
     }
 
-    /// Clean up old checkpoints (keep last N)
     pub async fn cleanup_old(&mut self, keep_count: usize) -> Result<Vec<String>> {
         if self.index.len() <= keep_count {
             return Ok(vec![]);
@@ -411,7 +358,6 @@ impl CheckpointManager {
         Ok(removed)
     }
 
-    /// Get total size of all checkpoints in bytes
     pub async fn total_size(&self) -> Result<u64> {
         let mut total = 0u64;
 
@@ -428,7 +374,6 @@ impl CheckpointManager {
     }
 }
 
-/// Format checkpoint metadata for display
 pub fn format_checkpoint(metadata: &CheckpointMetadata) -> String {
     format!(
         "{} [{}]\n  Created: {}\n  Messages: {} | Tasks: {} | Todos: {}\n  Branch: {}",

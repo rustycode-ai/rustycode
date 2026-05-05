@@ -1,40 +1,5 @@
-//! File read deduplication cache
-//!
-//! Prevents repeated reads of the same file by the AI model, which wastes
-//! API tokens. The cache stores only metadata (read count, modification time)
-//! to keep memory usage minimal. On cache hits, files are re-read from disk
-//! to ensure fresh content.
-//!
-//! # Cache Behavior
-//!
-//! - **First read**: Cache metadata (mtime, readCount)
-//! - **Cache hit**: Compare mtime, if unchanged increment readCount
-//! - **mtime mismatch**: File was modified externally, evict and re-read
-//! - **3+ reads**: Return warning to discourage repeated reads
-//! - **Write operations**: Invalidate cache entry for modified file
-//!
-//! # Example
-//!
-//! ```rust,ignore
-//! use rustycode_tui::file_read_cache::FileReadCache;
-//! use std::path::Path;
-//!
-//! let mut cache = FileReadCache::new();
-//!
-//! // Check before reading
-//! let path = Path::new("/path/to/file.txt");
-//! if let Some(entry) = cache.check(path) {
-//!     if entry.read_count >= 3 {
-//!         // Warn model about repeated reads
-//!     }
-//! }
-//!
-//! // After reading successfully, update cache
-//! cache.record_read(path, 1234567890);
-//!
-//! // On write, invalidate
-//! cache.invalidate(path);
-//! ```
+//! File read deduplication cache that tracks mtime and read count to prevent
+//! redundant reads of unchanged files during a session.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -71,7 +36,6 @@ impl FileReadCache {
         }
     }
 
-    /// Set the warning threshold for repeated reads
     pub fn with_warn_threshold(mut self, threshold: usize) -> Self {
         self.warn_threshold = threshold;
         self
@@ -93,10 +57,7 @@ impl FileReadCache {
         normalized.to_string_lossy().to_lowercase().to_string()
     }
 
-    /// Check if a file has been cached
-    ///
-    /// Returns `None` if not cached, or the cached entry if found.
-    /// The entry will be validated against current file mtime.
+    /// Returns cached entry if mtime unchanged, or None (evicts stale entries).
     pub fn check(&mut self, path: &Path) -> Option<FileReadEntry> {
         let key = self.normalize_key(path);
         let cached = self.entries.get(&key).cloned()?;
@@ -113,10 +74,7 @@ impl FileReadCache {
         Some(cached)
     }
 
-    /// Record a successful file read
-    ///
-    /// Updates the cache entry with the current mtime and increments
-    /// the read count. Should be called after successfully reading a file.
+    /// Updates cache with current mtime and increments read count.
     pub fn record_read(&mut self, path: &Path, mtime_ms: u64, has_image_content: bool) {
         let key = self.normalize_key(path);
 
@@ -132,17 +90,12 @@ impl FileReadCache {
         entry.has_image_content = has_image_content;
     }
 
-    /// Invalidate a cache entry
-    ///
-    /// Should be called when a file is modified (write, edit, patch)
-    /// to force a fresh read on next access.
+    /// Evicts the cache entry so the file is re-read on next access.
     pub fn invalidate(&mut self, path: &Path) {
         let key = self.normalize_key(path);
         self.entries.remove(&key);
     }
 
-    /// Check if a read should trigger a warning
-    ///
     /// Returns true if the file has been read >= warn_threshold times.
     pub fn should_warn(&self, path: &Path) -> bool {
         let key = self.normalize_key(path);
@@ -152,23 +105,19 @@ impl FileReadCache {
             .unwrap_or(false)
     }
 
-    /// Get the read count for a file
     pub fn read_count(&self, path: &Path) -> usize {
         let key = self.normalize_key(path);
         self.entries.get(&key).map(|e| e.read_count).unwrap_or(0)
     }
 
-    /// Clear all cached entries
     pub fn clear(&mut self) {
         self.entries.clear();
     }
 
-    /// Get the number of cached files
     pub fn len(&self) -> usize {
         self.entries.len()
     }
 
-    /// Check if cache is empty
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
@@ -187,7 +136,6 @@ fn get_file_mtime_ms(path: &Path) -> Result<u64, std::io::Error> {
     Ok(duration.as_millis() as u64)
 }
 
-/// Format a warning message for repeated file reads
 pub fn format_repeated_read_warning(path: &Path, read_count: usize) -> String {
     format!(
         "[DUPLICATE READ] You have already read '{}' {} times in this conversation. \

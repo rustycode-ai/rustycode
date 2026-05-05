@@ -75,28 +75,7 @@
     clippy::useless_let_if_seq
 )]
 #![cfg_attr(test, allow(clippy::float_cmp,))]
-//! RustyCode TUI — a Ratatui-based terminal interface.
-
-//!
-//! Layout:
-//! ```text
-//! ┌─ RustyCode ──────────────────────────────── branch ─ session ─┐
-//! │ Tools        │ Message transcript                              │
-//! │ ──────────── │                                                 │
-//! │ read_file    │ [you] git_status                                │
-//! │ write_file   │ [tool] On branch main...                        │
-//! │ list_dir     │                                                 │
-//! │ bash         │                                                 │
-//! │ grep         │                                                 │
-//! │ glob         │                                                 │
-//! │ git_status   │                                                 │
-//! │ …            │                                                 │
-//! ├──────────────┴─────────────────────────────────────────────────┤
-//! │ > _                                                            │
-//! ├────────────────────────────────────────────────────────────────┤
-//! │ i:input  t:tools  q:quit  ↑↓:scroll  Enter:run                │
-//! └────────────────────────────────────────────────────────────────┘
-//! ```
+//! Ratatui-based terminal interface for RustyCode.
 
 mod agents;
 mod handlers;

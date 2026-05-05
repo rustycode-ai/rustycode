@@ -1,35 +1,4 @@
-//! Model Selector Popup Component
-//!
-//! This module provides a VS Code-style model selector popup for the TUI.
-//!
-//! ## Features
-//!
-//! - **Quick model switching**: Select from available models
-//! - **Fuzzy matching**: Search models by name or description
-//! - **Keyboard shortcuts**: Ctrl+1-4 for quick switching
-//! - **Model details**: Show capabilities, cost, and context window
-//! - **Modal dialog**: Centered overlay with search and list
-//!
-//! ## Usage
-//!
-//! ```rust,no_run
-
-//! use rustycode_tui::ui::model_selector::{ModelSelector, ModelInfo};
-//! use crossterm::event::{KeyCode, KeyEvent};
-//!
-//! // Create model selector with available models
-//! let mut selector = ModelSelector::new();
-//!
-//! // Handle keyboard input
-//! selector.handle_key(KeyEvent::new(KeyCode::Char('g'), crossterm::event::KeyModifiers::NONE));
-//! selector.handle_key(KeyEvent::new(KeyCode::Down, crossterm::event::KeyModifiers::NONE));
-//! selector.handle_key(KeyEvent::new(KeyCode::Enter, crossterm::event::KeyModifiers::NONE));
-//!
-//! // Check if a model was selected
-//! if let Some(model) = selector.take_selected() {
-//!     // Switch to selected model
-//! }
-//! ```
+//! VS Code-style model selector popup with fuzzy search and Ctrl+1-4 quick-switch.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{
@@ -96,32 +65,27 @@ impl ModelInfo {
         }
     }
 
-    /// Set context window
     pub fn with_context_window(mut self, tokens: usize) -> Self {
         self.context_window = tokens;
         self
     }
 
-    /// Set costs
     pub fn with_costs(mut self, input: f64, output: f64) -> Self {
         self.input_cost = input;
         self.output_cost = output;
         self
     }
 
-    /// Set capabilities
     pub fn with_capabilities(mut self, caps: Vec<String>) -> Self {
         self.capabilities = caps;
         self
     }
 
-    /// Set quick shortcut
     pub fn with_shortcut(mut self, num: usize) -> Self {
         self.shortcut = Some(num);
         self
     }
 
-    /// Format cost display
     pub fn cost_display(&self) -> String {
         if self.input_cost > 0.0 || self.output_cost > 0.0 {
             format!(
@@ -133,7 +97,6 @@ impl ModelInfo {
         }
     }
 
-    /// Format context window display
     pub fn context_display(&self) -> String {
         if self.context_window >= 1_000_000 {
             format!("{}M tokens", self.context_window / 1_000_000)
@@ -173,7 +136,6 @@ pub struct ModelSelectorState {
 }
 
 impl ModelSelectorState {
-    /// Create new model selector state
     pub fn new(models: Vec<ModelInfo>) -> Self {
         let filtered_indices = (0..models.len()).collect();
 
@@ -220,7 +182,6 @@ impl ModelSelectorState {
         MatchScore::None
     }
 
-    /// Show the selector
     pub fn show(&mut self) {
         self.visible = true;
         self.confirmed = false;
@@ -229,12 +190,10 @@ impl ModelSelectorState {
         self.update_filtered();
     }
 
-    /// Hide the selector
     pub fn hide(&mut self) {
         self.visible = false;
     }
 
-    /// Toggle selector visibility
     pub fn toggle(&mut self) {
         if self.visible {
             self.hide();
@@ -243,7 +202,6 @@ impl ModelSelectorState {
         }
     }
 
-    /// Update filtered models based on current query
     fn update_filtered(&mut self) {
         self.filtered_indices = if self.query.is_empty() {
             // Show all models when query is empty
@@ -268,46 +226,40 @@ impl ModelSelectorState {
         }
     }
 
-    /// Get currently selected model (if any)
     pub fn selected_model(&self) -> Option<&ModelInfo> {
         self.filtered_indices
             .get(self.selected_index)
             .and_then(|&idx| self.models.get(idx))
     }
 
-    /// Add a character to the query
     pub fn insert_char(&mut self, c: char) {
         self.query.push(c);
         self.update_filtered();
     }
 
-    /// Remove last character from query (backspace)
     pub fn backspace(&mut self) {
         self.query.pop();
         self.update_filtered();
     }
 
-    /// Clear the query
     pub fn clear_query(&mut self) {
         self.query.clear();
         self.update_filtered();
     }
 
-    /// Move selection up
     pub fn move_up(&mut self) {
         if !self.filtered_indices.is_empty() && self.selected_index > 0 {
             self.selected_index -= 1;
         }
     }
 
-    /// Move selection down
     pub fn move_down(&mut self) {
         if !self.filtered_indices.is_empty() {
             self.selected_index = (self.selected_index + 1).min(self.filtered_indices.len() - 1);
         }
     }
 
-    /// Quick select by shortcut number (1-4)
+    /// Selects a model by its Ctrl+1-4 shortcut number.
     pub fn quick_select(&mut self, num: usize) -> Option<&ModelInfo> {
         // Find model with this shortcut
         self.models
@@ -316,7 +268,6 @@ impl ModelSelectorState {
             .map(|v| v as _)
     }
 
-    /// Get number of filtered models
     pub fn filtered_count(&self) -> usize {
         self.filtered_indices.len()
     }
@@ -335,14 +286,12 @@ impl ModelSelectorRenderer {
         Self::with_models(Self::default_models())
     }
 
-    /// Create a new model selector with custom models
     pub fn with_models(models: Vec<ModelInfo>) -> Self {
         Self {
             state: ModelSelectorState::new(models),
         }
     }
 
-    /// Get default built-in models
     fn default_models() -> Vec<ModelInfo> {
         vec![
             ModelInfo::new(
@@ -404,34 +353,27 @@ impl ModelSelectorRenderer {
         ]
     }
 
-    /// Get mutable reference to state
     pub fn state_mut(&mut self) -> &mut ModelSelectorState {
         &mut self.state
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &ModelSelectorState {
         &self.state
     }
 
-    /// Show the selector
     pub fn show(&mut self) {
         self.state.show();
     }
 
-    /// Hide the selector
     pub fn hide(&mut self) {
         self.state.hide();
     }
 
-    /// Toggle selector visibility
     pub fn toggle(&mut self) {
         self.state.toggle();
     }
 
-    /// Handle a key event
-    ///
-    /// Returns true if the event was handled
+    /// Returns true if the event was handled.
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         match (key.code, key.modifiers) {
             // Close selector on Escape
@@ -495,7 +437,7 @@ impl ModelSelectorRenderer {
         }
     }
 
-    /// Take the selected model (removes it from state)
+    /// Returns `None` until Enter or Ctrl+1-4 confirms a selection.
     pub fn take_selected_model(&mut self) -> Option<ModelInfo> {
         if !self.state.confirmed {
             return None;
@@ -509,7 +451,6 @@ impl ModelSelectorRenderer {
         }
     }
 
-    /// Render the model selector
     pub fn render(&self, f: &mut Frame, area: Rect) {
         if !self.state.visible {
             return;
@@ -540,7 +481,6 @@ impl ModelSelectorRenderer {
         self.render_model_list(f, chunks[1]);
     }
 
-    /// Render the search input field
     fn render_search_input(&self, f: &mut Frame, area: Rect) {
         let paragraph = Paragraph::new(Line::from(vec![
             Span::styled("> ", Style::default().fg(Color::Gray)),
@@ -567,7 +507,6 @@ impl ModelSelectorRenderer {
         f.render_widget(paragraph, area);
     }
 
-    /// Render the filtered model list
     fn render_model_list(&self, f: &mut Frame, area: Rect) {
         if self.state.filtered_indices.is_empty() {
             // Show "no results" message
@@ -673,11 +612,8 @@ impl Default for ModelSelectorRenderer {
 
 // MODEL SELECTOR (HIGH-LEVEL API)
 
-/// High-level model selector API
-///
-/// This combines state and rendering into a single convenient interface.
+/// Combines state and rendering into a single interface.
 pub struct ModelSelector {
-    /// Renderer with embedded state
     renderer: ModelSelectorRenderer,
 }
 
@@ -688,56 +624,46 @@ impl ModelSelector {
         }
     }
 
-    /// Create a new model selector with custom models
     pub fn with_models(models: Vec<ModelInfo>) -> Self {
         Self {
             renderer: ModelSelectorRenderer::with_models(models),
         }
     }
 
-    /// Check if selector is visible
     pub fn is_visible(&self) -> bool {
         self.renderer.state().visible
     }
 
-    /// Show the selector
     pub fn show(&mut self) {
         self.renderer.show();
     }
 
-    /// Hide the selector
     pub fn hide(&mut self) {
         self.renderer.hide();
     }
 
-    /// Toggle selector visibility
     pub fn toggle(&mut self) {
         self.renderer.toggle();
     }
 
-    /// Handle a key event
-    ///
-    /// Returns true if the event was handled
+    /// Returns true if the event was handled.
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         self.renderer.handle_key(key)
     }
 
-    /// Take the selected model (removes it from state)
+    /// Returns `None` until Enter or Ctrl+1-4 confirms a selection.
     pub fn take_selected(&mut self) -> Option<ModelInfo> {
         self.renderer.take_selected_model()
     }
 
-    /// Render the model selector
     pub fn render(&self, f: &mut Frame, area: Rect) {
         self.renderer.render(f, area);
     }
 
-    /// Get mutable reference to state
     pub fn state_mut(&mut self) -> &mut ModelSelectorState {
         self.renderer.state_mut()
     }
 
-    /// Get reference to state
     pub fn state(&self) -> &ModelSelectorState {
         self.renderer.state()
     }

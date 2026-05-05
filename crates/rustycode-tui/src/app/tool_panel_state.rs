@@ -36,3 +36,44 @@ impl Default for ToolPanelState {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::message_types::ToolStatus;
+
+    #[test]
+    fn new_starts_hidden_with_empty_history() {
+        let state = ToolPanelState::new();
+        assert!(!state.showing_tool_panel);
+        assert!(state.tool_panel_history.is_empty());
+        assert!(state.tool_panel_selected_index.is_none());
+        assert!(!state.showing_tool_result);
+        assert!(!state.tool_result_show_full);
+        assert_eq!(state.tool_result_scroll_offset, 0);
+    }
+
+    #[test]
+    fn reset_clears_history_and_selection() {
+        let mut state = ToolPanelState::new();
+        state.showing_tool_panel = true;
+        state.tool_panel_history.push(ToolExecution::new(
+            "tool".into(),
+            "read".into(),
+            "summary".into(),
+        ));
+        state.tool_panel_selected_index = Some(0);
+        state.showing_tool_result = true;
+        state.tool_result_show_full = true;
+        state.tool_result_scroll_offset = 50;
+
+        state.reset();
+
+        assert!(!state.showing_tool_panel);
+        assert!(state.tool_panel_history.is_empty());
+        assert!(state.tool_panel_selected_index.is_none());
+        assert!(!state.showing_tool_result);
+        assert!(!state.tool_result_show_full);
+        assert_eq!(state.tool_result_scroll_offset, 0);
+    }
+}

@@ -1,23 +1,5 @@
-//! Skills system for RustyCode TUI
-//!
-//! This module provides a VS Code-style command palette for skills with:
-//! - Fuzzy search and filtering
-//! - Keyboard navigation
-//! - Skill parameter input
-//! - Active skill status tracking
-//!
-//! ## Usage
-//!
-//! ```rust,ignore
-//! use rustycode_tui::skills::{Skill, SkillLoader, fuzzy_match};
-//!
-//! // Load skills from filesystem
-//! let loader = SkillLoader::new("/path/to/skills");
-//! let skills = loader.load_all()?;
-//!
-//! // Search for skills
-//! let results = fuzzy_match("code", &skills);
-//! ```
+//! Skills system: loading, fuzzy search, parameter input, lifecycle management,
+//! and LLM-callable skill-as-tool wrappers.
 
 pub mod composition;
 pub mod loader;

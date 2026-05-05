@@ -88,7 +88,6 @@ pub fn set_test_tasks_path(path: Option<PathBuf>) {
     TEST_TASKS_PATH.with(|p| *p.borrow_mut() = path);
 }
 
-/// Get the path to the tasks file
 pub fn tasks_path() -> PathBuf {
     #[cfg(test)]
     {
@@ -151,7 +150,6 @@ pub fn save_tasks(tasks: &WorkspaceTasks) -> std::io::Result<()> {
 
 // ── Task Operations ───────────────────────────────────────────────────────
 
-/// Create a new task
 pub fn create_task(description: String) -> Task {
     Task {
         id: ulid::Ulid::new().to_string(),
@@ -163,7 +161,6 @@ pub fn create_task(description: String) -> Task {
     }
 }
 
-/// Update task status
 pub fn update_task_status(
     tasks: &mut WorkspaceTasks,
     id: &str,
@@ -177,7 +174,6 @@ pub fn update_task_status(
     }
 }
 
-/// Get status icon for a task
 pub fn task_status_icon(status: &TaskStatus) -> &str {
     match status {
         TaskStatus::Pending => "⏳",
@@ -192,7 +188,6 @@ pub fn task_status_icon(status: &TaskStatus) -> &str {
 
 // ── Todo Operations ───────────────────────────────────────────────────────
 
-/// Create a new todo
 pub fn create_todo(text: String) -> Todo {
     Todo {
         id: ulid::Ulid::new().to_string(),
@@ -202,7 +197,6 @@ pub fn create_todo(text: String) -> Todo {
     }
 }
 
-/// Toggle todo completion
 pub fn toggle_todo(tasks: &mut WorkspaceTasks, id: &str) -> Result<bool, String> {
     if let Some(todo) = tasks.todos.iter_mut().find(|t| t.id == id) {
         todo.done = !todo.done;
@@ -212,7 +206,6 @@ pub fn toggle_todo(tasks: &mut WorkspaceTasks, id: &str) -> Result<bool, String>
     }
 }
 
-/// Get checkbox icon for a todo
 pub fn todo_checkbox(done: bool) -> &'static str {
     if done {
         "☑"
@@ -223,7 +216,6 @@ pub fn todo_checkbox(done: bool) -> &'static str {
 
 // ── Agent Operations ──────────────────────────────────────────────────────
 
-/// Create a new agent
 pub fn create_agent(task: String) -> ActiveAgent {
     ActiveAgent {
         id: ulid::Ulid::new().to_string(),
@@ -359,7 +351,6 @@ fn llm_todo_to_task(
     }
 }
 
-/// Update agent status
 pub fn update_agent_status(
     tasks: &mut WorkspaceTasks,
     id: &str,
@@ -393,7 +384,6 @@ pub fn update_agent_status(
     }
 }
 
-/// Get status icon for an agent
 pub fn agent_status_icon(status: &AgentStatus) -> &str {
     match status {
         AgentStatus::Starting => "⚡",
@@ -406,7 +396,6 @@ pub fn agent_status_icon(status: &AgentStatus) -> &str {
 
 // ── Formatting Helpers ────────────────────────────────────────────────────
 
-/// Format timestamp for display
 pub fn format_time(time: SystemTime) -> String {
     use chrono::{DateTime, Local, Utc};
 
@@ -415,7 +404,6 @@ pub fn format_time(time: SystemTime) -> String {
     datetime.format("%H:%M").to_string()
 }
 
-/// Format relative time for display
 pub fn format_relative_time(time: SystemTime) -> String {
     let now = SystemTime::now();
     let duration = now.duration_since(time).unwrap_or_default();
