@@ -450,7 +450,7 @@ impl ServiceManager {
         // 2. Orchestration Analysis
         let (analysis, orchestration_guidance, phase_context) = {
             let orch = self.orchestration.lock().unwrap_or_else(|e| e.into_inner());
-            let analysis = orch.analyze_message(&content);
+            let analysis = orch.analyze_message(&content, Some(&model));
             let guidance = if analysis.enable_structured_thinking {
                 let mut g = OrchestrationIntegration::structured_thinking_guidance().to_string();
                 g.push_str("\n\n");

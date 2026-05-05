@@ -15,6 +15,22 @@ use rustycode_orchestration::strategy_selector::StrategySelector;
 use rustycode_orchestration::types::{QualityScore, ReasoningStrategy, StructuredThought};
 use std::path::PathBuf;
 
+/// Returns true if the model has built-in extended thinking/reasoning.
+///
+/// Models with native thinking don't need the structured_thinking tool —
+/// they already reason internally. Injecting the tool adds ~1400 tokens
+/// of overhead per request and can conflict with the model's own reasoning.
+fn has_native_thinking(model_id: &str) -> bool {
+    let lower = model_id.to_ascii_lowercase();
+    lower.starts_with("glm-5")
+        || lower.starts_with("claude-opus-4")
+        || lower.starts_with("claude-sonnet-4")
+        || lower.contains("deepseek-r1")
+        || lower.contains("o1-")
+        || lower.contains("o3-")
+        || lower.contains("o4-")
+}
+
 /// Result of analyzing a user message for orchestration routing.
 #[derive(Debug)]
 pub struct AnalysisResult {
@@ -53,11 +69,17 @@ impl OrchestrationIntegration {
     }
 
     /// Analyze a user message and determine the execution strategy.
-    pub fn analyze_message(&self, content: &str) -> AnalysisResult {
+    ///
+    /// When `model_id` refers to a model with native thinking (GLM-5.x,
+    /// Claude Opus/Sonnet 4+, DeepSeek-R1, OpenAI o-series), the structured
+    /// thinking tool is suppressed — these models reason internally.
+    pub fn analyze_message(&self, content: &str, model_id: Option<&str>) -> AnalysisResult {
         let complexity = StrategySelector::detect_complexity(content);
         let quality = self.quality_detector.evaluate(content);
         let strategy = self.strategy_selector.select(complexity, &quality, 75);
-        let enable_structured_thinking = strategy.requires_structured_thinking();
+        let native_thinking = model_id.is_some_and(has_native_thinking);
+        let enable_structured_thinking =
+            strategy.requires_structured_thinking() && !native_thinking;
 
         tracing::info!(
             complexity = %format!("{complexity:.2}"),
@@ -206,7 +228,7 @@ mod tests {
     #[test]
     fn test_analyze_simple_message() {
         let integration = OrchestrationIntegration::default();
-        let result = integration.analyze_message("fix the typo");
+        let result = integration.analyze_message("fix the typo", None);
         // "fix" keyword gives complexity 1.5, default confidence 75 → SequentialThinking
         assert!(result.complexity < 2.0);
     }
@@ -214,8 +236,10 @@ mod tests {
     #[test]
     fn test_analyze_complex_message() {
         let integration = OrchestrationIntegration::default();
-        let result = integration
-            .analyze_message("Explore the maze solver algorithms and design an architecture");
+        let result = integration.analyze_message(
+            "Explore the maze solver algorithms and design an architecture",
+            None,
+        );
         assert!(result.complexity > 3.0);
         assert!(result.enable_structured_thinking);
     }
@@ -400,7 +424,7 @@ mod tests {
     #[test]
     fn test_analyze_message_strategy_consistency() {
         let integration = OrchestrationIntegration::default();
-        let result = integration.analyze_message("explore and investigate the algorithm");
+        let result = integration.analyze_message("explore and investigate the algorithm", None);
         assert!(result.complexity > 4.0);
         assert_eq!(result.strategy, ReasoningStrategy::PhasedOrchestration);
         assert!(result.enable_structured_thinking);

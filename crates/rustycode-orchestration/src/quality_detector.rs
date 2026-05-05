@@ -51,6 +51,16 @@ impl QualityDetector {
         {
             score += 1.0;
         }
+        // Task verbs indicate specificity in instructions
+        let lower = response.to_ascii_lowercase();
+        let task_verbs = [
+            "fix", "implement", "add", "create", "update", "refactor", "debug",
+            "test", "build", "write", "remove", "change", "rename", "optimize",
+            "parse", "solve", "convert", "validate", "extract", "generate",
+        ];
+        if task_verbs.iter().any(|v| lower.contains(v)) {
+            score += 1.0;
+        }
         score.min(5.0)
     }
 
@@ -69,6 +79,11 @@ impl QualityDetector {
         if response.len() > 1500 {
             score += 1.0;
         }
+        // Multi-word tasks (3+ words) indicate moderate depth
+        let word_count = response.split_whitespace().count();
+        if word_count >= 3 {
+            score += 0.5;
+        }
         score.min(5.0)
     }
 
@@ -82,6 +97,27 @@ impl QualityDetector {
         }
         if response.contains("test") || response.contains("assert") {
             score += 1.0;
+        }
+        // References to specific items indicate completeness in task instructions
+        let lower = response.to_ascii_lowercase();
+        let has_reference = lower.contains("function")
+            || lower.contains("method")
+            || lower.contains("class")
+            || lower.contains("module")
+            || lower.contains("file")
+            || lower.contains("variable")
+            || lower.contains("parameter")
+            || lower.contains("type")
+            || lower.contains("parser")
+            || lower.contains("sort")
+            || lower.contains("search")
+            || lower.contains("cache")
+            || lower.contains("queue")
+            || lower.contains("stack")
+            || lower.contains("tree")
+            || lower.contains("graph");
+        if has_reference {
+            score += 0.5;
         }
         score.min(5.0)
     }
@@ -228,6 +264,56 @@ mod tests {
             "detailed ({}) should outscore minimal ({})",
             d.total,
             m.total
+        );
+    }
+
+    #[test]
+    fn test_task_instruction_scores_nonzero() {
+        let detector = QualityDetector::new();
+        let score = detector.evaluate("fix the quicksort function to handle duplicates");
+        assert!(
+            score.total >= 2.0,
+            "task instruction should score >= 2.0, got {}",
+            score.total
+        );
+    }
+
+    #[test]
+    fn test_task_verb_boosts_specificity() {
+        let detector = QualityDetector::new();
+        let with_verb = detector.evaluate("implement user authentication");
+        let without = detector.evaluate("user authentication");
+        assert!(
+            with_verb.specificity > without.specificity,
+            "task verb should boost specificity: {} vs {}",
+            with_verb.specificity,
+            without.specificity
+        );
+    }
+
+    #[test]
+    fn test_multi_word_depth() {
+        let detector = QualityDetector::new();
+        let multi = detector.evaluate("fix the parser to handle nested brackets");
+        let single = detector.evaluate("fix");
+        assert!(
+            multi.depth > single.depth,
+            "multi-word should have more depth: {} vs {}",
+            multi.depth,
+            single.depth
+        );
+    }
+
+    #[test]
+    fn test_reference_completeness() {
+        let detector = QualityDetector::new();
+        let with_ref = detector.evaluate("optimize the search function in the cache module");
+        let without = detector.evaluate("optimize this");
+        assert!(
+            with_ref.completeness > without.completeness,
+            "reference should boost completeness: {} vs {}",
+            with_ref.completeness,
+            without.completeness
         );
     }
 }
