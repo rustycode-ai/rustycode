@@ -2,8 +2,8 @@
 //!
 //! Shared between LLM and tool crates to provide consistent cost tracking.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::Utc;
+use serde::Serialize;
 use std::collections::HashMap;
 use rustycode_protocol::{ApiCall, Usage};
 

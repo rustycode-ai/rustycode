@@ -1,5 +1,4 @@
 //! Exposes skills as LLM-callable tools by converting skill metadata to JSON Schema
-//! and injecting skill instructions into the conversation on execution.
 
 use anyhow::Result;
 use rustycode_tools::{Tool, ToolContext, ToolOutput};

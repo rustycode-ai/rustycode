@@ -51,7 +51,6 @@ members = [
     "tests",
 ]
 exclude = [
-    "crates/ratzilla-wasm",
     "_archived",
     "examples/compile-time-tools",
     "mcp-test-server",

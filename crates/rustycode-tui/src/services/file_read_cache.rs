@@ -1,5 +1,4 @@
 //! File read deduplication cache that tracks mtime and read count to prevent
-//! redundant reads of unchanged files during a session.
 
 use std::collections::HashMap;
 use std::path::Path;

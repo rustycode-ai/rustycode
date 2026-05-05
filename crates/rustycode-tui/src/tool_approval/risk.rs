@@ -1,5 +1,22 @@
 //! Tool Risk Classification
 
+/// Known tool name constants — single source of truth for classification.
+pub mod tool_names {
+    pub const READ_FILE: &str = "read_file";
+    pub const WRITE_FILE: &str = "write_file";
+    pub const EDIT_FILE: &str = "edit_file";
+    pub const APPLY_PATCH: &str = "apply_patch";
+    pub const BASH: &str = "bash";
+    pub const GREP: &str = "grep";
+    pub const GLOB: &str = "glob";
+    pub const LIST_FILES: &str = "list_files";
+    pub const LIST_DIR: &str = "list_dir";
+    pub const GIT_STATUS: &str = "git_status";
+    pub const GIT_DIFF: &str = "git_diff";
+    pub const GIT_LOG: &str = "git_log";
+    pub const GIT_COMMIT: &str = "git_commit";
+}
+
 /// Tool risk level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
@@ -158,13 +175,13 @@ pub fn should_auto_approve(tool_type: &ToolType, command: &str) -> bool {
 /// Map a tool name string to a ToolType
 pub fn classify_tool_type(tool_name: &str) -> ToolType {
     match tool_name {
-        "read_file" => ToolType::ReadFile,
-        "write_file" => ToolType::WriteFile,
-        "bash" => ToolType::Bash,
-        "grep" => ToolType::Grep,
-        "glob" | "list_files" | "list_dir" => ToolType::ListDirectory,
-        "edit_file" | "apply_patch" => ToolType::WriteFile,
-        "git_status" | "git_diff" | "git_log" | "git_commit" => ToolType::Git,
+        tool_names::READ_FILE => ToolType::ReadFile,
+        tool_names::WRITE_FILE => ToolType::WriteFile,
+        tool_names::BASH => ToolType::Bash,
+        tool_names::GREP => ToolType::Grep,
+        tool_names::GLOB | tool_names::LIST_FILES | tool_names::LIST_DIR => ToolType::ListDirectory,
+        tool_names::EDIT_FILE | tool_names::APPLY_PATCH => ToolType::WriteFile,
+        tool_names::GIT_STATUS | tool_names::GIT_DIFF | tool_names::GIT_LOG | tool_names::GIT_COMMIT => ToolType::Git,
         _ => ToolType::Custom(tool_name.to_string()),
     }
 }

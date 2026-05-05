@@ -8,7 +8,7 @@
 
 pub mod types;
 
-pub use types::{CompletionRequest, CompletionResponse, Cost, ModelInfo, TokenCount};
+pub use types::{CompletionRequest, CompletionResponse, Cost, ModelInfo, TokenCount, Usage};
 
 use anyhow::Result;
 use async_trait::async_trait;

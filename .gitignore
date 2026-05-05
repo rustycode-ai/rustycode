@@ -138,3 +138,8 @@ credentials.json
 *.credentials.json
 config.json
 tests/sessions/
+
+# Generated/artifact files
+scorecard.png
+*.disabled
+terminal_bench_tasks.csv

@@ -1,5 +1,4 @@
 //! File Selector Component
-//! Provides an overlay for selecting files from the project workspace.
 
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},

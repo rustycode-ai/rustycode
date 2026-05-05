@@ -500,10 +500,10 @@ impl PolishedRenderer {
 
         if tui.awaiting_approval {
             if let Some(req) = tui.pending_approval_request.front() {
-                let panel_height = 7u16.min(size.height.saturating_sub(4));
-                let panel_width = 70u16.min(size.width.saturating_sub(4));
+                let (panel_height, panel_width) =
+                    crate::tool_approval::approval_panel_size(req, size);
                 let panel_area = centered_rect(panel_width, panel_height, size);
-                crate::tool_approval::render_approval_prompt(frame, panel_area, req);
+                crate::tool_approval::render_approval_prompt(frame, panel_area, req, size);
             }
         }
 

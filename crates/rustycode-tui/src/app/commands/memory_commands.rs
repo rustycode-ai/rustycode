@@ -68,7 +68,7 @@ pub fn handle_memory_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
                         let key = parts_clone[1].clone();
                         let value = parts_clone[2..].join(" ");
                         crate::slash_commands::memory::into_anyhow_result(rt.block_on(
-                            crate::slash_commands::memory::handle_save_command(&cwd, key, value),
+                            crate::slash_commands::memory::handle_memory_save_command(&cwd, key, value),
                         ))
                     }
                 }

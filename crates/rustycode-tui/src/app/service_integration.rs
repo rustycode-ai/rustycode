@@ -1,5 +1,4 @@
 //! Integration between the TUI event loop and background services (LLM streaming,
-//! tool execution, workspace loading) via bounded channels with backpressure.
 
 use crate::agent_mode::AiMode;
 use crate::app::async_::*;

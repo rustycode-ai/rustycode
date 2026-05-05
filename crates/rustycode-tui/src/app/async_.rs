@@ -1,5 +1,4 @@
 //! Bounded channels, event types (StreamChunk, ToolResult, WorkspaceUpdate), and
-//! non-blocking state snapshots for async communication with the TUI event loop.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;

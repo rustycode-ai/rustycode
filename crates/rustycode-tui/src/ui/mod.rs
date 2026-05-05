@@ -97,7 +97,8 @@ pub mod fuzzy_matcher;
 pub mod wizard;
 
 // Tests
-pub mod tests;
+#[cfg(test)]
+mod tests;
 
 // Message tags integration tests
 #[cfg(test)]

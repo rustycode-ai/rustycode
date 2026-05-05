@@ -51,6 +51,11 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     tui.context_monitor.update(&tui.messages);
     tui.check_auto_compaction();
 
+    // Mark session dirty so the 30-second auto-save persists this turn
+    if let Some(ref mut recovery) = tui.session_recovery {
+        recovery.mark_dirty();
+    }
+
     tui.auto_continue.auto_continue_pending = false;
     if !was_cancelled && tui.auto_continue.auto_continue_enabled {
         check_and_trigger_auto_continue(tui);

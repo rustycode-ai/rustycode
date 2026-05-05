@@ -132,7 +132,26 @@ impl TUI {
                 self.dirty = true;
                 Ok(true)
             }
-            _ => Ok(true),
+            _ => {
+                // Scroll keys for diff preview
+                if let Some(req) = self.pending_approval_request.front_mut() {
+                    if req.has_diff_content() {
+                        match key.code {
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                let visible = 10; // approximate visible diff lines
+                                req.scroll_diff_down(visible);
+                                self.dirty = true;
+                            }
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                req.scroll_diff_up();
+                                self.dirty = true;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Ok(true)
+            }
         }
     }
 

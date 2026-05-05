@@ -1,5 +1,4 @@
 //! Workspace context loading: project files, directory tree, git status, and
-//! optional code-structure map for LLM context, with progress callbacks.
 
 use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};

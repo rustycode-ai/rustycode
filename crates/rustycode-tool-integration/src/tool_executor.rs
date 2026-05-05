@@ -1,5 +1,4 @@
-use anyhow::Result;
-use rustycode_protocol::{ApiCall, CostTrackerProvider, ToolCall, ToolPermission, ToolResult};
+use rustycode_protocol::{ToolCall, ToolPermission, ToolResult};
 use serde::Serialize;
 use serde_json::Value;
 

@@ -1,5 +1,4 @@
 //! Tracks repeated AI errors (failed tools, build failures, test failures) and
-//! suggests recovery strategies to break out of error loops.
 
 use rustycode_protocol::CircularBuffer;
 use std::collections::HashMap;

@@ -133,6 +133,7 @@ pub(super) fn handle_approval_request_chunk(
             description,
             command,
             state: crate::tool_approval::ApprovalState::Pending,
+            diff_scroll: crate::tool_approval::DiffScrollState::default(),
         });
     tui.awaiting_approval = true;
     tui.dirty = true;

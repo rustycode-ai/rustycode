@@ -103,7 +103,7 @@ struct KeyValueMemory {
 ///
 /// Saves a key-value pair to memory
 ///
-pub async fn handle_save_command(
+pub async fn handle_memory_save_command(
     cwd: &Path,
     key: String,
     value: String,
@@ -505,7 +505,7 @@ mod tests {
 
         // Save a memory
         let result =
-            handle_save_command(cwd, "test_key".to_string(), "test_value".to_string()).await;
+            handle_memory_save_command(cwd, "test_key".to_string(), "test_value".to_string()).await;
         assert!(result.is_ok());
         assert!(result.unwrap().contains("✓"));
 
@@ -526,11 +526,11 @@ mod tests {
         let cwd = temp_dir.path();
 
         // Save a memory
-        let result = handle_save_command(cwd, "test_key".to_string(), "value1".to_string()).await;
+        let result = handle_memory_save_command(cwd, "test_key".to_string(), "value1".to_string()).await;
         assert!(result.is_ok());
 
         // Try to save with duplicate key
-        let result = handle_save_command(cwd, "test_key".to_string(), "value2".to_string()).await;
+        let result = handle_memory_save_command(cwd, "test_key".to_string(), "value2".to_string()).await;
         assert!(result.is_err());
         match result {
             Err(MemoryError::KeyExists(key)) => assert_eq!(key, "test_key"),
@@ -545,11 +545,11 @@ mod tests {
 
         // Save some memories - convert to anyhow::Result for tests
         let _ = into_anyhow_result(
-            handle_save_command(cwd, "project_name".to_string(), "RustyCode".to_string()).await,
+            handle_memory_save_command(cwd, "project_name".to_string(), "RustyCode".to_string()).await,
         )
         .unwrap();
         let _ = into_anyhow_result(
-            handle_save_command(
+            handle_memory_save_command(
                 cwd,
                 "user_preference".to_string(),
                 "Dark mode theme".to_string(),
@@ -581,11 +581,11 @@ mod tests {
 
         // Save some memories
         let _ = into_anyhow_result(
-            handle_save_command(cwd, "key1".to_string(), "value1".to_string()).await,
+            handle_memory_save_command(cwd, "key1".to_string(), "value1".to_string()).await,
         )
         .unwrap();
         let _ = into_anyhow_result(
-            handle_save_command(cwd, "key2".to_string(), "value2".to_string()).await,
+            handle_memory_save_command(cwd, "key2".to_string(), "value2".to_string()).await,
         )
         .unwrap();
 
@@ -605,7 +605,7 @@ mod tests {
 
         // Save a memory
         let _ = into_anyhow_result(
-            handle_save_command(cwd, "test_key".to_string(), "test_value".to_string()).await,
+            handle_memory_save_command(cwd, "test_key".to_string(), "test_value".to_string()).await,
         )
         .unwrap();
 
@@ -626,10 +626,10 @@ mod tests {
         let cwd = temp_dir.path();
 
         // Save some memories
-        handle_save_command(cwd, "key1".to_string(), "value1".to_string())
+        handle_memory_save_command(cwd, "key1".to_string(), "value1".to_string())
             .await
             .unwrap();
-        handle_save_command(cwd, "key2".to_string(), "value2".to_string())
+        handle_memory_save_command(cwd, "key2".to_string(), "value2".to_string())
             .await
             .unwrap();
 

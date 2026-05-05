@@ -1,7 +1,8 @@
 pub mod agent_mode;
 pub mod checkpoint;
 pub mod clipboard;
-pub mod clipboard_comprehensive_tests;
+#[cfg(test)]
+mod clipboard_comprehensive_tests;
 pub mod config;
 pub mod conversation_service;
 pub mod deep_thinking;

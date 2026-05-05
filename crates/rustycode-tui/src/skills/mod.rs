@@ -1,5 +1,4 @@
 //! Skills system: loading, fuzzy search, parameter input, lifecycle management,
-//! and LLM-callable skill-as-tool wrappers.
 
 pub mod composition;
 pub mod loader;
