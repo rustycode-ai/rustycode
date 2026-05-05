@@ -294,27 +294,34 @@ pub fn sync_from_todo_state(
     workspace: &mut WorkspaceTasks,
     todo_state: &rustycode_tools::todo::TodoState,
 ) -> bool {
-    let items = todo_state
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let items = match todo_state.lock() {
+        Ok(guard) => guard,
+        Err(poison) => {
+            tracing::warn!("Mutex poisoned during todo sync, recovering");
+            poison.into_inner()
+        }
+    };
 
-    let new_tasks: Vec<Task> = items.iter().map(llm_todo_to_task).collect();
-
-    let old_llm_count = workspace
+    let old_llm_tasks: Vec<&Task> = workspace
         .tasks
         .iter()
         .filter(|t| t.owner.as_deref() == Some(LLM_TODO_OWNER))
-        .count();
+        .collect();
 
-    let changed = old_llm_count != new_tasks.len()
-        || !std::iter::zip(
-            workspace
-                .tasks
+    let new_tasks: Vec<Task> = items
+        .iter()
+        .map(|item| {
+            let existing = old_llm_tasks
                 .iter()
-                .filter(|t| t.owner.as_deref() == Some(LLM_TODO_OWNER)),
-            &new_tasks,
-        )
-        .all(|(a, b)| a.id == b.id && a.status == b.status && a.description == b.description);
+                .find(|t| t.id == item.id)
+                .copied();
+            llm_todo_to_task(item, existing)
+        })
+        .collect();
+
+    let changed = old_llm_tasks.len() != new_tasks.len()
+        || !std::iter::zip(&old_llm_tasks, &new_tasks)
+            .all(|(old, new)| old.id == new.id && old.status == new.status && old.description == new.description);
 
     if changed {
         workspace
@@ -326,7 +333,10 @@ pub fn sync_from_todo_state(
     changed
 }
 
-fn llm_todo_to_task(item: &rustycode_tools::todo::TodoItem) -> Task {
+fn llm_todo_to_task(
+    item: &rustycode_tools::todo::TodoItem,
+    existing: Option<&Task>,
+) -> Task {
     Task {
         id: item.id.clone(),
         description: item.title.clone(),
@@ -334,9 +344,16 @@ fn llm_todo_to_task(item: &rustycode_tools::todo::TodoItem) -> Task {
             rustycode_tools::todo::TodoStatus::Pending => TaskStatus::Pending,
             rustycode_tools::todo::TodoStatus::InProgress => TaskStatus::InProgress,
             rustycode_tools::todo::TodoStatus::Completed => TaskStatus::Completed,
-            _ => TaskStatus::Pending,
+            _ => {
+                tracing::warn!(
+                    "Unknown TodoStatus for item {}: {:?}, treating as Pending",
+                    item.id,
+                    item.status
+                );
+                TaskStatus::Pending
+            }
         },
-        created_at: SystemTime::now(),
+        created_at: existing.map(|t| t.created_at).unwrap_or_else(SystemTime::now),
         dependencies: Vec::new(),
         owner: Some(LLM_TODO_OWNER.to_string()),
     }
@@ -621,5 +638,176 @@ mod tests {
         let loaded: WorkspaceTasks = serde_json::from_str(json).unwrap();
         assert_eq!(loaded.tasks.len(), 1);
         assert_eq!(loaded.tasks[0].owner, None);
+    }
+
+    #[test]
+    fn test_sync_preserves_created_at() {
+        // Verify that created_at timestamp is preserved when a task already exists
+        let old_time = SystemTime::UNIX_EPOCH;
+
+        let mut workspace = WorkspaceTasks {
+            tasks: vec![Task {
+                id: "todo-1".to_string(),
+                description: "Existing task".to_string(),
+                status: TaskStatus::Pending,
+                created_at: old_time,
+                dependencies: vec![],
+                owner: Some(LLM_TODO_OWNER.to_string()),
+            }],
+            todos: vec![],
+            active_agents: vec![],
+        };
+
+        let todo_state = std::sync::Arc::new(std::sync::Mutex::new(vec![
+            rustycode_tools::todo::TodoItem {
+                id: "todo-1".to_string(),
+                title: "Existing task".to_string(),
+                status: rustycode_tools::todo::TodoStatus::Pending,
+                active_form: None,
+            },
+        ]));
+
+        let changed = sync_from_todo_state(&mut workspace, &todo_state);
+
+        // Task content didn't change, so sync should return false
+        assert!(!changed);
+        // But created_at should be preserved from the old task
+        assert_eq!(workspace.tasks[0].created_at, old_time);
+    }
+
+    #[test]
+    fn test_sync_sets_created_at_for_new_todos() {
+        // Verify that created_at is set to now() for brand new todos
+        let mut workspace = WorkspaceTasks {
+            tasks: vec![],
+            todos: vec![],
+            active_agents: vec![],
+        };
+
+        let todo_state = std::sync::Arc::new(std::sync::Mutex::new(vec![
+            rustycode_tools::todo::TodoItem {
+                id: "new-todo".to_string(),
+                title: "New task".to_string(),
+                status: rustycode_tools::todo::TodoStatus::InProgress,
+                active_form: None,
+            },
+        ]));
+
+        let before_sync = SystemTime::now();
+        let changed = sync_from_todo_state(&mut workspace, &todo_state);
+        let after_sync = SystemTime::now();
+
+        assert!(changed);
+        assert_eq!(workspace.tasks.len(), 1);
+        assert_eq!(workspace.tasks[0].id, "new-todo");
+        assert_eq!(workspace.tasks[0].status, TaskStatus::InProgress);
+        // created_at should be fresh (between before and after)
+        assert!(workspace.tasks[0].created_at >= before_sync);
+        assert!(workspace.tasks[0].created_at <= after_sync);
+    }
+
+    #[test]
+    fn test_sync_detects_status_changes() {
+        // Verify that change detection works correctly for status changes
+        let mut workspace = WorkspaceTasks {
+            tasks: vec![Task {
+                id: "todo-1".to_string(),
+                description: "Task".to_string(),
+                status: TaskStatus::Pending,
+                created_at: SystemTime::now(),
+                dependencies: vec![],
+                owner: Some(LLM_TODO_OWNER.to_string()),
+            }],
+            todos: vec![],
+            active_agents: vec![],
+        };
+
+        let todo_state = std::sync::Arc::new(std::sync::Mutex::new(vec![
+            rustycode_tools::todo::TodoItem {
+                id: "todo-1".to_string(),
+                title: "Task".to_string(),
+                status: rustycode_tools::todo::TodoStatus::Completed,
+                active_form: None,
+            },
+        ]));
+
+        let changed = sync_from_todo_state(&mut workspace, &todo_state);
+
+        assert!(changed);
+        assert_eq!(workspace.tasks[0].status, TaskStatus::Completed);
+    }
+
+    #[test]
+    fn test_sync_detects_description_changes() {
+        // Verify that change detection works for description changes
+        let mut workspace = WorkspaceTasks {
+            tasks: vec![Task {
+                id: "todo-1".to_string(),
+                description: "Old description".to_string(),
+                status: TaskStatus::Pending,
+                created_at: SystemTime::now(),
+                dependencies: vec![],
+                owner: Some(LLM_TODO_OWNER.to_string()),
+            }],
+            todos: vec![],
+            active_agents: vec![],
+        };
+
+        let todo_state = std::sync::Arc::new(std::sync::Mutex::new(vec![
+            rustycode_tools::todo::TodoItem {
+                id: "todo-1".to_string(),
+                title: "New description".to_string(),
+                status: rustycode_tools::todo::TodoStatus::Pending,
+                active_form: None,
+            },
+        ]));
+
+        let changed = sync_from_todo_state(&mut workspace, &todo_state);
+
+        assert!(changed);
+        assert_eq!(workspace.tasks[0].description, "New description");
+    }
+
+    #[test]
+    fn test_sync_replaces_removed_todos() {
+        // Verify that todos are properly removed when they disappear from the source
+        let mut workspace = WorkspaceTasks {
+            tasks: vec![
+                Task {
+                    id: "todo-1".to_string(),
+                    description: "Task 1".to_string(),
+                    status: TaskStatus::Pending,
+                    created_at: SystemTime::now(),
+                    dependencies: vec![],
+                    owner: Some(LLM_TODO_OWNER.to_string()),
+                },
+                Task {
+                    id: "todo-2".to_string(),
+                    description: "Task 2".to_string(),
+                    status: TaskStatus::Pending,
+                    created_at: SystemTime::now(),
+                    dependencies: vec![],
+                    owner: Some(LLM_TODO_OWNER.to_string()),
+                },
+            ],
+            todos: vec![],
+            active_agents: vec![],
+        };
+
+        // Only task-1 remains in the source
+        let todo_state = std::sync::Arc::new(std::sync::Mutex::new(vec![
+            rustycode_tools::todo::TodoItem {
+                id: "todo-1".to_string(),
+                title: "Task 1".to_string(),
+                status: rustycode_tools::todo::TodoStatus::Pending,
+                active_form: None,
+            },
+        ]));
+
+        let changed = sync_from_todo_state(&mut workspace, &todo_state);
+
+        assert!(changed);
+        assert_eq!(workspace.tasks.len(), 1);
+        assert_eq!(workspace.tasks[0].id, "todo-1");
     }
 }
