@@ -56,6 +56,83 @@ pub struct ToolExecution {
     pub output_preview: String,
 }
 
+/// Token budget state - tracks session token spending limits
+pub struct TokenBudgetState {
+    pub budget: Option<usize>,
+}
+
+impl TokenBudgetState {
+    /// Set a token budget for this session.
+    pub fn set(&mut self, budget: usize) {
+        self.budget = Some(budget);
+    }
+
+    /// Check if within budget. Returns `Ok(())` if within budget, or `Err` with status.
+    pub fn check(&self, tokens_used: usize) -> Result<(), TokenBudgetStatus> {
+        let Some(budget) = self.budget else {
+            return Ok(());
+        };
+        if tokens_used > budget {
+            Err(TokenBudgetStatus::Exceeded {
+                used: tokens_used,
+                budget,
+                over_by: tokens_used.saturating_sub(budget),
+            })
+        } else if tokens_used > budget / 10 * 9 {
+            Err(TokenBudgetStatus::Warning {
+                used: tokens_used,
+                budget,
+                remaining: budget.saturating_sub(tokens_used),
+            })
+        } else {
+            Ok(())
+        }
+    }
+
+    /// Fraction of token budget consumed (0.0 to 1.0+).
+    pub fn fraction(&self, tokens_used: usize) -> f64 {
+        let budget = self.budget.unwrap_or(usize::MAX);
+        if budget == 0 {
+            return 1.0;
+        }
+        tokens_used as f64 / budget as f64
+    }
+}
+
+/// Streaming state - tracks ongoing LLM response streaming
+pub struct StreamingState {
+    pub is_streaming: bool,
+    pub current_response: String,
+    pub last_user_prompt: Option<String>,
+    pub cached_system_prompt: String,
+}
+
+impl StreamingState {
+    /// Set streaming state, clearing response when stopping.
+    pub fn set_streaming(&mut self, is_streaming: bool) {
+        self.is_streaming = is_streaming;
+        if !is_streaming {
+            self.current_response.clear();
+        }
+    }
+
+    /// Append text to the current streaming response.
+    pub fn append_response(&mut self, text: &str) {
+        self.current_response.push_str(text);
+    }
+
+    /// Complete streaming, returning the response content (empty string if nothing accumulated).
+    pub fn complete(&mut self) -> String {
+        let response = if !self.current_response.is_empty() {
+            std::mem::take(&mut self.current_response)
+        } else {
+            String::new()
+        };
+        self.is_streaming = false;
+        response
+    }
+}
+
 /// Checkpoint recovery state - tracks crash recovery and checkpointing
 pub struct CheckpointState {
     pub counter: u32,
@@ -131,20 +208,13 @@ pub struct SessionState {
     pub last_request_latency: Option<u128>,
 
     // Token budget
-    pub token_budget: Option<usize>,
+    pub token_budget: TokenBudgetState,
 
     // Streaming state
-    pub is_streaming: bool,
-    pub current_response: String,
+    pub streaming: StreamingState,
 
     // Edit preview state
     pub edit_preview: EditPreviewState,
-
-    // Regeneration
-    pub last_user_prompt: Option<String>,
-
-    // System prompt cache
-    pub cached_system_prompt: String,
 
     // Checkpointing for crash recovery
     pub checkpoint: CheckpointState,
@@ -292,16 +362,18 @@ impl SessionState {
             current_request_input_tokens: 0,
             error_count: 0,
             last_request_latency: None,
-            token_budget: None,
-            is_streaming: false,
-            current_response: String::new(),
+            token_budget: TokenBudgetState { budget: None },
+            streaming: StreamingState {
+                is_streaming: false,
+                current_response: String::new(),
+                last_user_prompt: None,
+                cached_system_prompt: String::new(),
+            },
             edit_preview: EditPreviewState {
                 file_path: None,
                 original_content: String::new(),
                 new_content: String::new(),
             },
-            last_user_prompt: None,
-            cached_system_prompt: String::new(),
             checkpoint: CheckpointState {
                 counter: 0,
                 last_checkpoint_time: Instant::now(),
@@ -439,39 +511,18 @@ impl SessionState {
     /// Set a token budget for this session. When `tokens_used` exceeds this,
     /// `check_token_budget()` returns a warning.
     pub fn set_token_budget(&mut self, budget: usize) {
-        self.token_budget = Some(budget);
+        self.token_budget.set(budget);
     }
 
     /// Check if the session is within its token budget.
     /// Returns `Ok(())` if within budget, or `Err` with remaining tokens info.
     pub fn check_token_budget(&self) -> Result<(), TokenBudgetStatus> {
-        let Some(budget) = self.token_budget else {
-            return Ok(());
-        };
-        if self.tokens_used > budget {
-            Err(TokenBudgetStatus::Exceeded {
-                used: self.tokens_used,
-                budget,
-                over_by: self.tokens_used.saturating_sub(budget),
-            })
-        } else if self.tokens_used > budget / 10 * 9 {
-            Err(TokenBudgetStatus::Warning {
-                used: self.tokens_used,
-                budget,
-                remaining: budget.saturating_sub(self.tokens_used),
-            })
-        } else {
-            Ok(())
-        }
+        self.token_budget.check(self.tokens_used)
     }
 
     /// Fraction of token budget consumed (0.0 to 1.0+).
     pub fn token_budget_fraction(&self) -> f64 {
-        let budget = self.token_budget.unwrap_or(usize::MAX);
-        if budget == 0 {
-            return 1.0;
-        }
-        self.tokens_used as f64 / budget as f64
+        self.token_budget.fraction(self.tokens_used)
     }
 
     /// Record request latency
@@ -511,30 +562,26 @@ impl SessionState {
 
     /// Set streaming state
     pub fn set_streaming(&mut self, is_streaming: bool) {
-        self.is_streaming = is_streaming;
-        if !is_streaming {
-            self.current_response.clear();
-        }
+        self.streaming.set_streaming(is_streaming);
     }
 
     /// Append to current streaming response
     pub fn append_streaming_response(&mut self, text: &str) {
-        self.current_response.push_str(text);
+        self.streaming.append_response(text);
     }
 
     /// Complete streaming response and add to messages
     pub fn complete_streaming_response(&mut self) {
-        if !self.current_response.is_empty() {
+        let response = self.streaming.complete();
+        if !response.is_empty() {
             let message = Message {
                 role: MessageRole::Assistant,
-                content: MessageContent::simple(self.current_response.clone()),
+                content: MessageContent::simple(response),
                 timestamp: Utc::now(),
                 metadata: MessageMetadata::default(),
             };
             self.messages.push(message);
-            self.current_response.clear();
         }
-        self.is_streaming = false;
     }
 
     /// Safely set pending LLM request flag
@@ -705,8 +752,8 @@ mod tests {
         assert_eq!(s.scroll_offset, 0);
         assert_eq!(s.total_requests, 0);
         assert_eq!(s.tokens_used, 0);
-        assert!(!s.is_streaming);
-        assert!(s.current_response.is_empty());
+        assert!(!s.streaming.is_streaming);
+        assert!(s.streaming.current_response.is_empty());
         assert!(s.active_tools.is_empty());
         assert!(!s.provider_configured);
         assert_eq!(s.error_count, 0);
@@ -792,14 +839,14 @@ mod tests {
     #[test]
     fn set_streaming_state() {
         let mut s = make_session();
-        assert!(!s.is_streaming);
+        assert!(!s.streaming.is_streaming);
 
         s.set_streaming(true);
-        assert!(s.is_streaming);
+        assert!(s.streaming.is_streaming);
 
         s.set_streaming(false);
-        assert!(!s.is_streaming);
-        assert!(s.current_response.is_empty());
+        assert!(!s.streaming.is_streaming);
+        assert!(s.streaming.current_response.is_empty());
     }
 
     #[test]
@@ -808,11 +855,11 @@ mod tests {
         s.set_streaming(true);
         s.append_streaming_response("Hello ");
         s.append_streaming_response("World");
-        assert_eq!(s.current_response, "Hello World");
+        assert_eq!(s.streaming.current_response, "Hello World");
 
         s.complete_streaming_response();
-        assert!(!s.is_streaming);
-        assert!(s.current_response.is_empty());
+        assert!(!s.streaming.is_streaming);
+        assert!(s.streaming.current_response.is_empty());
         assert_eq!(s.messages.len(), 1);
         assert_eq!(s.messages[0].content.as_text(), "Hello World");
         assert_eq!(MessageType::from_role(s.messages[0].role.as_str()), MessageType::AI);
@@ -1026,7 +1073,7 @@ mod tests {
     #[test]
     fn token_budget_defaults_to_none() {
         let s = make_session();
-        assert!(s.token_budget.is_none());
+        assert!(s.token_budget.budget.is_none());
         assert!(s.check_token_budget().is_ok());
     }
 
