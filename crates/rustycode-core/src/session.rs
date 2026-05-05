@@ -56,6 +56,30 @@ pub struct ToolExecution {
     pub output_preview: String,
 }
 
+/// Checkpoint recovery state - tracks crash recovery and checkpointing
+pub struct CheckpointState {
+    pub counter: u32,
+    pub last_checkpoint_time: Instant,
+    pub last_checkpoint_id: Option<String>,
+    pub recovery_handler: Option<Recovery>,
+}
+
+/// Edit preview state - tracks file edit previews
+#[derive(Clone, Debug)]
+pub struct EditPreviewState {
+    pub file_path: Option<String>,
+    pub original_content: String,
+    pub new_content: String,
+}
+
+/// Code panel state - tracks code display in the UI
+#[derive(Clone, Debug)]
+pub struct CodePanelState {
+    pub file: Option<String>,
+    pub content: String,
+    pub language: String,
+}
+
 /// Core session state - independent of UI implementation
 pub struct SessionState {
     // Conversation state
@@ -114,9 +138,7 @@ pub struct SessionState {
     pub current_response: String,
 
     // Edit preview state
-    pub edit_file_path: Option<String>,
-    pub edit_original_content: String,
-    pub edit_new_content: String,
+    pub edit_preview: EditPreviewState,
 
     // Regeneration
     pub last_user_prompt: Option<String>,
@@ -125,10 +147,7 @@ pub struct SessionState {
     pub cached_system_prompt: String,
 
     // Checkpointing for crash recovery
-    pub checkpoint_counter: u32,
-    pub last_checkpoint_time: Instant,
-    pub last_checkpoint_id: Option<String>,
-    pub recovery_handler: Option<Recovery>,
+    pub checkpoint: CheckpointState,
 
     // Todo state for task planning
     pub todo_state: TodoState,
@@ -137,9 +156,7 @@ pub struct SessionState {
     pub tool_executor: rustycode_tools::ToolExecutor,
 
     // Code panel state (for showing file contents)
-    pub code_panel_file: Option<String>,
-    pub code_panel_content: String,
-    pub code_panel_language: String,
+    pub code_panel: CodePanelState,
 }
 
 /// Message type for role mapping
@@ -278,20 +295,26 @@ impl SessionState {
             token_budget: None,
             is_streaming: false,
             current_response: String::new(),
-            edit_file_path: None,
-            edit_original_content: String::new(),
-            edit_new_content: String::new(),
+            edit_preview: EditPreviewState {
+                file_path: None,
+                original_content: String::new(),
+                new_content: String::new(),
+            },
             last_user_prompt: None,
             cached_system_prompt: String::new(),
-            checkpoint_counter: 0,
-            last_checkpoint_time: Instant::now(),
-            last_checkpoint_id: None,
-            recovery_handler: None,
+            checkpoint: CheckpointState {
+                counter: 0,
+                last_checkpoint_time: Instant::now(),
+                last_checkpoint_id: None,
+                recovery_handler: None,
+            },
             todo_state: new_todo_state(),
             tool_executor: rustycode_tools::ToolExecutor::from_cwd(cwd.clone()),
-            code_panel_file: None,
-            code_panel_content: String::new(),
-            code_panel_language: String::new(),
+            code_panel: CodePanelState {
+                file: None,
+                content: String::new(),
+                language: String::new(),
+            },
         }
     }
 
@@ -558,30 +581,30 @@ impl SessionState {
         original: String,
         new: String,
     ) {
-        self.edit_file_path = file_path;
-        self.edit_original_content = original;
-        self.edit_new_content = new;
+        self.edit_preview.file_path = file_path;
+        self.edit_preview.original_content = original;
+        self.edit_preview.new_content = new;
     }
 
     /// Clear edit preview
     pub fn clear_edit_preview(&mut self) {
-        self.edit_file_path = None;
-        self.edit_original_content.clear();
-        self.edit_new_content.clear();
+        self.edit_preview.file_path = None;
+        self.edit_preview.original_content.clear();
+        self.edit_preview.new_content.clear();
     }
 
     /// Update code panel
     pub fn update_code_panel(&mut self, file: Option<String>, content: String, language: String) {
-        self.code_panel_file = file;
-        self.code_panel_content = content;
-        self.code_panel_language = language;
+        self.code_panel.file = file;
+        self.code_panel.content = content;
+        self.code_panel.language = language;
     }
 
     /// Clear code panel
     pub fn clear_code_panel(&mut self) {
-        self.code_panel_file = None;
-        self.code_panel_content.clear();
-        self.code_panel_language.clear();
+        self.code_panel.file = None;
+        self.code_panel.content.clear();
+        self.code_panel.language.clear();
     }
 
     /// Execute a tool call
@@ -601,14 +624,15 @@ impl SessionState {
         let checkpoint = store.load(checkpoint_id)?;
         let mut recovery = Recovery::from_checkpoint(checkpoint);
         recovery.validate()?;
-        self.recovery_handler = Some(recovery);
-        self.last_checkpoint_id = Some(checkpoint_id.to_string());
+        self.checkpoint.recovery_handler = Some(recovery);
+        self.checkpoint.last_checkpoint_id = Some(checkpoint_id.to_string());
         Ok(())
     }
 
     /// Get list of pending effects from the recovery handler.
     pub fn pending_effects(&self) -> Vec<String> {
-        self.recovery_handler
+        self.checkpoint
+            .recovery_handler
             .as_ref()
             .map(Recovery::remaining_effects)
             .unwrap_or_default()
@@ -853,12 +877,12 @@ mod tests {
             "old content".to_string(),
             "new content".to_string(),
         );
-        assert_eq!(s.edit_file_path, Some("file.rs".to_string()));
-        assert_eq!(s.edit_original_content, "old content");
+        assert_eq!(s.edit_preview.file_path, Some("file.rs".to_string()));
+        assert_eq!(s.edit_preview.original_content, "old content");
 
         s.clear_edit_preview();
-        assert!(s.edit_file_path.is_none());
-        assert!(s.edit_original_content.is_empty());
+        assert!(s.edit_preview.file_path.is_none());
+        assert!(s.edit_preview.original_content.is_empty());
     }
 
     #[test]
@@ -869,11 +893,11 @@ mod tests {
             "fn main() {}".to_string(),
             "rust".to_string(),
         );
-        assert_eq!(s.code_panel_file, Some("main.rs".to_string()));
+        assert_eq!(s.code_panel.file, Some("main.rs".to_string()));
 
         s.clear_code_panel();
-        assert!(s.code_panel_file.is_none());
-        assert!(s.code_panel_content.is_empty());
+        assert!(s.code_panel.file.is_none());
+        assert!(s.code_panel.content.is_empty());
     }
 
     #[test]
@@ -943,8 +967,8 @@ mod tests {
     #[test]
     fn session_state_initializes_with_none() {
         let s = make_session();
-        assert!(s.last_checkpoint_id.is_none());
-        assert!(s.recovery_handler.is_none());
+        assert!(s.checkpoint.last_checkpoint_id.is_none());
+        assert!(s.checkpoint.recovery_handler.is_none());
         assert!(s.pending_effects().is_empty());
     }
 
@@ -958,8 +982,8 @@ mod tests {
 
         let result = s.restore_from_checkpoint(&id, &store);
         assert!(result.is_ok());
-        assert_eq!(s.last_checkpoint_id, Some(id));
-        assert!(s.recovery_handler.is_some());
+        assert_eq!(s.checkpoint.last_checkpoint_id, Some(id));
+        assert!(s.checkpoint.recovery_handler.is_some());
     }
 
     #[test]
@@ -974,7 +998,7 @@ mod tests {
 
         let result = s.restore_from_checkpoint(&id, &store);
         assert!(result.is_err());
-        assert!(s.last_checkpoint_id.is_none());
+        assert!(s.checkpoint.last_checkpoint_id.is_none());
     }
 
     #[test]
