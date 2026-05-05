@@ -186,8 +186,9 @@ pub(super) fn handle_system_message_chunk(tui: &mut TUI, msg: String) {
 
 pub(super) fn handle_todo_sync_chunk(tui: &mut TUI) {
     if crate::app::tasks::sync_from_todo_state(&mut tui.workspace_tasks, &tui.todo_state) {
+        tracing::debug!("TodoSync: state changed, saving workspace tasks");
         if let Err(e) = crate::app::tasks::save_tasks(&tui.workspace_tasks) {
-            tracing::warn!("Failed to save synced todo state: {}", e);
+            tracing::warn!("TodoSync: failed to save synced todo state: {}", e);
         }
     }
 }
