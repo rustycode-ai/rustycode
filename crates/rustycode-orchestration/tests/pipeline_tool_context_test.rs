@@ -168,7 +168,15 @@ async fn test_conduct_accepts_conversation_history() {
         .conduct_with_history(
             "history-test".into(),
             "Now add a goodbye message".into(),
-            history.into_iter().map(|e| (e.role, e.content)).collect(),
+            history
+                .into_iter()
+                .map(|e| rustycode_protocol::Message {
+                    role: e.role,
+                    content: rustycode_protocol::MessageContent::simple(e.content),
+                    timestamp: chrono::Utc::now(),
+                    metadata: rustycode_protocol::MessageMetadata::default(),
+                })
+                .collect(),
             system_prompt,
         )
         .await;

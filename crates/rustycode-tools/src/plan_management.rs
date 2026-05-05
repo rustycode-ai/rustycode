@@ -247,7 +247,12 @@ the full plan object. This is a simplified version.
             "saved_at": Utc::now().to_rfc3339(),
             "note": "This is a placeholder. In a real implementation, the plan would be retrieved from state."
         }))?;
-        let path = validate_write_path(file_path, &ctx.cwd, plan_json.len(), !ctx.allow_outside_workspace)?;
+        let path = validate_write_path(
+            file_path,
+            &ctx.cwd,
+            plan_json.len(),
+            !ctx.allow_outside_workspace,
+        )?;
 
         // Create parent directories if needed
         if let Some(parent) = path.parent() {

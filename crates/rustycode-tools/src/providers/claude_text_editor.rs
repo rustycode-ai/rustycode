@@ -399,7 +399,12 @@ impl ClaudeTextEditor {
         }
 
         // Validate and resolve path
-        let path = validate_write_path(path_str, &ctx.cwd, new_str.len(), !ctx.allow_outside_workspace)?;
+        let path = validate_write_path(
+            path_str,
+            &ctx.cwd,
+            new_str.len(),
+            !ctx.allow_outside_workspace,
+        )?;
 
         // Create backup before editing
         backup_manager.backup(&path)?;
@@ -469,7 +474,12 @@ impl ClaudeTextEditor {
         ctx: &ToolContext,
     ) -> Result<ToolOutput> {
         // Validate and resolve path
-        let path = validate_write_path(path_str, &ctx.cwd, content.len(), !ctx.allow_outside_workspace)?;
+        let path = validate_write_path(
+            path_str,
+            &ctx.cwd,
+            content.len(),
+            !ctx.allow_outside_workspace,
+        )?;
 
         // Create parent directories if needed (atomic - no TOCTOU)
         // fs::create_dir_all is idempotent - handles AlreadyExists gracefully
@@ -522,7 +532,12 @@ impl ClaudeTextEditor {
         }
 
         // Validate and resolve path
-        let path = validate_write_path(path_str, &ctx.cwd, content.len(), !ctx.allow_outside_workspace)?;
+        let path = validate_write_path(
+            path_str,
+            &ctx.cwd,
+            content.len(),
+            !ctx.allow_outside_workspace,
+        )?;
 
         // Create backup before editing
         backup_manager.backup(&path)?;
@@ -1214,7 +1229,10 @@ mod tests {
         let content = fs::read_to_string(&test_file).unwrap();
         assert!(content.contains("replaced1"), "Should contain replacement");
         // CRLF should be preserved in the rest of the file
-        assert!(content.contains("line3"), "Should preserve unchanged content");
+        assert!(
+            content.contains("line3"),
+            "Should preserve unchanged content"
+        );
     }
 
     #[test]

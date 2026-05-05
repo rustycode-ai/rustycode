@@ -59,7 +59,10 @@ impl GoalManager {
             updated_at_secs: now,
         };
 
-        self.goals.lock().unwrap_or_else(|e| e.into_inner()).push(goal);
+        self.goals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(goal);
         id
     }
 
@@ -125,10 +128,7 @@ impl GoalManager {
 
     /// List all goals.
     pub fn list_goals(&self) -> Vec<Goal> {
-        self.goals
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone()
+        self.goals.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     /// Generate a continuation prompt when budget is nearly exhausted.

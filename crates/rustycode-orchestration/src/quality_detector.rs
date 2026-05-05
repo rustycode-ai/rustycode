@@ -54,12 +54,31 @@ impl QualityDetector {
         // Task verbs indicate specificity in instructions (word-boundary aware)
         let lower = response.to_ascii_lowercase();
         let task_verbs = [
-            "fix", "implement", "add", "create", "update", "refactor", "debug",
-            "test", "build", "write", "remove", "change", "rename", "optimize",
-            "parse", "solve", "convert", "validate", "extract", "generate",
+            "fix",
+            "implement",
+            "add",
+            "create",
+            "update",
+            "refactor",
+            "debug",
+            "test",
+            "build",
+            "write",
+            "remove",
+            "change",
+            "rename",
+            "optimize",
+            "parse",
+            "solve",
+            "convert",
+            "validate",
+            "extract",
+            "generate",
         ];
         let has_task_verb = task_verbs.iter().any(|v| {
-            lower.split(|c: char| !c.is_alphanumeric()).any(|word| word == *v)
+            lower
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|word| word == *v)
         });
         if has_task_verb {
             score += 1.0;

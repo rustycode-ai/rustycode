@@ -1912,11 +1912,8 @@ pub fn load_config() -> Result<Config> { Ok(Config::new()) }
             .expect("failed to run git init");
 
         // Write .gitignore with standard ignore patterns
-        std::fs::write(
-            dir.path().join(".gitignore"),
-            "target/\nnode_modules/\n",
-        )
-        .expect("failed to write .gitignore");
+        std::fs::write(dir.path().join(".gitignore"), "target/\nnode_modules/\n")
+            .expect("failed to write .gitignore");
 
         // Create a file in target/ which should be skipped
         let target_dir = dir.path().join("target");

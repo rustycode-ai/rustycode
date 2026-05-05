@@ -234,9 +234,7 @@ pub fn validate_path(
                 let parent_canonical = fs::canonicalize(parent)
                     .map_err(|e| anyhow!("failed to canonicalize parent: {e}"))?;
 
-                if enforce_workspace
-                    && !parent_canonical.starts_with(&workspace_canonical)
-                {
+                if enforce_workspace && !parent_canonical.starts_with(&workspace_canonical) {
                     return Err(anyhow!(
                         "path parent '{}' is outside workspace '{}' and is blocked. \
                          Use a relative path within the workspace, or use the bash tool \
@@ -307,7 +305,11 @@ fn check_path_for_symlinks(path: &Path, workspace: &Path) -> Result<()> {
 /// - Path is within workspace
 /// - No symlinks in path
 /// - File extension is not blocked
-pub fn validate_read_path(path: &str, workspace: &Path, enforce_workspace: bool) -> Result<PathBuf> {
+pub fn validate_read_path(
+    path: &str,
+    workspace: &Path,
+    enforce_workspace: bool,
+) -> Result<PathBuf> {
     let validated = validate_path(path, workspace, true, false, enforce_workspace)?;
 
     // Check blocked path components (e.g., .ssh, .gnupg, .aws)
@@ -363,7 +365,12 @@ pub fn validate_read_path(path: &str, workspace: &Path, enforce_workspace: bool)
 /// - Parent directory exists
 /// - Content size is within limits
 /// - File extension is not blocked
-pub fn validate_write_path(path: &str, workspace: &Path, content_size: usize, enforce_workspace: bool) -> Result<PathBuf> {
+pub fn validate_write_path(
+    path: &str,
+    workspace: &Path,
+    content_size: usize,
+    enforce_workspace: bool,
+) -> Result<PathBuf> {
     let validated = validate_path(path, workspace, false, false, enforce_workspace)?;
 
     // Check blocked path components (e.g., .ssh, .gnupg, .aws)
@@ -436,7 +443,11 @@ pub fn validate_write_path(path: &str, workspace: &Path, content_size: usize, en
 /// - Path is within workspace
 /// - No symlinks in path
 /// - Path is a directory (if it exists)
-pub fn validate_list_path(path: &str, workspace: &Path, enforce_workspace: bool) -> Result<PathBuf> {
+pub fn validate_list_path(
+    path: &str,
+    workspace: &Path,
+    enforce_workspace: bool,
+) -> Result<PathBuf> {
     let validated = validate_path(path, workspace, true, false, enforce_workspace)?;
 
     // Check if it's actually a directory
@@ -919,11 +930,7 @@ mod tests {
         let file_path = outside.path().join("outside.txt");
         fs::write(&file_path, "hello").unwrap();
 
-        let result = validate_read_path(
-            file_path.to_str().unwrap(),
-            workspace.path(),
-            false,
-        );
+        let result = validate_read_path(file_path.to_str().unwrap(), workspace.path(), false);
         assert!(result.is_ok());
     }
 
@@ -933,11 +940,7 @@ mod tests {
         let env_path = workspace.path().join(".env");
         fs::write(&env_path, "KEY=secret").unwrap();
 
-        let result = validate_read_path(
-            env_path.to_str().unwrap(),
-            workspace.path(),
-            false,
-        );
+        let result = validate_read_path(env_path.to_str().unwrap(), workspace.path(), false);
         assert!(result.is_err());
     }
 
@@ -947,12 +950,7 @@ mod tests {
         let outside = tempdir().unwrap();
         let file_path = outside.path().join("outside.txt");
 
-        let result = validate_write_path(
-            file_path.to_str().unwrap(),
-            workspace.path(),
-            100,
-            false,
-        );
+        let result = validate_write_path(file_path.to_str().unwrap(), workspace.path(), 100, false);
         assert!(result.is_ok());
     }
 
@@ -961,12 +959,7 @@ mod tests {
         let workspace = tempdir().unwrap();
         let cred_path = workspace.path().join("credentials.json");
 
-        let result = validate_write_path(
-            cred_path.to_str().unwrap(),
-            workspace.path(),
-            100,
-            false,
-        );
+        let result = validate_write_path(cred_path.to_str().unwrap(), workspace.path(), 100, false);
         assert!(result.is_err());
     }
 
@@ -975,11 +968,7 @@ mod tests {
         let workspace = tempdir().unwrap();
         let outside = tempdir().unwrap();
 
-        let result = validate_list_path(
-            outside.path().to_str().unwrap(),
-            workspace.path(),
-            false,
-        );
+        let result = validate_list_path(outside.path().to_str().unwrap(), workspace.path(), false);
         assert!(result.is_ok());
     }
 
@@ -987,13 +976,7 @@ mod tests {
     fn test_validate_path_blocks_traversal_even_when_relaxed() {
         let workspace = tempdir().unwrap();
 
-        let result = validate_path(
-            "../../../etc/passwd",
-            workspace.path(),
-            false,
-            false,
-            false,
-        );
+        let result = validate_path("../../../etc/passwd", workspace.path(), false, false, false);
         assert!(result.is_err());
     }
 
@@ -1188,7 +1171,13 @@ mod tests {
     #[test]
     fn test_validate_path_blocks_encoded_traversal() {
         let workspace = tempdir().unwrap();
-        let path = validate_path("foo/%2e%2e/etc/passwd", workspace.path(), false, false, true);
+        let path = validate_path(
+            "foo/%2e%2e/etc/passwd",
+            workspace.path(),
+            false,
+            false,
+            true,
+        );
         assert!(path.is_err());
         assert!(path.unwrap_err().to_string().contains("encoded"));
     }
@@ -1569,12 +1558,11 @@ mod tests {
         std::os::unix::fs::symlink(&real_file, &symlink_path).unwrap();
 
         // Even in relaxed mode, outside-workspace symlinks should be blocked
-        let result = validate_read_path(
-            symlink_path.to_str().unwrap(),
-            workspace.path(),
-            false,
-        );
+        let result = validate_read_path(symlink_path.to_str().unwrap(), workspace.path(), false);
         #[cfg(unix)]
-        assert!(result.is_err(), "symlink outside workspace should be blocked even in relaxed mode");
+        assert!(
+            result.is_err(),
+            "symlink outside workspace should be blocked even in relaxed mode"
+        );
     }
 }

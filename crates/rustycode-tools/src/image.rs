@@ -120,8 +120,8 @@ pub fn estimate_tokens(base64_len: usize) -> usize {
 pub fn process_image(buffer: &[u8], max_tokens: usize) -> Result<ProcessedImage> {
     let original_size = buffer.len();
 
-    let img = image::load_from_memory(buffer)
-        .with_context(|| "failed to load image from buffer")?;
+    let img =
+        image::load_from_memory(buffer).with_context(|| "failed to load image from buffer")?;
 
     let original_dimensions = (img.width(), img.height());
 
@@ -260,7 +260,10 @@ mod tests {
     fn test_process_invalid_image_data() {
         let result = process_image(b"not an image", DEFAULT_MAX_TOKENS);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("failed to load image"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("failed to load image"));
     }
 
     #[test]
@@ -275,9 +278,11 @@ mod tests {
 
     #[test]
     fn test_resize_if_needed_no_resize() {
-        let img = image::DynamicImage::ImageRgb8(
-            image::RgbImage::from_pixel(100, 100, image::Rgb([0u8, 0, 0])),
-        );
+        let img = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+            100,
+            100,
+            image::Rgb([0u8, 0, 0]),
+        ));
         let result = resize_if_needed(&img, 200);
         assert_eq!(result.width(), 100);
         assert_eq!(result.height(), 100);
@@ -285,9 +290,11 @@ mod tests {
 
     #[test]
     fn test_resize_if_needed_resizes() {
-        let img = image::DynamicImage::ImageRgb8(
-            image::RgbImage::from_pixel(2000, 1000, image::Rgb([0u8, 0, 0])),
-        );
+        let img = image::DynamicImage::ImageRgb8(image::RgbImage::from_pixel(
+            2000,
+            1000,
+            image::Rgb([0u8, 0, 0]),
+        ));
         let result = resize_if_needed(&img, 1000);
         assert!(result.width() <= 1000);
         assert!(result.height() <= 1000);

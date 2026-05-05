@@ -155,7 +155,6 @@ pub mod recovery;
 pub mod rollout;
 pub mod runtime;
 pub mod session;
-pub mod workspace_memory;
 pub mod session_context;
 pub mod snapshot;
 pub mod streaming;
@@ -166,6 +165,7 @@ pub mod tool_result_storage;
 pub mod ultrawork;
 pub mod validation;
 pub mod verification_gates;
+pub mod workspace_memory;
 
 pub use checkpoint::{CheckpointSnapshot, ExecutionPhase};
 pub use checkpoint_recovery::{Recovery, RecoveryState};
@@ -176,7 +176,7 @@ pub use execution::{
 };
 pub use plan_executor::{ExecutionOptions, ExecutionReport, PlanExecutor};
 pub use runtime::{CodeExcerpt, DoctorReport, PlanReport, RunReport, Runtime, ToolCallReport};
-pub use session::{AiMode, ChatMessage, MessageType, SessionState, ToolExecution, ToolStatus};
+pub use session::{AiMode, MessageType, SessionState, ToolExecution, ToolStatus};
 
 mod sleep;
 pub use rustycode_shared_runtime as shared_runtime;

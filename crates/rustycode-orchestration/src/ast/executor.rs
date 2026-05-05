@@ -331,13 +331,16 @@ impl<R: StepRunner> StepExecutor<R> {
         let mut topics = Vec::new();
 
         if !step.file_targets.is_empty() {
-            let files = step.file_targets
-                    .iter()
-                    .map(|p| p.display().to_string())
-                    .collect::<Vec<_>>()
-                    .join(", ");
+            let files = step
+                .file_targets
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
             topics.push(format!("Investigate files: {files}"));
-            topics.push(format!("Verify symbol existence in: {files} (Mandatory step before coding)"));
+            topics.push(format!(
+                "Verify symbol existence in: {files} (Mandatory step before coding)"
+            ));
         }
 
         if let Some(ref cmd) = step.expected_command {

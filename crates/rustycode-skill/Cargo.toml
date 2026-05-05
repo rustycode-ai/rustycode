@@ -21,6 +21,7 @@ rustycode-protocol = { path = "../rustycode-protocol" }
 
 [dev-dependencies]
 uuid.workspace = true
+tempfile.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [lints]

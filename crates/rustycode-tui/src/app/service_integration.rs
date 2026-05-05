@@ -608,13 +608,16 @@ impl ServiceManager {
                 }
             };
             rt.block_on(async {
-                let history_pairs: Vec<(String, String)> = thread_history
-                    .into_iter()
-                    .map(|m| (m.role.as_ref().to_string(), m.content.as_text()))
-                    .collect();
+                let history_messages: Vec<rustycode_protocol::Message> =
+                    thread_history.into_iter().map(|m| m.into()).collect();
 
                 let res = pipeline
-                    .conduct_with_history(task_id, ctx.content, history_pairs, thread_system_prompt)
+                    .conduct_with_history(
+                        task_id,
+                        ctx.content,
+                        history_messages,
+                        thread_system_prompt,
+                    )
                     .await;
 
                 match res {

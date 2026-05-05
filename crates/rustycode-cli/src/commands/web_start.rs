@@ -12,15 +12,19 @@ use tracing::info;
 pub async fn start_web_server(port: u16) -> anyhow::Result<()> {
     let dist_dir = find_web_dist()?;
 
-    let (provider_type, model_name, v2_config) = load_provider_config_from_env()
-        .context("Failed to load LLM provider config. Set ANTHROPIC_API_KEY or configure a provider.")?;
+    let (provider_type, model_name, v2_config) = load_provider_config_from_env().context(
+        "Failed to load LLM provider config. Set ANTHROPIC_API_KEY or configure a provider.",
+    )?;
     let provider = create_provider_with_config(&provider_type, &model_name, v2_config)
         .context("Failed to create LLM provider")?;
 
     let tool_registry = Arc::new(rustycode_tools::default_registry());
     let config = OrchestrationConfig::default();
     let pipeline = OrchestrationPipeline::with_provider_model_and_tools(
-        config, provider, &model_name, tool_registry,
+        config,
+        provider,
+        &model_name,
+        tool_registry,
     );
 
     let pipeline = match std::env::var("RUSTYCODE_SYSTEM_PROMPT") {

@@ -1,7 +1,7 @@
 //! Base agent trait and types
 
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 /// Result from agent execution

@@ -118,8 +118,8 @@ When you see a tool name in the available tools list but don't have its full sch
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use crate::ToolRegistry;
+    use std::sync::Arc;
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")
@@ -185,7 +185,9 @@ mod tests {
     fn test_tool_search_no_match() {
         let tool = ToolSearchTool;
         let ctx = test_ctx_with_registry();
-        let result = tool.execute(json!({"query": "xyznonexistent"}), &ctx).unwrap();
+        let result = tool
+            .execute(json!({"query": "xyznonexistent"}), &ctx)
+            .unwrap();
         let data = result.structured.unwrap();
         assert_eq!(data["found"], false);
     }

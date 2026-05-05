@@ -52,14 +52,51 @@ impl TaskType {
 pub fn detect_task_type(text: &str) -> TaskType {
     let lower = text.to_lowercase();
     let signals: [(TaskType, &[&str]); 9] = [
-        (TaskType::Implement, &["implement", "build", "create", "write", "develop", "construct"]),
-        (TaskType::Refactor, &["refactor", "restructure", "reorganize", "clean up", "rewrite"]),
-        (TaskType::Fix, &["fix", "repair", "patch", "resolve", "correct"]),
-        (TaskType::Debug, &["debug", "diagnose", "troubleshoot", "investigate why"]),
-        (TaskType::Design, &["design", "architecture", "architect", "plan", "blueprint"]),
-        (TaskType::Explore, &["explore", "analyze", "understand", "examine", "investigate"]),
-        (TaskType::Test, &["test", "verify", "validate", "assert", "coverage"]),
-        (TaskType::Migrate, &["migrate", "port", "upgrade", "convert"]),
+        (
+            TaskType::Implement,
+            &[
+                "implement",
+                "build",
+                "create",
+                "write",
+                "develop",
+                "construct",
+            ],
+        ),
+        (
+            TaskType::Refactor,
+            &[
+                "refactor",
+                "restructure",
+                "reorganize",
+                "clean up",
+                "rewrite",
+            ],
+        ),
+        (
+            TaskType::Fix,
+            &["fix", "repair", "patch", "resolve", "correct"],
+        ),
+        (
+            TaskType::Debug,
+            &["debug", "diagnose", "troubleshoot", "investigate why"],
+        ),
+        (
+            TaskType::Design,
+            &["design", "architecture", "architect", "plan", "blueprint"],
+        ),
+        (
+            TaskType::Explore,
+            &["explore", "analyze", "understand", "examine", "investigate"],
+        ),
+        (
+            TaskType::Test,
+            &["test", "verify", "validate", "assert", "coverage"],
+        ),
+        (
+            TaskType::Migrate,
+            &["migrate", "port", "upgrade", "convert"],
+        ),
         (TaskType::General, &[]),
     ];
 
@@ -127,7 +164,10 @@ fn implement_steps(text: &str, concepts: &[String]) -> Vec<String> {
     let mut steps = vec![];
 
     // Step 1: Always read the spec/context
-    steps.push("Read the task specification and any referenced files to understand all requirements".to_string());
+    steps.push(
+        "Read the task specification and any referenced files to understand all requirements"
+            .to_string(),
+    );
 
     // Step 2: Core implementation based on concepts
     if !concepts.is_empty() {
@@ -166,7 +206,10 @@ fn debug_steps(_text: &str, concepts: &[String]) -> Vec<String> {
     steps.push("Reproduce the issue — confirm the failing behavior".to_string());
 
     if !concepts.is_empty() {
-        steps.push(format!("Inspect the {concepts} components for the root cause", concepts = concepts.join(", ")));
+        steps.push(format!(
+            "Inspect the {concepts} components for the root cause",
+            concepts = concepts.join(", ")
+        ));
     } else {
         steps.push("Locate the root cause by tracing the failing code path".to_string());
     }
@@ -183,7 +226,10 @@ fn refactor_steps(_text: &str, concepts: &[String]) -> Vec<String> {
     steps.push("Understand the current code structure and dependencies".to_string());
 
     if !concepts.is_empty() {
-        steps.push(format!("Identify what needs to change in the {concepts} layer", concepts = concepts.join(", ")));
+        steps.push(format!(
+            "Identify what needs to change in the {concepts} layer",
+            concepts = concepts.join(", ")
+        ));
     } else {
         steps.push("Identify the specific refactoring targets".to_string());
     }
@@ -199,7 +245,10 @@ fn explore_steps(_text: &str, concepts: &[String]) -> Vec<String> {
     steps.push("Survey the codebase — find relevant files and entry points".to_string());
 
     if !concepts.is_empty() {
-        steps.push(format!("Trace the {concepts} flow through the code", concepts = concepts.join(", ")));
+        steps.push(format!(
+            "Trace the {concepts} flow through the code",
+            concepts = concepts.join(", ")
+        ));
     } else {
         steps.push("Trace the relevant code paths".to_string());
     }
@@ -214,7 +263,10 @@ fn design_steps(_text: &str, concepts: &[String]) -> Vec<String> {
     steps.push("Gather requirements and constraints".to_string());
 
     if !concepts.is_empty() {
-        steps.push(format!("Design the {concepts} architecture", concepts = concepts.join(", ")));
+        steps.push(format!(
+            "Design the {concepts} architecture",
+            concepts = concepts.join(", ")
+        ));
     } else {
         steps.push("Design the target architecture".to_string());
     }
@@ -240,7 +292,10 @@ fn migrate_steps(_text: &str, concepts: &[String]) -> Vec<String> {
     steps.push("Understand the source and target — read both specs".to_string());
 
     if !concepts.is_empty() {
-        steps.push(format!("Map {concepts} concepts from source to target", concepts = concepts.join(", ")));
+        steps.push(format!(
+            "Map {concepts} concepts from source to target",
+            concepts = concepts.join(", ")
+        ));
     } else {
         steps.push("Map concepts from source to target".to_string());
     }
@@ -306,10 +361,7 @@ pub fn decompose_local(
     );
 
     if !concepts.is_empty() {
-        plan.push_str(&format!(
-            "- **Key concepts:** {}\n",
-            concepts.join(", ")
-        ));
+        plan.push_str(&format!("- **Key concepts:** {}\n", concepts.join(", ")));
     }
 
     plan.push_str("\n### Suggested Steps\n");
@@ -408,51 +460,84 @@ mod tests {
 
     #[test]
     fn detect_implement_type() {
-        assert_eq!(detect_task_type("implement a MIPS interpreter"), TaskType::Implement);
+        assert_eq!(
+            detect_task_type("implement a MIPS interpreter"),
+            TaskType::Implement
+        );
         assert_eq!(detect_task_type("build a web server"), TaskType::Implement);
         assert_eq!(detect_task_type("create a new module"), TaskType::Implement);
     }
 
     #[test]
     fn detect_fix_type() {
-        assert_eq!(detect_task_type("fix the null pointer crash"), TaskType::Fix);
+        assert_eq!(
+            detect_task_type("fix the null pointer crash"),
+            TaskType::Fix
+        );
         assert_eq!(detect_task_type("resolve the timeout issue"), TaskType::Fix);
     }
 
     #[test]
     fn detect_debug_type() {
-        assert_eq!(detect_task_type("debug the race condition"), TaskType::Debug);
-        assert_eq!(detect_task_type("diagnose why the tests fail"), TaskType::Debug);
+        assert_eq!(
+            detect_task_type("debug the race condition"),
+            TaskType::Debug
+        );
+        assert_eq!(
+            detect_task_type("diagnose why the tests fail"),
+            TaskType::Debug
+        );
     }
 
     #[test]
     fn detect_refactor_type() {
-        assert_eq!(detect_task_type("refactor the auth module"), TaskType::Refactor);
-        assert_eq!(detect_task_type("restructure the database layer"), TaskType::Refactor);
+        assert_eq!(
+            detect_task_type("refactor the auth module"),
+            TaskType::Refactor
+        );
+        assert_eq!(
+            detect_task_type("restructure the database layer"),
+            TaskType::Refactor
+        );
     }
 
     #[test]
     fn detect_explore_type() {
         assert_eq!(detect_task_type("explore the codebase"), TaskType::Explore);
-        assert_eq!(detect_task_type("analyze the performance"), TaskType::Explore);
+        assert_eq!(
+            detect_task_type("analyze the performance"),
+            TaskType::Explore
+        );
     }
 
     #[test]
     fn detect_design_type() {
         assert_eq!(detect_task_type("design the API gateway"), TaskType::Design);
-        assert_eq!(detect_task_type("architecture for the event system"), TaskType::Design);
+        assert_eq!(
+            detect_task_type("architecture for the event system"),
+            TaskType::Design
+        );
     }
 
     #[test]
     fn detect_test_type() {
         assert_eq!(detect_task_type("test the parser module"), TaskType::Test);
-        assert_eq!(detect_task_type("add test coverage for the parser"), TaskType::Test);
+        assert_eq!(
+            detect_task_type("add test coverage for the parser"),
+            TaskType::Test
+        );
     }
 
     #[test]
     fn detect_migrate_type() {
-        assert_eq!(detect_task_type("migrate from REST to GraphQL"), TaskType::Migrate);
-        assert_eq!(detect_task_type("port the C code to Rust"), TaskType::Migrate);
+        assert_eq!(
+            detect_task_type("migrate from REST to GraphQL"),
+            TaskType::Migrate
+        );
+        assert_eq!(
+            detect_task_type("port the C code to Rust"),
+            TaskType::Migrate
+        );
     }
 
     #[test]
@@ -483,11 +568,7 @@ mod tests {
 
     #[test]
     fn decompose_local_produces_plan() {
-        let plan = decompose_local(
-            "implement a MIPS VM interpreter in Node.js",
-            None,
-            4.0,
-        );
+        let plan = decompose_local("implement a MIPS VM interpreter in Node.js", None, 4.0);
         assert!(plan.contains("Pre-computed Plan"));
         assert!(plan.contains("Implementation"));
         assert!(plan.contains("MIPS ISA"));
@@ -505,13 +586,11 @@ mod tests {
                 context: 0.5,
             },
             ambiguity: 0.5,
-            questions: vec![
-                crate::ast::clarity::ClarificationQuestion {
-                    dimension: crate::ast::clarity::ClarityDimension::Goal,
-                    question: "What instruction set version?".to_string(),
-                    rationale: "MIPS version not specified".to_string(),
-                },
-            ],
+            questions: vec![crate::ast::clarity::ClarificationQuestion {
+                dimension: crate::ast::clarity::ClarityDimension::Goal,
+                question: "What instruction set version?".to_string(),
+                rationale: "MIPS version not specified".to_string(),
+            }],
             enriched_task: None,
         };
         let plan = decompose_local("implement MIPS VM", Some(&report), 4.0);
@@ -528,7 +607,11 @@ mod tests {
 
     #[test]
     fn decompose_local_refactor_type() {
-        let plan = decompose_local("refactor the database module to use connection pooling", None, 3.0);
+        let plan = decompose_local(
+            "refactor the database module to use connection pooling",
+            None,
+            3.0,
+        );
         assert!(plan.contains("Refactoring"));
         assert!(plan.contains("database"));
     }
@@ -562,7 +645,11 @@ mod tests {
             .decompose("implement a MIPS interpreter", "code")
             .await
             .unwrap();
-        assert!(result.steps.len() > 1, "should produce multiple steps, got {}", result.steps.len());
+        assert!(
+            result.steps.len() > 1,
+            "should produce multiple steps, got {}",
+            result.steps.len()
+        );
         assert_eq!(result.original_task, "implement a MIPS interpreter");
     }
 
@@ -593,7 +680,10 @@ mod tests {
     async fn trait_decompose_step_description_contains_task() {
         let decomposer = Decomposer::new();
         let result = decomposer.decompose("Fix the bug", "debug").await.unwrap();
-        assert!(result.steps[0].description.contains("issue") || result.steps[0].description.contains("Fix"));
+        assert!(
+            result.steps[0].description.contains("issue")
+                || result.steps[0].description.contains("Fix")
+        );
     }
 
     #[tokio::test]
@@ -632,9 +722,7 @@ mod tests {
 
     #[test]
     fn extract_concepts_multiple_domains() {
-        let concepts = extract_concepts(
-            "build a Python API with cache and a database",
-        );
+        let concepts = extract_concepts("build a Python API with cache and a database");
         assert!(concepts.contains(&"Python".to_string()));
         assert!(concepts.contains(&"API".to_string()));
         assert!(concepts.contains(&"caching".to_string()));
@@ -647,58 +735,118 @@ mod tests {
 
     #[test]
     fn detect_implement_aliases() {
-        assert_eq!(detect_task_type("develop a plugin system"), TaskType::Implement);
-        assert_eq!(detect_task_type("construct the data pipeline"), TaskType::Implement);
+        assert_eq!(
+            detect_task_type("develop a plugin system"),
+            TaskType::Implement
+        );
+        assert_eq!(
+            detect_task_type("construct the data pipeline"),
+            TaskType::Implement
+        );
     }
 
     #[test]
     fn detect_refactor_aliases() {
-        assert_eq!(detect_task_type("reorganize the module structure"), TaskType::Refactor);
-        assert_eq!(detect_task_type("restructure the codebase"), TaskType::Refactor);
+        assert_eq!(
+            detect_task_type("reorganize the module structure"),
+            TaskType::Refactor
+        );
+        assert_eq!(
+            detect_task_type("restructure the codebase"),
+            TaskType::Refactor
+        );
     }
 
     #[test]
     fn detect_fix_aliases() {
-        assert_eq!(detect_task_type("repair the corrupted index"), TaskType::Fix);
-        assert_eq!(detect_task_type("patch the security vulnerability"), TaskType::Fix);
-        assert_eq!(detect_task_type("correct the calculation error"), TaskType::Fix);
+        assert_eq!(
+            detect_task_type("repair the corrupted index"),
+            TaskType::Fix
+        );
+        assert_eq!(
+            detect_task_type("patch the security vulnerability"),
+            TaskType::Fix
+        );
+        assert_eq!(
+            detect_task_type("correct the calculation error"),
+            TaskType::Fix
+        );
     }
 
     #[test]
     fn detect_debug_aliases() {
-        assert_eq!(detect_task_type("troubleshoot the connection timeout"), TaskType::Debug);
-        assert_eq!(detect_task_type("investigate why the server hangs"), TaskType::Debug);
+        assert_eq!(
+            detect_task_type("troubleshoot the connection timeout"),
+            TaskType::Debug
+        );
+        assert_eq!(
+            detect_task_type("investigate why the server hangs"),
+            TaskType::Debug
+        );
     }
 
     #[test]
     fn detect_explore_aliases() {
-        assert_eq!(detect_task_type("examine the log output"), TaskType::Explore);
-        assert_eq!(detect_task_type("understand the deployment process"), TaskType::Explore);
+        assert_eq!(
+            detect_task_type("examine the log output"),
+            TaskType::Explore
+        );
+        assert_eq!(
+            detect_task_type("understand the deployment process"),
+            TaskType::Explore
+        );
     }
 
     #[test]
     fn detect_design_aliases() {
-        assert_eq!(detect_task_type("plan the migration strategy"), TaskType::Design);
-        assert_eq!(detect_task_type("blueprint the notification system"), TaskType::Design);
-        assert_eq!(detect_task_type("architect the event-driven pipeline"), TaskType::Design);
+        assert_eq!(
+            detect_task_type("plan the migration strategy"),
+            TaskType::Design
+        );
+        assert_eq!(
+            detect_task_type("blueprint the notification system"),
+            TaskType::Design
+        );
+        assert_eq!(
+            detect_task_type("architect the event-driven pipeline"),
+            TaskType::Design
+        );
     }
 
     #[test]
     fn detect_migrate_aliases() {
-        assert_eq!(detect_task_type("port the Python CLI to Go"), TaskType::Migrate);
-        assert_eq!(detect_task_type("upgrade the database schema"), TaskType::Migrate);
-        assert_eq!(detect_task_type("convert the XML config to YAML"), TaskType::Migrate);
+        assert_eq!(
+            detect_task_type("port the Python CLI to Go"),
+            TaskType::Migrate
+        );
+        assert_eq!(
+            detect_task_type("upgrade the database schema"),
+            TaskType::Migrate
+        );
+        assert_eq!(
+            detect_task_type("convert the XML config to YAML"),
+            TaskType::Migrate
+        );
     }
 
     #[test]
     fn detect_test_aliases() {
-        assert_eq!(detect_task_type("validate the input sanitization"), TaskType::Test);
-        assert_eq!(detect_task_type("assert the output matches the schema"), TaskType::Test);
+        assert_eq!(
+            detect_task_type("validate the input sanitization"),
+            TaskType::Test
+        );
+        assert_eq!(
+            detect_task_type("assert the output matches the schema"),
+            TaskType::Test
+        );
     }
 
     #[test]
     fn detect_case_insensitive() {
-        assert_eq!(detect_task_type("IMPLEMENT the feature"), TaskType::Implement);
+        assert_eq!(
+            detect_task_type("IMPLEMENT the feature"),
+            TaskType::Implement
+        );
         assert_eq!(detect_task_type("FIX The Bug"), TaskType::Fix);
         assert_eq!(detect_task_type("DEBUG the issue"), TaskType::Debug);
     }
@@ -719,10 +867,7 @@ mod tests {
             TaskType::Implement
         );
         // "fix" before "debug" in signal order
-        assert_eq!(
-            detect_task_type("debug and fix the issue"),
-            TaskType::Fix
-        );
+        assert_eq!(detect_task_type("debug and fix the issue"), TaskType::Fix);
     }
 
     // Concept extraction — broader coverage
@@ -784,9 +929,7 @@ mod tests {
 
     #[test]
     fn extract_architecture_concepts() {
-        let concepts = extract_concepts(
-            "add auth middleware with a cache layer and message queue",
-        );
+        let concepts = extract_concepts("add auth middleware with a cache layer and message queue");
         assert!(concepts.contains(&"authentication".to_string()));
         assert!(concepts.contains(&"middleware".to_string()));
         assert!(concepts.contains(&"caching".to_string()));
@@ -1060,46 +1203,79 @@ mod tests {
     #[tokio::test]
     async fn trait_decompose_fix_produces_debug_steps() {
         let decomposer = Decomposer::new();
-        let result = decomposer.decompose("fix the crash in production", "bug").await.unwrap();
-        assert!(result.steps.len() >= 3, "fix should produce at least 3 steps");
+        let result = decomposer
+            .decompose("fix the crash in production", "bug")
+            .await
+            .unwrap();
+        assert!(
+            result.steps.len() >= 3,
+            "fix should produce at least 3 steps"
+        );
         assert!(result.steps[0].description.contains("Reproduce"));
     }
 
     #[tokio::test]
     async fn trait_decompose_refactor_has_incremental_steps() {
         let decomposer = Decomposer::new();
-        let result = decomposer.decompose("refactor the database layer", "code").await.unwrap();
-        let descs: Vec<&str> = result.steps.iter().map(|s| s.description.as_str()).collect();
+        let result = decomposer
+            .decompose("refactor the database layer", "code")
+            .await
+            .unwrap();
+        let descs: Vec<&str> = result
+            .steps
+            .iter()
+            .map(|s| s.description.as_str())
+            .collect();
         assert!(descs.iter().any(|d| d.contains("incrementally")));
     }
 
     #[tokio::test]
     async fn trait_decompose_explore_has_survey_step() {
         let decomposer = Decomposer::new();
-        let result = decomposer.decompose("explore the authentication flow", "analysis").await.unwrap();
+        let result = decomposer
+            .decompose("explore the authentication flow", "analysis")
+            .await
+            .unwrap();
         assert!(result.steps[0].description.contains("Survey"));
     }
 
     #[tokio::test]
     async fn trait_decompose_design_has_interfaces_step() {
         let decomposer = Decomposer::new();
-        let result = decomposer.decompose("design the event system", "arch").await.unwrap();
-        let descs: Vec<&str> = result.steps.iter().map(|s| s.description.as_str()).collect();
+        let result = decomposer
+            .decompose("design the event system", "arch")
+            .await
+            .unwrap();
+        let descs: Vec<&str> = result
+            .steps
+            .iter()
+            .map(|s| s.description.as_str())
+            .collect();
         assert!(descs.iter().any(|d| d.contains("interfaces")));
     }
 
     #[tokio::test]
     async fn trait_decompose_migrate_has_equivalence_step() {
         let decomposer = Decomposer::new();
-        let result = decomposer.decompose("port the Python tool to Rust", "migration").await.unwrap();
-        let descs: Vec<&str> = result.steps.iter().map(|s| s.description.as_str()).collect();
+        let result = decomposer
+            .decompose("port the Python tool to Rust", "migration")
+            .await
+            .unwrap();
+        let descs: Vec<&str> = result
+            .steps
+            .iter()
+            .map(|s| s.description.as_str())
+            .collect();
         assert!(descs.iter().any(|d| d.contains("equivalence")));
     }
 
     #[tokio::test]
     async fn trait_decompose_general_has_four_steps() {
         let decomposer = Decomposer::new();
-        let result = decomposer.decompose("make it go faster", "perf").await.unwrap();
+        let result = decomposer
+            .decompose("make it go faster", "perf")
+            .await
+            .unwrap();
         assert_eq!(result.steps.len(), 4);
     }
 
@@ -1108,7 +1284,10 @@ mod tests {
         let decomposer = Decomposer::new();
         // Many concepts → Hard
         let result = decomposer
-            .decompose("implement a Python interpreter with MIPS instruction set and caching", "code")
+            .decompose(
+                "implement a Python interpreter with MIPS instruction set and caching",
+                "code",
+            )
             .await
             .unwrap();
         assert_eq!(result.estimated_difficulty, Difficulty::Hard);
@@ -1124,7 +1303,10 @@ mod tests {
     #[tokio::test]
     async fn trait_decompose_step_ids_sequential() {
         let decomposer = Decomposer::new();
-        let result = decomposer.decompose("implement auth", "code").await.unwrap();
+        let result = decomposer
+            .decompose("implement auth", "code")
+            .await
+            .unwrap();
         for (i, step) in result.steps.iter().enumerate() {
             assert_eq!(step.id, format!("step-{}", i + 1));
             assert_eq!(step.index, i as u8);
@@ -1215,11 +1397,7 @@ mod tests {
 
     #[test]
     fn decompose_porting_task() {
-        let plan = decompose_local(
-            "port the Python codebase to Rust",
-            None,
-            4.0,
-        );
+        let plan = decompose_local("port the Python codebase to Rust", None, 4.0);
         assert!(plan.contains("Migration"));
         assert!(plan.contains("Python"));
         assert!(plan.contains("Rust"));
@@ -1251,6 +1429,9 @@ mod tests {
     #[test]
     fn detect_type_with_special_chars() {
         assert_eq!(detect_task_type("fix: null-pointer in auth"), TaskType::Fix);
-        assert_eq!(detect_task_type("[BUG] debug the race condition"), TaskType::Debug);
+        assert_eq!(
+            detect_task_type("[BUG] debug the race condition"),
+            TaskType::Debug
+        );
     }
 }

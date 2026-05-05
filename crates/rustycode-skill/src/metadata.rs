@@ -11,10 +11,12 @@ pub fn extract_string(map: &FrontmatterMap, key: &str) -> Option<String> {
     })
 }
 
-/// Extract an array of strings from frontmatter map
+/// Extract an array of strings from frontmatter map.
+/// If the value is a single string, treats it as a single-element array.
 pub fn extract_string_array(map: &FrontmatterMap, key: &str) -> Vec<String> {
-    if let Some(FrontmatterValue::Array(arr)) = map.get(key) {
-        arr.iter()
+    match map.get(key) {
+        Some(FrontmatterValue::Array(arr)) => arr
+            .iter()
             .filter_map(|fv| {
                 if let FrontmatterValue::String(s) = fv {
                     Some(s.clone())
@@ -22,9 +24,9 @@ pub fn extract_string_array(map: &FrontmatterMap, key: &str) -> Vec<String> {
                     None
                 }
             })
-            .collect()
-    } else {
-        Vec::new()
+            .collect(),
+        Some(FrontmatterValue::String(s)) => vec![s.clone()],
+        _ => Vec::new(),
     }
 }
 
@@ -87,7 +89,7 @@ pub fn parse_frontmatter_fields(
             && extract_bool(fm, "modelInvocable", true),
         user_invocable: extract_bool(fm, "user-invocable", true)
             && extract_bool(fm, "userInvocable", true),
-        paths: extract_string_array(fm, "paths"),
+        paths: rustycode_protocol::frontmatter::normalize_paths(&extract_string_array(fm, "paths")),
         context: extract_string(fm, "context"),
         agent: extract_string(fm, "agent"),
         categories: extract_string_array(fm, "categories"),

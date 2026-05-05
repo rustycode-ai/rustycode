@@ -30,10 +30,7 @@ pub fn find_command(name: &str) -> Option<PathBuf> {
     {
         if let Ok(output) = Command::new("which").arg(name).output() {
             if output.status.success() {
-                let path_str = String::from_utf8(output.stdout)
-                    .ok()?
-                    .trim()
-                    .to_string();
+                let path_str = String::from_utf8(output.stdout).ok()?.trim().to_string();
                 return Some(PathBuf::from(path_str));
             }
         }
@@ -128,15 +125,15 @@ mod tests {
     #[test]
     fn test_find_shell() {
         let shell = find_shell();
-        assert!(
-            shell.is_some(),
-            "Should find a shell on this system"
-        );
+        assert!(shell.is_some(), "Should find a shell on this system");
     }
 
     #[test]
     fn test_noop_command_exists() {
         let cmd = noop_command();
-        assert!(!cmd.as_os_str().is_empty(), "noop_command should return a path");
+        assert!(
+            !cmd.as_os_str().is_empty(),
+            "noop_command should return a path"
+        );
     }
 }

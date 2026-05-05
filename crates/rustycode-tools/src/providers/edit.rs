@@ -47,7 +47,11 @@ pub(crate) fn try_exact_match(content: &str, old_text: &str) -> Option<(usize, u
 /// Try matching after normalizing line endings (CRLF → LF).
 /// Normalizes both content and `old_text` to LF, performs replacement, then
 /// restores original line endings.
-pub(crate) fn try_normalized_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
+pub(crate) fn try_normalized_match(
+    content: &str,
+    old_text: &str,
+    new_text: &str,
+) -> Option<String> {
     let norm_content = normalize_to_lf(content);
     let norm_old = normalize_to_lf(old_text);
     if norm_content.contains(&norm_old) {
@@ -68,7 +72,11 @@ pub(crate) fn try_normalized_match(content: &str, old_text: &str, new_text: &str
 /// Quote normalization preserves character count (1 char → 1 char) but changes
 /// byte length (3-byte curly quote → 1-byte straight quote), so we must map
 /// through character indices rather than using byte offsets directly.
-pub(crate) fn try_quote_normalized_match(content: &str, old_text: &str, new_text: &str) -> Option<String> {
+pub(crate) fn try_quote_normalized_match(
+    content: &str,
+    old_text: &str,
+    new_text: &str,
+) -> Option<String> {
     let norm_content = normalize_quotes(content);
     let norm_old = normalize_quotes(old_text);
     let match_start_byte = norm_content.find(&norm_old)?;
@@ -235,24 +243,29 @@ impl Tool for EditFile {
             .ok_or_else(|| anyhow::anyhow!("Invalid path: contains non-UTF-8 characters"))?;
 
         // Validate the path is within workspace and safe
-        let validated_path = validate_write_path(path_str, &ctx.cwd, input.new_text.len(), !ctx.allow_outside_workspace)
-            .map_err(|e| {
-                let mut msg = format!("{e}");
-                if msg.contains("not found") || msg.contains("No such file") {
-                    let suggestions = suggest_similar_files(&input.path, &ctx.cwd);
-                    if !suggestions.is_empty() {
-                        msg.push_str(&format!(
-                            "\n\nDid you mean one of these files?\n{}",
-                            suggestions
-                                .iter()
-                                .map(|s| format!("  - {s}"))
-                                .collect::<Vec<_>>()
-                                .join("\n")
-                        ));
-                    }
+        let validated_path = validate_write_path(
+            path_str,
+            &ctx.cwd,
+            input.new_text.len(),
+            !ctx.allow_outside_workspace,
+        )
+        .map_err(|e| {
+            let mut msg = format!("{e}");
+            if msg.contains("not found") || msg.contains("No such file") {
+                let suggestions = suggest_similar_files(&input.path, &ctx.cwd);
+                if !suggestions.is_empty() {
+                    msg.push_str(&format!(
+                        "\n\nDid you mean one of these files?\n{}",
+                        suggestions
+                            .iter()
+                            .map(|s| format!("  - {s}"))
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    ));
                 }
-                anyhow::anyhow!("{msg}")
-            })?;
+            }
+            anyhow::anyhow!("{msg}")
+        })?;
 
         // Read the current file content using symlink-safe operation
         let mut file = open_file_symlink_safe(&validated_path).map_err(|e| {
@@ -390,11 +403,10 @@ impl Tool for EditFile {
 
         let mut file = create_file_symlink_safe(&tmp_path)
             .map_err(|e| anyhow::anyhow!("Failed to create temp file: {e}"))?;
-        file.write_all(new_content.as_bytes())
-            .map_err(|e| {
-                let _ = fs::remove_file(&tmp_path);
-                anyhow::anyhow!("Failed to write file: {e}")
-            })?;
+        file.write_all(new_content.as_bytes()).map_err(|e| {
+            let _ = fs::remove_file(&tmp_path);
+            anyhow::anyhow!("Failed to write file: {e}")
+        })?;
         file.sync_all().map_err(|e| {
             let _ = fs::remove_file(&tmp_path);
             anyhow::anyhow!("Failed to sync file: {e}")

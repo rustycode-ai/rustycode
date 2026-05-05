@@ -123,7 +123,7 @@ pub fn merge_text_content_blocks(messages: Vec<Message>) -> FixResult {
             role: msg.role.clone(),
             content,
             timestamp: msg.timestamp,
-            metadata: msg.metadata,
+            metadata: msg.metadata.clone(),
         });
     }
 
@@ -186,7 +186,7 @@ pub fn trim_assistant_whitespace(messages: Vec<Message>) -> FixResult {
             role: msg.role,
             content,
             timestamp: msg.timestamp,
-            metadata: msg.metadata,
+            metadata: msg.metadata.clone(),
         });
     }
 
@@ -264,7 +264,7 @@ pub fn fix_empty_tool_results(messages: Vec<Message>) -> FixResult {
             role: msg.role,
             content,
             timestamp: msg.timestamp,
-            metadata: msg.metadata,
+            metadata: msg.metadata.clone(),
         });
     }
 
@@ -377,7 +377,7 @@ pub fn fix_tool_calling(messages: Vec<Message>) -> FixResult {
             role: msg.role,
             content,
             timestamp: msg.timestamp,
-            metadata: msg.metadata,
+            metadata: msg.metadata.clone(),
         });
     }
 
@@ -410,7 +410,7 @@ pub fn merge_consecutive_messages(messages: Vec<Message>) -> FixResult {
                 role: last.role.clone(),
                 content: merged_content,
                 timestamp: last.timestamp,
-                metadata: last.metadata,
+                metadata: last.metadata.clone(),
             };
             warnings.push(format!("Merged consecutive {} messages", msg.role));
             result.pop();

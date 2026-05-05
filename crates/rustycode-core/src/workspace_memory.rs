@@ -92,7 +92,14 @@ impl WorkspaceMemory {
     }
 
     /// Write a memory entry. Creates or updates the file on disk.
-    pub fn write(&mut self, name: &str, memory_type: MemoryType, description: &str, content: &str, tags: Vec<String>) -> Result<()> {
+    pub fn write(
+        &mut self,
+        name: &str,
+        memory_type: MemoryType,
+        description: &str,
+        content: &str,
+        tags: Vec<String>,
+    ) -> Result<()> {
         let now = Utc::now();
 
         let frontmatter = MemoryFrontmatter {
@@ -162,7 +169,12 @@ impl WorkspaceMemory {
                     if desc_lower.contains(term) {
                         score += 5;
                     }
-                    if entry.frontmatter.tags.iter().any(|t| t.to_lowercase().contains(term)) {
+                    if entry
+                        .frontmatter
+                        .tags
+                        .iter()
+                        .any(|t| t.to_lowercase().contains(term))
+                    {
                         score += 7;
                     }
                     if content_lower.contains(term) {
@@ -240,7 +252,10 @@ impl WorkspaceMemory {
                 let fm_str = &rest[..end];
                 let body = rest[end + 5..].trim_start();
                 let fm: MemoryFrontmatter = serde_yaml::from_str(fm_str).unwrap_or_else(|e| {
-                    tracing::warn!(name, "Failed to parse memory frontmatter: {e}, using defaults");
+                    tracing::warn!(
+                        name,
+                        "Failed to parse memory frontmatter: {e}, using defaults"
+                    );
                     MemoryFrontmatter {
                         name: name.to_string(),
                         description: String::new(),
@@ -321,8 +336,22 @@ mod tests {
         let dir = temp_dir();
         let mut mgr = WorkspaceMemory::new(&dir).unwrap();
 
-        mgr.write("auth-patterns", MemoryType::Reference, "Auth patterns", "JWT and OAuth patterns", vec!["auth".to_string()]).unwrap();
-        mgr.write("db-setup", MemoryType::Reference, "Database setup", "PostgreSQL connection strings", vec!["database".to_string()]).unwrap();
+        mgr.write(
+            "auth-patterns",
+            MemoryType::Reference,
+            "Auth patterns",
+            "JWT and OAuth patterns",
+            vec!["auth".to_string()],
+        )
+        .unwrap();
+        mgr.write(
+            "db-setup",
+            MemoryType::Reference,
+            "Database setup",
+            "PostgreSQL connection strings",
+            vec!["database".to_string()],
+        )
+        .unwrap();
 
         let results = mgr.search("auth JWT", 10);
         assert_eq!(results.len(), 1);
@@ -334,7 +363,14 @@ mod tests {
         let dir = temp_dir();
         let mut mgr = WorkspaceMemory::new(&dir).unwrap();
 
-        mgr.write("to-delete", MemoryType::Feedback, "Will be deleted", "content", vec![]).unwrap();
+        mgr.write(
+            "to-delete",
+            MemoryType::Feedback,
+            "Will be deleted",
+            "content",
+            vec![],
+        )
+        .unwrap();
         assert!(mgr.read("to-delete").is_some());
         mgr.delete("to-delete").unwrap();
         assert!(mgr.read("to-delete").is_none());
@@ -346,9 +382,23 @@ mod tests {
         let mut mgr = WorkspaceMemory::new(&dir).unwrap();
 
         // Create a feedback entry (auto-prunable)
-        mgr.write("old-feedback", MemoryType::Feedback, "Old feedback", "stale content", vec![]).unwrap();
+        mgr.write(
+            "old-feedback",
+            MemoryType::Feedback,
+            "Old feedback",
+            "stale content",
+            vec![],
+        )
+        .unwrap();
         // Create a user entry (never auto-pruned)
-        mgr.write("user-pref", MemoryType::User, "User preference", "always keep", vec![]).unwrap();
+        mgr.write(
+            "user-pref",
+            MemoryType::User,
+            "User preference",
+            "always keep",
+            vec![],
+        )
+        .unwrap();
 
         // Manually age the feedback entry
         let entry = mgr.entries.get_mut("old-feedback").unwrap();
@@ -365,9 +415,12 @@ mod tests {
         let dir = temp_dir();
         let mut mgr = WorkspaceMemory::new(&dir).unwrap();
 
-        mgr.write("proj1", MemoryType::Project, "P1", "content", vec![]).unwrap();
-        mgr.write("ref1", MemoryType::Reference, "R1", "content", vec![]).unwrap();
-        mgr.write("proj2", MemoryType::Project, "P2", "content", vec![]).unwrap();
+        mgr.write("proj1", MemoryType::Project, "P1", "content", vec![])
+            .unwrap();
+        mgr.write("ref1", MemoryType::Reference, "R1", "content", vec![])
+            .unwrap();
+        mgr.write("proj2", MemoryType::Project, "P2", "content", vec![])
+            .unwrap();
 
         let projects = mgr.list(Some(MemoryType::Project));
         assert_eq!(projects.len(), 2);
@@ -377,7 +430,14 @@ mod tests {
     fn test_reload_from_disk() {
         let dir = temp_dir();
         let mut mgr = WorkspaceMemory::new(&dir).unwrap();
-        mgr.write("persistent", MemoryType::Reference, "Persists", "survives reload", vec![]).unwrap();
+        mgr.write(
+            "persistent",
+            MemoryType::Reference,
+            "Persists",
+            "survives reload",
+            vec![],
+        )
+        .unwrap();
 
         // Create a new manager pointing to the same dir
         let mgr2 = WorkspaceMemory::new(&dir).unwrap();

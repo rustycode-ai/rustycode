@@ -47,8 +47,7 @@ fn contains_word(text: &str, word: &str) -> bool {
 
     // Not in cache, compile and insert
     // regex::escape() ensures pattern is valid, so this expect is safe
-    let re = regex::Regex::new(&pattern)
-        .expect("escaped regex pattern should always compile");
+    let re = regex::Regex::new(&pattern).expect("escaped regex pattern should always compile");
     let is_match = re.is_match(text);
     cache.put(pattern, re);
 
@@ -73,45 +72,45 @@ pub enum ToolProfile {
     All,
 }
 
-    /// All tools available across every profile
-    const ALL_TOOLS: &[&str] = &[
-        "read_file",
-        "write_file",
-        "list_dir",
-        "edit_file",
-        "grep",
-        "glob",
-        "find",
-        "inspect",
-        "code_search",
-        "apply_patch",
-        "bash",
-        "git_status",
-        "git_diff",
-        "git_log",
-        "git_commit",
-        "web_fetch",
-        "lsp_diagnostics",
-        "lsp_hover",
-        "lsp_definition",
-        "lsp_completion",
-        "lsp_document_symbols",
-        "lsp_references",
-        "lsp_full_diagnostics",
-        "lsp_code_actions",
-        "lsp_rename",
-        "lsp_formatting",
-        "lsp_get_symbols_overview",
-        "lsp_find_symbol",
-        "lsp_replace_symbol_body",
-        "lsp_insert_before_symbol",
-        "lsp_insert_after_symbol",
-        "lsp_safe_delete_symbol",
-        "lsp_analyze_symbol",
-        "lsp_extract_symbol",
-        "lsp_inline_symbol",
-        "lsp_workspace_symbols",
-    ];
+/// All tools available across every profile
+const ALL_TOOLS: &[&str] = &[
+    "read_file",
+    "write_file",
+    "list_dir",
+    "edit_file",
+    "grep",
+    "glob",
+    "find",
+    "inspect",
+    "code_search",
+    "apply_patch",
+    "bash",
+    "git_status",
+    "git_diff",
+    "git_log",
+    "git_commit",
+    "web_fetch",
+    "lsp_diagnostics",
+    "lsp_hover",
+    "lsp_definition",
+    "lsp_completion",
+    "lsp_document_symbols",
+    "lsp_references",
+    "lsp_full_diagnostics",
+    "lsp_code_actions",
+    "lsp_rename",
+    "lsp_formatting",
+    "lsp_get_symbols_overview",
+    "lsp_find_symbol",
+    "lsp_replace_symbol_body",
+    "lsp_insert_before_symbol",
+    "lsp_insert_after_symbol",
+    "lsp_safe_delete_symbol",
+    "lsp_analyze_symbol",
+    "lsp_extract_symbol",
+    "lsp_inline_symbol",
+    "lsp_workspace_symbols",
+];
 
 impl ToolProfile {
     /// Return the list of tool names available for this profile.

@@ -1748,16 +1748,24 @@ impl OpenAiProvider {
             input_tokens,
             output_tokens,
             reasoning_tokens,
-            total = input_tokens.saturating_add(output_tokens).saturating_add(reasoning_tokens),
+            total = input_tokens
+                .saturating_add(output_tokens)
+                .saturating_add(reasoning_tokens),
             "Usage breakdown"
         );
         Some(Usage {
             input_tokens,
             output_tokens,
-            total_tokens: input_tokens.saturating_add(output_tokens).saturating_add(reasoning_tokens),
+            total_tokens: input_tokens
+                .saturating_add(output_tokens)
+                .saturating_add(reasoning_tokens),
             cache_read_input_tokens: cached_tokens,
             cache_creation_input_tokens: 0,
-            reasoning_tokens: if reasoning_tokens > 0 { Some(reasoning_tokens) } else { None },
+            reasoning_tokens: if reasoning_tokens > 0 {
+                Some(reasoning_tokens)
+            } else {
+                None
+            },
         })
     }
 
@@ -3619,7 +3627,7 @@ data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"funct
                 None,
                 None,
                 None,
-            None,
+                None,
             );
             assert_eq!(
                 body.reasoning_effort,

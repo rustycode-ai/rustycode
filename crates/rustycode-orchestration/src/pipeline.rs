@@ -25,7 +25,7 @@ use chrono::Utc;
 use rustycode_prompt::environment::EnvironmentContext;
 use rustycode_prompt::layered::PromptBuilder;
 use rustycode_protocol::{
-    CommandPlan, ConvoyPlan, ConvoyRisk, ExecutionPhase, PhaseSkipConfig, PlanApproval,
+    CommandPlan, ConvoyPlan, ConvoyRisk, ExecutionPhase, Message, PhaseSkipConfig, PlanApproval,
 };
 use std::sync::{Arc, LazyLock};
 
@@ -442,7 +442,7 @@ impl OrchestrationPipeline {
         &self,
         task_id: String,
         task: String,
-        history: Vec<(String, String)>,
+        history: Vec<Message>,
         _system_prompt: &str,
     ) -> Result<crate::pipeline::TaskResult> {
         let mut ctx = TaskContext::new(task_id, task);

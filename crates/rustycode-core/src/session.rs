@@ -3,9 +3,13 @@
 //! It can be used by TUI, web UI, or any other frontend.
 
 use anyhow::Result;
+use chrono::Utc;
 use rustycode_llm::ConversationManager;
 use rustycode_memory::MemoryEntry;
-use rustycode_protocol::{Conversation, SessionId, ToolCall};
+use rustycode_protocol::{
+    ContentBlock, Conversation, Message, MessageContent, MessageMetadata, SessionId, ToolCall,
+    ToolResult as ProtocolToolResult,
+};
 use rustycode_tools_api::{new_todo_state, TodoItem};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -55,7 +59,7 @@ pub struct ToolExecution {
 /// Core session state - independent of UI implementation
 pub struct SessionState {
     // Conversation state
-    pub messages: Vec<ChatMessage>,
+    pub messages: Vec<Message>,
     pub conversation_manager: ConversationManager,
     pub llm_provider: Option<Box<dyn rustycode_llm::LLMProvider>>,
     pub pending_llm_request: Arc<Mutex<bool>>,
@@ -138,16 +142,8 @@ pub struct SessionState {
     pub code_panel_language: String,
 }
 
-/// Chat message representation
-#[derive(Clone, Debug)]
-pub struct ChatMessage {
-    pub content: String,
-    pub message_type: MessageType,
-    pub tool_calls: Option<Vec<ToolCall>>,
-    pub tool_results: Option<Vec<rustycode_protocol::ToolResult>>,
-}
-
-/// Message type for color coding
+/// Message type for role mapping
+/// Maps MessageType to protocol Message role strings
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq)]
 pub enum MessageType {
@@ -158,6 +154,33 @@ pub enum MessageType {
     #[allow(dead_code)] // Kept for future use
     Thinking,
     Error,
+}
+
+impl MessageType {
+    /// Convert MessageType to protocol message role string
+    pub fn as_role(&self) -> String {
+        match self {
+            Self::User => "user".to_string(),
+            Self::AI => "assistant".to_string(),
+            Self::System => "system".to_string(),
+            Self::Tool => "tool".to_string(),
+            Self::Thinking => "thinking".to_string(),
+            Self::Error => "error".to_string(),
+        }
+    }
+
+    /// Convert protocol message role string to MessageType
+    pub fn from_role(role: &str) -> Self {
+        match role {
+            "user" => Self::User,
+            "assistant" => Self::AI,
+            "system" => Self::System,
+            "tool" => Self::Tool,
+            "thinking" => Self::Thinking,
+            "error" => Self::Error,
+            _ => Self::System, // Default to system for unknown roles
+        }
+    }
 }
 
 /// Token budget check result.
@@ -180,11 +203,25 @@ pub enum TokenBudgetStatus {
 impl std::fmt::Display for TokenBudgetStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Warning { used, budget, remaining } => {
-                write!(f, "token budget warning: {used}/{budget} used ({remaining} remaining)")
+            Self::Warning {
+                used,
+                budget,
+                remaining,
+            } => {
+                write!(
+                    f,
+                    "token budget warning: {used}/{budget} used ({remaining} remaining)"
+                )
             }
-            Self::Exceeded { used, budget, over_by } => {
-                write!(f, "token budget exceeded: {used}/{budget} (over by {over_by})")
+            Self::Exceeded {
+                used,
+                budget,
+                over_by,
+            } => {
+                write!(
+                    f,
+                    "token budget exceeded: {used}/{budget} (over by {over_by})"
+                )
             }
         }
     }
@@ -248,11 +285,11 @@ impl SessionState {
 
     /// Add a message to the conversation
     pub fn add_message(&mut self, content: String, message_type: MessageType) {
-        let message = ChatMessage {
-            content,
-            message_type,
-            tool_calls: None,
-            tool_results: None,
+        let message = Message {
+            role: message_type.as_role(),
+            content: MessageContent::simple(content),
+            timestamp: Utc::now(),
+            metadata: MessageMetadata::default(),
         };
         self.messages.push(message);
         // Evict oldest non-system messages when cap exceeded (batch O(n))
@@ -263,7 +300,7 @@ impl SessionState {
                 if removed >= excess {
                     return true;
                 }
-                if m.message_type != MessageType::System {
+                if MessageType::from_role(&m.role) != MessageType::System {
                     removed += 1;
                     false
                 } else {
@@ -274,27 +311,71 @@ impl SessionState {
         self.scroll_offset = self.messages.len().saturating_sub(1);
     }
 
-    /// Add a tool call to the last AI message
+    /// Add tool call blocks to the last AI message
     pub fn add_tool_calls(&mut self, tool_calls: Vec<ToolCall>) {
         if let Some(msg) = self.messages.last_mut() {
-            if msg.message_type == MessageType::AI {
-                msg.tool_calls = Some(tool_calls);
+            if MessageType::from_role(&msg.role) == MessageType::AI {
+                // Convert ToolCall to ContentBlock::ToolUse and add to message content
+                let tool_use_blocks: Vec<ContentBlock> = tool_calls
+                    .into_iter()
+                    .map(|tc| ContentBlock::ToolUse {
+                        id: tc.call_id,
+                        name: tc.name,
+                        input: tc.arguments,
+                    })
+                    .collect();
+
+                // Get existing text content if any, then append tool use blocks
+                match &msg.content {
+                    MessageContent::Simple(_) => {
+                        // Convert simple content to blocks with text + tool use
+                        if let MessageContent::Simple(text) = &msg.content {
+                            let mut blocks = vec![ContentBlock::Text {
+                                text: text.clone(),
+                                cache_control: None,
+                            }];
+                            blocks.extend(tool_use_blocks);
+                            msg.content = MessageContent::Blocks(blocks);
+                        }
+                    }
+                    MessageContent::Blocks(blocks) => {
+                        // Append to existing blocks
+                        let mut new_blocks = blocks.clone();
+                        new_blocks.extend(tool_use_blocks);
+                        msg.content = MessageContent::Blocks(new_blocks);
+                    }
+                    _ => {
+                        // Other variants of MessageContent handled here for future-proofing
+                    }
+                }
             }
         }
     }
 
     /// Add tool results to the conversation
-    pub fn add_tool_results(&mut self, tool_results: Vec<rustycode_protocol::ToolResult>) {
-        let content = Self::format_tool_results(&tool_results);
-        self.messages.push(ChatMessage {
-            content,
-            message_type: MessageType::Tool,
-            tool_calls: None,
-            tool_results: Some(tool_results),
-        });
+    pub fn add_tool_results(&mut self, tool_results: Vec<ProtocolToolResult>) {
+        // Convert ToolResult to ContentBlock::ToolResult
+        let tool_result_blocks: Vec<ContentBlock> = tool_results
+            .iter()
+            .map(|tr| ContentBlock::ToolResult {
+                tool_use_id: tr.call_id.clone(),
+                content: tr.output.clone(),
+                is_error: tr.error.is_some(),
+            })
+            .collect();
+
+        // Create message with tool result blocks
+        let message = Message {
+            role: "user".to_string(), // Tool results come from user (system) perspective
+            content: MessageContent::Blocks(tool_result_blocks),
+            timestamp: Utc::now(),
+            metadata: MessageMetadata::default(),
+        };
+        self.messages.push(message);
     }
 
     /// Format tool results for display
+    #[allow(dead_code)]
     fn format_tool_results(results: &[rustycode_protocol::ToolResult]) -> String {
         let mut output = String::new();
         for result in results {
@@ -409,7 +490,13 @@ impl SessionState {
     /// Complete streaming response and add to messages
     pub fn complete_streaming_response(&mut self) {
         if !self.current_response.is_empty() {
-            self.add_message(self.current_response.clone(), MessageType::AI);
+            let message = Message {
+                role: "assistant".to_string(),
+                content: MessageContent::simple(self.current_response.clone()),
+                timestamp: Utc::now(),
+                metadata: MessageMetadata::default(),
+            };
+            self.messages.push(message);
             self.current_response.clear();
         }
         self.is_streaming = false;
@@ -417,11 +504,10 @@ impl SessionState {
 
     /// Safely set pending LLM request flag
     pub fn set_pending_request(&self, value: bool) {
-        let mut guard = self.pending_llm_request.lock()
-            .unwrap_or_else(|e| {
-                tracing::warn!("pending_llm_request mutex poisoned, recovering");
-                e.into_inner()
-            });
+        let mut guard = self.pending_llm_request.lock().unwrap_or_else(|e| {
+            tracing::warn!("pending_llm_request mutex poisoned, recovering");
+            e.into_inner()
+        });
         *guard = value;
     }
 
@@ -595,8 +681,11 @@ mod tests {
         let mut s = make_session();
         s.add_message("Hello".to_string(), MessageType::User);
         assert_eq!(s.messages.len(), 1);
-        assert_eq!(s.messages[0].content, "Hello");
-        assert_eq!(s.messages[0].message_type, MessageType::User);
+        assert_eq!(s.messages[0].content.as_text(), "Hello");
+        assert_eq!(
+            MessageType::from_role(&s.messages[0].role),
+            MessageType::User
+        );
     }
 
     #[test]
@@ -689,8 +778,8 @@ mod tests {
         assert!(!s.is_streaming);
         assert!(s.current_response.is_empty());
         assert_eq!(s.messages.len(), 1);
-        assert_eq!(s.messages[0].content, "Hello World");
-        assert_eq!(s.messages[0].message_type, MessageType::AI);
+        assert_eq!(s.messages[0].content.as_text(), "Hello World");
+        assert_eq!(MessageType::from_role(&s.messages[0].role), MessageType::AI);
     }
 
     #[test]
@@ -786,8 +875,18 @@ mod tests {
             arguments: serde_json::json!({"command": "ls"}),
         };
         s.add_tool_calls(vec![tc]);
-        assert!(s.messages[0].tool_calls.is_some());
-        assert_eq!(s.messages[0].tool_calls.as_ref().unwrap().len(), 1);
+
+        // Check that ToolUse block was added to content
+        match &s.messages[0].content {
+            MessageContent::Blocks(blocks) => {
+                let tool_use_blocks: Vec<_> = blocks
+                    .iter()
+                    .filter(|b| matches!(b, ContentBlock::ToolUse { .. }))
+                    .collect();
+                assert_eq!(tool_use_blocks.len(), 1);
+            }
+            _ => panic!("Expected content to be Blocks variant"),
+        }
     }
 
     #[test]
@@ -801,8 +900,8 @@ mod tests {
             arguments: serde_json::json!({}),
         };
         s.add_tool_calls(vec![tc]);
-        // Should not be added to User messages
-        assert!(s.messages[0].tool_calls.is_none());
+        // Should not be added to User messages - content should remain unchanged
+        assert_eq!(s.messages[0].content.as_text(), "User message");
     }
 
     #[test]
@@ -919,7 +1018,10 @@ mod tests {
         s.set_token_budget(100);
         s.update_token_usage(150, 0);
         let result = s.check_token_budget();
-        assert!(matches!(result, Err(TokenBudgetStatus::Exceeded { over_by: 50, .. })));
+        assert!(matches!(
+            result,
+            Err(TokenBudgetStatus::Exceeded { over_by: 50, .. })
+        ));
     }
 
     #[test]
@@ -933,9 +1035,17 @@ mod tests {
 
     #[test]
     fn token_budget_status_display() {
-        let warn = TokenBudgetStatus::Warning { used: 920, budget: 1000, remaining: 80 };
+        let warn = TokenBudgetStatus::Warning {
+            used: 920,
+            budget: 1000,
+            remaining: 80,
+        };
         assert!(warn.to_string().contains("warning"));
-        let exceeded = TokenBudgetStatus::Exceeded { used: 1100, budget: 1000, over_by: 100 };
+        let exceeded = TokenBudgetStatus::Exceeded {
+            used: 1100,
+            budget: 1000,
+            over_by: 100,
+        };
         assert!(exceeded.to_string().contains("exceeded"));
     }
 
@@ -952,7 +1062,9 @@ mod tests {
             s.messages.len()
         );
         assert!(
-            s.messages.iter().any(|m| m.content == "system prompt"),
+            s.messages
+                .iter()
+                .any(|m| m.content.as_text() == "system prompt"),
             "system message should be preserved"
         );
     }

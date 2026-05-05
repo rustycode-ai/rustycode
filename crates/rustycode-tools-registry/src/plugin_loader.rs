@@ -60,7 +60,11 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn manifest(name: &str, version: &str, deps: Option<HashMap<String, String>>) -> PluginManifest {
+    fn manifest(
+        name: &str,
+        version: &str,
+        deps: Option<HashMap<String, String>>,
+    ) -> PluginManifest {
         PluginManifest {
             name: name.to_string(),
             version: version.to_string(),
@@ -83,10 +87,14 @@ mod tests {
     #[test]
     fn load_order_with_deps() {
         let mut loader = PluginLoader::new();
-        loader.add_manifest(manifest("base", "1.0.0", None)).unwrap();
+        loader
+            .add_manifest(manifest("base", "1.0.0", None))
+            .unwrap();
         let mut deps = HashMap::new();
         deps.insert("base".into(), "1.0.0".into());
-        loader.add_manifest(manifest("plugin", "1.0.0", Some(deps))).unwrap();
+        loader
+            .add_manifest(manifest("plugin", "1.0.0", Some(deps)))
+            .unwrap();
 
         let order = loader.resolve_load_order("plugin").unwrap();
         assert_eq!(order, vec!["base", "plugin"]);
@@ -98,7 +106,9 @@ mod tests {
         loader.add_manifest(manifest("a", "1.0.0", None)).unwrap();
         let mut deps = HashMap::new();
         deps.insert("a".into(), "1.0.0".into());
-        loader.add_manifest(manifest("b", "1.0.0", Some(deps))).unwrap();
+        loader
+            .add_manifest(manifest("b", "1.0.0", Some(deps)))
+            .unwrap();
 
         let all = loader.resolve_all().unwrap();
         assert_eq!(all.len(), 2);
@@ -109,7 +119,9 @@ mod tests {
         let mut loader = PluginLoader::new();
         let mut deps = HashMap::new();
         deps.insert("missing".into(), "1.0.0".into());
-        loader.add_manifest(manifest("a", "1.0.0", Some(deps))).unwrap();
+        loader
+            .add_manifest(manifest("a", "1.0.0", Some(deps)))
+            .unwrap();
 
         assert!(loader.resolve_load_order("a").is_err());
     }

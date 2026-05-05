@@ -39,9 +39,7 @@ pub use super::execution::{
     ExecutionConfig, ExecutionContext, StepExecutor, StepExecutorRegistry, ToolInvocationWrapper,
 };
 pub use super::plan_executor::{ExecutionOptions, ExecutionReport, PlanExecutor};
-pub use super::session::{
-    AiMode, ChatMessage, MessageType, SessionState, ToolExecution, ToolStatus,
-};
+pub use super::session::{AiMode, MessageType, SessionState, ToolExecution, ToolStatus};
 pub use super::tool_result_storage::{CacheConfig, ToolResultCache};
 
 // === Report Structs ===

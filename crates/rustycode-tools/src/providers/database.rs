@@ -558,8 +558,12 @@ impl Tool for QueryTool {
         // Execute based on database type
         let result = match conn_info.db_type {
             DatabaseType::SQLite => {
-                let db_path = validate_read_path(&conn_info.connection, &ctx.cwd, !ctx.allow_outside_workspace)
-                    .map_err(|e| anyhow!("Invalid database path: {e}"))?;
+                let db_path = validate_read_path(
+                    &conn_info.connection,
+                    &ctx.cwd,
+                    !ctx.allow_outside_workspace,
+                )
+                .map_err(|e| anyhow!("Invalid database path: {e}"))?;
                 if !db_path.exists() {
                     bail!("SQLite database not found: {}", db_path.display());
                 }

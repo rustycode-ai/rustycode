@@ -205,8 +205,7 @@ impl SessionManager {
             WsError::Internal(format!("failed to create provider '{provider}': {e}"))
         })?;
 
-        let tool_registry =
-            std::sync::Arc::new(rustycode_tools::default_registry());
+        let tool_registry = std::sync::Arc::new(rustycode_tools::default_registry());
         let new_pipeline = Arc::new(OrchestrationPipeline::with_provider_model_and_tools(
             self.orchestration_config.clone(),
             new_provider,

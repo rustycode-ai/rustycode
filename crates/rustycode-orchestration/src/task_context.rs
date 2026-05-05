@@ -2,7 +2,7 @@ use crate::execution_trace::ExecutionTrace;
 use crate::shared_workspace::SharedWorkspace;
 use chrono::{DateTime, Utc};
 use rustycode_protocol::agent_protocol::AgentRole;
-use rustycode_protocol::{ExecutionPhase, PhaseSkipConfig, PhaseTransitionError};
+use rustycode_protocol::{ExecutionPhase, Message, PhaseSkipConfig, PhaseTransitionError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::Arc;
@@ -123,7 +123,7 @@ pub struct TaskContext {
     #[serde(skip)]
     pub reasoning_graph: Option<crate::thinking::ReasoningGraph>,
     #[serde(default)]
-    pub conversation_history: Vec<(String, String)>,
+    pub conversation_history: Vec<Message>,
 }
 
 impl TaskContext {

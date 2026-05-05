@@ -471,9 +471,16 @@ mod tests {
         let openai = get_metadata("openai");
         assert!(openai.is_some());
 
-        let litert = get_metadata("litert-lm");
-        assert!(litert.is_some());
-        assert_eq!(litert.unwrap().provider_id, "litert-lm");
+        #[cfg(feature = "litert")]
+        {
+            let litert = get_metadata("litert-lm");
+            assert!(litert.is_some());
+            assert_eq!(litert.unwrap().provider_id, "litert-lm");
+        }
+        #[cfg(not(feature = "litert"))]
+        {
+            assert!(get_metadata("litert-lm").is_none());
+        }
 
         let unknown = get_metadata("unknown_provider");
         assert!(unknown.is_none());

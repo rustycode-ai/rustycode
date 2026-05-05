@@ -204,7 +204,9 @@ mod tests {
     #[test]
     fn stale_reason_display() {
         assert!(StaleReason::NeverRead.to_string().contains("not been read"));
-        assert!(StaleReason::PartialRead.to_string().contains("partial range"));
+        assert!(StaleReason::PartialRead
+            .to_string()
+            .contains("partial range"));
         let modified = StaleReason::Modified {
             read_mtime_secs: 100,
             current_mtime_secs: 200,

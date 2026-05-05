@@ -223,11 +223,7 @@ impl EvaluatorOptimizer {
     /// Run the full evaluator-optimizer cycle
     ///
     /// Returns the final optimized content and evaluation results
-    pub fn run(
-        &self,
-        initial_content: &str,
-        criteria: &str,
-    ) -> (String, Vec<EvaluationResult>) {
+    pub fn run(&self, initial_content: &str, criteria: &str) -> (String, Vec<EvaluationResult>) {
         let mut content = initial_content.to_string();
         let mut evaluations = Vec::new();
 

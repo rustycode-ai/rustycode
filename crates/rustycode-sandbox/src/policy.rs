@@ -23,12 +23,7 @@ impl SandboxPolicy {
             read_paths: vec![workspace_root.to_path_buf()],
             write_paths: vec![workspace_root.to_path_buf()],
             network: NetworkAccess::Denied,
-            env_passthrough: vec![
-                "PATH".into(),
-                "HOME".into(),
-                "LANG".into(),
-                "TERM".into(),
-            ],
+            env_passthrough: vec!["PATH".into(), "HOME".into(), "LANG".into(), "TERM".into()],
             max_memory_mb: Some(512),
             timeout_secs: Some(120),
         }

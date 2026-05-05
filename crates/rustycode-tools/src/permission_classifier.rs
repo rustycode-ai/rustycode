@@ -199,11 +199,7 @@ impl PermissionClassifier {
     // ── Pattern tables ──────────────────────────────────────────────────
 
     fn base_command(command: &str) -> String {
-        command
-            .split_whitespace()
-            .next()
-            .unwrap_or("")
-            .to_string()
+        command.split_whitespace().next().unwrap_or("").to_string()
     }
 
     fn check_blocked(command: &str, base: &str) -> Option<&'static str> {
@@ -237,20 +233,109 @@ impl PermissionClassifier {
 
     fn check_safe(base: &str, command: &str) -> Option<(CommandCategory, &'static str)> {
         let safe_commands: &[(CommandCategory, &[&str])] = &[
-            (CommandCategory::FileRead, &["ls", "cat", "head", "tail", "less", "more", "file", "stat", "wc", "md5sum", "sha256sum", "cksum"]),
-            (CommandCategory::FileRead, &["grep", "egrep", "fgrep", "rg", "ag", "ack"]),
-            (CommandCategory::FileRead, &["find", "locate", "which", "whereis", "type"]),
+            (
+                CommandCategory::FileRead,
+                &[
+                    "ls",
+                    "cat",
+                    "head",
+                    "tail",
+                    "less",
+                    "more",
+                    "file",
+                    "stat",
+                    "wc",
+                    "md5sum",
+                    "sha256sum",
+                    "cksum",
+                ],
+            ),
+            (
+                CommandCategory::FileRead,
+                &["grep", "egrep", "fgrep", "rg", "ag", "ack"],
+            ),
+            (
+                CommandCategory::FileRead,
+                &["find", "locate", "which", "whereis", "type"],
+            ),
             (CommandCategory::FileRead, &["diff", "comm", "cmp"]),
             (CommandCategory::FileRead, &["echo", "printf", "seq", "yes"]),
-            (CommandCategory::SystemInfo, &["uname", "hostname", "uptime", "whoami", "id", "env", "printenv", "date", "cal"]),
-            (CommandCategory::SystemInfo, &["df", "du", "free", "top", "ps", "lsof", "ss", "netstat", "ifconfig", "ip"]),
-            (CommandCategory::SystemInfo, &["systemctl status", "journalctl"]),
-            (CommandCategory::GitRead, &["git status", "git log", "git diff", "git branch", "git show", "git remote", "git tag", "git stash list", "git describe"]),
-            (CommandCategory::Build, &["cargo build", "cargo check", "cargo clippy", "cargo test", "cargo bench", "cargo doc", "cargo metadata"]),
-            (CommandCategory::Build, &["npm run build", "npm run test", "npm run lint", "npm run check", "npm run typecheck"]),
+            (
+                CommandCategory::SystemInfo,
+                &[
+                    "uname", "hostname", "uptime", "whoami", "id", "env", "printenv", "date", "cal",
+                ],
+            ),
+            (
+                CommandCategory::SystemInfo,
+                &[
+                    "df", "du", "free", "top", "ps", "lsof", "ss", "netstat", "ifconfig", "ip",
+                ],
+            ),
+            (
+                CommandCategory::SystemInfo,
+                &["systemctl status", "journalctl"],
+            ),
+            (
+                CommandCategory::GitRead,
+                &[
+                    "git status",
+                    "git log",
+                    "git diff",
+                    "git branch",
+                    "git show",
+                    "git remote",
+                    "git tag",
+                    "git stash list",
+                    "git describe",
+                ],
+            ),
+            (
+                CommandCategory::Build,
+                &[
+                    "cargo build",
+                    "cargo check",
+                    "cargo clippy",
+                    "cargo test",
+                    "cargo bench",
+                    "cargo doc",
+                    "cargo metadata",
+                ],
+            ),
+            (
+                CommandCategory::Build,
+                &[
+                    "npm run build",
+                    "npm run test",
+                    "npm run lint",
+                    "npm run check",
+                    "npm run typecheck",
+                ],
+            ),
             (CommandCategory::Build, &["make", "cmake", "ninja"]),
-            (CommandCategory::Test, &["pytest", "jest", "vitest", "mocha", "cargo test", "go test", "npm test"]),
-            (CommandCategory::PackageManage, &["pip list", "pip show", "pip freeze", "npm list", "cargo tree", "cargo search"]),
+            (
+                CommandCategory::Test,
+                &[
+                    "pytest",
+                    "jest",
+                    "vitest",
+                    "mocha",
+                    "cargo test",
+                    "go test",
+                    "npm test",
+                ],
+            ),
+            (
+                CommandCategory::PackageManage,
+                &[
+                    "pip list",
+                    "pip show",
+                    "pip freeze",
+                    "npm list",
+                    "cargo tree",
+                    "cargo search",
+                ],
+            ),
             (CommandCategory::FileRead, &["tree", "exa", "eza", "fd"]),
             (CommandCategory::FileRead, &["jq", "yq", "xq", "hx"]),
         ];
@@ -272,7 +357,24 @@ impl PermissionClassifier {
             let git_args: Vec<&str> = command.split_whitespace().collect();
             if git_args.len() >= 2 {
                 let subcmd = git_args[1];
-                let safe_git = ["status", "log", "diff", "show", "branch", "remote", "tag", "stash", "describe", "rev-parse", "config", "blame", "shortlog", "reflog", "ls-files", "ls-tree"];
+                let safe_git = [
+                    "status",
+                    "log",
+                    "diff",
+                    "show",
+                    "branch",
+                    "remote",
+                    "tag",
+                    "stash",
+                    "describe",
+                    "rev-parse",
+                    "config",
+                    "blame",
+                    "shortlog",
+                    "reflog",
+                    "ls-files",
+                    "ls-tree",
+                ];
                 if safe_git.contains(&subcmd) {
                     return Some((CommandCategory::GitRead, "git (read)"));
                 }
@@ -287,8 +389,12 @@ impl PermissionClassifier {
             "rm" | "rmdir" => CommandCategory::FileDelete,
             "curl" | "wget" => CommandCategory::NetworkFetch,
             "scp" | "rsync" | "sftp" => CommandCategory::NetworkUpload,
-            "pip" | "pip3" | "npm" | "yarn" | "pnpm" | "cargo" | "brew" | "apt" | "yum" | "dnf" => CommandCategory::PackageManage,
-            "touch" | "mkdir" | "cp" | "mv" | "chmod" | "chown" | "ln" => CommandCategory::FileWrite,
+            "pip" | "pip3" | "npm" | "yarn" | "pnpm" | "cargo" | "brew" | "apt" | "yum" | "dnf" => {
+                CommandCategory::PackageManage
+            }
+            "touch" | "mkdir" | "cp" | "mv" | "chmod" | "chown" | "ln" => {
+                CommandCategory::FileWrite
+            }
             "git" => CommandCategory::GitWrite,
             "kill" | "killall" | "pkill" => CommandCategory::ProcessManagement,
             _ => CommandCategory::Unknown,
@@ -338,39 +444,80 @@ mod tests {
     #[test]
     fn test_safe_commands() {
         let classifier = PermissionClassifier::new(None);
-        let safe = ["ls", "cat file.txt", "grep pattern file", "git status", "git log --oneline", "cargo build", "echo hello", "wc -l file"];
+        let safe = [
+            "ls",
+            "cat file.txt",
+            "grep pattern file",
+            "git status",
+            "git log --oneline",
+            "cargo build",
+            "echo hello",
+            "wc -l file",
+        ];
         for cmd in safe {
             let result = classifier.classify(cmd);
-            assert_eq!(result.level, PermissionRiskLevel::Safe, "Expected safe for: {cmd}");
+            assert_eq!(
+                result.level,
+                PermissionRiskLevel::Safe,
+                "Expected safe for: {cmd}"
+            );
         }
     }
 
     #[test]
     fn test_blocked_commands() {
         let classifier = PermissionClassifier::new(None);
-        let blocked = ["rm -rf /", "mkfs /dev/sda1", "npm publish", "cargo publish", "git push --force"];
+        let blocked = [
+            "rm -rf /",
+            "mkfs /dev/sda1",
+            "npm publish",
+            "cargo publish",
+            "git push --force",
+        ];
         for cmd in blocked {
             let result = classifier.classify(cmd);
-            assert_eq!(result.level, PermissionRiskLevel::Blocked, "Expected blocked for: {cmd}");
+            assert_eq!(
+                result.level,
+                PermissionRiskLevel::Blocked,
+                "Expected blocked for: {cmd}"
+            );
         }
     }
 
     #[test]
     fn test_ask_commands() {
         let classifier = PermissionClassifier::new(None);
-        let ask = ["rm file.txt", "curl http://example.com", "pip install flask", "touch newfile"];
+        let ask = [
+            "rm file.txt",
+            "curl http://example.com",
+            "pip install flask",
+            "touch newfile",
+        ];
         for cmd in ask {
             let result = classifier.classify(cmd);
-            assert_eq!(result.level, PermissionRiskLevel::Ask, "Expected ask for: {cmd}");
+            assert_eq!(
+                result.level,
+                PermissionRiskLevel::Ask,
+                "Expected ask for: {cmd}"
+            );
         }
     }
 
     #[test]
     fn test_category_inference() {
         let classifier = PermissionClassifier::new(None);
-        assert_eq!(classifier.classify("rm file").category, CommandCategory::FileDelete);
-        assert_eq!(classifier.classify("curl url").category, CommandCategory::NetworkFetch);
-        assert_eq!(classifier.classify("pip install x").category, CommandCategory::PackageManage);
+        assert_eq!(
+            classifier.classify("rm file").category,
+            CommandCategory::FileDelete
+        );
+        assert_eq!(
+            classifier.classify("curl url").category,
+            CommandCategory::NetworkFetch
+        );
+        assert_eq!(
+            classifier.classify("pip install x").category,
+            CommandCategory::PackageManage
+        );
     }
 
     /// Comprehensive cross-category classification test.
@@ -398,8 +545,7 @@ mod tests {
                 "Expected Safe for read-only command: {cmd}"
             );
             assert_eq!(
-                result.category,
-                *expected_cat,
+                result.category, *expected_cat,
                 "Wrong category for read-only command: {cmd}"
             );
         }
@@ -419,8 +565,7 @@ mod tests {
                 "Expected Blocked for destructive command: {cmd}"
             );
             assert_eq!(
-                result.category,
-                *expected_cat,
+                result.category, *expected_cat,
                 "Wrong category for blocked command: {cmd}"
             );
         }
@@ -429,7 +574,10 @@ mod tests {
         let ask: &[(&str, CommandCategory)] = &[
             ("rm unwanted.txt", CommandCategory::FileDelete),
             ("curl http://example.com/api", CommandCategory::NetworkFetch),
-            ("wget https://example.com/file.tar.gz", CommandCategory::NetworkFetch),
+            (
+                "wget https://example.com/file.tar.gz",
+                CommandCategory::NetworkFetch,
+            ),
             ("chmod 777 script.sh", CommandCategory::FileWrite),
             ("pip install flask", CommandCategory::PackageManage),
             ("mkdir new_directory", CommandCategory::FileWrite),
@@ -442,8 +590,7 @@ mod tests {
                 "Expected Ask for approval-required command: {cmd}"
             );
             assert_eq!(
-                result.category,
-                *expected_cat,
+                result.category, *expected_cat,
                 "Wrong category for approval-required command: {cmd}"
             );
         }

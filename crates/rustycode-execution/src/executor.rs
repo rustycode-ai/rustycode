@@ -360,8 +360,8 @@ impl StepExecutor for GenericStepExecutor {
             };
 
             // Create tool context
-            let tool_ctx = ToolContext::new(&self.cwd)
-                .with_file_read_state(ctx.file_read_state.clone());
+            let tool_ctx =
+                ToolContext::new(&self.cwd).with_file_read_state(ctx.file_read_state.clone());
 
             // Create tool call
             let tool_call = ToolCall {

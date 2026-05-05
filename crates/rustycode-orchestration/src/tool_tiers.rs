@@ -523,7 +523,7 @@ mod tests {
         let tools = manager.active_tools();
         assert!(tools.contains(&"read_file"));
         assert!(tools.contains(&"bash"));
-        assert!(!tools.contains(&"web_fetch"));
+        assert!(tools.contains(&"web_fetch")); // extended tools are active by default
     }
 
     #[test]
@@ -564,12 +564,12 @@ mod tests {
     }
 
     #[test]
-    fn activation_manager_suggest_promotion_to_extended() {
-        let mut manager = ToolActivationManager::new();
+    fn activation_manager_suggest_promotion_to_full_from_extended() {
+        let mut manager = ToolActivationManager::new(); // starts at Extended
         manager.usage_mut().record("read_file", true);
         manager.usage_mut().record("bash", true);
-        manager.usage_mut().record("web_fetch", false); // non-default tool attempted
-        assert_eq!(manager.suggest_promotion(), Some(ToolTier::Extended));
+        manager.usage_mut().record("custom_mcp_tool", true); // non-extended tool used
+        assert_eq!(manager.suggest_promotion(), Some(ToolTier::Full));
     }
 
     #[test]

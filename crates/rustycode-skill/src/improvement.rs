@@ -102,13 +102,7 @@ impl SkillImprover {
     ) -> String {
         let (fm, body) = rustycode_protocol::frontmatter::split_frontmatter(original).map_or_else(
             || (String::new(), original.to_string()),
-            |f| {
-                let parts: Vec<&str> = original.splitn(3, "---").collect();
-                (
-                    format!("---\n{f}\n---"),
-                    parts.get(2).unwrap_or(&"").to_string(),
-                )
-            },
+            |(yaml, body)| (format!("---\n{yaml}\n---"), body),
         );
 
         // Currently no updates modify the body; kept for future field-specific body rewrites.

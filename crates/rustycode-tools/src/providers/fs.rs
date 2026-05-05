@@ -3,7 +3,9 @@ use crate::security::{
     create_file_symlink_safe, open_file_symlink_safe, validate_list_path, validate_read_path,
     validate_regex_pattern, validate_url, validate_write_path, BLOCKED_EXTENSIONS,
 };
-use crate::truncation::{format_with_line_numbers, truncate_items, truncate_lines, LIST_MAX_ITEMS, READ_MAX_LINES};
+use crate::truncation::{
+    format_with_line_numbers, truncate_items, truncate_lines, LIST_MAX_ITEMS, READ_MAX_LINES,
+};
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -277,7 +279,13 @@ impl Tool for ReadFileTool {
     }
 
     fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore, ToolTag::Implement, ToolTag::Debug, ToolTag::Refactor, ToolTag::Ops]
+        &[
+            ToolTag::Explore,
+            ToolTag::Implement,
+            ToolTag::Debug,
+            ToolTag::Refactor,
+            ToolTag::Ops,
+        ]
     }
 
     fn validate_input(&self, params: &Value, _ctx: &ToolContext) -> Result<()> {
@@ -751,11 +759,14 @@ fn compute_hash_prefix(data: &[u8]) -> String {
 
 fn record_file_read(ctx: &ToolContext, path: &Path, hash_prefix: &str, is_partial: bool) {
     if let Some(state) = &ctx.file_read_state {
-        let mtime = fs::metadata(path)
-            .ok()
-            .and_then(|m| m.modified().ok());
+        let mtime = fs::metadata(path).ok().and_then(|m| m.modified().ok());
         if let Some(mtime) = mtime {
-            state.record_read(path.to_path_buf(), mtime, hash_prefix.to_string(), is_partial);
+            state.record_read(
+                path.to_path_buf(),
+                mtime,
+                hash_prefix.to_string(),
+                is_partial,
+            );
         }
     }
 }
@@ -820,9 +831,7 @@ impl Tool for WriteFileTool {
             };
             let canonical = resolved.canonicalize().ok();
             if let (Some(state), Some(canonical)) = (&ctx.file_read_state, &canonical) {
-                let current_mtime = fs::metadata(canonical)
-                    .ok()
-                    .and_then(|m| m.modified().ok());
+                let current_mtime = fs::metadata(canonical).ok().and_then(|m| m.modified().ok());
                 if let Err(reason) = state.check_stale(canonical, current_mtime) {
                     return Err(anyhow!("{reason}"));
                 }
@@ -870,7 +879,8 @@ impl Tool for WriteFileTool {
             .as_ref()
             .map(|b: &Vec<u8>| b.len())
             .unwrap_or(content.len());
-        let path = validate_write_path(path_str, &ctx.cwd, write_size, !ctx.allow_outside_workspace)?;
+        let path =
+            validate_write_path(path_str, &ctx.cwd, write_size, !ctx.allow_outside_workspace)?;
 
         crate::check_sandbox_path(&path, ctx)?;
 
@@ -933,9 +943,7 @@ impl Tool for WriteFileTool {
         };
 
         // Compute pre-write hash for debug logging
-        let expected_bytes: &[u8] = binary_bytes
-            .as_deref()
-            .unwrap_or(content.as_bytes());
+        let expected_bytes: &[u8] = binary_bytes.as_deref().unwrap_or(content.as_bytes());
         let pre_hash = {
             let mut hasher = Sha256::new();
             hasher.update(expected_bytes);

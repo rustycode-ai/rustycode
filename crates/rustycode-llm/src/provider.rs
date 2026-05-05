@@ -683,17 +683,13 @@ impl ChatMessage {
 
     /// Create a tool result message with error flag
     pub fn tool_result_with_error(content: String, tool_use_id: String, is_error: bool) -> Self {
-        let mut tool_result = serde_json::json!({
-            "type": "tool_result",
-            "tool_use_id": tool_use_id,
-            "content": content
-        });
-        if is_error {
-            tool_result["is_error"] = serde_json::json!(true);
-        }
         Self {
-            role: MessageRole::User, // Tool results are sent by user role
-            content: MessageContent::Simple(tool_result.to_string()),
+            role: MessageRole::User,
+            content: MessageContent::blocks(vec![ContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                is_error,
+            }]),
         }
     }
 
@@ -705,6 +701,38 @@ impl ChatMessage {
     /// Check if message contains images
     pub fn has_images(&self) -> bool {
         self.content.has_images()
+    }
+}
+
+impl From<rustycode_protocol::Message> for ChatMessage {
+    fn from(msg: rustycode_protocol::Message) -> Self {
+        let role = match msg.role.as_str() {
+            "user" => MessageRole::User,
+            "assistant" => MessageRole::Assistant,
+            "system" => MessageRole::System,
+            other => MessageRole::Tool(other.to_string()),
+        };
+        ChatMessage {
+            role,
+            content: msg.content,
+        }
+    }
+}
+
+impl From<ChatMessage> for rustycode_protocol::Message {
+    fn from(msg: ChatMessage) -> Self {
+        let role = match &msg.role {
+            MessageRole::User => "user".to_string(),
+            MessageRole::Assistant => "assistant".to_string(),
+            MessageRole::System => "system".to_string(),
+            MessageRole::Tool(name) => name.clone(),
+        };
+        rustycode_protocol::Message {
+            role,
+            content: msg.content,
+            timestamp: chrono::Utc::now(),
+            metadata: rustycode_protocol::MessageMetadata::default(),
+        }
     }
 }
 

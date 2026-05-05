@@ -72,7 +72,9 @@ mod integration_tests {
         original.push_str("[ERROR] unexpected error occurred\n");
         original.push_str("Final result: success\n");
 
-        let summary = summarizer.summarize("bash", &original).expect("summarization should succeed");
+        let summary = summarizer
+            .summarize("bash", &original)
+            .expect("summarization should succeed");
 
         let original_tokens = summarizer.estimate_tokens(&original);
         let summary_tokens = summarizer.estimate_tokens(&summary);

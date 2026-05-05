@@ -230,7 +230,10 @@ impl ContentBlock {
             Self::Image { cache_control, .. } => {
                 *cache_control = Some(CacheControl { cache_type });
             }
-            Self::ToolUse { .. } | Self::Thinking { .. } | Self::RedactedThinking { .. } | Self::ToolResult { .. } => {
+            Self::ToolUse { .. }
+            | Self::Thinking { .. }
+            | Self::RedactedThinking { .. }
+            | Self::ToolResult { .. } => {
                 // ToolUse, Thinking, RedactedThinking, and ToolResult blocks don't support caching
             }
         }
@@ -260,9 +263,7 @@ impl ContentBlock {
 
     /// Create a redacted thinking content block
     pub fn redacted_thinking(data: impl Into<String>) -> Self {
-        Self::RedactedThinking {
-            data: data.into(),
-        }
+        Self::RedactedThinking { data: data.into() }
     }
 
     /// Check if this is a text block
@@ -290,7 +291,10 @@ impl ContentBlock {
         match self {
             Self::Text { cache_control, .. } => cache_control.is_some(),
             Self::Image { cache_control, .. } => cache_control.is_some(),
-            Self::ToolUse { .. } | Self::Thinking { .. } | Self::RedactedThinking { .. } | Self::ToolResult { .. } => false,
+            Self::ToolUse { .. }
+            | Self::Thinking { .. }
+            | Self::RedactedThinking { .. }
+            | Self::ToolResult { .. } => false,
         }
     }
 }
@@ -546,7 +550,8 @@ impl fmt::Display for MessageContent {
 /// assert!(default.user_visible);
 /// assert!(default.agent_visible);
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Copy)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 pub struct MessageMetadata {
     /// Whether to show this message in the user-facing UI
     #[serde(default = "default_true")]
@@ -554,6 +559,9 @@ pub struct MessageMetadata {
     /// Whether to include this message in the agent's context window
     #[serde(default = "default_true")]
     pub agent_visible: bool,
+    /// Relevance score from compression pipeline (0.0 = discardable, 1.0 = must-keep)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relevance_score: Option<f32>,
 }
 
 fn default_true() -> bool {
@@ -565,6 +573,7 @@ impl Default for MessageMetadata {
         Self {
             user_visible: true,
             agent_visible: true,
+            relevance_score: None,
         }
     }
 }
@@ -580,6 +589,7 @@ impl MessageMetadata {
         Self {
             user_visible: false,
             agent_visible: true,
+            relevance_score: None,
         }
     }
 
@@ -588,6 +598,7 @@ impl MessageMetadata {
         Self {
             user_visible: true,
             agent_visible: false,
+            relevance_score: None,
         }
     }
 
@@ -596,6 +607,7 @@ impl MessageMetadata {
         Self {
             user_visible: false,
             agent_visible: false,
+            relevance_score: None,
         }
     }
 
@@ -629,6 +641,19 @@ impl MessageMetadata {
             user_visible: true,
             ..self
         }
+    }
+
+    /// Builder: set relevance score from compression pipeline
+    pub fn with_relevance(self, score: f32) -> Self {
+        Self {
+            relevance_score: Some(score),
+            ..self
+        }
+    }
+
+    /// Whether this message should be preserved during context compression
+    pub fn must_keep(&self) -> bool {
+        self.relevance_score >= Some(0.8)
     }
 }
 
@@ -696,6 +721,11 @@ impl Message {
         self.role == "system"
     }
 
+    /// Check if this message has the given role
+    pub fn role_is(&self, role: &str) -> bool {
+        self.role == role
+    }
+
     /// Check if this message should be shown to users
     pub fn is_user_visible(&self) -> bool {
         self.metadata.user_visible
@@ -711,6 +741,7 @@ impl Message {
         self.metadata = MessageMetadata {
             user_visible,
             agent_visible,
+            relevance_score: None,
         };
         self
     }

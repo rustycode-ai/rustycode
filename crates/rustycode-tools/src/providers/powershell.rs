@@ -526,7 +526,9 @@ impl PowerShellSession {
                     thread::sleep(Duration::from_millis(100));
                     if let Ok(status) = child.try_wait() {
                         if status.is_none() {
-                            tracing::warn!("pwsh child still alive after Ctrl+C in streaming, killing");
+                            tracing::warn!(
+                                "pwsh child still alive after Ctrl+C in streaming, killing"
+                            );
                             let _ = child.kill();
                         }
                     }
@@ -559,7 +561,8 @@ impl PowerShellSession {
 
         let exit_code: i32 = exit_code_line.trim().parse().unwrap_or(-1);
 
-        let error = if stderr.contains("command not found") || stderr.contains("is not recognized") {
+        let error = if stderr.contains("command not found") || stderr.contains("is not recognized")
+        {
             Some(format!("command not found: {command}"))
         } else if stderr.contains("Permission denied") || stderr.contains("Access is denied") {
             Some(format!("permission denied: {command}"))
@@ -902,87 +905,93 @@ impl Tool for PowerShellTool {
         let command_clone = command.clone();
         let cwd_clone = ctx.cwd.clone();
 
-        let (stdout, stderr, exit_code) =
-            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                tokio::task::block_in_place(|| {
-                    handle.block_on(async {
-                        let result = tokio::time::timeout(
-                            Duration::from_secs(timeout_secs),
-                            tokio::task::spawn_blocking(move || {
-                                let s = session
+        let (stdout, stderr, exit_code) = if let Ok(handle) = tokio::runtime::Handle::try_current()
+        {
+            tokio::task::block_in_place(|| {
+                handle.block_on(async {
+                    let result = tokio::time::timeout(
+                        Duration::from_secs(timeout_secs),
+                        tokio::task::spawn_blocking(move || {
+                            let s = session
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            let alive = s
+                                .child
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .is_some();
+                            if !alive {
+                                drop(s);
+                                drop(session);
+                                PS_SESSION_REGISTRY.remove(&cwd_clone);
+                                let fresh = PS_SESSION_REGISTRY.get_or_create(cwd_clone)?;
+                                let s = fresh
                                     .lock()
                                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                                let alive = s
-                                    .child
-                                    .lock()
-                                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                                    .is_some();
-                                if !alive {
-                                    drop(s);
-                                    drop(session);
-                                    PS_SESSION_REGISTRY.remove(&cwd_clone);
-                                    let fresh = PS_SESSION_REGISTRY.get_or_create(cwd_clone)?;
-                                    let s = fresh
-                                        .lock()
-                                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                                    return s.execute(&command_clone, timeout_secs);
-                                }
-                                s.execute(&command_clone, timeout_secs)
-                            }),
-                        )
-                        .await;
+                                return s.execute(&command_clone, timeout_secs);
+                            }
+                            s.execute(&command_clone, timeout_secs)
+                        }),
+                    )
+                    .await;
 
-                        if result.is_err() {
-                            tracing::warn!("pwsh command timed out, evicting session for {:?}", ctx.cwd);
-                            PS_SESSION_REGISTRY.remove(&ctx.cwd);
-                        }
+                    if result.is_err() {
+                        tracing::warn!(
+                            "pwsh command timed out, evicting session for {:?}",
+                            ctx.cwd
+                        );
+                        PS_SESSION_REGISTRY.remove(&ctx.cwd);
+                    }
 
-                        result
-                            .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
-                            .map_err(|e| anyhow!("command execution failed: {e}"))?
-                    })
+                    result
+                        .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
+                        .map_err(|e| anyhow!("command execution failed: {e}"))?
                 })
-            } else {
-                tokio::runtime::Runtime::new()
-                    .map_err(|e| anyhow!("failed to create tokio runtime: {e}"))?
-                    .block_on(async {
-                        let cwd_for_evict = ctx.cwd.clone();
-                        let result = tokio::time::timeout(
-                            Duration::from_secs(timeout_secs),
-                            tokio::task::spawn_blocking(move || {
-                                let s = session
+            })
+        } else {
+            tokio::runtime::Runtime::new()
+                .map_err(|e| anyhow!("failed to create tokio runtime: {e}"))?
+                .block_on(async {
+                    let cwd_for_evict = ctx.cwd.clone();
+                    let result = tokio::time::timeout(
+                        Duration::from_secs(timeout_secs),
+                        tokio::task::spawn_blocking(move || {
+                            let s = session
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            let alive = s
+                                .child
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .is_some();
+                            if !alive {
+                                drop(s);
+                                drop(session);
+                                PS_SESSION_REGISTRY.remove(&cwd_clone);
+                                let fresh = PS_SESSION_REGISTRY.get_or_create(cwd_clone)?;
+                                let s = fresh
                                     .lock()
                                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                                let alive = s
-                                    .child
-                                    .lock()
-                                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                                    .is_some();
-                                if !alive {
-                                    drop(s);
-                                    drop(session);
-                                    PS_SESSION_REGISTRY.remove(&cwd_clone);
-                                    let fresh = PS_SESSION_REGISTRY.get_or_create(cwd_clone)?;
-                                    let s = fresh
-                                        .lock()
-                                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                                    return s.execute(&command_clone, timeout_secs);
-                                }
-                                s.execute(&command_clone, timeout_secs)
-                            }),
-                        )
-                        .await;
+                                return s.execute(&command_clone, timeout_secs);
+                            }
+                            s.execute(&command_clone, timeout_secs)
+                        }),
+                    )
+                    .await;
 
-                        if result.is_err() {
-                            tracing::warn!("pwsh command timed out, evicting session for {:?}", cwd_for_evict);
-                            PS_SESSION_REGISTRY.remove(&cwd_for_evict);
-                        }
+                    if result.is_err() {
+                        tracing::warn!(
+                            "pwsh command timed out, evicting session for {:?}",
+                            cwd_for_evict
+                        );
+                        PS_SESSION_REGISTRY.remove(&cwd_for_evict);
+                    }
 
-                        result
-                            .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
-                            .map_err(|e| anyhow!("command execution failed: {e}"))?
-                    })
-            }?;
+                    result
+                        .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
+                        .map_err(|e| anyhow!("command execution failed: {e}"))?
+                })
+        }?;
 
         let execution_time = start_time.elapsed();
 
@@ -1231,10 +1240,7 @@ mod tests {
             .expect("execute failed");
 
         assert_eq!(exit_code, 0, "stderr: {stderr}");
-        assert!(
-            stdout.contains("hello from pwsh"),
-            "stdout was: {stdout}"
-        );
+        assert!(stdout.contains("hello from pwsh"), "stdout was: {stdout}");
     }
 
     #[test]
@@ -1247,9 +1253,7 @@ mod tests {
         let dir = std::env::current_dir().unwrap();
         let session = PowerShellSession::new(dir).unwrap();
 
-        let (stdout, stderr, exit_code) = session
-            .execute("exit 42", 30)
-            .expect("execute failed");
+        let (stdout, stderr, exit_code) = session.execute("exit 42", 30).expect("execute failed");
 
         assert_eq!(exit_code, 42, "stdout: {stdout}, stderr: {stderr}");
     }
@@ -1333,7 +1337,10 @@ mod tests {
             // If pwsh is available, just verify the session works
             let dir = std::env::current_dir().unwrap();
             let session = PowerShellSession::new(dir);
-            assert!(session.is_ok(), "session should work when pwsh is available");
+            assert!(
+                session.is_ok(),
+                "session should work when pwsh is available"
+            );
         } else {
             let dir = std::env::current_dir().unwrap();
             let err = PowerShellSession::new(dir).unwrap_err();

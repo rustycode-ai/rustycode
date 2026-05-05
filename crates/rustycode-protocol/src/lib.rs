@@ -222,7 +222,9 @@ pub mod compaction;
 // Shared frontmatter parsing utilities
 pub mod frontmatter;
 // Re-exports for frontmatter helpers
-pub use frontmatter::{parse_frontmatter_map, split_frontmatter, FrontmatterMap, FrontmatterValue};
+pub use frontmatter::{
+    normalize_paths, parse_frontmatter_map, split_frontmatter, FrontmatterMap, FrontmatterValue,
+};
 
 // ============================================================================
 // PUBLIC RE-EXPORTS

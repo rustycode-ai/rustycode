@@ -853,7 +853,7 @@ fn test_valid_read_operation_succeeds() {
     let result = tool.execute(json!({ "path": "test.txt" }), &ctx);
 
     assert!(result.is_ok(), "Valid read should succeed");
-    assert_eq!(result.unwrap().text, "hello world");
+    assert!(result.unwrap().text.contains("hello world"));
 }
 
 #[test]

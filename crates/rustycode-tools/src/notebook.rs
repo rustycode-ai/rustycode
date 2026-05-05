@@ -13,8 +13,8 @@ use anyhow::{Context, Result};
 /// its type (markdown, code, raw). Code cell outputs (stdout, stderr,
 /// execution results, errors) are included after each code cell.
 pub fn parse_notebook(content: &str) -> Result<String> {
-    let nb: serde_json::Value = serde_json::from_str(content)
-        .with_context(|| "failed to parse notebook JSON")?;
+    let nb: serde_json::Value =
+        serde_json::from_str(content).with_context(|| "failed to parse notebook JSON")?;
 
     let cells = nb
         .get("cells")
@@ -153,17 +153,11 @@ fn format_outputs(cell: &serde_json::Value) -> Option<String> {
                     .get("ename")
                     .and_then(|e| e.as_str())
                     .unwrap_or("Error");
-                let evalue = output
-                    .get("evalue")
-                    .and_then(|e| e.as_str())
-                    .unwrap_or("");
+                let evalue = output.get("evalue").and_then(|e| e.as_str()).unwrap_or("");
                 parts.push(format!("[error] {ename}: {evalue}"));
 
                 if let Some(traceback) = output.get("traceback").and_then(|t| t.as_array()) {
-                    let tb_lines: Vec<&str> = traceback
-                        .iter()
-                        .filter_map(|v| v.as_str())
-                        .collect();
+                    let tb_lines: Vec<&str> = traceback.iter().filter_map(|v| v.as_str()).collect();
                     if !tb_lines.is_empty() {
                         parts.push(format!("[error] {}", tb_lines.join("\n")));
                     }
@@ -286,7 +280,10 @@ mod tests {
     fn test_parse_invalid_json() {
         let result = parse_notebook("not valid json {{{");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("failed to parse notebook JSON"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("failed to parse notebook JSON"));
     }
 
     #[test]

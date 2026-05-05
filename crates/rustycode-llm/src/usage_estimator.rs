@@ -78,7 +78,7 @@ fn estimate_input_tokens(
     let message_tuples: Vec<(String, String)> = messages
         .iter()
         .map(|msg| {
-            let role = format!("{:?}", msg.role).to_lowercase();
+            let role = msg.role.as_ref().to_string();
             let content = msg.content.as_text();
             (role, content)
         })

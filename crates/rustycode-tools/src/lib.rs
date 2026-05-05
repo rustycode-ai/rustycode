@@ -83,8 +83,8 @@
 // import them as `crate::Tool`, `crate::ToolContext`, etc.
 use rustycode_protocol::{AgentRole, ToolCall, ToolResult};
 pub use rustycode_tools_api::{
-    CancellationToken, FileReadState, Tool, ToolContext, ToolGate, ToolInfo, ToolOutput, ToolPermission,
-    ToolProfile, ToolRegistry, ToolSelector, ToolTag,
+    CancellationToken, FileReadState, Tool, ToolContext, ToolGate, ToolInfo, ToolOutput,
+    ToolPermission, ToolProfile, ToolRegistry, ToolSelector, ToolTag,
 };
 
 // Modules
@@ -149,13 +149,13 @@ pub mod hooks;
 pub mod image;
 pub mod image_detect;
 pub mod json_repair;
-pub mod notebook;
 pub mod large_response;
 pub mod lifecycle;
 pub mod line_endings;
 pub mod log_rotation;
 pub mod markdown_stream;
 pub mod native_tools;
+pub mod notebook;
 pub mod observation_layer;
 pub mod osv_check;
 pub mod permission_classifier;

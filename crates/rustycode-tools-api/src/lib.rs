@@ -414,7 +414,10 @@ pub trait Tool: Send + Sync {
     /// to determine if a particular call is safe (e.g., `bash ls` vs `bash rm`).
     /// Default: true if permission is None or Read.
     fn is_read_only(&self, _params: &Value) -> bool {
-        matches!(self.permission(), ToolPermission::None | ToolPermission::Read)
+        matches!(
+            self.permission(),
+            ToolPermission::None | ToolPermission::Read
+        )
     }
 
     /// Whether this invocation is destructive and should warn the user.
@@ -1128,7 +1131,10 @@ mod tests {
         assert!(stubs[0].description.contains("Deferred tool"));
         assert!(stubs[0].description.contains("tool_search"));
         // Stub has empty schema
-        assert_eq!(stubs[0].parameters_schema["properties"], serde_json::json!({}));
+        assert_eq!(
+            stubs[0].parameters_schema["properties"],
+            serde_json::json!({})
+        );
         assert_eq!(stubs[0].defer_loading, Some(true));
     }
 

@@ -178,8 +178,7 @@ impl ConversationManager {
         }
 
         // Collect messages to summarize: from first_non_system to keep_from
-        let to_summarize: Vec<&Message> = self.conversation.messages
-            [first_non_system..keep_from]
+        let to_summarize: Vec<&Message> = self.conversation.messages[first_non_system..keep_from]
             .iter()
             .collect();
 
@@ -206,7 +205,9 @@ impl ConversationManager {
         );
 
         // Remove the summarized messages
-        self.conversation.messages.drain(first_non_system..keep_from);
+        self.conversation
+            .messages
+            .drain(first_non_system..keep_from);
 
         // Insert the summary as a system message right after the last system message
         let insert_at = self
@@ -217,10 +218,9 @@ impl ConversationManager {
             .map(|i| i + 1)
             .unwrap_or(0);
 
-        self.conversation.messages.insert(
-            insert_at,
-            Message::system(summary_text),
-        );
+        self.conversation
+            .messages
+            .insert(insert_at, Message::system(summary_text));
     }
 
     /// Get the conversation ready for LLM input
@@ -614,19 +614,25 @@ mod tests {
 
         // Should have a summary message
         assert!(
-            messages.iter().any(|m| m.content.as_text().contains("[conversation-summary]")),
+            messages
+                .iter()
+                .any(|m| m.content.as_text().contains("[conversation-summary]")),
             "Should contain a conversation summary"
         );
 
         // System prompt should survive
         assert!(
-            messages.iter().any(|m| m.content.as_text() == "System prompt"),
+            messages
+                .iter()
+                .any(|m| m.content.as_text() == "System prompt"),
             "System prompt should survive summarization"
         );
 
         // Recent turns should survive
         assert!(
-            messages.iter().any(|m| m.content.as_text().contains("topic 11")),
+            messages
+                .iter()
+                .any(|m| m.content.as_text().contains("topic 11")),
             "Recent turns should survive summarization"
         );
     }
@@ -646,7 +652,9 @@ mod tests {
 
         let messages = manager.messages();
         assert!(
-            !messages.iter().any(|m| m.content.as_text().contains("[conversation-summary]")),
+            !messages
+                .iter()
+                .any(|m| m.content.as_text().contains("[conversation-summary]")),
             "Should not summarize with few messages"
         );
     }
@@ -674,10 +682,7 @@ mod tests {
             .join(" ");
 
         // Most recent turns should be intact (not in summary)
-        assert!(
-            text.contains("thing 11"),
-            "Latest turn should be preserved"
-        );
+        assert!(text.contains("thing 11"), "Latest turn should be preserved");
         assert!(
             text.contains("thing 10"),
             "Second-to-last turn should be preserved"
@@ -699,8 +704,8 @@ mod tests {
         for i in 0..8 {
             manager.add_message(Message::user(format!("Explain concept {}", i)));
             manager.add_message(Message::assistant(format!(
-                "Concept {} is about programming fundamentals with some detail"
-                , i
+                "Concept {} is about programming fundamentals with some detail",
+                i
             )));
         }
 
@@ -712,7 +717,10 @@ mod tests {
         let texts: Vec<String> = messages.iter().map(|m| m.content.as_text()).collect();
 
         // System message must survive
-        assert!(texts.contains(&"You are a code assistant".to_string()), "system prompt preserved");
+        assert!(
+            texts.contains(&"You are a code assistant".to_string()),
+            "system prompt preserved"
+        );
 
         // Summary should exist
         assert!(
@@ -727,7 +735,12 @@ mod tests {
         );
 
         // Old turn details should be compressed (not as full messages)
-        let old_survivors = texts.iter().any(|t| t.contains("Explain concept 0") && !t.contains("[conversation-summary]"));
-        assert!(!old_survivors, "old turns should be in summary, not standalone");
+        let old_survivors = texts
+            .iter()
+            .any(|t| t.contains("Explain concept 0") && !t.contains("[conversation-summary]"));
+        assert!(
+            !old_survivors,
+            "old turns should be in summary, not standalone"
+        );
     }
 }

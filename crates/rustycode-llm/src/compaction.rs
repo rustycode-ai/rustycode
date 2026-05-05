@@ -396,10 +396,16 @@ Wrap your summary in <summary></summary> tags."#
         for i in (0..msg_count).rev() {
             let msg = &mut conversation.messages[i];
 
-            // Match tool results (MessageRole::Tool) or user messages wrapping tool_result JSON
+            // Match tool results: Tool role, structured ContentBlock::ToolResult,
+            // or legacy user messages wrapping tool_result JSON
             let is_tool_output = matches!(msg.role, MessageRole::Tool(_))
                 || (matches!(msg.role, MessageRole::User)
-                    && msg.content.as_text().contains("\"type\":\"tool_result\""));
+                    && msg.content.as_text().contains("\"type\":\"tool_result\""))
+                || matches!(
+                    &msg.content,
+                    rustycode_protocol::MessageContent::Blocks(blocks)
+                        if blocks.iter().any(|b| matches!(b, rustycode_protocol::ContentBlock::ToolResult { .. }))
+                );
 
             if !is_tool_output {
                 continue;

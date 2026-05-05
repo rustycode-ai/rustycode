@@ -101,17 +101,15 @@ pub async fn execute_sandboxed(
     }
 
     let timed_out = if let Some(timeout_secs) = policy.timeout_secs {
-        match tokio::time::timeout(
-            std::time::Duration::from_secs(timeout_secs),
-            cmd.output(),
-        )
-        .await
+        match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), cmd.output()).await
         {
             Ok(Ok(output)) => {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 if stdout.contains('\u{fffd}') || stderr.contains('\u{fffd}') {
-                    tracing::debug!("sandbox output contained non-UTF-8 bytes (replaced with U+FFFD)");
+                    tracing::debug!(
+                        "sandbox output contained non-UTF-8 bytes (replaced with U+FFFD)"
+                    );
                 }
                 return Ok(SandboxResult {
                     exit_code: output.status.code(),

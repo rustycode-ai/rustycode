@@ -225,11 +225,7 @@ impl CmdSession {
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     if Instant::now() >= deadline {
-                        return Ok((
-                            output_lines.join("\n"),
-                            String::new(),
-                            124,
-                        ));
+                        return Ok((output_lines.join("\n"), String::new(), 124));
                     }
                 }
                 Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
@@ -367,10 +363,7 @@ fn extract_binary_name(command: &str) -> Result<String> {
         if let Some(end) = rest.find('"') {
             let path = &rest[..end];
             // Extract filename from Windows path (split by \ or /)
-            let filename = path
-                .rsplit(&['\\', '/'])
-                .next()
-                .unwrap_or(path);
+            let filename = path.rsplit(&['\\', '/']).next().unwrap_or(path);
             // Strip .exe extension if present
             let stem = filename.strip_suffix(".exe").unwrap_or(filename);
             return Ok(stem.to_lowercase());
@@ -388,9 +381,7 @@ fn extract_binary_name(command: &str) -> Result<String> {
 fn validate_cmd_command(command: &str) -> Result<()> {
     let binary = extract_binary_name(command)?;
 
-    use crate::security::cross_platform::{
-        get_allowed_commands, get_blocked_commands, ShellType,
-    };
+    use crate::security::cross_platform::{get_allowed_commands, get_blocked_commands, ShellType};
 
     let shell_type = ShellType::Cmd;
     let allowed = get_allowed_commands(shell_type);
@@ -694,9 +685,8 @@ mod tests {
         let cwd = std::env::temp_dir();
         let session = CmdSession::new(cwd).expect("failed to create cmd session");
 
-        let (stdout, _stderr, exit_code) = session
-            .execute("exit /b 42", 10)
-            .expect("execute failed");
+        let (stdout, _stderr, exit_code) =
+            session.execute("exit /b 42", 10).expect("execute failed");
 
         assert_eq!(exit_code, 42, "output was: {stdout}");
     }

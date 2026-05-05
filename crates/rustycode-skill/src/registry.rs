@@ -129,10 +129,7 @@ impl SkillRegistry {
             .with_context(|| format!("Failed to read skill file: {}", path.display()))?;
 
         let (fm_str, body) = rustycode_protocol::frontmatter::split_frontmatter(&content)
-            .map_or_else(
-                || (String::new(), content.clone()),
-                |frontmatter| (frontmatter, content.clone()),
-            );
+            .unwrap_or_else(|| (String::new(), content.clone()));
 
         let fm = rustycode_protocol::frontmatter::parse_frontmatter_map(&fm_str);
 

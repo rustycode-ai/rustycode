@@ -16,12 +16,10 @@ pub enum FrontmatterValue {
 
 pub type FrontmatterMap = HashMap<String, FrontmatterValue>;
 
-/// Splits a content blob into an optional YAML frontmatter string.
-/// The common pattern is:
-/// ---
-/// key: value
-/// ---
-pub fn split_frontmatter(content: &str) -> Option<String> {
+/// Splits a content blob into optional (YAML frontmatter, body).
+/// Body is everything after the closing `---` delimiter.
+/// Returns `None` if no valid frontmatter block is found.
+pub fn split_frontmatter(content: &str) -> Option<(String, String)> {
     let mut lines = content.lines();
     // First line must be a delimiter
     let first = lines.next()?.trim();
@@ -29,14 +27,24 @@ pub fn split_frontmatter(content: &str) -> Option<String> {
         return None;
     }
     let mut yaml_lines: Vec<String> = Vec::new();
+    let mut body_lines: Vec<String> = Vec::new();
+    let mut found_close = false;
+
     for line in lines {
-        if line.trim() == "---" {
-            return Some(yaml_lines.join("\n"));
+        if found_close {
+            body_lines.push(line.to_string());
+        } else if line.trim() == "---" {
+            found_close = true;
         } else {
             yaml_lines.push(line.to_string());
         }
     }
-    None
+
+    if !found_close {
+        return None;
+    }
+
+    Some((yaml_lines.join("\n"), body_lines.join("\n")))
 }
 
 /// Minimal frontmatter parser.
@@ -118,6 +126,96 @@ fn parse_scalar(token: &str) -> FrontmatterValue {
     }
 }
 
+/// Expand brace patterns in a path string.
+/// `"src/*.{ts,tsx}"` → `["src/*.ts", "src/*.tsx"]`
+/// `"a{b,c}d{e,f}"` → `["abde", "abdf", "acde", "acdf"]`
+/// Nested braces are supported.
+fn expand_braces(pattern: &str) -> Vec<String> {
+    let Some(open) = pattern.find('{') else {
+        return vec![pattern.to_string()];
+    };
+
+    // Find matching closing brace (respecting nesting)
+    let mut depth = 0i32;
+    let mut close = None;
+    for (i, ch) in pattern[open..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(open + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let Some(close) = close else {
+        // Unmatched brace — return as-is
+        return vec![pattern.to_string()];
+    };
+
+    let prefix = &pattern[..open];
+    let suffix = &pattern[close + '}'.len_utf8()..];
+    let inner = &pattern[open + '{'.len_utf8()..close];
+
+    let alternatives = split_by_comma(inner);
+
+    let mut results = Vec::new();
+    for alt in alternatives {
+        let combined = format!("{prefix}{alt}{suffix}");
+        results.extend(expand_braces(&combined));
+    }
+
+    results
+}
+
+/// Split a string by commas, respecting nested brace groups.
+fn split_by_comma(s: &str) -> Vec<&str> {
+    let mut result = Vec::new();
+    let mut depth = 0i32;
+    let mut start = 0;
+
+    for (i, ch) in s.char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                result.push(s[start..i].trim());
+                start = i + ','.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let last = s[start..].trim();
+    if !last.is_empty() {
+        result.push(last);
+    }
+    result
+}
+
+/// Normalize frontmatter paths: expand brace patterns and split comma-separated entries.
+///
+/// Handles:
+/// - Brace expansion: `"src/*.{ts,tsx}"` → `["src/*.ts", "src/*.tsx"]`
+/// - Comma-separated: `"*.rs, *.ts"` → `["*.rs", "*.ts"]`
+/// - Combined: `"src/*.{ts,tsx}, *.json"` → `["src/*.ts", "src/*.tsx", "*.json"]`
+pub fn normalize_paths(paths: &[String]) -> Vec<String> {
+    let mut expanded = Vec::new();
+    for path in paths {
+        for part in split_by_comma(path) {
+            let trimmed = part.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            expanded.extend(expand_braces(trimmed));
+        }
+    }
+    expanded
+}
+
 /// Convenience helpers for consumers of FrontmatterValue.
 pub fn as_string(v: &FrontmatterValue) -> Option<String> {
     if let FrontmatterValue::String(s) = v {
@@ -151,7 +249,23 @@ mod tests {
     fn test_split_frontmatter_basic() {
         let input = "---\nname: test\nversion: 1\n---\nbody content";
         let result = split_frontmatter(input);
-        assert_eq!(result, Some("name: test\nversion: 1".to_string()));
+        assert_eq!(
+            result,
+            Some((
+                "name: test\nversion: 1".to_string(),
+                "body content".to_string()
+            ))
+        );
+    }
+
+    #[test]
+    fn test_split_frontmatter_extracts_body() {
+        let input = "---\nname: test\n---\n# Title\n\nSome body text.\n";
+        let (fm, body) = split_frontmatter(input).unwrap();
+        assert_eq!(fm, "name: test");
+        assert!(body.contains("# Title"));
+        assert!(body.contains("Some body text."));
+        assert!(!body.contains("name:"));
     }
 
     #[test]
@@ -195,6 +309,15 @@ mod tests {
             as_string(map.get("title").unwrap()).as_deref(),
             Some("single quoted")
         );
+    }
+
+    #[test]
+    fn test_parse_glob_pattern_unquoted() {
+        let yaml = "paths:\n  - \"**/*.rs\"\n  - \"*.ts\"";
+        let map = parse_frontmatter_map(yaml);
+        let arr = as_array(map.get("paths").unwrap()).unwrap();
+        assert_eq!(as_string(&arr[0]).as_deref(), Some("**/*.rs"));
+        assert_eq!(as_string(&arr[1]).as_deref(), Some("*.ts"));
     }
 
     #[test]
@@ -259,5 +382,148 @@ mod tests {
     fn test_as_array_on_non_array() {
         let v = FrontmatterValue::Number(42);
         assert!(as_array(&v).is_none());
+    }
+
+    // --- Brace expansion tests ---
+
+    #[test]
+    fn test_expand_braces_single_group() {
+        let result = expand_braces("src/*.{ts,tsx}");
+        assert_eq!(result, vec!["src/*.ts", "src/*.tsx"]);
+    }
+
+    #[test]
+    fn test_expand_braces_multiple_groups() {
+        let result = expand_braces("a{b,c}d{e,f}");
+        assert_eq!(result, vec!["abde", "abdf", "acde", "acdf"]);
+    }
+
+    #[test]
+    fn test_expand_braces_no_braces() {
+        let result = expand_braces("**/*.rs");
+        assert_eq!(result, vec!["**/*.rs"]);
+    }
+
+    #[test]
+    fn test_expand_braces_unmatched() {
+        let result = expand_braces("src/*.{ts");
+        assert_eq!(result, vec!["src/*.{ts"]);
+    }
+
+    #[test]
+    fn test_expand_braces_nested() {
+        let result = expand_braces("{a,{b,c}}");
+        assert_eq!(result, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn test_expand_braces_single_alt() {
+        let result = expand_braces("src/{ts}");
+        assert_eq!(result, vec!["src/ts"]);
+    }
+
+    #[test]
+    fn test_expand_braces_three_alts() {
+        let result = expand_braces("*.{ts,tsx,js}");
+        assert_eq!(result, vec!["*.ts", "*.tsx", "*.js"]);
+    }
+
+    // --- Path normalization tests ---
+
+    #[test]
+    fn test_normalize_paths_brace_expansion() {
+        let paths = vec!["src/*.{ts,tsx}".to_string()];
+        let result = normalize_paths(&paths);
+        assert_eq!(result, vec!["src/*.ts", "src/*.tsx"]);
+    }
+
+    #[test]
+    fn test_normalize_paths_comma_separated() {
+        let paths = vec!["*.rs, *.ts".to_string()];
+        let result = normalize_paths(&paths);
+        assert_eq!(result, vec!["*.rs", "*.ts"]);
+    }
+
+    #[test]
+    fn test_normalize_paths_mixed() {
+        let paths = vec!["src/*.{ts,tsx}, *.json".to_string(), "**/*.rs".to_string()];
+        let result = normalize_paths(&paths);
+        assert_eq!(result, vec!["src/*.ts", "src/*.tsx", "*.json", "**/*.rs"]);
+    }
+
+    #[test]
+    fn test_normalize_paths_no_expansion_needed() {
+        let paths = vec!["**/*.rs".to_string(), "*.toml".to_string()];
+        let result = normalize_paths(&paths);
+        assert_eq!(result, vec!["**/*.rs", "*.toml"]);
+    }
+
+    #[test]
+    fn test_normalize_paths_empty() {
+        let result = normalize_paths(&[]);
+        assert!(result.is_empty());
+    }
+
+    // --- Edge case tests ---
+
+    #[test]
+    fn test_expand_braces_empty_alternative() {
+        let result = expand_braces("src/{ts,}");
+        assert_eq!(result, vec!["src/ts"]);
+    }
+
+    #[test]
+    fn test_expand_braces_consecutive() {
+        let result = expand_braces("a{b}c{d}e");
+        assert_eq!(result, vec!["abcde"]);
+    }
+
+    #[test]
+    fn test_normalize_paths_whitespace_handling() {
+        let paths = vec!["  *.rs  ,  *.ts  ".to_string()];
+        let result = normalize_paths(&paths);
+        assert_eq!(result, vec!["*.rs", "*.ts"]);
+    }
+
+    #[test]
+    fn test_normalize_paths_trailing_comma() {
+        let paths = vec!["*.rs,".to_string()];
+        let result = normalize_paths(&paths);
+        assert_eq!(result, vec!["*.rs"]);
+    }
+
+    #[test]
+    fn test_split_frontmatter_empty_body() {
+        let input = "---\nkey: val\n---\n";
+        let (fm, body) = split_frontmatter(input).unwrap();
+        assert_eq!(fm, "key: val");
+        assert!(body.trim().is_empty());
+    }
+
+    #[test]
+    fn test_split_frontmatter_body_with_dashes() {
+        let input = "---\nkey: val\n---\nSome --- text\n";
+        let (fm, body) = split_frontmatter(input).unwrap();
+        assert_eq!(fm, "key: val");
+        assert!(body.contains("Some --- text"));
+    }
+
+    #[test]
+    fn test_parse_number_in_array() {
+        let yaml = "items:\n  - 1\n  - 2\n  - 3";
+        let map = parse_frontmatter_map(yaml);
+        let arr = as_array(map.get("items").unwrap()).unwrap();
+        assert_eq!(arr[0], FrontmatterValue::Number(1));
+        assert_eq!(arr[2], FrontmatterValue::Number(3));
+    }
+
+    #[test]
+    fn test_parse_mixed_array() {
+        let yaml = "items:\n  - hello\n  - 42\n  - true";
+        let map = parse_frontmatter_map(yaml);
+        let arr = as_array(map.get("items").unwrap()).unwrap();
+        assert_eq!(arr[0], FrontmatterValue::String("hello".to_string()));
+        assert_eq!(arr[1], FrontmatterValue::Number(42));
+        assert_eq!(arr[2], FrontmatterValue::Bool(true));
     }
 }

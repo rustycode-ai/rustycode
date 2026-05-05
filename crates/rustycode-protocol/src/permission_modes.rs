@@ -42,6 +42,10 @@ pub enum PermissionMode {
     Auto,
     /// Auto-accept file edits; still ask for command execution.
     AcceptEdits,
+    /// No prompts, but deny rules still enforced.
+    DontAsk,
+    /// Subagent escalation: defer to parent agent's permission decision.
+    Bubble,
     /// Allow all tools without asking (use with caution).
     Bypass,
 }
@@ -53,6 +57,8 @@ impl fmt::Display for PermissionMode {
             Self::Plan => write!(f, "plan"),
             Self::Auto => write!(f, "auto"),
             Self::AcceptEdits => write!(f, "acceptEdits"),
+            Self::DontAsk => write!(f, "dontAsk"),
+            Self::Bubble => write!(f, "bubble"),
             Self::Bypass => write!(f, "bypass"),
         }
     }
@@ -67,6 +73,8 @@ impl PermissionMode {
             "auto" => Some(Self::Auto),
             "acceptedits" | "accept-edits" | "accept_edits" => Some(Self::AcceptEdits),
             "bypass" | "bypasspermissions" | "yolo" => Some(Self::Bypass),
+            "dontask" | "dont-ask" | "dont_ask" => Some(Self::DontAsk),
+            "bubble" => Some(Self::Bubble),
             _ => None,
         }
     }
@@ -129,6 +137,29 @@ impl PermissionMode {
             }
             Self::Auto => PermissionDecision::Ask {
                 message: format!("Allow {}?", tool_name),
+            },
+            Self::DontAsk => {
+                // No prompts — if no explicit allow rule matched, deny by default.
+                // Deny rules were already checked above, so this only fires for
+                // tools that have no rule and aren't covered by mode defaults.
+                if is_read_only_tool(tool_name) {
+                    PermissionDecision::Allow {
+                        reason: "read-only tool in dontAsk mode".to_string(),
+                    }
+                } else {
+                    PermissionDecision::Deny {
+                        reason: format!(
+                            "{} has no allow rule and dontAsk mode won't prompt",
+                            tool_name
+                        ),
+                    }
+                }
+            }
+            Self::Bubble => PermissionDecision::Deny {
+                reason: format!(
+                    "bubble mode: {} requires parent agent escalation",
+                    tool_name
+                ),
             },
             Self::Default => PermissionDecision::Ask {
                 message: format!("Allow {}?", tool_name),
@@ -504,5 +535,66 @@ mod tests {
         assert_eq!(format!("{}", PermissionMode::Default), "default");
         assert_eq!(format!("{}", PermissionMode::Bypass), "bypass");
         assert_eq!(format!("{}", PermissionMode::AcceptEdits), "acceptEdits");
+        assert_eq!(format!("{}", PermissionMode::DontAsk), "dontAsk");
+        assert_eq!(format!("{}", PermissionMode::Bubble), "bubble");
+    }
+
+    #[test]
+    fn dont_ask_mode_allows_readonly_denies_unknown() {
+        let rules = vec![];
+        assert!(PermissionMode::DontAsk
+            .decide("read_file", &rules)
+            .is_allowed());
+        assert!(PermissionMode::DontAsk.decide("bash", &rules).is_denied());
+        assert!(PermissionMode::DontAsk
+            .decide("write_file", &rules)
+            .is_denied());
+    }
+
+    #[test]
+    fn dont_ask_mode_respects_explicit_allow_rules() {
+        let rules = vec![PermissionRule::allow("bash")];
+        assert!(PermissionMode::DontAsk.decide("bash", &rules).is_allowed());
+    }
+
+    #[test]
+    fn dont_ask_mode_respects_deny_rules() {
+        let rules = vec![PermissionRule::deny("read_file")];
+        assert!(PermissionMode::DontAsk
+            .decide("read_file", &rules)
+            .is_denied());
+    }
+
+    #[test]
+    fn bubble_mode_denies_everything() {
+        let rules = vec![];
+        assert!(PermissionMode::Bubble
+            .decide("read_file", &rules)
+            .is_denied());
+        assert!(PermissionMode::Bubble.decide("bash", &rules).is_denied());
+    }
+
+    #[test]
+    fn bubble_mode_allows_explicit_rules() {
+        let rules = vec![PermissionRule::allow("read_file")];
+        assert!(PermissionMode::Bubble
+            .decide("read_file", &rules)
+            .is_allowed());
+    }
+
+    #[test]
+    fn from_str_loose_new_modes() {
+        assert_eq!(
+            PermissionMode::from_str_loose("dontAsk"),
+            Some(PermissionMode::DontAsk)
+        );
+        assert_eq!(
+            PermissionMode::from_str_loose("dont-ask"),
+            Some(PermissionMode::DontAsk)
+        );
+        assert_eq!(
+            PermissionMode::from_str_loose("bubble"),
+            Some(PermissionMode::Bubble)
+        );
     }
 }

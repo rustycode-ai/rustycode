@@ -156,14 +156,7 @@ pub async fn auto_compact_if_needed(
     model: &str,
     metrics: Option<&mut CompactionMetrics>,
 ) -> Result<Option<CompressionResult>> {
-    auto_compact_with_threshold(
-        window,
-        provider,
-        model,
-        DEFAULT_COMPACT_THRESHOLD,
-        metrics,
-    )
-    .await
+    auto_compact_with_threshold(window, provider, model, DEFAULT_COMPACT_THRESHOLD, metrics).await
 }
 
 /// Run auto-compaction with a custom threshold.
@@ -203,8 +196,7 @@ pub async fn auto_compact_with_threshold(
                 "LLM summarization failed ({}), falling back to truncation",
                 e
             );
-            let fallback_target =
-                (window.max_tokens() as f64 * POST_COMPACT_TARGET) as usize;
+            let fallback_target = (window.max_tokens() as f64 * POST_COMPACT_TARGET) as usize;
             let r = crate::context_management::compression::compress_context(
                 window,
                 CompressionStrategy::OldestFirst,
@@ -345,10 +337,7 @@ async fn compact_with_llm(
     }
 
     // Insert the summary as a single high-priority item at the beginning.
-    let summary_content = format!(
-        "[Conversation Summary]\n{}\n[End Summary]",
-        summary_text
-    );
+    let summary_content = format!("[Conversation Summary]\n{}\n[End Summary]", summary_text);
     let summary_item = ContextItem::new(summary_content, Priority::High)
         .with_timestamp(now)
         .with_id("compaction-summary");
@@ -600,14 +589,10 @@ mod tests {
         window.set_used_tokens(window.used_tokens().saturating_add(extra));
 
         let mut metrics = CompactionMetrics::default();
-        let result = auto_compact_if_needed(
-            &mut window,
-            &provider,
-            "mock-model",
-            Some(&mut metrics),
-        )
-        .await
-        .unwrap();
+        let result =
+            auto_compact_if_needed(&mut window, &provider, "mock-model", Some(&mut metrics))
+                .await
+                .unwrap();
 
         assert!(result.is_some());
         let r = result.unwrap();
@@ -691,14 +676,10 @@ mod tests {
         window.set_used_tokens(900);
 
         let mut metrics = CompactionMetrics::default();
-        let result = auto_compact_if_needed(
-            &mut window,
-            &provider,
-            "mock-model",
-            Some(&mut metrics),
-        )
-        .await
-        .unwrap();
+        let result =
+            auto_compact_if_needed(&mut window, &provider, "mock-model", Some(&mut metrics))
+                .await
+                .unwrap();
 
         assert!(result.is_some());
         assert_eq!(metrics.fallback_compactions, 1);

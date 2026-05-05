@@ -197,7 +197,13 @@ impl RolloutRecorder {
     }
 
     /// Convenience: record an assistant message.
-    pub fn assistant_message(&self, content: &str, model: &str, tokens: TokenUsage, duration_ms: u64) {
+    pub fn assistant_message(
+        &self,
+        content: &str,
+        model: &str,
+        tokens: TokenUsage,
+        duration_ms: u64,
+    ) {
         self.record(RolloutEvent::AssistantMessage {
             content: content.to_string(),
             model: model.to_string(),
@@ -324,9 +330,7 @@ mod tests {
             flush_on_every_event: true,
         };
 
-        let recorder = RolloutRecorder::new("test-session", &config)
-            .await
-            .unwrap();
+        let recorder = RolloutRecorder::new("test-session", &config).await.unwrap();
 
         assert!(recorder.is_enabled());
 
@@ -358,12 +362,20 @@ mod tests {
         assert_eq!(events.len(), 6);
 
         // Verify ordering and types
-        assert!(matches!(&events[0], RolloutEvent::SessionStart { session_id, .. } if session_id == "test-session"));
-        assert!(matches!(&events[1], RolloutEvent::UserMessage { content, .. } if content == "write a hello world"));
+        assert!(
+            matches!(&events[0], RolloutEvent::SessionStart { session_id, .. } if session_id == "test-session")
+        );
+        assert!(
+            matches!(&events[1], RolloutEvent::UserMessage { content, .. } if content == "write a hello world")
+        );
         assert!(matches!(&events[2], RolloutEvent::AssistantMessage { .. }));
-        assert!(matches!(&events[3], RolloutEvent::ToolCall { tool_name, .. } if tool_name == "write_file"));
+        assert!(
+            matches!(&events[3], RolloutEvent::ToolCall { tool_name, .. } if tool_name == "write_file")
+        );
         assert!(matches!(&events[4], RolloutEvent::ToolResult { .. }));
-        assert!(matches!(&events[5], RolloutEvent::SessionEnd { reason, .. } if reason == "completed"));
+        assert!(
+            matches!(&events[5], RolloutEvent::SessionEnd { reason, .. } if reason == "completed")
+        );
 
         // Cleanup
         let _ = std::fs::remove_dir_all(&dir);

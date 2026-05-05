@@ -25,7 +25,10 @@ fn lsp_backoff() -> &'static Mutex<HashMap<String, std::time::Instant>> {
 
 fn set_lsp_backoff(key: &str, secs: u64) {
     if let Ok(mut map) = lsp_backoff().lock() {
-        map.insert(key.to_string(), std::time::Instant::now() + std::time::Duration::from_secs(secs));
+        map.insert(
+            key.to_string(),
+            std::time::Instant::now() + std::time::Duration::from_secs(secs),
+        );
     }
 }
 
@@ -198,10 +201,8 @@ pub(crate) fn read_file_blocking(file_path: &Path) -> Result<String> {
     if tokio::runtime::Handle::try_current().is_ok() {
         // We're in an async runtime — use block_on_shared to avoid
         // handle.block_on panics when the runtime is shutting down.
-        shared_runtime::block_on_shared(async {
-            tokio::fs::read_to_string(&path).await
-        })
-        .with_context(|| format!("failed to read file {}", path.display()))
+        shared_runtime::block_on_shared(async { tokio::fs::read_to_string(&path).await })
+            .with_context(|| format!("failed to read file {}", path.display()))
     } else {
         // No runtime, use symlink-safe direct I/O
         safe_read_file_to_string(&path)
