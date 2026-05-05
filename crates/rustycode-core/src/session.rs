@@ -233,6 +233,28 @@ impl ProviderConfig {
     }
 }
 
+/// Session mode state - AI behavior mode and first-run detection
+#[derive(Clone, Debug)]
+pub struct SessionModeState {
+    pub ai_mode: AiMode,
+    pub is_first_run: bool,
+}
+
+impl SessionModeState {
+    pub fn new() -> Self {
+        Self {
+            ai_mode: AiMode::default(),
+            is_first_run: false,
+        }
+    }
+}
+
+/// Memory state - persistent memory entries
+#[derive(Clone, Debug, Default)]
+pub struct MemoryState {
+    pub memory_entries: Vec<MemoryEntry>,
+}
+
 /// Core session state - independent of UI implementation
 pub struct SessionState {
     // Conversation state
@@ -263,14 +285,11 @@ pub struct SessionState {
     pub tool_iteration_count: u32,
     pub pending_tool_call: Option<ToolCall>,
 
-    // AI behavior mode
-    pub ai_mode: AiMode,
+    // Mode and first-run detection
+    pub mode: SessionModeState,
 
     // Persistent memory
-    pub memory_entries: Vec<MemoryEntry>,
-
-    // First run detection
-    pub is_first_run: bool,
+    pub memory: MemoryState,
 
     // Token budget
     pub token_budget: TokenBudgetState,
@@ -413,9 +432,8 @@ impl SessionState {
             current_session_tools: Vec::new(),
             tool_iteration_count: 0,
             pending_tool_call: None,
-            ai_mode: AiMode::Act,
-            memory_entries: Vec::new(),
-            is_first_run: false,
+            mode: SessionModeState { ai_mode: AiMode::Act, is_first_run: false },
+            memory: MemoryState { memory_entries: Vec::new() },
             token_budget: TokenBudgetState { budget: None },
             streaming: StreamingState {
                 is_streaming: false,
