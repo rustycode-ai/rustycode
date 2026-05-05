@@ -7,8 +7,8 @@ use chrono::Utc;
 use rustycode_llm::ConversationManager;
 use rustycode_memory::MemoryEntry;
 use rustycode_protocol::{
-    ContentBlock, Conversation, Message, MessageContent, MessageMetadata, SessionId, ToolCall,
-    ToolResult as ProtocolToolResult,
+    ContentBlock, Conversation, Message, MessageContent, MessageMetadata, MessageRole, SessionId,
+    ToolCall, ToolResult as ProtocolToolResult,
 };
 use rustycode_tools_api::{new_todo_state, TodoItem};
 use std::path::PathBuf;
@@ -157,29 +157,41 @@ pub enum MessageType {
 }
 
 impl MessageType {
-    /// Convert MessageType to protocol message role string
-    pub fn as_role(&self) -> String {
+    /// Convert MessageType to protocol MessageRole
+    pub fn as_message_role(&self) -> MessageRole {
         match self {
-            Self::User => "user".to_string(),
-            Self::AI => "assistant".to_string(),
-            Self::System => "system".to_string(),
-            Self::Tool => "tool".to_string(),
-            Self::Thinking => "thinking".to_string(),
-            Self::Error => "error".to_string(),
+            Self::User => MessageRole::User,
+            Self::AI => MessageRole::Assistant,
+            Self::System => MessageRole::System,
+            Self::Tool => MessageRole::Tool("tool".to_string()),
+            Self::Thinking => MessageRole::Tool("thinking".to_string()),
+            Self::Error => MessageRole::Tool("error".to_string()),
         }
     }
 
-    /// Convert protocol message role string to MessageType
-    pub fn from_role(role: &str) -> Self {
+    /// Convert protocol MessageRole to MessageType
+    pub fn from_message_role(role: &MessageRole) -> Self {
         match role {
-            "user" => Self::User,
-            "assistant" => Self::AI,
-            "system" => Self::System,
-            "tool" => Self::Tool,
-            "thinking" => Self::Thinking,
-            "error" => Self::Error,
-            _ => Self::System, // Default to system for unknown roles
+            MessageRole::User => Self::User,
+            MessageRole::Assistant => Self::AI,
+            MessageRole::System => Self::System,
+            MessageRole::Tool(name) => match name.as_str() {
+                "thinking" => Self::Thinking,
+                "error" => Self::Error,
+                _ => Self::Tool,
+            },
+            _ => Self::System, // Unknown role, default to System for future-proofing
         }
+    }
+
+    /// Convert MessageType to protocol message role string (deprecated, use as_message_role)
+    pub fn as_role(&self) -> String {
+        self.as_message_role().to_string()
+    }
+
+    /// Convert protocol message role string to MessageType (deprecated, use from_message_role)
+    pub fn from_role(role: &str) -> Self {
+        Self::from_message_role(&MessageRole::from(role))
     }
 }
 
@@ -286,7 +298,7 @@ impl SessionState {
     /// Add a message to the conversation
     pub fn add_message(&mut self, content: String, message_type: MessageType) {
         let message = Message {
-            role: message_type.as_role(),
+            role: message_type.as_message_role(),
             content: MessageContent::simple(content),
             timestamp: Utc::now(),
             metadata: MessageMetadata::default(),
@@ -300,7 +312,7 @@ impl SessionState {
                 if removed >= excess {
                     return true;
                 }
-                if MessageType::from_role(&m.role) != MessageType::System {
+                if MessageType::from_message_role(&m.role) != MessageType::System {
                     removed += 1;
                     false
                 } else {
@@ -314,7 +326,7 @@ impl SessionState {
     /// Add tool call blocks to the last AI message
     pub fn add_tool_calls(&mut self, tool_calls: Vec<ToolCall>) {
         if let Some(msg) = self.messages.last_mut() {
-            if MessageType::from_role(&msg.role) == MessageType::AI {
+            if MessageType::from_message_role(&msg.role) == MessageType::AI {
                 // Convert ToolCall to ContentBlock::ToolUse and add to message content
                 let tool_use_blocks: Vec<ContentBlock> = tool_calls
                     .into_iter()
@@ -366,7 +378,7 @@ impl SessionState {
 
         // Create message with tool result blocks
         let message = Message {
-            role: "user".to_string(), // Tool results come from user (system) perspective
+            role: MessageRole::User, // Tool results come from user (system) perspective
             content: MessageContent::Blocks(tool_result_blocks),
             timestamp: Utc::now(),
             metadata: MessageMetadata::default(),
@@ -491,7 +503,7 @@ impl SessionState {
     pub fn complete_streaming_response(&mut self) {
         if !self.current_response.is_empty() {
             let message = Message {
-                role: "assistant".to_string(),
+                role: MessageRole::Assistant,
                 content: MessageContent::simple(self.current_response.clone()),
                 timestamp: Utc::now(),
                 metadata: MessageMetadata::default(),

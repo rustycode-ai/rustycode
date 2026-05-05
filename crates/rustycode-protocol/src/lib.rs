@@ -257,7 +257,7 @@ pub use tool::{ToolCall, ToolMetadata, ToolPermission, ToolResult};
 // Message types
 pub use message::{
     CacheControl, CacheType, ContentBlock, Conversation, ImageSource, Message, MessageContent,
-    MessageMetadata,
+    MessageMetadata, MessageRole,
 };
 
 // Selective message inclusion with priority-based filtering

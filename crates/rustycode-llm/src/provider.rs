@@ -721,14 +721,15 @@ impl From<rustycode_protocol::Message> for ChatMessage {
 
 impl From<ChatMessage> for rustycode_protocol::Message {
     fn from(msg: ChatMessage) -> Self {
-        let role = match &msg.role {
-            MessageRole::User => "user".to_string(),
-            MessageRole::Assistant => "assistant".to_string(),
-            MessageRole::System => "system".to_string(),
-            MessageRole::Tool(name) => name.clone(),
+        // Convert LLM MessageRole to protocol MessageRole
+        let protocol_role = match &msg.role {
+            MessageRole::User => rustycode_protocol::MessageRole::User,
+            MessageRole::Assistant => rustycode_protocol::MessageRole::Assistant,
+            MessageRole::System => rustycode_protocol::MessageRole::System,
+            MessageRole::Tool(name) => rustycode_protocol::MessageRole::Tool(name.clone()),
         };
         rustycode_protocol::Message {
-            role,
+            role: protocol_role,
             content: msg.content,
             timestamp: chrono::Utc::now(),
             metadata: rustycode_protocol::MessageMetadata::default(),

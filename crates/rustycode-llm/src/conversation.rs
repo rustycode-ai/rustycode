@@ -1,5 +1,5 @@
 use rustycode_protocol::message_selector::{MessageSelector, SelectionConfig};
-use rustycode_protocol::{Conversation as ProtocolConversation, Message, MessagePriority};
+use rustycode_protocol::{Conversation as ProtocolConversation, Message, MessagePriority, MessageRole};
 
 /// Conversation manager with context windowing
 pub struct ConversationManager {
@@ -63,7 +63,7 @@ impl ConversationManager {
 
     fn compact_message_if_needed(mut message: Message) -> Message {
         // Compact oversized assistant outputs and likely tool outputs.
-        if message.role == "assistant" {
+        if message.role == MessageRole::Assistant {
             let text = message.content.as_text();
             let len = text.len();
             let looks_like_tool_output = text.contains("```")
@@ -124,7 +124,7 @@ impl ConversationManager {
                 if removed >= excess {
                     return true;
                 }
-                if m.role == "system" {
+                if m.role == MessageRole::System {
                     return true;
                 }
                 removed += 1;
@@ -143,7 +143,7 @@ impl ConversationManager {
                 .conversation
                 .messages
                 .iter()
-                .position(|m| m.role != "system");
+                .position(|m| m.role != MessageRole::System);
             match idx {
                 Some(i) => {
                     self.conversation.messages.remove(i);
@@ -169,7 +169,7 @@ impl ConversationManager {
             .conversation
             .messages
             .iter()
-            .position(|m| m.role != "system")
+            .position(|m| m.role != MessageRole::System)
             .unwrap_or(total);
 
         // Nothing to summarize if all non-system messages are in the recent window
@@ -191,9 +191,9 @@ impl ConversationManager {
         for msg in &to_summarize {
             let text = msg.content.as_text();
             let preview: String = text.chars().take(120).collect();
-            let role_label = match msg.role.as_str() {
-                "assistant" => "AI",
-                _ => &msg.role,
+            let role_label = match &msg.role {
+                MessageRole::Assistant => "AI".to_string(),
+                other => other.to_string(),
             };
             summary_parts.push(format!("[{role_label}] {preview}"));
         }
@@ -214,7 +214,7 @@ impl ConversationManager {
             .conversation
             .messages
             .iter()
-            .rposition(|m| m.role == "system")
+            .rposition(|m| m.role == MessageRole::System)
             .map(|i| i + 1)
             .unwrap_or(0);
 

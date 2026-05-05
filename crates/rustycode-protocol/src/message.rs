@@ -657,6 +657,72 @@ impl MessageMetadata {
     }
 }
 
+/// Type-safe message role enumeration.
+///
+/// Replaces string-based role comparisons with a strongly-typed enum.
+/// Supports standard roles (User, Assistant, System) and custom Tool roles.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum MessageRole {
+    /// Message from the user
+    User,
+    /// Message from the assistant (Claude)
+    Assistant,
+    /// System message (instructions, context)
+    System,
+    /// Tool result message (response from a tool)
+    /// The inner String allows custom tool role variants
+    #[serde(untagged)]
+    Tool(String),
+}
+
+impl MessageRole {
+    /// Convert to string representation
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::User => "user",
+            Self::Assistant => "assistant",
+            Self::System => "system",
+            Self::Tool(name) => name.as_str(),
+        }
+    }
+
+    /// Convert to owned string
+    pub fn to_string_owned(&self) -> String {
+        self.as_str().to_string()
+    }
+}
+
+impl AsRef<str> for MessageRole {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl From<&str> for MessageRole {
+    fn from(s: &str) -> Self {
+        match s {
+            "user" => Self::User,
+            "assistant" => Self::Assistant,
+            "system" => Self::System,
+            other => Self::Tool(other.to_string()),
+        }
+    }
+}
+
+impl From<String> for MessageRole {
+    fn from(s: String) -> Self {
+        Self::from(s.as_str())
+    }
+}
+
+impl fmt::Display for MessageRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 /// A message in a conversation with the LLM.
 ///
 /// Messages have a role (user, assistant, or system) and content,
@@ -664,8 +730,8 @@ impl MessageMetadata {
 /// what's shown in different contexts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
-    /// Role: "user", "assistant", or "system"
-    pub role: String,
+    /// Role: user, assistant, system, or custom tool role
+    pub role: MessageRole,
     /// Content of the message (supports both simple strings and structured blocks)
     pub content: MessageContent,
     /// When the message was created
@@ -679,7 +745,7 @@ impl Message {
     /// Create a user message
     pub fn user(content: impl Into<MessageContent>) -> Self {
         Self {
-            role: "user".to_string(),
+            role: MessageRole::User,
             content: content.into(),
             timestamp: Utc::now(),
             metadata: MessageMetadata::default(),
@@ -689,7 +755,7 @@ impl Message {
     /// Create an assistant message
     pub fn assistant(content: impl Into<MessageContent>) -> Self {
         Self {
-            role: "assistant".to_string(),
+            role: MessageRole::Assistant,
             content: content.into(),
             timestamp: Utc::now(),
             metadata: MessageMetadata::default(),
@@ -699,7 +765,7 @@ impl Message {
     /// Create a system message
     pub fn system(content: impl Into<MessageContent>) -> Self {
         Self {
-            role: "system".to_string(),
+            role: MessageRole::System,
             content: content.into(),
             timestamp: Utc::now(),
             metadata: MessageMetadata::default(),
@@ -708,22 +774,22 @@ impl Message {
 
     /// Check if this is a user message
     pub fn is_user(&self) -> bool {
-        self.role == "user"
+        self.role == MessageRole::User
     }
 
     /// Check if this is an assistant message
     pub fn is_assistant(&self) -> bool {
-        self.role == "assistant"
+        self.role == MessageRole::Assistant
     }
 
     /// Check if this is a system message
     pub fn is_system(&self) -> bool {
-        self.role == "system"
+        self.role == MessageRole::System
     }
 
     /// Check if this message has the given role
     pub fn role_is(&self, role: &str) -> bool {
-        self.role == role
+        self.role == MessageRole::from(role)
     }
 
     /// Check if this message should be shown to users
