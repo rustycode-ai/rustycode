@@ -185,11 +185,11 @@ mod tests {
 
         // Verify only tool-2's entry was updated in panel history
         let tool1 = tui
-            .tool_panel_history
+            .tool_panel.tool_panel_history
             .iter()
             .find(|e| e.tool_id == "tool-1");
         let tool2 = tui
-            .tool_panel_history
+            .tool_panel.tool_panel_history
             .iter()
             .find(|e| e.tool_id == "tool-2");
 

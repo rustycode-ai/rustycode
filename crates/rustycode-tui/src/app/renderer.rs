@@ -454,7 +454,7 @@ impl PolishedRenderer {
             render_search_box(tui, frame, message_area);
         }
 
-        if tui.showing_tool_panel {
+        if tui.tool_panel.showing_tool_panel {
             render_tool_panel(tui, frame, message_area);
         }
 

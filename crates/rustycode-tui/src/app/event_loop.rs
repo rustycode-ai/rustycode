@@ -9,9 +9,12 @@ use crate::app::event_loop_commands::{
     dispatch_registered_slash_command, CommandContext, CommandEffect,
 };
 use crate::app::keyboard_shortcuts::KeyboardShortcutHandler;
+use crate::app::lsp_status::LspStatus;
+use crate::app::mcp_status::McpStatus;
 use crate::app::rate_limit_handler::RateLimitHandler;
 use crate::app::renderer::RendererMode;
 use crate::app::team_mode_handler::TeamModeHandler;
+use crate::app::tool_panel_state::ToolPanelState;
 use crate::app::wizard_handler::WizardHandler;
 use crate::app::{service_integration::*, FRAME_BUDGET_60FPS};
 use crate::compaction::{CompactionConfig, ContextMonitor};
@@ -211,16 +214,10 @@ pub struct TUI {
 
     // Session start time (for elapsed time display)
     pub(crate) start_time: Instant,
-    // Last time we refreshed LSP status
-    pub(crate) last_lsp_refresh: Instant,
-    // Cache of last-known LSP state so we can detect changes and mark dirty
-    pub(crate) last_lsp_servers: Vec<String>,
-    pub(crate) last_lsp_connected: bool,
-    // Last time we refreshed MCP/server status
-    pub(crate) last_mcp_refresh: Instant,
-    // Cache of last-known MCP state so we can detect changes and mark dirty
-    pub(crate) last_mcp_servers: Vec<McpServerStatus>,
-    pub(crate) last_mcp_connected: bool,
+    // Language server protocol status (LSP)
+    pub(crate) lsp: LspStatus,
+    // Message Control Protocol status (MCP)
+    pub(crate) mcp: McpStatus,
 
     // Theme colors for live switching
     pub(crate) theme_colors: Arc<std::sync::Mutex<ThemeColors>>,
@@ -238,13 +235,8 @@ pub struct TUI {
     pub(crate) error_manager: crate::ui::errors::ErrorManager,
     pub(crate) showing_error: bool,
 
-    // Tool panel visibility (independent of sidebar)
-    pub(crate) showing_tool_panel: bool,
-    pub(crate) tool_panel_history: Vec<ToolExecution>, // Recent tool executions
-    pub(crate) tool_panel_selected_index: Option<usize>, // Selected tool for inspection
-    pub(crate) showing_tool_result: bool,              // Showing detailed tool result
-    pub(crate) tool_result_show_full: bool,            // Toggle full output in tool detail
-    pub(crate) tool_result_scroll_offset: usize,       // Scroll offset for tool result overlay
+    // Tool panel state
+    pub(crate) tool_panel: ToolPanelState,
 
     // Team agent timeline panel
     pub(crate) team_panel: crate::ui::team_panel::TeamPanel,
@@ -647,23 +639,22 @@ impl TUI {
             pending_approval_request: VecDeque::new(),
             awaiting_approval: false,
             start_time: Instant::now(),
-            last_lsp_refresh: Instant::now() - Duration::from_mins(1), // force immediate refresh
-            last_lsp_servers: Vec::new(),
-            last_lsp_connected: false,
-            last_mcp_refresh: Instant::now() - Duration::from_mins(1), // force immediate refresh
-            last_mcp_servers: Vec::new(),
-            last_mcp_connected: false,
+            lsp: LspStatus {
+                last_lsp_refresh: Instant::now() - Duration::from_mins(1), // force immediate refresh
+                last_lsp_servers: Vec::new(),
+                last_lsp_connected: false,
+            },
+            mcp: McpStatus {
+                last_mcp_refresh: Instant::now() - Duration::from_mins(1), // force immediate refresh
+                last_mcp_servers: Vec::new(),
+                last_mcp_connected: false,
+            },
             theme_preview,
             theme_switcher,
             toast_manager,
             error_manager,
             showing_error: false,
-            showing_tool_panel: false,
-            tool_panel_history: Vec::new(),
-            tool_panel_selected_index: None,
-            showing_tool_result: false,
-            tool_result_show_full: false,
-            tool_result_scroll_offset: 0,
+            tool_panel: ToolPanelState::new(),
             command_palette,
             showing_command_palette: false,
             showing_skill_palette: false,
@@ -914,23 +905,22 @@ impl TUI {
             pending_approval_request: VecDeque::new(),
             awaiting_approval: false,
             start_time: Instant::now(),
-            last_lsp_refresh: Instant::now() - Duration::from_mins(1),
-            last_lsp_servers: Vec::new(),
-            last_lsp_connected: false,
-            last_mcp_refresh: Instant::now() - Duration::from_mins(1),
-            last_mcp_servers: Vec::new(),
-            last_mcp_connected: false,
+            lsp: LspStatus {
+                last_lsp_refresh: Instant::now() - Duration::from_mins(1),
+                last_lsp_servers: Vec::new(),
+                last_lsp_connected: false,
+            },
+            mcp: McpStatus {
+                last_mcp_refresh: Instant::now() - Duration::from_mins(1),
+                last_mcp_servers: Vec::new(),
+                last_mcp_connected: false,
+            },
             theme_preview,
             theme_switcher,
             toast_manager,
             error_manager,
             showing_error: false,
-            showing_tool_panel: false,
-            tool_panel_history: Vec::new(),
-            tool_panel_selected_index: None,
-            showing_tool_result: false,
-            tool_result_show_full: false,
-            tool_result_scroll_offset: 0,
+            tool_panel: ToolPanelState::new(),
             last_esc_press: None,
             stashed_prompt: None,
             command_palette,
@@ -1039,7 +1029,7 @@ impl TUI {
 
     /// Refresh sidebar LSP status from discovery.
     fn refresh_lsp_status(&mut self, force: bool) -> bool {
-        if !force && self.last_lsp_refresh.elapsed() < Duration::from_secs(30) {
+        if !force && self.lsp.last_lsp_refresh.elapsed() < Duration::from_secs(30) {
             return false;
         }
 
@@ -1063,8 +1053,8 @@ impl TUI {
         let display_connected = any_running;
 
         let changed = force
-            || display_connected != self.last_lsp_connected
-            || lsp_names != self.last_lsp_servers;
+            || display_connected != self.lsp.last_lsp_connected
+            || lsp_names != self.lsp.last_lsp_servers;
 
         if changed {
             self.session_sidebar.update_lsp_status(
@@ -1072,18 +1062,18 @@ impl TUI {
                 lsp_names.clone(),
                 std::collections::HashMap::new(),
             );
-            self.last_lsp_connected = display_connected;
-            self.last_lsp_servers = lsp_names;
+            self.lsp.last_lsp_connected = display_connected;
+            self.lsp.last_lsp_servers = lsp_names;
             self.dirty = true;
         }
 
-        self.last_lsp_refresh = Instant::now();
+        self.lsp.last_lsp_refresh = Instant::now();
         changed
     }
 
     /// Refresh sidebar MCP status from the live proxy cache and config discovery.
     fn refresh_mcp_status(&mut self, force: bool) -> bool {
-        if !force && self.last_mcp_refresh.elapsed() < Duration::from_secs(30) {
+        if !force && self.mcp.last_mcp_refresh.elapsed() < Duration::from_secs(30) {
             return false;
         }
 
@@ -1164,25 +1154,25 @@ impl TUI {
             .any(|server| matches!(server.state, McpServerState::Connected));
 
         let changed = force
-            || mcp_connected != self.last_mcp_connected
-            || mcp_servers != self.last_mcp_servers;
+            || mcp_connected != self.mcp.last_mcp_connected
+            || mcp_servers != self.mcp.last_mcp_servers;
 
         if changed {
             self.session_sidebar
                 .update_mcp_status(mcp_connected, mcp_servers.clone());
-            self.last_mcp_connected = mcp_connected;
-            self.last_mcp_servers = mcp_servers;
+            self.mcp.last_mcp_connected = mcp_connected;
+            self.mcp.last_mcp_servers = mcp_servers;
             self.dirty = true;
         }
 
-        self.last_mcp_refresh = Instant::now();
+        self.mcp.last_mcp_refresh = Instant::now();
         changed
     }
 
     /// Refresh sidebar tool call summary from the current tool history.
     fn refresh_tool_call_summary(&mut self) {
         let recent = self
-            .tool_panel_history
+            .tool_panel.tool_panel_history
             .last()
             .map(|tool| format!("{} {}", tool.status.icon(), tool.result_summary));
         self.session_sidebar
@@ -1200,9 +1190,9 @@ impl TUI {
                 self.scroll_offset_line = session.scroll_position;
                 self.user_scrolled = false;
                 self.active_tools.clear();
-                self.tool_panel_history.clear();
-                self.tool_panel_selected_index = None;
-                self.showing_tool_result = false;
+                self.tool_panel.tool_panel_history.clear();
+                self.tool_panel.tool_panel_selected_index = None;
+                self.tool_panel.showing_tool_result = false;
                 self.reset_streaming_state();
                 self.streaming.queued_message = None;
                 self.messages = session.messages;
@@ -2183,7 +2173,7 @@ impl TUI {
         }
 
         // Tool panel overlay (Ctrl+P) - over message area
-        if self.showing_tool_panel {
+        if self.tool_panel.showing_tool_panel {
             let tool_area = Rect {
                 x: size.x,
                 y: header_rows,

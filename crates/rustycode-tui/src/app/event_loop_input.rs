@@ -142,60 +142,60 @@ impl TUI {
                     };
                 }
                 // Dismiss tool result overlay before global shortcuts can intercept
-                if self.showing_tool_result {
+                if self.tool_panel.showing_tool_result {
                     match key.code {
                         KeyCode::Esc | KeyCode::Enter => {
                             // Close detail view and return to tool panel
-                            self.showing_tool_result = false;
-                            self.tool_result_show_full = false;
-                            self.tool_result_scroll_offset = 0;
+                            self.tool_panel.showing_tool_result = false;
+                            self.tool_panel.tool_result_show_full = false;
+                            self.tool_panel.tool_result_scroll_offset = 0;
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('f') | KeyCode::Char('F') => {
                             // Toggle between truncated and full output
-                            self.tool_result_show_full = !self.tool_result_show_full;
-                            self.tool_result_scroll_offset = 0;
+                            self.tool_panel.tool_result_show_full = !self.tool_panel.tool_result_show_full;
+                            self.tool_panel.tool_result_scroll_offset = 0;
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Up => {
                             // Scroll up in tool result overlay
-                            self.tool_result_scroll_offset =
-                                self.tool_result_scroll_offset.saturating_sub(3);
+                            self.tool_panel.tool_result_scroll_offset =
+                                self.tool_panel.tool_result_scroll_offset.saturating_sub(3);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Down => {
                             // Scroll down in tool result overlay
-                            self.tool_result_scroll_offset =
-                                self.tool_result_scroll_offset.saturating_add(3);
+                            self.tool_panel.tool_result_scroll_offset =
+                                self.tool_panel.tool_result_scroll_offset.saturating_add(3);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageUp => {
-                            self.tool_result_scroll_offset = self
-                                .tool_result_scroll_offset
+                            self.tool_panel.tool_result_scroll_offset = self
+                                .tool_panel.tool_result_scroll_offset
                                 .saturating_sub(self.viewport_height);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageDown => {
-                            self.tool_result_scroll_offset = self
-                                .tool_result_scroll_offset
+                            self.tool_panel.tool_result_scroll_offset = self
+                                .tool_panel.tool_result_scroll_offset
                                 .saturating_add(self.viewport_height);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('j') => {
-                            self.tool_result_scroll_offset =
-                                self.tool_result_scroll_offset.saturating_add(3);
+                            self.tool_panel.tool_result_scroll_offset =
+                                self.tool_panel.tool_result_scroll_offset.saturating_add(3);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('k') => {
-                            self.tool_result_scroll_offset =
-                                self.tool_result_scroll_offset.saturating_sub(3);
+                            self.tool_panel.tool_result_scroll_offset =
+                                self.tool_panel.tool_result_scroll_offset.saturating_sub(3);
                             self.dirty = true;
                             return Ok(());
                         }
@@ -321,7 +321,7 @@ impl TUI {
                 }
 
                 // Handle tool panel navigation
-                if self.showing_tool_panel && self.handle_tool_panel_input(key)? {
+                if self.tool_panel.showing_tool_panel && self.handle_tool_panel_input(key)? {
                     return Ok(());
                 }
 
@@ -542,7 +542,7 @@ impl TUI {
                 input_elapsed.as_millis(),
                 self.dirty,
                 self.streaming.is_streaming,
-                self.showing_tool_panel,
+                self.tool_panel.showing_tool_panel,
                 self.showing_command_palette,
                 self.showing_skill_palette,
                 self.showing_provider_selector
@@ -575,9 +575,9 @@ impl TUI {
         self.streaming.current_stream_content.clear();
         self.streaming.streaming_render_buffer =
             crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
-        self.tool_panel_history.clear();
-        self.tool_panel_selected_index = None;
-        self.showing_tool_result = false;
+        self.tool_panel.tool_panel_history.clear();
+        self.tool_panel.tool_panel_selected_index = None;
+        self.tool_panel.showing_tool_result = false;
         self.active_tools.clear();
 
         let send_result =

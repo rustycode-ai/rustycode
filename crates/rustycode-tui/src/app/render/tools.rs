@@ -10,12 +10,12 @@ pub fn render_tool_panel(
     use ratatui::widgets::{Clear, Paragraph, Wrap};
 
     // If showing detailed result, render a full-screen overlay
-    if tui.showing_tool_result {
-        if let Some(selected_idx) = tui.tool_panel_selected_index {
-            if selected_idx < tui.tool_panel_history.len() {
+    if tui.tool_panel.showing_tool_result {
+        if let Some(selected_idx) = tui.tool_panel.tool_panel_selected_index {
+            if selected_idx < tui.tool_panel.tool_panel_history.len() {
                 // Clone required: render_tool_result_detail needs &mut TUI,
                 // so we can't hold a reference into tool_panel_history simultaneously.
-                let tool = tui.tool_panel_history[selected_idx].clone();
+                let tool = tui.tool_panel.tool_panel_history[selected_idx].clone();
                 render_tool_result_detail(tui, frame, area, &tool);
                 return;
             }
@@ -25,7 +25,7 @@ pub fn render_tool_panel(
     let mut lines = Vec::new();
 
     // Title with help hint
-    let tool_count = tui.tool_panel_history.len();
+    let tool_count = tui.tool_panel.tool_panel_history.len();
     lines.push(Line::from(vec![
         Span::styled(
             "● Tool Panel",
@@ -40,19 +40,19 @@ pub fn render_tool_panel(
     ]));
 
     // Goose-inspired stats line: total | running | done | fail
-    if !tui.tool_panel_history.is_empty() {
+    if !tui.tool_panel.tool_panel_history.is_empty() {
         let running = tui
-            .tool_panel_history
+            .tool_panel.tool_panel_history
             .iter()
             .filter(|t| matches!(t.status, crate::ui::message::ToolStatus::Running))
             .count();
         let completed = tui
-            .tool_panel_history
+            .tool_panel.tool_panel_history
             .iter()
             .filter(|t| matches!(t.status, crate::ui::message::ToolStatus::Complete))
             .count();
         let failed = tui
-            .tool_panel_history
+            .tool_panel.tool_panel_history
             .iter()
             .filter(|t| {
                 matches!(
@@ -95,17 +95,17 @@ pub fn render_tool_panel(
 
     // Group tools by status for section headers
     let running_tools: Vec<_> = tui
-        .tool_panel_history
+        .tool_panel.tool_panel_history
         .iter()
         .filter(|t| t.status == crate::ui::message::ToolStatus::Running)
         .collect();
     let completed_tools: Vec<_> = tui
-        .tool_panel_history
+        .tool_panel.tool_panel_history
         .iter()
         .filter(|t| t.status == crate::ui::message::ToolStatus::Complete)
         .collect();
     let failed_tools: Vec<_> = tui
-        .tool_panel_history
+        .tool_panel.tool_panel_history
         .iter()
         .filter(|t| {
             t.status == crate::ui::message::ToolStatus::Failed
@@ -115,7 +115,7 @@ pub fn render_tool_panel(
 
     // Use tool_panel_history directly for display — navigation indices
     // match this order, so selection highlight stays in sync with up/down keys
-    if tui.tool_panel_history.is_empty() {
+    if tui.tool_panel.tool_panel_history.is_empty() {
         lines.push(Line::from(vec![Span::styled(
             "No tool history yet",
             Style::default().fg(Color::DarkGray),
@@ -125,8 +125,8 @@ pub fn render_tool_panel(
         let show_sections =
             !running_tools.is_empty() && (!completed_tools.is_empty() || !failed_tools.is_empty());
 
-        for (idx, tool) in tui.tool_panel_history.iter().enumerate() {
-            let is_selected = tui.tool_panel_selected_index == Some(idx);
+        for (idx, tool) in tui.tool_panel.tool_panel_history.iter().enumerate() {
+            let is_selected = tui.tool_panel.tool_panel_selected_index == Some(idx);
             let has_detail = tool.detailed_output.is_some() || !tool.result_summary.is_empty();
 
             // Add section headers based on tool status transitions
@@ -143,7 +143,7 @@ pub fn render_tool_panel(
                 // Show section header when transitioning from running to completed
                 if idx > 0
                     && matches!(
-                        tui.tool_panel_history[idx - 1].status,
+                        tui.tool_panel.tool_panel_history[idx - 1].status,
                         crate::ui::message::ToolStatus::Running
                     )
                     && matches!(tool.status, crate::ui::message::ToolStatus::Complete)
@@ -159,7 +159,7 @@ pub fn render_tool_panel(
                 // Show section header when transitioning to failed
                 if idx > 0
                     && !matches!(
-                        tui.tool_panel_history[idx - 1].status,
+                        tui.tool_panel.tool_panel_history[idx - 1].status,
                         crate::ui::message::ToolStatus::Failed
                             | crate::ui::message::ToolStatus::Cancelled
                     )
@@ -287,19 +287,19 @@ pub fn render_tool_panel(
         }
 
         // Add total duration footer when all tools are done
-        if running_tools.is_empty() && !tui.tool_panel_history.is_empty() {
+        if running_tools.is_empty() && !tui.tool_panel.tool_panel_history.is_empty() {
             let total_ms: u64 = tui
-                .tool_panel_history
+                .tool_panel.tool_panel_history
                 .iter()
                 .filter_map(|t| t.duration_ms)
                 .sum();
             let completed_count = tui
-                .tool_panel_history
+                .tool_panel.tool_panel_history
                 .iter()
                 .filter(|t| matches!(t.status, crate::ui::message::ToolStatus::Complete))
                 .count();
             let failed_count = tui
-                .tool_panel_history
+                .tool_panel.tool_panel_history
                 .iter()
                 .filter(|t| {
                     matches!(
@@ -554,7 +554,7 @@ fn render_tool_result_detail(
         )]));
         lines.push(Line::from(""));
         // Goose-inspired truncation: show first+last with toggle support
-        let display_output: String = if tui.tool_result_show_full || output.len() <= 5000 {
+        let display_output: String = if tui.tool_panel.tool_result_show_full || output.len() <= 5000 {
             output.clone()
         } else {
             // Head+tail truncation: show first ~2500 and last ~2000 chars
@@ -626,7 +626,7 @@ fn render_tool_result_detail(
             .render_markdown_content(&display_output, &theme);
 
         // Scroll support: skip lines above the scroll offset
-        let max_display_lines = if tui.tool_result_show_full {
+        let max_display_lines = if tui.tool_panel.tool_result_show_full {
             usize::MAX
         } else {
             (tui.viewport_height * 2).max(50)
@@ -634,7 +634,7 @@ fn render_tool_result_detail(
         // Clamp scroll offset to prevent unbounded growth from repeated Down presses
         let total_rendered = rendered.len();
         let scroll_offset = tui
-            .tool_result_scroll_offset
+            .tool_panel.tool_result_scroll_offset
             .min(total_rendered.saturating_sub(1));
         for line in rendered
             .into_iter()
@@ -664,7 +664,7 @@ fn render_tool_result_detail(
 
     // Help text at bottom
     lines.push(Line::from(""));
-    let toggle_hint = if tui.tool_result_show_full {
+    let toggle_hint = if tui.tool_panel.tool_result_show_full {
         "F truncate"
     } else if tool
         .detailed_output

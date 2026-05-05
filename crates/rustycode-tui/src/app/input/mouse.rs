@@ -24,9 +24,9 @@ impl TUI {
 
     fn scroll_tool_result_by(&mut self, lines: usize, down: bool) {
         if down {
-            self.tool_result_scroll_offset = self.tool_result_scroll_offset.saturating_add(lines);
+            self.tool_panel.tool_result_scroll_offset = self.tool_panel.tool_result_scroll_offset.saturating_add(lines);
         } else {
-            self.tool_result_scroll_offset = self.tool_result_scroll_offset.saturating_sub(lines);
+            self.tool_panel.tool_result_scroll_offset = self.tool_panel.tool_result_scroll_offset.saturating_sub(lines);
         }
         self.dirty = true;
     }
@@ -39,7 +39,7 @@ impl TUI {
     pub(crate) fn handle_mouse_scroll(&mut self, mouse: MouseEvent) {
         let scroll_speed = self.tui_config.behavior.get_mouse_scroll_speed();
 
-        if self.showing_tool_result {
+        if self.tool_panel.showing_tool_result {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
                     self.scroll_tool_result_by(scroll_speed as usize, false);
@@ -237,16 +237,19 @@ mod tests {
     #[test]
     fn tool_result_scroll_uses_mouse_wheel_direction() {
         let mut tui = TUI {
-            showing_tool_result: true,
-            tool_result_scroll_offset: 10,
+            tool_panel: crate::app::tool_panel_state::ToolPanelState {
+                showing_tool_result: true,
+                tool_result_scroll_offset: 10,
+                ..Default::default()
+            },
             ..TUI::default()
         };
 
         tui.scroll_tool_result_by(3, false);
-        assert_eq!(tui.tool_result_scroll_offset, 7);
+        assert_eq!(tui.tool_panel.tool_result_scroll_offset, 7);
 
         tui.scroll_tool_result_by(5, true);
-        assert_eq!(tui.tool_result_scroll_offset, 12);
+        assert_eq!(tui.tool_panel.tool_result_scroll_offset, 12);
     }
 
     #[test]

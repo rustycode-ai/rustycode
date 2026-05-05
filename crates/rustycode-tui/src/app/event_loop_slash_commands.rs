@@ -56,9 +56,9 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             self.scroll_offset_line = 0;
             self.user_scrolled = false;
             self.active_tools.clear();
-            self.tool_panel_history.clear();
-            self.tool_panel_selected_index = None;
-            self.showing_tool_result = false;
+            self.tool_panel.tool_panel_history.clear();
+            self.tool_panel.tool_panel_selected_index = None;
+            self.tool_panel.showing_tool_result = false;
             // Dismiss all overlays
             self.dismiss_any_overlay();
             // Reset streaming state
@@ -102,9 +102,9 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             self.scroll_offset_line = 0;
             self.user_scrolled = false;
             self.active_tools.clear();
-            self.tool_panel_history.clear();
-            self.tool_panel_selected_index = None;
-            self.showing_tool_result = false;
+            self.tool_panel.tool_panel_history.clear();
+            self.tool_panel.tool_panel_selected_index = None;
+            self.tool_panel.showing_tool_result = false;
             // Dismiss all overlays
             self.dismiss_any_overlay();
             // Reset streaming state

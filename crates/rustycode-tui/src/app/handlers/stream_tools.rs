@@ -170,14 +170,14 @@ pub(super) fn handle_tool_start_chunk(
     };
 
     let panel_summary = format!("{}...", tool_name);
-    tui.tool_panel_history.push(new_running_tool(
+    tui.tool_panel.tool_panel_history.push(new_running_tool(
         tool_id.clone(),
         tool_name.clone(),
         input_json.clone(),
         panel_summary,
     ));
-    if tui.tool_panel_history.len() > 50 {
-        tui.tool_panel_history.remove(0);
+    if tui.tool_panel.tool_panel_history.len() > 50 {
+        tui.tool_panel.tool_panel_history.remove(0);
     }
 
     tui.active_tools.insert(
@@ -239,7 +239,7 @@ pub(super) fn handle_tool_progress_chunk(
     };
 
     // Update tool panel history entries for this tool (show progress)
-    for entry in tui.tool_panel_history.iter_mut().rev() {
+    for entry in tui.tool_panel.tool_panel_history.iter_mut().rev() {
         if matches_tool(entry) && entry.status == ToolStatus::Running {
             let preview = output_preview.as_deref().unwrap_or("");
             if !preview.is_empty() {
@@ -378,7 +378,7 @@ pub(super) fn handle_tool_complete_chunk(
         }
     }
 
-    for entry in tui.tool_panel_history.iter_mut().rev() {
+    for entry in tui.tool_panel.tool_panel_history.iter_mut().rev() {
         if entry.tool_id == tool_id {
             entry.status = if success {
                 ToolStatus::Complete

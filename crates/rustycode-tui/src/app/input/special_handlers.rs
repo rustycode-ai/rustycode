@@ -304,23 +304,23 @@ impl TUI {
 
     /// Handle tool panel navigation input
     pub(crate) fn handle_tool_panel_input(&mut self, key: KeyEvent) -> Result<bool> {
-        if !self.showing_tool_panel {
+        if !self.tool_panel.showing_tool_panel {
             return Ok(false);
         }
 
         match key.code {
             KeyCode::Char('c') if key.modifiers == crossterm::event::KeyModifiers::CONTROL => {
                 // Cancel selected tool
-                if let Some(idx) = self.tool_panel_selected_index {
-                    if idx < self.tool_panel_history.len() {
+                if let Some(idx) = self.tool_panel.tool_panel_selected_index {
+                    if idx < self.tool_panel.tool_panel_history.len() {
                         // Only cancel running tools
-                        if self.tool_panel_history[idx].status
+                        if self.tool_panel.tool_panel_history[idx].status
                             == crate::ui::message::ToolStatus::Running
                         {
-                            self.tool_panel_history[idx].cancel();
+                            self.tool_panel.tool_panel_history[idx].cancel();
                             self.add_system_message(format!(
                                 "⚠ Cancelled tool: {}",
-                                self.tool_panel_history[idx].name
+                                self.tool_panel.tool_panel_history[idx].name
                             ));
                             self.dirty = true;
                             return Ok(true);
@@ -333,50 +333,50 @@ impl TUI {
                 return Ok(true);
             }
             KeyCode::Esc => {
-                if self.showing_tool_result {
+                if self.tool_panel.showing_tool_result {
                     // Close detailed result view
-                    self.showing_tool_result = false;
-                    self.tool_result_show_full = false;
-                    self.tool_panel_selected_index = None;
+                    self.tool_panel.showing_tool_result = false;
+                    self.tool_panel.tool_result_show_full = false;
+                    self.tool_panel.tool_panel_selected_index = None;
                     self.dirty = true;
                 } else {
                     // Close tool panel
-                    self.showing_tool_panel = false;
-                    self.tool_panel_selected_index = None;
+                    self.tool_panel.showing_tool_panel = false;
+                    self.tool_panel.tool_panel_selected_index = None;
                     self.dirty = true;
                 }
                 return Ok(true);
             }
             KeyCode::Up => {
-                if !self.tool_panel_history.is_empty() {
-                    let current = self.tool_panel_selected_index.unwrap_or(0);
-                    self.tool_panel_selected_index = Some(current.saturating_sub(1));
-                    self.showing_tool_result = false;
+                if !self.tool_panel.tool_panel_history.is_empty() {
+                    let current = self.tool_panel.tool_panel_selected_index.unwrap_or(0);
+                    self.tool_panel.tool_panel_selected_index = Some(current.saturating_sub(1));
+                    self.tool_panel.showing_tool_result = false;
                     self.dirty = true;
                 }
                 return Ok(true);
             }
             KeyCode::Down => {
-                if !self.tool_panel_history.is_empty() {
-                    let current = self.tool_panel_selected_index.unwrap_or(0);
-                    let max_idx = self.tool_panel_history.len().saturating_sub(1);
-                    self.tool_panel_selected_index = Some((current + 1).min(max_idx));
-                    self.showing_tool_result = false;
+                if !self.tool_panel.tool_panel_history.is_empty() {
+                    let current = self.tool_panel.tool_panel_selected_index.unwrap_or(0);
+                    let max_idx = self.tool_panel.tool_panel_history.len().saturating_sub(1);
+                    self.tool_panel.tool_panel_selected_index = Some((current + 1).min(max_idx));
+                    self.tool_panel.showing_tool_result = false;
                     self.dirty = true;
                 }
                 return Ok(true);
             }
             KeyCode::Enter => {
-                if let Some(idx) = self.tool_panel_selected_index {
-                    if idx < self.tool_panel_history.len() {
-                        let tool = &self.tool_panel_history[idx];
+                if let Some(idx) = self.tool_panel.tool_panel_selected_index {
+                    if idx < self.tool_panel.tool_panel_history.len() {
+                        let tool = &self.tool_panel.tool_panel_history[idx];
                         // Show detail view if there's detailed output OR a non-empty result summary
                         let has_content =
                             tool.detailed_output.is_some() || !tool.result_summary.is_empty();
                         if has_content {
-                            self.showing_tool_result = true;
-                            self.tool_result_show_full = false;
-                            self.tool_result_scroll_offset = 0;
+                            self.tool_panel.showing_tool_result = true;
+                            self.tool_panel.tool_result_show_full = false;
+                            self.tool_panel.tool_result_scroll_offset = 0;
                             self.dirty = true;
                         }
                     }
@@ -461,9 +461,9 @@ impl TUI {
                             self.scroll_offset_line = 0;
                             self.user_scrolled = false;
                             self.active_tools.clear();
-                            self.tool_panel_history.clear();
-                            self.tool_panel_selected_index = None;
-                            self.showing_tool_result = false;
+                            self.tool_panel.tool_panel_history.clear();
+                            self.tool_panel.tool_panel_selected_index = None;
+                            self.tool_panel.showing_tool_result = false;
                             self.dismiss_any_overlay();
                             // Stop background stream before resetting state (prevent stale chunks)
                             if self.streaming.is_streaming {
@@ -527,7 +527,7 @@ impl TUI {
 
     /// Handle tool panel toggle (Ctrl+P)
     pub(crate) fn handle_tool_panel_toggle(&mut self) {
-        self.showing_tool_panel = !self.showing_tool_panel;
+        self.tool_panel.showing_tool_panel = !self.tool_panel.showing_tool_panel;
         self.dirty = true;
     }
 

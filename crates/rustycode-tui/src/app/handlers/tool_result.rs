@@ -251,7 +251,7 @@ fn update_tool_panel_history(
 
     // Find the running entry for this tool and update it in-place
     let updated_existing = tui
-        .tool_panel_history
+        .tool_panel.tool_panel_history
         .iter_mut()
         .rev()
         .find(|entry| entry.tool_id == result.id && entry.status == ToolStatus::Running)
@@ -280,9 +280,9 @@ fn update_tool_panel_history(
             progress_total: None,
             progress_description: None,
         };
-        tui.tool_panel_history.push(tool_entry);
-        if tui.tool_panel_history.len() > 50 {
-            tui.tool_panel_history.remove(0);
+        tui.tool_panel.tool_panel_history.push(tool_entry);
+        if tui.tool_panel.tool_panel_history.len() > 50 {
+            tui.tool_panel.tool_panel_history.remove(0);
         }
     }
 }

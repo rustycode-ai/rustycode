@@ -121,8 +121,8 @@ impl TUI {
                 if !self.streaming.is_streaming && !input_is_empty =>
             {
                 // Ctrl+D with text in input: dismiss overlay if showing one, otherwise do nothing
-                if self.showing_tool_result {
-                    self.showing_tool_result = false;
+                if self.tool_panel.showing_tool_result {
+                    self.tool_panel.showing_tool_result = false;
                     self.dirty = true;
                 }
                 return Ok(());
@@ -697,9 +697,9 @@ impl TUI {
             self.wizard.showing_wizard = false;
             return true;
         }
-        if self.showing_tool_result {
-            self.showing_tool_result = false;
-            self.tool_result_scroll_offset = 0;
+        if self.tool_panel.showing_tool_result {
+            self.tool_panel.showing_tool_result = false;
+            self.tool_panel.tool_result_scroll_offset = 0;
             return true;
         }
         if self.awaiting_clarification && self.clarification_panel.visible {
@@ -754,8 +754,8 @@ impl TUI {
             self.search_state.query.clear();
             return true;
         }
-        if self.showing_tool_panel {
-            self.showing_tool_panel = false;
+        if self.tool_panel.showing_tool_panel {
+            self.tool_panel.showing_tool_panel = false;
             return true;
         }
         if self.worker_panel.visible {
