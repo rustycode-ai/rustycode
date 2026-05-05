@@ -7,7 +7,7 @@
 //! - input::text_input: Text composition, search box, command palette
 //! - input::special_handlers: Wizard, approval, clarification, modal states
 
-use super::event_loop::TUI;
+use crate::app::event_loop::TUI;
 use crate::ui::message::Message;
 use anyhow::Result;
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyModifiers};

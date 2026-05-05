@@ -2,24 +2,22 @@
 
 pub mod auto_continue_state;
 pub mod auto_tool_parser;
+#[path = "render/brutalist_helpers.rs"]
 pub mod brutalist_helpers;
+#[path = "render/brutalist_renderer.rs"]
 pub mod brutalist_renderer;
 pub mod clipboard_export;
 pub mod clipboard_ops;
 pub mod commands;
 pub mod context_usage;
 pub mod doom_loop;
-pub mod event_loop_agents;
-pub mod event_loop_commands;
-pub mod event_loop_input;
-pub mod event_loop_render;
 pub mod extraction_analytics;
 pub mod input;
 pub mod keyboard_shortcuts;
 pub mod lsp_status;
+pub mod mcp_status;
 pub mod memory_manager;
 pub mod memory_ops;
-pub mod mcp_status;
 pub mod message_management;
 pub mod message_ops;
 pub mod orchestration_integration;
@@ -27,11 +25,9 @@ pub mod plan_mode_ops;
 pub mod rate_limit;
 pub mod rate_limit_handler;
 pub mod renderer;
-pub mod scrolling_ops;
 pub mod service_polling;
 pub mod session_recovery_integration;
 pub mod stall_detector;
-pub mod state_manager;
 pub mod task_commands;
 pub mod task_extraction;
 pub mod tasks;
@@ -50,9 +46,9 @@ pub mod pipeline;
 pub mod storage_bridge;
 pub mod streaming_render_buffer;
 pub mod streaming_state;
-pub mod token_budget;
 pub mod task_dashboard;
 pub mod thinking_messages;
+pub mod token_budget;
 pub mod tool_confirmation_router;
 
 pub mod async_;
@@ -62,8 +58,20 @@ pub mod service_integration;
 pub mod streaming;
 
 pub mod render {
+    pub mod layout;
     pub mod shared;
 }
+
+#[path = "input/event_loop.rs"]
+pub mod event_loop_input;
+#[path = "render/event_loop.rs"]
+pub mod event_loop_render;
+#[path = "state/scrolling_ops.rs"]
+pub mod scrolling_ops;
+#[path = "state/state_manager.rs"]
+pub mod state_manager;
+#[path = "../agents/event_loop.rs"]
+pub mod event_loop_agents;
 
 #[cfg(test)]
 mod event_loop_tests;
@@ -71,7 +79,6 @@ mod event_loop_tests;
 pub use async_::*;
 pub use event_loop::TUI;
 pub use event_loop_agents::*;
-pub use event_loop_commands::*;
 pub use event_loop_input::*;
 pub use event_loop_render::*;
 pub use keyboard_shortcuts::{KeyboardAction, KeyboardShortcutHandler};

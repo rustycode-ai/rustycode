@@ -6,9 +6,7 @@
 use crate::agent_mode::AiMode;
 use crate::agents::AgentManager;
 use crate::app::auto_continue_state::AutoContinueState;
-use crate::app::event_loop_commands::{
-    dispatch_registered_slash_command, CommandContext, CommandEffect,
-};
+use crate::app::commands::{dispatch_registered_slash_command, CommandContext, CommandEffect};
 use crate::app::keyboard_shortcuts::KeyboardShortcutHandler;
 use crate::app::lsp_status::LspStatus;
 use crate::app::mcp_status::McpStatus;
@@ -44,6 +42,7 @@ use crate::ui::model_selector::ModelSelector;
 use crate::ui::session_sidebar::{McpServerState, McpServerStatus, SessionSidebar};
 use crate::ui::skill_palette::SkillPalette;
 
+use crate::app::render::layout::FrameLayoutSnapshot;
 use crate::ui::theme_preview::{ThemePreview, ThemeSwitcher};
 use crate::ui::toast::ToastManager;
 use anyhow::{Context, Result};
@@ -1167,11 +1166,11 @@ impl TUI {
     /// Refresh sidebar tool call summary from the current tool history.
     fn refresh_tool_call_summary(&mut self) {
         let recent = self
-            .tool_panel.tool_panel_history
+            .tool_panel
+            .tool_panel_history
             .last()
             .map(|tool| format!("{} {}", tool.status.icon(), tool.result_summary));
-        self.session_sidebar
-            .update_tool_call_summary(self.active_tools.len(), recent);
+        self.session_sidebar.update_tool_call_summary(self.active_tools.len(), recent);
     }
 
     /// Resume the most recent session from disk.
@@ -1981,64 +1980,57 @@ impl TUI {
         let debug_enabled = crate::logging::is_debug_enabled();
         let render_start = Instant::now();
         let input_text = self.input_handler.state.all_text();
-
-        // Compute dynamic input area height based on content lines
-        let input_line_count = if input_text.is_empty() {
-            1
-        } else {
-            input_text.lines().count().max(1)
-        };
+        let input_line_count = input_text.lines().count().max(1);
         let input_rows: u16 = if input_line_count > 1 {
             2u16.saturating_add(input_line_count.min(6) as u16)
         } else {
             2
         };
 
-        // Update viewport height from brutalist layout accounting for collapsed sections
         let size = frame.area();
         let header_rows: u16 = if self.status_bar_collapsed { 0 } else { 1 };
         let footer_rows: u16 = if self.footer_collapsed { 0 } else { 1 };
         let fixed_rows = header_rows + footer_rows + input_rows;
         let main_height = size.height.saturating_sub(fixed_rows);
-        self.viewport_height = main_height.max(1) as usize;
-
-        let mut message_area = Rect {
+        let message_area = Rect {
             x: size.x,
-            y: header_rows, // After header (0 if collapsed)
+            y: header_rows,
             width: size.width,
             height: main_height,
         };
-        let mut sidebar_area = None;
-        if self.session_sidebar.is_visible() && message_area.width > 100 {
-            let sidebar_width = (message_area.width / 3).clamp(24, 34);
-            if message_area.width > sidebar_width {
-                let content_width = message_area.width - sidebar_width;
-                message_area.width = content_width;
-                sidebar_area = Some(Rect {
-                    x: size.x + content_width,
-                    y: header_rows,
-                    width: sidebar_width,
-                    height: main_height,
-                });
-            }
-        }
-        self.sidebar_area.set(sidebar_area.unwrap_or_default());
 
-        // Set messages area for mouse click detection (scroll-to-bottom indicator)
-        self.messages_area.set(message_area);
-
-        let renderer = self.create_brutalist_renderer(&input_text);
-
-        // Compute message layout once — reused for rendering and click areas.
-        // Using render_with_heights avoids recomputing heights inside render_messages.
+        // Compute message layout once — reused for rendering, click areas,
+        // and scroll bookkeeping.
         let layout_start = Instant::now();
         let width = message_area.width as usize;
-        let (total_lines, heights, chain_map) = renderer.compute_message_layout(width);
+        let (layout, total_lines) = {
+            let renderer = self.create_brutalist_renderer(&input_text);
+            let (total_lines, heights, chain_map) = renderer.compute_message_layout(width);
+            (
+                FrameLayoutSnapshot::from_message_layout(
+                    message_area,
+                    self.session_sidebar.is_visible(),
+                    self.scroll_offset_line,
+                    self.user_scrolled,
+                    total_lines,
+                    heights,
+                    chain_map,
+                ),
+                total_lines,
+            )
+        };
+        layout.apply(self);
         let layout_elapsed = layout_start.elapsed();
 
-        // Render the complete brutalist UI with precomputed heights
+        // Render the complete brutalist UI with precomputed heights.
+        let renderer = self.create_brutalist_renderer(&input_text);
         let draw_start = Instant::now();
-        renderer.render_with_heights(frame, &heights, &chain_map, message_area);
+        renderer.render_with_heights(
+            frame,
+            &layout.heights,
+            &layout.chain_map,
+            layout.message_area,
+        );
         let draw_elapsed = draw_start.elapsed();
 
         if debug_enabled
@@ -2055,63 +2047,7 @@ impl TUI {
             );
         }
 
-        // Register message click areas for mouse interaction.
-        // Uses the pre-computed heights to avoid redundant estimation.
-        self.clear_message_areas();
-        let main_height_click = size.height.saturating_sub(fixed_rows) as usize;
-        let main_y = header_rows;
-        let safe_viewport = main_height_click.max(1);
-
-        // Save total lines for scroll operations (scroll_down_by, page_up, etc.)
-        self.last_total_lines.set(total_lines);
-
-        // Populate message_line_offsets from pre-computed heights so turn-based
-        // navigation (Shift+Up/Down) can scroll to the correct position.
-        // Without this, navigate_to_prev_turn/next_turn falls back to i*3 estimate.
-        {
-            let mut offsets = self.message_line_offsets.borrow_mut();
-            offsets.clear();
-            offsets.resize(self.messages.len(), 0);
-            let mut acc = 0usize;
-            for (msg_idx, &h) in heights.iter().enumerate() {
-                offsets[msg_idx] = acc;
-                acc += h;
-            }
-        }
-
-        let max_scroll = total_lines.saturating_sub(safe_viewport);
-        let effective_offset = if self.user_scrolled {
-            self.scroll_offset_line.min(max_scroll)
-        } else {
-            max_scroll
-        };
-
-        let mut cum_line = 0usize;
-        for (msg_idx, &h) in heights.iter().enumerate() {
-            let end_line = cum_line + h;
-            if end_line <= effective_offset {
-                cum_line += h;
-                continue;
-            }
-            if cum_line >= effective_offset + safe_viewport {
-                break;
-            }
-            let vis_start = cum_line.saturating_sub(effective_offset);
-            let vis_end = end_line.saturating_sub(effective_offset).min(safe_viewport);
-            let vis_height = vis_end.saturating_sub(vis_start) as u16;
-            if vis_height > 0 {
-                let area = Rect {
-                    x: message_area.x,
-                    y: main_y + vis_start as u16,
-                    width: message_area.width,
-                    height: vis_height,
-                };
-                self.register_message_area(msg_idx, area);
-            }
-            cum_line += h;
-        }
-
-        if let Some(sidebar_area) = sidebar_area {
+        if let Some(sidebar_area) = layout.sidebar_area {
             self.session_sidebar.render(frame, sidebar_area);
         }
 
@@ -2271,7 +2207,7 @@ impl TUI {
                     size.height,
                     self.messages.len(),
                     total_lines,
-                    heights.len(),
+                    layout.heights.len(),
                     layout_elapsed.as_millis(),
                     draw_elapsed.as_millis(),
                     total_elapsed.as_millis(),

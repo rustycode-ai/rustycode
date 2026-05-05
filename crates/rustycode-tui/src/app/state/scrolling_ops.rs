@@ -2,7 +2,7 @@
 //!
 //! Handles scrolling, undo positions, and message navigation.
 
-use super::event_loop::TUI;
+use crate::app::event_loop::TUI;
 
 impl TUI {
     /// Seed manual scrolling from the bottom-most visible position.
