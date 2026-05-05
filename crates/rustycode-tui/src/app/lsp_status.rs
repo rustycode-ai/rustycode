@@ -28,3 +28,30 @@ impl Default for LspStatus {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_starts_defaults() {
+        let status = LspStatus::new();
+        assert!(status.last_lsp_servers.is_empty());
+        assert!(!status.last_lsp_connected);
+    }
+
+    #[test]
+    fn default_matches_new() {
+        let from_new = LspStatus::new();
+        let from_default = LspStatus::default();
+        assert_eq!(from_new.last_lsp_servers, from_default.last_lsp_servers);
+        assert_eq!(from_new.last_lsp_connected, from_default.last_lsp_connected);
+    }
+
+    #[test]
+    fn forced_refresh_has_stale_timestamp() {
+        let normal = LspStatus::new();
+        let forced = LspStatus::new_forced_refresh();
+        assert!(forced.last_lsp_refresh < normal.last_lsp_refresh);
+    }
+}

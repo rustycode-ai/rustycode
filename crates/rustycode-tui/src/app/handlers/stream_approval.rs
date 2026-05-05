@@ -3,8 +3,6 @@
 use crate::app::TUI;
 use crate::tool_approval::risk;
 
-use super::helpers::classify_tool_type;
-
 pub(super) fn handle_approval_request_chunk(
     tui: &mut TUI,
     tool_name: String,
@@ -12,8 +10,7 @@ pub(super) fn handle_approval_request_chunk(
     description: String,
     diff: Option<String>,
 ) {
-    // Determine tool type based on tool name
-    let tool_type = classify_tool_type(&tool_name);
+    let tool_type = risk::classify_tool_type(&tool_name);
     let command = diff
         .clone()
         .unwrap_or_else(|| format!("Execute {}", tool_name));

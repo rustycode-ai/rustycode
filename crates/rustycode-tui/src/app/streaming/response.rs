@@ -1346,6 +1346,7 @@ pub async fn stream_llm_response_legacy(config: StreamConfig) -> Result<()> {
                 let tool_type = crate::tool_approval::risk::classify_tool_type(&tool.name);
                 let command_str = tool.partial_json.clone();
                 let yolo = matches!(ai_mode, Some(crate::agent_mode::AiMode::Yolo));
+                // structured_thinking is a read-only reasoning extension, never needs user approval
                 let auto_approved_tool = tool.name == "structured_thinking";
                 let needs_approval = !yolo
                     && !auto_approved_tool

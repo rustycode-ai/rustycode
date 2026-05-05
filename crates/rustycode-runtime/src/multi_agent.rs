@@ -530,6 +530,9 @@ pub struct MultiAgentOrchestrator {
     provider: Arc<dyn LLMProvider>,
     /// Configuration
     config: MultiAgentConfig,
+    monitoring: Option<Arc<crate::monitoring::MonitoringSystem>>,
+    service_discovery: Option<Arc<crate::service_discovery::ServiceDiscovery>>,
+    negotiator: Option<Arc<tokio::sync::Mutex<crate::negotiation::AgentNegotiator>>>,
 }
 
 impl MultiAgentOrchestrator {
@@ -537,7 +540,31 @@ impl MultiAgentOrchestrator {
         Self {
             provider: Arc::from(provider),
             config,
+            monitoring: None,
+            service_discovery: None,
+            negotiator: None,
         }
+    }
+
+    pub fn with_monitoring(mut self, monitoring: Arc<crate::monitoring::MonitoringSystem>) -> Self {
+        self.monitoring = Some(monitoring);
+        self
+    }
+
+    pub fn with_service_discovery(
+        mut self,
+        discovery: Arc<crate::service_discovery::ServiceDiscovery>,
+    ) -> Self {
+        self.service_discovery = Some(discovery);
+        self
+    }
+
+    pub fn with_negotiator(
+        mut self,
+        negotiator: Arc<tokio::sync::Mutex<crate::negotiation::AgentNegotiator>>,
+    ) -> Self {
+        self.negotiator = Some(negotiator);
+        self
     }
 
     /// Create from default provider config
@@ -549,10 +576,16 @@ impl MultiAgentOrchestrator {
 
     /// Run multi-agent analysis
     pub async fn analyze(&self) -> Result<MultiAgentAnalysis> {
+        let start = std::time::Instant::now();
+        let agent_count = self.config.roles.len();
+
+        if let Some(ref sd) = self.service_discovery {
+            self.register_agents(sd).await;
+        }
+
         let semaphore = Arc::new(Semaphore::new(self.config.max_parallelism));
         let mut tasks = Vec::new();
 
-        // Spawn tasks for each agent role
         for role in &self.config.roles {
             let permit = semaphore.clone();
             let provider = self.provider.clone();
@@ -560,7 +593,6 @@ impl MultiAgentOrchestrator {
             let prompt = self.build_prompt(&role);
 
             let task = tokio::spawn(async move {
-                // Acquire permit to limit parallelism
                 let _permit = permit
                     .acquire()
                     .await
@@ -572,18 +604,188 @@ impl MultiAgentOrchestrator {
             tasks.push(task);
         }
 
-        // Collect all responses
         let mut agent_responses = Vec::new();
+        let mut errors = Vec::new();
         for task in tasks {
-            let response = task.await??;
-            agent_responses.push(response);
+            match task.await? {
+                Ok(response) => agent_responses.push(response),
+                Err(e) => errors.push(e.to_string()),
+            }
         }
 
-        // Aggregate responses
+        let elapsed = start.elapsed();
+        if let Some(ref mon) = self.monitoring {
+            self.record_analysis_metrics(mon, agent_count, elapsed, &agent_responses, &errors)
+                .await;
+        }
+
+        if !errors.is_empty() && agent_responses.is_empty() {
+            anyhow::bail!("All {} agents failed: {}", errors.len(), errors.join("; "));
+        }
+
+        if let Some(ref neg) = self.negotiator {
+            self.run_negotiation_if_needed(neg, &agent_responses).await;
+        }
+
         Ok(self.aggregate_responses(agent_responses))
     }
 
-    /// Build the analysis prompt for a specific agent role
+    async fn register_agents(&self, sd: &crate::service_discovery::ServiceDiscovery) {
+        for role in &self.config.roles {
+            let role_name = format!("{:?}", role);
+            let registration = crate::service_discovery::ServiceRegistration {
+                service_name: format!("agent-{}", role_name.to_lowercase()),
+                host: "localhost".to_string(),
+                port: 0,
+                metadata: crate::service_discovery::ServiceMetadata {
+                    agent_role: Some(*role),
+                    ..Default::default()
+                },
+                capabilities: vec![role.to_string()],
+                tags: vec![role_name.to_lowercase()],
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                dependencies: vec![],
+                heartbeat_interval_seconds: 60,
+            };
+            if let Err(e) = sd.register_service(registration).await {
+                tracing::debug!("Agent registration skipped: {e}");
+            }
+        }
+    }
+
+    async fn record_analysis_metrics(
+        &self,
+        mon: &crate::monitoring::MonitoringSystem,
+        agent_count: usize,
+        _elapsed: std::time::Duration,
+        responses: &[AgentResponse],
+        errors: &[String],
+    ) {
+        use crate::monitoring::{
+            MetricAggregation, MetricDataPoint, MetricDefinition, MetricMetadata, MetricType,
+            PerformanceMetrics,
+        };
+
+        let meta = MetricMetadata {
+            metric_type: MetricType::Counter,
+            description: "Multi-agent analysis run".to_string(),
+            unit: "runs".to_string(),
+            source: "multi_agent".to_string(),
+            agent_role: None,
+        };
+
+        let def = MetricDefinition {
+            name: "multi_agent.analysis".to_string(),
+            metadata: meta.clone(),
+            labels: vec!["agent_count".to_string(), "success_count".to_string()],
+            aggregation: MetricAggregation::Sum,
+        };
+        let _ = mon.register_metric(def).await;
+
+        let mut labels = std::collections::HashMap::new();
+        labels.insert("agent_count".to_string(), agent_count.to_string());
+        labels.insert("success_count".to_string(), responses.len().to_string());
+        labels.insert("error_count".to_string(), errors.len().to_string());
+
+        let _ = mon.record_metric("multi_agent.analysis", 1.0, labels).await;
+
+        let perf = PerformanceMetrics {
+            cpu_usage_percent: 0.0,
+            memory_usage_mb: 0.0,
+            memory_usage_percent: 0.0,
+            disk_io_read_mb: 0.0,
+            disk_io_write_mb: 0.0,
+            network_rx_mb: 0.0,
+            network_tx_mb: 0.0,
+            open_file_descriptors: 0,
+            thread_count: agent_count as u64,
+            timestamp: chrono::Utc::now(),
+        };
+        mon.record_performance(perf).await;
+    }
+
+    async fn run_negotiation_if_needed(
+        &self,
+        neg: &tokio::sync::Mutex<crate::negotiation::AgentNegotiator>,
+        responses: &[AgentResponse],
+    ) {
+        if responses.len() < 2 {
+            return;
+        }
+
+        use crate::negotiation::{
+            ConsensusAlgorithm, NegotiationPosition, NegotiationProtocol, ResourceRequirements,
+        };
+
+        let participants: Vec<String> = responses
+            .iter()
+            .map(|r| format!("{:?}_agent", r.role))
+            .collect();
+
+        let proposals: std::collections::HashMap<String, String> = responses
+            .iter()
+            .enumerate()
+            .map(|(i, r)| {
+                let key = format!("{:?}_agent", r.role);
+                let val = if r.issues.is_empty() {
+                    format!("no_issues_agent_{}", i)
+                } else {
+                    r.analysis.chars().take(200).collect::<String>()
+                };
+                (key, val)
+            })
+            .collect();
+
+        let has_disagreement = proposals.values().collect::<std::collections::HashSet<_>>().len() > 1;
+
+        if !has_disagreement {
+            return;
+        }
+
+        let mut neg = neg.lock().await;
+
+        if let Ok(session_id) = neg.start_negotiation(
+            "multi_agent_analysis_consensus".to_string(),
+            participants.clone(),
+            NegotiationProtocol::ConsensusSeeking,
+            3,
+        ) {
+            for response in responses {
+                let position = NegotiationPosition {
+                    agent_id: format!("{:?}_agent", response.role),
+                    role: response.role,
+                    proposal: response.analysis.chars().take(500).collect(),
+                    confidence: 0.8,
+                    min_acceptable: 0.5,
+                    priority: 1,
+                    dependencies: vec![],
+                    resource_requirements: ResourceRequirements {
+                        time_required_ms: 0,
+                        memory_required_mb: 0,
+                        cpu_required_percent: 0.0,
+                        budget: None,
+                    },
+                    timestamp: chrono::Utc::now(),
+                };
+                if let Err(e) = neg.submit_proposal(&session_id, position) {
+                    tracing::debug!("Proposal submission skipped: {e}");
+                }
+            }
+
+            if let Err(e) = neg.run_negotiation_round(&session_id) {
+                tracing::debug!("Negotiation round skipped: {e}");
+            }
+
+            if let Ok(Some(consensus)) = neg.build_consensus(
+                participants,
+                proposals,
+                ConsensusAlgorithm::SimpleMajority { threshold: 0.5 },
+            ) {
+                tracing::debug!("Negotiation consensus reached: {}", consensus);
+            }
+        }
+    }
+
     fn build_prompt(&self, _role: &AgentRole) -> String {
         let mut prompt = String::new();
 

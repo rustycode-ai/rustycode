@@ -11,29 +11,16 @@ use ratatui::{
     Frame,
 };
 
-/// Parameter input dialog state
 pub struct ParamInput {
-    /// Skill name
     skill_name: String,
-
-    /// Parameter name
     param_name: String,
-
-    /// Current input value
     input: String,
-
-    /// Whether dialog is visible
     visible: bool,
-
-    /// Input completed (user pressed Enter)
     completed: bool,
-
-    /// Input cancelled (user pressed Esc)
     cancelled: bool,
 }
 
 impl ParamInput {
-    /// Create new parameter input dialog
     pub fn new(skill_name: String, param_name: String) -> Self {
         Self {
             skill_name,
@@ -45,7 +32,6 @@ impl ParamInput {
         }
     }
 
-    /// Open the dialog
     pub fn open(&mut self) {
         self.visible = true;
         self.input.clear();
@@ -53,29 +39,24 @@ impl ParamInput {
         self.cancelled = false;
     }
 
-    /// Close the dialog
     pub fn close(&mut self) {
         self.visible = false;
         self.completed = false;
         self.cancelled = false;
     }
 
-    /// Check if dialog is visible
     pub fn is_visible(&self) -> bool {
         self.visible
     }
 
-    /// Check if input was completed
     pub fn is_completed(&self) -> bool {
         self.completed
     }
 
-    /// Check if input was cancelled
     pub fn is_cancelled(&self) -> bool {
         self.cancelled
     }
 
-    /// Get input value (and clear it)
     pub fn take_input(&mut self) -> Option<String> {
         if self.completed {
             Some(self.input.clone())
@@ -84,9 +65,6 @@ impl ParamInput {
         }
     }
 
-    /// Handle keyboard input
-    ///
-    /// Returns true if input was handled, false otherwise
     pub fn handle_key(&mut self, key: KeyEvent) -> bool {
         if !self.visible {
             return false;
@@ -137,7 +115,6 @@ impl ParamInput {
         }
     }
 
-    /// Render the dialog
     pub fn render(&self, frame: &mut Frame, area: Rect) {
         if !self.visible {
             return;
@@ -179,7 +156,6 @@ impl ParamInput {
         self.render_help(frame, chunks[2]);
     }
 
-    /// Render dialog title
     fn render_title(&self, frame: &mut Frame, area: Rect) {
         let title = vec![
             Line::from(vec![
@@ -205,7 +181,6 @@ impl ParamInput {
         frame.render_widget(paragraph, area);
     }
 
-    /// Render input field
     fn render_input(&self, frame: &mut Frame, area: Rect) {
         let input_text = vec![Line::from(vec![
             Span::styled("> ", Style::default().fg(Color::Green)),
@@ -224,7 +199,6 @@ impl ParamInput {
         frame.render_widget(paragraph, area);
     }
 
-    /// Render help text
     fn render_help(&self, frame: &mut Frame, area: Rect) {
         let help = vec![Line::from(vec![
             Span::styled("[", Style::default().fg(Color::DarkGray)),
@@ -245,7 +219,6 @@ impl ParamInput {
         frame.render_widget(paragraph, area);
     }
 
-    /// Delete word (Ctrl+W)
     fn delete_word(&mut self) {
         // Find last delimiter (space or /) and delete from after it
         let last_slash = self.input.rfind('/');

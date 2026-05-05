@@ -51,3 +51,48 @@ pub fn pending_count() -> usize {
         .unwrap_or_else(|e| e.into_inner());
     map.len()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn register_and_deliver_approve() {
+        let rx = register("test-approve".to_string());
+        assert!(deliver("test-approve", true));
+        assert_eq!(rx.recv(), Ok(true));
+    }
+
+    #[test]
+    fn register_and_deliver_reject() {
+        let rx = register("test-reject".to_string());
+        assert!(deliver("test-reject", false));
+        assert_eq!(rx.recv(), Ok(false));
+    }
+
+    #[test]
+    fn deliver_unknown_returns_false() {
+        assert!(!deliver("nonexistent", true));
+    }
+
+    #[test]
+    fn pending_list_tracks_registrations() {
+        let _rx1 = register("list-a".to_string());
+        let _rx2 = register("list-b".to_string());
+        let pending = pending_list();
+        assert!(pending.contains(&"list-a".to_string()));
+        assert!(pending.contains(&"list-b".to_string()));
+        // Clean up
+        deliver("list-a", true);
+        deliver("list-b", true);
+    }
+
+    #[test]
+    fn pending_count_accurate() {
+        let initial = pending_count();
+        let _rx = register("count-test".to_string());
+        assert_eq!(pending_count(), initial + 1);
+        deliver("count-test", true);
+        assert_eq!(pending_count(), initial);
+    }
+}

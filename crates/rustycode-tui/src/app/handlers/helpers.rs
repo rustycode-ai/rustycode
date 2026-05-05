@@ -1,13 +1,8 @@
 //! Shared helper functions for stream handlers.
 
 use crate::app::TUI;
-use crate::tool_approval::risk;
 use crate::ui::message::{Message, MessageRole};
 use tracing;
-
-pub(super) fn classify_tool_type(tool_name: &str) -> risk::ToolType {
-    risk::classify_tool_type(tool_name)
-}
 
 /// Check for pending tasks and trigger auto-continue if needed
 ///
