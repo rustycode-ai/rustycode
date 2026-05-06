@@ -26,7 +26,7 @@ impl TUI {
         }
 
         // Update context monitor and check for auto-compaction
-        self.context_monitor.update(&self.messages);
+        self.compaction.context_monitor.update(&self.messages);
         self.maybe_auto_compact();
     }
 
@@ -50,7 +50,7 @@ impl TUI {
         }
 
         // Update context monitor and check for auto-compaction
-        self.context_monitor.update(&self.messages);
+        self.compaction.context_monitor.update(&self.messages);
         self.maybe_auto_compact();
     }
 

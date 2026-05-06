@@ -24,7 +24,7 @@ impl TUI {
                 && self.pending_approval_request.is_empty()
                 && !self.error_manager.is_showing()
                 && !self.awaiting_clarification
-                && !self.showing_compaction_preview
+                && !self.compaction.showing_preview
             {
                 self.showing_command_palette = true;
                 self.showing_skill_palette = false;
@@ -705,9 +705,9 @@ impl TUI {
             self.awaiting_clarification = false;
             return true;
         }
-        if self.showing_compaction_preview {
-            self.showing_compaction_preview = false;
-            self.pending_compaction = false;
+        if self.compaction.showing_preview {
+            self.compaction.showing_preview = false;
+            self.compaction.pending = false;
             return true;
         }
         if self.error_manager.is_showing() {

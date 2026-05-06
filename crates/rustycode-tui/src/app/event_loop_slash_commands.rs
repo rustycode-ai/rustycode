@@ -72,7 +72,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             }
             self.reset_conversation_state();
             self.messages = messages;
-            self.context_monitor.update(&self.messages);
+            self.compaction.context_monitor.update(&self.messages);
             if !self.messages.is_empty() {
                 self.view.selected_message = self.messages.len() - 1;
             }
@@ -212,8 +212,8 @@ fn handle_cost_command(&mut self) {
         self.token_budget.session_output_tokens.to_string()
     };
 
-    let ctx_pct = if self.context_monitor.max_tokens > 0 {
-        format!("{:.0}%", self.context_monitor.usage_percentage() * 100.0)
+    let ctx_pct = if self.compaction.context_monitor.max_tokens > 0 {
+        format!("{:.0}%", self.compaction.context_monitor.usage_percentage() * 100.0)
     } else {
         "N/A".to_string()
     };
@@ -327,8 +327,8 @@ pub(crate) fn apply_model_switch(&mut self, model: &crate::ui::model_selector::M
     std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", &result.model_id);
     std::env::set_var("RUSTYCODE_PROVIDER_OVERRIDE", &result.provider);
     self.current_model = result.model_id.clone();
-    self.compaction_config.model_id = Some(result.model_id);
-    self.context_monitor.max_tokens = self.compaction_config.effective_max_tokens();
+    self.compaction.compaction_config.model_id = Some(result.model_id);
+    self.compaction.context_monitor.max_tokens = self.compaction.compaction_config.effective_max_tokens();
     self.add_system_message(result.status_message);
     self.model_selector.hide();
     self.dirty = true;

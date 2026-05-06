@@ -2,6 +2,7 @@
 
 pub mod auto_continue_state;
 pub mod auto_tool_parser;
+pub mod compaction_state;
 pub mod clipboard_export;
 pub mod view_state;
 pub mod clipboard_ops;

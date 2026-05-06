@@ -140,7 +140,7 @@ pub(super) fn handle_token_usage_chunk(
     tui.token_budget.last_turn_input_tokens = input_tokens;
 
     // Update context monitor with real API token counts
-    tui.context_monitor
+    tui.compaction.context_monitor
         .update_from_api(input_tokens, &tui.current_model);
 
     let model = &tui.current_model;

@@ -354,7 +354,7 @@ impl PolishedRenderer {
         }
 
         if show_context_bar {
-            let usage_pct = (tui.context_monitor.usage_percentage() * 100.0) as usize;
+            let usage_pct = (tui.compaction.context_monitor.usage_percentage() * 100.0) as usize;
             spans.push(Span::raw(" | "));
             let token_color = if usage_pct < 50 {
                 Color::Green
@@ -380,8 +380,8 @@ impl PolishedRenderer {
                     n.to_string()
                 }
             };
-            let current_tokens = tui.context_monitor.current_tokens;
-            let max_tokens = tui.context_monitor.max_tokens;
+            let current_tokens = tui.compaction.context_monitor.current_tokens;
+            let max_tokens = tui.compaction.context_monitor.max_tokens;
             let display_model = tui
                 .current_model
                 .rsplit('/')

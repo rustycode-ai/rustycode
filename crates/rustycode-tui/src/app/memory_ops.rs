@@ -209,14 +209,14 @@ impl TUI {
     }
 
     pub(crate) fn maybe_auto_compact(&mut self) {
-        if !self.compaction_config.auto_compact_enabled {
+        if !self.compaction.compaction_config.auto_compact_enabled {
             return;
         }
 
-        if self.compaction_config.auto_compact_state.disabled {
+        if self.compaction.compaction_config.auto_compact_state.disabled {
             tracing::debug!(
                 "Auto-compaction disabled after {} consecutive failures",
-                self.compaction_config
+                self.compaction.compaction_config
                     .auto_compact_state
                     .consecutive_failures
             );
@@ -228,15 +228,15 @@ impl TUI {
             return;
         }
 
-        let effective_max = self.compaction_config.effective_max_tokens();
+        let effective_max = self.compaction.compaction_config.effective_max_tokens();
         let threshold_tokens =
-            (effective_max as f64 * self.compaction_config.warning_threshold) as usize;
+            (effective_max as f64 * self.compaction.compaction_config.warning_threshold) as usize;
 
-        if self.context_monitor.current_tokens >= threshold_tokens {
+        if self.compaction.context_monitor.current_tokens >= threshold_tokens {
             tracing::info!(
                 "Token usage at {:.1}% ({}, / {}), executing auto-compaction",
-                (self.context_monitor.current_tokens as f64 / effective_max as f64) * 100.0,
-                self.context_monitor.current_tokens,
+                (self.compaction.context_monitor.current_tokens as f64 / effective_max as f64) * 100.0,
+                self.compaction.context_monitor.current_tokens,
                 effective_max
             );
 
@@ -248,7 +248,7 @@ impl TUI {
     pub(crate) fn execute_compaction(&mut self) {
         use crate::slash_commands::execute_compaction as execute_compaction_fn;
 
-        let strategy = self.compaction_config.strategy;
+        let strategy = self.compaction.compaction_config.strategy;
 
         tracing::debug!("Executing compaction with strategy: {:?}", strategy);
         self.toast_manager.info("Compacting context...");
@@ -268,9 +268,9 @@ impl TUI {
                 self.view.scroll_offset_line = 0;
                 self.view.user_scrolled = false;
 
-                self.context_monitor.update(&self.messages);
-                self.token_budget.last_turn_input_tokens = self.context_monitor.current_tokens;
-                self.compaction_config.auto_compact_state.on_success();
+                self.compaction.context_monitor.update(&self.messages);
+                self.token_budget.last_turn_input_tokens = self.compaction.context_monitor.current_tokens;
+                self.compaction.compaction_config.auto_compact_state.on_success();
 
                 tracing::debug!(
                     "Compaction complete: {} -> {} messages (saved {} messages)",
@@ -289,7 +289,7 @@ impl TUI {
                 ));
             }
             Err(e) => {
-                self.compaction_config.auto_compact_state.on_failure();
+                self.compaction.compaction_config.auto_compact_state.on_failure();
                 tracing::error!("Compaction failed: {}", e);
                 self.add_system_message(format!("⚠ Compaction failed: {}", e));
                 self.toast_manager
@@ -297,7 +297,7 @@ impl TUI {
             }
         }
 
-        self.showing_compaction_preview = false;
-        self.pending_compaction = false;
+        self.compaction.showing_preview = false;
+        self.compaction.pending = false;
     }
 }

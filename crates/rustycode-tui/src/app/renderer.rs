@@ -516,7 +516,7 @@ impl PolishedRenderer {
         }
 
         // Overlay: compaction preview (while pending)
-        if tui.showing_compaction_preview {
+        if tui.compaction.showing_preview {
             tui.render_compaction_preview(frame, size);
         }
 

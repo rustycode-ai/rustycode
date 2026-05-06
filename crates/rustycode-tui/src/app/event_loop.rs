@@ -172,11 +172,8 @@ pub struct TUI {
     // Set after external editor returns to force terminal.clear() + full redraw
     pub(crate) needs_full_redraw: bool,
 
-    // Token compaction
-    pub(crate) context_monitor: ContextMonitor,
-    pub(crate) compaction_config: CompactionConfig,
-    pub(crate) showing_compaction_preview: bool,
-    pub(crate) pending_compaction: bool,
+    // Token compaction (grouped in sub-struct)
+    pub(crate) compaction: crate::app::compaction_state::CompactionState,
 
     // Auto-memory system
     pub(crate) auto_memory: Option<Arc<ThreadSafeAutoMemory>>,
@@ -406,8 +403,8 @@ impl TUI {
         self.rate_limit.clear();
         self.auto_continue.reset();
         self.token_budget.reset();
-        self.context_monitor.current_tokens = 0;
-        self.context_monitor.needs_compaction = false;
+        self.compaction.context_monitor.current_tokens = 0;
+        self.compaction.context_monitor.needs_compaction = false;
     }
 
     /// Create a new TUI instance with service integration
@@ -613,11 +610,8 @@ impl TUI {
             ),
             dirty: true,
             needs_full_redraw: false,
-            context_monitor,
+            compaction: crate::app::compaction_state::CompactionState::new(context_monitor, compaction_config),
             theme_colors,
-            compaction_config,
-            showing_compaction_preview: false,
-            pending_compaction: false,
             auto_memory,
             memory_injection_config,
             skill_palette,
@@ -847,11 +841,8 @@ impl TUI {
             ),
             dirty: true,
             needs_full_redraw: false,
-            context_monitor,
+            compaction: crate::app::compaction_state::CompactionState::new(context_monitor, compaction_config),
             theme_colors,
-            compaction_config,
-            showing_compaction_preview: false,
-            pending_compaction: false,
             auto_memory,
             memory_injection_config,
             skill_palette,
@@ -1140,7 +1131,7 @@ impl TUI {
                 self.reset_conversation_state();
                 self.view.scroll_offset_line = session.scroll_position;
                 self.messages = session.messages;
-                self.context_monitor.update(&self.messages);
+                self.compaction.context_monitor.update(&self.messages);
                 if !self.messages.is_empty() {
                     self.view.selected_message = self.messages.len().saturating_sub(1);
                 }
@@ -1782,10 +1773,10 @@ impl TUI {
                     skill_manager: &self.skill_manager,
                     plugin_manager: &self.plugin_manager,
                     running: &mut self.running,
-                    context_monitor: &mut self.context_monitor,
-                    compaction_config: &mut self.compaction_config,
-                    showing_compaction_preview: &mut self.showing_compaction_preview,
-                    pending_compaction: &mut self.pending_compaction,
+                    context_monitor: &mut self.compaction.context_monitor,
+                    compaction_config: &mut self.compaction.compaction_config,
+                    showing_compaction_preview: &mut self.compaction.showing_preview,
+                    pending_compaction: &mut self.compaction.pending,
                     file_undo_stack: &mut self.file_undo_stack,
                     session_input_tokens: self.token_budget.session_input_tokens,
                     session_output_tokens: self.token_budget.session_output_tokens,
@@ -2049,7 +2040,7 @@ impl TUI {
         }
 
         // Overlay: compaction preview (while pending)
-        if self.showing_compaction_preview {
+        if self.compaction.showing_preview {
             self.render_compaction_preview(frame, size);
         }
 

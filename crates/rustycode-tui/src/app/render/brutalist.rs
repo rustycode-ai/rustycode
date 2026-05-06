@@ -67,7 +67,7 @@ impl TUI {
         } else {
             context_usage.update(self.token_budget.session_input_tokens, self.token_budget.session_output_tokens);
         }
-        context_usage.set_limit(self.context_monitor.max_tokens);
+        context_usage.set_limit(self.compaction.context_monitor.max_tokens);
 
         BrutalistRendererState {
             input_text,

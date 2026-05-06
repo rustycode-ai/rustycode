@@ -48,7 +48,7 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
         tui.auto_scroll();
     }
 
-    tui.context_monitor.update(&tui.messages);
+    tui.compaction.context_monitor.update(&tui.messages);
     tui.maybe_auto_compact();
 
     // Mark session dirty so the 30-second auto-save persists this turn

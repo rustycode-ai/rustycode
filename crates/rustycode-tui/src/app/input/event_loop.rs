@@ -98,7 +98,7 @@ impl TUI {
                     && self.pending_approval_request.is_empty()
                     && !self.error_manager.is_showing()
                     && !self.awaiting_clarification
-                    && !self.showing_compaction_preview
+                    && !self.compaction.showing_preview
                 {
                     self.showing_command_palette = true;
                     self.showing_skill_palette = false;
@@ -121,15 +121,15 @@ impl TUI {
                 if self.handle_clarification_input(key)? {
                     return Ok(());
                 }
-                if self.showing_compaction_preview {
+                if self.compaction.showing_preview {
                     return match key.code {
                         KeyCode::Enter => {
                             self.execute_compaction();
                             Ok(())
                         }
                         KeyCode::Esc => {
-                            self.showing_compaction_preview = false;
-                            self.pending_compaction = false;
+                            self.compaction.showing_preview = false;
+                            self.compaction.pending = false;
                             self.dirty = true;
                             Ok(())
                         }

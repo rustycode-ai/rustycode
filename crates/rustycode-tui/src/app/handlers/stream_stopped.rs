@@ -51,7 +51,7 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
         tui.add_system_message(user_message);
     }
 
-    tui.context_monitor.update(&tui.messages);
+    tui.compaction.context_monitor.update(&tui.messages);
     tui.maybe_auto_compact();
     if let Some(ref mut recovery) = tui.session_recovery {
         recovery.mark_dirty();

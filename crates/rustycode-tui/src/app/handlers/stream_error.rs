@@ -50,7 +50,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
         ));
     }
 
-    tui.context_monitor.update(&tui.messages);
+    tui.compaction.context_monitor.update(&tui.messages);
     tui.maybe_auto_compact();
 
     // On cancellation, keep the queued message so the user can retry.
