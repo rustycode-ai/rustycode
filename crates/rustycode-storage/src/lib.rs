@@ -72,8 +72,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use rustycode_bus::{Event, EventBus, SubscriptionHandle};
 use rustycode_protocol::{
-    EventKind, Plan, PlanId, PlanStatus, PlanStep, Session, SessionEvent, SessionId,
-    ToolApprovalMode,
+    EventKind, Milestone, MilestoneId, MilestoneStatus, Plan, PlanDependency, PlanId, PlanStatus,
+    PlanStep, Session, SessionEvent, SessionId, ToolApprovalMode,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -1023,11 +1023,12 @@ impl Storage {
 
     pub fn insert_plan(&self, plan: &Plan) -> Result<()> {
         self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner).execute(
-            "insert into plans (id, session_id, task, created_at, status, summary, approach, steps, files_to_modify, risks)
-             values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            "insert into plans (id, session_id, milestone_id, task, created_at, status, summary, approach, steps, files_to_modify, risks)
+             values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 plan.id.to_string(),
                 plan.session_id.to_string(),
+                plan.milestone_id.as_ref().map(ToString::to_string),
                 plan.task,
                 plan.created_at.to_rfc3339(),
                 serde_json::to_string(&plan.status)?,
@@ -1039,6 +1040,138 @@ impl Storage {
             ],
         )?;
         Ok(())
+    }
+
+    // ── Milestones ───────────────────────────────────────────────────────────
+
+    pub fn insert_milestone(&self, milestone: &Milestone) -> Result<()> {
+        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner).execute(
+            "insert into milestones (
+                id, session_id, title, description, status, plan_ids, plan_dependencies,
+                success_criteria, validation_command, created_at, updated_at, completed_at
+            ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                milestone.id.to_string(),
+                milestone.session_id.to_string(),
+                milestone.title,
+                milestone.description,
+                serde_json::to_string(&milestone.status)?,
+                serde_json::to_string(&milestone.plan_ids)?,
+                serde_json::to_string(&milestone.plan_dependencies)?,
+                serde_json::to_string(&milestone.success_criteria)?,
+                milestone.validation_command,
+                milestone.created_at.to_rfc3339(),
+                milestone.updated_at.to_rfc3339(),
+                milestone.completed_at.map(|ts| ts.to_rfc3339()),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn load_milestone(&self, id: &MilestoneId) -> Result<Option<Milestone>> {
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut stmt = conn.prepare(
+            "select id, session_id, title, description, status, plan_ids, plan_dependencies,
+                    success_criteria, validation_command, created_at, updated_at, completed_at
+             from milestones where id = ?1",
+        )?;
+        let mut rows = stmt.query_map(params![id.to_string()], milestone_from_row)?;
+        match rows.next() {
+            Some(row) => Ok(Some(row?)),
+            None => Ok(None),
+        }
+    }
+
+    pub fn list_milestones(&self, session_id: &SessionId) -> Result<Vec<Milestone>> {
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut stmt = conn.prepare(
+            "select id, session_id, title, description, status, plan_ids, plan_dependencies,
+                    success_criteria, validation_command, created_at, updated_at, completed_at
+             from milestones where session_id = ?1 order by created_at desc",
+        )?;
+        let rows = stmt.query_map(params![session_id.to_string()], milestone_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(anyhow::Error::from)
+    }
+
+    pub fn update_milestone_status(
+        &self,
+        id: &MilestoneId,
+        status: &MilestoneStatus,
+    ) -> Result<()> {
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let status_json = serde_json::to_string(status)?;
+        let updated_at = Utc::now().to_rfc3339();
+        if matches!(status, MilestoneStatus::Completed) {
+            conn.execute(
+                "update milestones set status = ?1, updated_at = ?2, completed_at = ?3 where id = ?4",
+                params![status_json, updated_at, Utc::now().to_rfc3339(), id.to_string()],
+            )?;
+        } else {
+            conn.execute(
+                "update milestones set status = ?1, updated_at = ?2 where id = ?3",
+                params![status_json, updated_at, id.to_string()],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn add_plan_to_milestone(&self, milestone_id: &MilestoneId, plan_id: &PlanId) -> Result<()> {
+        let mut conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let tx = conn.transaction()?;
+
+        let milestone_row = tx.query_row(
+            "select plan_ids from milestones where id = ?1",
+            params![milestone_id.to_string()],
+            |row| row.get::<_, String>(0),
+        )?;
+        let mut plan_ids: Vec<PlanId> =
+            serde_json::from_str(&milestone_row).context("failed to deserialize milestone plan ids")?;
+        if !plan_ids.contains(plan_id) {
+            plan_ids.push(plan_id.clone());
+        }
+
+        tx.execute(
+            "update milestones set plan_ids = ?1, updated_at = ?2 where id = ?3",
+            params![
+                serde_json::to_string(&plan_ids)?,
+                Utc::now().to_rfc3339(),
+                milestone_id.to_string(),
+            ],
+        )?;
+        tx.execute(
+            "update plans set milestone_id = ?1 where id = ?2",
+            params![milestone_id.to_string(), plan_id.to_string()],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn milestone_plans(&self, milestone_id: &MilestoneId) -> Result<Vec<Plan>> {
+        let conn = self
+            .conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut stmt = conn.prepare(
+            "select id, session_id, milestone_id, task, created_at, status, summary, approach,
+                    steps, files_to_modify, risks
+             from plans where milestone_id = ?1 order by created_at asc",
+        )?;
+        let rows = stmt.query_map(params![milestone_id.to_string()], plan_from_row)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(anyhow::Error::from)
     }
 
     pub fn update_plan_status(&self, plan_id: &PlanId, status: &PlanStatus) -> Result<()> {

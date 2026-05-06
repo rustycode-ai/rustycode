@@ -57,6 +57,7 @@ impl TUI {
 
         let max_scroll = self.begin_manual_scroll();
         self.view.scroll_offset_line = self
+            .view
             .scroll_offset_line
             .saturating_add(lines)
             .min(max_scroll);
@@ -129,7 +130,7 @@ impl TUI {
         let scroll_amount = (self.view.viewport_height / 2).max(1);
         let max_scroll = self.begin_manual_scroll();
         self.view.scroll_offset_line = self
-            .scroll_offset_line
+            .view.scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
 
@@ -158,7 +159,7 @@ impl TUI {
         let scroll_amount = self.view.viewport_height.max(1);
         let max_scroll = self.begin_manual_scroll();
         self.view.scroll_offset_line = self
-            .scroll_offset_line
+            .view.scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
 
@@ -263,6 +264,7 @@ impl TUI {
                     offsets.get(msg_idx).copied().unwrap_or(msg_idx * 3)
                 };
                 let max_scroll = self
+                    .view
                     .last_total_lines
                     .get()
                     .saturating_sub(self.view.viewport_height.max(1));
@@ -290,6 +292,7 @@ impl TUI {
                     offsets.get(i).copied().unwrap_or(i * 3)
                 };
                 let max_scroll = self
+                    .view
                     .last_total_lines
                     .get()
                     .saturating_sub(self.view.viewport_height.max(1));
@@ -324,6 +327,7 @@ impl TUI {
                     offsets.get(i).copied().unwrap_or(i * 3)
                 };
                 let max_scroll = self
+                    .view
                     .last_total_lines
                     .get()
                     .saturating_sub(self.view.viewport_height.max(1));

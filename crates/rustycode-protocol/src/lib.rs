@@ -122,7 +122,9 @@
 //
 // These are time-sortable, compact identifiers used throughout the system.
 // See the crate-level documentation for details on the ID system.
-pub use rustycode_id::{EventId, FileId, MemoryId, PlanId, SessionId, SkillId, SortableId, ToolId};
+pub use rustycode_id::{
+    EventId, FileId, MemoryId, MilestoneId, PlanId, SessionId, SkillId, SortableId, ToolId,
+};
 
 // MODULE DECLARATIONS
 
@@ -131,6 +133,7 @@ pub mod session;
 
 // Plan execution types
 pub mod plan;
+pub mod milestone;
 
 // Event types
 pub mod event;
@@ -221,6 +224,7 @@ pub use session::{
 };
 
 // Plan types
+pub use milestone::{Milestone, MilestoneStatus, PlanDependency};
 pub use plan::{Plan, PlanStatus, PlanStep, StepStatus, StepToolExecution};
 
 // Event types

@@ -18,7 +18,6 @@ pub(crate) struct TokenBudget {
 }
 
 impl TokenBudget {
-    /// Create a new `TokenBudget` with all counters at zero.
     pub(crate) fn new() -> Self {
         Self {
             session_cost_usd: 0.0,

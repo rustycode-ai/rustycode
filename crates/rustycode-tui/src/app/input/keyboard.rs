@@ -21,7 +21,7 @@ impl TUI {
                 && modifiers.contains(KeyModifiers::SHIFT))
         {
             if !self.wizard.showing_wizard
-                && self.pending_approval_request.is_empty()
+                && self.tool_approval.pending_requests.is_empty()
                 && !self.error_manager.is_showing()
                 && !self.awaiting_clarification
                 && !self.compaction.showing_preview

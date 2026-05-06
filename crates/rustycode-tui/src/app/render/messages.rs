@@ -643,6 +643,7 @@ impl PolishedRenderer {
                 // renders, making selected_message stale. The .min() clamp handles
                 // non-empty cases; the is_empty() check prevents ..=0 panic.
                 let safe_end = tui
+                    .view
                     .selected_message
                     .min(tui.messages.len().saturating_sub(1));
                 if tui.messages.is_empty() {

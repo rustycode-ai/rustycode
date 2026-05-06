@@ -132,7 +132,6 @@ fn cmd_task_list(tasks: &WorkspaceTasks) -> TaskCommandResult {
     TaskCommandResult::Success(output)
 }
 
-/// Create a new task
 fn cmd_task_create(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResult {
     if args.is_empty() {
         return TaskCommandResult::Error(

@@ -72,7 +72,7 @@ pub(super) fn handle_approval_request_chunk(
         }
     }
 
-    if !tui.tool_approval.requires_approval(&tool_name, risk_level) {
+    if !tui.tool_approval.manager.requires_approval(&tool_name, risk_level) {
         tracing::info!(
             "TUI approval: {} auto-approved (safe or session-approved)",
             tool_name
@@ -83,7 +83,7 @@ pub(super) fn handle_approval_request_chunk(
     }
 
     // Check if tool has been blocked for this session
-    if tui.tool_approval.is_blocked(&tool_name) {
+    if tui.tool_approval.manager.is_blocked(&tool_name) {
         tracing::info!("TUI approval: {} auto-rejected (blocked)", tool_name);
         tui.services.send_approval_response(false);
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
@@ -95,8 +95,8 @@ pub(super) fn handle_approval_request_chunk(
     // a duplicate request (race condition / retry). Auto-approve to avoid
     // deadlock — the provider is waiting for a response and won't proceed
     // without one.
-    if tui.awaiting_approval {
-        if let Some(req) = tui.pending_approval_request.front() {
+    if tui.tool_approval.awaiting {
+        if let Some(req) = tui.tool_approval.pending_requests.front() {
             if req.tool_name == tool_name {
                 tui.services.send_approval_response(true);
                 tui.dirty = true;
@@ -125,7 +125,7 @@ pub(super) fn handle_approval_request_chunk(
         return;
     }
 
-    tui.pending_approval_request
+    tui.tool_approval.pending_requests
         .push_back(crate::tool_approval::ApprovalRequest {
             tool_name: tool_name.clone(),
             tool_type,
@@ -135,7 +135,7 @@ pub(super) fn handle_approval_request_chunk(
             state: crate::tool_approval::ApprovalState::Pending,
             diff_scroll: crate::tool_approval::DiffScrollState::default(),
         });
-    tui.awaiting_approval = true;
+    tui.tool_approval.awaiting = true;
     tui.dirty = true;
     tracing::warn!(
         "TUI approval: SHOWING PROMPT for {} (risk={:?})",
@@ -145,21 +145,21 @@ pub(super) fn handle_approval_request_chunk(
 }
 
 pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.pending_approval_request.pop_front() {
+    if let Some(mut request) = tui.tool_approval.pending_requests.pop_front() {
         request.approve();
-        tui.tool_approval
+        tui.tool_approval.manager
             .record_approval(request.tool_name.clone(), request.state);
         tui.add_system_message(format!("✓ Approved: {}", request.tool_name));
     }
-    tui.awaiting_approval = !tui.pending_approval_request.is_empty();
+    tui.tool_approval.awaiting = !tui.tool_approval.pending_requests.is_empty();
     tui.dirty = true;
 }
 
 pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.pending_approval_request.pop_front() {
+    if let Some(mut request) = tui.tool_approval.pending_requests.pop_front() {
         request.reject();
         tui.add_system_message(format!("✗ Rejected: {}", request.tool_name));
     }
-    tui.awaiting_approval = !tui.pending_approval_request.is_empty();
+    tui.tool_approval.awaiting = !tui.tool_approval.pending_requests.is_empty();
     tui.dirty = true;
 }

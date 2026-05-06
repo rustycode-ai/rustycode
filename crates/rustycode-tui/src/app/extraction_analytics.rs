@@ -30,7 +30,6 @@ pub struct ExtractionStats {
 }
 
 impl ExtractionStats {
-    /// Create new analytics
     pub fn new() -> Self {
         Self::default()
     }

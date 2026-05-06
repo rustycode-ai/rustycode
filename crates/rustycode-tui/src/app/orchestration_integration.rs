@@ -46,7 +46,6 @@ pub struct OrchestrationIntegration {
 }
 
 impl OrchestrationIntegration {
-    /// Create a new integration instance.
     ///
     /// If `store_path` is `Some`, reasoning persistence is enabled.
     pub fn new(store_path: Option<PathBuf>) -> Self {

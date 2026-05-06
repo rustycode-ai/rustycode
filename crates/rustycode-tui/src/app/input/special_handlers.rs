@@ -37,7 +37,7 @@ impl TUI {
     }
 
     pub(crate) fn handle_approval_input(&mut self, key: KeyEvent) -> Result<bool> {
-        if !self.awaiting_approval {
+        if !self.tool_approval.awaiting {
             return Ok(false);
         }
 
@@ -70,71 +70,71 @@ impl TUI {
 
         match key.code {
             KeyCode::Char('y') | KeyCode::Char('Y') => {
-                if let Some(req) = self.pending_approval_request.pop_front() {
+                if let Some(req) = self.tool_approval.pending_requests.pop_front() {
                     self.add_system_message(format!("✓ Approved: {}", req.tool_name));
-                    self.tool_approval.record_approval(
+                    self.tool_approval.manager.record_approval(
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Approved,
                     );
                     self.services.send_approval_response(true);
                 }
-                self.awaiting_approval = !self.pending_approval_request.is_empty();
+                self.tool_approval.awaiting = !self.tool_approval.pending_requests.is_empty();
                 self.dirty = true;
                 Ok(true)
             }
             KeyCode::Char('n') => {
-                if let Some(req) = self.pending_approval_request.pop_front() {
+                if let Some(req) = self.tool_approval.pending_requests.pop_front() {
                     self.add_system_message(format!("✗ Rejected: {}", req.tool_name));
-                    self.tool_approval.record_approval(
+                    self.tool_approval.manager.record_approval(
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Rejected,
                     );
                     self.services.send_approval_response(false);
                 }
-                self.awaiting_approval = !self.pending_approval_request.is_empty();
+                self.tool_approval.awaiting = !self.tool_approval.pending_requests.is_empty();
                 self.dirty = true;
                 Ok(true)
             }
             KeyCode::Char('N') => {
-                if let Some(req) = self.pending_approval_request.pop_front() {
+                if let Some(req) = self.tool_approval.pending_requests.pop_front() {
                     self.add_system_message(format!(
                         "✗ Blocked for session: {} (won't ask again)",
                         req.tool_name
                     ));
-                    self.tool_approval.record_approval(
+                    self.tool_approval.manager.record_approval(
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::RejectedAll,
                     );
                     self.services.send_approval_response(false);
                 }
-                self.awaiting_approval = !self.pending_approval_request.is_empty();
+                self.tool_approval.awaiting = !self.tool_approval.pending_requests.is_empty();
                 self.dirty = true;
                 Ok(true)
             }
             KeyCode::Char('a') | KeyCode::Char('A') => {
-                if let Some(req) = self.pending_approval_request.pop_front() {
+                if let Some(req) = self.tool_approval.pending_requests.pop_front() {
                     self.add_system_message(format!("✓ Always approved: {}", req.tool_name));
-                    self.tool_approval.record_approval(
+                    self.tool_approval.manager.record_approval(
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::ApprovedAll,
                     );
                     self.services.send_approval_response(true);
                 }
-                self.awaiting_approval = !self.pending_approval_request.is_empty();
+                self.tool_approval.awaiting = !self.tool_approval.pending_requests.is_empty();
                 self.dirty = true;
                 Ok(true)
             }
             KeyCode::Esc => {
-                self.pending_approval_request.pop_front();
+                self.tool_approval.pending_requests.pop_front();
                 self.services.send_approval_response(false);
                 self.add_system_message("⏸️  Approval cancelled".to_string());
-                self.awaiting_approval = !self.pending_approval_request.is_empty();
+                self.tool_approval.awaiting = !self.tool_approval.pending_requests.is_empty();
                 self.dirty = true;
                 Ok(true)
             }
             _ => {
                 // Scroll keys for diff preview
-                if let Some(req) = self.pending_approval_request.front_mut() {
+                if let Some(req) = self.tool_approval.pending_requests.front_mut() {
                     if req.has_diff_content() {
                         match key.code {
                             KeyCode::Down | KeyCode::Char('j') => {

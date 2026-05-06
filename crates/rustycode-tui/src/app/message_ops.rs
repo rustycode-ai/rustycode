@@ -198,7 +198,6 @@ impl TUI {
             return;
         }
 
-        // Reset user_scrolled flag so we auto-scroll to bottom
         self.view.user_scrolled = false;
         // Set scroll_offset_line to the actual bottom position so that
         // scroll_up_by works correctly from the bottom (instead of jumping to top).

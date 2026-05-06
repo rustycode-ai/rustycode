@@ -37,7 +37,6 @@ pub struct VimChordState {
 }
 
 impl VimChordState {
-    /// Create new Vim chord state
     pub fn new() -> Self {
         Self {
             pending_g: false,
@@ -83,7 +82,6 @@ pub struct KeyboardShortcutHandler {
 }
 
 impl KeyboardShortcutHandler {
-    /// Create new keyboard shortcut handler
     pub fn new(vim_enabled: bool) -> Self {
         Self {
             vim_enabled,

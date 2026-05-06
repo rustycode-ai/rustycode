@@ -279,8 +279,8 @@ impl BrutalistRenderer<'_> {
 
         // Compute effective scroll offset (auto-scroll to bottom when not user-scrolled)
         let max_scroll = total_lines.saturating_sub(safe_viewport);
-        let effective_offset = if self.view.user_scrolled {
-            self.view.scroll_offset_line.min(max_scroll)
+        let effective_offset = if self.user_scrolled {
+            self.scroll_offset_line.min(max_scroll)
         } else {
             max_scroll // Auto-scroll to bottom
         };

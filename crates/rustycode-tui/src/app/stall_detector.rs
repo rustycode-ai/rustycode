@@ -257,7 +257,6 @@ mod tests {
             det.record_tool("read_file", true, false);
             det.end_turn();
         }
-        // Write code resets the counter
         det.record_tool("write_file", true, false);
         assert_eq!(det.end_turn(), StallLevel::Normal);
     }

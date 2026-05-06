@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::{PlanId, SessionId};
+use crate::{MilestoneId, PlanId, SessionId};
 
 // Forward declaration - ToolCall is defined in tool.rs
 // This is a simplified placeholder for type checking
@@ -42,6 +42,9 @@ pub struct Plan {
     pub id: PlanId,
     /// The session this plan belongs to
     pub session_id: SessionId,
+    /// Optional milestone this plan belongs to
+    #[serde(default)]
+    pub milestone_id: Option<MilestoneId>,
     /// The task this plan implements
     pub task: String,
     /// When the plan was created

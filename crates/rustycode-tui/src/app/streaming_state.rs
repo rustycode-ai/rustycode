@@ -32,7 +32,6 @@ pub(crate) struct StreamingState {
 }
 
 impl StreamingState {
-    /// Create a new `StreamingState` with all fields at their default/empty values.
     pub(crate) fn new() -> Self {
         Self {
             is_streaming: false,

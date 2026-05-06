@@ -26,22 +26,22 @@ impl ScrollState {
     }
 
     pub fn scroll_up(&mut self) {
-        self.view.user_scrolled = true;
-        self.view.scroll_offset_line = self.view.scroll_offset_line.saturating_sub(1);
+        self.user_scrolled = true;
+        self.scroll_offset_line = self.scroll_offset_line.saturating_sub(1);
     }
 
     pub fn scroll_down(&mut self) {
-        self.view.user_scrolled = true;
-        self.view.scroll_offset_line = self.view.scroll_offset_line.saturating_add(1);
+        self.user_scrolled = true;
+        self.scroll_offset_line = self.scroll_offset_line.saturating_add(1);
     }
 
     pub fn page_up(&mut self, _message_count: usize, viewport_height: usize) {
         let scroll_amount = viewport_height.max(1);
-        if self.view.selected_message >= scroll_amount {
-            self.view.selected_message -= scroll_amount;
+        if self.selected_message >= scroll_amount {
+            self.selected_message -= scroll_amount;
             self.scroll_offset = self.scroll_offset.saturating_sub(scroll_amount);
         } else {
-            self.view.selected_message = 0;
+            self.selected_message = 0;
             self.scroll_offset = 0;
         }
     }
@@ -49,18 +49,18 @@ impl ScrollState {
     pub fn page_down(&mut self, message_count: usize, viewport_height: usize) {
         let scroll_amount = viewport_height.max(1);
         let new_selected =
-            (self.view.selected_message + scroll_amount).min(message_count.saturating_sub(1));
-        self.view.selected_message = new_selected;
+            (self.selected_message + scroll_amount).min(message_count.saturating_sub(1));
+        self.selected_message = new_selected;
 
         // Adjust scroll offset
         let viewport_bottom = self.scroll_offset + viewport_height;
-        if self.view.selected_message >= viewport_bottom {
-            self.scroll_offset = self.view.selected_message - viewport_height + 1;
+        if self.selected_message >= viewport_bottom {
+            self.scroll_offset = self.selected_message - viewport_height + 1;
         }
     }
 
     pub fn reset_user_scroll(&mut self) {
-        self.view.user_scrolled = false;
+        self.user_scrolled = false;
     }
 }
 
@@ -95,7 +95,7 @@ impl TUI {
                         && key.modifiers.contains(KeyModifiers::SHIFT));
                 if is_cmd_palette_shortcut
                     && !self.wizard.showing_wizard
-                    && self.pending_approval_request.is_empty()
+                    && self.tool_approval.pending_requests.is_empty()
                     && !self.error_manager.is_showing()
                     && !self.awaiting_clarification
                     && !self.compaction.showing_preview

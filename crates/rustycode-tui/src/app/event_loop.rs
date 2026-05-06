@@ -190,10 +190,8 @@ pub struct TUI {
     // Round 2 Features: Help system
     pub(crate) help_state: HelpState,
 
-    // Round 2 Features: Tool approval
-    pub(crate) tool_approval: ToolApprovalManager,
-    pub(crate) pending_approval_request: VecDeque<crate::tool_approval::ApprovalRequest>,
-    pub(crate) awaiting_approval: bool, // Whether we're waiting for user response
+    // Tool approval (grouped in sub-struct)
+    pub(crate) tool_approval: crate::app::tool_approval_state::ToolApprovalState,
 
     // Session start time (for elapsed time display)
     pub(crate) start_time: Instant,
@@ -621,9 +619,7 @@ impl TUI {
             showing_plugin_manager: false,
             showing_marketplace_browser: false,
             help_state: HelpState::new(),
-            tool_approval: ToolApprovalManager::new(),
-            pending_approval_request: VecDeque::new(),
-            awaiting_approval: false,
+            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(ToolApprovalManager::new()),
             start_time: Instant::now(),
             lsp: LspStatus::new_forced_refresh(),
             mcp: McpStatus::new_forced_refresh(),
@@ -852,9 +848,7 @@ impl TUI {
             showing_plugin_manager: false,
             showing_marketplace_browser: false,
             help_state: HelpState::new(),
-            tool_approval: ToolApprovalManager::new(),
-            pending_approval_request: VecDeque::new(),
-            awaiting_approval: false,
+            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(ToolApprovalManager::new()),
             start_time: Instant::now(),
             lsp: LspStatus::new_forced_refresh(),
             mcp: McpStatus::new_forced_refresh(),
@@ -2024,8 +2018,8 @@ impl TUI {
         }
 
         // Overlay: approval dialog (before error display so errors can appear on top)
-        if self.awaiting_approval {
-            if let Some(req) = self.pending_approval_request.front() {
+        if self.tool_approval.awaiting {
+            if let Some(req) = self.tool_approval.pending_requests.front() {
                 let (panel_height, panel_width) =
                     crate::tool_approval::approval_panel_size(req, size);
                 let panel_area =

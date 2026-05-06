@@ -18,7 +18,7 @@
 //! ```
 
 use anyhow::{Context, Result};
-use rustycode_llm::UnifiedLLMProvider;
+use rustycode_llm::{ChatMessage, CompletionRequest, CompletionResponse, LLMProvider};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -96,13 +96,13 @@ pub struct ParamSpec {
 /// Tool Generator using LLM to create tools from descriptions.
 pub struct ToolGenerator {
     /// LLM provider for code generation.
-    llm: Arc<dyn UnifiedLLMProvider>,
+    llm: Arc<dyn LLMProvider>,
     /// Known API specs for reference.
     api_specs: Vec<ApiSpec>,
 }
 
 impl ToolGenerator {
-    pub fn new(llm: Arc<dyn UnifiedLLMProvider>) -> Self {
+    pub fn new(llm: Arc<dyn LLMProvider>) -> Self {
         Self {
             llm,
             api_specs: Vec::new(),
@@ -127,16 +127,12 @@ impl ToolGenerator {
         let prompt = self.build_generation_prompt(description, context);
 
         // Call LLM to generate tool definition
-        let req = rustycode_llm::UnifiedCompletionRequest {
-            model: "".to_string(),
-            prompt: prompt.clone(),
-            max_tokens: None,
-            temperature: None,
-            top_p: None,
-            system: None,
-        };
-        let resp = self.llm.complete(req).await?;
-        let response = resp.text;
+        let req = CompletionRequest::new(
+            "",
+            vec![ChatMessage::user(prompt.clone())],
+        );
+        let resp: CompletionResponse = self.llm.complete(req).await.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let response = resp.content;
         if response.is_empty() {
             anyhow::bail!("LLM generation failed: empty response");
         }
@@ -571,7 +567,6 @@ fn extract_json_from_response(response: &str) -> Option<&str> {
     None
 }
 
-// Use canonical LLMProvider from protocol in tests. Provide a test mock that implements it.
 
 #[cfg(test)]
 struct MockLLM {
@@ -589,48 +584,43 @@ impl MockLLM {
 
 #[cfg(test)]
 #[async_trait::async_trait]
-impl UnifiedLLMProvider for MockLLM {
+impl LLMProvider for MockLLM {
     fn name(&self) -> &'static str {
         "mock"
     }
 
-    async fn list_models(&self) -> Result<Vec<rustycode_llm::UnifiedModelInfo>> {
-        Ok(vec![])
+    fn supports_streaming(&self) -> bool {
+        false
     }
 
-    async fn is_available(&self) -> Result<bool> {
-        Ok(true)
+    async fn is_available(&self) -> bool {
+        true
+    }
+
+    async fn list_models(&self) -> Result<Vec<String>, rustycode_llm::ProviderError> {
+        Ok(vec![])
     }
 
     async fn complete(
         &self,
-        _request: rustycode_llm::UnifiedCompletionRequest,
-    ) -> Result<rustycode_llm::UnifiedCompletionResponse> {
-        Ok(rustycode_llm::UnifiedCompletionResponse {
-            text: self.response.clone(),
-            tokens_used: rustycode_llm::UnifiedTokenCount {
-                input_tokens: 0,
-                output_tokens: 0,
-                total_tokens: 0,
-            },
-            cost: rustycode_llm::UnifiedCost {
-                input_cost: 0.0,
-                output_cost: 0.0,
-                total_cost: 0.0,
-            },
-            finish_reason: "stop".into(),
+        _request: CompletionRequest,
+    ) -> Result<CompletionResponse, rustycode_llm::ProviderError> {
+        Ok(CompletionResponse {
+            content: self.response.clone(),
+            model: "mock".to_string(),
+            usage: None,
+            stop_reason: Some("end_turn".to_string()),
+            citations: None,
+            thinking_blocks: None,
+            structured_output: None,
         })
     }
 
-    fn estimate_cost(
+    async fn complete_stream(
         &self,
-        _request: &rustycode_llm::UnifiedCompletionRequest,
-    ) -> Result<rustycode_llm::UnifiedCost> {
-        Ok(rustycode_llm::UnifiedCost {
-            input_cost: 0.0,
-            output_cost: 0.0,
-            total_cost: 0.0,
-        })
+        _request: CompletionRequest,
+    ) -> Result<std::pin::Pin<Box<dyn futures::Stream<Item = rustycode_llm::StreamChunk> + Send>>, rustycode_llm::ProviderError> {
+        Err(rustycode_llm::ProviderError::Api("mock does not support streaming".to_string()))
     }
 }
 

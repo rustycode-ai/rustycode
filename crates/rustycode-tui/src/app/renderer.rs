@@ -501,8 +501,8 @@ impl PolishedRenderer {
             crate::help::render_help(frame, size, &tui.help_state);
         }
 
-        if tui.awaiting_approval {
-            if let Some(req) = tui.pending_approval_request.front() {
+        if tui.tool_approval.awaiting {
+            if let Some(req) = tui.tool_approval.pending_requests.front() {
                 let (panel_height, panel_width) =
                     crate::tool_approval::approval_panel_size(req, size);
                 let panel_area = centered_rect(panel_width, panel_height, size);

@@ -109,6 +109,7 @@ impl ApprovalRequest {
 }
 
 /// Tool approval manager
+#[derive(Debug)]
 #[non_exhaustive]
 pub struct ToolApprovalManager {
     pub session_approvals: Vec<(String, ApprovalState)>,

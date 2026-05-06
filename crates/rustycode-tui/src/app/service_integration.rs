@@ -309,7 +309,6 @@ impl ServiceManager {
 
         // Signal any existing forwarding thread to stop
         self.forwarding_thread_stop.store(true, Ordering::SeqCst);
-        // Reset the stop flag for the new thread
         let stop_flag = Arc::new(AtomicBool::new(false));
         self.forwarding_thread_stop = Arc::clone(&stop_flag);
 

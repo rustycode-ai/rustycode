@@ -28,7 +28,6 @@ impl WizardHandler {
 
     /// Check if the wizard should be shown (first-run detection)
     fn should_show_wizard(config_path: &Path, reconfigure: bool) -> bool {
-        // Force show wizard if reconfigure flag is set
         if reconfigure {
             tracing::info!("Wizard: --reconfigure flag set");
             return true;

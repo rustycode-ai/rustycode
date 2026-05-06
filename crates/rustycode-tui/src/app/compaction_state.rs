@@ -39,6 +39,10 @@ impl CompactionState {
 
 impl Default for CompactionState {
     fn default() -> Self {
-        Self::new(ContextMonitor::new(), CompactionConfig::default())
+        let config = CompactionConfig::default();
+        Self::new(
+            ContextMonitor::new(config.effective_max_tokens(), config.warning_threshold),
+            config,
+        )
     }
 }
