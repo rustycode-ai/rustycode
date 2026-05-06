@@ -202,11 +202,11 @@ fn search_rollout_summaries() {
     );
 
     // Search for nonexistent term
-    let none: Vec<_> = all
+    assert!(all
         .iter()
         .filter(|m| m.raw_memory.to_lowercase().contains("nonexistent"))
-        .collect();
-    assert!(none.is_empty());
+        .next()
+        .is_none());
 }
 
 #[test]

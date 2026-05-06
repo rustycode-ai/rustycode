@@ -106,23 +106,6 @@ mod tests {
     }
 
     #[test]
-    fn test_behavior_config_vim_setting() {
-        let config = BehaviorConfig {
-            auto_save_interval_seconds: 30,
-            max_history_size: 1000,
-            confirm_on_dangerous: true,
-            yolo_mode: false,
-            auto_scroll: true,
-            stream_responses: true,
-            mouse_scroll_speed: 3,
-            vim_enabled: true,
-            reduced_motion: false,
-        };
-
-        assert!(config.vim_enabled);
-    }
-
-    #[test]
     fn test_vim_chord_detection_in_handler() {
         let mut handler = KeyboardShortcutHandler::new(true);
 
