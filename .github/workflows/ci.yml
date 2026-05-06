@@ -35,7 +35,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run tests
-        run: cargo test --workspace --locked
+        run: cargo test --workspace
 
   clippy:
     name: Clippy
