@@ -47,6 +47,9 @@ jobs:
             exe_ext: ''
 
     runs-on: ${{ matrix.os }}
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - name: Checkout from private repo
         uses: actions/checkout@v4
@@ -65,10 +68,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            protobuf-compiler libssl-dev pkg-config \
             libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libx11-dev libxft-dev libxext-dev \
             gcc-aarch64-linux-gnu \
             perl
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install protobuf openssl
 
       - name: Configure Linux ARM64 cross-compilation
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -76,16 +85,20 @@ jobs:
           echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config.toml
           echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config.toml
 
-      - name: Cache cargo registry
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: release-${{ matrix.target }}
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Build release binaries
         shell: bash
+        env:
+          OPENSSL_DIR: ${{ runner.os == 'macOS' && '/opt/homebrew/opt/openssl@3' || '' }}
         run: |
           cargo build --release --target ${{ matrix.target }} -p rustycode-cli
           cargo build --release --target ${{ matrix.target }} -p rustycode-tui
+
+      - name: Print sccache stats
+        if: always()
+        run: sccache --show-stats
 
       - name: Verify binaries exist
         shell: bash
