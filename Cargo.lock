@@ -6697,6 +6697,7 @@ dependencies = [
  "rustycode-executable",
  "rustycode-lsp",
  "rustycode-protocol",
+ "rustycode-sandbox",
  "rustycode-session",
  "rustycode-shared-runtime",
  "rustycode-storage",
