@@ -22,7 +22,7 @@ use super::stream_tools::{
 };
 
 fn handle_text_chunk(tui: &mut TUI, text: String) {
-    // Capture stream start time on first chunk (Goose pattern: response timing)
+    // Capture stream start time on first chunk (response timing)
     if tui.streaming.stream_start_time.is_none() {
         tui.streaming.stream_start_time = Some(std::time::Instant::now());
     }

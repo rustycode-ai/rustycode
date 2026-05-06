@@ -76,7 +76,7 @@ impl Drop for TerminalCleanupGuard {
         let _ = std::io::stdout().flush();
 
         // Print session summary to terminal after leaving alternate screen
-        // (Goose pattern: users see cost/duration after exiting)
+        // (users see cost/duration after exiting)
         // Note: We can't access TUI state here, so the summary is printed
         // by the event_loop before this guard drops.
     }
@@ -1231,7 +1231,7 @@ impl TUI {
             e
         })?;
 
-        // Set terminal title to project name (Goose pattern for tab identification)
+        // Set terminal title to project name (for tab identification)
         if let Some(dir_name) = self.services.cwd().file_name().and_then(|n| n.to_str()) {
             // Sanitize: strip control characters to prevent terminal escape injection
             let sanitized: String = dir_name.chars().filter(|c| !c.is_control()).collect();
@@ -1683,7 +1683,7 @@ impl TUI {
             return Ok(());
         }
 
-        // Handle /r locally as regenerate alias (Goose pattern)
+        // Handle /r locally as regenerate alias
         if matches!(parts[0], "/r" | "/regen" | "/regenerate") {
             self.regenerate_last_response()?;
             return Ok(());

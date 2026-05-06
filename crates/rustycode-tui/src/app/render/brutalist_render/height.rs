@@ -186,7 +186,7 @@ impl BrutalistRenderer<'_> {
                 .count();
             height += failed_with_output;
 
-            // Output preview lines for running tools (Goose pattern)
+            // Output preview lines for running tools
             let running_with_output = tools
                 .iter()
                 .filter(|t| {
@@ -239,7 +239,7 @@ impl BrutalistRenderer<'_> {
             }
         }
 
-        // Turn summary footer (Goose pattern)
+        // Turn summary footer
         if message.role == MessageRole::Assistant {
             let has_tools = message
                 .tool_executions

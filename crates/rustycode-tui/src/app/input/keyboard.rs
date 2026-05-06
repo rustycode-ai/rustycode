@@ -431,7 +431,7 @@ impl TUI {
                 self.dirty = true;
                 return Ok(());
             }
-            // Ctrl+X: Open input in external editor (goose pattern)
+            // Ctrl+X: Open input in external editor
             (KeyCode::Char('x'), KeyModifiers::CONTROL) => {
                 if !self.streaming.is_streaming {
                     let current_text = self.input_handler.state.all_text();

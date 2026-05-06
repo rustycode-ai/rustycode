@@ -407,7 +407,7 @@ impl TUI {
                     }
                 }
 
-                // Handle Tab to toggle tool/thinking expansion when input is empty (goose pattern)
+                // Handle Tab to toggle tool/thinking expansion when input is empty
                 if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
                     let input_is_empty = self.input_handler.state.lines.len() == 1
                         && self.input_handler.state.lines[0].is_empty();

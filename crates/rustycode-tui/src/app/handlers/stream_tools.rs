@@ -394,7 +394,7 @@ pub(super) fn handle_tool_complete_chunk(
     tui.dirty = true;
 
     // Toast notification for failed tools so the user notices even
-    // when scrolled away from the tool output (Goose pattern).
+    // when scrolled away from the tool output.
     if !success {
         tui.toast_manager.warning(format!("{} failed", tool_name));
     }

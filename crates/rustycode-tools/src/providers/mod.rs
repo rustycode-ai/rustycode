@@ -25,6 +25,7 @@ pub mod git;
 pub mod git_provider;
 pub mod goal;
 pub mod guide_research;
+pub mod list_dir;
 pub mod lsp;
 pub mod mcp_resources;
 pub mod multiedit;
@@ -84,6 +85,8 @@ pub use fs::*;
 pub use git::*;
 #[allow(ambiguous_glob_reexports)]
 pub use guide_research::*;
+#[allow(ambiguous_glob_reexports)]
+pub use list_dir::*;
 #[allow(ambiguous_glob_reexports)]
 pub use lsp::*;
 #[allow(ambiguous_glob_reexports)]

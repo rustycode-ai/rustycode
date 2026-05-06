@@ -15,5 +15,11 @@ tracing = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+landlock = { version = "0.4", optional = true }
+
+[features]
+landlock = ["dep:landlock"]
+
 [lints]
 workspace = true

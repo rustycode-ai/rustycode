@@ -67,7 +67,7 @@ impl PolishedRenderer {
 
             lines.push(Line::raw(""));
             {
-                // Rotating greeting messages (goose pattern)
+                // Rotating greeting messages
                 const GREETINGS: &[&str] = &[
                     "What would you like to build?",
                     "Ready to code something amazing?",
@@ -521,7 +521,7 @@ impl PolishedRenderer {
         }
 
         // Show queued message indicator at bottom when auto-scrolled
-        // (goose pattern: dimmed preview of queued message)
+        // (dimmed preview of queued message)
         if !tui.view.user_scrolled {
             if let Some(queued) = &tui.streaming.queued_message {
                 if y_offset < area.height.saturating_sub(2) {
@@ -571,7 +571,7 @@ impl PolishedRenderer {
             }
         }
 
-        // Goose-inspired viewport overflow indicators
+        // Viewport overflow indicators
         let overflows = total_lines > safe_viewport_height;
         if overflows && tui.view.user_scrolled && area.height > 2 {
             let above = start_line;
@@ -638,7 +638,7 @@ impl PolishedRenderer {
             }
         }
 
-        // Turn indicator when viewing a past turn (goose pattern)
+        // Turn indicator when viewing a past turn
         // Shows "turn X/Y" when user navigated to a historical message
         if tui.view.user_scrolled {
             let total_turns = tui
@@ -732,7 +732,7 @@ fn render_tool_summary(
         .count();
 
     // Summary line: ╭─ 3 tools · 2 ok · 1 fail · 450ms ╮
-    // Goose pattern: border color reflects overall status (red for failures, gold for running)
+    // Border color reflects overall status (red for failures, gold for running)
     let border_color = if failed > 0 {
         Color::Rgb(255, 80, 80) // Red border when any tool failed
     } else if running > 0 {
@@ -786,7 +786,7 @@ fn render_tool_summary(
         let is_last = i == tools.len() - 1;
         let connector = if is_last { "  ╰─ " } else { "  │ " };
 
-        // Goose pattern: connector color matches tool status
+        // Connector color matches tool status
         let connector_color = match tool.status {
             ToolStatus::Failed => Color::Rgb(255, 80, 80),
             ToolStatus::Running => Color::Rgb(255, 200, 80),

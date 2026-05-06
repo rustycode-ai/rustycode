@@ -18,8 +18,6 @@ const MIN_PATH_SHORTENING_SPACE: usize = 4;
 const PATH_COMPONENT_SHORTEN_THRESHOLD: usize = 2;
 
 /// Format elapsed seconds into a compact display string.
-///
-/// Goose pattern: compact timing display for status bars.
 /// Examples: "3s", "1m4s", "2m"
 pub fn format_elapsed_short(secs: u64) -> String {
     if secs < 60 {
@@ -33,6 +31,12 @@ pub fn format_elapsed_short(secs: u64) -> String {
             format!("{}m{}s", mins, remain_secs)
         }
     }
+}
+
+/// Format elapsed seconds as MM:SS (zero-padded).
+/// Examples: "00:03", "01:04", "02:00"
+pub fn format_elapsed_mmss(secs: u64) -> String {
+    format!("{:02}:{:02}", secs / 60, secs % 60)
 }
 
 /// Format token count compactly for inline display.
@@ -49,9 +53,7 @@ pub fn format_tokens_compact(n: usize) -> String {
 }
 
 /// Extract the most relevant parameter from a tool call for inline display.
-///
-/// Goose pattern: show file path for file tools, command for shell tools,
-/// query for search tools — the single most useful piece of context.
+/// Shows file path for file tools, command for shell tools, query for search tools.
 pub fn extract_tool_key_param(
     tool_name: &str,
     input_json: Option<&serde_json::Value>,
@@ -153,11 +155,8 @@ pub fn extract_tool_key_param(
 }
 
 /// Shorten a tool parameter (typically a file path) for compact display.
-///
-/// Uses Goose-style path shortening: abbreviates middle components to their
-/// first letter while preserving the filename and prefix.
-/// Example: `/Users/nat/dev/rustycode/crates/rustycode-tui/src/app/mod.rs`
-///       → `~/d/r/c/r-tui/s/a/mod.rs`
+/// Abbreviates middle components to their first letter while preserving
+/// the filename and prefix.
 pub fn shorten_tool_param(s: &str, max_len: usize) -> String {
     if <str as UnicodeWidthStr>::width(s) <= max_len {
         return s.to_string();
@@ -349,5 +348,31 @@ mod tests {
         });
         let extracted = extract_tool_key_param("read_file", Some(&input), "");
         assert_eq!(extracted.as_deref(), Some("/项目/代码"));
+    }
+
+    #[test]
+    fn test_format_elapsed_short_seconds() {
+        assert_eq!(format_elapsed_short(0), "0s");
+        assert_eq!(format_elapsed_short(5), "5s");
+        assert_eq!(format_elapsed_short(59), "59s");
+    }
+
+    #[test]
+    fn test_format_elapsed_short_minutes() {
+        assert_eq!(format_elapsed_short(60), "1m");
+        assert_eq!(format_elapsed_short(120), "2m");
+        assert_eq!(format_elapsed_short(61), "1m1s");
+        assert_eq!(format_elapsed_short(125), "2m5s");
+    }
+
+    #[test]
+    fn test_format_elapsed_mmss_basic() {
+        assert_eq!(format_elapsed_mmss(0), "00:00");
+        assert_eq!(format_elapsed_mmss(5), "00:05");
+        assert_eq!(format_elapsed_mmss(59), "00:59");
+        assert_eq!(format_elapsed_mmss(60), "01:00");
+        assert_eq!(format_elapsed_mmss(65), "01:05");
+        assert_eq!(format_elapsed_mmss(125), "02:05");
+        assert_eq!(format_elapsed_mmss(3661), "61:01");
     }
 }

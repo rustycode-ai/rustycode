@@ -254,8 +254,8 @@ fn handle_cost_command(&mut self) {
 
 /// Print session summary to stdout after TUI exits.
 ///
-/// Goose pattern: users see a one-line cost/duration summary in their terminal
-/// after the TUI exits, making it easy to track spending across sessions.
+/// Print a one-line cost/duration summary in the terminal after the TUI exits,
+/// making it easy to track spending across sessions.
 fn print_session_summary(&self) {
     let turn_count = self
         .messages
@@ -303,7 +303,7 @@ fn print_session_summary(&self) {
 
 /// Update terminal window/tab title dynamically based on state.
 ///
-/// Goose pattern: users with many terminal tabs can see at a glance
+/// Update terminal window/tab title so users with many tabs can see at a glance
 /// whether the AI is idle, thinking, or running tools.
 pub(crate) fn update_terminal_title(&self) {
     if let Some(dir_name) = self.services.cwd().file_name().and_then(|n| n.to_str()) {

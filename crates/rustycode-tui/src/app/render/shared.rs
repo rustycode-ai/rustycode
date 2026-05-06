@@ -91,7 +91,7 @@ pub fn format_duration_ms(ms: u64) -> String {
 
 // PATH SHORTENING
 
-/// Goose-inspired smart path shortening for compact tool display.
+/// Smart path shortening for compact tool display.
 ///
 /// Replaces the home-directory prefix with `~`, then abbreviates all middle
 /// path components to their first character while preserving the root and

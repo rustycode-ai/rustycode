@@ -75,7 +75,7 @@ impl<'a> BrutalistRenderer<'a> {
                 self.streaming_char(),
                 Style::default().fg(Color::Rgb(255, 200, 80)),
             ));
-            // Show live elapsed time during streaming (Goose pattern)
+            // Show live elapsed time during streaming
             if let Some(elapsed) = self.stream_elapsed {
                 let secs = elapsed.as_secs();
                 if secs >= 1 {
@@ -88,7 +88,7 @@ impl<'a> BrutalistRenderer<'a> {
                 }
             }
         } else if let Some(dur) = self.last_response_duration {
-            // Show last response time when idle (Goose pattern: response timing)
+            // Show last response time when idle
             let secs = dur.as_secs();
             if secs > 0 {
                 spans.push(Span::styled(
@@ -100,7 +100,7 @@ impl<'a> BrutalistRenderer<'a> {
             }
         }
 
-        // Session duration (Goose pattern: show total session time)
+        // Session duration (show total session time)
         if let Some(start) = self.session_start {
             let elapsed = start.elapsed().as_secs();
             if elapsed >= 60 {

@@ -132,7 +132,6 @@ fn detect_language(path: &Path) -> Option<&'static str> {
 
 pub struct ReadFileTool;
 pub struct WriteFileTool;
-pub struct ListDirTool;
 
 /// Result of a pattern match in a file
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1155,174 +1154,6 @@ fn verify_written(path: &Path, expected: &[u8]) -> Result<(), MismatchDetail> {
     Ok(())
 }
 
-impl Tool for ListDirTool {
-    fn name(&self) -> &'static str {
-        "list_dir"
-    }
-
-    fn description(&self) -> &'static str {
-        "List all files and directories in a specified path. Use this to explore the codebase structure, find files in a directory, or see what's in a folder. Supports recursive listing and filtering by file type or extension."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["path"],
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Directory path relative to current workspace (alias: file_path)"
-                },
-                "file_path": {
-                    "type": "string",
-                    "description": "Alias for path"
-                },
-                "recursive": { "type": "boolean", "description": "List directories recursively" },
-                "max_depth": { "type": "integer", "description": "Maximum depth for recursive listing" },
-                "filter": {
-                    "type": "string",
-                    "description": "Filter entries by type (file/dir/all) or extension (e.g., '.rs', '.md')"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        // Role-based gating
-        if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
-        }
-        let path_str = optional_string(&params, "path").unwrap_or(".");
-
-        // Validate path using security module
-        let path = validate_list_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
-
-        let path_display = path.display().to_string();
-        let recursive = params
-            .get("recursive")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let max_depth = params.get("max_depth").and_then(Value::as_u64).unwrap_or(3) as usize;
-        let filter = params.get("filter").and_then(|v| v.as_str());
-
-        let mut entries = Vec::new();
-
-        if recursive {
-            // Use WalkDir for recursive listing
-            for entry in WalkDir::new(&path)
-                .max_depth(max_depth)
-                .into_iter()
-                .filter_map(std::result::Result::ok)
-            {
-                let file_type = entry.file_type();
-                let kind = if file_type.is_dir() {
-                    "dir"
-                } else if file_type.is_file() {
-                    "file"
-                } else {
-                    "other"
-                };
-
-                // Apply filter if specified
-                if let Some(filter_str) = filter {
-                    // Filter by type (file/dir/all)
-                    if matches!(filter_str.to_lowercase().as_str(), "file" | "dir" | "all") {
-                        if filter_str != "all" && kind != filter_str {
-                            continue;
-                        }
-                    }
-                    // Filter by extension
-                    else if filter_str.starts_with('.')
-                        && !entry.path().to_string_lossy().ends_with(filter_str)
-                    {
-                        continue;
-                    }
-                }
-
-                let relative_path = entry
-                    .path()
-                    .strip_prefix(&path)
-                    .unwrap_or(entry.path())
-                    .display()
-                    .to_string();
-                entries.push(format!("{relative_path}: {kind}"));
-            }
-        } else {
-            // Non-recursive: only direct children
-            let mut dir_entries = fs::read_dir(&path)?
-                .filter_map(|entry| {
-                    let entry = entry.ok()?;
-                    let file_type = entry.file_type().ok();
-                    let kind = match file_type {
-                        Some(ft) if ft.is_dir() => "dir",
-                        Some(ft) if ft.is_file() => "file",
-                        _ => "other",
-                    };
-
-                    // Apply filter if specified
-                    if let Some(filter_str) = filter {
-                        // Filter by type
-                        if matches!(filter_str.to_lowercase().as_str(), "file" | "dir" | "all") {
-                            if filter_str != "all" && kind != filter_str {
-                                return None;
-                            }
-                        }
-                        // Filter by extension
-                        else if filter_str.starts_with('.')
-                            && !entry.file_name().to_string_lossy().ends_with(filter_str)
-                        {
-                            return None;
-                        }
-                    }
-
-                    Some(format!("{}: {}", entry.file_name().to_string_lossy(), kind))
-                })
-                .collect::<Vec<_>>();
-            entries.append(&mut dir_entries);
-        }
-
-        let total_count = entries.len();
-        entries.sort();
-
-        // Apply truncation
-        let truncated = truncate_items(entries, LIST_MAX_ITEMS, &path_display);
-
-        // Group by type for dense display
-        let output_text = format!(
-            "**{}** ({} items{})\n\n{}",
-            path_display,
-            total_count,
-            if recursive {
-                format!(", recursive (depth={max_depth})")
-            } else {
-                String::new()
-            },
-            truncated.as_str()
-        );
-
-        // Build metadata
-        let mut metadata = truncated.into_metadata();
-        metadata["path"] = json!(path_display);
-        metadata["total_items"] = json!(total_count);
-        metadata["recursive"] = json!(recursive);
-        if recursive {
-            metadata["max_depth"] = json!(max_depth);
-        }
-        if let Some(filter_str) = filter {
-            metadata["filter"] = json!(filter_str);
-        }
-
-        Ok(ToolOutput::with_structured(output_text, metadata))
-    }
-}
 
 /// Check if content appears to be HTML
 pub(super) fn is_html_content(content: &str) -> bool {
@@ -1394,6 +1225,7 @@ fn resolve_path_str_from_value(value: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::list_dir::ListDirTool;
     use std::os::unix::fs::symlink as symlink_file;
     use tempfile::tempdir;
 

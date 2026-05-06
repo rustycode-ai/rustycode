@@ -39,7 +39,7 @@ pub fn render_tool_panel(
         ),
     ]));
 
-    // Goose-inspired stats line: total | running | done | fail
+    // Stats line: total | running | done | fail
     if !tui.tool_panel.tool_panel_history.is_empty() {
         let running = tui
             .tool_panel.tool_panel_history
@@ -211,7 +211,7 @@ pub fn render_tool_panel(
                 // Status icon
                 Span::styled(status_icon, Style::default().fg(status_color)),
                 Span::raw(" "),
-                // Tool kind icon (goose-inspired)
+                // Tool kind icon
                 Span::styled(
                     tool_kind_icon(&tool.name),
                     Style::default().fg(Color::DarkGray),
@@ -271,7 +271,7 @@ pub fn render_tool_panel(
 
             lines.push(Line::from(spans));
 
-            // Goose-inspired result preview line (compact 1-line summary)
+            // Result preview line (compact 1-line summary)
             if is_selected && !tool.result_summary.is_empty() {
                 let preview = crate::app::tool_output_format::output_summary(&tool.result_summary);
                 let preview_display = if crate::unicode::display_width(&preview) > 60 {
@@ -312,7 +312,7 @@ pub fn render_tool_panel(
 
             lines.push(Line::from(""));
 
-            // Success rate (goose pattern)
+            // Success rate
             if completed_count + failed_count > 0 {
                 let rate =
                     (completed_count as f64 / (completed_count + failed_count) as f64) * 100.0;
@@ -466,7 +466,7 @@ fn render_tool_result_detail(
         lines.push(Line::from(""));
     }
 
-    // Input parameters section (Goose pattern: show what the tool was called with)
+    // Input parameters section (show what the tool was called with)
     if let Some(input_json) = &tool.input_json {
         lines.push(Line::from(vec![Span::styled(
             "Input:",
@@ -553,7 +553,7 @@ fn render_tool_result_detail(
                 .add_modifier(ratatui::style::Modifier::BOLD),
         )]));
         lines.push(Line::from(""));
-        // Goose-inspired truncation: show first+last with toggle support
+        // Truncation: show first+last with toggle support
         let display_output: String = if tui.tool_panel.tool_result_show_full || output.len() <= 5000 {
             output.clone()
         } else {

@@ -234,7 +234,7 @@ impl PolishedRenderer {
             }
         }
 
-        // Turn counter (goose pattern) — count user+assistant message pairs
+        // Turn counter — count user+assistant message pairs
         let turn_count = tui
             .messages
             .iter()
@@ -511,7 +511,7 @@ impl PolishedRenderer {
     }
 }
 
-/// Format response duration for status bar (Goose pattern).
+/// Format response duration for status bar.
 ///
 /// Shows human-friendly timing: "<1s", "3.2s", "1m05s"
 fn format_response_duration(dur: std::time::Duration) -> String {

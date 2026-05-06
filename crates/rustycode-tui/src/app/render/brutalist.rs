@@ -93,7 +93,7 @@ impl TUI {
     ) -> crate::app::render::brutalist_renderer::BrutalistRenderer<'a> {
         let bs = self.snapshot_brutalist_state(input_text);
 
-        // Compute stream elapsed time for live timing display (Goose pattern)
+        // Compute stream elapsed time for live timing display
         let stream_elapsed = self.streaming.stream_start_time.map(|t| t.elapsed());
 
         // History/reverse search state for input bar display

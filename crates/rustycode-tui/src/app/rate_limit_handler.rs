@@ -1,7 +1,7 @@
 //! Rate limit countdown handler
 //!
 //! Manages rate limit state, countdown display, and auto-retry logic.
-//! Uses goose-inspired exponential backoff with jitter.
+//! Uses exponential backoff with jitter.
 
 use std::time::Instant;
 
@@ -43,7 +43,7 @@ impl RateLimitHandler {
     /// Calculate exponential backoff delay for current retry count.
     ///
     /// Formula: min(BACKOFF_BASE * 2^retry, BACKOFF_MAX) + jitter
-    /// Jitter: ±20% of the base delay to avoid thundering herd (goose pattern).
+    /// Jitter: ±20% of the base delay to avoid thundering herd.
     pub fn backoff_delay_secs(&self) -> u64 {
         let base = BACKOFF_BASE_SECS.saturating_mul(
             1u64.checked_shl(self.retry_count as u32)

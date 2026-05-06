@@ -21,7 +21,7 @@ pub(crate) struct StreamingState {
     pub(crate) current_stream_content: String,
     /// Render buffer for incremental streaming display.
     pub(crate) streaming_render_buffer: crate::app::streaming_render_buffer::StreamingRenderBuffer,
-    /// Message queued by the user while a stream is active (goose pattern).
+    /// Message queued by the user while a stream is active.
     pub(crate) queued_message: Option<String>,
     /// Shared store for background bash command results.
     pub(crate) pending_bash_result: Arc<std::sync::Mutex<Option<String>>>,

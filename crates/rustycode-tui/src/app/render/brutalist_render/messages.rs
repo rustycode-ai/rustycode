@@ -496,7 +496,7 @@ impl BrutalistRenderer<'_> {
                             .add_modifier(Modifier::DIM),
                     ));
                 }
-                // Word count during streaming (Goose pattern: live content stats)
+                // Word count during streaming (live content stats)
                 if !self.current_stream_content.is_empty() {
                     let words = self.current_stream_content.split_whitespace().count();
                     if words > 10 {
@@ -609,7 +609,7 @@ impl BrutalistRenderer<'_> {
                 frame.render_widget(think_line, think_area);
             }
 
-            // Show queued message preview (Goose pattern: gold/italic "will send when finished")
+            // Show queued message preview (gold/italic "will send when finished")
             if self.has_queued_message
                 && !self.queued_message_preview.is_empty()
                 && y_offset < area.height
@@ -745,7 +745,7 @@ impl BrutalistRenderer<'_> {
             // Multi-line system messages: render each line (for /diff, /stats, etc.)
             let line_count = content.lines().count();
             if line_count > 1 {
-                // Detect error content for header coloring (Goose pattern)
+                // Detect error content for header coloring
                 let content_lower = content.to_lowercase();
                 let (header_icon, header_color) = if content_lower.starts_with("error")
                     || content_lower.contains("failed")
@@ -810,7 +810,7 @@ impl BrutalistRenderer<'_> {
                 content.to_string()
             };
 
-            // Detect error/warning messages for visual distinction (Goose pattern)
+            // Detect error/warning messages for visual distinction
             let content_lower = content.to_lowercase();
             let (prefix, text_color, prefix_color) = if content_lower.starts_with("error")
                 || content_lower.contains("failed")
@@ -1243,7 +1243,7 @@ impl BrutalistRenderer<'_> {
                 for tool in display_tools.into_iter().rev() {
                     lines.push(self.render_tool_line(tool, colors));
 
-                    // Show error preview for failed tools (Goose pattern: inline error context)
+                    // Show error preview for failed tools (inline error context)
                     if tool.status == ToolStatus::Failed {
                         let error_source = tool
                             .detailed_output
@@ -1279,7 +1279,7 @@ impl BrutalistRenderer<'_> {
                         }
                     }
 
-                    // Show output preview for running tools (Goose pattern: live output preview)
+                    // Show output preview for running tools (live output preview)
                     if tool.status == ToolStatus::Running {
                         let output = tool
                             .detailed_output
@@ -1341,7 +1341,7 @@ impl BrutalistRenderer<'_> {
                             }
                         }
 
-                        // Show detailed output (Goose pattern: head/tail truncation)
+                        // Show detailed output (head/tail truncation)
                         if let Some(output) = &tool.detailed_output {
                             if tool.input_json.is_some() {
                                 lines.push(Line::from(vec![Span::styled(
@@ -1437,7 +1437,7 @@ impl BrutalistRenderer<'_> {
                             ]));
                         }
                     } else {
-                        // Head/tail truncation (Goose pattern)
+                        // Head/tail truncation
                         let head = max_lines / 2;
                         let tail = max_lines - head;
                         for think_line in &all_lines[..head] {
@@ -1493,7 +1493,7 @@ impl BrutalistRenderer<'_> {
             }
         }
 
-        // Turn summary footer (Goose pattern: completion summary)
+        // Turn summary footer (completion summary)
         // Skip for mid-chain messages — only the last message in a chain gets the footer
         if !is_chained_mid && message.role == MessageRole::Assistant {
             let content_lines = message.content.lines().count();

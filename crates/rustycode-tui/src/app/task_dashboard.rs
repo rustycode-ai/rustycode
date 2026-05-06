@@ -1,5 +1,6 @@
 //! Task execution dashboard display for the TUI.
 
+use crate::app::render::brutalist_helpers::format_elapsed_mmss;
 use crate::app::tasks::{ActiveAgent, AgentStatus, Task, TaskStatus};
 
 /// Dashboard for displaying task execution status.
@@ -140,8 +141,7 @@ impl<'a> TaskDashboard<'a> {
         // Add elapsed time for in-progress tasks
         if task.status == TaskStatus::InProgress || task.status == TaskStatus::Running {
             if let Ok(duration) = task.created_at.elapsed() {
-                let secs = duration.as_secs();
-                line.push_str(&format!(" [{:02}:{:02}]", secs / 60, secs % 60));
+                line.push_str(&format!(" [{}]", format_elapsed_mmss(duration.as_secs())));
             }
         }
 
@@ -177,8 +177,7 @@ impl<'a> TaskDashboard<'a> {
         let mut line = format!("{} {} - {}", status_icon, agent.task, agent.id);
 
         if let Ok(duration) = agent.created_at.elapsed() {
-            let secs = duration.as_secs();
-            line.push_str(&format!(" [{:02}:{:02}]", secs / 60, secs % 60));
+            line.push_str(&format!(" [{}]", format_elapsed_mmss(duration.as_secs())));
         }
 
         line.push('\n');

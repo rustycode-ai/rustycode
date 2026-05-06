@@ -1,5 +1,5 @@
 impl BrutalistRenderer<'_> {
-    /// Render input area with context info line (Goose pattern)
+    /// Render input area with context info line
     pub fn render_input(&self, frame: &mut ratatui::Frame, area: Rect, colors: &ThemeColors) {
         use ratatui::layout::Alignment;
         use ratatui::text::Text;
@@ -10,7 +10,7 @@ impl BrutalistRenderer<'_> {
             InputMode::MultiLine => "▪",
         };
 
-        // Line 1: Context info bar (Goose pattern: show context near input)
+        // Line 1: Context info bar (show context near input)
         let mut info_spans = vec![Span::styled("  ", Style::default().fg(colors.muted))];
 
         // Context usage bar
@@ -27,7 +27,7 @@ impl BrutalistRenderer<'_> {
             ));
         }
 
-        // Token split (Goose pattern: show input/output breakdown)
+        // Token split (show input/output breakdown)
         if self.session_input_tokens > 0 || self.session_output_tokens > 0 {
             let in_fmt = format_tokens_compact(self.session_input_tokens);
             let out_fmt = format_tokens_compact(self.session_output_tokens);

@@ -265,7 +265,7 @@ impl TUI {
         let debug_enabled = crate::logging::is_debug_enabled();
         let send_start = std::time::Instant::now();
 
-        // Queue message if already streaming (goose pattern)
+        // Queue message if already streaming
         if self.streaming.is_streaming {
             let queue_start = std::time::Instant::now();
             let text = lines.join("\n");

@@ -116,7 +116,7 @@ impl TUI {
         result.content
     }
 
-    /// Inject recent shell command history into the first user message (goose pattern).
+    /// Inject recent shell command history into the first user message.
     ///
     /// On the first message of a conversation, includes the last 10 commands from
     /// `~/.bash_history` (or zsh equivalent) as `<recent_commands>` context.

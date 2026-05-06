@@ -128,3 +128,57 @@ impl Default for TeamModeHandler {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_has_no_event_rx_or_cancel_token() {
+        let handler = TeamModeHandler::new();
+        assert!(handler.event_rx.is_none());
+        assert!(handler.cancel_token.is_none());
+    }
+
+    #[test]
+    fn default_delegates_to_new() {
+        let handler = TeamModeHandler::default();
+        assert!(handler.event_rx.is_none());
+        assert!(handler.cancel_token.is_none());
+    }
+
+    #[test]
+    fn is_running_false_when_no_cancel_token() {
+        let handler = TeamModeHandler::new();
+        assert!(!handler.is_running());
+    }
+
+    #[test]
+    fn is_running_true_after_setting_cancel_token() {
+        let mut handler = TeamModeHandler::new();
+        handler.cancel_token = Some(Arc::new(AtomicBool::new(false)));
+        assert!(handler.is_running());
+    }
+
+    #[test]
+    fn take_cancel_token_returns_and_clears() {
+        let mut handler = TeamModeHandler::new();
+        let token = Arc::new(AtomicBool::new(false));
+        handler.cancel_token = Some(token.clone());
+        let taken = handler.take_cancel_token();
+        assert!(taken.is_some());
+        assert!(handler.cancel_token.is_none());
+        assert!(!handler.is_running());
+    }
+
+    #[test]
+    fn set_cancel_token_overwrites() {
+        let mut handler = TeamModeHandler::new();
+        let token1 = Arc::new(AtomicBool::new(false));
+        let token2 = Arc::new(AtomicBool::new(true));
+        handler.set_cancel_token(token1);
+        handler.set_cancel_token(token2);
+        assert!(handler.cancel_token.is_some());
+        assert!(handler.is_running());
+    }
+}

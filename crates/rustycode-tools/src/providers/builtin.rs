@@ -1,6 +1,7 @@
 //! File system tool provider
 
-use crate::providers::fs::{ListDirTool, ReadFileTool, WriteFileTool};
+use crate::providers::fs::{ReadFileTool, WriteFileTool};
+use crate::providers::list_dir::ListDirTool;
 use crate::registry_builder::ToolProvider;
 use crate::ToolRegistry;
 use anyhow::Result;

@@ -316,11 +316,11 @@ pub struct BrutalistRenderer<'a> {
     pub has_queued_message: bool,
     /// Preview text of the queued message (shown during streaming)
     pub queued_message_preview: String,
-    /// Duration of the last completed response (Goose pattern: response timing)
+    /// Duration of the last completed response
     pub last_response_duration: Option<Duration>,
     /// Elapsed time since stream started (for live timing during streaming)
     pub stream_elapsed: Option<Duration>,
-    /// Current model name (for header display, Goose pattern)
+    /// Current model name (for header display)
     pub current_model: &'a str,
     /// Input tokens used this session (for context bar split display)
     pub session_input_tokens: usize,

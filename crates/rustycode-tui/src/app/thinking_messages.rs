@@ -1,7 +1,7 @@
 //! Thinking message spinner for display.
 //!
-//! Provides rotating thinking messages during AI reasoning phases, similar to goose's
-//! `thinking.rs` pattern. Shows playful messages while the AI is processing.
+//! Provides rotating thinking messages during AI reasoning phases.
+//! Shows playful messages while the AI is processing.
 
 use rand::prelude::IndexedRandom;
 
@@ -57,7 +57,7 @@ const THINKING_MESSAGES: &[&str] = &[
     "Refining strategy",
     "Iterating on design",
     "Converging on answer",
-    // Goose-inspired messages
+    // More fun messages
     "Spreading wings",
     "Honking thoughtfully",
     "Waddling to conclusions",
@@ -120,7 +120,7 @@ const THINKING_MESSAGES: &[&str] = &[
     "Rendering possibilities",
     "Spawning ideas",
     "Joining mental threads",
-    // More goose-inspired gems
+    // More fun messages
     "Untangling spaghetti code",
     "Mining thought gems",
     "Defragmenting brain bits",
