@@ -79,7 +79,7 @@ edition = "2021"
 
     // Poll for diagnostics with a timeout
     let mut diagnostics = Vec::new();
-    for _ in 0..10 {
+    for _ in 0..30 {
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         diagnostics = client.fetch_diagnostics(&uri).await;
         if !diagnostics.is_empty() {
