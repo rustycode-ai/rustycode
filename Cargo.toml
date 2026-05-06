@@ -223,6 +223,14 @@ missing_const_for_fn = "allow"
 # if-let-else on Option. Many existing if-let-else patterns are clearer as-is.
 option_if_let_else = "allow"
 
+# suboptimal_flops: pedantic lint suggesting mul_add for a*b+c patterns.
+# Readability of explicit arithmetic outweighs marginal FPU accuracy gain.
+suboptimal_flops = "allow"
+
+# doc_markdown: pedantic lint requiring backticks around identifiers in docs.
+# Overly noisy for internal crates; documentation clarity is not affected.
+doc_markdown = "allow"
+
 # must_use_candidate produces many false positives for builder-pattern
 # methods and query functions that don't always need chaining.
 must_use_candidate = "allow"

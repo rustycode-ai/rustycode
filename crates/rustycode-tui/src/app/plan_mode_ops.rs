@@ -260,3 +260,130 @@ impl TUI {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::style::Color;
+
+    fn planning_banner() -> PlanModeBanner {
+        PlanModeBanner::Planning {
+            convoy_id: "c1".into(),
+            action_hint: "Building...".into(),
+        }
+    }
+
+    fn approval_banner() -> PlanModeBanner {
+        PlanModeBanner::AwaitingApproval {
+            convoy_id: "c1".into(),
+            plan_summary: "Do stuff".into(),
+            action_hint: "Review.".into(),
+        }
+    }
+
+    fn approved_banner() -> PlanModeBanner {
+        PlanModeBanner::PlanApproved {
+            convoy_id: "c1".into(),
+            action_hint: "Starting...".into(),
+        }
+    }
+
+    fn executing_banner() -> PlanModeBanner {
+        PlanModeBanner::Executing {
+            convoy_id: "c1".into(),
+            current_task: "Writing code".into(),
+            action_hint: "Working...".into(),
+        }
+    }
+
+    fn milestone_banner(status: MilestoneStatus) -> PlanModeBanner {
+        PlanModeBanner::MilestoneProgress {
+            milestone_title: "Phase 1".into(),
+            status,
+            plans_total: 3,
+            plans_completed: 1,
+            current_plan_summary: "Step 2".into(),
+            action_hint: "Keep going".into(),
+        }
+    }
+
+    #[test]
+    fn title_matches_variant() {
+        assert_eq!(planning_banner().title(), "Planning");
+        assert_eq!(approval_banner().title(), "Approval Required");
+        assert_eq!(approved_banner().title(), "Plan Approved");
+        assert_eq!(executing_banner().title(), "Executing");
+        assert_eq!(
+            milestone_banner(MilestoneStatus::Validating).title(),
+            "Milestone Validation"
+        );
+        assert_eq!(
+            milestone_banner(MilestoneStatus::Completed).title(),
+            "Milestone Complete"
+        );
+        assert_eq!(
+            milestone_banner(MilestoneStatus::Failed).title(),
+            "Milestone Failed"
+        );
+    }
+
+    #[test]
+    fn description_contains_convoy_id() {
+        assert!(planning_banner().description().contains("[c1]"));
+        assert!(approval_banner().description().contains("[c1]"));
+        assert!(approved_banner().description().contains("[c1]"));
+        assert!(executing_banner().description().contains("[c1]"));
+    }
+
+    #[test]
+    fn description_includes_action_hint() {
+        assert!(planning_banner().description().contains("Building..."));
+        assert!(approval_banner().description().contains("Review."));
+    }
+
+    #[test]
+    fn description_milestone_shows_progress() {
+        let desc = milestone_banner(MilestoneStatus::default()).description();
+        assert!(desc.contains("1/3"));
+        assert!(desc.contains("Phase 1"));
+    }
+
+    #[test]
+    fn status_color_variants() {
+        assert_eq!(planning_banner().status_color(), Color::Cyan);
+        assert_eq!(approval_banner().status_color(), Color::Yellow);
+        assert_eq!(approved_banner().status_color(), Color::Green);
+        assert_eq!(executing_banner().status_color(), Color::Blue);
+        assert_eq!(
+            milestone_banner(MilestoneStatus::Completed).status_color(),
+            Color::Green
+        );
+        assert_eq!(
+            milestone_banner(MilestoneStatus::Failed).status_color(),
+            Color::Red
+        );
+    }
+
+    #[test]
+    fn header_status_mapping() {
+        use HeaderStatus::*;
+        assert_eq!(planning_banner().header_status(), Planning);
+        assert_eq!(approval_banner().header_status(), Planning);
+        assert_eq!(approved_banner().header_status(), RunningTools);
+        assert_eq!(executing_banner().header_status(), RunningTools);
+        assert_eq!(
+            milestone_banner(MilestoneStatus::Completed).header_status(),
+            Ready
+        );
+        assert_eq!(
+            milestone_banner(MilestoneStatus::Failed).header_status(),
+            Error
+        );
+    }
+
+    #[test]
+    fn message_delegates_to_description() {
+        let banner = executing_banner();
+        assert_eq!(banner.message(), banner.description());
+    }
+}
