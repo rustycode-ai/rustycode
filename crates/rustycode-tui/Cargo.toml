@@ -74,6 +74,7 @@ nix = { version = "0.31", features = ["signal", "process"] }
 tempfile.workspace = true
 criterion.workspace = true
 pulldown-cmark.workspace = true
+secrecy.workspace = true
 
 [features]
 default = []
