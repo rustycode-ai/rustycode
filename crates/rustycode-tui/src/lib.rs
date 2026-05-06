@@ -108,7 +108,9 @@ pub(crate) mod tool_approval;
 
 pub(crate) mod observability;
 
+pub use crate::ui::diff_renderer::DiffRenderer;
 pub use rustycode_ui_core::markdown::MarkdownRenderer;
+pub use rustycode_ui_core::syntax_highlighter::SyntaxHighlighter;
 
 use std::path::PathBuf;
 
