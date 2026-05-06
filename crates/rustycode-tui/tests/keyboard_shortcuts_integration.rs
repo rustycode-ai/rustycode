@@ -74,7 +74,6 @@
 #[cfg(test)]
 mod tests {
     use rustycode_tui::app::KeyboardShortcutHandler;
-    use rustycode_tui::config::BehaviorConfig;
 
     #[test]
     fn test_keyboard_handler_with_vim_mode_enabled() {

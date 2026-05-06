@@ -378,7 +378,7 @@ mod tests {
     fn make_trust(git_root: Option<&Path>) -> DirectoryTrust {
         DirectoryTrust::with_git_root(
             std::env::current_dir().unwrap().as_path(),
-            git_root.map(|p| p.to_path_buf()),
+            git_root.map(std::path::Path::to_path_buf),
         )
     }
 
