@@ -22,6 +22,9 @@ use tracing::debug;
 pub mod consolidation;
 pub mod domain_topic;
 pub mod index;
+pub mod memdir;
+pub mod read_path;
+pub mod rollout;
 pub mod topic;
 
 // Custom serialization for SystemTime as ISO 8601 string

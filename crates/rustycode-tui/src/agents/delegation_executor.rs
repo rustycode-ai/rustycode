@@ -91,6 +91,7 @@ fn enrich_task_prompt(
 ///
 /// Implements `TaskRunner` so the orchestration crate can use it for
 /// `ForkJoinExecutor` and `TaskDispatcher` parallel execution.
+#[non_exhaustive]
 pub struct DelegationExecutor {
     /// LLM provider for the sub-agent.
     provider: Arc<dyn LLMProvider>,

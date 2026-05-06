@@ -17,6 +17,7 @@ use ratatui::{
 
 /// Marketplace browser actions that should be executed by the TUI event loop.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum MarketplaceBrowserAction {
     /// Install the selected item.
     Install(String),
@@ -27,6 +28,7 @@ pub enum MarketplaceBrowserAction {
 }
 
 /// Marketplace browser state.
+#[non_exhaustive]
 pub struct MarketplaceBrowser {
     registry: RegistryManager,
     visible: bool,
@@ -41,6 +43,7 @@ pub struct MarketplaceBrowser {
 
 /// Browser mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum MarketplaceBrowserMode {
     /// List view.
     #[default]
@@ -51,6 +54,7 @@ pub enum MarketplaceBrowserMode {
 
 /// Browser tabs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub enum MarketplaceTab {
     /// All items.
     #[default]

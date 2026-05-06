@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::time::Duration;
 
+#[non_exhaustive]
 pub struct StreamEventAdapter {
     stream_tx: SyncSender<StreamChunk>,
     approval_rx: Option<Receiver<bool>>,

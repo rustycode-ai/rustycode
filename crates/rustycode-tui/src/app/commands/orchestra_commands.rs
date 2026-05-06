@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 // Helper function to handle project initialization
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct BootstrapInfo {
     pub project_root: PathBuf,
     pub project_name: String,

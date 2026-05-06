@@ -39,6 +39,7 @@ impl ToolCallRecord {
 /// indicating the agent may be making progress but spinning on the same
 /// target without converging.
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct DoomLoopDetector {
     records: Vec<ToolCallRecord>,
 }

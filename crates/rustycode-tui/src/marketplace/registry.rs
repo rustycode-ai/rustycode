@@ -30,6 +30,7 @@ pub enum RegistryError {
 
 /// Result of dependency resolution
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ResolutionResult {
     /// Items to install in order
     pub install_order: Vec<String>,
@@ -48,6 +49,7 @@ impl ResolutionResult {
 }
 
 /// Registry manager for advanced operations
+#[non_exhaustive]
 pub struct RegistryManager {
     items: Vec<MarketplaceItem>,
     item_index: HashMap<String, usize>,
@@ -316,6 +318,7 @@ impl RegistryManager {
 
 /// Registry statistics
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct RegistryStatistics {
     pub total_items: usize,
     pub by_type: HashMap<ItemType, usize>,

@@ -2,6 +2,7 @@
 
 /// Context usage state
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct ContextUsage {
     /// Total input tokens used
     pub input_tokens: usize,

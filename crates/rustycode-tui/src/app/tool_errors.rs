@@ -114,6 +114,7 @@ impl ToolErrorType {
 
 /// Error count tracker for repeated failures
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct ErrorTracker {
     /// Track error counts by tool name
     error_counts: HashMap<String, usize>,

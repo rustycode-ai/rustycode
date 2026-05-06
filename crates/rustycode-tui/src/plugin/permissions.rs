@@ -77,6 +77,7 @@ impl FromStr for Permission {
 
 /// Permission set for a plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PluginPermissions {
     /// Set of required permissions
     pub permissions: HashSet<Permission>,
@@ -134,6 +135,7 @@ pub enum PermissionCheck {
 }
 
 /// Permission manager for plugins
+#[non_exhaustive]
 pub struct PermissionManager {
     /// Granted permissions per plugin
     granted: std::collections::HashMap<String, HashSet<Permission>>,

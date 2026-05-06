@@ -14,6 +14,7 @@ use std::time::Instant;
 
 /// Information about a single session
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct SessionInfo {
     /// Session ID (directory name)
     pub id: String,
@@ -104,6 +105,7 @@ impl SessionState {
 
 /// Information about a file conflict
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct FileConflict {
     /// Path to the conflicted file
     pub path: PathBuf,
@@ -183,6 +185,7 @@ impl ConflictSeverity {
 
 /// Sidebar state with collapsible sections
 #[derive(Default)]
+#[non_exhaustive]
 pub struct SessionSidebarState {
     /// Which sections are collapsed
     collapsed_sections: HashMap<String, bool>,
@@ -233,6 +236,7 @@ struct SidebarSection<'a> {
 
 /// MCP server lifecycle state shown in the sidebar.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum McpServerState {
     Connected,
     Configured,
@@ -255,6 +259,7 @@ impl McpServerState {
 
 /// MCP server status entry shown in the sidebar.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct McpServerStatus {
     pub name: String,
     pub state: McpServerState,
@@ -271,6 +276,7 @@ struct LspDiagnosticCounts {
 }
 
 /// Session sidebar component
+#[non_exhaustive]
 pub struct SessionSidebar {
     state: SessionSidebarState,
     visible: bool,

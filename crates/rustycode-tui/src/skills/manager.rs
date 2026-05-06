@@ -35,6 +35,7 @@ pub enum SkillStatus {
 
 /// Extended skill with runtime state
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SkillState {
     /// Base skill metadata
     pub base: BaseSkill,
@@ -122,6 +123,7 @@ impl SkillState {
 
 /// Manages skill state and activation
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct SkillStateManager {
     /// All available skills
     pub skills: Vec<SkillState>,

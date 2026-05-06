@@ -61,6 +61,7 @@ impl MemoryType {
 
 /// Auto-memory entry with importance scoring
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct AutoMemory {
     /// Unique identifier
     pub id: String,
@@ -140,6 +141,7 @@ impl AutoMemory {
 }
 
 /// Auto-memory manager
+#[non_exhaustive]
 pub struct AutoMemoryManager {
     /// Auto-memory storage path
     storage_path: PathBuf,
@@ -429,6 +431,7 @@ impl AutoMemoryManager {
 }
 
 /// Thread-safe auto-memory manager wrapper
+#[non_exhaustive]
 pub struct ThreadSafeAutoMemory(Arc<Mutex<AutoMemoryManager>>);
 
 impl ThreadSafeAutoMemory {

@@ -8,6 +8,7 @@ use std::sync::{Arc, RwLock};
 use crate::skills::{Skill, SkillStateManager};
 
 /// Exposes a skill as an LLM-callable tool.
+#[non_exhaustive]
 pub struct SkillAsTool {
     skill: Skill,
     state_manager: Arc<RwLock<SkillStateManager>>,
@@ -156,6 +157,7 @@ impl Tool for SkillAsTool {
 }
 
 /// Registry for skill-as-tool wrappers.
+#[non_exhaustive]
 pub struct SkillToolRegistry {
     state_manager: Arc<RwLock<SkillStateManager>>,
 }
@@ -280,6 +282,7 @@ impl SkillToolRegistry {
 }
 
 /// Tool for spawning specialized agents (code-reviewer, planner, security-reviewer, etc.).
+#[non_exhaustive]
 pub struct SpawnAgentTool {
     _marker: std::marker::PhantomData<()>,
 }
@@ -394,6 +397,7 @@ impl Tool for SpawnAgentTool {
 }
 
 /// Tool for creating agent teams for coordinated multi-agent work.
+#[non_exhaustive]
 pub struct CreateTeamTool {
     _marker: std::marker::PhantomData<()>,
 }
@@ -487,6 +491,7 @@ impl Tool for CreateTeamTool {
 }
 
 /// Tool for creating scheduled cron tasks.
+#[non_exhaustive]
 pub struct CreateCronTool {
     _marker: std::marker::PhantomData<()>,
 }

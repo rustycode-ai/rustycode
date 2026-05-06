@@ -44,6 +44,7 @@ pub enum InputAction {
 
 /// Handles keyboard input and state management
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct InputHandler {
     /// Current input state
     pub state: InputState,

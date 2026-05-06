@@ -12,6 +12,7 @@ use rustycode_protocol::worker_registry::{Worker, WorkerEvent, WorkerStatus};
 
 /// Display state for a single tool call.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ToolCallDisplay {
     pub tool_name: String,
     pub target: String,
@@ -30,6 +31,7 @@ struct WorkerDisplay {
 ///
 /// Receives worker updates and renders a live worker dashboard.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct WorkerPanel {
     pub visible: bool,
     /// Worker display states.

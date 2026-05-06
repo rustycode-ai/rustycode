@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 ///
 /// All fields here track the lifecycle of an active LLM response stream,
 /// from the first chunk received through completion.
+#[non_exhaustive]
 pub(crate) struct StreamingState {
     /// Whether an LLM response stream is currently active.
     pub(crate) is_streaming: bool,

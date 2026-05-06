@@ -3,7 +3,7 @@
 //! Provides tmux-based terminal multiplexing capabilities.
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionId, SessionInfo, SplitDirection,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
     TerminalConnector,
 };
 use std::process::{Command, Stdio};
@@ -12,7 +12,7 @@ use std::sync::Mutex;
 /// Tmux session metadata
 #[derive(Debug, Clone)]
 struct TmuxSession {
-    id: SessionId,
+    id: TerminalSessionId,
     pane_count: usize,
 }
 
@@ -72,12 +72,12 @@ impl TmuxConnector {
     }
 
     /// Get the tmux session target string
-    fn session_target(&self, session: &SessionId) -> String {
+    fn session_target(&self, session: &TerminalSessionId) -> String {
         session.0.clone()
     }
 
     /// Get the pane target string
-    fn pane_target(&self, session: &SessionId, pane_index: usize) -> String {
+    fn pane_target(&self, session: &TerminalSessionId, pane_index: usize) -> String {
         format!("{}.{}", self.session_target(session), pane_index)
     }
 
@@ -111,7 +111,7 @@ impl TmuxConnector {
     }
 
     /// Parse pane information from tmux
-    fn parse_pane_info(&self, _session: &SessionId, pane_line: &str) -> Option<PaneInfo> {
+    fn parse_pane_info(&self, _session: &TerminalSessionId, pane_line: &str) -> Option<PaneInfo> {
         // tmux format: pane_id,pane_index,pane_title,pane_current_command,pane_current_path,pane_in_mode
         let parts: Vec<&str> = pane_line.split(',').collect();
         if parts.len() < 6 {
@@ -145,7 +145,7 @@ impl TerminalConnector for TmuxConnector {
         Self::check_available()
     }
 
-    fn create_session(&mut self, name: &str) -> ConnectorResult<SessionId> {
+    fn create_session(&mut self, name: &str) -> ConnectorResult<TerminalSessionId> {
         // Validate the session name
         Self::validate_session_name(name)?;
 
@@ -163,7 +163,7 @@ impl TerminalConnector for TmuxConnector {
         ])?;
 
         let session = TmuxSession {
-            id: SessionId(session_id.clone()),
+            id: TerminalSessionId(session_id.clone()),
             pane_count: 1, // Initial session has one pane
         };
 
@@ -172,10 +172,10 @@ impl TerminalConnector for TmuxConnector {
             .map_err(|e| ConnectorError::Other(format!("Lock error: {e}")))?
             .push(session);
 
-        Ok(SessionId(session_id))
+        Ok(TerminalSessionId(session_id))
     }
 
-    fn close_session(&mut self, session: &SessionId) -> ConnectorResult<()> {
+    fn close_session(&mut self, session: &TerminalSessionId) -> ConnectorResult<()> {
         self.run_tmux_silent(&["kill-session", "-t", &session.0])?;
 
         // Remove from tracked sessions
@@ -188,7 +188,7 @@ impl TerminalConnector for TmuxConnector {
         Ok(())
     }
 
-    fn session_info(&self, session: &SessionId) -> ConnectorResult<SessionInfo> {
+    fn session_info(&self, session: &TerminalSessionId) -> ConnectorResult<SessionInfo> {
         // Get session info
         let session_name = self.run_tmux(&["display-message", "-t", &session.0, "-F", "#S"])?;
 
@@ -225,7 +225,7 @@ impl TerminalConnector for TmuxConnector {
         let mut sessions = Vec::new();
         for line in output.lines() {
             if line.starts_with(&self.session_prefix) {
-                let session_id = SessionId(line.to_string());
+                let session_id = TerminalSessionId(line.to_string());
                 if let Ok(info) = self.session_info(&session_id) {
                     sessions.push(info);
                 }
@@ -237,7 +237,7 @@ impl TerminalConnector for TmuxConnector {
 
     fn split_pane(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         direction: SplitDirection,
     ) -> ConnectorResult<usize> {
@@ -278,7 +278,7 @@ impl TerminalConnector for TmuxConnector {
 
     fn send_keys(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         keys: &str,
     ) -> ConnectorResult<()> {
@@ -292,7 +292,7 @@ impl TerminalConnector for TmuxConnector {
 
     fn capture_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
     ) -> ConnectorResult<PaneContent> {
         self.capture_pane_with_options(
@@ -310,7 +310,7 @@ impl TerminalConnector for TmuxConnector {
 
     fn set_pane_title(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         title: &str,
     ) -> ConnectorResult<()> {
@@ -321,7 +321,7 @@ impl TerminalConnector for TmuxConnector {
         Ok(())
     }
 
-    fn select_pane(&mut self, session: &SessionId, pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()> {
         let target = self.pane_target(session, pane_index);
 
         self.run_tmux_silent(&["select-pane", "-t", &target])?;
@@ -329,7 +329,7 @@ impl TerminalConnector for TmuxConnector {
         Ok(())
     }
 
-    fn kill_pane(&mut self, session: &SessionId, pane_index: usize) -> ConnectorResult<()> {
+    fn kill_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()> {
         let target = self.pane_target(session, pane_index);
 
         self.run_tmux_silent(&["kill-pane", "-t", &target])?;
@@ -346,7 +346,7 @@ impl TerminalConnector for TmuxConnector {
 
     fn wait_for_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         pattern: &str,
         timeout_secs: Option<u64>,
@@ -386,7 +386,7 @@ impl TmuxConnector {
     /// Capture pane output with explicit formatting controls.
     pub fn capture_pane_with_options(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         options: CapturePaneOptions,
     ) -> ConnectorResult<PaneContent> {
@@ -482,7 +482,7 @@ mod tests {
     #[test]
     fn test_parse_pane_info_valid() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("test-session".into());
+        let session = TerminalSessionId("test-session".into());
         let line = "%0,0,bash,vim,/home/user,1";
         let pane = connector.parse_pane_info(&session, line);
         assert!(pane.is_some());
@@ -497,7 +497,7 @@ mod tests {
     #[test]
     fn test_parse_pane_info_inactive() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let line = "%5,2,title,git,/tmp,0";
         let pane = connector.parse_pane_info(&session, line).unwrap();
         assert_eq!(pane.index, 2);
@@ -507,7 +507,7 @@ mod tests {
     #[test]
     fn test_parse_pane_info_empty_command() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let line = "%1,0,title,,/home,1";
         let pane = connector.parse_pane_info(&session, line).unwrap();
         assert!(pane.command.is_none());
@@ -517,7 +517,7 @@ mod tests {
     #[test]
     fn test_parse_pane_info_empty_cwd() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let line = "%1,0,title,bash,,1";
         let pane = connector.parse_pane_info(&session, line).unwrap();
         assert_eq!(pane.command, Some("bash".to_string()));
@@ -527,7 +527,7 @@ mod tests {
     #[test]
     fn test_parse_pane_info_too_few_fields() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         // Only 3 fields - need at least 6
         let line = "%0,0,bash";
         assert!(connector.parse_pane_info(&session, line).is_none());
@@ -536,14 +536,14 @@ mod tests {
     #[test]
     fn test_parse_pane_info_empty_line() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         assert!(connector.parse_pane_info(&session, "").is_none());
     }
 
     #[test]
     fn test_parse_pane_info_invalid_index() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let line = "%0,not_a_number,title,bash,/home,1";
         let pane = connector.parse_pane_info(&session, line).unwrap();
         // Invalid index defaults to 0
@@ -553,7 +553,7 @@ mod tests {
     #[test]
     fn test_session_target() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("my-session".into());
+        let session = TerminalSessionId("my-session".into());
         let target = connector.session_target(&session);
         assert_eq!(target, "my-session");
     }
@@ -561,7 +561,7 @@ mod tests {
     #[test]
     fn test_pane_target() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("my-session".into());
+        let session = TerminalSessionId("my-session".into());
         let target = connector.pane_target(&session, 3);
         assert_eq!(target, "my-session.3");
     }
@@ -569,7 +569,7 @@ mod tests {
     #[test]
     fn test_pane_target_zero_index() {
         let connector = TmuxConnector::new("test");
-        let session = SessionId("sess".into());
+        let session = TerminalSessionId("sess".into());
         let target = connector.pane_target(&session, 0);
         assert_eq!(target, "sess.0");
     }

@@ -74,6 +74,7 @@ impl ToastLevel {
 
 /// A toast notification
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Toast {
     /// Notification level
     pub level: ToastLevel,
@@ -238,6 +239,7 @@ impl Toast {
 /// Toast notification manager
 ///
 /// Manages multiple active toasts and handles rendering them.
+#[non_exhaustive]
 pub struct ToastManager {
     /// Active toasts
     toasts: Vec<Toast>,

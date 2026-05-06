@@ -18,6 +18,7 @@ use super::definitions::{self, AgentDefinition};
 /// The LLM reads the tool description (which includes `when_to_use` entries)
 /// and calls this tool with `subagent_type` and `prompt`. The tool then
 /// creates an `AgentSession` and runs it to completion.
+#[non_exhaustive]
 pub struct AgentTool {
     /// LLM provider for the sub-agent.
     provider: Arc<dyn LLMProvider>,

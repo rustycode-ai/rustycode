@@ -57,6 +57,7 @@ pub fn estimate_message_height(message: &Message, _width: usize) -> usize {
 
 /// Viewport state for rendering calculations
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ViewportState {
     pub height: usize,
 }

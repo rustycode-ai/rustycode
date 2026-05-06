@@ -17,6 +17,7 @@ use std::time::{Duration, Instant};
 /// Controls how and when session state is saved. The event loop is responsible
 /// for calling `mark_dirty()` and `save_state()` as needed (e.g., after messages).
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SessionRecoveryConfig {
     /// Whether session recovery is enabled
     pub enabled: bool,
@@ -46,6 +47,7 @@ impl SessionRecoveryConfig {
 }
 
 /// Session recovery manager integrated with event loop
+#[non_exhaustive]
 pub struct SessionRecoveryManager {
     /// Session ID (unique per session)
     session_id: String,

@@ -3,6 +3,7 @@ use crate::app::pipeline::registry::{PipelineStep, StepFactory};
 use crate::app::pipeline::steps::agent_step::AgentStep;
 use std::sync::Arc;
 
+#[non_exhaustive]
 pub struct AgentStepFactory;
 
 impl StepFactory for AgentStepFactory {

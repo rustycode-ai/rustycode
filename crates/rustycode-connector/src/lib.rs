@@ -92,7 +92,7 @@ pub mod iterm2_native;
 #[cfg(not(target_os = "macos"))]
 pub mod iterm2_native {
     use crate::{
-        ConnectorError, ConnectorResult, PaneContent, SessionId, SessionInfo, SplitDirection,
+        ConnectorError, ConnectorResult, PaneContent, TerminalSessionId, SessionInfo, SplitDirection,
         TerminalConnector,
     };
 
@@ -118,19 +118,19 @@ pub mod iterm2_native {
             false
         }
 
-        fn create_session(&mut self, _name: &str) -> ConnectorResult<SessionId> {
+        fn create_session(&mut self, _name: &str) -> ConnectorResult<TerminalSessionId> {
             Err(ConnectorError::NotAvailable(
                 "iTerm2 native connector is only available on macOS".into(),
             ))
         }
 
-        fn close_session(&mut self, _session: &SessionId) -> ConnectorResult<()> {
+        fn close_session(&mut self, _session: &TerminalSessionId) -> ConnectorResult<()> {
             Err(ConnectorError::NotAvailable(
                 "iTerm2 native connector is only available on macOS".into(),
             ))
         }
 
-        fn session_info(&self, _session: &SessionId) -> ConnectorResult<SessionInfo> {
+        fn session_info(&self, _session: &TerminalSessionId) -> ConnectorResult<SessionInfo> {
             Err(ConnectorError::NotAvailable(
                 "iTerm2 native connector is only available on macOS".into(),
             ))
@@ -144,7 +144,7 @@ pub mod iterm2_native {
 
         fn split_pane(
             &mut self,
-            _session: &SessionId,
+            _session: &TerminalSessionId,
             _pane_index: usize,
             _direction: SplitDirection,
         ) -> ConnectorResult<usize> {
@@ -155,7 +155,7 @@ pub mod iterm2_native {
 
         fn send_keys(
             &mut self,
-            _session: &SessionId,
+            _session: &TerminalSessionId,
             _pane_index: usize,
             _keys: &str,
         ) -> ConnectorResult<()> {
@@ -166,7 +166,7 @@ pub mod iterm2_native {
 
         fn capture_output(
             &self,
-            _session: &SessionId,
+            _session: &TerminalSessionId,
             _pane_index: usize,
         ) -> ConnectorResult<PaneContent> {
             Err(ConnectorError::NotAvailable(
@@ -176,7 +176,7 @@ pub mod iterm2_native {
 
         fn set_pane_title(
             &mut self,
-            _session: &SessionId,
+            _session: &TerminalSessionId,
             _pane_index: usize,
             _title: &str,
         ) -> ConnectorResult<()> {
@@ -185,13 +185,13 @@ pub mod iterm2_native {
             ))
         }
 
-        fn select_pane(&mut self, _session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+        fn select_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
             Err(ConnectorError::NotAvailable(
                 "iTerm2 native connector is only available on macOS".into(),
             ))
         }
 
-        fn kill_pane(&mut self, _session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+        fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
             Err(ConnectorError::NotAvailable(
                 "iTerm2 native connector is only available on macOS".into(),
             ))
@@ -199,7 +199,7 @@ pub mod iterm2_native {
 
         fn wait_for_output(
             &self,
-            _session: &SessionId,
+            _session: &TerminalSessionId,
             _pane_index: usize,
             _pattern: &str,
             _timeout_secs: Option<u64>,
@@ -279,9 +279,9 @@ impl Error for ConnectorError {}
 
 /// Session identifier
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SessionId(pub String);
+pub struct TerminalSessionId(pub String);
 
-impl fmt::Display for SessionId {
+impl fmt::Display for TerminalSessionId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -343,7 +343,7 @@ pub struct PaneInfo {
 #[derive(Debug, Clone)]
 pub struct SessionInfo {
     /// Session identifier
-    pub id: SessionId,
+    pub id: TerminalSessionId,
     /// Session name
     pub name: String,
     /// List of panes in the session
@@ -364,13 +364,13 @@ pub trait TerminalConnector: Send + Sync {
     fn is_available(&self) -> bool;
 
     /// Create a new session with the given name
-    fn create_session(&mut self, name: &str) -> ConnectorResult<SessionId>;
+    fn create_session(&mut self, name: &str) -> ConnectorResult<TerminalSessionId>;
 
     /// Close a session
-    fn close_session(&mut self, session: &SessionId) -> ConnectorResult<()>;
+    fn close_session(&mut self, session: &TerminalSessionId) -> ConnectorResult<()>;
 
     /// Get information about a session
-    fn session_info(&self, session: &SessionId) -> ConnectorResult<SessionInfo>;
+    fn session_info(&self, session: &TerminalSessionId) -> ConnectorResult<SessionInfo>;
 
     /// List all sessions managed by this connector
     fn list_sessions(&self) -> ConnectorResult<Vec<SessionInfo>>;
@@ -379,7 +379,7 @@ pub trait TerminalConnector: Send + Sync {
     /// Returns the index of the new pane
     fn split_pane(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         direction: SplitDirection,
     ) -> ConnectorResult<usize>;
@@ -387,7 +387,7 @@ pub trait TerminalConnector: Send + Sync {
     /// Send keys/text to a specific pane
     fn send_keys(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         keys: &str,
     ) -> ConnectorResult<()>;
@@ -395,28 +395,28 @@ pub trait TerminalConnector: Send + Sync {
     /// Capture the current content of a pane
     fn capture_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
     ) -> ConnectorResult<PaneContent>;
 
     /// Set the title/name of a pane
     fn set_pane_title(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         title: &str,
     ) -> ConnectorResult<()>;
 
     /// Select/activate a specific pane
-    fn select_pane(&mut self, session: &SessionId, pane_index: usize) -> ConnectorResult<()>;
+    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()>;
 
     /// Kill a specific pane
-    fn kill_pane(&mut self, session: &SessionId, pane_index: usize) -> ConnectorResult<()>;
+    fn kill_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()>;
 
     /// Wait for output in a pane (with optional timeout)
     fn wait_for_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         pattern: &str,
         timeout_secs: Option<u64>,
@@ -486,15 +486,15 @@ mod tests {
 
     #[test]
     fn test_session_id_display() {
-        let id = SessionId("my-session".into());
+        let id = TerminalSessionId("my-session".into());
         assert_eq!(id.to_string(), "my-session");
     }
 
     #[test]
     fn test_session_id_equality() {
-        let a = SessionId("x".into());
-        let b = SessionId("x".into());
-        let c = SessionId("y".into());
+        let a = TerminalSessionId("x".into());
+        let b = TerminalSessionId("x".into());
+        let c = TerminalSessionId("y".into());
         assert_eq!(a, b);
         assert_ne!(a, c);
     }
@@ -588,7 +588,7 @@ mod tests {
     #[test]
     fn test_session_info_construction() {
         let info = SessionInfo {
-            id: SessionId("sess-1".into()),
+            id: TerminalSessionId("sess-1".into()),
             name: "work".to_string(),
             panes: vec![PaneInfo {
                 id: "0".to_string(),
@@ -607,9 +607,9 @@ mod tests {
     fn test_session_id_hash() {
         use std::collections::HashSet;
         let mut set = HashSet::new();
-        set.insert(SessionId("a".into()));
-        set.insert(SessionId("b".into()));
-        set.insert(SessionId("a".into()));
+        set.insert(TerminalSessionId("a".into()));
+        set.insert(TerminalSessionId("b".into()));
+        set.insert(TerminalSessionId("a".into()));
         assert_eq!(set.len(), 2);
     }
 
@@ -651,13 +651,13 @@ mod tests {
 
     #[test]
     fn test_session_id_from_string() {
-        let id = SessionId("my-session-123".into());
+        let id = TerminalSessionId("my-session-123".into());
         assert_eq!(id.0, "my-session-123");
     }
 
     #[test]
     fn test_session_id_clone() {
-        let id = SessionId("original".into());
+        let id = TerminalSessionId("original".into());
         let cloned = id.clone();
         assert_eq!(id, cloned);
     }
@@ -728,7 +728,7 @@ mod tests {
             })
             .collect();
         let info = SessionInfo {
-            id: SessionId("multi".into()),
+            id: TerminalSessionId("multi".into()),
             name: "multi-pane".to_string(),
             panes,
             is_active: true,
@@ -869,7 +869,7 @@ mod tests {
     #[test]
     fn session_info_clone_equal() {
         let info = SessionInfo {
-            id: SessionId("s1".into()),
+            id: TerminalSessionId("s1".into()),
             name: "test-session".to_string(),
             panes: vec![],
             is_active: true,
@@ -884,7 +884,7 @@ mod tests {
     #[test]
     fn session_info_debug_format() {
         let info = SessionInfo {
-            id: SessionId("dbg-sess".into()),
+            id: TerminalSessionId("dbg-sess".into()),
             name: "debug-session".to_string(),
             panes: vec![],
             is_active: false,
@@ -894,10 +894,10 @@ mod tests {
         assert!(debug.contains("SessionInfo"));
     }
 
-    // 11. SessionId debug format
+    // 11. TerminalSessionId debug format
     #[test]
     fn session_id_debug_format() {
-        let id = SessionId("my-debug-id".into());
+        let id = TerminalSessionId("my-debug-id".into());
         let debug = format!("{id:?}");
         assert!(debug.contains("my-debug-id"));
     }
@@ -910,10 +910,10 @@ mod tests {
         assert_ne!(SplitDirection::Horizontal, SplitDirection::Vertical);
     }
 
-    // 13. SessionId with complex name
+    // 13. TerminalSessionId with complex name
     #[test]
     fn session_id_complex_name() {
-        let id = SessionId("session-name_with.mixed-chars:123".into());
+        let id = TerminalSessionId("session-name_with.mixed-chars:123".into());
         assert_eq!(id.to_string(), "session-name_with.mixed-chars:123");
     }
 

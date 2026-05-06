@@ -48,6 +48,7 @@ use rustycode_protocol::{ContentBlock, MessageContent};
 /// Configuration for streaming LLM responses
 ///
 /// Builder pattern to handle the many parameters needed for `stream_llm_response`.
+#[non_exhaustive]
 pub struct StreamConfig {
     pub content: String,
     pub cwd: std::path::PathBuf,
@@ -456,6 +457,12 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
                     system_parts.push(format!("## Project Instructions (AGENTS.md)\n{}", content));
                 }
             }
+        }
+
+        // Inject memory instructions (project-scoped)
+        let mem_dir = rustycode_memory::memory_dir(Path::new(cwd_str));
+        if let Some(mem_instructions) = rustycode_memory::read_path::build_memory_instructions(&mem_dir) {
+            system_parts.push(mem_instructions);
         }
     }
 

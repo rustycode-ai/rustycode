@@ -9,6 +9,7 @@ use ratatui::{
 };
 
 /// Footer component displaying session metadata
+#[non_exhaustive]
 pub struct Footer {
     /// Session duration (e.g., "2h 34m")
     pub session_duration: String,

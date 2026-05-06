@@ -5,6 +5,7 @@ use crate::ui::model_selector::ModelInfo as SelectorModelInfo;
 
 /// Information about an LLM provider
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ProviderInfo {
     pub name: String,
     pub provider_type: String,
@@ -444,6 +445,7 @@ pub fn filter_providers<'a>(query: &str, providers: &'a [ProviderInfo]) -> Vec<&
 /// OAuth flow state for provider authentication
 #[derive(Clone, Debug, PartialEq)]
 #[cfg(test)]
+#[non_exhaustive]
 pub struct OAuthFlowState {
     pub provider_name: Option<String>,
     pub auth_url: Option<String>,
@@ -518,6 +520,7 @@ impl Default for OAuthFlowState {
 
 /// Provider configuration cache for storing configuration temporarily
 #[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub struct ProviderConfigCache {
     pub provider_type: String,
     pub api_key: String,

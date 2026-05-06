@@ -106,6 +106,7 @@ fn install_panic_hook() {
 /// - Status bar (progress, animations)
 /// - Animation system (smooth updates)
 /// - Service integration (LLM streaming, tool execution, workspace loading)
+#[non_exhaustive]
 pub struct TUI {
     // UI Components (plugins)
     pub(crate) message_renderer: MessageRenderer,

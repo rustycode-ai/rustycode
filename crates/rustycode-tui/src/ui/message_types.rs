@@ -74,6 +74,7 @@ impl ToolStatus {
 
 /// Tool execution metadata
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ToolExecution {
     /// Unique tool execution ID (matches tool_use_id from LLM)
     pub tool_id: String,
@@ -254,6 +255,7 @@ impl ToolExecution {
 
 /// Image attachment for messages and input state
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ImageAttachment {
     /// Unique identifier (ULID)
     pub id: String,
@@ -278,6 +280,7 @@ pub struct ImageAttachment {
 
 /// Message metadata (model, tokens, etc.)
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[non_exhaustive]
 pub struct MessageMetadata {
     /// Model used for this message (if applicable)
     pub model: Option<String>,
@@ -317,6 +320,7 @@ pub enum ExpansionLevel {
 
 /// A message in the conversation
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Message {
     /// Unique message identifier
     pub id: String,

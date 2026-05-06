@@ -4,7 +4,7 @@ use crate::types::{McpContent, McpTool, McpToolResult};
 use crate::{McpError, McpResult, McpServer};
 use chrono::Utc;
 use rustycode_connector::{
-    CapturePaneOptions, ConnectorError, ITerm2NativeConnector, It2Connector, SessionId,
+    CapturePaneOptions, ConnectorError, ITerm2NativeConnector, It2Connector, TerminalSessionId,
     SessionInfo, SplitDirection, TerminalConnector, TmuxConnector,
 };
 use serde::{Deserialize, Serialize};
@@ -129,7 +129,7 @@ impl TerminalBackend {
         }
     }
 
-    fn create_session(&mut self, name: &str) -> Result<SessionId, ConnectorError> {
+    fn create_session(&mut self, name: &str) -> Result<TerminalSessionId, ConnectorError> {
         match self {
             Self::Tmux(connector) => connector.create_session(name),
             Self::It2(connector) => connector.create_session(name),
@@ -137,7 +137,7 @@ impl TerminalBackend {
         }
     }
 
-    fn close_session(&mut self, session: &SessionId) -> Result<(), ConnectorError> {
+    fn close_session(&mut self, session: &TerminalSessionId) -> Result<(), ConnectorError> {
         match self {
             Self::Tmux(connector) => connector.close_session(session),
             Self::It2(connector) => connector.close_session(session),
@@ -145,7 +145,7 @@ impl TerminalBackend {
         }
     }
 
-    fn session_info(&self, session: &SessionId) -> Result<SessionInfo, ConnectorError> {
+    fn session_info(&self, session: &TerminalSessionId) -> Result<SessionInfo, ConnectorError> {
         match self {
             Self::Tmux(connector) => connector.session_info(session),
             Self::It2(connector) => connector.session_info(session),
@@ -163,7 +163,7 @@ impl TerminalBackend {
 
     fn split_pane(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         direction: SplitDirection,
     ) -> Result<usize, ConnectorError> {
@@ -176,7 +176,7 @@ impl TerminalBackend {
 
     fn send_keys(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         keys: &str,
     ) -> Result<(), ConnectorError> {
@@ -189,7 +189,7 @@ impl TerminalBackend {
 
     fn capture_pane(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         options: CapturePaneOptions,
     ) -> Result<rustycode_connector::PaneContent, ConnectorError> {
@@ -204,7 +204,7 @@ impl TerminalBackend {
 
     fn wait_for_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         pattern: &str,
         timeout_secs: Option<u64>,
@@ -642,7 +642,7 @@ impl TmuxMcpServer {
     }
 
     fn session_info(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
-        let session_id = SessionId(required_str(&args, "session_id")?.to_string());
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
         let info = self.with_backend_ref(|backend| backend.session_info(&session_id))?;
         let mut state = self
             .state
@@ -655,7 +655,7 @@ impl TmuxMcpServer {
     }
 
     fn close_session(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
-        let session_id = SessionId(required_str(&args, "session_id")?.to_string());
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
         self.with_backend_mut(|backend| backend.close_session(&session_id))?;
         let mut state = self
             .state
@@ -669,7 +669,7 @@ impl TmuxMcpServer {
     }
 
     fn split_pane(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
-        let session_id = SessionId(required_str(&args, "session_id")?.to_string());
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
         let pane_index = required_usize(&args, "pane_index")?;
         let direction = match required_str(&args, "direction")? {
             "horizontal" => SplitDirection::Horizontal,
@@ -690,7 +690,7 @@ impl TmuxMcpServer {
     }
 
     fn send_keys(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
-        let session_id = SessionId(required_str(&args, "session_id")?.to_string());
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
         let pane_index = required_usize(&args, "pane_index")?;
         let keys = required_str(&args, "keys")?;
         self.with_backend_mut(|backend| backend.send_keys(&session_id, pane_index, keys))?;
@@ -703,7 +703,7 @@ impl TmuxMcpServer {
     }
 
     fn capture_pane(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
-        let session_id = SessionId(required_str(&args, "session_id")?.to_string());
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
         let pane_index = required_usize(&args, "pane_index")?;
         let start = args.get("start").and_then(serde_json::Value::as_i64);
         let end = args.get("end").and_then(serde_json::Value::as_i64);
@@ -739,7 +739,7 @@ impl TmuxMcpServer {
     }
 
     fn execute_command(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
-        let session_id = SessionId(required_str(&args, "session_id")?.to_string());
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
         let pane_index = required_usize(&args, "pane_index")?;
         let command = required_str(&args, "command")?;
         let track_result = args
@@ -809,7 +809,7 @@ impl TmuxMcpServer {
             if let (Some(session_id_str), Some(pane_index)) =
                 (&record.session_id, record.pane_index)
             {
-                let session_id = SessionId(session_id_str.clone());
+                let session_id = TerminalSessionId(session_id_str.clone());
                 let capture = self.with_backend_ref(|backend| {
                     backend.capture_pane(
                         &session_id,
@@ -839,7 +839,7 @@ impl TmuxMcpServer {
     }
 
     fn wait_for_output(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
-        let session_id = SessionId(required_str(&args, "session_id")?.to_string());
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
         let pane_index = required_usize(&args, "pane_index")?;
         let pattern = required_str(&args, "pattern")?.to_string();
         let timeout_secs = args
@@ -968,7 +968,7 @@ impl TmuxMcpServer {
         let mut removed = 0usize;
         for session_id in expired_ids {
             let _ = self
-                .with_backend_mut(|backend| backend.close_session(&SessionId(session_id.clone())));
+                .with_backend_mut(|backend| backend.close_session(&TerminalSessionId(session_id.clone())));
             let mut state = self
                 .state
                 .lock()

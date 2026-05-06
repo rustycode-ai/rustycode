@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 /// Comprehensive TUI configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct TUIConfig {
     pub theme: ThemeConfig,
     pub keybindings: KeyBindings,
@@ -18,6 +19,7 @@ pub struct TUIConfig {
 
 /// Theme configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ThemeConfig {
     pub name: String,
     pub custom_colors: Option<ColorPaletteOverride>,
@@ -25,6 +27,7 @@ pub struct ThemeConfig {
 
 /// Override specific colors in a theme
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ColorPaletteOverride {
     pub background: Option<String>,
     pub foreground: Option<String>,
@@ -39,6 +42,7 @@ pub struct ColorPaletteOverride {
 
 /// Keybinding configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct KeyBindings {
     pub quit: Vec<String>,
     pub save: Vec<String>,
@@ -50,6 +54,7 @@ pub struct KeyBindings {
 
 /// UI preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct UIConfig {
     pub font_size: u8,
     pub line_height: u8,
@@ -66,6 +71,7 @@ pub struct UIConfig {
 
 /// Behavior settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct BehaviorConfig {
     pub auto_save_interval_seconds: u64,
     pub max_history_size: usize,
@@ -219,6 +225,7 @@ pub fn remap_key(config: &mut TUIConfig, action: String, keys: Vec<String>) -> R
 }
 
 /// Profile manager for saving and loading configurations
+#[non_exhaustive]
 pub struct ProfileManager {
     pub profiles: HashMap<String, TUIConfig>,
     pub current_profile: String,
@@ -292,6 +299,7 @@ impl Default for ProfileManager {
 
 /// Legacy model configuration (kept for backward compatibility)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ModelConfig {
     pub current_provider: String,
     pub current_model: String,

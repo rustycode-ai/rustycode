@@ -36,6 +36,7 @@ struct AgentDisplay {
 ///
 /// Receives `TeamEvent` broadcasts and renders a live agent dashboard.
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct TeamPanel {
     pub visible: bool,
     /// Agent display states keyed by role name.

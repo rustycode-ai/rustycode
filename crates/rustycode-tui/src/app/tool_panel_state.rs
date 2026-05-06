@@ -1,5 +1,6 @@
 use crate::ui::message::ToolExecution;
 
+#[non_exhaustive]
 pub(crate) struct ToolPanelState {
     pub(crate) showing_tool_panel: bool,
     pub(crate) tool_panel_history: Vec<ToolExecution>,

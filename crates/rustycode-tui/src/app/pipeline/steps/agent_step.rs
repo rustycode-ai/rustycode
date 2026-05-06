@@ -5,6 +5,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use serde_yaml::Value;
 
+#[non_exhaustive]
 pub struct AgentStep {
     id: String,
     name: String,

@@ -29,6 +29,7 @@ pub fn looks_like_git_diff(diff_text: &str) -> bool {
 }
 
 /// Code diff renderer
+#[non_exhaustive]
 pub struct DiffRenderer {
     _priv: (),
 }

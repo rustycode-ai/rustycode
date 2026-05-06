@@ -26,7 +26,7 @@ toml.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-runtime = { path = "../rustycode-runtime" }
 rustycode-core = { path = "../rustycode-core", default-features = false }
-rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
+rustycode-shared-runtime = { path = "../rustycode-shared-runtime" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-llm = { path = "../rustycode-llm" }

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 /// Alias for a skill or skill chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SkillAlias {
     /// The alias name
     pub name: String,
@@ -32,6 +33,7 @@ pub enum AliasTarget {
 
 /// A composition of multiple skills
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SkillComposition {
     /// Unique identifier for this composition
     pub id: String,
@@ -48,6 +50,7 @@ pub struct SkillComposition {
 
 /// A single step in a composition
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct CompositionStep {
     /// The skill to execute
     pub skill_id: String,
@@ -88,6 +91,7 @@ pub enum ExecutionMode {
 
 /// History entry for skill execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SkillExecutionEntry {
     /// Unique ID for this execution
     pub id: String,
@@ -107,6 +111,7 @@ pub struct SkillExecutionEntry {
 
 /// Skill template for scaffolding new skills
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct SkillTemplate {
     /// Template identifier
     pub id: String,
@@ -123,6 +128,7 @@ pub struct SkillTemplate {
 
 /// Parameter for template instantiation
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct TemplateParameter {
     /// Parameter name
     pub name: String,
@@ -134,6 +140,7 @@ pub struct TemplateParameter {
 }
 
 /// Manager for skill composition and advanced features
+#[non_exhaustive]
 pub struct CompositionManager {
     /// Known aliases
     aliases: HashMap<String, SkillAlias>,

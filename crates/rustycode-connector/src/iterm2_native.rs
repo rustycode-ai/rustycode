@@ -25,7 +25,7 @@
 //! (`send_text`, `capture_output`, `split_pane`, etc.) use the fast native API.
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionId, SessionInfo, SplitDirection,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
     TerminalConnector,
 };
 use std::process::Command;
@@ -35,7 +35,7 @@ use std::time::{Duration, Instant};
 /// Session metadata
 #[derive(Debug, Clone)]
 struct NativeSession {
-    id: SessionId,
+    id: TerminalSessionId,
     name: String,
     session_id: String, // iTerm2 session ID from API
     window_id: String,  // iTerm2 window ID
@@ -218,11 +218,11 @@ impl TerminalConnector for ITerm2NativeConnector {
         Self::check_available()
     }
 
-    fn create_session(&mut self, name: &str) -> ConnectorResult<SessionId> {
+    fn create_session(&mut self, name: &str) -> ConnectorResult<TerminalSessionId> {
         // Create window via AppleScript (API doesn't support this)
         let (session_id, window_id, _) = Self::create_window_applescript(name)?;
 
-        let our_session_id = SessionId(format!("iterm2-native-{name}-{window_id}"));
+        let our_session_id = TerminalSessionId(format!("iterm2-native-{name}-{window_id}"));
 
         let session = NativeSession {
             id: our_session_id.clone(),
@@ -240,7 +240,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         Ok(our_session_id)
     }
 
-    fn close_session(&mut self, session: &SessionId) -> ConnectorResult<()> {
+    fn close_session(&mut self, session: &TerminalSessionId) -> ConnectorResult<()> {
         let session_data = {
             let sessions = self
                 .sessions
@@ -277,7 +277,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         Ok(())
     }
 
-    fn session_info(&self, session: &SessionId) -> ConnectorResult<SessionInfo> {
+    fn session_info(&self, session: &TerminalSessionId) -> ConnectorResult<SessionInfo> {
         let sessions = self
             .sessions
             .lock()
@@ -321,7 +321,7 @@ impl TerminalConnector for ITerm2NativeConnector {
     #[allow(clippy::await_holding_lock)]
     fn split_pane(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
         direction: SplitDirection,
     ) -> ConnectorResult<usize> {
@@ -397,7 +397,7 @@ impl TerminalConnector for ITerm2NativeConnector {
     #[allow(clippy::await_holding_lock)]
     fn send_keys(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
         keys: &str,
     ) -> ConnectorResult<()> {
@@ -451,7 +451,7 @@ impl TerminalConnector for ITerm2NativeConnector {
     #[allow(clippy::await_holding_lock)]
     fn capture_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
     ) -> ConnectorResult<PaneContent> {
         self.connect()?;
@@ -508,7 +508,7 @@ impl TerminalConnector for ITerm2NativeConnector {
     #[allow(clippy::await_holding_lock)]
     fn set_pane_title(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
         title: &str,
     ) -> ConnectorResult<()> {
@@ -559,7 +559,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         Ok(())
     }
 
-    fn select_pane(&mut self, session: &SessionId, pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()> {
         let session_data = {
             let sessions = self
                 .sessions
@@ -596,7 +596,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         Ok(())
     }
 
-    fn kill_pane(&mut self, _session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
         Err(ConnectorError::Other(
             "kill_pane not implemented for iTerm2 native".to_string(),
         ))
@@ -604,7 +604,7 @@ impl TerminalConnector for ITerm2NativeConnector {
 
     fn wait_for_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         pattern: &str,
         timeout_secs: Option<u64>,
@@ -664,7 +664,7 @@ mod tests {
     #[test]
     fn test_kill_pane_not_implemented() {
         let mut connector = ITerm2NativeConnector::new();
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let result = connector.kill_pane(&session, 0);
         assert!(result.is_err());
         match result {
@@ -678,7 +678,7 @@ mod tests {
     #[test]
     fn test_session_info_not_found() {
         let connector = ITerm2NativeConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.session_info(&session);
         assert!(result.is_err());
         match result {
@@ -699,7 +699,7 @@ mod tests {
     #[test]
     fn test_close_session_not_found() {
         let mut connector = ITerm2NativeConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.close_session(&session);
         assert!(result.is_err());
         match result {
@@ -713,7 +713,7 @@ mod tests {
     #[test]
     fn test_split_pane_session_not_found() {
         let mut connector = ITerm2NativeConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.split_pane(&session, 0, SplitDirection::Horizontal);
         assert!(result.is_err());
     }
@@ -721,7 +721,7 @@ mod tests {
     #[test]
     fn test_send_keys_session_not_found() {
         let mut connector = ITerm2NativeConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.send_keys(&session, 0, "ls");
         assert!(result.is_err());
     }

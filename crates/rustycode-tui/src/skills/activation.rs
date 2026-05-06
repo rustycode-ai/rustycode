@@ -17,6 +17,7 @@ fn config_path() -> Result<PathBuf> {
 
 /// Active skills configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[non_exhaustive]
 pub struct ActivationConfig {
     /// Set of active skill names
     pub active_skills: HashSet<String>,

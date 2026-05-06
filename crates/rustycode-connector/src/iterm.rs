@@ -6,7 +6,7 @@
 //! Note: iTerm2 is macOS-only and requires the terminal to be running.
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionId, SessionInfo, SplitDirection,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
     TerminalConnector,
 };
 #[cfg(target_os = "macos")]
@@ -16,7 +16,7 @@ use std::sync::Mutex;
 /// iTerm2 session metadata
 #[derive(Debug, Clone)]
 struct ITermSession {
-    id: SessionId,
+    id: TerminalSessionId,
     name: String,
     #[allow(dead_code)]
     window_id: usize,
@@ -138,7 +138,7 @@ impl TerminalConnector for ITermConnector {
         Self::is_available()
     }
 
-    fn create_session(&mut self, name: &str) -> ConnectorResult<SessionId> {
+    fn create_session(&mut self, name: &str) -> ConnectorResult<TerminalSessionId> {
         #[cfg(target_os = "macos")]
         {
             // Create a new iTerm2 window with the given name
@@ -165,7 +165,7 @@ impl TerminalConnector for ITermConnector {
                 ConnectorError::SessionCreateFailed(format!("Failed to create iTerm2 window: {e}"))
             })?;
 
-            let session_id = SessionId(format!("iterm-{name}-{window_id}"));
+            let session_id = TerminalSessionId(format!("iterm-{name}-{window_id}"));
 
             let session = ITermSession {
                 id: session_id.clone(),
@@ -190,7 +190,7 @@ impl TerminalConnector for ITermConnector {
         }
     }
 
-    fn close_session(&mut self, session: &SessionId) -> ConnectorResult<()> {
+    fn close_session(&mut self, session: &TerminalSessionId) -> ConnectorResult<()> {
         #[cfg(target_os = "macos")]
         {
             let sessions = self
@@ -246,7 +246,7 @@ impl TerminalConnector for ITermConnector {
         }
     }
 
-    fn session_info(&self, session: &SessionId) -> ConnectorResult<SessionInfo> {
+    fn session_info(&self, session: &TerminalSessionId) -> ConnectorResult<SessionInfo> {
         let sessions = self
             .sessions
             .lock()
@@ -289,7 +289,7 @@ impl TerminalConnector for ITermConnector {
 
     fn split_pane(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
         direction: SplitDirection,
     ) -> ConnectorResult<usize> {
@@ -340,7 +340,7 @@ impl TerminalConnector for ITermConnector {
 
     fn send_keys(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         keys: &str,
     ) -> ConnectorResult<()> {
@@ -387,7 +387,7 @@ impl TerminalConnector for ITermConnector {
 
     fn capture_output(
         &self,
-        _session: &SessionId,
+        _session: &TerminalSessionId,
         _pane_index: usize,
     ) -> ConnectorResult<PaneContent> {
         // Note: iTerm2 doesn't have a direct way to capture pane content via AppleScript
@@ -400,7 +400,7 @@ impl TerminalConnector for ITermConnector {
 
     fn set_pane_title(
         &mut self,
-        _session: &SessionId,
+        _session: &TerminalSessionId,
         _pane_index: usize,
         title: &str,
     ) -> ConnectorResult<()> {
@@ -432,7 +432,7 @@ impl TerminalConnector for ITermConnector {
         }
     }
 
-    fn select_pane(&mut self, session: &SessionId, pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()> {
         #[cfg(target_os = "macos")]
         {
             let sessions = self
@@ -470,7 +470,7 @@ impl TerminalConnector for ITermConnector {
         }
     }
 
-    fn kill_pane(&mut self, _session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
         // Note: iTerm2 doesn't support killing individual panes via AppleScript
         // You can only close the entire window/tab
         Err(ConnectorError::Other(
@@ -480,7 +480,7 @@ impl TerminalConnector for ITermConnector {
 
     fn wait_for_output(
         &self,
-        _session: &SessionId,
+        _session: &TerminalSessionId,
         _pane_index: usize,
         _pattern: &str,
         _timeout_secs: Option<u64>,
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn test_capture_output_always_fails() {
         let connector = ITermConnector::new();
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let result = connector.capture_output(&session, 0);
         assert!(result.is_err());
         match result {
@@ -543,7 +543,7 @@ mod tests {
     #[test]
     fn test_kill_pane_always_fails() {
         let mut connector = ITermConnector::new();
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let result = connector.kill_pane(&session, 0);
         assert!(result.is_err());
         match result {
@@ -557,7 +557,7 @@ mod tests {
     #[test]
     fn test_wait_for_output_always_fails() {
         let connector = ITermConnector::new();
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let result = connector.wait_for_output(&session, 0, "pattern", None);
         assert!(result.is_err());
         match result {
@@ -571,7 +571,7 @@ mod tests {
     #[test]
     fn test_session_info_not_found() {
         let connector = ITermConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.session_info(&session);
         assert!(result.is_err());
         match result {
@@ -592,7 +592,7 @@ mod tests {
     #[test]
     fn test_split_pane_session_not_found() {
         let mut connector = ITermConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.split_pane(&session, 0, SplitDirection::Horizontal);
         assert!(result.is_err());
     }
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn test_send_keys_session_not_found() {
         let mut connector = ITermConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.send_keys(&session, 0, "ls");
         assert!(result.is_err());
     }
@@ -608,7 +608,7 @@ mod tests {
     #[test]
     fn test_select_pane_session_not_found() {
         let mut connector = ITermConnector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.select_pane(&session, 0);
         assert!(result.is_err());
     }

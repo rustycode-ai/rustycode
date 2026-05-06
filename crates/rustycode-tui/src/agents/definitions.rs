@@ -1,6 +1,7 @@
 //! Built-in agent definitions with `when_to_use` descriptions.
 
 /// A built-in agent definition.
+#[non_exhaustive]
 pub struct AgentDefinition {
     /// Agent type identifier (e.g. "general-purpose", "explore").
     pub agent_type: &'static str,

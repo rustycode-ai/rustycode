@@ -16,6 +16,7 @@ use anyhow::Result;
 ///
 /// Contains all data the TUI needs to restore a previous session.
 /// The TUI applies these fields to its own state (messages, scroll, etc.).
+#[non_exhaustive]
 pub struct RecoveredSession {
     /// Session identifier (first segment before '-' used for display)
     pub session_id: String,
@@ -33,6 +34,7 @@ pub struct RecoveredSession {
 ///
 /// Owns the [`SessionRecoveryManager`] (crash detection + state serialization)
 /// and provides a clean data-oriented API for the TUI to consume.
+#[non_exhaustive]
 pub(crate) struct SessionManager {
     /// Session recovery manager for crash detection and session restore.
     /// `None` when session persistence is unavailable (e.g. no sessions dir).

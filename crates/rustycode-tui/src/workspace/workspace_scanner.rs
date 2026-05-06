@@ -21,6 +21,7 @@ fn is_binary_file(name: &str) -> bool {
 
 /// Metadata about a file in the workspace
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct FileMetadata {
     /// Absolute path to the file
     pub path: PathBuf,
@@ -62,6 +63,7 @@ impl FileMetadata {
 
 /// Scan result with statistics
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ScanResult {
     /// Files found
     pub files: Vec<FileMetadata>,
@@ -120,6 +122,7 @@ struct CacheEntry {
 }
 
 /// Workspace scanner with .gitignore-aware caching and incremental updates
+#[non_exhaustive]
 pub struct WorkspaceScanner {
     /// Workspace root directory
     root: PathBuf,
@@ -394,6 +397,7 @@ impl WorkspaceScanner {
 
 /// Cache statistics
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct CacheStats {
     pub total_entries: usize,
     pub stale_entries: usize,

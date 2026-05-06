@@ -38,7 +38,7 @@ tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["registry"] }
 lsp-types.workspace = true
-rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
+rustycode-shared-runtime = { path = "../rustycode-shared-runtime" }
 rustycode-thread-guard = { path = "../rustycode-thread-guard" }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
@@ -75,9 +75,6 @@ llm-cost-tracking = []
 
 [dev-dependencies]
 tempfile.workspace = true
-tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "macros", "time", "signal"] }
-rustycode-storage = { path = "../rustycode-storage" }
-rustycode-tool-integration = { path = "../rustycode-tool-integration" }
 rustycode-session = { path = "../rustycode-session" }
 
 

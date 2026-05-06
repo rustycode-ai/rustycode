@@ -19,6 +19,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 /// MCP mode state
+#[non_exhaustive]
 pub struct McpMode {
     /// MCP server manager
     pub manager: Arc<RwLock<McpServerManager>>,
@@ -46,6 +47,7 @@ pub struct McpMode {
 
 /// Loading state for MCP initialization
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct LoadingState {
     /// Whether loading is in progress
     pub is_loading: bool,
@@ -61,6 +63,7 @@ pub struct LoadingState {
 
 /// Server health information
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ServerHealth {
     /// Server name
     pub name: String,
@@ -74,6 +77,7 @@ pub struct ServerHealth {
 
 /// Tool information
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ToolInfo {
     /// Tool name
     pub name: String,
@@ -86,6 +90,7 @@ pub struct ToolInfo {
 
 /// Tool execution result
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ToolExecutionResult {
     pub tool_name: String,
     /// Execution status
@@ -118,6 +123,7 @@ pub enum ExecutionMode {
 
 /// Resource information
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ResourceInfo {
     /// Resource URI
     pub uri: String,

@@ -7,6 +7,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 /// Team mode handler for managing team orchestrator lifecycle
+#[non_exhaustive]
 pub struct TeamModeHandler {
     /// Receiver for team orchestration events
     pub event_rx:

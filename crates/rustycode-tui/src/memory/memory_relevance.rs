@@ -25,6 +25,7 @@ struct CacheEntry {
 }
 
 /// Score cache to avoid repeated calculations
+#[non_exhaustive]
 pub struct ScoreCache {
     cache: Arc<Mutex<HashMap<String, CacheEntry>>>,
     ttl: std::time::Duration,

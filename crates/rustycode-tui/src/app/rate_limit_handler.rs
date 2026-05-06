@@ -15,6 +15,7 @@ const BACKOFF_BASE_SECS: u64 = 2;
 const BACKOFF_MAX_SECS: u64 = 60;
 
 /// Rate limit state and countdown management
+#[non_exhaustive]
 pub struct RateLimitHandler {
     /// When the rate limit expires
     pub until: Option<Instant>,

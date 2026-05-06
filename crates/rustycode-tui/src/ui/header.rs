@@ -9,6 +9,7 @@ use ratatui::{
 };
 
 /// Header component displaying app info, project name, and status indicators
+#[non_exhaustive]
 pub struct Header {
     /// Application name (left side)
     pub app_name: String,
@@ -36,6 +37,7 @@ pub struct Header {
 
 /// Compact label for the AI autonomy level displayed in the header.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum AiModeLabel {
     #[default]
     Ask,

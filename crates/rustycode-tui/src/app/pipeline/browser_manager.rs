@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 ///
 /// Headed by default (visible browser) so the user can see what's happening.
 /// The browser starts on first `get_page()` call and stays alive until dropped.
+#[non_exhaustive]
 pub struct BrowserManager {
     pool: Arc<BrowserPool>,
     page: Mutex<Option<Page>>,

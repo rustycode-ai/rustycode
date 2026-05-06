@@ -7,6 +7,7 @@ use crate::memory::memory_relevance::{
 
 /// Memory injection configuration
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct InjectionConfig {
     /// Minimum relevance threshold (0.0-1.0)
     pub threshold: f64,

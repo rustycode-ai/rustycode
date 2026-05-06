@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use rustycode_tools::security::validation::validate_url;
 use std::sync::Arc;
 
+#[non_exhaustive]
 pub struct BrowserGotoTool {
     manager: Arc<BrowserManager>,
 }

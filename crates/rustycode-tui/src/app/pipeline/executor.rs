@@ -8,11 +8,13 @@ use std::time::Instant;
 
 /// A reference to another phase that must complete before this one can run.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct PhaseDependency {
     pub phase: String,
 }
 
 /// A single phase within the pipeline DAG.
+#[non_exhaustive]
 pub struct Phase {
     pub id: String,
     pub schedule: Option<String>,
@@ -27,6 +29,7 @@ pub struct Phase {
 
 /// Current execution state of the pipeline.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum PipelineState {
     Pending,
     Running {
@@ -49,6 +52,7 @@ pub enum PipelineState {
 }
 
 /// Directed acyclic graph executor for pipeline phases.
+#[non_exhaustive]
 pub struct PipelineDAG {
     phases: HashMap<String, Arc<Phase>>,
     phase_order: Vec<String>,

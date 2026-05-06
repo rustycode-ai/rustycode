@@ -15,6 +15,7 @@ use std::sync::{Arc, Mutex};
 
 /// Theme preview state
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ThemePreviewState {
     /// Available themes
     pub themes: Vec<Theme>,
@@ -167,6 +168,7 @@ impl Default for ThemePreviewState {
 // THEME PREVIEW RENDERER
 
 /// Theme preview renderer
+#[non_exhaustive]
 pub struct ThemePreviewRenderer {
     /// Visual state
     state: ThemePreviewState,
@@ -555,6 +557,7 @@ impl ThemePreviewRenderer {
 // HIGH-LEVEL API
 
 /// High-level theme preview API
+#[non_exhaustive]
 pub struct ThemePreview {
     /// Renderer with embedded state
     renderer: ThemePreviewRenderer,
@@ -615,6 +618,7 @@ impl ThemePreview {
 // THEME SWITCHER (SIMPLIFIED API)
 
 /// Quick theme cycler without a full preview UI.
+#[non_exhaustive]
 pub struct ThemeSwitcher {
     themes: Vec<Theme>,
     current_index: usize,

@@ -31,7 +31,7 @@ rustycode-connector = { path = "../rustycode-connector", default-features = fals
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
 chromiumoxide.workspace = true
 rustycode-thread-guard = { path = "../rustycode-thread-guard" }
-rustycode_shared_runtime = { path = "../rustycode-shared-runtime" }
+rustycode-shared-runtime = { path = "../rustycode-shared-runtime" }
 
 [dev-dependencies]
 tempfile.workspace = true

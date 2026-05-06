@@ -17,6 +17,7 @@ use rustycode_tools::ToolRegistry;
 ///
 /// Owns the session-long MCP proxy cache so that live MCP connections persist
 /// for the full TUI lifecycle and can be shut down explicitly on exit.
+#[non_exhaustive]
 pub(crate) struct ToolManager {
     /// Session-long MCP proxy cache — owns live MCP connections for loaded tools.
     mcp_proxies: Option<Arc<RwLock<HashMap<String, rustycode_mcp::proxy::ToolProxy>>>>,

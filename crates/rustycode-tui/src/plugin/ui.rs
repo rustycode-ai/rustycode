@@ -15,6 +15,7 @@ use ratatui::{
 use super::manager::PluginManager;
 
 /// Plugin manager UI state
+#[non_exhaustive]
 pub struct PluginManagerUI {
     pub visible: bool,
 

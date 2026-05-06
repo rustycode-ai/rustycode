@@ -11,6 +11,7 @@ pub use rustycode_core::ultrawork::{
 
 /// Summary of what changed between a snapshot and the current state.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct TurnDiff {
     /// Number of files modified.
     pub modified: usize,
@@ -69,6 +70,7 @@ const INTERNAL_FILES: &[&str] = &[".rustycode_command_history", ".claude/"];
 /// Uses `git status --porcelain` for change detection (fast, no diff
 /// computation). Falls back to file-mtime tracking when not in a git repo.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct TurnSnapshot {
     /// Git HEAD before the turn. `None` if not a git repo.
     head_before: Option<String>,

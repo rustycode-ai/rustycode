@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// A marketplace item that can be installed
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct MarketplaceItem {
     /// Unique identifier for the item
     pub id: String,
@@ -74,6 +75,7 @@ impl ItemType {
 
 /// Information about an available update
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct UpdateAvailable {
     /// Item that has an update
     pub item: MarketplaceItem,

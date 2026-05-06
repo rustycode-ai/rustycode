@@ -10,7 +10,7 @@
 //! Or from: <https://github.com/mkusaka/it2>
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionId, SessionInfo, SplitDirection,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
     TerminalConnector,
 };
 use std::process::{Command, Stdio};
@@ -19,7 +19,7 @@ use std::sync::Mutex;
 /// it2 session metadata
 #[derive(Debug, Clone)]
 struct It2Session {
-    id: SessionId,
+    id: TerminalSessionId,
     name: String,
     pane_count: usize,
 }
@@ -74,13 +74,13 @@ impl TerminalConnector for It2Connector {
         Self::check_available()
     }
 
-    fn create_session(&mut self, name: &str) -> ConnectorResult<SessionId> {
+    fn create_session(&mut self, name: &str) -> ConnectorResult<TerminalSessionId> {
         // Create a new window with the given name
         // Create new window using it2
         self.run_it2_silent(&["window", "new"])?;
 
         // Set the session name
-        let session_id = SessionId(format!("it2-{}-{}", name, std::process::id()));
+        let session_id = TerminalSessionId(format!("it2-{}-{}", name, std::process::id()));
         let _ = self.run_it2_silent(&["session", "set-name", "-s", &session_id.0, name]); // Name setting is optional
 
         let session = It2Session {
@@ -97,7 +97,7 @@ impl TerminalConnector for It2Connector {
         Ok(session_id)
     }
 
-    fn close_session(&mut self, session: &SessionId) -> ConnectorResult<()> {
+    fn close_session(&mut self, session: &TerminalSessionId) -> ConnectorResult<()> {
         // Close the session using it2
         self.run_it2_silent(&["session", "close", "-s", &session.0])?;
 
@@ -111,7 +111,7 @@ impl TerminalConnector for It2Connector {
         Ok(())
     }
 
-    fn session_info(&self, session: &SessionId) -> ConnectorResult<SessionInfo> {
+    fn session_info(&self, session: &TerminalSessionId) -> ConnectorResult<SessionInfo> {
         let sessions = self
             .sessions
             .lock()
@@ -155,7 +155,7 @@ impl TerminalConnector for It2Connector {
 
     fn split_pane(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
         direction: SplitDirection,
     ) -> ConnectorResult<usize> {
@@ -188,7 +188,7 @@ impl TerminalConnector for It2Connector {
 
     fn send_keys(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
         keys: &str,
     ) -> ConnectorResult<()> {
@@ -201,7 +201,7 @@ impl TerminalConnector for It2Connector {
 
     fn capture_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
     ) -> ConnectorResult<PaneContent> {
         // Capture screen to temp file and read it
@@ -233,7 +233,7 @@ impl TerminalConnector for It2Connector {
 
     fn set_pane_title(
         &mut self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         _pane_index: usize,
         title: &str,
     ) -> ConnectorResult<()> {
@@ -243,7 +243,7 @@ impl TerminalConnector for It2Connector {
         Ok(())
     }
 
-    fn select_pane(&mut self, session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(&mut self, session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
         // it2 doesn't have direct pane selection by index
         // We can use session focus which should activate the window
         self.run_it2_silent(&["session", "focus", "-s", &session.0])?;
@@ -254,7 +254,7 @@ impl TerminalConnector for It2Connector {
         Ok(())
     }
 
-    fn kill_pane(&mut self, _session: &SessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
         // it2 doesn't support killing individual panes directly
         // This is a limitation of the it2 CLI
         Err(ConnectorError::Other(
@@ -264,7 +264,7 @@ impl TerminalConnector for It2Connector {
 
     fn wait_for_output(
         &self,
-        session: &SessionId,
+        session: &TerminalSessionId,
         pane_index: usize,
         pattern: &str,
         timeout_secs: Option<u64>,
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn test_kill_pane_always_fails() {
         let mut connector = It2Connector::new();
-        let session = SessionId("test".into());
+        let session = TerminalSessionId("test".into());
         let result = connector.kill_pane(&session, 0);
         assert!(result.is_err());
         match result {
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn test_session_info_not_found() {
         let connector = It2Connector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.session_info(&session);
         assert!(result.is_err());
         match result {
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn test_split_pane_session_not_found() {
         let mut connector = It2Connector::new();
-        let session = SessionId("nonexistent".into());
+        let session = TerminalSessionId("nonexistent".into());
         let result = connector.split_pane(&session, 0, SplitDirection::Horizontal);
         assert!(result.is_err());
     }

@@ -6,6 +6,7 @@ use rustycode_orchestration::thinking::core::graph::ReasoningGraph;
 use rustycode_orchestration::types::StructuredThought;
 
 #[derive(Debug, Default)]
+#[non_exhaustive]
 pub struct OrchestrationModalState {
     pub graph: Option<ReasoningGraph>,
     pub active_thoughts: Vec<StructuredThought>,
@@ -18,6 +19,7 @@ impl OrchestrationModalState {
     }
 }
 
+#[non_exhaustive]
 pub struct OrchestrationModalWidget;
 
 impl Widget for OrchestrationModalWidget {

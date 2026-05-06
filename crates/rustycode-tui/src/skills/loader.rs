@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 /// Skill loaded from filesystem
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Skill {
     /// Skill name (e.g., "code-review")
     pub name: String,
@@ -31,6 +32,7 @@ pub struct Skill {
 
 /// Command provided by a skill
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SkillCommand {
     /// Command name (e.g., "progress")
     pub name: String,
@@ -99,6 +101,7 @@ impl SkillCategory {
 
 /// Skill parameter definition
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SkillParameter {
     /// Parameter name (e.g., "target")
     pub name: String,
@@ -131,6 +134,7 @@ pub enum ParamType {
 }
 
 /// Skill loader from `.claude/skills/` directory
+#[non_exhaustive]
 pub struct SkillLoader {
     /// Base path for skills directory
     base_path: PathBuf,

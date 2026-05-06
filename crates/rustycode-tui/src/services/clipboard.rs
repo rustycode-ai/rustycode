@@ -101,6 +101,7 @@ impl ImageFormatType {
 
 /// Image data from clipboard
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct ClipboardImage {
     /// Raw image bytes
     pub data: Vec<u8>,

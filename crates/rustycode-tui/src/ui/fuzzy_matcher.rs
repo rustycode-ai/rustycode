@@ -46,6 +46,7 @@ impl MatchScore {
 /// This matcher provides case-insensitive fuzzy matching with relevance scoring.
 /// It can be used to search strings, names, paths, etc.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct FuzzyMatcher;
 
 impl FuzzyMatcher {

@@ -26,6 +26,7 @@ pub enum WizardStep {
 
 /// Provider information for the wizard
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ProviderInfo {
     pub id: String,
     pub name: String,
@@ -36,6 +37,7 @@ pub struct ProviderInfo {
 }
 
 /// First-run wizard state
+#[non_exhaustive]
 pub struct FirstRunWizard {
     pub step: WizardStep,
     pub providers: Vec<ProviderInfo>,
@@ -652,6 +654,7 @@ impl FirstRunWizard {
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum WizardAction {
     /// Continue running the wizard
     Continue,

@@ -10,10 +10,12 @@ use tokio::sync::Mutex;
 
 /// Represents a signal that a step needs or provides.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub struct Signal(pub String);
 
 /// Defines how a dependency blocks the pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum BlockingType {
     Hard, // Halts the entire pipeline
     Soft, // Proceeds with degraded mode
@@ -21,6 +23,7 @@ pub enum BlockingType {
 
 /// A requirement for a pipeline step.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Dependency {
     pub signal: Signal,
     pub blocking: BlockingType,
@@ -39,6 +42,7 @@ pub trait PipelineStep: Send + Sync {
 }
 
 /// Shared context for the pipeline execution.
+#[non_exhaustive]
 pub struct PipelineContext {
     pub signals: HashSet<Signal>,
     pub artifact_registry: Arc<Mutex<ArtifactRegistry>>,
@@ -81,6 +85,7 @@ pub trait StepFactory: Send + Sync {
     fn create(&self, step: &StepDefinition) -> Arc<dyn PipelineStep>;
 }
 
+#[non_exhaustive]
 pub struct PipelineRegistry {
     steps: Vec<Arc<dyn PipelineStep>>,
     factories: HashMap<String, Box<dyn StepFactory>>,

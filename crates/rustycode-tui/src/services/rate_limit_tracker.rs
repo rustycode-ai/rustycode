@@ -10,6 +10,7 @@ use chrono::{DateTime, Utc};
 /// Displayed in the TUI status bar when data is available, showing
 /// remaining calls, usage percentage, and time until reset.
 #[derive(Debug, Clone, Default)]
+#[non_exhaustive]
 pub struct RateLimitTracker {
     /// Remaining requests in the current window (from `x-ratelimit-remaining`)
     remaining: Option<u32>,

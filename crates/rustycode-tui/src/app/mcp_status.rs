@@ -1,6 +1,7 @@
 use crate::ui::session_sidebar::McpServerStatus;
 use std::time::{Duration, Instant};
 
+#[non_exhaustive]
 pub(crate) struct McpStatus {
     pub(crate) last_mcp_refresh: Instant,
     pub(crate) last_mcp_servers: Vec<McpServerStatus>,

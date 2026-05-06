@@ -63,6 +63,7 @@ impl SpinnerStatus {
 
 /// Animated spinner for async operations
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct Spinner {
     style: SpinnerStyle,
     status: SpinnerStatus,

@@ -5,6 +5,7 @@
 use std::path::PathBuf;
 
 /// Workspace state
+#[non_exhaustive]
 pub struct WorkspaceState {
     /// Whether workspace has been loaded
     pub loaded: bool,
@@ -56,6 +57,7 @@ impl WorkspaceState {
 
 /// Summary of workspace loading status
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct WorkspaceSummary {
     /// Number of files indexed
     pub file_count: usize,

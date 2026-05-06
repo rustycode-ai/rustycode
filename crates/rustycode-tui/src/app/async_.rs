@@ -21,6 +21,7 @@ pub enum RecvStatus<T> {
 
 /// Option for a question (multiple choice)
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct QuestionOption {
     pub label: String,
     pub description: String,
@@ -297,6 +298,7 @@ pub enum StreamChunk {
 
 /// Result from tool execution
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ToolResult {
     /// Tool call identifier
     pub id: String,
@@ -320,6 +322,7 @@ pub enum ToolOutput {
 
 /// Result from bash command execution
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct CommandResult {
     /// Command that was executed
     pub command: String,
@@ -399,6 +402,7 @@ pub enum ChannelError {
 ///
 /// The channel is thread-safe and can be used from background threads.
 /// Use `clone_sender()` to get additional senders.
+#[non_exhaustive]
 pub struct BoundedChannel<T> {
     /// Channel sender (sync sender for bounded channel)
     tx: mpsc::SyncSender<T>,
@@ -557,6 +561,7 @@ where
 ///
 /// This provides a convenient way to capture state snapshots from background
 /// threads for use in the event loop.
+#[non_exhaustive]
 pub struct Snapshot<T> {
     inner: T,
 }

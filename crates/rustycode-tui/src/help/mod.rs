@@ -30,6 +30,7 @@ pub enum HelpCategory {
 
 /// Help topic with title and content
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct HelpTopic {
     pub title: String,
     pub category: HelpCategory,
@@ -38,6 +39,7 @@ pub struct HelpTopic {
 }
 
 /// Help UI state
+#[non_exhaustive]
 pub struct HelpState {
     pub visible: bool,
     pub selected_category: Option<HelpCategory>,

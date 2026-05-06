@@ -15,6 +15,7 @@ use std::fmt;
 
 /// Command that can be executed from the palette
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct Command {
     /// Unique command identifier (e.g., "help", "clear")
     pub name: String,
@@ -108,6 +109,7 @@ pub enum MatchScore {
 
 /// Palette tabs for grouping commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PaletteTab {
     All,
     Core,
@@ -206,6 +208,7 @@ fn command_tab(command: &Command) -> PaletteTab {
 
 /// Fuzzy matcher for command search
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct FuzzyMatcher;
 
 impl FuzzyMatcher {
@@ -366,6 +369,7 @@ impl Default for FuzzyMatcher {
 
 /// Command palette state
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct CommandPaletteState {
     /// Current search query
     pub query: String,
@@ -670,6 +674,7 @@ impl CommandPaletteState {
 // COMMAND PALETTE RENDERER
 
 /// Command palette renderer
+#[non_exhaustive]
 pub struct CommandPaletteRenderer {
     /// Visual state
     state: CommandPaletteState,
@@ -1384,6 +1389,7 @@ impl Default for CommandPaletteRenderer {
 // COMMAND PALETTE (HIGH-LEVEL API)
 
 /// Combines state and rendering into a single interface.
+#[non_exhaustive]
 pub struct CommandPalette {
     renderer: CommandPaletteRenderer,
 }

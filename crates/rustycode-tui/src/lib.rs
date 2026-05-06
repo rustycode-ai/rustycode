@@ -85,6 +85,8 @@ mod unicode;
 
 pub(crate) mod compaction_context;
 pub(crate) mod memory;
+#[cfg(feature = "vector-memory")]
+pub(crate) mod memory_bridge;
 pub(crate) mod services;
 pub(crate) mod workspace;
 

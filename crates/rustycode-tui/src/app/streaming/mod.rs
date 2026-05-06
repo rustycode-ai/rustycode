@@ -18,6 +18,7 @@ pub use rustycode_core::streaming::ToolAccumulator as ActiveToolUse;
 ///
 /// Stores the outcome of a tool execution for later use in conversation continuation.
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ToolExecutionResult {
     /// The unique ID matching the original tool use request
     pub tool_use_id: String,

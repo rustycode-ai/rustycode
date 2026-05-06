@@ -4,6 +4,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 /// Rate limit state
 #[derive(Default)]
+#[non_exhaustive]
 pub struct RateLimitState {
     /// When the rate limit will expire
     pub until: Option<Instant>,

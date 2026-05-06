@@ -96,11 +96,13 @@ fn browser_tool_adapters(tool_registry: &ToolRegistry) -> Vec<Box<dyn RustyCodeT
     tools
 }
 
+#[non_exhaustive]
 pub struct TuiAgentManager {
     session: Arc<tokio::sync::Mutex<AgentSession>>,
     provider: Arc<dyn rustycode_llm::provider::LLMProvider>,
 }
 
+#[non_exhaustive]
 pub struct TuiAgentBridge {
     final_text: String,
     adapter: StreamEventAdapter,

@@ -18,6 +18,7 @@ use chrono::Timelike;
 
 /// Events emitted by [`PipelineCronScheduler`] through the `std::sync::mpsc` channel.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ScheduledPhaseEvent {
     /// A scheduled phase has reached its fire time and is ready to execute.
     PhaseReady {
@@ -48,6 +49,7 @@ pub enum ScheduledPhaseEvent {
 
 /// Configuration for [`PipelineCronScheduler`].
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct SchedulerConfig {
     /// Maximum number of phases that can run concurrently.
     pub max_concurrent_phases: usize,
@@ -101,6 +103,7 @@ impl SchedulerConfig {
 ///
 /// Uses `std::thread::spawn` for per-phase timer threads and `std::sync::mpsc` for event
 /// delivery, matching the synchronous nature of the TUI event loop.
+#[non_exhaustive]
 pub struct PipelineCronScheduler {
     config: SchedulerConfig,
     tx: Sender<ScheduledPhaseEvent>,

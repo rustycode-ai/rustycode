@@ -26,6 +26,7 @@ pub enum InputMode {
 
 /// Complete input state including text, cursor, and images
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub struct InputState {
     /// Current input mode
     pub mode: InputMode,

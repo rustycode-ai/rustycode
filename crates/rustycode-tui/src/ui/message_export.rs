@@ -12,6 +12,7 @@ use std::path::PathBuf;
 
 /// Options for conversation export
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ExportOptions {
     pub include_tools: bool,
     pub include_thinking: bool,
@@ -56,6 +57,7 @@ impl ExportFormat {
 // EXPORTER
 
 /// Conversation exporter
+#[non_exhaustive]
 pub struct ConversationExporter {
     export_dir: PathBuf,
 }

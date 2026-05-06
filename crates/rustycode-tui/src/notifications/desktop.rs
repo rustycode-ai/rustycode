@@ -13,6 +13,7 @@ const OSC9_TERM_PROGRAMS: &[&str] = &[
 ];
 
 /// Desktop notifier using OSC 9 escape sequences with BEL fallback.
+#[non_exhaustive]
 pub struct DesktopNotifier {
     /// Whether notifications are enabled (opt-in via config).
     pub enabled: bool,

@@ -67,6 +67,7 @@ impl OrchestrationClient for ServiceManager {
 /// The service manager owns all service channels and handles the lifecycle
 /// of background tasks. It provides one-item-per-frame polling methods
 /// for integration with the event loop.
+#[non_exhaustive]
 pub struct ServiceManager {
     /// Conversation service (LLM streaming)
     conversation: Option<ConversationService>,
@@ -871,6 +872,7 @@ impl ServiceManager {
 
 /// Statistics about service channel health
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ServiceStats {
     /// Number of dropped stream chunks (backpressure)
     pub stream_dropped: usize,

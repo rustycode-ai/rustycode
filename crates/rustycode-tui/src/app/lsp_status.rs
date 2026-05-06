@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 
+#[non_exhaustive]
 pub(crate) struct LspStatus {
     pub(crate) last_lsp_refresh: Instant,
     pub(crate) last_lsp_servers: Vec<String>,

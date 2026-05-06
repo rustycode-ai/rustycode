@@ -24,6 +24,7 @@ fn has_native_thinking(model_id: &str) -> bool {
 
 /// Result of analyzing a user message for orchestration routing.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct AnalysisResult {
     /// Numeric complexity score (0.0–5.0).
     pub complexity: f64,
@@ -35,6 +36,7 @@ pub struct AnalysisResult {
 }
 
 /// Unified orchestration integration for the TUI.
+#[non_exhaustive]
 pub struct OrchestrationIntegration {
     quality_detector: QualityDetector,
     strategy_selector: StrategySelector,

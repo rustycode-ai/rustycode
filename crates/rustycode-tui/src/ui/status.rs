@@ -20,6 +20,7 @@ use crate::memory::compaction::{ContextMonitor, UsageColor};
 
 /// Configuration for status display
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct StatusConfig {
     pub animations_enabled: bool,
     /// Show tool indicators inline
@@ -48,6 +49,7 @@ impl Default for StatusConfig {
 
 /// Application status indicator
 #[derive(Clone, Debug)]
+#[non_exhaustive]
 pub struct StatusIndicator {
     /// Icon representing the status
     pub icon: &'static str,
@@ -148,6 +150,7 @@ impl StatusIndicator {
 ///
 /// Displays current application state at the bottom of the screen.
 /// Always visible and shows the most important status information.
+#[non_exhaustive]
 pub struct StatusBar {
     /// Status configuration
     config: StatusConfig,
@@ -461,6 +464,7 @@ impl Status {
 
 /// Collection of tool execution states
 #[derive(Clone, Debug, Default)]
+#[non_exhaustive]
 pub struct ToolExecutions {
     /// Active tool executions
     pub tools: Vec<ToolProgress>,

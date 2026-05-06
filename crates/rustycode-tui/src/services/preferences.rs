@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 /// User preferences that persist across sessions
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[non_exhaustive]
 pub struct UserPreferences {
     pub last_used_model: String,
     pub last_used_provider: String,

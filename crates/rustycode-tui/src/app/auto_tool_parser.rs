@@ -1,6 +1,7 @@
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct ParsedToolCall {
     pub name: String,
     pub arguments: Value,

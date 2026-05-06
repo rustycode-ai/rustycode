@@ -6086,12 +6086,12 @@ dependencies = [
  "rustycode-orchestration",
  "rustycode-protocol",
  "rustycode-session",
+ "rustycode-shared-runtime",
  "rustycode-skill",
  "rustycode-storage",
  "rustycode-tools",
  "rustycode-tools-api",
  "rustycode-vector-memory",
- "rustycode_shared_runtime",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -6337,9 +6337,9 @@ dependencies = [
  "reqwest 0.13.3",
  "rustycode-connector",
  "rustycode-protocol",
+ "rustycode-shared-runtime",
  "rustycode-thread-guard",
  "rustycode-tools",
- "rustycode_shared_runtime",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -6363,6 +6363,7 @@ dependencies = [
  "serde_yaml",
  "sha2 0.11.0",
  "tempfile",
+ "tokio",
  "tracing",
  "uuid",
  "walkdir",
@@ -6537,6 +6538,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustycode-shared-runtime"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "num_cpus",
+ "tokio",
+]
+
+[[package]]
 name = "rustycode-skill"
 version = "0.1.0"
 dependencies = [
@@ -6651,12 +6661,12 @@ dependencies = [
  "rustycode-lsp",
  "rustycode-protocol",
  "rustycode-session",
+ "rustycode-shared-runtime",
  "rustycode-storage",
  "rustycode-thread-guard",
  "rustycode-tool-integration",
  "rustycode-tools-api",
  "rustycode-vector-memory",
- "rustycode_shared_runtime",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -6750,13 +6760,13 @@ dependencies = [
  "rustycode-providers",
  "rustycode-runtime",
  "rustycode-session",
+ "rustycode-shared-runtime",
  "rustycode-skill",
  "rustycode-storage",
  "rustycode-tools",
  "rustycode-tools-api",
  "rustycode-ui-core",
  "rustycode-vector-memory",
- "rustycode_shared_runtime",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -6839,15 +6849,6 @@ dependencies = [
  "tower",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "rustycode_shared_runtime"
-version = "0.1.0"
-dependencies = [
- "futures",
- "num_cpus",
- "tokio",
 ]
 
 [[package]]

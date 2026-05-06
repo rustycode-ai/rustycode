@@ -18,6 +18,7 @@ use rustycode_vector_memory::{MemoryResult, VectorMemory};
 /// Stub for [`MemoryResult`] when the `vector-memory` feature is disabled.
 #[cfg(not(feature = "vector-memory"))]
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct MemoryResult {
     /// Placeholder – never populated without the feature.
     pub similarity: f32,
@@ -30,6 +31,7 @@ use tokio::sync::Mutex;
 
 /// Configuration for conversation service
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct ConversationConfig {
     pub max_messages: usize,
     pub max_tokens: usize,
@@ -45,6 +47,7 @@ impl Default for ConversationConfig {
 }
 
 /// Conversation service that handles prompting and conversation management
+#[non_exhaustive]
 pub struct ConversationService {
     conversation_manager: ConversationManager,
     cached_system_prompt: String,

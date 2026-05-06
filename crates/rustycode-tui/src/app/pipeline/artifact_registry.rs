@@ -9,6 +9,7 @@ use super::types::{Artifact, ArtifactQuery};
 
 /// In-memory artifact registry with O(1) ID lookups and a
 /// `type_tag → [id]` secondary index for type-scoped queries.
+#[non_exhaustive]
 pub struct ArtifactRegistry {
     memory: Arc<RwLock<HashMap<String, Artifact>>>,
     index: Arc<RwLock<HashMap<String, Vec<String>>>>,

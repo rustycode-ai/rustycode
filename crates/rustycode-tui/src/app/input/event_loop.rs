@@ -7,6 +7,7 @@ use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyModifiers};
 
 /// State for scrolling operations
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ScrollState {
     pub scroll_offset: usize,
     pub scroll_offset_line: usize,

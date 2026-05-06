@@ -13,6 +13,7 @@ use rustycode_runtime::compaction::CompactPipeline;
 ///
 /// Maps TUI-specific settings to [`HybridCompactionConfig`] defaults where
 /// direct equivalents don't exist.
+#[non_exhaustive]
 pub struct CompactPipelineAdapter {
     pipeline: CompactPipeline,
 }

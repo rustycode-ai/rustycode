@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Mistake {
     pub timestamp: Instant,
     pub mistake_type: MistakeType,
@@ -90,6 +91,7 @@ impl RecoveryStrategy {
 
 const MAX_MISTAKE_HISTORY: usize = 100;
 
+#[non_exhaustive]
 pub struct MistakeTracker {
     /// Bounded history of recent mistakes (auto-evicts oldest)
     mistakes: CircularBuffer<Mistake>,

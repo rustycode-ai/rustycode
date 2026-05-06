@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct RetryPolicy {
     pub max_attempts: u32,
     pub backoff_secs: u64,
@@ -19,6 +20,7 @@ impl Default for RetryPolicy {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "mode")]
+#[non_exhaustive]
 pub enum FailureStrategy {
     #[serde(rename = "hard_block")]
     HardBlock { retry: RetryPolicy },
@@ -34,6 +36,7 @@ pub enum FailureStrategy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ArtifactSchema {
     pub type_tag: String,
     pub format: String,
@@ -43,6 +46,7 @@ pub struct ArtifactSchema {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Artifact {
     pub id: String,
     pub type_tag: String,
@@ -55,6 +59,7 @@ pub struct Artifact {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "format")]
+#[non_exhaustive]
 pub enum ArtifactPayload {
     #[serde(rename = "json")]
     Json(serde_json::Value),
@@ -69,6 +74,7 @@ pub enum ArtifactPayload {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ArtifactQuery {
     pub type_tag: String,
     pub after_phase: Option<String>,
@@ -98,6 +104,7 @@ impl ArtifactQuery {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum PhaseResult {
     Success,
     Degraded { reason: String },
@@ -106,6 +113,7 @@ pub enum PhaseResult {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PhaseStatus {
     NotStarted,
     Running,

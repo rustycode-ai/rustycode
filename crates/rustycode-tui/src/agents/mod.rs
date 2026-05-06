@@ -19,6 +19,7 @@ pub type AgentId = usize;
 
 /// Performance metrics for agent execution
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct AgentMetrics {
     /// Total agents spawned
     pub total_spawned: AtomicU64,
@@ -144,6 +145,7 @@ pub enum AgentStatus {
 
 /// Information about a running agent
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct AgentTask {
     /// Unique identifier
     pub id: AgentId,
@@ -236,6 +238,7 @@ impl AgentTask {
 
 /// Agent manager - tracks and manages running agents
 #[derive(Clone)]
+#[non_exhaustive]
 pub struct AgentManager {
     /// Active agents (id -> task)
     agents: Arc<Mutex<HashMap<AgentId, AgentTask>>>,

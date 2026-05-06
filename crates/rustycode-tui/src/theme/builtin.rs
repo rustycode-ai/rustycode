@@ -5,6 +5,7 @@ use crate::ui::toast::ToastLevel;
 use ratatui::style::Color;
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ThemeColors {
     pub background: Color,
     pub foreground: Color,
@@ -67,12 +68,14 @@ impl ThemeColors {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ThemeDefinition {
     pub name: String,
     pub colors: ThemeDefinitionColors,
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct ThemeDefinitionColors {
     pub background: String,
     pub foreground: String,
@@ -86,6 +89,7 @@ pub struct ThemeDefinitionColors {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct Theme {
     pub name: String,
     pub colors: ThemeDefinitionColors,

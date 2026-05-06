@@ -13,6 +13,7 @@ use std::time::SystemTime;
 
 /// A task with status tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Task {
     pub id: String,
     pub description: String,
@@ -39,6 +40,7 @@ pub enum TaskStatus {
 
 /// A simple todo item
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct Todo {
     pub id: String,
     pub text: String,
@@ -48,6 +50,7 @@ pub struct Todo {
 
 /// An active agent process
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct ActiveAgent {
     pub id: String,
     pub task: String,
@@ -68,6 +71,7 @@ pub enum AgentStatus {
 
 /// Container for all workspace tasks
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub struct WorkspaceTasks {
     pub tasks: Vec<Task>,
     pub todos: Vec<Todo>,

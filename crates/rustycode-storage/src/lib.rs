@@ -95,8 +95,6 @@ pub mod conversation_history;
 pub mod session_capture;
 
 // LLM-powered session summarization
-pub mod llm_summarizer;
-
 // Event sourcing
 // pub mod event_store; // broken: needs rustycode-agent-runtime dep (cycle) — fix pending
 

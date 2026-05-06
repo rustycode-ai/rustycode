@@ -40,6 +40,7 @@ impl PasteResult {
 /// Clipboard paste handler
 ///
 /// Uses platform-specific clipboard functions for better image paste support.
+#[non_exhaustive]
 pub struct PasteHandler {
     _phantom: std::marker::PhantomData<()>,
 }

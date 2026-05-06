@@ -34,6 +34,7 @@ const READ_ONLY_TOOLS: &[&str] = &[
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ToolCategory {
     /// Read-only — exploration/research
     Exploration,
@@ -46,6 +47,7 @@ pub enum ToolCategory {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum StallLevel {
     /// No stall detected
     Normal,
@@ -58,6 +60,7 @@ pub enum StallLevel {
 }
 
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub struct StallDetector {
     /// Consecutive turns that were purely exploration (no code tools).
     consecutive_exploration_turns: usize,
