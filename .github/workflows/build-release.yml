@@ -48,8 +48,6 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     env:
-      SCCACHE_GHA_ENABLED: "true"
-      RUSTC_WRAPPER: "sccache"
     steps:
       - name: Checkout from private repo
         uses: actions/checkout@v4
@@ -85,8 +83,8 @@ jobs:
           echo "[target.aarch64-unknown-linux-gnu]" >> ~/.cargo/config.toml
           echo "linker = \"aarch64-linux-gnu-gcc\"" >> ~/.cargo/config.toml
 
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.7
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
 
       - name: Build release binaries
         shell: bash
@@ -96,9 +94,7 @@ jobs:
           cargo build --release --target ${{ matrix.target }} -p rustycode-cli
           cargo build --release --target ${{ matrix.target }} -p rustycode-tui
 
-      - name: Print sccache stats
         if: always()
-        run: sccache --show-stats
 
       - name: Verify binaries exist
         shell: bash
