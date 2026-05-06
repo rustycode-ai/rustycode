@@ -24,6 +24,7 @@ use crate::plugin::PluginManager;
 use crate::plugin::PluginManagerUI;
 use crate::services::providers::all_available_models;
 use crate::services::session::load_command_history;
+use crate::app::OrchestrationClient;
 use crate::skills::{SkillLoader, SkillStateManager};
 use crate::app::tasks::{load_tasks, WorkspaceTasks};
 use crate::theme::{Theme, ThemeColors};

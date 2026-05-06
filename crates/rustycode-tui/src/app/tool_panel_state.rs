@@ -41,7 +41,6 @@ impl Default for ToolPanelState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ui::message_types::ToolStatus;
 
     #[test]
     fn new_starts_hidden_with_empty_history() {
