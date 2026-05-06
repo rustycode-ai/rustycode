@@ -119,7 +119,7 @@ mod tests {
     fn clamp_scroll_within_bounds() {
         let mut vs = ViewState::new();
         vs.viewport_height = 10;
-        vs.scroll_offset_line = 50;
+        vs.scroll_offset_line = 95;
         vs.clamp_scroll(100);
         assert_eq!(vs.scroll_offset_line, 90); // 100 - 10
     }

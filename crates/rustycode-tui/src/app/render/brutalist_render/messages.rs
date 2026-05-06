@@ -190,23 +190,26 @@ impl BrutalistRenderer<'_> {
     ///
     /// This keeps inline formatting such as code, links, emphasis, and
     /// strikethrough alive inside table rows.
-    fn render_table_cell<'b>(
+    fn render_table_cell(
         &self,
-        cell: &'b str,
+        cell: &str,
         colors: &ThemeColors,
         is_header: bool,
-    ) -> Vec<Span<'b>> {
+    ) -> Vec<Span<'static>> {
         let spans = Self::parse_inline_content(cell, colors);
 
         if !is_header {
-            return spans;
+            return spans
+                .into_iter()
+                .map(|span| Span::styled(span.content.into_owned(), span.style))
+                .collect();
         }
 
         spans
             .into_iter()
             .map(|span| {
                 Span::styled(
-                    span.content,
+                    span.content.into_owned(),
                     span.style.fg(colors.primary).add_modifier(Modifier::BOLD),
                 )
             })

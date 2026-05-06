@@ -2,21 +2,22 @@
 
 /// Split a markdown table row into cells while respecting escaped pipes and
 /// inline code spans.
-pub(super) fn split_table_cells(row: &str) -> Vec<&str> {
+pub(super) fn split_table_cells(row: &str) -> Vec<String> {
     let row = row.trim().trim_matches('|');
     if row.is_empty() {
-        return vec![""];
+        return vec![String::new()];
     }
 
     let mut cells = Vec::new();
-    let mut cell_start = 0usize;
+    let mut current = String::new();
     let mut in_code_span = false;
     let mut code_fence_len = 0usize;
     let mut escape_next = false;
     let mut iter = row.char_indices().peekable();
 
-    while let Some((idx, ch)) = iter.next() {
+    while let Some((_, ch)) = iter.next() {
         if escape_next {
+            current.push(ch);
             escape_next = false;
             continue;
         }
@@ -32,6 +33,8 @@ pub(super) fn split_table_cells(row: &str) -> Vec<&str> {
                     fence_len += 1;
                 }
 
+                current.extend(std::iter::repeat_n('`', fence_len));
+
                 if in_code_span {
                     if fence_len == code_fence_len {
                         in_code_span = false;
@@ -43,14 +46,14 @@ pub(super) fn split_table_cells(row: &str) -> Vec<&str> {
                 }
             }
             '|' if !in_code_span => {
-                cells.push(row[cell_start..idx].trim());
-                cell_start = idx + ch.len_utf8();
+                cells.push(current.trim().to_string());
+                current.clear();
             }
-            _ => {}
+            _ => current.push(ch),
         }
     }
 
-    cells.push(row[cell_start..].trim());
+    cells.push(current.trim().to_string());
     cells
 }
 
@@ -74,7 +77,7 @@ mod table_tests {
     #[test]
     fn splits_cells_with_escaped_pipes_and_inline_code() {
         let cells = split_table_cells("| `x|y` | a \\| b |");
-        assert_eq!(cells, vec!["`x|y`", "a \\| b"]);
+        assert_eq!(cells, vec!["`x|y`".to_string(), "a | b".to_string()]);
     }
 
     #[test]

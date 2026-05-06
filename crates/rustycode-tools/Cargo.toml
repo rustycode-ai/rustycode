@@ -28,6 +28,7 @@ chromiumoxide.workspace = true
 futures.workspace = true
 notify = "8.0"
 rustycode-tools-api = { path = "../rustycode-tools-api" }
+rustycode-tools-security = { path = "../rustycode-tools-security" }
 rustycode-executable = { path = "../rustycode-executable" }
 async-trait = "0.1"
 rustycode-config = { path = "../rustycode-config" }
