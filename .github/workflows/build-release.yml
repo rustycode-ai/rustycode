@@ -84,8 +84,8 @@ jobs:
       - name: Build release binaries
         shell: bash
         run: |
-          cargo build --release --target ${{ matrix.target }} -p rustycode-cli --locked
-          cargo build --release --target ${{ matrix.target }} -p rustycode-tui --locked
+          cargo build --release --target ${{ matrix.target }} -p rustycode-cli
+          cargo build --release --target ${{ matrix.target }} -p rustycode-tui
 
       - name: Verify binaries exist
         shell: bash
