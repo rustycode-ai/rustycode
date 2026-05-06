@@ -94,9 +94,9 @@ pub(crate) mod slash_commands;
 
 pub(crate) mod plugin;
 
-pub(crate) mod ui;
+pub mod ui;
 
-pub(crate) mod app;
+pub mod app;
 
 pub(crate) mod skills;
 

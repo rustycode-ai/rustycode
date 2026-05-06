@@ -1771,11 +1771,11 @@ fn main() {
 
     #[test]
     fn test_render_diff_highlights_reordered_words() {
-        let diff = r#"--- a/file.txt
+        let diff = r"--- a/file.txt
 +++ b/file.txt
 @@ -1 +1 @@
 -foo bar
-+bar foo"#;
++bar foo";
         let lines = render_diff(diff);
         let has_removed_highlight = lines.iter().any(|line| {
             line.spans
