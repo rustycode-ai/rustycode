@@ -529,28 +529,44 @@ mod tests {
     fn test_format_relative_time_seconds() {
         let time = SystemTime::now() - Duration::from_secs(5);
         let result = format_relative_time(time);
-        assert!(result.contains("s ago"), "expected seconds format, got: {}", result);
+        assert!(
+            result.contains("s ago"),
+            "expected seconds format, got: {}",
+            result
+        );
     }
 
     #[test]
     fn test_format_relative_time_minutes() {
         let time = SystemTime::now() - Duration::from_secs(125);
         let result = format_relative_time(time);
-        assert!(result.contains("m ago"), "expected minutes format, got: {}", result);
+        assert!(
+            result.contains("m ago"),
+            "expected minutes format, got: {}",
+            result
+        );
     }
 
     #[test]
     fn test_format_relative_time_hours() {
         let time = SystemTime::now() - Duration::from_secs(7200);
         let result = format_relative_time(time);
-        assert!(result.contains("h ago"), "expected hours format, got: {}", result);
+        assert!(
+            result.contains("h ago"),
+            "expected hours format, got: {}",
+            result
+        );
     }
 
     #[test]
     fn test_format_relative_time_days() {
         let time = SystemTime::now() - Duration::from_secs(100000);
         let result = format_relative_time(time);
-        assert!(result.contains("d ago"), "expected days format, got: {}", result);
+        assert!(
+            result.contains("d ago"),
+            "expected days format, got: {}",
+            result
+        );
     }
 
     #[test]

@@ -365,9 +365,7 @@ fn check_interpreter_flags(tokens: &[String], binary_name: &str) -> Result<()> {
     if tokens.len() >= 2 && is_shell_or_interp {
         for (i, token) in tokens.iter().enumerate() {
             if (token == "-c" || token == "--command") && i + 1 < tokens.len() {
-                bail!(
-                    "blocked command with -c/--command flag (potential allowlist bypass)"
-                );
+                bail!("blocked command with -c/--command flag (potential allowlist bypass)");
             }
 
             if token == "-e" || token == "--eval" || token == "-E" {

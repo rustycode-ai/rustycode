@@ -74,7 +74,7 @@ pub struct Sandbox {
     /// Whether to prompt for permission (interactive mode)
     interactive: bool,
     /// OS-level sandbox manager (rustycode-sandbox)
-    os_sandbox: Option<rustycode_sandbox::SandboxManager>,
+    os_manager: Option<rustycode_sandbox::SandboxManager>,
 }
 
 /// Platform-specific sandbox capabilities
@@ -113,7 +113,7 @@ impl Sandbox {
             enforced: false,
             capabilities,
             interactive: false, // Default to non-interactive
-            os_sandbox: None,
+            os_manager: None,
         }
     }
 
@@ -130,7 +130,7 @@ impl Sandbox {
 
     /// Returns a reference to the OS sandbox manager, if initialized.
     pub fn os_sandbox_manager(&self) -> Option<&rustycode_sandbox::SandboxManager> {
-        self.os_sandbox.as_ref()
+        self.os_manager.as_ref()
     }
 
     /// Detect platform-specific sandbox capabilities
@@ -223,14 +223,16 @@ impl Sandbox {
                         platform = std::env::consts::OS,
                         "OS-level sandbox backend ready for child process isolation"
                     );
-                    self.os_sandbox = Some(manager);
+                    self.os_manager = Some(manager);
                 } else {
                     tracing::warn!("OS sandbox backend detected as unavailable, falling back to path validation");
                     return self.enforce_basic();
                 }
             }
             Err(e) => {
-                tracing::warn!("Failed to initialize OS sandbox: {e}, falling back to path validation");
+                tracing::warn!(
+                    "Failed to initialize OS sandbox: {e}, falling back to path validation"
+                );
                 return self.enforce_basic();
             }
         }

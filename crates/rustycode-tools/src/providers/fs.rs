@@ -1154,7 +1154,6 @@ fn verify_written(path: &Path, expected: &[u8]) -> Result<(), MismatchDetail> {
     Ok(())
 }
 
-
 /// Check if content appears to be HTML
 pub(super) fn is_html_content(content: &str) -> bool {
     let trimmed = content.trim().to_lowercase();

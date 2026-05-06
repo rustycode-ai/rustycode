@@ -90,8 +90,7 @@ impl Tool for ListDirTool {
                         if filter_str != "all" && kind != filter_str {
                             continue;
                         }
-                    }
-                    else if filter_str.starts_with('.')
+                    } else if filter_str.starts_with('.')
                         && !entry.path().to_string_lossy().ends_with(filter_str)
                     {
                         continue;
@@ -122,8 +121,7 @@ impl Tool for ListDirTool {
                             if filter_str != "all" && kind != filter_str {
                                 return None;
                             }
-                        }
-                        else if filter_str.starts_with('.')
+                        } else if filter_str.starts_with('.')
                             && !entry.file_name().to_string_lossy().ends_with(filter_str)
                         {
                             return None;
@@ -287,10 +285,7 @@ mod tests {
         let tool = ListDirTool;
         let ctx = ToolContext::new(".");
 
-        let result = tool.execute(
-            json!({ "path": ".", "recursive": true }),
-            &ctx,
-        );
+        let result = tool.execute(json!({ "path": ".", "recursive": true }), &ctx);
         assert!(result.is_ok());
 
         let output = result.unwrap();

@@ -434,10 +434,7 @@ mod tests {
             name: "bash".to_string(),
             result: ToolOutput::Success("colored".to_string()),
         };
-        let output = format_detailed_output(
-            &result,
-            "\x1b[31mcolored\x1b[0m text".to_string(),
-        );
+        let output = format_detailed_output(&result, "\x1b[31mcolored\x1b[0m text".to_string());
         assert!(!output.contains("\x1b"));
         assert!(output.contains("colored text"));
     }

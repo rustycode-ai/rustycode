@@ -1463,10 +1463,13 @@ impl TUI {
                 if should_render {
                     let render_start = Instant::now();
                     if self.needs_full_redraw {
-                        terminal.clear().context("failed to clear terminal for full redraw")?;
+                        terminal
+                            .clear()
+                            .context("failed to clear terminal for full redraw")?;
                         self.needs_full_redraw = false;
                     }
-                    terminal.draw(|f| self.render(f))
+                    terminal
+                        .draw(|f| self.render(f))
                         .context("failed to draw TUI frame")?;
                     frame_count += 1;
                     self.dirty = false;
@@ -1492,7 +1495,9 @@ impl TUI {
                 // Frame over budget, skip render, handle input with small timeout
                 // to prevent CPU spin when consistently over budget
                 let input_poll_start = Instant::now();
-                if event::poll(EVENT_POLL_TIMEOUT).context("failed to poll for input events (over budget)")? {
+                if event::poll(EVENT_POLL_TIMEOUT)
+                    .context("failed to poll for input events (over budget)")?
+                {
                     input_polled = true;
                     let input_handle_start = Instant::now();
                     self.handle_input()?;

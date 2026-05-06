@@ -473,7 +473,10 @@ mod tests {
         let ctx = crate::ToolContext::new(temp_dir.path());
         let tool = BashTool;
 
-        let result = tool.execute(serde_json::json!({ "command": "echo hello_world_test" }), &ctx);
+        let result = tool.execute(
+            serde_json::json!({ "command": "echo hello_world_test" }),
+            &ctx,
+        );
         assert!(
             result.is_ok(),
             "echo should succeed even with shell startup stderr: {:?}",

@@ -61,9 +61,11 @@ impl ToolPanelState {
 
     pub(crate) fn scroll_result(&mut self, delta: i32) {
         let new_offset = if delta >= 0 {
-            self.tool_result_scroll_offset.saturating_add(delta as usize)
+            self.tool_result_scroll_offset
+                .saturating_add(delta as usize)
         } else {
-            self.tool_result_scroll_offset.saturating_sub((-delta) as usize)
+            self.tool_result_scroll_offset
+                .saturating_sub((-delta) as usize)
         };
         self.tool_result_scroll_offset = new_offset;
     }
@@ -111,7 +113,11 @@ mod tests {
     #[test]
     fn push_execution_adds_to_history() {
         let mut state = ToolPanelState::new();
-        state.push_execution(ToolExecution::new("tool".into(), "read".into(), "summary".into()));
+        state.push_execution(ToolExecution::new(
+            "tool".into(),
+            "read".into(),
+            "summary".into(),
+        ));
         assert_eq!(state.tool_panel_history.len(), 1);
     }
 
