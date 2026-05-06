@@ -1053,16 +1053,16 @@ impl Storage {
             params![
                 milestone.id.to_string(),
                 milestone.session_id.to_string(),
-                milestone.title,
-                milestone.description,
+                milestone.title.clone(),
+                milestone.description.clone(),
                 serde_json::to_string(&milestone.status)?,
                 serde_json::to_string(&milestone.plan_ids)?,
                 serde_json::to_string(&milestone.plan_dependencies)?,
                 serde_json::to_string(&milestone.success_criteria)?,
-                milestone.validation_command,
+                milestone.validation_command.clone(),
                 milestone.created_at.to_rfc3339(),
                 milestone.updated_at.to_rfc3339(),
-                milestone.completed_at.map(|ts| ts.to_rfc3339()),
+                milestone.completed_at.as_ref().map(|ts| ts.to_rfc3339()),
             ],
         )?;
         Ok(())
@@ -2488,8 +2488,9 @@ mod tests {
     use super::{SessionCaptureManager, Storage};
     use chrono::Utc;
     use rustycode_protocol::{
-        EventKind, Plan, PlanId, PlanStatus, Session, SessionEvent, SessionId, SessionMode,
-        SessionStatus, ToolApprovalMode,
+        EventKind, Milestone, MilestoneId, MilestoneStatus, Plan, PlanDependency, PlanId,
+        PlanStatus, Session, SessionEvent, SessionId, SessionMode, SessionStatus,
+        ToolApprovalMode,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -2584,6 +2585,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -2650,6 +2653,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -2699,12 +2704,100 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan2).unwrap();
 
         // READ: List all plans with limit
         let all_plans = storage.all_plans(10).unwrap();
         assert_eq!(all_plans.len(), 2);
+    }
+
+    #[test]
+    fn milestone_crud_and_plan_links() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        let session = make_session("milestone test");
+        storage.insert_session(&session).unwrap();
+
+        let milestone = Milestone {
+            id: MilestoneId::new(),
+            session_id: session.id.clone(),
+            title: "Auth milestone".to_string(),
+            description: "Group auth work".to_string(),
+            status: MilestoneStatus::Draft,
+            plan_ids: vec![],
+            plan_dependencies: vec![],
+            success_criteria: vec!["Login flow works".to_string()],
+            validation_command: Some("cargo test".to_string()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            completed_at: None,
+        };
+        storage.insert_milestone(&milestone).unwrap();
+
+        let plan1 = Plan {
+            id: PlanId::new(),
+            session_id: session.id.clone(),
+            milestone_id: Some(milestone.id.clone()),
+            task: "auth: research".to_string(),
+            created_at: Utc::now(),
+            status: PlanStatus::Draft,
+            summary: "Research auth".to_string(),
+            approach: "Look at existing patterns".to_string(),
+            steps: vec![],
+            files_to_modify: vec![],
+            risks: vec![],
+            current_step_index: None,
+            execution_started_at: None,
+            execution_completed_at: None,
+            execution_error: None,
+            task_profile: None,
+        };
+        let plan2 = Plan {
+            id: PlanId::new(),
+            session_id: session.id.clone(),
+            milestone_id: Some(milestone.id.clone()),
+            task: "auth: implement".to_string(),
+            created_at: Utc::now(),
+            status: PlanStatus::Ready,
+            summary: "Implement auth".to_string(),
+            approach: "Add the module".to_string(),
+            steps: vec![],
+            files_to_modify: vec![],
+            risks: vec![],
+            current_step_index: None,
+            execution_started_at: None,
+            execution_completed_at: None,
+            execution_error: None,
+            task_profile: None,
+        };
+        storage.insert_plan(&plan1).unwrap();
+        storage.insert_plan(&plan2).unwrap();
+        storage
+            .add_plan_to_milestone(&milestone.id, &plan1.id)
+            .unwrap();
+        storage
+            .add_plan_to_milestone(&milestone.id, &plan2.id)
+            .unwrap();
+        storage
+            .update_milestone_status(&milestone.id, &MilestoneStatus::Active)
+            .unwrap();
+
+        let loaded = storage.load_milestone(&milestone.id).unwrap().unwrap();
+        assert_eq!(loaded.status, MilestoneStatus::Active);
+        assert_eq!(loaded.plan_ids.len(), 2);
+
+        let milestone_plans = storage.milestone_plans(&milestone.id).unwrap();
+        assert_eq!(milestone_plans.len(), 2);
+        assert!(milestone_plans.iter().all(|plan| plan.milestone_id == Some(milestone.id.clone())));
+
+        let sessions_milestones = storage.list_milestones(&session.id).unwrap();
+        assert_eq!(sessions_milestones.len(), 1);
+        assert_eq!(sessions_milestones[0].id, milestone.id);
+
+        let ready = loaded.ready_plans(&milestone_plans);
+        assert_eq!(ready, vec![plan1.id.clone(), plan2.id.clone()]);
     }
 
     #[test]
@@ -2729,6 +2822,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -2791,6 +2886,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -2858,6 +2955,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -2928,6 +3027,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -3000,6 +3101,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -3062,6 +3165,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -3181,6 +3286,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         storage.insert_plan(&plan).unwrap();
 
@@ -3284,6 +3391,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
 
         // CREATE: Insert the plan

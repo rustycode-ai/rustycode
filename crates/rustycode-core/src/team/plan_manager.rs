@@ -901,6 +901,7 @@ fn generate_plan(session_id: SessionId, task: &str, profile: &TaskProfile) -> Pl
     Plan {
         id: PlanId::new(),
         session_id,
+        milestone_id: None,
         task: task.to_string(),
         created_at: Utc::now(),
         status: PlanStatus::Draft,
@@ -1175,6 +1176,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
             files_to_modify: vec![],
             risks: vec![],
             created_at: Utc::now(),
@@ -1276,6 +1279,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
             files_to_modify: vec![],
             risks: vec![],
             created_at: Utc::now(),

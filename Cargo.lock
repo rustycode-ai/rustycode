@@ -6407,6 +6407,7 @@ dependencies = [
  "rustycode-prompt",
  "rustycode-protocol",
  "rustycode-skill",
+ "rustycode-storage",
  "rustycode-tools",
  "rustycode-tools-api",
  "serde",

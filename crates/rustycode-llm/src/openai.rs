@@ -389,7 +389,7 @@ impl OpenAiProvider {
             } else {
                 shared_client!()
             };
-            let tool_registry = Arc::new(rustycode_tools::default_registry());
+            let tool_registry = Arc::new(ToolRegistry::new());
             let tool_selector = ToolSelector::new();
             Ok(Self {
                 config,
@@ -424,7 +424,7 @@ impl OpenAiProvider {
         };
 
         // Initialize tool registry and selector
-        let tool_registry = Arc::new(rustycode_tools::default_registry());
+        let tool_registry = Arc::new(ToolRegistry::new());
         let tool_selector = ToolSelector::new();
 
         Ok(Self {

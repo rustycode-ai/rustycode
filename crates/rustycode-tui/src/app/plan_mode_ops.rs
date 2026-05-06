@@ -33,6 +33,14 @@ pub enum PlanModeBanner {
         current_task: String,
         action_hint: String,
     },
+    /// A milestone is actively sequencing multiple plans.
+    MilestoneProgress {
+        milestone_title: String,
+        plans_total: usize,
+        plans_completed: usize,
+        current_plan_summary: String,
+        action_hint: String,
+    },
 }
 
 impl PlanModeBanner {
@@ -43,6 +51,7 @@ impl PlanModeBanner {
             Self::AwaitingApproval { .. } => "Approval Required",
             Self::PlanApproved { .. } => "Plan Approved",
             Self::Executing { .. } => "Executing",
+            Self::MilestoneProgress { .. } => "Milestone Progress",
         }
     }
 
@@ -75,6 +84,18 @@ impl PlanModeBanner {
             } => {
                 format!("[{}] {}. {}", convoy_id, current_task, action_hint)
             }
+            Self::MilestoneProgress {
+                milestone_title,
+                plans_total,
+                plans_completed,
+                current_plan_summary,
+                action_hint,
+            } => {
+                format!(
+                    "[{}] {}/{} plans complete. {}. {}",
+                    milestone_title, plans_completed, plans_total, current_plan_summary, action_hint
+                )
+            }
         }
     }
 
@@ -90,6 +111,7 @@ impl PlanModeBanner {
             Self::AwaitingApproval { .. } => ratatui::style::Color::Yellow,
             Self::PlanApproved { .. } => ratatui::style::Color::Green,
             Self::Executing { .. } => ratatui::style::Color::Blue,
+            Self::MilestoneProgress { .. } => ratatui::style::Color::Magenta,
         }
     }
 
@@ -97,7 +119,9 @@ impl PlanModeBanner {
     pub(crate) fn header_status(&self) -> HeaderStatus {
         match self {
             Self::Planning { .. } | Self::AwaitingApproval { .. } => HeaderStatus::Planning,
-            Self::PlanApproved { .. } | Self::Executing { .. } => HeaderStatus::RunningTools,
+            Self::PlanApproved { .. }
+            | Self::Executing { .. }
+            | Self::MilestoneProgress { .. } => HeaderStatus::RunningTools,
         }
     }
 }
@@ -151,6 +175,22 @@ impl TUI {
             convoy_id: convoy_id.to_string(),
             current_task: current_task.to_string(),
             action_hint: "Working...".to_string(),
+        }));
+    }
+
+    pub(crate) fn show_milestone_progress_banner(
+        &mut self,
+        milestone_title: &str,
+        plans_total: usize,
+        plans_completed: usize,
+        current_plan_summary: &str,
+    ) {
+        self.set_plan_mode_banner(Some(PlanModeBanner::MilestoneProgress {
+            milestone_title: milestone_title.to_string(),
+            plans_total,
+            plans_completed,
+            current_plan_summary: current_plan_summary.to_string(),
+            action_hint: "Sequencing dependent plans...".to_string(),
         }));
     }
 

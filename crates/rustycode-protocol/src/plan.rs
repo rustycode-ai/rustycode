@@ -285,6 +285,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
 
         assert!(!plan.is_completed());
@@ -377,6 +379,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
 
         let current = plan.current_step().unwrap();
@@ -402,6 +406,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         assert!(plan.current_step().is_none());
     }
@@ -424,6 +430,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: Some("Something broke".to_string()),
             task_profile: None,
+
+            milestone_id: None,
         };
         assert!(plan.is_failed());
         assert!(!plan.is_completed());
@@ -483,6 +491,7 @@ mod tests {
         let plan = Plan {
             id: PlanId::new(),
             session_id: SessionId::new(),
+            milestone_id: None,
             task: "Implement feature X".to_string(),
             created_at: Utc::now(),
             status: PlanStatus::Approved,
@@ -515,5 +524,31 @@ mod tests {
         let json = serde_json::to_string(&plan).unwrap();
         let back: Plan = serde_json::from_str(&json).unwrap();
         assert_eq!(plan, back);
+    }
+
+    #[test]
+    fn test_plan_deserializes_without_milestone_id() {
+        let plan = Plan {
+            id: PlanId::new(),
+            session_id: SessionId::new(),
+            milestone_id: Some(crate::MilestoneId::new()),
+            task: "Legacy".to_string(),
+            created_at: Utc::now(),
+            status: PlanStatus::Draft,
+            summary: "Legacy plan".to_string(),
+            approach: "Legacy approach".to_string(),
+            steps: vec![],
+            files_to_modify: vec![],
+            risks: vec![],
+            current_step_index: None,
+            execution_started_at: None,
+            execution_completed_at: None,
+            execution_error: None,
+            task_profile: None,
+        };
+        let mut json = serde_json::to_value(&plan).unwrap();
+        json.as_object_mut().unwrap().remove("milestone_id");
+        let back: Plan = serde_json::from_value(json).unwrap();
+        assert_eq!(back.milestone_id, None);
     }
 }

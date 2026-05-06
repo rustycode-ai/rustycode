@@ -11,6 +11,7 @@ pub mod mcp_mode;
 pub mod mistake_tracker;
 pub mod preferences;
 pub mod provider_health;
+pub mod provider_registry;
 pub mod provider_manager;
 pub mod providers;
 pub mod rate_limit_tracker;

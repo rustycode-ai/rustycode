@@ -826,6 +826,8 @@ mod validation_error_tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         }
     }
 
@@ -918,6 +920,8 @@ mod validation_error_tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
 
         let tool_registry = ToolRegistry::new();

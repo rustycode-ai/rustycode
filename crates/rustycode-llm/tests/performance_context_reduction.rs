@@ -28,7 +28,8 @@
 //! These tests measure and validate that intelligent tool selection
 //! reduces context size by 40-80%.
 
-use rustycode_tools::{default_registry, ToolProfile, ToolSelector};
+use rustycode_tools::default_registry;
+use rustycode_tools_api::{ToolProfile, ToolSelector};
 use std::sync::Arc;
 
 #[test]

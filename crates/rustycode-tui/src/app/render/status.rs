@@ -59,6 +59,7 @@ impl PolishedRenderer {
                 let icon = match banner {
                     PlanModeBanner::AwaitingApproval { .. } => "⚠ ",
                     PlanModeBanner::PlanApproved { .. } => "✓ ",
+                    PlanModeBanner::MilestoneProgress { .. } => "◆ ",
                     _ => &format!("{} ", frames[frame_idx]),
                 };
 

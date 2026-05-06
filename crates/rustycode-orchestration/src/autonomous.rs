@@ -12,6 +12,7 @@
 //! existing pipeline.
 
 use std::path::PathBuf;
+use std::process::Command;
 
 use crate::ast::classifier::TaskClassifier;
 use crate::ast::types::{ComplexityLevel, VerificationStatus};
@@ -20,6 +21,8 @@ use crate::bus::BusHandle;
 use crate::config::OrchestrationConfig;
 use crate::error::Result;
 use crate::pipeline::{OrchestrationPipeline, TaskResult};
+use rustycode_protocol::{MilestoneId, MilestoneStatus, PlanStatus};
+use rustycode_storage::Storage;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -166,6 +169,146 @@ impl AutonomousService {
         result
     }
 
+    pub async fn execute_milestone(
+        &mut self,
+        storage: &Storage,
+        milestone_id: MilestoneId,
+    ) -> Result<TaskResult> {
+        self.state = ServiceState::Executing;
+
+        let milestone = storage.load_milestone(&milestone_id)?.ok_or_else(|| {
+            crate::error::OrchestrationError::TaskNotFound(format!(
+                "milestone {} not found",
+                milestone_id
+            ))
+        })?;
+        storage.update_milestone_status(&milestone_id, &MilestoneStatus::Active)?;
+
+        let mut aggregated_output = Vec::new();
+        let mut total_cost = 0.0_f64;
+        let mut steps_completed = 0_usize;
+        let mut tier_used = 0_u8;
+        let mut last_trace = crate::execution_trace::ExecutionTrace {
+            task_id: milestone.id.to_string(),
+            steps: Vec::new(),
+        };
+
+        loop {
+            let plans = storage.milestone_plans(&milestone_id)?;
+            let ready_ids = milestone.ready_plans(&plans);
+            let next_plan_id = ready_ids.into_iter().find(|plan_id| {
+                plans.iter().any(|plan| {
+                    &plan.id == plan_id
+                        && matches!(plan.status, PlanStatus::Draft | PlanStatus::Ready)
+                })
+            });
+
+            let Some(plan_id) = next_plan_id else {
+                if plans.iter().all(|plan| plan.status == PlanStatus::Completed) {
+                    break;
+                }
+
+                let reason = format!("milestone {} is blocked: no ready plans", milestone.title);
+                storage.update_milestone_status(&milestone_id, &MilestoneStatus::Paused)?;
+                self.state = ServiceState::Failed;
+                return Ok(TaskResult::Failed {
+                    reason,
+                    total_cost,
+                    steps_completed,
+                });
+            };
+
+            let plan = storage.load_plan(&plan_id)?.ok_or_else(|| {
+                crate::error::OrchestrationError::TaskNotFound(format!("plan {} not found", plan_id))
+            })?;
+
+            storage.update_plan_status(&plan.id, &PlanStatus::Executing)?;
+            let execution = self
+                .pipeline
+                .conduct(plan.id.to_string(), plan.task.clone())
+                .await;
+
+            match execution {
+                Ok(TaskResult::Success {
+                    output,
+                    total_cost: plan_cost,
+                    tier_used: plan_tier,
+                    steps_completed: plan_steps_completed,
+                    execution_trace,
+                    ..
+                }) => {
+                    storage.update_plan_status(&plan.id, &PlanStatus::Completed)?;
+                    aggregated_output.push(output);
+                    total_cost += plan_cost;
+                    steps_completed += plan_steps_completed;
+                    tier_used = tier_used.max(plan_tier);
+                    last_trace = execution_trace;
+                }
+                Ok(TaskResult::Failed {
+                    reason,
+                    total_cost: plan_cost,
+                    steps_completed: plan_steps_completed,
+                }) => {
+                    storage.update_plan_status(&plan.id, &PlanStatus::Failed)?;
+                    storage.update_milestone_status(&milestone_id, &MilestoneStatus::Failed)?;
+                    self.state = ServiceState::Failed;
+                    return Ok(TaskResult::Failed {
+                        reason,
+                        total_cost: total_cost + plan_cost,
+                        steps_completed: steps_completed + plan_steps_completed,
+                    });
+                }
+                Err(error) => {
+                    storage.update_plan_status(&plan.id, &PlanStatus::Failed)?;
+                    storage.update_milestone_status(&milestone_id, &MilestoneStatus::Failed)?;
+                    self.state = ServiceState::Failed;
+                    return Err(error);
+                }
+            }
+        }
+
+        storage.update_milestone_status(&milestone_id, &MilestoneStatus::Validating)?;
+        let refreshed = storage.load_milestone(&milestone_id)?.ok_or_else(|| {
+            crate::error::OrchestrationError::TaskNotFound(format!(
+                "milestone {} disappeared during validation",
+                milestone_id
+            ))
+        })?;
+
+        let validation_passed = match refreshed.validation_command.as_deref() {
+            Some(command) => self.run_validation_command(command)?,
+            None => true,
+        };
+
+        if validation_passed {
+            storage.update_milestone_status(&milestone_id, &MilestoneStatus::Completed)?;
+            self.state = ServiceState::Completed;
+            Ok(TaskResult::Success {
+                output: format!(
+                    "Milestone {} completed: {}",
+                    refreshed.title,
+                    aggregated_output.join("\n\n")
+                ),
+                total_cost,
+                tier_used,
+                steps_completed,
+                execution_trace: last_trace,
+                structured_output: None,
+            })
+        } else {
+            storage.update_milestone_status(&milestone_id, &MilestoneStatus::Failed)?;
+            self.state = ServiceState::Failed;
+            Ok(TaskResult::Failed {
+                reason: format!(
+                    "Validation command failed for milestone {}",
+                    refreshed.title
+                ),
+                total_cost,
+                steps_completed,
+            })
+        }
+    }
+
     #[allow(clippy::unused_async)]
     async fn run_ast_pipeline(&self, task: &str, config: AstConfig) -> Result<TaskResult> {
         let workspace = self.config.workspace.clone();
@@ -176,6 +319,20 @@ impl AutonomousService {
             }
         })?;
         Ok(convert_ast_result(ast_result))
+    }
+
+    fn run_validation_command(&self, command: &str) -> Result<bool> {
+        let status = Command::new("sh")
+            .arg("-lc")
+            .arg(command)
+            .current_dir(&self.config.workspace)
+            .status()
+            .map_err(|error| {
+                crate::error::OrchestrationError::Execution {
+                    message: format!("failed to run validation command '{command}': {error}"),
+                }
+            })?;
+        Ok(status.success())
     }
 }
 

@@ -740,6 +740,8 @@ impl Runtime {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         };
         let plan_path = cwd.join("plan.md");
 

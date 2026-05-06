@@ -27,7 +27,7 @@
 //! 3. Context reduction is achieved by sending only relevant tools
 
 use rustycode_llm::{ChatMessage, CompletionRequest, LLMProvider, OpenAiProvider, ProviderConfig};
-use rustycode_tools::ToolProfile;
+use rustycode_tools_api::ToolProfile;
 use secrecy::SecretString;
 
 #[tokio::test]

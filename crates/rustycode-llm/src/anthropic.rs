@@ -885,7 +885,7 @@ impl AnthropicProvider {
             .map_err(|e| ProviderError::Network(format!("failed to build HTTP client: {}", e)))?;
 
         // Initialize tool registry with built-in tools and selector
-        let tool_registry = Arc::new(rustycode_tools::default_registry());
+        let tool_registry = Arc::new(ToolRegistry::new());
         let tool_selector = ToolSelector::new();
 
         Ok(Self {

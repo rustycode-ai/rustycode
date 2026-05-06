@@ -30,7 +30,8 @@
 use rustycode_llm::{
     AnthropicProvider, ChatMessage, CompletionRequest, LLMProvider, ProviderConfig,
 };
-use rustycode_tools::{default_registry, ToolProfile, ToolRegistry, ToolSelector};
+use rustycode_tools::{default_registry};
+use rustycode_tools_api::{ToolProfile, ToolRegistry, ToolSelector};
 use secrecy::SecretString;
 use std::sync::Arc;
 

@@ -2000,6 +2000,8 @@ mod tests {
             execution_completed_at: None,
             execution_error: None,
             task_profile: None,
+
+            milestone_id: None,
         }
     }
 

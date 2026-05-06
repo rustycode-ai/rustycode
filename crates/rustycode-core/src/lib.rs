@@ -557,6 +557,8 @@ Generate a practical, actionable plan with 2-5 steps. Each step should use appro
         execution_completed_at: None,
         execution_error: None,
         task_profile: None,
+
+        milestone_id: None,
     })
 }
 
@@ -637,6 +639,8 @@ async fn generate_smart_plan_async(
         execution_completed_at: None,
         execution_error: None,
         task_profile: None,
+
+        milestone_id: None,
     }
 }
 

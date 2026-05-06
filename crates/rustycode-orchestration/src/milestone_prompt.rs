@@ -89,15 +89,19 @@ pub fn parse_milestone_response(
     for spec in &parsed.plans {
         let plan_id = PlanId::new();
         plan_ids.push(plan_id.clone());
+        let summary = match spec.file_scope_estimate.as_deref() {
+            Some(scope) => format!("{} ({scope})", spec.description),
+            None => spec.description.clone(),
+        };
         plans.push(Plan {
             id: plan_id,
             session_id: session_id.clone(),
             milestone_id: Some(milestone_id.clone()),
             task: format!("{}: {}", parsed.title, spec.title),
-            created_at: now,
+            created_at: now.clone(),
             status: PlanStatus::Draft,
-            summary: spec.description.clone(),
-            approach: spec.description.clone(),
+            summary: summary.clone(),
+            approach: summary,
             steps: vec![],
             files_to_modify: vec![],
             risks: vec![],
@@ -133,7 +137,7 @@ pub fn parse_milestone_response(
         plan_dependencies,
         success_criteria: parsed.success_criteria,
         validation_command: parsed.validation_command,
-        created_at: now,
+        created_at: now.clone(),
         updated_at: now,
         completed_at: None,
     };
