@@ -11,7 +11,7 @@
 //! # Usage
 //!
 //! ```ignore
-//! use rustycode_core::team::briefing::BriefingBuilder;
+//! use rustycode_team::briefing::BriefingBuilder;
 //!
 //! let builder = BriefingBuilder::new("/path/to/project");
 //! let briefing = builder.build(

@@ -8,9 +8,9 @@
 //!
 //! Run with: cargo test --package rustycode-core --test timeline_demo -- --nocapture
 
-use rustycode_core::team::interaction_visualizer::generate_full_visualization;
-use rustycode_core::team::{AgentState, AgentTimeline, TaskStatus};
 use rustycode_protocol::agent_protocol::AgentRole;
+use rustycode_team::interaction_visualizer::generate_full_visualization;
+use rustycode_team::{AgentState, AgentTimeline, TaskStatus};
 
 #[test]
 fn demo_complex_feature_timeline() {

@@ -4,9 +4,9 @@
 //! These tests validate key aspects of the use cases defined in
 //! docs/TEAM_AGENT_USE_CASES.md.
 
-use rustycode_core::team::orchestrator::is_scalpel_appropriate;
-use rustycode_core::team::{AgentState, AgentTimeline, TaskStatus};
 use rustycode_protocol::agent_protocol::AgentRole;
+use rustycode_team::orchestrator::is_scalpel_appropriate;
+use rustycode_team::{AgentState, AgentTimeline, TaskStatus};
 
 // Scalpel Heuristics Test (Use Case 5)
 

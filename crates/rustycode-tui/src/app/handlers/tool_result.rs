@@ -3,7 +3,7 @@
 //! Processes completed tool results, updates message tool executions,
 //! manages AST phase state, and surfaces ask_user responses.
 
-use crate::app::async_::{ToolExecutionError, ToolOutput, ToolResult};
+use crate::app::async_::{ToolOutput, ToolResult};
 use crate::app::TUI;
 use crate::ui::ast_progress::AST_PHASE_NAMES;
 use crate::ui::message::{ToolExecution, ToolStatus};

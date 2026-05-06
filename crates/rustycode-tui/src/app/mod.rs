@@ -106,10 +106,6 @@ mod event_loop_tests;
 // ── Re-exports ────────────────────────────────────────────────
 pub use event_loop::TUI;
 pub use keyboard_shortcuts::{KeyboardAction, KeyboardShortcutHandler};
-pub use memory_manager::MemoryManager;
-pub use orchestration_client::OrchestrationClient;
-pub use session_recovery_integration::{SessionRecoveryConfig, SessionRecoveryManager};
-pub use state::state_manager::StateManager;
 
 use std::time::Duration;
 

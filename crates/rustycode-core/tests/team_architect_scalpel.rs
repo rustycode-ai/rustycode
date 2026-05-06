@@ -4,9 +4,9 @@
     clippy::expect_used,
     clippy::uninlined_format_args
 )]
-use rustycode_core::team::executor::{parse_architect_turn, tools_for_role};
-use rustycode_core::team::{ArchitectPhase, ScalpelPhase, TeamRunnerConfig};
 use rustycode_protocol::team::{DependencyChanges, StructuralDeclaration, TeamRole};
+use rustycode_team::executor::{parse_architect_turn, tools_for_role};
+use rustycode_team::{ArchitectPhase, ScalpelPhase, TeamRunnerConfig};
 
 #[test]
 fn architect_phase_produces_empty_declaration_on_empty_task() {

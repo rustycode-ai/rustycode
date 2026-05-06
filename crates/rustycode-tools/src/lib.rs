@@ -5,6 +5,10 @@
 // dispatch with &self receivers) are intentional and would require a
 // coordinated refactor to change. We allow those lints at the crate root
 // rather than sprinkling hundreds of per-site annotations.
+//
+// unsafe_code: required for Linux-specific subprocess management
+// (prctl/PR_SET_PDEATHSIG in subprocess.rs, behind #[cfg(target_os = "linux")]).
+#![allow(unsafe_code)]
 #![allow(
     clippy::assigning_clones,
     clippy::bool_to_int_with_if,

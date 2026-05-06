@@ -5,9 +5,7 @@ use std::path::Path;
 // Re-export the core progress snapshot for convenience — callers can use
 // either the core version (checks "did anything change?") or the richer
 // TurnDiff from this module (shows *what* changed).
-pub use rustycode_core::ultrawork::{
-    git_head_rev, has_file_changes, has_progress, ProgressSnapshot,
-};
+pub use rustycode_core::ultrawork::{git_head_rev, has_file_changes};
 
 /// Summary of what changed between a snapshot and the current state.
 #[derive(Debug, Clone)]

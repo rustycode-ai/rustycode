@@ -8,8 +8,6 @@ pub mod tool_execution;
 
 pub use response::stream_llm_response;
 pub use response::StreamConfig;
-pub use tool_execution::execute_tool_with_hooks;
-pub use tool_execution::snapshot_files_for_undo;
 
 /// Re-export ToolAccumulator from streaming module as ActiveToolUse for compatibility
 pub use rustycode_core::streaming::ToolAccumulator as ActiveToolUse;

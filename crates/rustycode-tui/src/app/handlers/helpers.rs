@@ -235,3 +235,103 @@ pub(super) fn build_tool_summary_arg(
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_tool_summary_bash_command() {
+        let json = serde_json::json!({"command": "cargo build --release"});
+        let result = build_tool_summary_arg("bash", &json);
+        assert_eq!(result, Some("cargo build --release".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_bash_truncation() {
+        let long_cmd = "x".repeat(80);
+        let json = serde_json::json!({"command": long_cmd});
+        let result = build_tool_summary_arg("bash", &json);
+        assert!(result.is_some());
+        assert!(result.as_ref().unwrap().contains('…'));
+        assert!(result.as_ref().unwrap().len() <= TOOL_SUMMARY_MAX_LEN + 1);
+    }
+
+    #[test]
+    fn test_build_tool_summary_read_file() {
+        let json = serde_json::json!({"path": "/src/main.rs"});
+        let result = build_tool_summary_arg("read_file", &json);
+        assert_eq!(result, Some("/src/main.rs".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_edit_file_path() {
+        let json = serde_json::json!({"file_path": "/src/lib.rs"});
+        let result = build_tool_summary_arg("edit_file", &json);
+        assert_eq!(result, Some("/src/lib.rs".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_grep_pattern() {
+        let json = serde_json::json!({"pattern": "fn main"});
+        let result = build_tool_summary_arg("grep", &json);
+        assert_eq!(result, Some("\"fn main\"".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_search_query() {
+        let json = serde_json::json!({"query": "TODO"});
+        let result = build_tool_summary_arg("search", &json);
+        assert_eq!(result, Some("\"TODO\"".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_glob_pattern() {
+        let json = serde_json::json!({"pattern": "**/*.rs"});
+        let result = build_tool_summary_arg("glob", &json);
+        assert_eq!(result, Some("**/*.rs".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_agent_tool() {
+        let json = serde_json::json!({
+            "subagent_type": "executor",
+            "description": "Fix the build error"
+        });
+        let result = build_tool_summary_arg("agent", &json);
+        assert_eq!(result, Some("executor: Fix the build error".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_agent_fallback_prompt() {
+        let json = serde_json::json!({
+            "subagent_type": "planner",
+            "prompt": "Plan the feature implementation\nStep 1: Research\nStep 2: Design"
+        });
+        let result = build_tool_summary_arg("agent", &json);
+        assert!(result.is_some());
+        assert!(result.as_ref().unwrap().contains("planner:"));
+        assert!(result.as_ref().unwrap().contains("Plan the feature"));
+    }
+
+    #[test]
+    fn test_build_tool_summary_unknown_tool() {
+        let json = serde_json::json!({"data": "value"});
+        let result = build_tool_summary_arg("unknown_tool", &json);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_build_tool_summary_case_insensitive() {
+        let json = serde_json::json!({"command": "ls -la"});
+        let result = build_tool_summary_arg("Bash", &json);
+        assert_eq!(result, Some("ls -la".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_missing_field() {
+        let json = serde_json::json!({"other": "value"});
+        let result = build_tool_summary_arg("bash", &json);
+        assert_eq!(result, None);
+    }
+}

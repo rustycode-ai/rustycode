@@ -15,9 +15,9 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use rustycode_core::team::orchestrator::{is_scalpel_appropriate, TeamLLMClient};
-use rustycode_core::team::{OrchestratorConfig, TeamOrchestrator};
 use rustycode_llm::provider::ChatMessage;
+use rustycode_team::orchestrator::{is_scalpel_appropriate, TeamLLMClient};
+use rustycode_team::{OrchestratorConfig, TeamOrchestrator};
 use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 

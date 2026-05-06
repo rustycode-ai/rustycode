@@ -14,10 +14,10 @@
 //! 5. On targeted failures, Scalpel makes surgical fixes (no redesign)
 //! 6. If failures require redesign, escalate to human or Builder retry
 
-use rustycode_core::team::{ArchitectPhase, ScalpelPhase};
 use rustycode_protocol::team::{
     DependencyChanges, ModuleAction, ModuleDeclaration, StructuralDeclaration,
 };
+use rustycode_team::{ArchitectPhase, ScalpelPhase};
 
 fn test_decl() -> StructuralDeclaration {
     StructuralDeclaration {

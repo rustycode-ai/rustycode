@@ -17,7 +17,7 @@ use ratatui::layout::Rect;
 use ratatui::prelude::Widget;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Terminal;
-use rustycode_core::team::orchestrator::TeamEvent;
+use rustycode_team::orchestrator::TeamEvent;
 use rustycode_tui::ui::team_panel::{AgentState, TeamPanel};
 
 // Test: Agent activation updates panel state

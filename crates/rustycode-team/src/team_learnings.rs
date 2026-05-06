@@ -44,7 +44,7 @@
 //! ## Usage
 //!
 //! ```rust,ignore
-//! use rustycode_core::team::team_learnings::{TeamLearnings, LearningEntry};
+//! use rustycode_team::team_learnings::{TeamLearnings, LearningEntry};
 //!
 //! // Load existing learnings
 //! let mut learnings = TeamLearnings::load(&project_root)?;
