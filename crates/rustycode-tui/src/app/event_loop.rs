@@ -24,7 +24,6 @@ use crate::plugin::PluginManager;
 use crate::plugin::PluginManagerUI;
 use crate::services::providers::all_available_models;
 use crate::services::session::load_command_history;
-use crate::app::OrchestrationClient;
 use crate::skills::{SkillLoader, SkillStateManager};
 use crate::app::tasks::{load_tasks, WorkspaceTasks};
 use crate::theme::{Theme, ThemeColors};
@@ -116,8 +115,8 @@ pub struct TUI {
     pub(crate) event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
     pub(crate) marketplace_browser: crate::ui::marketplace_browser::MarketplaceBrowser,
 
-    // Orchestration Client (background tasks)
-    pub(crate) orchestration_client: Arc<dyn OrchestrationClient>,
+    // Service Manager (background tasks)
+    pub(crate) services: ServiceManager,
 
     // State
     pub(crate) messages: Vec<Message>,
