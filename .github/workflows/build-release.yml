@@ -2,13 +2,18 @@ name: Build Release Binaries
 
 on:
   repository_dispatch:
-    types: [trigger-build]
+    types: [trigger-nightly, trigger-release]
   workflow_dispatch:
     inputs:
       ref:
         description: 'Git ref to build (tag or branch)'
         required: true
         default: 'main'
+      release_type:
+        description: 'nightly or stable'
+        type: choice
+        options: [nightly, stable]
+        default: nightly
 
 env:
   CARGO_TERM_COLOR: always
@@ -123,11 +128,29 @@ jobs:
   release:
     name: Create Release
     needs: build
-    if: startsWith(github.event.client_payload.ref || github.event.inputs.ref || '', 'v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
+
     steps:
+      - name: Determine release metadata
+        id: meta
+        run: |
+          EVENT="${{ github.event.action }}"
+          INPUT_TYPE="${{ github.event.inputs.release_type }}"
+          REF="${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}"
+
+          if [ "$EVENT" = "trigger-release" ] || [ "$INPUT_TYPE" = "stable" ]; then
+            echo "tag=${REF}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "name=RustyCode ${REF}" >> "$GITHUB_OUTPUT"
+          else
+            DATE=$(date +%Y-%m-%d)
+            echo "tag=nightly-${DATE}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "name=RustyCode Nightly ${DATE}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -140,10 +163,11 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.client_payload.ref || github.event.inputs.ref }}
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.name }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
           files: artifacts/*
           draft: false
-          prerelease: false
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
