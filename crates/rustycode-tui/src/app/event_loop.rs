@@ -47,7 +47,7 @@ use crossterm::event;
 use ratatui::{backend::CrosstermBackend, layout::Rect, Terminal};
 use rustycode_core::integration::HookRegistry;
 use rustycode_tools::ToolRegistry;
-use std::collections::{HashSet, VecDeque};
+use std::collections::HashSet;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::mpsc;
@@ -1765,7 +1765,7 @@ impl TUI {
                     compaction_config: &mut self.compaction.compaction_config,
                     showing_compaction_preview: &mut self.compaction.showing_preview,
                     pending_compaction: &mut self.compaction.pending,
-                    file_undo_stack: &mut self.undo.file_stack,
+                    file_undo_stack: &mut self.undo,
                     session_input_tokens: self.token_budget.session_input_tokens,
                     session_output_tokens: self.token_budget.session_output_tokens,
                     session_cost_usd: self.token_budget.session_cost_usd,

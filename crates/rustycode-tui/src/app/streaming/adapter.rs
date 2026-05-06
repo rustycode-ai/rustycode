@@ -123,15 +123,24 @@ impl StreamEventAdapter {
                     output: Some(result),
                 });
             }
-            OrchestrationEvent::MilestoneProgress(event) => {
+            OrchestrationEvent::MilestoneProgress {
+                milestone_id,
+                milestone_title,
+                status,
+                plans_total,
+                plans_completed,
+                current_plan_summary,
+                action_hint,
+                ..
+            } => {
                 self.emit(StreamChunk::MilestoneProgress {
-                    milestone_id: event.milestone_id.to_string(),
-                    milestone_title: event.milestone_title,
-                    status: event.status,
-                    plans_total: event.plans_total,
-                    plans_completed: event.plans_completed,
-                    current_plan_summary: event.current_plan_summary,
-                    action_hint: event.action_hint,
+                    milestone_id: milestone_id.to_string(),
+                    milestone_title,
+                    status,
+                    plans_total,
+                    plans_completed,
+                    current_plan_summary,
+                    action_hint,
                 });
             }
             // Intentionally silenced: internal orchestration events, not user-facing.

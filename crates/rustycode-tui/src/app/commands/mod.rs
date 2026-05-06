@@ -79,8 +79,8 @@ pub struct CommandContext<'a> {
     pub compaction_config: &'a mut CompactionConfig,
     pub showing_compaction_preview: &'a mut bool,
     pub pending_compaction: &'a mut bool,
-    /// File undo stack — each entry is a batch of (path, old_content) pairs
-    pub file_undo_stack: &'a mut Vec<Vec<(String, String)>>,
+    /// Undo stacks for message positions and file edits
+    pub file_undo_stack: &'a mut crate::app::undo_state::UndoState,
     /// Total session input tokens
     pub session_input_tokens: usize,
     /// Total session output tokens

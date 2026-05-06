@@ -4082,4 +4082,229 @@ mod tests {
             assert!(len <= 510, "Learnings grew beyond expected: {}", len);
         }
     }
+
+    // ── Milestone CRUD tests ──────────────────────────────────────────────
+
+    fn make_plan_with_session(session_id: &SessionId) -> Plan {
+        Plan {
+            id: PlanId::new(),
+            session_id: session_id.clone(),
+            milestone_id: None,
+            task: "test task".to_string(),
+            created_at: Utc::now(),
+            status: PlanStatus::Draft,
+            summary: "test summary".to_string(),
+            approach: String::new(),
+            steps: vec![],
+            files_to_modify: vec![],
+            risks: vec![],
+            current_step_index: None,
+            execution_started_at: None,
+            execution_completed_at: None,
+            execution_error: None,
+            task_profile: None,
+        }
+    }
+
+    #[test]
+    fn milestone_insert_and_load() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        let session = make_session("milestone test");
+        storage.insert_session(&session).unwrap();
+
+        let milestone = Milestone {
+            id: MilestoneId::new(),
+            session_id: session.id.clone(),
+            title: "Auth feature".to_string(),
+            description: "Implement auth".to_string(),
+            status: MilestoneStatus::Draft,
+            plan_ids: vec![],
+            plan_dependencies: vec![],
+            success_criteria: vec!["Login works".to_string()],
+            validation_command: Some("cargo test".to_string()),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            completed_at: None,
+        };
+        let id = milestone.id.clone();
+
+        storage.insert_milestone(&milestone).unwrap();
+        let loaded = storage.load_milestone(&id).unwrap().unwrap();
+        assert_eq!(loaded.title, "Auth feature");
+        assert_eq!(loaded.success_criteria, vec!["Login works"]);
+        assert_eq!(loaded.validation_command, Some("cargo test".to_string()));
+    }
+
+    #[test]
+    fn milestone_not_found_returns_none() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        assert!(storage.load_milestone(&MilestoneId::new()).unwrap().is_none());
+    }
+
+    #[test]
+    fn milestone_list_by_session() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        let session_a = make_session("session a");
+        let session_b = make_session("session b");
+        storage.insert_session(&session_a).unwrap();
+        storage.insert_session(&session_b).unwrap();
+
+        for i in 0..3 {
+            storage.insert_milestone(&Milestone {
+                id: MilestoneId::new(),
+                session_id: session_a.id.clone(),
+                title: format!("Milestone {i}"),
+                description: String::new(),
+                status: MilestoneStatus::Draft,
+                plan_ids: vec![],
+                plan_dependencies: vec![],
+                success_criteria: vec![],
+                validation_command: None,
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+                completed_at: None,
+            }).unwrap();
+        }
+        storage.insert_milestone(&Milestone {
+            id: MilestoneId::new(),
+            session_id: session_b.id.clone(),
+            title: "Other".to_string(),
+            description: String::new(),
+            status: MilestoneStatus::Draft,
+            plan_ids: vec![],
+            plan_dependencies: vec![],
+            success_criteria: vec![],
+            validation_command: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            completed_at: None,
+        }).unwrap();
+
+        let a_milestones = storage.list_milestones(&session_a.id).unwrap();
+        assert_eq!(a_milestones.len(), 3);
+        let b_milestones = storage.list_milestones(&session_b.id).unwrap();
+        assert_eq!(b_milestones.len(), 1);
+    }
+
+    #[test]
+    fn milestone_status_transition_and_completed_at() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        let session = make_session("status test");
+        storage.insert_session(&session).unwrap();
+
+        let milestone = Milestone {
+            id: MilestoneId::new(),
+            session_id: session.id.clone(),
+            title: "Status test".to_string(),
+            description: String::new(),
+            status: MilestoneStatus::Draft,
+            plan_ids: vec![],
+            plan_dependencies: vec![],
+            success_criteria: vec![],
+            validation_command: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            completed_at: None,
+        };
+        let id = milestone.id.clone();
+        storage.insert_milestone(&milestone).unwrap();
+
+        storage.update_milestone_status(&id, &MilestoneStatus::Active).unwrap();
+        let active = storage.load_milestone(&id).unwrap().unwrap();
+        assert_eq!(active.status, MilestoneStatus::Active);
+        assert!(active.completed_at.is_none());
+
+        storage.update_milestone_status(&id, &MilestoneStatus::Completed).unwrap();
+        let completed = storage.load_milestone(&id).unwrap().unwrap();
+        assert_eq!(completed.status, MilestoneStatus::Completed);
+        assert!(completed.completed_at.is_some());
+    }
+
+    #[test]
+    fn add_plan_to_milestone_links_both_sides() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        let session = make_session("link test");
+        storage.insert_session(&session).unwrap();
+
+        let milestone = Milestone {
+            id: MilestoneId::new(),
+            session_id: session.id.clone(),
+            title: "Link test".to_string(),
+            description: String::new(),
+            status: MilestoneStatus::Draft,
+            plan_ids: vec![],
+            plan_dependencies: vec![],
+            success_criteria: vec![],
+            validation_command: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            completed_at: None,
+        };
+        let milestone_id = milestone.id.clone();
+        storage.insert_milestone(&milestone).unwrap();
+
+        let plan = make_plan_with_session(&session.id);
+        let plan_id = plan.id.clone();
+        storage.insert_plan(&plan).unwrap();
+
+        storage.add_plan_to_milestone(&milestone_id, &plan_id).unwrap();
+
+        let loaded_milestone = storage.load_milestone(&milestone_id).unwrap().unwrap();
+        assert!(loaded_milestone.plan_ids.contains(&plan_id));
+
+        let loaded_plan = storage.load_plan(&plan_id).unwrap().unwrap();
+        assert_eq!(loaded_plan.milestone_id, Some(milestone_id));
+    }
+
+    #[test]
+    fn milestone_plans_returns_linked_plans() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        let session = make_session("plans test");
+        storage.insert_session(&session).unwrap();
+
+        let milestone = Milestone {
+            id: MilestoneId::new(),
+            session_id: session.id.clone(),
+            title: "Plans test".to_string(),
+            description: String::new(),
+            status: MilestoneStatus::Draft,
+            plan_ids: vec![],
+            plan_dependencies: vec![],
+            success_criteria: vec![],
+            validation_command: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            completed_at: None,
+        };
+        let milestone_id = milestone.id.clone();
+        storage.insert_milestone(&milestone).unwrap();
+
+        let plan_a = make_plan_with_session(&session.id);
+        let plan_b = make_plan_with_session(&session.id);
+        let unrelated = make_plan_with_session(&session.id);
+        storage.insert_plan(&plan_a).unwrap();
+        storage.insert_plan(&plan_b).unwrap();
+        storage.insert_plan(&unrelated).unwrap();
+
+        storage.add_plan_to_milestone(&milestone_id, &plan_a.id).unwrap();
+        storage.add_plan_to_milestone(&milestone_id, &plan_b.id).unwrap();
+
+        let plans = storage.milestone_plans(&milestone_id).unwrap();
+        assert_eq!(plans.len(), 2);
+        assert!(plans.iter().all(|p| p.milestone_id == Some(milestone_id.clone())));
+    }
+
+    #[test]
+    fn plan_backward_compat_deserializes_without_milestone_id() {
+        let storage = Storage::open(&temp_db_path()).unwrap();
+        let session = make_session("compat test");
+        storage.insert_session(&session).unwrap();
+
+        let plan = make_plan_with_session(&session.id);
+        let plan_id = plan.id.clone();
+        storage.insert_plan(&plan).unwrap();
+
+        let loaded = storage.load_plan(&plan_id).unwrap().unwrap();
+        assert_eq!(loaded.milestone_id, None);
+    }
 }

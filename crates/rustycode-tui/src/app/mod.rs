@@ -9,6 +9,7 @@ pub mod compaction_state;
 pub mod streaming_state;
 pub mod token_budget;
 pub mod tool_panel_state;
+pub mod undo_state;
 pub mod view_state;
 
 // ── Input handling ────────────────────────────────────────────

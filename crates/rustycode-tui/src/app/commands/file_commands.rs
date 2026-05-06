@@ -6,7 +6,7 @@ use anyhow::Result;
 
 /// Handle /undo command - revert the most recent file snapshot batch
 pub fn handle_undo_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    match ctx.file_undo_stack.pop() {
+    match ctx.file_undo_stack.pop_file_batch() {
         Some(batch) => {
             let mut reverted = Vec::new();
             let mut errors = Vec::new();
