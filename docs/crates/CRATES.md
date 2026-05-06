@@ -27,10 +27,11 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ### rustycode-orchestration
 **Purpose:** Structured reasoning and execution strategy for complex task solving  
-**Key Concepts:** Phases, quality gates, iterative refinement, canonical thinking  
+**Key Concepts:** Phases, quality gates, iterative refinement, canonical thinking, milestone sequencing  
 **Execution Flow:** Analyze → Plan → Implement → Test → Verify → Iterate  
-**Features:** Risk awareness, context management, quality enforcement  
-**Dependencies:** rustycode-llm, rustycode-tools, rustycode-prompt, rustycode-runtime  
+**Milestone Flow:** Decompose task → DAG-based plan scheduling → parallel plan execution → validation  
+**Features:** Risk awareness, context management, quality enforcement, milestone-aware autonomous mode  
+**Dependencies:** rustycode-llm, rustycode-tools, rustycode-prompt, rustycode-runtime, rustycode-protocol  
 **Use:** Production reasoning and orchestration for the shell/TUI stack  
 **See Also:** [README](../../crates/rustycode-orchestration/README.md)
 
@@ -40,7 +41,8 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ### rustycode-protocol
 **Purpose:** Core types and protocol definitions for all cross-crate communication  
-**Key Types:** SessionId, PlanId, Message, ToolCall, ToolResult, CompletionRequest  
+**Key Types:** SessionId, PlanId, MilestoneId, Message, ToolCall, ToolResult, CompletionRequest, Milestone, Plan, PlanDependency  
+**Milestone Grouping:** Milestone → Plan → Step hierarchy with DAG-based plan dependencies  
 **ID System:** Time-sortable, human-readable, collision-free identifiers  
 **Principles:** No circular deps, immutable types, comprehensive serialization  
 **Dependencies:** serde, chrono, uuid, sha2, base64  
@@ -332,7 +334,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ### rustycode-id
 **Purpose:** Sortable ID generation and management
-**Key Types:** SessionId, PlanId, TaskId
+**Key Types:** SessionId, PlanId, MilestoneId, TaskId
 **Features:** Time-sortable, human-readable, collision-free
 **Dependencies:** chrono, serde
 **Used By:** rustycode-protocol, all crates
@@ -395,6 +397,23 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **Dependencies (planned):** tokio, serde, sqlx, anyhow  
 **See Also:** [README](../../crates/rustycode-tasks/README.md)
 
+### rustycode-sandbox
+**Purpose:** OS-level sandboxing for safe command execution
+**Backends:** macOS Seatbelt (sandbox-exec), Linux landlock (planned)
+**Key Types:** SandboxManager, SandboxPolicy, SandboxError
+**Features:** Platform-specific sandbox profiles, command restriction, path confinement
+**Dependencies:** tokio, anyhow
+**Used By:** rustycode-tools (bash execution safety)
+**See Also:** [README](../../crates/rustycode-sandbox/README.md)
+
+### rustycode-team
+**Purpose:** Team-based agent orchestration for multi-agent coordination
+**Key Types:** TaskProfile, AgentTimeline, Coordinator, Briefing
+**Features:** Agent profiling, assembly, timeline scheduling, cross-agent coordination
+**Dependencies:** rustycode-protocol, rustycode-llm, tokio
+**Used By:** rustycode-orchestration (milestone sequencing)
+**See Also:** [README](../../crates/rustycode-team/README.md)
+
 ---
 
 ## Layer 8: Protocol & Integration (2 crates)
@@ -427,7 +446,8 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 │  - rustycode-tui, rustycode-cli, rustycode-orchestration│
 ├─────────────────────────────────────────────────────┤
 │ Layer 2: Core Infrastructure (protocol, core, llm) │
-│  - rustycode-protocol, rustycode-core, rustycode-llm
+│  - rustycode-protocol (Milestone, Plan, PlanDependency)
+│  - rustycode-core, rustycode-llm                   │
 │  - rustycode-tools-api, rustycode-tools            │
 │  - rustycode-bus, rustycode-storage, rustycode-config
 │  - rustycode-git, rustycode-session                │
@@ -436,7 +456,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 │  - rustycode-agents, rustycode-execution           │
 │  - rustycode-skill                                 │
 │  - rustycode-runtime, rustycode-shared-runtime     │
-│  - rustycode-bench                                 │
+│  - rustycode-bench, rustycode-team                 │
 ├─────────────────────────────────────────────────────┤
 │ Layer 4: UI Components                              │
 │  - rustycode-ui-core                               │

@@ -45,15 +45,17 @@ See `crates/rustycode-orchestration/README.md` for full module map.
 | `rustycode-cli` | CLI binary (default workspace member) |
 | `rustycode-tui` | Terminal UI (ratatui-based) |
 | `rustycode-core` | Session management, headless runtime |
-| `rustycode-orchestration` | Autonomous execution: strategies, reasoning, quality gates, AST pipeline |
+| `rustycode-orchestration` | Autonomous execution: strategies, reasoning, quality gates, AST pipeline, milestone sequencing |
 | `rustycode-llm` | LLM provider abstractions (Anthropic, OpenAI, etc.) |
 | `rustycode-tools` | Tool execution framework + permissions |
-| `rustycode-protocol` | Cross-crate shared types |
+| `rustycode-protocol` | Cross-crate shared types (Milestone, Plan, PlanDependency, Message, ToolCall) |
 | `rustycode-bus` | Event bus (pub/sub) |
 | `rustycode-agent-runtime` | Agent definitions (headless) |
 | `rustycode-bench` | rtk-bench: native/Docker benchmark runner |
+| `rustycode-team` | Team-based agent orchestration, task profiling, coordination |
+| `rustycode-sandbox` | OS-level sandboxing (macOS Seatbelt, Linux landlock) |
 
-Other top-level dirs: `docs/`, `scripts/`, `tests/`, `benches/`, `examples/`, `harbor-agent/`, `mcp-test-server/`.
+Other top-level dirs: `docs/`, `scripts/`, `tests/`, `benches/`, `examples/`.
 
 Excluded from workspace: `crates/rustycode-web/` (separate web/WASM build).
 
@@ -204,10 +206,11 @@ mod tests {
 │  rustycode-cli (CLI + TUI binary) / rustycode-guard (binary) │
 ├─────────────────────────────────────────────────────────────┤
 │  rustycode-core (session, headless runtime)                 │
-│  rustycode-orchestration (autonomous development)              │
+│  rustycode-orchestration (autonomous development, milestones)│
 ├─────────────────────────────────────────────────────────────┤
 │  rustycode-llm (providers)  │  rustycode-tools             │
 │  rustycode-bus (events)      │  rustycode-guard (security)  │
+│  rustycode-team (agents)     │  rustycode-sandbox (isolation)│
 ├─────────────────────────────────────────────────────────────┤
 │  rustycode-protocol  │  rustycode-config  │  rustycode-skill │
 │  rustycode-storage   │  rustycode-auth     │  rustycode-session│
@@ -290,6 +293,10 @@ mod tests {
 | How do I publish events? | `rustycode-bus::EventBus` | Direct channels |
 | How do I manage skill lifecycle? | `rustycode-skill` | Manual YAML parsing |
 | How do I execute a plan? | `rustycode-core::execution` | Direct step iteration |
+| How do I group plans into milestones? | `rustycode-protocol::{Milestone, PlanDependency}` | Ad-hoc plan grouping |
+| How do I run milestone-aware autonomous mode? | `rustycode-orchestration::execute_milestone` | Manual plan sequencing |
+| How do I sandbox command execution? | `rustycode-sandbox` | Raw `std::process::Command` |
+| How do I coordinate multiple agents? | `rustycode-team` | Direct agent dispatch |
 
 **Architecture Constraint:** No circular dependencies. If you need shared abstractions, add them to `rustycode-protocol`.
 
