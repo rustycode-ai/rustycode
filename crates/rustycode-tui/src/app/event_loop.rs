@@ -281,11 +281,8 @@ pub struct TUI {
     // Keyboard shortcut handler for Vim mode and chord detection
     pub(crate) keyboard_handler: KeyboardShortcutHandler,
 
-    // Undo stack for scroll positions (last 5 positions: (selected_message, scroll_offset_line))
-    pub(crate) undo_stack: VecDeque<(usize, usize)>,
-
-    /// File undo stack for `/undo` command — each entry is a batch of (path, old_content) pairs
-    pub(crate) file_undo_stack: Vec<Vec<(String, String)>>,
+    /// Undo stacks for message positions and file edits.
+    pub(crate) undo: crate::app::undo_state::UndoState,
 
     // File finder (Ctrl+O fuzzy file search)
     pub(crate) file_finder: crate::ui::file_finder::FileFinder,
@@ -657,9 +654,7 @@ impl TUI {
             wizard: WizardHandler::new(&cwd, reconfigure),
             // Keyboard shortcut handler for Vim mode (gg chord detection)
             keyboard_handler: KeyboardShortcutHandler::new(tui_config.behavior.vim_enabled),
-            // Undo stack for scroll positions (max 5 entries)
-            undo_stack: VecDeque::with_capacity(5),
-            file_undo_stack: Vec::new(),
+            undo: crate::app::undo_state::UndoState::new(),
             // Message search state
             search_state: SearchState::new(),
             // File finder (Ctrl+O)
@@ -885,8 +880,7 @@ impl TUI {
             wizard: WizardHandler::new(&PathBuf::from("."), false),
             tui_config: TUIConfig::default(),
             keyboard_handler: KeyboardShortcutHandler::new(false),
-            undo_stack: VecDeque::with_capacity(5),
-            file_undo_stack: Vec::new(),
+            undo: crate::app::undo_state::UndoState::new(),
             file_finder: crate::ui::file_finder::FileFinder::new(PathBuf::from(".")),
             search_state: SearchState::new(),
             tag_filter: TagFilter::new(),
@@ -1771,7 +1765,7 @@ impl TUI {
                     compaction_config: &mut self.compaction.compaction_config,
                     showing_compaction_preview: &mut self.compaction.showing_preview,
                     pending_compaction: &mut self.compaction.pending,
-                    file_undo_stack: &mut self.file_undo_stack,
+                    file_undo_stack: &mut self.undo.file_stack,
                     session_input_tokens: self.token_budget.session_input_tokens,
                     session_output_tokens: self.token_budget.session_output_tokens,
                     session_cost_usd: self.token_budget.session_cost_usd,

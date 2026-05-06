@@ -3,6 +3,7 @@
 use crate::app::TUI;
 use crate::app::task_extraction::extract_action_items;
 use chrono;
+use rustycode_protocol::MilestoneStatus;
 use tracing;
 
 pub(super) fn handle_extract_tasks_chunk(tui: &mut TUI, text: String) {
@@ -118,11 +119,7 @@ pub(super) fn handle_question_answered_chunk(
 pub(super) fn handle_file_snapshot_chunk(tui: &mut TUI, batch: Vec<(String, String)>) {
     // Snapshot of file content before a write operation — push to undo stack
     if !batch.is_empty() {
-        tui.file_undo_stack.push(batch);
-        // Cap undo stack at 20 entries to bound memory usage
-        while tui.file_undo_stack.len() > 20 {
-            tui.file_undo_stack.remove(0);
-        }
+        tui.undo.push_file_batch(batch);
     }
 }
 
@@ -182,6 +179,30 @@ pub(super) fn handle_execution_trace_chunk(tui: &mut TUI, trace: serde_json::Val
 
 pub(super) fn handle_system_message_chunk(tui: &mut TUI, msg: String) {
     tui.add_system_message(msg);
+    tui.dirty = true;
+}
+
+pub(super) fn handle_milestone_progress_chunk(
+    tui: &mut TUI,
+    milestone_id: String,
+    milestone_title: String,
+    status: MilestoneStatus,
+    plans_total: usize,
+    plans_completed: usize,
+    current_plan_summary: String,
+    action_hint: String,
+) {
+    tui.show_milestone_progress_banner(
+        &format!("{} ({})", milestone_title, milestone_id),
+        plans_total,
+        plans_completed,
+        &current_plan_summary,
+        &action_hint,
+    );
+    tui.add_system_message(format!(
+        "◆ Milestone {}: {}",
+        status, current_plan_summary
+    ));
     tui.dirty = true;
 }
 

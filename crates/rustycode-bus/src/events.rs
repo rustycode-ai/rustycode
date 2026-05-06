@@ -7,7 +7,7 @@
 
 use crate::Event;
 use chrono::{DateTime, Utc};
-use rustycode_protocol::{ContextPlan, Plan, PlanId, SessionId};
+use rustycode_protocol::{ContextPlan, MilestoneId, MilestoneStatus, Plan, PlanId, SessionId};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use uuid::Uuid;
@@ -786,6 +786,82 @@ impl PlanExecutionFailedEvent {
 impl Event for PlanExecutionFailedEvent {
     fn event_type(&self) -> &'static str {
         "plan.execution.failed"
+    }
+
+    fn timestamp(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn Event> {
+        Box::new(self.clone())
+    }
+
+    fn serialize(&self) -> serde_json::Value {
+        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
+    }
+}
+
+/// Event emitted when a milestone changes execution progress.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MilestoneProgressEvent {
+    /// Unique event identifier
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_id: Option<Uuid>,
+
+    /// Event timestamp
+    pub timestamp: DateTime<Utc>,
+
+    pub session_id: SessionId,
+
+    pub milestone_id: MilestoneId,
+
+    pub milestone_title: String,
+
+    pub status: MilestoneStatus,
+
+    pub plans_total: usize,
+
+    pub plans_completed: usize,
+
+    pub current_plan_summary: String,
+
+    pub action_hint: String,
+}
+
+impl MilestoneProgressEvent {
+    /// Create a new `MilestoneProgressEvent`.
+    pub fn new(
+        session_id: SessionId,
+        milestone_id: MilestoneId,
+        milestone_title: String,
+        status: MilestoneStatus,
+        plans_total: usize,
+        plans_completed: usize,
+        current_plan_summary: String,
+        action_hint: String,
+    ) -> Self {
+        Self {
+            event_id: Some(Uuid::new_v4()),
+            timestamp: Utc::now(),
+            session_id,
+            milestone_id,
+            milestone_title,
+            status,
+            plans_total,
+            plans_completed,
+            current_plan_summary,
+            action_hint,
+        }
+    }
+}
+
+impl Event for MilestoneProgressEvent {
+    fn event_type(&self) -> &'static str {
+        "milestone.progress"
     }
 
     fn timestamp(&self) -> DateTime<Utc> {

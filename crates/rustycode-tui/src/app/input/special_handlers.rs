@@ -476,8 +476,7 @@ impl TUI {
                             if self.streaming.is_streaming {
                                 self.services.request_stop_stream();
                             }
-                            self.file_undo_stack.clear();
-                            self.undo_stack.clear();
+                            self.undo.clear();
                             self.messages = messages;
                             if !self.messages.is_empty() {
                                 self.view.selected_message = self.messages.len() - 1;

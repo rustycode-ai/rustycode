@@ -17,11 +17,11 @@ use std::process::Command;
 use crate::ast::classifier::TaskClassifier;
 use crate::ast::types::{ComplexityLevel, VerificationStatus};
 use crate::ast::{AstConfig, AstPipeline};
-use crate::bus::BusHandle;
+use crate::bus::{BusHandle, OrchestrationEvent};
 use crate::config::OrchestrationConfig;
 use crate::error::Result;
 use crate::pipeline::{OrchestrationPipeline, TaskResult};
-use rustycode_protocol::{MilestoneId, MilestoneStatus, PlanStatus};
+use rustycode_protocol::{MilestoneId, MilestoneStatus, Plan, PlanStatus};
 use rustycode_storage::Storage;
 use serde::{Deserialize, Serialize};
 
@@ -183,6 +183,15 @@ impl AutonomousService {
             ))
         })?;
         storage.update_milestone_status(&milestone_id, &MilestoneStatus::Active)?;
+        self.emit_milestone_progress(
+            &milestone.id,
+            &milestone.title,
+            MilestoneStatus::Active,
+            0,
+            0,
+            "Milestone activated",
+            "Sequencing dependent plans...",
+        );
 
         let mut aggregated_output = Vec::new();
         let mut total_cost = 0.0_f64;
@@ -210,6 +219,18 @@ impl AutonomousService {
 
                 let reason = format!("milestone {} is blocked: no ready plans", milestone.title);
                 storage.update_milestone_status(&milestone_id, &MilestoneStatus::Paused)?;
+                self.emit_milestone_progress(
+                    &milestone.id,
+                    &milestone.title,
+                    MilestoneStatus::Paused,
+                    plans.len(),
+                    plans
+                        .iter()
+                        .filter(|plan| plan.status == PlanStatus::Completed)
+                        .count(),
+                    "Waiting for dependencies",
+                    "Milestone paused until dependencies complete.",
+                );
                 self.state = ServiceState::Failed;
                 return Ok(TaskResult::Failed {
                     reason,
@@ -222,6 +243,18 @@ impl AutonomousService {
                 crate::error::OrchestrationError::TaskNotFound(format!("plan {} not found", plan_id))
             })?;
 
+            self.emit_milestone_progress(
+                &milestone.id,
+                &milestone.title,
+                MilestoneStatus::Active,
+                plans.len(),
+                plans
+                    .iter()
+                    .filter(|plan| plan.status == PlanStatus::Completed)
+                    .count(),
+                &plan_summary(&plan),
+                "Executing next ready plan...",
+            );
             storage.update_plan_status(&plan.id, &PlanStatus::Executing)?;
             let execution = self
                 .pipeline
@@ -243,6 +276,20 @@ impl AutonomousService {
                     steps_completed += plan_steps_completed;
                     tier_used = tier_used.max(plan_tier);
                     last_trace = execution_trace;
+                    let completed_count = plans
+                        .iter()
+                        .filter(|candidate| candidate.status == PlanStatus::Completed)
+                        .count()
+                        + 1;
+                    self.emit_milestone_progress(
+                        &milestone.id,
+                        &milestone.title,
+                        MilestoneStatus::Active,
+                        plans.len(),
+                        completed_count,
+                        &plan_summary(&plan),
+                        "Plan completed; checking remaining dependencies...",
+                    );
                 }
                 Ok(TaskResult::Failed {
                     reason,
@@ -251,6 +298,21 @@ impl AutonomousService {
                 }) => {
                     storage.update_plan_status(&plan.id, &PlanStatus::Failed)?;
                     storage.update_milestone_status(&milestone_id, &MilestoneStatus::Failed)?;
+                    self.emit_milestone_progress(
+                        &milestone.id,
+                        &milestone.title,
+                        MilestoneStatus::Failed,
+                        plans.len(),
+                        plans
+                            .iter()
+                            .filter(|plan| {
+                                plan.status == PlanStatus::Completed
+                                    || matches!(plan.status, PlanStatus::Executing)
+                            })
+                            .count(),
+                        &plan_summary(&plan),
+                        "Milestone failed during plan execution.",
+                    );
                     self.state = ServiceState::Failed;
                     return Ok(TaskResult::Failed {
                         reason,
@@ -261,6 +323,21 @@ impl AutonomousService {
                 Err(error) => {
                     storage.update_plan_status(&plan.id, &PlanStatus::Failed)?;
                     storage.update_milestone_status(&milestone_id, &MilestoneStatus::Failed)?;
+                    self.emit_milestone_progress(
+                        &milestone.id,
+                        &milestone.title,
+                        MilestoneStatus::Failed,
+                        plans.len(),
+                        plans
+                            .iter()
+                            .filter(|plan| {
+                                plan.status == PlanStatus::Completed
+                                    || matches!(plan.status, PlanStatus::Executing)
+                            })
+                            .count(),
+                        &plan_summary(&plan),
+                        "Milestone failed due to orchestration error.",
+                    );
                     self.state = ServiceState::Failed;
                     return Err(error);
                 }
@@ -268,6 +345,19 @@ impl AutonomousService {
         }
 
         storage.update_milestone_status(&milestone_id, &MilestoneStatus::Validating)?;
+        let validation_plans = storage.milestone_plans(&milestone_id)?;
+        self.emit_milestone_progress(
+            &milestone.id,
+            &milestone.title,
+            MilestoneStatus::Validating,
+            validation_plans.len(),
+            validation_plans
+                .iter()
+                .filter(|plan| plan.status == PlanStatus::Completed)
+                .count(),
+            "Validation",
+            "Running milestone validation...",
+        );
         let refreshed = storage.load_milestone(&milestone_id)?.ok_or_else(|| {
             crate::error::OrchestrationError::TaskNotFound(format!(
                 "milestone {} disappeared during validation",
@@ -282,6 +372,19 @@ impl AutonomousService {
 
         if validation_passed {
             storage.update_milestone_status(&milestone_id, &MilestoneStatus::Completed)?;
+            let completed_plans = storage.milestone_plans(&milestone_id)?;
+            self.emit_milestone_progress(
+                &milestone.id,
+                &milestone.title,
+                MilestoneStatus::Completed,
+                completed_plans.len(),
+                completed_plans
+                    .iter()
+                    .filter(|plan| plan.status == PlanStatus::Completed)
+                    .count(),
+                "Validation passed",
+                "Milestone completed successfully.",
+            );
             self.state = ServiceState::Completed;
             Ok(TaskResult::Success {
                 output: format!(
@@ -297,6 +400,19 @@ impl AutonomousService {
             })
         } else {
             storage.update_milestone_status(&milestone_id, &MilestoneStatus::Failed)?;
+            let failed_plans = storage.milestone_plans(&milestone_id)?;
+            self.emit_milestone_progress(
+                &milestone.id,
+                &milestone.title,
+                MilestoneStatus::Failed,
+                failed_plans.len(),
+                failed_plans
+                    .iter()
+                    .filter(|plan| plan.status == PlanStatus::Completed)
+                    .count(),
+                "Validation failed",
+                "Validation command failed.",
+            );
             self.state = ServiceState::Failed;
             Ok(TaskResult::Failed {
                 reason: format!(
@@ -333,6 +449,36 @@ impl AutonomousService {
                 }
             })?;
         Ok(status.success())
+    }
+
+    fn emit_milestone_progress(
+        &self,
+        milestone_id: &MilestoneId,
+        milestone_title: &str,
+        status: MilestoneStatus,
+        plans_total: usize,
+        plans_completed: usize,
+        current_plan_summary: impl Into<String>,
+        action_hint: impl Into<String>,
+    ) {
+        self.pipeline.bus_handle().publish(OrchestrationEvent::MilestoneProgress {
+            task_id: milestone_id.to_string(),
+            milestone_id: milestone_id.clone(),
+            milestone_title: milestone_title.to_string(),
+            status,
+            plans_total,
+            plans_completed,
+            current_plan_summary: current_plan_summary.into(),
+            action_hint: action_hint.into(),
+        });
+    }
+}
+
+fn plan_summary(plan: &Plan) -> String {
+    if plan.summary.trim().is_empty() {
+        plan.task.clone()
+    } else {
+        plan.summary.clone()
     }
 }
 

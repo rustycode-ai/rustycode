@@ -184,13 +184,14 @@ impl TUI {
         plans_total: usize,
         plans_completed: usize,
         current_plan_summary: &str,
+        action_hint: &str,
     ) {
         self.set_plan_mode_banner(Some(PlanModeBanner::MilestoneProgress {
             milestone_title: milestone_title.to_string(),
             plans_total,
             plans_completed,
             current_plan_summary: current_plan_summary.to_string(),
-            action_hint: "Sequencing dependent plans...".to_string(),
+            action_hint: action_hint.to_string(),
         }));
     }
 

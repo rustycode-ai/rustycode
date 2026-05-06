@@ -1,6 +1,6 @@
 use crate::error_signal::ErrorSignal;
 use crate::guard::{Resource, ResourceAccess};
-use rustycode_protocol::ExecutionPhase;
+use rustycode_protocol::{ExecutionPhase, MilestoneId, MilestoneStatus};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -179,6 +179,17 @@ pub enum OrchestrationEvent {
         plan_id: String,
         title: String,
         steps: Vec<(String, String)>, // (name, description)
+    },
+    /// Milestone execution progress changed.
+    MilestoneProgress {
+        task_id: String,
+        milestone_id: MilestoneId,
+        milestone_title: String,
+        status: MilestoneStatus,
+        plans_total: usize,
+        plans_completed: usize,
+        current_plan_summary: String,
+        action_hint: String,
     },
     /// A delegated task has been spawned into its own context.
     TaskSpawned {

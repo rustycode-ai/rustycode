@@ -80,12 +80,12 @@ use uuid::Uuid;
 
 pub use error::{EventBusError, Result};
 pub use events::{
-    AstPhaseEvent, ContextAssembledEvent, InspectionCompletedEvent, ModeChangedEvent,
-    PlanApprovedEvent, PlanCreatedEvent, PlanExecutionCompletedEvent, PlanExecutionFailedEvent,
-    PlanExecutionStartedEvent, PlanRejectedEvent, PostCompactEvent, PreCompactEvent,
-    SessionCompletedEvent, SessionFailedEvent, SessionStartedEvent, SkillActivatedEvent,
-    SkillDeactivatedEvent, SkillQualityAssessedEvent, SkillSuggestedEvent, ToolBlockedEvent,
-    ToolExecutedEvent,
+    AstPhaseEvent, ContextAssembledEvent, InspectionCompletedEvent, MilestoneProgressEvent,
+    ModeChangedEvent, PlanApprovedEvent, PlanCreatedEvent, PlanExecutionCompletedEvent,
+    PlanExecutionFailedEvent, PlanExecutionStartedEvent, PlanRejectedEvent, PostCompactEvent,
+    PreCompactEvent, SessionCompletedEvent, SessionFailedEvent, SessionStartedEvent,
+    SkillActivatedEvent, SkillDeactivatedEvent, SkillQualityAssessedEvent, SkillSuggestedEvent,
+    ToolBlockedEvent, ToolExecutedEvent,
 };
 // Export hook system
 pub use hook_registry::HookRegistry;

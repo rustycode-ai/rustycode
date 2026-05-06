@@ -72,18 +72,14 @@ impl TUI {
 
     /// Push current position to undo stack with bounded capacity
     pub(crate) fn push_undo_position(&mut self) {
-        if self.undo_stack.len() >= crate::app::MAX_UNDO_ENTRIES {
-            self.undo_stack.pop_front();
-        }
-        self.undo_stack
-            .push_back((self.view.selected_message, self.view.scroll_offset_line));
+        self.undo.push_message(self.view.selected_message, self.view.scroll_offset_line);
     }
 
     /// Pop and restore the last undo position
     ///
     /// Returns true if a position was restored, false if the stack was empty.
     pub(crate) fn pop_undo_position(&mut self) -> bool {
-        if let Some((prev_msg, prev_scroll)) = self.undo_stack.pop_back() {
+        if let Some((prev_msg, prev_scroll)) = self.undo.pop_message() {
             if prev_msg < self.messages.len() {
                 self.view.selected_message = prev_msg;
                 self.view.scroll_offset_line = prev_scroll;

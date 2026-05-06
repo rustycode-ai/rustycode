@@ -292,6 +292,16 @@ pub enum StreamChunk {
     ExecutionTrace(serde_json::Value),
     /// A system-level status message (e.g., tool started, phase changed)
     SystemMessage(String),
+    /// Milestone progress update from autonomous sequencing.
+    MilestoneProgress {
+        milestone_id: String,
+        milestone_title: String,
+        status: rustycode_protocol::MilestoneStatus,
+        plans_total: usize,
+        plans_completed: usize,
+        current_plan_summary: String,
+        action_hint: String,
+    },
     /// Sync LLM todo state into persisted workspace tasks
     TodoSync,
 }
