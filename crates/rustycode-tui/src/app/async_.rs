@@ -322,7 +322,11 @@ pub struct ToolResult {
 impl ToolResult {
     /// Create a new tool result.
     pub fn new(id: impl Into<String>, name: impl Into<String>, result: ToolOutput) -> Self {
-        Self { id: id.into(), name: name.into(), result }
+        Self {
+            id: id.into(),
+            name: name.into(),
+            result,
+        }
     }
 }
 
