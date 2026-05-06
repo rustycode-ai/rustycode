@@ -16,6 +16,9 @@ use std::time::{Duration, Instant};
 
 use crate::subprocess::SHELL_INFO;
 
+mod validation;
+pub use validation::*;
+
 /// Check if a line is a shell "command not found" error.
 /// Handles bash, zsh, sh (dash/ash), and fish shell error formats.
 fn is_command_not_found_line(line: &str) -> bool {

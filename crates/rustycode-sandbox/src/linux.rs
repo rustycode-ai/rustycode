@@ -207,10 +207,7 @@ fn build_landlock_ruleset(
                 tracing::warn!("Landlock: skipping read path {}: {e}", path.display());
             }
         } else {
-            tracing::debug!(
-                "Landlock: read path {} not found, skipping",
-                path.display()
-            );
+            tracing::debug!("Landlock: read path {} not found, skipping", path.display());
         }
     }
 

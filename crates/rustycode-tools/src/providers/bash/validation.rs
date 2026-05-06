@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Extract the binary name from a shell command (first token, without path)
-fn extract_binary_name(command: &str) -> anyhow::Result<String> {
+pub fn extract_binary_name(command: &str) -> anyhow::Result<String> {
     use shell_words::split;
     let tokens = split(command).map_err(|_| anyhow::anyhow!("invalid command syntax"))?;
     if tokens.is_empty() {
@@ -421,10 +421,10 @@ fn check_dangerous_patterns(command: &str, binary_name: &str, tokens: &[String])
     if cmd_lower.contains(":(){") || cmd_lower.contains(":() {") {
         bail!("blocked shell function definition (potential fork bomb)");
     }
-    if cmd_lower.contains(":|:\u0026") || cmd_lower.contains(": | : \u0026") {
+    if cmd_lower.contains(":|:") || cmd_lower.contains(": | : ") {
         bail!("blocked shell function with self-execution (potential fork bomb)");
     }
-    let ampersand_count = cmd_lower.matches('\u0026').count();
+    let ampersand_count = cmd_lower.matches('&').count();
     if ampersand_count > 50 {
         bail!("blocked command with excessive background operators (potential fork bomb)");
     }

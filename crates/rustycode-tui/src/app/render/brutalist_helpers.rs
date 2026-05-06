@@ -389,4 +389,36 @@ mod tests {
         assert_eq!(format_elapsed_mmss(125), "02:05");
         assert_eq!(format_elapsed_mmss(3661), "61:01");
     }
+
+    #[test]
+    fn test_format_duration_compact_millis() {
+        assert_eq!(
+            format_duration_compact(std::time::Duration::from_millis(350)),
+            "350ms"
+        );
+    }
+
+    #[test]
+    fn test_format_duration_compact_seconds() {
+        assert_eq!(
+            format_duration_compact(std::time::Duration::from_millis(3200)),
+            "3.2s"
+        );
+    }
+
+    #[test]
+    fn test_format_duration_compact_minutes() {
+        assert_eq!(
+            format_duration_compact(std::time::Duration::from_secs(65)),
+            "1m05s"
+        );
+    }
+
+    #[test]
+    fn test_format_duration_compact_exact_minute() {
+        assert_eq!(
+            format_duration_compact(std::time::Duration::from_secs(60)),
+            "1m00s"
+        );
+    }
 }
