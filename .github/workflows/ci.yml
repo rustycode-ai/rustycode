@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  repository_dispatch:
+    types: [trigger-ci]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to check'
+        required: true
+        default: 'main'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout from private repo
+        uses: actions/checkout@v4
+        with:
+          repository: luengnat/rustycode
+          ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace --locked
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout from private repo
+        uses: actions/checkout@v4
+        with:
+          repository: luengnat/rustycode
+          ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout from private repo
+        uses: actions/checkout@v4
+        with:
+          repository: luengnat/rustycode
+          ref: ${{ github.event.client_payload.ref || github.event.inputs.ref || 'main' }}
+          token: ${{ secrets.PRIVATE_REPO_PAT }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all --check
