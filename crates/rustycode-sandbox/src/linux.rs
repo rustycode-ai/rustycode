@@ -22,7 +22,7 @@ pub fn is_linux_sandbox_available() -> bool {
                         if let Some(minor_str) = rest.split('.').nth(1) {
                             if let Ok(minor) = minor_str
                                 .chars()
-                                .take_while(|c| c.is_ascii_digit())
+                                .take_while(char::is_ascii_digit)
                                 .collect::<String>()
                                 .parse::<u32>()
                             {
@@ -42,13 +42,13 @@ pub fn is_linux_sandbox_available() -> bool {
 
 /// Execute a command under Linux Landlock sandbox.
 ///
-/// Strategy:
-/// - Spawn via `/bin/sh -c` with a `pre_exec` hook that:
-///   1. Drops supplementary groups
-///   2. Restricts PATH to workspace + /usr/bin:/bin
-///   3. Clears dangerous env vars (LD_PRELOAD, etc.)
-/// - If Landlock is available (optional dep), apply FS access rules
-/// - Graceful fallback: if anything fails, log warning and run unsandboxed
+/// When the `landlock` feature is enabled and the kernel supports it:
+/// - Creates a Landlock ruleset restricting FS access to policy paths
+/// - Applies the ruleset in the child process via `pre_exec`
+/// - Strips dangerous env vars (LD_PRELOAD, LD_LIBRARY_PATH)
+///
+/// Graceful fallback: if Landlock is unavailable or the feature is disabled,
+/// falls back to environment-variable restrictions only.
 pub async fn execute_sandboxed_linux(
     command: &str,
     policy: &SandboxPolicy,
@@ -75,12 +75,16 @@ pub async fn execute_sandboxed_linux(
     cmd.env_remove("LD_LIBRARY_PATH");
     cmd.env_remove("DYLD_INSERT_LIBRARIES");
 
-    // Apply network denial hint via unshare if available (best-effort)
-    // This is a soft restriction — true network isolation requires CAP_SYS_ADMIN
     if policy.network == NetworkAccess::Denied {
-        // Best-effort: we can't enforce network denial without Landlock network
-        // rules or network namespaces. Log the intent.
-        tracing::debug!("Linux sandbox: network denial requested (best-effort only without Landlock network rules)");
+        tracing::debug!(
+            "Linux sandbox: network denial requested (best-effort only without Landlock network rules)"
+        );
+    }
+
+    // Apply Landlock FS restrictions via pre_exec (runs in child after fork, before exec)
+    #[cfg(feature = "landlock")]
+    {
+        apply_landlock_pre_exec(&mut cmd, policy)?;
     }
 
     // Apply timeout
@@ -114,6 +118,110 @@ pub async fn execute_sandboxed_linux(
         stderr: "Command timed out in Linux sandbox".to_string(),
         timed_out,
     })
+}
+
+/// Set up Landlock FS access rules from the policy and apply via `pre_exec`.
+///
+/// The ruleset is built in the parent process (allocations OK here).
+/// `restrict_self()` is called in the `pre_exec` closure in the child
+/// process — it issues a single `landlock_restrict_self` syscall (async-signal-safe).
+#[cfg(feature = "landlock")]
+fn apply_landlock_pre_exec(
+    cmd: &mut tokio::process::Command,
+    policy: &SandboxPolicy,
+) -> Result<(), SandboxError> {
+    use std::os::unix::process::CommandExt;
+
+    let ruleset = match build_landlock_ruleset(policy) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(
+                "Linux sandbox: Landlock ruleset creation failed ({e}), running with env restrictions only"
+            );
+            return Ok(());
+        }
+    };
+
+    // SAFETY: `pre_exec` runs between fork and exec in the child process.
+    // `RulesetCreated::restrict_self()` issues a single
+    // `landlock_restrict_self` syscall on the success path (async-signal-safe).
+    // On error, the child process will abort before exec, which is safe.
+    unsafe {
+        cmd.pre_exec(move || {
+            ruleset
+                .restrict_self()
+                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))
+        });
+    }
+
+    Ok(())
+}
+
+/// Build a Landlock ruleset from the policy.
+///
+/// Creates a ruleset that:
+/// 1. Denies all FS access by default
+/// 2. Allows executing binaries from standard bin dirs
+/// 3. Allows reading from lib dirs (needed for dynamic linker)
+/// 4. Allows reading from `policy.read_paths`
+/// 5. Allows reading + writing to `policy.write_paths`
+#[cfg(feature = "landlock")]
+fn build_landlock_ruleset(
+    policy: &SandboxPolicy,
+) -> Result<landlock::RulesetCreated, SandboxError> {
+    use landlock::{AccessFs, PathBeneath, PathFd, Ruleset};
+
+    let abi = landlock::ABI::V1;
+    let read_access = AccessFs::from_read(abi);
+    let write_access = AccessFs::from_write(abi);
+
+    let mut ruleset = Ruleset::new()
+        .handle_access(AccessFs::all())
+        .map_err(|e| SandboxError::PolicyError(format!("Landlock ruleset init: {e}")))?
+        .create()
+        .map_err(|e| SandboxError::PolicyError(format!("Landlock ruleset create: {e}")))?;
+
+    // Allow executing standard binaries
+    for bin_dir in ["/usr/bin", "/bin", "/usr/local/bin"] {
+        if let Ok(fd) = PathFd::new(bin_dir) {
+            if let Err(e) = ruleset.add_rule(PathBeneath::new(fd, AccessFs::execute())) {
+                tracing::debug!("Landlock: skipping bin dir {bin_dir}: {e}");
+            }
+        }
+    }
+
+    // Allow reading /usr/lib, /lib (needed for dynamic linker)
+    for lib_dir in ["/usr/lib", "/lib", "/usr/local/lib"] {
+        if let Ok(fd) = PathFd::new(lib_dir) {
+            if let Err(e) = ruleset.add_rule(PathBeneath::new(fd, read_access)) {
+                tracing::debug!("Landlock: skipping lib dir {lib_dir}: {e}");
+            }
+        }
+    }
+
+    // Allow reading from specified paths
+    for path in &policy.read_paths {
+        if let Ok(fd) = PathFd::new(path) {
+            if let Err(e) = ruleset.add_rule(PathBeneath::new(fd, read_access)) {
+                tracing::warn!("Landlock: skipping read path {}: {e}", path.display());
+            }
+        } else {
+            tracing::debug!("Landlock: read path {} not found, skipping", path.display());
+        }
+    }
+
+    // Allow writing to specified paths
+    for path in &policy.write_paths {
+        if let Ok(fd) = PathFd::new(path) {
+            if let Err(e) = ruleset.add_rule(PathBeneath::new(fd, write_access)) {
+                tracing::warn!("Landlock: skipping write path {}: {e}", path.display());
+            }
+        } else {
+            tracing::debug!("Landlock: write path {} not found, skipping", path.display());
+        }
+    }
+
+    Ok(ruleset)
 }
 
 #[cfg(test)]
