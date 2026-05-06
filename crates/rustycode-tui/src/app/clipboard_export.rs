@@ -143,10 +143,7 @@ mod tests {
 
     #[test]
     fn count_all_system() {
-        let msgs = vec![
-            Message::system("s1".into()),
-            Message::system("s2".into()),
-        ];
+        let msgs = vec![Message::system("s1".into()), Message::system("s2".into())];
         assert_eq!(count_conversation_messages(&msgs), 0);
     }
 

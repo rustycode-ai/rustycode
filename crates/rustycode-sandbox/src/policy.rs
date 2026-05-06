@@ -49,9 +49,7 @@ impl SandboxPolicy {
         timeout_secs: Option<u64>,
         workspace_root: &std::path::Path,
     ) -> Self {
-        let mut read_paths = allowed_paths
-            .map(Vec::from)
-            .unwrap_or_default();
+        let mut read_paths = allowed_paths.map(Vec::from).unwrap_or_default();
 
         if read_paths.is_empty() {
             read_paths.push(PathBuf::from("/"));
@@ -71,12 +69,7 @@ impl SandboxPolicy {
             read_paths,
             write_paths,
             network: NetworkAccess::Denied,
-            env_passthrough: vec![
-                "PATH".into(),
-                "HOME".into(),
-                "LANG".into(),
-                "TERM".into(),
-            ],
+            env_passthrough: vec!["PATH".into(), "HOME".into(), "LANG".into(), "TERM".into()],
             max_memory_mb: Some(512),
             timeout_secs: timeout_secs.or(Some(120)),
         }

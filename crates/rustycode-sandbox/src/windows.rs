@@ -60,11 +60,7 @@ pub async fn execute_sandboxed_windows(
     }
 
     let timed_out = if let Some(timeout_secs) = policy.timeout_secs {
-        match tokio::time::timeout(
-            std::time::Duration::from_secs(timeout_secs),
-            cmd.output(),
-        )
-        .await
+        match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), cmd.output()).await
         {
             Ok(Ok(output)) => {
                 return Ok(SandboxResult {

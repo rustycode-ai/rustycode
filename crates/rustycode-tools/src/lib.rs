@@ -433,8 +433,8 @@ pub fn default_registry() -> ToolRegistry {
     use crate::providers::send_message::SendMessageTool;
     use crate::providers::task_output::{TaskOutputTool, TaskStopTool};
     use crate::providers::tool_search::ToolSearchTool;
-    use crate::providers::web_search::WebSearchTool;
     use crate::providers::web_fetch_tool::WebFetchTool;
+    use crate::providers::web_search::WebSearchTool;
     use crate::providers::{
         BashTool, CmdTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool,
         InspectTool, ListDirTool, PowerShellTool, QuestionTool, ReadFileTool, WriteFileTool,

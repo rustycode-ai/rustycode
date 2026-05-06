@@ -34,7 +34,9 @@ pub fn is_linux_sandbox_available() -> bool {
             }
         }
     }
-    tracing::warn!("Linux sandbox: kernel < 5.13 or /proc/version unreadable, Landlock unavailable");
+    tracing::warn!(
+        "Linux sandbox: kernel < 5.13 or /proc/version unreadable, Landlock unavailable"
+    );
     false
 }
 
@@ -85,11 +87,7 @@ pub async fn execute_sandboxed_linux(
 
     // Apply timeout
     let timed_out = if let Some(timeout_secs) = policy.timeout_secs {
-        match tokio::time::timeout(
-            std::time::Duration::from_secs(timeout_secs),
-            cmd.output(),
-        )
-        .await
+        match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), cmd.output()).await
         {
             Ok(Ok(output)) => {
                 return Ok(SandboxResult {

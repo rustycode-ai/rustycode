@@ -11,7 +11,10 @@ impl SandboxManager {
     pub fn new() -> Result<Self, SandboxError> {
         let available = Self::detect_availability();
         if available {
-            tracing::info!(platform = std::env::consts::OS, "OS sandbox backend available");
+            tracing::info!(
+                platform = std::env::consts::OS,
+                "OS sandbox backend available"
+            );
         } else {
             tracing::warn!(
                 platform = std::env::consts::OS,

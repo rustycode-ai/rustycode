@@ -117,6 +117,6 @@ pub use tool_search::*;
 #[allow(ambiguous_glob_reexports)]
 pub use validate_requirements::*;
 #[allow(ambiguous_glob_reexports)]
-pub use web_search::*;
-#[allow(ambiguous_glob_reexports)]
 pub use web_fetch_tool::*;
+#[allow(ambiguous_glob_reexports)]
+pub use web_search::*;

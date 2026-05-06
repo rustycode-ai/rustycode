@@ -17,8 +17,6 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
-const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
-
 /// Paths that are never readable — they expose kernel/device state or can hang
 /// on read (e.g., `/dev/urandom`, named pipes, FUSE control files).
 const BLOCKED_DEVICE_PATHS: &[&str] = &[

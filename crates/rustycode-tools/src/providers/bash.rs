@@ -876,15 +876,11 @@ impl BashTool {
     /// - macOS: Seatbelt (sandbox-exec)
     /// - Linux: Landlock + env stripping
     /// - Windows: Job Objects (stub)
-    fn execute_in_os_sandbox(
-        &self,
-        command: &str,
-        ctx: &ToolContext,
-    ) -> Result<ToolOutput> {
+    fn execute_in_os_sandbox(&self, command: &str, ctx: &ToolContext) -> Result<ToolOutput> {
         use rustycode_sandbox::{SandboxManager, SandboxPolicy};
 
-        let manager = SandboxManager::new()
-            .map_err(|e| anyhow!("Failed to initialize OS sandbox: {e}"))?;
+        let manager =
+            SandboxManager::new().map_err(|e| anyhow!("Failed to initialize OS sandbox: {e}"))?;
 
         let policy = SandboxPolicy::from_config(
             ctx.sandbox.allowed_paths.as_deref(),
