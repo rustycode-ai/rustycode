@@ -33,6 +33,7 @@ rustycode-skill = { path = "../rustycode-skill" }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
+rustycode-tools-security = { path = "../rustycode-tools-security" }
 rustycode-bus = { path = "../rustycode-bus" }
 rustycode-llm = { path = "../rustycode-llm", default-features = false }
 rustycode-orchestration = { path = "../rustycode-orchestration" }

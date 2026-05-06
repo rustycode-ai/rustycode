@@ -54,11 +54,8 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
         tui.add_system_message(user_message);
     }
 
-    tui.compaction.context_monitor.update(&tui.messages);
-    tui.maybe_auto_compact();
-    if let Some(ref mut recovery) = tui.session_recovery {
-        recovery.mark_dirty();
-    }
+    tui.update_context_and_compact();
+    tui.mark_session_dirty();
     tui.dirty = true;
     if !tui.view.user_scrolled {
         tui.auto_scroll();

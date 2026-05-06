@@ -19,7 +19,7 @@ impl AgentEvents for HeadlessAgentBridge {
         tool_name: &str,
         input: &serde_json::Value,
     ) -> ApprovalDecision {
-        use rustycode_tools::smart_approve::SmartApprove;
+        use rustycode_tools_security::approve::SmartApprove;
 
         let sa = SmartApprove::new();
         let command = if tool_name == "bash" {
@@ -34,24 +34,24 @@ impl AgentEvents for HeadlessAgentBridge {
         };
 
         match sa.classify(tool_name, Some(&command)) {
-            rustycode_tools::smart_approve::OperationClass::ReadOnly => {
+            rustycode_tools_security::approve::OperationClass::ReadOnly => {
                 tracing::debug!("Headless auto-approved (read-only): {}", tool_name);
             }
-            rustycode_tools::smart_approve::OperationClass::Write => {
+            rustycode_tools_security::approve::OperationClass::Write => {
                 tracing::info!(
                     "Headless auto-approved (write): {} {}",
                     tool_name,
                     truncate_cmd(&command, 60)
                 );
             }
-            rustycode_tools::smart_approve::OperationClass::Destructive => {
+            rustycode_tools_security::approve::OperationClass::Destructive => {
                 tracing::warn!(
                     "Headless auto-approved (DESTRUCTIVE): {} {}",
                     tool_name,
                     truncate_cmd(&command, 60)
                 );
             }
-            rustycode_tools::smart_approve::OperationClass::Unknown => {
+            rustycode_tools_security::approve::OperationClass::Unknown => {
                 tracing::info!("Headless auto-approved (unknown): {}", tool_name);
             }
             _ => {

@@ -13,9 +13,7 @@ impl TUI {
         self.dirty = true;
 
         // Mark session recovery dirty for auto-save
-        if let Some(ref mut recovery) = self.session_recovery {
-            recovery.mark_dirty();
-        }
+        self.mark_session_dirty();
 
         // Auto-scroll to latest message
         if !self.messages.is_empty() {
@@ -26,8 +24,7 @@ impl TUI {
         }
 
         // Update context monitor and check for auto-compaction
-        self.compaction.context_monitor.update(&self.messages);
-        self.maybe_auto_compact();
+        self.update_context_and_compact();
     }
 
     /// Add a system message
@@ -37,9 +34,7 @@ impl TUI {
         self.dirty = true;
 
         // Mark session recovery dirty for auto-save
-        if let Some(ref mut recovery) = self.session_recovery {
-            recovery.mark_dirty();
-        }
+        self.mark_session_dirty();
 
         // Only auto-scroll to the new message if the user hasn't scrolled up.
         // Background system messages (auto-approvals, workspace notifications)
@@ -50,8 +45,7 @@ impl TUI {
         }
 
         // Update context monitor and check for auto-compaction
-        self.compaction.context_monitor.update(&self.messages);
-        self.maybe_auto_compact();
+        self.update_context_and_compact();
     }
 
     /// Show an error with the error manager
@@ -437,5 +431,24 @@ impl TUI {
             .rev()
             .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
             .and_then(|m| m.thinking.take())
+    }
+
+    /// Mark the session recovery state as dirty so the auto-save timer persists it.
+    pub(crate) fn mark_session_dirty(&mut self) {
+        if let Some(ref mut recovery) = self.session_recovery {
+            recovery.mark_dirty();
+        }
+    }
+
+    /// Update the context monitor with the current message list and run auto-compaction if needed.
+    pub(crate) fn update_context_and_compact(&mut self) {
+        self.compaction.context_monitor.update(&self.messages);
+        self.maybe_auto_compact();
+    }
+
+    /// Push an empty assistant message (streaming placeholder) and mark the view dirty.
+    pub(crate) fn push_empty_assistant_message(&mut self) {
+        self.messages.push(Message::assistant(String::new()));
+        self.dirty = true;
     }
 }

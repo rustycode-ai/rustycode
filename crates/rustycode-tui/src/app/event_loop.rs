@@ -392,6 +392,7 @@ impl TUI {
         self.view.scroll_offset_line = 0;
         self.view.user_scrolled = false;
         self.active_tools.clear();
+        self.session_sidebar.clear_milestone_progress();
         self.tool_panel.reset();
         self.dismiss_any_overlay();
         self.reset_streaming_state();

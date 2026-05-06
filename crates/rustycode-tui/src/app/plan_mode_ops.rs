@@ -6,6 +6,7 @@
 
 use crate::app::event_loop::TUI;
 use crate::ui::header::HeaderStatus;
+use rustycode_protocol::MilestoneStatus;
 
 /// User-facing plan mode banner shown in the persistent status bar / header.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -36,6 +37,7 @@ pub enum PlanModeBanner {
     /// A milestone is actively sequencing multiple plans.
     MilestoneProgress {
         milestone_title: String,
+        status: MilestoneStatus,
         plans_total: usize,
         plans_completed: usize,
         current_plan_summary: String,
@@ -51,7 +53,13 @@ impl PlanModeBanner {
             Self::AwaitingApproval { .. } => "Approval Required",
             Self::PlanApproved { .. } => "Plan Approved",
             Self::Executing { .. } => "Executing",
-            Self::MilestoneProgress { .. } => "Milestone Progress",
+            Self::MilestoneProgress { status, .. } => match status {
+                MilestoneStatus::Validating => "Milestone Validation",
+                MilestoneStatus::Completed => "Milestone Complete",
+                MilestoneStatus::Paused => "Milestone Paused",
+                MilestoneStatus::Failed => "Milestone Failed",
+                _ => "Milestone Progress",
+            },
         }
     }
 
@@ -86,19 +94,48 @@ impl PlanModeBanner {
             }
             Self::MilestoneProgress {
                 milestone_title,
+                status,
                 plans_total,
                 plans_completed,
                 current_plan_summary,
                 action_hint,
             } => {
-                format!(
-                    "[{}] {}/{} plans complete. {}. {}",
-                    milestone_title,
-                    plans_completed,
-                    plans_total,
-                    current_plan_summary,
-                    action_hint
-                )
+                let summary = match status {
+                    MilestoneStatus::Validating => format!(
+                        "[{}] {}/{} plans complete. Validating. {}",
+                        milestone_title, plans_completed, plans_total, action_hint
+                    ),
+                    MilestoneStatus::Completed => format!(
+                        "[{}] {}/{} plans complete. Completed. {}",
+                        milestone_title, plans_completed, plans_total, action_hint
+                    ),
+                    MilestoneStatus::Paused => format!(
+                        "[{}] {}/{} plans complete. Paused at {}. {}",
+                        milestone_title,
+                        plans_completed,
+                        plans_total,
+                        current_plan_summary,
+                        action_hint
+                    ),
+                    MilestoneStatus::Failed => format!(
+                        "[{}] {}/{} plans complete. Failed at {}. {}",
+                        milestone_title,
+                        plans_completed,
+                        plans_total,
+                        current_plan_summary,
+                        action_hint
+                    ),
+                    _ => format!(
+                        "[{}] {}/{} plans complete. {}. {}",
+                        milestone_title,
+                        plans_completed,
+                        plans_total,
+                        current_plan_summary,
+                        action_hint
+                    ),
+                };
+
+                summary
             }
         }
     }
@@ -115,7 +152,13 @@ impl PlanModeBanner {
             Self::AwaitingApproval { .. } => ratatui::style::Color::Yellow,
             Self::PlanApproved { .. } => ratatui::style::Color::Green,
             Self::Executing { .. } => ratatui::style::Color::Blue,
-            Self::MilestoneProgress { .. } => ratatui::style::Color::Magenta,
+            Self::MilestoneProgress { status, .. } => match status {
+                MilestoneStatus::Completed => ratatui::style::Color::Green,
+                MilestoneStatus::Failed => ratatui::style::Color::Red,
+                MilestoneStatus::Paused => ratatui::style::Color::Yellow,
+                MilestoneStatus::Validating => ratatui::style::Color::Cyan,
+                _ => ratatui::style::Color::Magenta,
+            },
         }
     }
 
@@ -123,9 +166,13 @@ impl PlanModeBanner {
     pub(crate) fn header_status(&self) -> HeaderStatus {
         match self {
             Self::Planning { .. } | Self::AwaitingApproval { .. } => HeaderStatus::Planning,
-            Self::PlanApproved { .. } | Self::Executing { .. } | Self::MilestoneProgress { .. } => {
-                HeaderStatus::RunningTools
-            }
+            Self::PlanApproved { .. } | Self::Executing { .. } => HeaderStatus::RunningTools,
+            Self::MilestoneProgress { status, .. } => match status {
+                MilestoneStatus::Completed => HeaderStatus::Ready,
+                MilestoneStatus::Failed => HeaderStatus::Error,
+                MilestoneStatus::Paused => HeaderStatus::Stalled,
+                _ => HeaderStatus::RunningTools,
+            },
         }
     }
 }
@@ -143,11 +190,13 @@ impl TUI {
 
     /// Clear any active plan-mode banner.
     pub(crate) fn clear_plan_mode_banner(&mut self) {
+        self.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(None);
     }
 
     /// Show that planning mode is active for a specific convoy.
     pub(crate) fn show_planning_banner(&mut self, convoy_id: &str) {
+        self.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::Planning {
             convoy_id: convoy_id.to_string(),
             action_hint: "Building strategy...".to_string(),
@@ -156,6 +205,7 @@ impl TUI {
 
     /// Show that a plan is ready for review.
     pub(crate) fn show_approval_banner(&mut self, convoy_id: &str, plan_summary: &str) {
+        self.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::AwaitingApproval {
             convoy_id: convoy_id.to_string(),
             plan_summary: plan_summary.to_string(),
@@ -167,6 +217,7 @@ impl TUI {
 
     /// Show that a plan has been approved.
     pub(crate) fn show_plan_approved_banner(&mut self, convoy_id: &str) {
+        self.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::PlanApproved {
             convoy_id: convoy_id.to_string(),
             action_hint: "Plan approved. Starting execution...".to_string(),
@@ -175,6 +226,7 @@ impl TUI {
 
     /// Show active execution status for a convoy task.
     pub(crate) fn show_executing_banner(&mut self, convoy_id: &str, current_task: &str) {
+        self.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::Executing {
             convoy_id: convoy_id.to_string(),
             current_task: current_task.to_string(),
@@ -185,6 +237,7 @@ impl TUI {
     pub(crate) fn show_milestone_progress_banner(
         &mut self,
         milestone_title: &str,
+        status: MilestoneStatus,
         plans_total: usize,
         plans_completed: usize,
         current_plan_summary: &str,
@@ -192,6 +245,7 @@ impl TUI {
     ) {
         self.set_plan_mode_banner(Some(PlanModeBanner::MilestoneProgress {
             milestone_title: milestone_title.to_string(),
+            status,
             plans_total,
             plans_completed,
             current_plan_summary: current_plan_summary.to_string(),

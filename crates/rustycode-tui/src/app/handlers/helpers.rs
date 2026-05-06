@@ -1,7 +1,6 @@
 //! Shared helper functions for stream handlers.
 
 use crate::app::TUI;
-use crate::ui::message::Message;
 use tracing;
 
 /// Check for pending tasks and trigger auto-continue if needed
@@ -120,9 +119,7 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
         tui.auto_continue.auto_continue_pending = false;
         tui.auto_continue.auto_continue_enabled = false;
     } else {
-        let assistant_msg = Message::assistant(String::new());
-        tui.messages.push(assistant_msg);
-        tui.dirty = true;
+        tui.push_empty_assistant_message();
     }
 }
 

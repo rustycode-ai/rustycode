@@ -20,7 +20,7 @@ pub trait ToolExecutor: Send + Sync {
     ) -> Result<StepResult>;
 }
 
-use rustycode_tools::security::sandbox::{Sandbox, SandboxConfig, SandboxLevel};
+use rustycode_tools_security::sandbox::{Sandbox, SandboxConfig, SandboxLevel};
 
 pub struct ShellToolExecutor {
     pub cwd: std::path::PathBuf,

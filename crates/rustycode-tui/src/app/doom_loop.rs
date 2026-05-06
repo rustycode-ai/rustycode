@@ -6,6 +6,9 @@ pub const DOOM_LOOP_THRESHOLD: usize = 3;
 /// Maximum number of tool-call records kept in the sliding window.
 const WINDOW_SIZE: usize = 10;
 
+/// Maximum length (in bytes) for a key argument before truncation.
+const DOOM_WARNING_TRUNCATE: usize = 200;
+
 /// A lightweight record of a single tool invocation.
 #[derive(Debug, Clone)]
 struct ToolCallRecord {
@@ -55,8 +58,8 @@ impl DoomLoopDetector {
             tool_name: tool_name.to_string(),
             key_arg: key_arg.map(|s| {
                 // Truncate long args to keep memory bounded
-                if s.len() > 200 {
-                    let end = s.floor_char_boundary(197);
+                if s.len() > DOOM_WARNING_TRUNCATE {
+                    let end = s.floor_char_boundary(DOOM_WARNING_TRUNCATE - 3);
                     format!("{}...", &s[..end])
                 } else {
                     s.to_string()
@@ -259,7 +262,7 @@ mod tests {
         let mut d = DoomLoopDetector::new();
         let long_arg = "a".repeat(300);
         d.record("edit_file", Some(&long_arg), false);
-        assert_eq!(d.records[0].key_arg.as_ref().unwrap().len(), 200);
+        assert_eq!(d.records[0].key_arg.as_ref().unwrap().len(), DOOM_WARNING_TRUNCATE);
     }
 
     #[test]

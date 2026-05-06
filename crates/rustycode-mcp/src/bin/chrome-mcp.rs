@@ -14,7 +14,7 @@ use clap::Parser;
 use rustycode_mcp::types::{McpContent, McpTool, McpToolResult};
 use rustycode_mcp::{McpError, McpResult, McpServer};
 use rustycode_tools::browser_pool::BrowserPool;
-use rustycode_tools::security::validation::validate_url;
+use rustycode_tools_security::validation::validate_url;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tokio::runtime::Handle;

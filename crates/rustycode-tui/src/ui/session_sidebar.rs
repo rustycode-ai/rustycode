@@ -418,6 +418,10 @@ impl SessionSidebar {
         self.milestone_progress = None;
     }
 
+    pub(crate) fn has_milestone_progress(&self) -> bool {
+        self.milestone_progress.is_some()
+    }
+
     /// Show the sidebar
     pub fn show(&mut self) {
         self.visible = true;

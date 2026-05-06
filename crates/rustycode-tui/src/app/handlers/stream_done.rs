@@ -48,13 +48,10 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
         tui.auto_scroll();
     }
 
-    tui.compaction.context_monitor.update(&tui.messages);
-    tui.maybe_auto_compact();
+    tui.update_context_and_compact();
 
     // Mark session dirty so the 30-second auto-save persists this turn
-    if let Some(ref mut recovery) = tui.session_recovery {
-        recovery.mark_dirty();
-    }
+    tui.mark_session_dirty();
 
     tui.auto_continue.auto_continue_pending = false;
     if !was_cancelled && tui.auto_continue.auto_continue_enabled {
@@ -241,8 +238,7 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
         tui.active_tools.clear();
         tui.add_system_message(format!("Queued message failed: {}", e));
     } else {
-        let assistant_msg = Message::assistant(String::new());
-        tui.messages.push(assistant_msg);
+        tui.push_empty_assistant_message();
     }
     if crate::logging::is_debug_enabled() {
         tracing::debug!(

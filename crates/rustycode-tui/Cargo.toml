@@ -29,6 +29,7 @@ rustycode-core = { path = "../rustycode-core", default-features = false }
 rustycode-shared-runtime = { path = "../rustycode-shared-runtime" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
+rustycode-tools-security = { path = "../rustycode-tools-security" }
 rustycode-llm = { path = "../rustycode-llm" }
 rustycode-lsp = { path = "../rustycode-lsp" }
 rustycode-memory = { path = "../rustycode-memory" }

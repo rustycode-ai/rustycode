@@ -1,7 +1,7 @@
 use crate::app::pipeline::browser_manager::BrowserManager;
 use crate::app::pipeline::tool_registry::Tool;
 use anyhow::{anyhow, Result};
-use rustycode_tools::security::validation::validate_url;
+use rustycode_tools_security::validation::validate_url;
 use std::sync::Arc;
 
 #[non_exhaustive]

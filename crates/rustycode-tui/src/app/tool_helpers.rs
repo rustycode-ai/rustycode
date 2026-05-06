@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use anyhow::Result;
 use rustycode_protocol::ToolResult;
 
@@ -157,46 +155,6 @@ pub fn sanitize_command(command: &str) -> Result<String> {
     Ok(command.to_string())
 }
 
-/// Create a compact, bundled multiline summary for command output.
-///
-/// This function filters empty lines, limits output to a maximum number of lines,
-/// and appends a count of any omitted lines.
-pub fn bundle_command_output(output: &str, output_max_lines: usize) -> String {
-    let visible_lines: Vec<&str> = output
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .take(output_max_lines)
-        .collect();
-    let total_non_empty_lines = output
-        .lines()
-        .filter(|line| !line.trim().is_empty())
-        .count();
-
-    let mut bundled = if visible_lines.is_empty() {
-        "(no output)".to_string()
-    } else {
-        visible_lines.join("\n")
-    };
-
-    if total_non_empty_lines > output_max_lines {
-        bundled.push_str(&format!(
-            "\n... ({} more lines)",
-            total_non_empty_lines - output_max_lines
-        ));
-    }
-
-    bundled
-}
-
-pub fn is_dangerous_shell_command(command: &str) -> bool {
-    let cmd = command.to_lowercase();
-    let blocked = [
-        "rm -rf /", "rm -fr /", "rm -rf ~", "sudo rm", "mkfs", "dd if=", "shutdown", "reboot",
-        "poweroff", "halt", ":(){",
-    ];
-    blocked.iter().any(|p| cmd.contains(p))
-}
-
 pub fn format_tool_result_summary(tool_result: &ToolResult, tool_name: &str) -> String {
     if tool_result.success {
         let output_lines = tool_result.output.lines().count();
@@ -316,12 +274,6 @@ mod tests {
     fn test_sanitize_command_allows_safe_commands() {
         assert!(sanitize_command("git status").is_ok());
         assert!(sanitize_command("ls src").is_ok());
-    }
-
-    #[test]
-    fn test_is_dangerous_shell_command() {
-        assert!(is_dangerous_shell_command("rm -rf /tmp && rm -rf /"));
-        assert!(!is_dangerous_shell_command("cargo clippy"));
     }
 
     #[test]

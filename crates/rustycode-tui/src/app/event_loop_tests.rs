@@ -4,9 +4,11 @@
 //! and handle None values gracefully.
 
 use crate::app::event_loop::TUI;
+use crate::app::plan_mode_ops::PlanModeBanner;
 use crate::services::agent_mode::AiMode;
 use crate::ui::input::InputMode;
 use crate::ui::message_types::{ExpansionLevel, Message, MessageRole, ToolExecution, ToolStatus};
+use rustycode_protocol::MilestoneStatus;
 use std::path::PathBuf;
 
 #[test]
@@ -21,6 +23,63 @@ fn test_default_tui() {
     let tui = TUI::default();
     assert_eq!(tui.messages.len(), 0);
     assert_eq!(tui.input_mode, InputMode::SingleLine);
+}
+
+#[test]
+fn test_reset_conversation_state_clears_milestone_ui() {
+    let mut tui = TUI::default();
+
+    tui.session_sidebar.update_milestone_progress(
+        "mile_123".to_string(),
+        "Auth".to_string(),
+        MilestoneStatus::Active,
+        4,
+        1,
+        "Middleware".to_string(),
+        "Executing next ready plan...".to_string(),
+        vec![],
+    );
+    tui.show_milestone_progress_banner(
+        "Auth",
+        MilestoneStatus::Active,
+        4,
+        1,
+        "Middleware",
+        "Executing next ready plan...",
+    );
+
+    assert!(tui.plan_mode_banner.is_some());
+    assert!(tui.session_sidebar.has_milestone_progress());
+
+    tui.reset_conversation_state();
+
+    assert!(tui.plan_mode_banner.is_none());
+    assert!(!tui.session_sidebar.has_milestone_progress());
+}
+
+#[test]
+fn test_milestone_banner_reflects_terminal_status() {
+    let completed = PlanModeBanner::MilestoneProgress {
+        milestone_title: "Auth".to_string(),
+        status: MilestoneStatus::Completed,
+        plans_total: 4,
+        plans_completed: 4,
+        current_plan_summary: "Validation passed".to_string(),
+        action_hint: "Milestone completed successfully.".to_string(),
+    };
+    assert_eq!(completed.title(), "Milestone Complete");
+    assert!(completed.description().contains("Completed."));
+
+    let failed = PlanModeBanner::MilestoneProgress {
+        milestone_title: "Auth".to_string(),
+        status: MilestoneStatus::Failed,
+        plans_total: 4,
+        plans_completed: 2,
+        current_plan_summary: "Middleware".to_string(),
+        action_hint: "Milestone failed during plan execution.".to_string(),
+    };
+    assert_eq!(failed.title(), "Milestone Failed");
+    assert!(failed.description().contains("Failed at Middleware."));
 }
 
 #[test]

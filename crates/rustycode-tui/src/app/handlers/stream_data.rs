@@ -173,9 +173,7 @@ pub(super) fn handle_execution_trace_chunk(tui: &mut TUI, trace: serde_json::Val
     tracing::debug!("Received execution trace from orchestration pipeline");
     tui.execution_trace = Some(trace);
     tui.dirty = true;
-    if let Some(ref mut recovery) = tui.session_recovery {
-        recovery.mark_dirty();
-    }
+    tui.mark_session_dirty();
 }
 
 pub(super) fn handle_system_message_chunk(tui: &mut TUI, msg: String) {
@@ -206,6 +204,7 @@ pub(super) fn handle_milestone_progress_chunk(
     );
     tui.show_milestone_progress_banner(
         &milestone_title,
+        status,
         plans_total,
         plans_completed,
         &current_plan_summary,
