@@ -148,7 +148,7 @@ pub fn list_rollout_summaries(mem_dir: &Path) -> Result<Vec<PathBuf>> {
 
     let mut files: Vec<PathBuf> = fs::read_dir(&dir)
         .with_context(|| format!("failed to read {}", dir.display()))?
-        .filter_map(|e| e.ok())
+        .filter_map(std::result::Result::ok)
         .map(|e| e.path())
         .filter(|p| p.extension().and_then(|ext| ext.to_str()) == Some("md"))
         .collect();
@@ -183,7 +183,9 @@ pub fn generate_summary(entries: &[(String, String, f32)]) -> String {
         // Sort by confidence descending.
         items.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
-        out.push_str(&format!("## {}\n\n", capitalize(type_name)));
+        out.push_str("## ");
+        out.push_str(&capitalize(type_name));
+        out.push_str("\n\n");
         for (confidence, content) in items {
             let line = content.lines().next().unwrap_or(content);
             let trimmed = if line.len() > 120 {
@@ -191,7 +193,9 @@ pub fn generate_summary(entries: &[(String, String, f32)]) -> String {
             } else {
                 line.to_string()
             };
-            out.push_str(&format!("- {} _({:.0}%)_\n", trimmed, confidence * 100.0));
+            out.push_str("- ");
+            out.push_str(&trimmed);
+            out.push_str(&format!(" _({:.0}%)_\n", confidence * 100.0));
         }
         out.push('\n');
     }

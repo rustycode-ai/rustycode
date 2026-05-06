@@ -41,14 +41,18 @@ struct FilePatch {
 #[derive(Debug, Clone)]
 struct Hunk {
     old_start: usize,
+    #[allow(dead_code)]
     old_count: usize,
+    #[allow(dead_code)]
     new_start: usize,
+    #[allow(dead_code)]
     new_count: usize,
     lines: Vec<PatchLine>,
 }
 
 #[derive(Debug, Clone)]
 enum PatchLine {
+    #[allow(dead_code)]
     Context(String),
     Remove(String),
     Add(String),

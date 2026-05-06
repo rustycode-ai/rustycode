@@ -33,6 +33,7 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub struct PowerShellSession {
     child: Arc<Mutex<Option<Child>>>,
+    #[allow(dead_code)]
     cwd: PathBuf,
     _session_id: String,
     stderr_buffer: Arc<Mutex<String>>,
@@ -246,6 +247,7 @@ impl PowerShellSession {
     }
 
     /// Restart the session with a fresh `pwsh` process.
+    #[allow(dead_code)]
     fn restart(&mut self) -> Result<()> {
         if let Some(mut child) = self
             .child

@@ -656,7 +656,7 @@ impl MilestoneTemplate {
                 session_id: session_id.clone(),
                 milestone_id: Some(milestone_id.clone()),
                 task: format!("{title}: {}", spec.title),
-                created_at: now.clone(),
+                created_at: now,
                 status: PlanStatus::Draft,
                 summary: spec.summary.to_string(),
                 approach: spec.approach.to_string(),
@@ -691,7 +691,7 @@ impl MilestoneTemplate {
             plan_dependencies: dependencies,
             success_criteria: self.success_criteria(),
             validation_command: Some("cargo test".to_string()),
-            created_at: now.clone(),
+            created_at: now,
             updated_at: now,
             completed_at: None,
         };

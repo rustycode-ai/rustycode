@@ -1,11 +1,9 @@
 use crate::file_formatter;
 use crate::security::{
-    create_file_symlink_safe, open_file_symlink_safe, validate_list_path, validate_read_path,
-    validate_regex_pattern, validate_url, validate_write_path, BLOCKED_EXTENSIONS,
+    create_file_symlink_safe, open_file_symlink_safe, validate_read_path, validate_regex_pattern,
+    validate_write_path, BLOCKED_EXTENSIONS,
 };
-use crate::truncation::{
-    format_with_line_numbers, truncate_items, truncate_lines, LIST_MAX_ITEMS, READ_MAX_LINES,
-};
+use crate::truncation::{format_with_line_numbers, truncate_lines, READ_MAX_LINES};
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -15,7 +13,6 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
-use walkdir::WalkDir;
 
 /// Paths that are never readable — they expose kernel/device state or can hang
 /// on read (e.g., `/dev/urandom`, named pipes, FUSE control files).

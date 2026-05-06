@@ -33,7 +33,7 @@ pub fn build_memory_instructions(mem_dir: &Path) -> Option<String> {
 /// Render the full memory instructions block with the summary embedded.
 fn render_instructions(summary: &str) -> String {
     format!(
-        r#"# Memory System
+        r"# Memory System
 
 You have access to a persistent memory system that stores knowledge across sessions.
 
@@ -62,7 +62,7 @@ When starting a task, do a quick memory pass:
 - Only update memories when the user explicitly asks
 - Write user-requested updates to `extensions/ad_hoc/notes/` as dated markdown files
 - Do NOT fabricate memory content — if unsure, say you don't have that information
-"#,
+",
         summary = summary.trim(),
     )
 }

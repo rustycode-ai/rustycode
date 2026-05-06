@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use crate::memdir;
 
 /// A single extracted memory from Phase 1 LLM extraction.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ExtractedMemory {
     /// Thread/session ID this was extracted from.
     pub thread_id: String,
@@ -138,10 +138,7 @@ pub fn load_all_rollout_summaries(mem_dir: &Path) -> Result<Vec<ExtractedMemory>
         fs::read_dir(&dir).with_context(|| format!("failed to read {}", dir.display()))?;
 
     for entry in entries {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
+        let Ok(entry) = entry else { continue };
         let path = entry.path();
 
         if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
