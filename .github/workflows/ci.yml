@@ -17,6 +17,9 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - name: Checkout from private repo
         uses: actions/checkout@v4
@@ -31,15 +34,22 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
 
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Run tests
         run: cargo test --workspace
 
+      - name: Print sccache stats
+        if: always()
+        run: sccache --show-stats
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - name: Checkout from private repo
         uses: actions/checkout@v4
@@ -56,11 +66,15 @@ jobs:
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
 
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.7
 
       - name: Run clippy
         run: cargo clippy --workspace --all-targets -- -D warnings -A clippy::unwrap_used -A clippy::expect_used
+
+      - name: Print sccache stats
+        if: always()
+        run: sccache --show-stats
 
   fmt:
     name: Format
