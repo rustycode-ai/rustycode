@@ -55,7 +55,7 @@ See `crates/rustycode-orchestration/README.md` for full module map.
 
 Other top-level dirs: `docs/`, `scripts/`, `tests/`, `benches/`, `examples/`, `harbor-agent/`, `mcp-test-server/`.
 
-Excluded from workspace: `crates/ratzilla-wasm/`, `crates/rustycode-web/` (separate WASM build).
+Excluded from workspace: `crates/rustycode-web/` (separate web/WASM build).
 
 ## Build & Run
 

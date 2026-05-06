@@ -16,6 +16,7 @@ pub mod memory_manager;
 pub mod memory_ops;
 pub mod message_management;
 pub mod message_ops;
+pub mod orchestration_client;
 pub mod orchestration_integration;
 pub mod plan_mode_ops;
 pub mod rate_limit;
@@ -69,6 +70,7 @@ mod event_loop_tests;
 pub use event_loop::TUI;
 pub use keyboard_shortcuts::{KeyboardAction, KeyboardShortcutHandler};
 pub use memory_manager::MemoryManager;
+pub use orchestration_client::OrchestrationClient;
 pub use session_recovery_integration::{SessionRecoveryConfig, SessionRecoveryManager};
 pub use state::state_manager::StateManager;
 

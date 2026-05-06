@@ -5,7 +5,6 @@
 #[cfg(test)]
 mod tests {
     use crate::ui::message_tags::{Tag, TagFilter, TagRegistry, TagType};
-    #[allow(unused_imports)]
     use crate::ui::message_types::Message;
 
     // ========================================================================

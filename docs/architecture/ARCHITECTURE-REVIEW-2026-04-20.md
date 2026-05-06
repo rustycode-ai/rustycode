@@ -516,7 +516,7 @@ impl ToolExecutor for BlockingToolExecutor {
 
 ## Appendix: Verified Facts
 
-- **Workspace members:** 48 crates (excluding ratzilla-wasm and rustycode-web)
+- **Workspace members:** 48 crates (excluding rustycode-web)
 - **Test baseline:** 10,265 tests passing, zero clippy warnings
 - **Core LOC:** ~38,641 lines across rustycode-core
 - **TUI dependencies:** 22 workspace crate dependencies

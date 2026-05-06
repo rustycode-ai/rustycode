@@ -26,7 +26,41 @@ fn send_chunk<T: std::fmt::Debug>(tx: &SyncSender<T>, value: T) {
     }
 }
 
-// ── Service Manager ───────────────────────────────────────────────────────────
+use crate::app::orchestration_client::OrchestrationClient;
+
+impl OrchestrationClient for ServiceManager {
+    fn request_stop_stream(&self) {
+        self.stream_stop_requested.store(true, Ordering::SeqCst);
+    }
+    
+    fn ai_mode(&self) -> AiMode {
+        *self.ai_mode.lock().unwrap()
+    }
+    
+    fn set_ai_mode(&self, mode: AiMode) {
+        *self.ai_mode.lock().unwrap() = mode;
+    }
+    
+    fn execute_tool(&self, call: ToolCall) -> Result<ToolResult> {
+        let registry = self.tool_registry.as_ref().context("Tool registry not initialized")?;
+        registry.execute(&call)
+    }
+    
+    fn is_streaming(&self) -> bool {
+        self.conversation.is_some()
+    }
+    
+    fn cwd(&self) -> std::path::PathBuf {
+        self.cwd.clone()
+    }
+    
+    fn send_message(&self, message: String) -> Result<()> {
+        if let Some(conv) = &self.conversation {
+            conv.send_message(message)?;
+        }
+        Ok(())
+    }
+}
 
 /// Manages all background services for the TUI
 ///
@@ -55,7 +89,7 @@ pub struct ServiceManager {
     /// Channel for question responses (TUI → streaming thread)
     question_tx: Option<std::sync::mpsc::Sender<String>>,
 
-    ai_mode: AiMode,
+    ai_mode: Arc<StdMutex<AiMode>>,
 
     /// Current specialized agent mode
     agent_mode: crate::services::agent_mode::AgentMode,

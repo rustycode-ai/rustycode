@@ -114,8 +114,8 @@ pub struct TUI {
     pub(crate) event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
     pub(crate) marketplace_browser: crate::ui::marketplace_browser::MarketplaceBrowser,
 
-    // Service Manager (background tasks)
-    pub(crate) services: ServiceManager,
+    // Orchestration Client (background tasks)
+    pub(crate) orchestration_client: Arc<dyn OrchestrationClient>,
 
     // State
     pub(crate) messages: Vec<Message>,
@@ -1200,7 +1200,7 @@ impl TUI {
             tool_registry,
             &self.pipeline_ctx.provider,
             &self.pipeline_ctx.current_model,
-            self.services.cwd(),
+            self.orchestration_client.cwd(),
             &self.skill_manager,
             &self.todo_state,
         );
@@ -1261,7 +1261,7 @@ impl TUI {
         })?;
 
         // Set terminal title to project name (Goose pattern for tab identification)
-        if let Some(dir_name) = self.services.cwd().file_name().and_then(|n| n.to_str()) {
+        if let Some(dir_name) = self.orchestration_client.cwd().file_name().and_then(|n| n.to_str()) {
             // Sanitize: strip control characters to prevent terminal escape injection
             let sanitized: String = dir_name.chars().filter(|c| !c.is_control()).collect();
             // OSC 0 sets the terminal window/tab title
@@ -1708,7 +1708,7 @@ impl TUI {
             }
             self.dirty = true;
             self.auto_scroll();
-            self.services.send_message(task)?;
+            self.orchestration_client.send_message(task)?;
             return Ok(());
         }
 
@@ -1740,7 +1740,7 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.services.send_message(task)?;
+                self.orchestration_client.send_message(task)?;
             }
             return Ok(());
         }
@@ -1766,7 +1766,7 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.services.send_message(task)?;
+                self.orchestration_client.send_message(task)?;
             }
             return Ok(());
         }
@@ -1781,13 +1781,13 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.services.send_message(task)?;
+                self.orchestration_client.send_message(task)?;
             }
             return Ok(());
         }
 
         if let Some(command_tx) = self.services.command_sender() {
-            let cwd = self.services.cwd().clone();
+            let cwd = self.orchestration_client.cwd().clone();
             let effect = dispatch_registered_slash_command(
                 input,
                 CommandContext {

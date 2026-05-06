@@ -53,4 +53,4 @@ Documentation hub for the RustyCode project. Start here if you're not sure where
 
 - [scripts/README.md](../scripts/README.md) — Automation scripts
 - [tests/README.md](../tests/README.md) — Test infrastructure
-- `crates/*/README.md` — Per-crate documentation (47 crates)
+- `crates/*/README.md` — Per-crate documentation (48 crates)

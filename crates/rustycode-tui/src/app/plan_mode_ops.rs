@@ -78,7 +78,6 @@ impl PlanModeBanner {
     }
 
     /// Short user-facing message that can also be surfaced in chat.
-    #[allow(dead_code)]
     pub(crate) fn message(&self) -> String {
         self.description()
     }
@@ -138,7 +137,6 @@ impl TUI {
     }
 
     /// Show that a plan has been approved.
-    #[allow(dead_code)]
     pub(crate) fn show_plan_approved_banner(&mut self, convoy_id: &str) {
         self.set_plan_mode_banner(Some(PlanModeBanner::PlanApproved {
             convoy_id: convoy_id.to_string(),
@@ -147,7 +145,6 @@ impl TUI {
     }
 
     /// Show active execution status for a convoy task.
-    #[allow(dead_code)]
     pub(crate) fn show_executing_banner(&mut self, convoy_id: &str, current_task: &str) {
         self.set_plan_mode_banner(Some(PlanModeBanner::Executing {
             convoy_id: convoy_id.to_string(),

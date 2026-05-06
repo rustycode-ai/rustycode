@@ -371,7 +371,6 @@ impl ConversationExporter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[allow(unused_imports)]
     use tempfile::TempDir;
 
     fn create_test_message_user(content: &str) -> Message {

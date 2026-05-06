@@ -2,7 +2,7 @@
 
 Rust-native AI-powered autonomous development framework.
 
-47 crates · 1,282 source files · ~588K LOC · 10,000+ tests
+48 crates · 1,102 source files · ~525K LOC · 10,000+ tests
 
 ## Start Here
 

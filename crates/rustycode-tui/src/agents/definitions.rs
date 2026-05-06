@@ -5,7 +5,6 @@ pub struct AgentDefinition {
     /// Agent type identifier (e.g. "general-purpose", "explore").
     pub agent_type: &'static str,
     /// Short label for display.
-    #[allow(dead_code)]
     pub label: &'static str,
     /// When-to-use description — included in the tool prompt so the LLM
     /// can decide which agent to invoke based on user message content.

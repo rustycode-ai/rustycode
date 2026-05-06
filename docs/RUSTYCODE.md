@@ -1,7 +1,7 @@
 # RustyCode — Comprehensive Project Documentation
 
 > Rust-native AI-powered autonomous development framework
-> 47 crates · 1,282 source files · ~588K LOC · 10,000+ tests
+> 48 crates · 1,102 source files · ~525K LOC · 10,000+ tests
 
 ## Table of Contents
 
@@ -768,9 +768,9 @@ cargo zigbuild --release -p rustycode-cli --target x86_64-unknown-linux-musl
 
 ### Workspace Members
 
-47 crates in workspace (plus `examples/` and `tests/`). Default member: `rustycode-cli`.
+48 crates in workspace (plus `examples/` and `tests/`). Default member: `rustycode-cli`.
 
-Excluded: `crates/ratzilla-wasm/` (WASM build), `mcp-test-server/` (test utility).
+Excluded: `crates/rustycode-web/` (WASM/web build), `mcp-test-server/` (test utility).
 
 ---
 
@@ -790,6 +790,7 @@ Excluded: `crates/ratzilla-wasm/` (WASM build), `mcp-test-server/` (test utility
 | 2026-04-26 | AST production wiring (composable structured thinking tool) |
 | 2026-04-28 | Structured thinking unification, AskUser tool, stuck detection |
 | 2026-05-05 | Comprehensive documentation, frontmatter fix, skill integration tests |
+| 2026-05-06 | Dead code cleanup, runtime module wiring, ratzilla-wasm removal, 48 crate workspace |
 
 ---
 
