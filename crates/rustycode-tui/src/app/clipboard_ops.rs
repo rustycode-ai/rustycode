@@ -80,7 +80,6 @@ impl TUI {
         let end = end.min(self.messages.len().saturating_sub(1));
         let start = start.min(end);
 
-        let message_areas = self.message_areas.borrow();
         let mut conversation = Vec::new();
 
         for msg_idx in start..=end {
@@ -103,7 +102,7 @@ impl TUI {
                 end,
                 start_pos,
                 end_pos,
-                &message_areas,
+                &self.message_areas,
             );
 
             if selected_lines.is_empty() {

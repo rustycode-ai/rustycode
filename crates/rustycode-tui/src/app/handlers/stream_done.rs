@@ -92,12 +92,7 @@ fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
     }
 
     if !tui.streaming.current_stream_content.is_empty() {
-        let needs_message = tui
-            .messages
-            .iter()
-            .rev()
-            .find(|m| m.role == MessageRole::Assistant)
-            .is_none();
+        let needs_message = tui.last_assistant_message().is_none();
         if needs_message {
             tui.messages.push(Message::assistant(String::new()));
         }
@@ -106,12 +101,7 @@ fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
     let final_content = std::mem::take(&mut tui.streaming.current_stream_content);
     let had_stream_content = !final_content.is_empty();
     if had_stream_content {
-        if let Some(msg) = tui
-            .messages
-            .iter_mut()
-            .rev()
-            .find(|m| m.role == MessageRole::Assistant)
-        {
+        if let Some(msg) = tui.last_assistant_message_mut() {
             msg.content = final_content;
         }
     }
@@ -121,18 +111,13 @@ fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
 /// When the stream produced no content, clean up the empty assistant message
 /// or log a diagnostic if tool executions are present.
 pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
-    let assistant_info = tui
-        .messages
-        .iter()
-        .rev()
-        .find(|m| m.role == MessageRole::Assistant)
-        .map(|m| {
-            (
-                m.id.clone(),
-                m.content.is_empty() && m.thinking.is_none(),
-                m.tool_executions.as_ref().is_none_or(|t| t.is_empty()),
-            )
-        });
+    let assistant_info = tui.last_assistant_message().map(|m| {
+        (
+            m.id.clone(),
+            m.content.is_empty() && m.thinking.is_none(),
+            m.tool_executions.as_ref().is_none_or(|t| t.is_empty()),
+        )
+    });
 
     if let Some((msg_id, is_empty, no_tools)) = assistant_info {
         if is_empty {

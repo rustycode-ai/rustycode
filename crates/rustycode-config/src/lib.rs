@@ -45,7 +45,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 // Re-export LspConfig from rustycode-lsp for convenience
-pub use rustycode_lsp::LspConfig;
+pub use rustycode_protocol::LspConfig;
 
 pub use parser::{api_key_env_name, default_model_for_provider};
 

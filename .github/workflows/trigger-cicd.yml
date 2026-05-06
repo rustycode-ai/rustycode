@@ -1,0 +1,38 @@
+name: Trigger CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Ref to build/test (tag or branch)'
+        required: true
+        default: 'main'
+
+jobs:
+  trigger:
+    if: github.repository == 'luengnat/rustycode'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine event type
+        id: config
+        run: |
+          REF="${{ github.event.inputs.ref || github.ref_name }}"
+          if [[ "$REF" == v* ]]; then
+            echo "event_type=trigger-build" >> "$GITHUB_OUTPUT"
+          else
+            echo "event_type=trigger-ci" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger on rustycode-ai/rustycode
+        env:
+          GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          echo "Triggering ${{ steps.config.outputs.event_type }} for ref: ${{ steps.config.outputs.ref }}"
+          gh api repos/rustycode-ai/rustycode/dispatches \
+            -X POST \
+            -f event_type=${{ steps.config.outputs.event_type }} \
+            -f "client_payload[ref]=${{ steps.config.outputs.ref }}"

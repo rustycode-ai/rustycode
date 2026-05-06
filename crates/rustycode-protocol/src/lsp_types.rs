@@ -1,15 +1,9 @@
 //! LSP configuration types shared between config, LSP client, and tools.
-//!
-//! Pure data types (no I/O) for LSP server configuration.
-//! Filesystem-dependent methods (`from_path`, `detect_root_dir`) remain
-//! in `rustycode-lsp` to keep protocol free of I/O dependencies.
 
 use std::fmt;
+use std::path::{Path, PathBuf};
 
 /// Supported programming languages with known LSP server configurations.
-///
-/// This enum replaces raw `&str` literals like `"rust"`, `"typescript"`, etc.
-/// throughout the codebase, providing type safety and centralized language mapping.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum LanguageId {
@@ -23,14 +17,10 @@ pub enum LanguageId {
     Java,
     Ruby,
     Php,
-    /// Unrecognized language — caller must decide how to handle.
     Unknown,
 }
 
 impl LanguageId {
-    /// Returns the LSP language identifier string (e.g., `"rust"`, `"typescript"`).
-    ///
-    /// This is the string sent to LSP servers in `TextDocumentIdentifier.language_id`.
     pub const fn language_id_str(&self) -> &'static str {
         match self {
             Self::Rust => "rust",
@@ -47,7 +37,6 @@ impl LanguageId {
         }
     }
 
-    /// Returns typical file extensions for this language.
     pub const fn extensions(&self) -> &'static [&'static str] {
         match self {
             Self::Rust => &["rs"],
@@ -64,9 +53,6 @@ impl LanguageId {
         }
     }
 
-    /// Returns the LSP server command name (e.g., `"rust-analyzer"`, `"gopls"`).
-    ///
-    /// Returns `None` for languages without a built-in server configuration.
     pub const fn default_server_command(&self) -> Option<(&'static str, &'static [&'static str])> {
         match self {
             Self::Rust => Some(("rust-analyzer", &[])),
@@ -82,6 +68,120 @@ impl LanguageId {
             Self::Unknown => None,
         }
     }
+
+    /// Detect language from a file path using extension, then shebang fallback.
+    pub fn from_path(path: &Path) -> Self {
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            match ext {
+                "rs" => return Self::Rust,
+                "ts" | "tsx" => return Self::TypeScript,
+                "js" | "jsx" | "mjs" | "cjs" => return Self::JavaScript,
+                "py" | "pyi" | "pyw" => return Self::Python,
+                "go" => return Self::Go,
+                "c" | "h" => return Self::C,
+                "cpp" | "cxx" | "cc" | "hpp" | "hxx" | "hh" => return Self::Cpp,
+                "java" => return Self::Java,
+                "rb" | "erb" => return Self::Ruby,
+                "php" | "phtml" => return Self::Php,
+                _ => {}
+            }
+        }
+
+        if let Some(interpreter) = read_shebang_interpreter(path) {
+            match interpreter.as_str() {
+                "python" | "python3" | "python2" => return Self::Python,
+                "node" | "nodejs" | "deno" | "bun" => return Self::JavaScript,
+                "ruby" | "ruby2.7" | "ruby3.0" => return Self::Ruby,
+                "go" => return Self::Go,
+                _ => {}
+            }
+        }
+
+        Self::Unknown
+    }
+
+    /// Detect the project root by walking up from `start` looking for marker files.
+    pub fn detect_root_dir(start: &Path) -> Option<PathBuf> {
+        static MARKERS: &[&str] = &[
+            "Cargo.toml",
+            "package.json",
+            "tsconfig.json",
+            "go.mod",
+            "go.work",
+            "pyproject.toml",
+            "setup.py",
+            "requirements.txt",
+            "pom.xml",
+            "build.gradle",
+            "build.gradle.kts",
+            "CMakeLists.txt",
+            "Gemfile",
+            "composer.json",
+            ".git",
+        ];
+
+        let mut current = start;
+        for _ in 0..20 {
+            for marker in MARKERS {
+                if current.join(marker).exists() {
+                    return Some(current.to_path_buf());
+                }
+            }
+            current = current.parent()?;
+        }
+        None
+    }
+}
+
+impl std::str::FromStr for LanguageId {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "rust" => Ok(Self::Rust),
+            "typescript" | "ts" => Ok(Self::TypeScript),
+            "javascript" | "js" => Ok(Self::JavaScript),
+            "python" | "py" => Ok(Self::Python),
+            "go" => Ok(Self::Go),
+            "c" => Ok(Self::C),
+            "cpp" | "c++" => Ok(Self::Cpp),
+            "java" => Ok(Self::Java),
+            "ruby" | "rb" => Ok(Self::Ruby),
+            "php" => Ok(Self::Php),
+            _ => Err(()),
+        }
+    }
+}
+
+fn read_shebang_interpreter(path: &Path) -> Option<String> {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    let file = File::open(path).ok()?;
+    let mut reader = BufReader::new(file);
+    let mut first_line = String::new();
+    reader.read_line(&mut first_line).ok()?;
+
+    let line = first_line.trim();
+    if !line.starts_with("#!") {
+        return None;
+    }
+
+    let shebang = &line[2..];
+    if let Some(rest) = shebang.strip_prefix("/usr/bin/env ") {
+        let interpreter = rest.split_whitespace().next()?;
+        let base = interpreter.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');
+        return Some(base.to_string());
+    }
+
+    if let Some(filename) = shebang.rsplit('/').next() {
+        let base = filename.trim_end_matches(|c: char| c.is_ascii_digit() || c == '.');
+        if !base.is_empty() {
+            return Some(base.to_string());
+        }
+    }
+
+    None
 }
 
 impl fmt::Display for LanguageId {
@@ -187,12 +287,118 @@ impl LspConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
-    fn language_id_str_roundtrip() {
-        assert_eq!(LanguageId::Rust.language_id_str(), "rust");
-        assert_eq!(LanguageId::TypeScript.language_id_str(), "typescript");
-        assert_eq!(LanguageId::Unknown.language_id_str(), "unknown");
+    fn from_path_extensions() {
+        assert_eq!(
+            LanguageId::from_path(Path::new("main.rs")),
+            LanguageId::Rust
+        );
+        assert_eq!(
+            LanguageId::from_path(Path::new("app.ts")),
+            LanguageId::TypeScript
+        );
+        assert_eq!(
+            LanguageId::from_path(Path::new("app.tsx")),
+            LanguageId::TypeScript
+        );
+        assert_eq!(
+            LanguageId::from_path(Path::new("app.js")),
+            LanguageId::JavaScript
+        );
+        assert_eq!(
+            LanguageId::from_path(Path::new("app.jsx")),
+            LanguageId::JavaScript
+        );
+        assert_eq!(
+            LanguageId::from_path(Path::new("main.py")),
+            LanguageId::Python
+        );
+        assert_eq!(LanguageId::from_path(Path::new("main.go")), LanguageId::Go);
+        assert_eq!(LanguageId::from_path(Path::new("main.c")), LanguageId::C);
+        assert_eq!(
+            LanguageId::from_path(Path::new("main.cpp")),
+            LanguageId::Cpp
+        );
+        assert_eq!(
+            LanguageId::from_path(Path::new("Main.java")),
+            LanguageId::Java
+        );
+        assert_eq!(LanguageId::from_path(Path::new("app.rb")), LanguageId::Ruby);
+        assert_eq!(
+            LanguageId::from_path(Path::new("index.php")),
+            LanguageId::Php
+        );
+    }
+
+    #[test]
+    fn from_path_unknown() {
+        assert_eq!(
+            LanguageId::from_path(Path::new("Makefile")),
+            LanguageId::Unknown
+        );
+        assert_eq!(
+            LanguageId::from_path(Path::new("README.md")),
+            LanguageId::Unknown
+        );
+    }
+
+    #[test]
+    fn from_str_roundtrip() {
+        for lang in [
+            LanguageId::Rust,
+            LanguageId::TypeScript,
+            LanguageId::JavaScript,
+            LanguageId::Python,
+            LanguageId::Go,
+            LanguageId::C,
+            LanguageId::Cpp,
+            LanguageId::Java,
+            LanguageId::Ruby,
+            LanguageId::Php,
+        ] {
+            let s = lang.language_id_str();
+            let parsed: LanguageId = s.parse().unwrap();
+            assert_eq!(lang, parsed);
+        }
+        assert!("cobol".parse::<LanguageId>().is_err());
+    }
+
+    #[test]
+    fn display() {
+        assert_eq!(format!("{}", LanguageId::Rust), "rust");
+        assert_eq!(format!("{}", LanguageId::Unknown), "unknown");
+    }
+
+    #[test]
+    fn default_server_command_rust() {
+        let (cmd, args) = LanguageId::Rust.default_server_command().unwrap();
+        assert_eq!(cmd, "rust-analyzer");
+        assert!(args.is_empty());
+    }
+
+    #[test]
+    fn extensions_non_empty_for_known() {
+        for lang in [
+            LanguageId::Rust,
+            LanguageId::TypeScript,
+            LanguageId::JavaScript,
+            LanguageId::Python,
+            LanguageId::Go,
+            LanguageId::C,
+            LanguageId::Cpp,
+            LanguageId::Java,
+            LanguageId::Ruby,
+            LanguageId::Php,
+        ] {
+            assert!(!lang.extensions().is_empty());
+        }
+    }
+
+    #[test]
+    fn extensions_unknown_is_empty() {
+        assert!(LanguageId::Unknown.extensions().is_empty());
     }
 
     #[test]

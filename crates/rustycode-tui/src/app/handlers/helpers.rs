@@ -1,7 +1,7 @@
 //! Shared helper functions for stream handlers.
 
 use crate::app::TUI;
-use crate::ui::message::{Message, MessageRole};
+use crate::ui::message::Message;
 use tracing;
 
 /// Check for pending tasks and trigger auto-continue if needed
@@ -21,16 +21,7 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     // Check if the last stream was productive (had tool executions).
     // Productive streams reset the stagnation counter, allowing effectively
     // unlimited continuation as long as the agent keeps doing useful work.
-    let last_stream_had_tools = tui
-        .messages
-        .iter()
-        .rev()
-        .find(|m| m.role == MessageRole::Assistant)
-        .is_some_and(|m| {
-            m.tool_executions
-                .as_ref()
-                .is_some_and(|execs| !execs.is_empty())
-        });
+    let last_stream_had_tools = tui.last_assistant_has_tools();
 
     if last_stream_had_tools {
         // Productive turn — reset iteration counter so the agent can keep going

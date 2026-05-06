@@ -1,3 +1,5 @@
+use super::table::{is_table_separator_row, split_table_cells};
+
 impl BrutalistRenderer<'_> {
     /// Estimate message height for scrolling
     pub fn estimate_message_height(&self, message: &Message, width: usize) -> usize {
@@ -103,19 +105,14 @@ impl BrutalistRenderer<'_> {
                     && trimmed.contains('|')
                     && !in_table
                 {
-                    let is_separator = trimmed.trim_matches('|').split('|').all(|cell| {
-                        let t = cell.trim();
-                        !t.is_empty() && t.chars().all(|c| c == '-' || c == ':' || c == ' ')
-                    });
+                    let is_separator = is_table_separator_row(trimmed);
 
                     if !is_separator && line_idx + 1 < content_lines_vec.len() {
                         let next_trimmed = content_lines_vec[line_idx + 1].trim();
-                        let next_is_sep = next_trimmed.starts_with('|')
-                            && next_trimmed.ends_with('|')
-                            && next_trimmed.trim_matches('|').split('|').all(|cell| {
-                                let t = cell.trim();
-                                !t.is_empty() && t.chars().all(|c| c == '-' || c == ':' || c == ' ')
-                            });
+                        let next_is_sep =
+                            next_trimmed.starts_with('|')
+                                && next_trimmed.ends_with('|')
+                                && is_table_separator_row(next_trimmed);
 
                         if next_is_sep {
                             // Start of table: header row (1) + skip separator

@@ -388,4 +388,42 @@ impl TUI {
         }
         result
     }
+
+    /// Find the index of the last assistant message, searching from the end.
+    pub(crate) fn last_assistant_index(&self) -> Option<usize> {
+        self.messages
+            .iter()
+            .rposition(|m| m.role == crate::ui::message::MessageRole::Assistant)
+    }
+
+    /// Get an immutable reference to the last assistant message.
+    pub(crate) fn last_assistant_message(&self) -> Option<&Message> {
+        self.messages
+            .iter()
+            .rev()
+            .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
+    }
+
+    /// Get a mutable reference to the last assistant message.
+    pub(crate) fn last_assistant_message_mut(&mut self) -> Option<&mut Message> {
+        self.messages
+            .iter_mut()
+            .rev()
+            .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
+    }
+
+    /// Check whether the last assistant message has any tool executions.
+    pub(crate) fn last_assistant_has_tools(&self) -> bool {
+        self.last_assistant_message()
+            .is_some_and(|m| m.tool_executions.as_ref().is_some_and(|t| !t.is_empty()))
+    }
+
+    /// Check whether the last assistant message has no text content and no tools.
+    pub(crate) fn last_assistant_is_empty(&self) -> bool {
+        self.last_assistant_message().is_some_and(|m| {
+            m.content.is_empty()
+                && m.thinking.is_none()
+                && m.tool_executions.as_ref().is_none_or(|t| t.is_empty())
+        })
+    }
 }

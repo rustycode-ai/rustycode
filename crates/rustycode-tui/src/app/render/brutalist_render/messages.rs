@@ -1,3 +1,5 @@
+use super::table::{is_table_separator_row, split_table_cells};
+
 impl BrutalistRenderer<'_> {
     /// Compute a map from message index to chain position.
     ///
@@ -162,6 +164,28 @@ impl BrutalistRenderer<'_> {
         }
 
         result
+    }
+
+    /// Compute byte offsets for each rendered line while preserving the
+    /// original newline widths (`\n` vs `\r\n`).
+    fn compute_line_byte_offsets(content: &str) -> Vec<usize> {
+        let mut offsets = Vec::new();
+        let mut offset = 0usize;
+
+        for segment in content.split_inclusive('\n') {
+            offsets.push(offset);
+            offset += segment.len();
+        }
+
+        if content.is_empty() {
+            return offsets;
+        }
+
+        if !content.contains('\n') {
+            offsets.push(0);
+        }
+
+        offsets
     }
 
     /// Render a markdown table cell as inline spans.
@@ -940,16 +964,9 @@ impl BrutalistRenderer<'_> {
 
         let content_lines: Vec<&str> = message.content.lines().collect();
 
-        // Precompute byte offsets for each content line (for search highlighting)
-        let line_byte_offsets: Vec<usize> = {
-            let mut offsets = Vec::with_capacity(content_lines.len());
-            let mut offset = 0;
-            for line in &content_lines {
-                offsets.push(offset);
-                offset += line.len() + 1; // +1 for newline
-            }
-            offsets
-        };
+        // Precompute byte offsets for each content line (for search highlighting).
+        // This preserves the original newline width so CRLF content stays aligned.
+        let line_byte_offsets = Self::compute_line_byte_offsets(&message.content);
 
         let mut line_idx = 0;
         while line_idx < content_lines.len() {
@@ -963,29 +980,19 @@ impl BrutalistRenderer<'_> {
                 && trimmed.contains('|')
             {
                 // Check if this is a table by looking for separator row
-                let is_separator = trimmed.trim_matches('|').split('|').all(|cell| {
-                    let t = cell.trim();
-                    !t.is_empty() && t.chars().all(|c| c == '-' || c == ':' || c == ' ')
-                });
+                let is_separator = is_table_separator_row(trimmed);
 
                 if !in_table && line_idx + 1 < content_lines.len() {
                     let next_trimmed = content_lines[line_idx + 1].trim();
-                    let next_is_sep = next_trimmed.starts_with('|')
-                        && next_trimmed.ends_with('|')
-                        && next_trimmed.trim_matches('|').split('|').all(|cell| {
-                            let t = cell.trim();
-                            !t.is_empty() && t.chars().all(|c| c == '-' || c == ':' || c == ' ')
-                        });
+                    let next_is_sep =
+                        next_trimmed.starts_with('|') && next_trimmed.ends_with('|')
+                            && is_table_separator_row(next_trimmed);
 
                     if next_is_sep || is_separator {
                         // Start table rendering
                         in_table = true;
                         // Render header row
-                        let cells: Vec<&str> = trimmed
-                            .trim_matches('|')
-                            .split('|')
-                            .map(|s| s.trim())
-                            .collect();
+                        let cells = split_table_cells(trimmed);
                         let mut header_spans =
                             vec![Span::styled("  ", Style::default().fg(colors.foreground))];
                         for (ci, cell) in cells.iter().enumerate() {
@@ -1008,11 +1015,7 @@ impl BrutalistRenderer<'_> {
                                 in_table = false;
                                 break;
                             }
-                            let cells: Vec<&str> = row_line
-                                .trim_matches('|')
-                                .split('|')
-                                .map(|s| s.trim())
-                                .collect();
+                            let cells = split_table_cells(row_line);
                             let mut row_spans =
                                 vec![Span::styled("  ", Style::default().fg(colors.foreground))];
                             for (ci, cell) in cells.iter().enumerate() {
@@ -1041,11 +1044,7 @@ impl BrutalistRenderer<'_> {
 
                 if in_table {
                     // Continue table rendering
-                    let cells: Vec<&str> = trimmed
-                        .trim_matches('|')
-                        .split('|')
-                        .map(|s| s.trim())
-                        .collect();
+                    let cells = split_table_cells(trimmed);
                     let mut row_spans =
                         vec![Span::styled("  ", Style::default().fg(colors.foreground))];
                     for (ci, cell) in cells.iter().enumerate() {
@@ -1771,6 +1770,48 @@ mod tests {
             Some(theme_colors.secondary),
             "link text inside a table cell should keep link styling"
         );
+    }
+
+    #[test]
+    fn table_height_and_rendering_handle_pipes_inside_cells() {
+        let msg = Message::assistant(
+            "| left | right |\n| --- | --- |\n| `x|y` | a \\| b |\n".to_string(),
+        );
+        let messages = vec![msg];
+        let renderer = BrutalistRendererBuilder::new(&messages, "").build();
+        let colors = Arc::new(Mutex::new(ThemeColors::from(&Theme::default())));
+        let theme_colors = colors.lock().unwrap();
+        let lines = renderer.render_message_brutalist(&messages[0], 0, 80, &theme_colors, None);
+        let rendered = lines
+            .iter()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(
+            rendered.contains("x|y"),
+            "inline code with pipes should stay intact, got: {rendered:?}"
+        );
+        assert!(
+            rendered.contains("a | b"),
+            "escaped pipe should stay inside the cell, got: {rendered:?}"
+        );
+        assert!(
+            rendered.lines().any(|line| line.matches(" │ ").count() == 1),
+            "table row should still render as two columns, got: {rendered:?}"
+        );
+
+        let height = renderer.estimate_message_height(&messages[0], 80);
+        assert!(
+            height >= 4,
+            "table height should include header, row, and border, got: {height}"
+        );
+    }
+
+    #[test]
+    fn compute_line_byte_offsets_handles_crlf() {
+        let offsets = BrutalistRenderer::compute_line_byte_offsets("alpha\r\nbeta\r\ngamma");
+        assert_eq!(offsets, vec![0, 7, 13]);
     }
 
     #[test]

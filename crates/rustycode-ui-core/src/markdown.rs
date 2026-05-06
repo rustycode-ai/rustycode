@@ -14,6 +14,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
 };
+use similar::{Algorithm, TextDiff};
 use std::collections::{HashMap, VecDeque};
 use unicode_width::UnicodeWidthStr;
 
@@ -838,6 +839,51 @@ fn parse_hunk_header(line: &str) -> Option<(i64, i64)> {
     Some((old_start, new_start))
 }
 
+/// Split a line into diff-friendly chunks while preserving whitespace.
+///
+/// The chunks are ordered, so the diff can detect reorders and duplicate word
+/// changes instead of treating the text as a flat set of tokens.
+fn split_diff_chunks(line: &str) -> Vec<&str> {
+    let mut chunks = Vec::new();
+    let mut start = 0usize;
+    let mut idx = 0usize;
+
+    while idx < line.len() {
+        let mut chars = line[idx..].char_indices();
+        let (_, ch) = chars
+            .next()
+            .expect("slice should always yield a char at valid UTF-8 boundaries");
+        let ch_len = ch.len_utf8();
+        if ch.is_whitespace() {
+            let mut end = idx + ch_len;
+            while end < line.len() {
+                let mut peek = line[end..].char_indices();
+                let (_, next_ch) = peek
+                    .next()
+                    .expect("slice should always yield a char at valid UTF-8 boundaries");
+                if !next_ch.is_whitespace() {
+                    break;
+                }
+                end += next_ch.len_utf8();
+            }
+            if start < end {
+                chunks.push(&line[start..end]);
+            }
+            start = end;
+            idx = end;
+            continue;
+        }
+
+        idx += ch_len;
+    }
+
+    if start < line.len() {
+        chunks.push(&line[start..]);
+    }
+
+    chunks
+}
+
 /// Render a unified diff with line numbers, hunks, and word-level highlights.
 ///
 /// Handles:
@@ -1020,52 +1066,49 @@ fn flush_diff_buffer(
         let (rm_line_num, rm_text) = &buffer[i];
         let (ad_line_num, ad_text) = &adds[i];
 
-        // Build word sets for diff highlighting
-        let rm_words: Vec<&str> = rm_text.split_whitespace().collect();
-        let ad_words: Vec<&str> = ad_text.split_whitespace().collect();
-        let ad_set: std::collections::HashSet<&str> = ad_words.iter().copied().collect();
-        let rm_set: std::collections::HashSet<&str> = rm_words.iter().copied().collect();
+        let rm_chunks = split_diff_chunks(rm_text);
+        let ad_chunks = split_diff_chunks(ad_text);
+        let diff = TextDiff::configure()
+            .algorithm(Algorithm::Patience)
+            .diff_slices(&rm_chunks, &ad_chunks);
 
         // Render removed line with word-level highlights
         let mut rm_spans = vec![
             Span::styled(format!("{rm_line_num:>4} "), gutter_style),
             Span::styled("\u{2212} ", remove_prefix_style),
         ];
-        for word in rm_text.split_inclusive(char::is_whitespace) {
-            let trimmed = word.trim_end();
-            if !trimmed.is_empty() && !ad_set.contains(trimmed) {
-                rm_spans.push(Span::styled(
-                    word.to_string(),
-                    Style::default()
-                        .fg(Color::Red)
-                        .bg(Color::Rgb(80, 20, 20))
-                        .add_modifier(Modifier::BOLD),
-                ));
-            } else {
-                rm_spans.push(Span::styled(word.to_string(), remove_style));
-            }
-        }
-        lines.push(Line::from(rm_spans));
-
-        // Render added line with word-level highlights
         let mut ad_spans = vec![
             Span::styled(format!("{ad_line_num:>4} "), gutter_style),
             Span::styled("+ ", add_prefix_style),
         ];
-        for word in ad_text.split_inclusive(char::is_whitespace) {
-            let trimmed = word.trim_end();
-            if !trimmed.is_empty() && !rm_set.contains(trimmed) {
-                ad_spans.push(Span::styled(
-                    word.to_string(),
-                    Style::default()
-                        .fg(Color::Green)
-                        .bg(Color::Rgb(20, 60, 20))
-                        .add_modifier(Modifier::BOLD),
-                ));
-            } else {
-                ad_spans.push(Span::styled(word.to_string(), add_style));
+        for change in diff.iter_all_changes() {
+            let chunk = change.value();
+            match change.tag() {
+                similar::ChangeTag::Delete => {
+                    rm_spans.push(Span::styled(
+                        chunk.to_string(),
+                        Style::default()
+                            .fg(Color::Red)
+                            .bg(Color::Rgb(80, 20, 20))
+                            .add_modifier(Modifier::BOLD),
+                    ));
+                }
+                similar::ChangeTag::Insert => {
+                    ad_spans.push(Span::styled(
+                        chunk.to_string(),
+                        Style::default()
+                            .fg(Color::Green)
+                            .bg(Color::Rgb(20, 60, 20))
+                            .add_modifier(Modifier::BOLD),
+                    ));
+                }
+                similar::ChangeTag::Equal => {
+                    rm_spans.push(Span::styled(chunk.to_string(), remove_style));
+                    ad_spans.push(Span::styled(chunk.to_string(), add_style));
+                }
             }
         }
+        lines.push(Line::from(rm_spans));
         lines.push(Line::from(ad_spans));
     }
 
@@ -1643,6 +1686,37 @@ fn main() {
     }
 
     #[test]
+    fn test_streaming_table_renders_incrementally() {
+        let renderer = MarkdownRenderer::default();
+        let mut msg = StreamingMessage::new();
+
+        msg.append_delta("| Name | Age |\n", &renderer);
+        let preview = msg
+            .rendered_lines
+            .iter()
+            .map(line_text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            preview.contains("| Name | Age |"),
+            "partial tables should stay visible while streaming"
+        );
+
+        msg.append_delta("| --- | --- |\n", &renderer);
+        msg.append_delta("| Alice | 30 |\n", &renderer);
+        let rendered = msg
+            .rendered_lines
+            .iter()
+            .map(line_text)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            rendered.contains("Alice"),
+            "completed tables should render after the separator arrives"
+        );
+    }
+
+    #[test]
     fn test_render_diff_empty() {
         let lines = render_diff("");
         assert!(lines.is_empty());
@@ -1693,6 +1767,35 @@ fn main() {
         let diff = "-removed line 1\n-removed line 2\n+added line 1";
         let lines = render_diff(diff);
         assert!(!lines.is_empty());
+    }
+
+    #[test]
+    fn test_render_diff_highlights_reordered_words() {
+        let diff = r#"--- a/file.txt
++++ b/file.txt
+@@ -1 +1 @@
+-foo bar
++bar foo"#;
+        let lines = render_diff(diff);
+        let has_removed_highlight = lines.iter().any(|line| {
+            line.spans
+                .iter()
+                .any(|span| span.style.bg == Some(Color::Rgb(80, 20, 20)))
+        });
+        let has_added_highlight = lines.iter().any(|line| {
+            line.spans
+                .iter()
+                .any(|span| span.style.bg == Some(Color::Rgb(20, 60, 20)))
+        });
+
+        assert!(
+            has_removed_highlight,
+            "reordered words should still be highlighted on the removed side"
+        );
+        assert!(
+            has_added_highlight,
+            "reordered words should still be highlighted on the added side"
+        );
     }
 
     #[test]

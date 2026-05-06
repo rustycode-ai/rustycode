@@ -46,3 +46,34 @@ impl Default for CompactionState {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_initializes_flags_false() {
+        let state = CompactionState::default();
+        assert!(!state.showing_preview);
+        assert!(!state.pending);
+    }
+
+    #[test]
+    fn clear_flags_resets_both() {
+        let mut state = CompactionState::default();
+        state.showing_preview = true;
+        state.pending = true;
+        state.clear_flags();
+        assert!(!state.showing_preview);
+        assert!(!state.pending);
+    }
+
+    #[test]
+    fn new_uses_provided_config() {
+        let config = CompactionConfig::default();
+        let monitor = ContextMonitor::new(config.effective_max_tokens(), config.warning_threshold);
+        let state = CompactionState::new(monitor, config);
+        assert!(!state.showing_preview);
+        assert!(!state.pending);
+    }
+}
