@@ -101,6 +101,44 @@ doomgeneric_mips
 tmp-prd-test/
 mcp-test-server/
 1argo
+scripts/acp_client
+tui_*_check.txt
+
+# Debug / interactive test scripts
+tests/test_tui*.sh
+tests/test_tui*.rs
+tests/test_*_manual.*
+tests/test_truly_minimal.rs
+tests/diagnose_freeze.sh
+tests/demo_*.sh
+tests/verify_*.sh
+tests/test_simple.sh
+tests/test_terminal.sh
+tests/test_tmux.sh
+tests/tui_test.sh
+tests/test_clipboard.sh
+tests/test_companion.sh
+tests/test_cpu_fix.sh
+tests/test_responsive_tui.sh
+tests/*_benchmark.sh
+tests/comparison_test.sh
+tests/performance_test.sh
+tests/run_*.sh
+tests/setup_*.sh
+tests/test_agents_*.sh
+tests/test_async_*.sh
+tests/test_llm_*.sh
+tests/test_openrouter.sh
+tests/test_tool_invocation.sh
+tests/harness-*
+tests/ctrl_r_test_report.md
+tests/TEST_REPORT.md
+tests/INTEGRATION_TEST_SUITE_SUMMARY.md
+tests/integration/TEST_STATUS.md
+
+# Example test/debug files
+examples/test_*.rs
+examples/README_TEXT_EDITOR_TEST.md
 
 # Status markers
 DISCIPLINE_GATE.md
