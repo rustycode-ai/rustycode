@@ -1,5 +1,3 @@
-use super::table::{is_table_separator_row, split_table_cells};
-
 impl BrutalistRenderer<'_> {
     /// Compute a map from message index to chain position.
     ///
@@ -1603,6 +1601,7 @@ impl BrutalistRenderer<'_> {
 
 #[cfg(test)]
 mod tests {
+    use crate::app::render::brutalist_renderer::BrutalistRenderer;
     use crate::app::render::brutalist_renderer::BrutalistRendererBuilder;
     use crate::theme::{Theme, ThemeColors};
     use crate::ui::message::{ExpansionLevel, Message};

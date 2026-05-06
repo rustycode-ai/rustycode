@@ -1,4 +1,4 @@
-//! Shared markdown table helpers for the brutalist renderer.
+// Shared markdown table helpers for the brutalist renderer.
 
 /// Split a markdown table row into cells while respecting escaped pipes and
 /// inline code spans.
@@ -68,7 +68,7 @@ pub(super) fn is_table_separator_row(row: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+mod table_tests {
     use super::{is_table_separator_row, split_table_cells};
 
     #[test]

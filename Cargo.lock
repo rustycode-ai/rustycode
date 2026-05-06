@@ -6731,6 +6731,7 @@ dependencies = [
  "libc",
  "parking_lot",
  "regex",
+ "rustycode-tools-api",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

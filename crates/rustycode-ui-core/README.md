@@ -4,7 +4,7 @@ Shared UI components and types for web and terminal interfaces.
 
 ## Purpose
 
-Provides cross-platform UI abstractions and components usable by both terminal (TUI) and web frontends. Includes message types, session management, markdown rendering, syntax highlighting, and the TUI renderer interface.
+Provides cross-platform UI abstractions and components usable by both terminal (TUI) and web frontends. Includes message types, session management, markdown rendering, and syntax highlighting.
 
 ## Key Types
 
@@ -71,7 +71,6 @@ session.finish_assistant_message("complete response".to_string());
 
 - Agnostic to frontend implementation (TUI or Web)
 - Serializable for IPC between processes
-- Pluggable renderer implementations
 - Markdown support with customizable rendering
 
 ## Testing

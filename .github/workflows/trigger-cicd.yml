@@ -4,28 +4,50 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  schedule:
+    - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Ref to build/test (tag or branch)'
+        description: 'Ref to build'
         required: true
         default: 'main'
+      event_type:
+        description: 'What to trigger'
+        type: choice
+        options: [auto, trigger-ci, trigger-nightly, trigger-release]
+        default: auto
 
 jobs:
   trigger:
     if: github.repository == 'luengnat/rustycode'
     runs-on: ubuntu-latest
     steps:
-      - name: Determine event type
+      - name: Determine event type and ref
         id: config
         run: |
-          REF="${{ github.event.inputs.ref || github.ref_name }}"
-          if [[ "$REF" == v* ]]; then
-            echo "event_type=trigger-build" >> "$GITHUB_OUTPUT"
-          else
-            echo "event_type=trigger-ci" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if [[ "${{ github.ref_name }}" == v* ]]; then
+              echo "event_type=trigger-release" >> "$GITHUB_OUTPUT"
+              echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            else
+              echo "event_type=trigger-ci" >> "$GITHUB_OUTPUT"
+              echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            fi
+          elif [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "event_type=trigger-nightly" >> "$GITHUB_OUTPUT"
+            echo "ref=main" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="${{ github.event.inputs.ref }}"
+            EVENT="${{ github.event.inputs.event_type }}"
+            if [ "$EVENT" = "auto" ]; then
+              if [[ "$REF" == v* ]]; then EVENT="trigger-release"
+              else EVENT="trigger-nightly"
+              fi
+            fi
+            echo "event_type=${EVENT}" >> "$GITHUB_OUTPUT"
+            echo "ref=${REF}" >> "$GITHUB_OUTPUT"
           fi
-          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
 
       - name: Trigger on rustycode-ai/rustycode
         env:

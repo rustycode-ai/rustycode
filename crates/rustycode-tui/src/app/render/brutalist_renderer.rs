@@ -437,5 +437,8 @@ include!("brutalist_render/footer.rs");
 // Inline markdown parsing and rendering
 include!("brutalist_render/markdown.rs");
 
+// Markdown table helpers shared by message rendering and height estimation
+include!("brutalist_render/table.rs");
+
 // Height estimation
 include!("brutalist_render/height.rs");

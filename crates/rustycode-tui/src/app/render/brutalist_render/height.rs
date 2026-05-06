@@ -1,5 +1,3 @@
-use super::table::{is_table_separator_row, split_table_cells};
-
 impl BrutalistRenderer<'_> {
     /// Estimate message height for scrolling
     pub fn estimate_message_height(&self, message: &Message, width: usize) -> usize {

@@ -155,10 +155,7 @@ impl TUI {
     /// Copy the last AI assistant response to clipboard (Ctrl+Y)
     pub(crate) fn copy_last_ai_response(&mut self) -> Result<()> {
         // Find the last assistant message
-        let last_ai_idx = self
-            .messages
-            .iter()
-            .rposition(|msg| matches!(msg.role, crate::ui::message::MessageRole::Assistant));
+        let last_ai_idx = self.last_assistant_index();
 
         match last_ai_idx {
             Some(idx) => {

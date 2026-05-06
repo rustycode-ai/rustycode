@@ -9,7 +9,6 @@ use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::widgets::{Block, Clear, Paragraph, Wrap};
 use ratatui::Frame;
-pub use rustycode_ui_core::{RendererFrame, TuiRenderer};
 use serde::{Deserialize, Serialize};
 use std::rc::Rc;
 
@@ -153,20 +152,6 @@ impl RendererState {
             status_bar_collapsed: tui.status_bar_collapsed,
             footer_collapsed: tui.footer_collapsed,
         }
-    }
-
-    /// Convert this snapshot into the renderer-agnostic [`RendererFrame`]
-    /// from `rustycode-ui-core`.
-    pub fn to_renderer_frame(&self) -> RendererFrame {
-        RendererFrame::new(self.area)
-            .with_project_name(self.project_name.clone())
-            .with_git_branch(self.git_branch.clone())
-            .with_active_tool_count(self.pending_tools)
-            .with_collapsed(self.status_bar_collapsed, self.footer_collapsed)
-            .with_streaming(matches!(
-                self.header_status,
-                HeaderStatus::Thinking | HeaderStatus::RunningTools
-            ))
     }
 }
 
@@ -546,7 +531,6 @@ impl PolishedRenderer {
 ///
 /// 1. Add a variant here (e.g. `Minimal`).
 /// 2. Add a `match` arm in `FrameRenderer for RendererMode`.
-/// 3. Implement [`TuiRenderer`] for your new renderer struct.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum RendererMode {
@@ -592,8 +576,7 @@ impl RendererMode {
 ///
 /// The enum implementation keeps the active backend inside `TUI` without
 /// borrow-checker friction (no `Box<dyn …>` required for the built-in
-/// variants). External renderers that implement [`TuiRenderer`] from
-/// `rustycode-ui-core` are the extension point for the plugin-style API.
+/// variants).
 pub trait FrameRenderer {
     fn render(self, tui: &mut TUI, frame: &mut Frame);
 }

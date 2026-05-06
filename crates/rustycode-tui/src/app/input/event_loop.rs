@@ -157,15 +157,19 @@ impl TUI {
                         }
                         KeyCode::Up => {
                             // Scroll up in tool result overlay
-                            self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
+                            self.tool_panel.tool_result_scroll_offset = self
+                                .tool_panel
+                                .tool_result_scroll_offset
+                                .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Down => {
                             // Scroll down in tool result overlay
-                            self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
+                            self.tool_panel.tool_result_scroll_offset = self
+                                .tool_panel
+                                .tool_result_scroll_offset
+                                .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
@@ -186,14 +190,18 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::Char('j') => {
-                            self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
+                            self.tool_panel.tool_result_scroll_offset = self
+                                .tool_panel
+                                .tool_result_scroll_offset
+                                .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('k') => {
-                            self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
+                            self.tool_panel.tool_result_scroll_offset = self
+                                .tool_panel
+                                .tool_result_scroll_offset
+                                .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
@@ -231,14 +239,18 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::PageUp => {
-                            self.help_state.scroll_offset =
-                                self.help_state.scroll_offset.saturating_sub(crate::app::HELP_SCROLL_STEP);
+                            self.help_state.scroll_offset = self
+                                .help_state
+                                .scroll_offset
+                                .saturating_sub(crate::app::HELP_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageDown => {
-                            self.help_state.scroll_offset =
-                                self.help_state.scroll_offset.saturating_add(crate::app::HELP_SCROLL_STEP);
+                            self.help_state.scroll_offset = self
+                                .help_state
+                                .scroll_offset
+                                .saturating_add(crate::app::HELP_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
