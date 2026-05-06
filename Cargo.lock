@@ -6466,6 +6466,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustycode-ringbuf"
+version = "0.1.0"
+
+[[package]]
 name = "rustycode-runtime"
 version = "0.1.0"
 dependencies = [

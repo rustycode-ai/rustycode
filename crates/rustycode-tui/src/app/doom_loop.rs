@@ -148,9 +148,18 @@ impl DoomLoopDetector {
         None
     }
 
-    /// Clear history. Call when a successful action breaks a potential loop.
     pub fn reset(&mut self) {
         self.records.clear();
+    }
+
+    /// Reduce history instead of clearing — keeps the most recent
+    /// `DOOM_LOOP_THRESHOLD - 1` records so repeated patterns on the next
+    /// turn trigger detection sooner.
+    pub fn reduce_for_retry(&mut self) {
+        let keep = DOOM_LOOP_THRESHOLD.saturating_sub(1);
+        if self.records.len() > keep {
+            self.records.drain(0..self.records.len() - keep);
+        }
     }
 
     /// Number of records currently in the sliding window.

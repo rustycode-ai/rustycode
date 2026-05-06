@@ -17,12 +17,40 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     let was_cancelled = tui.streaming.stream_cancelled;
     complete_stream_cleanup(tui);
 
-    if tui.doom_loop.is_doom_loop() {
-        if let Some(reason) = tui.doom_loop.doom_loop_reason() {
-            tui.add_system_message(format!("Warning: {}", reason));
+    let doom_loop_reason = if tui.doom_loop.is_doom_loop() {
+        let reason = tui.doom_loop.doom_loop_reason();
+        if let Some(ref text) = reason {
+            tui.add_system_message(format!("Warning: {}", text));
         }
+        reason
+    } else {
+        None
+    };
+
+    let had_doom_loop = doom_loop_reason.is_some();
+    let is_empty_response = !had_stream_content && !was_cancelled;
+
+    if !is_empty_response || !had_doom_loop {
+        tui.doom_loop.reset();
+        tui.pending_doom_note = None;
+    } else {
+        // Preserve partial stuck context so the next turn detects repeated
+        // patterns faster instead of starting from zero.
+        tui.doom_loop.reduce_for_retry();
+        // Carry doom loop context into the next turn's conversation as a
+        // user-role note (system messages are invisible to the model).
+        if let Some(reason) = doom_loop_reason {
+            tui.pending_doom_note = Some(format!(
+                "[System: Previous turn detected a stuck pattern — {reason}. \
+                 Try a different approach or tool.]"
+            ));
+        }
+        tui.add_system_message(
+            "Empty response after repeated tool failures. Consider trying a \
+             different approach, switching tools, or using /model to change models."
+                .to_string(),
+        );
     }
-    tui.doom_loop.reset();
 
     if let Some(snap) = tui.turn_snapshot.take() {
         let cwd = std::env::current_dir().unwrap_or_default();
@@ -32,7 +60,7 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
         }
     }
 
-    if !had_stream_content && !was_cancelled {
+    if is_empty_response {
         handle_empty_stream_response(tui);
     }
     mark_dirty_and_scroll(tui);

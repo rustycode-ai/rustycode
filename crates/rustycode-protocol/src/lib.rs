@@ -295,8 +295,8 @@ pub use team::{
 
 // Agent protocol types
 pub use agent_protocol::{
-    AgentMessage, AgentRole, AgentSignals, ArchitectMessage, BuilderMessage, CompileError,
-    DependencyChanges, DependencySpec, EscalationRequest, EscalationTarget,
+    AgentMessage, AgentPayload, AgentRole, AgentSignals, ArchitectMessage, BuilderMessage,
+    CompileError, DependencyChanges, DependencySpec, EscalationRequest, EscalationTarget,
     FileChange as ProtocolFileChange, InterfaceDeclaration, IssueSeverity, JudgeMessage,
     LinesChanged, ModuleAction, ModuleDeclaration, ScalpelMessage, SkepticMessage,
     SkepticVerdict as ProtocolSkepticVerdict, StructuralCompliance, StructuralDeclaration,

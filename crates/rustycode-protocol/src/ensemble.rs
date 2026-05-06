@@ -258,54 +258,8 @@ pub struct TeamConfig {
     pub builder_generation: u32,
 }
 
-/// The roles in the team. Each has a distinct job and perspective.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[non_exhaustive]
-pub enum TeamRole {
-    /// Writes code. Optimistic, moves fast. Can hallucinate APIs.
-    Builder,
-    /// Reviews code. Never writes. Checks claims against reality.
-    Skeptic,
-    /// Runs tests, compilation, file checks. Pure empirical evidence.
-    Judge,
-    /// Manages the team. Tracks trust, detects stuck/degrading, escalates.
-    Coordinator,
-    /// Plans structure before any code is written. Read-only access.
-    /// Produces a StructuralDeclaration that constrains all Builder work.
-    Architect,
-    /// Makes targeted surgical fixes after Judge failures. No redesign.
-    Scalpel,
-}
-
-impl TeamRole {
-    /// Whether this role can modify files.
-    pub fn can_write(&self) -> bool {
-        matches!(self, Self::Builder | Self::Scalpel)
-    }
-
-    /// Whether this role should see the builder's reasoning (vs just the diff).
-    pub fn sees_reasoning(&self) -> bool {
-        matches!(self, Self::Coordinator)
-    }
-
-    /// Whether this role is read-only (cannot modify files).
-    pub fn is_read_only(&self) -> bool {
-        matches!(self, Self::Architect | Self::Skeptic | Self::Coordinator)
-    }
-
-    /// Which tools this role is allowed to use.
-    pub fn allowed_tools(&self) -> ToolSet {
-        match self {
-            Self::Builder => ToolSet::All,
-            Self::Scalpel => ToolSet::TargetedFix,
-            Self::Skeptic => ToolSet::ReadOnly,
-            Self::Judge => ToolSet::VerificationOnly,
-            Self::Coordinator => ToolSet::ReadOnly,
-            Self::Architect => ToolSet::ReadOnly,
-        }
-    }
-}
+/// The roles in the team. Re-exported from [`team::TeamRole`].
+pub use crate::team::TeamRole;
 
 /// Tool access level for a role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

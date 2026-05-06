@@ -50,7 +50,7 @@ members = [
     "crates/rustycode-vector-memory",
     "crates/rustycode-ws-server",
     "examples",
-    "tests",
+    "tests", "crates/rustycode-ringbuf",
 ]
 exclude = [
     "_archived",

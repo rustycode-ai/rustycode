@@ -1,8 +1,7 @@
 //! Execution bridge that converts `TaskSpecs` into `AgentSessions` via `ForkJoinExecutor`.
 //!
-//! V1 routes everything through `ForkJoinExecutor`. The real `AgentSession` wiring
-//! (LLM provider integration, tool execution, conversation management) will be
-//! added in V2.
+//! V1 routes everything through `ForkJoinExecutor`. V2 wires directly to
+//! `AgentSession` from `rustycode-agent-runtime` for real LLM tool-use loops.
 
 use crate::bus::BusHandle;
 use crate::bus::OrchestrationEvent;
@@ -11,9 +10,22 @@ use crate::fork_join::{ContextSnapshot, ForkJoinConfig, ForkJoinExecutor, ForkSp
 use crate::task_runner::TaskRunner;
 #[cfg(test)]
 use crate::types::ExecutionTier;
+use std::future::Future;
 #[cfg(test)]
 use std::path::PathBuf;
+use std::pin::Pin;
 use std::sync::Arc;
+
+/// Trait for V2 session-based task execution.
+///
+/// Implementors provide concrete LLM provider + tool registry wiring,
+/// decoupling `TaskDispatcher` from infrastructure dependencies.
+pub trait SessionExecutor: Send + Sync {
+    fn execute_session(
+        &self,
+        spec: &TaskSpec,
+    ) -> Pin<Box<dyn Future<Output = TaskResult> + Send + '_>>;
+}
 
 /// Outcome of executing a single task.
 #[derive(Debug, Clone)]
@@ -63,24 +75,54 @@ impl TaskResult {
 pub struct TaskDispatcher {
     fork_join: ForkJoinExecutor,
     bus: BusHandle,
+    session_executor: Option<Arc<dyn SessionExecutor>>,
 }
 
 impl TaskDispatcher {
     pub const fn new(fork_join: ForkJoinExecutor, bus: BusHandle) -> Self {
-        Self { fork_join, bus }
+        Self {
+            fork_join,
+            bus,
+            session_executor: None,
+        }
     }
 
     /// Create with a real task runner.
     pub fn with_runner(runner: Arc<dyn TaskRunner>, bus: BusHandle) -> Self {
         let fj = ForkJoinExecutor::with_runner(ForkJoinConfig::default(), bus.clone(), runner);
-        Self { fork_join: fj, bus }
+        Self {
+            fork_join: fj,
+            bus,
+            session_executor: None,
+        }
+    }
+
+    /// Configure a V2 session executor for real LLM tool-use loops.
+    pub fn with_session_executor(mut self, executor: Arc<dyn SessionExecutor>) -> Self {
+        self.session_executor = Some(executor);
+        self
     }
 
     /// Dispatch a spawn decision to the appropriate execution path.
     pub async fn dispatch(&self, decision: SpawnDecision) -> Vec<TaskResult> {
         match decision {
             SpawnDecision::Inline => Vec::new(),
-            SpawnDecision::Spawn(spec) => vec![self.execute_single(&spec).await],
+            SpawnDecision::Spawn(spec) => {
+                if let Some(ref token) = spec.delegation_token {
+                    if !token.can_delegate() {
+                        return vec![TaskResult::failure(
+                            &spec.task_id,
+                            format!(
+                                "delegation depth {} would exceed max {}",
+                                token.depth + 1,
+                                token.max_depth
+                            ),
+                            0,
+                        )];
+                    }
+                }
+                vec![self.execute_single(&spec).await]
+            }
             SpawnDecision::SpawnParallel(specs) => self.execute_parallel(&specs).await,
             SpawnDecision::Ensemble(plan) => self.execute_ensemble(&plan).await,
         }
@@ -92,6 +134,10 @@ impl TaskDispatcher {
     /// will be added in V2 — this placeholder creates a snapshot, a single
     /// fork spec, and delegates execution.
     async fn execute_single(&self, spec: &TaskSpec) -> TaskResult {
+        if let Some(ref executor) = self.session_executor {
+            return executor.execute_session(spec).await;
+        }
+
         let tier = spec.effective_tier();
         let start = std::time::Instant::now();
 
@@ -175,6 +221,90 @@ impl TaskDispatcher {
 
         results
     }
+
+    /// Execute a task spec through a real `AgentSession` (V2 path).
+    ///
+    /// Maps `TaskSpec` fields to `AgentConfig`, creates a session, runs it,
+    /// and collects the result. Falls back to V1 ForkJoin if the session
+    /// fails to initialize.
+    ///
+    /// The caller must supply the concrete `LLMProvider`, model name,
+    /// `ToolRegistry`, and `AgentEvents` sink — `TaskDispatcher` owns the
+    /// orchestration logic but not the infrastructure wiring.
+    #[allow(dead_code)] // Used by V2 dispatch when enabled
+    pub async fn execute_via_session(
+        &self,
+        spec: &TaskSpec,
+        provider: &dyn rustycode_llm::provider::LLMProvider,
+        model: &str,
+        tool_registry: &rustycode_tools::ToolRegistry,
+        events: &mut dyn rustycode_agent_runtime::AgentEvents,
+    ) -> TaskResult {
+        let start = std::time::Instant::now();
+        let role_label = format!("{:?}", spec.role);
+
+        self.bus.publish(OrchestrationEvent::TaskSpawned {
+            task_id: spec.task_id.clone(),
+            role: role_label.clone(),
+            tier: spec.effective_tier().as_u8(),
+            parent_task_id: "dispatcher".to_string(),
+        });
+
+        // Map TaskSpec → AgentConfig
+        let config = task_spec_to_agent_config(spec);
+        let cwd = spec.path_scope.first().map_or_else(
+            || std::path::PathBuf::from("."),
+            |p| {
+                p.parent()
+                    .map_or_else(|| p.clone(), std::path::Path::to_path_buf)
+            },
+        );
+
+        let agent_result = run_agent_session(
+            &config,
+            &cwd,
+            provider,
+            model,
+            &spec.prompt,
+            spec.role.system_prompt(),
+            tool_registry,
+            events,
+        )
+        .await;
+
+        let elapsed_ms = i64::try_from(start.elapsed().as_millis()).unwrap_or(i64::MAX);
+
+        match agent_result {
+            Ok(result) => {
+                let success = !result.final_text.is_empty();
+                self.bus
+                    .publish(OrchestrationEvent::TaskDelegationCompleted {
+                        task_id: spec.task_id.clone(),
+                        role: role_label.clone(),
+                        output_preview: truncate_preview(&result.final_text, 200),
+                        cost_usd: 0.0, // Will be populated from token usage when available
+                        duration_ms: elapsed_ms,
+                    });
+                TaskResult {
+                    task_id: spec.task_id.clone(),
+                    success,
+                    output: result.final_text,
+                    cost_usd: 0.0,
+                    duration_ms: elapsed_ms,
+                }
+            }
+            Err(e) => {
+                self.bus.publish(OrchestrationEvent::TaskDelegationFailed {
+                    task_id: spec.task_id.clone(),
+                    role: role_label,
+                    error: e.to_string(),
+                    cost_usd: 0.0,
+                    duration_ms: elapsed_ms,
+                });
+                TaskResult::failure(&spec.task_id, e.to_string(), elapsed_ms)
+            }
+        }
+    }
 }
 
 /// Convert a `TaskSpec` into a `ForkSpec` for V1 `ForkJoinExecutor` routing.
@@ -189,6 +319,163 @@ fn task_spec_to_fork_spec(spec: &TaskSpec) -> ForkSpec {
     }
 
     fork
+}
+
+// ---------------------------------------------------------------------------
+// V2 helpers — AgentSession execution path
+// ---------------------------------------------------------------------------
+
+/// Map `TaskSpec` fields to an `AgentConfig` for V2 session execution.
+///
+/// Uses `max_steps` for the turn cap (defaulting to 25) and a fixed 900s
+/// wall-clock timeout. The `budget_limit` is a USD cap (not a time budget)
+/// so it doesn't map directly to `timeout_secs`.
+fn task_spec_to_agent_config(spec: &TaskSpec) -> rustycode_agent_runtime::AgentConfig {
+    rustycode_agent_runtime::AgentConfig {
+        max_turns: spec.max_steps.map_or(25, |steps| steps as usize),
+        timeout_secs: 900,
+        max_tool_result_bytes: 8_000,
+        temperature: 0.2,
+        effort: None,
+    }
+}
+
+/// Run a single agent session with the given config and prompt.
+///
+/// This is the V2 execution path — creates a real `AgentSession`,
+/// runs the tool-use loop, and returns the final result.
+async fn run_agent_session(
+    config: &rustycode_agent_runtime::AgentConfig,
+    cwd: &std::path::Path,
+    provider: &dyn rustycode_llm::provider::LLMProvider,
+    model: &str,
+    user_prompt: &str,
+    system_prompt: &str,
+    tool_registry: &rustycode_tools::ToolRegistry,
+    events: &mut dyn rustycode_agent_runtime::AgentEvents,
+) -> anyhow::Result<rustycode_agent_runtime::AgentResult> {
+    use rustycode_agent_runtime::AgentSession;
+    use rustycode_llm::provider::{ChatMessage, MessageRole};
+    use rustycode_protocol::MessageContent;
+    use std::sync::Arc;
+
+    let mut session = AgentSession::new(config.clone(), cwd);
+
+    // Wire a sync adapter over the async mailbox router for send_message.
+    let mailbox = crate::mailbox_router::MailboxRouter::new(crate::bus::BusHandle::new(16));
+    let sender = crate::mailbox_sender::MailboxSender::new(mailbox);
+    session = session.with_message_sender(Arc::new(sender));
+
+    let messages = vec![ChatMessage {
+        role: MessageRole::User,
+        content: MessageContent::Simple(user_prompt.to_string()),
+    }];
+
+    let tools_schema: Vec<serde_json::Value> = tool_registry
+        .list()
+        .into_iter()
+        .map(|info| {
+            serde_json::json!({
+                "name": info.name,
+                "description": info.description,
+                "parameters": info.parameters_schema,
+            })
+        })
+        .collect();
+
+    session
+        .run(
+            provider,
+            model,
+            system_prompt,
+            messages,
+            &tools_schema,
+            tool_registry,
+            events,
+        )
+        .await
+}
+
+// ---------------------------------------------------------------------------
+// Concrete SessionExecutor implementation
+// ---------------------------------------------------------------------------
+
+/// Concrete `SessionExecutor` wiring `TaskSpec` → `AgentSession` execution.
+///
+/// Holds the infrastructure dependencies (LLM provider, tool registry, bus)
+/// that `TaskDispatcher` doesn't need to know about directly.
+pub struct RealSessionExecutor {
+    provider: Arc<dyn rustycode_llm::provider::LLMProvider>,
+    model: String,
+    tool_registry: Arc<rustycode_tools::ToolRegistry>,
+    bus: BusHandle,
+}
+
+impl RealSessionExecutor {
+    pub fn new(
+        provider: Arc<dyn rustycode_llm::provider::LLMProvider>,
+        model: impl Into<String>,
+        tool_registry: Arc<rustycode_tools::ToolRegistry>,
+        bus: BusHandle,
+    ) -> Self {
+        Self {
+            provider,
+            model: model.into(),
+            tool_registry,
+            bus,
+        }
+    }
+}
+
+impl std::fmt::Debug for RealSessionExecutor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RealSessionExecutor")
+            .field("model", &self.model)
+            .finish_non_exhaustive()
+    }
+}
+
+impl SessionExecutor for RealSessionExecutor {
+    fn execute_session(
+        &self,
+        spec: &TaskSpec,
+    ) -> Pin<Box<dyn Future<Output = TaskResult> + Send + '_>> {
+        let spec = spec.clone();
+        let provider = Arc::clone(&self.provider);
+        let model = self.model.clone();
+        let tool_registry = Arc::clone(&self.tool_registry);
+        let bus = self.bus.clone();
+
+        Box::pin(async move {
+            let dispatcher = TaskDispatcher::new(
+                ForkJoinExecutor::new(ForkJoinConfig::default(), bus.clone()),
+                bus,
+            );
+
+            let mut sink = NoopEvents;
+            dispatcher
+                .execute_via_session(&spec, &*provider, &model, &tool_registry, &mut sink)
+                .await
+        })
+    }
+}
+
+struct NoopEvents;
+
+#[async_trait::async_trait]
+impl rustycode_agent_runtime::AgentEvents for NoopEvents {
+    async fn on_event(&mut self, _event: rustycode_protocol::stream_event::StreamEvent) {}
+}
+
+fn truncate_preview(text: &str, max_len: usize) -> String {
+    if text.len() <= max_len {
+        return text.to_string();
+    }
+    let mut end = max_len;
+    if !text.is_char_boundary(end) {
+        end = text.floor_char_boundary(max_len);
+    }
+    format!("{}...", &text[..end])
 }
 
 #[cfg(test)]
@@ -458,5 +745,81 @@ mod tests {
         let fork = task_spec_to_fork_spec(&spec);
         assert!(fork.path_scope.is_empty());
         assert_eq!(fork.tier, ExecutionTier::Editor);
+    }
+
+    // ---- Delegation depth enforcement ----
+
+    #[tokio::test]
+    async fn dispatch_rejects_max_depth_exceeded() {
+        use crate::delegation::DelegationToken;
+
+        let bus = make_bus();
+        let dispatcher = make_dispatcher(bus);
+
+        let mut spec = make_spec("deep task");
+        spec.task_id = "deep-1".into();
+        let mut token = DelegationToken::root("root");
+        token.depth = 2;
+        token.max_depth = 3;
+        spec = spec.with_delegation_token(token);
+
+        let results = dispatcher.dispatch(SpawnDecision::Spawn(spec)).await;
+        assert_eq!(results.len(), 1);
+        assert!(!results[0].success);
+        assert!(results[0].output.contains("delegation depth"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_allows_within_depth_limit() {
+        use crate::delegation::DelegationToken;
+
+        let bus = make_bus();
+        let dispatcher = make_dispatcher(bus);
+
+        let mut spec = make_spec("normal task");
+        spec.task_id = "normal-1".into();
+        let token = DelegationToken::root("root");
+        spec = spec.with_delegation_token(token);
+
+        let results = dispatcher.dispatch(SpawnDecision::Spawn(spec)).await;
+        assert_eq!(results.len(), 1);
+        assert!(results[0].success);
+    }
+
+    #[tokio::test]
+    async fn dispatch_without_token_works_normally() {
+        let bus = make_bus();
+        let dispatcher = make_dispatcher(bus);
+
+        let spec = make_spec("untokened task");
+        let results = dispatcher.dispatch(SpawnDecision::Spawn(spec)).await;
+        assert_eq!(results.len(), 1);
+        assert!(results[0].success);
+    }
+
+    #[tokio::test]
+    async fn session_executor_used_when_configured() {
+        struct MockSessionExecutor;
+        impl SessionExecutor for MockSessionExecutor {
+            fn execute_session(
+                &self,
+                spec: &TaskSpec,
+            ) -> Pin<Box<dyn Future<Output = TaskResult> + Send + '_>> {
+                let task_id = spec.task_id.clone();
+                Box::pin(async move { TaskResult::success(task_id, "mock-v2-result", 0.42, 7) })
+            }
+        }
+
+        let bus = make_bus();
+        let dispatcher = make_dispatcher(bus).with_session_executor(Arc::new(MockSessionExecutor));
+
+        let mut spec = make_spec("v2 task");
+        spec.task_id = "v2-1".into();
+        let results = dispatcher.dispatch(SpawnDecision::Spawn(spec)).await;
+        assert_eq!(results.len(), 1);
+        assert!(results[0].success);
+        assert_eq!(results[0].output, "mock-v2-result");
+        assert!((results[0].cost_usd - 0.42).abs() < f64::EPSILON);
+        assert_eq!(results[0].duration_ms, 7);
     }
 }

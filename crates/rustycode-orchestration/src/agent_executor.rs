@@ -378,7 +378,15 @@ impl ToolExecutor for AgentSessionExecutor {
         _allowed_tools: &[&'static str],
         model: &str,
     ) -> Result<StepResult> {
+        use std::sync::Arc;
+
         let mut session = AgentSession::new(self.config.clone(), &self.cwd);
+
+        // Wire a sync adapter over the async mailbox router for send_message.
+        let mailbox = crate::mailbox_router::MailboxRouter::new(self.bus.clone());
+        let sender = crate::mailbox_sender::MailboxSender::new(mailbox);
+        session = session.with_message_sender(Arc::new(sender));
+
         let messages = vec![ChatMessage {
             role: MessageRole::User,
             content: MessageContent::Simple(input.to_string()),

@@ -65,6 +65,12 @@ pub struct AgentMessage<T> {
     pub payload: T,
     /// Optional reference to a previous message this responds to.
     pub in_reply_to: Option<String>,
+    /// Specific agent instance ID (for routing to instances, not just roles).
+    #[serde(default)]
+    pub sender_id: String,
+    /// Target agent instance ID (None = any agent with matching role).
+    #[serde(default)]
+    pub recipient_id: Option<String>,
 }
 
 impl<T> AgentMessage<T> {
@@ -75,6 +81,8 @@ impl<T> AgentMessage<T> {
             to: None,
             payload,
             in_reply_to: None,
+            sender_id: String::new(),
+            recipient_id: None,
         }
     }
 
@@ -85,6 +93,16 @@ impl<T> AgentMessage<T> {
 
     pub fn directed(mut self, to: AgentRole) -> Self {
         self.to = Some(to);
+        self
+    }
+
+    pub fn with_sender_id(mut self, sender_id: impl Into<String>) -> Self {
+        self.sender_id = sender_id.into();
+        self
+    }
+
+    pub fn with_recipient_id(mut self, recipient_id: impl Into<String>) -> Self {
+        self.recipient_id = Some(recipient_id.into());
         self
     }
 }
@@ -131,6 +149,19 @@ impl fmt::Display for AgentRole {
             Self::Worker => write!(f, "Worker"),
             Self::Reviewer => write!(f, "Reviewer"),
             Self::Researcher => write!(f, "Researcher"),
+        }
+    }
+}
+
+impl From<crate::team::TeamRole> for AgentRole {
+    fn from(role: crate::team::TeamRole) -> Self {
+        match role {
+            crate::team::TeamRole::Builder => AgentRole::Builder,
+            crate::team::TeamRole::Skeptic => AgentRole::Skeptic,
+            crate::team::TeamRole::Judge => AgentRole::Judge,
+            crate::team::TeamRole::Coordinator => AgentRole::Coordinator,
+            crate::team::TeamRole::Architect => AgentRole::Architect,
+            crate::team::TeamRole::Scalpel => AgentRole::Scalpel,
         }
     }
 }
@@ -543,6 +574,40 @@ pub struct FileChange {
     pub lines_removed: usize,
 }
 
+// Routed Agent Payloads
+
+/// Payloads for routed local agent messages.
+///
+/// These are used for inter-agent communication through the MailboxRouter,
+/// enabling directed task delegation, capability discovery, and objections.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "data", rename_all = "snake_case")]
+pub enum AgentPayload {
+    /// Delegate a task to another agent.
+    TaskDelegation {
+        task_id: String,
+        prompt: String,
+        role: AgentRole,
+    },
+    /// Return a task result.
+    TaskResult {
+        task_id: String,
+        success: bool,
+        output: String,
+    },
+    /// Advertise capabilities (runtime).
+    CapabilityAdvertise {
+        agent_id: String,
+        capabilities: Vec<String>,
+    },
+    /// Query for agents with a capability.
+    CapabilityQuery { capability: String },
+    /// Response to a capability query.
+    CapabilityResponse { agents: Vec<String> },
+    /// Object to a decision or proposed action.
+    Objection { reason: String, evidence: String },
+}
+
 // Validation
 
 /// Result of validating a protocol message.
@@ -574,6 +639,91 @@ impl fmt::Display for ValidationResult {
         } else {
             write!(f, "Validation failed: {}", self.errors.join("; "))
         }
+    }
+}
+
+impl AgentMessage<AgentPayload> {
+    /// Create a task delegation message.
+    pub fn delegation(
+        from: AgentRole,
+        to: AgentRole,
+        task_id: impl Into<String>,
+        prompt: impl Into<String>,
+        role: AgentRole,
+    ) -> Self {
+        Self::new(
+            from,
+            AgentPayload::TaskDelegation {
+                task_id: task_id.into(),
+                prompt: prompt.into(),
+                role,
+            },
+        )
+        .directed(to)
+    }
+
+    /// Create a task result message.
+    pub fn task_result(
+        from: AgentRole,
+        to: AgentRole,
+        task_id: impl Into<String>,
+        success: bool,
+        output: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            from,
+            AgentPayload::TaskResult {
+                task_id: task_id.into(),
+                success,
+                output: output.into(),
+            },
+        )
+        .directed(to)
+    }
+
+    /// Create a capability advertisement message.
+    pub fn capability_advertise(
+        from: AgentRole,
+        agent_id: impl Into<String>,
+        capabilities: Vec<String>,
+    ) -> Self {
+        Self::new(
+            from,
+            AgentPayload::CapabilityAdvertise {
+                agent_id: agent_id.into(),
+                capabilities,
+            },
+        )
+    }
+
+    /// Create a capability query message.
+    pub fn capability_query(from: AgentRole, capability: impl Into<String>) -> Self {
+        Self::new(
+            from,
+            AgentPayload::CapabilityQuery {
+                capability: capability.into(),
+            },
+        )
+    }
+
+    /// Create a capability response message.
+    pub fn capability_response(from: AgentRole, agents: Vec<String>) -> Self {
+        Self::new(from, AgentPayload::CapabilityResponse { agents })
+    }
+
+    /// Create an objection message.
+    pub fn objection(
+        from: AgentRole,
+        reason: impl Into<String>,
+        evidence: impl Into<String>,
+    ) -> Self {
+        Self::new(
+            from,
+            AgentPayload::Objection {
+                reason: reason.into(),
+                evidence: evidence.into(),
+            },
+        )
     }
 }
 
@@ -1154,5 +1304,234 @@ mod tests {
         let decoded: InterfaceDeclaration = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.name, "Handler");
         assert_eq!(decoded.methods.len(), 1);
+    }
+
+    #[test]
+    fn agent_message_with_agent_payload_directed_and_reply() {
+        let msg = AgentMessage::new(AgentRole::Builder, "payload".to_string())
+            .directed(AgentRole::Skeptic)
+            .with_reply("msg-123".to_string());
+        assert_eq!(msg.from, AgentRole::Builder);
+        assert_eq!(msg.to, Some(AgentRole::Skeptic));
+        assert_eq!(msg.in_reply_to, Some("msg-123".to_string()));
+    }
+
+    #[test]
+    fn agent_message_with_instance_ids() {
+        let msg = AgentMessage::new(AgentRole::Builder, "payload".to_string())
+            .with_sender_id("builder_instance_1")
+            .with_recipient_id("skeptic_instance_2");
+        assert_eq!(msg.sender_id, "builder_instance_1");
+        assert_eq!(msg.recipient_id, Some("skeptic_instance_2".to_string()));
+    }
+
+    #[test]
+    fn agent_message_instance_ids_default_to_empty() {
+        let msg = AgentMessage::new(AgentRole::Builder, "payload".to_string());
+        assert_eq!(msg.sender_id, "");
+        assert_eq!(msg.recipient_id, None);
+    }
+
+    #[test]
+    fn agent_message_payload_serde_roundtrip() {
+        let msg: AgentMessage<AgentPayload> = AgentMessage::new(
+            AgentRole::Builder,
+            AgentPayload::TaskDelegation {
+                task_id: "task_xyz".to_string(),
+                prompt: "Do something".to_string(),
+                role: AgentRole::Worker,
+            },
+        )
+        .directed(AgentRole::Coordinator)
+        .with_sender_id("builder_1")
+        .with_recipient_id("coord_1");
+
+        let json = serde_json::to_string(&msg).unwrap();
+        let decoded: AgentMessage<AgentPayload> = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(decoded.from, AgentRole::Builder);
+        assert_eq!(decoded.to, Some(AgentRole::Coordinator));
+        assert_eq!(decoded.sender_id, "builder_1");
+        assert_eq!(decoded.recipient_id, Some("coord_1".to_string()));
+    }
+
+    #[test]
+    fn agent_message_helper_delegation() {
+        let msg = AgentMessage::<AgentPayload>::delegation(
+            AgentRole::Coordinator,
+            AgentRole::Builder,
+            "task_456",
+            "Implement new feature",
+            AgentRole::Worker,
+        );
+        assert_eq!(msg.from, AgentRole::Coordinator);
+        assert_eq!(msg.to, Some(AgentRole::Builder));
+        match &msg.payload {
+            AgentPayload::TaskDelegation { task_id, .. } => assert_eq!(task_id, "task_456"),
+            _ => panic!("Expected TaskDelegation"),
+        }
+    }
+
+    #[test]
+    fn agent_message_helper_task_result() {
+        let msg = AgentMessage::<AgentPayload>::task_result(
+            AgentRole::Worker,
+            AgentRole::Coordinator,
+            "task_789",
+            true,
+            "Successfully completed",
+        );
+        assert_eq!(msg.from, AgentRole::Worker);
+        assert_eq!(msg.to, Some(AgentRole::Coordinator));
+        match &msg.payload {
+            AgentPayload::TaskResult { success, .. } => assert!(*success),
+            _ => panic!("Expected TaskResult"),
+        }
+    }
+
+    #[test]
+    fn agent_message_backward_compat_existing_types() {
+        let msg: AgentMessage<BuilderMessage> = AgentMessage::new(
+            AgentRole::Builder,
+            BuilderMessage {
+                approach: "test".to_string(),
+                changes: vec![],
+                claims: vec![],
+                confidence: 0.8,
+                done: false,
+                escalation: None,
+                signals: AgentSignals::default(),
+            },
+        );
+        let json = serde_json::to_string(&msg).unwrap();
+        let decoded: AgentMessage<BuilderMessage> = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.from, AgentRole::Builder);
+        assert_eq!(decoded.sender_id, ""); // Should use default
+    }
+
+    // --- Slice 1: Protocol Narrowing Tests (AgentPayload serde and helpers) ---
+
+    #[test]
+    fn agent_payload_task_delegation_serde_roundtrip() {
+        let payload = AgentPayload::TaskDelegation {
+            task_id: "t-1".into(),
+            prompt: "fix the bug".into(),
+            role: AgentRole::Builder,
+        };
+        let json = serde_json::to_string(&payload).unwrap();
+        let decoded: AgentPayload = serde_json::from_str(&json).unwrap();
+        assert!(json.contains("task_delegation"));
+        match decoded {
+            AgentPayload::TaskDelegation { task_id, .. } => assert_eq!(task_id, "t-1"),
+            _ => panic!("expected TaskDelegation"),
+        }
+    }
+
+    #[test]
+    fn agent_payload_task_result_serde_roundtrip() {
+        let payload = AgentPayload::TaskResult {
+            task_id: "t-1".into(),
+            success: true,
+            output: "fixed".into(),
+        };
+        let json = serde_json::to_string(&payload).unwrap();
+        let decoded: AgentPayload = serde_json::from_str(&json).unwrap();
+        assert!(json.contains("task_result"));
+        match decoded {
+            AgentPayload::TaskResult { success, .. } => assert!(success),
+            _ => panic!("expected TaskResult"),
+        }
+    }
+
+    #[test]
+    fn agent_payload_capability_query_serde_roundtrip() {
+        let payload = AgentPayload::CapabilityQuery {
+            capability: "security_audit".into(),
+        };
+        let json = serde_json::to_string(&payload).unwrap();
+        let decoded: AgentPayload = serde_json::from_str(&json).unwrap();
+        assert!(json.contains("capability_query"));
+        match decoded {
+            AgentPayload::CapabilityQuery { capability } => {
+                assert_eq!(capability, "security_audit");
+            }
+            _ => panic!("expected CapabilityQuery"),
+        }
+    }
+
+    #[test]
+    fn agent_payload_objection_serde_roundtrip() {
+        let payload = AgentPayload::Objection {
+            reason: "untested".into(),
+            evidence: "no test file found".into(),
+        };
+        let json = serde_json::to_string(&payload).unwrap();
+        let decoded: AgentPayload = serde_json::from_str(&json).unwrap();
+        assert!(json.contains("objection"));
+        match decoded {
+            AgentPayload::Objection { reason, .. } => assert_eq!(reason, "untested"),
+            _ => panic!("expected Objection"),
+        }
+    }
+
+    #[test]
+    fn agent_message_payload_delegation() {
+        let msg = AgentMessage::delegation(
+            AgentRole::Coordinator,
+            AgentRole::Builder,
+            "task-42",
+            "Fix the auth bug",
+            AgentRole::Builder,
+        );
+        assert_eq!(msg.from, AgentRole::Coordinator);
+        assert_eq!(msg.to, Some(AgentRole::Builder));
+        match &msg.payload {
+            AgentPayload::TaskDelegation { task_id, .. } => assert_eq!(task_id, "task-42"),
+            _ => panic!("expected TaskDelegation"),
+        }
+    }
+
+    #[test]
+    fn agent_message_payload_result() {
+        let msg = AgentMessage::task_result(
+            AgentRole::Builder,
+            AgentRole::Coordinator,
+            "task-42",
+            true,
+            "Fixed auth validation",
+        );
+        assert_eq!(msg.from, AgentRole::Builder);
+        assert_eq!(msg.to, Some(AgentRole::Coordinator));
+        match &msg.payload {
+            AgentPayload::TaskResult { success, .. } => assert!(success),
+            _ => panic!("expected TaskResult"),
+        }
+    }
+
+    #[test]
+    fn agent_message_payload_capability_advertise_is_broadcast() {
+        let msg = AgentMessage::capability_advertise(
+            AgentRole::Builder,
+            "agent-1",
+            vec!["security_audit".into()],
+        );
+        assert_eq!(msg.from, AgentRole::Builder);
+        assert_eq!(msg.to, None); // broadcast
+    }
+
+    // --- TeamRole to AgentRole conversion ---
+
+    #[test]
+    fn team_role_to_agent_role_conversion() {
+        use crate::team::TeamRole;
+        assert_eq!(AgentRole::from(TeamRole::Builder), AgentRole::Builder);
+        assert_eq!(AgentRole::from(TeamRole::Skeptic), AgentRole::Skeptic);
+        assert_eq!(AgentRole::from(TeamRole::Judge), AgentRole::Judge);
+        assert_eq!(
+            AgentRole::from(TeamRole::Coordinator),
+            AgentRole::Coordinator
+        );
+        assert_eq!(AgentRole::from(TeamRole::Architect), AgentRole::Architect);
+        assert_eq!(AgentRole::from(TeamRole::Scalpel), AgentRole::Scalpel);
     }
 }

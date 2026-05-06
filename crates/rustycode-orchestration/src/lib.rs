@@ -79,6 +79,8 @@ pub mod harness;
 pub mod hook_points;
 pub mod isolation;
 pub mod judge;
+pub mod mailbox_router;
+pub mod mailbox_sender;
 pub mod milestone_prompt;
 #[cfg(test)]
 pub mod mock_provider_for_tests;
@@ -175,6 +177,7 @@ pub use judge::{
     build_judge_prompt, BuiltInRubrics, JudgeConfig, JudgeGrade, JudgeParseError, JudgeRubric,
     JudgeVerdict,
 };
+pub use mailbox_router::{MailboxError, MailboxRouter};
 pub use milestone_prompt::{
     build_milestone_prompt, parse_milestone_response, MilestonePromptResult,
 };

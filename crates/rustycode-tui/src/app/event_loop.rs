@@ -165,6 +165,9 @@ pub struct TUI {
     pub(crate) turn_snapshot: Option<crate::app::turn_snapshot::TurnSnapshot>,
     // Doom loop detector — tracks repetitive tool-call patterns
     pub(crate) doom_loop: crate::app::doom_loop::DoomLoopDetector,
+    // Carries doom loop context into the next turn's conversation so the model
+    // sees it (system messages are filtered from history; this becomes a user note).
+    pub(crate) pending_doom_note: Option<String>,
 
     // Active Reasoning Engine budget tracking
     pub(crate) reasoning_budget:
@@ -602,6 +605,7 @@ impl TUI {
             auto_continue: AutoContinueState::from_env(),
             turn_snapshot: None,
             doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
+            pending_doom_note: None,
             execution_trace: None,
             reasoning_budget: std::sync::Mutex::new(
                 rustycode_tools::providers::reasoning_types::BudgetState::default(),
@@ -835,6 +839,7 @@ impl TUI {
             auto_continue: AutoContinueState::from_env(),
             turn_snapshot: None,
             doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
+            pending_doom_note: None,
             reasoning_budget: std::sync::Mutex::new(
                 rustycode_tools::providers::reasoning_types::BudgetState::default(),
             ),

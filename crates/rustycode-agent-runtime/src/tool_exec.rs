@@ -1,6 +1,8 @@
 use rustycode_protocol::ToolCall;
 use rustycode_tools::{ToolContext, ToolRegistry};
+use rustycode_tools_api::MessageSender;
 use std::path::Path;
+use std::sync::Arc;
 
 /// Execute a named tool via the shared registry.
 pub fn execute_tool(
@@ -8,6 +10,7 @@ pub fn execute_tool(
     tool_name: &str,
     tool_json: &str,
     tool_registry: &ToolRegistry,
+    message_sender: Option<Arc<dyn MessageSender>>,
 ) -> (String, bool) {
     let resolved_name = normalize_tool_name(tool_name);
     let args: serde_json::Value = match serde_json::from_str(tool_json) {
@@ -24,7 +27,10 @@ pub fn execute_tool(
         arguments: args,
     };
 
-    let ctx = ToolContext::new(cwd);
+    let mut ctx = ToolContext::new(cwd);
+    if let Some(sender) = message_sender {
+        ctx = ctx.with_message_sender(sender);
+    }
     let result = tool_registry.execute(&call, &ctx);
 
     if result.success {

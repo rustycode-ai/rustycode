@@ -380,6 +380,20 @@ impl TUI {
             }
             result.push(msg);
         }
+
+        // Inject doom loop context as a user-role note so the model sees it.
+        // System messages are filtered from history, so we use user role.
+        if let Some(ref note) = self.pending_doom_note {
+            if let Some(last) = result.last_mut() {
+                if last.role == LlmRole::User {
+                    let merged = format!("{}\n\n{}", last.text(), note);
+                    last.content = MessageContent::simple(&merged);
+                }
+            } else {
+                result.push(ChatMessage::user(note.clone()));
+            }
+        }
+
         result
     }
 

@@ -230,6 +230,18 @@ pub enum OrchestrationEvent {
         total_cost_usd: f64,
         total_duration_ms: i64,
     },
+    /// A directed message was routed between agents.
+    MessageRouted {
+        from: String,
+        to: String,
+        kind: String,
+    },
+    /// A message was broadcast to multiple agents.
+    MessageBroadcast {
+        from: String,
+        recipient_count: usize,
+        kind: String,
+    },
 }
 
 /// Compact plan snapshot used for milestone progress rendering.

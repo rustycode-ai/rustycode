@@ -149,6 +149,21 @@ impl SpecialistType {
     }
 }
 
+/// Describes a specific capability an agent possesses.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CapabilityDescriptor {
+    /// Machine-readable capability name (e.g., "security_audit", "db_migration").
+    pub name: String,
+    /// Human-readable description.
+    pub description: String,
+    /// Whether the agent is currently available for this capability.
+    pub available: bool,
+    /// Success rate (0.0–1.0), computed from task_history.
+    pub success_rate: f64,
+    /// Tools this capability requires.
+    pub tool_scope: Vec<String>,
+}
+
 // Agent Definition
 
 /// A specialist agent definition
@@ -165,10 +180,14 @@ pub struct SpecialistAgent {
     pub instructions: String,
     /// Tools this agent has access to
     pub tools: Vec<String>,
+    /// Capabilities this agent possesses
+    pub capabilities: Vec<CapabilityDescriptor>,
     /// When this agent was created
     pub created_at: String,
     /// Which task created this agent (if generated)
     pub source_task: Option<String>,
+    /// Whether the agent is currently available for task assignment
+    pub available: bool,
 }
 
 impl SpecialistAgent {
@@ -185,8 +204,10 @@ impl SpecialistAgent {
             role,
             instructions: specialist_type.instructions().to_string(),
             tools: Vec::new(),
+            capabilities: Vec::new(),
             created_at: chrono::Utc::now().to_rfc3339(),
             source_task,
+            available: true,
         }
     }
 
@@ -375,6 +396,59 @@ impl AgentRegistry {
     /// Get a specialist by ID
     pub fn specialist(&self, id: &str) -> Option<&SpecialistAgent> {
         self.generated.get(id)
+    }
+
+    /// Find all specialists that have a named capability.
+    pub fn find_by_capability(&self, capability: &str) -> Vec<&SpecialistAgent> {
+        self.generated
+            .values()
+            .filter(|agent| agent.capabilities.iter().any(|c| c.name == capability))
+            .collect()
+    }
+
+    /// Find available specialists with a named capability.
+    pub fn find_available(&self, capability: &str) -> Vec<&SpecialistAgent> {
+        self.find_by_capability(capability)
+            .into_iter()
+            .filter(|agent| agent.available)
+            .collect()
+    }
+
+    /// Rank specialists by success rate for a capability (highest first).
+    pub fn rank_by_success(&self, capability: &str) -> Vec<&SpecialistAgent> {
+        let mut agents = self.find_by_capability(capability);
+        agents.sort_by(|a, b| {
+            let rate_a = a
+                .capabilities
+                .iter()
+                .find(|c| c.name == capability)
+                .map(|c| c.success_rate)
+                .unwrap_or(0.0);
+            let rate_b = b
+                .capabilities
+                .iter()
+                .find(|c| c.name == capability)
+                .map(|c| c.success_rate)
+                .unwrap_or(0.0);
+            rate_b
+                .partial_cmp(&rate_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        agents
+    }
+
+    /// Mark an agent as busy (not available).
+    pub fn mark_busy(&mut self, agent_id: &str) {
+        if let Some(agent) = self.generated.get_mut(agent_id) {
+            agent.available = false;
+        }
+    }
+
+    /// Mark an agent as available again.
+    pub fn mark_available(&mut self, agent_id: &str) {
+        if let Some(agent) = self.generated.get_mut(agent_id) {
+            agent.available = true;
+        }
     }
 }
 
@@ -627,5 +701,124 @@ mod tests {
         // Generate a specialist
         let _ = registry.agent_for_task("Security audit", &profile);
         assert!(registry.generated.len() == 1);
+    }
+
+    #[test]
+    fn test_capability_descriptor_find_by_capability() {
+        let mut registry = AgentRegistry::new();
+        let mut agent = SpecialistAgent::new(
+            "TestSecurityAgent".into(),
+            SpecialistType::SecurityAudit,
+            AgentRole::Builder,
+            None,
+        );
+        agent.capabilities.push(CapabilityDescriptor {
+            name: "security_audit".into(),
+            description: "Security vulnerability scanning".into(),
+            available: true,
+            success_rate: 0.9,
+            tool_scope: vec!["code_scanner".into()],
+        });
+        registry.generated.insert(agent.id.clone(), agent);
+
+        let found = registry.find_by_capability("security_audit");
+        assert_eq!(found.len(), 1);
+
+        let not_found = registry.find_by_capability("db_migration");
+        assert!(not_found.is_empty());
+    }
+
+    #[test]
+    fn test_capability_descriptor_find_available_excludes_busy() {
+        let mut registry = AgentRegistry::new();
+        let mut agent = SpecialistAgent::new(
+            "TestBusyAgent".into(),
+            SpecialistType::SecurityAudit,
+            AgentRole::Builder,
+            None,
+        );
+        agent.capabilities.push(CapabilityDescriptor {
+            name: "security_audit".into(),
+            description: "Security scanning".into(),
+            available: true,
+            success_rate: 0.8,
+            tool_scope: vec![],
+        });
+        agent.available = false; // busy
+        registry.generated.insert(agent.id.clone(), agent);
+
+        let available = registry.find_available("security_audit");
+        assert!(available.is_empty());
+    }
+
+    #[test]
+    fn test_capability_descriptor_rank_by_success() {
+        let mut registry = AgentRegistry::new();
+
+        // Agent 1: 60% success
+        let mut agent1 = SpecialistAgent::new(
+            "Agent1".into(),
+            SpecialistType::SecurityAudit,
+            AgentRole::Builder,
+            None,
+        );
+        agent1.capabilities.push(CapabilityDescriptor {
+            name: "security_audit".into(),
+            description: "Security".into(),
+            available: true,
+            success_rate: 0.6,
+            tool_scope: vec![],
+        });
+
+        // Agent 2: 95% success
+        let mut agent2 = SpecialistAgent::new(
+            "Agent2".into(),
+            SpecialistType::SecurityAudit,
+            AgentRole::Builder,
+            None,
+        );
+        agent2.capabilities.push(CapabilityDescriptor {
+            name: "security_audit".into(),
+            description: "Security".into(),
+            available: true,
+            success_rate: 0.95,
+            tool_scope: vec![],
+        });
+
+        registry.generated.insert("a1".into(), agent1);
+        registry.generated.insert("a2".into(), agent2);
+
+        let ranked = registry.rank_by_success("security_audit");
+        assert_eq!(ranked.len(), 2);
+        // Highest success rate first
+        assert_eq!(ranked[0].capabilities[0].success_rate, 0.95);
+        assert_eq!(ranked[1].capabilities[0].success_rate, 0.6);
+    }
+
+    #[test]
+    fn test_mark_busy_and_available() {
+        let mut registry = AgentRegistry::new();
+        let agent = SpecialistAgent::new(
+            "TestAgent".into(),
+            SpecialistType::SecurityAudit,
+            AgentRole::Builder,
+            None,
+        );
+        let id = agent.id.clone();
+        assert!(agent.available);
+        registry.generated.insert(id.clone(), agent);
+
+        registry.mark_busy(&id);
+        assert!(!registry.generated.get(&id).unwrap().available);
+
+        registry.mark_available(&id);
+        assert!(registry.generated.get(&id).unwrap().available);
+    }
+
+    #[test]
+    fn test_mark_busy_nonexistent_no_panic() {
+        let mut registry = AgentRegistry::new();
+        registry.mark_busy("nonexistent");
+        registry.mark_available("nonexistent");
     }
 }

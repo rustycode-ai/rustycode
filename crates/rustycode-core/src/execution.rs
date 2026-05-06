@@ -9,6 +9,8 @@ use anyhow::{bail, Result};
 use chrono::Utc;
 use rustycode_protocol::{Conversation, Message, ToolCall, ToolResult};
 use rustycode_tools::{ToolContext, ToolRegistry};
+use rustycode_tools_api::MessageSender;
+use rustycode_orchestration::delegation::RetryState;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -132,6 +134,10 @@ pub struct ExecutionContext {
     pub session_id: String,
     /// Optional checkpoint store for saving snapshots around step execution.
     pub checkpoint_store: Option<Arc<ExecutionCheckpointStore>>,
+    /// Optional message sender for inter-agent communication.
+    pub message_sender: Option<Arc<dyn MessageSender>>,
+    /// Mutable retry state for transient error handling and backoff.
+    pub retry_state: RetryState,
 }
 
 impl ExecutionContext {
@@ -147,6 +153,8 @@ impl ExecutionContext {
             tool_registry: Arc::new(tool_registry),
             session_id: String::new(),
             checkpoint_store: None,
+            message_sender: None,
+            retry_state: RetryState::new(),
         }
     }
 
@@ -159,6 +167,12 @@ impl ExecutionContext {
     /// Attach a checkpoint store for saving snapshots during execution.
     pub fn with_checkpoint_store(mut self, store: Arc<ExecutionCheckpointStore>) -> Self {
         self.checkpoint_store = Some(store);
+        self
+    }
+
+    /// Attach a message sender for inter-agent communication.
+    pub fn with_message_sender(mut self, sender: Arc<dyn MessageSender>) -> Self {
+        self.message_sender = Some(sender);
         self
     }
 
@@ -382,8 +396,12 @@ impl StepExecutor for GenericStepExecutor {
                 }
             };
 
-            // Create tool context
-            let tool_ctx = ToolContext::new(&self.cwd).with_registry(self.tool_registry.clone());
+            // Create tool context with optional message sender for inter-agent communication
+            let mut tool_ctx =
+                ToolContext::new(&self.cwd).with_registry(self.tool_registry.clone());
+            if let Some(ref sender) = _ctx.message_sender {
+                tool_ctx = tool_ctx.with_message_sender(sender.clone());
+            }
 
             // Create tool call
             let tool_call = ToolCall {

@@ -88,8 +88,8 @@
 // import them as `crate::Tool`, `crate::ToolContext`, etc.
 use rustycode_protocol::{AgentRole, ToolCall, ToolResult};
 pub use rustycode_tools_api::{
-    CancellationToken, FileReadState, Tool, ToolContext, ToolGate, ToolInfo, ToolOutput,
-    ToolPermission, ToolProfile, ToolRegistry, ToolSelector, ToolTag,
+    CancellationToken, FileReadState, MessageSender, Tool, ToolContext, ToolGate, ToolInfo,
+    ToolOutput, ToolPermission, ToolProfile, ToolRegistry, ToolSelector, ToolTag,
 };
 
 // Modules

@@ -10,6 +10,43 @@ use crate::strategy_selector::StrategySelector;
 use crate::types::ExecutionTier;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::time::SystemTime;
+
+// Error Classification
+
+/// Categorizes errors to determine retry vs. escalation behavior.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ErrorCategory {
+    /// Transient: auto-retry with backoff.
+    RateLimit429,
+    /// Transient: auto-retry with backoff.
+    Timeout,
+    /// Transient: auto-retry with backoff.
+    ServerError5xx,
+    /// Persistent: escalate to parent for decision.
+    BadRequest400,
+    /// Persistent: escalate to parent for decision.
+    InvalidDelegation,
+    /// Persistent: escalate to parent for decision.
+    PermissionDenied,
+    /// Persistent: escalate to parent for decision.
+    ContextWindow,
+}
+
+impl ErrorCategory {
+    /// True if this error should trigger automatic retry with backoff.
+    pub fn is_transient(self) -> bool {
+        matches!(
+            self,
+            Self::RateLimit429 | Self::Timeout | Self::ServerError5xx
+        )
+    }
+
+    /// True if this error should escalate to parent conversation.
+    pub fn is_persistent(self) -> bool {
+        !self.is_transient()
+    }
+}
 
 // TaskRole
 
@@ -87,7 +124,208 @@ impl TaskRole {
     }
 }
 
+impl TryFrom<TaskRole> for rustycode_protocol::AgentRole {
+    type Error = String;
+
+    fn try_from(role: TaskRole) -> Result<Self, Self::Error> {
+        match role {
+            TaskRole::Explore => Ok(rustycode_protocol::AgentRole::Researcher),
+            TaskRole::Research => Ok(rustycode_protocol::AgentRole::Researcher),
+            TaskRole::Code => Ok(rustycode_protocol::AgentRole::Builder),
+            TaskRole::Review => Ok(rustycode_protocol::AgentRole::Reviewer),
+            TaskRole::Verify => Ok(rustycode_protocol::AgentRole::Judge),
+            TaskRole::Plan => Ok(rustycode_protocol::AgentRole::Planner),
+            TaskRole::Debug => Ok(rustycode_protocol::AgentRole::Scalpel),
+        }
+    }
+}
+
 // TaskSpec
+
+/// Token tracking delegation ancestry and constraints (immutable metadata).
+///
+/// Propagated from parent to child on each delegation. Enforces maximum
+/// delegation depth and restricts which tools/roles a child agent may use.
+/// This token is metadata only — retry state is tracked separately in RetryState.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegationToken {
+    /// Agent that issued this delegation.
+    pub parent_agent_id: String,
+    /// Current depth (0 = root, 1 = first delegation).
+    pub depth: u32,
+    /// Maximum allowed delegation depth (default: 3).
+    pub max_depth: u32,
+    /// Roles this agent is allowed to delegate to (empty = all allowed).
+    pub allowed_roles: Vec<crate::agent_registry::SpecialistType>,
+    /// Tool names this agent is allowed to use (empty = all allowed).
+    pub allowed_tools: Vec<String>,
+    /// Maximum automatic retries per transient error (default: 3).
+    pub max_retries_per_error: u32,
+}
+
+/// Mutable retry state for a delegated task execution.
+///
+/// Tracks current retry count, last error, and timing. Lives in ExecutionContext
+/// and is mutable across the lifetime of a task execution.
+#[derive(Debug, Clone)]
+pub struct RetryState {
+    /// Current retry count for the last error type.
+    pub current_error_retries: u32,
+    /// Category of the last error encountered (None if no error yet).
+    pub last_error: Option<ErrorCategory>,
+    /// Timestamp of the last error (used for retry backoff calculation).
+    pub last_error_at: Option<SystemTime>,
+}
+
+impl Default for RetryState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl DelegationToken {
+    /// Create a root token for the originating agent.
+    pub fn root(agent_id: impl Into<String>) -> Self {
+        Self {
+            parent_agent_id: agent_id.into(),
+            depth: 0,
+            max_depth: 3,
+            allowed_roles: Vec::new(),
+            allowed_tools: Vec::new(),
+            max_retries_per_error: 3,
+        }
+    }
+
+    /// Create a child token with incremented depth.
+    ///
+    /// Returns `None` if `max_depth` would be exceeded.
+    pub fn child(&self, child_agent_id: impl Into<String>) -> Option<Self> {
+        let new_depth = self.depth + 1;
+        if new_depth >= self.max_depth {
+            return None;
+        }
+        Some(Self {
+            parent_agent_id: child_agent_id.into(),
+            depth: new_depth,
+            max_depth: self.max_depth,
+            allowed_roles: self.allowed_roles.clone(),
+            allowed_tools: self.allowed_tools.clone(),
+            max_retries_per_error: self.max_retries_per_error,
+        })
+    }
+
+    /// Check if delegation is allowed (depth + 1 < max_depth).
+    pub fn can_delegate(&self) -> bool {
+        self.depth + 1 < self.max_depth
+    }
+}
+
+impl RetryState {
+    /// Create a fresh retry state for a new task execution.
+    pub fn new() -> Self {
+        Self {
+            current_error_retries: 0,
+            last_error: None,
+            last_error_at: None,
+        }
+    }
+
+    /// Check if this error should be automatically retried.
+    ///
+    /// Requires the token to check max_retries_per_error limit.
+    /// Returns true if:
+    /// 1. Error is transient (429, timeout, 5xx)
+    /// 2. Retries haven't been exhausted yet
+    /// 3. Either it's a new error type, or same error with retries remaining
+    pub fn should_retry(&self, token: &DelegationToken, error: ErrorCategory) -> bool {
+        if !error.is_transient() {
+            return false;
+        }
+
+        match self.last_error {
+            None => true, // First error, try to retry
+            Some(last) if last == error => {
+                // Same error type, check retry count against token limit
+                self.current_error_retries < token.max_retries_per_error
+            }
+            Some(last) if last != error => {
+                // Different error type, reset retry counter
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Check if this error should escalate to parent conversation.
+    ///
+    /// Requires the token to check max_retries_per_error limit.
+    /// Returns true if:
+    /// 1. Error is persistent (400, invalid delegation, etc)
+    /// 2. Error is transient but retries exhausted
+    pub fn should_escalate(&self, token: &DelegationToken, error: ErrorCategory) -> bool {
+        if error.is_persistent() {
+            return true;
+        }
+
+        if !error.is_transient() {
+            return false;
+        }
+
+        // Transient error: escalate if retries exhausted
+        match self.last_error {
+            Some(last) if last == error => {
+                self.current_error_retries >= token.max_retries_per_error
+            }
+            _ => false,
+        }
+    }
+
+    /// Calculate exponential backoff delay for the next retry (in milliseconds).
+    ///
+    /// Uses formula: 2^(retry_count - 1) * 1000ms, capped at 32s.
+    /// After the first error, retries=1, so backoff=2^0*1000ms=1000ms.
+    /// After the second error, retries=2, so backoff=2^1*1000ms=2000ms.
+    pub fn next_backoff_ms(&self) -> u64 {
+        if self.current_error_retries == 0 {
+            return 0; // No error yet, no backoff
+        }
+        let exponent = self.current_error_retries.saturating_sub(1);
+        let base_ms = 2_u64.saturating_pow(exponent);
+        (base_ms * 1000).min(32_000) // Cap at 32 seconds
+    }
+
+    /// Record that an error occurred and update retry state.
+    ///
+    /// If this is a different error type, resets the retry counter.
+    pub fn record_error(&mut self, error: ErrorCategory) {
+        match self.last_error {
+            Some(last) if last == error => {
+                // Same error, increment retry count
+                self.current_error_retries += 1;
+            }
+            _ => {
+                // New error type, reset counter
+                self.current_error_retries = 1;
+                self.last_error = Some(error);
+            }
+        }
+        self.last_error_at = Some(SystemTime::now());
+    }
+
+    /// Check if sufficient time has passed since last error for the next retry.
+    pub fn is_backoff_satisfied(&self) -> bool {
+        match self.last_error_at {
+            None => true,
+            Some(last_time) => {
+                let elapsed = last_time
+                    .elapsed()
+                    .unwrap_or_default()
+                    .as_millis() as u64;
+                elapsed >= self.next_backoff_ms()
+            }
+        }
+    }
+}
 
 /// Full specification for a delegated (spawned) task.
 #[derive(Debug, Clone)]
@@ -108,6 +346,8 @@ pub struct TaskSpec {
     pub budget_limit: f64,
     /// Optional hard cap on the number of agent steps.
     pub max_steps: Option<u32>,
+    /// Delegation token tracking ancestry and depth constraints.
+    pub delegation_token: Option<DelegationToken>,
 }
 
 impl TaskSpec {
@@ -127,6 +367,7 @@ impl TaskSpec {
             tier_override: None,
             budget_limit: 1.0,
             max_steps: None,
+            delegation_token: None,
         }
     }
 
@@ -157,6 +398,12 @@ impl TaskSpec {
     /// Set max steps cap.
     pub const fn with_max_steps(mut self, steps: u32) -> Self {
         self.max_steps = Some(steps);
+        self
+    }
+
+    /// Attach a delegation token for depth/tool-scoping enforcement.
+    pub fn with_delegation_token(mut self, token: DelegationToken) -> Self {
+        self.delegation_token = Some(token);
         self
     }
 
@@ -1009,5 +1256,272 @@ mod tests {
         } else {
             panic!("expected Ensemble, got {decision:?}");
         }
+    }
+
+    // ---- TaskRole to AgentRole conversion ----
+
+    #[test]
+    fn task_role_to_agent_role_conversion() {
+        use std::convert::TryFrom;
+
+        assert_eq!(
+            rustycode_protocol::AgentRole::try_from(TaskRole::Explore).unwrap(),
+            rustycode_protocol::AgentRole::Researcher
+        );
+        assert_eq!(
+            rustycode_protocol::AgentRole::try_from(TaskRole::Code).unwrap(),
+            rustycode_protocol::AgentRole::Builder
+        );
+        assert_eq!(
+            rustycode_protocol::AgentRole::try_from(TaskRole::Review).unwrap(),
+            rustycode_protocol::AgentRole::Reviewer
+        );
+        assert_eq!(
+            rustycode_protocol::AgentRole::try_from(TaskRole::Verify).unwrap(),
+            rustycode_protocol::AgentRole::Judge
+        );
+        assert_eq!(
+            rustycode_protocol::AgentRole::try_from(TaskRole::Plan).unwrap(),
+            rustycode_protocol::AgentRole::Planner
+        );
+        assert_eq!(
+            rustycode_protocol::AgentRole::try_from(TaskRole::Debug).unwrap(),
+            rustycode_protocol::AgentRole::Scalpel
+        );
+    }
+
+    // ---- DelegationToken ----
+
+    #[test]
+    fn delegation_token_root_creation() {
+        let token = DelegationToken::root("coordinator-1");
+        assert_eq!(token.parent_agent_id, "coordinator-1");
+        assert_eq!(token.depth, 0);
+        assert_eq!(token.max_depth, 3);
+        assert!(token.can_delegate());
+        assert!(token.allowed_roles.is_empty());
+        assert!(token.allowed_tools.is_empty());
+        assert_eq!(token.max_retries_per_error, 3);
+    }
+
+    #[test]
+    fn delegation_token_child_increments_depth() {
+        let root = DelegationToken::root("coordinator-1");
+        let child = root.child("agent-1").unwrap();
+        assert_eq!(child.parent_agent_id, "agent-1");
+        assert_eq!(child.depth, 1);
+        assert_eq!(child.max_depth, 3);
+        assert!(child.can_delegate());
+    }
+
+    #[test]
+    fn delegation_token_max_depth_enforcement() {
+        let root = DelegationToken::root("coordinator-1");
+        let child1 = root.child("agent-1").unwrap();
+        assert_eq!(child1.depth, 1);
+        let child2 = child1.child("agent-2").unwrap();
+        assert_eq!(child2.depth, 2);
+        assert!(!child2.can_delegate());
+        assert!(child2.child("agent-3").is_none());
+    }
+
+    #[test]
+    fn delegation_token_child_inherits_allowed_roles() {
+        use crate::agent_registry::SpecialistType;
+        let mut root = DelegationToken::root("coordinator");
+        root.allowed_roles = vec![SpecialistType::SecurityAudit];
+        root.allowed_tools = vec!["read_file".into()];
+
+        let child = root.child("child").unwrap();
+        assert_eq!(child.allowed_roles.len(), 1);
+        assert_eq!(child.allowed_tools.len(), 1);
+    }
+
+    #[test]
+    fn task_spec_with_delegation_token() {
+        let token = DelegationToken::root("root-agent");
+        let spec = TaskSpec::new("implement auth", TaskRole::Code).with_delegation_token(token);
+
+        assert!(spec.delegation_token.is_some());
+        assert_eq!(spec.delegation_token.unwrap().depth, 0);
+    }
+
+    #[test]
+    fn delegation_token_serialization_roundtrip() {
+        let token = DelegationToken::root("agent-x");
+        let json = serde_json::to_string(&token).unwrap();
+        let back: DelegationToken = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.parent_agent_id, "agent-x");
+        assert_eq!(back.depth, 0);
+        assert_eq!(back.max_depth, 3);
+    }
+
+    // ---- Retry and backoff logic ----
+
+    #[test]
+    fn error_category_is_transient() {
+        assert!(ErrorCategory::RateLimit429.is_transient());
+        assert!(ErrorCategory::Timeout.is_transient());
+        assert!(ErrorCategory::ServerError5xx.is_transient());
+        assert!(!ErrorCategory::BadRequest400.is_transient());
+    }
+
+    #[test]
+    fn error_category_is_persistent() {
+        assert!(ErrorCategory::BadRequest400.is_persistent());
+        assert!(ErrorCategory::InvalidDelegation.is_persistent());
+        assert!(ErrorCategory::PermissionDenied.is_persistent());
+        assert!(ErrorCategory::ContextWindow.is_persistent());
+        assert!(!ErrorCategory::RateLimit429.is_persistent());
+    }
+
+    #[test]
+    fn retry_state_new() {
+        let state = RetryState::new();
+        assert_eq!(state.current_error_retries, 0);
+        assert_eq!(state.last_error, None);
+        assert_eq!(state.last_error_at, None);
+    }
+
+    #[test]
+    fn should_retry_transient_error_first_time() {
+        let token = DelegationToken::root("agent");
+        let state = RetryState::new();
+        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_retry(&token, ErrorCategory::Timeout));
+        assert!(state.should_retry(&token, ErrorCategory::ServerError5xx));
+    }
+
+    #[test]
+    fn should_not_retry_persistent_error() {
+        let token = DelegationToken::root("agent");
+        let state = RetryState::new();
+        assert!(!state.should_retry(&token, ErrorCategory::BadRequest400));
+        assert!(!state.should_retry(&token, ErrorCategory::InvalidDelegation));
+        assert!(!state.should_retry(&token, ErrorCategory::PermissionDenied));
+    }
+
+    #[test]
+    fn should_escalate_persistent_error() {
+        let token = DelegationToken::root("agent");
+        let state = RetryState::new();
+        assert!(state.should_escalate(&token, ErrorCategory::BadRequest400));
+        assert!(state.should_escalate(&token, ErrorCategory::InvalidDelegation));
+        assert!(state.should_escalate(&token, ErrorCategory::ContextWindow));
+    }
+
+    #[test]
+    fn should_escalate_after_exhausted_retries() {
+        let mut token = DelegationToken::root("agent");
+        token.max_retries_per_error = 2;
+        let mut state = RetryState::new();
+
+        // First transient error: should retry
+        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        state.record_error(ErrorCategory::RateLimit429);
+        assert_eq!(state.current_error_retries, 1);
+
+        // Same error again: should still retry
+        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        state.record_error(ErrorCategory::RateLimit429);
+        assert_eq!(state.current_error_retries, 2);
+
+        // Third time: retries exhausted, should escalate
+        assert!(!state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_escalate(&token, ErrorCategory::RateLimit429));
+    }
+
+    #[test]
+    fn error_type_change_resets_retry_counter() {
+        let token = DelegationToken::root("agent");
+        let mut state = RetryState::new();
+
+        // First error: timeout
+        state.record_error(ErrorCategory::Timeout);
+        assert_eq!(state.current_error_retries, 1);
+        assert_eq!(state.last_error, Some(ErrorCategory::Timeout));
+
+        // Different error: rate limit (counter should reset)
+        state.record_error(ErrorCategory::RateLimit429);
+        assert_eq!(state.current_error_retries, 1);
+        assert_eq!(state.last_error, Some(ErrorCategory::RateLimit429));
+    }
+
+    #[test]
+    fn next_backoff_ms_exponential() {
+        let mut state = RetryState::new();
+
+        // No retries yet: 0ms
+        assert_eq!(state.next_backoff_ms(), 0);
+
+        state.current_error_retries = 1;
+        // 2^(1-1) * 1000 = 2^0 * 1000 = 1000ms
+        assert_eq!(state.next_backoff_ms(), 1000);
+
+        state.current_error_retries = 2;
+        // 2^(2-1) * 1000 = 2^1 * 1000 = 2000ms
+        assert_eq!(state.next_backoff_ms(), 2000);
+
+        state.current_error_retries = 3;
+        // 2^(3-1) * 1000 = 2^2 * 1000 = 4000ms
+        assert_eq!(state.next_backoff_ms(), 4000);
+
+        state.current_error_retries = 4;
+        // 2^(4-1) * 1000 = 2^3 * 1000 = 8000ms
+        assert_eq!(state.next_backoff_ms(), 8000);
+
+        state.current_error_retries = 6;
+        // 2^(6-1) * 1000 = 2^5 * 1000 = 32000ms (capped)
+        assert_eq!(state.next_backoff_ms(), 32000);
+
+        state.current_error_retries = 10;
+        // Still capped at 32000ms
+        assert_eq!(state.next_backoff_ms(), 32000);
+    }
+
+    #[test]
+    fn full_retry_workflow() {
+        let mut token = DelegationToken::root("agent");
+        token.max_retries_per_error = 3;
+        let mut state = RetryState::new();
+
+        // Encounter first 429 error
+        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        state.record_error(ErrorCategory::RateLimit429);
+        assert_eq!(state.current_error_retries, 1);
+        assert_eq!(state.next_backoff_ms(), 1000); // 2^(1-1) * 1000 = 1000ms
+
+        // Same error again
+        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        state.record_error(ErrorCategory::RateLimit429);
+        assert_eq!(state.current_error_retries, 2);
+        assert_eq!(state.next_backoff_ms(), 2000); // 2^(2-1) * 1000 = 2000ms
+
+        // Still retrying
+        assert!(state.should_retry(&token, ErrorCategory::RateLimit429));
+        state.record_error(ErrorCategory::RateLimit429);
+        assert_eq!(state.current_error_retries, 3);
+        assert_eq!(state.next_backoff_ms(), 4000); // 2^(3-1) * 1000 = 4000ms
+
+        // Retries exhausted
+        assert!(!state.should_retry(&token, ErrorCategory::RateLimit429));
+        assert!(state.should_escalate(&token, ErrorCategory::RateLimit429));
+    }
+
+    #[test]
+    fn is_backoff_satisfied() {
+        let mut state = RetryState::new();
+
+        // No error yet, no backoff needed
+        assert!(state.is_backoff_satisfied());
+
+        // Record an error (timestamp set to now)
+        state.record_error(ErrorCategory::RateLimit429);
+        // Immediately checking should fail because not enough time passed
+        assert!(!state.is_backoff_satisfied()); // Would need 1000ms to pass
+
+        // Manually set last_error_at to far past
+        state.last_error_at = Some(SystemTime::now() - std::time::Duration::from_secs(1));
+        assert!(state.is_backoff_satisfied());
     }
 }

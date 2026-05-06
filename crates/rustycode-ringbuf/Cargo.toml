@@ -1,0 +1,11 @@
+[package]
+name = "rustycode-ringbuf"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Bounded SPSC (single-producer single-consumer) ring buffer"
+
+[lints]
+workspace = true

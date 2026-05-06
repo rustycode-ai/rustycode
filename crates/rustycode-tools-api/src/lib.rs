@@ -175,6 +175,16 @@ pub trait ToolGate: Send + Sync + std::fmt::Debug {
     fn check_access(&self, role: AgentRole, tool_name: &str) -> Result<(), ToolBlockedReason>;
 }
 
+/// Trait for sending messages between agents.
+/// Implemented by the orchestration layer's MailboxRouter.
+/// This trait lives in tools-api to avoid circular dependencies.
+pub trait MessageSender: Send + Sync + std::fmt::Debug {
+    /// Send a directed message to a specific agent.
+    fn send(&self, to: &str, message: &str, summary: &str) -> Result<(), String>;
+    /// Broadcast a message to all registered agents.
+    fn broadcast(&self, message: &str, summary: &str) -> Result<(), String>;
+}
+
 /// Token for propagating cancellation to long-running tool operations.
 #[derive(Debug, Clone)]
 pub struct CancellationToken {
@@ -264,6 +274,8 @@ pub struct ToolContext {
     pub allow_outside_workspace: bool,
     /// Tracks file read state for staleness detection.
     pub file_read_state: Option<Arc<FileReadState>>,
+    /// Optional message sender for agent-to-agent communication.
+    pub message_sender: Option<Arc<dyn MessageSender>>,
 }
 
 impl std::fmt::Debug for ToolContext {
@@ -294,6 +306,7 @@ impl ToolContext {
             registry: None,
             allow_outside_workspace: false,
             file_read_state: None,
+            message_sender: None,
         }
     }
     pub fn with_sandbox(mut self, sandbox: SandboxConfig) -> Self {
@@ -346,6 +359,11 @@ impl ToolContext {
     /// Attach file read state for staleness detection.
     pub fn with_file_read_state(mut self, state: Arc<FileReadState>) -> Self {
         self.file_read_state = Some(state);
+        self
+    }
+    /// Attach a message sender for agent-to-agent communication.
+    pub fn with_message_sender(mut self, sender: Arc<dyn MessageSender>) -> Self {
+        self.message_sender = Some(sender);
         self
     }
 }

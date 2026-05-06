@@ -12,8 +12,10 @@ use rustycode_llm::provider::{
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 use rustycode_protocol::{ContentBlock, MessageContent};
 use rustycode_tools::ToolRegistry;
+use rustycode_tools_api::MessageSender;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::context::prune_messages;
@@ -133,6 +135,8 @@ pub struct AgentSession {
     pub activation: ToolActivationManager,
     /// Lifecycle hook dispatcher.
     pub hooks: ExpandedHookDispatcher,
+    /// Optional message sender for inter-agent communication.
+    pub message_sender: Option<Arc<dyn MessageSender>>,
 }
 
 impl AgentSession {
@@ -143,6 +147,7 @@ impl AgentSession {
             intelligence: None,
             activation: ToolActivationManager::new(),
             hooks: ExpandedHookDispatcher::new(),
+            message_sender: None,
         }
     }
 
@@ -161,6 +166,12 @@ impl AgentSession {
     /// Set the tool activation tier.
     pub fn with_tier(mut self, tier: ToolTier) -> Self {
         self.activation.promote(tier);
+        self
+    }
+
+    /// Attach a message sender for inter-agent communication.
+    pub fn with_message_sender(mut self, sender: Arc<dyn MessageSender>) -> Self {
+        self.message_sender = Some(sender);
         self
     }
 
@@ -202,6 +213,7 @@ impl AgentSession {
             &self.hooks,
             &self.config,
             events,
+            self.message_sender.clone(),
         )
         .await
     }
@@ -223,6 +235,7 @@ async fn run_loop(
     hooks: &ExpandedHookDispatcher,
     config: &AgentConfig,
     events: &mut dyn AgentEvents,
+    message_sender: Option<Arc<dyn MessageSender>>,
 ) -> Result<AgentResult> {
     const MAX_RETRIES: usize = 3;
 
@@ -415,9 +428,14 @@ async fn run_loop(
                 continue;
             }
 
-            // Execute tool
-            let (raw_output, exec_error) =
-                execute_tool(cwd, &tool.name, &tool.input_json, tool_registry);
+            // Execute tool with optional message sender for inter-agent communication
+            let (raw_output, exec_error) = execute_tool(
+                cwd,
+                &tool.name,
+                &tool.input_json,
+                tool_registry,
+                message_sender.clone(),
+            );
             let truncated = truncate_tool_output(&raw_output, config.max_tool_result_bytes);
             let error_flag = exec_error;
 
