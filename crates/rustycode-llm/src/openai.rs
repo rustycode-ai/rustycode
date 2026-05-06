@@ -273,7 +273,9 @@ impl OpenAiProvider {
                     "OpenAI service temporarily unavailable ({}). Please retry in a few seconds.",
                     text
                 ))),
-                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text))),
+                _ => {
+                    ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text)))
+                }
             });
         }
 
@@ -754,14 +756,21 @@ impl OpenAiProvider {
                     "Authentication failed. Check your OPENAI_API_KEY env var. {}",
                     text
                 ))),
-                404 => ProviderError::InvalidModel(debug.format_error_message(&format!("model not found: {}", text))),
+                404 => ProviderError::InvalidModel(
+                    debug.format_error_message(&format!("model not found: {}", text)),
+                ),
                 429 => ProviderError::RateLimited {
                     retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
                 },
                 500..=599 => {
-                    ProviderError::network(debug.format_error_message(&format!("OpenAI service error ({}): {}", status, text)))
+                    ProviderError::network(debug.format_error_message(&format!(
+                        "OpenAI service error ({}): {}",
+                        status, text
+                    )))
                 }
-                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text))),
+                _ => {
+                    ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text)))
+                }
             });
         }
         let resp: crate::openai_compatible::ResponsesApiResponse = response
@@ -901,7 +910,9 @@ impl OpenAiProvider {
                     "Authentication failed. Check your OPENAI_API_KEY env var. {}",
                     error_text
                 ))),
-                404 => ProviderError::InvalidModel(debug.format_error_message(&format!("model not found: {}", error_text))),
+                404 => ProviderError::InvalidModel(
+                    debug.format_error_message(&format!("model not found: {}", error_text)),
+                ),
                 429 => ProviderError::RateLimited {
                     retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
                 },
@@ -909,7 +920,9 @@ impl OpenAiProvider {
                     "OpenAI service error ({}): {}",
                     status, error_text
                 ))),
-                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, error_text))),
+                _ => ProviderError::api(
+                    debug.format_error_message(&format!("{}: {}", status, error_text)),
+                ),
             });
         }
 
@@ -2012,7 +2025,9 @@ impl OpenAiProvider {
                     "OpenAI service temporarily unavailable ({}). Please retry in a few seconds.",
                     error_text
                 ))),
-                _ => ProviderError::api(debug.format_error_message(&format!("{}: {}", status, error_text))),
+                _ => ProviderError::api(
+                    debug.format_error_message(&format!("{}: {}", status, error_text)),
+                ),
             });
         }
 

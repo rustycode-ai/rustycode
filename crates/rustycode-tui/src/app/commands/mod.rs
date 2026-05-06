@@ -12,14 +12,14 @@ mod workers_commands;
 
 use file_commands::{handle_diff_command, handle_export_command, handle_undo_command};
 use info_commands::{
-    handle_checkpoint_command, handle_cost_command, handle_hook_command, handle_help_command,
-    handle_lsp_command, handle_mcp_command, handle_marketplace_command, handle_plugin_command,
+    handle_checkpoint_command, handle_cost_command, handle_help_command, handle_hook_command,
+    handle_lsp_command, handle_marketplace_command, handle_mcp_command, handle_plugin_command,
     handle_skill_command, handle_skillify_command, handle_stats_command, handle_theme_command,
     handle_track_command,
 };
 use lifecycle_commands::{
-    handle_extract_command, handle_rename_command, handle_retry_command, handle_load_command,
-    handle_resume_command, handle_save_command, handle_sessions_command, handle_tokens_command,
+    handle_extract_command, handle_load_command, handle_rename_command, handle_resume_command,
+    handle_retry_command, handle_save_command, handle_sessions_command, handle_tokens_command,
 };
 use memory_commands::handle_memory_command;
 use orchestra_commands::handle_orchestra_command;
@@ -37,10 +37,10 @@ use workers_commands::{handle_cron_command, handle_workers_command};
 
 use crate::agents::AgentManager;
 use crate::app::service_integration::ServiceManager;
+use crate::app::tasks::WorkspaceTasks;
 use crate::memory::compaction::{CompactionConfig, ContextMonitor};
 use crate::memory::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
-use crate::app::tasks::WorkspaceTasks;
 use crate::ui::message::Message;
 use anyhow::Result;
 use std::sync::RwLock;
@@ -61,7 +61,8 @@ pub struct CommandContext<'a> {
     /// Whether a response is currently streaming
     pub is_streaming: &'a mut bool,
     /// Last extracted tasks/todos snapshot
-    pub last_extraction: &'a mut Option<(Vec<crate::app::tasks::Task>, Vec<crate::app::tasks::Todo>)>,
+    pub last_extraction:
+        &'a mut Option<(Vec<crate::app::tasks::Task>, Vec<crate::app::tasks::Todo>)>,
     /// Service manager for workspace reloads and other async services
     pub services: &'a mut ServiceManager,
     pub agent_manager: &'a mut AgentManager,

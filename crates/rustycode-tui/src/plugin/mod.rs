@@ -9,7 +9,7 @@ pub mod manifest;
 pub mod permissions;
 pub mod ui;
 
-pub use api::{CommandHandler, PluginCommandResult as CommandResult, PluginAPI};
+pub use api::{CommandHandler, PluginAPI, PluginCommandResult as CommandResult};
 pub use manager::PluginManager;
 pub use manifest::PluginManifest;
 pub use permissions::{Permission, PluginPermissions};

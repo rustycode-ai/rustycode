@@ -85,7 +85,9 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
 fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
     let remaining = tui.streaming.streaming_render_buffer.flush();
     if !remaining.is_empty() {
-        tui.streaming.current_stream_content.reserve(remaining.len());
+        tui.streaming
+            .current_stream_content
+            .reserve(remaining.len());
         tui.streaming.current_stream_content.push_str(&remaining);
     }
 
@@ -140,7 +142,8 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
                     if pos < tui.view.selected_message {
                         tui.view.selected_message = tui.view.selected_message.saturating_sub(1);
                     } else if pos == tui.view.selected_message && !tui.messages.is_empty() {
-                        tui.view.selected_message = tui.view.selected_message.min(tui.messages.len() - 1);
+                        tui.view.selected_message =
+                            tui.view.selected_message.min(tui.messages.len() - 1);
                     }
                 }
                 tracing::warn!(
@@ -175,7 +178,10 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
     if was_cancelled {
         return;
     }
-    let should_bell = tui.streaming.last_response_duration.is_some_and(|d| d.as_secs() >= 3);
+    let should_bell = tui
+        .streaming
+        .last_response_duration
+        .is_some_and(|d| d.as_secs() >= 3);
     if !should_bell {
         return;
     }

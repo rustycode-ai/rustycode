@@ -301,6 +301,7 @@ pub enum StreamChunk {
         plans_completed: usize,
         current_plan_summary: String,
         action_hint: String,
+        plan_rows: Vec<rustycode_orchestration::bus::MilestonePlanProgress>,
     },
     /// Sync LLM todo state into persisted workspace tasks
     TodoSync,
@@ -380,7 +381,9 @@ impl ToolExecutionError {
 impl std::fmt::Display for ToolExecutionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::PermissionDenied { tool, reason } => write!(f, "{tool}: permission denied — {reason}"),
+            Self::PermissionDenied { tool, reason } => {
+                write!(f, "{tool}: permission denied — {reason}")
+            }
             Self::InvalidInput { tool, message } => write!(f, "{tool}: invalid input — {message}"),
             Self::ExecutionFailed { tool, output } => write!(f, "{tool}: {output}"),
             Self::NotFound { path } => write!(f, "not found: {path}"),

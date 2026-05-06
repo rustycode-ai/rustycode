@@ -132,8 +132,8 @@ pub use rustycode_id::{
 pub mod session;
 
 // Plan execution types
-pub mod plan;
 pub mod milestone;
+pub mod plan;
 
 // Event types
 pub mod event;
@@ -205,6 +205,10 @@ pub mod query_guard;
 // Claude Code-compatible hook protocol types
 pub mod hooks;
 
+// LSP configuration types shared between config, LSP client, and tools
+pub mod lsp_types;
+pub use lsp_types::{LanguageId, LspConfig, LspServerConfig};
+
 // Compaction shared types (hybrid compaction pipeline)
 pub mod compaction;
 
@@ -240,9 +244,7 @@ pub use session_event::SyncEvent;
 pub use context::{ContextPlan, ContextSection, ContextSectionKind};
 
 // Tool types
-pub use tool::{
-    ApiCall, CostTrackerProvider, ToolCall, ToolMetadata, ToolPermission, ToolResult,
-};
+pub use tool::{ApiCall, CostTrackerProvider, ToolCall, ToolMetadata, ToolPermission, ToolResult};
 
 // Message types
 pub use message::{

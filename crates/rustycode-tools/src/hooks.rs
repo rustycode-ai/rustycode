@@ -406,8 +406,14 @@ mod tests {
         assert_eq!(HookTrigger::PreToolUse.to_string(), "pre_tool_use");
         assert_eq!(HookTrigger::SessionStart.to_string(), "session_start");
         assert_eq!(HookTrigger::Error.to_string(), "error");
-        assert_eq!(HookTrigger::UserPromptSubmit.to_string(), "user_prompt_submit");
-        assert_eq!(HookTrigger::PermissionRequest.to_string(), "permission_request");
+        assert_eq!(
+            HookTrigger::UserPromptSubmit.to_string(),
+            "user_prompt_submit"
+        );
+        assert_eq!(
+            HookTrigger::PermissionRequest.to_string(),
+            "permission_request"
+        );
     }
 
     #[test]
@@ -448,8 +454,7 @@ mod tests {
             ("error", HookTrigger::Error),
         ];
         for (json_str, expected) in variants {
-            let parsed: HookTrigger =
-                serde_json::from_str(&format!("\"{json_str}\"")).unwrap();
+            let parsed: HookTrigger = serde_json::from_str(&format!("\"{json_str}\"")).unwrap();
             assert_eq!(parsed, expected, "failed for {json_str}");
         }
     }

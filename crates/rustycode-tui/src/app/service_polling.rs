@@ -152,8 +152,8 @@ impl TUI {
         };
         if let Some(text) = bash_result {
             // Truncate long output for display
-            let display = if text.len() > 4000 {
-                let byte_limit = text.floor_char_boundary(4000);
+            let display = if text.len() > crate::app::MAX_DISPLAY_CHARS {
+                let byte_limit = text.floor_char_boundary(crate::app::MAX_DISPLAY_CHARS);
                 let end = text[..byte_limit].rfind('\n').unwrap_or(byte_limit);
                 format!(
                     "{}\n... ({} chars truncated)",

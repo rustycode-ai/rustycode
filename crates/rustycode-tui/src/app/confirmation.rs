@@ -1,7 +1,7 @@
 //! Simple synchronous confirmation bridge between background tasks and the TUI.
 
 use std::collections::HashMap;
-use std::sync::{mpsc, Mutex, LazyLock};
+use std::sync::{mpsc, LazyLock, Mutex};
 
 static GLOBAL_CONFIRMATIONS: LazyLock<Mutex<HashMap<String, mpsc::Sender<bool>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));

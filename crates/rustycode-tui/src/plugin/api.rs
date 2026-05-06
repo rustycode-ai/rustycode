@@ -410,7 +410,8 @@ mod tests {
         assert_eq!(api.config("key"), Some("value".to_string()));
 
         // Test commands
-        let handler: CommandHandler = |_api, _args| PluginCommandResult::Message("Test".to_string());
+        let handler: CommandHandler =
+            |_api, _args| PluginCommandResult::Message("Test".to_string());
         api.register_command("cmd".to_string(), handler);
     }
 }

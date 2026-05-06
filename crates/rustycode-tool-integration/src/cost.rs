@@ -3,9 +3,9 @@
 //! Shared between LLM and tool crates to provide consistent cost tracking.
 
 use chrono::Utc;
+use rustycode_protocol::{ApiCall, Usage};
 use serde::Serialize;
 use std::collections::HashMap;
-use rustycode_protocol::{ApiCall, Usage};
 
 /// Cost per 1M tokens (input, output) by model (approximate, April 2026)
 ///
@@ -206,8 +206,7 @@ impl CostTracker {
         usage: &Usage,
         tool_name: Option<String>,
     ) -> Result<(), BudgetExceeded> {
-        let (input_cost_per_m, output_cost_per_m) =
-            cost_per_million_tokens_io(model);
+        let (input_cost_per_m, output_cost_per_m) = cost_per_million_tokens_io(model);
 
         // Calculate base cost: non-cached input + all output
         let base_input_cost = (usage.input_tokens as f64 / 1_000_000.0) * input_cost_per_m;

@@ -526,11 +526,13 @@ mod tests {
         let cwd = temp_dir.path();
 
         // Save a memory
-        let result = handle_memory_save_command(cwd, "test_key".to_string(), "value1".to_string()).await;
+        let result =
+            handle_memory_save_command(cwd, "test_key".to_string(), "value1".to_string()).await;
         assert!(result.is_ok());
 
         // Try to save with duplicate key
-        let result = handle_memory_save_command(cwd, "test_key".to_string(), "value2".to_string()).await;
+        let result =
+            handle_memory_save_command(cwd, "test_key".to_string(), "value2".to_string()).await;
         assert!(result.is_err());
         match result {
             Err(MemoryError::KeyExists(key)) => assert_eq!(key, "test_key"),
@@ -545,7 +547,8 @@ mod tests {
 
         // Save some memories - convert to anyhow::Result for tests
         let _ = into_anyhow_result(
-            handle_memory_save_command(cwd, "project_name".to_string(), "RustyCode".to_string()).await,
+            handle_memory_save_command(cwd, "project_name".to_string(), "RustyCode".to_string())
+                .await,
         )
         .unwrap();
         let _ = into_anyhow_result(

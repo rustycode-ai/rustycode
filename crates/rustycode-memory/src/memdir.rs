@@ -86,8 +86,7 @@ fn seed_file(path: &PathBuf, content: &str) -> Result<()> {
             fs::create_dir_all(parent)
                 .with_context(|| format!("failed to create {}", parent.display()))?;
         }
-        fs::write(path, content)
-            .with_context(|| format!("failed to write {}", path.display()))?;
+        fs::write(path, content).with_context(|| format!("failed to write {}", path.display()))?;
     }
     Ok(())
 }
@@ -98,8 +97,8 @@ pub fn read_memory_summary(mem_dir: &Path) -> Result<String> {
     if !path.exists() {
         return Ok(String::new());
     }
-    let content = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
     Ok(truncate_to_token_limit(&content))
 }
 
@@ -262,9 +261,21 @@ mod tests {
     #[test]
     fn generate_summary_groups_by_type() {
         let entries = vec![
-            ("Always run tests before committing.".to_string(), "learnings".to_string(), 0.9),
-            ("Use tokio for async operations.".to_string(), "learnings".to_string(), 0.7),
-            ("Auth module uses JWT tokens.".to_string(), "code_patterns".to_string(), 0.8),
+            (
+                "Always run tests before committing.".to_string(),
+                "learnings".to_string(),
+                0.9,
+            ),
+            (
+                "Use tokio for async operations.".to_string(),
+                "learnings".to_string(),
+                0.7,
+            ),
+            (
+                "Auth module uses JWT tokens.".to_string(),
+                "code_patterns".to_string(),
+                0.8,
+            ),
         ];
         let s = generate_summary(&entries);
         assert!(s.contains("## Learnings"));

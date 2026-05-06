@@ -229,7 +229,9 @@ fn cmd_task_start(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandRes
 /// Delete a task
 fn cmd_task_delete(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResult {
     if args.is_empty() {
-        return TaskCommandResult::Error("Usage: `/task delete <number>` - Delete a task".to_string());
+        return TaskCommandResult::Error(
+            "Usage: `/task delete <number>` - Delete a task".to_string(),
+        );
     }
 
     // Parse task number (1-based index)
@@ -315,7 +317,9 @@ fn cmd_todo_list(tasks: &WorkspaceTasks) -> TaskCommandResult {
 /// Add a new todo
 fn cmd_todo_add(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResult {
     if args.is_empty() {
-        return TaskCommandResult::Error("Usage: `/todo add <item>` - Add a new todo item".to_string());
+        return TaskCommandResult::Error(
+            "Usage: `/todo add <item>` - Add a new todo item".to_string(),
+        );
     }
 
     let text = args.join(" ");
@@ -416,7 +420,9 @@ fn cmd_todo_uncheck(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandR
 /// Delete a todo
 fn cmd_todo_delete(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResult {
     if args.is_empty() {
-        return TaskCommandResult::Error("Usage: `/todo delete <number>` - Delete a todo".to_string());
+        return TaskCommandResult::Error(
+            "Usage: `/todo delete <number>` - Delete a todo".to_string(),
+        );
     }
 
     // Parse todo number (1-based index)

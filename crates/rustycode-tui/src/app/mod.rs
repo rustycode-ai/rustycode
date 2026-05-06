@@ -121,4 +121,21 @@ pub const DEBUG_SLOW_THRESHOLD: Duration = Duration::from_millis(2);
 pub const REFRESH_COOLDOWN: Duration = Duration::from_secs(30);
 /// Event poll timeout before returning to the main loop
 pub const EVENT_POLL_TIMEOUT: Duration = Duration::from_millis(1);
+/// Maximum number of undo snapshots retained
 pub const MAX_UNDO_ENTRIES: usize = 5;
+/// Maximum file undo batches retained
+pub const MAX_FILE_UNDO_BATCHES: usize = 20;
+/// Keyboard gg-chord detection window
+pub const KEYBOARD_CHORD_TIMEOUT: Duration = Duration::from_millis(500);
+/// Broadcast channel capacity for MCP events
+pub const EVENT_CHANNEL_CAPACITY: usize = 16;
+/// Interval (in loop iterations) for debug frame diagnostics
+pub const DIAGNOSTIC_LOG_INTERVAL: usize = 120;
+/// Default capacity for bounded streaming channels
+pub const DEFAULT_CHANNEL_CAPACITY: usize = 100;
+/// Tool output character limit for inline display
+pub const TOOL_OUTPUT_INLINE_CHARS: usize = 2000;
+/// Tool output line limit for inline display
+pub const TOOL_OUTPUT_INLINE_LINES: usize = 50;
+/// Maximum display characters for streaming text
+pub const MAX_DISPLAY_CHARS: usize = 4000;

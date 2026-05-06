@@ -34,8 +34,8 @@ pub use suggester::{SkillSuggester, SkillSuggestion};
 
 // Re-exports for lifecycle management
 pub use activation::{
-    activate_skill, activate_skills, configure_skills, deactivate_all, deactivate_skill,
-    active_skills, skill_triggers, is_active, set_skill_triggers, sync_activation_state,
+    activate_skill, activate_skills, active_skills, configure_skills, deactivate_all,
+    deactivate_skill, is_active, set_skill_triggers, skill_triggers, sync_activation_state,
     toggle_skill,
 };
 pub use installer::{

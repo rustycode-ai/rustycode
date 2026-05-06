@@ -203,7 +203,8 @@ pub fn format_tool_result_summary(tool_result: &ToolResult, tool_name: &str) -> 
         let output_chars = tool_result.output.chars().count();
 
         // For small outputs, include the full output. For large outputs, include preview.
-        let include_full_output = output_chars <= 2000 && output_lines <= 50;
+        let include_full_output = output_chars <= crate::app::TOOL_OUTPUT_INLINE_CHARS
+            && output_lines <= crate::app::TOOL_OUTPUT_INLINE_LINES;
 
         let summary = if include_full_output {
             format!(

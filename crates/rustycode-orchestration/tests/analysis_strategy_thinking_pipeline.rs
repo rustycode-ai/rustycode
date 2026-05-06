@@ -112,9 +112,7 @@ fn thoughts_stored_and_phase_context_retrieved() {
         "Consider using HashMap for O(1) lookups"
     );
 
-    let ctx = store
-        .context_for_next_phase("pipeline-test", 2)
-        .unwrap();
+    let ctx = store.context_for_next_phase("pipeline-test", 2).unwrap();
     assert_eq!(ctx["phase"], 2);
     assert!(
         ctx["previous_summary"]["decisions_made"]
@@ -230,9 +228,7 @@ fn full_pipeline_end_to_end() {
     store.store_thought("full-pipeline", 1, &thought).unwrap();
 
     // Phase 4: Verify phase context is available for next phase
-    let ctx = store
-        .context_for_next_phase("full-pipeline", 2)
-        .unwrap();
+    let ctx = store.context_for_next_phase("full-pipeline", 2).unwrap();
     assert_eq!(ctx["phase"], 2);
     assert!(ctx["previous_summary"]["thought_count"].as_u64().unwrap() > 0);
 

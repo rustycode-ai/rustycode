@@ -149,7 +149,8 @@ impl TUI {
                         }
                         KeyCode::Char('f') | KeyCode::Char('F') => {
                             // Toggle between truncated and full output
-                            self.tool_panel.tool_result_show_full = !self.tool_panel.tool_result_show_full;
+                            self.tool_panel.tool_result_show_full =
+                                !self.tool_panel.tool_result_show_full;
                             self.tool_panel.tool_result_scroll_offset = 0;
                             self.dirty = true;
                             return Ok(());
@@ -170,14 +171,16 @@ impl TUI {
                         }
                         KeyCode::PageUp => {
                             self.tool_panel.tool_result_scroll_offset = self
-                                .tool_panel.tool_result_scroll_offset
+                                .tool_panel
+                                .tool_result_scroll_offset
                                 .saturating_sub(self.view.viewport_height);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageDown => {
                             self.tool_panel.tool_result_scroll_offset = self
-                                .tool_panel.tool_result_scroll_offset
+                                .tool_panel
+                                .tool_result_scroll_offset
                                 .saturating_add(self.view.viewport_height);
                             self.dirty = true;
                             return Ok(());

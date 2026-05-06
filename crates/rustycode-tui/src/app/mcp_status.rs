@@ -47,10 +47,7 @@ mod tests {
         let from_new = McpStatus::new();
         let from_default = McpStatus::default();
         assert_eq!(from_new.last_mcp_servers, from_default.last_mcp_servers);
-        assert_eq!(
-            from_new.last_mcp_connected,
-            from_default.last_mcp_connected
-        );
+        assert_eq!(from_new.last_mcp_connected, from_default.last_mcp_connected);
     }
 
     #[test]

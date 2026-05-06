@@ -36,9 +36,15 @@ struct FlatDecision {
 impl From<FlatDecision> for GuardianDecision {
     fn from(flat: FlatDecision) -> Self {
         match flat.decision.as_str() {
-            "allow" => Self::Allow { reason: flat.reason },
-            "deny" => Self::Deny { reason: flat.reason },
-            _ => Self::DeferToUser { reason: flat.reason },
+            "allow" => Self::Allow {
+                reason: flat.reason,
+            },
+            "deny" => Self::Deny {
+                reason: flat.reason,
+            },
+            _ => Self::DeferToUser {
+                reason: flat.reason,
+            },
         }
     }
 }
@@ -53,7 +59,10 @@ pub struct GuardianConfig {
 
 impl Default for GuardianConfig {
     fn default() -> Self {
-        Self { enabled: false, timeout: Duration::from_secs(3) }
+        Self {
+            enabled: false,
+            timeout: Duration::from_secs(3),
+        }
     }
 }
 
@@ -145,7 +154,9 @@ fn extract_json_object(input: &str) -> &str {
 }
 
 fn defer(reason: &str) -> GuardianDecision {
-    GuardianDecision::DeferToUser { reason: reason.to_string() }
+    GuardianDecision::DeferToUser {
+        reason: reason.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -156,15 +167,37 @@ mod tests {
     #[test]
     fn decision_serde_roundtrip() {
         let pairs: Vec<(&str, GuardianDecision)> = vec![
-            ("allow", GuardianDecision::Allow { reason: "safe".into() }),
-            ("deny", GuardianDecision::Deny { reason: "danger".into() }),
-            ("defer", GuardianDecision::DeferToUser { reason: "unsure".into() }),
+            (
+                "allow",
+                GuardianDecision::Allow {
+                    reason: "safe".into(),
+                },
+            ),
+            (
+                "deny",
+                GuardianDecision::Deny {
+                    reason: "danger".into(),
+                },
+            ),
+            (
+                "defer",
+                GuardianDecision::DeferToUser {
+                    reason: "unsure".into(),
+                },
+            ),
         ];
         for (tag, original) in pairs {
-            let json = format!(r#"{{"decision":"{tag}","reason":"{}"}}"#,
-                match &original { GuardianDecision::Allow{reason}|GuardianDecision::Deny{reason}|GuardianDecision::DeferToUser{reason} => reason });
-            let parsed: GuardianDecision =
-                serde_json::from_str::<FlatDecision>(&json).expect("parse").into();
+            let json = format!(
+                r#"{{"decision":"{tag}","reason":"{}"}}"#,
+                match &original {
+                    GuardianDecision::Allow { reason }
+                    | GuardianDecision::Deny { reason }
+                    | GuardianDecision::DeferToUser { reason } => reason,
+                }
+            );
+            let parsed: GuardianDecision = serde_json::from_str::<FlatDecision>(&json)
+                .expect("parse")
+                .into();
             assert_eq!(original, parsed, "roundtrip failed for {tag}");
         }
     }
@@ -173,29 +206,47 @@ mod tests {
     fn parse_allow_deny_defer() {
         assert_eq!(
             parse_decision(r#"{"decision": "allow", "reason": "safe"}"#),
-            GuardianDecision::Allow { reason: "safe".into() },
+            GuardianDecision::Allow {
+                reason: "safe".into()
+            },
         );
         assert_eq!(
             parse_decision(r#"{"decision": "deny", "reason": "secrets"}"#),
-            GuardianDecision::Deny { reason: "secrets".into() },
+            GuardianDecision::Deny {
+                reason: "secrets".into()
+            },
         );
         assert_eq!(
             parse_decision(r#"{"decision": "defer", "reason": "unclear"}"#),
-            GuardianDecision::DeferToUser { reason: "unclear".into() },
+            GuardianDecision::DeferToUser {
+                reason: "unclear".into()
+            },
         );
     }
 
     #[test]
     fn parse_json_wrapped_in_markdown() {
         let d = parse_decision("```json\n{\"decision\": \"allow\", \"reason\": \"ok\"}\n```");
-        assert_eq!(d, GuardianDecision::Allow { reason: "ok".into() });
+        assert_eq!(
+            d,
+            GuardianDecision::Allow {
+                reason: "ok".into()
+            }
+        );
     }
 
     #[test]
     fn malformed_json_produces_defer() {
-        for input in ["not JSON", r#"{"decision": "allow"#, r#"{"decision":"maybe","reason":"x"}"#] {
+        for input in [
+            "not JSON",
+            r#"{"decision": "allow"#,
+            r#"{"decision":"maybe","reason":"x"}"#,
+        ] {
             let d = parse_decision(input);
-            assert!(matches!(d, GuardianDecision::DeferToUser { .. }), "{input} -> {d:?}");
+            assert!(
+                matches!(d, GuardianDecision::DeferToUser { .. }),
+                "{input} -> {d:?}"
+            );
         }
     }
 
@@ -218,9 +269,15 @@ mod tests {
         }
     }
 
-    struct MockLlm { response: Mutex<String> }
+    struct MockLlm {
+        response: Mutex<String>,
+    }
     impl MockLlm {
-        fn new(response: &str) -> Self { Self { response: Mutex::new(response.into()) } }
+        fn new(response: &str) -> Self {
+            Self {
+                response: Mutex::new(response.into()),
+            }
+        }
     }
     #[async_trait]
     impl GuardianLlm for MockLlm {
@@ -230,14 +287,20 @@ mod tests {
     }
 
     fn test_config() -> GuardianConfig {
-        GuardianConfig { enabled: true, timeout: Duration::from_secs(3) }
+        GuardianConfig {
+            enabled: true,
+            timeout: Duration::from_secs(3),
+        }
     }
 
     #[tokio::test]
     async fn timeout_produces_defer_to_user() {
         let a = GuardianAssessor::new(
             Box::new(HangingLlm),
-            GuardianConfig { enabled: true, timeout: Duration::from_millis(50) },
+            GuardianConfig {
+                enabled: true,
+                timeout: Duration::from_millis(50),
+            },
         );
         let d = a.assess("write_file", "{}", "").await;
         assert!(
@@ -259,24 +322,33 @@ mod tests {
     #[tokio::test]
     async fn allow_decision_from_llm() {
         let a = GuardianAssessor::new(
-            Box::new(MockLlm::new(r#"{"decision": "allow", "reason": "new test file"}"#)),
+            Box::new(MockLlm::new(
+                r#"{"decision": "allow", "reason": "new test file"}"#,
+            )),
             test_config(),
         );
         assert_eq!(
-            a.assess("write_file", r#"{"path":"tests/foo.rs"}"#, "").await,
-            GuardianDecision::Allow { reason: "new test file".into() },
+            a.assess("write_file", r#"{"path":"tests/foo.rs"}"#, "")
+                .await,
+            GuardianDecision::Allow {
+                reason: "new test file".into()
+            },
         );
     }
 
     #[tokio::test]
     async fn deny_decision_from_llm() {
         let a = GuardianAssessor::new(
-            Box::new(MockLlm::new(r#"{"decision": "deny", "reason": "writes to .env"}"#)),
+            Box::new(MockLlm::new(
+                r#"{"decision": "deny", "reason": "writes to .env"}"#,
+            )),
             test_config(),
         );
         assert_eq!(
             a.assess("write_file", r#"{"path":".env"}"#, "").await,
-            GuardianDecision::Deny { reason: "writes to .env".into() },
+            GuardianDecision::Deny {
+                reason: "writes to .env".into()
+            },
         );
     }
 
@@ -287,7 +359,10 @@ mod tests {
         assert_eq!(c.timeout, Duration::from_secs(3));
         let a = GuardianAssessor::new(
             Box::new(MockLlm::new("{}")),
-            GuardianConfig { enabled: true, timeout: Duration::from_secs(1) },
+            GuardianConfig {
+                enabled: true,
+                timeout: Duration::from_secs(1),
+            },
         );
         assert!(a.is_enabled());
     }

@@ -5,6 +5,7 @@
 use super::event_loop::TUI;
 use crate::ui::message::MessageRole;
 use anyhow::Result;
+use ratatui::layout::Rect;
 
 impl TUI {
     fn copy_text_with_feedback(&mut self, content: String, success_label: &str) -> Result<()> {
@@ -49,6 +50,73 @@ impl TUI {
                 }
                 MessageRole::System => {}
             }
+        }
+
+        if conversation.is_empty() {
+            self.add_system_message("No conversation text in selection".to_string());
+            self.dirty = true;
+            return Ok(());
+        }
+
+        self.copy_text_with_feedback(conversation.join("\n\n"), "Copied selection")
+    }
+
+    /// Copy a region-aware transcript selection to clipboard.
+    ///
+    /// The selection is anchored to the rendered message areas so drag-copying
+    /// keeps the visible message content while skipping decorative gutters.
+    pub(crate) fn copy_message_selection(
+        &mut self,
+        start: usize,
+        end: usize,
+        start_pos: (u16, u16),
+        end_pos: (u16, u16),
+    ) -> Result<()> {
+        let (start, end, start_pos, end_pos) = if start <= end {
+            (start, end, start_pos, end_pos)
+        } else {
+            (end, start, end_pos, start_pos)
+        };
+        let end = end.min(self.messages.len().saturating_sub(1));
+        let start = start.min(end);
+
+        let message_areas = self.message_areas.borrow();
+        let mut conversation = Vec::new();
+
+        for msg_idx in start..=end {
+            let msg = &self.messages[msg_idx];
+            match msg.role {
+                MessageRole::System => continue,
+                MessageRole::User | MessageRole::Assistant => {}
+            }
+
+            let rendered_lines =
+                self.visible_message_lines_for_copy(msg, self.message_area_width());
+            if rendered_lines.is_empty() {
+                continue;
+            }
+
+            let selected_lines = self.slice_copy_region(
+                &rendered_lines,
+                msg_idx,
+                start,
+                end,
+                start_pos,
+                end_pos,
+                &message_areas,
+            );
+
+            if selected_lines.is_empty() {
+                continue;
+            }
+
+            let body = selected_lines.join("\n");
+            let prefix = match msg.role {
+                MessageRole::User => "User",
+                MessageRole::Assistant => "Assistant",
+                MessageRole::System => unreachable!("system messages are skipped above"),
+            };
+            conversation.push(format!("{prefix}: {body}"));
         }
 
         if conversation.is_empty() {
@@ -127,6 +195,65 @@ impl TUI {
         }
 
         self.copy_text_with_feedback(content, "Copied conversation")
+    }
+
+    fn message_area_width(&self) -> usize {
+        let area = self.view.messages_area.get();
+        area.width.saturating_sub(1).max(1) as usize
+    }
+
+    fn visible_message_lines_for_copy(
+        &self,
+        msg: &crate::ui::message::Message,
+        _width: usize,
+    ) -> Vec<String> {
+        let normalized = msg.content.replace("\r\n", "\n").replace('\r', "");
+        normalized.lines().map(|line| line.to_string()).collect()
+    }
+
+    fn slice_copy_region(
+        &self,
+        lines: &[String],
+        msg_idx: usize,
+        start_idx: usize,
+        end_idx: usize,
+        start_pos: (u16, u16),
+        end_pos: (u16, u16),
+        message_areas: &std::cell::RefCell<Vec<(usize, Rect)>>,
+    ) -> Vec<String> {
+        let rect = message_areas
+            .borrow()
+            .iter()
+            .find(|(idx, _)| *idx == msg_idx)
+            .map(|(_, rect)| *rect);
+
+        if rect.is_none() {
+            return lines.to_vec();
+        }
+
+        let rect = rect.unwrap_or_default();
+        let first_row = if msg_idx == start_idx {
+            start_pos.1.saturating_sub(rect.y) as usize
+        } else {
+            0
+        };
+        let last_row = if msg_idx == end_idx {
+            end_pos.1.saturating_sub(rect.y) as usize
+        } else {
+            lines.len().saturating_sub(1)
+        };
+
+        if lines.is_empty() {
+            return Vec::new();
+        }
+
+        let start = first_row.min(lines.len());
+        let end = last_row.min(lines.len().saturating_sub(1));
+        if start > end {
+            return Vec::new();
+        }
+
+        lines[start..=end].to_vec()
     }
 
     /// Export current conversation to file (Ctrl+Shift+E)

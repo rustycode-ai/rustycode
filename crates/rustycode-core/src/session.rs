@@ -316,7 +316,8 @@ pub struct InputNavState {
 
 #[derive(Clone)]
 pub struct ToolRuntimeState {
-    pub active_tools: Vec<ToolExecution>,    pub current_session_tools: Vec<String>,
+    pub active_tools: Vec<ToolExecution>,
+    pub current_session_tools: Vec<String>,
     pub tool_iteration_count: u32,
     pub pending_tool_call: Option<ToolCall>,
     pub tool_executor: rustycode_tools::ToolExecutor,
@@ -485,8 +486,13 @@ impl SessionState {
                 pending_tool_call: None,
                 tool_executor: rustycode_tools::ToolExecutor::from_cwd(cwd.clone()),
             },
-            mode: SessionModeState { ai_mode: AiMode::Act, is_first_run: false },
-            memory: MemoryState { memory_entries: Vec::new() },
+            mode: SessionModeState {
+                ai_mode: AiMode::Act,
+                is_first_run: false,
+            },
+            memory: MemoryState {
+                memory_entries: Vec::new(),
+            },
             token_budget: TokenBudgetState { budget: None },
             streaming: StreamingState {
                 is_streaming: false,
@@ -623,7 +629,8 @@ impl SessionState {
 
     /// Update token usage statistics
     pub fn update_token_usage(&mut self, input_tokens: usize, output_tokens: usize) {
-        self.performance.update_token_usage(input_tokens, output_tokens);
+        self.performance
+            .update_token_usage(input_tokens, output_tokens);
     }
 
     /// Set a token budget for this session. When `tokens_used` exceeds this,
@@ -665,7 +672,12 @@ impl SessionState {
     }
 
     pub fn complete_tool_execution(&mut self, name: &str, output: String) {
-        if let Some(tool) = self.tool_runtime.active_tools.iter_mut().find(|t| t.name == name) {
+        if let Some(tool) = self
+            .tool_runtime
+            .active_tools
+            .iter_mut()
+            .find(|t| t.name == name)
+        {
             tool.output_preview = output.chars().take(100).collect();
         }
         self.tool_runtime.active_tools.retain(|t| t.name != name);
@@ -697,16 +709,21 @@ impl SessionState {
 
     /// Safely set pending LLM request flag
     pub fn set_pending_request(&self, value: bool) {
-        let mut guard = self.conversation.pending_llm_request.lock().unwrap_or_else(|e| {
-            tracing::warn!("pending_llm_request mutex poisoned, recovering");
-            e.into_inner()
-        });
+        let mut guard = self
+            .conversation
+            .pending_llm_request
+            .lock()
+            .unwrap_or_else(|e| {
+                tracing::warn!("pending_llm_request mutex poisoned, recovering");
+                e.into_inner()
+            });
         *guard = value;
     }
 
     /// Safely get pending LLM request flag
     pub fn pending_request(&self) -> bool {
-        self.conversation.pending_llm_request
+        self.conversation
+            .pending_llm_request
             .lock()
             .map(|guard| *guard)
             .unwrap_or(false)
@@ -939,12 +956,18 @@ mod tests {
         assert_eq!(s.tool_runtime.active_tools.len(), 1);
         assert_eq!(s.tool_runtime.active_tools[0].name, "bash");
         assert_eq!(s.tool_runtime.active_tools[0].status, ToolStatus::Running);
-        assert!(s.tool_runtime.current_session_tools.contains(&"bash".to_string()));
+        assert!(s
+            .tool_runtime
+            .current_session_tools
+            .contains(&"bash".to_string()));
 
         s.complete_tool_execution("bash", "output text".to_string());
         // Completed tools are removed from active_tools to prevent unbounded growth
         assert!(s.tool_runtime.active_tools.is_empty());
-        assert!(s.tool_runtime.current_session_tools.contains(&"bash".to_string()));
+        assert!(s
+            .tool_runtime
+            .current_session_tools
+            .contains(&"bash".to_string()));
     }
 
     #[test]
@@ -973,7 +996,10 @@ mod tests {
         assert!(s.streaming.current_response.is_empty());
         assert_eq!(s.conversation.messages.len(), 1);
         assert_eq!(s.conversation.messages[0].content.as_text(), "Hello World");
-        assert_eq!(MessageType::from_role(s.conversation.messages[0].role.as_str()), MessageType::AI);
+        assert_eq!(
+            MessageType::from_role(s.conversation.messages[0].role.as_str()),
+            MessageType::AI
+        );
     }
 
     #[test]
@@ -1254,7 +1280,8 @@ mod tests {
             s.conversation.messages.len()
         );
         assert!(
-            s.conversation.messages
+            s.conversation
+                .messages
                 .iter()
                 .any(|m| m.content.as_text() == "system prompt"),
             "system message should be preserved"

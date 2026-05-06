@@ -1165,10 +1165,7 @@ mod tests {
         assert_eq!(MessageRole::User.as_str(), "user");
         assert_eq!(MessageRole::Assistant.as_str(), "assistant");
         assert_eq!(MessageRole::System.as_str(), "system");
-        assert_eq!(
-            MessageRole::Tool("custom".to_string()).as_str(),
-            "custom"
-        );
+        assert_eq!(MessageRole::Tool("custom".to_string()).as_str(), "custom");
     }
 
     #[test]
@@ -1186,6 +1183,9 @@ mod tests {
         let json_str2 = serde_json::to_string(&deserialized).unwrap();
 
         // JSON serialization should be identical after roundtrip
-        assert_eq!(json_str, json_str2, "Cache key would change after roundtrip!");
+        assert_eq!(
+            json_str, json_str2,
+            "Cache key would change after roundtrip!"
+        );
     }
 }

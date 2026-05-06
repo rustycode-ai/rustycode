@@ -41,7 +41,7 @@ impl VimChordState {
         Self {
             pending_g: false,
             pending_g_time: None,
-            chord_timeout: Duration::from_millis(500),
+            chord_timeout: crate::app::KEYBOARD_CHORD_TIMEOUT,
         }
     }
 

@@ -1178,10 +1178,7 @@ mod tests {
         assert!(handler.state.has_selection());
         assert_eq!(handler.state.selection_anchor_col, Some(7));
         assert_eq!(handler.state.cursor_col, 0);
-        assert_eq!(
-            handler.state.selected_text(),
-            Some("Hello W".to_string())
-        );
+        assert_eq!(handler.state.selected_text(), Some("Hello W".to_string()));
     }
 
     #[test]
@@ -1196,10 +1193,7 @@ mod tests {
         assert!(handler.state.has_selection());
         assert_eq!(handler.state.selection_anchor_col, Some(2));
         assert_eq!(handler.state.cursor_col, 11);
-        assert_eq!(
-            handler.state.selected_text(),
-            Some("llo World".to_string())
-        );
+        assert_eq!(handler.state.selected_text(), Some("llo World".to_string()));
     }
 
     // -- Ctrl+Shift+Left/Right (word selection) --

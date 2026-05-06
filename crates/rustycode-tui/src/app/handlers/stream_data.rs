@@ -1,7 +1,7 @@
 //! Miscellaneous stream chunk handlers — task extraction, questions, snapshots, tokens, traces.
 
-use crate::app::TUI;
 use crate::app::task_extraction::extract_action_items;
+use crate::app::TUI;
 use chrono;
 use rustycode_protocol::MilestoneStatus;
 use tracing;
@@ -137,7 +137,8 @@ pub(super) fn handle_token_usage_chunk(
     tui.token_budget.last_turn_input_tokens = input_tokens;
 
     // Update context monitor with real API token counts
-    tui.compaction.context_monitor
+    tui.compaction
+        .context_monitor
         .update_from_api(input_tokens, &tui.current_model);
 
     let model = &tui.current_model;
@@ -147,20 +148,20 @@ pub(super) fn handle_token_usage_chunk(
     let (input_cost_per_m, _) = rustycode_llm::token_tracker::cost_per_million_tokens_io(model);
     let cache_savings = (cache_read_tokens as f64 / 1_000_000.0) * input_cost_per_m * 0.9;
 
-    if let Err(e) = tui
-        .token_budget
-        .cost_tracker
-        .record_call(rustycode_llm::cost_tracker::LlmApiCall {
-            model: model.clone(),
-            input_tokens,
-            output_tokens,
-            cost_usd: turn_cost,
-            timestamp: chrono::Utc::now(),
-            tool_name: None,
-            cache_read_tokens: cache_read_tokens as u32,
-            cache_creation_tokens: cache_creation_tokens as u32,
-            cache_savings_usd: cache_savings,
-        })
+    if let Err(e) =
+        tui.token_budget
+            .cost_tracker
+            .record_call(rustycode_llm::cost_tracker::LlmApiCall {
+                model: model.clone(),
+                input_tokens,
+                output_tokens,
+                cost_usd: turn_cost,
+                timestamp: chrono::Utc::now(),
+                tool_name: None,
+                cache_read_tokens: cache_read_tokens as u32,
+                cache_creation_tokens: cache_creation_tokens as u32,
+                cache_savings_usd: cache_savings,
+            })
     {
         tracing::debug!("Cost tracking failed: {}", e);
     }
@@ -191,18 +192,25 @@ pub(super) fn handle_milestone_progress_chunk(
     plans_completed: usize,
     current_plan_summary: String,
     action_hint: String,
+    plan_rows: Vec<rustycode_orchestration::bus::MilestonePlanProgress>,
 ) {
+    tui.session_sidebar.update_milestone_progress(
+        milestone_id.clone(),
+        milestone_title.clone(),
+        status,
+        plans_total,
+        plans_completed,
+        current_plan_summary.clone(),
+        action_hint.clone(),
+        plan_rows,
+    );
     tui.show_milestone_progress_banner(
-        &format!("{} ({})", milestone_title, milestone_id),
+        &milestone_title,
         plans_total,
         plans_completed,
         &current_plan_summary,
         &action_hint,
     );
-    tui.add_system_message(format!(
-        "◆ Milestone {}: {}",
-        status, current_plan_summary
-    ));
     tui.dirty = true;
 }
 

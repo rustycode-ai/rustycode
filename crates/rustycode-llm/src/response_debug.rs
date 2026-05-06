@@ -34,7 +34,12 @@ impl ResponseDebugContext {
             .get("retry-after")
             .and_then(|v| v.to_str().ok())
             .and_then(|s| s.parse::<u64>().ok());
-        Self { request_id, cf_ray, retry_after, error_type: None }
+        Self {
+            request_id,
+            cf_ray,
+            retry_after,
+            error_type: None,
+        }
     }
 
     /// Append debug context to a base error message.
@@ -45,28 +50,50 @@ impl ResponseDebugContext {
             return base_error.to_string();
         }
         let mut parts = vec![];
-        if let Some(ref req_id) = self.request_id { parts.push(format!("req: {req_id}")); }
-        if let Some(ref ray) = self.cf_ray { parts.push(format!("cf-ray: {ray}")); }
-        if let Some(secs) = self.retry_after { parts.push(format!("retry after {secs}s")); }
-        if let Some(ref etype) = self.error_type { parts.push(format!("type: {etype}")); }
+        if let Some(ref req_id) = self.request_id {
+            parts.push(format!("req: {req_id}"));
+        }
+        if let Some(ref ray) = self.cf_ray {
+            parts.push(format!("cf-ray: {ray}"));
+        }
+        if let Some(secs) = self.retry_after {
+            parts.push(format!("retry after {secs}s"));
+        }
+        if let Some(ref etype) = self.error_type {
+            parts.push(format!("type: {etype}"));
+        }
         format!("{} ({})", base_error, parts.join(", "))
     }
 
     /// Returns `true` if any debug field is populated.
     pub fn has_context(&self) -> bool {
-        self.request_id.is_some() || self.cf_ray.is_some()
-            || self.retry_after.is_some() || self.error_type.is_some()
+        self.request_id.is_some()
+            || self.cf_ray.is_some()
+            || self.retry_after.is_some()
+            || self.error_type.is_some()
     }
 }
 
 impl fmt::Display for ResponseDebugContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parts = vec![];
-        if let Some(ref req_id) = self.request_id { parts.push(format!("request_id={req_id}")); }
-        if let Some(ref ray) = self.cf_ray { parts.push(format!("cf_ray={ray}")); }
-        if let Some(secs) = self.retry_after { parts.push(format!("retry_after={secs}s")); }
-        if let Some(ref etype) = self.error_type { parts.push(format!("error_type={etype}")); }
-        if parts.is_empty() { write!(f, "ResponseDebugContext(empty)") } else { write!(f, "ResponseDebugContext({})", parts.join(", ")) }
+        if let Some(ref req_id) = self.request_id {
+            parts.push(format!("request_id={req_id}"));
+        }
+        if let Some(ref ray) = self.cf_ray {
+            parts.push(format!("cf_ray={ray}"));
+        }
+        if let Some(secs) = self.retry_after {
+            parts.push(format!("retry_after={secs}s"));
+        }
+        if let Some(ref etype) = self.error_type {
+            parts.push(format!("error_type={etype}"));
+        }
+        if parts.is_empty() {
+            write!(f, "ResponseDebugContext(empty)")
+        } else {
+            write!(f, "ResponseDebugContext({})", parts.join(", "))
+        }
     }
 }
 
@@ -80,7 +107,8 @@ mod tests {
             map.insert(
                 reqwest::header::HeaderName::from_bytes(key.as_bytes())
                     .unwrap_or_else(|_| reqwest::header::HeaderName::from_static("x-unused")),
-                val.parse().unwrap_or_else(|_| reqwest::header::HeaderValue::from_static("")),
+                val.parse()
+                    .unwrap_or_else(|_| reqwest::header::HeaderValue::from_static("")),
             );
         }
         map
@@ -89,7 +117,9 @@ mod tests {
     #[test]
     fn test_extract_all_headers() {
         let headers = make_headers(&[
-            ("x-request-id", "req-abc123"), ("cf-ray", "ray-xyz789"), ("retry-after", "30"),
+            ("x-request-id", "req-abc123"),
+            ("cf-ray", "ray-xyz789"),
+            ("retry-after", "30"),
         ]);
         let ctx = ResponseDebugContext::from_response_headers(&headers);
         assert_eq!(ctx.request_id.as_deref(), Some("req-abc123"));
@@ -123,8 +153,14 @@ mod tests {
         ctx.request_id = Some("req-abc123".into());
         ctx.retry_after = Some(30);
         let msg = ctx.format_error_message("Rate limited");
-        assert!(msg.contains("req: req-abc123"), "should contain request ID: {msg}");
-        assert!(msg.contains("retry after 30s"), "should contain retry after: {msg}");
+        assert!(
+            msg.contains("req: req-abc123"),
+            "should contain request ID: {msg}"
+        );
+        assert!(
+            msg.contains("retry after 30s"),
+            "should contain retry after: {msg}"
+        );
     }
 
     #[test]
@@ -135,15 +171,22 @@ mod tests {
 
     #[test]
     fn test_retry_after_parsing() {
-        let ctx = ResponseDebugContext::from_response_headers(&make_headers(&[("retry-after", "60")]));
+        let ctx =
+            ResponseDebugContext::from_response_headers(&make_headers(&[("retry-after", "60")]));
         assert_eq!(ctx.retry_after, Some(60));
-        let ctx = ResponseDebugContext::from_response_headers(&make_headers(&[("retry-after", "not-a-number")]));
+        let ctx = ResponseDebugContext::from_response_headers(&make_headers(&[(
+            "retry-after",
+            "not-a-number",
+        )]));
         assert!(ctx.retry_after.is_none());
     }
 
     #[test]
     fn test_openai_request_id_header() {
-        let ctx = ResponseDebugContext::from_response_headers(&make_headers(&[("x-oai-request-id", "oai-123")]));
+        let ctx = ResponseDebugContext::from_response_headers(&make_headers(&[(
+            "x-oai-request-id",
+            "oai-123",
+        )]));
         assert_eq!(ctx.request_id.as_deref(), Some("oai-123"));
     }
 
@@ -155,6 +198,9 @@ mod tests {
         let display = format!("{ctx}");
         assert!(display.contains("request_id=req-abc"));
         assert!(display.contains("cf_ray=ray-xyz"));
-        assert_eq!(format!("{}", ResponseDebugContext::default()), "ResponseDebugContext(empty)");
+        assert_eq!(
+            format!("{}", ResponseDebugContext::default()),
+            "ResponseDebugContext(empty)"
+        );
     }
 }

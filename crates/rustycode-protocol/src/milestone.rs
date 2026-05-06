@@ -132,12 +132,18 @@ impl Milestone {
                     return None;
                 }
 
-                if !matches!(plan.status, crate::PlanStatus::Draft | crate::PlanStatus::Ready) {
+                if !matches!(
+                    plan.status,
+                    crate::PlanStatus::Draft | crate::PlanStatus::Ready
+                ) {
                     return None;
                 }
 
                 let dependencies = dependency_lookup.get(&plan.id).cloned().unwrap_or_default();
-                if dependencies.iter().all(|dependency| completed.contains(dependency)) {
+                if dependencies
+                    .iter()
+                    .all(|dependency| completed.contains(dependency))
+                {
                     Some(plan.id.clone())
                 } else {
                     None

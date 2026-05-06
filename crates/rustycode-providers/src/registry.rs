@@ -1123,10 +1123,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_model_nonexistent() {
         let registry = ModelRegistry::new();
-        assert!(registry
-            .model("no-provider", "no-model")
-            .await
-            .is_none());
+        assert!(registry.model("no-provider", "no-model").await.is_none());
     }
 
     #[tokio::test]

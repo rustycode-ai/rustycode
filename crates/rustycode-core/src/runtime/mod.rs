@@ -5,9 +5,7 @@
 
 use anyhow::{bail, Context, Result};
 use chrono::Utc;
-use rustycode_bus::{
-    EventBus, SessionCompletedEvent, SessionStartedEvent, ToolBlockedEvent,
-};
+use rustycode_bus::{EventBus, SessionCompletedEvent, SessionStartedEvent, ToolBlockedEvent};
 use rustycode_config::Config;
 use rustycode_git::GitStatus;
 use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
@@ -416,11 +414,7 @@ impl Runtime {
                 path: None,
             })
             .collect();
-        let memory_entries = self
-            .storage
-            .memory("project")
-            .map(|v| v.len())
-            .unwrap_or(0);
+        let memory_entries = self.storage.memory("project").map(|v| v.len()).unwrap_or(0);
         // Count built-in skills (always available)
         let builtin_count = 5; // hardcoded; SkillRegistry is internal
                                // Count custom skills from the skills directory (only valid skill files)

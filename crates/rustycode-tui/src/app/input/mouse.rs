@@ -15,9 +15,15 @@ impl TUI {
 
     fn scroll_tool_result_by(&mut self, lines: usize, down: bool) {
         if down {
-            self.tool_panel.tool_result_scroll_offset = self.tool_panel.tool_result_scroll_offset.saturating_add(lines);
+            self.tool_panel.tool_result_scroll_offset = self
+                .tool_panel
+                .tool_result_scroll_offset
+                .saturating_add(lines);
         } else {
-            self.tool_panel.tool_result_scroll_offset = self.tool_panel.tool_result_scroll_offset.saturating_sub(lines);
+            self.tool_panel.tool_result_scroll_offset = self
+                .tool_panel
+                .tool_result_scroll_offset
+                .saturating_sub(lines);
         }
         self.dirty = true;
     }
@@ -102,7 +108,8 @@ impl TUI {
     }
 
     fn handle_mouse_selection_start(&self, mouse: MouseEvent) {
-        self.view.mouse_selection_start
+        self.view
+            .mouse_selection_start
             .set(Some((mouse.column, mouse.row)));
         self.view.mouse_selection_dragged.set(false);
     }
@@ -111,7 +118,8 @@ impl TUI {
         if self.view.mouse_selection_start.get().is_some() {
             self.view.mouse_selection_dragged.set(true);
         } else {
-            self.view.mouse_selection_start
+            self.view
+                .mouse_selection_start
                 .set(Some((mouse.column, mouse.row)));
         }
     }
@@ -147,12 +155,12 @@ impl TUI {
             match (start_idx, end_idx) {
                 (Some(a), Some(b)) => {
                     let (lo, hi) = if a <= b { (a, b) } else { (b, a) };
-                    if let Err(e) = self.copy_message_range(lo, hi) {
+                    if let Err(e) = self.copy_message_selection(lo, hi, start, end) {
                         tracing::error!("Failed to copy transcript selection: {}", e);
                     }
                 }
                 (Some(idx), None) | (None, Some(idx)) => {
-                    if let Err(e) = self.copy_message_range(idx, idx) {
+                    if let Err(e) = self.copy_message_selection(idx, idx, start, end) {
                         tracing::error!("Failed to copy transcript selection: {}", e);
                     }
                 }

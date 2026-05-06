@@ -441,9 +441,7 @@ impl ProviderMetadataRegistry {
     /// Get default model
     pub fn default_model(&self) -> Option<&ModelInfo> {
         let default_id = "claude-3-5-sonnet";
-        self.all_models()
-            .into_iter()
-            .find(|m| m.id == default_id)
+        self.all_models().into_iter().find(|m| m.id == default_id)
     }
 
     /// Select model for a task
@@ -458,9 +456,7 @@ impl ProviderMetadataRegistry {
             .get(&task)
             .or(Some(&config.default_model))?;
 
-        self.all_models()
-            .into_iter()
-            .find(|m| &m.id == model_id)
+        self.all_models().into_iter().find(|m| &m.id == model_id)
     }
 }
 

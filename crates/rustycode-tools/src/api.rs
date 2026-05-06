@@ -205,14 +205,8 @@ mod tests {
             method: HttpMethod::GET,
             duration_ms: 0,
         };
-        assert_eq!(
-            resp.header("x-custom-header"),
-            Some(&"value".to_string())
-        );
-        assert_eq!(
-            resp.header("X-CUSTOM-HEADER"),
-            Some(&"value".to_string())
-        );
+        assert_eq!(resp.header("x-custom-header"), Some(&"value".to_string()));
+        assert_eq!(resp.header("X-CUSTOM-HEADER"), Some(&"value".to_string()));
     }
 
     // --- Tool metadata ---

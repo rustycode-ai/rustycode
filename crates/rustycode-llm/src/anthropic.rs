@@ -1994,13 +1994,17 @@ fn map_anthropic_error(
         }
         400 => ProviderError::Api(debug.format_error_message(error_text)),
         404 => ProviderError::InvalidModel(debug.format_error_message(error_text)),
-        502..=504 => {
-            ProviderError::Network(debug.format_error_message(&format!("service unavailable: {}", error_text)))
-        }
-        529 => {
-            ProviderError::Network(debug.format_error_message(&format!("Anthropic API overloaded: {}", error_text)))
-        }
-        _ => ProviderError::Api(debug.format_error_message(&format!("HTTP {}: {}", status.as_u16(), error_text))),
+        502..=504 => ProviderError::Network(
+            debug.format_error_message(&format!("service unavailable: {}", error_text)),
+        ),
+        529 => ProviderError::Network(
+            debug.format_error_message(&format!("Anthropic API overloaded: {}", error_text)),
+        ),
+        _ => ProviderError::Api(debug.format_error_message(&format!(
+            "HTTP {}: {}",
+            status.as_u16(),
+            error_text
+        ))),
     }
 }
 
@@ -2031,12 +2035,12 @@ fn map_anthropic_structured_error(
             let retry_delay = extract_retry_after_ms(headers).map(Duration::from_millis);
             ProviderError::RateLimited { retry_delay }
         }
-        "api_error" | "internal_server_error" => {
-            ProviderError::Api(debug.format_error_message(&format!("Anthropic API error: {}", message)))
-        }
-        "overloaded_error" => {
-            ProviderError::Network(debug.format_error_message(&format!("Anthropic API overloaded: {}", message)))
-        }
+        "api_error" | "internal_server_error" => ProviderError::Api(
+            debug.format_error_message(&format!("Anthropic API error: {}", message)),
+        ),
+        "overloaded_error" => ProviderError::Network(
+            debug.format_error_message(&format!("Anthropic API overloaded: {}", message)),
+        ),
         _ => map_anthropic_error(status, &error_msg, headers),
     }
 }

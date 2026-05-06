@@ -131,6 +131,7 @@ impl StreamEventAdapter {
                 plans_completed,
                 current_plan_summary,
                 action_hint,
+                plan_rows,
                 ..
             } => {
                 self.emit(StreamChunk::MilestoneProgress {
@@ -141,6 +142,7 @@ impl StreamEventAdapter {
                     plans_completed,
                     current_plan_summary,
                     action_hint,
+                    plan_rows,
                 });
             }
             // Intentionally silenced: internal orchestration events, not user-facing.

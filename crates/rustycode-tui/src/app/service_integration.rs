@@ -1,14 +1,14 @@
 //! Integration between the TUI event loop and background services (LLM streaming,
 
-use crate::services::agent_mode::AiMode;
 use crate::app::async_::*;
 use crate::app::orchestration_integration::OrchestrationIntegration;
 use crate::app::streaming::stream_llm_response;
+use crate::services::agent_mode::AiMode;
 use crate::services::conversation_service::{ConversationConfig, ConversationService};
 // sessions_dir import used by auto-session feature
-use crate::workspace::workspace_context;
 use crate::app::tool_errors::ErrorTracker;
 use crate::services::file_read_cache::FileReadCache;
+use crate::workspace::workspace_context;
 use anyhow::{Context, Result};
 use rustycode_llm::provider::LLMProvider;
 use rustycode_protocol::QueryGuard;
@@ -33,15 +33,15 @@ impl OrchestrationClient for ServiceManager {
     fn request_stop_stream(&self) {
         self.stream_stop_requested.store(true, Ordering::SeqCst);
     }
-    
+
     fn ai_mode(&self) -> AiMode {
         *self.ai_mode.lock().unwrap()
     }
-    
+
     fn set_ai_mode(&self, mode: AiMode) {
         *self.ai_mode.lock().unwrap() = mode;
     }
-    
+
     fn execute_tool(&self, _call: ToolCall) -> Result<rustycode_protocol::ToolResult> {
         anyhow::bail!("execute_tool via OrchestrationClient not yet wired")
     }
@@ -208,7 +208,8 @@ impl ServiceManager {
                 .context("Failed to create provider for new model")?;
 
         let stream_tx = self
-            .polling_registry.stream_channel
+            .polling_registry
+            .stream_channel
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Stream channel not created"))?
             .clone_sender();
@@ -396,7 +397,8 @@ impl ServiceManager {
             .unwrap_or_else(|_| ("anthropic".to_string(), "claude-3-5-sonnet".to_string()));
 
         let stream_tx = self
-            .polling_registry.stream_channel
+            .polling_registry
+            .stream_channel
             .as_ref()
             .ok_or_else(|| {
                 self.query_guard.force_end();
@@ -540,7 +542,6 @@ impl ServiceManager {
         self.query_guard.force_end();
     }
 
-
     /// Execute legacy streaming as a fallback when the pipeline is unavailable.
     fn execute_legacy_streaming(
         &self,
@@ -557,9 +558,12 @@ impl ServiceManager {
                 let rt = match tokio::runtime::Runtime::new() {
                     Ok(rt) => rt,
                     Err(e) => {
-                        send_chunk(&stream_tx, StreamChunk::Error(StreamError::RuntimeError {
-                            message: e.to_string(),
-                        }));
+                        send_chunk(
+                            &stream_tx,
+                            StreamChunk::Error(StreamError::RuntimeError {
+                                message: e.to_string(),
+                            }),
+                        );
                         send_chunk(&stream_tx, StreamChunk::Done);
                         return;
                     }
@@ -593,17 +597,23 @@ impl ServiceManager {
                 });
 
                 if let Err(e) = result {
-                    send_chunk(&stream_tx, StreamChunk::Error(StreamError::Provider(
-                        rustycode_llm::provider::ProviderError::Api(e.to_string()),
-                    )));
+                    send_chunk(
+                        &stream_tx,
+                        StreamChunk::Error(StreamError::Provider(
+                            rustycode_llm::provider::ProviderError::Api(e.to_string()),
+                        )),
+                    );
                     send_chunk(&stream_tx, StreamChunk::Done);
                 }
             }));
 
             if result.is_err() {
-                send_chunk(&stream_tx_panic, StreamChunk::Error(StreamError::InternalError {
-                    message: "streaming thread panicked".to_string(),
-                }));
+                send_chunk(
+                    &stream_tx_panic,
+                    StreamChunk::Error(StreamError::InternalError {
+                        message: "streaming thread panicked".to_string(),
+                    }),
+                );
                 send_chunk(&stream_tx_panic, StreamChunk::Done);
             }
         });
@@ -731,10 +741,10 @@ impl ServiceManager {
             send_chunk(&tx_final, WorkspaceUpdate::ContextLoaded(context));
 
             if let Some((filename, _)) = workspace_context::find_project_instruction_file(&cwd) {
-                send_chunk(&tx_final, WorkspaceUpdate::Notice(format!(
-                    "Loaded {} from the workspace root",
-                    filename
-                )));
+                send_chunk(
+                    &tx_final,
+                    WorkspaceUpdate::Notice(format!("Loaded {} from the workspace root", filename)),
+                );
             }
         });
 
@@ -751,7 +761,8 @@ impl ServiceManager {
         F: FnOnce(StreamChunk),
     {
         let channel = self
-            .polling_registry.stream_channel
+            .polling_registry
+            .stream_channel
             .as_mut()
             .context("Stream channel not created")?;
 
@@ -770,7 +781,8 @@ impl ServiceManager {
         F: FnOnce(ToolResult),
     {
         let channel = self
-            .polling_registry.tool_channel
+            .polling_registry
+            .tool_channel
             .as_mut()
             .context("Tool channel not created")?;
 
@@ -789,7 +801,8 @@ impl ServiceManager {
         F: FnOnce(WorkspaceUpdate),
     {
         let channel = self
-            .polling_registry.workspace_channel
+            .polling_registry
+            .workspace_channel
             .as_mut()
             .context("Workspace channel not created")?;
 
@@ -816,17 +829,20 @@ impl ServiceManager {
     pub fn channel_stats(&self) -> ServiceStats {
         ServiceStats {
             stream_dropped: self
-                .polling_registry.stream_channel
+                .polling_registry
+                .stream_channel
                 .as_ref()
                 .map(|c| c.dropped_count())
                 .unwrap_or(0),
             tool_dropped: self
-                .polling_registry.tool_channel
+                .polling_registry
+                .tool_channel
                 .as_ref()
                 .map(|c| c.dropped_count())
                 .unwrap_or(0),
             workspace_dropped: self
-                .polling_registry.workspace_channel
+                .polling_registry
+                .workspace_channel
                 .as_ref()
                 .map(|c| c.dropped_count())
                 .unwrap_or(0),
@@ -850,7 +866,10 @@ impl ServiceManager {
     }
 
     pub fn command_sender(&self) -> Option<std::sync::mpsc::SyncSender<SlashCommandResult>> {
-        self.polling_registry.command_channel.as_ref().map(|c| c.clone_sender())
+        self.polling_registry
+            .command_channel
+            .as_ref()
+            .map(|c| c.clone_sender())
     }
 }
 
@@ -880,7 +899,6 @@ impl ServiceStats {
 }
 
 // ── Integration with TUI ───────────────────────────────────────────────────────
-
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

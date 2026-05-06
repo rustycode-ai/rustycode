@@ -52,8 +52,14 @@ mod tests {
     fn default_matches_new() {
         let from_new = AutoContinueState::new();
         let from_default = AutoContinueState::default();
-        assert_eq!(from_new.auto_continue_enabled, from_default.auto_continue_enabled);
-        assert_eq!(from_new.auto_continue_pending, from_default.auto_continue_pending);
+        assert_eq!(
+            from_new.auto_continue_enabled,
+            from_default.auto_continue_enabled
+        );
+        assert_eq!(
+            from_new.auto_continue_pending,
+            from_default.auto_continue_pending
+        );
         assert_eq!(
             from_new.auto_continue_iterations,
             from_default.auto_continue_iterations

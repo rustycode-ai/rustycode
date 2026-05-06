@@ -506,15 +506,16 @@ impl MessageRenderer {
 
         // Truncate if too long
         let max_len = 200;
-        let output = if <str as unicode_width::UnicodeWidthStr>::width(detailed_output.as_str())
-            > max_len
-        {
-            let truncated =
-                crate::app::render::brutalist_helpers::truncate_to_display_width(detailed_output, max_len);
-            format!("{}...", truncated)
-        } else {
-            detailed_output.clone()
-        };
+        let output =
+            if <str as unicode_width::UnicodeWidthStr>::width(detailed_output.as_str()) > max_len {
+                let truncated = crate::app::render::brutalist_helpers::truncate_to_display_width(
+                    detailed_output,
+                    max_len,
+                );
+                format!("{}...", truncated)
+            } else {
+                detailed_output.clone()
+            };
 
         Ok(Line::from(vec![
             Span::styled(format!("{} │ ┌", pipe), Style::default().fg(color)),

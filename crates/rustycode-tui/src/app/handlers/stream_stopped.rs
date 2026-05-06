@@ -19,11 +19,14 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
     // Flush buffered content from the render buffer BEFORE replacing it
     let remaining = tui.streaming.streaming_render_buffer.flush();
     if !remaining.is_empty() {
-        tui.streaming.current_stream_content.reserve(remaining.len());
+        tui.streaming
+            .current_stream_content
+            .reserve(remaining.len());
         tui.streaming.current_stream_content.push_str(&remaining);
     }
 
-    tui.streaming.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.streaming_render_buffer =
+        crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
     tui.streaming.chunks_received = 0;
     tui.streaming.thinking_chunks_received = 0;
 

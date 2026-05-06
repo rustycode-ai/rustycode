@@ -127,11 +127,12 @@ impl ToolGenerator {
         let prompt = self.build_generation_prompt(description, context);
 
         // Call LLM to generate tool definition
-        let req = CompletionRequest::new(
-            "",
-            vec![ChatMessage::user(prompt.clone())],
-        );
-        let resp: CompletionResponse = self.llm.complete(req).await.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+        let req = CompletionRequest::new("", vec![ChatMessage::user(prompt.clone())]);
+        let resp: CompletionResponse = self
+            .llm
+            .complete(req)
+            .await
+            .map_err(|e| anyhow::anyhow!(e.to_string()))?;
         let response = resp.content;
         if response.is_empty() {
             anyhow::bail!("LLM generation failed: empty response");
@@ -567,7 +568,6 @@ fn extract_json_from_response(response: &str) -> Option<&str> {
     None
 }
 
-
 #[cfg(test)]
 struct MockLLM {
     response: String,
@@ -619,8 +619,13 @@ impl LLMProvider for MockLLM {
     async fn complete_stream(
         &self,
         _request: CompletionRequest,
-    ) -> Result<std::pin::Pin<Box<dyn futures::Stream<Item = rustycode_llm::StreamChunk> + Send>>, rustycode_llm::ProviderError> {
-        Err(rustycode_llm::ProviderError::Api("mock does not support streaming".to_string()))
+    ) -> Result<
+        std::pin::Pin<Box<dyn futures::Stream<Item = rustycode_llm::StreamChunk> + Send>>,
+        rustycode_llm::ProviderError,
+    > {
+        Err(rustycode_llm::ProviderError::Api(
+            "mock does not support streaming".to_string(),
+        ))
     }
 }
 

@@ -127,8 +127,8 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
         debug_log!("Log level: {:?}", log_level());
     }
 
-    use crate::services::agent_mode::AiMode;
     use crate::app::TUI;
+    use crate::services::agent_mode::AiMode;
 
     let config = crate::services::config::load_config();
     let initial_mode = if config.behavior.yolo_mode {

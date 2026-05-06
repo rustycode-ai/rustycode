@@ -232,8 +232,7 @@ impl OperationExecutor {
                     .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
             }
             SelectionStrategy::Diversity => {
-                scored_ids
-                    .sort_by_key(|a| graph.thought(a.0).map_or(0, |t| t.content.len() % 100));
+                scored_ids.sort_by_key(|a| graph.thought(a.0).map_or(0, |t| t.content.len() % 100));
             }
             SelectionStrategy::Support => {
                 scored_ids.sort_by(|a, b| {

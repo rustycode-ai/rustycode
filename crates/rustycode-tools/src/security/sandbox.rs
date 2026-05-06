@@ -326,7 +326,9 @@ impl Sandbox {
         // via Objective-C bindings, which is complex
         //
         // For now, we'll log that sandbox rules would be applied to child processes
-        tracing::debug!("Sandbox: macOS sandbox profile configured (would apply to child processes)");
+        tracing::debug!(
+            "Sandbox: macOS sandbox profile configured (would apply to child processes)"
+        );
         tracing::trace!("Sandbox profile: {profile}");
 
         // Store profile for use when spawning child processes

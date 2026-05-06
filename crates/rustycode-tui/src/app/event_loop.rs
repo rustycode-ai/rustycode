@@ -1,6 +1,5 @@
 //! Responsive Event Loop
 
-use crate::services::agent_mode::AiMode;
 use crate::agents::AgentManager;
 use crate::app::auto_continue_state::AutoContinueState;
 use crate::app::commands::{dispatch_registered_slash_command, CommandContext, CommandEffect};
@@ -9,23 +8,27 @@ use crate::app::lsp_status::LspStatus;
 use crate::app::mcp_status::McpStatus;
 use crate::app::rate_limit_handler::RateLimitHandler;
 use crate::app::renderer::RendererMode;
+use crate::app::tasks::{load_tasks, WorkspaceTasks};
 use crate::app::team_mode_handler::TeamModeHandler;
 use crate::app::tool_panel_state::ToolPanelState;
 use crate::app::wizard_handler::WizardHandler;
-use crate::app::{service_integration::*, FRAME_BUDGET_60FPS, DEBUG_SLOW_THRESHOLD, REFRESH_COOLDOWN, EVENT_POLL_TIMEOUT};
-use crate::memory::compaction::{CompactionConfig, ContextMonitor};
-use crate::services::config::load_config;
-use crate::services::config::TUIConfig;
-use crate::services::conversation_service::ConversationConfig;
+use crate::app::{
+    service_integration::*, DEBUG_SLOW_THRESHOLD, EVENT_POLL_TIMEOUT, FRAME_BUDGET_60FPS,
+    REFRESH_COOLDOWN,
+};
 use crate::help::HelpState;
+use crate::memory::compaction::{CompactionConfig, ContextMonitor};
 use crate::memory::memory_auto::ThreadSafeAutoMemory;
 use crate::memory::memory_injection::InjectionConfig;
 use crate::plugin::PluginManager;
 use crate::plugin::PluginManagerUI;
+use crate::services::agent_mode::AiMode;
+use crate::services::config::load_config;
+use crate::services::config::TUIConfig;
+use crate::services::conversation_service::ConversationConfig;
 use crate::services::providers::all_available_models;
 use crate::services::session::load_command_history;
 use crate::skills::{SkillLoader, SkillStateManager};
-use crate::app::tasks::{load_tasks, WorkspaceTasks};
 use crate::theme::{Theme, ThemeColors};
 use crate::tool_approval::ToolApprovalManager;
 use crate::ui::animator::Animator;
@@ -126,7 +129,7 @@ pub struct TUI {
 
     // Viewport and scroll state (grouped in sub-struct)
     pub(crate) view: crate::app::view_state::ViewState,
-    pub(crate) sidebar_area: std::cell::Cell<Rect>,      // store sidebar area for mouse routing
+    pub(crate) sidebar_area: std::cell::Cell<Rect>, // store sidebar area for mouse routing
 
     // Streaming state (grouped in sub-struct)
     pub(crate) streaming: crate::app::streaming_state::StreamingState,
@@ -146,7 +149,8 @@ pub struct TUI {
     pub(crate) scheduler_rx: Option<mpsc::Receiver<crate::app::pipeline::ScheduledPhaseEvent>>,
     pub(crate) active_scheduled_phases: std::collections::HashSet<String>,
     pub(crate) max_concurrent_phases: usize,
-    pub(crate) last_extraction: Option<(Vec<crate::app::tasks::Task>, Vec<crate::app::tasks::Todo>)>,
+    pub(crate) last_extraction:
+        Option<(Vec<crate::app::tasks::Task>, Vec<crate::app::tasks::Todo>)>,
     pub(crate) workspace_scan_progress: Option<(usize, usize)>, // (scanned, total)
     pub(crate) git_branch: Option<String>,                      // Current git branch for status bar
 
@@ -295,7 +299,6 @@ pub struct TUI {
 
     // Active frame renderer backend
     pub(crate) renderer_mode: RendererMode,
-
 
     /// Shared todo state for LLM todo tools (todo_read, todo_write, todo_update)
     pub(crate) todo_state: rustycode_tools::todo::TodoState,
@@ -605,7 +608,10 @@ impl TUI {
             ),
             dirty: true,
             needs_full_redraw: false,
-            compaction: crate::app::compaction_state::CompactionState::new(context_monitor, compaction_config),
+            compaction: crate::app::compaction_state::CompactionState::new(
+                context_monitor,
+                compaction_config,
+            ),
             theme_colors,
             auto_memory,
             memory_injection_config,
@@ -616,7 +622,9 @@ impl TUI {
             showing_plugin_manager: false,
             showing_marketplace_browser: false,
             help_state: HelpState::new(),
-            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(ToolApprovalManager::new()),
+            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
+                ToolApprovalManager::new(),
+            ),
             start_time: Instant::now(),
             lsp: LspStatus::new_forced_refresh(),
             mcp: McpStatus::new_forced_refresh(),
@@ -832,7 +840,10 @@ impl TUI {
             ),
             dirty: true,
             needs_full_redraw: false,
-            compaction: crate::app::compaction_state::CompactionState::new(context_monitor, compaction_config),
+            compaction: crate::app::compaction_state::CompactionState::new(
+                context_monitor,
+                compaction_config,
+            ),
             theme_colors,
             auto_memory,
             memory_injection_config,
@@ -843,7 +854,9 @@ impl TUI {
             showing_plugin_manager: false,
             showing_marketplace_browser: false,
             help_state: HelpState::new(),
-            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(ToolApprovalManager::new()),
+            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
+                ToolApprovalManager::new(),
+            ),
             start_time: Instant::now(),
             lsp: LspStatus::new_forced_refresh(),
             mcp: McpStatus::new_forced_refresh(),
@@ -913,7 +926,7 @@ impl TUI {
             },
             // Cached API key warning
             api_key_warning: String::new(),
-            event_receiver: tokio::sync::broadcast::channel(16).1,
+            event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY).1,
             marketplace_browser,
         }
     }
@@ -1106,7 +1119,8 @@ impl TUI {
             .tool_panel_history
             .last()
             .map(|tool| format!("{} {}", tool.status.icon(), tool.result_summary));
-        self.session_sidebar.update_tool_call_summary(self.active_tools.len(), recent);
+        self.session_sidebar
+            .update_tool_call_summary(self.active_tools.len(), recent);
     }
 
     /// Resume the most recent session from disk.
@@ -1484,7 +1498,7 @@ impl TUI {
                 && (rendered
                     || input_polled
                     || frame_elapsed >= FRAME_BUDGET_60FPS
-                    || loop_iterations.is_multiple_of(120))
+                    || loop_iterations.is_multiple_of(crate::app::DIAGNOSTIC_LOG_INTERVAL as u64))
             {
                 crate::debug_log!(
                     "TUI frame diagnostics frame={} loop_iter={} total_ms={} anim_ms={} sidebar_ms={} toast_ms={} services_ms={} pipeline_monitor_ms={} countdown_ms={} agents_ms={} autosave_ms={} render_ms={} input_poll_ms={} input_handle_ms={} dirty={} rendered={} input_polled={} input_handled={} messages={} tools={} streaming={} user_scrolled={} viewport_height={}",
@@ -1883,8 +1897,7 @@ impl TUI {
         let draw_elapsed = draw_start.elapsed();
 
         if debug_enabled
-            && (layout_elapsed > EVENT_POLL_TIMEOUT
-                || draw_elapsed > DEBUG_SLOW_THRESHOLD)
+            && (layout_elapsed > EVENT_POLL_TIMEOUT || draw_elapsed > DEBUG_SLOW_THRESHOLD)
         {
             crate::debug_log!(
                 "Brutalist breakdown: layout_ms={} draw_ms={} messages={} total_lines={} streaming={}",

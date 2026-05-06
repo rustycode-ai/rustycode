@@ -6,8 +6,8 @@ use std::time::{Duration, Instant};
 
 use super::parse_tool_parameters;
 use crate::app::orchestration_integration::OrchestrationIntegration;
-use crate::app::tool_search::{SearchAlgorithm, ToolSearch, ToolSearchQuery};
 use crate::app::tool_errors::ErrorTracker;
+use crate::app::tool_search::{SearchAlgorithm, ToolSearch, ToolSearchQuery};
 use crate::services::file_read_cache::FileReadCache;
 use rustycode_core::integration::{HookContext, HookRegistry};
 use rustycode_guard::codec::{HookInput, HookResult};

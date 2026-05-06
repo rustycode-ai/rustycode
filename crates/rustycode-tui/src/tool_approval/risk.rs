@@ -181,7 +181,10 @@ pub fn classify_tool_type(tool_name: &str) -> ToolType {
         tool_names::GREP => ToolType::Grep,
         tool_names::GLOB | tool_names::LIST_FILES | tool_names::LIST_DIR => ToolType::ListDirectory,
         tool_names::EDIT_FILE | tool_names::APPLY_PATCH => ToolType::WriteFile,
-        tool_names::GIT_STATUS | tool_names::GIT_DIFF | tool_names::GIT_LOG | tool_names::GIT_COMMIT => ToolType::Git,
+        tool_names::GIT_STATUS
+        | tool_names::GIT_DIFF
+        | tool_names::GIT_LOG
+        | tool_names::GIT_COMMIT => ToolType::Git,
         _ => ToolType::Custom(tool_name.to_string()),
     }
 }

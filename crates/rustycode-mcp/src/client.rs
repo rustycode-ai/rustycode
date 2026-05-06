@@ -526,10 +526,7 @@ mod tests {
             .read_resource("nonexistent", "file:///test")
             .await
             .is_err());
-        assert!(client
-            .prompt("nonexistent", "test", None)
-            .await
-            .is_err());
+        assert!(client.prompt("nonexistent", "test", None).await.is_err());
     }
 
     #[tokio::test]

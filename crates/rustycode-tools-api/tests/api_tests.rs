@@ -2,8 +2,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use rustycode_tools_api::{
-    check_tool_permission, tool_permission, new_todo_state, SandboxConfig, TodoStatus,
-    ToolContext, ToolOutput, ToolPermission, ToolRegistry,
+    check_tool_permission, new_todo_state, tool_permission, SandboxConfig, TodoStatus, ToolContext,
+    ToolOutput, ToolPermission, ToolRegistry,
 };
 use serde_json::json;
 use std::path::PathBuf;
@@ -215,10 +215,7 @@ fn get_tool_permission_read_only_tools() {
         tool_permission("list_dir"),
         Some(ProtocolPermission::AutoAllow)
     );
-    assert_eq!(
-        tool_permission("grep"),
-        Some(ProtocolPermission::AutoAllow)
-    );
+    assert_eq!(tool_permission("grep"), Some(ProtocolPermission::AutoAllow));
     assert_eq!(
         tool_permission("git_status"),
         Some(ProtocolPermission::AutoAllow)

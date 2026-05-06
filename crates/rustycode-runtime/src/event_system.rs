@@ -1330,9 +1330,7 @@ mod tests {
         system.publish(e1).await.unwrap();
         system.publish(e2).await.unwrap();
 
-        let alpha_events = system
-            .events(None, Some("alpha".to_string()), None)
-            .await;
+        let alpha_events = system.events(None, Some("alpha".to_string()), None).await;
         assert_eq!(alpha_events.len(), 1);
 
         let limited = system.events(None, None, Some(1)).await;

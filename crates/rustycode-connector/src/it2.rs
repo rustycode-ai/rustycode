@@ -10,8 +10,8 @@
 //! Or from: <https://github.com/mkusaka/it2>
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
-    TerminalConnector,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionInfo, SplitDirection,
+    TerminalConnector, TerminalSessionId,
 };
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -243,7 +243,11 @@ impl TerminalConnector for It2Connector {
         Ok(())
     }
 
-    fn select_pane(&mut self, session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(
+        &mut self,
+        session: &TerminalSessionId,
+        _pane_index: usize,
+    ) -> ConnectorResult<()> {
         // it2 doesn't have direct pane selection by index
         // We can use session focus which should activate the window
         self.run_it2_silent(&["session", "focus", "-s", &session.0])?;
@@ -254,7 +258,11 @@ impl TerminalConnector for It2Connector {
         Ok(())
     }
 
-    fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn kill_pane(
+        &mut self,
+        _session: &TerminalSessionId,
+        _pane_index: usize,
+    ) -> ConnectorResult<()> {
         // it2 doesn't support killing individual panes directly
         // This is a limitation of the it2 CLI
         Err(ConnectorError::Other(

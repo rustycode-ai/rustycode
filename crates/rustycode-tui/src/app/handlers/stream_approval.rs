@@ -72,7 +72,11 @@ pub(super) fn handle_approval_request_chunk(
         }
     }
 
-    if !tui.tool_approval.manager.requires_approval(&tool_name, risk_level) {
+    if !tui
+        .tool_approval
+        .manager
+        .requires_approval(&tool_name, risk_level)
+    {
         tracing::info!(
             "TUI approval: {} auto-approved (safe or session-approved)",
             tool_name
@@ -119,13 +123,17 @@ pub(super) fn handle_approval_request_chunk(
         tui.add_system_message(format!(
             "✗ Hook blocked: {} ({})",
             tool_name,
-            hook_result.block_reason.as_deref().unwrap_or("blocked by hook")
+            hook_result
+                .block_reason
+                .as_deref()
+                .unwrap_or("blocked by hook")
         ));
         tui.dirty = true;
         return;
     }
 
-    tui.tool_approval.pending_requests
+    tui.tool_approval
+        .pending_requests
         .push_back(crate::tool_approval::ApprovalRequest {
             tool_name: tool_name.clone(),
             tool_type,
@@ -147,7 +155,8 @@ pub(super) fn handle_approval_request_chunk(
 pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
     if let Some(mut request) = tui.tool_approval.pop_next() {
         request.approve();
-        tui.tool_approval.manager
+        tui.tool_approval
+            .manager
             .record_approval(request.tool_name.clone(), request.state);
         tui.add_system_message(format!("✓ Approved: {}", request.tool_name));
     }

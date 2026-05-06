@@ -6,8 +6,8 @@
 //! Note: iTerm2 is macOS-only and requires the terminal to be running.
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
-    TerminalConnector,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionInfo, SplitDirection,
+    TerminalConnector, TerminalSessionId,
 };
 #[cfg(target_os = "macos")]
 use std::process::{Command, Stdio};
@@ -432,7 +432,11 @@ impl TerminalConnector for ITermConnector {
         }
     }
 
-    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(
+        &mut self,
+        session: &TerminalSessionId,
+        pane_index: usize,
+    ) -> ConnectorResult<()> {
         #[cfg(target_os = "macos")]
         {
             let sessions = self
@@ -470,7 +474,11 @@ impl TerminalConnector for ITermConnector {
         }
     }
 
-    fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn kill_pane(
+        &mut self,
+        _session: &TerminalSessionId,
+        _pane_index: usize,
+    ) -> ConnectorResult<()> {
         // Note: iTerm2 doesn't support killing individual panes via AppleScript
         // You can only close the entire window/tab
         Err(ConnectorError::Other(

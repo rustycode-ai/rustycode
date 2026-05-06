@@ -314,11 +314,7 @@ impl MonitoringSystem {
     }
 
     /// Get metric value
-    pub async fn metric(
-        &self,
-        metric_name: &str,
-        labels: &HashMap<String, String>,
-    ) -> Option<f64> {
+    pub async fn metric(&self, metric_name: &str, labels: &HashMap<String, String>) -> Option<f64> {
         let series_key = self.series_key(metric_name, labels);
         let metrics = self.metrics.read().await;
 
@@ -427,10 +423,7 @@ impl MonitoringSystem {
     }
 
     /// Get average performance metrics
-    pub async fn average_performance(
-        &self,
-        duration_minutes: u64,
-    ) -> Option<PerformanceMetrics> {
+    pub async fn average_performance(&self, duration_minutes: u64) -> Option<PerformanceMetrics> {
         let perf_metrics = self.performance_metrics.read().await;
         let cutoff = Utc::now() - Duration::minutes(duration_minutes as i64);
 

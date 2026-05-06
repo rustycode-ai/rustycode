@@ -634,9 +634,7 @@ impl CheckpointManager {
         let from = self
             .checkpoint(from_id)
             .context("from checkpoint not found")?;
-        let to = self
-            .checkpoint(to_id)
-            .context("to checkpoint not found")?;
+        let to = self.checkpoint(to_id).context("to checkpoint not found")?;
 
         if from.commit_hash.is_empty() || to.commit_hash.is_empty() {
             return Ok(String::new());

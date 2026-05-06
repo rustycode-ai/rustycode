@@ -1507,10 +1507,7 @@ mod tests {
         let mut state = WorkflowState::default();
         assert!(state.step_result("s1").is_none());
         state.set_step_result("s1".into(), serde_json::json!("ok"));
-        assert_eq!(
-            state.step_result("s1").unwrap(),
-            &serde_json::json!("ok")
-        );
+        assert_eq!(state.step_result("s1").unwrap(), &serde_json::json!("ok"));
     }
 
     // --- Workflow::create_state ---
@@ -1538,10 +1535,7 @@ mod tests {
             required: false,
         });
         let state = wf.create_state(&HashMap::new()).unwrap();
-        assert_eq!(
-            state.variable("p").unwrap(),
-            &serde_json::json!("fallback")
-        );
+        assert_eq!(state.variable("p").unwrap(), &serde_json::json!("fallback"));
     }
 
     #[test]

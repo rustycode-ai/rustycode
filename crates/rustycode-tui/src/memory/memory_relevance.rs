@@ -84,8 +84,7 @@ impl Default for ScoreCache {
 }
 
 /// Global score cache
-static SCORE_CACHE: std::sync::LazyLock<ScoreCache> =
-    std::sync::LazyLock::new(ScoreCache::default);
+static SCORE_CACHE: std::sync::LazyLock<ScoreCache> = std::sync::LazyLock::new(ScoreCache::default);
 
 /// Score a memory's relevance to a query
 ///

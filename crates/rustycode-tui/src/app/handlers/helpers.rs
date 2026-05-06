@@ -54,7 +54,9 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
 
     // Stagnation check: if we've had multiple consecutive iterations with no
     // tool use, the agent is likely stuck in a text-only loop. Stop and inform.
-    if !last_stream_had_tools && tui.auto_continue.auto_continue_iterations >= MAX_STAGNANT_ITERATIONS {
+    if !last_stream_had_tools
+        && tui.auto_continue.auto_continue_iterations >= MAX_STAGNANT_ITERATIONS
+    {
         tracing::warn!(
             "Auto-continue stopped: {} consecutive iterations with no tool use",
             MAX_STAGNANT_ITERATIONS
@@ -150,9 +152,14 @@ pub(super) fn build_tool_summary_arg(
             }
         });
     }
-    if lower.contains("read") || lower.contains("cat") || lower.contains("view")
-        || lower.contains("write") || lower.contains("create")
-        || lower.contains("edit") || lower.contains("patch") || lower.contains("replace")
+    if lower.contains("read")
+        || lower.contains("cat")
+        || lower.contains("view")
+        || lower.contains("write")
+        || lower.contains("create")
+        || lower.contains("edit")
+        || lower.contains("patch")
+        || lower.contains("replace")
     {
         return input_json
             .get("path")

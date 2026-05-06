@@ -736,7 +736,11 @@ impl MultiAgentOrchestrator {
             })
             .collect();
 
-        let has_disagreement = proposals.values().collect::<std::collections::HashSet<_>>().len() > 1;
+        let has_disagreement = proposals
+            .values()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            > 1;
 
         if !has_disagreement {
             return;

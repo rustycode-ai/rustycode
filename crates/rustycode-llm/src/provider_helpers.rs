@@ -166,10 +166,7 @@ pub fn is_provider_available(provider_id: &str) -> bool {
 /// ```
 pub fn model_cost(model: &str) -> Option<(f64, f64)> {
     let registry = registry();
-    let model_info = registry
-        .all_models()
-        .into_iter()
-        .find(|m| m.id == model)?;
+    let model_info = registry.all_models().into_iter().find(|m| m.id == model)?;
     Some((model_info.cost_per_1m_input, model_info.cost_per_1m_output))
 }
 

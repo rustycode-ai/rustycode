@@ -70,9 +70,9 @@ pub mod harness;
 pub mod hook_points;
 pub mod isolation;
 pub mod judge;
+pub mod milestone_prompt;
 #[cfg(test)]
 pub mod mock_provider_for_tests;
-pub mod milestone_prompt;
 pub mod model_registry;
 pub mod musician;
 pub mod optimization_metrics;
@@ -130,17 +130,17 @@ pub use bus::{BusHandle, MessageBus, OrchestrationEvent};
 pub use composer::Composer;
 pub use conductor::Conductor;
 pub use context::{
-    analyze_cache_efficiency, budget_usage_percent, chunk_by_relevance, classify_section,
-    clear_cache, compress_prompt, compress_to_target, compute_budgets, compute_cache_hit_rate,
-    content_fits_budget, count_tokens, count_tokens_sync, distill_single, distill_summaries,
-    estimate_cache_savings, estimate_tokens_for_provider, format_chunks, base_dir,
-    chars_per_token, init_token_counter, inline_template, is_accurate_counting_available,
-    load_prompt, load_template, optimize_for_caching, parse_token_provider, prompt_loader,
-    remaining_budget, reorder_for_caching, resolve_executor_context_window, score_chunks,
-    section as prompt_section, set_base_dir, split_into_chunks, truncate_at_section_boundary,
-    BudgetAllocation, CacheOptimizedPrompt, CacheUsage, Chunk, ChunkOptions, ChunkResult,
-    CompressionLevel, CompressionOptions, CompressionResult, ContentRole, DistillationResult,
-    ModelInfo, PromptSection, Provider as CacheProvider, RelevanceOptions, SectionCounts,
+    analyze_cache_efficiency, base_dir, budget_usage_percent, chars_per_token, chunk_by_relevance,
+    classify_section, clear_cache, compress_prompt, compress_to_target, compute_budgets,
+    compute_cache_hit_rate, content_fits_budget, count_tokens, count_tokens_sync, distill_single,
+    distill_summaries, estimate_cache_savings, estimate_tokens_for_provider, format_chunks,
+    init_token_counter, inline_template, is_accurate_counting_available, load_prompt,
+    load_template, optimize_for_caching, parse_token_provider, prompt_loader, remaining_budget,
+    reorder_for_caching, resolve_executor_context_window, score_chunks, section as prompt_section,
+    set_base_dir, split_into_chunks, truncate_at_section_boundary, BudgetAllocation,
+    CacheOptimizedPrompt, CacheUsage, Chunk, ChunkOptions, ChunkResult, CompressionLevel,
+    CompressionOptions, CompressionResult, ContentRole, DistillationResult, ModelInfo,
+    PromptSection, Provider as CacheProvider, RelevanceOptions, SectionCounts,
     SectionRole as CacheSectionRole, TaskCountRange, TokenProvider, TruncationResult,
 };
 pub use domain_context::DomainContext;
@@ -158,7 +158,7 @@ pub use handoff::{BudgetSummary, CodeSnippet, HandoffBuilder, HandoffPackage};
 pub use harness::{TieredExecutionResult, TieredHarness};
 pub use hook_points::{HookContext, HookPoint, HookRegistry, HookResult};
 pub use isolation::{
-    auto_worktree_branch, classify_tool, generate_worktree_name, original_base, in_worktree,
+    auto_worktree_branch, classify_tool, generate_worktree_name, in_worktree, original_base,
     ContextBudget, IsolationConfig, TierIsolation, ToolCapability, ToolPolicy, Worktree,
     WorktreeLock, WorktreeManager,
 };
@@ -166,7 +166,9 @@ pub use judge::{
     build_judge_prompt, BuiltInRubrics, JudgeConfig, JudgeGrade, JudgeParseError, JudgeRubric,
     JudgeVerdict,
 };
-pub use milestone_prompt::{build_milestone_prompt, parse_milestone_response, MilestonePromptResult};
+pub use milestone_prompt::{
+    build_milestone_prompt, parse_milestone_response, MilestonePromptResult,
+};
 pub use musician::Musician;
 pub use orchestrator::StepOrchestrator;
 pub use phase_lifecycle::PhaseLifecycleManager;

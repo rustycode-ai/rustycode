@@ -493,11 +493,7 @@ impl AgentLearningSystem {
     }
 
     /// Get recommended strategy for a task
-    pub fn recommended_strategy(
-        &self,
-        role: AgentRole,
-        task_description: &str,
-    ) -> Option<String> {
+    pub fn recommended_strategy(&self, role: AgentRole, task_description: &str) -> Option<String> {
         let strategies = self.learned_strategies.get(&role)?;
         let pattern = self.extract_task_pattern(task_description);
 

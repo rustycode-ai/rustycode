@@ -213,10 +213,16 @@ impl TUI {
             return;
         }
 
-        if self.compaction.compaction_config.auto_compact_state.disabled {
+        if self
+            .compaction
+            .compaction_config
+            .auto_compact_state
+            .disabled
+        {
             tracing::debug!(
                 "Auto-compaction disabled after {} consecutive failures",
-                self.compaction.compaction_config
+                self.compaction
+                    .compaction_config
                     .auto_compact_state
                     .consecutive_failures
             );
@@ -235,7 +241,8 @@ impl TUI {
         if self.compaction.context_monitor.current_tokens >= threshold_tokens {
             tracing::info!(
                 "Token usage at {:.1}% ({}, / {}), executing auto-compaction",
-                (self.compaction.context_monitor.current_tokens as f64 / effective_max as f64) * 100.0,
+                (self.compaction.context_monitor.current_tokens as f64 / effective_max as f64)
+                    * 100.0,
                 self.compaction.context_monitor.current_tokens,
                 effective_max
             );
@@ -269,8 +276,12 @@ impl TUI {
                 self.view.user_scrolled = false;
 
                 self.compaction.context_monitor.update(&self.messages);
-                self.token_budget.last_turn_input_tokens = self.compaction.context_monitor.current_tokens;
-                self.compaction.compaction_config.auto_compact_state.on_success();
+                self.token_budget.last_turn_input_tokens =
+                    self.compaction.context_monitor.current_tokens;
+                self.compaction
+                    .compaction_config
+                    .auto_compact_state
+                    .on_success();
 
                 tracing::debug!(
                     "Compaction complete: {} -> {} messages (saved {} messages)",
@@ -289,7 +300,10 @@ impl TUI {
                 ));
             }
             Err(e) => {
-                self.compaction.compaction_config.auto_compact_state.on_failure();
+                self.compaction
+                    .compaction_config
+                    .auto_compact_state
+                    .on_failure();
                 tracing::error!("Compaction failed: {}", e);
                 self.add_system_message(format!("⚠ Compaction failed: {}", e));
                 self.toast_manager

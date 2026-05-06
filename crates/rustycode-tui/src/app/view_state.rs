@@ -83,3 +83,70 @@ impl Default for ViewState {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_initializes_defaults() {
+        let vs = ViewState::new();
+        assert_eq!(vs.scroll_offset_line, 0);
+        assert_eq!(vs.selected_message, 0);
+        assert_eq!(vs.viewport_height, 0);
+        assert!(!vs.user_scrolled);
+    }
+
+    #[test]
+    fn mark_user_scrolled_sets_flag() {
+        let mut vs = ViewState::new();
+        assert!(!vs.user_scrolled);
+        vs.mark_user_scrolled();
+        assert!(vs.user_scrolled);
+        assert!(vs.should_suppress_auto_scroll());
+    }
+
+    #[test]
+    fn clear_user_scroll_resets() {
+        let mut vs = ViewState::new();
+        vs.mark_user_scrolled();
+        assert!(vs.should_suppress_auto_scroll());
+        vs.clear_user_scroll();
+        assert!(!vs.should_suppress_auto_scroll());
+    }
+
+    #[test]
+    fn clamp_scroll_within_bounds() {
+        let mut vs = ViewState::new();
+        vs.viewport_height = 10;
+        vs.scroll_offset_line = 50;
+        vs.clamp_scroll(100);
+        assert_eq!(vs.scroll_offset_line, 90); // 100 - 10
+    }
+
+    #[test]
+    fn clamp_scroll_already_valid() {
+        let mut vs = ViewState::new();
+        vs.viewport_height = 10;
+        vs.scroll_offset_line = 30;
+        vs.clamp_scroll(100);
+        assert_eq!(vs.scroll_offset_line, 30); // unchanged
+    }
+
+    #[test]
+    fn clamp_scroll_when_content_fits_viewport() {
+        let mut vs = ViewState::new();
+        vs.viewport_height = 100;
+        vs.scroll_offset_line = 50;
+        vs.clamp_scroll(50); // total lines <= viewport
+        assert_eq!(vs.scroll_offset_line, 0);
+    }
+
+    #[test]
+    fn messages_area_cell_roundtrip() {
+        let vs = ViewState::new();
+        let rect = Rect::new(5, 10, 80, 24);
+        vs.messages_area.set(rect);
+        assert_eq!(vs.messages_area.get(), rect);
+    }
+}

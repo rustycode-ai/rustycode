@@ -63,9 +63,21 @@ fn full_pipeline() {
 
     // Step 5: generate a summary from vector-memory-style entries
     let entries = vec![
-        ("Always use parameterized queries for SQL.".to_string(), "learnings".to_string(), 0.9),
-        ("Auth module uses JWT tokens.".to_string(), "code_patterns".to_string(), 0.85),
-        ("Rate limiter: 100/min auth, 20/min anon.".to_string(), "task_traces".to_string(), 0.7),
+        (
+            "Always use parameterized queries for SQL.".to_string(),
+            "learnings".to_string(),
+            0.9,
+        ),
+        (
+            "Auth module uses JWT tokens.".to_string(),
+            "code_patterns".to_string(),
+            0.85,
+        ),
+        (
+            "Rate limiter: 100/min auth, 20/min anon.".to_string(),
+            "task_traces".to_string(),
+            0.7,
+        ),
     ];
     let generated = memdir::generate_summary(&entries);
     assert!(generated.contains("## Learnings"));
@@ -114,7 +126,10 @@ fn full_pipeline() {
     let long_entries: Vec<(String, String, f32)> = (0..500)
         .map(|i| {
             (
-                format!("Memory entry number {} with some padding text to make it longer.", i),
+                format!(
+                    "Memory entry number {} with some padding text to make it longer.",
+                    i
+                ),
                 "learnings".to_string(),
                 0.5 + (i as f32 % 0.5),
             )
@@ -160,7 +175,9 @@ fn search_rollout_summaries() {
             let q = "jwt";
             m.raw_memory.to_lowercase().contains(q)
                 || m.rollout_summary.to_lowercase().contains(q)
-                || m.rollout_slug.as_deref().is_some_and(|s| s.to_lowercase().contains(q))
+                || m.rollout_slug
+                    .as_deref()
+                    .is_some_and(|s| s.to_lowercase().contains(q))
         })
         .collect();
     assert_eq!(jwt_matches.len(), 1);
@@ -173,11 +190,16 @@ fn search_rollout_summaries() {
             let q = "redis";
             m.raw_memory.to_lowercase().contains(q)
                 || m.rollout_summary.to_lowercase().contains(q)
-                || m.rollout_slug.as_deref().is_some_and(|s| s.to_lowercase().contains(q))
+                || m.rollout_slug
+                    .as_deref()
+                    .is_some_and(|s| s.to_lowercase().contains(q))
         })
         .collect();
     assert_eq!(redis_matches.len(), 1);
-    assert_eq!(redis_matches[0].rollout_slug.as_deref(), Some("redis-cache"));
+    assert_eq!(
+        redis_matches[0].rollout_slug.as_deref(),
+        Some("redis-cache")
+    );
 
     // Search for nonexistent term
     let none: Vec<_> = all
@@ -199,7 +221,10 @@ fn reset_clears_everything() {
     memdir::write_memory_summary(mem_dir, "Custom summary content.").unwrap();
 
     // Verify data exists
-    assert_eq!(rollout::load_all_rollout_summaries(mem_dir).unwrap().len(), 1);
+    assert_eq!(
+        rollout::load_all_rollout_summaries(mem_dir).unwrap().len(),
+        1
+    );
     let summary = memdir::read_memory_summary(mem_dir).unwrap();
     assert!(summary.contains("Custom summary"));
 
@@ -218,7 +243,9 @@ fn reset_clears_everything() {
     memdir::write_memory_summary(mem_dir, "# Memory Summary\n\nNo memories yet.\n").unwrap();
 
     assert_eq!(cleared, 1);
-    assert!(rollout::load_all_rollout_summaries(mem_dir).unwrap().is_empty());
+    assert!(rollout::load_all_rollout_summaries(mem_dir)
+        .unwrap()
+        .is_empty());
 
     let after = memdir::read_memory_summary(mem_dir).unwrap();
     assert!(after.contains("No memories yet"));

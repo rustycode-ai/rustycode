@@ -255,8 +255,11 @@ impl Musician {
             Ok(r) => {
                 // Record tool call to worker registry for visibility
                 let target = step.description.split_whitespace().next().unwrap_or("");
-                let _ = crate::worker_registry::global_worker_registry()
-                    .record_tool_call(&ctx.task_id, tool_name, target);
+                let _ = crate::worker_registry::global_worker_registry().record_tool_call(
+                    &ctx.task_id,
+                    tool_name,
+                    target,
+                );
                 r
             }
             Err(e) => {

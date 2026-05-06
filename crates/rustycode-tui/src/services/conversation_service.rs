@@ -689,7 +689,8 @@ Unused Memories (candidates for pruning):
         }
 
         if tool_search_enabled {
-            tools_json.push(crate::app::tool_search::ToolSearch::tool_definition_for_provider(provider));
+            tools_json
+                .push(crate::app::tool_search::ToolSearch::tool_definition_for_provider(provider));
         }
 
         serde_json::json!({

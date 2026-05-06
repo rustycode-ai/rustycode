@@ -92,8 +92,8 @@ pub mod iterm2_native;
 #[cfg(not(target_os = "macos"))]
 pub mod iterm2_native {
     use crate::{
-        ConnectorError, ConnectorResult, PaneContent, TerminalSessionId, SessionInfo, SplitDirection,
-        TerminalConnector,
+        ConnectorError, ConnectorResult, PaneContent, SessionInfo, SplitDirection,
+        TerminalConnector, TerminalSessionId,
     };
 
     #[derive(Debug, Clone, Default)]
@@ -185,13 +185,21 @@ pub mod iterm2_native {
             ))
         }
 
-        fn select_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
+        fn select_pane(
+            &mut self,
+            _session: &TerminalSessionId,
+            _pane_index: usize,
+        ) -> ConnectorResult<()> {
             Err(ConnectorError::NotAvailable(
                 "iTerm2 native connector is only available on macOS".into(),
             ))
         }
 
-        fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
+        fn kill_pane(
+            &mut self,
+            _session: &TerminalSessionId,
+            _pane_index: usize,
+        ) -> ConnectorResult<()> {
             Err(ConnectorError::NotAvailable(
                 "iTerm2 native connector is only available on macOS".into(),
             ))
@@ -408,7 +416,11 @@ pub trait TerminalConnector: Send + Sync {
     ) -> ConnectorResult<()>;
 
     /// Select/activate a specific pane
-    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()>;
+    fn select_pane(
+        &mut self,
+        session: &TerminalSessionId,
+        pane_index: usize,
+    ) -> ConnectorResult<()>;
 
     /// Kill a specific pane
     fn kill_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()>;

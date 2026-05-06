@@ -17,7 +17,7 @@ use std::process::Command;
 use crate::ast::classifier::TaskClassifier;
 use crate::ast::types::{ComplexityLevel, VerificationStatus};
 use crate::ast::{AstConfig, AstPipeline};
-use crate::bus::{BusHandle, OrchestrationEvent};
+use crate::bus::{BusHandle, MilestonePlanProgress, MilestonePlanState, OrchestrationEvent};
 use crate::config::OrchestrationConfig;
 use crate::error::Result;
 use crate::pipeline::{OrchestrationPipeline, TaskResult};
@@ -182,15 +182,20 @@ impl AutonomousService {
                 milestone_id
             ))
         })?;
+        let mut plans = storage.milestone_plans(&milestone_id)?;
         storage.update_milestone_status(&milestone_id, &MilestoneStatus::Active)?;
         self.emit_milestone_progress(
             &milestone.id,
             &milestone.title,
             MilestoneStatus::Active,
-            0,
-            0,
+            plans.len(),
+            plans
+                .iter()
+                .filter(|plan| plan.status == PlanStatus::Completed)
+                .count(),
             "Milestone activated",
             "Sequencing dependent plans...",
+            milestone_plan_rows(&milestone, &plans),
         );
 
         let mut aggregated_output = Vec::new();
@@ -203,7 +208,7 @@ impl AutonomousService {
         };
 
         loop {
-            let plans = storage.milestone_plans(&milestone_id)?;
+            plans = storage.milestone_plans(&milestone_id)?;
             let ready_ids = milestone.ready_plans(&plans);
             let next_plan_id = ready_ids.into_iter().find(|plan_id| {
                 plans.iter().any(|plan| {
@@ -213,7 +218,10 @@ impl AutonomousService {
             });
 
             let Some(plan_id) = next_plan_id else {
-                if plans.iter().all(|plan| plan.status == PlanStatus::Completed) {
+                if plans
+                    .iter()
+                    .all(|plan| plan.status == PlanStatus::Completed)
+                {
                     break;
                 }
 
@@ -230,6 +238,7 @@ impl AutonomousService {
                         .count(),
                     "Waiting for dependencies",
                     "Milestone paused until dependencies complete.",
+                    milestone_plan_rows(&milestone, &plans),
                 );
                 self.state = ServiceState::Failed;
                 return Ok(TaskResult::Failed {
@@ -240,7 +249,10 @@ impl AutonomousService {
             };
 
             let plan = storage.load_plan(&plan_id)?.ok_or_else(|| {
-                crate::error::OrchestrationError::TaskNotFound(format!("plan {} not found", plan_id))
+                crate::error::OrchestrationError::TaskNotFound(format!(
+                    "plan {} not found",
+                    plan_id
+                ))
             })?;
 
             self.emit_milestone_progress(
@@ -254,6 +266,7 @@ impl AutonomousService {
                     .count(),
                 &plan_summary(&plan),
                 "Executing next ready plan...",
+                milestone_plan_rows(&milestone, &plans),
             );
             storage.update_plan_status(&plan.id, &PlanStatus::Executing)?;
             let execution = self
@@ -276,11 +289,11 @@ impl AutonomousService {
                     steps_completed += plan_steps_completed;
                     tier_used = tier_used.max(plan_tier);
                     last_trace = execution_trace;
+                    plans = storage.milestone_plans(&milestone_id)?;
                     let completed_count = plans
                         .iter()
                         .filter(|candidate| candidate.status == PlanStatus::Completed)
-                        .count()
-                        + 1;
+                        .count();
                     self.emit_milestone_progress(
                         &milestone.id,
                         &milestone.title,
@@ -289,6 +302,7 @@ impl AutonomousService {
                         completed_count,
                         &plan_summary(&plan),
                         "Plan completed; checking remaining dependencies...",
+                        milestone_plan_rows(&milestone, &plans),
                     );
                 }
                 Ok(TaskResult::Failed {
@@ -312,6 +326,7 @@ impl AutonomousService {
                             .count(),
                         &plan_summary(&plan),
                         "Milestone failed during plan execution.",
+                        milestone_plan_rows(&milestone, &plans),
                     );
                     self.state = ServiceState::Failed;
                     return Ok(TaskResult::Failed {
@@ -337,6 +352,7 @@ impl AutonomousService {
                             .count(),
                         &plan_summary(&plan),
                         "Milestone failed due to orchestration error.",
+                        milestone_plan_rows(&milestone, &plans),
                     );
                     self.state = ServiceState::Failed;
                     return Err(error);
@@ -357,6 +373,7 @@ impl AutonomousService {
                 .count(),
             "Validation",
             "Running milestone validation...",
+            milestone_plan_rows(&milestone, &validation_plans),
         );
         let refreshed = storage.load_milestone(&milestone_id)?.ok_or_else(|| {
             crate::error::OrchestrationError::TaskNotFound(format!(
@@ -384,6 +401,7 @@ impl AutonomousService {
                     .count(),
                 "Validation passed",
                 "Milestone completed successfully.",
+                milestone_plan_rows(&milestone, &completed_plans),
             );
             self.state = ServiceState::Completed;
             Ok(TaskResult::Success {
@@ -412,6 +430,7 @@ impl AutonomousService {
                     .count(),
                 "Validation failed",
                 "Validation command failed.",
+                milestone_plan_rows(&milestone, &failed_plans),
             );
             self.state = ServiceState::Failed;
             Ok(TaskResult::Failed {
@@ -443,10 +462,8 @@ impl AutonomousService {
             .arg(command)
             .current_dir(&self.config.workspace)
             .status()
-            .map_err(|error| {
-                crate::error::OrchestrationError::Execution {
-                    message: format!("failed to run validation command '{command}': {error}"),
-                }
+            .map_err(|error| crate::error::OrchestrationError::Execution {
+                message: format!("failed to run validation command '{command}': {error}"),
             })?;
         Ok(status.success())
     }
@@ -460,17 +477,21 @@ impl AutonomousService {
         plans_completed: usize,
         current_plan_summary: impl Into<String>,
         action_hint: impl Into<String>,
+        plan_rows: Vec<MilestonePlanProgress>,
     ) {
-        self.pipeline.bus_handle().publish(OrchestrationEvent::MilestoneProgress {
-            task_id: milestone_id.to_string(),
-            milestone_id: milestone_id.clone(),
-            milestone_title: milestone_title.to_string(),
-            status,
-            plans_total,
-            plans_completed,
-            current_plan_summary: current_plan_summary.into(),
-            action_hint: action_hint.into(),
-        });
+        self.pipeline
+            .bus_handle()
+            .publish(OrchestrationEvent::MilestoneProgress {
+                task_id: milestone_id.to_string(),
+                milestone_id: milestone_id.clone(),
+                milestone_title: milestone_title.to_string(),
+                status,
+                plans_total,
+                plans_completed,
+                current_plan_summary: current_plan_summary.into(),
+                action_hint: action_hint.into(),
+                plan_rows,
+            });
     }
 }
 
@@ -480,6 +501,62 @@ fn plan_summary(plan: &Plan) -> String {
     } else {
         plan.summary.clone()
     }
+}
+
+fn milestone_plan_rows(
+    milestone: &rustycode_protocol::Milestone,
+    plans: &[Plan],
+) -> Vec<MilestonePlanProgress> {
+    use std::collections::HashMap;
+
+    let ready_ids = milestone.ready_plans(plans);
+    let plan_lookup: HashMap<_, _> = plans.iter().map(|plan| (plan.id.clone(), plan)).collect();
+    let dependency_lookup: HashMap<_, _> = milestone
+        .plan_dependencies
+        .iter()
+        .map(|dependency| (dependency.plan_id.clone(), dependency.depends_on.clone()))
+        .collect();
+
+    milestone
+        .plan_ids
+        .iter()
+        .filter_map(|plan_id| {
+            let plan = plan_lookup.get(plan_id)?;
+            let status = match plan.status {
+                PlanStatus::Completed => MilestonePlanState::Completed,
+                PlanStatus::Failed => MilestonePlanState::Failed,
+                PlanStatus::Rejected => MilestonePlanState::Failed,
+                PlanStatus::Executing => MilestonePlanState::Running,
+                PlanStatus::Approved | PlanStatus::Draft | PlanStatus::Ready
+                    if ready_ids.contains(plan_id) =>
+                {
+                    MilestonePlanState::Ready
+                }
+                PlanStatus::Approved | PlanStatus::Draft | PlanStatus::Ready => {
+                    MilestonePlanState::Blocked
+                }
+                _ => MilestonePlanState::Draft,
+            };
+
+            let blocked_by = dependency_lookup
+                .get(plan_id)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|dep_id| {
+                    let dep_plan = plan_lookup.get(&dep_id)?;
+                    (dep_plan.status != PlanStatus::Completed).then(|| plan_summary(dep_plan))
+                })
+                .collect::<Vec<_>>();
+
+            Some(MilestonePlanProgress {
+                plan_id: plan.id.clone(),
+                title: plan_summary(plan),
+                state: status,
+                blocked_by,
+            })
+        })
+        .collect()
 }
 
 fn convert_ast_result(result: crate::ast::AstExecutionResult) -> TaskResult {

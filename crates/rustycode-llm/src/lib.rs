@@ -142,13 +142,13 @@ pub mod openrouter;
 pub mod perplexity;
 pub mod provider;
 pub mod provider_error_policy;
-pub mod response_debug;
 pub mod provider_fallback;
 pub mod provider_helpers;
 pub mod provider_metadata;
 pub mod rate_limiter;
 pub mod registry;
 pub mod replay_provider;
+pub mod response_debug;
 pub mod retry;
 pub mod singleton_provider;
 pub mod sse;
@@ -215,12 +215,12 @@ pub use provider::{
 };
 
 pub use provider_error_policy::{retry_plan_for_error, user_facing_error_for, RetryPlan};
-pub use response_debug::ResponseDebugContext;
 pub use rate_limiter::{RateLimitConfig, RateLimitType, RateLimiter, RateLimiterBuilder};
 pub use registry::{
     ModelInfo as ModelSpec, ModelTier, ProviderMetadata as ProviderMeta, ProviderMetadataRegistry,
     ProviderRegistry, ProviderRegistryBuilder, TaskModelConfig, TaskType,
 };
+pub use response_debug::ResponseDebugContext;
 pub use retry::{is_retryable_error, retry_with_backoff, RetryConfig};
 pub use token_tracker::{
     cost_per_million_tokens, cost_per_million_tokens_io, estimate_cost, ModelUsage, TokenTracker,
@@ -250,9 +250,9 @@ pub use model_info::{
 
 // Provider helpers for convenient access to registry functions
 pub use provider_helpers::{
-    find_model_provider, find_provider, cheapest_model, context_window, default_model,
-    model_cost, models_by_tier, provider_info_json, registry, is_model_available,
-    is_provider_available, list_models, list_provider_models, list_providers, select_model,
+    cheapest_model, context_window, default_model, find_model_provider, find_provider,
+    is_model_available, is_provider_available, list_models, list_provider_models, list_providers,
+    model_cost, models_by_tier, provider_info_json, registry, select_model,
     select_model_with_config,
 };
 

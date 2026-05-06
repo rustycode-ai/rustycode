@@ -35,13 +35,13 @@
 //! ```
 
 use anyhow::{anyhow, Result};
-use tracing::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command;
+use tracing::{debug, info, warn};
 
 /// Default timeout for success check commands (seconds)
 pub const DEFAULT_CHECK_TIMEOUT_SECS: u64 = 60;

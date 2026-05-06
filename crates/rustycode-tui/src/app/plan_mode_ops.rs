@@ -93,7 +93,11 @@ impl PlanModeBanner {
             } => {
                 format!(
                     "[{}] {}/{} plans complete. {}. {}",
-                    milestone_title, plans_completed, plans_total, current_plan_summary, action_hint
+                    milestone_title,
+                    plans_completed,
+                    plans_total,
+                    current_plan_summary,
+                    action_hint
                 )
             }
         }
@@ -119,9 +123,9 @@ impl PlanModeBanner {
     pub(crate) fn header_status(&self) -> HeaderStatus {
         match self {
             Self::Planning { .. } | Self::AwaitingApproval { .. } => HeaderStatus::Planning,
-            Self::PlanApproved { .. }
-            | Self::Executing { .. }
-            | Self::MilestoneProgress { .. } => HeaderStatus::RunningTools,
+            Self::PlanApproved { .. } | Self::Executing { .. } | Self::MilestoneProgress { .. } => {
+                HeaderStatus::RunningTools
+            }
         }
     }
 }

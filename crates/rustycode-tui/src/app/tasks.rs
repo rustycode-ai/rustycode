@@ -307,17 +307,15 @@ pub fn sync_from_todo_state(
     let new_tasks: Vec<Task> = items
         .iter()
         .map(|item| {
-            let existing = old_llm_tasks
-                .iter()
-                .find(|t| t.id == item.id)
-                .copied();
+            let existing = old_llm_tasks.iter().find(|t| t.id == item.id).copied();
             llm_todo_to_task(item, existing)
         })
         .collect();
 
     let changed = old_llm_tasks.len() != new_tasks.len()
-        || !std::iter::zip(&old_llm_tasks, &new_tasks)
-            .all(|(old, new)| old.id == new.id && old.status == new.status && old.description == new.description);
+        || !std::iter::zip(&old_llm_tasks, &new_tasks).all(|(old, new)| {
+            old.id == new.id && old.status == new.status && old.description == new.description
+        });
 
     if changed {
         workspace
@@ -329,10 +327,7 @@ pub fn sync_from_todo_state(
     changed
 }
 
-fn llm_todo_to_task(
-    item: &rustycode_tools::todo::TodoItem,
-    existing: Option<&Task>,
-) -> Task {
+fn llm_todo_to_task(item: &rustycode_tools::todo::TodoItem, existing: Option<&Task>) -> Task {
     Task {
         id: item.id.clone(),
         description: item.title.clone(),
@@ -349,7 +344,9 @@ fn llm_todo_to_task(
                 TaskStatus::Pending
             }
         },
-        created_at: existing.map(|t| t.created_at).unwrap_or_else(SystemTime::now),
+        created_at: existing
+            .map(|t| t.created_at)
+            .unwrap_or_else(SystemTime::now),
         dependencies: Vec::new(),
         owner: Some(LLM_TODO_OWNER.to_string()),
     }

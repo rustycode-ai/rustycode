@@ -3,8 +3,8 @@
 //! These tests ensure that message structures and tool operations work correctly
 //! and handle None values gracefully.
 
-use crate::services::agent_mode::AiMode;
 use crate::app::event_loop::TUI;
+use crate::services::agent_mode::AiMode;
 use crate::ui::input::InputMode;
 use crate::ui::message_types::{ExpansionLevel, Message, MessageRole, ToolExecution, ToolStatus};
 use std::path::PathBuf;

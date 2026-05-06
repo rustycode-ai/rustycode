@@ -60,10 +60,7 @@ fn collect_active_entries(vector_mem: &VectorMemory) -> Vec<(String, String, f32
 
 /// Refresh summary without vector-memory backend (seed content only).
 #[cfg(not(feature = "vector-memory"))]
-pub fn refresh_summary_from_vector_memory(
-    _no_data: &(),
-    mem_dir: &Path,
-) -> anyhow::Result<usize> {
+pub fn refresh_summary_from_vector_memory(_no_data: &(), mem_dir: &Path) -> anyhow::Result<usize> {
     rustycode_memory::memdir::ensure_layout(mem_dir)?;
     Ok(0)
 }

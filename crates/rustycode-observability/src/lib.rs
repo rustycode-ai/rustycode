@@ -19,7 +19,7 @@ pub mod rule_tracer;
 pub use context::{create_context, ExecutionContext, SharedContext};
 pub use diagnostics::{CheckStatus, DiagnosticCheck, DiagnosticReport, DiagnosticSuite};
 pub use logging::{
-    clear_log_context, log_context, init_logging, set_log_context, LogContext, LogLevel,
+    clear_log_context, init_logging, log_context, set_log_context, LogContext, LogLevel,
     GLOBAL_LOG_CONTEXT,
 };
 pub use metrics::{Counter, Gauge, Histogram, HistogramStats, SessionMetrics};

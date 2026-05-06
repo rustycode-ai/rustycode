@@ -178,7 +178,10 @@ impl Default for ToolApprovalManager {
 /// Returns `(panel_height, panel_width)`. When the request contains diff content,
 /// the panel expands to show more lines (up to half the terminal height).
 /// Otherwise, returns the compact 7x70 default.
-pub fn approval_panel_size(request: &ApprovalRequest, terminal_size: ratatui::layout::Rect) -> (u16, u16) {
+pub fn approval_panel_size(
+    request: &ApprovalRequest,
+    terminal_size: ratatui::layout::Rect,
+) -> (u16, u16) {
     if request.has_diff_content() {
         let diff_lines = request.command.lines().count();
         let max_height = (terminal_size.height / 2).max(7) as usize;
@@ -334,8 +337,8 @@ fn render_diff_approval(
     let header_lines = header.len();
     let footer_lines = footer.len();
     let border_lines = 2;
-    let available_diff = (area.height as usize)
-        .saturating_sub(header_lines + footer_lines + border_lines);
+    let available_diff =
+        (area.height as usize).saturating_sub(header_lines + footer_lines + border_lines);
     let visible_diff = available_diff.max(1);
 
     // Build full content: header + diff slice + footer
@@ -355,12 +358,10 @@ fn render_diff_approval(
         } else {
             "mid"
         };
-        content.push(Line::from(vec![
-            Span::styled(
-                format!(" {} lines, j/k to scroll ({}) ", total_diff, pct),
-                Style::default().fg(Color::DarkGray),
-            ),
-        ]));
+        content.push(Line::from(vec![Span::styled(
+            format!(" {} lines, j/k to scroll ({}) ", total_diff, pct),
+            Style::default().fg(Color::DarkGray),
+        )]));
     }
 
     content.extend(footer.iter().cloned());
@@ -398,7 +399,8 @@ mod tests {
 
     #[test]
     fn diff_scroll_clamps_at_max() {
-        let content = "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new";
+        let content =
+            "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new";
         let mut req = ApprovalRequest::new(
             "edit_file".into(),
             risk::ToolType::WriteFile,

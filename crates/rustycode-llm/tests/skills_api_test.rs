@@ -21,9 +21,7 @@
 //! Tests for Anthropic Agent Skills API support
 
 use rustycode_llm::provider::{CompletionRequest, SkillRef};
-use rustycode_llm::tools::{
-    anthropic_skills_beta_headers, skills_tools, to_anthropic_tools,
-};
+use rustycode_llm::tools::{anthropic_skills_beta_headers, skills_tools, to_anthropic_tools};
 
 #[test]
 fn test_skill_ref_serialization() {

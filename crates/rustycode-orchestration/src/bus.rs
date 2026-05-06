@@ -1,6 +1,7 @@
 use crate::error_signal::ErrorSignal;
 use crate::guard::{Resource, ResourceAccess};
-use rustycode_protocol::{ExecutionPhase, MilestoneId, MilestoneStatus};
+use rustycode_protocol::{ExecutionPhase, MilestoneId, MilestoneStatus, PlanId};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
@@ -190,6 +191,7 @@ pub enum OrchestrationEvent {
         plans_completed: usize,
         current_plan_summary: String,
         action_hint: String,
+        plan_rows: Vec<MilestonePlanProgress>,
     },
     /// A delegated task has been spawned into its own context.
     TaskSpawned {
@@ -228,6 +230,27 @@ pub enum OrchestrationEvent {
         total_cost_usd: f64,
         total_duration_ms: i64,
     },
+}
+
+/// Compact plan snapshot used for milestone progress rendering.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MilestonePlanProgress {
+    pub plan_id: PlanId,
+    pub title: String,
+    pub state: MilestonePlanState,
+    pub blocked_by: Vec<String>,
+}
+
+/// Rendered milestone plan state.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MilestonePlanState {
+    Draft,
+    Ready,
+    Running,
+    Completed,
+    Blocked,
+    Failed,
 }
 
 #[derive(Clone)]

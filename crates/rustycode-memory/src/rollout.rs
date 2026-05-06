@@ -71,7 +71,13 @@ impl ExtractedMemory {
             Some(slug) => {
                 let sanitized: String = slug
                     .chars()
-                    .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' })
+                    .map(|c| {
+                        if c.is_alphanumeric() || c == '-' {
+                            c
+                        } else {
+                            '_'
+                        }
+                    })
                     .collect();
                 format!("{timestamp}-{id_short}-{sanitized}.md")
             }
@@ -111,8 +117,7 @@ pub fn write_rollout_summary(mem_dir: &Path, memory: &ExtractedMemory) -> Result
     memdir::ensure_layout(mem_dir)?;
 
     let dir = memdir::rollout_summaries_dir(mem_dir);
-    fs::create_dir_all(&dir)
-        .with_context(|| format!("failed to create {}", dir.display()))?;
+    fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
 
     let path = dir.join(memory.filename());
     fs::write(&path, memory.to_markdown())
@@ -129,8 +134,8 @@ pub fn load_all_rollout_summaries(mem_dir: &Path) -> Result<Vec<ExtractedMemory>
     }
 
     let mut memories = Vec::new();
-    let entries = fs::read_dir(&dir)
-        .with_context(|| format!("failed to read {}", dir.display()))?;
+    let entries =
+        fs::read_dir(&dir).with_context(|| format!("failed to read {}", dir.display()))?;
 
     for entry in entries {
         let entry = match entry {
@@ -160,8 +165,8 @@ pub fn load_all_rollout_summaries(mem_dir: &Path) -> Result<Vec<ExtractedMemory>
 
 /// Parse a rollout summary markdown file back into an ExtractedMemory.
 fn parse_rollout_file(path: &PathBuf) -> Result<Option<ExtractedMemory>> {
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("failed to read {}", path.display()))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
 
     if !content.starts_with("# Rollout Summary:") {
         return Ok(None);
@@ -174,10 +179,8 @@ fn parse_rollout_file(path: &PathBuf) -> Result<Option<ExtractedMemory>> {
 
     let generated_at = parse_filename_timestamp(filename).unwrap_or_else(Utc::now);
 
-    let thread_id = extract_field(&content, "**Thread:**")
-        .unwrap_or_else(|| filename.to_string());
-    let cwd = extract_field(&content, "**CWD:**")
-        .unwrap_or_else(|| "/unknown".to_string());
+    let thread_id = extract_field(&content, "**Thread:**").unwrap_or_else(|| filename.to_string());
+    let cwd = extract_field(&content, "**CWD:**").unwrap_or_else(|| "/unknown".to_string());
     let usage_count: u32 = extract_field(&content, "**Usage count:**")
         .and_then(|s| s.parse().ok())
         .unwrap_or(0);
@@ -189,10 +192,8 @@ fn parse_rollout_file(path: &PathBuf) -> Result<Option<ExtractedMemory>> {
         .map(|s| s.trim().to_string())
         .filter(|s| s != "untitled");
 
-    let rollout_summary = extract_section(&content, "## Summary")
-        .unwrap_or_default();
-    let raw_memory = extract_section(&content, "## Raw Memory")
-        .unwrap_or_default();
+    let rollout_summary = extract_section(&content, "## Summary").unwrap_or_default();
+    let raw_memory = extract_section(&content, "## Raw Memory").unwrap_or_default();
 
     Ok(Some(ExtractedMemory {
         thread_id,
@@ -232,12 +233,7 @@ fn extract_section(content: &str, heading: &str) -> Option<String> {
 
 fn parse_filename_timestamp(filename: &str) -> Option<DateTime<Utc>> {
     let ts_str = filename.get(..19)?;
-    let fixed = format!(
-        "{}:{}:{}",
-        &ts_str[..13],
-        &ts_str[14..16],
-        &ts_str[17..19]
-    );
+    let fixed = format!("{}:{}:{}", &ts_str[..13], &ts_str[14..16], &ts_str[17..19]);
     DateTime::parse_from_str(&fixed, "%Y-%m-%dT%H:%M:%S")
         .map(|dt| dt.with_timezone(&Utc))
         .ok()

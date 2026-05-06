@@ -252,7 +252,8 @@ fn update_tool_panel_history(
 
     // Find the running entry for this tool and update it in-place
     let updated_existing = tui
-        .tool_panel.tool_panel_history
+        .tool_panel
+        .tool_panel_history
         .iter_mut()
         .rev()
         .find(|entry| entry.tool_id == result.id && entry.status == ToolStatus::Running)

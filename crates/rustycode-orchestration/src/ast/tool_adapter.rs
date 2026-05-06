@@ -332,10 +332,7 @@ mod tests {
             adapter(ToolHarness::GeminiCli).harness(),
             ToolHarness::GeminiCli
         );
-        assert_eq!(
-            adapter(ToolHarness::Codex).harness(),
-            ToolHarness::Codex
-        );
+        assert_eq!(adapter(ToolHarness::Codex).harness(), ToolHarness::Codex);
     }
 
     #[test]

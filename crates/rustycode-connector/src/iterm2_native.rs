@@ -25,8 +25,8 @@
 //! (`send_text`, `capture_output`, `split_pane`, etc.) use the fast native API.
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
-    TerminalConnector,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionInfo, SplitDirection,
+    TerminalConnector, TerminalSessionId,
 };
 use std::process::Command;
 use std::sync::{Mutex, RwLock};
@@ -559,7 +559,11 @@ impl TerminalConnector for ITerm2NativeConnector {
         Ok(())
     }
 
-    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(
+        &mut self,
+        session: &TerminalSessionId,
+        pane_index: usize,
+    ) -> ConnectorResult<()> {
         let session_data = {
             let sessions = self
                 .sessions
@@ -596,7 +600,11 @@ impl TerminalConnector for ITerm2NativeConnector {
         Ok(())
     }
 
-    fn kill_pane(&mut self, _session: &TerminalSessionId, _pane_index: usize) -> ConnectorResult<()> {
+    fn kill_pane(
+        &mut self,
+        _session: &TerminalSessionId,
+        _pane_index: usize,
+    ) -> ConnectorResult<()> {
         Err(ConnectorError::Other(
             "kill_pane not implemented for iTerm2 native".to_string(),
         ))

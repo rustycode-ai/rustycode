@@ -1045,26 +1045,29 @@ impl Storage {
     // ── Milestones ───────────────────────────────────────────────────────────
 
     pub fn insert_milestone(&self, milestone: &Milestone) -> Result<()> {
-        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner).execute(
-            "insert into milestones (
+        self.conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .execute(
+                "insert into milestones (
                 id, session_id, title, description, status, plan_ids, plan_dependencies,
                 success_criteria, validation_command, created_at, updated_at, completed_at
             ) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-            params![
-                milestone.id.to_string(),
-                milestone.session_id.to_string(),
-                milestone.title.clone(),
-                milestone.description.clone(),
-                serde_json::to_string(&milestone.status)?,
-                serde_json::to_string(&milestone.plan_ids)?,
-                serde_json::to_string(&milestone.plan_dependencies)?,
-                serde_json::to_string(&milestone.success_criteria)?,
-                milestone.validation_command.clone(),
-                milestone.created_at.to_rfc3339(),
-                milestone.updated_at.to_rfc3339(),
-                milestone.completed_at.as_ref().map(|ts| ts.to_rfc3339()),
-            ],
-        )?;
+                params![
+                    milestone.id.to_string(),
+                    milestone.session_id.to_string(),
+                    milestone.title.clone(),
+                    milestone.description.clone(),
+                    serde_json::to_string(&milestone.status)?,
+                    serde_json::to_string(&milestone.plan_ids)?,
+                    serde_json::to_string(&milestone.plan_dependencies)?,
+                    serde_json::to_string(&milestone.success_criteria)?,
+                    milestone.validation_command.clone(),
+                    milestone.created_at.to_rfc3339(),
+                    milestone.updated_at.to_rfc3339(),
+                    milestone.completed_at.as_ref().map(|ts| ts.to_rfc3339()),
+                ],
+            )?;
         Ok(())
     }
 
@@ -1125,7 +1128,11 @@ impl Storage {
         Ok(())
     }
 
-    pub fn add_plan_to_milestone(&self, milestone_id: &MilestoneId, plan_id: &PlanId) -> Result<()> {
+    pub fn add_plan_to_milestone(
+        &self,
+        milestone_id: &MilestoneId,
+        plan_id: &PlanId,
+    ) -> Result<()> {
         let mut conn = self
             .conn
             .lock()
@@ -1137,8 +1144,8 @@ impl Storage {
             params![milestone_id.to_string()],
             |row| row.get::<_, String>(0),
         )?;
-        let mut plan_ids: Vec<PlanId> =
-            serde_json::from_str(&milestone_row).context("failed to deserialize milestone plan ids")?;
+        let mut plan_ids: Vec<PlanId> = serde_json::from_str(&milestone_row)
+            .context("failed to deserialize milestone plan ids")?;
         if !plan_ids.contains(plan_id) {
             plan_ids.push(plan_id.clone());
         }
@@ -2489,8 +2496,7 @@ mod tests {
     use chrono::Utc;
     use rustycode_protocol::{
         EventKind, Milestone, MilestoneId, MilestoneStatus, Plan, PlanDependency, PlanId,
-        PlanStatus, Session, SessionEvent, SessionId, SessionMode, SessionStatus,
-        ToolApprovalMode,
+        PlanStatus, Session, SessionEvent, SessionId, SessionMode, SessionStatus, ToolApprovalMode,
     };
     use std::fs;
     use std::path::PathBuf;
@@ -2790,7 +2796,9 @@ mod tests {
 
         let milestone_plans = storage.milestone_plans(&milestone.id).unwrap();
         assert_eq!(milestone_plans.len(), 2);
-        assert!(milestone_plans.iter().all(|plan| plan.milestone_id == Some(milestone.id.clone())));
+        assert!(milestone_plans
+            .iter()
+            .all(|plan| plan.milestone_id == Some(milestone.id.clone())));
 
         let sessions_milestones = storage.list_milestones(&session.id).unwrap();
         assert_eq!(sessions_milestones.len(), 1);
@@ -4138,7 +4146,10 @@ mod tests {
     #[test]
     fn milestone_not_found_returns_none() {
         let storage = Storage::open(&temp_db_path()).unwrap();
-        assert!(storage.load_milestone(&MilestoneId::new()).unwrap().is_none());
+        assert!(storage
+            .load_milestone(&MilestoneId::new())
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -4150,10 +4161,28 @@ mod tests {
         storage.insert_session(&session_b).unwrap();
 
         for i in 0..3 {
-            storage.insert_milestone(&Milestone {
+            storage
+                .insert_milestone(&Milestone {
+                    id: MilestoneId::new(),
+                    session_id: session_a.id.clone(),
+                    title: format!("Milestone {i}"),
+                    description: String::new(),
+                    status: MilestoneStatus::Draft,
+                    plan_ids: vec![],
+                    plan_dependencies: vec![],
+                    success_criteria: vec![],
+                    validation_command: None,
+                    created_at: Utc::now(),
+                    updated_at: Utc::now(),
+                    completed_at: None,
+                })
+                .unwrap();
+        }
+        storage
+            .insert_milestone(&Milestone {
                 id: MilestoneId::new(),
-                session_id: session_a.id.clone(),
-                title: format!("Milestone {i}"),
+                session_id: session_b.id.clone(),
+                title: "Other".to_string(),
                 description: String::new(),
                 status: MilestoneStatus::Draft,
                 plan_ids: vec![],
@@ -4163,22 +4192,8 @@ mod tests {
                 created_at: Utc::now(),
                 updated_at: Utc::now(),
                 completed_at: None,
-            }).unwrap();
-        }
-        storage.insert_milestone(&Milestone {
-            id: MilestoneId::new(),
-            session_id: session_b.id.clone(),
-            title: "Other".to_string(),
-            description: String::new(),
-            status: MilestoneStatus::Draft,
-            plan_ids: vec![],
-            plan_dependencies: vec![],
-            success_criteria: vec![],
-            validation_command: None,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            completed_at: None,
-        }).unwrap();
+            })
+            .unwrap();
 
         let a_milestones = storage.list_milestones(&session_a.id).unwrap();
         assert_eq!(a_milestones.len(), 3);
@@ -4209,12 +4224,16 @@ mod tests {
         let id = milestone.id.clone();
         storage.insert_milestone(&milestone).unwrap();
 
-        storage.update_milestone_status(&id, &MilestoneStatus::Active).unwrap();
+        storage
+            .update_milestone_status(&id, &MilestoneStatus::Active)
+            .unwrap();
         let active = storage.load_milestone(&id).unwrap().unwrap();
         assert_eq!(active.status, MilestoneStatus::Active);
         assert!(active.completed_at.is_none());
 
-        storage.update_milestone_status(&id, &MilestoneStatus::Completed).unwrap();
+        storage
+            .update_milestone_status(&id, &MilestoneStatus::Completed)
+            .unwrap();
         let completed = storage.load_milestone(&id).unwrap().unwrap();
         assert_eq!(completed.status, MilestoneStatus::Completed);
         assert!(completed.completed_at.is_some());
@@ -4247,7 +4266,9 @@ mod tests {
         let plan_id = plan.id.clone();
         storage.insert_plan(&plan).unwrap();
 
-        storage.add_plan_to_milestone(&milestone_id, &plan_id).unwrap();
+        storage
+            .add_plan_to_milestone(&milestone_id, &plan_id)
+            .unwrap();
 
         let loaded_milestone = storage.load_milestone(&milestone_id).unwrap().unwrap();
         assert!(loaded_milestone.plan_ids.contains(&plan_id));
@@ -4286,12 +4307,18 @@ mod tests {
         storage.insert_plan(&plan_b).unwrap();
         storage.insert_plan(&unrelated).unwrap();
 
-        storage.add_plan_to_milestone(&milestone_id, &plan_a.id).unwrap();
-        storage.add_plan_to_milestone(&milestone_id, &plan_b.id).unwrap();
+        storage
+            .add_plan_to_milestone(&milestone_id, &plan_a.id)
+            .unwrap();
+        storage
+            .add_plan_to_milestone(&milestone_id, &plan_b.id)
+            .unwrap();
 
         let plans = storage.milestone_plans(&milestone_id).unwrap();
         assert_eq!(plans.len(), 2);
-        assert!(plans.iter().all(|p| p.milestone_id == Some(milestone_id.clone())));
+        assert!(plans
+            .iter()
+            .all(|p| p.milestone_id == Some(milestone_id.clone())));
     }
 
     #[test]

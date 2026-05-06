@@ -54,9 +54,7 @@ impl RateLimitTracker {
 
         let reset_suffix = match self.reset_at {
             Some(reset_at) => {
-                let secs = (reset_at - Utc::now())
-                    .num_seconds()
-                    .max(0) as u64;
+                let secs = (reset_at - Utc::now()).num_seconds().max(0) as u64;
                 if secs == 0 {
                     String::new()
                 } else if secs < 60 {
@@ -68,7 +66,10 @@ impl RateLimitTracker {
             None => String::new(),
         };
 
-        Some(format!("Rate: {}/{} ({}%){}", remaining, limit, pct, reset_suffix))
+        Some(format!(
+            "Rate: {}/{} ({}%){}",
+            remaining, limit, pct, reset_suffix
+        ))
     }
 
     /// Returns usage percentage (0-100) for color coding, or `None` if no data.
@@ -101,7 +102,10 @@ impl RateLimitTracker {
 }
 
 /// Parse a header value as a numeric type.
-fn parse_header<T: std::str::FromStr>(headers: &reqwest::header::HeaderMap, name: &str) -> Option<T> {
+fn parse_header<T: std::str::FromStr>(
+    headers: &reqwest::header::HeaderMap,
+    name: &str,
+) -> Option<T> {
     let key = reqwest::header::HeaderName::from_bytes(name.as_bytes()).ok()?;
     headers.get(key)?.to_str().ok()?.trim().parse().ok()
 }
@@ -110,11 +114,21 @@ fn parse_header<T: std::str::FromStr>(headers: &reqwest::header::HeaderMap, name
 mod tests {
     use super::*;
 
-    fn headers(remaining: Option<&str>, limit: Option<&str>, reset: Option<&str>) -> reqwest::header::HeaderMap {
+    fn headers(
+        remaining: Option<&str>,
+        limit: Option<&str>,
+        reset: Option<&str>,
+    ) -> reqwest::header::HeaderMap {
         let mut h = reqwest::header::HeaderMap::new();
-        if let Some(v) = remaining { h.insert("x-ratelimit-remaining", v.parse().unwrap()); }
-        if let Some(v) = limit { h.insert("x-ratelimit-limit", v.parse().unwrap()); }
-        if let Some(v) = reset { h.insert("x-ratelimit-reset", v.parse().unwrap()); }
+        if let Some(v) = remaining {
+            h.insert("x-ratelimit-remaining", v.parse().unwrap());
+        }
+        if let Some(v) = limit {
+            h.insert("x-ratelimit-limit", v.parse().unwrap());
+        }
+        if let Some(v) = reset {
+            h.insert("x-ratelimit-reset", v.parse().unwrap());
+        }
         h
     }
 

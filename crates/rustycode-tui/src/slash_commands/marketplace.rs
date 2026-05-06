@@ -3,7 +3,7 @@
 use crate::marketplace::{
     client::{
         fetch_marketplace_index, filter_by_category, filter_by_type, installed_items,
-        updatable_items, search_marketplace,
+        search_marketplace, updatable_items,
     },
     index::ItemType,
     installer::{install_item, uninstall_item},

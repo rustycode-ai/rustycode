@@ -3,8 +3,8 @@
 //! Provides tmux-based terminal multiplexing capabilities.
 
 use crate::{
-    ConnectorError, ConnectorResult, PaneContent, PaneInfo, TerminalSessionId, SessionInfo, SplitDirection,
-    TerminalConnector,
+    ConnectorError, ConnectorResult, PaneContent, PaneInfo, SessionInfo, SplitDirection,
+    TerminalConnector, TerminalSessionId,
 };
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
@@ -321,7 +321,11 @@ impl TerminalConnector for TmuxConnector {
         Ok(())
     }
 
-    fn select_pane(&mut self, session: &TerminalSessionId, pane_index: usize) -> ConnectorResult<()> {
+    fn select_pane(
+        &mut self,
+        session: &TerminalSessionId,
+        pane_index: usize,
+    ) -> ConnectorResult<()> {
         let target = self.pane_target(session, pane_index);
 
         self.run_tmux_silent(&["select-pane", "-t", &target])?;

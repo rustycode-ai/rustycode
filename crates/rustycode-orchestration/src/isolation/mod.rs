@@ -13,6 +13,6 @@ pub use tier::{
     ToolPolicy,
 };
 pub use worktree::{
-    auto_worktree_branch, original_base, in_worktree, Worktree, WorktreeLock, WorktreeManager,
+    auto_worktree_branch, in_worktree, original_base, Worktree, WorktreeLock, WorktreeManager,
 };
 pub use worktree_name_gen::generate_worktree_name;

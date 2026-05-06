@@ -820,16 +820,19 @@ impl BrutalistRenderer<'_> {
         let is_chained_mid = chained.is_some_and(|(is_chained, is_last)| is_chained && !is_last);
 
         if !is_chained_mid {
-            // Just a colored vertical bar — no text label, saves vertical space
+            // Render the role accent as a colored gutter cell instead of a
+            // text glyph so terminal-native copy/paste does not capture it.
             lines.push(Line::from(vec![Span::styled(
-                "▌".to_string(),
-                Style::default().fg(role_color).add_modifier(Modifier::BOLD),
+                " ".to_string(),
+                Style::default()
+                    .bg(role_color)
+                    .add_modifier(Modifier::BOLD),
             )]));
         } else {
             // Minimal continuation marker for chained tool-only messages
             lines.push(Line::from(vec![Span::styled(
-                "▎ ",
-                Style::default().fg(Color::Rgb(60, 60, 70)),
+                " ",
+                Style::default().bg(Color::Rgb(60, 60, 70)),
             )]));
         }
 
@@ -1767,6 +1770,26 @@ mod tests {
             link_span.style.fg,
             Some(theme_colors.secondary),
             "link text inside a table cell should keep link styling"
+        );
+    }
+
+    #[test]
+    fn role_gutter_is_not_rendered_as_copyable_text() {
+        let msg = Message::assistant("Hello from the assistant".to_string());
+        let messages = vec![msg];
+        let renderer = BrutalistRendererBuilder::new(&messages, "").build();
+        let colors = Arc::new(Mutex::new(ThemeColors::from(&Theme::default())));
+        let theme_colors = colors.lock().unwrap();
+        let lines = renderer.render_message_brutalist(&messages[0], 0, 80, &theme_colors, None);
+
+        let rendered = lines
+            .first()
+            .map(|line| line.to_string())
+            .unwrap_or_default();
+
+        assert!(
+            !rendered.contains('▌'),
+            "role gutter should be rendered as a non-text cell, got: {rendered:?}"
         );
     }
 

@@ -19,7 +19,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     // Clear stale active tools on error
     tui.active_tools.clear();
     // Reset streaming buffer state so next stream starts clean
-    tui.streaming.streaming_render_buffer = crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.streaming_render_buffer =
+        crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
     tui.streaming.chunks_received = 0;
     tui.streaming.thinking_chunks_received = 0;
 

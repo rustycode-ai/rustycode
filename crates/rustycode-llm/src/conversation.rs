@@ -1,5 +1,7 @@
 use rustycode_protocol::message_selector::{MessageSelector, SelectionConfig};
-use rustycode_protocol::{Conversation as ProtocolConversation, Message, MessagePriority, MessageRole};
+use rustycode_protocol::{
+    Conversation as ProtocolConversation, Message, MessagePriority, MessageRole,
+};
 
 /// Conversation manager with context windowing
 pub struct ConversationManager {

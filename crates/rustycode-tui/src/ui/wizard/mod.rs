@@ -667,4 +667,3 @@ pub enum WizardAction {
 mod render;
 #[cfg(test)]
 mod tests;
-

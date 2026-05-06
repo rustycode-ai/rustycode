@@ -1267,15 +1267,11 @@ mod tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].path, Some("/src/main.rs".into()));
 
-        let tests = store
-            .artifacts_by_kind(&task.id, "test_result")
-            .unwrap();
+        let tests = store.artifacts_by_kind(&task.id, "test_result").unwrap();
         assert_eq!(tests.len(), 1);
         assert_eq!(tests[0].summary, Some("All tests pass".into()));
 
-        let empty = store
-            .artifacts_by_kind(&task.id, "nonexistent")
-            .unwrap();
+        let empty = store.artifacts_by_kind(&task.id, "nonexistent").unwrap();
         assert!(empty.is_empty());
     }
 

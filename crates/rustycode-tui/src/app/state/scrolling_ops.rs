@@ -72,7 +72,8 @@ impl TUI {
 
     /// Push current position to undo stack with bounded capacity
     pub(crate) fn push_undo_position(&mut self) {
-        self.undo.push_message(self.view.selected_message, self.view.scroll_offset_line);
+        self.undo
+            .push_message(self.view.selected_message, self.view.scroll_offset_line);
     }
 
     /// Pop and restore the last undo position
@@ -126,7 +127,8 @@ impl TUI {
         let scroll_amount = (self.view.viewport_height / 2).max(1);
         let max_scroll = self.begin_manual_scroll();
         self.view.scroll_offset_line = self
-            .view.scroll_offset_line
+            .view
+            .scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
 
@@ -155,7 +157,8 @@ impl TUI {
         let scroll_amount = self.view.viewport_height.max(1);
         let max_scroll = self.begin_manual_scroll();
         self.view.scroll_offset_line = self
-            .view.scroll_offset_line
+            .view
+            .scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
 

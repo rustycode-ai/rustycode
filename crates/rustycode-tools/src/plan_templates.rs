@@ -623,9 +623,15 @@ impl PlanTemplate {
 impl MilestoneTemplate {
     pub const fn description(&self) -> &str {
         match self {
-            Self::NewFeature => "Decompose a new feature into research, implementation, and verification plans",
-            Self::BugInvestigation => "Break a bug investigation into reproduction, diagnosis, fix, and regression plans",
-            Self::MajorRefactor => "Split a large refactor into scaffolding, migration, cleanup, and tests",
+            Self::NewFeature => {
+                "Decompose a new feature into research, implementation, and verification plans"
+            }
+            Self::BugInvestigation => {
+                "Break a bug investigation into reproduction, diagnosis, fix, and regression plans"
+            }
+            Self::MajorRefactor => {
+                "Split a large refactor into scaffolding, migration, cleanup, and tests"
+            }
         }
     }
 
@@ -666,7 +672,11 @@ impl MilestoneTemplate {
             plan_ids.push(plan_id.clone());
             dependencies.push(PlanDependency {
                 plan_id,
-                depends_on: spec.depends_on.iter().map(|index| plan_ids[*index].clone()).collect(),
+                depends_on: spec
+                    .depends_on
+                    .iter()
+                    .map(|index| plan_ids[*index].clone())
+                    .collect(),
             });
             plans.push(plan);
         }
@@ -957,18 +967,14 @@ mod tests {
         assert!(!blueprint.milestone.plan_ids.is_empty());
         assert_eq!(blueprint.milestone.plan_ids.len(), blueprint.plans.len());
         assert_eq!(blueprint.plans.len(), 4);
-        assert!(
-            blueprint
-                .plans
-                .iter()
-                .all(|plan| plan.milestone_id == Some(blueprint.milestone.id.clone()))
-        );
-        assert!(
-            blueprint
-                .milestone
-                .plan_dependencies
-                .iter()
-                .any(|dep| !dep.depends_on.is_empty())
-        );
+        assert!(blueprint
+            .plans
+            .iter()
+            .all(|plan| plan.milestone_id == Some(blueprint.milestone.id.clone())));
+        assert!(blueprint
+            .milestone
+            .plan_dependencies
+            .iter()
+            .any(|dep| !dep.depends_on.is_empty()));
     }
 }

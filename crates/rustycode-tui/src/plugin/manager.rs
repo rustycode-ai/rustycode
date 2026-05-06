@@ -3,7 +3,7 @@
 //! Handles manifest-based discovery, install/update/uninstall from local paths or
 //! git URLs, and enable/disable state. Dynamic library loading is not yet implemented.
 
-use super::api::{CommandHandler, PluginCommandResult as CommandResult, PluginAPI};
+use super::api::{CommandHandler, PluginAPI, PluginCommandResult as CommandResult};
 use super::manifest::PluginManifest;
 use super::permissions::PluginPermissions;
 use anyhow::{Context, Result};

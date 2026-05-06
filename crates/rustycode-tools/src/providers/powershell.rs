@@ -1042,9 +1042,7 @@ impl ToolStreaming for PowerShellTool {
             .min(600);
 
         // Validate
-        use crate::security::cross_platform::{
-            allowed_commands, blocked_commands, ShellType,
-        };
+        use crate::security::cross_platform::{allowed_commands, blocked_commands, ShellType};
         let shell_type = ShellType::PowerShell;
         let binary_name = extract_binary_name(&command).unwrap_or_default();
         let allowed_commands = allowed_commands(shell_type);

@@ -207,10 +207,7 @@ impl StreamConfig {
         self
     }
 
-    pub fn hook_manager_opt(
-        mut self,
-        hm: Option<rustycode_tools::hooks::HookManager>,
-    ) -> Self {
+    pub fn hook_manager_opt(mut self, hm: Option<rustycode_tools::hooks::HookManager>) -> Self {
         self.hook_manager = hm;
         self
     }
@@ -461,7 +458,9 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
 
         // Inject memory instructions (project-scoped)
         let mem_dir = rustycode_memory::memory_dir(Path::new(cwd_str));
-        if let Some(mem_instructions) = rustycode_memory::read_path::build_memory_instructions(&mem_dir) {
+        if let Some(mem_instructions) =
+            rustycode_memory::read_path::build_memory_instructions(&mem_dir)
+        {
             system_parts.push(mem_instructions);
         }
     }

@@ -185,11 +185,13 @@ mod tests {
 
         // Verify only tool-2's entry was updated in panel history
         let tool1 = tui
-            .tool_panel.tool_panel_history
+            .tool_panel
+            .tool_panel_history
             .iter()
             .find(|e| e.tool_id == "tool-1");
         let tool2 = tui
-            .tool_panel.tool_panel_history
+            .tool_panel
+            .tool_panel_history
             .iter()
             .find(|e| e.tool_id == "tool-2");
 
@@ -420,7 +422,10 @@ mod tests {
             tui.streaming.current_stream_content, "",
             "current_stream_content should be cleared after Done"
         );
-        assert!(!tui.streaming.is_streaming, "is_streaming should be false after Done");
+        assert!(
+            !tui.streaming.is_streaming,
+            "is_streaming should be false after Done"
+        );
     }
 
     #[test]

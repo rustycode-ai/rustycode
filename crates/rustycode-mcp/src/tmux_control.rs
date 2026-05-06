@@ -4,8 +4,8 @@ use crate::types::{McpContent, McpTool, McpToolResult};
 use crate::{McpError, McpResult, McpServer};
 use chrono::Utc;
 use rustycode_connector::{
-    CapturePaneOptions, ConnectorError, ITerm2NativeConnector, It2Connector, TerminalSessionId,
-    SessionInfo, SplitDirection, TerminalConnector, TmuxConnector,
+    CapturePaneOptions, ConnectorError, ITerm2NativeConnector, It2Connector, SessionInfo,
+    SplitDirection, TerminalConnector, TerminalSessionId, TmuxConnector,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -967,8 +967,9 @@ impl TmuxMcpServer {
 
         let mut removed = 0usize;
         for session_id in expired_ids {
-            let _ = self
-                .with_backend_mut(|backend| backend.close_session(&TerminalSessionId(session_id.clone())));
+            let _ = self.with_backend_mut(|backend| {
+                backend.close_session(&TerminalSessionId(session_id.clone()))
+            });
             let mut state = self
                 .state
                 .lock()

@@ -137,7 +137,8 @@ pub fn handle_load_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
         Some(id) => id.to_string(),
         None => {
             // List available sessions
-            let sessions = crate::services::session::load_session_history_list("Current Session", 0);
+            let sessions =
+                crate::services::session::load_session_history_list("Current Session", 0);
             if sessions.is_empty() {
                 return Ok(CommandEffect::SystemMessage(
                     "No saved sessions found".to_string(),
@@ -162,9 +163,15 @@ pub fn handle_load_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
                 .map(|sm| {
                     let role = match sm.role {
                         crate::services::session::SerializedMessageType::User => MessageRole::User,
-                        crate::services::session::SerializedMessageType::AI => MessageRole::Assistant,
-                        crate::services::session::SerializedMessageType::System => MessageRole::System,
-                        crate::services::session::SerializedMessageType::Tool => MessageRole::System,
+                        crate::services::session::SerializedMessageType::AI => {
+                            MessageRole::Assistant
+                        }
+                        crate::services::session::SerializedMessageType::System => {
+                            MessageRole::System
+                        }
+                        crate::services::session::SerializedMessageType::Tool => {
+                            MessageRole::System
+                        }
                     };
                     crate::ui::message::Message::new(role, sm.content)
                 })
@@ -206,9 +213,15 @@ pub fn handle_resume_command(_parts: &[&str], _ctx: CommandContext<'_>) -> Resul
                 .map(|sm| {
                     let role = match sm.role {
                         crate::services::session::SerializedMessageType::User => MessageRole::User,
-                        crate::services::session::SerializedMessageType::AI => MessageRole::Assistant,
-                        crate::services::session::SerializedMessageType::System => MessageRole::System,
-                        crate::services::session::SerializedMessageType::Tool => MessageRole::System,
+                        crate::services::session::SerializedMessageType::AI => {
+                            MessageRole::Assistant
+                        }
+                        crate::services::session::SerializedMessageType::System => {
+                            MessageRole::System
+                        }
+                        crate::services::session::SerializedMessageType::Tool => {
+                            MessageRole::System
+                        }
                     };
                     crate::ui::message::Message::new(role, sm.content)
                 })
@@ -273,7 +286,8 @@ pub fn handle_sessions_command(parts: &[&str], _ctx: CommandContext<'_>) -> Resu
         }
         _ => {
             // List sessions
-            let sessions = crate::services::session::load_session_history_list("Current Session", 0);
+            let sessions =
+                crate::services::session::load_session_history_list("Current Session", 0);
             if sessions.is_empty() {
                 return Ok(CommandEffect::SystemMessage(
                     "No saved sessions found".to_string(),

@@ -8,6 +8,8 @@ use ratatui::{
     widgets::{Block, Clear, Paragraph, Wrap},
     Frame,
 };
+use rustycode_orchestration::bus::{MilestonePlanProgress, MilestonePlanState};
+use rustycode_protocol::MilestoneStatus;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Instant;
@@ -234,6 +236,20 @@ struct SidebarSection<'a> {
     collapsible: bool,
 }
 
+/// Compact milestone progress snapshot shown in the sidebar.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct MilestoneProgressSnapshot {
+    pub milestone_id: String,
+    pub milestone_title: String,
+    pub status: MilestoneStatus,
+    pub plans_total: usize,
+    pub plans_completed: usize,
+    pub current_plan_summary: String,
+    pub action_hint: String,
+    pub plan_rows: Vec<MilestonePlanProgress>,
+}
+
 /// MCP server lifecycle state shown in the sidebar.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -306,6 +322,8 @@ pub struct SessionSidebar {
     /// Tool call summary
     tool_calls_running: usize,
     tool_calls_recent: Option<String>,
+    /// Milestone progress summary
+    milestone_progress: Option<MilestoneProgressSnapshot>,
 }
 
 impl SessionSidebar {
@@ -331,6 +349,7 @@ impl SessionSidebar {
             mcp_servers: Vec::new(),
             tool_calls_running: 0,
             tool_calls_recent: None,
+            milestone_progress: None,
         }
     }
 
@@ -368,6 +387,35 @@ impl SessionSidebar {
     pub fn update_tool_call_summary(&mut self, running: usize, recent: Option<String>) {
         self.tool_calls_running = running;
         self.tool_calls_recent = recent;
+    }
+
+    /// Update the active milestone summary shown in the sidebar.
+    pub fn update_milestone_progress(
+        &mut self,
+        milestone_id: String,
+        milestone_title: String,
+        status: MilestoneStatus,
+        plans_total: usize,
+        plans_completed: usize,
+        current_plan_summary: String,
+        action_hint: String,
+        plan_rows: Vec<MilestonePlanProgress>,
+    ) {
+        self.milestone_progress = Some(MilestoneProgressSnapshot {
+            milestone_id,
+            milestone_title,
+            status,
+            plans_total,
+            plans_completed,
+            current_plan_summary,
+            action_hint,
+            plan_rows,
+        });
+    }
+
+    /// Clear the active milestone summary.
+    pub fn clear_milestone_progress(&mut self) {
+        self.milestone_progress = None;
     }
 
     /// Show the sidebar
@@ -1014,6 +1062,89 @@ impl SessionSidebar {
             });
         }
 
+        // Milestone progress section (shown while a milestone is active)
+        if let Some(ref milestone) = self.milestone_progress {
+            let mut milestone_lines = Vec::new();
+            milestone_lines.push(Line::from(vec![
+                Span::styled("◆ ", Style::default().fg(Color::Magenta)),
+                Span::styled(
+                    format!(
+                        "{} {}/{}",
+                        milestone.status, milestone.plans_completed, milestone.plans_total
+                    ),
+                    Style::default()
+                        .fg(Color::Magenta)
+                        .add_modifier(ratatui::style::Modifier::BOLD),
+                ),
+            ]));
+            milestone_lines.push(Line::from(vec![
+                Span::styled("  ", Style::default()),
+                Span::styled(
+                    milestone.milestone_title.clone(),
+                    Style::default().fg(Color::White),
+                ),
+                Span::styled(
+                    format!(" ({})", milestone.milestone_id),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]));
+            milestone_lines.push(Line::from(vec![
+                Span::styled("  ", Style::default()),
+                Span::styled(
+                    format!("Next: {}", milestone.current_plan_summary),
+                    Style::default().fg(Color::Cyan),
+                ),
+            ]));
+            milestone_lines.push(Line::from(vec![
+                Span::styled("  ", Style::default()),
+                Span::styled(
+                    milestone.action_hint.clone(),
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ]));
+            if !milestone.plan_rows.is_empty() {
+                milestone_lines.push(Line::from(vec![
+                    Span::styled("  ", Style::default()),
+                    Span::styled("Plans", Style::default().fg(Color::DarkGray)),
+                ]));
+
+                for plan in &milestone.plan_rows {
+                    let (icon, color) = match plan.state {
+                        MilestonePlanState::Completed => ("●", Color::Green),
+                        MilestonePlanState::Running => ("◐", Color::Yellow),
+                        MilestonePlanState::Ready => ("○", Color::Cyan),
+                        MilestonePlanState::Blocked => ("⛔", Color::Red),
+                        MilestonePlanState::Failed => ("✗", Color::Red),
+                        MilestonePlanState::Draft => ("·", Color::DarkGray),
+                    };
+
+                    let mut row = vec![
+                        Span::styled("  ", Style::default()),
+                        Span::styled(format!("{} ", icon), Style::default().fg(color)),
+                        Span::styled(&plan.title, Style::default().fg(color)),
+                    ];
+
+                    if !plan.blocked_by.is_empty()
+                        && matches!(plan.state, MilestonePlanState::Blocked)
+                    {
+                        row.push(Span::styled(
+                            format!("  blocked by: {}", plan.blocked_by.join(", ")),
+                            Style::default().fg(Color::DarkGray),
+                        ));
+                    }
+
+                    milestone_lines.push(Line::from(row));
+                }
+            }
+
+            sections.push(SidebarSection {
+                key: "milestone",
+                title: "Milestone",
+                lines: milestone_lines,
+                collapsible: true,
+            });
+        }
+
         // Current session info section (time shown in header bar)
         sections.push(SidebarSection {
             key: "session",
@@ -1472,6 +1603,63 @@ mod tests {
             sidebar.tool_calls_recent.as_deref(),
             Some("◐ read_file src/main.rs")
         );
+    }
+
+    #[test]
+    fn test_milestone_progress_update() {
+        let mut sidebar = SessionSidebar::new();
+        sidebar.update_milestone_progress(
+            "mile_123".to_string(),
+            "Auth".to_string(),
+            MilestoneStatus::Active,
+            5,
+            2,
+            "Middleware".to_string(),
+            "Executing next ready plan...".to_string(),
+            vec![
+                MilestonePlanProgress {
+                    plan_id: rustycode_protocol::PlanId::new(),
+                    title: "Types".to_string(),
+                    state: MilestonePlanState::Completed,
+                    blocked_by: vec![],
+                },
+                MilestonePlanProgress {
+                    plan_id: rustycode_protocol::PlanId::new(),
+                    title: "Middleware".to_string(),
+                    state: MilestonePlanState::Running,
+                    blocked_by: vec![],
+                },
+                MilestonePlanProgress {
+                    plan_id: rustycode_protocol::PlanId::new(),
+                    title: "Tests".to_string(),
+                    state: MilestonePlanState::Blocked,
+                    blocked_by: vec!["Middleware".to_string()],
+                },
+            ],
+        );
+
+        let sections = sidebar.build_sections(30);
+        let milestone = sections
+            .iter()
+            .find(|section| section.key == "milestone")
+            .expect("milestone section missing");
+
+        assert!(milestone.title.contains("Milestone"));
+        let text = milestone
+            .lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("Auth"));
+        assert!(text.contains("2/5"));
+        assert!(text.contains("Next: Middleware"));
+        assert!(text.contains("blocked by: Middleware"));
     }
 
     #[test]

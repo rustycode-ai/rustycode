@@ -160,7 +160,10 @@ fn extract_json_payload(response: &str) -> &str {
         }
     }
     let start = trimmed.find('{').unwrap_or(0);
-    let end = trimmed.rfind('}').map(|idx| idx + 1).unwrap_or(trimmed.len());
+    let end = trimmed
+        .rfind('}')
+        .map(|idx| idx + 1)
+        .unwrap_or(trimmed.len());
     &trimmed[start..end]
 }
 
