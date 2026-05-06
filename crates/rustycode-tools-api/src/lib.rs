@@ -212,6 +212,9 @@ pub struct SandboxConfig {
     pub max_output_bytes: Option<usize>,
     /// When true, execute bash commands in ephemeral Docker containers.
     pub docker_isolation: bool,
+    /// When true, execute bash commands inside an OS-level sandbox
+    /// (macOS Seatbelt, Linux Landlock, Windows Job Objects).
+    pub os_sandbox: bool,
 }
 
 impl SandboxConfig {

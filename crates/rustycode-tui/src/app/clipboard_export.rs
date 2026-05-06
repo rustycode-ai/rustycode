@@ -108,3 +108,51 @@ pub fn count_conversation_messages(messages: &[Message]) -> usize {
         .filter(|m| matches!(m.role, MessageRole::User | MessageRole::Assistant))
         .count()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ui::message::Message;
+
+    #[test]
+    fn count_empty_messages() {
+        assert_eq!(count_conversation_messages(&[]), 0);
+    }
+
+    #[test]
+    fn count_excludes_system_messages() {
+        let msgs = vec![
+            Message::user("hello".into()),
+            Message::system("status update".into()),
+            Message::assistant("hi there".into()),
+            Message::system("another status".into()),
+        ];
+        assert_eq!(count_conversation_messages(&msgs), 2);
+    }
+
+    #[test]
+    fn count_only_user_assistant() {
+        let msgs = vec![
+            Message::user("q1".into()),
+            Message::assistant("a1".into()),
+            Message::user("q2".into()),
+            Message::assistant("a2".into()),
+        ];
+        assert_eq!(count_conversation_messages(&msgs), 4);
+    }
+
+    #[test]
+    fn count_all_system() {
+        let msgs = vec![
+            Message::system("s1".into()),
+            Message::system("s2".into()),
+        ];
+        assert_eq!(count_conversation_messages(&msgs), 0);
+    }
+
+    #[test]
+    fn default_export_dir_has_exports_suffix() {
+        let dir = default_export_dir();
+        assert!(dir.to_string_lossy().ends_with("exports"));
+    }
+}

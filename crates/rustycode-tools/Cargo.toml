@@ -43,6 +43,7 @@ rustycode-shared-runtime = { path = "../rustycode-shared-runtime" }
 rustycode-thread-guard = { path = "../rustycode-thread-guard" }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
+rustycode-sandbox = { workspace = true }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 reqwest = { workspace = true, features = ["blocking"] }
 lru.workspace = true

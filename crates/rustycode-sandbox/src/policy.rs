@@ -40,4 +40,45 @@ impl SandboxPolicy {
             timeout_secs: Some(300),
         }
     }
+
+    /// Build a policy from allowed/denied paths and timeout, matching
+    /// the fields in `SandboxConfig` without depending on that type.
+    pub fn from_config(
+        allowed_paths: Option<&[PathBuf]>,
+        denied_paths: &[PathBuf],
+        timeout_secs: Option<u64>,
+        workspace_root: &std::path::Path,
+    ) -> Self {
+        let mut read_paths = allowed_paths
+            .map(Vec::from)
+            .unwrap_or_default();
+
+        if read_paths.is_empty() {
+            read_paths.push(PathBuf::from("/"));
+        }
+
+        // Ensure workspace root is always readable
+        if !read_paths.contains(&workspace_root.to_path_buf()) {
+            read_paths.push(workspace_root.to_path_buf());
+        }
+
+        let mut write_paths = read_paths.clone();
+
+        // Remove denied paths from write access
+        write_paths.retain(|p| !denied_paths.contains(p));
+
+        Self {
+            read_paths,
+            write_paths,
+            network: NetworkAccess::Denied,
+            env_passthrough: vec![
+                "PATH".into(),
+                "HOME".into(),
+                "LANG".into(),
+                "TERM".into(),
+            ],
+            max_memory_mb: Some(512),
+            timeout_secs: timeout_secs.or(Some(120)),
+        }
+    }
 }

@@ -869,6 +869,69 @@ impl BashTool {
             }),
         ))
     }
+
+    /// Execute a command inside an OS-level sandbox.
+    ///
+    /// Uses `rustycode-sandbox` for platform-specific isolation:
+    /// - macOS: Seatbelt (sandbox-exec)
+    /// - Linux: Landlock + env stripping
+    /// - Windows: Job Objects (stub)
+    fn execute_in_os_sandbox(
+        &self,
+        command: &str,
+        ctx: &ToolContext,
+    ) -> Result<ToolOutput> {
+        use rustycode_sandbox::{SandboxManager, SandboxPolicy};
+
+        let manager = SandboxManager::new()
+            .map_err(|e| anyhow!("Failed to initialize OS sandbox: {e}"))?;
+
+        let policy = SandboxPolicy::from_config(
+            ctx.sandbox.allowed_paths.as_deref(),
+            &ctx.sandbox.denied_paths,
+            ctx.sandbox.timeout_secs,
+            &ctx.cwd,
+        );
+
+        let sandbox_result = tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(manager.execute(command, &policy))
+        })
+        .map_err(|e| anyhow!("OS sandbox execution failed: {e}"))?;
+
+        let truncated = truncate_bash_output(
+            &sandbox_result.stdout,
+            &sandbox_result.stderr,
+            sandbox_result.exit_code.unwrap_or(-1),
+        );
+
+        let output = if sandbox_result.exit_code.unwrap_or(-1) == 0 {
+            truncated.output
+        } else {
+            format!(
+                "Exit code: {}\n\n{}{}",
+                sandbox_result
+                    .exit_code
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "unknown".to_string()),
+                truncated.output,
+                if sandbox_result.stderr.is_empty() {
+                    String::new()
+                } else {
+                    format!("\nStderr:\n{}", sandbox_result.stderr)
+                },
+            )
+        };
+
+        Ok(ToolOutput::with_structured(
+            output,
+            json!({
+                "exit_code": sandbox_result.exit_code,
+                "os_sandbox": true,
+                "sandbox_available": manager.is_available(),
+                "timed_out": sandbox_result.timed_out,
+            }),
+        ))
+    }
 }
 
 #[cfg(windows)]
@@ -1046,6 +1109,20 @@ impl Tool for BashTool {
 
         if docker_requested {
             return self.execute_in_docker(&command, &ctx.cwd);
+        }
+
+        // OS-level sandbox path: execute inside Seatbelt/Landlock/Job Objects
+        // Enable via SandboxConfig.os_sandbox = true or RUSTYCODE_SANDBOX=seatbelt|landlock|os
+        let os_sandbox_requested = ctx.sandbox.os_sandbox
+            || std::env::var("RUSTYCODE_SANDBOX")
+                .map(|v| {
+                    let v = v.to_lowercase();
+                    v == "seatbelt" || v == "landlock" || v == "os"
+                })
+                .unwrap_or(false);
+
+        if os_sandbox_requested {
+            return self.execute_in_os_sandbox(&command, &ctx);
         }
 
         #[cfg(windows)]

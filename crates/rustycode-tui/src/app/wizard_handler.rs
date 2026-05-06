@@ -115,3 +115,55 @@ impl WizardHandler {
         self.showing_wizard = false;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn complete_hides_wizard() {
+        let mut handler = WizardHandler {
+            wizard: None,
+            showing_wizard: true,
+        };
+        handler.complete();
+        assert!(!handler.showing_wizard);
+    }
+
+    #[test]
+    fn new_with_reconfigure_shows_wizard() {
+        let tmp = tempfile::tempdir().unwrap();
+        let handler = WizardHandler::new(tmp.path(), true);
+        assert!(handler.showing_wizard);
+        assert!(handler.wizard.is_some());
+    }
+
+    #[test]
+    fn new_without_reconfigure_respects_existing_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let handler = WizardHandler::new(tmp.path(), false);
+        // Result depends on whether a real config exists on this system
+        // (config_path checks XDG, home, etc.), so just verify it doesn't panic
+        let _ = handler.showing_wizard;
+    }
+
+    #[test]
+    fn config_path_prefers_local_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        let config_dir = tmp.path().join(".rustycode");
+        fs::create_dir_all(&config_dir).unwrap();
+        fs::write(config_dir.join("config.json"), "{}").unwrap();
+
+        let path = WizardHandler::config_path(tmp.path());
+        assert!(path.ends_with("config.json"));
+        assert!(path.to_string_lossy().contains(".rustycode"));
+    }
+
+    #[test]
+    fn config_path_falls_back_to_default() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = WizardHandler::config_path(tmp.path());
+        assert!(path.ends_with("config.json"));
+    }
+}
