@@ -33,4 +33,21 @@ impl ToolApprovalState {
         self.pending_requests.clear();
         self.awaiting = false;
     }
+
+    /// Pop the next pending request and update the awaiting flag.
+    ///
+    /// Returns `None` if the queue is empty.
+    pub fn pop_next(&mut self) -> Option<ApprovalRequest> {
+        let req = self.pending_requests.pop_front();
+        self.awaiting = !self.pending_requests.is_empty();
+        req
+    }
+
+    /// Dismiss the current request without returning it.
+    ///
+    /// Updates the awaiting flag to reflect the new queue state.
+    pub fn dismiss_current(&mut self) {
+        self.pending_requests.pop_front();
+        self.awaiting = !self.pending_requests.is_empty();
+    }
 }

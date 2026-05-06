@@ -145,21 +145,19 @@ pub(super) fn handle_approval_request_chunk(
 }
 
 pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.tool_approval.pending_requests.pop_front() {
+    if let Some(mut request) = tui.tool_approval.pop_next() {
         request.approve();
         tui.tool_approval.manager
             .record_approval(request.tool_name.clone(), request.state);
         tui.add_system_message(format!("✓ Approved: {}", request.tool_name));
     }
-    tui.tool_approval.awaiting = !tui.tool_approval.pending_requests.is_empty();
     tui.dirty = true;
 }
 
 pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.tool_approval.pending_requests.pop_front() {
+    if let Some(mut request) = tui.tool_approval.pop_next() {
         request.reject();
         tui.add_system_message(format!("✗ Rejected: {}", request.tool_name));
     }
-    tui.tool_approval.awaiting = !tui.tool_approval.pending_requests.is_empty();
     tui.dirty = true;
 }

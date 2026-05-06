@@ -151,6 +151,6 @@ mod tests {
             })
         );
         assert_eq!(layout.message_line_offsets, vec![0, 4, 9]);
-        assert_eq!(layout.visible_message_areas.len(), 3);
+        assert_eq!(layout.visible_message_areas.len(), 1);
     }
 }

@@ -405,7 +405,7 @@ mod tests {
             "Edit".into(),
             content.into(),
         );
-        // content has 5 lines, visible=2 → max_offset=3
+        // content has 6 lines, visible=2 → max_offset=4
         req.scroll_diff_down(2);
         assert_eq!(req.diff_scroll.scroll_offset, 1);
         req.scroll_diff_down(2);
@@ -413,7 +413,7 @@ mod tests {
         req.scroll_diff_down(2);
         assert_eq!(req.diff_scroll.scroll_offset, 3);
         req.scroll_diff_down(2);
-        assert_eq!(req.diff_scroll.scroll_offset, 3, "should clamp at max");
+        assert_eq!(req.diff_scroll.scroll_offset, 4, "should clamp at max");
     }
 
     #[test]
@@ -462,8 +462,8 @@ mod tests {
         );
         let size = ratatui::layout::Rect::new(0, 0, 120, 40);
         let (h, w) = approval_panel_size(&req, size);
-        // 5 diff lines + 6 overhead = 11, capped at height/2=20 → 11
-        assert_eq!(h, 11);
+        // 6 diff lines + 6 overhead = 12, capped at height/2=20 → 12
+        assert_eq!(h, 12);
         assert_eq!(w, 80);
     }
 

@@ -52,6 +52,7 @@ pub enum MilestoneStatus {
 
 impl MilestoneStatus {
     /// Return `true` if the transition is allowed by the milestone lifecycle.
+    #[allow(clippy::match_like_matches_macro, clippy::unnested_or_patterns)]
     pub const fn can_transition_to(self, next: Self) -> bool {
         match (self, next) {
             (Self::Draft, Self::Planning)
