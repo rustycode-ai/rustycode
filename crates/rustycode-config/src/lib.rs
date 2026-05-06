@@ -1628,7 +1628,7 @@ mod tests {
             servers: std::collections::HashMap::from_iter([
                 (
                     "rust".to_string(),
-                    rustycode_lsp::LspServerConfig {
+                    rustycode_protocol::LspServerConfig {
                         command: "rust-analyzer".to_string(),
                         args: vec![],
                         env: std::collections::HashMap::new(),
@@ -1637,7 +1637,7 @@ mod tests {
                 ),
                 (
                     "typescript".to_string(),
-                    rustycode_lsp::LspServerConfig {
+                    rustycode_protocol::LspServerConfig {
                         command: "typescript-language-server".to_string(),
                         args: vec!["--stdio".to_string()],
                         env: std::collections::HashMap::from_iter([(

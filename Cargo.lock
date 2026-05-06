@@ -6044,6 +6044,7 @@ dependencies = [
  "criterion",
  "dirs",
  "jsonschema",
+ "rustycode-lsp",
  "rustycode-protocol",
  "serde",
  "serde_json",
