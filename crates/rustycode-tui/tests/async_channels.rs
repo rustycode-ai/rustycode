@@ -43,7 +43,11 @@ fn test_tool_result_channel() {
 
     // Send tool results
     channel
-        .try_send(ToolResult::new("1", "read_file", ToolOutput::Success("File contents".to_string())))
+        .try_send(ToolResult::new(
+            "1",
+            "read_file",
+            ToolOutput::Success("File contents".to_string()),
+        ))
         .unwrap();
 
     channel

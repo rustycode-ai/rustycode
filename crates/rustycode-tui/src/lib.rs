@@ -108,6 +108,8 @@ pub(crate) mod tool_approval;
 
 pub(crate) mod observability;
 
+pub use rustycode_ui_core::markdown::MarkdownRenderer;
+
 use std::path::PathBuf;
 
 use crate::logging::{info_log, init, log_level};

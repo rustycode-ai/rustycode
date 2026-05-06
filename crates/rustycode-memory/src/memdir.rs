@@ -195,7 +195,10 @@ pub fn generate_summary(entries: &[(String, String, f32)]) -> String {
             };
             out.push_str("- ");
             out.push_str(&trimmed);
-            out.push_str(&format!(" _({:.0}%)_\n", confidence * 100.0));
+            let _ = std::fmt::Write::write_fmt(
+                &mut out,
+                format_args!(" _({:.0}%)_\n", confidence * 100.0),
+            );
         }
         out.push('\n');
     }

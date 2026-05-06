@@ -168,6 +168,19 @@ pub fn extract_tool_key_param(
     None
 }
 
+/// Render a text progress bar with configurable characters.
+///
+/// Returns a string like `"━━━━╌╌╌╌╌╌"` or `"████░░░░"`.
+pub fn progress_bar(width: usize, filled: usize, filled_char: &str, empty_char: &str) -> String {
+    let clamped = filled.min(width);
+    let empty = width.saturating_sub(clamped);
+    format!(
+        "{}{}",
+        filled_char.repeat(clamped),
+        empty_char.repeat(empty)
+    )
+}
+
 /// Shorten a tool parameter (typically a file path) for compact display.
 /// Abbreviates middle components to their first letter while preserving
 /// the filename and prefix.
@@ -268,29 +281,24 @@ pub(crate) fn truncate_to_display_width(s: &str, max_width: usize) -> String {
     out
 }
 
-/// Count consecutive occurrences of `byte` starting at `start`.
 pub fn count_consecutive(bytes: &[u8], start: usize, byte: u8) -> usize {
     bytes[start..].iter().take_while(|&&b| b == byte).count()
 }
 
-/// Find position of `count` consecutive `byte` values in the slice.
 pub fn find_consecutive(bytes: &[u8], byte: u8, count: usize) -> Option<usize> {
     bytes
         .windows(count)
         .position(|window| window.iter().all(|&b| b == byte))
 }
 
-/// Find position of two consecutive `byte` values (e.g., `**` or `~~`).
 pub fn find_byte_pair(bytes: &[u8], byte: u8) -> Option<usize> {
     find_consecutive(bytes, byte, 2)
 }
 
-/// Find position of a single byte.
 pub fn find_byte(bytes: &[u8], byte: u8) -> Option<usize> {
     bytes.iter().position(|&b| b == byte)
 }
 
-/// Get a type-specific icon for a tool name (ASCII-safe, consistent with worker panel)
 pub fn tool_type_icon(name: &str) -> &'static str {
     let n = name.to_lowercase();
     if n.contains("read") || n.contains("view") || n.contains("cat") {
@@ -420,5 +428,97 @@ mod tests {
             format_duration_compact(std::time::Duration::from_secs(60)),
             "1m00s"
         );
+    }
+
+    #[test]
+    fn test_format_tokens_compact_values() {
+        assert_eq!(format_tokens_compact(0), "0");
+        assert_eq!(format_tokens_compact(500), "500");
+        assert_eq!(format_tokens_compact(999), "999");
+        assert_eq!(format_tokens_compact(1_000), "1.0k");
+        assert_eq!(format_tokens_compact(8_200), "8.2k");
+        assert_eq!(format_tokens_compact(999_999), "1000.0k");
+        assert_eq!(format_tokens_compact(1_000_000), "1.0M");
+        assert_eq!(format_tokens_compact(1_500_000), "1.5M");
+    }
+
+    #[test]
+    fn test_count_consecutive_bytes() {
+        assert_eq!(count_consecutive(b"aaaabc", 0, b'a'), 4);
+        assert_eq!(count_consecutive(b"aaaabc", 4, b'b'), 1);
+        assert_eq!(count_consecutive(b"aaaabc", 5, b'c'), 1);
+        assert_eq!(count_consecutive(b"aaaa", 0, b'a'), 4);
+        assert_eq!(count_consecutive(b"bbbb", 0, b'a'), 0);
+    }
+
+    #[test]
+    fn test_find_consecutive_bytes() {
+        assert_eq!(find_consecutive(b"aabbcc", b'a', 2), Some(0));
+        assert_eq!(find_consecutive(b"aabbcc", b'b', 2), Some(2));
+        assert_eq!(find_consecutive(b"aabbcc", b'c', 2), Some(4));
+        assert_eq!(find_consecutive(b"abcdef", b'a', 2), None);
+    }
+
+    #[test]
+    fn test_find_byte_pair() {
+        assert_eq!(find_byte_pair(b"hello**world", b'*'), Some(5));
+        assert_eq!(find_byte_pair(b"no pairs here", b'*'), None);
+        assert_eq!(find_byte_pair(b"~~strike~~", b'~'), Some(0));
+    }
+
+    #[test]
+    fn test_find_single_byte() {
+        assert_eq!(find_byte(b"hello", b'e'), Some(1));
+        assert_eq!(find_byte(b"hello", b'z'), None);
+        assert_eq!(find_byte(b"", b'a'), None);
+    }
+
+    #[test]
+    fn test_tool_type_icon_categories() {
+        assert_eq!(tool_type_icon("read_file"), "◎");
+        assert_eq!(tool_type_icon("View"), "◎");
+        assert_eq!(tool_type_icon("write_file"), "✎");
+        assert_eq!(tool_type_icon("Edit"), "✎");
+        assert_eq!(tool_type_icon("bash"), "▸");
+        assert_eq!(tool_type_icon("Search"), "⌕");
+        assert_eq!(tool_type_icon("grep"), "⌕");
+        assert_eq!(tool_type_icon("glob"), "⋮");
+        assert_eq!(tool_type_icon("diff"), "≠");
+        assert_eq!(tool_type_icon("git_status"), "⎇");
+        assert_eq!(tool_type_icon("mcp_server"), "◉");
+        assert_eq!(tool_type_icon("apply_patch"), "≠");
+        assert_eq!(tool_type_icon("unknown"), "○");
+    }
+
+    #[test]
+    fn test_progress_bar_full() {
+        assert_eq!(progress_bar(8, 8, "━", "╌"), "━━━━━━━━");
+        assert_eq!(progress_bar(8, 0, "━", "╌"), "╌╌╌╌╌╌╌╌");
+    }
+
+    #[test]
+    fn test_progress_bar_partial() {
+        assert_eq!(progress_bar(10, 6, "█", "░"), "██████░░░░");
+        assert_eq!(progress_bar(8, 3, "━", "╌"), "━━━╌╌╌╌╌");
+    }
+
+    #[test]
+    fn test_progress_bar_clamps_overflow() {
+        assert_eq!(progress_bar(5, 99, "█", "░"), "█████");
+    }
+
+    #[test]
+    fn test_truncate_to_display_width_ascii() {
+        assert_eq!(truncate_to_display_width("hello world", 5), "hello");
+        assert_eq!(truncate_to_display_width("hello", 10), "hello");
+        assert_eq!(truncate_to_display_width("", 5), "");
+    }
+
+    #[test]
+    fn test_truncate_to_display_width_cjk() {
+        // Each CJK char is width 2
+        assert_eq!(truncate_to_display_width("项目代码", 4), "项目");
+        assert_eq!(truncate_to_display_width("项目代码", 3), "项");
+        assert_eq!(truncate_to_display_width("项目代码", 1), "");
     }
 }

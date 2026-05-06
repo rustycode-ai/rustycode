@@ -431,7 +431,12 @@ impl CommandResult {
         stdout: impl Into<String>,
         stderr: impl Into<String>,
     ) -> Self {
-        Self { command: command.into(), exit_code, stdout: stdout.into(), stderr: stderr.into() }
+        Self {
+            command: command.into(),
+            exit_code,
+            stdout: stdout.into(),
+            stderr: stderr.into(),
+        }
     }
 }
 

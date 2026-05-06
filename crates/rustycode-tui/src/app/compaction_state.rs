@@ -24,6 +24,34 @@ impl CompactionState {
         self.showing_preview = false;
         self.pending = false;
     }
+
+    pub fn is_previewing(&self) -> bool {
+        self.showing_preview
+    }
+
+    pub fn show_preview(&mut self) {
+        self.showing_preview = true;
+    }
+
+    pub fn dismiss_preview(&mut self) {
+        self.showing_preview = false;
+    }
+
+    pub fn is_pending(&self) -> bool {
+        self.pending
+    }
+
+    pub fn mark_pending(&mut self) {
+        self.pending = true;
+    }
+
+    pub fn clear_pending(&mut self) {
+        self.pending = false;
+    }
+
+    pub fn usage_percentage(&self) -> f64 {
+        self.context_monitor.usage_percentage()
+    }
 }
 
 impl Default for CompactionState {
@@ -64,5 +92,45 @@ mod tests {
         let state = CompactionState::new(monitor, config);
         assert!(!state.showing_preview);
         assert!(!state.pending);
+    }
+
+    #[test]
+    fn show_and_dismiss_preview() {
+        let mut state = CompactionState::default();
+        assert!(!state.is_previewing());
+        state.show_preview();
+        assert!(state.is_previewing());
+        state.dismiss_preview();
+        assert!(!state.is_previewing());
+    }
+
+    #[test]
+    fn pending_lifecycle() {
+        let mut state = CompactionState::default();
+        assert!(!state.is_pending());
+        state.mark_pending();
+        assert!(state.is_pending());
+        state.clear_pending();
+        assert!(!state.is_pending());
+    }
+
+    #[test]
+    fn clear_flags_resets_preview_and_pending() {
+        let mut state = CompactionState::default();
+        state.show_preview();
+        state.mark_pending();
+        assert!(state.is_previewing());
+        assert!(state.is_pending());
+        state.clear_flags();
+        assert!(!state.is_previewing());
+        assert!(!state.is_pending());
+    }
+
+    #[test]
+    fn usage_percentage_delegates_to_monitor() {
+        let state = CompactionState::default();
+        let pct = state.usage_percentage();
+        assert!(pct >= 0.0);
+        assert!(pct <= 1.0);
     }
 }

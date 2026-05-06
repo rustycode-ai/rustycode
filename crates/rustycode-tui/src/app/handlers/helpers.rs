@@ -55,11 +55,11 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
 
     if last_stream_had_tools {
         // Productive turn — reset iteration counter so the agent can keep going
-        tui.auto_continue.auto_continue_iterations = 0;
+        tui.auto_continue.reset_iterations();
     }
 
     // Enforce iteration limit to prevent infinite loops
-    if tui.auto_continue.auto_continue_iterations >= MAX_AUTO_CONTINUE_ITERATIONS {
+    if tui.auto_continue.iterations() >= MAX_AUTO_CONTINUE_ITERATIONS {
         tracing::warn!(
             "Auto-continue stopped after {} iterations (task creation may be outpacing completion)",
             MAX_AUTO_CONTINUE_ITERATIONS
@@ -68,16 +68,13 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
             "Auto-continue stopped after {} iterations. Press Ctrl+Shift+A to resume if needed.",
             MAX_AUTO_CONTINUE_ITERATIONS
         ));
-        tui.auto_continue.auto_continue_enabled = false;
-        tui.auto_continue.auto_continue_iterations = 0;
+        tui.auto_continue.disable();
         return;
     }
 
     // Stagnation check: if we've had multiple consecutive iterations with no
     // tool use, the agent is likely stuck in a text-only loop. Stop and inform.
-    if !last_stream_had_tools
-        && tui.auto_continue.auto_continue_iterations >= MAX_STAGNANT_ITERATIONS
-    {
+    if !last_stream_had_tools && tui.auto_continue.iterations() >= MAX_STAGNANT_ITERATIONS {
         tracing::warn!(
             "Auto-continue stopped: {} consecutive iterations with no tool use",
             MAX_STAGNANT_ITERATIONS
@@ -87,8 +84,7 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
              Press Enter to continue manually if needed."
                 .to_string(),
         );
-        tui.auto_continue.auto_continue_enabled = false;
-        tui.auto_continue.auto_continue_iterations = 0;
+        tui.auto_continue.disable();
         return;
     }
 
@@ -129,8 +125,8 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
         ctx
     };
 
-    tui.auto_continue.auto_continue_pending = true;
-    tui.auto_continue.auto_continue_iterations += 1;
+    tui.auto_continue.mark_pending();
+    tui.auto_continue.increment_iterations();
     let history = tui.build_conversation_history();
 
     // Set streaming state before send to prevent races
@@ -147,8 +143,8 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
         ));
         tui.reset_streaming_state();
         tui.active_tools.clear();
-        tui.auto_continue.auto_continue_pending = false;
-        tui.auto_continue.auto_continue_enabled = false;
+        tui.auto_continue.clear_pending();
+        tui.auto_continue.disable();
     } else {
         tui.push_empty_assistant_message();
     }

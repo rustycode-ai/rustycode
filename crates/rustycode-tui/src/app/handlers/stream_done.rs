@@ -42,13 +42,13 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     // Mark session dirty so the 30-second auto-save persists this turn
     tui.mark_session_dirty();
 
-    tui.auto_continue.auto_continue_pending = false;
-    if !was_cancelled && tui.auto_continue.auto_continue_enabled {
+    tui.auto_continue.clear_pending();
+    if !was_cancelled && tui.auto_continue.is_enabled() {
         check_and_trigger_auto_continue(tui);
     }
 
     if !was_cancelled
-        && !tui.auto_continue.auto_continue_enabled
+        && !tui.auto_continue.is_enabled()
         && tui.plan_mode.current_phase() == "planning"
         && !tui.is_awaiting_approval()
     {

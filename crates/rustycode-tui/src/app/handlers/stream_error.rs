@@ -55,10 +55,10 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
         tui.streaming.queued_message = None;
     }
 
-    tui.auto_continue.auto_continue_pending = false;
+    tui.auto_continue.clear_pending();
     let is_retryable = err.is_retryable();
     if !is_retryable {
-        tui.auto_continue.auto_continue_enabled = false;
+        tui.auto_continue.disable();
         tui.show_error(anyhow::anyhow!("{}", err));
         tui.dirty = true;
         tui.auto_scroll();

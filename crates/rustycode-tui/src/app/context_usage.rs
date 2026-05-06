@@ -3,7 +3,6 @@
 pub struct ContextUsage {
     pub input_tokens: usize,
     pub output_tokens: usize,
-    /// Context window limit (if known)
     pub context_limit: usize,
 }
 
@@ -34,9 +33,6 @@ impl ContextUsage {
         pct.min(100)
     }
 
-    /// Format a compact progress bar for the footer
-    ///
-    /// Returns a string like "ctx [████████░░░░] 42% 8.2k/20k"
     pub fn format_bar(&self, width: usize) -> String {
         if self.context_limit == 0 {
             // No limit known, just show token counts
@@ -46,9 +42,8 @@ impl ContextUsage {
         let percentage = self.percentage().min(100);
         let bar_width = width.clamp(8, 20);
         let filled = ((percentage as f64 / 100.0) * bar_width as f64).round() as usize;
-        let empty = bar_width.saturating_sub(filled);
 
-        let bar = format!("{}{}", "━".repeat(filled), "╌".repeat(empty));
+        let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "━", "╌");
 
         format!(
             "ctx [{}] {}% {}/{}",
@@ -80,13 +75,7 @@ pub enum UsageLevel {
 }
 
 fn format_tokens(n: usize) -> String {
-    if n >= 1_000_000 {
-        format!("{:.1}M", n as f64 / 1_000_000.0)
-    } else if n >= 1_000 {
-        format!("{:.1}k", n as f64 / 1_000.0)
-    } else {
-        n.to_string()
-    }
+    crate::app::render::brutalist_helpers::format_tokens_compact(n)
 }
 
 #[cfg(test)]

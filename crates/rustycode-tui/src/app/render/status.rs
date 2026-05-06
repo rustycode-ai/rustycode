@@ -158,8 +158,7 @@ impl PolishedRenderer {
                         let pct = pct.round().clamp(0.0, 100.0) as usize;
                         let bar_width = 8;
                         let filled = usize::div_ceil(pct * bar_width, 100).min(bar_width);
-                        let empty = bar_width - filled;
-                        let bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
+                        let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "█", "░");
                         spans.push(Span::styled(
                             format!("{} {}%", bar, pct),
                             Style::default().fg(Color::Rgb(100, 180, 255)),
@@ -201,8 +200,7 @@ impl PolishedRenderer {
                     let bar_width = 8usize;
                     let filled = usize::div_ceil(milestones_completed * bar_width, milestones_total)
                         .min(bar_width);
-                    let empty = bar_width - filled;
-                    let bar = format!("{}{}", "█".repeat(filled), "░".repeat(empty));
+                    let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "█", "░");
                     spans.push(Span::raw(" "));
                     spans.push(Span::styled(
                         bar,
@@ -375,17 +373,7 @@ impl PolishedRenderer {
             } else {
                 0
             };
-            let empty = bar_width - filled;
-            let bar = format!("{}{}", "━".repeat(filled), "╌".repeat(empty));
-            let fmt_tokens = |n: usize| -> String {
-                if n >= 1_000_000 {
-                    format!("{:.1}M", n as f64 / 1_000_000.0)
-                } else if n >= 1_000 {
-                    format!("{:.0}k", n as f64 / 1_000.0)
-                } else {
-                    n.to_string()
-                }
-            };
+            let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "━", "╌");
             let current_tokens = tui.compaction.context_monitor.current_tokens;
             let max_tokens = tui.compaction.context_monitor.max_tokens;
             let display_model = tui
@@ -404,7 +392,7 @@ impl PolishedRenderer {
             spans.push(Span::raw(" "));
             if width >= 100 && max_tokens > 0 {
                 spans.push(Span::styled(
-                    format!("{}/{}", fmt_tokens(current_tokens), fmt_tokens(max_tokens)),
+                    format!("{}/{}", crate::app::render::brutalist_helpers::format_tokens_compact(current_tokens), crate::app::render::brutalist_helpers::format_tokens_compact(max_tokens)),
                     Style::default().fg(Color::DarkGray),
                 ));
             } else {
