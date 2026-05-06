@@ -6021,6 +6021,7 @@ dependencies = [
  "rustycode-providers",
  "rustycode-runtime",
  "rustycode-storage",
+ "rustycode-team",
  "rustycode-tools",
  "rustycode-tui",
  "rustycode-vector-memory",
@@ -6090,6 +6091,7 @@ dependencies = [
  "rustycode-shared-runtime",
  "rustycode-skill",
  "rustycode-storage",
+ "rustycode-team",
  "rustycode-tools",
  "rustycode-tools-api",
  "rustycode-tools-security",
@@ -6493,6 +6495,7 @@ dependencies = [
  "rustycode-prompt",
  "rustycode-protocol",
  "rustycode-storage",
+ "rustycode-team",
  "rustycode-tools",
  "rustycode-tools-api",
  "secrecy",
@@ -6599,6 +6602,34 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.18",
  "uuid",
+]
+
+[[package]]
+name = "rustycode-team"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "dirs",
+ "futures",
+ "handlebars",
+ "parking_lot",
+ "regex",
+ "rustycode-llm",
+ "rustycode-orchestration",
+ "rustycode-protocol",
+ "rustycode-tools",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "uuid",
+ "walkdir",
 ]
 
 [[package]]
@@ -6789,6 +6820,7 @@ dependencies = [
  "rustycode-shared-runtime",
  "rustycode-skill",
  "rustycode-storage",
+ "rustycode-team",
  "rustycode-tools",
  "rustycode-tools-api",
  "rustycode-tools-security",

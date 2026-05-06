@@ -41,9 +41,8 @@ impl RateLimitState {
     /// Set a rate limit with exponential backoff
     pub fn set_rate_limit(&mut self) -> Duration {
         // Calculate exponential backoff with jitter (starts at 5s: 5, 10, 20, 40, 60...)
-        let base_delay_secs =
-            (BASE_BACKOFF_SECS as usize * 2_usize.pow(self.retry_count as u32))
-                .min(MAX_BACKOFF_SECS as usize);
+        let base_delay_secs = (BASE_BACKOFF_SECS as usize * 2_usize.pow(self.retry_count as u32))
+            .min(MAX_BACKOFF_SECS as usize);
         let jitter = (base_delay_secs as f64 * 0.25) as isize;
 
         let random_jitter = if jitter > 0 {

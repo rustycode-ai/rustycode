@@ -115,7 +115,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
 /// Spawn a TeamOrchestrator on a background thread, subscribe to its
 /// broadcast channel, and wire events into the team panel.
 fn spawn_team_orchestrator(&mut self, task: &str) -> Result<()> {
-    use rustycode_core::team::orchestrator::TeamOrchestrator;
+    use rustycode_team::orchestrator::TeamOrchestrator;
 
     let cwd = std::env::current_dir().unwrap_or_default();
 

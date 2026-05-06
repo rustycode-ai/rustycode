@@ -138,7 +138,7 @@ pub fn handle_learnings_command(parts: &[&str], ctx: CommandContext<'_>) -> Resu
         let cwd = ctx.cwd.to_path_buf();
         let tx = ctx.command_tx;
         std::thread::spawn(move || {
-            let result = rustycode_core::team::team_learnings::TeamLearnings::load(&cwd)
+            let result = rustycode_team::team_learnings::TeamLearnings::load(&cwd)
                 .map(|l| l.all())
                 .unwrap_or_else(|e| format!("Error loading learnings: {}", e));
             let _ = tx.send(crate::app::async_::SlashCommandResult::Success(result));
@@ -152,7 +152,7 @@ pub fn handle_learnings_command(parts: &[&str], ctx: CommandContext<'_>) -> Resu
     let tx = ctx.command_tx;
 
     std::thread::spawn(move || {
-        use rustycode_core::team::team_learnings::{LearningCategory, TeamLearnings};
+        use rustycode_team::team_learnings::{LearningCategory, TeamLearnings};
 
         let result = match subcommand.as_str() {
             "show" => match TeamLearnings::load(&cwd) {

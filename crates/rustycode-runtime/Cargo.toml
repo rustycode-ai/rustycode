@@ -30,6 +30,7 @@ rustycode-classification = { path = "../rustycode-classification" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-prompt = { path = "../rustycode-prompt" }
 rustycode-llm = { path = "../rustycode-llm" }
+rustycode-team = { path = "../rustycode-team" }
 rand.workspace = true
 shell-words.workspace = true
 

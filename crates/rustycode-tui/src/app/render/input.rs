@@ -1,4 +1,10 @@
 impl PolishedRenderer {
+    /// Character count thresholds for input display coloring.
+    const CHAR_COUNT_SHOW_THRESHOLD: usize = 500;
+    const CHAR_COUNT_MEDIUM_THRESHOLD: usize = 2000;
+    const CHAR_COUNT_HIGH_THRESHOLD: usize = 5000;
+    const CHAR_COUNT_KILO_THRESHOLD: usize = 10_000;
+
     /// Render input area with label and keyboard hints
     pub fn render_input(
         &self,
@@ -118,15 +124,15 @@ impl PolishedRenderer {
                 }
             }
             let char_count: usize = tui.input_handler.state.all_text().chars().count();
-            if char_count > 500 {
-                let count_color = if char_count > 5000 {
+            if char_count > Self::CHAR_COUNT_SHOW_THRESHOLD {
+                let count_color = if char_count > Self::CHAR_COUNT_HIGH_THRESHOLD {
                     Color::Red
-                } else if char_count > 2000 {
+                } else if char_count > Self::CHAR_COUNT_MEDIUM_THRESHOLD {
                     Color::Yellow
                 } else {
                     Color::DarkGray
                 };
-                let fmt_count = if char_count >= 10_000 {
+                let fmt_count = if char_count >= Self::CHAR_COUNT_KILO_THRESHOLD {
                     format!("{:.1}k", char_count as f64 / 1000.0)
                 } else {
                     char_count.to_string()

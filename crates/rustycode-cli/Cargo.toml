@@ -48,6 +48,7 @@ rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-orchestration = { path = "../rustycode-orchestration" }
 rustycode-memory = { path = "../rustycode-memory" }
 rustycode-storage = { path = "../rustycode-storage" }
+rustycode-team = { path = "../rustycode-team" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 rustycode-ws-server = { path = "../rustycode-ws-server" }
 axum.workspace = true

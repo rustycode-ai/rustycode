@@ -158,7 +158,7 @@ pub mod session;
 pub mod session_context;
 pub mod snapshot;
 pub mod streaming;
-pub mod team;
+pub use rustycode_team::*;
 pub mod tenacity;
 pub mod todo_enforcer;
 pub mod tool_result_storage;

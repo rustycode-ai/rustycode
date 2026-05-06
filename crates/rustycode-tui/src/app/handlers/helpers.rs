@@ -3,6 +3,37 @@
 use crate::app::TUI;
 use tracing;
 
+/// Shared cleanup after a stream ends normally (done or stopped).
+/// Captures duration, completes the query, resets rate limit, and clears active tools.
+pub(super) fn complete_stream_cleanup(tui: &mut TUI) {
+    tui.streaming.is_streaming = false;
+    tui.streaming.stream_cancelled = false;
+    tui.update_terminal_title();
+    if let Some(start) = tui.streaming.stream_start_time.take() {
+        tui.streaming.last_response_duration = Some(start.elapsed());
+    }
+    tui.services.complete_query();
+    tui.rate_limit.retry_count = 0;
+    tui.rate_limit.auto_retry_cancelled = false;
+    tui.active_tools.clear();
+}
+
+/// Reset the streaming render buffer and chunk counters.
+pub(super) fn reset_streaming_buffer(tui: &mut TUI) {
+    tui.streaming.streaming_render_buffer =
+        crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
+    tui.streaming.chunks_received = 0;
+    tui.streaming.thinking_chunks_received = 0;
+}
+
+/// Mark the TUI as dirty and auto-scroll if the user hasn't manually scrolled.
+pub(super) fn mark_dirty_and_scroll(tui: &mut TUI) {
+    tui.dirty = true;
+    if !tui.view.user_scrolled {
+        tui.auto_scroll();
+    }
+}
+
 /// Check for pending tasks and trigger auto-continue if needed
 ///
 /// This function is called after stream completion when auto-continue is enabled.

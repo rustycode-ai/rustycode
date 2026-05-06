@@ -36,6 +36,7 @@ members = [
     "crates/rustycode-skill",
     "crates/rustycode-storage",
     "crates/rustycode-tasks",
+    "crates/rustycode-team",
     "crates/rustycode-thread-guard",
     "crates/rustycode-tool-integration",
     "crates/rustycode-tool-server",
@@ -226,6 +227,12 @@ must_use_candidate = "allow"
 # usize/length conversions; the project uses checked casts where it matters.
 cast_possible_truncation = "allow"
 cast_sign_loss = "allow"
+
+# cast_precision_loss and cast_lossless: new in Rust 1.95; same category as
+# cast_possible_truncation.  The project uses checked casts where precision
+# matters; these fire on benign usize→f64 and u32→u64 conversions.
+cast_precision_loss = "allow"
+cast_lossless = "allow"
 
 # return_self_not_must_use triggers on methods that return &mut Self for
 # chaining but where the caller may not always use the return value.

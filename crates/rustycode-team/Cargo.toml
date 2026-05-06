@@ -1,0 +1,38 @@
+[package]
+name = "rustycode-team"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+chrono = { workspace = true, features = ["serde"] }
+dirs.workspace = true
+futures.workspace = true
+handlebars.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+serde_yaml.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "macros", "fs"] }
+tracing.workspace = true
+uuid = { workspace = true, features = ["v4", "serde"] }
+walkdir.workspace = true
+regex.workspace = true
+parking_lot.workspace = true
+
+rustycode-llm = { path = "../rustycode-llm" }
+rustycode-orchestration = { path = "../rustycode-orchestration" }
+rustycode-protocol = { path = "../rustycode-protocol" }
+rustycode-tools = { path = "../rustycode-tools", default-features = false }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "test-util"] }
+
+[lints]
+workspace = true

@@ -4,6 +4,19 @@
 
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
+/// Max display width for tool parameter shortening.
+const TOOL_PARAM_DISPLAY_MAX: usize = 50;
+/// Max display width before truncating commands/patterns inline.
+const INLINE_TRUNCATE_WIDTH: usize = 40;
+/// Max display width for a result summary to show inline.
+const RESULT_SUMMARY_INLINE_MAX: usize = 80;
+/// Characters reserved for ellipsis when shortening paths.
+const ELLIPSIS_WIDTH: usize = 3;
+/// Minimum available space before falling back to minimal path shortening.
+const MIN_PATH_SHORTENING_SPACE: usize = 4;
+/// Path component count threshold for path shortening.
+const PATH_COMPONENT_SHORTEN_THRESHOLD: usize = 2;
+
 /// Format elapsed seconds into a compact display string.
 ///
 /// Goose pattern: compact timing display for status bars.
@@ -64,7 +77,7 @@ pub fn extract_tool_key_param(
                 .or(json.get("path"))
                 .and_then(|v| v.as_str())
             {
-                return Some(shorten_tool_param(path, 50));
+                return Some(shorten_tool_param(path, TOOL_PARAM_DISPLAY_MAX));
             }
         }
 
@@ -79,11 +92,18 @@ pub fn extract_tool_key_param(
                 .and_then(|v| v.as_str())
             {
                 let first_line = cmd.lines().next().unwrap_or(cmd);
-                let truncated = if <str as UnicodeWidthStr>::width(first_line) > 40 {
-                    format!("{}…", truncate_to_display_width(first_line, 39))
-                } else {
-                    first_line.to_string()
-                };
+                let truncated =
+                    if <str as UnicodeWidthStr>::width(first_line) > INLINE_TRUNCATE_WIDTH {
+                        format!(
+                            "{}…",
+                            truncate_to_display_width(
+                                first_line,
+                                INLINE_TRUNCATE_WIDTH.saturating_sub(1)
+                            )
+                        )
+                    } else {
+                        first_line.to_string()
+                    };
                 return Some(truncated);
             }
         }
@@ -94,11 +114,19 @@ pub fn extract_tool_key_param(
                 .or(json.get("query"))
                 .and_then(|v| v.as_str())
             {
-                return Some(if <str as UnicodeWidthStr>::width(pattern) > 40 {
-                    format!("{}…", truncate_to_display_width(pattern, 39))
-                } else {
-                    pattern.to_string()
-                });
+                return Some(
+                    if <str as UnicodeWidthStr>::width(pattern) > INLINE_TRUNCATE_WIDTH {
+                        format!(
+                            "{}…",
+                            truncate_to_display_width(
+                                pattern,
+                                INLINE_TRUNCATE_WIDTH.saturating_sub(1)
+                            )
+                        )
+                    } else {
+                        pattern.to_string()
+                    },
+                );
             }
         }
 
@@ -114,11 +142,11 @@ pub fn extract_tool_key_param(
     }
 
     if !result_summary.is_empty()
-        && <str as UnicodeWidthStr>::width(result_summary) < 80
+        && <str as UnicodeWidthStr>::width(result_summary) < RESULT_SUMMARY_INLINE_MAX
         && (name.contains("read") || name.contains("write") || name.contains("edit"))
         && (result_summary.contains('/') || result_summary.contains('\\'))
     {
-        return Some(shorten_tool_param(result_summary, 50));
+        return Some(shorten_tool_param(result_summary, TOOL_PARAM_DISPLAY_MAX));
     }
 
     None
@@ -150,7 +178,7 @@ pub fn shorten_tool_param(s: &str, max_len: usize) -> String {
     }
 
     let components: Vec<&str> = display.split('/').collect();
-    if components.len() <= 2 {
+    if components.len() <= PATH_COMPONENT_SHORTEN_THRESHOLD {
         return format!(
             "{}…",
             truncate_to_display_width(&display, max_len.saturating_sub(1))
@@ -166,10 +194,10 @@ pub fn shorten_tool_param(s: &str, max_len: usize) -> String {
     let available = max_len.saturating_sub(
         <str as UnicodeWidthStr>::width(prefix)
             + <str as UnicodeWidthStr>::width(suffix.as_str())
-            + 3,
+            + ELLIPSIS_WIDTH,
     );
 
-    if available < 4 {
+    if available < MIN_PATH_SHORTENING_SPACE {
         let first_char = first.chars().next().unwrap_or('/');
         let last_budget = max_len.saturating_sub(
             <str as UnicodeWidthStr>::width(prefix)
@@ -188,11 +216,15 @@ pub fn shorten_tool_param(s: &str, max_len: usize) -> String {
     let first_char = first.chars().next().unwrap_or('/');
     result.push(first_char);
 
-    for comp in components.iter().skip(1).take(components.len() - 2) {
+    for comp in components
+        .iter()
+        .skip(1)
+        .take(components.len() - PATH_COMPONENT_SHORTEN_THRESHOLD)
+    {
         let next_width = <str as UnicodeWidthStr>::width(result.as_str())
             + <str as UnicodeWidthStr>::width(*comp)
             + <str as UnicodeWidthStr>::width(suffix.as_str())
-            + 3;
+            + ELLIPSIS_WIDTH;
         if next_width > max_len {
             break;
         }

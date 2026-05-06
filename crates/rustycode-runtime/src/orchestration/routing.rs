@@ -2,7 +2,6 @@
 
 use rustycode_classification::{RoleRouter, UnifiedTaskClassifier};
 use rustycode_config::{TaskRoutingConfig, TaskRoutingOverride};
-use rustycode_core::team::profiler::TaskProfiler;
 use rustycode_protocol::intent::{
     classify_intent_with_confidence, IntentAssessment, IntentCategory,
 };
@@ -12,6 +11,7 @@ use rustycode_protocol::task_routing::{
     TaskThinkingStyle, TaskWorkflow,
 };
 use rustycode_protocol::{AgentRole, TeamRole, WorkingMode};
+use rustycode_team::profiler::TaskProfiler;
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]

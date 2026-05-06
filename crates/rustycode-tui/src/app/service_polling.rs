@@ -4,7 +4,7 @@ use super::async_::RecvStatus;
 use super::event_loop::TUI;
 use crate::app::pipeline::ScheduledPhaseEvent;
 use anyhow::Result;
-use rustycode_core::team::orchestrator::TeamEvent;
+use rustycode_team::orchestrator::TeamEvent;
 
 impl TUI {
     /// Poll all services (ONE item per frame each)

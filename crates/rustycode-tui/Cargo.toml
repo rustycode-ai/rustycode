@@ -43,6 +43,7 @@ rustycode-auth = { path = "../rustycode-auth" }
 rustycode-mcp = { path = "../rustycode-mcp", default-features = false }
 rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
 rustycode-storage = { path = "../rustycode-storage" }
+rustycode-team = { path = "../rustycode-team" }
 rustycode-observability = { path = "../rustycode-observability" }
 rustycode-classification = { path = "../rustycode-classification" }
 rustycode-orchestration = { path = "../rustycode-orchestration" }

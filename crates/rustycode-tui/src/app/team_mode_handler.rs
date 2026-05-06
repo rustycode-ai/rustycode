@@ -10,8 +10,7 @@ use std::sync::Arc;
 #[non_exhaustive]
 pub struct TeamModeHandler {
     /// Receiver for team orchestration events
-    pub event_rx:
-        Option<tokio::sync::broadcast::Receiver<rustycode_core::team::orchestrator::TeamEvent>>,
+    pub event_rx: Option<tokio::sync::broadcast::Receiver<rustycode_team::orchestrator::TeamEvent>>,
     /// Cancellation token for the running team task
     pub cancel_token: Option<Arc<AtomicBool>>,
 }
@@ -31,10 +30,10 @@ impl TeamModeHandler {
         team_panel: &mut crate::ui::team_panel::TeamPanel,
     ) -> Result<(
         String,
-        Option<tokio::sync::broadcast::Receiver<rustycode_core::team::orchestrator::TeamEvent>>,
+        Option<tokio::sync::broadcast::Receiver<rustycode_team::orchestrator::TeamEvent>>,
         Option<Arc<AtomicBool>>,
     )> {
-        use rustycode_core::team::orchestrator::TeamOrchestrator;
+        use rustycode_team::orchestrator::TeamOrchestrator;
 
         let cwd = std::env::current_dir().unwrap_or_default();
 
@@ -103,14 +102,13 @@ impl TeamModeHandler {
     /// Take the event receiver (for wiring into event loop polling)
     pub fn take_event_rx(
         &mut self,
-    ) -> Option<tokio::sync::broadcast::Receiver<rustycode_core::team::orchestrator::TeamEvent>>
-    {
+    ) -> Option<tokio::sync::broadcast::Receiver<rustycode_team::orchestrator::TeamEvent>> {
         self.event_rx.take()
     }
 
     pub fn set_event_rx(
         &mut self,
-        rx: tokio::sync::broadcast::Receiver<rustycode_core::team::orchestrator::TeamEvent>,
+        rx: tokio::sync::broadcast::Receiver<rustycode_team::orchestrator::TeamEvent>,
     ) {
         self.event_rx = Some(rx);
     }

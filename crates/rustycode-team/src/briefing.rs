@@ -280,7 +280,7 @@ impl BriefingBuilder {
     /// Falls back to markdown-based learnings if vector memory is unavailable.
     #[cfg(feature = "vector-memory")]
     async fn load_project_learnings(&self, task: &str) -> String {
-        use crate::team::team_learnings::TeamLearnings;
+        use crate::team_learnings::TeamLearnings;
         use rustycode_vector_memory::{MemoryType, VectorMemory};
 
         // Try vector memory semantic search first
@@ -322,7 +322,7 @@ impl BriefingBuilder {
     /// Load project learnings (markdown-only fallback when vector memory is disabled).
     #[cfg(not(feature = "vector-memory"))]
     async fn load_project_learnings(&self, _task: &str) -> String {
-        use crate::team::team_learnings::TeamLearnings;
+        use crate::team_learnings::TeamLearnings;
 
         match TeamLearnings::load(&self.project_root) {
             Ok(learnings) => learnings.all(),

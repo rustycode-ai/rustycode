@@ -3,6 +3,8 @@
 use crate::app::async_::StreamChunk;
 use crate::app::TUI;
 
+use super::helpers::mark_dirty_and_scroll;
+
 use super::stream_approval::{
     handle_approval_approved_chunk, handle_approval_rejected_chunk, handle_approval_request_chunk,
 };
@@ -46,10 +48,7 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
             tui.update_terminal_title();
         }
         if tui.renderer_mode.is_brutalist() {
-            if !tui.view.user_scrolled {
-                tui.auto_scroll();
-            }
-            tui.dirty = true;
+            mark_dirty_and_scroll(tui);
         }
     } else {
         // Buffer is holding incomplete markdown — still mark streaming
@@ -97,10 +96,7 @@ fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
         tui.turn_snapshot = Some(crate::app::turn_snapshot::TurnSnapshot::take(&cwd));
     }
 
-    if !tui.view.user_scrolled {
-        tui.auto_scroll();
-    }
-    tui.dirty = true;
+    mark_dirty_and_scroll(tui);
 }
 
 pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {

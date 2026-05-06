@@ -14,10 +14,15 @@ impl PolishedRenderer {
         let anim_frame = tui.animator.current_frame();
         let width = area.width as usize;
 
-        let show_context_bar = width >= 70;
-        let show_cost = width >= 85;
-        let show_git_branch = width >= 90;
-        let show_task_counts = width >= 80;
+        const MIN_WIDTH_CONTEXT_BAR: usize = 70;
+        const MIN_WIDTH_COST: usize = 85;
+        const MIN_WIDTH_GIT_BRANCH: usize = 90;
+        const MIN_WIDTH_TASK_COUNTS: usize = 80;
+
+        let show_context_bar = width >= MIN_WIDTH_CONTEXT_BAR;
+        let show_cost = width >= MIN_WIDTH_COST;
+        let show_git_branch = width >= MIN_WIDTH_GIT_BRANCH;
+        let show_task_counts = width >= MIN_WIDTH_TASK_COUNTS;
 
         // Plan-mode banners take priority over other states.
         let status = if let Some(banner) = tui.plan_mode_banner.clone() {

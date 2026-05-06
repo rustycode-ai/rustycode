@@ -1,4 +1,13 @@
 impl PolishedRenderer {
+    /// Max display width for collapsed message first-line preview.
+    const COLLAPSED_PREVIEW_MAX_WIDTH: usize = 60;
+    /// Max content lines for expanded thinking block display.
+    const THINKING_MAX_DISPLAY_LINES: usize = 8;
+    /// Max string length before treating as a likely file path.
+    const PATH_DETECT_MAX_LEN: usize = 200;
+    /// Border character repeat count for thinking/code block frames.
+    const BLOCK_BORDER_WIDTH: usize = 30;
+
     /// Render messages area with line-based auto-scrolling
     pub fn render_messages(&self, tui: &mut TUI, frame: &mut Frame, area: Rect) {
         let debug_enabled = crate::logging::is_debug_enabled();
@@ -226,9 +235,9 @@ impl PolishedRenderer {
                             crate::ui::message::MessageRole::System => "(system)".to_string(),
                         }
                     }
-                } else if unicode_width::UnicodeWidthStr::width(first_line) > 60 {
+                } else if unicode_width::UnicodeWidthStr::width(first_line) > Self::COLLAPSED_PREVIEW_MAX_WIDTH {
                     // floor_char_boundary ensures we don't slice mid-UTF-8
-                    let end = first_line.floor_char_boundary(57);
+                    let end = first_line.floor_char_boundary(Self::COLLAPSED_PREVIEW_MAX_WIDTH.saturating_sub(3));
                     format!("{}...", &first_line[..end])
                 } else {
                     first_line.to_string()
@@ -969,7 +978,7 @@ fn extract_file_path(s: &str) -> Option<String> {
     }
 
     // Check if the whole string looks like a path
-    if (s.contains('/') || s.contains('\\')) && !s.contains('\n') && s.len() < 200 {
+    if (s.contains('/') || s.contains('\\')) && !s.contains('\n') && s.len() < Self::PATH_DETECT_MAX_LEN {
         return Some(shorten_path(s));
     }
 
@@ -1034,16 +1043,16 @@ fn render_thinking_block(
             lines.push(Line::from(vec![
                 Span::styled(format!("{} ", pipe_char), Style::default().fg(pipe_color)),
                 Span::styled(
-                    format!("┌{}", "─".repeat(30)),
+                    format!("┌{}", "─".repeat(Self::BLOCK_BORDER_WIDTH)),
                     Style::default().fg(Color::DarkGray),
                 ),
             ]));
 
-            // Content lines (max 8, with wrapping).
+            // Content lines (max THINKING_MAX_DISPLAY_LINES, with wrapping).
             // Single-pass iteration: collect up to max+1 lines to detect
             // overflow without iterating the full thinking string (which
             // can be 100KB+ for extended thinking models).
-            let max_content_lines = 8;
+            let max_content_lines = Self::THINKING_MAX_DISPLAY_LINES;
             let collected: Vec<&str> = thinking.lines().take(max_content_lines + 1).collect();
             let has_more = collected.len() > max_content_lines;
 

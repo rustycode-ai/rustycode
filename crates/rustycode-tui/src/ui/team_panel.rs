@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{Paragraph, Widget},
 };
 
-use rustycode_core::team::orchestrator::TeamEvent;
+use rustycode_team::orchestrator::TeamEvent;
 
 /// Display state for a single agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

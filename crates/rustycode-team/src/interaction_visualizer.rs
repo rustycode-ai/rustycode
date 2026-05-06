@@ -2,7 +2,7 @@
 //!
 //! Generates ASCII sequence diagrams showing message flow between agents.
 
-use crate::team::agent_timeline::{AgentTimeline, TimelineEvent};
+use crate::agent_timeline::{AgentTimeline, TimelineEvent};
 use rustycode_protocol::agent_protocol::AgentRole;
 use std::collections::HashSet;
 
@@ -224,7 +224,7 @@ pub fn generate_full_visualization(timeline: &AgentTimeline) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::team::agent_timeline::{AgentState, TaskStatus};
+    use crate::agent_timeline::{AgentState, TaskStatus};
 
     #[test]
     fn test_sequence_diagram_generation() {

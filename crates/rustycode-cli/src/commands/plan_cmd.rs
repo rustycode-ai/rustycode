@@ -4,10 +4,10 @@
 
 use crate::commands::cli_args::PlanCommand;
 use anyhow::Result;
-use rustycode_core::team::plan_manager::PlanManager;
-use rustycode_core::team::profiler::TaskProfiler;
 use rustycode_protocol::{PlanId, PlanStatus, SessionId};
 use rustycode_runtime::AsyncRuntime;
+use rustycode_team::plan_manager::PlanManager;
+use rustycode_team::profiler::TaskProfiler;
 use std::path::Path;
 
 use crate::prompt::{Confirm, Prompt};

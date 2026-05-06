@@ -592,7 +592,7 @@ impl TeamOrchestrator {
         coordinator: &Coordinator,
         timeline: &AgentTimeline,
     ) {
-        use crate::team::team_learnings::{LearningCategory, TeamLearnings};
+        use crate::team_learnings::{LearningCategory, TeamLearnings};
 
         // Record to markdown-based team learnings (human-readable)
         let mut learnings = match TeamLearnings::load(&self.project_root) {
@@ -758,7 +758,7 @@ impl TeamOrchestrator {
         coordinator: &Coordinator,
         _timeline: &AgentTimeline,
     ) -> ExecutionTrace {
-        use crate::team::execution_trace::{FailureCategory, TaskOutcome as TraceOutcome};
+        use crate::execution_trace::{FailureCategory, TaskOutcome as TraceOutcome};
 
         let outcome = if success {
             TraceOutcome::Success
@@ -1083,7 +1083,7 @@ impl TeamOrchestrator {
         coordinator: &mut Coordinator,
         timeline: &mut AgentTimeline,
     ) -> Result<StepResult> {
-        use crate::team::AgentState;
+        use crate::AgentState;
         use rustycode_protocol::agent_protocol::AgentRole;
 
         let step_context = plan_mgr.step_context_for_role(TeamRole::Builder);

@@ -7,23 +7,15 @@ use crate::app::TUI;
 use crate::ui::message::{Message, MessageRole};
 use tracing;
 
-use super::helpers::check_and_trigger_auto_continue;
+use super::helpers::{
+    check_and_trigger_auto_continue, complete_stream_cleanup, mark_dirty_and_scroll,
+};
 
 pub(super) fn handle_done_chunk(tui: &mut TUI) {
     let had_stream_content = flush_and_transfer_stream_content(tui);
 
     let was_cancelled = tui.streaming.stream_cancelled;
-    tui.streaming.is_streaming = false;
-    tui.streaming.stream_cancelled = false;
-    tui.update_terminal_title();
-
-    if let Some(start) = tui.streaming.stream_start_time.take() {
-        tui.streaming.last_response_duration = Some(start.elapsed());
-    }
-    tui.services.complete_query();
-    tui.rate_limit.retry_count = 0;
-    tui.rate_limit.auto_retry_cancelled = false;
-    tui.active_tools.clear();
+    complete_stream_cleanup(tui);
 
     if tui.doom_loop.is_doom_loop() {
         if let Some(reason) = tui.doom_loop.doom_loop_reason() {
@@ -43,10 +35,7 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     if !had_stream_content && !was_cancelled {
         handle_empty_stream_response(tui);
     }
-    tui.dirty = true;
-    if !tui.view.user_scrolled {
-        tui.auto_scroll();
-    }
+    mark_dirty_and_scroll(tui);
 
     tui.update_context_and_compact();
 

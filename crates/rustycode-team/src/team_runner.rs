@@ -268,7 +268,7 @@ impl TeamRunner {
     /// and should be handled by the Scalpel before retrying with Builder.
     pub fn should_use_scalpel(&self, failures: &[String]) -> bool {
         self.config.scalpel_enabled
-            && crate::team::scalpel::ScalpelPhase::is_scalpel_appropriate(failures)
+            && crate::scalpel::ScalpelPhase::is_scalpel_appropriate(failures)
     }
 
     /// Get the project root.

@@ -1114,7 +1114,7 @@ fn execute_learnings_command(
     command: LearningsCommand,
     format: &str,
 ) -> Result<()> {
-    use rustycode_core::team::team_learnings::{LearningCategory, TeamLearnings};
+    use rustycode_team::team_learnings::{LearningCategory, TeamLearnings};
 
     let mut learnings = TeamLearnings::load(cwd)?;
 

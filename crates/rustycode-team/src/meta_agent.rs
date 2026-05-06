@@ -13,7 +13,7 @@
 //!                      └─→ Analyzes: failures, successes, patterns
 //! ```
 
-use crate::team::execution_trace::{ExecutionTrace, TaskOutcome, TurnTrace};
+use crate::execution_trace::{ExecutionTrace, TaskOutcome, TurnTrace};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tracing::{debug, info};
@@ -520,7 +520,7 @@ pub fn analyze_trace(trace: &ExecutionTrace) -> TraceAnalysis {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::team::execution_trace::ExecutionTraceBuilder;
+    use crate::execution_trace::ExecutionTraceBuilder;
 
     fn create_test_trace(task: &str, outcome: TaskOutcome, turns: u32) -> ExecutionTrace {
         ExecutionTraceBuilder::new(task, outcome)

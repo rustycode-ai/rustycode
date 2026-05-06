@@ -6,11 +6,16 @@
         use ratatui::text::Line;
         use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
+        const MODAL_WIDTH_PCT: usize = 80;
+        const MODAL_HEIGHT_PCT: usize = 70;
+        const MODAL_MIN_WIDTH: usize = 20;
+        const MODAL_MIN_HEIGHT: usize = 5;
+
         let size = frame.area();
 
-        // Calculate modal size (80% width, 70% height), clamped to minimums
-        let width = ((size.width as usize * 80) / 100).max(20).min(size.width as usize) as u16;
-        let height = ((size.height as usize * 70) / 100).max(5).min(size.height as usize) as u16;
+        // Calculate modal size, clamped to minimums
+        let width = ((size.width as usize * MODAL_WIDTH_PCT) / 100).max(MODAL_MIN_WIDTH).min(size.width as usize) as u16;
+        let height = ((size.height as usize * MODAL_HEIGHT_PCT) / 100).max(MODAL_MIN_HEIGHT).min(size.height as usize) as u16;
         let modal_area = centered_rect(width, height, size);
 
         // Clear the area behind the modal

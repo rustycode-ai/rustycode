@@ -262,7 +262,10 @@ mod tests {
         let mut d = DoomLoopDetector::new();
         let long_arg = "a".repeat(300);
         d.record("edit_file", Some(&long_arg), false);
-        assert_eq!(d.records[0].key_arg.as_ref().unwrap().len(), DOOM_WARNING_TRUNCATE);
+        assert_eq!(
+            d.records[0].key_arg.as_ref().unwrap().len(),
+            DOOM_WARNING_TRUNCATE
+        );
     }
 
     #[test]
