@@ -1,4 +1,5 @@
 //! Linux sandbox backend using Landlock (kernel >= 5.13) with graceful fallback.
+#![allow(unexpected_cfgs)]
 
 use crate::error::SandboxError;
 use crate::policy::NetworkAccess;
@@ -206,7 +207,10 @@ fn build_landlock_ruleset(
                 tracing::warn!("Landlock: skipping read path {}: {e}", path.display());
             }
         } else {
-            tracing::debug!("Landlock: read path {} not found, skipping", path.display());
+            tracing::debug!(
+                "Landlock: read path {} not found, skipping",
+                path.display()
+            );
         }
     }
 
@@ -217,7 +221,10 @@ fn build_landlock_ruleset(
                 tracing::warn!("Landlock: skipping write path {}: {e}", path.display());
             }
         } else {
-            tracing::debug!("Landlock: write path {} not found, skipping", path.display());
+            tracing::debug!(
+                "Landlock: write path {} not found, skipping",
+                path.display()
+            );
         }
     }
 
