@@ -426,4 +426,16 @@ impl TUI {
                 && m.tool_executions.as_ref().is_none_or(|t| t.is_empty())
         })
     }
+
+    /// Take (remove and return) the thinking content from the last assistant message.
+    ///
+    /// Used during stream cancellation to atomically capture and clear thinking
+    /// in a single call, avoiding two separate mutable borrows.
+    pub(crate) fn take_last_assistant_thinking(&mut self) -> Option<String> {
+        self.messages
+            .iter_mut()
+            .rev()
+            .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
+            .and_then(|m| m.thinking.take())
+    }
 }

@@ -165,11 +165,7 @@ fn update_message_tool_execution(
     fallback_input_json: Option<serde_json::Value>,
     fallback_start_time: chrono::DateTime<chrono::Utc>,
 ) {
-    let assistant_msg = tui
-        .messages
-        .iter_mut()
-        .rev()
-        .find(|m| m.role == MessageRole::Assistant);
+    let assistant_msg = tui.last_assistant_message_mut();
     let Some(last_msg) = assistant_msg else {
         return;
     };

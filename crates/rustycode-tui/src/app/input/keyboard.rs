@@ -144,30 +144,10 @@ impl TUI {
                     // Mark cancelled so Done handler skips auto-continue.
                     self.streaming.stream_cancelled = true;
                     // CLEAR THINKING STATE IMMEDIATELY
-                    // 1) If the last message is an Assistant and it has thinking content,
-                    //    drop that thinking state so the spinner doesn't linger.
-                    // 2) If the current streaming content corresponds to the thinking
-                    //    content, drop it as well to avoid showing stale content.
-                    let thinking_snapshot = {
-                        // Capture thinking before we mutate the last message
-                        if let Some(last) = self.messages.last_mut() {
-                            if last.role == crate::ui::message_types::MessageRole::Assistant {
-                                last.thinking.clone()
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    };
-                    // Mutate last message thinking field to clear it
-                    if let Some(last) = self.messages.last_mut() {
-                        if last.role == crate::ui::message_types::MessageRole::Assistant {
-                            last.thinking = None;
-                        }
-                    }
-                    // If current_stream_content is exactly the thinking text, clear it
-                    if let Some(thinking) = thinking_snapshot {
+                    // Atomically capture and clear thinking so the spinner
+                    // doesn't linger. Also clear stream content if it matches
+                    // the thinking text (avoids showing stale content).
+                    if let Some(thinking) = self.take_last_assistant_thinking() {
                         if !self.streaming.current_stream_content.is_empty()
                             && self.streaming.current_stream_content.trim() == thinking.trim()
                         {
@@ -556,7 +536,9 @@ impl TUI {
                 // Priority 4: Double-Esc to clear input (only when nothing else is open)
                 let now = std::time::Instant::now();
                 if let Some(last_esc) = self.last_esc_press {
-                    if now.duration_since(last_esc).as_millis() < 500 {
+                    if now.duration_since(last_esc).as_millis()
+                        < crate::app::KEYBOARD_CHORD_TIMEOUT.as_millis()
+                    {
                         // Double-Esc: clear input
                         self.input_handler.state.clear();
                         self.input_mode = self.input_handler.state.mode;

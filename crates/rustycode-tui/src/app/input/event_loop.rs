@@ -158,14 +158,14 @@ impl TUI {
                         KeyCode::Up => {
                             // Scroll up in tool result overlay
                             self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_sub(3);
+                                self.tool_panel.tool_result_scroll_offset.saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Down => {
                             // Scroll down in tool result overlay
                             self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_add(3);
+                                self.tool_panel.tool_result_scroll_offset.saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
@@ -187,13 +187,13 @@ impl TUI {
                         }
                         KeyCode::Char('j') => {
                             self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_add(3);
+                                self.tool_panel.tool_result_scroll_offset.saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('k') => {
                             self.tool_panel.tool_result_scroll_offset =
-                                self.tool_panel.tool_result_scroll_offset.saturating_sub(3);
+                                self.tool_panel.tool_result_scroll_offset.saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
@@ -232,13 +232,13 @@ impl TUI {
                         }
                         KeyCode::PageUp => {
                             self.help_state.scroll_offset =
-                                self.help_state.scroll_offset.saturating_sub(10);
+                                self.help_state.scroll_offset.saturating_sub(crate::app::HELP_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageDown => {
                             self.help_state.scroll_offset =
-                                self.help_state.scroll_offset.saturating_add(10);
+                                self.help_state.scroll_offset.saturating_add(crate::app::HELP_SCROLL_STEP);
                             self.dirty = true;
                             return Ok(());
                         }
@@ -616,7 +616,7 @@ impl TUI {
             let _ = tx.send(result);
         });
 
-        let result = match rx.recv_timeout(std::time::Duration::from_secs(2)) {
+        let result = match rx.recv_timeout(crate::app::TOOL_RESULT_INITIAL_TIMEOUT) {
             Ok(r) => r,
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                 self.add_system_message(
@@ -626,7 +626,7 @@ impl TUI {
                 // Store result in shared state for polling by poll_services()
                 let result_store = self.streaming.pending_bash_result.clone();
                 std::thread::spawn(move || {
-                    if let Ok(result) = rx.recv_timeout(std::time::Duration::from_secs(58)) {
+                    if let Ok(result) = rx.recv_timeout(crate::app::TOOL_RESULT_FALLBACK_TIMEOUT) {
                         let text = match result {
                             Ok(output) => {
                                 let t = output.text.trim().to_string();
@@ -656,9 +656,9 @@ impl TUI {
                 if text.is_empty() {
                     self.add_system_message("(no output)".to_string());
                 } else {
-                    // Truncate long output (char-safe: find a valid char boundary at ~4000 bytes)
-                    let display = if text.len() > 4000 {
-                        let byte_limit = text.floor_char_boundary(4000);
+                    // Truncate long output (char-safe: find a valid char boundary)
+                    let display = if text.len() > crate::app::MAX_DISPLAY_CHARS {
+                        let byte_limit = text.floor_char_boundary(crate::app::MAX_DISPLAY_CHARS);
                         let end = text[..byte_limit].rfind('\n').unwrap_or(byte_limit);
                         format!(
                             "{}\n... ({} chars truncated)",

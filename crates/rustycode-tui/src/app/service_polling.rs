@@ -69,13 +69,15 @@ impl TUI {
             self.dirty = true;
         }
 
-        // Poll tool results — drain up to 8 per frame (tools are heavier)
+        // Poll tool results — drain up to MAX_TOOL_RESULTS_PER_FRAME per frame
+        // (tools are heavier than stream chunks, same limit keeps UI responsive)
+        const MAX_TOOL_RESULTS_PER_FRAME: usize = 8;
         let mut had_tool = false;
         let mut tool_count = 0usize;
         {
             let mut results: Vec<crate::app::async_::ToolResult> = Vec::new();
             if let Some(channel) = self.services.tool_channel_mut() {
-                for _ in 0..8 {
+                for _ in 0..MAX_TOOL_RESULTS_PER_FRAME {
                     match channel.try_recv() {
                         Some(result) => results.push(result),
                         None => break,

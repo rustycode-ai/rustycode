@@ -139,3 +139,11 @@ pub const TOOL_OUTPUT_INLINE_CHARS: usize = 2000;
 pub const TOOL_OUTPUT_INLINE_LINES: usize = 50;
 /// Maximum display characters for streaming text
 pub const MAX_DISPLAY_CHARS: usize = 4000;
+/// Lines to scroll per key press in tool result overlay
+pub const TOOL_RESULT_SCROLL_STEP: usize = 3;
+/// Lines to scroll per key press in help overlay
+pub const HELP_SCROLL_STEP: usize = 10;
+/// Initial timeout for inline tool result (before background fallback)
+pub const TOOL_RESULT_INITIAL_TIMEOUT: Duration = Duration::from_secs(2);
+/// Fallback timeout for background tool result collection
+pub const TOOL_RESULT_FALLBACK_TIMEOUT: Duration = Duration::from_secs(58);

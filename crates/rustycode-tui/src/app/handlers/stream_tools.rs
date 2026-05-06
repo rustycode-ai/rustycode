@@ -190,11 +190,7 @@ pub(super) fn handle_tool_start_chunk(
         ),
     );
 
-    let assistant_msg = tui
-        .messages
-        .iter_mut()
-        .rev()
-        .find(|m| m.role == MessageRole::Assistant);
+    let assistant_msg = tui.last_assistant_message_mut();
     if let Some(last_msg) = assistant_msg {
         let tool_execution = new_running_tool(tool_id, tool_name, input_json, initial_summary);
 
@@ -357,11 +353,7 @@ pub(super) fn handle_tool_complete_chunk(
         }
     });
 
-    let assistant_msg = tui
-        .messages
-        .iter_mut()
-        .rev()
-        .find(|m| m.role == MessageRole::Assistant);
+    let assistant_msg = tui.last_assistant_message_mut();
     if let Some(last_msg) = assistant_msg {
         if let Some(tools) = &mut last_msg.tool_executions {
             if let Some(tool) = tools.iter_mut().find(|t| t.tool_id == tool_id) {
