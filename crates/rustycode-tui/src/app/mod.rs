@@ -42,7 +42,7 @@ pub mod task_commands;
 // ── Memory & messages ─────────────────────────────────────────
 pub mod memory_manager;
 pub mod memory_ops;
-pub mod message_management;
+
 pub mod message_ops;
 
 // ── Clipboard ─────────────────────────────────────────────────

@@ -2,7 +2,6 @@
 
 use crate::app::async_::StreamChunk;
 use crate::app::TUI;
-use crate::ui::message::MessageRole;
 
 use super::stream_approval::{
     handle_approval_approved_chunk, handle_approval_rejected_chunk, handle_approval_request_chunk,
@@ -69,11 +68,7 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
 fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
     const MAX_THINKING_BYTES: usize = 50 * 1024;
     tui.streaming.thinking_chunks_received += 1;
-    let assistant_msg = tui
-        .messages
-        .iter_mut()
-        .rev()
-        .find(|m| m.role == MessageRole::Assistant);
+    let assistant_msg = tui.last_assistant_message_mut();
     if let Some(last_msg) = assistant_msg {
         if let Some(existing) = &mut last_msg.thinking {
             if existing.len() + thinking.len() > MAX_THINKING_BYTES {

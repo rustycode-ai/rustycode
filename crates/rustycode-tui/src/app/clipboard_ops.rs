@@ -317,10 +317,7 @@ impl TUI {
         }
 
         // Find the last AI message (assistant role)
-        let last_ai_msg_idx = self
-            .messages
-            .iter()
-            .rposition(|msg| msg.role == crate::ui::message::MessageRole::Assistant);
+        let last_ai_msg_idx = self.last_assistant_index();
 
         let last_ai_msg_idx = match last_ai_msg_idx {
             Some(idx) => idx,

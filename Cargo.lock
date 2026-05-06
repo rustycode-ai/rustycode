@@ -6723,6 +6723,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustycode-tools-security"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "libc",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "rustycode-tui"
 version = "0.1.0"
 dependencies = [

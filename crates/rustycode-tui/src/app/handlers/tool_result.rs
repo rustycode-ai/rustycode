@@ -6,7 +6,7 @@
 use crate::app::async_::{ToolExecutionError, ToolOutput, ToolResult};
 use crate::app::TUI;
 use crate::ui::ast_progress::AST_PHASE_NAMES;
-use crate::ui::message::{MessageRole, ToolExecution, ToolStatus};
+use crate::ui::message::{ToolExecution, ToolStatus};
 use chrono;
 use std::time::SystemTime;
 use tracing;

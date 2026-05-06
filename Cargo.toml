@@ -42,6 +42,7 @@ members = [
     "crates/rustycode-tools",
     "crates/rustycode-tools-api",
     "crates/rustycode-tools-registry",
+    "crates/rustycode-tools-security",
     "crates/rustycode-tui",
     "crates/rustycode-ui-core",
     "crates/rustycode-ui-model",

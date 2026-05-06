@@ -2,7 +2,7 @@
 
 use crate::app::async_::StreamError;
 use crate::app::TUI;
-use crate::ui::message::{Message, MessageRole};
+use crate::ui::message::Message;
 use anyhow;
 use std::time::{Duration, SystemTime};
 use tracing;
@@ -33,11 +33,7 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     if !tui.streaming.current_stream_content.is_empty() {
         let content = std::mem::take(&mut tui.streaming.current_stream_content);
         let preserved_len = content.len();
-        let assistant_msg = tui
-            .messages
-            .iter_mut()
-            .rev()
-            .find(|m| m.role == MessageRole::Assistant);
+        let assistant_msg = tui.last_assistant_message_mut();
         if let Some(msg) = assistant_msg {
             if msg.content.is_empty() {
                 msg.content = content;

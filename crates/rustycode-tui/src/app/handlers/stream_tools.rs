@@ -4,7 +4,7 @@
 //! updating progress, recording results, doom loop detection, and hook execution.
 
 use crate::app::TUI;
-use crate::ui::message::{MessageRole, ToolExecution, ToolStatus};
+use crate::ui::message::{ToolExecution, ToolStatus};
 use chrono;
 use tracing;
 
