@@ -385,9 +385,12 @@ mod tests {
     #[test]
     fn manual_scroll_starts_from_bottom() {
         let mut tui = TUI {
-            viewport_height: 10,
-            user_scrolled: false,
-            scroll_offset_line: 0,
+            view: crate::app::view_state::ViewState {
+                viewport_height: 10,
+                user_scrolled: false,
+                scroll_offset_line: 0,
+                ..crate::app::view_state::ViewState::new()
+            },
             ..TUI::default()
         };
         tui.view.last_total_lines.set(100);
@@ -401,9 +404,12 @@ mod tests {
     #[test]
     fn scroll_down_at_bottom_stays_pinned() {
         let mut tui = TUI {
-            viewport_height: 10,
-            user_scrolled: false,
-            scroll_offset_line: 0,
+            view: crate::app::view_state::ViewState {
+                viewport_height: 10,
+                user_scrolled: false,
+                scroll_offset_line: 0,
+                ..crate::app::view_state::ViewState::new()
+            },
             ..TUI::default()
         };
         tui.view.last_total_lines.set(100);

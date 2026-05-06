@@ -72,6 +72,7 @@ pub mod isolation;
 pub mod judge;
 #[cfg(test)]
 pub mod mock_provider_for_tests;
+pub mod milestone_prompt;
 pub mod model_registry;
 pub mod musician;
 pub mod optimization_metrics;
@@ -165,6 +166,7 @@ pub use judge::{
     build_judge_prompt, BuiltInRubrics, JudgeConfig, JudgeGrade, JudgeParseError, JudgeRubric,
     JudgeVerdict,
 };
+pub use milestone_prompt::{build_milestone_prompt, parse_milestone_response, MilestonePromptResult};
 pub use musician::Musician;
 pub use orchestrator::StepOrchestrator;
 pub use phase_lifecycle::PhaseLifecycleManager;

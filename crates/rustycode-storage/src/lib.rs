@@ -1191,7 +1191,7 @@ impl Storage {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut stmt = conn.prepare(
-            "select id, session_id, task, created_at, status, summary, approach, steps, files_to_modify, risks
+            "select id, session_id, milestone_id, task, created_at, status, summary, approach, steps, files_to_modify, risks
              from plans where id = ?1",
         )?;
         let mut rows = stmt.query_map(params![plan_id.to_string()], plan_from_row)?;
@@ -1207,7 +1207,7 @@ impl Storage {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut stmt = conn.prepare(
-            "select id, session_id, task, created_at, status, summary, approach, steps, files_to_modify, risks
+            "select id, session_id, milestone_id, task, created_at, status, summary, approach, steps, files_to_modify, risks
              from plans where session_id = ?1 order by created_at desc",
         )?;
         let rows = stmt.query_map(params![session_id.to_string()], plan_from_row)?;
@@ -1222,7 +1222,7 @@ impl Storage {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let mut stmt = conn.prepare(
-            "select id, session_id, task, created_at, status, summary, approach, steps, files_to_modify, risks
+            "select id, session_id, milestone_id, task, created_at, status, summary, approach, steps, files_to_modify, risks
              from plans order by created_at desc limit ?1",
         )?;
         let rows = stmt.query_map(params![limit], plan_from_row)?;
@@ -1312,6 +1312,7 @@ impl Storage {
             create table if not exists plans (
                 id text primary key,
                 session_id text not null,
+                milestone_id text,
                 task text not null,
                 created_at text not null,
                 status text not null,
@@ -1320,6 +1321,21 @@ impl Storage {
                 steps text not null,
                 files_to_modify text not null,
                 risks text not null,
+                foreign key (session_id) references sessions(id)
+            );
+            create table if not exists milestones (
+                id text primary key,
+                session_id text not null,
+                title text not null,
+                description text not null,
+                status text not null,
+                plan_ids text not null default '[]',
+                plan_dependencies text not null default '[]',
+                success_criteria text not null default '[]',
+                validation_command text,
+                created_at text not null,
+                updated_at text not null,
+                completed_at text,
                 foreign key (session_id) references sessions(id)
             );
             create table if not exists session_snapshots (
@@ -1425,6 +1441,7 @@ impl Storage {
             create index if not exists idx_tasks_status on tasks(status);
             create index if not exists idx_tasks_owner on tasks(owner);",
         )?;
+        let _ = conn.execute_batch("alter table plans add column milestone_id text");
         Ok(())
     }
 }
@@ -2337,17 +2354,87 @@ fn session_from_row(row: &rusqlite::Row) -> rusqlite::Result<Session> {
     })
 }
 
+fn milestone_from_row(row: &rusqlite::Row) -> rusqlite::Result<Milestone> {
+    let id: String = row.get(0)?;
+    let session_id: String = row.get(1)?;
+    let title: String = row.get(2)?;
+    let description: String = row.get(3)?;
+    let status_str: String = row.get(4)?;
+    let plan_ids_str: String = row.get(5)?;
+    let dependencies_str: String = row.get(6)?;
+    let success_criteria_str: String = row.get(7)?;
+    let validation_command: Option<String> = row.get(8)?;
+    let created_at: String = row.get(9)?;
+    let updated_at: String = row.get(10)?;
+    let completed_at: Option<String> = row.get(11)?;
+
+    let to_sql_err = |e: serde_json::Error| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+    };
+
+    Ok(Milestone {
+        id: MilestoneId::parse(&id).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
+        })?,
+        session_id: SessionId::parse(&session_id).map_err(|e| {
+            rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(e))
+        })?,
+        title,
+        description,
+        status: serde_json::from_str(&status_str).unwrap_or_default(),
+        plan_ids: serde_json::from_str::<Vec<PlanId>>(&plan_ids_str).map_err(to_sql_err)?,
+        plan_dependencies: serde_json::from_str::<Vec<PlanDependency>>(&dependencies_str)
+            .map_err(to_sql_err)?,
+        success_criteria: serde_json::from_str::<Vec<String>>(&success_criteria_str)
+            .map_err(to_sql_err)?,
+        validation_command,
+        created_at: DateTime::parse_from_rfc3339(&created_at)
+            .map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    9,
+                    rusqlite::types::Type::Text,
+                    Box::new(e),
+                )
+            })?
+            .with_timezone(&Utc),
+        updated_at: DateTime::parse_from_rfc3339(&updated_at)
+            .map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(
+                    10,
+                    rusqlite::types::Type::Text,
+                    Box::new(e),
+                )
+            })?
+            .with_timezone(&Utc),
+        completed_at: completed_at
+            .as_deref()
+            .map(|ts| {
+                DateTime::parse_from_rfc3339(ts)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(
+                            11,
+                            rusqlite::types::Type::Text,
+                            Box::new(e),
+                        )
+                    })
+            })
+            .transpose()?,
+    })
+}
+
 fn plan_from_row(row: &rusqlite::Row) -> rusqlite::Result<Plan> {
     let id: String = row.get(0)?;
     let session_id: String = row.get(1)?;
-    let task: String = row.get(2)?;
-    let created_at: String = row.get(3)?;
-    let status_str: String = row.get(4)?;
-    let summary: String = row.get(5)?;
-    let approach: String = row.get(6)?;
-    let steps_str: String = row.get(7)?;
-    let files_str: String = row.get(8)?;
-    let risks_str: String = row.get(9)?;
+    let milestone_id: Option<String> = row.get(2)?;
+    let task: String = row.get(3)?;
+    let created_at: String = row.get(4)?;
+    let status_str: String = row.get(5)?;
+    let summary: String = row.get(6)?;
+    let approach: String = row.get(7)?;
+    let steps_str: String = row.get(8)?;
+    let files_str: String = row.get(9)?;
+    let risks_str: String = row.get(10)?;
 
     let to_sql_err = |e: serde_json::Error| {
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e))
@@ -2360,11 +2447,23 @@ fn plan_from_row(row: &rusqlite::Row) -> rusqlite::Result<Plan> {
         session_id: SessionId::parse(&session_id).map_err(|e| {
             rusqlite::Error::FromSqlConversionFailure(1, rusqlite::types::Type::Text, Box::new(e))
         })?,
+        milestone_id: milestone_id
+            .as_deref()
+            .map(|value| {
+                MilestoneId::parse(value).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        2,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })
+            })
+            .transpose()?,
         task,
         created_at: DateTime::parse_from_rfc3339(&created_at)
             .map_err(|e| {
                 rusqlite::Error::FromSqlConversionFailure(
-                    3,
+                    4,
                     rusqlite::types::Type::Text,
                     Box::new(e),
                 )

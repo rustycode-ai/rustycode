@@ -4,7 +4,10 @@
 //! reducing the time needed to create plans from scratch.
 
 use chrono::Utc;
-use rustycode_protocol::{Plan, PlanId, PlanStatus, PlanStep, SessionId};
+use rustycode_protocol::{
+    Milestone, MilestoneId, MilestoneStatus, Plan, PlanDependency, PlanId, PlanStatus, PlanStep,
+    SessionId,
+};
 
 /// Template types for common development tasks
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,6 +29,25 @@ pub enum PlanTemplate {
     SecurityFix,
     /// Dependency update
     DependencyUpdate,
+}
+
+/// Output of a milestone template: a milestone plus its empty plan shells.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MilestoneBlueprint {
+    pub milestone: Milestone,
+    pub plans: Vec<Plan>,
+}
+
+/// Template types for common milestone-level workflows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MilestoneTemplate {
+    /// 3-5 plans: research, implementation, tests, integration
+    NewFeature,
+    /// 2-3 plans: reproduction, fix, regression tests
+    BugInvestigation,
+    /// 4-6 plans: scaffolding, migration, cleanup, tests
+    MajorRefactor,
 }
 
 impl PlanTemplate {
@@ -596,6 +618,193 @@ impl PlanTemplate {
     }
 }
 
+impl MilestoneTemplate {
+    pub const fn description(&self) -> &str {
+        match self {
+            Self::NewFeature => "Decompose a new feature into research, implementation, and verification plans",
+            Self::BugInvestigation => "Break a bug investigation into reproduction, diagnosis, fix, and regression plans",
+            Self::MajorRefactor => "Split a large refactor into scaffolding, migration, cleanup, and tests",
+        }
+    }
+
+    pub fn create_milestone(
+        &self,
+        session_id: SessionId,
+        title: String,
+        description: String,
+    ) -> MilestoneBlueprint {
+        let milestone_id = MilestoneId::new();
+        let now = Utc::now();
+
+        let plan_specs = self.plan_specs();
+        let mut plans = Vec::with_capacity(plan_specs.len());
+        let mut dependencies = Vec::with_capacity(plan_specs.len());
+        let mut plan_ids = Vec::with_capacity(plan_specs.len());
+
+        for spec in plan_specs {
+            let plan_id = PlanId::new();
+            let plan = Plan {
+                id: plan_id.clone(),
+                session_id: session_id.clone(),
+                milestone_id: Some(milestone_id.clone()),
+                task: format!("{title}: {}", spec.title),
+                created_at: now,
+                status: PlanStatus::Draft,
+                summary: spec.summary.to_string(),
+                approach: spec.approach.to_string(),
+                steps: vec![],
+                files_to_modify: spec.files.iter().map(|s| s.to_string()).collect(),
+                risks: vec![],
+                current_step_index: None,
+                execution_started_at: None,
+                execution_completed_at: None,
+                execution_error: None,
+                task_profile: None,
+            };
+            plan_ids.push(plan_id.clone());
+            dependencies.push(PlanDependency {
+                plan_id,
+                depends_on: spec.depends_on.iter().map(|index| plan_ids[*index].clone()).collect(),
+            });
+            plans.push(plan);
+        }
+
+        let milestone = Milestone {
+            id: milestone_id,
+            session_id,
+            title,
+            description,
+            status: MilestoneStatus::Draft,
+            plan_ids,
+            plan_dependencies: dependencies,
+            success_criteria: self.success_criteria(),
+            validation_command: Some("cargo test".to_string()),
+            created_at: now,
+            updated_at: now,
+            completed_at: None,
+        };
+
+        MilestoneBlueprint { milestone, plans }
+    }
+
+    fn plan_specs(&self) -> Vec<MilestonePlanSpec> {
+        match self {
+            Self::NewFeature => vec![
+                MilestonePlanSpec {
+                    title: "Research and shape the API",
+                    summary: "Gather context, inspect existing patterns, and estimate the file scope (2-3 files)",
+                    approach: "Research the current implementation and document integration points.",
+                    files: vec!["src/auth.rs", "src/lib.rs", "tests/auth.rs"],
+                    depends_on: vec![],
+                },
+                MilestonePlanSpec {
+                    title: "Implement core feature",
+                    summary: "Build the main module and surface area (3-5 files)",
+                    approach: "Implement the core data flow and wire the new feature into the app.",
+                    files: vec!["src/auth.rs", "src/middleware.rs", "src/router.rs"],
+                    depends_on: vec![0],
+                },
+                MilestonePlanSpec {
+                    title: "Add tests",
+                    summary: "Cover the new behavior with unit and integration tests (2-4 files)",
+                    approach: "Write regression tests for the new feature and important edge cases.",
+                    files: vec!["tests/auth.rs", "tests/integration/auth.rs"],
+                    depends_on: vec![1],
+                },
+                MilestonePlanSpec {
+                    title: "Integration and polish",
+                    summary: "Hook the feature into the TUI/CLI surface and clean up details (1-3 files)",
+                    approach: "Connect user-facing entry points and update documentation if needed.",
+                    files: vec!["crates/rustycode-tui/src/app/mod.rs", "README.md"],
+                    depends_on: vec![1, 2],
+                },
+            ],
+            Self::BugInvestigation => vec![
+                MilestonePlanSpec {
+                    title: "Reproduce and narrow the bug",
+                    summary: "Find a minimal reproduction and log the impacted files (1-2 files)",
+                    approach: "Confirm the failure mode and isolate the smallest reproducible case.",
+                    files: vec!["tests/repro.rs", "src/lib.rs"],
+                    depends_on: vec![],
+                },
+                MilestonePlanSpec {
+                    title: "Implement the fix",
+                    summary: "Patch the bug at the source and keep the change small (1-3 files)",
+                    approach: "Apply the fix and preserve the current behavior wherever possible.",
+                    files: vec!["src/lib.rs", "src/handler.rs"],
+                    depends_on: vec![0],
+                },
+                MilestonePlanSpec {
+                    title: "Regression tests",
+                    summary: "Lock in the fix with targeted regression coverage (1-2 files)",
+                    approach: "Add tests that fail before the fix and pass after it lands.",
+                    files: vec!["tests/regression.rs"],
+                    depends_on: vec![1],
+                },
+            ],
+            Self::MajorRefactor => vec![
+                MilestonePlanSpec {
+                    title: "Scaffold the new shape",
+                    summary: "Introduce the new abstractions and file layout (2-4 files)",
+                    approach: "Lay down the scaffolding so the refactor has a stable path forward.",
+                    files: vec!["src/lib.rs", "src/module.rs"],
+                    depends_on: vec![],
+                },
+                MilestonePlanSpec {
+                    title: "Migrate the core paths",
+                    summary: "Move the primary logic to the new structure (3-6 files)",
+                    approach: "Shift the important behavior while keeping the old behavior intact.",
+                    files: vec!["src/module.rs", "src/adapter.rs", "src/lib.rs"],
+                    depends_on: vec![0],
+                },
+                MilestonePlanSpec {
+                    title: "Cleanup and compatibility",
+                    summary: "Delete dead code and preserve compatibility shims (2-4 files)",
+                    approach: "Remove obsolete paths and keep temporary shims for compatibility.",
+                    files: vec!["src/legacy.rs", "src/lib.rs"],
+                    depends_on: vec![1],
+                },
+                MilestonePlanSpec {
+                    title: "Verification sweep",
+                    summary: "Run the test and validation sweep (1-2 files)",
+                    approach: "Add or update tests to cover the refactored system end to end.",
+                    files: vec!["tests/refactor.rs"],
+                    depends_on: vec![1, 2],
+                },
+            ],
+        }
+    }
+
+    fn success_criteria(&self) -> Vec<String> {
+        match self {
+            Self::NewFeature => vec![
+                "Core behavior is implemented".to_string(),
+                "Tests cover the new feature".to_string(),
+                "Integration entry points are wired".to_string(),
+            ],
+            Self::BugInvestigation => vec![
+                "Bug reproduction is documented".to_string(),
+                "Fix eliminates the failure".to_string(),
+                "Regression coverage prevents recurrence".to_string(),
+            ],
+            Self::MajorRefactor => vec![
+                "New structure compiles cleanly".to_string(),
+                "Old behavior still passes tests".to_string(),
+                "Deprecated paths are removed or isolated".to_string(),
+            ],
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct MilestonePlanSpec {
+    title: &'static str,
+    summary: &'static str,
+    approach: &'static str,
+    files: &'static [&'static str],
+    depends_on: &'static [usize],
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -731,5 +940,33 @@ mod tests {
         for (i, step) in plan.steps.iter().enumerate() {
             assert_eq!(step.order, i, "Step order should be sequential");
         }
+    }
+
+    #[test]
+    fn test_milestone_template_creates_blueprint() {
+        let template = MilestoneTemplate::NewFeature;
+        let blueprint = template.create_milestone(
+            SessionId::new(),
+            "Auth milestone".to_string(),
+            "Group the auth work into a few ordered plans".to_string(),
+        );
+
+        assert_eq!(blueprint.milestone.status, MilestoneStatus::Draft);
+        assert!(!blueprint.milestone.plan_ids.is_empty());
+        assert_eq!(blueprint.milestone.plan_ids.len(), blueprint.plans.len());
+        assert_eq!(blueprint.plans.len(), 4);
+        assert!(
+            blueprint
+                .plans
+                .iter()
+                .all(|plan| plan.milestone_id == Some(blueprint.milestone.id.clone()))
+        );
+        assert!(
+            blueprint
+                .milestone
+                .plan_dependencies
+                .iter()
+                .any(|dep| !dep.depends_on.is_empty())
+        );
     }
 }

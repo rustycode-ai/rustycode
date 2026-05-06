@@ -20,7 +20,6 @@ tracing.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-config = { path = "../rustycode-config" }
 rustycode-auth = { path = "../rustycode-auth" }
-rustycode-tools = { path = "../rustycode-tools" }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
 rustycode-executable = { path = "../rustycode-executable" }
@@ -46,6 +45,9 @@ vector-memory = []
 litert = ["dep:rustycode-litert"]
 # Enable WebSocket transport for OpenAI Responses API
 ws = ["dep:tokio-tungstenite"]
+
+[dev-dependencies]
+rustycode-tools = { path = "../rustycode-tools" }
 
 [lints]
 workspace = true
