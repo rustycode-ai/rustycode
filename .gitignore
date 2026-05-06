@@ -93,6 +93,15 @@ actual_crates.txt
 workspace_members.txt
 *.csv
 
+# Doom / MIPS build artifacts
+doomgeneric/
+doomgeneric_mips
+
+# Test / temp directories
+tmp-prd-test/
+mcp-test-server/
+1argo
+
 # Status markers
 DISCIPLINE_GATE.md
 PROFILE_GATE.md
