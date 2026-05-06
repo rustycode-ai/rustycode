@@ -64,11 +64,9 @@ pub async fn execute_sandboxed_linux(
                 cmd.env(var, val);
             }
         }
-        // Always ensure PATH includes standard dirs
-        if std::env::var("PATH").is_ok() && cmd.get_envs().all(|(k, _)| k != "PATH") {
-            if let Ok(path) = std::env::var("PATH") {
-                cmd.env("PATH", path);
-            }
+        // Ensure PATH is always present after env_clear (setting twice is harmless).
+        if let Ok(path) = std::env::var("PATH") {
+            cmd.env("PATH", path);
         }
     }
 
