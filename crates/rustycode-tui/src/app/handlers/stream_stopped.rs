@@ -57,7 +57,7 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
         recovery.mark_dirty();
     }
     tui.dirty = true;
-    if !tui.user_scrolled {
+    if !tui.view.user_scrolled {
         tui.auto_scroll();
     }
 }

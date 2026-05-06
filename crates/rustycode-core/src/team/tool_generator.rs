@@ -96,13 +96,13 @@ pub struct ParamSpec {
 /// Tool Generator using LLM to create tools from descriptions.
 pub struct ToolGenerator {
     /// LLM provider for code generation.
-    llm: Arc<dyn LLMProvider>,
+    llm: Arc<dyn UnifiedLLMProvider>,
     /// Known API specs for reference.
     api_specs: Vec<ApiSpec>,
 }
 
 impl ToolGenerator {
-    pub fn new(llm: Arc<dyn LLMProvider>) -> Self {
+    pub fn new(llm: Arc<dyn UnifiedLLMProvider>) -> Self {
         Self {
             llm,
             api_specs: Vec::new(),
@@ -589,12 +589,12 @@ impl MockLLM {
 
 #[cfg(test)]
 #[async_trait::async_trait]
-impl LLMProvider for MockLLM {
+impl UnifiedLLMProvider for MockLLM {
     fn name(&self) -> &'static str {
         "mock"
     }
 
-    async fn list_models(&self) -> Result<Vec<rustycode_protocol::llm::ModelInfo>> {
+    async fn list_models(&self) -> Result<Vec<rustycode_llm::UnifiedModelInfo>> {
         Ok(vec![])
     }
 
@@ -604,16 +604,16 @@ impl LLMProvider for MockLLM {
 
     async fn complete(
         &self,
-        _request: rustycode_protocol::llm::CompletionRequest,
-    ) -> Result<rustycode_protocol::llm::CompletionResponse> {
-        Ok(rustycode_protocol::llm::CompletionResponse {
+        _request: rustycode_llm::UnifiedCompletionRequest,
+    ) -> Result<rustycode_llm::UnifiedCompletionResponse> {
+        Ok(rustycode_llm::UnifiedCompletionResponse {
             text: self.response.clone(),
-            tokens_used: rustycode_protocol::llm::TokenCount {
+            tokens_used: rustycode_llm::UnifiedTokenCount {
                 input_tokens: 0,
                 output_tokens: 0,
                 total_tokens: 0,
             },
-            cost: rustycode_protocol::llm::Cost {
+            cost: rustycode_llm::UnifiedCost {
                 input_cost: 0.0,
                 output_cost: 0.0,
                 total_cost: 0.0,
@@ -624,9 +624,9 @@ impl LLMProvider for MockLLM {
 
     fn estimate_cost(
         &self,
-        _request: &rustycode_protocol::llm::CompletionRequest,
-    ) -> Result<rustycode_protocol::llm::Cost> {
-        Ok(rustycode_protocol::llm::Cost {
+        _request: &rustycode_llm::UnifiedCompletionRequest,
+    ) -> Result<rustycode_llm::UnifiedCost> {
+        Ok(rustycode_llm::UnifiedCost {
             input_cost: 0.0,
             output_cost: 0.0,
             total_cost: 0.0,

@@ -229,7 +229,7 @@ fn update_message_tool_execution(
         }
     }
 
-    if !tui.user_scrolled {
+    if !tui.view.user_scrolled {
         tui.auto_scroll();
     }
 }

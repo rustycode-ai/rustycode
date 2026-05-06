@@ -206,7 +206,7 @@ impl SessionMode {
         let new_session = Session::new(format!("Session {}", session_id.as_str()));
         *self.current_session.write().await = new_session;
         self.selected_session = 0;
-        self.selected_message = 0;
+        self.view.selected_message = 0;
         Ok(())
     }
 
@@ -322,7 +322,7 @@ impl SessionMode {
     pub async fn next_message(&mut self) {
         let session = self.current_session.read().await;
         if !session.messages.is_empty() {
-            self.selected_message = (self.selected_message + 1) % session.messages.len();
+            self.view.selected_message = (self.view.selected_message + 1) % session.messages.len();
         }
     }
 
@@ -331,10 +331,10 @@ impl SessionMode {
         let session = self.current_session.read().await;
         if !session.messages.is_empty() {
             let len = session.messages.len();
-            self.selected_message = if self.selected_message == 0 {
+            self.view.selected_message = if self.view.selected_message == 0 {
                 len - 1
             } else {
-                self.selected_message - 1
+                self.view.selected_message - 1
             };
         }
     }
@@ -659,7 +659,7 @@ impl SessionMode {
         let items: Vec<ListItem> = messages
             .iter()
             .map(|(i, msg)| {
-                let is_selected = *i == self.selected_message;
+                let is_selected = *i == self.view.selected_message;
                 let role_icon = match msg.role {
                     MessageRole::User => "👤",
                     MessageRole::Assistant => "🤖",
@@ -737,7 +737,7 @@ impl SessionMode {
     fn render_message_preview(&self, frame: &mut Frame<'_>, area: Rect) {
         let session = self.current_session.blocking_read();
 
-        if let Some(msg) = session.messages.get(self.selected_message) {
+        if let Some(msg) = session.messages.get(self.view.selected_message) {
             let content = vec![
                 Line::from(vec![
                     Span::styled("Role: ", Style::default().fg(Color::Cyan)),

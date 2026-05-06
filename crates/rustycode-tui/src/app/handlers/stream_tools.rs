@@ -396,8 +396,8 @@ pub(super) fn handle_tool_complete_chunk(
     // Reset auto-scroll when a tool completes so the subsequent
     // response text is visible. Without this, the viewport stays
     // wherever the user last scrolled, hiding the new response.
-    tui.user_scrolled = false;
-    tui.scroll_offset_line = 0;
+    tui.view.user_scrolled = false;
+    tui.view.scroll_offset_line = 0;
 
     tui.dirty = true;
 

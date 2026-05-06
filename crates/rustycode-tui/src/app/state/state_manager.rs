@@ -31,7 +31,7 @@ impl StateManager {
 
     /// Update the viewport height
     pub fn update_viewport_height(&mut self, height: usize) {
-        self.viewport_height = height.max(1);
+        self.view.viewport_height = height.max(1);
         // Ensure scroll offset is valid
         self.ensure_scroll_offset_valid();
     }
@@ -48,7 +48,7 @@ impl StateManager {
     }
 
     pub fn viewport_height(&self) -> usize {
-        self.viewport_height
+        self.view.viewport_height
     }
 
     pub fn message_count(&self) -> usize {
@@ -58,7 +58,7 @@ impl StateManager {
     /// Calculate the visible range of message indices
     pub fn visible_range(&self) -> Range<usize> {
         let start = self.scroll_offset;
-        let end = (self.scroll_offset + self.viewport_height).min(self.message_count);
+        let end = (self.scroll_offset + self.view.viewport_height).min(self.message_count);
         start..end
     }
 
@@ -79,13 +79,13 @@ impl StateManager {
 
     /// Scroll up by one page
     pub fn page_up(&mut self) {
-        let page_size = self.viewport_height.saturating_sub(1);
+        let page_size = self.view.viewport_height.saturating_sub(1);
         self.scroll_offset = self.scroll_offset.saturating_sub(page_size);
     }
 
     /// Scroll down by one page
     pub fn page_down(&mut self) {
-        let page_size = self.viewport_height.saturating_sub(1);
+        let page_size = self.view.viewport_height.saturating_sub(1);
         let max_offset = self.max_scroll_offset();
         self.scroll_offset = (self.scroll_offset + page_size).min(max_offset);
     }
@@ -102,7 +102,7 @@ impl StateManager {
 
     /// Calculate the maximum scroll offset
     fn max_scroll_offset(&self) -> usize {
-        self.message_count.saturating_sub(self.viewport_height)
+        self.message_count.saturating_sub(self.view.viewport_height)
     }
 
     /// Ensure the scroll offset is valid

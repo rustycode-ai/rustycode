@@ -88,7 +88,7 @@ impl BrutalistRenderer<'_> {
                 )
             } else if self.history_position > 0 {
                 format!("history {}/{}", self.history_position, self.history_total)
-            } else if self.user_scrolled && !self.is_streaming {
+            } else if self.view.user_scrolled && !self.is_streaming {
                 "G bottom · ↑↓ scroll".to_string()
             } else if self.is_streaming {
                 if self.has_queued_message {

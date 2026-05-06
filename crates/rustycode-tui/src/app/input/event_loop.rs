@@ -26,22 +26,22 @@ impl ScrollState {
     }
 
     pub fn scroll_up(&mut self) {
-        self.user_scrolled = true;
-        self.scroll_offset_line = self.scroll_offset_line.saturating_sub(1);
+        self.view.user_scrolled = true;
+        self.view.scroll_offset_line = self.view.scroll_offset_line.saturating_sub(1);
     }
 
     pub fn scroll_down(&mut self) {
-        self.user_scrolled = true;
-        self.scroll_offset_line = self.scroll_offset_line.saturating_add(1);
+        self.view.user_scrolled = true;
+        self.view.scroll_offset_line = self.view.scroll_offset_line.saturating_add(1);
     }
 
     pub fn page_up(&mut self, _message_count: usize, viewport_height: usize) {
         let scroll_amount = viewport_height.max(1);
-        if self.selected_message >= scroll_amount {
-            self.selected_message -= scroll_amount;
+        if self.view.selected_message >= scroll_amount {
+            self.view.selected_message -= scroll_amount;
             self.scroll_offset = self.scroll_offset.saturating_sub(scroll_amount);
         } else {
-            self.selected_message = 0;
+            self.view.selected_message = 0;
             self.scroll_offset = 0;
         }
     }
@@ -49,18 +49,18 @@ impl ScrollState {
     pub fn page_down(&mut self, message_count: usize, viewport_height: usize) {
         let scroll_amount = viewport_height.max(1);
         let new_selected =
-            (self.selected_message + scroll_amount).min(message_count.saturating_sub(1));
-        self.selected_message = new_selected;
+            (self.view.selected_message + scroll_amount).min(message_count.saturating_sub(1));
+        self.view.selected_message = new_selected;
 
         // Adjust scroll offset
         let viewport_bottom = self.scroll_offset + viewport_height;
-        if self.selected_message >= viewport_bottom {
-            self.scroll_offset = self.selected_message - viewport_height + 1;
+        if self.view.selected_message >= viewport_bottom {
+            self.scroll_offset = self.view.selected_message - viewport_height + 1;
         }
     }
 
     pub fn reset_user_scroll(&mut self) {
-        self.user_scrolled = false;
+        self.view.user_scrolled = false;
     }
 }
 
@@ -171,14 +171,14 @@ impl TUI {
                         KeyCode::PageUp => {
                             self.tool_panel.tool_result_scroll_offset = self
                                 .tool_panel.tool_result_scroll_offset
-                                .saturating_sub(self.viewport_height);
+                                .saturating_sub(self.view.viewport_height);
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageDown => {
                             self.tool_panel.tool_result_scroll_offset = self
                                 .tool_panel.tool_result_scroll_offset
-                                .saturating_add(self.viewport_height);
+                                .saturating_add(self.view.viewport_height);
                             self.dirty = true;
                             return Ok(());
                         }
@@ -396,8 +396,8 @@ impl TUI {
                 if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
                     let input_is_empty = self.input_handler.state.lines.len() == 1
                         && self.input_handler.state.lines[0].is_empty();
-                    if input_is_empty && self.selected_message < self.messages.len() {
-                        let msg = &mut self.messages[self.selected_message];
+                    if input_is_empty && self.view.selected_message < self.messages.len() {
+                        let msg = &mut self.messages[self.view.selected_message];
                         let has_tools = msg.tool_executions.as_ref().is_some_and(|t| !t.is_empty());
                         let has_thinking = msg.thinking.as_ref().is_some_and(|t| !t.is_empty());
 
@@ -452,16 +452,16 @@ impl TUI {
                     match key.code {
                         KeyCode::Home => {
                             self.push_undo_position();
-                            self.selected_message = 0;
-                            self.scroll_offset_line = 0;
-                            self.user_scrolled = true;
+                            self.view.selected_message = 0;
+                            self.view.scroll_offset_line = 0;
+                            self.view.user_scrolled = true;
                             self.dirty = true;
                             return Ok(());
                         }
                         KeyCode::End => {
                             self.push_undo_position();
-                            self.selected_message = self.messages.len().saturating_sub(1);
-                            self.user_scrolled = false;
+                            self.view.selected_message = self.messages.len().saturating_sub(1);
+                            self.view.user_scrolled = false;
                             self.auto_scroll();
                             self.dirty = true;
                             return Ok(());
@@ -752,9 +752,9 @@ impl TUI {
         &mut self,
         tag_type: crate::ui::message_tags::TagType,
     ) -> Result<()> {
-        if self.selected_message < self.messages.len() {
+        if self.view.selected_message < self.messages.len() {
             let tag = crate::ui::message_tags::Tag::new(tag_type.clone());
-            if self.messages[self.selected_message].add_tag(tag) {
+            if self.messages[self.view.selected_message].add_tag(tag) {
                 self.add_system_message(format!("Tagged message: {}", tag_type.display_name()));
             } else {
                 self.add_system_message(format!(
@@ -772,8 +772,8 @@ impl TUI {
         &mut self,
         tag_type: &crate::ui::message_tags::TagType,
     ) -> Result<()> {
-        if self.selected_message < self.messages.len() {
-            if self.messages[self.selected_message].remove_tag_type(tag_type) {
+        if self.view.selected_message < self.messages.len() {
+            if self.messages[self.view.selected_message].remove_tag_type(tag_type) {
                 self.add_system_message(format!("Removed tag: {}", tag_type.display_name()));
             } else {
                 self.add_system_message(format!(

@@ -74,7 +74,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             self.messages = messages;
             self.context_monitor.update(&self.messages);
             if !self.messages.is_empty() {
-                self.selected_message = self.messages.len() - 1;
+                self.view.selected_message = self.messages.len() - 1;
             }
             self.add_system_message(format!("✓ Loaded session '{}' — {}", name, summary));
         }

@@ -485,7 +485,7 @@ impl TUI {
                             self.undo_stack.clear();
                             self.messages = messages;
                             if !self.messages.is_empty() {
-                                self.selected_message = self.messages.len() - 1;
+                                self.view.selected_message = self.messages.len() - 1;
                             }
                             self.add_system_message(format!(
                                 "Loaded session '{}' — resumed from {} ({} messages)",

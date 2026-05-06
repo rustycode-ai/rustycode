@@ -127,7 +127,7 @@ impl PolishedRenderer {
         // Content width for wrapped line estimation (border column + space prefix)
         let est_content_width = area.width.saturating_sub(1).max(1) as usize;
 
-        let estimated_auto_scroll_start = if !tui.user_scrolled {
+        let estimated_auto_scroll_start = if !tui.view.user_scrolled {
             let mut est_total: usize = 0;
             let mut prev_was_system = false;
             for msg in &tui.messages {
@@ -142,13 +142,13 @@ impl PolishedRenderer {
             }
             est_total.saturating_sub(safe_viewport_height)
         } else {
-            tui.scroll_offset_line
+            tui.view.scroll_offset_line
         };
 
         // Track cumulative estimated lines to skip messages above viewport
         let mut est_cumulative: usize = 0;
         let mut all_above_viewport = true;
-        let use_fast_skip = !tui.user_scrolled;
+        let use_fast_skip = !tui.view.user_scrolled;
         // Estimate viewport end to skip messages below it
         let estimated_viewport_end = estimated_auto_scroll_start + safe_viewport_height + 10; // +10 buffer
         let mut estimated_msg_lines = Vec::with_capacity(tui.messages.len());
@@ -332,16 +332,16 @@ impl PolishedRenderer {
         total_lines += separator_count;
 
         // Save total lines for scroll initialization
-        tui.last_total_lines.set(total_lines);
+        tui.view.last_total_lines.set(total_lines);
 
         // Ensure viewport_height is at least 1 to avoid division issues
         let safe_viewport_height = viewport_height.max(1);
 
         // Clamp scroll offset to valid range
         let max_scroll = total_lines.saturating_sub(safe_viewport_height);
-        let clamped_scroll = tui.scroll_offset_line.min(max_scroll);
+        let clamped_scroll = tui.view.scroll_offset_line.min(max_scroll);
 
-        let start_line = if tui.user_scrolled {
+        let start_line = if tui.view.user_scrolled {
             clamped_scroll
         } else {
             total_lines.saturating_sub(safe_viewport_height)
@@ -513,7 +513,7 @@ impl PolishedRenderer {
 
         // Show queued message indicator at bottom when auto-scrolled
         // (goose pattern: dimmed preview of queued message)
-        if !tui.user_scrolled {
+        if !tui.view.user_scrolled {
             if let Some(queued) = &tui.streaming.queued_message {
                 if y_offset < area.height.saturating_sub(2) {
                     const MAX_PREVIEW_WIDTH: usize = 80;
@@ -564,7 +564,7 @@ impl PolishedRenderer {
 
         // Goose-inspired viewport overflow indicators
         let overflows = total_lines > safe_viewport_height;
-        if overflows && tui.user_scrolled && area.height > 2 {
+        if overflows && tui.view.user_scrolled && area.height > 2 {
             let above = start_line;
             let below = total_lines.saturating_sub(start_line + safe_viewport_height);
 
@@ -631,7 +631,7 @@ impl PolishedRenderer {
 
         // Turn indicator when viewing a past turn (goose pattern)
         // Shows "turn X/Y" when user navigated to a historical message
-        if tui.user_scrolled {
+        if tui.view.user_scrolled {
             let total_turns = tui
                 .messages
                 .iter()
@@ -652,7 +652,7 @@ impl PolishedRenderer {
                     .iter()
                     .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
                     .count();
-                let is_latest = tui.selected_message >= tui.messages.len().saturating_sub(1);
+                let is_latest = tui.view.selected_message >= tui.messages.len().saturating_sub(1);
                 if !is_latest && current_turn > 0 {
                     let turn_text =
                         format!(" ◈ turn {}/{} — shift+↓ return ", current_turn, total_turns);

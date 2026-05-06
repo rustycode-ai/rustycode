@@ -44,7 +44,7 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
         handle_empty_stream_response(tui);
     }
     tui.dirty = true;
-    if !tui.user_scrolled {
+    if !tui.view.user_scrolled {
         tui.auto_scroll();
     }
 
@@ -137,10 +137,10 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
             if no_tools {
                 if let Some(pos) = tui.messages.iter().position(|m| m.id == msg_id) {
                     tui.messages.remove(pos);
-                    if pos < tui.selected_message {
-                        tui.selected_message = tui.selected_message.saturating_sub(1);
-                    } else if pos == tui.selected_message && !tui.messages.is_empty() {
-                        tui.selected_message = tui.selected_message.min(tui.messages.len() - 1);
+                    if pos < tui.view.selected_message {
+                        tui.view.selected_message = tui.view.selected_message.saturating_sub(1);
+                    } else if pos == tui.view.selected_message && !tui.messages.is_empty() {
+                        tui.view.selected_message = tui.view.selected_message.min(tui.messages.len() - 1);
                     }
                 }
                 tracing::warn!(
@@ -218,9 +218,9 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
 
     let user_msg = Message::user(queued.clone());
     tui.messages.push(user_msg);
-    tui.selected_message = tui.messages.len() - 1;
-    tui.scroll_offset_line = 0;
-    tui.user_scrolled = false;
+    tui.view.selected_message = tui.messages.len() - 1;
+    tui.view.scroll_offset_line = 0;
+    tui.view.user_scrolled = false;
 
     let prepare_elapsed = auto_send_start.elapsed();
     let history_start = std::time::Instant::now();

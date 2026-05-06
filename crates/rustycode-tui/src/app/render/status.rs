@@ -438,14 +438,14 @@ impl PolishedRenderer {
             }
         }
 
-        if tui.user_scrolled {
-            let total = tui.last_total_lines.get();
+        if tui.view.user_scrolled {
+            let total = tui.view.last_total_lines.get();
             if total > 0 {
-                let safe_viewport = tui.viewport_height.max(1);
+                let safe_viewport = tui.view.viewport_height.max(1);
                 let max_scroll = total.saturating_sub(safe_viewport);
                 if max_scroll > 0 {
                     // Clamp offset to valid range (may be stale if messages changed)
-                    let offset = tui.scroll_offset_line.min(max_scroll);
+                    let offset = tui.view.scroll_offset_line.min(max_scroll);
                     let pos_label = if offset == 0 {
                         "Top".to_string()
                     } else if offset >= max_scroll {

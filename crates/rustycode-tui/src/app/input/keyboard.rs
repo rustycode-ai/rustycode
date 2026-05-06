@@ -89,7 +89,7 @@ impl TUI {
             // Ctrl+D when input is empty and user has scrolled: half-page down (Vim Ctrl+D).
             // Must come before the quit handler to intercept when scrolled.
             (KeyCode::Char('d'), KeyModifiers::CONTROL) if input_is_empty && !self.streaming.is_streaming => {
-                if self.user_scrolled && !self.messages.is_empty() {
+                if self.view.user_scrolled && !self.messages.is_empty() {
                     self.push_undo_position();
                     self.half_page_down();
                     self.dirty = true;
@@ -624,9 +624,9 @@ impl TUI {
                     self.push_undo_position();
 
                     if !self.messages.is_empty() {
-                        self.selected_message = 0;
-                        self.scroll_offset_line = 0;
-                        self.user_scrolled = true;
+                        self.view.selected_message = 0;
+                        self.view.scroll_offset_line = 0;
+                        self.view.user_scrolled = true;
                         self.dirty = true;
                     }
                 }
@@ -642,9 +642,9 @@ impl TUI {
                 if action == crate::app::keyboard_shortcuts::KeyboardAction::JumpToEnd
                     && !self.messages.is_empty()
                 {
-                    self.selected_message = self.messages.len().saturating_sub(1);
-                    self.scroll_offset_line = 0;
-                    self.user_scrolled = false;
+                    self.view.selected_message = self.messages.len().saturating_sub(1);
+                    self.view.scroll_offset_line = 0;
+                    self.view.user_scrolled = false;
                     self.auto_scroll();
                     self.dirty = true;
                 }

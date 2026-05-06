@@ -19,10 +19,10 @@ impl TUI {
 
         // Auto-scroll to latest message
         if !self.messages.is_empty() {
-            self.selected_message = self.messages.len() - 1;
+            self.view.selected_message = self.messages.len() - 1;
             // Reset line-based scroll offset to show latest (auto-scroll to bottom)
-            self.scroll_offset_line = 0;
-            self.user_scrolled = false;
+            self.view.scroll_offset_line = 0;
+            self.view.user_scrolled = false;
         }
 
         // Update context monitor and check for auto-compaction
@@ -44,9 +44,9 @@ impl TUI {
         // Only auto-scroll to the new message if the user hasn't scrolled up.
         // Background system messages (auto-approvals, workspace notifications)
         // should not yank the user away from what they're reading.
-        if !self.user_scrolled && !self.messages.is_empty() {
-            self.selected_message = self.messages.len() - 1;
-            self.scroll_offset_line = 0;
+        if !self.view.user_scrolled && !self.messages.is_empty() {
+            self.view.selected_message = self.messages.len() - 1;
+            self.view.scroll_offset_line = 0;
         }
 
         // Update context monitor and check for auto-compaction
@@ -188,33 +188,34 @@ impl TUI {
         // During active streaming, never fight user scroll position.
         // The user is reading earlier content and the overflow indicator
         // gives them a way to jump back down when ready.
-        if self.streaming.is_streaming && self.user_scrolled {
+        if self.streaming.is_streaming && self.view.user_scrolled {
             return;
         }
 
         // When not streaming, debounce to avoid snapping back immediately
         const SCROLL_DEBOUNCE: std::time::Duration = std::time::Duration::from_secs(2);
-        if self.user_scrolled && self.last_user_scroll_time.elapsed() < SCROLL_DEBOUNCE {
+        if self.view.user_scrolled && self.view.last_user_scroll_time.elapsed() < SCROLL_DEBOUNCE {
             return;
         }
 
         // Reset user_scrolled flag so we auto-scroll to bottom
-        self.user_scrolled = false;
+        self.view.user_scrolled = false;
         // Set scroll_offset_line to the actual bottom position so that
         // scroll_up_by works correctly from the bottom (instead of jumping to top).
         let max_scroll = self
+            .view
             .last_total_lines
             .get()
-            .saturating_sub(self.viewport_height.max(1));
-        self.scroll_offset_line = max_scroll;
+            .saturating_sub(self.view.viewport_height.max(1));
+        self.view.scroll_offset_line = max_scroll;
         if !self.messages.is_empty() {
-            self.selected_message = self.messages.len() - 1;
+            self.view.selected_message = self.messages.len() - 1;
         }
     }
 
     /// Update viewport height (called when terminal is resized)
     pub fn update_viewport_height(&mut self, height: usize) {
-        self.viewport_height = height;
+        self.view.viewport_height = height;
         // Line-based scrolling doesn't need adjustment - the render function
         // automatically calculates the visible range based on viewport height
     }

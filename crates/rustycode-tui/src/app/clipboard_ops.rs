@@ -74,8 +74,8 @@ impl TUI {
 
     /// Copy selected message to clipboard
     pub(crate) fn copy_selected_message(&mut self) -> Result<()> {
-        if self.selected_message < self.messages.len() {
-            let msg = &self.messages[self.selected_message];
+        if self.view.selected_message < self.messages.len() {
+            let msg = &self.messages[self.view.selected_message];
 
             // Get the message content (without the role prefix)
             let content = msg.content.clone();
@@ -225,10 +225,10 @@ impl TUI {
 
         // Remove the old AI message
         self.messages.remove(last_ai_msg_idx);
-        if last_ai_msg_idx < self.selected_message {
-            self.selected_message = self.selected_message.saturating_sub(1);
-        } else if last_ai_msg_idx == self.selected_message && !self.messages.is_empty() {
-            self.selected_message = self.selected_message.min(self.messages.len() - 1);
+        if last_ai_msg_idx < self.view.selected_message {
+            self.view.selected_message = self.view.selected_message.saturating_sub(1);
+        } else if last_ai_msg_idx == self.view.selected_message && !self.messages.is_empty() {
+            self.view.selected_message = self.view.selected_message.min(self.messages.len() - 1);
         }
 
         // Update dirty flag

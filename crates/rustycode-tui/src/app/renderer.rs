@@ -355,8 +355,8 @@ impl PolishedRenderer {
         }
         tui.sidebar_area.set(sidebar_area.unwrap_or_default());
 
-        tui.viewport_height = message_area.height.max(1) as usize;
-        tui.messages_area.set(message_area);
+        tui.view.viewport_height = message_area.height.max(1) as usize;
+        tui.view.messages_area.set(message_area);
 
         let header_bg =
             Block::default().style(Style::default().bg(self.config.chrome_background_color()));
@@ -413,7 +413,7 @@ impl PolishedRenderer {
                     messages_elapsed.as_millis(),
                     total_elapsed.as_millis(),
                     tui.streaming.is_streaming,
-                    tui.user_scrolled
+                    tui.view.user_scrolled
                 );
             }
         }

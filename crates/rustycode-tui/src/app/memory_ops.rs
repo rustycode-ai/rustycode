@@ -262,11 +262,11 @@ impl TUI {
 
                 // Clamp scroll position to valid range after compaction
                 // (messages were removed, so indices may be stale)
-                if self.selected_message >= self.messages.len() {
-                    self.selected_message = self.messages.len().saturating_sub(1);
+                if self.view.selected_message >= self.messages.len() {
+                    self.view.selected_message = self.messages.len().saturating_sub(1);
                 }
-                self.scroll_offset_line = 0;
-                self.user_scrolled = false;
+                self.view.scroll_offset_line = 0;
+                self.view.user_scrolled = false;
 
                 self.context_monitor.update(&self.messages);
                 self.token_budget.last_turn_input_tokens = self.context_monitor.current_tokens;

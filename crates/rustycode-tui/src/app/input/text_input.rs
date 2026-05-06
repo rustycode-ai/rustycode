@@ -449,9 +449,9 @@ impl TUI {
         }
 
         if !self.messages.is_empty() {
-            self.selected_message = self.messages.len() - 1;
-            self.scroll_offset_line = 0;
-            self.user_scrolled = false;
+            self.view.selected_message = self.messages.len() - 1;
+            self.view.scroll_offset_line = 0;
+            self.view.user_scrolled = false;
         }
 
         self.input_handler.state.clear();

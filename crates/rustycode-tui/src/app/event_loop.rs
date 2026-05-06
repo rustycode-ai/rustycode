@@ -393,9 +393,9 @@ impl TUI {
     /// Reset the conversational state that should not survive a load/resume
     /// or a full conversation clear.
     pub(crate) fn reset_conversation_state(&mut self) {
-        self.selected_message = 0;
-        self.scroll_offset_line = 0;
-        self.user_scrolled = false;
+        self.view.selected_message = 0;
+        self.view.scroll_offset_line = 0;
+        self.view.user_scrolled = false;
         self.active_tools.clear();
         self.tool_panel.reset();
         self.dismiss_any_overlay();
@@ -1138,11 +1138,11 @@ impl TUI {
         match self.session_manager.find_most_recent_session() {
             Ok(Some(session)) => {
                 self.reset_conversation_state();
-                self.scroll_offset_line = session.scroll_position;
+                self.view.scroll_offset_line = session.scroll_position;
                 self.messages = session.messages;
                 self.context_monitor.update(&self.messages);
                 if !self.messages.is_empty() {
-                    self.selected_message = self.messages.len().saturating_sub(1);
+                    self.view.selected_message = self.messages.len().saturating_sub(1);
                 }
 
                 let display_id = session
@@ -1435,7 +1435,7 @@ impl TUI {
                 if recovery.should_auto_save() {
                     let state = recovery.create_state(
                         &self.messages,
-                        self.scroll_offset_line,
+                        self.view.scroll_offset_line,
                         self.execution_trace.clone(),
                     );
                     if let Err(e) = recovery.save_state(&state) {
@@ -1530,8 +1530,8 @@ impl TUI {
                     self.messages.len(),
                     self.active_tools.len(),
                     self.streaming.is_streaming,
-                    self.user_scrolled,
-                    self.viewport_height
+                    self.view.user_scrolled,
+                    self.view.viewport_height
                 );
             }
         }
@@ -1581,7 +1581,7 @@ impl TUI {
         if let Some(ref mut recovery) = self.session_recovery {
             let state = recovery.create_state(
                 &self.messages,
-                self.scroll_offset_line,
+                self.view.scroll_offset_line,
                 self.execution_trace.clone(),
             );
             if let Err(e) = recovery.shutdown(&state) {
@@ -1880,8 +1880,8 @@ impl TUI {
                 FrameLayoutSnapshot::from_message_layout(
                     message_area,
                     self.session_sidebar.is_visible(),
-                    self.scroll_offset_line,
-                    self.user_scrolled,
+                    self.view.scroll_offset_line,
+                    self.view.user_scrolled,
                     total_lines,
                     heights,
                     chain_map,
@@ -2082,8 +2082,8 @@ impl TUI {
                     draw_elapsed.as_millis(),
                     total_elapsed.as_millis(),
                     self.streaming.is_streaming,
-                    self.user_scrolled,
-                    self.selected_message
+                    self.view.user_scrolled,
+                    self.view.selected_message
                 );
             }
         }

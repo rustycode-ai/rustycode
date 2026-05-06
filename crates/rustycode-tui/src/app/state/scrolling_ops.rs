@@ -13,7 +13,7 @@ impl TUI {
     /// first wheel/page movement actually changes the viewport.
     fn begin_manual_scroll(&mut self) -> usize {
         let total_lines = {
-            let cached = self.last_total_lines.get();
+            let cached = self.view.last_total_lines.get();
             // If render hasn't populated the Cell yet (e.g. before first frame),
             // estimate from message count so the first scroll still works.
             if cached == 0 && !self.messages.is_empty() {
@@ -22,11 +22,11 @@ impl TUI {
                 cached
             }
         };
-        let max_scroll = total_lines.saturating_sub(self.viewport_height.max(1));
+        let max_scroll = total_lines.saturating_sub(self.view.viewport_height.max(1));
 
-        if !self.user_scrolled {
-            self.scroll_offset_line = max_scroll;
-            self.user_scrolled = true;
+        if !self.view.user_scrolled {
+            self.view.scroll_offset_line = max_scroll;
+            self.view.user_scrolled = true;
         }
 
         max_scroll
@@ -39,10 +39,10 @@ impl TUI {
 
     /// Scroll up by N lines
     pub(crate) fn scroll_up_by(&mut self, lines: usize) {
-        self.last_user_scroll_time = std::time::Instant::now();
+        self.view.last_user_scroll_time = std::time::Instant::now();
 
         let _max_scroll = self.begin_manual_scroll();
-        self.scroll_offset_line = self.scroll_offset_line.saturating_sub(lines);
+        self.view.scroll_offset_line = self.view.scroll_offset_line.saturating_sub(lines);
         self.dirty = true;
     }
 
@@ -53,17 +53,17 @@ impl TUI {
 
     /// Scroll down by N lines
     pub(crate) fn scroll_down_by(&mut self, lines: usize) {
-        self.last_user_scroll_time = std::time::Instant::now();
+        self.view.last_user_scroll_time = std::time::Instant::now();
 
         let max_scroll = self.begin_manual_scroll();
-        self.scroll_offset_line = self
+        self.view.scroll_offset_line = self
             .scroll_offset_line
             .saturating_add(lines)
             .min(max_scroll);
 
         // Re-enable auto-scroll if at bottom
-        if self.scroll_offset_line >= max_scroll {
-            self.user_scrolled = false;
+        if self.view.scroll_offset_line >= max_scroll {
+            self.view.user_scrolled = false;
         }
 
         self.dirty = true;
@@ -75,7 +75,7 @@ impl TUI {
             self.undo_stack.pop_front();
         }
         self.undo_stack
-            .push_back((self.selected_message, self.scroll_offset_line));
+            .push_back((self.view.selected_message, self.view.scroll_offset_line));
     }
 
     /// Pop and restore the last undo position
@@ -84,10 +84,10 @@ impl TUI {
     pub(crate) fn pop_undo_position(&mut self) -> bool {
         if let Some((prev_msg, prev_scroll)) = self.undo_stack.pop_back() {
             if prev_msg < self.messages.len() {
-                self.selected_message = prev_msg;
-                self.scroll_offset_line = prev_scroll;
-                self.user_scrolled = true;
-                self.last_user_scroll_time = std::time::Instant::now();
+                self.view.selected_message = prev_msg;
+                self.view.scroll_offset_line = prev_scroll;
+                self.view.user_scrolled = true;
+                self.view.last_user_scroll_time = std::time::Instant::now();
                 self.dirty = true;
                 return true;
             }
@@ -112,30 +112,30 @@ impl TUI {
 
     /// Page up (scroll by half viewport height — Vim-style Ctrl+U)
     pub(crate) fn half_page_up(&mut self) {
-        self.last_user_scroll_time = std::time::Instant::now();
+        self.view.last_user_scroll_time = std::time::Instant::now();
 
         // Half-page scroll (Vim Ctrl+U behavior)
-        let scroll_amount = (self.viewport_height / 2).max(1);
+        let scroll_amount = (self.view.viewport_height / 2).max(1);
         let _max_scroll = self.begin_manual_scroll();
-        self.scroll_offset_line = self.scroll_offset_line.saturating_sub(scroll_amount);
+        self.view.scroll_offset_line = self.view.scroll_offset_line.saturating_sub(scroll_amount);
         self.dirty = true;
     }
 
     /// Page down (scroll by half viewport height — Vim-style Ctrl+D)
     pub(crate) fn half_page_down(&mut self) {
-        self.last_user_scroll_time = std::time::Instant::now();
+        self.view.last_user_scroll_time = std::time::Instant::now();
 
         // Half-page scroll (Vim Ctrl+D behavior)
-        let scroll_amount = (self.viewport_height / 2).max(1);
+        let scroll_amount = (self.view.viewport_height / 2).max(1);
         let max_scroll = self.begin_manual_scroll();
-        self.scroll_offset_line = self
+        self.view.scroll_offset_line = self
             .scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
 
         // Re-enable auto-scroll if scrolled to bottom
-        if self.scroll_offset_line >= max_scroll {
-            self.user_scrolled = false;
+        if self.view.scroll_offset_line >= max_scroll {
+            self.view.user_scrolled = false;
         }
 
         self.dirty = true;
@@ -143,28 +143,28 @@ impl TUI {
 
     /// Page up (scroll by full viewport height)
     pub(crate) fn page_up(&mut self) {
-        self.last_user_scroll_time = std::time::Instant::now();
+        self.view.last_user_scroll_time = std::time::Instant::now();
 
-        let scroll_amount = self.viewport_height.max(1);
+        let scroll_amount = self.view.viewport_height.max(1);
         let _max_scroll = self.begin_manual_scroll();
-        self.scroll_offset_line = self.scroll_offset_line.saturating_sub(scroll_amount);
+        self.view.scroll_offset_line = self.view.scroll_offset_line.saturating_sub(scroll_amount);
         self.dirty = true;
     }
 
     /// Page down (scroll by full viewport height)
     pub(crate) fn page_down(&mut self) {
-        self.last_user_scroll_time = std::time::Instant::now();
+        self.view.last_user_scroll_time = std::time::Instant::now();
 
-        let scroll_amount = self.viewport_height.max(1);
+        let scroll_amount = self.view.viewport_height.max(1);
         let max_scroll = self.begin_manual_scroll();
-        self.scroll_offset_line = self
+        self.view.scroll_offset_line = self
             .scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
 
         // Re-enable auto-scroll if scrolled to bottom
-        if self.scroll_offset_line >= max_scroll {
-            self.user_scrolled = false;
+        if self.view.scroll_offset_line >= max_scroll {
+            self.view.user_scrolled = false;
         }
 
         self.dirty = true;
@@ -172,8 +172,8 @@ impl TUI {
 
     /// Toggle collapse/expand on selected message
     pub(crate) fn toggle_message_collapse(&mut self) {
-        if self.selected_message < self.messages.len() {
-            let msg = &mut self.messages[self.selected_message];
+        if self.view.selected_message < self.messages.len() {
+            let msg = &mut self.messages[self.view.selected_message];
 
             // If message has tools, toggle tool expansion
             if msg.tool_executions.as_ref().is_some_and(|t| !t.is_empty()) {
@@ -253,9 +253,9 @@ impl TUI {
         if let Some(match_pos) = self.search_state.current_match() {
             let msg_idx = match_pos.message_index;
             if msg_idx < self.messages.len() {
-                self.selected_message = msg_idx;
-                self.user_scrolled = true;
-                self.last_user_scroll_time = std::time::Instant::now();
+                self.view.selected_message = msg_idx;
+                self.view.user_scrolled = true;
+                self.view.last_user_scroll_time = std::time::Instant::now();
 
                 // Use actual line offsets from last render, with rough fallback
                 let target_line = {
@@ -265,8 +265,8 @@ impl TUI {
                 let max_scroll = self
                     .last_total_lines
                     .get()
-                    .saturating_sub(self.viewport_height.max(1));
-                self.scroll_offset_line = target_line.min(max_scroll);
+                    .saturating_sub(self.view.viewport_height.max(1));
+                self.view.scroll_offset_line = target_line.min(max_scroll);
             }
         }
     }
@@ -277,12 +277,12 @@ impl TUI {
     /// turn-by-turn navigation through the conversation.
     pub(crate) fn navigate_to_prev_turn(&mut self) {
         // Find the previous user message before selected_message
-        let start = self.selected_message;
+        let start = self.view.selected_message;
         for i in (0..start).rev() {
             if matches!(self.messages[i].role, crate::ui::message::MessageRole::User) {
-                self.selected_message = i;
-                self.user_scrolled = true;
-                self.last_user_scroll_time = std::time::Instant::now();
+                self.view.selected_message = i;
+                self.view.user_scrolled = true;
+                self.view.last_user_scroll_time = std::time::Instant::now();
 
                 // Scroll to show this message
                 let target_line = {
@@ -292,16 +292,16 @@ impl TUI {
                 let max_scroll = self
                     .last_total_lines
                     .get()
-                    .saturating_sub(self.viewport_height.max(1));
-                self.scroll_offset_line = target_line.min(max_scroll);
+                    .saturating_sub(self.view.viewport_height.max(1));
+                self.view.scroll_offset_line = target_line.min(max_scroll);
                 return;
             }
         }
         // If no user message found before, jump to top
         if !self.messages.is_empty() {
-            self.selected_message = 0;
-            self.scroll_offset_line = 0;
-            self.user_scrolled = true;
+            self.view.selected_message = 0;
+            self.view.scroll_offset_line = 0;
+            self.view.user_scrolled = true;
         }
     }
 
@@ -311,12 +311,12 @@ impl TUI {
     /// turn-by-turn navigation through the conversation.
     pub(crate) fn navigate_to_next_turn(&mut self) {
         // Find the next user message after selected_message
-        let start = self.selected_message.saturating_add(1);
+        let start = self.view.selected_message.saturating_add(1);
         for i in start..self.messages.len() {
             if matches!(self.messages[i].role, crate::ui::message::MessageRole::User) {
-                self.selected_message = i;
-                self.user_scrolled = true;
-                self.last_user_scroll_time = std::time::Instant::now();
+                self.view.selected_message = i;
+                self.view.user_scrolled = true;
+                self.view.last_user_scroll_time = std::time::Instant::now();
 
                 // Scroll to show this message
                 let target_line = {
@@ -326,15 +326,15 @@ impl TUI {
                 let max_scroll = self
                     .last_total_lines
                     .get()
-                    .saturating_sub(self.viewport_height.max(1));
-                self.scroll_offset_line = target_line.min(max_scroll);
+                    .saturating_sub(self.view.viewport_height.max(1));
+                self.view.scroll_offset_line = target_line.min(max_scroll);
                 return;
             }
         }
         // If no user message found after, jump to bottom (auto-scroll)
         if !self.messages.is_empty() {
-            self.selected_message = self.messages.len().saturating_sub(1);
-            self.user_scrolled = false;
+            self.view.selected_message = self.messages.len().saturating_sub(1);
+            self.view.user_scrolled = false;
             self.auto_scroll();
         }
     }
@@ -347,10 +347,10 @@ impl TUI {
             return;
         }
         self.push_undo_position();
-        self.selected_message = 0;
-        self.scroll_offset_line = 0;
-        self.user_scrolled = true;
-        self.last_user_scroll_time = std::time::Instant::now();
+        self.view.selected_message = 0;
+        self.view.scroll_offset_line = 0;
+        self.view.user_scrolled = true;
+        self.view.last_user_scroll_time = std::time::Instant::now();
         self.dirty = true;
     }
 
@@ -362,8 +362,8 @@ impl TUI {
             return;
         }
         self.push_undo_position();
-        self.selected_message = self.messages.len().saturating_sub(1);
-        self.user_scrolled = false;
+        self.view.selected_message = self.messages.len().saturating_sub(1);
+        self.view.user_scrolled = false;
         self.auto_scroll();
         self.dirty = true;
     }
@@ -386,12 +386,12 @@ mod tests {
             scroll_offset_line: 0,
             ..TUI::default()
         };
-        tui.last_total_lines.set(100);
+        tui.view.last_total_lines.set(100);
 
         tui.scroll_up_by(3);
 
-        assert!(tui.user_scrolled);
-        assert_eq!(tui.scroll_offset_line, 87);
+        assert!(tui.view.user_scrolled);
+        assert_eq!(tui.view.scroll_offset_line, 87);
     }
 
     #[test]
@@ -402,12 +402,12 @@ mod tests {
             scroll_offset_line: 0,
             ..TUI::default()
         };
-        tui.last_total_lines.set(100);
+        tui.view.last_total_lines.set(100);
 
         tui.scroll_down_by(3);
 
-        assert!(!tui.user_scrolled);
-        assert_eq!(tui.scroll_offset_line, 90);
+        assert!(!tui.view.user_scrolled);
+        assert_eq!(tui.view.scroll_offset_line, 90);
     }
 
     #[test]
@@ -428,8 +428,8 @@ mod tests {
                 ]
             })
             .collect();
-        tui.scroll_offset_line = 0;
-        tui.user_scrolled = true;
+        tui.view.scroll_offset_line = 0;
+        tui.view.user_scrolled = true;
 
         terminal
             .draw(|frame| {
@@ -438,7 +438,7 @@ mod tests {
             .unwrap();
         let top_view = format!("{}", terminal.backend());
 
-        tui.scroll_offset_line = 25;
+        tui.view.scroll_offset_line = 25;
         terminal
             .draw(|frame| {
                 tui.render_brutalist(frame);
@@ -467,8 +467,8 @@ mod tests {
                 ]
             })
             .collect();
-        tui.scroll_offset_line = 0;
-        tui.user_scrolled = true;
+        tui.view.scroll_offset_line = 0;
+        tui.view.user_scrolled = true;
 
         terminal
             .draw(|frame| {
@@ -477,7 +477,7 @@ mod tests {
             .unwrap();
         let top_view = format!("{}", terminal.backend());
 
-        tui.scroll_offset_line = 25;
+        tui.view.scroll_offset_line = 25;
         terminal
             .draw(|frame| {
                 tui.render_polished(frame);

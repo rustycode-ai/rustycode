@@ -148,7 +148,7 @@ pub mod message;
 // Selective message inclusion with priority-based filtering
 pub mod message_selector;
 
-// LLM configuration types
+// Shared LLM data types (pure data, no async)
 #[cfg(not(target_arch = "wasm32"))]
 pub mod llm;
 
@@ -252,11 +252,9 @@ pub use message_selector::{
     SelectionResult,
 };
 
-// LLM types
+// Shared LLM data types
 #[cfg(not(target_arch = "wasm32"))]
-pub use llm::{
-    CompletionRequest, CompletionResponse, Cost, LLMProvider, ModelInfo, TokenCount, Usage,
-};
+pub use llm::{Cost, TokenCount, Usage};
 
 // Working modes
 pub use modes::WorkingMode;

@@ -410,7 +410,7 @@ impl PolishedRenderer {
         } else {
             String::new()
         };
-        let scroll_hint = if tui.user_scrolled {
+        let scroll_hint = if tui.view.user_scrolled {
             "Home/End = top/bottom".to_string()
         } else {
             String::new()

@@ -44,7 +44,7 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
             tui.update_terminal_title();
         }
         if tui.renderer_mode.is_brutalist() {
-            if !tui.user_scrolled {
+            if !tui.view.user_scrolled {
                 tui.auto_scroll();
             }
             tui.dirty = true;
@@ -99,7 +99,7 @@ fn handle_thinking_chunk(tui: &mut TUI, mut thinking: String) {
         tui.turn_snapshot = Some(crate::app::turn_snapshot::TurnSnapshot::take(&cwd));
     }
 
-    if !tui.user_scrolled {
+    if !tui.view.user_scrolled {
         tui.auto_scroll();
     }
     tui.dirty = true;

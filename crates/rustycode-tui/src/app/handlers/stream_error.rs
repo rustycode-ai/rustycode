@@ -93,8 +93,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
             if let Some(msg) = tui.messages.get(prev_idx) {
                 if msg.content.contains("Retrying now") || msg.content.contains("Auto-retrying") {
                     tui.messages.remove(prev_idx);
-                    if prev_idx < tui.selected_message {
-                        tui.selected_message = tui.selected_message.saturating_sub(1);
+                    if prev_idx < tui.view.selected_message {
+                        tui.view.selected_message = tui.view.selected_message.saturating_sub(1);
                     }
                 }
             }
