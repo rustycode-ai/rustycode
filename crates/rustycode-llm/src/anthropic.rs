@@ -13,10 +13,10 @@ use crate::retry::extract_retry_after_ms;
 use crate::tool_annotations::anthropic_annotations_for_tool_info;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
-use rustycode_protocol::llm::{
+use crate::unified::{
     CompletionRequest as UnifiedCompletionRequest, CompletionResponse as UnifiedCompletionResponse,
-    Cost as UnifiedCost, LLMProvider as UnifiedLLMProvider, ModelInfo as UnifiedModelInfo,
-    TokenCount as UnifiedTokenCount,
+    Cost as UnifiedCost, ModelInfo as UnifiedModelInfo, TokenCount as UnifiedTokenCount,
+    UnifiedLLMProvider,
 };
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_tools_api::{Tool, ToolProfile, ToolRegistry, ToolSelector};

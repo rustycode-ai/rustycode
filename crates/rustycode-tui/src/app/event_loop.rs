@@ -124,17 +124,9 @@ pub struct TUI {
     pub(crate) input_mode: InputMode,
     pub(crate) running: bool,
 
-    // Message list state
-    pub(crate) scroll_offset_line: usize, // Line-based scroll (for actual rendering)
-    pub(crate) selected_message: usize,
-    pub(crate) viewport_height: usize,
-    pub(crate) last_total_lines: std::cell::Cell<usize>, // Track total lines from last render pass
-    pub(crate) messages_area: std::cell::Cell<Rect>,     // Store messages area for click detection
-    pub(crate) sidebar_area: std::cell::Cell<Rect>,      // Store sidebar area for mouse routing
-    pub(crate) mouse_selection_start: std::cell::Cell<Option<(u16, u16)>>,
-    pub(crate) mouse_selection_dragged: std::cell::Cell<bool>,
-    pub(crate) user_scrolled: bool, // Track if user manually scrolled up
-    pub(crate) last_user_scroll_time: Instant, // Debounce: prevent auto-scroll for 2s after user scrolls
+    // Viewport and scroll state (grouped in sub-struct)
+    pub(crate) view: crate::app::view_state::ViewState,
+    pub(crate) sidebar_area: std::cell::Cell<Rect>,      // store sidebar area for mouse routing
 
     // Streaming state (grouped in sub-struct)
     pub(crate) streaming: crate::app::streaming_state::StreamingState,
@@ -573,16 +565,8 @@ impl TUI {
             _input_state: InputState::new(),
             input_mode: InputMode::SingleLine,
             running: true,
-            scroll_offset_line: 0,
-            last_total_lines: std::cell::Cell::new(0),
-            selected_message: 0,
-            viewport_height: 20,
-            messages_area: std::cell::Cell::new(Rect::default()),
+            view: crate::app::view_state::ViewState::new(),
             sidebar_area: std::cell::Cell::new(Rect::default()),
-            mouse_selection_start: std::cell::Cell::new(None),
-            mouse_selection_dragged: std::cell::Cell::new(false),
-            user_scrolled: false,
-            last_user_scroll_time: Instant::now(),
             streaming: crate::app::streaming_state::StreamingState::new(),
             plan_mode_banner: None,
             active_tools: std::collections::HashMap::new(),
@@ -785,16 +769,8 @@ impl TUI {
             _input_state: InputState::new(),
             input_mode: InputMode::SingleLine,
             running: true,
-            scroll_offset_line: 0,
-            selected_message: 0,
-            viewport_height: 20,
-            last_total_lines: std::cell::Cell::new(0),
-            messages_area: std::cell::Cell::new(Rect::default()),
+            view: crate::app::view_state::ViewState::new(),
             sidebar_area: std::cell::Cell::new(Rect::default()),
-            mouse_selection_start: std::cell::Cell::new(None),
-            mouse_selection_dragged: std::cell::Cell::new(false),
-            user_scrolled: false,
-            last_user_scroll_time: Instant::now(),
             streaming: crate::app::streaming_state::StreamingState::new(),
             plan_mode_banner: None,
             active_tools: std::collections::HashMap::new(),

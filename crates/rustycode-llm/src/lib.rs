@@ -159,6 +159,7 @@ pub mod tool_annotations;
 pub mod tool_executor;
 pub mod tool_selection_helper;
 pub mod tools;
+pub mod unified;
 pub mod usage_estimator;
 pub mod utils;
 pub mod zhipu;
@@ -214,11 +215,11 @@ pub use provider::{
     StreamChunk, Usage,
 };
 
-// Export unified LLMProvider trait from protocol
-pub use rustycode_protocol::llm::{
+// Export unified LLMProvider trait (migrated from rustycode-protocol)
+pub use unified::{
     CompletionRequest as UnifiedCompletionRequest, CompletionResponse as UnifiedCompletionResponse,
-    Cost as UnifiedCost, LLMProvider as UnifiedLLMProvider, ModelInfo as UnifiedModelInfo,
-    TokenCount as UnifiedTokenCount,
+    Cost as UnifiedCost, ModelInfo as UnifiedModelInfo, TokenCount as UnifiedTokenCount,
+    UnifiedLLMProvider,
 };
 
 pub use provider_error_policy::{retry_plan_for_error, user_facing_error_for, RetryPlan};

@@ -10,10 +10,10 @@ use crate::provider_metadata::{
 use rustycode_tools_api::{Tool, ToolProfile, ToolRegistry, ToolSelector};
 
 // Import unified trait from protocol
-use rustycode_protocol::llm::{
+use crate::unified::{
     CompletionRequest as UnifiedCompletionRequest, CompletionResponse as UnifiedCompletionResponse,
-    Cost as UnifiedCost, LLMProvider as UnifiedLLMProvider, ModelInfo as UnifiedModelInfo,
-    TokenCount as UnifiedTokenCount,
+    Cost as UnifiedCost, ModelInfo as UnifiedModelInfo, TokenCount as UnifiedTokenCount,
+    UnifiedLLMProvider,
 };
 use rustycode_protocol::stream_event::StreamEvent;
 
@@ -695,7 +695,6 @@ impl OpenAiProvider {
                     crate::provider::EffortLevel::High => "high",
                     crate::provider::EffortLevel::Xhigh => "xhigh",
                     crate::provider::EffortLevel::Max => "xhigh", // Responses API caps at xhigh
-                    _ => "medium",
                 };
                 crate::openai_compatible::ResponsesApiReasoning {
                     effort: Some(effort_str.to_string()),
@@ -843,7 +842,6 @@ impl OpenAiProvider {
                     crate::provider::EffortLevel::High => "high",
                     crate::provider::EffortLevel::Xhigh => "xhigh",
                     crate::provider::EffortLevel::Max => "xhigh",
-                    _ => "medium",
                 };
                 crate::openai_compatible::ResponsesApiReasoning {
                     effort: Some(effort_str.to_string()),
@@ -1001,19 +999,53 @@ impl OpenAiProvider {
             .ok()
             .and_then(|guard| guard.clone());
 
+        let is_reasoning = Self::is_reasoning_model(&request.model);
+        let effort = request
+            .output_config
+            .as_ref()
+            .and_then(|c| c.effort.as_ref());
+
+        let reasoning = if is_reasoning {
+            effort.map(|e| {
+                let effort_str = match e {
+                    crate::provider::EffortLevel::Low => "low",
+                    crate::provider::EffortLevel::Medium => "medium",
+                    crate::provider::EffortLevel::High => "high",
+                    crate::provider::EffortLevel::Xhigh => "xhigh",
+                    crate::provider::EffortLevel::Max => "xhigh",
+                };
+                crate::openai_compatible::ResponsesApiReasoning {
+                    effort: Some(effort_str.to_string()),
+                    summary: Some("auto".to_string()),
+                    encrypted_content: None,
+                }
+            })
+        } else {
+            None
+        };
+
+        let include = if reasoning.is_some() {
+            Some(vec!["reasoning_encrypted_content".to_string()])
+        } else {
+            None
+        };
+
         let body = crate::openai_compatible::ResponsesApiRequest {
             model: request.model.clone(),
             input: input_items,
             instructions,
             tools: tools_opt,
             temperature: request.temperature,
+            top_p: None,
             max_output_tokens: request.max_tokens,
             stream: Some(true),
             previous_response_id: prev_id,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
-            reasoning: None,
-            include: None,
+            reasoning,
+            include,
+            store: Some(true),
+            prompt_cache_key: request.session_id.clone(),
         };
 
         let body_json =

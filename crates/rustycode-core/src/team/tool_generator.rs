@@ -18,7 +18,7 @@
 //! ```
 
 use anyhow::{Context, Result};
-use rustycode_protocol::llm::LLMProvider;
+use rustycode_llm::UnifiedLLMProvider;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, info};
@@ -127,7 +127,7 @@ impl ToolGenerator {
         let prompt = self.build_generation_prompt(description, context);
 
         // Call LLM to generate tool definition
-        let req = rustycode_protocol::llm::CompletionRequest {
+        let req = rustycode_llm::UnifiedCompletionRequest {
             model: "".to_string(),
             prompt: prompt.clone(),
             max_tokens: None,

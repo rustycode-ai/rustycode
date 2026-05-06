@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use strum::{AsRefStr, Display, EnumString};
 
-// Re-export message content and usage types from protocol crate
-pub use rustycode_protocol::llm::Usage;
+// Re-export message content types from protocol; Usage from local unified module
+pub use crate::unified::types::Usage;
 pub use rustycode_protocol::{ContentBlock, ImageSource, MessageContent};
 
 /// Resolve an ImageSource to base64 data.

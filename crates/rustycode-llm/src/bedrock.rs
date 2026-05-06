@@ -24,10 +24,10 @@ use crate::provider_metadata::{ConfigField, ConfigFieldType, ConfigSchema, Provi
 use crate::retry::{extract_retry_after_ms, retry_with_backoff, RetryConfig};
 
 // Import unified trait from protocol
-use rustycode_protocol::llm::{
+use crate::unified::{
     CompletionRequest as UnifiedCompletionRequest, CompletionResponse as UnifiedCompletionResponse,
-    Cost as UnifiedCost, LLMProvider as UnifiedLLMProvider, ModelInfo as UnifiedModelInfo,
-    TokenCount as UnifiedTokenCount,
+    Cost as UnifiedCost, ModelInfo as UnifiedModelInfo, TokenCount as UnifiedTokenCount,
+    UnifiedLLMProvider,
 };
 
 use anyhow::{Context, Result};

@@ -36,10 +36,10 @@ use crate::retry::extract_retry_after_ms;
 use rustycode_protocol::stream_event::StreamEvent;
 
 // Import unified trait from protocol
-use rustycode_protocol::llm::{
+use crate::unified::{
     CompletionRequest as UnifiedCompletionRequest, CompletionResponse as UnifiedCompletionResponse,
-    Cost as UnifiedCost, LLMProvider as UnifiedLLMProvider, ModelInfo as UnifiedModelInfo,
-    TokenCount as UnifiedTokenCount,
+    Cost as UnifiedCost, ModelInfo as UnifiedModelInfo, TokenCount as UnifiedTokenCount,
+    UnifiedLLMProvider,
 };
 
 use async_trait::async_trait;
