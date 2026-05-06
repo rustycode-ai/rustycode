@@ -256,13 +256,15 @@ If adaptive routing is added, it should choose among these **human-auditable exi
 
 ### Defer explicitly
 
-- A2A / HTTP agent boundaries
-- JSONL inbox persistence
-- generalized dynamic swarms
-- generalized agent heartbeat / distributed state sync
-- broad cross-agent consensus protocol beyond what ensembles already need
+These items are explicitly deferred — they are not wrong forever, but they are wrong **now**:
 
-These are not wrong forever; they are wrong **now**.
+| Deferred Item | Reason | Re-evaluate When |
+|---|---|---|
+| A2A / HTTP agent boundaries | Local bus + router sufficient for intra-process; distributed adds complexity | Cross-service delegation is needed |
+| JSONL inbox persistence | Premature without strong validation/compaction; mpsc channels sufficient | Durability guarantees are required across crashes |
+| Generalized dynamic swarms | Research warns against swarm over-complexity; fixed topologies sufficient | Adaptive team sizing shows measurable benefit |
+| Agent heartbeat / distributed state sync | Single-process model doesn't need it | Multi-process or distributed deployment is required |
+| Broad cross-agent consensus protocol | Ensembles already handle voting; broader consensus is speculative | Heterogeneous consensus across agent types is needed |
 
 ---
 

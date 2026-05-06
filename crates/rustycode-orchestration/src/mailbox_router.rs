@@ -19,6 +19,56 @@ pub type Mailbox = mpsc::Receiver<AgentMessage<AgentPayload>>;
 /// Sender half of a mailbox.
 pub type MailboxTx = mpsc::Sender<AgentMessage<AgentPayload>>;
 
+/// Default rate-limit: 10 messages per 60-second window.
+const DEFAULT_RATE_LIMIT: (usize, u64) = (10, 60);
+
+/// Per-agent sliding-window rate limiter.
+///
+/// Tracks the timestamps of the last N messages sent by each agent and
+/// rejects sends that exceed a configurable max-messages-per-window budget.
+#[derive(Debug, Clone)]
+struct RateLimiter {
+    /// (max_messages, window_seconds)
+    config: (usize, u64),
+    /// agent_id → ring of send timestamps within the current window.
+    buckets: Arc<Mutex<HashMap<String, Vec<std::time::Instant>>>>,
+}
+
+impl RateLimiter {
+    fn new(max_messages: usize, window_secs: u64) -> Self {
+        Self {
+            config: (max_messages, window_secs),
+            buckets: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    fn with_defaults() -> Self {
+        Self::new(DEFAULT_RATE_LIMIT.0, DEFAULT_RATE_LIMIT.1)
+    }
+
+    /// Returns `Ok(())` if the agent is within budget (and records the send),
+    /// or `Err` with the current count if over budget.
+    async fn check_and_record(&self, agent_id: &str) -> Result<(), usize> {
+        let (max, window_secs) = self.config;
+        let now = std::time::Instant::now();
+        #[allow(clippy::unchecked_time_subtraction)]
+        let cutoff = now - std::time::Duration::from_secs(window_secs);
+
+        let mut buckets = self.buckets.lock().await;
+        let entry = buckets.entry(agent_id.to_string()).or_default();
+
+        // Prune timestamps outside the sliding window.
+        entry.retain(|ts| *ts > cutoff);
+
+        if entry.len() >= max {
+            Err(entry.len())
+        } else {
+            entry.push(now);
+            Ok(())
+        }
+    }
+}
+
 /// Error type for mailbox operations.
 #[derive(Debug, thiserror::Error)]
 pub enum MailboxError {
@@ -31,6 +81,9 @@ pub enum MailboxError {
     /// Send channel closed for agent.
     #[error("send channel closed for agent: {0}")]
     ChannelClosed(String),
+    /// Agent has exceeded the per-minute send rate limit.
+    #[error("rate limit exceeded for agent {agent_id}: {count} messages in window")]
+    RateLimited { agent_id: String, count: usize },
 }
 
 /// Thin directed routing layer for inter-agent messages.
@@ -47,6 +100,8 @@ pub struct MailboxRouter {
     bus: BusHandle,
     /// Max queued messages per agent.
     capacity: usize,
+    /// Per-agent rate limiter.
+    rate_limiter: RateLimiter,
 }
 
 impl MailboxRouter {
@@ -61,16 +116,28 @@ impl MailboxRouter {
             inboxes: Arc::new(Mutex::new(HashMap::new())),
             bus,
             capacity,
+            rate_limiter: RateLimiter::with_defaults(),
         }
     }
 
     /// Register a new agent and return its message receiver.
     ///
     /// If the agent is already registered, the old mailbox is dropped and replaced.
+    /// Any pending messages in the old mailbox are lost.
     pub async fn register(&self, agent_id: impl Into<String>) -> Mailbox {
         let id = agent_id.into();
         let (tx, rx) = mpsc::channel(self.capacity);
-        self.inboxes.lock().await.insert(id, tx);
+        let old = self.inboxes.lock().await.insert(id.clone(), tx);
+        if let Some(old_tx) = old {
+            let pending = old_tx.max_capacity() - old_tx.capacity();
+            if pending > 0 {
+                tracing::warn!(
+                    agent_id = %id,
+                    pending_messages = pending,
+                    "re-registering agent with pending messages — messages dropped"
+                );
+            }
+        }
         rx
     }
 
@@ -126,6 +193,14 @@ impl MailboxRouter {
         recipient_id: &str,
         message: AgentMessage<AgentPayload>,
     ) -> Result<(), MailboxError> {
+        // Rate-limit check on the sender.
+        if let Err(count) = self.rate_limiter.check_and_record(from_id).await {
+            return Err(MailboxError::RateLimited {
+                agent_id: from_id.to_string(),
+                count,
+            });
+        }
+
         let kind = payload_kind_str(&message.payload);
 
         let inboxes = self.inboxes.lock().await;
@@ -472,5 +547,94 @@ mod tests {
             }),
             "objection"
         );
+    }
+
+    // ── Rate limiter tests ──────────────────────────────────────────
+
+    /// Helper: build a delegation message for testing.
+    fn test_msg() -> AgentMessage<AgentPayload> {
+        AgentMessage::delegation(
+            AgentRole::Coordinator,
+            AgentRole::Builder,
+            "task",
+            "do work",
+            AgentRole::Builder,
+        )
+    }
+
+    #[tokio::test]
+    async fn rate_limit_allows_up_to_max_messages() {
+        let router = test_router();
+        let _rx = router.register("receiver").await;
+
+        // DEFAULT_RATE_LIMIT is (10, 60). Send exactly 10 messages — all should succeed.
+        for i in 0..10 {
+            let result = router
+                .send_to("sender", "receiver", test_msg())
+                .await;
+            assert!(result.is_ok(), "message {i} should be accepted");
+        }
+    }
+
+    #[tokio::test]
+    async fn rate_limit_rejects_over_budget() {
+        let router = test_router();
+        let _rx = router.register("receiver").await;
+
+        // Exhaust the budget.
+        for _ in 0..10 {
+            let _ = router.send_to("sender", "receiver", test_msg()).await;
+        }
+
+        // The 11th send should be rejected.
+        let result = router
+            .send_to("sender", "receiver", test_msg())
+            .await;
+
+        assert!(result.is_err(), "11th message should be rejected");
+        let err = result.unwrap_err();
+        match err {
+            MailboxError::RateLimited { agent_id, count } => {
+                assert_eq!(agent_id, "sender");
+                assert!(count >= 10, "count should be >= 10, got {count}");
+            }
+            other => panic!("expected RateLimited, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn rate_limit_per_agent_isolation() {
+        let router = test_router();
+        let _rx = router.register("receiver").await;
+
+        // Exhaust budget for sender-A.
+        for _ in 0..10 {
+            let _ = router.send_to("sender-a", "receiver", test_msg()).await;
+        }
+
+        // sender-A is now blocked.
+        assert!(router.send_to("sender-a", "receiver", test_msg()).await.is_err());
+
+        // sender-B should still be allowed (independent budget).
+        assert!(router.send_to("sender-b", "receiver", test_msg()).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_sliding_window() {
+        let limiter = RateLimiter::new(3, 1); // 3 messages per 1-second window.
+
+        // Use up all 3 slots.
+        assert!(limiter.check_and_record("agent").await.is_ok());
+        assert!(limiter.check_and_record("agent").await.is_ok());
+        assert!(limiter.check_and_record("agent").await.is_ok());
+
+        // 4th is rejected.
+        assert!(limiter.check_and_record("agent").await.is_err());
+
+        // Wait for the window to slide.
+        tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
+
+        // Should be allowed again.
+        assert!(limiter.check_and_record("agent").await.is_ok());
     }
 }

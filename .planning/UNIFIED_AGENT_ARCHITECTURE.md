@@ -1,7 +1,13 @@
 # Unified Multi-Agent Architecture for RustyCode
 
+> **DEPRECATED** — This greenfield draft was superseded by a revised, codebase-aligned architecture.
+> See [UNIFIED_AGENT_ARCHITECTURE_REVISED.md](./UNIFIED_AGENT_ARCHITECTURE_REVISED.md) for the implemented design.
+> See [UNIFIED_AGENT_ARCHITECTURE_TASK_BREAKDOWN.md](./UNIFIED_AGENT_ARCHITECTURE_TASK_BREAKDOWN.md) for the implementation plan.
+>
+> This document remains for historical reference. Its speculative subsystems (TeamFormation, CrossAgentPlanner, AgentMailbox persistence) were cut in favor of wiring existing primitives.
+
 **Date:** 2026-05-06
-**Status:** Architecture Design Document
+**Status:** ~~Architecture Design Document~~ Superseded — see revised doc above
 **Scope:** Synthesize 5 existing paradigms into unified peer-to-peer agent team system
 
 ---

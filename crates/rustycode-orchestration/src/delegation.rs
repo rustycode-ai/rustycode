@@ -1433,7 +1433,7 @@ mod tests {
 
     #[test]
     fn error_type_change_resets_retry_counter() {
-        let token = DelegationToken::root("agent");
+        let _token = DelegationToken::root("agent");
         let mut state = RetryState::new();
 
         // First error: timeout

@@ -1,6 +1,8 @@
 //! End-to-end integration test for the memory pipeline:
 //! layout → write rollout → read summary → build instructions → search → list → reset
 
+#![allow(clippy::unwrap_used)]
+
 use std::path::Path;
 use tempfile::TempDir;
 
