@@ -850,17 +850,17 @@ fn split_diff_chunks(line: &str) -> Vec<&str> {
 
     while idx < line.len() {
         let mut chars = line[idx..].char_indices();
-        let (_, ch) = chars
-            .next()
-            .expect("slice should always yield a char at valid UTF-8 boundaries");
+        let Some((_, ch)) = chars.next() else {
+            break;
+        };
         let ch_len = ch.len_utf8();
         if ch.is_whitespace() {
             let mut end = idx + ch_len;
             while end < line.len() {
                 let mut peek = line[end..].char_indices();
-                let (_, next_ch) = peek
-                    .next()
-                    .expect("slice should always yield a char at valid UTF-8 boundaries");
+                let Some((_, next_ch)) = peek.next() else {
+                    break;
+                };
                 if !next_ch.is_whitespace() {
                     break;
                 }
