@@ -18,7 +18,6 @@ use super::input_history::HistoryManager;
 
 /// Result of handling a key event
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum InputAction {
     /// Send message with lines
     SendMessage(Vec<String>),
@@ -44,7 +43,6 @@ pub enum InputAction {
 
 /// Handles keyboard input and state management
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct InputHandler {
     /// Current input state
     pub state: InputState,

@@ -12,8 +12,7 @@ use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_lsp::LspServerStatus;
 use rustycode_memory::MemoryEntry;
 use rustycode_protocol::{
-    ContextPlan, EventKind, Plan, PlanId, Session, SessionEvent, SessionId, SessionMode, ToolCall,
-    ToolResult,
+    ContextPlan, EventKind, Plan, PlanId, Session, SessionEvent, SessionId, ToolCall, ToolResult,
 };
 use rustycode_session::session_manager::{SessionManager, SessionStats};
 use rustycode_skill::{manager::SkillManager, Skill};

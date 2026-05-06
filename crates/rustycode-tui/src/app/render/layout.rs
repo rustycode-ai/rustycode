@@ -6,7 +6,6 @@ use std::collections::HashMap;
 
 /// Derived layout for a single frame.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct FrameLayoutSnapshot {
     pub message_area: Rect,
     pub sidebar_area: Option<Rect>,

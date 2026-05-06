@@ -11,7 +11,6 @@ const MAX_IMAGE_SIZE: usize = 10 * 1024 * 1024;
 
 /// Supported image formats
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[non_exhaustive]
 pub enum ImageFormatType {
     Png,
     Jpeg,
@@ -101,7 +100,6 @@ impl ImageFormatType {
 
 /// Image data from clipboard
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct ClipboardImage {
     /// Raw image bytes
     pub data: Vec<u8>,

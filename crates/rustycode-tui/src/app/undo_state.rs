@@ -7,7 +7,6 @@ use std::collections::VecDeque;
 
 /// State for undo operations: message-position undo and file-content undo.
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct UndoState {
     /// Stack of (message_index, scroll_offset) snapshots for message undo.
     pub(crate) message_stack: VecDeque<(usize, usize)>,

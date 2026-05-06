@@ -9,7 +9,6 @@ use std::sync::{Arc, RwLock};
 /// Represents how much to increase spacing to simulate larger text.
 /// Actual font size is controlled by the terminal emulator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[non_exhaustive]
 pub enum FontScale {
     /// No additional spacing (default)
     #[default]
@@ -117,7 +116,6 @@ impl std::str::FromStr for FontScale {
 
 /// Accessibility settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct AccessibilitySettings {
     /// Font scale factor
     pub font_scale: FontScale,
@@ -205,7 +203,6 @@ pub fn create_accessibility() -> SharedAccessibility {
 }
 
 /// Helper to apply accessibility adjustments to rendering
-#[non_exhaustive]
 pub struct AccessibilityRenderer {
     settings: SharedAccessibility,
 }
@@ -280,7 +277,6 @@ pub fn format_accessible_list(items: &[String], numbered: bool) -> String {
 
 /// Screen reader announcement types
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum AnnouncementPriority {
     /// Low priority (informational)
     Low,
@@ -296,7 +292,6 @@ pub enum AnnouncementPriority {
 ///
 /// Represents a UI element with screen reader metadata.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ScreenReadableElement {
     /// Element type (e.g., "button", "text", "list")
     pub element_type: String,
@@ -377,7 +372,6 @@ impl ScreenReadableElement {
 
 /// Screen reader focus history for context tracking
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct FocusHistory {
     elements: Vec<ScreenReadableElement>,
     max_size: usize,
@@ -421,7 +415,6 @@ impl FocusHistory {
 ///
 /// Manages announcements to be read by screen readers.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct AnnouncementQueue {
     announcements: Vec<(String, AnnouncementPriority)>,
     max_size: usize,

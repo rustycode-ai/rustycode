@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex};
 
 /// Result type for plugin commands
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub enum PluginCommandResult {
     /// Command succeeded with a message
     Message(String),
@@ -32,7 +31,6 @@ pub type CwdGetterCallback = Arc<Mutex<Option<Box<dyn Fn() -> std::path::PathBuf
 pub type HistoryGetterCallback = Arc<Mutex<Option<Box<dyn Fn() -> Vec<String> + Send>>>>;
 
 /// Plugin API - provides safe access to TUI functionality
-#[non_exhaustive]
 pub struct PluginAPI {
     pub plugin_name: String,
 
@@ -92,7 +90,6 @@ impl PluginAPI {
 
 /// Plugin configuration
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct PluginConfig {
     /// Configuration values
     values: Arc<Mutex<std::collections::HashMap<String, String>>>,
@@ -148,7 +145,6 @@ impl PluginConfig {
 
 /// Plugin UI control
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct PluginUI {
     /// Message sender callback
     message_sender: MessageSenderCallback,
@@ -228,7 +224,6 @@ impl PluginUI {
 
 /// Plugin command registration
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct PluginCommands {
     /// Registered commands
     commands: Arc<Mutex<std::collections::HashMap<String, CommandHandler>>>,
@@ -274,7 +269,6 @@ impl PluginCommands {
 
 /// Plugin context access
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct PluginContext {
     /// Workspace context getter
     workspace_getter: WorkspaceGetterCallback,

@@ -14,7 +14,6 @@ use rustycode_team::orchestrator::TeamEvent;
 
 /// Display state for a single agent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum AgentState {
     Waiting,
     Active,
@@ -36,7 +35,6 @@ struct AgentDisplay {
 ///
 /// Receives `TeamEvent` broadcasts and renders a live agent dashboard.
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct TeamPanel {
     pub visible: bool,
     /// Agent display states keyed by role name.

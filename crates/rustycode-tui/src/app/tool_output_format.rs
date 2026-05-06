@@ -48,7 +48,6 @@ const TRUNCATION_TAIL_LINES: usize = 5;
 
 /// A formatted section of tool output
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum OutputSection {
     /// Plain text content
     Text(String),

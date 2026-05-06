@@ -662,8 +662,7 @@ impl MultiAgentOrchestrator {
         errors: &[String],
     ) {
         use crate::monitoring::{
-            MetricAggregation, MetricDataPoint, MetricDefinition, MetricMetadata, MetricType,
-            PerformanceMetrics,
+            MetricAggregation, MetricDefinition, MetricMetadata, MetricType, PerformanceMetrics,
         };
 
         let meta = MetricMetadata {

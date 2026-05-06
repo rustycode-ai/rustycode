@@ -15,7 +15,6 @@ use ratatui::{
 use super::manager::PluginManager;
 
 /// Plugin manager UI state
-#[non_exhaustive]
 pub struct PluginManagerUI {
     pub visible: bool,
 
@@ -37,7 +36,6 @@ pub struct PluginManagerUI {
 
 /// Plugin manager display mode
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
-#[non_exhaustive]
 pub enum PluginManagerMode {
     /// List view
     #[default]

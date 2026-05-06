@@ -6,7 +6,6 @@ use std::time::SystemTime;
 
 /// Cached metadata for a file read
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct FileReadEntry {
     /// Number of times this file has been read
     pub read_count: usize,
@@ -21,7 +20,6 @@ pub struct FileReadEntry {
 /// Tracks files read during a session to prevent repeated reads
 /// of unchanged files, which wastes API tokens.
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct FileReadCache {
     /// Cache entries keyed by normalized absolute path (lowercase)
     entries: HashMap<String, FileReadEntry>,

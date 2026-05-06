@@ -16,7 +16,6 @@ use std::time::Instant;
 
 /// Information about a single session
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct SessionInfo {
     /// Session ID (directory name)
     pub id: String,
@@ -39,7 +38,6 @@ pub struct SessionInfo {
 
 /// Session state indicator
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum SessionState {
     /// Session is currently active
     Active,
@@ -51,7 +49,6 @@ pub enum SessionState {
 
 /// Recovery action options
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum RecoveryAction {
     /// Recover the session (load from recovery file)
     Recover,
@@ -107,7 +104,6 @@ impl SessionState {
 
 /// Information about a file conflict
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct FileConflict {
     /// Path to the conflicted file
     pub path: PathBuf,
@@ -157,7 +153,6 @@ impl FileConflict {
 
 /// Conflict severity level
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ConflictSeverity {
     /// No conflict
     None,
@@ -187,7 +182,6 @@ impl ConflictSeverity {
 
 /// Sidebar state with collapsible sections
 #[derive(Default)]
-#[non_exhaustive]
 pub struct SessionSidebarState {
     /// Which sections are collapsed
     collapsed_sections: HashMap<String, bool>,
@@ -238,7 +232,6 @@ struct SidebarSection<'a> {
 
 /// Compact milestone progress snapshot shown in the sidebar.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct MilestoneProgressSnapshot {
     pub milestone_id: String,
     pub milestone_title: String,
@@ -252,7 +245,6 @@ pub struct MilestoneProgressSnapshot {
 
 /// MCP server lifecycle state shown in the sidebar.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum McpServerState {
     Connected,
     Configured,
@@ -275,7 +267,6 @@ impl McpServerState {
 
 /// MCP server status entry shown in the sidebar.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub struct McpServerStatus {
     pub name: String,
     pub state: McpServerState,
@@ -292,7 +283,6 @@ struct LspDiagnosticCounts {
 }
 
 /// Session sidebar component
-#[non_exhaustive]
 pub struct SessionSidebar {
     state: SessionSidebarState,
     visible: bool,

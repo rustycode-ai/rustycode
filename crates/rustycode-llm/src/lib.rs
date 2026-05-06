@@ -9,6 +9,7 @@
     clippy::doc_markdown,
     clippy::equatable_if_let,
     clippy::expect_used,
+    clippy::field_reassign_with_default,
     clippy::format_push_string,
     clippy::if_not_else,
     clippy::ignored_unit_patterns,

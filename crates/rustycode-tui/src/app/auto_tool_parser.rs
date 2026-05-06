@@ -1,7 +1,7 @@
+use anyhow::Context;
 use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub struct ParsedToolCall {
     pub name: String,
     pub arguments: Value,
@@ -41,8 +41,9 @@ pub fn extract_tool_payloads(response: &str) -> Vec<String> {
     tool_payloads
 }
 
-pub fn parse_tool_calls_payload(payload: &str) -> Result<Vec<ParsedToolCall>, String> {
-    let parsed = serde_json::from_str::<Value>(payload).map_err(|e| e.to_string())?;
+pub fn parse_tool_calls_payload(payload: &str) -> anyhow::Result<Vec<ParsedToolCall>> {
+    let parsed =
+        serde_json::from_str::<Value>(payload).context("Invalid JSON in tool call payload")?;
 
     let mut calls: Vec<Value> = Vec::new();
     if parsed.is_array() {
@@ -184,7 +185,7 @@ mod tests {
     #[test]
     fn rejects_invalid_json() {
         let err = parse_tool_calls_payload("{").expect_err("should fail");
-        assert!(!err.is_empty());
+        assert!(!err.to_string().is_empty());
     }
 
     #[test]

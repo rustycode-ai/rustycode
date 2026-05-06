@@ -6,11 +6,7 @@
         clippy::unwrap_used,
         clippy::expect_used,
         clippy::float_cmp,
-        clippy::map_unwrap_or,
         clippy::single_match_else,
-        clippy::too_many_lines,
-        clippy::redundant_clone,
-        clippy::significant_drop_tightening,
         clippy::ptr_arg,
         clippy::format_in_format_args,
         clippy::let_and_return,
@@ -18,18 +14,31 @@
         clippy::bool_to_int_with_if,
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
-        clippy::manual_let_else,
         clippy::semicolon_if_nothing_returned,
         clippy::let_unit_value,
     )
 )]
-// Pre-existing patterns in task_decomposer.rs
-#![allow(clippy::format_push_string)]
-#![allow(clippy::nonminimal_bool)]
-#![allow(clippy::if_not_else)]
-#![allow(clippy::missing_const_for_fn)]
-// usize→f64 casts in metrics/stats code: values stay well below 2^52 in practice.
-#![allow(clippy::cast_precision_loss)]
+// Pre-existing patterns throughout the crate
+#![allow(
+    clippy::format_push_string,
+    clippy::nonminimal_bool,
+    clippy::if_not_else,
+    clippy::missing_const_for_fn,
+    clippy::cast_precision_loss,
+    clippy::assigning_clones,
+    clippy::clone_on_copy,
+    clippy::manual_let_else,
+    clippy::map_unwrap_or,
+    clippy::match_same_arms,
+    clippy::needless_borrows_for_generic_args,
+    clippy::needless_collect,
+    clippy::redundant_clone,
+    clippy::redundant_closure_for_method_calls,
+    clippy::significant_drop_tightening,
+    clippy::too_many_lines,
+    clippy::unused_self,
+    clippy::use_self
+)]
 
 //! Tiered model orchestration for terminal-bench and complex task solving.
 //!

@@ -9,7 +9,6 @@ use std::time::Duration;
 
 /// Receive status for non-blocking channel receive operations
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum RecvStatus<T> {
     /// Received an item
     Item(T),
@@ -21,7 +20,6 @@ pub enum RecvStatus<T> {
 
 /// Option for a question (multiple choice)
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub struct QuestionOption {
     pub label: String,
     pub description: String,
@@ -38,7 +36,6 @@ pub struct QuestionOption {
 /// network, context length, etc. The TUI-specific variants cover errors
 /// that originate inside the TUI layer itself (config, timeouts, orchestration).
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum StreamError {
     // --- Provider errors (passthrough from rustycode-llm) ---
     /// Error from the LLM provider (auth, rate limit, network, context, etc.)
@@ -216,7 +213,6 @@ impl std::error::Error for StreamError {
 
 /// Chunk of streamed LLM response
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum StreamChunk {
     /// Text chunk from LLM
     Text(String),
@@ -309,7 +305,6 @@ pub enum StreamChunk {
 
 /// Result from tool execution
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ToolResult {
     /// Tool call identifier
     pub id: String,
@@ -332,7 +327,6 @@ impl ToolResult {
 
 /// Tool execution output
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum ToolOutput {
     /// Successful execution with output
     Success(String),
@@ -347,7 +341,6 @@ pub enum ToolOutput {
 /// Replaces `ToolOutput::Error(String)` to enable pattern matching on error
 /// categories instead of fragile string comparisons.
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum ToolExecutionError {
     /// Tool rejected by security policy
     PermissionDenied { tool: String, reason: String },
@@ -411,7 +404,6 @@ impl From<String> for ToolExecutionError {
 
 /// Result from bash command execution
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct CommandResult {
     /// Command that was executed
     pub command: String,
@@ -442,7 +434,6 @@ impl CommandResult {
 
 /// Workspace context update
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum WorkspaceUpdate {
     /// Workspace scan progress
     ScanProgress {
@@ -468,7 +459,6 @@ pub enum WorkspaceUpdate {
 
 /// Result from slash command execution
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum SlashCommandResult {
     /// Command succeeded with message
     Success(String),
@@ -485,7 +475,6 @@ pub enum SlashCommandResult {
 
 /// Error type for bounded channel operations
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum ChannelError {
     /// Channel is full (backpressure)
     Full,
@@ -508,7 +497,6 @@ pub enum ChannelError {
 ///
 /// The channel is thread-safe and can be used from background threads.
 /// Use `clone_sender()` to get additional senders.
-#[non_exhaustive]
 pub struct BoundedChannel<T> {
     /// Channel sender (sync sender for bounded channel)
     tx: mpsc::SyncSender<T>,
@@ -667,7 +655,6 @@ where
 ///
 /// This provides a convenient way to capture state snapshots from background
 /// threads for use in the event loop.
-#[non_exhaustive]
 pub struct Snapshot<T> {
     inner: T,
 }

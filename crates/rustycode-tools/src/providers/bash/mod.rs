@@ -13,6 +13,7 @@ mod tests {
     use crate::subprocess::SHELL_INFO;
     use rate_limiter::{BashRateLimiter, BASH_RATE_LIMITER};
     use registry::{BashSessionRegistry, IDLE_TIMEOUT_SECS};
+    use rustycode_tools_api::Tool;
     use session::BashSession;
     use std::sync::Arc;
     use std::time::{Duration, Instant};

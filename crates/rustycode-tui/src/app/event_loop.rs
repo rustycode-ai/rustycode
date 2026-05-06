@@ -109,7 +109,6 @@ fn install_panic_hook() {
 /// - Status bar (progress, animations)
 /// - Animation system (smooth updates)
 /// - Service integration (LLM streaming, tool execution, workspace loading)
-#[non_exhaustive]
 pub struct TUI {
     // UI Components (plugins)
     pub(crate) message_renderer: MessageRenderer,
@@ -2170,7 +2169,6 @@ include!("event_loop_slash_commands.rs");
 
 /// Event from async services
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum AsyncEvent {
     /// Stream chunk from LLM
     StreamChunk { delta: String, finished: bool },

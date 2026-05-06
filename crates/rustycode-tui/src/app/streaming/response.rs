@@ -48,7 +48,6 @@ use rustycode_protocol::{ContentBlock, MessageContent};
 /// Configuration for streaming LLM responses
 ///
 /// Builder pattern to handle the many parameters needed for `stream_llm_response`.
-#[non_exhaustive]
 pub struct StreamConfig {
     pub content: String,
     pub cwd: std::path::PathBuf,

@@ -10,7 +10,6 @@ use std::time::SystemTime;
 
 /// Extraction analytics statistics
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[non_exhaustive]
 pub struct ExtractionStats {
     /// Total number of extraction attempts
     pub total_extractions: usize,

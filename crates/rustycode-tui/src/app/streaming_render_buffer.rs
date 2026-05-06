@@ -269,7 +269,6 @@ fn close_unclosed_fences(content: &str) -> String {
 /// holding back any incomplete markdown constructs. Large code blocks
 /// are automatically truncated with full content saved to a temp file.
 #[derive(Default)]
-#[non_exhaustive]
 pub struct StreamingRenderBuffer {
     buffer: String,
 }

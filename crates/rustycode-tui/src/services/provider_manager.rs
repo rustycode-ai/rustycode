@@ -50,7 +50,6 @@ pub fn cycle_effort_level(current_effort: &str, current_model: &str) -> String {
 }
 
 /// Result of applying a model switch
-#[non_exhaustive]
 pub struct ModelSwitchResult {
     /// Model identifier to set as current
     pub model_id: String,

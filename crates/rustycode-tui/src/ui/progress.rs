@@ -9,7 +9,6 @@ use std::time::{Duration, Instant};
 
 /// Progress information for a long-running operation
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct Progress {
     /// Current progress value
     pub current: usize,
@@ -57,7 +56,6 @@ impl Progress {
 
 /// Tool execution with progress tracking
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct ToolProgress {
     /// Tool name
     pub name: String,
@@ -75,7 +73,6 @@ pub struct ToolProgress {
 
 /// Status of a tool execution
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ToolStatus {
     /// Tool is pending (queued but not started)
     Pending,
@@ -193,7 +190,6 @@ impl ToolProgress {
 }
 
 /// Renderer for progress bars and indicators
-#[non_exhaustive]
 pub struct ProgressRenderer {
     /// Width of progress bar in characters
     bar_width: usize,

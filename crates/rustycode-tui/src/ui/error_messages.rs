@@ -6,7 +6,6 @@ use anyhow::Error as AnyhowError;
 
 /// Types of errors that can occur in the TUI
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ErrorCategory {
     /// Network-related errors (timeout, connection refused, DNS failure)
     Network,

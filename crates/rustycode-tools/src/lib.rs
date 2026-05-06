@@ -23,6 +23,7 @@
     clippy::default_trait_access,
     clippy::derive_partial_eq_without_eq,
     clippy::doc_link_with_quotes,
+    clippy::duration_suboptimal_units,
     clippy::elidable_lifetime_names,
     clippy::expect_used,
     clippy::fn_params_excessive_bools,

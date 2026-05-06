@@ -16,7 +16,6 @@ pub use super::fuzzy_matcher::{FuzzyMatcher as ModelFuzzyMatcher, MatchScore};
 
 /// Information about an available model
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct ModelInfo {
     /// Model identifier (e.g., "claude-sonnet-4-20250514")
     pub id: String,
@@ -112,7 +111,6 @@ impl ModelInfo {
 
 /// Model selector state
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ModelSelectorState {
     /// Current search query
     pub query: String,
@@ -276,7 +274,6 @@ impl ModelSelectorState {
 // MODEL SELECTOR RENDERER
 
 /// Model selector renderer
-#[non_exhaustive]
 pub struct ModelSelectorRenderer {
     /// Visual state
     state: ModelSelectorState,
@@ -614,7 +611,6 @@ impl Default for ModelSelectorRenderer {
 // MODEL SELECTOR (HIGH-LEVEL API)
 
 /// Combines state and rendering into a single interface.
-#[non_exhaustive]
 pub struct ModelSelector {
     renderer: ModelSelectorRenderer,
 }

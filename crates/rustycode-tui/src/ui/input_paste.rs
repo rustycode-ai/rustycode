@@ -17,7 +17,6 @@ use super::message_types::ImageAttachment;
 
 /// Result of paste operation
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum PasteResult {
     Text,
     Image,
@@ -40,7 +39,6 @@ impl PasteResult {
 /// Clipboard paste handler
 ///
 /// Uses platform-specific clipboard functions for better image paste support.
-#[non_exhaustive]
 pub struct PasteHandler {
     _phantom: std::marker::PhantomData<()>,
 }

@@ -73,7 +73,6 @@ pub struct BackgroundServiceRegistry {
     pub command_channel: Option<BoundedChannel<SlashCommandResult>>,
 }
 
-#[non_exhaustive]
 pub struct ServiceManager {
     /// Conversation service (LLM streaming)
     conversation: Option<ConversationService>,
@@ -881,7 +880,6 @@ impl ServiceManager {
 
 /// Statistics about service channel health
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ServiceStats {
     /// Number of dropped stream chunks (backpressure)
     pub stream_dropped: usize,
@@ -920,7 +918,7 @@ mod tests {
     #[test]
     fn test_ai_mode_get_set() {
         let cwd = PathBuf::from("/tmp");
-        let mut manager = ServiceManager::new(cwd, AiMode::Act);
+        let manager = ServiceManager::new(cwd, AiMode::Act);
 
         manager.set_ai_mode(AiMode::Plan);
         assert_eq!(manager.ai_mode(), AiMode::Plan);

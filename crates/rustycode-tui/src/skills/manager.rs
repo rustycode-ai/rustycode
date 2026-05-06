@@ -7,7 +7,6 @@ use std::time::Instant;
 
 /// Trigger condition for auto-running skills
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum TriggerCondition {
     /// Trigger on git commit
     OnCommit,
@@ -21,7 +20,6 @@ pub enum TriggerCondition {
 
 /// Runtime status of a skill
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum SkillStatus {
     /// Skill is available but not active
     Inactive,
@@ -35,7 +33,6 @@ pub enum SkillStatus {
 
 /// Extended skill with runtime state
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct SkillState {
     /// Base skill metadata
     pub base: BaseSkill,
@@ -123,7 +120,6 @@ impl SkillState {
 
 /// Manages skill state and activation
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct SkillStateManager {
     /// All available skills
     pub skills: Vec<SkillState>,

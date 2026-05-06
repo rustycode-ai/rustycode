@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ManifestMetadata {
     pub name: String,
     #[serde(default)]
@@ -14,7 +13,6 @@ pub struct ManifestMetadata {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct StepDefinition {
     pub id: String,
     pub implementation: String,
@@ -23,7 +21,6 @@ pub struct StepDefinition {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct PhaseDefinition {
     pub id: String,
     #[serde(default)]
@@ -46,7 +43,6 @@ pub struct PhaseDefinition {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct Manifest {
     pub version: String,
     pub metadata: ManifestMetadata,

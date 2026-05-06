@@ -1,14 +1,12 @@
 //! /stats command — display session statistics
 
 /// Result of the /stats command
-#[non_exhaustive]
 pub struct StatsResult {
     /// The formatted stats string to display as a system message
     pub display: String,
 }
 
 /// Session statistics for the /stats command
-#[non_exhaustive]
 pub struct SessionStats {
     /// Total input tokens
     pub input_tokens: usize,

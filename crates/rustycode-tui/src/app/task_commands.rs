@@ -13,7 +13,6 @@ use crate::app::tasks::{
 
 /// Result type for command execution
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum TaskCommandResult {
     /// Command was handled successfully
     Success(String),
@@ -186,7 +185,7 @@ fn cmd_task_complete(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommand
             let description = &tasks.tasks[task_num].description;
             TaskCommandResult::Success(format!("✅ Completed: {}", description))
         }
-        Err(e) => TaskCommandResult::Error(e),
+        Err(e) => TaskCommandResult::Error(e.to_string()),
     }
 }
 
@@ -222,7 +221,7 @@ fn cmd_task_start(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandRes
             let description = &tasks.tasks[task_num].description;
             TaskCommandResult::Success(format!("🔄 Started: {}", description))
         }
-        Err(e) => TaskCommandResult::Error(e),
+        Err(e) => TaskCommandResult::Error(e.to_string()),
     }
 }
 
@@ -290,7 +289,7 @@ fn cmd_task_block(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandRes
             let description = &tasks.tasks[task_num].description;
             TaskCommandResult::Success(format!("🚫 Blocked: {}", description))
         }
-        Err(e) => TaskCommandResult::Error(e),
+        Err(e) => TaskCommandResult::Error(e.to_string()),
     }
 }
 
@@ -373,7 +372,7 @@ fn cmd_todo_done(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResu
                 TaskCommandResult::Success(format!("☐ Undone: {}", text))
             }
         }
-        Err(e) => TaskCommandResult::Error(e),
+        Err(e) => TaskCommandResult::Error(e.to_string()),
     }
 }
 
@@ -413,7 +412,7 @@ fn cmd_todo_uncheck(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandR
                 TaskCommandResult::Success(format!("☑ Checked: {}", text))
             }
         }
-        Err(e) => TaskCommandResult::Error(e),
+        Err(e) => TaskCommandResult::Error(e.to_string()),
     }
 }
 
@@ -464,7 +463,7 @@ fn cmd_agent_spawn(task: &str, tasks: &mut WorkspaceTasks) -> TaskCommandResult 
     agent.status = AgentStatus::Running;
 
     let agent_id = agent.id.clone();
-    let agent_short_id = if agent_id.len() >= 8 {
+    let agent_short_id = if agent_id.chars().count() >= 8 {
         agent_id.chars().take(8).collect::<String>()
     } else {
         agent_id

@@ -7,7 +7,6 @@ use std::time::{Duration, Instant};
 
 /// Current animation frame
 #[derive(Clone, Debug, Default)]
-#[non_exhaustive]
 pub struct AnimationFrame {
     /// Animated cursor character
     pub cursor: char,
@@ -33,7 +32,6 @@ impl AnimationFrame {
 
 /// Animation style for different indicator types
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum AnimationStyle {
     /// No animation (static)
     #[default]
@@ -52,7 +50,6 @@ pub enum AnimationStyle {
 ///
 /// Runs at 2-4 FPS for efficiency (not 60 FPS). Updates animation frames
 /// based on elapsed time since last frame.
-#[non_exhaustive]
 pub struct Animator {
     frame_count: usize,
     /// Last frame update time

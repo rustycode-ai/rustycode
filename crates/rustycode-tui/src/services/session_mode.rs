@@ -18,7 +18,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 /// Session mode state
-#[non_exhaustive]
 pub struct SessionMode {
     /// Current working directory
     pub cwd: PathBuf,
@@ -43,7 +42,6 @@ pub struct SessionMode {
 
 /// Session history entry
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct SessionHistoryEntry {
     /// Session ID
     pub id: SessionId,
@@ -63,7 +61,6 @@ pub struct SessionHistoryEntry {
 
 /// Session view mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum SessionViewMode {
     /// Browse session history
     History,
@@ -79,7 +76,6 @@ pub enum SessionViewMode {
 
 /// Message display mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum MessageDisplayMode {
     /// Full message content
     Full,
@@ -91,7 +87,6 @@ pub enum MessageDisplayMode {
 
 /// Token usage statistics
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct TokenUsage {
     /// Total input tokens
     pub input_tokens: usize,

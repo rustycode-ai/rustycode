@@ -3,7 +3,6 @@ use crate::app::pipeline::tool_registry::Tool;
 use anyhow::{anyhow, Result};
 use std::sync::Arc;
 
-#[non_exhaustive]
 pub struct BrowserExtractTool {
     manager: Arc<BrowserManager>,
 }

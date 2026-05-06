@@ -18,7 +18,6 @@ const CACHE_TTL: Duration = Duration::from_hours(24);
 
 /// Marketplace registry configuration
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct RegistryConfig {
     /// Remote URL for the registry
     pub registry_url: String,

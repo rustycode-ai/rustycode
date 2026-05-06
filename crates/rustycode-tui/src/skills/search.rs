@@ -4,7 +4,6 @@ use crate::skills::loader::Skill;
 
 /// Search result with relevance score
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct SearchResult {
     /// The matching skill
     pub skill: Skill,

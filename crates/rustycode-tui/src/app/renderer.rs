@@ -24,7 +24,6 @@ use std::rc::Rc;
 /// Backend-specific fields (theme colours, input cursor position, …) stay
 /// inside the concrete renderer struct.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct RendererState {
     // ── Layout ──────────────────────────────────────────────────────────────
     /// Full terminal area for the frame.
@@ -164,7 +163,6 @@ impl RendererState {
 /// through the paint path.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-#[non_exhaustive]
 pub struct RendererConfig {
     /// Minimum terminal width before showing the small-terminal fallback.
     pub min_width: u16,
@@ -254,7 +252,6 @@ impl RendererLayout {
 // POLISHED RENDERER
 
 /// Polished renderer backend — clean chrome + markdown-rendered messages.
-#[non_exhaustive]
 pub struct PolishedRenderer {
     state: RendererState,
     config: RendererConfig,
@@ -532,7 +529,6 @@ impl PolishedRenderer {
 /// 1. Add a variant here (e.g. `Minimal`).
 /// 2. Add a `match` arm in `FrameRenderer for RendererMode`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum RendererMode {
     Polished,
     Brutalist,

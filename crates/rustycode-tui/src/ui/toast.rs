@@ -17,7 +17,6 @@ use std::time::{Duration, Instant};
 /// 2. **Visible**: Fully displayed (3000ms default)
 /// 3. **Exiting**: Sliding out to the right with fade-out (120ms)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ToastPhase {
     /// Toast is sliding in from the right
     Entering,
@@ -38,7 +37,6 @@ impl ToastPhase {
 
 /// Toast notification level
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ToastLevel {
     /// Informational message
     Info,
@@ -74,7 +72,6 @@ impl ToastLevel {
 
 /// A toast notification
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct Toast {
     /// Notification level
     pub level: ToastLevel,
@@ -239,7 +236,6 @@ impl Toast {
 /// Toast notification manager
 ///
 /// Manages multiple active toasts and handles rendering them.
-#[non_exhaustive]
 pub struct ToastManager {
     /// Active toasts
     toasts: Vec<Toast>,

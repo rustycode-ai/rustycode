@@ -47,7 +47,6 @@ use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 
 /// Context for executing slash commands
-#[non_exhaustive]
 pub struct CommandContext<'a> {
     /// Working directory
     pub cwd: &'a std::path::Path,
@@ -94,7 +93,6 @@ pub struct CommandContext<'a> {
 }
 
 /// Result of executing a command
-#[non_exhaustive]
 pub enum CommandEffect {
     /// No immediate effect (async operation started)
     AsyncStarted(String),

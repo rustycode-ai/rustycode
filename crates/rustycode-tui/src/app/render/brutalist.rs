@@ -12,7 +12,6 @@
 /// Extracted from live `TUI` state via `BrutalistRendererState::snapshot`.
 /// Keeping construction explicit here means the `TUI` struct no longer needs
 /// to know about the renderer's internal fields.
-#[non_exhaustive]
 pub struct BrutalistRendererState<'a> {
     // These are the same fields the old builder accepted, grouped for clarity.
     pub input_text: &'a str,

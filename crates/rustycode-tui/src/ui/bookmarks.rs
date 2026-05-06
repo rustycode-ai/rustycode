@@ -7,7 +7,6 @@ use std::collections::HashMap;
 
 /// Manager for message bookmarks
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct BookmarkManager {
     /// Map of message index to description
     bookmarks: HashMap<usize, String>,
@@ -100,7 +99,6 @@ impl BookmarkManager {
 
 /// UI state for the bookmarks list popup
 #[derive(Clone, Debug, Default)]
-#[non_exhaustive]
 pub struct BookmarkListState {
     pub visible: bool,
 

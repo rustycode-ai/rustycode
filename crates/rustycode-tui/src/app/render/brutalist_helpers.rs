@@ -168,9 +168,15 @@ pub fn extract_tool_key_param(
     None
 }
 
+/// Progress bar character sets for consistent rendering across the TUI.
+/// Context/token bars use line-drawing characters; tool/phase bars use block characters.
+pub const PROGRESS_CHARS_CONTEXT: (&str, &str) = ("━", "╌");
+pub const PROGRESS_CHARS_TOOLS: (&str, &str) = ("█", "░");
+
 /// Render a text progress bar with configurable characters.
 ///
 /// Returns a string like `"━━━━╌╌╌╌╌╌"` or `"████░░░░"`.
+/// Use `PROGRESS_CHARS_CONTEXT` or `PROGRESS_CHARS_TOOLS` for consistent styling.
 pub fn progress_bar(width: usize, filled: usize, filled_char: &str, empty_char: &str) -> String {
     let clamped = filled.min(width);
     let empty = width.saturating_sub(clamped);

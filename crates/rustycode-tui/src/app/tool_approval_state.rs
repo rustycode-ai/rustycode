@@ -9,7 +9,6 @@ use std::collections::VecDeque;
 /// State for the tool approval flow: pending requests, the manager that
 /// processes them, and whether the UI is blocked waiting for a response.
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct ToolApprovalState {
     /// Manages tool approval policies and decisions
     pub manager: ToolApprovalManager,

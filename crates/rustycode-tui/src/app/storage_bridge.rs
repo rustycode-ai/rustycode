@@ -11,7 +11,6 @@ use rustycode_tools::workspace_checkpoint::{CheckpointStore, WorkspaceCheckpoint
 use std::sync::Arc;
 
 /// Implements `CheckpointStore` backed by `Storage` (SQLite).
-#[non_exhaustive]
 pub struct SqlCheckpointStore {
     storage: Arc<Storage>,
 }
@@ -70,7 +69,6 @@ impl CheckpointStore for SqlCheckpointStore {
 }
 
 /// Implements `RewindStore` backed by `Storage` (SQLite).
-#[non_exhaustive]
 pub struct SqlRewindStore {
     storage: Arc<Storage>,
 }

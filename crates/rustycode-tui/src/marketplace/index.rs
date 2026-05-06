@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 /// A marketplace item that can be installed
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct MarketplaceItem {
     /// Unique identifier for the item
     pub id: String,
@@ -40,7 +39,6 @@ pub struct MarketplaceItem {
 
 /// Type of marketplace item
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum ItemType {
     /// AI agent/assistant skill
     #[serde(rename = "skill")]
@@ -75,7 +73,6 @@ impl ItemType {
 
 /// Information about an available update
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct UpdateAvailable {
     /// Item that has an update
     pub item: MarketplaceItem,
@@ -89,7 +86,6 @@ pub struct UpdateAvailable {
 
 /// Type of update
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum UpdateType {
     /// Major version update (breaking changes)
     Major,

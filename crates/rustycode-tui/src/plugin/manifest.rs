@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 
 /// Plugin manifest loaded from plugin.toml
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct PluginManifest {
     /// Plugin name (unique identifier)
     pub name: String,
@@ -47,7 +46,6 @@ pub struct PluginManifest {
 /// Plugin type classification
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
-#[non_exhaustive]
 pub enum PluginType {
     /// Command plugin (adds slash commands)
     #[default]
@@ -62,7 +60,6 @@ pub enum PluginType {
 
 /// Slash command definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SlashCommand {
     /// Command name (without slash)
     pub name: String,
@@ -80,7 +77,6 @@ pub struct SlashCommand {
 
 /// Argument schema for slash commands
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ArgSchema {
     /// Argument name
     pub name: String,
@@ -103,7 +99,6 @@ fn default_arg_type() -> String {
 
 /// Theme configuration for theme plugins
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ThemeConfig {
     /// Background color
     pub background: String,

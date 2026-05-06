@@ -5,6 +5,7 @@
 //! - Todos (simple checklist items)
 //! - Active agents (background agent processes)
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -13,7 +14,6 @@ use std::time::{Duration, SystemTime};
 
 /// A task with status tracking
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct Task {
     pub id: String,
     pub description: String,
@@ -27,7 +27,6 @@ pub struct Task {
 
 /// Status of a task
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[non_exhaustive]
 pub enum TaskStatus {
     Pending,
     InProgress,
@@ -40,7 +39,6 @@ pub enum TaskStatus {
 
 /// A simple todo item
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct Todo {
     pub id: String,
     pub text: String,
@@ -50,7 +48,6 @@ pub struct Todo {
 
 /// An active agent process
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ActiveAgent {
     pub id: String,
     pub task: String,
@@ -60,7 +57,6 @@ pub struct ActiveAgent {
 
 /// Status of an agent
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[non_exhaustive]
 pub enum AgentStatus {
     Starting,
     Running,
@@ -71,7 +67,6 @@ pub enum AgentStatus {
 
 /// Container for all workspace tasks
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct WorkspaceTasks {
     pub tasks: Vec<Task>,
     pub todos: Vec<Todo>,
@@ -169,12 +164,12 @@ pub fn update_task_status(
     tasks: &mut WorkspaceTasks,
     id: &str,
     status: TaskStatus,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(task) = tasks.tasks.iter_mut().find(|t| t.id == id) {
         task.status = status;
         Ok(())
     } else {
-        Err(format!("Task {} not found", id))
+        anyhow::bail!("Task {} not found", id)
     }
 }
 
@@ -201,12 +196,12 @@ pub fn create_todo(text: String) -> Todo {
     }
 }
 
-pub fn toggle_todo(tasks: &mut WorkspaceTasks, id: &str) -> Result<bool, String> {
+pub fn toggle_todo(tasks: &mut WorkspaceTasks, id: &str) -> anyhow::Result<bool> {
     if let Some(todo) = tasks.todos.iter_mut().find(|t| t.id == id) {
         todo.done = !todo.done;
         Ok(todo.done)
     } else {
-        Err(format!("Todo {} not found", id))
+        anyhow::bail!("Todo {} not found", id)
     }
 }
 
@@ -356,7 +351,7 @@ pub fn update_agent_status(
     tasks: &mut WorkspaceTasks,
     id: &str,
     status: AgentStatus,
-) -> Result<(), String> {
+) -> anyhow::Result<()> {
     if let Some(agent) = tasks.active_agents.iter_mut().find(|a| a.id == id) {
         agent.status = status.clone();
 
@@ -381,7 +376,7 @@ pub fn update_agent_status(
 
         Ok(())
     } else {
-        Err(format!("Agent {} not found", id))
+        anyhow::bail!("Agent {} not found", id)
     }
 }
 

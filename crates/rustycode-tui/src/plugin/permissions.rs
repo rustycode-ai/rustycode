@@ -6,7 +6,6 @@ use std::str::FromStr;
 
 /// Permission required by a plugin
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-#[non_exhaustive]
 pub enum Permission {
     /// Read files from the filesystem
     ReadFile,
@@ -77,7 +76,6 @@ impl FromStr for Permission {
 
 /// Permission set for a plugin
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct PluginPermissions {
     /// Set of required permissions
     pub permissions: HashSet<Permission>,
@@ -122,7 +120,6 @@ impl PluginPermissions {
 
 /// Permission check result
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum PermissionCheck {
     /// Permission granted
     Granted,
@@ -135,7 +132,6 @@ pub enum PermissionCheck {
 }
 
 /// Permission manager for plugins
-#[non_exhaustive]
 pub struct PermissionManager {
     /// Granted permissions per plugin
     granted: std::collections::HashMap<String, HashSet<Permission>>,

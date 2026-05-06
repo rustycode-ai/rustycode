@@ -3,7 +3,6 @@
 
 /// Search state for message search
 #[derive(Clone, Debug, PartialEq, Default)]
-#[non_exhaustive]
 pub struct MessageSearchState {
     pub is_active: bool,
     pub query: String,
@@ -158,7 +157,6 @@ where
 
 /// Provider search state for filtering providers
 #[derive(Clone, Debug, PartialEq, Default)]
-#[non_exhaustive]
 pub struct ProviderSearchState {
     pub is_active: bool,
     pub query: String,

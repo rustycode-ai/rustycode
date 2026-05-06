@@ -10,7 +10,6 @@ use ratatui::widgets::Paragraph;
 
 /// Spinner style variants
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-#[non_exhaustive]
 pub enum SpinnerStyle {
     /// Simple dots animation
     #[default]
@@ -29,7 +28,6 @@ pub enum SpinnerStyle {
 
 /// Spinner status with associated color
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum SpinnerStatus {
     /// Operation is in progress (animating)
     Working,
@@ -63,7 +61,6 @@ impl SpinnerStatus {
 
 /// Animated spinner for async operations
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct Spinner {
     style: SpinnerStyle,
     status: SpinnerStatus,

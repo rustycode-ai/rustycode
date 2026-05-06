@@ -5,7 +5,6 @@ use std::path::PathBuf;
 
 /// Entry in session history
 #[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
 pub struct SessionHistoryEntry {
     pub id: String,
     pub title: String,
@@ -17,7 +16,6 @@ pub struct SessionHistoryEntry {
 
 /// Message type for serialization
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub enum SerializedMessageType {
     User,
     AI,
@@ -27,7 +25,6 @@ pub enum SerializedMessageType {
 
 /// Serialized message for session storage
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct SerializedMessage {
     pub role: SerializedMessageType,
     pub content: String,

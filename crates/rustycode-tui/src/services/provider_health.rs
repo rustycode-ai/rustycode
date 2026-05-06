@@ -6,7 +6,6 @@ use tokio::time::timeout;
 
 /// Health status for a provider
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum ProviderHealth {
     /// Provider is online and responsive
     Online { latency_ms: u64 },
@@ -20,7 +19,6 @@ pub enum ProviderHealth {
 
 /// Health check result for a provider
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ProviderHealthResult {
     pub provider_type: String,
     pub provider_name: String,

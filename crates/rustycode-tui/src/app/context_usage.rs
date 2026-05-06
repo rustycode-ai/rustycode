@@ -1,5 +1,4 @@
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct ContextUsage {
     pub input_tokens: usize,
     pub output_tokens: usize,
@@ -43,7 +42,12 @@ impl ContextUsage {
         let bar_width = width.clamp(8, 20);
         let filled = ((percentage as f64 / 100.0) * bar_width as f64).round() as usize;
 
-        let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "━", "╌");
+        let bar = crate::app::render::brutalist_helpers::progress_bar(
+            bar_width,
+            filled,
+            crate::app::render::brutalist_helpers::PROGRESS_CHARS_CONTEXT.0,
+            crate::app::render::brutalist_helpers::PROGRESS_CHARS_CONTEXT.1,
+        );
 
         format!(
             "ctx [{}] {}% {}/{}",
@@ -56,9 +60,9 @@ impl ContextUsage {
 
     pub fn color_level(&self) -> UsageLevel {
         let pct = self.percentage();
-        if pct < 50 {
+        if pct < MEDIUM_USAGE_THRESHOLD {
             UsageLevel::Low
-        } else if pct < 85 {
+        } else if pct < HIGH_USAGE_THRESHOLD {
             UsageLevel::Medium
         } else {
             UsageLevel::High
@@ -67,12 +71,14 @@ impl ContextUsage {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum UsageLevel {
-    Low,    // < 50%
-    Medium, // < 85%
-    High,   // >= 85%
+    Low,    // < MEDIUM_USAGE_THRESHOLD
+    Medium, // < HIGH_USAGE_THRESHOLD
+    High,   // >= HIGH_USAGE_THRESHOLD
 }
+
+pub const MEDIUM_USAGE_THRESHOLD: usize = 50;
+pub const HIGH_USAGE_THRESHOLD: usize = 85;
 
 fn format_tokens(n: usize) -> String {
     crate::app::render::brutalist_helpers::format_tokens_compact(n)

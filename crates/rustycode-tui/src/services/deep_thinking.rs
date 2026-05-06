@@ -8,7 +8,6 @@ use rustycode_tools::{Tool, ToolContext};
 
 /// Result of the deep-thinking analysis.
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct DeepThinkingResult {
     /// Whether deep thinking was activated.
     pub activated: bool,

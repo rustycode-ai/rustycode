@@ -13,7 +13,6 @@ use ratatui::{
 };
 
 /// Skill palette state
-#[non_exhaustive]
 pub struct SkillPalette {
     /// All available skills
     skills: Vec<Skill>,

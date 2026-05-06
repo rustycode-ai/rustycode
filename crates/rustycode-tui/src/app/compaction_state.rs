@@ -1,7 +1,6 @@
 use crate::memory::compaction::{CompactionConfig, ContextMonitor};
 
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct CompactionState {
     pub context_monitor: ContextMonitor,
     pub compaction_config: CompactionConfig,

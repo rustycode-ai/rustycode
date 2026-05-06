@@ -1,4 +1,3 @@
-#[non_exhaustive]
 pub(crate) struct TokenBudget {
     pub(crate) session_cost_usd: f64,
     pub(crate) session_input_tokens: usize,

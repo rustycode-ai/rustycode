@@ -9,7 +9,6 @@ use super::installer::{skills_dir, update_repository};
 
 /// Update information for a skill
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct UpdateInfo {
     /// Skill name
     pub name: String,
@@ -317,7 +316,6 @@ pub fn has_uncommitted_changes(name: &str) -> Result<bool> {
 
 /// Skill update statistics
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct UpdateStats {
     pub total_installed: usize,
     pub updates_available: usize,

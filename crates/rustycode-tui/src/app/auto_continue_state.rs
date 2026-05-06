@@ -1,4 +1,3 @@
-#[non_exhaustive]
 pub(crate) struct AutoContinueState {
     auto_continue_enabled: bool,
     auto_continue_pending: bool,

@@ -11,7 +11,6 @@ pub mod risk;
 
 /// Tool approval state
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ApprovalState {
     /// Tool has not been approved yet
     Pending,
@@ -27,14 +26,12 @@ pub enum ApprovalState {
 
 /// Scroll state for diff preview within the approval dialog.
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct DiffScrollState {
     pub scroll_offset: usize,
 }
 
 /// Tool approval request
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ApprovalRequest {
     pub tool_name: String,
     pub tool_type: risk::ToolType,
@@ -110,7 +107,6 @@ impl ApprovalRequest {
 
 /// Tool approval manager
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct ToolApprovalManager {
     pub session_approvals: Vec<(String, ApprovalState)>,
     pub auto_approve_safe: bool,

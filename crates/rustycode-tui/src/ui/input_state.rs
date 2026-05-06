@@ -8,7 +8,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 /// Input mode state
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-#[non_exhaustive]
 pub enum InputMode {
     /// Single-line mode (default)
     /// - Enter: Send message
@@ -26,7 +25,6 @@ pub enum InputMode {
 
 /// Complete input state including text, cursor, and images
 #[derive(Clone, Debug, Default)]
-#[non_exhaustive]
 pub struct InputState {
     /// Current input mode
     pub mode: InputMode,

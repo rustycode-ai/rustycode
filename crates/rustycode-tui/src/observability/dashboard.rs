@@ -6,7 +6,6 @@ use rustycode_observability::SessionMetrics;
 
 /// Dashboard widget for displaying real-time observability data
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct DashboardWidget {
     session_id: String,
     current_metrics: Option<SessionMetrics>,

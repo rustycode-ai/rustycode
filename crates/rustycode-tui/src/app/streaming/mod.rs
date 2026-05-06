@@ -16,7 +16,6 @@ pub use rustycode_core::streaming::ToolAccumulator as ActiveToolUse;
 ///
 /// Stores the outcome of a tool execution for later use in conversation continuation.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct ToolExecutionResult {
     /// The unique ID matching the original tool use request
     pub tool_use_id: String,
@@ -31,7 +30,6 @@ pub struct ToolExecutionResult {
 /// Determined by the `stop_reason` field in the LLM response, this enum
 /// controls whether to continue the conversation, execute tools, or stop.
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum ToolUseAction {
     /// LLM wants to use tools - execute them and continue the conversation
     ExecuteTools,

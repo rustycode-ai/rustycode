@@ -7,7 +7,6 @@ use ratatui::{
     Frame,
 };
 
-#[non_exhaustive]
 pub struct FileSelector {
     files: Vec<String>,
     state: ListState,

@@ -10,7 +10,6 @@ use crate::ui::{Message, MessageRole};
 use std::ops::Range;
 
 /// Manager for TUI state
-#[non_exhaustive]
 pub struct StateManager {
     /// Current scroll offset (0 = top)
     scroll_offset: usize,

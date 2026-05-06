@@ -10,7 +10,6 @@ use super::input_state::InputState;
 
 /// Manages command history navigation and reverse search
 #[derive(Debug, Default)]
-#[non_exhaustive]
 pub struct HistoryManager {
     /// Command history
     history: Vec<String>,

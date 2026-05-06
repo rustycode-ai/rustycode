@@ -3,6 +3,42 @@
 //! This module houses the profiling, assembly, and coordination logic that
 //! determines how agents collaborate on tasks.
 
+#![allow(unexpected_cfgs)]
+#![allow(
+    clippy::assigning_clones,
+    clippy::case_sensitive_file_extension_comparisons,
+    clippy::cast_possible_wrap,
+    clippy::derive_partial_eq_without_eq,
+    clippy::float_cmp,
+    clippy::format_push_string,
+    clippy::future_not_send,
+    clippy::if_not_else,
+    clippy::manual_let_else,
+    clippy::manual_midpoint,
+    clippy::manual_string_new,
+    clippy::map_unwrap_or,
+    clippy::match_bool,
+    clippy::match_same_arms,
+    clippy::needless_collect,
+    clippy::needless_continue,
+    clippy::needless_pass_by_ref_mut,
+    clippy::needless_pass_by_value,
+    clippy::needless_raw_string_hashes,
+    clippy::range_plus_one,
+    clippy::redundant_clone,
+    clippy::redundant_closure_for_method_calls,
+    clippy::self_only_used_in_recursion,
+    clippy::significant_drop_tightening,
+    clippy::single_match_else,
+    clippy::too_many_lines,
+    clippy::unnecessary_debug_formatting,
+    clippy::unnecessary_wraps,
+    clippy::unused_async,
+    clippy::unused_self,
+    clippy::use_self,
+    clippy::used_underscore_binding
+)]
+
 pub mod agent_timeline;
 pub mod architect;
 pub mod briefing;

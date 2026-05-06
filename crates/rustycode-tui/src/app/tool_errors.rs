@@ -4,7 +4,6 @@ use std::collections::HashMap;
 
 /// Types of tool errors with specific recovery suggestions
 #[derive(Debug, Clone, PartialEq)]
-#[non_exhaustive]
 pub enum ToolErrorType {
     /// File or directory not found at the specified path
     FileNotFound,
@@ -114,7 +113,6 @@ impl ToolErrorType {
 
 /// Error count tracker for repeated failures
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct ErrorTracker {
     /// Track error counts by tool name
     error_counts: HashMap<String, usize>,

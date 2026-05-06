@@ -4,7 +4,6 @@ use crate::ui::message_types::{Message, MessageRole};
 
 /// Search filter by message role
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum RoleFilter {
     /// Show all messages
     All,
@@ -29,7 +28,6 @@ impl RoleFilter {
 
 /// Position of a match in a message
 #[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
 pub struct MatchPosition {
     /// Index of the message containing this match
     pub message_index: usize,
@@ -41,7 +39,6 @@ pub struct MatchPosition {
 
 /// Search configuration and state
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct SearchState {
     /// Current search query
     pub query: String,
@@ -129,7 +126,6 @@ impl Default for SearchState {
 }
 
 /// Core search engine for messages
-#[non_exhaustive]
 pub struct SearchEngine;
 
 impl SearchEngine {

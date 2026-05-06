@@ -8,7 +8,6 @@ use std::collections::{HashMap, HashSet};
 
 /// Predefined tag types
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-#[non_exhaustive]
 pub enum TagType {
     Important,
     Idea,
@@ -77,7 +76,6 @@ impl TagType {
 
 /// A tag applied to a message
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[non_exhaustive]
 pub struct Tag {
     pub tag_type: TagType,
     pub note: Option<String>,
@@ -106,7 +104,6 @@ impl Tag {
 // TAG FILTER
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[non_exhaustive]
 pub struct TagFilter {
     /// None means show all messages.
     pub active_tag: Option<TagType>,
@@ -140,7 +137,6 @@ impl TagFilter {
 // TAG REGISTRY
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct TagRegistry {
     tags: HashMap<String, Vec<Tag>>,
 }

@@ -10,7 +10,6 @@ use rustycode_protocol::MilestoneStatus;
 
 /// User-facing plan mode banner shown in the persistent status bar / header.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum PlanModeBanner {
     /// Planning is active for a specific convoy.
     Planning {

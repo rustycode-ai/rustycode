@@ -18,7 +18,6 @@ const MAX_VALUE_SIZE: usize = 10 * 1024;
 
 /// Errors that can occur during memory operations
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum MemoryError {
     /// Key format is invalid
     InvalidKey(String),

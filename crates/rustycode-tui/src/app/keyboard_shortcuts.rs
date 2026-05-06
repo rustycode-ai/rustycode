@@ -4,7 +4,6 @@ use std::time::{Duration, Instant};
 
 /// Standard keyboard shortcut actions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum KeyboardAction {
     /// Copy selected message to clipboard
     Copy,
@@ -26,7 +25,6 @@ pub enum KeyboardAction {
 
 /// State for tracking Vim chord sequences
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct VimChordState {
     /// Whether we're waiting for the second 'g' in 'gg'
     pub pending_g: bool,
@@ -73,7 +71,6 @@ impl Default for VimChordState {
 }
 
 /// Keyboard shortcut handler
-#[non_exhaustive]
 pub struct KeyboardShortcutHandler {
     /// Whether Vim mode is enabled
     vim_enabled: bool,

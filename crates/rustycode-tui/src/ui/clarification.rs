@@ -10,7 +10,6 @@ use ratatui::{
 
 /// A selectable option for a question
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct QuestionOption {
     pub label: String,
     pub description: String,
@@ -18,7 +17,6 @@ pub struct QuestionOption {
 
 /// A detected clarification question
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct Question {
     pub text: String,
     /// Context line preceding the question.
@@ -46,7 +44,6 @@ impl Question {
 
 /// Panel for displaying and answering clarification questions
 #[derive(Clone)]
-#[non_exhaustive]
 pub struct ClarificationPanel {
     pub questions: Vec<Question>,
     pub selected_index: usize,

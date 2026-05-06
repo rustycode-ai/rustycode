@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum MemoryCommand {
     Show,
     Reload,

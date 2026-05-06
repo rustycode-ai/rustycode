@@ -16,7 +16,6 @@ pub const AST_PHASE_NAMES: [&str; 6] = [
 
 /// State for tracking AST pipeline progress within the TUI.
 #[derive(Clone, Debug, Default)]
-#[non_exhaustive]
 pub struct AstPhaseState {
     pub active: bool,
     pub phase: String,
@@ -133,7 +132,6 @@ impl AstPhaseState {
 }
 
 /// Widget for rendering AST phase progress in an overlay or panel.
-#[non_exhaustive]
 pub struct AstPhaseWidget<'a> {
     pub state: &'a AstPhaseState,
     pub anim_frame: usize,

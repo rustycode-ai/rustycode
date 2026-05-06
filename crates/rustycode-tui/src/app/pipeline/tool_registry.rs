@@ -7,7 +7,6 @@ pub trait Tool: Send + Sync {
 }
 
 #[derive(Default, Clone)]
-#[non_exhaustive]
 pub struct ToolRegistry {
     tools: HashMap<String, Arc<dyn Tool>>,
     namespaces: HashMap<String, Vec<String>>,

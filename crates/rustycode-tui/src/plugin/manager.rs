@@ -13,7 +13,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-#[non_exhaustive]
 pub struct Plugin {
     pub manifest: PluginManifest,
     pub enabled: bool,
@@ -25,7 +24,6 @@ pub struct Plugin {
     pub updated_at: Option<String>,
 }
 
-#[non_exhaustive]
 pub struct PluginManager {
     plugins: HashMap<String, Plugin>,
     plugin_dir: PathBuf,

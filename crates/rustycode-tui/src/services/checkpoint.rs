@@ -11,7 +11,6 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct CheckpointMetadata {
     pub id: String,
     pub name: String,
@@ -26,14 +25,12 @@ pub struct CheckpointMetadata {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct Checkpoint {
     pub metadata: CheckpointMetadata,
     pub messages: Vec<Message>,
     pub tasks: WorkspaceTasks,
 }
 
-#[non_exhaustive]
 pub struct CheckpointManager {
     checkpoints_dir: PathBuf,
     index: HashMap<String, CheckpointMetadata>,

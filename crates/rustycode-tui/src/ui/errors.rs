@@ -17,7 +17,6 @@ use std::time::Duration;
 
 /// Error severity level
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ErrorSeverity {
     /// Critical error that prevents operation
     Critical,
@@ -53,7 +52,6 @@ impl ErrorSeverity {
 
 /// Error suggestion for fixing the issue
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct ErrorSuggestion {
     /// Suggested action
     pub action: String,
@@ -87,7 +85,6 @@ impl ErrorSuggestion {
 
 /// Comprehensive error display
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct ErrorDisplay {
     /// Error severity
     pub severity: ErrorSeverity,
@@ -410,7 +407,6 @@ impl ErrorDisplay {
 /// Error display manager
 ///
 /// Manages error display lifecycle and user interaction.
-#[non_exhaustive]
 pub struct ErrorManager {
     current_error: Option<ErrorDisplay>,
     history: Vec<ErrorDisplay>,

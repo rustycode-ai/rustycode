@@ -6,7 +6,6 @@ use tracing::warn;
 
 /// User's decision on a tool approval request.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ToolConfirmation {
     /// Approve this single execution.
     AllowOnce,
@@ -41,7 +40,6 @@ impl ToolConfirmation {
 /// Uses oneshot channels so tool execution can `.await` user decisions without
 /// polling. Stale entries (where the receiver was dropped due to task cancellation)
 /// are automatically pruned on the next `register()` call.
-#[non_exhaustive]
 pub struct ToolConfirmationRouter {
     pending: Mutex<HashMap<String, oneshot::Sender<ToolConfirmation>>>,
 }

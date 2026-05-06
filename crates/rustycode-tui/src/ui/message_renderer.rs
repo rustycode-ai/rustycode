@@ -28,7 +28,6 @@ use unicode_width::UnicodeWidthStr;
 // MESSAGE RENDERER
 
 /// Message renderer - handles hierarchical display
-#[non_exhaustive]
 pub struct MessageRenderer {
     pub show_thinking: bool,
     pub show_tools: bool,

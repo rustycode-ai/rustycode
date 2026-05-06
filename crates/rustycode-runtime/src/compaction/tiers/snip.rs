@@ -7,7 +7,7 @@
 //! 2. **Removing `<thinking>...</thinking>` and `<analysis>...</analysis>`
 //!    XML blocks** from text content (artifacts the LLM sometimes emits).
 
-use rustycode_protocol::{ContentBlock, Message, MessageContent, MessageRole};
+use rustycode_protocol::{ContentBlock, Message, MessageContent};
 
 use super::TierResult;
 
@@ -166,6 +166,7 @@ fn strip_thinking_blocks(text: &str, chars_removed: &mut usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rustycode_protocol::MessageRole;
 
     /// Helper: build a user message with a single ToolResult block.
     fn tool_result_msg(content: &str) -> Message {

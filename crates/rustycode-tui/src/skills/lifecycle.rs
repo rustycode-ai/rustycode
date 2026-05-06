@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 /// Complete lifecycle state of a skill
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[non_exhaustive]
 pub enum SkillLifecycleState {
     /// Skill is available in marketplace but not installed
     NotInstalled,
@@ -75,7 +74,6 @@ impl SkillLifecycleState {
 
 /// Installation metadata for a skill
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct InstallationMetadata {
     /// Source repository URL
     pub source_url: String,
@@ -128,7 +126,6 @@ impl InstallationMetadata {
 
 /// Runtime statistics for skill execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SkillStatistics {
     /// Total number of executions
     pub run_count: usize,
@@ -230,7 +227,6 @@ impl Default for SkillStatistics {
 
 /// Complete lifecycle information for a skill
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SkillLifecycle {
     /// Current lifecycle state
     pub state: SkillLifecycleState,

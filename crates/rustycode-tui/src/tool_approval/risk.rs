@@ -19,7 +19,6 @@ pub mod tool_names {
 
 /// Tool risk level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[non_exhaustive]
 pub enum RiskLevel {
     /// Safe tools - read-only, no side effects
     Safe = 0,
@@ -33,7 +32,6 @@ pub enum RiskLevel {
 
 /// Tool type categories
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum ToolType {
     /// Read file contents
     ReadFile,

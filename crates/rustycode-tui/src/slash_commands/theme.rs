@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex};
 
 /// Result of theme command execution
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub enum ThemeCommandResult {
     /// Theme applied successfully
     Success(String),

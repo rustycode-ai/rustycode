@@ -102,6 +102,7 @@ fn hard_block_strategy() -> FailureStrategy {
     }
 }
 
+#[allow(dead_code)]
 fn make_artifact(id: &str, type_tag: &str, source_phase: &str) -> Artifact {
     Artifact {
         id: id.to_string(),

@@ -79,7 +79,6 @@ pub fn handle_compact_command(
 
 /// Action to take after processing compact command
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub enum CompactAction {
     /// Perform compaction
     Compact,

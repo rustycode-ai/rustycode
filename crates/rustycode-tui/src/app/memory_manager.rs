@@ -7,7 +7,6 @@
 
 /// Configuration for memory injection and compaction
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct MemoryConfig {
     /// Maximum messages before auto-compaction
     pub max_messages_before_compact: usize,
@@ -27,7 +26,6 @@ impl Default for MemoryConfig {
 }
 
 /// Manager for memory operations and compaction
-#[non_exhaustive]
 pub struct MemoryManager {
     config: MemoryConfig,
     message_count: usize,

@@ -14,7 +14,6 @@ use ratatui::{
 /// Higher scores indicate better matches. Scores are ordered from worst to best:
 /// None < Substring < Prefix < Exact
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-#[non_exhaustive]
 pub enum MatchScore {
     /// No match
     None = 0,
@@ -46,7 +45,6 @@ impl MatchScore {
 /// This matcher provides case-insensitive fuzzy matching with relevance scoring.
 /// It can be used to search strings, names, paths, etc.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct FuzzyMatcher;
 
 impl FuzzyMatcher {

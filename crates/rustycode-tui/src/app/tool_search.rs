@@ -8,7 +8,6 @@ use std::collections::HashMap;
 /// Search algorithm variants for tool discovery
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[non_exhaustive]
 pub enum SearchAlgorithm {
     /// BM25 ranking algorithm - good for keyword-based search
     Bm25,
@@ -18,7 +17,6 @@ pub enum SearchAlgorithm {
 
 /// A tool reference that can be expanded into a full tool definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ToolReference {
     /// The name of the tool
     pub name: String,
@@ -30,7 +28,6 @@ pub struct ToolReference {
 
 /// Query for searching tools
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ToolSearchQuery {
     /// The search query string
     pub query: String,
@@ -52,7 +49,6 @@ fn default_limit() -> usize {
 
 /// Result of a tool search
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ToolSearchResult {
     /// The tools that matched the search
     pub tools: Vec<ToolMatch>,
@@ -62,7 +58,6 @@ pub struct ToolSearchResult {
 
 /// A single tool match with relevance score
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ToolMatch {
     /// The tool reference
     #[serde(flatten)]
@@ -76,7 +71,6 @@ pub struct ToolMatch {
 /// Execution mode for tool search
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[non_exhaustive]
 pub enum ToolSearchExecution {
     /// Server-side (hosted) execution - OpenAI searches and loads tools
     Server,
@@ -87,7 +81,6 @@ pub enum ToolSearchExecution {
 /// Status of a tool search operation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-#[non_exhaustive]
 pub enum ToolSearchStatus {
     InProgress,
     Completed,
@@ -97,7 +90,6 @@ pub enum ToolSearchStatus {
 /// Tool search call - emitted by the model when it needs to search for tools
 /// Corresponds to OpenAI's tool_search_call output type
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ToolSearchCall {
     /// Type identifier
     #[serde(rename = "type")]
@@ -144,7 +136,6 @@ impl ToolSearchCall {
 
 /// Arguments for tool search
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ToolSearchArguments {
     /// Paths to namespaces/tools (for server execution)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -160,7 +151,6 @@ pub struct ToolSearchArguments {
 /// Tool search output - returned by application with loaded tools
 /// Corresponds to OpenAI's tool_search_output type
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct ToolSearchOutput {
     /// Type identifier
     #[serde(rename = "type")]
@@ -198,7 +188,6 @@ impl ToolSearchOutput {
 }
 
 /// Tool search engine supporting multiple search algorithms
-#[non_exhaustive]
 pub struct ToolSearch {
     tools: Vec<SearchableTool>,
     avg_doc_length: f32,

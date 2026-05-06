@@ -35,7 +35,6 @@ pub(crate) const MAX_CODE_BLOCK_LINES: usize = 50;
 ///
 /// Use `BrutalistRendererBuilder` to construct this ergonomically.
 #[derive(Default)]
-#[non_exhaustive]
 pub struct BrutalistRendererConfig<'a> {
     pub messages: &'a [Message],
     pub current_stream_content: &'a str,
@@ -90,7 +89,6 @@ pub struct BrutalistRendererConfig<'a> {
 }
 
 /// Builder for BrutalistRendererConfig
-#[non_exhaustive]
 pub struct BrutalistRendererBuilder<'a> {
     config: BrutalistRendererConfig<'a>,
 }
@@ -270,7 +268,6 @@ impl<'a> BrutalistRendererBuilder<'a> {
 }
 
 /// Brutalist renderer for distinctive TUI appearance
-#[non_exhaustive]
 pub struct BrutalistRenderer<'a> {
     /// Messages to display
     pub messages: &'a [Message],

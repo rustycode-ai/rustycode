@@ -25,8 +25,8 @@ impl PolishedRenderer {
         let show_task_counts = width >= MIN_WIDTH_TASK_COUNTS;
 
         // Plan-mode banners take priority over other states.
-        let status = if let Some(banner) = tui.plan_mode_banner.clone() {
-            RenderStatus::PlanMode { banner }
+        let status = if let Some(banner) = tui.plan_mode_banner.as_ref() {
+            RenderStatus::PlanMode { banner: banner.clone() }
         } else if tui.streaming.is_streaming {
             RenderStatus::Thinking {
                 chunks_received: tui.streaming.chunks_received,
@@ -158,7 +158,8 @@ impl PolishedRenderer {
                         let pct = pct.round().clamp(0.0, 100.0) as usize;
                         let bar_width = 8;
                         let filled = usize::div_ceil(pct * bar_width, 100).min(bar_width);
-                        let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "█", "░");
+                        let (fc, ec) = crate::app::render::brutalist_helpers::PROGRESS_CHARS_TOOLS;
+                        let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, fc, ec);
                         spans.push(Span::styled(
                             format!("{} {}%", bar, pct),
                             Style::default().fg(Color::Rgb(100, 180, 255)),
@@ -200,7 +201,8 @@ impl PolishedRenderer {
                     let bar_width = 8usize;
                     let filled = usize::div_ceil(milestones_completed * bar_width, milestones_total)
                         .min(bar_width);
-                    let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "█", "░");
+                    let (fc, ec) = crate::app::render::brutalist_helpers::PROGRESS_CHARS_TOOLS;
+                    let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, fc, ec);
                     spans.push(Span::raw(" "));
                     spans.push(Span::styled(
                         bar,
@@ -373,7 +375,8 @@ impl PolishedRenderer {
             } else {
                 0
             };
-            let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, "━", "╌");
+            let (fc, ec) = crate::app::render::brutalist_helpers::PROGRESS_CHARS_CONTEXT;
+            let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, fc, ec);
             let current_tokens = tui.compaction.context_monitor.current_tokens;
             let max_tokens = tui.compaction.context_monitor.max_tokens;
             let display_model = tui

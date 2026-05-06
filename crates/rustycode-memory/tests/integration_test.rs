@@ -202,10 +202,9 @@ fn search_rollout_summaries() {
     );
 
     // Search for nonexistent term
-    assert!(all
+    assert!(!all
         .iter()
-        .find(|m| m.raw_memory.to_lowercase().contains("nonexistent"))
-        .is_none());
+        .any(|m| m.raw_memory.to_lowercase().contains("nonexistent")));
 }
 
 #[test]

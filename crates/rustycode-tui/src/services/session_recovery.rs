@@ -13,7 +13,6 @@ use std::time::Duration;
 
 /// Session state to persist to disk
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SessionState {
     /// Session identifier (unique, stable across runs)
     pub session_id: String,
@@ -46,7 +45,6 @@ pub struct SessionState {
 
 /// Text selection state
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct Selection {
     /// Start position (byte offset in content)
     pub start: usize,
@@ -58,7 +56,6 @@ pub struct Selection {
 
 /// User preferences specific to a session
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SessionPreferences {
     pub tools_expanded: bool,
     pub thinking_expanded: bool,
@@ -122,7 +119,6 @@ impl SessionState {
 
 /// Lock file metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct LockFileMetadata {
     /// Process ID of the session
     pub pid: u32,
@@ -143,7 +139,6 @@ impl LockFileMetadata {
 }
 
 /// Manages session persistence (save/load operations)
-#[non_exhaustive]
 pub struct SessionPersistence {
     /// Base directory for sessions (~/.rustycode/sessions)
     base_dir: PathBuf,
@@ -321,7 +316,6 @@ fn is_lock_stale(metadata: &LockFileMetadata) -> bool {
 }
 
 /// Detects and recovers from crashes
-#[non_exhaustive]
 pub struct CrashRecovery {
     persistence: SessionPersistence,
 }

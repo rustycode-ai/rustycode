@@ -9,7 +9,6 @@ const MAX_BACKOFF_SECS: u64 = 60;
 
 /// Rate limit state
 #[derive(Default)]
-#[non_exhaustive]
 pub struct RateLimitState {
     /// When the rate limit will expire
     pub until: Option<Instant>,
@@ -124,7 +123,6 @@ impl RateLimitState {
 
 /// Types of rate limit errors
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum RateLimitError {
     /// Explicit rate limit from API
     RateLimited,

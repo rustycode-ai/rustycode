@@ -10,7 +10,6 @@ use chrono::{DateTime, Utc};
 /// Displayed in the TUI status bar when data is available, showing
 /// remaining calls, usage percentage, and time until reset.
 #[derive(Debug, Clone, Default)]
-#[non_exhaustive]
 pub struct RateLimitTracker {
     /// Remaining requests in the current window (from `x-ratelimit-remaining`)
     remaining: Option<u32>,
@@ -85,7 +84,7 @@ impl RateLimitTracker {
 
     /// Returns `true` when usage exceeds 80% of the allowed limit.
     pub fn is_approaching_limit(&self) -> bool {
-        self.usage_percent().map_or(false, |pct| pct >= 80)
+        self.usage_percent().is_some_and(|pct| pct >= 80)
     }
 
     /// Returns `true` when we have enough data to display a status.

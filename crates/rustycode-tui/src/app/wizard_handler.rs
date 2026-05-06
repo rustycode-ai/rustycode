@@ -4,7 +4,6 @@ use crate::ui::wizard::FirstRunWizard;
 use std::path::{Path, PathBuf};
 
 /// Wizard initialization and visibility management for the TUI
-#[non_exhaustive]
 pub struct WizardHandler {
     /// The wizard component
     pub wizard: Option<FirstRunWizard>,

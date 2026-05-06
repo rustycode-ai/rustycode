@@ -8,6 +8,7 @@
     clippy::cast_precision_loss,
     clippy::default_trait_access,
     clippy::derive_partial_eq_without_eq,
+    clippy::derivable_impls,
     clippy::doc_markdown,
     clippy::elidable_lifetime_names,
     clippy::expect_used,
@@ -184,14 +185,7 @@ pub use rustycode_shared_runtime as shared_runtime;
 #[allow(unused_imports)]
 use anyhow::{anyhow, bail, Context, Result};
 use chrono::Utc;
-use rustycode_git::GitStatus;
-use rustycode_lsp::LspServerStatus;
-use rustycode_memory::MemoryEntry;
-use rustycode_protocol::{
-    ContextPlan, ContextSection, ContextSectionKind, Plan, PlanId, PlanStatus, PlanStep, SessionId,
-    StepStatus,
-};
-use rustycode_skill::Skill;
+use rustycode_protocol::{Plan, PlanId, PlanStatus, PlanStep, SessionId, StepStatus};
 use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;

@@ -10,7 +10,6 @@ const AUTO_SCROLL_SUPPRESS: Duration = Duration::from_secs(2);
 /// Groups the scroll, selection, and mouse-selection fields extracted from
 /// the TUI god object so the view concerns have a single owner.
 #[derive(Debug)]
-#[non_exhaustive]
 pub struct ViewState {
     /// Current scroll position in lines
     pub scroll_offset_line: usize,

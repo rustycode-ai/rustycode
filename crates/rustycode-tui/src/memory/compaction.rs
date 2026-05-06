@@ -14,7 +14,6 @@ const MAX_CONSECUTIVE_FAILURES: u32 = 3;
 const PRUNED_OUTPUT_STUB: &str = "[Old tool result content cleared]";
 
 #[derive(Clone, Debug, Default)]
-#[non_exhaustive]
 pub struct AutoCompactState {
     pub compaction_count: u32,
     pub consecutive_failures: u32,
@@ -37,7 +36,6 @@ impl AutoCompactState {
 
 /// Configuration for context monitoring and compaction
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct CompactionConfig {
     /// Maximum tokens allowed in context
     pub max_tokens: usize,
@@ -80,7 +78,6 @@ impl Default for CompactionConfig {
 
 /// Compaction strategy
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum CompactionStrategy {
     /// Keep last 20 messages (aggressive)
     Aggressive,
@@ -104,7 +101,6 @@ impl CompactionStrategy {
 
 /// Context token usage monitor
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct ContextMonitor {
     /// Current estimated token count
     pub current_tokens: usize,
@@ -204,7 +200,6 @@ impl ContextMonitor {
 
 /// Usage color for UI display
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[non_exhaustive]
 pub enum UsageColor {
     Green,
     Yellow,
@@ -215,7 +210,6 @@ pub enum UsageColor {
 
 /// Compaction preview information
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct CompactionPreview {
     /// Current token count
     pub current_tokens: usize,

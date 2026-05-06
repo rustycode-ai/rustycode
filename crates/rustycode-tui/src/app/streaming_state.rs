@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-#[non_exhaustive]
 pub(crate) struct StreamingState {
     pub(crate) is_streaming: bool,
     /// Set by Esc/Ctrl+C to cooperatively cancel the stream.

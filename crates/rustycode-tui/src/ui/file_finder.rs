@@ -18,7 +18,6 @@ pub use super::fuzzy_matcher::{FuzzyMatcher as FileFuzzyMatcher, MatchScore as F
 
 /// Information about a file in the project
 #[derive(Clone, Debug)]
-#[non_exhaustive]
 pub struct FileInfo {
     /// File path (relative to project root)
     pub path: PathBuf,
@@ -38,7 +37,6 @@ pub struct FileInfo {
 
 /// Git status of a file
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum GitStatus {
     /// New file, not staged
     New,
@@ -142,7 +140,6 @@ impl FileInfo {
 
 /// File finder state
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub struct FileFinderState {
     /// Project root directory
     pub project_root: PathBuf,
@@ -438,7 +435,6 @@ impl FileFinderState {
 // FILE FINDER RENDERER
 
 /// File finder renderer
-#[non_exhaustive]
 pub struct FileFinderRenderer {
     /// Visual state
     state: FileFinderState,
@@ -711,7 +707,6 @@ impl FileFinderRenderer {
 // FILE FINDER (HIGH-LEVEL API)
 
 /// Combines state and rendering into a single interface.
-#[non_exhaustive]
 pub struct FileFinder {
     /// Renderer with embedded state
     renderer: FileFinderRenderer,

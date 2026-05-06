@@ -4,7 +4,6 @@ use crate::app::render::brutalist_helpers::format_elapsed_mmss;
 use crate::app::tasks::{ActiveAgent, AgentStatus, Task, TaskStatus};
 
 /// Dashboard for displaying task execution status.
-#[non_exhaustive]
 pub struct TaskDashboard<'a> {
     tasks: &'a [Task],
     agents: &'a [ActiveAgent],

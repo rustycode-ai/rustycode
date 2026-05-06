@@ -7,7 +7,6 @@ use std::path::PathBuf;
 
 /// Alias for a skill or skill chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SkillAlias {
     /// The alias name
     pub name: String,
@@ -21,7 +20,6 @@ pub struct SkillAlias {
 
 /// Target of an alias - can be a single skill or a chain
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub enum AliasTarget {
     /// Single skill
     Single(String),
@@ -33,7 +31,6 @@ pub enum AliasTarget {
 
 /// A composition of multiple skills
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SkillComposition {
     /// Unique identifier for this composition
     pub id: String,
@@ -50,7 +47,6 @@ pub struct SkillComposition {
 
 /// A single step in a composition
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct CompositionStep {
     /// The skill to execute
     pub skill_id: String,
@@ -62,7 +58,6 @@ pub struct CompositionStep {
 
 /// Condition for executing a step
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub enum StepCondition {
     /// Execute only if previous step succeeded
     OnSuccess,
@@ -79,7 +74,6 @@ pub enum StepCondition {
 
 /// How to execute the composition
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub enum ExecutionMode {
     /// Execute steps sequentially
     Sequential,
@@ -91,7 +85,6 @@ pub enum ExecutionMode {
 
 /// History entry for skill execution
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SkillExecutionEntry {
     /// Unique ID for this execution
     pub id: String,
@@ -111,7 +104,6 @@ pub struct SkillExecutionEntry {
 
 /// Skill template for scaffolding new skills
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct SkillTemplate {
     /// Template identifier
     pub id: String,
@@ -128,7 +120,6 @@ pub struct SkillTemplate {
 
 /// Parameter for template instantiation
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[non_exhaustive]
 pub struct TemplateParameter {
     /// Parameter name
     pub name: String,
@@ -140,7 +131,6 @@ pub struct TemplateParameter {
 }
 
 /// Manager for skill composition and advanced features
-#[non_exhaustive]
 pub struct CompositionManager {
     /// Known aliases
     aliases: HashMap<String, SkillAlias>,

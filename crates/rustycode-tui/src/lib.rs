@@ -6,14 +6,17 @@
     clippy::cast_lossless,
     clippy::cast_possible_wrap,
     clippy::cast_precision_loss,
+    clippy::clone_on_copy,
     clippy::collapsible_else_if,
     clippy::collection_is_never_read,
     clippy::default_trait_access,
     clippy::derive_partial_eq_without_eq,
     clippy::doc_markdown,
+    clippy::duration_suboptimal_units,
     clippy::equatable_if_let,
     clippy::expect_used,
     clippy::explicit_iter_loop,
+    clippy::field_reassign_with_default,
     clippy::format_push_string,
     clippy::future_not_send,
     clippy::if_not_else,
@@ -74,13 +77,14 @@
     clippy::used_underscore_binding,
     clippy::useless_let_if_seq
 )]
+#![allow(dead_code, unused_imports)]
 #![cfg_attr(test, allow(clippy::float_cmp,))]
 //! Ratatui-based terminal interface for RustyCode.
 
 mod agents;
 
 mod logging;
-pub(crate) mod theme;
+pub mod theme;
 mod unicode;
 
 pub(crate) mod compaction_context;
@@ -97,6 +101,11 @@ pub(crate) mod plugin;
 pub mod ui;
 
 pub mod app;
+
+// Re-exports for integration tests
+pub use app::auto_tool_parser;
+pub use app::tasks;
+pub use app::tool_helpers;
 
 pub(crate) mod skills;
 

@@ -1,7 +1,6 @@
 use rustycode_tools::ToolProfile;
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Default)]
-#[non_exhaustive]
 pub enum AiMode {
     /// Default mode - ask before destructive actions
     #[default]
@@ -19,7 +18,6 @@ pub enum AiMode {
 /// These modes configure the AI's behavior, available tools, and system prompts
 /// for specific types of work.
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Default)]
-#[non_exhaustive]
 pub enum AgentMode {
     /// Default code mode - full coding capabilities
     #[default]

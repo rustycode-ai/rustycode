@@ -11,7 +11,6 @@ use ratatui::{
     Frame,
 };
 
-#[non_exhaustive]
 pub struct ParamInput {
     skill_name: String,
     param_name: String,
