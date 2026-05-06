@@ -39,6 +39,20 @@ pub fn format_elapsed_mmss(secs: u64) -> String {
     format!("{:02}:{:02}", secs / 60, secs % 60)
 }
 
+/// Format a Duration for the status bar.
+/// Examples: "350ms", "3.2s", "1m05s"
+pub fn format_duration_compact(dur: std::time::Duration) -> String {
+    let secs = dur.as_secs();
+    let ms = dur.as_millis();
+    if ms < 1000 {
+        format!("{}ms", ms)
+    } else if secs < 60 {
+        format!("{:.1}s", ms as f64 / 1000.0)
+    } else {
+        format!("{}m{:02}s", secs / 60, secs % 60)
+    }
+}
+
 /// Format token count compactly for inline display.
 ///
 /// Examples: "8.2k", "1.5M", "500"

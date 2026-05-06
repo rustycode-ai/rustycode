@@ -449,19 +449,22 @@ mod tests {
             name: "bash".to_string(),
             result: ToolOutput::Success(String::new()),
         };
-        // Generate output exceeding MAX_INLINE_CHARS (4000 chars)
-        let long_line = "x".repeat(500);
-        let long_output: String = (0..20)
+        // Generate output exceeding MAX_INLINE_CHARS (4000 chars) AND more than 20 lines
+        // so the truncation indicator is triggered
+        let long_line = "x".repeat(300);
+        let long_output: String = (0..25)
             .map(|i| format!("line {}: {}", i, long_line))
             .collect::<Vec<_>>()
             .join("\n");
         assert!(long_output.chars().count() > 4000);
 
         let output = format_detailed_output(&result, long_output);
-        // Should contain a truncation indicator (either temp file path or char count)
+        // Should contain a truncation indicator (temp file path or char count)
         assert!(output.contains("truncated"));
         // The output should contain the first few lines (not completely empty)
         assert!(output.contains("line 0:"));
+        // Should NOT contain lines beyond the first 20
+        assert!(!output.contains("line 21:"));
     }
 
     #[test]

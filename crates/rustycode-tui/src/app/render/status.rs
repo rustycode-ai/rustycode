@@ -227,7 +227,7 @@ impl PolishedRenderer {
                 spans.push(Span::styled("✓ Ready", Style::default().fg(Color::Green)));
                 if let Some(dur) = tui.streaming.last_response_duration {
                     spans.push(Span::styled(
-                        format!(" {}", format_response_duration(dur)),
+                        format!(" {}", crate::app::render::brutalist_helpers::format_duration_compact(dur)),
                         Style::default().fg(Color::DarkGray),
                     ));
                 }
@@ -511,19 +511,3 @@ impl PolishedRenderer {
     }
 }
 
-/// Format response duration for status bar.
-///
-/// Shows human-friendly timing: "<1s", "3.2s", "1m05s"
-fn format_response_duration(dur: std::time::Duration) -> String {
-    let secs = dur.as_secs();
-    let ms = dur.as_millis();
-    if ms < 1000 {
-        format!("{}ms", ms)
-    } else if secs < 60 {
-        format!("{:.1}s", ms as f64 / 1000.0)
-    } else {
-        let mins = secs / 60;
-        let remain = secs % 60;
-        format!("{}m{:02}s", mins, remain)
-    }
-}
