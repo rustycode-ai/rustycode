@@ -49,6 +49,8 @@ pub struct ResponsesApiRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
@@ -66,6 +68,12 @@ pub struct ResponsesApiRequest {
     /// E.g., "reasoning_encrypted_content" to get encrypted reasoning for stateless mode.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include: Option<Vec<String>>,
+    /// Whether to store the response server-side for conversation state.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub store: Option<bool>,
+    /// Cache routing key — groups related requests for higher prompt cache hit rates.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_cache_key: Option<String>,
 }
 
 /// Tagged input item for the Responses API.
@@ -407,6 +415,7 @@ mod tests {
             instructions: None,
             tools: None,
             temperature: None,
+            top_p: None,
             max_output_tokens: None,
             stream: None,
             previous_response_id: None,
@@ -414,6 +423,8 @@ mod tests {
             parallel_tool_calls: None,
             reasoning: None,
             include: None,
+            store: None,
+            prompt_cache_key: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(!json.contains("instructions"));
@@ -421,6 +432,8 @@ mod tests {
         assert!(!json.contains("stream"));
         assert!(!json.contains("reasoning"));
         assert!(!json.contains("include"));
+        assert!(!json.contains("store"));
+        assert!(!json.contains("prompt_cache_key"));
         assert!(json.contains("\"model\":\"gpt-4o\""));
         assert!(json.contains("\"type\":\"message\""));
     }
@@ -658,6 +671,7 @@ mod tests {
             instructions: None,
             tools: None,
             temperature: None,
+            top_p: None,
             max_output_tokens: None,
             stream: None,
             previous_response_id: None,
@@ -669,6 +683,8 @@ mod tests {
                 encrypted_content: None,
             }),
             include: Some(vec!["reasoning_encrypted_content".to_string()]),
+            store: None,
+            prompt_cache_key: None,
         };
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("\"reasoning\":{"));

@@ -3,7 +3,7 @@
 //! Processes completed tool results, updates message tool executions,
 //! manages AST phase state, and surfaces ask_user responses.
 
-use crate::app::async_::{ToolOutput, ToolResult};
+use crate::app::async_::{ToolExecutionError, ToolOutput, ToolResult};
 use crate::app::TUI;
 use crate::ui::ast_progress::AST_PHASE_NAMES;
 use crate::ui::message::{MessageRole, ToolExecution, ToolStatus};
@@ -21,7 +21,7 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
     };
     let raw_output: Option<String> = match &result.result {
         ToolOutput::Success(s) => Some(s.clone()),
-        ToolOutput::Error(e) => Some(e.clone()),
+        ToolOutput::Error(e) => Some(e.to_string()),
         ToolOutput::Timeout => Some("Operation timed out".to_string()),
     };
 
@@ -147,7 +147,8 @@ fn compute_result_summary(result: &ToolResult) -> String {
             crate::app::tool_output_format::output_summary(&clean)
         }
         ToolOutput::Error(e) => {
-            let clean = crate::app::tool_output_format::strip_ansi_escapes(e);
+            let msg = e.display_message();
+            let clean = crate::app::tool_output_format::strip_ansi_escapes(msg);
             format!("Error: {}", clean)
         }
         ToolOutput::Timeout => "Timeout".to_string(),

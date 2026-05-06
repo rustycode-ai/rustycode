@@ -3,8 +3,8 @@
 use super::CommandContext;
 use super::CommandEffect;
 use anyhow::Result;
-use rustycode_protocol::cron_registry::global_cron_registry;
-use rustycode_protocol::worker_registry::{global_worker_registry, WorkerStatus};
+use rustycode_orchestration::cron_registry::global_cron_registry;
+use rustycode_orchestration::worker_registry::{global_worker_registry, WorkerStatus};
 
 /// Handle /workers commands
 pub fn handle_workers_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
@@ -74,7 +74,7 @@ pub fn handle_workers_command(parts: &[&str], _ctx: CommandContext<'_>) -> Resul
                         .iter()
                         .filter(|e| matches!(
                             e,
-                            rustycode_protocol::worker_registry::WorkerEvent::TaskCompleted { .. }
+                            rustycode_orchestration::worker_registry::WorkerEvent::TaskCompleted { .. }
                         ))
                         .count()
                         .checked_sub(1)

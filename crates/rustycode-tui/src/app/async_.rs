@@ -314,10 +314,75 @@ pub struct ToolResult {
 pub enum ToolOutput {
     /// Successful execution with output
     Success(String),
-    /// Execution failed
-    Error(String),
+    /// Execution failed with structured error
+    Error(ToolExecutionError),
     /// Tool execution timeout
     Timeout,
+}
+
+/// Structured error for tool execution failures.
+///
+/// Replaces `ToolOutput::Error(String)` to enable pattern matching on error
+/// categories instead of fragile string comparisons.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum ToolExecutionError {
+    /// Tool rejected by security policy
+    PermissionDenied { tool: String, reason: String },
+    /// Tool arguments failed validation
+    InvalidInput { tool: String, message: String },
+    /// Tool ran but returned a non-zero exit or error response
+    ExecutionFailed { tool: String, output: String },
+    /// File or resource not found
+    NotFound { path: String },
+    /// Catch-all for unstructured errors (migration shim)
+    Other(String),
+}
+
+impl ToolExecutionError {
+    /// Create from a plain error string (migration helper)
+    pub fn from_message(msg: impl Into<String>) -> Self {
+        Self::Other(msg.into())
+    }
+
+    /// The primary error message for display
+    pub fn display_message(&self) -> &str {
+        match self {
+            Self::PermissionDenied { reason, .. } => reason,
+            Self::InvalidInput { message, .. } => message,
+            Self::ExecutionFailed { output, .. } => output,
+            Self::NotFound { path } => path,
+            Self::Other(msg) => msg,
+        }
+    }
+
+    /// The tool name involved, if known
+    pub fn tool_name(&self) -> Option<&str> {
+        match self {
+            Self::PermissionDenied { tool, .. } => Some(tool),
+            Self::InvalidInput { tool, .. } => Some(tool),
+            Self::ExecutionFailed { tool, .. } => Some(tool),
+            Self::NotFound { .. } | Self::Other(_) => None,
+        }
+    }
+}
+
+impl std::fmt::Display for ToolExecutionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PermissionDenied { tool, reason } => write!(f, "{tool}: permission denied — {reason}"),
+            Self::InvalidInput { tool, message } => write!(f, "{tool}: invalid input — {message}"),
+            Self::ExecutionFailed { tool, output } => write!(f, "{tool}: {output}"),
+            Self::NotFound { path } => write!(f, "not found: {path}"),
+            Self::Other(msg) => write!(f, "{msg}"),
+        }
+    }
+}
+
+impl From<String> for ToolExecutionError {
+    fn from(s: String) -> Self {
+        Self::Other(s)
+    }
 }
 
 /// Result from bash command execution

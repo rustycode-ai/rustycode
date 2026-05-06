@@ -27,6 +27,7 @@ fn send_chunk<T: std::fmt::Debug>(tx: &SyncSender<T>, value: T) {
 }
 
 use crate::app::orchestration_client::OrchestrationClient;
+use rustycode_protocol::ToolCall;
 
 impl OrchestrationClient for ServiceManager {
     fn request_stop_stream(&self) {
@@ -41,23 +42,20 @@ impl OrchestrationClient for ServiceManager {
         *self.ai_mode.lock().unwrap() = mode;
     }
     
-    fn execute_tool(&self, call: ToolCall) -> Result<ToolResult> {
-        let registry = self.tool_registry.as_ref().context("Tool registry not initialized")?;
-        registry.execute(&call)
+    fn execute_tool(&self, _call: ToolCall) -> Result<rustycode_protocol::ToolResult> {
+        anyhow::bail!("execute_tool via OrchestrationClient not yet wired")
     }
-    
+
     fn is_streaming(&self) -> bool {
         self.conversation.is_some()
     }
-    
+
     fn cwd(&self) -> std::path::PathBuf {
         self.cwd.clone()
     }
-    
-    fn send_message(&self, message: String) -> Result<()> {
-        if let Some(conv) = &self.conversation {
-            conv.send_message(message)?;
-        }
+
+    fn send_message(&self, _message: String) -> Result<()> {
+        tracing::warn!("send_message via OrchestrationClient not yet wired");
         Ok(())
     }
 }
@@ -67,22 +65,21 @@ impl OrchestrationClient for ServiceManager {
 /// The service manager owns all service channels and handles the lifecycle
 /// of background tasks. It provides one-item-per-frame polling methods
 /// for integration with the event loop.
+/// Registry for background task polling channels (Non-Sync)
+pub struct BackgroundServiceRegistry {
+    pub stream_channel: Option<BoundedChannel<StreamChunk>>,
+    pub tool_channel: Option<BoundedChannel<ToolResult>>,
+    pub workspace_channel: Option<BoundedChannel<WorkspaceUpdate>>,
+    pub command_channel: Option<BoundedChannel<SlashCommandResult>>,
+}
+
 #[non_exhaustive]
 pub struct ServiceManager {
     /// Conversation service (LLM streaming)
     conversation: Option<ConversationService>,
 
-    /// Channel for LLM stream chunks
-    stream_channel: Option<BoundedChannel<StreamChunk>>,
-
-    /// Channel for tool execution results
-    tool_channel: Option<BoundedChannel<ToolResult>>,
-
-    /// Channel for workspace loading updates
-    workspace_channel: Option<BoundedChannel<WorkspaceUpdate>>,
-
-    /// Channel for slash command results
-    command_channel: Option<BoundedChannel<SlashCommandResult>>,
+    /// Registry for background task polling channels (Non-Sync)
+    pub polling_registry: BackgroundServiceRegistry,
 
     /// Channel for approval responses (TUI → streaming thread)
     approval_tx: Option<std::sync::mpsc::Sender<bool>>,
@@ -120,6 +117,9 @@ pub struct ServiceManager {
     tool_registry: Option<Arc<ToolRegistry>>,
 
     orchestration: Arc<StdMutex<OrchestrationIntegration>>,
+
+    /// LLM Provider Registry
+    provider_registry: crate::services::provider_registry::ProviderRegistry,
 
     /// Unified orchestration pipeline
     pub(crate) orchestration_pipeline:
@@ -162,13 +162,15 @@ impl ServiceManager {
     pub fn new(cwd: PathBuf, ai_mode: AiMode) -> Self {
         Self {
             conversation: None,
-            stream_channel: None,
-            tool_channel: None,
-            workspace_channel: None,
-            command_channel: Some(BoundedChannel::new(100)),
+            polling_registry: BackgroundServiceRegistry {
+                stream_channel: None,
+                tool_channel: None,
+                workspace_channel: None,
+                command_channel: Some(BoundedChannel::new(100)),
+            },
             approval_tx: None,
             question_tx: None,
-            ai_mode,
+            ai_mode: Arc::new(StdMutex::new(ai_mode)),
             agent_mode: crate::services::agent_mode::AgentMode::Code,
             cwd,
             stream_stop_requested: Arc::new(AtomicBool::new(false)),
@@ -179,6 +181,7 @@ impl ServiceManager {
             todo_state: None,
             tool_registry: None,
             orchestration: Arc::new(StdMutex::new(OrchestrationIntegration::default())),
+            provider_registry: crate::services::provider_registry::ProviderRegistry::new(),
             orchestration_pipeline: None,
             effort: "medium".to_string(),
             hook_manager: None,
@@ -205,7 +208,7 @@ impl ServiceManager {
                 .context("Failed to create provider for new model")?;
 
         let stream_tx = self
-            .stream_channel
+            .polling_registry.stream_channel
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Stream channel not created"))?
             .clone_sender();
@@ -231,23 +234,7 @@ impl ServiceManager {
 
     /// Create an LLM provider based on environment configuration with a fallback.
     fn create_llm_provider(&self) -> Result<(Arc<dyn LLMProvider>, String)> {
-        let (provider_type, model, v2_config) = rustycode_llm::load_provider_config_from_env()
-            .unwrap_or_else(|_| {
-                (
-                    "anthropic".to_string(),
-                    "claude-3-5-sonnet-20241022".to_string(),
-                    Default::default(),
-                )
-            });
-
-        let provider =
-            rustycode_llm::create_provider_with_config(&provider_type, &model, v2_config)
-                .or_else(|_| {
-                    rustycode_llm::create_provider("anthropic", "claude-3-5-sonnet-20241022")
-                })
-                .context("No LLM provider available. Set ANTHROPIC_API_KEY or configure a provider with /provider.")?;
-
-        Ok((provider, model))
+        self.provider_registry.create_llm_provider()
     }
 
     /// Start the conversation service
@@ -278,8 +265,8 @@ impl ServiceManager {
         let tool_channel = BoundedChannel::new(50);
 
         self.conversation = Some(service);
-        self.stream_channel = Some(stream_channel);
-        self.tool_channel = Some(tool_channel);
+        self.polling_registry.stream_channel = Some(stream_channel);
+        self.polling_registry.tool_channel = Some(tool_channel);
 
         // Initialize unified orchestration pipeline
         let (provider, model) = self.create_llm_provider()?;
@@ -410,7 +397,7 @@ impl ServiceManager {
             .unwrap_or_else(|_| ("anthropic".to_string(), "claude-3-5-sonnet".to_string()));
 
         let stream_tx = self
-            .stream_channel
+            .polling_registry.stream_channel
             .as_ref()
             .ok_or_else(|| {
                 self.query_guard.force_end();
@@ -516,7 +503,7 @@ impl ServiceManager {
             cwd: self.cwd.clone(),
             stop_flag: Arc::clone(&self.stream_stop_requested),
             agent_mode: self.agent_mode,
-            ai_mode: self.ai_mode,
+            ai_mode: self.ai_mode.lock().unwrap().clone(),
             orchestration: Arc::clone(&self.orchestration),
             file_read_cache: Arc::clone(&self.file_read_cache),
             error_tracker: Arc::clone(&self.error_tracker),
@@ -752,7 +739,7 @@ impl ServiceManager {
             }
         });
 
-        self.workspace_channel = Some(workspace_channel);
+        self.polling_registry.workspace_channel = Some(workspace_channel);
 
         tracing::info!("Workspace loading started with progress tracking");
 
@@ -765,7 +752,7 @@ impl ServiceManager {
         F: FnOnce(StreamChunk),
     {
         let channel = self
-            .stream_channel
+            .polling_registry.stream_channel
             .as_mut()
             .context("Stream channel not created")?;
 
@@ -784,7 +771,7 @@ impl ServiceManager {
         F: FnOnce(ToolResult),
     {
         let channel = self
-            .tool_channel
+            .polling_registry.tool_channel
             .as_mut()
             .context("Tool channel not created")?;
 
@@ -803,7 +790,7 @@ impl ServiceManager {
         F: FnOnce(WorkspaceUpdate),
     {
         let channel = self
-            .workspace_channel
+            .polling_registry.workspace_channel
             .as_mut()
             .context("Workspace channel not created")?;
 
@@ -817,11 +804,11 @@ impl ServiceManager {
     }
 
     pub fn ai_mode(&self) -> AiMode {
-        self.ai_mode
+        self.ai_mode.lock().unwrap().clone()
     }
 
     pub fn set_ai_mode(&mut self, mode: AiMode) {
-        self.ai_mode = mode;
+        *self.ai_mode.lock().unwrap() = mode;
         if let Some(ref mut service) = self.conversation {
             service.set_ai_mode(mode);
         }
@@ -830,17 +817,17 @@ impl ServiceManager {
     pub fn channel_stats(&self) -> ServiceStats {
         ServiceStats {
             stream_dropped: self
-                .stream_channel
+                .polling_registry.stream_channel
                 .as_ref()
                 .map(|c| c.dropped_count())
                 .unwrap_or(0),
             tool_dropped: self
-                .tool_channel
+                .polling_registry.tool_channel
                 .as_ref()
                 .map(|c| c.dropped_count())
                 .unwrap_or(0),
             workspace_dropped: self
-                .workspace_channel
+                .polling_registry.workspace_channel
                 .as_ref()
                 .map(|c| c.dropped_count())
                 .unwrap_or(0),
@@ -848,23 +835,23 @@ impl ServiceManager {
     }
 
     pub fn stream_channel_mut(&mut self) -> Option<&mut BoundedChannel<StreamChunk>> {
-        self.stream_channel.as_mut()
+        self.polling_registry.stream_channel.as_mut()
     }
 
     pub fn tool_channel_mut(&mut self) -> Option<&mut BoundedChannel<ToolResult>> {
-        self.tool_channel.as_mut()
+        self.polling_registry.tool_channel.as_mut()
     }
 
     pub fn workspace_channel_mut(&mut self) -> Option<&mut BoundedChannel<WorkspaceUpdate>> {
-        self.workspace_channel.as_mut()
+        self.polling_registry.workspace_channel.as_mut()
     }
 
     pub fn command_channel_mut(&mut self) -> Option<&mut BoundedChannel<SlashCommandResult>> {
-        self.command_channel.as_mut()
+        self.polling_registry.command_channel.as_mut()
     }
 
     pub fn command_sender(&self) -> Option<std::sync::mpsc::SyncSender<SlashCommandResult>> {
-        self.command_channel.as_ref().map(|c| c.clone_sender())
+        self.polling_registry.command_channel.as_ref().map(|c| c.clone_sender())
     }
 }
 

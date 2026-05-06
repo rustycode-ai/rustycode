@@ -178,12 +178,6 @@ pub mod team;
 // Agent communication protocol
 pub mod agent_protocol;
 
-// Agent registry and specialist agent generation
-pub mod agent_registry;
-
-// Worker registry for sub-agent lifecycle tracking
-pub mod worker_registry;
-
 // Stream events from the agent loop (raw, granular events)
 pub mod stream_event;
 
@@ -195,12 +189,6 @@ pub mod permission_role;
 
 // Convoy planning types
 pub mod convoy_plan;
-
-// Cron registry for scheduled autonomous tasks
-pub mod cron_registry;
-
-// Team registry for agent grouping
-pub mod team_registry;
 
 // Conversation fixing pipeline
 pub mod conversation_fixer;
@@ -312,29 +300,11 @@ pub use agent_protocol::{
     SCALPEL_MAX_FILES, SCALPEL_MAX_LINES_PER_FILE,
 };
 
-// Agent registry types
-pub use agent_registry::{
-    global_agent_registry, AgentInfo, AgentKind, AgentRegistry, AgentSelection, SpecialistAgent,
-    SpecialistType, TaskAgentMatch,
-};
-
-// Worker registry types
-pub use worker_registry::{
-    global_worker_registry, Worker, WorkerEvent, WorkerFailure, WorkerFailureKind, WorkerRegistry,
-    WorkerStatus,
-};
-
 // Permission roles
 pub use permission_role::{PermissionRole, ToolBlockedReason};
 
 // Convoy plan types
 pub use convoy_plan::{CommandPlan, ConvoyPlan, ConvoyRisk, FilePlan, PlanApproval};
-
-// Cron registry types
-pub use cron_registry::{global_cron_registry, CronEntry, CronRegistry};
-
-// Team registry types
-pub use team_registry::{global_team_registry, Team, TeamRegistry, TeamStatus};
 
 // Generic data structures
 pub use circular_buffer::CircularBuffer;

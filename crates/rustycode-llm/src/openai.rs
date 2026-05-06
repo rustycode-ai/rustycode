@@ -624,6 +624,31 @@ impl OpenAiProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
+        let retry_config = self.config.retry_config.clone().unwrap_or_default();
+
+        crate::retry::retry_with_backoff(retry_config, || {
+            let request = request.clone();
+            async move {
+                self.complete_responses_inner(request)
+                    .await
+                    .map_err(anyhow::Error::from)
+            }
+        })
+        .await
+        .map_err(|e: anyhow::Error| {
+            if let Some(provider_err) = e.downcast_ref::<ProviderError>() {
+                provider_err.clone()
+            } else {
+                ProviderError::Api(e.to_string())
+            }
+        })
+    }
+
+    /// Inner implementation for `complete_responses` (called by retry wrapper).
+    async fn complete_responses_inner(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<CompletionResponse, ProviderError> {
         let api_key = get_api_key!(self, "OPENAI_API_KEY")?;
 
         let url = format!("{}/responses", self.endpoint());
@@ -656,19 +681,54 @@ impl OpenAiProvider {
             .ok()
             .and_then(|guard| guard.clone());
 
+        let is_reasoning = Self::is_reasoning_model(&request.model);
+        let effort = request
+            .output_config
+            .as_ref()
+            .and_then(|c| c.effort.as_ref());
+
+        let reasoning = if is_reasoning {
+            effort.map(|e| {
+                let effort_str = match e {
+                    crate::provider::EffortLevel::Low => "low",
+                    crate::provider::EffortLevel::Medium => "medium",
+                    crate::provider::EffortLevel::High => "high",
+                    crate::provider::EffortLevel::Xhigh => "xhigh",
+                    crate::provider::EffortLevel::Max => "xhigh", // Responses API caps at xhigh
+                    _ => "medium",
+                };
+                crate::openai_compatible::ResponsesApiReasoning {
+                    effort: Some(effort_str.to_string()),
+                    summary: Some("auto".to_string()),
+                    encrypted_content: None,
+                }
+            })
+        } else {
+            None
+        };
+
+        let include = if reasoning.is_some() {
+            Some(vec!["reasoning_encrypted_content".to_string()])
+        } else {
+            None
+        };
+
         let body = crate::openai_compatible::ResponsesApiRequest {
             model: request.model.clone(),
             input: input_items,
             instructions,
             tools: tools_opt,
             temperature: request.temperature,
+            top_p: None,
             max_output_tokens: request.max_tokens,
             stream: Some(false),
             previous_response_id: prev_id,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
-            reasoning: None,
-            include: None,
+            reasoning,
+            include,
+            store: Some(true),
+            prompt_cache_key: request.session_id.clone(),
         };
 
         let req = build_request!(
@@ -769,19 +829,54 @@ impl OpenAiProvider {
             .ok()
             .and_then(|guard| guard.clone());
 
+        let is_reasoning = Self::is_reasoning_model(&request.model);
+        let effort = request
+            .output_config
+            .as_ref()
+            .and_then(|c| c.effort.as_ref());
+
+        let reasoning = if is_reasoning {
+            effort.map(|e| {
+                let effort_str = match e {
+                    crate::provider::EffortLevel::Low => "low",
+                    crate::provider::EffortLevel::Medium => "medium",
+                    crate::provider::EffortLevel::High => "high",
+                    crate::provider::EffortLevel::Xhigh => "xhigh",
+                    crate::provider::EffortLevel::Max => "xhigh",
+                    _ => "medium",
+                };
+                crate::openai_compatible::ResponsesApiReasoning {
+                    effort: Some(effort_str.to_string()),
+                    summary: Some("auto".to_string()),
+                    encrypted_content: None,
+                }
+            })
+        } else {
+            None
+        };
+
+        let include = if reasoning.is_some() {
+            Some(vec!["reasoning_encrypted_content".to_string()])
+        } else {
+            None
+        };
+
         let body = crate::openai_compatible::ResponsesApiRequest {
             model: request.model.clone(),
             input: input_items,
             instructions,
             tools: tools_opt,
             temperature: request.temperature,
+            top_p: None,
             max_output_tokens: request.max_tokens,
             stream: Some(true),
             previous_response_id: prev_id,
             tool_choice: request.tool_choice,
             parallel_tool_calls: request.parallel_tool_calls,
-            reasoning: None,
-            include: None,
+            reasoning,
+            include,
+            store: Some(true),
+            prompt_cache_key: request.session_id.clone(),
         };
 
         let req = build_request!(
@@ -814,7 +909,9 @@ impl OpenAiProvider {
                     error_text
                 ))),
                 404 => ProviderError::InvalidModel(debug.format_error_message(&format!("model not found: {}", error_text))),
-                429 => ProviderError::RateLimited { retry_delay: None },
+                429 => ProviderError::RateLimited {
+                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
+                },
                 500..=599 => ProviderError::network(debug.format_error_message(&format!(
                     "OpenAI service error ({}): {}",
                     status, error_text

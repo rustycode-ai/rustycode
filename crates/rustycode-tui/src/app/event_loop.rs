@@ -12,7 +12,7 @@ use crate::app::renderer::RendererMode;
 use crate::app::team_mode_handler::TeamModeHandler;
 use crate::app::tool_panel_state::ToolPanelState;
 use crate::app::wizard_handler::WizardHandler;
-use crate::app::{service_integration::*, FRAME_BUDGET_60FPS};
+use crate::app::{service_integration::*, FRAME_BUDGET_60FPS, DEBUG_SLOW_THRESHOLD, REFRESH_COOLDOWN, EVENT_POLL_TIMEOUT};
 use crate::memory::compaction::{CompactionConfig, ContextMonitor};
 use crate::services::config::load_config;
 use crate::services::config::TUIConfig;
@@ -1004,7 +1004,7 @@ impl TUI {
 
     /// Refresh sidebar LSP status from discovery.
     fn refresh_lsp_status(&mut self, force: bool) -> bool {
-        if !force && self.lsp.last_lsp_refresh.elapsed() < Duration::from_secs(30) {
+        if !force && self.lsp.last_lsp_refresh.elapsed() < REFRESH_COOLDOWN {
             return false;
         }
 
@@ -1048,7 +1048,7 @@ impl TUI {
 
     /// Refresh sidebar MCP status from the live proxy cache and config discovery.
     fn refresh_mcp_status(&mut self, force: bool) -> bool {
-        if !force && self.mcp.last_mcp_refresh.elapsed() < Duration::from_secs(30) {
+        if !force && self.mcp.last_mcp_refresh.elapsed() < REFRESH_COOLDOWN {
             return false;
         }
 
@@ -1201,7 +1201,7 @@ impl TUI {
             tool_registry,
             &self.pipeline_ctx.provider,
             &self.pipeline_ctx.current_model,
-            self.orchestration_client.cwd(),
+            self.services.cwd(),
             &self.skill_manager,
             &self.todo_state,
         );
@@ -1262,7 +1262,7 @@ impl TUI {
         })?;
 
         // Set terminal title to project name (Goose pattern for tab identification)
-        if let Some(dir_name) = self.orchestration_client.cwd().file_name().and_then(|n| n.to_str()) {
+        if let Some(dir_name) = self.services.cwd().file_name().and_then(|n| n.to_str()) {
             // Sanitize: strip control characters to prevent terminal escape injection
             let sanitized: String = dir_name.chars().filter(|c| !c.is_control()).collect();
             // OSC 0 sets the terminal window/tab title
@@ -1426,7 +1426,7 @@ impl TUI {
                 let pipeline_tick_start = Instant::now();
                 SHARED_RUNTIME.block_on(self.tick_pipeline())?;
                 let pipeline_tick_elapsed = pipeline_tick_start.elapsed();
-                if debug_enabled && pipeline_tick_elapsed > Duration::from_millis(2) {
+                if debug_enabled && pipeline_tick_elapsed > DEBUG_SLOW_THRESHOLD {
                     crate::debug_log!(
                         "Pipeline tick ran long: {} ms",
                         pipeline_tick_elapsed.as_millis()
@@ -1514,7 +1514,7 @@ impl TUI {
                 // Frame over budget, skip render, handle input with small timeout
                 // to prevent CPU spin when consistently over budget
                 let input_poll_start = Instant::now();
-                if event::poll(Duration::from_millis(1))? {
+                if event::poll(EVENT_POLL_TIMEOUT)? {
                     input_polled = true;
                     let input_handle_start = Instant::now();
                     self.handle_input()?;
@@ -1709,7 +1709,7 @@ impl TUI {
             }
             self.dirty = true;
             self.auto_scroll();
-            self.orchestration_client.send_message(task)?;
+            self.services.send_message(task)?;
             return Ok(());
         }
 
@@ -1741,7 +1741,7 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.orchestration_client.send_message(task)?;
+                self.services.send_message(task)?;
             }
             return Ok(());
         }
@@ -1767,7 +1767,7 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.orchestration_client.send_message(task)?;
+                self.services.send_message(task)?;
             }
             return Ok(());
         }
@@ -1782,13 +1782,13 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.orchestration_client.send_message(task)?;
+                self.services.send_message(task)?;
             }
             return Ok(());
         }
 
         if let Some(command_tx) = self.services.command_sender() {
-            let cwd = self.orchestration_client.cwd().clone();
+            let cwd = self.services.cwd().clone();
             let effect = dispatch_registered_slash_command(
                 input,
                 CommandContext {
@@ -1847,7 +1847,7 @@ impl TUI {
         crate::app::renderer::FrameRenderer::render(renderer, self, frame);
         if debug_enabled {
             let elapsed = render_start.elapsed();
-            if elapsed > Duration::from_millis(2) {
+            if elapsed > DEBUG_SLOW_THRESHOLD {
                 crate::debug_log!(
                     "Frame renderer ran long: mode={} elapsed_ms={} size={}x{} messages={} streaming={} dirty={}",
                     renderer.label(),
@@ -1928,8 +1928,8 @@ impl TUI {
         let draw_elapsed = draw_start.elapsed();
 
         if debug_enabled
-            && (layout_elapsed > std::time::Duration::from_millis(1)
-                || draw_elapsed > std::time::Duration::from_millis(2))
+            && (layout_elapsed > EVENT_POLL_TIMEOUT
+                || draw_elapsed > DEBUG_SLOW_THRESHOLD)
         {
             crate::debug_log!(
                 "Brutalist breakdown: layout_ms={} draw_ms={} messages={} total_lines={} streaming={}",
@@ -2094,7 +2094,7 @@ impl TUI {
 
         if debug_enabled {
             let total_elapsed = render_start.elapsed();
-            if total_elapsed > Duration::from_millis(2) {
+            if total_elapsed > DEBUG_SLOW_THRESHOLD {
                 crate::debug_log!(
                     "Brutalist render ran long: width={} height={} messages={} total_lines={} heights={} layout_ms={} draw_ms={} total_ms={} streaming={} user_scrolled={} selected_message={}",
                     size.width,

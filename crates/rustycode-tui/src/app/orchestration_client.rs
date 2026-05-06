@@ -7,7 +7,7 @@ use anyhow::Result;
 use rustycode_protocol::{ToolCall, ToolResult};
 use crate::services::agent_mode::AiMode;
 
-pub trait OrchestrationClient: Send + Sync {
+pub trait OrchestrationClient: Send {
     /// Request the LLM stream to stop
     fn request_stop_stream(&self);
     

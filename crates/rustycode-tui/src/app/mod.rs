@@ -78,4 +78,10 @@ use std::time::Duration;
 
 pub const FRAME_BUDGET_60FPS: Duration = Duration::from_millis(16);
 pub const MAX_INPUT_LATENCY: Duration = Duration::from_millis(50);
+/// Threshold for logging slow operations in debug builds
+pub const DEBUG_SLOW_THRESHOLD: Duration = Duration::from_millis(2);
+/// Cooldown between LSP/MCP status refreshes
+pub const REFRESH_COOLDOWN: Duration = Duration::from_secs(30);
+/// Event poll timeout before returning to the main loop
+pub const EVENT_POLL_TIMEOUT: Duration = Duration::from_millis(1);
 pub const MAX_UNDO_ENTRIES: usize = 5;

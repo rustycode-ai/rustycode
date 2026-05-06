@@ -448,6 +448,7 @@ impl OpenRouterProvider {
             instructions,
             tools: tools_opt,
             temperature: request.temperature,
+            top_p: None,
             max_output_tokens: request.max_tokens,
             stream: Some(false),
             previous_response_id: None,
@@ -455,6 +456,8 @@ impl OpenRouterProvider {
             parallel_tool_calls: request.parallel_tool_calls,
             reasoning: None,
             include: None,
+            store: None,
+            prompt_cache_key: None,
         };
 
         let req = build_request!(
@@ -556,6 +559,7 @@ impl OpenRouterProvider {
             instructions,
             tools: tools_opt,
             temperature: request.temperature,
+            top_p: None,
             max_output_tokens: request.max_tokens,
             stream: Some(true),
             previous_response_id: None,
@@ -563,6 +567,8 @@ impl OpenRouterProvider {
             parallel_tool_calls: request.parallel_tool_calls,
             reasoning: None,
             include: None,
+            store: None,
+            prompt_cache_key: None,
         };
 
         let req = build_request!(

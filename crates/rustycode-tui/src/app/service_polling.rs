@@ -170,7 +170,7 @@ impl TUI {
 
         if debug_enabled {
             let elapsed = poll_start.elapsed();
-            if elapsed > std::time::Duration::from_millis(2) {
+            if elapsed > crate::app::DEBUG_SLOW_THRESHOLD {
                 crate::debug_log!(
                     "Service poll ran long: elapsed_ms={} stream={} tool={} tool_count={} workspace={} command={}",
                     elapsed.as_millis(),
@@ -263,7 +263,7 @@ impl TUI {
 
     /// Poll worker registry and update worker panel
     fn poll_worker_registry(&mut self) {
-        use rustycode_protocol::worker_registry::global_worker_registry;
+        use rustycode_orchestration::worker_registry::global_worker_registry;
 
         // Skip polling if the worker panel isn't visible and there are no active agents
         // This avoids needless global_worker_registry() calls every frame

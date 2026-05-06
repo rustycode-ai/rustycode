@@ -49,7 +49,7 @@ use super::executor::{
 use super::plan_manager::{PlanManager, StepFailureAction};
 use super::profiler::TaskProfiler;
 use super::prompt_optimization::{self, PromptOptimization};
-use rustycode_protocol::agent_registry::{AgentRegistry, AgentSelection};
+use rustycode_orchestration::agent_registry::{AgentRegistry, AgentSelection};
 
 // Team Event broadcasting
 

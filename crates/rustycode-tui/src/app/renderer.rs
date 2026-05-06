@@ -404,7 +404,7 @@ impl PolishedRenderer {
 
         if crate::logging::is_debug_enabled() {
             let total_elapsed = render_start.elapsed();
-            if total_elapsed > std::time::Duration::from_millis(2) {
+            if total_elapsed > crate::app::DEBUG_SLOW_THRESHOLD {
                 crate::debug_log!(
                     "Polished render ran long: width={} height={} messages={} message_ms={} total_ms={} streaming={} user_scrolled={}",
                     size.width,

@@ -113,6 +113,12 @@ pub mod tool_tiers;
 pub mod types;
 pub mod verification_gates;
 
+// Registries (moved from rustycode-protocol — mutable runtime state doesn't belong in a types crate)
+pub mod agent_registry;
+pub mod cron_registry;
+pub mod team_registry;
+pub mod worker_registry;
+
 pub use agent_executor::AgentSessionExecutor;
 pub use anyhow::{anyhow, bail, Context, Result as AnyhowResult};
 pub use autonomy::{
@@ -236,3 +242,15 @@ pub use routing::{
     ComplexityClassifier, ModelRouter, RoutingPolicy, TaskComplexity, TaskDescriptor,
 };
 pub use summary::{ResultSummarizer, SummaryConfig};
+
+// Registry re-exports (moved from rustycode-protocol)
+pub use agent_registry::{
+    global_agent_registry, AgentInfo, AgentKind, AgentRegistry, AgentSelection, SpecialistAgent,
+    SpecialistType, TaskAgentMatch,
+};
+pub use cron_registry::{global_cron_registry, CronEntry, CronRegistry};
+pub use team_registry::{global_team_registry, Team, TeamRegistry, TeamStatus};
+pub use worker_registry::{
+    global_worker_registry, Worker, WorkerEvent, WorkerFailure, WorkerFailureKind, WorkerRegistry,
+    WorkerStatus,
+};

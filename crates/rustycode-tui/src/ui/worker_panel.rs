@@ -8,7 +8,7 @@ use ratatui::{
     widgets::{Paragraph, Widget},
 };
 
-use rustycode_protocol::worker_registry::{Worker, WorkerEvent, WorkerStatus};
+use rustycode_orchestration::worker_registry::{Worker, WorkerEvent, WorkerStatus};
 
 /// Display state for a single tool call.
 #[derive(Debug, Clone)]
@@ -349,7 +349,7 @@ fn truncate_str(s: &str, max_len: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustycode_protocol::worker_registry::Worker;
+    use rustycode_orchestration::worker_registry::Worker;
 
     #[test]
     fn worker_panel_starts_hidden() {

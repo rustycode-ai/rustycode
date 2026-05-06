@@ -349,7 +349,7 @@ impl Tool for SpawnAgentTool {
         let context = params.get("context").and_then(|v| v.as_str()).unwrap_or("");
 
         // Track agent spawn in WorkerRegistry
-        let worker_registry = rustycode_protocol::worker_registry::global_worker_registry();
+        let worker_registry = rustycode_orchestration::worker_registry::global_worker_registry();
         let worker = worker_registry.spawn(&ctx.cwd.to_string_lossy());
 
         // Assign task to the worker
@@ -448,7 +448,7 @@ impl Tool for CreateTeamTool {
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        use rustycode_protocol::team_registry::global_team_registry;
+        use rustycode_orchestration::team_registry::global_team_registry;
 
         let name = params
             .get("name")
@@ -545,7 +545,7 @@ impl Tool for CreateCronTool {
     }
 
     fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        use rustycode_protocol::cron_registry::global_cron_registry;
+        use rustycode_orchestration::cron_registry::global_cron_registry;
 
         let schedule = params
             .get("schedule")

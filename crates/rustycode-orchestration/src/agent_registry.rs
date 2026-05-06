@@ -16,8 +16,8 @@
 //!         (Architect)  (Security)   (similar tasks)
 //! ```
 
-use crate::agent_protocol::AgentRole;
-use crate::team::TaskProfile;
+use rustycode_protocol::agent_protocol::AgentRole;
+use rustycode_protocol::team::TaskProfile;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
