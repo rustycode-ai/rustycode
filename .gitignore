@@ -93,10 +93,6 @@ actual_crates.txt
 workspace_members.txt
 *.csv
 
-# Doom / MIPS build artifacts
-doomgeneric/
-doomgeneric_mips
-
 # Status markers
 DISCIPLINE_GATE.md
 PROFILE_GATE.md
