@@ -215,6 +215,9 @@ module_inception = "allow"
 missing_errors_doc = "allow"
 missing_panics_doc = "allow"
 
+# missing_const_for_fn: new in Rust 1.95; allow until a batch fix is done.
+missing_const_for_fn = "allow"
+
 # must_use_candidate produces many false positives for builder-pattern
 # methods and query functions that don't always need chaining.
 must_use_candidate = "allow"
