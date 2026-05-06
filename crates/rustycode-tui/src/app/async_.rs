@@ -319,6 +319,13 @@ pub struct ToolResult {
     pub result: ToolOutput,
 }
 
+impl ToolResult {
+    /// Create a new tool result.
+    pub fn new(id: impl Into<String>, name: impl Into<String>, result: ToolOutput) -> Self {
+        Self { id: id.into(), name: name.into(), result }
+    }
+}
+
 /// Tool execution output
 #[derive(Debug, Clone)]
 #[non_exhaustive]
@@ -410,6 +417,18 @@ pub struct CommandResult {
     pub stdout: String,
     /// stderr output
     pub stderr: String,
+}
+
+impl CommandResult {
+    /// Create a new command result.
+    pub fn new(
+        command: impl Into<String>,
+        exit_code: Option<i32>,
+        stdout: impl Into<String>,
+        stderr: impl Into<String>,
+    ) -> Self {
+        Self { command: command.into(), exit_code, stdout: stdout.into(), stderr: stderr.into() }
+    }
 }
 
 /// Workspace context update

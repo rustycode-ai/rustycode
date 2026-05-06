@@ -43,19 +43,15 @@ fn test_tool_result_channel() {
 
     // Send tool results
     channel
-        .try_send(ToolResult {
-            id: "1".to_string(),
-            name: "read_file".to_string(),
-            result: ToolOutput::Success("File contents".to_string()),
-        })
+        .try_send(ToolResult::new("1", "read_file", ToolOutput::Success("File contents".to_string())))
         .unwrap();
 
     channel
-        .try_send(ToolResult {
-            id: "2".to_string(),
-            name: "bash".to_string(),
-            result: ToolOutput::Error("Command failed".to_string()),
-        })
+        .try_send(ToolResult::new(
+            "2",
+            "bash",
+            ToolOutput::Error(ToolExecutionError::Other("Command failed".to_string())),
+        ))
         .unwrap();
 
     // Receive and verify
@@ -74,12 +70,7 @@ fn test_command_result_channel() {
 
     // Send command result
     channel
-        .try_send(CommandResult {
-            command: "echo test".to_string(),
-            exit_code: Some(0),
-            stdout: "test\n".to_string(),
-            stderr: "".to_string(),
-        })
+        .try_send(CommandResult::new("echo test", Some(0), "test\n", ""))
         .unwrap();
 
     // Receive and verify

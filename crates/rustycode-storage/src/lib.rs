@@ -2495,7 +2495,7 @@ mod tests {
     use super::{SessionCaptureManager, Storage};
     use chrono::Utc;
     use rustycode_protocol::{
-        EventKind, Milestone, MilestoneId, MilestoneStatus, Plan, PlanDependency, PlanId,
+        EventKind, Milestone, MilestoneId, MilestoneStatus, Plan, PlanId,
         PlanStatus, Session, SessionEvent, SessionId, SessionMode, SessionStatus, ToolApprovalMode,
     };
     use std::fs;
