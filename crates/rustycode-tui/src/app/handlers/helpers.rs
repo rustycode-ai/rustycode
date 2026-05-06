@@ -334,4 +334,113 @@ mod tests {
         let result = build_tool_summary_arg("bash", &json);
         assert_eq!(result, None);
     }
+
+    #[test]
+    fn test_build_tool_summary_bash_exact_at_max_len() {
+        // Command exactly at TOOL_SUMMARY_MAX_LEN (60 chars) should NOT be truncated
+        let cmd = "x".repeat(60);
+        let json = serde_json::json!({"command": cmd});
+        let result = build_tool_summary_arg("bash", &json);
+        assert!(result.is_some());
+        assert!(!result.as_ref().unwrap().contains('…'));
+        assert_eq!(result.unwrap().len(), 60);
+    }
+
+    #[test]
+    fn test_build_tool_summary_bash_one_over_max_len() {
+        // Command one over TOOL_SUMMARY_MAX_LEN should be truncated
+        let cmd = "x".repeat(61);
+        let json = serde_json::json!({"command": cmd});
+        let result = build_tool_summary_arg("bash", &json);
+        assert!(result.is_some());
+        assert!(result.as_ref().unwrap().contains('…'));
+    }
+
+    #[test]
+    fn test_build_tool_summary_grep_long_pattern_truncated() {
+        let pattern = "a".repeat(60);
+        let json = serde_json::json!({"pattern": pattern});
+        let result = build_tool_summary_arg("grep", &json);
+        assert!(result.is_some());
+        let inner = result.unwrap();
+        assert!(inner.starts_with('"'));
+        assert!(inner.ends_with('"'));
+        // The quoted string should be shorter than the raw 60-char pattern
+        assert!(inner.len() < 60 + 2); // 60 chars + 2 quotes
+    }
+
+    #[test]
+    fn test_build_tool_summary_edit_prefers_path_over_file() {
+        let json = serde_json::json!({"path": "/a.rs", "file": "/b.rs"});
+        let result = build_tool_summary_arg("edit", &json);
+        assert_eq!(result, Some("/a.rs".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_edit_falls_back_to_file() {
+        let json = serde_json::json!({"file": "/fallback.rs"});
+        let result = build_tool_summary_arg("edit", &json);
+        assert_eq!(result, Some("/fallback.rs".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_agent_no_description_no_prompt() {
+        let json = serde_json::json!({"subagent_type": "executor"});
+        let result = build_tool_summary_arg("agent", &json);
+        assert!(result.is_some());
+        assert!(result.as_ref().unwrap().contains("executor:"));
+        assert!(result.as_ref().unwrap().contains("no description"));
+    }
+
+    #[test]
+    fn test_build_tool_summary_agent_long_description_not_truncated() {
+        // Agent tool does NOT truncate the "description" field (only truncates "prompt")
+        let desc = "d".repeat(70);
+        let json = serde_json::json!({
+            "subagent_type": "planner",
+            "description": desc,
+        });
+        let result = build_tool_summary_arg("agent", &json);
+        assert!(result.is_some());
+        let inner = result.unwrap();
+        assert!(inner.starts_with("planner:"));
+        // Description is used as-is (not truncated)
+        assert_eq!(inner, format!("planner: {}", "d".repeat(70)));
+    }
+
+    #[test]
+    fn test_build_tool_summary_agent_long_prompt_truncated() {
+        // Agent tool truncates the "prompt" field at TOOL_SUMMARY_TRUNCATE_AT
+        let long_prompt = "p".repeat(70);
+        let json = serde_json::json!({
+            "subagent_type": "executor",
+            "prompt": long_prompt,
+        });
+        let result = build_tool_summary_arg("agent", &json);
+        assert!(result.is_some());
+        let inner = result.unwrap();
+        assert!(inner.starts_with("executor:"));
+        // Truncated to 57 chars + prefix, should be shorter than untruncated
+        assert!(inner.len() < "executor: ".len() + 70);
+    }
+
+    #[test]
+    fn test_build_tool_summary_null_json() {
+        let result = build_tool_summary_arg("bash", &serde_json::Value::Null);
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn test_build_tool_summary_glob_prefers_pattern() {
+        let json = serde_json::json!({"pattern": "*.rs", "path": "/src"});
+        let result = build_tool_summary_arg("glob", &json);
+        assert_eq!(result, Some("*.rs".to_string()));
+    }
+
+    #[test]
+    fn test_build_tool_summary_find_falls_back_to_path() {
+        let json = serde_json::json!({"path": "/workspace"});
+        let result = build_tool_summary_arg("find", &json);
+        assert_eq!(result, Some("/workspace".to_string()));
+    }
 }

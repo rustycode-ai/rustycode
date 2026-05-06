@@ -214,7 +214,8 @@ impl ServiceManager {
             .ok_or_else(|| anyhow::anyhow!("Stream channel not created"))?
             .clone_sender();
 
-        self.init_orchestration(provider, &model_id, stream_tx)?;
+        self.init_orchestration(provider, &model_id, stream_tx)
+            .context("failed to initialize orchestration for model switch")?;
 
         tracing::info!(model = %model_id, "Switched model and updated orchestration pipeline");
         Ok(())
@@ -270,8 +271,11 @@ impl ServiceManager {
         self.polling_registry.tool_channel = Some(tool_channel);
 
         // Initialize unified orchestration pipeline
-        let (provider, model) = self.create_llm_provider()?;
-        self.init_orchestration(provider, &model, forward_tx)?;
+        let (provider, model) = self
+            .create_llm_provider()
+            .context("failed to create LLM provider for conversation")?;
+        self.init_orchestration(provider, &model, forward_tx)
+            .context("failed to initialize orchestration pipeline")?;
 
         tracing::info!("Conversation service and orchestration pipeline started");
 

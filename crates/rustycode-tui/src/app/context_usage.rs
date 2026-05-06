@@ -1,12 +1,7 @@
-//! Context usage tracking and visualization
-
-/// Context usage state
 #[derive(Debug, Clone, Default)]
 #[non_exhaustive]
 pub struct ContextUsage {
-    /// Total input tokens used
     pub input_tokens: usize,
-    /// Total output tokens used
     pub output_tokens: usize,
     /// Context window limit (if known)
     pub context_limit: usize,
@@ -26,12 +21,10 @@ impl ContextUsage {
         self.context_limit = limit;
     }
 
-    /// Get total tokens used
     pub fn total_tokens(&self) -> usize {
         self.input_tokens.saturating_add(self.output_tokens)
     }
 
-    /// Get usage percentage (0-100), clamped at 100
     pub fn percentage(&self) -> usize {
         if self.context_limit == 0 {
             return 0;
@@ -78,16 +71,14 @@ impl ContextUsage {
     }
 }
 
-/// Usage level for color coding
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum UsageLevel {
-    Low,    // < 50% - green
-    Medium, // < 85% - yellow
-    High,   // >= 85% - red
+    Low,    // < 50%
+    Medium, // < 85%
+    High,   // >= 85%
 }
 
-/// Format token count for display (e.g., "8.2k", "1.5M")
 fn format_tokens(n: usize) -> String {
     if n >= 1_000_000 {
         format!("{:.1}M", n as f64 / 1_000_000.0)

@@ -333,3 +333,147 @@ fn update_ast_phase_state(tui: &mut TUI, result: &ToolResult) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::async_::{ToolExecutionError, ToolOutput, ToolResult};
+
+    // --- compute_result_summary ---
+
+    #[test]
+    fn test_compute_result_summary_success_output() {
+        let result = ToolResult {
+            id: "id-1".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Success("Build successful".to_string()),
+        };
+        let summary = compute_result_summary(&result);
+        assert_eq!(summary, "Build successful");
+    }
+
+    #[test]
+    fn test_compute_result_summary_success_empty() {
+        let result = ToolResult {
+            id: "id-2".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Success(String::new()),
+        };
+        let summary = compute_result_summary(&result);
+        assert_eq!(summary, "no output");
+    }
+
+    #[test]
+    fn test_compute_result_summary_error() {
+        let result = ToolResult {
+            id: "id-3".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Error(ToolExecutionError::ExecutionFailed {
+                tool: "bash".to_string(),
+                output: "command not found".to_string(),
+            }),
+        };
+        let summary = compute_result_summary(&result);
+        assert!(summary.starts_with("Error:"));
+        assert!(summary.contains("command not found"));
+    }
+
+    #[test]
+    fn test_compute_result_summary_timeout() {
+        let result = ToolResult {
+            id: "id-4".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Timeout,
+        };
+        let summary = compute_result_summary(&result);
+        assert_eq!(summary, "Timeout");
+    }
+
+    #[test]
+    fn test_compute_result_summary_permission_denied() {
+        let result = ToolResult {
+            id: "id-5".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Error(ToolExecutionError::PermissionDenied {
+                tool: "bash".to_string(),
+                reason: "blocked by policy".to_string(),
+            }),
+        };
+        let summary = compute_result_summary(&result);
+        assert!(summary.contains("blocked by policy"));
+    }
+
+    #[test]
+    fn test_compute_result_summary_strips_ansi_from_success() {
+        let result = ToolResult {
+            id: "id-6".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Success("\x1b[32mOK\x1b[0m".to_string()),
+        };
+        let summary = compute_result_summary(&result);
+        assert_eq!(summary, "OK");
+    }
+
+    // --- format_detailed_output ---
+
+    #[test]
+    fn test_format_detailed_output_short_output_unchanged() {
+        let result = ToolResult {
+            id: "id-10".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Success("short output".to_string()),
+        };
+        let output = format_detailed_output(&result, "short output".to_string());
+        assert_eq!(output, "short output");
+    }
+
+    #[test]
+    fn test_format_detailed_output_strips_ansi() {
+        let result = ToolResult {
+            id: "id-11".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Success("colored".to_string()),
+        };
+        let output = format_detailed_output(
+            &result,
+            "\x1b[31mcolored\x1b[0m text".to_string(),
+        );
+        assert!(!output.contains("\x1b"));
+        assert!(output.contains("colored text"));
+    }
+
+    #[test]
+    fn test_format_detailed_output_truncates_large_output() {
+        let result = ToolResult {
+            id: "id-12".to_string(),
+            name: "bash".to_string(),
+            result: ToolOutput::Success(String::new()),
+        };
+        // Generate output exceeding MAX_INLINE_CHARS (4000 chars)
+        let long_line = "x".repeat(500);
+        let long_output: String = (0..20)
+            .map(|i| format!("line {}: {}", i, long_line))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(long_output.chars().count() > 4000);
+
+        let output = format_detailed_output(&result, long_output);
+        // Should contain a truncation indicator (either temp file path or char count)
+        assert!(output.contains("truncated"));
+        // The output should contain the first few lines (not completely empty)
+        assert!(output.contains("line 0:"));
+    }
+
+    #[test]
+    fn test_format_detailed_output_under_limit_unchanged() {
+        let result = ToolResult {
+            id: "id-13".to_string(),
+            name: "read_file".to_string(),
+            result: ToolOutput::Success(String::new()),
+        };
+        let input = "line 1\nline 2\nline 3".to_string();
+        assert!(input.chars().count() <= 4000);
+        let output = format_detailed_output(&result, input.clone());
+        assert_eq!(output, input);
+    }
+}

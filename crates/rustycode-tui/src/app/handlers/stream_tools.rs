@@ -466,3 +466,138 @@ pub(super) fn handle_tool_complete_chunk(
         post_ctx,
     );
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- is_reasoning_tool ---
+
+    #[test]
+    fn test_is_reasoning_tool_decompose() {
+        assert!(is_reasoning_tool("reasoning_decompose"));
+    }
+
+    #[test]
+    fn test_is_reasoning_tool_research() {
+        assert!(is_reasoning_tool("reasoning_research"));
+    }
+
+    #[test]
+    fn test_is_reasoning_tool_validate() {
+        assert!(is_reasoning_tool("reasoning_validate"));
+    }
+
+    #[test]
+    fn test_is_reasoning_tool_integrate() {
+        assert!(is_reasoning_tool("reasoning_integrate"));
+    }
+
+    #[test]
+    fn test_is_reasoning_tool_bash_is_not_reasoning() {
+        assert!(!is_reasoning_tool("bash"));
+    }
+
+    #[test]
+    fn test_is_reasoning_tool_empty_string() {
+        assert!(!is_reasoning_tool(""));
+    }
+
+    #[test]
+    fn test_is_reasoning_tool_partial_name_is_not_reasoning() {
+        assert!(!is_reasoning_tool("reasoning"));
+        assert!(!is_reasoning_tool("decompose"));
+    }
+
+    // --- new_running_tool ---
+
+    #[test]
+    fn test_new_running_tool_status_is_running() {
+        let tool = new_running_tool(
+            "id-1".to_string(),
+            "bash".to_string(),
+            None,
+            "running...".to_string(),
+        );
+        assert_eq!(tool.status, ToolStatus::Running);
+    }
+
+    #[test]
+    fn test_new_running_tool_preserves_id_and_name() {
+        let tool = new_running_tool(
+            "tool-abc".to_string(),
+            "read_file".to_string(),
+            None,
+            "summary".to_string(),
+        );
+        assert_eq!(tool.tool_id, "tool-abc");
+        assert_eq!(tool.name, "read_file");
+        assert_eq!(tool.result_summary, "summary");
+    }
+
+    #[test]
+    fn test_new_running_tool_no_end_time_or_duration() {
+        let tool = new_running_tool(
+            "id".to_string(),
+            "bash".to_string(),
+            None,
+            "summary".to_string(),
+        );
+        assert!(tool.end_time.is_none());
+        assert!(tool.duration_ms.is_none());
+    }
+
+    #[test]
+    fn test_new_running_tool_no_detailed_output() {
+        let tool = new_running_tool(
+            "id".to_string(),
+            "bash".to_string(),
+            None,
+            "summary".to_string(),
+        );
+        assert!(tool.detailed_output.is_none());
+    }
+
+    #[test]
+    fn test_new_running_tool_with_input_json() {
+        let json = serde_json::json!({"command": "ls -la"});
+        let tool = new_running_tool(
+            "id".to_string(),
+            "bash".to_string(),
+            Some(json.clone()),
+            "bash ls -la...".to_string(),
+        );
+        assert_eq!(tool.input_json, Some(json));
+    }
+
+    #[test]
+    fn test_new_running_tool_without_input_json() {
+        let tool = new_running_tool(
+            "id".to_string(),
+            "bash".to_string(),
+            None,
+            "bash...".to_string(),
+        );
+        assert!(tool.input_json.is_none());
+    }
+
+    #[test]
+    fn test_new_running_tool_no_progress_fields() {
+        let tool = new_running_tool(
+            "id".to_string(),
+            "bash".to_string(),
+            None,
+            "summary".to_string(),
+        );
+        assert!(tool.progress_current.is_none());
+        assert!(tool.progress_total.is_none());
+        assert!(tool.progress_description.is_none());
+    }
+
+    // --- REASONING_TOOLS constant coverage ---
+
+    #[test]
+    fn test_reasoning_tools_constant_has_four_entries() {
+        assert_eq!(REASONING_TOOLS.len(), 4);
+    }
+}

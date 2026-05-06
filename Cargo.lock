@@ -6758,6 +6758,7 @@ dependencies = [
  "libc",
  "parking_lot",
  "regex",
+ "rustycode-sandbox",
  "rustycode-tools-api",
  "serde",
  "serde_json",

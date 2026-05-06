@@ -954,12 +954,16 @@ impl TUI {
         // Count tools before moving registry
         let tool_count = tool_registry.list().len();
 
-        self.services.start_conversation(config, tool_registry)?;
+        self.services
+            .start_conversation(config, tool_registry)
+            .context("failed to start conversation service")?;
         crate::info_log!(
             "start_conversation OK, pipeline={}",
             self.services.has_pipeline()
         );
-        self.services.start_workspace_loading()?;
+        self.services
+            .start_workspace_loading()
+            .context("failed to start workspace loading")?;
 
         self.refresh_mcp_status(true);
 
@@ -1389,12 +1393,15 @@ impl TUI {
 
             // Phase 2: Poll async sources (ONE item each)
             let service_poll_start = Instant::now();
-            self.poll_services()?;
+            self.poll_services()
+                .context("failed to poll background services")?;
             self.poll_mcp_events()?;
             {
                 use rustycode_shared_runtime::SHARED_RUNTIME;
                 let pipeline_tick_start = Instant::now();
-                SHARED_RUNTIME.block_on(self.tick_pipeline())?;
+                SHARED_RUNTIME
+                    .block_on(self.tick_pipeline())
+                    .context("failed to tick orchestration pipeline")?;
                 let pipeline_tick_elapsed = pipeline_tick_start.elapsed();
                 if debug_enabled && pipeline_tick_elapsed > DEBUG_SLOW_THRESHOLD {
                     crate::debug_log!(
@@ -1456,10 +1463,11 @@ impl TUI {
                 if should_render {
                     let render_start = Instant::now();
                     if self.needs_full_redraw {
-                        terminal.clear()?;
+                        terminal.clear().context("failed to clear terminal for full redraw")?;
                         self.needs_full_redraw = false;
                     }
-                    terminal.draw(|f| self.render(f))?;
+                    terminal.draw(|f| self.render(f))
+                        .context("failed to draw TUI frame")?;
                     frame_count += 1;
                     self.dirty = false;
                     render_elapsed = render_start.elapsed();
@@ -1472,7 +1480,7 @@ impl TUI {
                 let timeout = FRAME_BUDGET_60FPS.saturating_sub(frame_start.elapsed());
 
                 let input_poll_start = Instant::now();
-                if event::poll(timeout)? {
+                if event::poll(timeout).context("failed to poll for input events")? {
                     input_polled = true;
                     let input_handle_start = Instant::now();
                     self.handle_input()?;
@@ -1484,7 +1492,7 @@ impl TUI {
                 // Frame over budget, skip render, handle input with small timeout
                 // to prevent CPU spin when consistently over budget
                 let input_poll_start = Instant::now();
-                if event::poll(EVENT_POLL_TIMEOUT)? {
+                if event::poll(EVENT_POLL_TIMEOUT).context("failed to poll for input events (over budget)")? {
                     input_polled = true;
                     let input_handle_start = Instant::now();
                     self.handle_input()?;

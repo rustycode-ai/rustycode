@@ -73,6 +73,8 @@ pub struct Sandbox {
     capabilities: SandboxCapabilities,
     /// Whether to prompt for permission (interactive mode)
     interactive: bool,
+    /// OS-level sandbox manager (rustycode-sandbox)
+    os_sandbox: Option<rustycode_sandbox::SandboxManager>,
 }
 
 /// Platform-specific sandbox capabilities
@@ -111,6 +113,7 @@ impl Sandbox {
             enforced: false,
             capabilities,
             interactive: false, // Default to non-interactive
+            os_sandbox: None,
         }
     }
 
@@ -123,6 +126,11 @@ impl Sandbox {
         let mut sandbox = Self::new(cwd, config, level);
         sandbox.interactive = true;
         sandbox
+    }
+
+    /// Returns a reference to the OS sandbox manager, if initialized.
+    pub fn os_sandbox_manager(&self) -> Option<&rustycode_sandbox::SandboxManager> {
+        self.os_sandbox.as_ref()
     }
 
     /// Detect platform-specific sandbox capabilities
@@ -199,160 +207,33 @@ impl Sandbox {
     /// Enforce basic sandbox level
     fn enforce_basic(&self) -> Result<()> {
         tracing::debug!("Sandbox: Enforcing basic level");
-
-        // On macOS, use sandbox_exec for basic isolation
-        #[cfg(target_os = "macos")]
-        {
-            if self.capabilities.macos_sandbox {
-                return self.enforce_macos_basic();
-            }
-        }
-
-        // On Linux, use Landlock for basic filesystem restrictions
-        #[cfg(target_os = "linux")]
-        {
-            if self.capabilities.landlock {
-                return self.enforce_landlock_basic();
-            }
-        }
-
+        // Basic level uses path validation only; OS-level restrictions
+        // are handled by rustycode-sandbox when Strict is selected.
         Ok(())
     }
 
     /// Enforce strict sandbox level
-    fn enforce_strict(&self) -> Result<()> {
-        tracing::debug!("Sandbox: Enforcing strict level");
+    fn enforce_strict(&mut self) -> Result<()> {
+        tracing::debug!("Sandbox: Enforcing strict level via rustycode-sandbox");
 
-        // Try platform-specific strict enforcement
-        #[cfg(target_os = "linux")]
-        {
-            if self.capabilities.landlock {
-                return self.enforce_landlock_strict();
+        match rustycode_sandbox::SandboxManager::new() {
+            Ok(manager) => {
+                if manager.is_available() {
+                    tracing::info!(
+                        platform = std::env::consts::OS,
+                        "OS-level sandbox backend ready for child process isolation"
+                    );
+                    self.os_sandbox = Some(manager);
+                } else {
+                    tracing::warn!("OS sandbox backend detected as unavailable, falling back to path validation");
+                    return self.enforce_basic();
+                }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to initialize OS sandbox: {e}, falling back to path validation");
+                return self.enforce_basic();
             }
         }
-
-        #[cfg(target_os = "macos")]
-        {
-            if self.capabilities.macos_sandbox {
-                return self.enforce_macos_strict();
-            }
-        }
-
-        // Fallback to basic if strict not available
-        tracing::warn!("Strict sandbox not available on this platform, using basic");
-        self.enforce_basic()
-    }
-
-    /// Enforce Landlock basic level (Linux)
-    #[cfg(target_os = "linux")]
-    fn enforce_landlock_basic(&self) -> Result<()> {
-        tracing::debug!("Sandbox: Enforcing Landlock basic level");
-
-        // Landlock is only available when the feature is enabled and we're on Linux
-        #[cfg(feature = "landlock")]
-        {
-            use landlock::{Access, AccessFS, Ruleset, RuntimeError};
-
-            // Create a ruleset with basic filesystem restrictions
-            let ruleset = Ruleset::new()
-                .handle_access(AccessFS::from_read(Access::File))
-                .and_then(|rs| rs.create())
-                .map_err(|e| anyhow!("Failed to create Landlock ruleset: {}", e))?;
-
-            // Restrict to read-only access for files
-            ruleset
-                .restrict()
-                .map_err(|e: RuntimeError| anyhow!("Failed to enforce Landlock rules: {}", e))?;
-
-            tracing::debug!("Sandbox: Landlock basic enforcement successful");
-        }
-
-        #[cfg(not(feature = "landlock"))]
-        {
-            tracing::warn!("Sandbox: Landlock not enabled, using path validation only");
-        }
-
-        Ok(())
-    }
-
-    /// Enforce Landlock strict level (Linux)
-    #[cfg(target_os = "linux")]
-    fn enforce_landlock_strict(&self) -> Result<()> {
-        tracing::debug!("Sandbox: Enforcing Landlock strict level");
-
-        #[cfg(feature = "landlock")]
-        {
-            use landlock::{Access, AccessFS, Ruleset, RuntimeError};
-
-            // Create strict ruleset with both read and write restrictions
-            let ruleset = Ruleset::new()
-                .handle_access(AccessFS::from_read_write(Access::File))
-                .and_then(|rs| rs.create())
-                .map_err(|e| anyhow!("Failed to create strict Landlock ruleset: {}", e))?;
-
-            // Enforce strict filesystem restrictions
-            ruleset.restrict().map_err(|e: RuntimeError| {
-                anyhow!("Failed to enforce strict Landlock rules: {}", e)
-            })?;
-
-            tracing::debug!("Sandbox: Landlock strict enforcement successful");
-        }
-
-        #[cfg(not(feature = "landlock"))]
-        {
-            tracing::warn!("Sandbox: Landlock not enabled, using path validation only");
-        }
-
-        Ok(())
-    }
-
-    /// Enforce macOS basic sandbox
-    #[cfg(target_os = "macos")]
-    fn enforce_macos_basic(&self) -> Result<()> {
-        tracing::debug!("Sandbox: Enforcing macOS basic level");
-
-        // Create a basic sandbox profile that allows file system access
-        // but restricts network and other sensitive operations
-        let profile = r#"(version 1)
-            (allow default)
-            (deny network*)
-            (deny process-exec*)
-            (allow file-read*)
-            (allow file-write* (subpath "/tmp" (subpath "/var/tmp")))
-        "#;
-
-        // Note: sandbox_exec is typically used to launch new processes
-        // For in-process sandboxing, we'd need to use the macOS Sandbox framework
-        // via Objective-C bindings, which is complex
-        //
-        // For now, we'll log that sandbox rules would be applied to child processes
-        tracing::debug!(
-            "Sandbox: macOS sandbox profile configured (would apply to child processes)"
-        );
-        tracing::trace!("Sandbox profile: {profile}");
-
-        // Store profile for use when spawning child processes
-        // This could be used by BashTool and other tools that spawn processes
-        Ok(())
-    }
-
-    /// Enforce macOS strict sandbox
-    #[cfg(target_os = "macos")]
-    fn enforce_macos_strict(&self) -> Result<()> {
-        tracing::debug!("Sandbox: Enforcing macOS strict level");
-
-        // Create a strict sandbox profile
-        let profile = r#"(version 1)
-            (deny default)
-            (allow file-read* (subpath "/tmp" (subpath "/var/tmp")))
-            (allow file-write* (subpath "/tmp" (subpath "/var/tmp")))
-            (deny network*)
-            (deny process-exec*)
-            (deny sysctl*)
-        "#;
-
-        tracing::debug!("Sandbox: macOS strict sandbox profile configured");
-        tracing::trace!("Sandbox profile: {profile}");
 
         Ok(())
     }

@@ -1,5 +1,6 @@
 //! Orchestration integration for the TUI message flow.
 
+use anyhow::Context;
 use rustycode_orchestration::quality_detector::QualityDetector;
 use rustycode_orchestration::reasoning_store::ReasoningStore;
 use rustycode_orchestration::strategy_selector::StrategySelector;
@@ -180,7 +181,11 @@ impl OrchestrationIntegration {
 
         if let (Some(ref store), Some(ref task_id)) = (&self.reasoning_store, &self.current_task_id)
         {
-            store.store_thought(task_id, phase, &thought)?;
+            store
+                .store_thought(task_id, phase, &thought)
+                .with_context(|| {
+                    format!("failed to store structured thought for task {task_id} phase {phase}")
+                })?;
         }
 
         Ok(thought)

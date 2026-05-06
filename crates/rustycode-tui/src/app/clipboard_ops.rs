@@ -4,7 +4,7 @@
 
 use super::event_loop::TUI;
 use crate::ui::message::MessageRole;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ratatui::layout::Rect;
 
 impl TUI {
@@ -265,13 +265,16 @@ impl TUI {
         };
 
         // Create exporter
-        let exporter = ConversationExporter::new(export_dir.clone())?;
+        let exporter = ConversationExporter::new(export_dir.clone())
+            .with_context(|| format!("failed to create exporter for {}", export_dir.display()))?;
 
         // Use default export options (include tools, exclude thinking/metadata/timestamps)
         let options = ExportOptions::default();
 
         // Export as markdown
-        let path = exporter.export(&self.messages, ExportFormat::Markdown, options)?;
+        let path = exporter
+            .export(&self.messages, ExportFormat::Markdown, options)
+            .context("failed to export conversation as markdown")?;
 
         let msg_count = self
             .messages

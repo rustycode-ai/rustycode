@@ -1,5 +1,3 @@
-//! Simple synchronous confirmation bridge between background tasks and the TUI.
-
 use std::collections::HashMap;
 use std::sync::{mpsc, LazyLock, Mutex};
 
@@ -30,7 +28,6 @@ pub fn deliver(request_id: &str, decision: bool) -> bool {
     }
 }
 
-/// List pending request ids (non-blocking).
 pub fn pending_list() -> Vec<String> {
     let map = GLOBAL_CONFIRMATIONS
         .lock()
@@ -38,7 +35,6 @@ pub fn pending_list() -> Vec<String> {
     map.keys().cloned().collect()
 }
 
-/// Number of pending confirmation requests.
 pub fn pending_count() -> usize {
     let map = GLOBAL_CONFIRMATIONS
         .lock()
