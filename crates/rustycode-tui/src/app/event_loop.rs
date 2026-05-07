@@ -1813,6 +1813,8 @@ impl TUI {
 
             if let Some(effect) = effect {
                 self.apply_slash_command_effect(effect)?;
+                self.view.user_scrolled = false;
+                self.dirty = true;
                 return Ok(());
             }
         }
