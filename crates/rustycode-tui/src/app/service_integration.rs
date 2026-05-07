@@ -35,11 +35,17 @@ impl OrchestrationClient for ServiceManager {
     }
 
     fn ai_mode(&self) -> AiMode {
-        *self.ai_mode.lock().unwrap()
+        *self
+            .ai_mode
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
     }
 
     fn set_ai_mode(&self, mode: AiMode) {
-        *self.ai_mode.lock().unwrap() = mode;
+        *self
+            .ai_mode
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = mode;
     }
 
     fn execute_tool(&self, _call: ToolCall) -> Result<rustycode_protocol::ToolResult> {
@@ -507,7 +513,7 @@ impl ServiceManager {
             cwd: self.cwd.clone(),
             stop_flag: Arc::clone(&self.stream_stop_requested),
             agent_mode: self.agent_mode,
-            ai_mode: self.ai_mode.lock().unwrap().clone(),
+            ai_mode: self.ai_mode.lock().unwrap_or_else(|e| e.into_inner()).clone(),
             orchestration: Arc::clone(&self.orchestration),
             file_read_cache: Arc::clone(&self.file_read_cache),
             error_tracker: Arc::clone(&self.error_tracker),
@@ -819,11 +825,11 @@ impl ServiceManager {
     }
 
     pub fn ai_mode(&self) -> AiMode {
-        self.ai_mode.lock().unwrap().clone()
+        self.ai_mode.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     pub fn set_ai_mode(&mut self, mode: AiMode) {
-        *self.ai_mode.lock().unwrap() = mode;
+        *self.ai_mode.lock().unwrap_or_else(|e| e.into_inner()) = mode;
         if let Some(ref mut service) = self.conversation {
             service.set_ai_mode(mode);
         }

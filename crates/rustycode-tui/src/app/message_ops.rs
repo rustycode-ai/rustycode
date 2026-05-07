@@ -209,8 +209,16 @@ impl TUI {
     /// Update viewport height (called when terminal is resized)
     pub fn update_viewport_height(&mut self, height: usize) {
         self.view.viewport_height = height;
-        // Line-based scrolling doesn't need adjustment - the render function
-        // automatically calculates the visible range based on viewport height
+        // Clamp scroll_offset_line so it doesn't exceed the new max
+        // after a viewport shrink (e.g., terminal resize or sidebar toggle).
+        let max_scroll = self
+            .view
+            .last_total_lines
+            .get()
+            .saturating_sub(height.max(1));
+        if self.view.scroll_offset_line > max_scroll {
+            self.view.scroll_offset_line = max_scroll;
+        }
     }
 
     /// Build conversation history from TUI messages for multi-turn LLM context.

@@ -470,12 +470,16 @@ impl TUI {
                                 })
                                 .collect();
 
-                            // Apply LoadSession effect inline (private method workaround)
-                            self.reset_conversation_state();
-                            // Stop background stream before resetting state (prevent stale chunks)
-                            if self.streaming.is_streaming {
+                            // Stop background stream BEFORE resetting state.
+                            // If we reset first, is_streaming gets cleared and the
+                            // background task keeps sending stale chunks that corrupt
+                            // the newly loaded session's messages.
+                            let was_streaming = self.streaming.is_streaming;
+                            if was_streaming {
                                 self.services.request_stop_stream();
                             }
+                            // Apply LoadSession effect inline (private method workaround)
+                            self.reset_conversation_state();
                             self.undo.clear();
                             self.messages = messages;
                             if !self.messages.is_empty() {

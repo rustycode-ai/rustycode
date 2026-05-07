@@ -226,7 +226,6 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
     let user_msg = Message::user(queued.clone());
     tui.messages.push(user_msg);
     tui.view.selected_message = tui.messages.len() - 1;
-    tui.view.scroll_offset_line = 0;
     tui.view.user_scrolled = false;
 
     let prepare_elapsed = auto_send_start.elapsed();

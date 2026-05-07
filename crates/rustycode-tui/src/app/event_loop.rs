@@ -404,6 +404,7 @@ impl TUI {
         self.rate_limit.clear();
         self.auto_continue.reset();
         self.token_budget.reset();
+        self.view.last_total_lines.set(0);
         self.compaction.context_monitor.current_tokens = 0;
         self.compaction.context_monitor.needs_compaction = false;
     }
