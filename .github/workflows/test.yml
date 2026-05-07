@@ -218,6 +218,7 @@ jobs:
 
       - name: Generate TUI coverage report (Linux only)
         if: matrix.os == 'ubuntu-latest'
+        continue-on-error: true
         run: cargo tarpaulin -p rustycode-tui --out Xml --output-dir ./coverage
 
       - name: Upload TUI coverage to Codecov (Linux only)

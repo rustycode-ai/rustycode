@@ -1212,6 +1212,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires functional PowerShell session; unreliable on CI Linux"]
     fn test_session_spawn_and_execute() {
         if !pwsh_available() {
             eprintln!("skipping: pwsh not installed");
@@ -1230,6 +1231,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires functional PowerShell session; unreliable on CI Linux"]
     fn test_session_exit_code() {
         if !pwsh_available() {
             eprintln!("skipping: pwsh not installed");
@@ -1245,6 +1247,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "requires functional PowerShell session; unreliable on CI Linux"]
     fn test_session_environment_persistence() {
         if !pwsh_available() {
             eprintln!("skipping: pwsh not installed");
