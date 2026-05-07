@@ -1335,11 +1335,7 @@ mod tests {
 
     #[test]
     fn test_normalize_wsl_path() {
-        // On Linux, normalize_path converts /mnt/c/... to C:/... via cfg!(target_os = "linux").
-        // This is correct on WSL but incorrect on regular Linux where /mnt/c/ is a valid path.
-        // Test the actual function behavior rather than a platform ideal.
-        if cfg!(target_os = "linux") {
-            // On Linux (both WSL and regular), the function converts /mnt/X/ to X:/
+        if cfg!(windows) {
             assert_eq!(
                 normalize_path("/mnt/c/Users/test/file.txt"),
                 "C:/Users/test/file.txt"
@@ -1348,11 +1344,15 @@ mod tests {
                 normalize_path("/mnt/d/projects/app/src/main.rs"),
                 "D:/projects/app/src/main.rs"
             );
-        } else if cfg!(windows) {
-            // On Windows the /mnt/ prefix is not recognized; backslash normalization only
+        } else {
+            // On regular Linux/macOS, /mnt/c/ is a valid path — no conversion
             assert_eq!(
                 normalize_path("/mnt/c/Users/test/file.txt"),
-                "\\mnt\\c\\Users\\test\\file.txt"
+                "/mnt/c/Users/test/file.txt"
+            );
+            assert_eq!(
+                normalize_path("/mnt/d/projects/app/src/main.rs"),
+                "/mnt/d/projects/app/src/main.rs"
             );
         }
     }

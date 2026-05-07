@@ -29,13 +29,22 @@ fn create_test_session(storage: &rustycode_storage::Storage) -> String {
     id
 }
 
+/// Helper to create a unique checkpoints_dir for test isolation.
+/// Each test gets its own shadow git repo to avoid parallel `git init` races.
+fn unique_test_dir(name: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("rustycode-test-{}-{}", name, std::process::id()))
+}
+
 /// Helper to set up a test database with the Storage implementation
 #[tokio::test]
 async fn test_checkpoint_manager_creates_with_session() {
     let workspace_dir = std::env::temp_dir().join("test-workspace");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-create")),
+        ..CheckpointConfig::default()
+    };
 
     // Create manager without persistence backend (in-memory only)
     let manager = CheckpointManager::new(workspace_dir.clone(), config)
@@ -55,7 +64,10 @@ async fn test_checkpoint_manager_loads_from_store() {
     let workspace_dir = std::env::temp_dir().join("test-workspace-load");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-load")),
+        ..CheckpointConfig::default()
+    };
     let manager = CheckpointManager::new(workspace_dir, config).expect("failed to create manager");
 
     // Initially no checkpoints
@@ -68,7 +80,10 @@ async fn test_create_and_list_checkpoints() {
     let workspace_dir = std::env::temp_dir().join("test-workspace-create");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-list")),
+        ..CheckpointConfig::default()
+    };
     let manager = CheckpointManager::new(workspace_dir, config).expect("failed to create manager");
 
     // Create a checkpoint
@@ -98,6 +113,7 @@ async fn test_checkpoint_eviction_respects_max_limit() {
 
     let config = CheckpointConfig {
         max_checkpoints: 3,
+        checkpoints_dir: Some(unique_test_dir("cp-evict")),
         ..CheckpointConfig::default()
     };
 
@@ -125,7 +141,10 @@ async fn test_checkpoint_ids_are_unique() {
     let workspace_dir = std::env::temp_dir().join("test-workspace-unique");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-unique")),
+        ..CheckpointConfig::default()
+    };
     let manager = CheckpointManager::new(workspace_dir, config).expect("failed to create manager");
 
     let cp1 = manager
@@ -145,7 +164,10 @@ async fn test_checkpoint_preserves_reason() {
     let workspace_dir = std::env::temp_dir().join("test-workspace-reason");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-reason")),
+        ..CheckpointConfig::default()
+    };
     let manager = CheckpointManager::new(workspace_dir, config).expect("failed to create manager");
 
     let reason = "test: important changes";
@@ -167,7 +189,10 @@ async fn test_get_checkpoint_by_id() {
     let workspace_dir = std::env::temp_dir().join("test-workspace-get");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-get")),
+        ..CheckpointConfig::default()
+    };
     let manager = CheckpointManager::new(workspace_dir, config).expect("failed to create manager");
 
     let checkpoint = manager
@@ -188,7 +213,10 @@ async fn test_get_nonexistent_checkpoint() {
     let workspace_dir = std::env::temp_dir().join("test-workspace-missing");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-missing")),
+        ..CheckpointConfig::default()
+    };
     let manager = CheckpointManager::new(workspace_dir, config).expect("failed to create manager");
 
     let result = manager.checkpoint("nonexistent-id");
@@ -245,7 +273,10 @@ async fn test_storage_checkpoint_persistence() {
 
     let session_id = create_test_session(&storage);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-storage")),
+        ..CheckpointConfig::default()
+    };
     let checkpoint_store = Arc::new(StorageBasedCheckpointStore::new(storage.clone()));
 
     let manager = CheckpointManager::with_store(
@@ -293,7 +324,10 @@ async fn test_manager_loads_from_storage_on_init() {
 
     // First session: create checkpoints
     {
-        let config = CheckpointConfig::default();
+        let config = CheckpointConfig {
+            checkpoints_dir: Some(unique_test_dir("cp-load-store")),
+            ..CheckpointConfig::default()
+        };
         let checkpoint_store = Arc::new(StorageBasedCheckpointStore::new(storage.clone()));
 
         let manager = CheckpointManager::with_store(
@@ -314,7 +348,10 @@ async fn test_manager_loads_from_storage_on_init() {
 
     // Second session: load checkpoints
     {
-        let config = CheckpointConfig::default();
+        let config = CheckpointConfig {
+            checkpoints_dir: Some(unique_test_dir("cp-load-store")),
+            ..CheckpointConfig::default()
+        };
         let checkpoint_store = Arc::new(StorageBasedCheckpointStore::new(storage.clone()));
 
         let manager = CheckpointManager::with_store(
@@ -347,7 +384,10 @@ async fn test_storage_session_isolation() {
     let workspace_dir = std::env::temp_dir().join("test-isolation-workspace");
     let _ = std::fs::create_dir_all(&workspace_dir);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-isolation")),
+        ..CheckpointConfig::default()
+    };
 
     let session1_id = create_test_session(&storage);
     let session2_id = create_test_session(&storage);
@@ -412,7 +452,10 @@ async fn test_checkpoint_metadata_preserved() {
 
     let session_id = create_test_session(&storage);
 
-    let config = CheckpointConfig::default();
+    let config = CheckpointConfig {
+        checkpoints_dir: Some(unique_test_dir("cp-metadata")),
+        ..CheckpointConfig::default()
+    };
     let checkpoint_store = Arc::new(StorageBasedCheckpointStore::new(storage.clone()));
 
     let manager = CheckpointManager::with_store(
