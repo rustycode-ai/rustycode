@@ -83,15 +83,10 @@ impl TUI {
                 self.showing_command_palette = false;
                 self.command_palette.hide();
                 self.command_palette.state_mut().clear_query();
-                // Only clear the '/' prefix, preserve any other text the user typed
-                let current = self.input_handler.state.all_text();
-                if let Some(rest) = current.strip_prefix('/') {
-                    self.input_handler.state.clear();
-                    for c in rest.chars() {
-                        self.input_handler.state.insert_char(c);
-                    }
-                    self.input_mode = self.input_handler.state.mode;
-                }
+                // Palette text lives in the main input — clear it on dismiss,
+                // otherwise Ctrl+K → type → Esc leaves orphan text.
+                self.input_handler.state.clear();
+                self.input_mode = self.input_handler.state.mode;
                 self.dirty = true;
                 Ok(true)
             }

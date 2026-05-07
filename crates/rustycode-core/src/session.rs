@@ -611,22 +611,6 @@ impl SessionState {
         self.conversation.messages.push(message);
     }
 
-    /// Format tool results for display
-    #[allow(dead_code)]
-    fn format_tool_results(results: &[rustycode_protocol::ToolResult]) -> String {
-        let mut output = String::new();
-        for result in results {
-            output.push_str(&format!("Tool Call: {}\n", result.call_id));
-            if result.error.is_none() {
-                output.push_str(&format!("Output: {}\n", result.output));
-            } else if let Some(ref error_text) = result.error {
-                output.push_str(&format!("Error: {}\n", error_text));
-            }
-            output.push('\n');
-        }
-        output
-    }
-
     /// Update token usage statistics
     pub fn update_token_usage(&mut self, input_tokens: usize, output_tokens: usize) {
         self.performance

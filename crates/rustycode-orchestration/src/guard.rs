@@ -211,11 +211,15 @@ impl LockManager {
             if let Resource::Path(p) = resource {
                 if *access == ResourceAccess::Write || *access == ResourceAccess::Exec {
                     if let Some(parent) = p.parent() {
-                        std::fs::create_dir_all(self.lock_dir.join(parent)).ok();
+                        if let Err(e) = std::fs::create_dir_all(self.lock_dir.join(parent)) {
+                            tracing::warn!("Failed to create lock directory: {e}");
+                        }
                     }
                     let lock_path = self.lock_dir.join(p).with_extension("lock");
                     if let Some(parent) = lock_path.parent() {
-                        std::fs::create_dir_all(parent).ok();
+                        if let Err(e) = std::fs::create_dir_all(parent) {
+                            tracing::warn!("Failed to create lock directory: {e}");
+                        }
                     }
                     match File::create(&lock_path) {
                         Ok(f) => {

@@ -101,7 +101,7 @@ impl CodeReviewAnalyzer {
             // Security patterns
             ReviewRule {
                 name: "Hardcoded credentials".to_string(),
-                pattern: Regex::new(r"(password|api_key|secret)\s*=").unwrap(),
+                pattern: Regex::new(r"(password|api_key|secret)\s*=").expect("known-valid regex"),
                 severity: Severity::Critical,
                 issue_type: IssueType::SecurityVulnerability,
                 message: "Possible hardcoded credential detected".to_string(),
@@ -109,14 +109,14 @@ impl CodeReviewAnalyzer {
             // Bug patterns
             ReviewRule {
                 name: "Unwrap usage".to_string(),
-                pattern: Regex::new(r#"\.unwrap\(\)"#).unwrap(),
+                pattern: Regex::new(r#"\.unwrap\(\)"#).expect("known-valid regex"),
                 severity: Severity::Warning,
                 issue_type: IssueType::Bug,
                 message: "Use of .unwrap() can cause panics".to_string(),
             },
             ReviewRule {
                 name: "Expect usage".to_string(),
-                pattern: Regex::new(r#"\.expect\("#).unwrap(),
+                pattern: Regex::new(r#"\.expect\("#).expect("known-valid regex"),
                 severity: Severity::Warning,
                 issue_type: IssueType::Bug,
                 message: "Use of .expect() will panic on error".to_string(),
@@ -124,7 +124,7 @@ impl CodeReviewAnalyzer {
             // Performance patterns
             ReviewRule {
                 name: "Clone in loop".to_string(),
-                pattern: Regex::new(r#"for.*\.clone\(\)"#).unwrap(),
+                pattern: Regex::new(r#"for.*\.clone\(\)"#).expect("known-valid regex"),
                 severity: Severity::Info,
                 issue_type: IssueType::PerformanceIssue,
                 message: "Consider using references instead of cloning".to_string(),
@@ -132,14 +132,14 @@ impl CodeReviewAnalyzer {
             // Style issues
             ReviewRule {
                 name: "TODO comment".to_string(),
-                pattern: Regex::new(r#"// TODO"#).unwrap(),
+                pattern: Regex::new(r#"// TODO"#).expect("known-valid regex"),
                 severity: Severity::Info,
                 issue_type: IssueType::DocumentationIssue,
                 message: "TODO comment found, consider creating an issue".to_string(),
             },
             ReviewRule {
                 name: "FIXME comment".to_string(),
-                pattern: Regex::new(r#"// FIXME"#).unwrap(),
+                pattern: Regex::new(r#"// FIXME"#).expect("known-valid regex"),
                 severity: Severity::Warning,
                 issue_type: IssueType::DocumentationIssue,
                 message: "FIXME comment indicates unresolved issue".to_string(),

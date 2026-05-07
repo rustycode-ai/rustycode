@@ -77,8 +77,8 @@ pub fn list_provider_models(provider_id: &str) -> Vec<String> {
 ///
 /// # Examples
 /// ```
-/// # use rustycode_llm::provider_helpers::get_cheapest_model;
-/// let model = get_cheapest_model().unwrap();
+/// # use rustycode_llm::provider_helpers::cheapest_model;
+/// let model = cheapest_model().unwrap();
 /// // Returns cheapest model (usually haiku/mini variant)
 /// ```
 pub fn cheapest_model() -> Option<String> {
@@ -94,8 +94,8 @@ pub fn default_model() -> Option<String> {
 ///
 /// # Examples
 /// ```
-/// # use rustycode_llm::{provider_helpers::get_models_by_tier, ModelTier};
-/// let budget = get_models_by_tier(ModelTier::Budget);
+/// # use rustycode_llm::{provider_helpers::models_by_tier, registry::ModelTier};
+/// let budget = models_by_tier(ModelTier::Budget);
 /// assert!(!budget.is_empty());
 /// ```
 pub fn models_by_tier(tier: ModelTier) -> Vec<String> {
@@ -159,8 +159,8 @@ pub fn is_provider_available(provider_id: &str) -> bool {
 ///
 /// # Examples
 /// ```
-/// # use rustycode_llm::provider_helpers::get_model_cost;
-/// let (input_cost, output_cost) = get_model_cost("claude-3-5-sonnet").unwrap();
+/// # use rustycode_llm::provider_helpers::model_cost;
+/// let (input_cost, output_cost) = model_cost("claude-3-5-sonnet").unwrap();
 /// println!("Input: ${}/1M tokens", input_cost);
 /// println!("Output: ${}/1M tokens", output_cost);
 /// ```
@@ -174,8 +174,8 @@ pub fn model_cost(model: &str) -> Option<(f64, f64)> {
 ///
 /// # Examples
 /// ```
-/// # use rustycode_llm::provider_helpers::get_context_window;
-/// let ctx = get_context_window("claude-3-5-sonnet").unwrap();
+/// # use rustycode_llm::provider_helpers::context_window;
+/// let ctx = context_window("claude-3-5-sonnet").unwrap();
 /// assert_eq!(ctx, 200000);
 /// ```
 pub fn context_window(model: &str) -> Option<usize> {

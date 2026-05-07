@@ -670,20 +670,6 @@ mod tests {
     use std::fs;
     use uuid::Uuid;
 
-    #[allow(dead_code)]
-    fn temp_dir() -> PathBuf {
-        let path = std::env::temp_dir().join(format!("rustycode-checkpoint-{}", Uuid::new_v4()));
-        fs::create_dir_all(&path).unwrap();
-        path
-    }
-
-    #[allow(dead_code)]
-    fn temp_workspace() -> (PathBuf, PathBuf) {
-        let ws = temp_dir();
-        let ckpt = temp_dir();
-        (ws, ckpt)
-    }
-
     #[test]
     fn checkpoint_id_display() {
         let id = CheckpointId::new();

@@ -10,11 +10,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[allow(dead_code)] // TODO: enforce size limit on write
-const MAX_MEMORY_SIZE_KB: usize = 50;
-#[allow(dead_code)] // default prune age
-const DEFAULT_TTL_DAYS: i64 = 30;
-
 /// Memory type classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MemoryType {
@@ -139,7 +134,9 @@ impl WorkspaceMemory {
     /// Delete a memory entry.
     pub fn delete(&mut self, name: &str) -> Result<bool> {
         if let Some(entry) = self.entries.remove(name) {
-            let _ = fs::remove_file(&entry.path);
+            if let Err(e) = fs::remove_file(&entry.path) {
+                tracing::warn!("Failed to delete memory file {}: {e}", entry.path.display());
+            }
             Ok(true)
         } else {
             Ok(false)
