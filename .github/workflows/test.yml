@@ -187,6 +187,14 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install system dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler libssl-dev pkg-config
+
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: brew install protobuf openssl
+
       - name: Cache build artifacts
         uses: Swatinem/rust-cache@v2
         with:

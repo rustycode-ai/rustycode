@@ -265,10 +265,48 @@ impl TUI {
         let debug_enabled = crate::logging::is_debug_enabled();
         let send_start = std::time::Instant::now();
 
-        // Queue message if already streaming
         if self.streaming.is_streaming {
             let queue_start = std::time::Instant::now();
             let text = lines.join("\n");
+
+            // Local commands that should execute immediately even during streaming
+            // (they don't need to be sent to the LLM as messages)
+            let trimmed = text.trim();
+            let first_word = trimmed.split_whitespace().next().unwrap_or("");
+            // Local commands bypass the queue — they don't need to be sent to the LLM.
+            let is_local_command = matches!(
+                first_word,
+                "/r" | "/regen"
+                    | "/regenerate"
+                    | "/clear"
+                    | "/cost"
+                    | "/usage"
+                    | "/help"
+                    | "/model"
+                    | "/undo"
+                    | "/diff"
+                    | "/export"
+                    | "/theme"
+                    | "/t"
+                    | "/stats"
+                    | "/workers"
+                    | "/skills"
+                    | "/skill"
+                    | "/mcp"
+                    | "/lsp"
+                    | "/hook"
+                    | "/learnings"
+            );
+
+            if is_local_command {
+                // Clear the input field first
+                self.input_handler.state.clear();
+                self.input_mode = self.input_handler.state.mode;
+                // Execute the slash command immediately
+                self.handle_slash_command(&text)?;
+                return Ok(());
+            }
+
             let join_elapsed = queue_start.elapsed();
             if !text.trim().is_empty() {
                 let queue_store_start = std::time::Instant::now();
@@ -751,6 +789,8 @@ mod tests {
     #[test]
     fn test_command_palette_launcher_shortcuts_open_palette() {
         let mut tui = TUI::new_for_test();
+        // Wizard auto-starts when config is missing (CI has no config)
+        tui.wizard.showing_wizard = false;
 
         tui.handle_global_shortcut(KeyCode::Char('k'), KeyModifiers::CONTROL)
             .unwrap();
