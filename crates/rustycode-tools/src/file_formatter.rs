@@ -126,8 +126,8 @@ pub fn format_file(file_path: &Path, project_root: &Path) -> Option<String> {
 
     let full_cmd = cmd_parts.join(" ");
 
-    let output = match std::process::Command::new("sh")
-        .arg("-c")
+    let output = match std::process::Command::new(crate::subprocess::SHELL_INFO.binary)
+        .arg(crate::subprocess::SHELL_INFO.exec_flag)
         .arg(&full_cmd)
         .current_dir(project_root)
         .output()

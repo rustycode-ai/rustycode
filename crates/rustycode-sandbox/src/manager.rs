@@ -91,7 +91,7 @@ impl SandboxManager {
         #[cfg(windows)]
         let (shell, arg) = ("cmd", "/C");
         #[cfg(not(windows))]
-        let (shell, arg) = ("/bin/sh", "-c");
+        let (shell, arg) = ("sh", "-c");
 
         let output = tokio::process::Command::new(shell)
             .arg(arg)

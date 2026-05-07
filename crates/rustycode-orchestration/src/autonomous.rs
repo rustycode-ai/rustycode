@@ -457,8 +457,8 @@ impl AutonomousService {
     }
 
     fn run_validation_command(&self, command: &str) -> Result<bool> {
-        let status = Command::new("sh")
-            .arg("-lc")
+        let status = Command::new(rustycode_tools::subprocess::SHELL_INFO.binary)
+            .arg(rustycode_tools::subprocess::SHELL_INFO.exec_flag)
             .arg(command)
             .current_dir(&self.config.workspace)
             .status()

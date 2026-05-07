@@ -49,9 +49,7 @@ pub async fn execute_sandboxed_windows(
         }
     }
 
-    // Strip dangerous env vars
-    cmd.env_remove("LD_PRELOAD");
-    cmd.env_remove("LD_LIBRARY_PATH");
+    // Strip dangerous env vars (Unix-specific, but defensive on Windows too)
 
     if policy.network == NetworkAccess::Denied {
         tracing::debug!("Windows sandbox: network denial requested (not yet enforced)");

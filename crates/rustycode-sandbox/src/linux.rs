@@ -54,7 +54,7 @@ pub async fn execute_sandboxed_linux(
     command: &str,
     policy: &SandboxPolicy,
 ) -> Result<SandboxResult, SandboxError> {
-    let mut cmd = tokio::process::Command::new("/bin/sh");
+    let mut cmd = tokio::process::Command::new("sh");
     cmd.arg("-c").arg(command);
 
     // Restrict environment
@@ -74,7 +74,6 @@ pub async fn execute_sandboxed_linux(
     // Strip dangerous env vars
     cmd.env_remove("LD_PRELOAD");
     cmd.env_remove("LD_LIBRARY_PATH");
-    cmd.env_remove("DYLD_INSERT_LIBRARIES");
 
     if policy.network == NetworkAccess::Denied {
         tracing::debug!(

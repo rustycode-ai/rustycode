@@ -262,8 +262,8 @@ pub async fn run_shell_command(command: &str, timeout: Duration) -> Result<std::
             crate::subprocess::configure_subprocess(&mut cmd);
             cmd.output().await
         } else {
-            let mut cmd = Command::new("sh");
-            cmd.args(["-c", command])
+            let mut cmd = Command::new(crate::subprocess::SHELL_INFO.binary);
+            cmd.args([crate::subprocess::SHELL_INFO.exec_flag, command])
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .stdin(Stdio::null());
