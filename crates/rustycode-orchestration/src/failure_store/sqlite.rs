@@ -203,13 +203,18 @@ impl FailurePatternStore for SqliteFailureStore {
     fn get_escalation_success_rate(&self, error: &SignalCategory) -> Result<Option<f64>> {
         let conn = self.lock();
         let category_json = encode_category(error);
-        let rate: Option<f64> = conn
-            .query_row(
-                "SELECT AVG(escalation_success_rate) FROM failure_patterns WHERE error_category = ?",
-                params![category_json],
-                |r| r.get(0),
-            )
-            .ok();
+        let rate: Option<f64> = match conn.query_row(
+            "SELECT AVG(escalation_success_rate) FROM failure_patterns WHERE error_category = ?",
+            params![category_json],
+            |r| r.get(0),
+        ) {
+            Ok(rate) => Some(rate),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => {
+                tracing::debug!(error = %e, "failure pattern rate query failed");
+                None
+            }
+        };
         Ok(rate)
     }
 

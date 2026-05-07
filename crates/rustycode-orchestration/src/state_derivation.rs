@@ -221,7 +221,11 @@ impl StateDeriver {
             );
         }
 
-        let active_milestone = milestones.iter().find(|m| !m.complete).map(|m| {
+        // Single-pass: find active milestone → active slice → active task
+        // Previous code re-searched milestones 4 times; now references chain directly.
+        let active_milestone_state = milestones.iter().find(|m| !m.complete);
+
+        let active_milestone = active_milestone_state.map(|m| {
             debug!("Found active milestone: {}", m.id);
             MilestoneRef {
                 id: m.id.clone(),
@@ -235,65 +239,34 @@ impl StateDeriver {
             active_milestone.as_ref().map(|m| &m.id)
         );
 
-        #[allow(clippy::option_map_or_none)]
-        let active_slice = active_milestone.as_ref().map_or(None, |am| {
-            milestones
-                .iter()
-                .find(|m| m.id == am.id)
-                .and_then(|m| m.slices.iter().find(|s| !s.done))
-                .map(|s| SliceRef {
-                    id: s.id.clone(),
-                    title: s.title.clone(),
-                    path: s.path.clone(),
-                })
+        let active_slice_state = active_milestone_state.and_then(|m| {
+            m.slices.iter().find(|s| !s.done)
         });
 
-        let active_task = active_slice.as_ref().map_or_else(
-            || {
-                debug!("No active slice, so no active task");
-                None
-            },
-            |aslice| {
-                debug!("Looking for active task in slice: {}", aslice.id);
-                let result = milestones
-                    .iter()
-                    .find(|m| {
-                        m.id == active_milestone
-                            .as_ref()
-                            .map(|am| am.id.clone())
-                            .unwrap_or_default()
-                    })
-                    .and_then(|m| {
-                        debug!("Found milestone: {}", m.id);
-                        debug!(
-                            "  Slices: {:?}",
-                            m.slices
-                                .iter()
-                                .map(|s| (&s.id, s.done, s.tasks.len()))
-                                .collect::<Vec<_>>()
-                        );
-                        m.slices.iter().find(|s| s.id == aslice.id)
-                    })
-                    .and_then(|s| {
-                        debug!("Found slice: {} with {} tasks", s.id, s.tasks.len());
-                        debug!(
-                            "  Tasks: {:?}",
-                            s.tasks.iter().map(|t| (&t.id, t.done)).collect::<Vec<_>>()
-                        );
-                        s.tasks.iter().find(|t| !t.done)
-                    })
-                    .map(|t| {
-                        debug!("Found active task: {}", t.id);
-                        TaskRef {
-                            id: t.id.clone(),
-                            title: t.title.clone(),
-                            path: t.path.clone(),
-                            done: t.done,
-                        }
-                    });
-                result
-            },
-        );
+        let active_slice = active_slice_state.map(|s| {
+            debug!(
+                "Found active slice: {} with {} tasks",
+                s.id,
+                s.tasks.len()
+            );
+            SliceRef {
+                id: s.id.clone(),
+                title: s.title.clone(),
+                path: s.path.clone(),
+            }
+        });
+
+        let active_task = active_slice_state.and_then(|s| {
+            s.tasks.iter().find(|t| !t.done).map(|t| {
+                debug!("Found active task: {}", t.id);
+                TaskRef {
+                    id: t.id.clone(),
+                    title: t.title.clone(),
+                    path: t.path.clone(),
+                    done: t.done,
+                }
+            })
+        });
 
         let phase = if milestones.is_empty() {
             Phase::Research
@@ -305,21 +278,8 @@ impl StateDeriver {
             if !plan_path.exists() {
                 Phase::Plan
             } else if task.done {
-                #[allow(clippy::unnecessary_map_or)]
-                let all_done = active_milestone.as_ref().map_or(false, |am| {
-                    milestones
-                        .iter()
-                        .find(|m| m.id == am.id)
-                        .and_then(|m| {
-                            m.slices.iter().find(|s| {
-                                s.id == active_slice
-                                    .as_ref()
-                                    .map(|s| s.id.clone())
-                                    .unwrap_or_default()
-                            })
-                        })
-                        .is_some_and(|s| s.tasks.iter().all(|t| t.done))
-                });
+                let all_done = active_slice_state
+                    .is_some_and(|s| s.tasks.iter().all(|t| t.done));
 
                 if all_done {
                     Phase::Complete
@@ -339,9 +299,7 @@ impl StateDeriver {
                 Phase::Plan
             }
         } else {
-            #[allow(clippy::if_same_then_else)]
-            let phase = Phase::Validate;
-            phase
+            Phase::Validate
         };
 
         Ok(OrchestraState {

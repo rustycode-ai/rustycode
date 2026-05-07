@@ -155,7 +155,18 @@ pub fn load_provider_config() -> Result<(String, String, ProviderConfig)> {
         let provider_type =
             std::env::var("RUSTYCODE_PROVIDER").unwrap_or_else(|_| "anthropic".to_string());
         let model = default_model_for_provider(&provider_type);
-        let api_key = std::env::var(api_key_env_name(&provider_type)).ok();
+        let api_key_env = api_key_env_name(&provider_type);
+        let api_key = match std::env::var(&api_key_env) {
+            Ok(key) => Some(key),
+            Err(std::env::VarError::NotPresent) => {
+                tracing::debug!(env_var = %api_key_env, "API key env var not set");
+                None
+            }
+            Err(std::env::VarError::NotUnicode(_)) => {
+                tracing::warn!(env_var = %api_key_env, "API key env var contains non-UTF8 value");
+                None
+            }
+        };
 
         Ok((
             provider_type.clone(),

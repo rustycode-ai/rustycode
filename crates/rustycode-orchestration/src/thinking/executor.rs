@@ -292,7 +292,13 @@ impl RealExecutor {
                 if backtrack_count < max_backtracks {
                     if let Some(leaf_id) = graph.thoughts().last().map(|t| t.id) {
                         if let Some(_anchor_id) = graph.find_nearest_anchor(leaf_id, 0.8) {
-                            graph.prune_branch(leaf_id).ok();
+                            if let Err(e) = graph.prune_branch(leaf_id) {
+                                tracing::warn!(
+                                    leaf_id = %leaf_id,
+                                    error = %e,
+                                    "failed to prune stagnant branch during backtracking"
+                                );
+                            }
                             backtrack_count += 1;
                             continue;
                         }
