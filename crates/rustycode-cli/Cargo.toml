@@ -51,6 +51,8 @@ rustycode-storage = { path = "../rustycode-storage" }
 rustycode-team = { path = "../rustycode-team" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 rustycode-ws-server = { path = "../rustycode-ws-server" }
+reqwest.workspace = true
+tempfile.workspace = true
 axum.workspace = true
 tower-http = { workspace = true, features = ["fs"] }
 futures-util.workspace = true
@@ -58,7 +60,6 @@ colored.workspace = true
 async-trait.workspace = true
 
 [dev-dependencies]
-tempfile.workspace = true
 
 [lints]
 workspace = true

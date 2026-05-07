@@ -237,6 +237,18 @@ enum Command {
         #[command(subcommand)]
         command: AstCommand,
     },
+    /// Self-update to the latest release.
+    Update {
+        /// Check for updates without installing
+        #[arg(long)]
+        check: bool,
+        /// Update to latest nightly (prerelease) instead of stable
+        #[arg(long)]
+        nightly: bool,
+        /// Target version tag (e.g. v0.2.0). Defaults to latest.
+        #[arg(long)]
+        target: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -1101,6 +1113,18 @@ async fn async_main() -> Result<()> {
             commands::bench_cmd::execute(command).await?;
         }
         Command::Ast { command } => commands::ast_cmd::execute(&cwd, command).await?,
+        Command::Update {
+            check,
+            nightly,
+            target,
+        } => {
+            let args = commands::update_cmd::UpdateArgs {
+                check,
+                nightly,
+                target,
+            };
+            commands::update_cmd::execute(&args).await?
+        }
         #[allow(unreachable_patterns)]
         _ => {
             anyhow::bail!("Unknown command. Run 'rustycode --help' for available commands.");

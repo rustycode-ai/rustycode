@@ -13,6 +13,7 @@ pub mod provider_command;
 pub mod skills_cmd;
 pub mod swebench_command;
 pub mod web_start;
+pub mod update_cmd;
 pub mod worktree_cmd;
 
 pub use cli_args::*;
