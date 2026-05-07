@@ -136,8 +136,10 @@ impl PolishedRenderer {
         // Content width for wrapped line estimation (border column + space prefix)
         let est_content_width = area.width.saturating_sub(1).max(1) as usize;
 
-        let estimated_auto_scroll_start = if !tui.view.user_scrolled {
-            let mut est_total: usize = 0;
+        // Compute full estimated total from ALL messages (including fast-skipped ones).
+        // This is reused for both auto-scroll start calculation and last_total_lines.
+        let mut full_estimated_total: usize = 0;
+        {
             let mut prev_was_system = false;
             for msg in &tui.messages {
                 let is_system = matches!(msg.role, crate::ui::message::MessageRole::System);
@@ -146,10 +148,13 @@ impl PolishedRenderer {
                     .message_renderer
                     .estimate_message_height(msg, est_content_width)
                     + separator;
-                est_total += msg_lines.max(1);
+                full_estimated_total += msg_lines.max(1);
                 prev_was_system = is_system;
             }
-            est_total.saturating_sub(safe_viewport_height)
+        }
+
+        let estimated_auto_scroll_start = if !tui.view.user_scrolled {
+            full_estimated_total.saturating_sub(safe_viewport_height)
         } else {
             tui.view.scroll_offset_line
         };
@@ -340,8 +345,7 @@ impl PolishedRenderer {
             .sum();
         total_lines += separator_count;
 
-        // Save total lines for scroll initialization
-        tui.view.last_total_lines.set(total_lines);
+        tui.view.last_total_lines.set(full_estimated_total);
 
         // Ensure viewport_height is at least 1 to avoid division issues
         let safe_viewport_height = viewport_height.max(1);
@@ -369,7 +373,7 @@ impl PolishedRenderer {
         {
             let mut offsets = tui.message_line_offsets.borrow_mut();
             offsets.clear();
-            offsets.resize(tui.messages.len(), 0);
+            offsets.resize(tui.messages.len(), usize::MAX);
             let mut acc = 0usize;
             for (chunk_idx, (msg_idx, _, lines, is_system)) in render_chunks.iter().enumerate() {
                 let prev_is_system =
@@ -380,7 +384,7 @@ impl PolishedRenderer {
                     0
                 };
                 acc += separator;
-                if offsets[*msg_idx] == 0 {
+                if offsets[*msg_idx] == usize::MAX {
                     offsets[*msg_idx] = acc;
                 }
                 // Account for line wrapping — each rendered line may occupy

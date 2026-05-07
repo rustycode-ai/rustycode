@@ -451,7 +451,9 @@ impl SchemaValidator {
             }
         });
 
-        let _ = self.register_schema("base", &base_schema);
+        if let Err(e) = self.register_schema("base", &base_schema) {
+            tracing::error!(error = %e, "failed to register base config schema");
+        }
 
         // Provider config schema
         let provider_schema = json!({
@@ -486,7 +488,9 @@ impl SchemaValidator {
             }
         });
 
-        let _ = self.register_schema("provider", &provider_schema);
+        if let Err(e) = self.register_schema("provider", &provider_schema) {
+            tracing::error!(error = %e, "failed to register provider config schema");
+        }
 
         // Workspace config schema
         let workspace_schema = json!({
@@ -510,7 +514,9 @@ impl SchemaValidator {
             }
         });
 
-        let _ = self.register_schema("workspace", &workspace_schema);
+        if let Err(e) = self.register_schema("workspace", &workspace_schema) {
+            tracing::error!(error = %e, "failed to register workspace config schema");
+        }
 
         // TUI configuration schema
         let tui_schema = json!({
@@ -543,7 +549,9 @@ impl SchemaValidator {
                 }
             }
         });
-        let _ = self.register_schema("tui", &tui_schema);
+        if let Err(e) = self.register_schema("tui", &tui_schema) {
+            tracing::error!(error = %e, "failed to register tui config schema");
+        }
     }
 }
 

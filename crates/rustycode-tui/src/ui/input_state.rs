@@ -286,19 +286,25 @@ impl InputState {
         if let Some(line) = self.lines.get_mut(self.cursor_row) {
             let col = line.floor_char_boundary(self.cursor_col);
             let text_after = &line[col..];
-
-            // Find the end of the current word
             let mut end_pos = col;
-
-            for (offset, c) in text_after.char_indices() {
+            let mut chars = text_after.char_indices().peekable();
+            while let Some((offset, c)) = chars.peek() {
+                if c.is_whitespace() {
+                    end_pos = col + offset + c.len_utf8();
+                    chars.next();
+                } else {
+                    break;
+                }
+            }
+            for (offset, c) in chars {
                 if c.is_whitespace() {
                     break;
                 }
                 end_pos = col + offset + c.len_utf8();
             }
-
-            // Remove from cursor to word end
-            line.drain(col..end_pos);
+            if end_pos > col {
+                line.drain(col..end_pos);
+            }
             self.cursor_col = col;
         }
     }

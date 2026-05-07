@@ -260,7 +260,9 @@ impl TUI {
                 // Use actual line offsets from last render, with rough fallback
                 let target_line = {
                     let offsets = self.message_line_offsets.borrow();
-                    offsets.get(msg_idx).copied().unwrap_or(msg_idx * 3)
+                    offsets.get(msg_idx).copied()
+                        .filter(|&o| o != usize::MAX)
+                        .unwrap_or(msg_idx * 3)
                 };
                 let max_scroll = self
                     .view
@@ -288,7 +290,9 @@ impl TUI {
                 // Scroll to show this message
                 let target_line = {
                     let offsets = self.message_line_offsets.borrow();
-                    offsets.get(i).copied().unwrap_or(i * 3)
+                    offsets.get(i).copied()
+                        .filter(|&o| o != usize::MAX)
+                        .unwrap_or(i * 3)
                 };
                 let max_scroll = self
                     .view
@@ -323,7 +327,9 @@ impl TUI {
                 // Scroll to show this message
                 let target_line = {
                     let offsets = self.message_line_offsets.borrow();
-                    offsets.get(i).copied().unwrap_or(i * 3)
+                    offsets.get(i).copied()
+                        .filter(|&o| o != usize::MAX)
+                        .unwrap_or(i * 3)
                 };
                 let max_scroll = self
                     .view
