@@ -12,7 +12,7 @@ fn uri_from_file_path(path: impl AsRef<std::path::Path>) -> Url {
 }
 
 #[tokio::test]
-#[ignore] // Requires rust-analyzer installed and responsive; unreliable on CI
+#[ignore = "requires rust-analyzer installed and responsive; unreliable on CI"]
 #[allow(clippy::unwrap_used)]
 async fn test_lsp_active_verification() {
     let config = LspClientConfig {
