@@ -1,7 +1,7 @@
 //! Tests for the Anthropic provider.
 
 use super::*;
-use crate::provider::{CompletionResponse, EffortLevel, LLMProvider, ThinkingBlock};
+use crate::provider::{CompletionResponse, LLMProvider, ThinkingBlock};
 use secrecy::SecretString;
 
 use super::helpers::{

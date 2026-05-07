@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
-pub(crate) struct AnthropicRequest {
+pub struct AnthropicRequest {
     pub model: String,
     pub messages: Vec<AnthropicMessage>,
     pub max_tokens: u32,
@@ -35,7 +35,7 @@ pub(crate) struct AnthropicRequest {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct AnthropicResponse {
+pub struct AnthropicResponse {
     pub content: Vec<AnthropicContent>,
     pub usage: AnthropicUsage,
     pub model: String,
@@ -57,7 +57,7 @@ pub(crate) struct AnthropicResponse {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct AnthropicContent {
+pub struct AnthropicContent {
     #[serde(rename = "type")]
     pub content_type: String,
     #[serde(default)]
@@ -89,7 +89,7 @@ pub(crate) struct AnthropicContent {
 /// Citation within an Anthropic content block.
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)] // Kept for future use
-pub(crate) struct AnthropicCitation {
+pub struct AnthropicCitation {
     #[serde(rename = "type")]
     pub citation_type: String,
     #[serde(default)]
@@ -103,7 +103,7 @@ pub(crate) struct AnthropicCitation {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct AnthropicUsage {
+pub struct AnthropicUsage {
     pub input_tokens: usize,
     pub output_tokens: usize,
 
@@ -118,7 +118,7 @@ pub(crate) struct AnthropicUsage {
 }
 
 #[derive(Serialize)]
-pub(crate) struct AnthropicMessage {
+pub struct AnthropicMessage {
     pub role: &'static str,
     pub content: AnthropicRequestContent,
 }
@@ -126,7 +126,7 @@ pub(crate) struct AnthropicMessage {
 #[derive(Serialize, Debug)]
 #[serde(untagged)]
 #[allow(dead_code)] // Kept for future use
-pub(crate) enum AnthropicRequestContent {
+pub enum AnthropicRequestContent {
     Text(String),
     Blocks(Vec<ContentBlock>),
 }
@@ -134,7 +134,7 @@ pub(crate) enum AnthropicRequestContent {
 /// Content for tool_result blocks: either a plain string or an array of typed blocks.
 #[derive(Serialize, Clone, Debug)]
 #[serde(untagged)]
-pub(crate) enum ToolResultContent {
+pub enum ToolResultContent {
     Text(String),
     Blocks(Vec<ToolResultBlock>),
 }
@@ -168,7 +168,7 @@ impl PartialEq<String> for ToolResultContent {
 
 /// A single block inside a tool_result content array.
 #[derive(Serialize, Clone, Debug)]
-pub(crate) struct ToolResultBlock {
+pub struct ToolResultBlock {
     #[serde(rename = "type")]
     pub block_type: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -177,7 +177,7 @@ pub(crate) struct ToolResultBlock {
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(untagged)]
-pub(crate) enum ContentBlock {
+pub enum ContentBlock {
     Text {
         #[serde(rename = "type")]
         content_type: &'static str,
@@ -236,7 +236,7 @@ pub(crate) enum ContentBlock {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub(crate) struct ImageSource {
+pub struct ImageSource {
     #[serde(rename = "type")]
     pub source_type: String,
     pub media_type: String,
@@ -280,7 +280,7 @@ pub struct CacheControl {
 
 /// System prompt content block with optional cache control.
 #[derive(Serialize, Clone, Debug)]
-pub(crate) struct SystemContentBlock {
+pub struct SystemContentBlock {
     #[serde(rename = "type")]
     pub block_type: &'static str,
     pub text: String,
@@ -291,7 +291,7 @@ pub(crate) struct SystemContentBlock {
 /// System prompt: either a plain string or an array of content blocks.
 #[derive(Serialize, Clone, Debug)]
 #[serde(untagged)]
-pub(crate) enum SystemPrompt {
+pub enum SystemPrompt {
     #[allow(dead_code)] // Used when system prompt doesn't need cache_control
     Text(String),
     Blocks(Vec<SystemContentBlock>),

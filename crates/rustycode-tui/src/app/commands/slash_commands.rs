@@ -597,7 +597,7 @@ pub fn handle_harness_command(parts: &[&str], _ctx: CommandContext<'_>) -> Resul
             }
         }
         "run" => Ok(CommandEffect::SystemMessage(
-            "Harness run requires the full CLI.\n\nUse: rustycode-cli harness run".to_string(),
+            "Harness run requires the full CLI.\n\nUse: rustycode harness run".to_string(),
         )),
         _ => Ok(CommandEffect::SystemMessage(format!(
             "Unknown harness command: {}\n\nUsage: /harness <status|init|add|run>",

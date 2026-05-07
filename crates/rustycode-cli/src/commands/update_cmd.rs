@@ -178,9 +178,9 @@ async fn download_and_replace(release: &ReleaseInfo, exe_path: &Path) -> Result<
 
     // Find the binary
     let binary_name = if cfg!(windows) {
-        "rustycode-cli.exe"
+        "rustycode.exe"
     } else {
-        "rustycode-cli"
+        "rustycode"
     };
 
     let new_binary = find_file_recursive(tmp_dir.path(), binary_name)

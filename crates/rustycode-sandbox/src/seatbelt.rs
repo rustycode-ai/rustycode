@@ -18,6 +18,15 @@ fn validate_sbpl_path(path: &std::path::Path) -> Result<std::path::Display<'_>, 
             s
         )));
     }
+    // Block path traversal components that could escape subpath restrictions
+    for component in path.components() {
+        if component == std::path::Component::ParentDir {
+            return Err(SandboxError::ExecutionFailed(format!(
+                "Path contains traversal component: {}",
+                s
+            )));
+        }
+    }
     Ok(path.display())
 }
 
@@ -165,5 +174,15 @@ mod tests {
         let policy = SandboxPolicy::permissive(PathBuf::from("/tmp/workspace").as_path());
         let sbpl = generate_sbpl(&policy).unwrap();
         assert!(sbpl.contains("(allow network*)"));
+    }
+
+    #[test]
+    fn test_validate_sbpl_blocks_traversal() {
+        // Parent directory components must be rejected
+        assert!(validate_sbpl_path(PathBuf::from("../../../etc/passwd").as_path()).is_err());
+        assert!(validate_sbpl_path(PathBuf::from("sub/../../../etc").as_path()).is_err());
+        // Normal paths are fine
+        assert!(validate_sbpl_path(PathBuf::from("/tmp/workspace").as_path()).is_ok());
+        assert!(validate_sbpl_path(PathBuf::from("subdir/file.txt").as_path()).is_ok());
     }
 }

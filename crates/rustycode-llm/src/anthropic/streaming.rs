@@ -3,11 +3,10 @@
 //! Contains the `complete_stream_internal` method that builds streaming requests
 //! and parses SSE events into structured `StreamEvent` results.
 
-use crate::advisor::{AdvisorConfig, AdvisorTool};
+use crate::advisor::AdvisorTool;
 use crate::provider::{
     CompletionRequest, ProviderError, StreamChunk, Usage,
 };
-use crate::provider_metadata::PromptLength;
 use futures::{Stream, StreamExt};
 use rustycode_protocol::stream_event::StreamEvent;
 use std::collections::HashMap;
@@ -19,12 +18,12 @@ use super::helpers::{
     normalize_thinking_for_model,
 };
 use super::types::{
-    AnthropicMessage, AnthropicRequest, CacheControl, SystemContentBlock, SystemPrompt,
+    AnthropicRequest, CacheControl, SystemContentBlock, SystemPrompt,
 };
 
 impl super::AnthropicProvider {
     /// Internal implementation of streaming completion without retry logic.
-    pub(crate) async fn complete_stream_internal(
+    pub async fn complete_stream_internal(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {

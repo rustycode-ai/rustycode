@@ -6,16 +6,19 @@ This file provides guidance to anyone (human or AI) working with the RustyCode c
 
 RustyCode is an AI-powered autonomous development framework built in Rust. It provides an interactive TUI, a CLI, and an autonomous development mode (Autonomous Mode) with multi-provider LLM support.
 
-**Repository**: https://github.com/luengnat/rustycode
+**Repository (dev)**: https://github.com/luengnat/rustycode
+**Releases**: https://github.com/rustycode-ai/rustycode
+**Install page**: https://rustycode-ai.github.io/
 **License**: MIT
 **Rust Edition**: 2021
+**Current Release**: v0.1.0
 **Minimum Rust Version**: See `Cargo.toml` (MSRV not formally specified; use latest stable)
 
 ## Architecture Status
 
 See `/docs/architecture/ARCHITECTURE-REVIEW-2026-04-20.md` for the full analysis.
 
-**Resolved P0 issues:** Unified `LLMProvider` trait, `CheckpointRecovery` complete, orchestration crate consolidation (deep-thinker/orchestra merged into `rustycode-orchestration`).
+**Resolved P0 issues:** Unified `LLMProvider` trait, `CheckpointRecovery` complete, orchestration crate consolidation (deep-thinker/orchestra merged into `rustycode-orchestration`), module splits (bus/events, llm/openai, llm/anthropic, git/*, storage/*).
 
 **Remaining P0:** Circular dependency `rustycode-llm` ↔ `rustycode-tools` — mitigated by `rustycode-tool-integration` shim crate.
 

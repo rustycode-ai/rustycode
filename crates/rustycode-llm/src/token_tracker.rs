@@ -169,13 +169,18 @@ impl TokenTracker {
         let mut by_model: HashMap<String, ModelUsage> = HashMap::new();
         let mut by_provider: HashMap<String, ProviderUsage> = HashMap::new();
 
-        // Use lock-free counters for totals (no need to recalculate from history)
-        let total_tokens = self.total_tokens.load(Ordering::Relaxed);
-        let total_requests = self.request_count.load(Ordering::Relaxed);
-        let total_cost = self.total_cost_cents.load(Ordering::Relaxed) as f64 / 100.0;
+        // Calculate totals from history for consistency with per-model/per-provider breakdowns.
+        // The lock-free atomic counters use truncated integer cents and can diverge from the
+        // exact float sums accumulated here.
+        let mut total_tokens: u64 = 0;
+        let mut total_requests: u64 = 0;
+        let mut total_cost_usd: f64 = 0.0;
 
-        // Only calculate per-model and per-provider breakdowns from history
         for req in &inner.history {
+            total_tokens += req.tokens_used;
+            total_requests += 1;
+            total_cost_usd += req.cost_usd;
+
             // By model tracking
             let entry = by_model
                 .entry(req.model.clone())
@@ -235,7 +240,7 @@ impl TokenTracker {
             by_provider,
             total_tokens,
             total_requests,
-            total_cost_usd: total_cost,
+            total_cost_usd,
         }
     }
 

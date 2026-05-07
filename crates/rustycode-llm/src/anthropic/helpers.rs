@@ -14,7 +14,7 @@ use super::types::{
 
 /// Parse the `content` field of a tool_result JSON value.
 /// Anthropic allows either a plain string or an array of typed blocks.
-pub(crate) fn parse_tool_result_content(value: &serde_json::Value) -> ToolResultContent {
+pub fn parse_tool_result_content(value: &serde_json::Value) -> ToolResultContent {
     if let Some(s) = value.as_str() {
         ToolResultContent::Text(s.to_string())
     } else if let Some(arr) = value.as_array() {
@@ -42,7 +42,7 @@ pub(crate) fn parse_tool_result_content(value: &serde_json::Value) -> ToolResult
 }
 
 /// Map Anthropic API errors to ProviderError
-pub(crate) fn map_anthropic_error(
+pub fn map_anthropic_error(
     status: reqwest::StatusCode,
     error_text: &str,
     headers: &reqwest::header::HeaderMap,
@@ -72,7 +72,7 @@ pub(crate) fn map_anthropic_error(
 
 /// Map Anthropic structured error to ProviderError
 /// See: https://platform.claude.com/docs/en/api/errors
-pub(crate) fn map_anthropic_structured_error(
+pub fn map_anthropic_structured_error(
     status: reqwest::StatusCode,
     error_type: &str,
     message: &str,
@@ -108,7 +108,7 @@ pub(crate) fn map_anthropic_structured_error(
 }
 
 /// Check if a model ID is Opus 4.7 or later (where thinking.type="enabled" is removed).
-pub(crate) fn is_opus_47_or_later(model: &str) -> bool {
+pub fn is_opus_47_or_later(model: &str) -> bool {
     let m = model.to_lowercase();
     m.contains("opus-4-7")
         || m.contains("opus-4.7")
@@ -124,7 +124,7 @@ pub(crate) fn is_opus_47_or_later(model: &str) -> bool {
 ///
 /// When effort is Xhigh or Max on a thinking-capable model and no thinking config
 /// is provided, adaptive thinking is auto-enabled.
-pub(crate) fn normalize_thinking_for_model(
+pub fn normalize_thinking_for_model(
     thinking: Option<crate::provider::ThinkingConfig>,
     effort: Option<crate::provider::EffortLevel>,
     model: &str,
@@ -167,7 +167,7 @@ pub(crate) fn normalize_thinking_for_model(
 /// Anthropic allows up to 4 cache breakpoints per request. This function targets
 /// the last `count` messages, adding cache_control to their final content block.
 /// Matches the opencode `cc()` pattern for optimal prefix caching.
-pub(crate) fn apply_cache_to_last_messages(messages: &mut [AnthropicMessage], count: usize) {
+pub fn apply_cache_to_last_messages(messages: &mut [AnthropicMessage], count: usize) {
     let cc = CacheControl {
         cache_type: "ephemeral",
     };

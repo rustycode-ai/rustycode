@@ -19,9 +19,13 @@ pub enum NetworkAccess {
 impl SandboxPolicy {
     /// Restrictive: read/write workspace only, no network.
     pub fn restrictive(workspace_root: &std::path::Path) -> Self {
+        // Canonicalize to resolve symlinks — prevents escape via symlink chains
+        let root = workspace_root
+            .canonicalize()
+            .unwrap_or_else(|_| workspace_root.to_path_buf());
         Self {
-            read_paths: vec![workspace_root.to_path_buf()],
-            write_paths: vec![workspace_root.to_path_buf()],
+            read_paths: vec![root.clone()],
+            write_paths: vec![root],
             network: NetworkAccess::Denied,
             env_passthrough: vec!["PATH".into(), "HOME".into(), "LANG".into(), "TERM".into()],
             max_memory_mb: Some(512),
@@ -31,9 +35,13 @@ impl SandboxPolicy {
 
     /// Permissive: read anywhere, write workspace, network allowed.
     pub fn permissive(workspace_root: &std::path::Path) -> Self {
+        // Canonicalize to resolve symlinks — prevents escape via symlink chains
+        let root = workspace_root
+            .canonicalize()
+            .unwrap_or_else(|_| workspace_root.to_path_buf());
         Self {
             read_paths: vec![PathBuf::from("/")],
-            write_paths: vec![workspace_root.to_path_buf()],
+            write_paths: vec![root],
             network: NetworkAccess::Allowed,
             env_passthrough: vec![],
             max_memory_mb: None,

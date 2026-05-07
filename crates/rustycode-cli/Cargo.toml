@@ -17,7 +17,7 @@ vector-memory = [
 ]
 
 [[bin]]
-name = "rustycode-cli"
+name = "rustycode"
 path = "src/main.rs"
 
 [dependencies]

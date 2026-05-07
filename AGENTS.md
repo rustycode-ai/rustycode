@@ -9,13 +9,15 @@ Checklist (what this file contains)
 
 Important high-level facts
 - Workspace-style Rust monorepo. Key crates you will use often:
-  - `crates/rustycode-cli` — CLI & TUI entrypoint (run with `cargo run -p rustycode-cli -- ...`).
+  - `crates/rustycode-cli` — CLI & TUI entrypoint (run with `cargo run -p rustycode-cli -- ...`). Includes `rustycode update` self-update command.
   - `crates/rustycode-orchestration` — Autonomous execution core (reasoning loops, AST pipeline). This is the orchestration boundary and the single canonical place for autonomous algorithms. See `crates/rustycode-orchestration/README.md` for module map.
   - `crates/rustycode-core` — Session management, headless runtime.
   - `crates/rustycode-llm` — LLM provider abstraction; implementors (Anthropic/OpenAI) live here. Use `LLMProvider` trait.
   - `crates/rustycode-tools` / `rustycode-tools-api` — Tools, tool executors, and security checks.
   - `crates/rustycode-protocol` — Shared cross-crate types and messages (use this for typed integration).
   - `crates/rustycode-bus` — Event bus (pub/sub) used for cross-crate eventing.
+- Two repos: `luengnat/rustycode` (dev, private) and `rustycode-ai/rustycode` (release, public). Release builds pull source from the dev repo via `PRIVATE_REPO_PAT`.
+- Release workflow: `.github/workflows/build-release.yml` on `rustycode-ai/rustycode` — supports `stable` and `nightly` channels, builds 5 platforms (Linux x64/ARM64, macOS ARM64/x64, Windows x64).
 
 Why the split matters (agent guidance)
 - Orchestration must not depend on CLI/TUI. If a change needs terminal/session awareness, modify `rustycode-cli` or `rustycode-tui` instead of orchestration.

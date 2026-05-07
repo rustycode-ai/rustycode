@@ -14,45 +14,60 @@ Rust-native AI-powered autonomous development framework.
 | Working on the codebase | [CLAUDE.md](CLAUDE.md) |
 | Agent-specific guidance | [AGENTS.md](AGENTS.md) |
 
+## Install
+
+### macOS / Linux
+
+```bash
+curl -fsSL https://rustycode-ai.github.io/install.sh | sh
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://rustycode-ai.github.io/install.ps1 | iex
+```
+
+### Nightly channel
+
+```bash
+curl -fsSL https://rustycode-ai.github.io/install.sh | sh -s -- --nightly
+```
+
+Downloads are available at [GitHub Releases](https://github.com/rustycode-ai/rustycode/releases).
+
 ## Quick Start
 
 ```bash
-# Build
-cargo build --release
-
 # Launch interactive TUI
-cargo run -- tui
+rustycode tui
 
 # Run a task directly
-cargo run -- "fix the authentication bug in src/auth.rs"
+rustycode "fix the authentication bug in src/auth.rs"
 
 # Autonomous agent mode
-cargo run -- agent new "implement user registration endpoint"
+rustycode agent new "implement user registration endpoint"
 
 # List available LLM providers
-cargo run -- provider list
+rustycode provider list
 
 # List installed skills
-cargo run -- skills list
+rustycode skills list
+
+# Self-update to latest release
+rustycode update
+
+# Check for updates without installing
+rustycode update --check
 ```
 
-## Install
-
-### Unix (Linux/macOS)
-
-Download from [GitHub Releases](https://github.com/rustycode-ai/rustycode/releases):
+## Build from Source
 
 ```bash
-# macOS arm64
-curl -sSL https://github.com/rustycode-ai/rustycode/releases/latest/download/rustycode-macos-arm64.tar.gz | tar xz
-chmod +x rustycode-macos-arm64 && mv rustycode-macos-arm64 /usr/local/bin/rustycode
+cargo build --release
 ```
 
-### Windows
-
-Download `rustycode-windows-x86_64.zip` from [GitHub Releases](https://github.com/rustycode-ai/rustycode/releases).
-
-## Build Requirements
+### Build Requirements
 
 - Linux: `protobuf-compiler`, `libssl-dev`, `pkg-config`
 - macOS: `protobuf` via Homebrew
