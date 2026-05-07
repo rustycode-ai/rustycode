@@ -9,9 +9,22 @@ use std::fs;
 use std::path::Path;
 use walkdir::WalkDir;
 
-/// Native `cat` implementation
+/// Maximum file size for `native_cat` (256 KB).
+const MAX_FILE_SIZE: u64 = 256 * 1024;
+
+/// Native `cat` implementation.
+///
+/// Returns an error if the file exceeds 256 KB to prevent unbounded memory use.
 pub fn native_cat(path: &Path) -> Result<String> {
-    fs::read_to_string(path).context(format!("Failed to read file: {path:?}"))
+    let metadata = fs::metadata(path).with_context(|| format!("Failed to stat file: {path:?}"))?;
+    if metadata.len() > MAX_FILE_SIZE {
+        anyhow::bail!(
+            "File too large: {} bytes (max {} bytes): {path:?}",
+            metadata.len(),
+            MAX_FILE_SIZE
+        );
+    }
+    fs::read_to_string(path).with_context(|| format!("Failed to read file: {path:?}"))
 }
 
 /// Native `ls` implementation
@@ -133,6 +146,19 @@ mod tests {
     fn test_native_grep_missing_file() {
         let result = native_grep(Path::new("/nonexistent.txt"), "pattern");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_native_cat_rejects_large_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("large.txt");
+        // Write a file larger than MAX_FILE_SIZE (256 KB)
+        let big_content = "x".repeat((MAX_FILE_SIZE + 1) as usize);
+        fs::write(&file_path, &big_content).unwrap();
+        let result = native_cat(&file_path);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("too large"), "expected 'too large', got: {err}");
     }
 
     #[test]

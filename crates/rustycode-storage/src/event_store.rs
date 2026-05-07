@@ -279,7 +279,10 @@ impl EventStore {
         )?;
         let rows = stmt.query_map([], |row| {
             let s: String = row.get(0)?;
-            Ok(SessionId::parse(&s).unwrap_or_else(|_| SessionId::new()))
+            Ok(SessionId::parse(&s).unwrap_or_else(|_| {
+                tracing::warn!(session_id = s, "Corrupted session ID in database, generating new one");
+                SessionId::new()
+            }))
         })?;
 
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.into())
@@ -344,8 +347,14 @@ fn row_to_sync_event(row: &Row) -> Result<SyncEvent, rusqlite::Error> {
         .with_timezone(&Utc);
 
     Ok(SyncEvent {
-        id: EventId::parse(&id).unwrap_or_else(|_| EventId::new()),
-        session_id: SessionId::parse(&session_id).unwrap_or_else(|_| SessionId::new()),
+        id: EventId::parse(&id).unwrap_or_else(|_| {
+            tracing::warn!(id, "Corrupted event ID in database, generating new one");
+            EventId::new()
+        }),
+        session_id: SessionId::parse(&session_id).unwrap_or_else(|_| {
+            tracing::warn!(session_id, "Corrupted session ID in database, generating new one");
+            SessionId::new()
+        }),
         sequence: sequence as u64,
         at: at_dt,
         payload,

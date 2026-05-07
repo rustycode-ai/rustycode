@@ -425,7 +425,9 @@ impl PermissionClassifier {
             .map(|v| (v.command.as_str(), v))
             .collect();
         if let Ok(json) = serde_json::to_string(&serializable) {
-            let _ = std::fs::write(path, json);
+            if let Err(e) = std::fs::write(path, json) {
+                tracing::warn!("Failed to save permission classifier cache: {e}");
+            }
         }
     }
 }

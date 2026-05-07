@@ -1,6 +1,6 @@
 //! Token usage tracking for LLM API calls.
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -59,7 +59,7 @@ pub fn cost_per_million_tokens(model: &str) -> f64 {
 
 #[derive(Debug, Default)]
 struct TrackerInner {
-    history: Vec<TrackedRequest>,
+    history: VecDeque<TrackedRequest>,
 }
 
 /// Thread-safe token usage tracker with lock-free counters
@@ -97,7 +97,7 @@ impl TokenTracker {
         self.request_count.fetch_add(1, Ordering::Relaxed);
 
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        inner.history.push(TrackedRequest {
+        inner.history.push_back(TrackedRequest {
             provider_type: provider_type.to_string(),
             model: model.to_string(),
             tokens_used: tokens,
@@ -111,9 +111,8 @@ impl TokenTracker {
         });
 
         const MAX_HISTORY: usize = 10_000;
-        let len = inner.history.len();
-        if len > MAX_HISTORY {
-            inner.history.drain(0..len - MAX_HISTORY);
+        while inner.history.len() > MAX_HISTORY {
+            inner.history.pop_front();
         }
     }
 
@@ -144,7 +143,7 @@ impl TokenTracker {
 
         // Only lock for history append (rare operation)
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        inner.history.push(TrackedRequest {
+        inner.history.push_back(TrackedRequest {
             provider_type: provider_type.to_string(),
             model: model.to_string(),
             tokens_used: tokens,
@@ -159,9 +158,8 @@ impl TokenTracker {
 
         // Cap history to prevent unbounded memory growth
         const MAX_HISTORY: usize = 10_000;
-        let len = inner.history.len();
-        if len > MAX_HISTORY {
-            inner.history.drain(0..len - MAX_HISTORY);
+        while inner.history.len() > MAX_HISTORY {
+            inner.history.pop_front();
         }
     }
 

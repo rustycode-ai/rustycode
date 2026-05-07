@@ -96,13 +96,18 @@ impl WorkspaceMemory {
         tags: Vec<String>,
     ) -> Result<()> {
         let now = Utc::now();
+        let created_at = self
+            .entries
+            .get(name)
+            .map(|e| e.frontmatter.created_at)
+            .unwrap_or(now);
 
         let frontmatter = MemoryFrontmatter {
             name: name.to_string(),
             description: description.to_string(),
             memory_type,
             tags,
-            created_at: now,
+            created_at,
             updated_at: now,
         };
 
@@ -326,6 +331,42 @@ mod tests {
         assert_eq!(entry.frontmatter.name, "test-memory");
         assert_eq!(entry.frontmatter.memory_type, MemoryType::Project);
         assert!(entry.content.contains("authentication"));
+    }
+
+    #[test]
+    fn test_write_preserves_created_at() {
+        let dir = temp_dir();
+        let mut mgr = WorkspaceMemory::new(&dir).unwrap();
+
+        mgr.write(
+            "age-test",
+            MemoryType::Project,
+            "Original",
+            "v1 content",
+            vec![],
+        )
+        .unwrap();
+        let original_created = mgr.read("age-test").unwrap().frontmatter.created_at;
+
+        // Small sleep to ensure updated_at would differ
+        std::thread::sleep(std::time::Duration::from_millis(10));
+
+        mgr.write(
+            "age-test",
+            MemoryType::Project,
+            "Updated",
+            "v2 content",
+            vec![],
+        )
+        .unwrap();
+        let entry = mgr.read("age-test").unwrap();
+
+        assert_eq!(
+            entry.frontmatter.created_at, original_created,
+            "created_at should be preserved across updates"
+        );
+        assert!(entry.frontmatter.updated_at > original_created);
+        assert!(entry.content.contains("v2 content"));
     }
 
     #[test]

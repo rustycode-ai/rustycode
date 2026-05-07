@@ -1710,12 +1710,14 @@ impl TUI {
         if matches!(parts[0], "/yolo" | "/auto") {
             let current_mode = self.services.ai_mode();
             if matches!(current_mode, crate::services::agent_mode::AiMode::Yolo) {
+                self.exit_plan_mode();
                 self.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                 self.add_system_message(
                     "🔒 YOLO mode deactivated — tools require approval again.".to_string(),
                 );
             } else {
+                self.exit_plan_mode();
                 self.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Yolo);
                 self.add_system_message(
@@ -1736,12 +1738,14 @@ impl TUI {
         if matches!(parts[0], "/act") {
             let current_mode = self.services.ai_mode();
             if matches!(current_mode, crate::services::agent_mode::AiMode::Act) {
+                self.exit_plan_mode();
                 self.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                 self.add_system_message(
                     "💬 ACT mode deactivated — tools require approval again.".to_string(),
                 );
             } else {
+                self.exit_plan_mode();
                 self.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Act);
                 self.add_system_message(
@@ -1760,6 +1764,7 @@ impl TUI {
         }
 
         if matches!(parts[0], "/ask") {
+            self.exit_plan_mode();
             self.services
                 .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
             self.add_system_message(

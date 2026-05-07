@@ -193,6 +193,14 @@ impl TUI {
         self.set_plan_mode_banner(None);
     }
 
+    /// Fully exit plan mode: reset the execution gate, clear the banner, and
+    /// return to normal AiMode::Ask. Called when switching to any non-plan mode
+    /// (`/ask`, `/act`, `/yolo`) so that plan-mode tool restrictions don't linger.
+    pub(crate) fn exit_plan_mode(&mut self) {
+        self.plan_mode.reset();
+        self.clear_plan_mode_banner();
+    }
+
     /// Show that planning mode is active for a specific convoy.
     pub(crate) fn show_planning_banner(&mut self, convoy_id: &str) {
         self.session_sidebar.clear_milestone_progress();
