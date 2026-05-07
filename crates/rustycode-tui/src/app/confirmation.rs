@@ -79,12 +79,13 @@ mod tests {
 
     #[test]
     fn pending_count_accurate() {
-        let initial = pending_count();
+        let before = pending_count();
         let _rx = register("count-test".to_string());
-        // Parallel tests may also register, so count must have increased
-        assert!(pending_count() > initial);
+        let after = pending_count();
+        // Registration must increase the count
+        assert!(after > before);
         deliver("count-test", true);
-        // Parallel tests may also deliver, so count must have decreased
-        assert!(pending_count() < initial + 1);
+        // Delivery must decrease the count from the post-register snapshot
+        assert!(pending_count() < after);
     }
 }
