@@ -112,12 +112,11 @@ fn list_available_themes(theme_colors: &Arc<Mutex<ThemeColors>>) -> String {
     let current_name = get_current_theme_name(theme_colors);
 
     let mut output = String::from("\n═══════════════════════════════════════════════════\n");
-    output.push_str("           🎨 Available Themes 🎨\n");
+    output.push_str("          == Available Themes ==\n");
     output.push_str("═══════════════════════════════════════════════════\n\n");
 
     for (idx, theme) in themes_sorted.iter().enumerate() {
         let is_dark = is_dark_theme(&theme.colors.background);
-        let style_tag = if is_dark { "🌙" } else { "☀️" };
 
         // Format colors as hex codes
         let swatch = format!(
@@ -127,7 +126,7 @@ fn list_available_themes(theme_colors: &Arc<Mutex<ThemeColors>>) -> String {
 
         // Mark current theme
         let current_marker = if theme.name == current_name {
-            "▶ "
+            "> "
         } else {
             "  "
         };
@@ -140,8 +139,11 @@ fn list_available_themes(theme_colors: &Arc<Mutex<ThemeColors>>) -> String {
             swatch
         ));
         output.push_str(&format!(
-            "    {}  Primary: {:10} Success: {:10} Error: {:10}\n",
-            style_tag, &theme.colors.primary, &theme.colors.success, &theme.colors.error
+            "    [{:<5}] Primary: {}  Success: {}  Error: {}\n",
+            if is_dark { "dark" } else { "light" },
+            &theme.colors.primary,
+            &theme.colors.success,
+            &theme.colors.error
         ));
     }
 
