@@ -337,8 +337,22 @@ pub fn dispatch_registered_slash_command(
     Ok(None)
 }
 
+/// Slash command aliases that are handled in `handle_slash_command` but not
+/// registered as separate commands in `REGISTERED_SLASH_COMMANDS`.  The command
+/// palette needs to know about these so it does not intercept them with a
+/// fuzzy match when the user types an exact alias and presses Enter.
+const KNOWN_ALIASES: &[&str] = &["/r", "/regen"];
+
 pub fn is_registered_command(name: &str) -> bool {
     REGISTERED_SLASH_COMMANDS
         .iter()
         .any(|plugin| plugin.names.contains(&name))
+}
+
+/// Returns `true` if `name` is a registered command or a known alias.
+///
+/// Used by the command palette to decide whether to treat the typed text as
+/// an exact command (bypassing fuzzy selection) on Enter.
+pub fn is_known_slash_command(name: &str) -> bool {
+    is_registered_command(name) || KNOWN_ALIASES.contains(&name)
 }
