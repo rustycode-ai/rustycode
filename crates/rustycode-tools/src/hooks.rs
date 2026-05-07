@@ -638,8 +638,8 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             fs::write(
                 &script_path,
-                r#"#!/bin/bash
-read input
+                r#"#!/bin/sh
+cat > /dev/null
 echo '{"status":"blocked","message":"Not allowed","actions":["block"]}'
 "#,
             )
@@ -682,8 +682,8 @@ echo '{"status":"blocked","message":"Not allowed","actions":["block"]}'
             use std::os::unix::fs::PermissionsExt;
             fs::write(
                 &script_path,
-                r#"#!/bin/bash
-read input
+                r#"#!/bin/sh
+cat > /dev/null
 echo '{"status":"ok"}'
 "#,
             )
