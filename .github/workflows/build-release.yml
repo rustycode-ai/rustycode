@@ -85,6 +85,7 @@ jobs:
           Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
           echo "C:\protoc\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           echo "C:\Strawberry\perl\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          echo "PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Configure Linux ARM64 cross-compilation
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -99,7 +100,6 @@ jobs:
         shell: bash
         env:
           OPENSSL_DIR: ${{ runner.os == 'macOS' && '/opt/homebrew/opt/openssl@3' || '' }}
-          PERL: ${{ runner.os == 'Windows' && 'C:\Strawberry\perl\bin\perl.exe' || '' }}
         run: |
           cargo build --release --target ${{ matrix.target }} -p rustycode-cli
 
