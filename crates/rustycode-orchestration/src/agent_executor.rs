@@ -168,7 +168,8 @@ impl BridgeEvents {
         if s.len() <= max_len {
             s.to_string()
         } else {
-            format!("{}…", &s[..max_len.saturating_sub(1)])
+            let end = s.floor_char_boundary(max_len.saturating_sub(1));
+            format!("{}…", &s[..end])
         }
     }
 }

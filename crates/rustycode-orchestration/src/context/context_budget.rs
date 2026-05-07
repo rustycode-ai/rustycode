@@ -182,7 +182,7 @@ pub fn truncate_at_section_boundary(content: &str, budget_chars: usize) -> Trunc
 
     if sections.len() <= 1 {
         // No section markers — keep as much as fits from the start
-        let truncated = &content[..budget_chars.min(content.len())];
+        let truncated = &content[..content.floor_char_boundary(budget_chars)];
         return TruncationResult {
             content: format!("{truncated}\n\n[...truncated 1 sections]"),
             dropped_sections: 1,

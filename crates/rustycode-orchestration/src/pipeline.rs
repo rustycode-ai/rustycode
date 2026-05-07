@@ -949,7 +949,7 @@ mod tests {
         assert!(
             prompt.contains("Framework Capabilities"),
             "layered prompt should include infrastructure layer, got: {}",
-            &prompt[..prompt.len().min(200)]
+            &prompt[..prompt.floor_char_boundary(prompt.len().min(200))]
         );
         assert!(
             prompt.contains("Tool Profiles"),
@@ -1001,7 +1001,7 @@ mod tests {
         assert!(
             prompt.contains("## Active Strategy"),
             "prompt should contain Active Strategy section, got: {}",
-            &prompt[..prompt.len().min(200)]
+            &prompt[..prompt.floor_char_boundary(prompt.len().min(200))]
         );
         assert!(
             prompt.contains("SequentialThinking"),
