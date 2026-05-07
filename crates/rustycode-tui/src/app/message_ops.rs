@@ -15,12 +15,10 @@ impl TUI {
         // Mark session recovery dirty for auto-save
         self.mark_session_dirty();
 
-        // Auto-scroll to latest message
-        if !self.messages.is_empty() {
+        // Auto-scroll to latest message only if user hasn't scrolled up
+        if !self.view.user_scrolled && !self.messages.is_empty() {
             self.view.selected_message = self.messages.len() - 1;
-            // Reset line-based scroll offset to show latest (auto-scroll to bottom)
             self.view.scroll_offset_line = 0;
-            self.view.user_scrolled = false;
         }
 
         // Update context monitor and check for auto-compaction

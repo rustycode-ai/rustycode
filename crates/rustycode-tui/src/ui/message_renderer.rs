@@ -231,9 +231,18 @@ impl MessageRenderer {
         if message.collapsed {
             // Show collapsed state: just first line or summary
             let first_line = message.content.lines().next().unwrap_or("");
-            let preview = if first_line.chars().count() > 60 {
-                let s: String = first_line.chars().take(57).collect();
-                format!("{}...", s)
+            let preview = if first_line.width() > 60 {
+                let mut truncated = String::new();
+                let mut w = 0;
+                for ch in first_line.chars() {
+                    let cw = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+                    if w + cw > 57 {
+                        break;
+                    }
+                    truncated.push(ch);
+                    w += cw;
+                }
+                format!("{}...", truncated)
             } else {
                 first_line.to_string()
             };
@@ -541,12 +550,23 @@ impl MessageRenderer {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No thinking content found in message"))?;
 
-        // Render header
-        render_thinking_header(f, area, thinking, pipe, color, theme)?;
+        let header_area = Rect {
+            y: area.y,
+            height: 1.min(area.height),
+            ..area
+        };
+        render_thinking_header(f, header_area, thinking, pipe, color, theme)?;
 
-        // If expanded, render thinking content
         if message.thinking_expansion != ExpansionLevel::Collapsed {
-            render_thinking_content(f, area, thinking, pipe, color, theme)?;
+            let content_y = area.y.saturating_add(1);
+            if content_y < area.y.saturating_add(area.height) {
+                let content_area = Rect {
+                    y: content_y,
+                    height: area.height.saturating_sub(1),
+                    ..area
+                };
+                render_thinking_content(f, content_area, thinking, pipe, color, theme)?;
+            }
         }
 
         Ok(())

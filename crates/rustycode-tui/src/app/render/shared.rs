@@ -144,16 +144,28 @@ pub fn shorten_path(path: &str) -> String {
 
 /// Unicode-safe string truncation with ellipsis suffix.
 ///
-/// Returns `s` unchanged when `s.chars().count() <= max_chars`.
-/// Otherwise returns the first `max_chars - 3` characters followed by `"..."`.
-pub fn safe_truncate(s: &str, max_chars: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count <= max_chars {
-        s.to_string()
-    } else {
-        let truncated: String = s.chars().take(max_chars.saturating_sub(3)).collect();
-        format!("{}...", truncated)
+/// Truncates based on **display width** (not character count), so wide
+/// characters like CJK glyphs and emoji are accounted for correctly.
+/// Returns `s` unchanged when its display width ≤ `max_width`.
+/// Otherwise returns the longest prefix that fits in `max_width - 3` display
+/// columns, followed by `"..."`.
+pub fn safe_truncate(s: &str, max_width: usize) -> String {
+    let display_width = UnicodeWidthStr::width(s);
+    if display_width <= max_width {
+        return s.to_string();
     }
+    let target_width = max_width.saturating_sub(3);
+    let mut current_width = 0;
+    let mut end = 0;
+    for (i, ch) in s.char_indices() {
+        let ch_width = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+        if current_width + ch_width > target_width {
+            break;
+        }
+        current_width += ch_width;
+        end = i + ch.len_utf8();
+    }
+    format!("{}...", &s[..end])
 }
 
 // LAYOUT HELPERS
@@ -375,6 +387,25 @@ mod tests {
     #[test]
     fn safe_truncate_exact_boundary() {
         assert_eq!(safe_truncate("hello", 5), "hello");
+    }
+
+    #[test]
+    fn safe_truncate_cjk_wide_chars() {
+        // Each CJK char is 2 display columns wide
+        let s = "你好世界测试";
+        // 5 chars × 2 columns = 10 display width
+        // With max_width=8: target 5 columns → "你好" (4 cols) + "..."
+        let result = safe_truncate(s, 8);
+        assert_eq!(result, "你好...");
+    }
+
+    #[test]
+    fn safe_truncate_mixed_ascii_cjk() {
+        // "Hello你好" = 5 + 4 = 9 display columns
+        let s = "Hello你好";
+        // max_width=8: target 5 columns → "Hello" (5 cols) + "..."
+        let result = safe_truncate(s, 8);
+        assert_eq!(result, "Hello...");
     }
 
     // ── tool_kind_icon coverage ──────────────────────────────────────────────

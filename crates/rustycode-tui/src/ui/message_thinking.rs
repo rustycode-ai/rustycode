@@ -7,6 +7,7 @@ use ratatui::{
     text::{Line, Span},
     Frame,
 };
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// Render thinking block header
 ///
@@ -66,13 +67,26 @@ pub fn render_thinking_content(
 
     // Add thinking content (truncated and wrapped)
     let max_lines = 8;
+    let content_width = area.width.saturating_sub(4) as usize;
     for line in thinking.lines().take(max_lines) {
+        let display_line = if line.width() > content_width {
+            let mut s = String::new();
+            let mut w = 0;
+            for ch in line.chars() {
+                let cw = unicode_width::UnicodeWidthChar::width(ch).unwrap_or(0);
+                if w + cw > content_width.saturating_sub(1) {
+                    break;
+                }
+                s.push(ch);
+                w += cw;
+            }
+            format!("{}…", s)
+        } else {
+            line.to_string()
+        };
         lines.push(Line::from(vec![
             Span::styled(format!("{} │ ", pipe), Style::default().fg(color)),
-            Span::styled(
-                line.to_string(),
-                Style::default().fg(theme.thinking_text_color),
-            ),
+            Span::styled(display_line, Style::default().fg(theme.thinking_text_color)),
         ]));
     }
 

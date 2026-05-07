@@ -190,6 +190,10 @@ impl InputState {
             self.cursor_row += last_idx;
             self.cursor_col = last_pasted_part.len();
         }
+
+        // Clear any stale selection after paste
+        self.selection_anchor_col = None;
+        self.selection_anchor_row = None;
     }
 
     /// Delete character before cursor (backspace)
@@ -596,6 +600,10 @@ impl InputState {
             self.lines.insert(self.cursor_row + 1, after);
             self.cursor_row += 1;
             self.cursor_col = 0;
+            // Always switch to multi-line mode after inserting a newline,
+            // since we now have multiple lines that need cursor-up/down
+            // navigation instead of history navigation.
+            self.mode = InputMode::MultiLine;
         }
     }
 

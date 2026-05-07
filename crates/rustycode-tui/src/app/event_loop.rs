@@ -1632,7 +1632,20 @@ impl TUI {
             return Ok(());
         }
 
+        if content.contains('\n') {
+            self.input_handler.state.mode =
+                crate::ui::input_state::InputMode::MultiLine;
+        }
         self.input_handler.state.insert_text_at_cursor(content);
+
+        // Switch to multi-line mode when pasting content with newlines,
+        // matching the behavior of the Ctrl+V paste handler.
+        if content.contains('\n') {
+            self.input_handler.state.mode =
+                crate::ui::input_state::InputMode::MultiLine;
+            self.input_mode = crate::ui::input_state::InputMode::MultiLine;
+        }
+
         self.dirty = true;
         Ok(())
     }

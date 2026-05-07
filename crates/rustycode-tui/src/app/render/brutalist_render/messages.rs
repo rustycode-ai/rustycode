@@ -418,7 +418,8 @@ impl BrutalistRenderer<'_> {
         }
 
         // Messages below indicator at bottom of viewport
-        let messages_below = total_lines.saturating_sub(current_line + y_offset as usize);
+        let messages_below =
+            total_lines.saturating_sub(current_line + skip_lines_in_first + y_offset as usize);
         if messages_below > 0 && is_scrolled && area.height > 2 {
             let indicator_y = area.y + area.height.saturating_sub(1);
             let indicator_area = Rect {

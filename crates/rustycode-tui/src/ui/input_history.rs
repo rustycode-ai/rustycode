@@ -118,6 +118,9 @@ impl HistoryManager {
             }
             input_state.cursor_row = input_state.lines.len() - 1;
             input_state.cursor_col = input_state.lines.last().map_or(0, |l| l.len());
+            if self.history[self.history.len() - self.history_pos].contains('\n') {
+                input_state.mode = super::input_state::InputMode::MultiLine;
+            }
         }
     }
 
@@ -131,8 +134,9 @@ impl HistoryManager {
         if self.history_pos > 1 {
             self.history_pos -= 1;
             let cmd = self.history[self.history.len() - self.history_pos].clone();
+            let is_multiline = cmd.contains('\n');
             // Preserve multi-line entries: split on \n so cursor navigation works
-            input_state.lines = if cmd.contains('\n') {
+            input_state.lines = if is_multiline {
                 cmd.lines().map(|l| l.to_string()).collect::<Vec<_>>()
             } else {
                 vec![cmd]
@@ -142,6 +146,11 @@ impl HistoryManager {
             }
             input_state.cursor_row = input_state.lines.len() - 1;
             input_state.cursor_col = input_state.lines.last().map_or(0, |l| l.len());
+            input_state.mode = if is_multiline {
+                super::input_state::InputMode::MultiLine
+            } else {
+                super::input_state::InputMode::SingleLine
+            };
         } else {
             // Exit history mode, restore pending input
             self.browsing_history = false;
@@ -188,11 +197,13 @@ impl HistoryManager {
     /// Get reverse search query and match info
     pub fn reverse_search_info(&self) -> (String, usize, usize) {
         if self.in_reverse_search {
-            (
-                self.reverse_search_query.clone(),
-                self.reverse_search_index + 1,
-                self.reverse_search_matches.len(),
-            )
+            let match_count = self.reverse_search_matches.len();
+            let position = if match_count == 0 {
+                0
+            } else {
+                self.reverse_search_index + 1
+            };
+            (self.reverse_search_query.clone(), position, match_count)
         } else {
             (String::new(), 0, 0)
         }

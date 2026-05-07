@@ -17,6 +17,7 @@ use super::progress::ToolProgress;
 
 // Import compaction types for token display
 use crate::memory::compaction::{ContextMonitor, UsageColor};
+use unicode_width::UnicodeWidthStr;
 
 /// Configuration for status display
 #[derive(Clone, Debug)]
@@ -296,7 +297,30 @@ impl StatusBar {
 
         let line = Line::from(spans);
 
-        // Create the status bar widget
+        let line = if line.width() > area.width.saturating_sub(2) as usize {
+            let max_w = area.width.saturating_sub(5) as usize;
+            let mut truncated_spans = Vec::new();
+            let mut used = 0;
+            for span in line.spans {
+                let sw = span.width();
+                if used + sw > max_w {
+                    let remaining = max_w.saturating_sub(used);
+                    if remaining > 3 {
+                        truncated_spans.push(Span::raw(
+                            span.content.chars().take(remaining.saturating_sub(3)).collect::<String>(),
+                        ));
+                    }
+                    truncated_spans.push(Span::styled("…".to_string(), Style::default().fg(Color::DarkGray)));
+                    break;
+                }
+                truncated_spans.push(span);
+                used += sw;
+            }
+            Line::from(truncated_spans)
+        } else {
+            line
+        };
+
         let bar = Paragraph::new(vec![line]).block(
             Block::default()
                 .borders(Borders::ALL | Borders::LEFT)
