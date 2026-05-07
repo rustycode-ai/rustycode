@@ -154,32 +154,44 @@ impl SkillLoader {
         home.join(".claude").join("skills")
     }
 
-    /// Load all skills from filesystem
+    /// Load all skills from filesystem.
+    ///
+    /// Scans the skills directory sequentially, then loads each skill in
+    /// parallel using [`std::thread::scope`]. Individual load failures are
+    /// logged and skipped rather than aborting the entire scan.
     pub fn load_all(&self) -> Result<Vec<Skill>> {
-        let mut skills = Vec::new();
-
         if !self.base_path.exists() {
             tracing::debug!("Skills directory does not exist: {:?}", self.base_path);
-            return Ok(skills);
+            return Ok(Vec::new());
         }
 
         let entries = fs::read_dir(&self.base_path)
             .with_context(|| format!("Failed to read skills directory: {:?}", self.base_path))?;
 
-        for entry in entries {
-            let entry = entry?;
-            let path = entry.path();
+        // Collect directory paths first (sequential — fast directory scan).
+        let dirs: Vec<PathBuf> = entries
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.path().is_dir())
+            .map(|entry| entry.path())
+            .collect();
 
-            // Skip non-directories
-            if !path.is_dir() {
-                continue;
-            }
+        // Load skills in parallel — each skill is an independent file read + parse.
+        let skills: Vec<Skill> = std::thread::scope(|s| {
+            let handles: Vec<_> = dirs.iter().map(|path| s.spawn(|| self.load_skill(path))).collect();
 
-            // Try to load skill from this directory
-            if let Some(skill) = self.load_skill(&path)? {
-                skills.push(skill);
-            }
-        }
+            handles
+                .into_iter()
+                .filter_map(|handle| match handle.join() {
+                    Ok(Ok(Some(skill))) => Some(skill),
+                    Ok(Ok(None)) => None,
+                    Ok(Err(e)) => {
+                        tracing::warn!("Failed to load skill: {e}");
+                        None
+                    }
+                    Err(_) => None,
+                })
+                .collect()
+        });
 
         Ok(skills)
     }

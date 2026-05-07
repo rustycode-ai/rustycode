@@ -323,10 +323,14 @@ pub fn handle_sessions_command(parts: &[&str], _ctx: CommandContext<'_>) -> Resu
                 } else {
                     format!(" — {}", preview)
                 };
+                let clean_title = session
+                    .title
+                    .trim_end_matches(&format!(" ({} messages)", session.message_count))
+                    .to_string();
                 output.push_str(&format!(
                     "  {}. {} [{}] ({} msgs) {}{}\n",
                     i + 1,
-                    session.title,
+                    clean_title,
                     age,
                     session.message_count,
                     session.id,

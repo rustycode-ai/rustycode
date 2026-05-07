@@ -705,7 +705,7 @@ impl CommandPaletteRenderer {
             Command::with_hint(
                 "/compact",
                 "Summarize and compress conversation history",
-                "[preview|threshold]",
+                "[show|status|threshold|aggressive|conservative|balanced]",
                 || CommandResult::Close,
             ),
             Command::new("/cost", "Show session token usage and cost", || {

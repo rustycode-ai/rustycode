@@ -324,10 +324,20 @@ pub fn load_session_history_list(
             let first_message = value
                 .get("messages")
                 .and_then(|v| v.as_array())
-                .and_then(|msgs| msgs.first())
-                .and_then(|m| m.get("content"))
-                .and_then(|c| c.as_str())
-                .map(|s| s.chars().take(60).collect::<String>());
+                .and_then(|msgs| {
+                    msgs.iter().find_map(|m| {
+                        m.get("content")
+                            .and_then(|c| c.as_str())
+                            .filter(|s| {
+                                // Filter out tmux noise and other terminal warnings
+                                let trimmed = s.trim();
+                                !trimmed.starts_with("focus-events")
+                                    && !trimmed.contains("set -g focus-events")
+                                    && !trimmed.is_empty()
+                            })
+                            .map(|s| s.chars().take(60).collect::<String>())
+                    })
+                });
 
             let timestamp = value
                 .get("last_saved")

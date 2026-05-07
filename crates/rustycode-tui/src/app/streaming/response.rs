@@ -22,20 +22,39 @@ fn send_chunk(tx: &SyncSender<StreamChunk>, chunk: StreamChunk) {
 ///
 /// The TUI relies on receiving `Done` to release the streaming guard and clear
 /// `is_streaming`. Without this, early returns via `?` would leave the TUI in a
-/// permanently stuck state. Double-sending `Done` is safe — the receiver ignores extras.
+/// permanently stuck state.
+///
+/// The guard can be defused (via `defuse()`) to prevent the drop-time Done send.
+/// This is critical when Done has already been sent through the agent bridge
+/// (e.g., `run_loop` emits `StreamEvent::Done` which the adapter converts).
+/// Without defusing, the second Done would race with queued-message streams:
+/// the first Done triggers `send_queued_message` which starts a new stream,
+/// then the second Done calls `complete_stream_cleanup` on the NEW stream,
+/// killing it before any chunks arrive.
 struct DoneGuard {
-    stream_tx: SyncSender<StreamChunk>,
+    stream_tx: Option<SyncSender<StreamChunk>>,
 }
 
 impl DoneGuard {
     fn new(stream_tx: SyncSender<StreamChunk>) -> Self {
-        Self { stream_tx }
+        Self {
+            stream_tx: Some(stream_tx),
+        }
+    }
+
+    /// Prevent the drop handler from sending Done.
+    /// Call this when Done has already been sent via another path
+    /// (e.g., `run_loop` → `StreamEvent::Done` → adapter).
+    fn defuse(mut self) {
+        self.stream_tx.take();
     }
 }
 
 impl Drop for DoneGuard {
     fn drop(&mut self) {
-        send_chunk(&self.stream_tx, StreamChunk::Done);
+        if let Some(tx) = self.stream_tx.take() {
+            send_chunk(&tx, StreamChunk::Done);
+        }
     }
 }
 use crate::app::tool_errors::ErrorTracker;
@@ -338,7 +357,6 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         .as_ref()
         .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Relaxed))
     {
-        send_chunk(&stream_tx, StreamChunk::Done);
         return Ok(());
     }
 
@@ -356,7 +374,6 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
                 provider: provider_type.clone(),
             }),
         );
-        send_chunk(&stream_tx, StreamChunk::Done);
         return Ok(());
     }
 
@@ -547,9 +564,12 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
                 rustycode_llm::provider::ProviderError::Api(err.to_string()),
             )),
         );
-        send_chunk(&stream_tx, StreamChunk::Done);
         return Err(err);
     }
+
+    // session.run() emits StreamEvent::Done internally, which the adapter
+    // converts to StreamChunk::Done. Defuse the guard to prevent a second Done.
+    _done_guard.defuse();
 
     Ok(())
 }
