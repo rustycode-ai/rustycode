@@ -85,6 +85,8 @@ ollama-tests = []
 vector-memory = ["dep:rustycode-vector-memory"]
 # Enable browser automation tools (requires chromiumoxide + headless Chrome)
 browser = []
+# Slow integration tests (scheduler waits, stress tests)
+slow-tests = []
 
 [[bench]]
 name = "tui_performance"

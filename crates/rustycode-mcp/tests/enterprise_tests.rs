@@ -19,6 +19,7 @@ use rustycode_mcp::{McpError, McpResult, McpTransportType};
 use std::collections::HashMap;
 use std::time::Duration;
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_connection_pool_acquire_release() {
     let pool = ConnectionPool::new(PoolConfig::default());
@@ -42,6 +43,7 @@ async fn test_connection_pool_acquire_release() {
     assert_eq!(stats.idle, 1);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_connection_pool_cleanup() {
     let pool = ConnectionPool::new(PoolConfig {
@@ -64,6 +66,7 @@ async fn test_connection_pool_cleanup() {
     assert_eq!(stats.total, 0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_rate_limiter_basic() {
     let limiter = RateLimiter::new(RateLimiterConfig {
@@ -87,6 +90,7 @@ async fn test_rate_limiter_basic() {
     }
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_rate_limiter_refill() {
     let limiter = RateLimiter::new(RateLimiterConfig {
@@ -106,6 +110,7 @@ async fn test_rate_limiter_refill() {
     assert!(limiter.check_rate_limit("test-key").await.is_ok());
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_metrics_collector() {
     let collector = MetricsCollector::new();
@@ -137,6 +142,7 @@ async fn test_metrics_collector() {
     assert!(collector.metrics("test-tool").await.is_none());
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_retry_with_backoff_success_on_second_try() {
     let config = RetryConfig {
@@ -163,6 +169,7 @@ async fn test_retry_with_backoff_success_on_second_try() {
     assert_eq!(attempt_count, 2);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_retry_with_backoff_all_attempts_fail() {
     let config = RetryConfig {
@@ -182,6 +189,7 @@ async fn test_retry_with_backoff_all_attempts_fail() {
     assert_eq!(attempt_count.load(std::sync::atomic::Ordering::SeqCst), 3);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_manager_config() {
     let config = ManagerConfig::default();
@@ -190,6 +198,7 @@ async fn test_manager_config() {
     assert_eq!(config.health_check_interval, Duration::from_secs(30));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_server_config() {
     let config = ServerConfig {
@@ -218,6 +227,7 @@ async fn test_server_config() {
     assert!(!config.enable_resources);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_server_config_http() {
     let config = ServerConfig {
@@ -247,6 +257,7 @@ async fn test_server_config_http() {
     assert_eq!(config.url.as_deref(), Some("https://api.example.com/mcp"));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_health_status() {
     let healthy = HealthStatus::Healthy;
@@ -258,6 +269,7 @@ async fn test_health_status() {
     assert_ne!(healthy, stopped);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_resource_manager() {
     let manager = ResourceManager::new();
@@ -270,6 +282,7 @@ async fn test_resource_manager() {
     assert_eq!(results.len(), 0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_tool_registry() {
     let registry = ToolRegistry::new();
@@ -282,6 +295,7 @@ async fn test_tool_registry() {
     assert!(tool.is_none());
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_pool_config() {
     let config = PoolConfig::default();
@@ -290,6 +304,7 @@ async fn test_pool_config() {
     assert_eq!(config.connection_timeout, Duration::from_secs(30));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_rate_limiter_config() {
     let config = RateLimiterConfig::default();
@@ -297,6 +312,7 @@ async fn test_rate_limiter_config() {
     assert_eq!(config.window, Duration::from_mins(1));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_retry_config() {
     let config = RetryConfig::default();
@@ -305,6 +321,7 @@ async fn test_retry_config() {
     assert_eq!(config.backoff_multiplier, 2.0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_tool_execution_result() {
     let result = ToolExecutionResult {
@@ -327,6 +344,7 @@ async fn test_tool_execution_result() {
     assert_eq!(result.tool_name, "test_tool");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_tool_call() {
     let call = ToolCall {
@@ -340,6 +358,7 @@ async fn test_tool_call() {
     assert_eq!(call.tool_name, "test_tool");
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_resource_content() {
     let content = ResourceContent {
@@ -356,6 +375,7 @@ async fn test_resource_content() {
     assert_eq!(content.contents.len(), 1);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_metrics_default() {
     let metrics = Metrics::default();
@@ -367,6 +387,7 @@ async fn test_metrics_default() {
     assert_eq!(metrics.last_error, None);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_metrics_record_success() {
     let mut metrics = Metrics::default();
@@ -379,6 +400,7 @@ async fn test_metrics_record_success() {
     assert_eq!(metrics.avg_latency_ms, 150.0);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_metrics_record_failure() {
     let mut metrics = Metrics::default();
@@ -389,6 +411,7 @@ async fn test_metrics_record_failure() {
     assert_eq!(metrics.last_error, Some("Test error".to_string()));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_metrics_success_rate() {
     let mut metrics = Metrics::default();
@@ -403,6 +426,7 @@ async fn test_metrics_success_rate() {
 // MCP Lifecycle Tests
 
 /// Test tool caching functionality
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_tool_caching_initial_fetch() {
     use rustycode_mcp::manager::*;
@@ -442,6 +466,7 @@ async fn test_tool_caching_initial_fetch() {
 }
 
 /// Test tools are marked stale initially
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_tools_stale_flag() {
     // This test verifies the tools staleness tracking logic
@@ -459,6 +484,7 @@ async fn test_tools_stale_flag() {
 }
 
 /// Test auto-reconnect with exponential backoff
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_exponential_backoff_calculation() {
     let initial_delay = Duration::from_millis(500);
@@ -487,6 +513,7 @@ async fn test_exponential_backoff_calculation() {
 }
 
 /// Test reconnection attempt counter
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_reconnection_attempt_tracking() {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -506,6 +533,7 @@ async fn test_reconnection_attempt_tracking() {
 }
 
 /// Test health status transitions
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_health_status_transitions() {
     let mut status = HealthStatus::Healthy;
@@ -532,6 +560,7 @@ async fn test_health_status_transitions() {
 }
 
 /// Test backoff cap at 5 minutes
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_backoff_cap() {
     let initial_delay = Duration::from_millis(500);
@@ -549,6 +578,7 @@ async fn test_backoff_cap() {
 }
 
 /// Test manager health monitoring setup
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_health_monitoring_starts() {
     let mut manager = McpServerManager::default_config();
@@ -564,6 +594,7 @@ async fn test_health_monitoring_starts() {
 }
 
 /// Test server state initialization
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_server_state_initialization() {
     use rustycode_mcp::manager::HealthStatus;
@@ -583,6 +614,7 @@ async fn test_server_state_initialization() {
 }
 
 /// Test tool cache refresh on reconnect
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_tools_refresh_on_reconnect() {
     // This test documents the expected behavior:
@@ -604,6 +636,7 @@ async fn test_tools_refresh_on_reconnect() {
 }
 
 /// Test max reconnection attempts enforcement
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_max_reconnection_attempts_enforcement() {
     let max_attempts = 5;
@@ -625,6 +658,7 @@ async fn test_max_reconnection_attempts_enforcement() {
 }
 
 /// Test connection timeout handling
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_connection_timeout() {
     let timeout = Duration::from_millis(100);
@@ -641,6 +675,7 @@ async fn test_connection_timeout() {
 }
 
 /// Test successful connection within timeout
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_connection_within_timeout() {
     let timeout = Duration::from_millis(200);

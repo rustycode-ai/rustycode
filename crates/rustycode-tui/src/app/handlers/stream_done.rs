@@ -77,8 +77,10 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
 
     if !was_cancelled
         && !tui.auto_continue.is_enabled()
+        && tui.plan_mode.is_enabled()
         && tui.plan_mode.current_phase() == "planning"
         && !tui.is_awaiting_approval()
+        && tui.plan_mode_banner.is_some()
     {
         let convoy_id = tui
             .plan_mode

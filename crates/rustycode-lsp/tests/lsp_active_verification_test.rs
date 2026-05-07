@@ -11,8 +11,8 @@ fn uri_from_file_path(path: impl AsRef<std::path::Path>) -> Url {
         .unwrap()
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: requires rust-analyzer; run with --features slow-tests")]
 #[tokio::test]
-#[ignore = "requires rust-analyzer installed and responsive; unreliable on CI"]
 #[allow(clippy::unwrap_used)]
 async fn test_lsp_active_verification() {
     let config = LspClientConfig {

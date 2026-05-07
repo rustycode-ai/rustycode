@@ -50,5 +50,9 @@ path = "examples/mcp_server_example.rs"
 name = "chrome-mcp"
 path = "src/bin/chrome-mcp.rs"
 
+[features]
+default = []
+slow-tests = []
+
 [lints]
 workspace = true

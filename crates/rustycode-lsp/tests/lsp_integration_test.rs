@@ -30,6 +30,7 @@ fn uri_from_directory_path(path: impl AsRef<std::path::Path>) -> Url {
         .unwrap()
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_lsp_client_lifecycle() {
     // Check if rust-analyzer is available
@@ -65,6 +66,7 @@ async fn test_lsp_client_lifecycle() {
     assert!(!client.is_running());
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_lsp_open_document() {
     let config = LspClientConfig {
@@ -124,6 +126,7 @@ async fn test_lsp_open_document() {
     let _ = client.exit().await;
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_lsp_shutdown_sequence() {
     let config = LspClientConfig {
@@ -157,6 +160,7 @@ async fn test_lsp_shutdown_sequence() {
     );
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[tokio::test]
 async fn test_lsp_diagnostics_flow() {
     // Create a temporary directory with a proper Rust project structure

@@ -17,6 +17,10 @@ tracing.workspace = true
 url = "2.5"
 rustycode-protocol = { path = "../rustycode-protocol" }
 
+[features]
+default = []
+slow-tests = []
+
 [dev-dependencies]
 tempfile.workspace = true
 

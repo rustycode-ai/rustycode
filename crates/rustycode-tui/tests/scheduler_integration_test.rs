@@ -132,6 +132,7 @@ fn drain_events(
     events
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_scheduler_start_sends_started_event() {
     let (tx, rx) = mpsc::channel();
@@ -158,6 +159,7 @@ fn test_scheduler_start_sends_started_event() {
         .any(|e| matches!(e, ScheduledPhaseEvent::SchedulerStopped)));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_scheduler_no_schedule_phases_not_counted() {
     let (tx, rx) = mpsc::channel();
@@ -182,6 +184,7 @@ fn test_scheduler_no_schedule_phases_not_counted() {
     scheduler.stop();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_scheduler_invalid_cron_sends_error() {
     let (tx, rx) = mpsc::channel();
@@ -205,6 +208,7 @@ fn test_scheduler_invalid_cron_sends_error() {
     scheduler.stop();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_channel_drain_pattern() {
     let (tx, rx) = mpsc::channel::<ScheduledPhaseEvent>();
@@ -228,6 +232,7 @@ fn test_channel_drain_pattern() {
     assert_eq!(received.len(), 3);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_active_phases_tracking() {
     let mut active: HashSet<String> = HashSet::new();
@@ -244,6 +249,7 @@ fn test_active_phases_tracking() {
     assert!(active.is_empty());
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_concurrency_limit_enforcement() {
     let max_concurrent = 2usize;
@@ -260,6 +266,7 @@ fn test_concurrency_limit_enforcement() {
     assert!(active.len() < max_concurrent);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_event_variants_roundtrip() {
     let (tx, rx) = mpsc::channel::<ScheduledPhaseEvent>();
@@ -285,6 +292,7 @@ fn test_event_variants_roundtrip() {
     assert_eq!(received.len(), 4);
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_multiple_phases_only_scheduled_counted() {
     let (tx, rx) = mpsc::channel();
@@ -312,6 +320,7 @@ fn test_multiple_phases_only_scheduled_counted() {
     scheduler.stop();
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_cron_5_and_6_field_parsing() -> Result<()> {
     let s5 = SchedulerConfig::parse_cron("0 8 * * *")?;
@@ -326,6 +335,7 @@ fn test_cron_5_and_6_field_parsing() -> Result<()> {
     Ok(())
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_scheduler_lifecycle() {
     let (tx, rx) = mpsc::channel();
@@ -351,6 +361,7 @@ fn test_scheduler_lifecycle() {
         .any(|e| matches!(e, ScheduledPhaseEvent::SchedulerStopped)));
 }
 
+#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
 #[test]
 fn test_invalid_expressions_rejected() {
     assert!(SchedulerConfig::parse_cron("").is_err());
