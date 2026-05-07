@@ -311,8 +311,9 @@ impl MarkdownRenderer {
                         pulldown_cmark::CodeBlockKind::Fenced(lang) => Some(lang.to_string()),
                         pulldown_cmark::CodeBlockKind::Indented => None,
                     };
-                    let border_style =
-                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM);
+                    let border_style = Style::default()
+                        .fg(Color::DarkGray)
+                        .add_modifier(Modifier::DIM);
                     let badge_style = Style::default().fg(Color::Cyan);
                     let mut fence_spans = vec![Span::styled("╭", border_style)];
                     if let Some(ref lang) = code_language {
@@ -321,13 +322,13 @@ impl MarkdownRenderer {
                     lines.push(Line::from(fence_spans));
                 }
                 Event::End(TagEnd::CodeBlock) => {
-                    let border_style =
-                        Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM);
+                    let border_style = Style::default()
+                        .fg(Color::DarkGray)
+                        .add_modifier(Modifier::DIM);
                     if code_language.as_deref() == Some("diff") {
                         let diff_lines = render_diff(&code_content);
                         for diff_line in diff_lines {
-                            let mut spans =
-                                vec![Span::styled("│ ", border_style)];
+                            let mut spans = vec![Span::styled("│ ", border_style)];
                             spans.extend(diff_line.spans);
                             lines.push(Line::from(spans));
                         }
@@ -336,8 +337,7 @@ impl MarkdownRenderer {
                             .syntax_highlighter
                             .highlight(&code_content, code_language.as_deref());
                         for hl_line in highlighted {
-                            let mut spans =
-                                vec![Span::styled("│ ", border_style)];
+                            let mut spans = vec![Span::styled("│ ", border_style)];
                             spans.extend(hl_line.spans);
                             lines.push(Line::from(spans));
                         }
