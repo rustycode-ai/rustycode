@@ -427,7 +427,9 @@ impl Compactor {
             return Vec::new();
         }
 
-        let num_to_remove = (indices.len().saturating_mul(remove_percent as usize) / 100).max(1);
+        let num_to_remove = (indices.len().saturating_mul(remove_percent as usize) / 100)
+            .min(indices.len())
+            .max(1);
         let middle = indices.len() / 2;
         let mut result = Vec::with_capacity(num_to_remove);
 
