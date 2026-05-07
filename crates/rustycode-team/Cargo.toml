@@ -12,7 +12,6 @@ async-trait.workspace = true
 chrono = { workspace = true, features = ["serde"] }
 dirs.workspace = true
 futures.workspace = true
-handlebars.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 serde_yaml.workspace = true

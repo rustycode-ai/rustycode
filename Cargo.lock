@@ -6608,7 +6608,6 @@ dependencies = [
  "chrono",
  "dirs",
  "futures",
- "handlebars",
  "parking_lot",
  "regex",
  "rustycode-llm",

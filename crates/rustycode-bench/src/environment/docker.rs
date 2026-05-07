@@ -365,7 +365,13 @@ impl BenchEnvironment for DockerEnvironment {
             .to_string_lossy();
         let sanitized: String = file_name
             .chars()
-            .map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let container_dest = format!("/tmp/{sanitized}");
         self.upload_file(script_path, &container_dest).await?;

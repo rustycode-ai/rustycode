@@ -101,7 +101,7 @@ impl TUI {
                 // fuzzy selection (which might be "/compact" for query "act").
                 let typed_text = self.input_handler.state.all_text();
                 let typed_base = typed_text.split_whitespace().next().unwrap_or(&typed_text);
-                let has_exact_match = crate::app::commands::is_registered_command(typed_base);
+                let has_exact_match = crate::app::commands::is_known_slash_command(typed_base);
 
                 if has_exact_match {
                     // User typed an exact command name — close palette and submit as-is
@@ -299,10 +299,8 @@ impl TUI {
             );
 
             if is_local_command {
-                // Clear the input field first
                 self.input_handler.state.clear();
                 self.input_mode = self.input_handler.state.mode;
-                // Execute the slash command immediately
                 self.handle_slash_command(&text)?;
                 return Ok(());
             }
