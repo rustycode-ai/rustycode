@@ -61,6 +61,7 @@ impl DockerIsolationConfig {
     }
 
     /// Use a specific Docker image.
+    #[must_use]
     pub fn with_image(mut self, image: impl Into<String>) -> Self {
         self.image = image.into();
         self
