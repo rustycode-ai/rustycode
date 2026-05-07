@@ -5,15 +5,9 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      binaries:
-        description: 'Binaries to build (comma-separated)'
-        required: false
-        default: 'rustycode-cli,rustycode-tui'
 
 env:
   CARGO_TERM_COLOR: always
-  # Force vendored OpenSSL for all platforms (no system dependency)
   OPENSSL_STATIC: "1"
 
 jobs:
@@ -23,11 +17,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact_name: rustycode-linux-x64
             exe_ext: ''
-          - os: ubuntu-24.04
+          - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             artifact_name: rustycode-linux-arm64
             exe_ext: ''
@@ -60,9 +54,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            protobuf-compiler libssl-dev pkg-config \
             libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libx11-dev libxft-dev libxext-dev \
             gcc-aarch64-linux-gnu
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install protobuf openssl
 
       - name: Configure Linux ARM64 cross-compilation
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -75,35 +74,29 @@ jobs:
         with:
           shared-key: release-${{ matrix.target }}
 
-      - name: Build release binaries
+      - name: Build release binary
         shell: bash
         run: |
           cargo build --release --target ${{ matrix.target }} -p rustycode-cli --locked
-          cargo build --release --target ${{ matrix.target }} -p rustycode-tui --locked
 
-      - name: Verify binaries exist
+      - name: Verify binary exists
         id: locate-binary
         shell: bash
         run: |
-          CLI="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
-          TUI="target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}"
+          BINARY="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
 
-          if [ ! -f "$CLI" ]; then
-            echo "::error::CLI binary not found at $CLI"
+          if [ ! -f "$BINARY" ]; then
+            echo "::error::Binary not found at $BINARY"
             exit 1
           fi
 
-          echo "cli=$CLI" >> "$GITHUB_OUTPUT"
-          echo "tui=$TUI" >> "$GITHUB_OUTPUT"
+          echo "binary=$BINARY" >> "$GITHUB_OUTPUT"
 
-      - name: Package binaries
+      - name: Package binary
         shell: bash
         run: |
           mkdir -p "artifacts/${{ matrix.artifact_name }}"
           cp "target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}" "artifacts/${{ matrix.artifact_name }}/"
-          if [ -f "target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}" ]; then
-            cp "target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}" "artifacts/${{ matrix.artifact_name }}/"
-          fi
 
           cd artifacts
           if [ "${{ runner.os }}" = "Windows" ]; then
@@ -117,9 +110,9 @@ jobs:
       - name: Test binary
         shell: bash
         run: |
-          CLI="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
-          "$CLI" --version || true
-          "$CLI" --help | head -20 || true
+          BINARY="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
+          "$BINARY" --version || true
+          "$BINARY" --help | head -20 || true
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
