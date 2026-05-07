@@ -143,7 +143,8 @@ impl StuckDetector {
         let normalized = thought.to_lowercase();
         let normalized = normalized.trim();
         let truncated = if normalized.len() > 80 {
-            &normalized[..80]
+            let end = normalized.floor_char_boundary(80);
+            &normalized[..end]
         } else {
             normalized
         };

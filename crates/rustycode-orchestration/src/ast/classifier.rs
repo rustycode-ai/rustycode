@@ -153,7 +153,8 @@ impl TaskClassifier {
     fn summarize(&self, request: &str) -> String {
         let trimmed = request.trim();
         if trimmed.len() > 200 {
-            format!("{}...", &trimmed[..197])
+            let end = trimmed.floor_char_boundary(197);
+            format!("{}...", &trimmed[..end])
         } else {
             trimmed.to_string()
         }

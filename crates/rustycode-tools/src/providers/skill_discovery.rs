@@ -181,7 +181,8 @@ fn first_non_heading_line(path: &std::path::Path) -> Option<String> {
         .find(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("---"))
         .map(|l| {
             if l.len() > 200 {
-                format!("{}...", &l[..200])
+                let end = l.floor_char_boundary(200);
+                format!("{}...", &l[..end])
             } else {
                 l.to_string()
             }

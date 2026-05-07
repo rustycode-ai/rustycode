@@ -189,7 +189,8 @@ pub fn generate_summary(entries: &[(String, String, f32)]) -> String {
         for (confidence, content) in items {
             let line = content.lines().next().unwrap_or(content);
             let trimmed = if line.len() > 120 {
-                format!("{}...", &line[..117])
+                let end = line.floor_char_boundary(117);
+                format!("{}...", &line[..end])
             } else {
                 line.to_string()
             };

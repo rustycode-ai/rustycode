@@ -253,11 +253,13 @@ fn parse_plan_from_response(content: &str) -> Result<ArchitectPlan, String> {
     // Try to extract JSON from the response (may be wrapped in markdown)
     let json_str = extract_json(content)?;
 
+    let preview_len = json_str.len().min(200);
+    let preview_end = json_str.floor_char_boundary(preview_len);
     serde_json::from_str(&json_str).map_err(|e| {
         format!(
             "Failed to parse architect plan: {}\nJSON: {}",
             e,
-            &json_str[..json_str.len().min(200)]
+            &json_str[..preview_end]
         )
     })
 }
