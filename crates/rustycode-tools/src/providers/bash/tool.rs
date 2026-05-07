@@ -140,7 +140,7 @@ impl BashTool {
                 let path = std::path::Path::new(parts[1]);
                 Some(
                     native_cat(path)
-                        .map(ToolOutput::success)
+                        .map(ToolOutput::text)
                         .map_err(|e| anyhow::anyhow!("native cat failed: {e}")),
                 )
             }
@@ -152,7 +152,7 @@ impl BashTool {
                 };
                 Some(
                     native_ls(target)
-                        .map(|files| ToolOutput::success(files.join("\n")))
+                        .map(|files| ToolOutput::text(files.join("\n")))
                         .map_err(|e| anyhow::anyhow!("native ls failed: {e}")),
                 )
             }
@@ -175,7 +175,7 @@ impl BashTool {
                 match (pattern, target_path) {
                     (Some(pat), Some(path)) => Some(
                         native_grep(std::path::Path::new(path), pat)
-                            .map(ToolOutput::success)
+                            .map(ToolOutput::text)
                             .map_err(|e| anyhow::anyhow!("native grep failed: {e}")),
                     ),
                     _ => None,
