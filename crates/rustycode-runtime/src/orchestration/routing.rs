@@ -259,41 +259,6 @@ fn select_team(
     }
 }
 
-#[allow(dead_code)]
-fn select_agent(
-    workflow: TaskWorkflow,
-    profile: &rustycode_protocol::team::TaskProfile,
-) -> AgentRole {
-    match workflow {
-        TaskWorkflow::Code => {
-            if matches!(
-                profile.risk,
-                rustycode_protocol::team::RiskLevel::High
-                    | rustycode_protocol::team::RiskLevel::Critical
-            ) && matches!(
-                profile.reach,
-                rustycode_protocol::team::ReachLevel::SingleFile
-                    | rustycode_protocol::team::ReachLevel::Local
-            ) && matches!(
-                profile.reversibility,
-                rustycode_protocol::team::Reversibility::Easy
-                    | rustycode_protocol::team::Reversibility::Moderate
-            ) {
-                AgentRole::Scalpel
-            } else {
-                AgentRole::Worker
-            }
-        }
-        TaskWorkflow::Debug | TaskWorkflow::Research | TaskWorkflow::Analysis => {
-            AgentRole::Researcher
-        }
-        TaskWorkflow::Plan => AgentRole::Planner,
-        TaskWorkflow::Test => AgentRole::Reviewer,
-        TaskWorkflow::Ask => AgentRole::Researcher,
-        _ => AgentRole::Researcher,
-    }
-}
-
 fn select_skills(
     workflow: TaskWorkflow,
     profile: &rustycode_protocol::team::TaskProfile,
