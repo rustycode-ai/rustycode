@@ -370,10 +370,13 @@ mod tests {
 
     #[test]
     fn test_context_from_environment() {
-        let ctx = PromptContext::from_environment("/Users/nat/dev/rustycode");
-        assert_eq!(ctx.project_name, "rustycode");
-        assert_eq!(ctx.platform, "macos");
+        // Use "." as cwd so canonicalize succeeds on any machine;
+        // project_name and platform are environment-dependent, so only
+        // assert properties that hold universally.
+        let ctx = PromptContext::from_environment(".");
+        assert!(!ctx.cwd.is_empty());
         assert!(!ctx.current_date.is_empty());
+        assert!(!ctx.platform.is_empty());
     }
 
     #[test]

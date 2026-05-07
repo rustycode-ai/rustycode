@@ -370,9 +370,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let repo_path = dir.path();
 
-        // Initialize git repo
+        // Initialize git repo with explicit branch name to avoid
+        // default-branch differences across git versions (master vs main)
         Command::new("git")
-            .args(["init"])
+            .args(["init", "-b", "main"])
             .current_dir(repo_path)
             .output()
             .expect("Failed to init git repo");

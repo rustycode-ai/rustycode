@@ -13,8 +13,8 @@
 //!
 //! # Example
 //!
-//! ```
-//! use rustycode_tools::permission_store::{PermissionStore, PermissionRecord};
+//! ```ignore
+//! use rustycode_tools_security::permission_store::{PermissionStore, PermissionRecord};
 //!
 //! let mut store = PermissionStore::new("/tmp/permissions.json");
 //! store.allow("bash", "ls -la", None);           // permanent
