@@ -345,13 +345,7 @@ impl TUI {
                 self.push_undo_position();
                 self.page_down();
             }
-            // Home/End: jump to top/bottom of conversation
-            (KeyCode::Home, KeyModifiers::NONE) if input_is_empty => {
-                self.jump_to_top();
-            }
-            (KeyCode::End, KeyModifiers::NONE) if input_is_empty => {
-                self.jump_to_bottom();
-            }
+            // Note: Home/End are handled in event_loop.rs pre-filter (always scroll, regardless of input state)
             // Note: Ctrl+G is handled in event_loop_input.rs (team panel toggle)
             // Note: Ctrl+O is handled in event_loop_input.rs (file finder toggle)
             (KeyCode::Char('u'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {

@@ -344,19 +344,11 @@ impl InputHandler {
             }
 
             // === Home/End ===
-            (KeyCode::Home, KeyModifiers::NONE) => {
-                self.state.clear_selection();
-                self.state.cursor_col = 0;
-                InputAction::Consumed
-            }
+            // Return Ignored so Home/End always scroll to top/bottom of messages.
+            // Ctrl+A/Ctrl/E handle cursor-to-start/end (shown in footer).
+            (KeyCode::Home, KeyModifiers::NONE) => InputAction::Ignored,
 
-            (KeyCode::End, KeyModifiers::NONE) => {
-                self.state.clear_selection();
-                if let Some(line) = self.state.lines.get(self.state.cursor_row) {
-                    self.state.cursor_col = line.len();
-                }
-                InputAction::Consumed
-            }
+            (KeyCode::End, KeyModifiers::NONE) => InputAction::Ignored,
 
             // === Readline-style keybindings ===
             (KeyCode::Char('a'), KeyModifiers::CONTROL) => {
@@ -596,12 +588,10 @@ mod tests {
         handler.state.cursor_col = 2;
 
         let action = handler.handle_key_event(KeyCode::Home, KeyModifiers::NONE);
-        assert_eq!(action, InputAction::Consumed);
-        assert_eq!(handler.state.cursor_col, 0);
+        assert_eq!(action, InputAction::Ignored);
 
         let action = handler.handle_key_event(KeyCode::End, KeyModifiers::NONE);
-        assert_eq!(action, InputAction::Consumed);
-        assert_eq!(handler.state.cursor_col, 5);
+        assert_eq!(action, InputAction::Ignored);
     }
 
     // === Reverse Search Tests ===

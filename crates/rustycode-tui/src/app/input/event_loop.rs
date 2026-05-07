@@ -459,10 +459,8 @@ impl TUI {
                     }
                 }
 
-                // Handle Home/End to jump to top/bottom of messages when input is empty
-                let input_is_empty_for_nav = self.input_handler.state.lines.len() == 1
-                    && self.input_handler.state.lines[0].is_empty();
-                if input_is_empty_for_nav && !self.messages.is_empty() {
+                // Home/End always jump to top/bottom of messages (Ctrl+A/CtrlE handle cursor)
+                if !self.messages.is_empty() {
                     match key.code {
                         KeyCode::Home => {
                             self.push_undo_position();
