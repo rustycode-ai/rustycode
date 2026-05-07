@@ -165,6 +165,10 @@ fn build_provider_for(model: &BenchModel, config: &AppConfig) -> Arc<dyn LLMProv
 
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: requires real API keys; run with --features slow-tests"
+)]
 async fn test_real_model_orchestration_bench() {
     let config = match load_config() {
         Some(c) => c,
@@ -293,6 +297,10 @@ async fn test_real_model_orchestration_bench() {
 }
 
 #[tokio::test]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: requires real API keys; run with --features slow-tests"
+)]
 async fn test_zai_direct_deep_dive() {
     let config = match load_config() {
         Some(c) => c,
@@ -353,6 +361,10 @@ async fn test_zai_direct_deep_dive() {
 }
 
 #[tokio::test]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: requires real API keys; run with --features slow-tests"
+)]
 async fn test_openrouter_free_model() {
     let config = match load_config() {
         Some(c) => c,
@@ -400,6 +412,10 @@ async fn test_openrouter_free_model() {
 }
 
 #[tokio::test]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: requires real API keys; run with --features slow-tests"
+)]
 async fn test_ling_free_model() {
     let config = match load_config() {
         Some(c) => c,
@@ -538,6 +554,10 @@ const AB_TASKS: &[(&str, &str)] = &[
 
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: requires real API keys; run with --features slow-tests"
+)]
 async fn test_ab_raw_vs_pipeline() {
     let config = match load_config() {
         Some(c) => c,
@@ -660,6 +680,10 @@ async fn test_ab_raw_vs_pipeline() {
 
 #[allow(clippy::too_many_lines)]
 #[tokio::test]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: requires real API keys; run with --features slow-tests"
+)]
 async fn test_ab_ling_free() {
     let config = match load_config() {
         Some(c) => c,

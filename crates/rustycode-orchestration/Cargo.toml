@@ -5,6 +5,10 @@ edition = "2021"
 license = "MIT"
 description = "Tiered model orchestration for terminal-bench and complex task solving"
 
+[features]
+default = []
+slow-tests = []
+
 [lib]
 doctest = false
 
