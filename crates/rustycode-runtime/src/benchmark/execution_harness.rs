@@ -182,7 +182,10 @@ impl BenchmarkHarness {
         }
 
         let end_time = Utc::now();
-        let duration = (end_time - start_time).to_std().unwrap_or_default();
+        let duration = (end_time - start_time).to_std().unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "clock skew detected in benchmark duration, using zero");
+            std::time::Duration::ZERO
+        });
 
         // Calculate session statistics
         let success_rate = if evaluations.is_empty() {

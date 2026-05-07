@@ -350,7 +350,10 @@ impl Storage {
         let task = stmt
             .query_row(params![task_id], |row| {
                 let deps_str: String = row.get(6)?;
-                let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_default();
+                let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_else(|e| {
+                    tracing::warn!(deps_json = %deps_str, error = %e, "failed to parse task dependencies, using empty list");
+                    Vec::new()
+                });
                 Ok(Task {
                     id: row.get(0)?,
                     project_id: row.get(1)?,
@@ -382,7 +385,10 @@ impl Storage {
         let tasks = stmt
             .query_map(params![project_id], |row| {
                 let deps_str: String = row.get(6)?;
-                let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_default();
+                let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_else(|e| {
+                    tracing::warn!(deps_json = %deps_str, error = %e, "failed to parse task dependencies, using empty list");
+                    Vec::new()
+                });
                 Ok(Task {
                     id: row.get(0)?,
                     project_id: row.get(1)?,
@@ -415,7 +421,10 @@ impl Storage {
         let tasks = stmt
             .query_map(params![owner], |row| {
                 let deps_str: String = row.get(6)?;
-                let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_default();
+                let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_else(|e| {
+                    tracing::warn!(deps_json = %deps_str, error = %e, "failed to parse task dependencies, using empty list");
+                    Vec::new()
+                });
                 Ok(Task {
                     id: row.get(0)?,
                     project_id: row.get(1)?,
