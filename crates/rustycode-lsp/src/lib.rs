@@ -11,7 +11,6 @@
 //!
 //! ```rust,no_run
 //! use rustycode_lsp::{LspClient, LspClientConfig};
-//! use lsp_types::Uri as Url;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -21,7 +20,7 @@
 //!     client.start().await?;
 //!
 //!     // Open a document
-//!     let uri = Url::from_file_path("/path/to/file.rs").unwrap();
+//!     let uri: lsp_types::Uri = "file:///path/to/file.rs".parse().unwrap();
 //!     client.open_document(uri.clone(), "rust", 1, "fn main() {}").await?;
 //!
 //!     // Get hover information
