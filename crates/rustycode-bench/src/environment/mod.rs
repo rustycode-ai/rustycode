@@ -63,7 +63,8 @@ pub trait BenchEnvironment: Send + Sync {
         script_path: &Path,
         timeout_secs: u64,
     ) -> anyhow::Result<ExecResult> {
-        self.exec_with_timeout(&format!("bash {}", script_path.display()), timeout_secs)
+        let quoted = script_path.display().to_string().replace('\'', "'\\''");
+        self.exec_with_timeout(&format!("bash '{}'", quoted), timeout_secs)
             .await
     }
 
