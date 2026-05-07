@@ -157,6 +157,12 @@ pub fn handle_load_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<C
     match crate::services::session::load_session(&session_id) {
         Ok((name, serialized_messages, age)) => {
             let msg_count = serialized_messages.len();
+            if msg_count == 0 {
+                return Ok(CommandEffect::SystemMessage(format!(
+                    "Session '{}' has no messages to load",
+                    name
+                )));
+            }
             // Convert serialized messages to TUI Message types
             let messages: Vec<crate::ui::message::Message> = serialized_messages
                 .into_iter()
