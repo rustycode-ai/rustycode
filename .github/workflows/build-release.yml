@@ -47,7 +47,6 @@ jobs:
             exe_ext: ''
 
     runs-on: ${{ matrix.os }}
-    env:
     steps:
       - name: Checkout from private repo
         uses: actions/checkout@v4
@@ -92,7 +91,6 @@ jobs:
           OPENSSL_DIR: ${{ runner.os == 'macOS' && '/opt/homebrew/opt/openssl@3' || '' }}
         run: |
           cargo build --release --target ${{ matrix.target }} -p rustycode-cli
-          cargo build --release --target ${{ matrix.target }} -p rustycode-tui
 
         if: always()
 
