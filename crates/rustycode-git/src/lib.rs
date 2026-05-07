@@ -60,13 +60,35 @@
 //! # }
 //! ```
 
-use anyhow::{anyhow, Context, Result};
+// Sub-modules
+pub mod branch;
+pub mod commit;
+pub mod conflict;
+pub mod diff;
+pub mod hooks;
+pub mod merge;
+pub mod remote;
+pub mod staging;
+pub mod stash;
+pub mod status;
+pub mod util;
+
+use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::{Arc, RwLock};
+
+// Re-exports from sub-modules
+pub use conflict::{
+    Conflict, ConflictDetector, ConflictReport, ConflictSeverity, ConflictType,
+};
+pub use hooks::{
+    GitHook, GitHookContext, GitHookResult, GitHookType, HookContext, HookResult,
+};
+pub use status::FileStatus;
+pub use util::{inspect, GitStatus};
 
 // Error Types
 
@@ -365,77 +387,6 @@ pub struct GitOperationResult {
     pub duration_ms: u64,
 }
 
-// Git Hooks
-
-/// Git hook types
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum GitHookType {
-    PreCommit,
-    PrePush,
-    PreRebase,
-    CommitMsg,
-    PostCommit,
-    PostMerge,
-    PostCheckout,
-    PreMerge,
-}
-
-impl std::fmt::Display for GitHookType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::PreCommit => write!(f, "pre-commit"),
-            Self::PrePush => write!(f, "pre-push"),
-            Self::PreRebase => write!(f, "pre-rebase"),
-            Self::CommitMsg => write!(f, "commit-msg"),
-            Self::PostCommit => write!(f, "post-commit"),
-            Self::PostMerge => write!(f, "post-merge"),
-            Self::PostCheckout => write!(f, "post-checkout"),
-            Self::PreMerge => write!(f, "pre-merge"),
-        }
-    }
-}
-
-/// Result of hook execution
-#[derive(Debug, Clone)]
-pub struct HookResult {
-    /// Whether the hook passed
-    pub passed: bool,
-    /// Output from the hook
-    pub output: String,
-    /// Error message if hook failed
-    pub error: Option<String>,
-}
-
-/// Git hook for custom workflows
-pub trait GitHook: Send + Sync {
-    /// Execute the hook
-    fn execute(&self, context: &HookContext) -> Result<HookResult>;
-
-    /// Get the hook type
-    fn hook_type(&self) -> GitHookType;
-}
-
-/// Context provided to hooks
-#[derive(Debug, Clone)]
-pub struct HookContext {
-    /// Repository root path
-    pub repository_root: PathBuf,
-    pub current_branch: Option<String>,
-    /// Operation being executed
-    pub operation: GitOperation,
-    /// Files affected by the operation
-    pub affected_files: Vec<String>,
-    /// Environment variables
-    pub env: HashMap<String, String>,
-}
-
-/// Alias to disambiguate from protocol's `HookResult`.
-pub type GitHookResult = HookResult;
-
-/// Alias to disambiguate from protocol's `HookContext`.
-pub type GitHookContext = HookContext;
-
 // Main Git Client
 
 /// Main git client for executing git operations
@@ -476,10 +427,10 @@ type HooksStorage = Arc<RwLock<HashMap<GitHookType, Vec<Box<dyn GitHook>>>>>;
 
 pub struct GitClient {
     /// Repository root path
-    repository_root: PathBuf,
+    pub(crate) repository_root: PathBuf,
     /// Registered hooks
-    hooks: HooksStorage,
-    conflict_detector: Option<ConflictDetector>,
+    pub(crate) hooks: HooksStorage,
+    pub(crate) conflict_detector: Option<ConflictDetector>,
 }
 
 impl GitClient {
@@ -487,7 +438,7 @@ impl GitClient {
     ///
     pub fn new(path: &Path) -> Result<Self> {
         let repository_root =
-            Self::find_repository_root(path).context("Failed to find git repository root")?;
+            util::find_repository_root(path).context("Failed to find git repository root")?;
 
         // Initialize conflict detector
         let conflict_detector = ConflictDetector::new(&repository_root).ok();
@@ -511,7 +462,7 @@ impl GitClient {
     }
 
     /// Execute hooks of a specific type
-    fn execute_hooks(&self, hook_type: GitHookType, context: &HookContext) -> Result<()> {
+    pub(crate) fn execute_hooks(&self, hook_type: GitHookType, context: &HookContext) -> Result<()> {
         let hooks = self
             .hooks
             .read()
@@ -533,12 +484,12 @@ impl GitClient {
     }
 
     /// Create a hook context for the current operation
-    fn create_hook_context(
+    pub(crate) fn create_hook_context(
         &self,
         operation: GitOperation,
         affected_files: Vec<String>,
     ) -> HookContext {
-        let current_branch = git_output(
+        let current_branch = util::git_output(
             &self.repository_root,
             &["rev-parse", "--abbrev-ref", "HEAD"],
         )
@@ -554,849 +505,15 @@ impl GitClient {
         }
     }
 
-    // ========================================================================
-    // Branch Operations
-    // ========================================================================
-
-    /// Create a new branch
-    ///
-    pub fn create_branch(&self, name: &str, base: Option<&str>) -> Result<GitOperationResult> {
-        let operation = GitOperation::CreateBranch {
-            name: name.to_string(),
-            base: base.map(ToString::to_string),
-        };
-
-        let start_time = std::time::Instant::now();
-
-        // Execute pre-branch hooks (if we had them)
-        let context = self.create_hook_context(operation.clone(), vec![]);
-        self.execute_hooks(GitHookType::PostCheckout, &context)?;
-
-        // Build git command
-        let mut args = vec!["branch", name];
-        if let Some(base) = base {
-            args.push(base);
-        }
-
-        let result = self.execute_git_command(&args, &operation, start_time)?;
-
-        Ok(result)
-    }
-
-    /// Switch to a branch
-    ///
-    pub fn switch_branch(&self, name: &str, force: bool) -> Result<GitOperationResult> {
-        let operation = GitOperation::SwitchBranch {
-            name: name.to_string(),
-            force,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        // Check if branch exists
-        if !self.branch_exists(name)? {
-            return Err(GitError::BranchNotFound(name.to_string()).into());
-        }
-
-        // Build git command
-        let mut args = vec!["checkout"];
-        if force {
-            args.push("--force");
-        }
-        args.push(name);
-
-        let result = self.execute_git_command(&args, &operation, start_time)?;
-
-        // Execute post-checkout hooks
-        let context = self.create_hook_context(operation, vec![]);
-        self.execute_hooks(GitHookType::PostCheckout, &context)?;
-
-        Ok(result)
-    }
-
-    /// Delete a branch
-    ///
-    pub fn delete_branch(&self, name: &str, force: bool) -> Result<GitOperationResult> {
-        let operation = GitOperation::DeleteBranch {
-            name: name.to_string(),
-            force,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        // Build git command
-        let mut args = vec!["branch"];
-        if force {
-            args.push("-D");
-        } else {
-            args.push("-d");
-        }
-        args.push(name);
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    /// List all branches
-    ///
-    pub fn list_branches(&self) -> Result<Vec<String>> {
-        let output = git_output(
-            &self.repository_root,
-            &["branch", "--format=%(refname:short)"],
-        )?;
-        Ok(output.lines().map(ToString::to_string).collect())
-    }
-
-    /// Check if a branch exists
-    fn branch_exists(&self, name: &str) -> Result<bool> {
-        Ok(git_output(
-            &self.repository_root,
-            &["rev-parse", "--verify", &format!("refs/heads/{name}")],
-        )
-        .is_ok())
-    }
-
-    // ========================================================================
-    // Commit Operations
-    // ========================================================================
-
-    /// Create a commit
-    ///
-    pub fn commit_changes(
-        &self,
-        message: &str,
-        amend: Option<bool>,
-        allow_empty: Option<bool>,
-    ) -> Result<GitOperationResult> {
-        let amend = amend.unwrap_or(false);
-        let allow_empty = allow_empty.unwrap_or(false);
-
-        let operation = GitOperation::CommitChanges {
-            message: message.to_string(),
-            amend,
-            allow_empty,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        // Execute pre-commit hooks
-        let context = self.create_hook_context(operation.clone(), vec![]);
-        self.execute_hooks(GitHookType::PreCommit, &context)?;
-
-        // Build git command
-        let mut args = vec!["commit", "-m", message];
-        if amend {
-            args.push("--amend");
-        }
-        if allow_empty {
-            args.push("--allow-empty");
-        }
-
-        let result = self.execute_git_command(&args, &operation, start_time)?;
-
-        // Execute post-commit hooks
-        self.execute_hooks(GitHookType::PostCommit, &context)?;
-
-        Ok(result)
-    }
-
-    // ========================================================================
-    // Diff Operations
-    // ========================================================================
-
-    /// Get diff output
-    ///
-    pub fn get_diff(
-        &self,
-        path: Option<String>,
-        cached: bool,
-        context_lines: Option<usize>,
-    ) -> Result<String> {
-        let mut args = vec!["diff".to_string()];
-        if cached {
-            args.push("--cached".to_string());
-        }
-        if let Some(lines) = context_lines {
-            args.push(format!("-U{lines}"));
-        }
-        if let Some(path) = path {
-            args.push("--".to_string());
-            args.push(path);
-        }
-
-        let args: Vec<&str> = args.iter().map(String::as_str).collect();
-        git_output(&self.repository_root, &args)
-    }
-
-    /// Get diff between two commits
-    ///
-    pub fn diff_commits(&self, from: &str, to: &str, path: Option<&str>) -> Result<String> {
-        let mut args = vec!["diff", from, to];
-        if let Some(path) = path {
-            args.push("--");
-            args.push(path);
-        }
-
-        git_output(&self.repository_root, &args)
-    }
-
-    // ========================================================================
-    // Status Operations
-    // ========================================================================
-
-    /// Get repository status
-    ///
-    pub fn status(&self) -> Result<GitStatus> {
-        inspect(&self.repository_root)
-    }
-
-    /// Get detailed status with file changes
-    ///
-    pub fn status_files(&self) -> Result<Vec<FileStatus>> {
-        let output = git_output(&self.repository_root, &["status", "--porcelain"])?;
-        let mut files = Vec::new();
-
-        for line in output.lines() {
-            if line.len() >= 3 {
-                let status = line.chars().take(2).collect::<String>();
-                let path = line[3..].trim();
-                files.push(FileStatus {
-                    path: path.to_string(),
-                    status: status.clone(),
-                    staged: status.chars().next().is_some_and(|c| c != ' ' && c != '?'),
-                    unstaged: status.chars().nth(1).is_some_and(|c| c != ' '),
-                });
-            }
-        }
-
-        Ok(files)
-    }
-
-    // ========================================================================
-    // Merge Operations
-    // ========================================================================
-
-    /// Merge a branch
-    ///
-    pub fn merge_branch(
-        &self,
-        source: &str,
-        no_commit: bool,
-        squash: bool,
-    ) -> Result<GitOperationResult> {
-        let operation = GitOperation::MergeBranch {
-            source: source.to_string(),
-            no_commit,
-            squash,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        // Check for potential conflicts
-        if let Some(detector) = &self.conflict_detector {
-            let conflict_report = detector.detect_conflicts_with_branch(source)?;
-            if conflict_report.conflict_count() > 0 {
-                return Err(GitError::ConflictDetected(format!(
-                    "Potential conflicts detected: {} files",
-                    conflict_report.conflict_count()
-                ))
-                .into());
-            }
-        }
-
-        // Execute pre-merge hooks
-        let context = self.create_hook_context(operation.clone(), vec![]);
-        self.execute_hooks(GitHookType::PreMerge, &context)?;
-
-        // Build git command
-        let mut args = vec!["merge"];
-        if no_commit {
-            args.push("--no-commit");
-        }
-        if squash {
-            args.push("--squash");
-        }
-        args.push(source);
-
-        let result = self.execute_git_command(&args, &operation, start_time)?;
-
-        // Execute post-merge hooks
-        self.execute_hooks(GitHookType::PostMerge, &context)?;
-
-        Ok(result)
-    }
-
-    /// Abort the current merge
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.abort_merge()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn abort_merge(&self) -> Result<()> {
-        git_output(&self.repository_root, &["merge", "--abort"])?;
-        Ok(())
-    }
-
-    /// Continue the current merge after resolving conflicts
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.continue_merge()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn continue_merge(&self) -> Result<()> {
-        git_output(&self.repository_root, &["merge", "--continue"])?;
-        Ok(())
-    }
-
-    // ========================================================================
-    // Staging Operations
-    // ========================================================================
-
-    /// Stage files for commit
-    ///
-    pub fn stage_files(&self, paths: &[&str], update: bool) -> Result<GitOperationResult> {
-        let operation = GitOperation::StageFiles {
-            paths: paths.iter().map(ToString::to_string).collect(),
-            update,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        let mut args = vec!["add"];
-        if update {
-            args.push("-u");
-        }
-        args.push("--");
-        args.extend(paths);
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    /// Stage all changes
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.stage_all()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn stage_all(&self) -> Result<GitOperationResult> {
-        let operation = GitOperation::StageFiles {
-            paths: vec![".".to_string()],
-            update: false,
-        };
-
-        let start_time = std::time::Instant::now();
-        self.execute_git_command(&["add", "."], &operation, start_time)
-    }
-
-    /// Unstage files
-    ///
-    pub fn unstage_files(&self, paths: &[&str]) -> Result<GitOperationResult> {
-        let operation = GitOperation::UnstageFiles {
-            paths: paths.iter().map(ToString::to_string).collect(),
-        };
-
-        let start_time = std::time::Instant::now();
-
-        let mut args = vec!["reset", "HEAD", "--"];
-        args.extend(paths);
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    /// Unstage all files
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// git.unstage_all()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn unstage_all(&self) -> Result<GitOperationResult> {
-        let operation = GitOperation::UnstageFiles {
-            paths: vec![".".to_string()],
-        };
-
-        let start_time = std::time::Instant::now();
-        self.execute_git_command(&["reset", "HEAD", "."], &operation, start_time)
-    }
-
-    // ========================================================================
-    // Remote Operations
-    // ========================================================================
-
-    /// Fetch from a remote
-    ///
-    pub fn fetch(&self, remote: &str, refspec: Option<&str>) -> Result<GitOperationResult> {
-        let operation = GitOperation::Fetch {
-            remote: remote.to_string(),
-            refspec: refspec.map(ToString::to_string),
-        };
-
-        let start_time = std::time::Instant::now();
-
-        let mut args = vec!["fetch", remote];
-        if let Some(refspec) = refspec {
-            args.push(refspec);
-        }
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    /// Pull from a remote
-    ///
-    pub fn pull(&self, remote: &str, branch: Option<&str>) -> Result<GitOperationResult> {
-        let operation = GitOperation::Pull {
-            remote: remote.to_string(),
-            branch: branch.map(ToString::to_string),
-        };
-
-        let start_time = std::time::Instant::now();
-
-        let mut args = vec!["pull", remote];
-        if let Some(branch) = branch {
-            args.push(branch);
-        }
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    /// Push to a remote
-    ///
-    pub fn push(&self, remote: &str, branch: &str, force: bool) -> Result<GitOperationResult> {
-        let operation = GitOperation::Push {
-            remote: remote.to_string(),
-            branch: branch.to_string(),
-            force,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        // Execute pre-push hooks
-        let context = self.create_hook_context(operation.clone(), vec![branch.to_string()]);
-        self.execute_hooks(GitHookType::PrePush, &context)?;
-
-        let mut args = vec!["push"];
-        if force {
-            args.push("--force");
-        }
-        args.extend(&[remote, branch]);
-
-        let result = self.execute_git_command(&args, &operation, start_time)?;
-
-        Ok(result)
-    }
-
-    // ========================================================================
-    // Stash Operations
-    // ========================================================================
-
-    /// Stash changes
-    ///
-    pub fn stash(&self, message: Option<&str>, keep_index: bool) -> Result<GitOperationResult> {
-        let operation = GitOperation::Stash {
-            message: message.map(ToString::to_string),
-            keep_index,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        let mut args = vec!["stash"];
-        if keep_index {
-            args.push("--keep-index");
-        }
-        args.push("push");
-        if let Some(message) = message {
-            args.push("-m");
-            args.push(message);
-        }
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    /// Pop the most recent stash
-    ///
-    pub fn stash_pop(&self, stash_ref: Option<&str>) -> Result<GitOperationResult> {
-        let operation = GitOperation::StashPop {
-            stash_ref: stash_ref.map(ToString::to_string),
-        };
-
-        let start_time = std::time::Instant::now();
-
-        let mut args = vec!["stash", "pop"];
-        if let Some(ref_) = stash_ref {
-            args.push(ref_);
-        }
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    // ========================================================================
-    // Reset Operations
-    // ========================================================================
-
-    /// Reset the repository
-    ///
-    pub fn reset(&self, mode: ResetMode, commit: Option<&str>) -> Result<GitOperationResult> {
-        let operation = GitOperation::Reset {
-            mode,
-            commit: commit.map(ToString::to_string),
-        };
-
-        let start_time = std::time::Instant::now();
-
-        let mode_str = match mode {
-            ResetMode::Soft => "--soft",
-            ResetMode::Mixed => "--mixed",
-            ResetMode::Hard => "--hard",
-            ResetMode::Merge => "--merge",
-            ResetMode::Keep => "--keep",
-        };
-
-        let commit = commit.unwrap_or("HEAD");
-        let args = vec!["reset", mode_str, commit];
-
-        self.execute_git_command(&args, &operation, start_time)
-    }
-
-    // ========================================================================
-    // Rebase Operations
-    // ========================================================================
-
-    /// Rebase the current branch
-    ///
-    pub fn rebase(
-        &self,
-        upstream: &str,
-        branch: Option<&str>,
-        interactive: bool,
-    ) -> Result<GitOperationResult> {
-        let operation = GitOperation::Rebase {
-            upstream: upstream.to_string(),
-            branch: branch.map(ToString::to_string),
-            interactive,
-        };
-
-        let start_time = std::time::Instant::now();
-
-        // Execute pre-rebase hooks
-        let context = self.create_hook_context(operation.clone(), vec![]);
-        self.execute_hooks(GitHookType::PreRebase, &context)?;
-
-        let mut args = vec!["rebase"];
-        if interactive {
-            args.push("-i");
-        }
-        args.push(upstream);
-        if let Some(branch) = branch {
-            args.push(branch);
-        }
-
-        let result = self.execute_git_command(&args, &operation, start_time)?;
-
-        Ok(result)
-    }
-
-    // ========================================================================
-    // Utility Methods
-    // ========================================================================
-
-    /// Get the current branch name
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use rustycode_git::GitClient;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let git = GitClient::new(std::path::Path::new("/path/to/repo"))?;
-    /// let branch = git.current_branch()?;
-    /// println!("Current branch: {}", branch);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn current_branch(&self) -> Result<String> {
-        let output = git_output(
-            &self.repository_root,
-            &["rev-parse", "--abbrev-ref", "HEAD"],
-        )?;
-        Ok(output.trim().to_string())
-    }
-
     /// Get the repository root path
     pub fn repository_root(&self) -> &Path {
         &self.repository_root
-    }
-
-    /// Execute a git command and return the result
-    fn execute_git_command(
-        &self,
-        args: &[&str],
-        operation: &GitOperation,
-        start_time: std::time::Instant,
-    ) -> Result<GitOperationResult> {
-        let output = Command::new("git")
-            .args(args)
-            .current_dir(&self.repository_root)
-            .output()
-            .context(format!(
-                "Failed to execute git command: git {}",
-                args.join(" ")
-            ))?;
-
-        let duration = start_time.elapsed();
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-        let success = output.status.success();
-
-        Ok(GitOperationResult {
-            operation: operation.clone(),
-            success,
-            output: stdout,
-            error: if success { None } else { Some(stderr) },
-            executed_at: Utc::now(),
-            duration_ms: duration.as_millis().try_into().unwrap_or(u64::MAX),
-        })
-    }
-
-    /// Find the root of the git repository
-    fn find_repository_root(path: &Path) -> Result<PathBuf> {
-        let root_str = git_output(path, &["rev-parse", "--show-toplevel"])
-            .context("Not in a git repository")?;
-        Ok(PathBuf::from(root_str.trim()))
-    }
-
-    /// Get the current HEAD commit hash
-    ///
-    pub fn current_commit(&self) -> Result<String> {
-        let hash = git_output(&self.repository_root, &["rev-parse", "HEAD"])?;
-        Ok(hash)
-    }
-
-    /// Get list of modified files in the working directory
-    ///
-    pub fn modified_files(&self) -> Result<Vec<String>> {
-        let status_files = self.status_files()?;
-        Ok(status_files.iter().map(|f| f.path.clone()).collect())
-    }
-
-    /// Reset repository to a specific commit
-    ///
-    /// This performs a hard reset, discarding all uncommitted changes.
-    ///
-    pub fn reset_to_commit(&self, commit_hash: &str) -> Result<GitOperationResult> {
-        self.reset(ResetMode::Hard, Some(commit_hash))
     }
 
     /// Get the conflict detector if available
     pub const fn conflict_detector(&self) -> Option<&ConflictDetector> {
         self.conflict_detector.as_ref()
     }
-}
-
-// File Status
-
-/// Status of a single file
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FileStatus {
-    /// Path to the file
-    pub path: String,
-    /// Status code (e.g., "M", "A", "D", "??")
-    pub status: String,
-    /// Whether the file is staged
-    pub staged: bool,
-    /// Whether the file has unstaged changes
-    pub unstaged: bool,
-}
-
-// Conflict Detection (Re-export from existing code)
-
-// Re-export existing conflict detection types
-pub use crate::conflict::*;
-
-// Conflict detection module
-mod conflict {
-    use super::*;
-
-    /// Types of merge conflicts that can be detected
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-    pub enum ConflictType {
-        MarkerConflict,
-        BothModified,
-        DeleteModify,
-        RenameModify,
-        BinaryConflict,
-        SubmoduleConflict,
-        Unknown,
-    }
-
-    impl std::fmt::Display for ConflictType {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Self::MarkerConflict => write!(f, "marker conflict"),
-                Self::BothModified => write!(f, "both modified"),
-                Self::DeleteModify => write!(f, "delete/modify"),
-                Self::RenameModify => write!(f, "rename/modify"),
-                Self::BinaryConflict => write!(f, "binary conflict"),
-                Self::SubmoduleConflict => write!(f, "submodule conflict"),
-                Self::Unknown => write!(f, "unknown"),
-            }
-        }
-    }
-
-    /// Severity level of a conflict
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-    pub enum ConflictSeverity {
-        Low,
-        Medium,
-        High,
-        Critical,
-    }
-
-    impl std::fmt::Display for ConflictSeverity {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            match self {
-                Self::Low => write!(f, "low"),
-                Self::Medium => write!(f, "medium"),
-                Self::High => write!(f, "high"),
-                Self::Critical => write!(f, "critical"),
-            }
-        }
-    }
-
-    /// A single detected conflict
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct Conflict {
-        pub file_path: PathBuf,
-        pub conflict_type: ConflictType,
-        pub severity: ConflictSeverity,
-        pub description: String,
-        pub resolution_strategy: String,
-        pub conflict_lines: Vec<usize>,
-        pub conflicting_branch: Option<String>,
-        pub commits: Vec<String>,
-    }
-
-    /// Conflict detection report
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct ConflictReport {
-        pub conflicts: Vec<Conflict>,
-        pub repository_root: PathBuf,
-        pub current_branch: Option<String>,
-        pub detected_at: DateTime<Utc>,
-        pub merge_in_progress: bool,
-        pub merge_branches: Vec<String>,
-    }
-
-    impl ConflictReport {
-        pub const fn conflict_count(&self) -> usize {
-            self.conflicts.len()
-        }
-
-        pub fn has_critical_conflicts(&self) -> bool {
-            self.conflicts
-                .iter()
-                .any(|c| c.severity == ConflictSeverity::Critical)
-        }
-    }
-
-    /// Conflict detector for git repositories
-    pub struct ConflictDetector {
-        repository_root: PathBuf,
-    }
-
-    impl ConflictDetector {
-        pub fn new(path: &Path) -> Result<Self> {
-            let root_str = git_output(path, &["rev-parse", "--show-toplevel"])?;
-            let repository_root = PathBuf::from(root_str.trim());
-
-            Ok(Self { repository_root })
-        }
-
-        pub fn detect_conflicts(&self) -> Result<ConflictReport> {
-            // Simplified conflict detection
-            Ok(ConflictReport {
-                conflicts: Vec::new(),
-                repository_root: self.repository_root.clone(),
-                current_branch: None,
-                detected_at: Utc::now(),
-                merge_in_progress: false,
-                merge_branches: Vec::new(),
-            })
-        }
-
-        pub fn detect_conflicts_with_branch(&self, _branch_name: &str) -> Result<ConflictReport> {
-            Ok(ConflictReport {
-                conflicts: Vec::new(),
-                repository_root: self.repository_root.clone(),
-                current_branch: None,
-                detected_at: Utc::now(),
-                merge_in_progress: false,
-                merge_branches: Vec::new(),
-            })
-        }
-    }
-}
-
-// Git Status (Existing)
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GitStatus {
-    pub root: Option<PathBuf>,
-    pub branch: Option<String>,
-    pub worktree: bool,
-    pub dirty: Option<bool>,
-}
-
-pub fn inspect(cwd: &Path) -> Result<GitStatus> {
-    let root = git_output(cwd, &["rev-parse", "--show-toplevel"])
-        .ok()
-        .map(|s| PathBuf::from(s.trim()));
-    let branch = git_output(cwd, &["rev-parse", "--abbrev-ref", "HEAD"]).ok();
-    let git_dir = git_output(cwd, &["rev-parse", "--git-dir"]).ok();
-    let dirty = git_output(cwd, &["status", "--porcelain"])
-        .ok()
-        .map(|s| !s.trim().is_empty());
-
-    Ok(GitStatus {
-        root,
-        branch: branch.map(|s| s.trim().to_string()),
-        worktree: git_dir
-            .as_deref()
-            .is_some_and(|dir| dir.contains("worktrees")),
-        dirty,
-    })
-}
-
-fn git_output(cwd: &Path, args: &[&str]) -> Result<String> {
-    let output = Command::new("git").args(args).current_dir(cwd).output()?;
-    if !output.status.success() {
-        return Err(anyhow!(
-            "git command failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        ));
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 // Tests
@@ -1415,20 +532,20 @@ mod tests {
         let repo_path = temp_dir.path().to_path_buf();
 
         // Initialize git repo
-        Command::new("git")
+        std::process::Command::new("git")
             .args(["init", "--initial-branch=main"])
             .current_dir(&repo_path)
             .output()
             .context("Failed to init git repo")?;
 
         // Configure git
-        Command::new("git")
+        std::process::Command::new("git")
             .args(["config", "user.email", "test@example.com"])
             .current_dir(&repo_path)
             .output()
             .context("Failed to configure git email")?;
 
-        Command::new("git")
+        std::process::Command::new("git")
             .args(["config", "user.name", "Test User"])
             .current_dir(&repo_path)
             .output()
@@ -1443,13 +560,13 @@ mod tests {
         let mut file = File::create(&file_path)?;
         writeln!(file, "{}", content)?;
 
-        Command::new("git")
+        std::process::Command::new("git")
             .args(["add", "."])
             .current_dir(repo_path)
             .output()
             .context("Failed to add files")?;
 
-        Command::new("git")
+        std::process::Command::new("git")
             .args(["commit", "-m", &format!("Add {}", filename)])
             .current_dir(repo_path)
             .output()
@@ -1765,7 +882,7 @@ mod tests {
     #[test]
     fn test_merge_branch() {
         let (_temp, repo_path) = create_test_repo().unwrap();
-        commit_test_file(&repo_path, "test.txt", "main content").unwrap();
+        commit_test_file(&repo_path, "test.txt", "main contents").unwrap();
 
         let git = GitClient::new(&repo_path).unwrap();
 
