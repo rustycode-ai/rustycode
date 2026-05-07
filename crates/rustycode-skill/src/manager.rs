@@ -209,11 +209,13 @@ impl SkillManager {
             .evaluate_for_context(&self.registry, context);
 
         for rec in &recs {
-            let _ = self.activation.activate(
+            if let Err(e) = self.activation.activate(
                 &mut self.registry,
                 &rec.skill_id,
                 format!("context:{}", rec.score),
-            );
+            ) {
+                tracing::warn!("Failed to activate skill {}: {e}", rec.skill_id);
+            }
             self.remember_active_skill(&rec.skill_id);
         }
 
@@ -449,7 +451,9 @@ impl SkillManager {
 
         for skill_id in &self.session_skill_ids {
             if let Some(fsm) = self.lifecycles.get_mut(skill_id.as_str()) {
-                let _ = fsm.transition(LifecycleEvent::Activate);
+                if let Err(e) = fsm.transition(LifecycleEvent::Activate) {
+                    tracing::warn!("Failed to activate lifecycle for skill {skill_id}: {:?}", e);
+                }
             }
         }
 

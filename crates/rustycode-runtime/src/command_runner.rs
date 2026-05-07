@@ -137,7 +137,9 @@ pub fn spawn_command_worker(
                 Ok(Some(_)) => break,
                 Ok(None) => {
                     if Instant::now() >= deadline {
-                        let _ = child.kill();
+                        if let Err(e) = child.kill() {
+                            tracing::warn!("Failed to kill timed-out command: {e}");
+                        }
                         if let Err(e) = tx.send(CommandResult {
                             command,
                             tool_name,
