@@ -89,6 +89,7 @@ struct EvaluationResult {
 }
 
 #[test]
+#[ignore = "requires external terminal_bench_tasks.csv data file"]
 fn evaluate_orchestration_harness_on_terminal_bench() {
     println!("\n🧪 ORCHESTRATION HARNESS EVALUATION");
     println!("==================================\n");

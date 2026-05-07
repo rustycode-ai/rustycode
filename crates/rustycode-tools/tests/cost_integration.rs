@@ -1,6 +1,4 @@
 //! Integration tests for end-to-end cost tracking.
-//! Cost tracking now depends on rustycode_llm which causes circular deps.
-//! These tests are temporarily ignored.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
