@@ -82,7 +82,43 @@ rustycode-session = { path = "../rustycode-session" }
 
 # Note: sandbox_benchmarks and sandbox_performance will be added when implemented
 
-[lints]
-workspace = true
+# Lints specified locally instead of workspace = true because this crate needs
+# unsafe_code = "allow" for Linux subprocess management (prctl/PR_SET_PDEATHSIG).
+# Cargo does not allow mixing `workspace = true` with per-lint overrides.
+[lints.rust]
+unsafe_code = "allow"
+dead_code = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+uninlined_format_args = "allow"
+type_complexity = "allow"
+collapsible-match = "allow"
+unnecessary-sort-by = "allow"
+unnecessary-min-or-max = "allow"
+useless-conversion = "allow"
+needless_range_loop = "allow"
+await_holding_lock = "allow"
+upper_case_acronyms = "allow"
+too_many_arguments = "allow"
+string_slice = "allow"
+redundant_field_names = "allow"
+module_inception = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+missing_const_for_fn = "allow"
+option_if_let_else = "allow"
+suboptimal_flops = "allow"
+doc_markdown = "allow"
+must_use_candidate = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+cast_lossless = "allow"
+return_self_not_must_use = "allow"
+wildcard_imports = "allow"
 
 
