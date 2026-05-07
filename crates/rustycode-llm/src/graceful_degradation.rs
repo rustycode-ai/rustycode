@@ -406,7 +406,9 @@ impl RetryConfig {
 
     /// Calculate delay for a given attempt number
     pub fn delay_for_attempt(&self, attempt: u32) -> Duration {
-        let delay = self.base_delay_ms.saturating_mul(2_u64.saturating_pow(attempt));
+        let delay = self
+            .base_delay_ms
+            .saturating_mul(2_u64.saturating_pow(attempt));
         let capped = delay.min(self.max_delay_ms);
         Duration::from_millis(capped)
     }

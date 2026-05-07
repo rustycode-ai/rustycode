@@ -107,7 +107,10 @@ fn format_timestamp(time: std::time::SystemTime) -> String {
     }
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_empty_input_handling() {
     // Test that empty input doesn't crash the system
@@ -129,7 +132,10 @@ fn test_empty_input_handling() {
     assert!(!app.ui.should_quit);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_very_large_input() {
     let cwd = std::env::current_dir().unwrap();
@@ -146,7 +152,10 @@ fn test_very_large_input() {
     assert!(app.ui.input_height <= 10); // Max height constraint
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_special_characters_and_unicode() {
     let cwd = std::env::current_dir().unwrap();
@@ -175,7 +184,10 @@ fn test_special_characters_and_unicode() {
     assert!(!app.ui.should_quit);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_zero_messages_session() {
     let cwd = std::env::current_dir().unwrap();
@@ -193,7 +205,10 @@ fn test_zero_messages_session() {
     // The new architecture uses InputHandler for key handling
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_thousand_message_session() {
     let cwd = std::env::current_dir().unwrap();
@@ -226,7 +241,10 @@ fn test_thousand_message_session() {
     // Note: perform_search is not available in the new architecture
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_file_paths_with_special_chars() {
     let cwd = std::env::current_dir().unwrap();
@@ -258,7 +276,10 @@ fn test_file_paths_with_special_chars() {
     }
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_mutex_poisoning_recovery() {
     let mutex = Arc::new(Mutex::new(false));
@@ -282,7 +303,10 @@ fn test_mutex_poisoning_recovery() {
     assert_eq!(value, false);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_concurrent_message_addition() {
     let cwd = std::env::current_dir().unwrap();
@@ -328,7 +352,10 @@ fn test_concurrent_message_addition() {
     );
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_rapid_key_presses() {
     let cwd = std::env::current_dir().unwrap();
@@ -350,7 +377,10 @@ fn test_rapid_key_presses() {
     assert!(!app.ui.should_quit);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_search_with_empty_query() {
     let cwd = std::env::current_dir().unwrap();
@@ -369,7 +399,10 @@ fn test_search_with_empty_query() {
     assert!(app.search.search_matches.is_empty());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_search_with_no_matches() {
     let cwd = std::env::current_dir().unwrap();
@@ -388,7 +421,10 @@ fn test_search_with_no_matches() {
     assert!(app.search.search_matches.is_empty());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_model_selector_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -418,7 +454,10 @@ fn test_model_selector_edge_cases() {
     assert_eq!(app.provider.current_model, "test-model");
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_file_finder_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -439,7 +478,10 @@ fn test_file_finder_edge_cases() {
     assert!(!app.ui.should_quit);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_session_history_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -458,7 +500,10 @@ fn test_session_history_edge_cases() {
     // app.handle_key(KeyCode::Enter, KeyModifiers::empty());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_clipboard_operations_with_special_content() {
     let cwd = std::env::current_dir().unwrap();
@@ -483,7 +528,10 @@ fn test_clipboard_operations_with_special_content() {
     }
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_command_history_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -511,7 +559,10 @@ fn test_command_history_edge_cases() {
     assert_eq!(app.search.command_history.len(), 3);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_edit_preview_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -541,7 +592,10 @@ fn test_edit_preview_edge_cases() {
     assert!(line_count > 0, "Diff should not be empty");
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_tool_execution_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -577,7 +631,10 @@ fn test_tool_execution_edge_cases() {
     assert!(true, "Long tool name handled");
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_workspace_context_loading_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -595,7 +652,10 @@ fn test_workspace_context_loading_edge_cases() {
     assert!(true); // Either outcome is acceptable
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_performance_monitoring_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -614,7 +674,10 @@ fn test_performance_monitoring_edge_cases() {
     let _ = 3_u16;
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_theme_toggle_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -630,7 +693,10 @@ fn test_theme_toggle_edge_cases() {
     assert!(matches!(app.ui.theme, Theme::Dark | Theme::Light));
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_input_height_calculation_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -654,7 +720,10 @@ fn test_input_height_calculation_edge_cases() {
     }
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_scroll_offset_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -676,7 +745,10 @@ fn test_scroll_offset_edge_cases() {
     // app.handle_key(KeyCode::Down, KeyModifiers::empty());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_stream_cancel_concurrent_access() {
     let cancel = Arc::new(Mutex::new(false));
@@ -704,7 +776,10 @@ fn test_stream_cancel_concurrent_access() {
     // Should not cause data races
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_provider_search_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -737,7 +812,10 @@ fn test_provider_search_edge_cases() {
     assert!(filtered.is_empty());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_session_save_load_edge_cases() {
     let cwd = std::env::current_dir().unwrap();
@@ -759,7 +837,10 @@ fn test_session_save_load_edge_cases() {
     // Should handle gracefully
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_memory_leak_detection() {
     let cwd = std::env::current_dir().unwrap();
@@ -774,7 +855,10 @@ fn test_memory_leak_detection() {
     // (This is a basic check; real memory profiling would use valgrind/sanitizers)
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_first_run_marker_edge_cases() {
     // Test with directory that doesn't exist
@@ -785,7 +869,10 @@ fn test_first_run_marker_edge_cases() {
     assert!(!exists);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[test]
 fn test_timestamp_formatting_edge_cases() {
     use std::time::{Duration, SystemTime};

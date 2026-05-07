@@ -40,7 +40,10 @@ fn create_echo_server_config(server_id: &str) -> ServerConfig {
     }
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_server_manager_lifecycle() {
     let mut manager = McpServerManager::default_config();
@@ -66,7 +69,10 @@ async fn test_server_manager_lifecycle() {
     }
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_health_monitoring() {
     let mut manager = McpServerManager::default_config();
@@ -82,7 +88,10 @@ async fn test_health_monitoring() {
     manager.stop_health_monitoring().await;
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_tool_registry_workflow() {
     let registry = ToolRegistry::new();
@@ -99,7 +108,10 @@ async fn test_tool_registry_workflow() {
     assert!(tool.is_none());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_connection_pool_workflow() {
     let pool = ConnectionPool::new(PoolConfig::default());
@@ -117,7 +129,10 @@ async fn test_connection_pool_workflow() {
     assert_eq!(stats.idle, 5);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_rate_limiter_workflow() {
     let limiter = RateLimiter::new(RateLimiterConfig {
@@ -145,7 +160,10 @@ async fn test_rate_limiter_workflow() {
     assert!(limiter.check_rate_limit("user1").await.is_ok());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_metrics_workflow() {
     let collector = MetricsCollector::new();
@@ -189,7 +207,10 @@ async fn test_metrics_workflow() {
     assert!(collector.metrics("tool2").await.is_none());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_retry_mechanism() {
     let config = RetryConfig {
@@ -228,7 +249,10 @@ async fn test_retry_mechanism() {
     assert_eq!(attempt_count.load(std::sync::atomic::Ordering::SeqCst), 5); // max_attempts
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_enterprise_integration() {
     // Create components
@@ -265,7 +289,10 @@ async fn test_enterprise_integration() {
     assert_eq!(metrics.successful_calls, 1);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_concurrent_operations() {
     let collector = MetricsCollector::new();
@@ -295,7 +322,10 @@ async fn test_concurrent_operations() {
     assert_eq!(all_metrics.len(), 10);
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_error_recovery() {
     let limiter = RateLimiter::new(RateLimiterConfig {
@@ -318,7 +348,10 @@ async fn test_error_recovery() {
     assert!(result.is_ok());
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_timeout_handling() {
     let config = RetryConfig {
@@ -342,7 +375,10 @@ async fn test_timeout_handling() {
     assert!(elapsed < Duration::from_secs(1));
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_metrics_aggregation() {
     let collector = MetricsCollector::new();

@@ -4,7 +4,10 @@
 
 use rustycode_lsp::{LspClient, LspClientConfig};
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_lsp_process_status() {
     let mut client = LspClient::new(LspClientConfig {

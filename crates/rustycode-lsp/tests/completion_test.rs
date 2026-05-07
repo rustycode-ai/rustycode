@@ -22,7 +22,10 @@ fn uri_from_directory_path(path: impl AsRef<std::path::Path>) -> Url {
         .unwrap()
 }
 
-#[cfg_attr(not(feature = "slow-tests"), ignore = "slow test: run with --features slow-tests")]
+#[cfg_attr(
+    not(feature = "slow-tests"),
+    ignore = "slow test: run with --features slow-tests"
+)]
 #[tokio::test]
 async fn test_lsp_completion() {
     // Create a temporary Rust project
