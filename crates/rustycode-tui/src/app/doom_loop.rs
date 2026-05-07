@@ -86,10 +86,13 @@ impl DoomLoopDetector {
 
         // Check the most recent fingerprint for consecutive failures
         let latest = &self.records[self.records.len() - 1];
+
+        if let Some(reason) = self.check_soft_doom_loop() {
+            return Some(reason);
+        }
+
         if latest.success {
-            // A success breaks any failure-based doom loop
-            // But check for soft doom loop (too many identical calls)
-            return self.check_soft_doom_loop();
+            return None;
         }
 
         let fingerprint = latest.fingerprint();
@@ -133,16 +136,22 @@ impl DoomLoopDetector {
 
         let soft_threshold = DOOM_LOOP_THRESHOLD * 2;
         if total_same >= soft_threshold {
-            return Some(format!(
-                "Tool `{}`{} called {} times without convergence — may be stuck",
-                latest.tool_name,
-                latest
-                    .key_arg
-                    .as_ref()
-                    .map(|a| format!(" on `{}`", a))
-                    .unwrap_or_default(),
-                total_same
-            ));
+            let has_failure = self
+                .records
+                .iter()
+                .any(|r| r.fingerprint() == fingerprint && !r.success);
+            if has_failure {
+                return Some(format!(
+                    "Tool `{}`{} called {} times without convergence — may be stuck",
+                    latest.tool_name,
+                    latest
+                        .key_arg
+                        .as_ref()
+                        .map(|a| format!(" on `{}`", a))
+                        .unwrap_or_default(),
+                    total_same
+                ));
+            }
         }
 
         None
@@ -247,15 +256,22 @@ mod tests {
     #[test]
     fn test_soft_doom_loop_many_same_calls() {
         let mut d = DoomLoopDetector::new();
-        // 6 successful calls to the same tool+arg (DOOM_LOOP_THRESHOLD * 2)
-        for _ in 0..6 {
+        for _ in 0..5 {
             d.record("edit_file", Some("a.rs"), true);
         }
-        // Latest is a success, so hard doom loop won't trigger
-        // But soft doom loop should (6 >= 3*2)
+        d.record("edit_file", Some("a.rs"), false);
         assert!(d.is_doom_loop());
         let reason = d.doom_loop_reason().unwrap();
         assert!(reason.contains("without convergence"));
+    }
+
+    #[test]
+    fn test_soft_doom_loop_all_success_no_false_positive() {
+        let mut d = DoomLoopDetector::new();
+        for _ in 0..6 {
+            d.record("edit_file", Some("a.rs"), true);
+        }
+        assert!(!d.is_doom_loop());
     }
 
     #[test]

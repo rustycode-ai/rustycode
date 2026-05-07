@@ -407,6 +407,15 @@ impl TUI {
         self.view.last_total_lines.set(0);
         self.compaction.context_monitor.current_tokens = 0;
         self.compaction.context_monitor.needs_compaction = false;
+
+        self.doom_loop.reset();
+        self.undo.clear();
+        self.search_state.visible = false;
+        self.search_state.matches.clear();
+        self.search_state.query.clear();
+        self.search_state.current_match_index = 0;
+        self.message_line_offsets.borrow_mut().clear();
+        self.message_areas.borrow_mut().clear();
     }
 
     /// Create a new TUI instance with service integration

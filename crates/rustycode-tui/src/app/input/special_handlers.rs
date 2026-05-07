@@ -477,6 +477,7 @@ impl TUI {
                             let was_streaming = self.streaming.is_streaming;
                             if was_streaming {
                                 self.services.request_stop_stream();
+                                self.streaming.stream_cancelled = true;
                             }
                             // Apply LoadSession effect inline (private method workaround)
                             self.reset_conversation_state();
