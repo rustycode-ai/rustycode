@@ -172,7 +172,6 @@ impl Storage {
             create index if not exists idx_tasks_status on tasks(status);
             create index if not exists idx_tasks_owner on tasks(owner);",
         )?;
-        let _ = conn.execute_batch("alter table plans add column milestone_id text");
         Ok(())
     }
 
