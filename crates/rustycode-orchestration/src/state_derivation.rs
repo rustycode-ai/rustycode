@@ -239,16 +239,11 @@ impl StateDeriver {
             active_milestone.as_ref().map(|m| &m.id)
         );
 
-        let active_slice_state = active_milestone_state.and_then(|m| {
-            m.slices.iter().find(|s| !s.done)
-        });
+        let active_slice_state =
+            active_milestone_state.and_then(|m| m.slices.iter().find(|s| !s.done));
 
         let active_slice = active_slice_state.map(|s| {
-            debug!(
-                "Found active slice: {} with {} tasks",
-                s.id,
-                s.tasks.len()
-            );
+            debug!("Found active slice: {} with {} tasks", s.id, s.tasks.len());
             SliceRef {
                 id: s.id.clone(),
                 title: s.title.clone(),
@@ -278,8 +273,7 @@ impl StateDeriver {
             if !plan_path.exists() {
                 Phase::Plan
             } else if task.done {
-                let all_done = active_slice_state
-                    .is_some_and(|s| s.tasks.iter().all(|t| t.done));
+                let all_done = active_slice_state.is_some_and(|s| s.tasks.iter().all(|t| t.done));
 
                 if all_done {
                     Phase::Complete

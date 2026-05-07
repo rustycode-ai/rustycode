@@ -161,9 +161,9 @@ impl CachedTokenCounter {
     /// Clear the token cache.
     pub fn clear_cache(&self) {
         let mut cache = self.cache.lock().unwrap_or_else(|e| {
-                tracing::warn!("token_counter mutex poisoned, recovering: {e}");
-                e.into_inner()
-            });
+            tracing::warn!("token_counter mutex poisoned, recovering: {e}");
+            e.into_inner()
+        });
         cache.clear();
         self.hits.store(0, std::sync::atomic::Ordering::Relaxed);
         self.misses.store(0, std::sync::atomic::Ordering::Relaxed);
@@ -173,10 +173,14 @@ impl CachedTokenCounter {
     pub fn cache_stats(&self) -> (u64, u64, usize) {
         let hits = self.hits.load(std::sync::atomic::Ordering::Relaxed);
         let misses = self.misses.load(std::sync::atomic::Ordering::Relaxed);
-        let size = self.cache.lock().unwrap_or_else(|e| {
+        let size = self
+            .cache
+            .lock()
+            .unwrap_or_else(|e| {
                 tracing::warn!("token_counter mutex poisoned, recovering: {e}");
                 e.into_inner()
-            }).len();
+            })
+            .len();
         (hits, misses, size)
     }
 

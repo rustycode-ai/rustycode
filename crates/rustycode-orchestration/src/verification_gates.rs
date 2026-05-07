@@ -234,9 +234,25 @@ impl RuleFileVerificationGate {
                 let path = entry.path();
 
                 if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
-                    if let Ok(content) = std::fs::read_to_string(&path) {
-                        if let Ok(rule_file) = serde_yaml::from_str::<RuleFile>(&content) {
-                            rules_by_task_type.insert(rule_file.task_type, rule_file.rules);
+                    match std::fs::read_to_string(&path) {
+                        Ok(content) => match serde_yaml::from_str::<RuleFile>(&content) {
+                            Ok(rule_file) => {
+                                rules_by_task_type.insert(rule_file.task_type, rule_file.rules);
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    path = %path.display(),
+                                    error = %e,
+                                    "skipping unparseable rule file"
+                                );
+                            }
+                        },
+                        Err(e) => {
+                            tracing::warn!(
+                                path = %path.display(),
+                                error = %e,
+                                "skipping unreadable rule file"
+                            );
                         }
                     }
                 }
@@ -287,20 +303,29 @@ impl RuleFileVerificationGate {
             }
             "regex" => {
                 if let Some(pattern) = &rule.pattern {
-                    if let Ok(regex) = regex::Regex::new(pattern) {
-                        let is_match = regex.is_match(&result.output);
-                        let fail_on_match = rule.on_match.as_deref() == Some("Invalid");
-                        let should_fail = if fail_on_match { is_match } else { !is_match };
+                    match regex::Regex::new(pattern) {
+                        Ok(regex) => {
+                            let is_match = regex.is_match(&result.output);
+                            let fail_on_match = rule.on_match.as_deref() == Some("Invalid");
+                            let should_fail = if fail_on_match { is_match } else { !is_match };
 
-                        if should_fail {
-                            let category = Self::parse_error_category(&rule.on_failure);
-                            return Some(VerificationOutcome::Invalid {
-                                reason: format!(
-                                    "Regex check '{}' failed for output",
-                                    rule.description
-                                ),
-                                category,
-                            });
+                            if should_fail {
+                                let category = Self::parse_error_category(&rule.on_failure);
+                                return Some(VerificationOutcome::Invalid {
+                                    reason: format!(
+                                        "Regex check '{}' failed for output",
+                                        rule.description
+                                    ),
+                                    category,
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                pattern = %pattern,
+                                error = %e,
+                                "skipping verification rule with invalid regex"
+                            );
                         }
                     }
                 }

@@ -22,7 +22,12 @@ pub fn deliver(request_id: &str, decision: bool) -> bool {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     if let Some(tx) = map.remove(request_id) {
-        tx.send(decision).is_ok()
+        if tx.send(decision).is_err() {
+            tracing::debug!(request_id = %request_id, "confirmation receiver dropped before delivery");
+            false
+        } else {
+            true
+        }
     } else {
         false
     }
