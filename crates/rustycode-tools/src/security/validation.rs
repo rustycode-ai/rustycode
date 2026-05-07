@@ -1344,8 +1344,18 @@ mod tests {
                 normalize_path("/mnt/d/projects/app/src/main.rs"),
                 "D:/projects/app/src/main.rs"
             );
+        } else if cfg!(target_os = "linux") {
+            // WSL conversion on Linux: /mnt/c/... → C:/...
+            assert_eq!(
+                normalize_path("/mnt/c/Users/test/file.txt"),
+                "C:/Users/test/file.txt"
+            );
+            assert_eq!(
+                normalize_path("/mnt/d/projects/app/src/main.rs"),
+                "D:/projects/app/src/main.rs"
+            );
         } else {
-            // On regular Linux/macOS, /mnt/c/ is a valid path — no conversion
+            // macOS and others: no conversion
             assert_eq!(
                 normalize_path("/mnt/c/Users/test/file.txt"),
                 "/mnt/c/Users/test/file.txt"

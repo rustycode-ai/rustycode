@@ -1322,6 +1322,17 @@ mod tests {
     #[test]
     fn test_normalize_wsl_path() {
         if cfg!(windows) {
+            // Git Bash / MSYS2 conversion
+            assert_eq!(
+                normalize_path("/mnt/c/Users/test/file.txt"),
+                "C:/Users/test/file.txt"
+            );
+            assert_eq!(
+                normalize_path("/mnt/d/projects/app/src/main.rs"),
+                "D:/projects/app/src/main.rs"
+            );
+        } else if cfg!(target_os = "linux") {
+            // WSL conversion on Linux
             assert_eq!(
                 normalize_path("/mnt/c/Users/test/file.txt"),
                 "C:/Users/test/file.txt"
@@ -1331,6 +1342,7 @@ mod tests {
                 "D:/projects/app/src/main.rs"
             );
         } else {
+            // macOS and others: no conversion
             assert_eq!(
                 normalize_path("/mnt/c/Users/test/file.txt"),
                 "/mnt/c/Users/test/file.txt"
