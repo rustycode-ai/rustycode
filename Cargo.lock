@@ -5998,6 +5998,7 @@ dependencies = [
  "futures-util",
  "num_cpus",
  "regex",
+ "reqwest 0.13.3",
  "rustycode-agent-runtime",
  "rustycode-bench",
  "rustycode-bus",

@@ -8,6 +8,7 @@ use crate::PlanStep;
 use anyhow::{bail, Result};
 use chrono::Utc;
 use rustycode_orchestration::delegation::RetryState;
+pub use rustycode_protocol::execution::StepExecutor;
 use rustycode_protocol::{Conversation, Message, ToolCall, ToolResult};
 use rustycode_tools::{ToolContext, ToolRegistry};
 use rustycode_tools_api::MessageSender;
@@ -209,20 +210,9 @@ impl ExecutionContext {
     }
 }
 
-/// Trait for executing a plan step.
-pub trait StepExecutor: Send + Sync {
-    /// Execute a step and return the updated step with results.
-    fn execute(
-        &self,
-        step: PlanStep,
-        conversation: &mut Conversation,
-        ctx: &ExecutionContext,
-    ) -> Result<PlanStep>;
-}
-
 /// Registry of available step executors.
 pub struct StepExecutorRegistry {
-    executors: HashMap<String, Arc<dyn StepExecutor>>,
+    executors: HashMap<String, Arc<dyn StepExecutor<ExecutionContext>>>,
 }
 
 impl StepExecutorRegistry {
@@ -233,17 +223,17 @@ impl StepExecutorRegistry {
     }
 
     /// Register an executor for a step type.
-    pub fn register(&mut self, step_type: String, executor: Arc<dyn StepExecutor>) {
+    pub fn register(&mut self, step_type: String, executor: Arc<dyn StepExecutor<ExecutionContext>>) {
         self.executors.insert(step_type, executor);
     }
 
     /// Get an executor by step type.
-    pub fn get(&self, step_type: &str) -> Option<Arc<dyn StepExecutor>> {
+    pub fn get(&self, step_type: &str) -> Option<Arc<dyn StepExecutor<ExecutionContext>>> {
         self.executors.get(step_type).cloned()
     }
 
     /// Get default (generic) executor for any step type.
-    pub fn default_executor(&self, cwd: PathBuf) -> Arc<dyn StepExecutor> {
+    pub fn default_executor(&self, cwd: PathBuf) -> Arc<dyn StepExecutor<ExecutionContext>> {
         // Return a generic executor that uses the tool registry
         Arc::new(GenericStepExecutor::new(cwd))
     }
@@ -261,16 +251,16 @@ impl Default for StepExecutorRegistry {
 /// POST-EXECUTION checkpoint. On failure the pre-checkpoint is
 /// preserved for recovery (no overwrite).
 pub struct CheckpointingStepExecutor {
-    inner: Arc<dyn StepExecutor>,
+    inner: Arc<dyn StepExecutor<ExecutionContext>>,
 }
 
 impl CheckpointingStepExecutor {
-    pub fn new(inner: Arc<dyn StepExecutor>) -> Self {
+    pub fn new(inner: Arc<dyn StepExecutor<ExecutionContext>>) -> Self {
         Self { inner }
     }
 }
 
-impl StepExecutor for CheckpointingStepExecutor {
+impl StepExecutor<ExecutionContext> for CheckpointingStepExecutor {
     fn execute(
         &self,
         step: PlanStep,
@@ -342,7 +332,7 @@ impl GenericStepExecutor {
     }
 }
 
-impl StepExecutor for GenericStepExecutor {
+impl StepExecutor<ExecutionContext> for GenericStepExecutor {
     fn execute(
         &self,
         mut step: PlanStep,
@@ -601,7 +591,7 @@ mod tests {
         assert!(!is_critical_tool("git_status"));
     }
 
-    // ── Checkpointing integration tests ──
+    // -- Checkpointing integration tests --
 
     fn make_step(title: &str) -> PlanStep {
         use rustycode_protocol::StepStatus;
@@ -633,7 +623,7 @@ mod tests {
     }
 
     struct SucceedingExecutor;
-    impl StepExecutor for SucceedingExecutor {
+    impl StepExecutor<ExecutionContext> for SucceedingExecutor {
         fn execute(
             &self,
             step: PlanStep,
@@ -645,7 +635,7 @@ mod tests {
     }
 
     struct FailingExecutor;
-    impl StepExecutor for FailingExecutor {
+    impl StepExecutor<ExecutionContext> for FailingExecutor {
         fn execute(
             &self,
             step: PlanStep,

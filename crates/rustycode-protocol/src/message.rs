@@ -418,7 +418,7 @@ impl MessageContent {
         }
     }
 
-    /// Get the length of the content in characters
+    /// Get the approximate byte length of the content (for token estimation).
     pub fn len(&self) -> usize {
         match self {
             Self::Simple(text) => text.len(),

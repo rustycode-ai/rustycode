@@ -224,7 +224,9 @@ impl WorkspaceMemory {
 
         let count = to_remove.len();
         for name in &to_remove {
-            let _ = self.delete(name);
+            if let Err(e) = self.delete(name) {
+                tracing::warn!(name = %name, error = %e, "failed to prune memory entry");
+            }
         }
         count
     }

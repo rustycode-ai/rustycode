@@ -212,6 +212,9 @@ pub use lsp_types::{LanguageId, LspConfig, LspServerConfig};
 // Compaction shared types (hybrid compaction pipeline)
 pub mod compaction;
 
+// Generic step execution trait
+pub mod execution;
+
 // Shared frontmatter parsing utilities
 pub mod frontmatter;
 // Re-exports for frontmatter helpers

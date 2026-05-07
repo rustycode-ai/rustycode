@@ -120,8 +120,8 @@ impl TeamStatusRenderer {
             TeamEvent::TaskCompleted {
                 success,
                 turns,
-                files_modified,
                 final_trust,
+                ..
             } => {
                 self.complete = true;
                 self.success = *success;
@@ -132,7 +132,6 @@ impl TeamStatusRenderer {
                         agent.state = AgentDisplayState::Complete;
                     }
                 }
-                let _ = files_modified; // used in summary below
             }
             TeamEvent::Insight { role, message } => {
                 if let Some(agent) = self.agents.get_mut(role) {

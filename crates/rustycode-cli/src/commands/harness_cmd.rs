@@ -497,7 +497,8 @@ pub async fn execute(cwd: &Path, command: HarnessCommand) -> Result<()> {
                 println!("\nRecent Activity:");
                 let content = std::fs::read_to_string(&progress_file)?;
                 let lines: Vec<&str> = content.lines().collect();
-                for line in lines.iter().rev().take(5).collect::<Vec<_>>().iter().rev() {
+                let last_n = lines.len().saturating_sub(5);
+                for line in &lines[last_n..] {
                     println!("  {}", line);
                 }
             }

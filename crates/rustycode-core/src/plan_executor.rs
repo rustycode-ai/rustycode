@@ -201,8 +201,15 @@ impl PlanExecutor {
                     if let Some(ref manager) = self.options.checkpoint_manager {
                         let trigger_tools = ["bash", "write_file", "edit_file", "apply_patch"];
                         if trigger_tools.contains(&tc.name.as_str()) {
-                            let _ = manager.create();
-                            tracing::info!("Auto-checkpoint created before tool: {}", tc.name);
+                            if let Err(e) = manager.create() {
+                                tracing::warn!(
+                                    tool = %tc.name,
+                                    error = %e,
+                                    "auto-checkpoint failed before destructive tool"
+                                );
+                            } else {
+                                tracing::info!("Auto-checkpoint created before tool: {}", tc.name);
+                            }
                         }
                     }
 
