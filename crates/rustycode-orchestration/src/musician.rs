@@ -6,6 +6,7 @@ use crate::isolation::TierIsolation;
 use crate::state_machine::TaskContext;
 use crate::types::{Step, StepResult};
 use rustycode_protocol::agent_protocol::AgentRole;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[async_trait::async_trait]
@@ -95,10 +96,12 @@ pub struct Musician {
 
 impl Musician {
     pub fn new() -> Self {
+        let cwd = std::env::current_dir().unwrap_or_else(|e| {
+            tracing::warn!("current_dir() failed, falling back to '.': {e}");
+            PathBuf::from(".")
+        });
         Self {
-            tool_executor: Arc::new(ShellToolExecutor {
-                cwd: std::env::current_dir().unwrap_or_default(),
-            }),
+            tool_executor: Arc::new(ShellToolExecutor { cwd }),
             lock_manager: LockManager::in_memory(),
             bus: crate::bus::BusHandle::new(16),
             isolation: Arc::new(tokio::sync::RwLock::new(TierIsolation::with_defaults())),
@@ -108,10 +111,12 @@ impl Musician {
     }
 
     pub fn with_bus(bus: crate::bus::BusHandle) -> Self {
+        let cwd = std::env::current_dir().unwrap_or_else(|e| {
+            tracing::warn!("current_dir() failed, falling back to '.': {e}");
+            PathBuf::from(".")
+        });
         Self {
-            tool_executor: Arc::new(ShellToolExecutor {
-                cwd: std::env::current_dir().unwrap_or_default(),
-            }),
+            tool_executor: Arc::new(ShellToolExecutor { cwd }),
             lock_manager: LockManager::in_memory(),
             bus,
             isolation: Arc::new(tokio::sync::RwLock::new(TierIsolation::with_defaults())),

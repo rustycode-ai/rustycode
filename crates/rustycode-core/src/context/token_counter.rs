@@ -84,7 +84,10 @@ impl CachedTokenCounter {
 
         // Check cache first
         {
-            let cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+            let cache = self.cache.lock().unwrap_or_else(|e| {
+                tracing::warn!("token_counter mutex poisoned, recovering: {e}");
+                e.into_inner()
+            });
             if let Some(&count) = cache.get(&hash) {
                 self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 return count;
@@ -97,7 +100,10 @@ impl CachedTokenCounter {
 
         // Insert with eviction if needed
         {
-            let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+            let mut cache = self.cache.lock().unwrap_or_else(|e| {
+                tracing::warn!("token_counter mutex poisoned, recovering: {e}");
+                e.into_inner()
+            });
             if cache.len() >= MAX_CACHE_SIZE {
                 // Evict ~25% of entries (simple strategy)
                 let keys_to_remove: Vec<u64> =
@@ -154,7 +160,10 @@ impl CachedTokenCounter {
 
     /// Clear the token cache.
     pub fn clear_cache(&self) {
-        let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
+        let mut cache = self.cache.lock().unwrap_or_else(|e| {
+                tracing::warn!("token_counter mutex poisoned, recovering: {e}");
+                e.into_inner()
+            });
         cache.clear();
         self.hits.store(0, std::sync::atomic::Ordering::Relaxed);
         self.misses.store(0, std::sync::atomic::Ordering::Relaxed);
@@ -164,7 +173,10 @@ impl CachedTokenCounter {
     pub fn cache_stats(&self) -> (u64, u64, usize) {
         let hits = self.hits.load(std::sync::atomic::Ordering::Relaxed);
         let misses = self.misses.load(std::sync::atomic::Ordering::Relaxed);
-        let size = self.cache.lock().unwrap_or_else(|e| e.into_inner()).len();
+        let size = self.cache.lock().unwrap_or_else(|e| {
+                tracing::warn!("token_counter mutex poisoned, recovering: {e}");
+                e.into_inner()
+            }).len();
         (hits, misses, size)
     }
 

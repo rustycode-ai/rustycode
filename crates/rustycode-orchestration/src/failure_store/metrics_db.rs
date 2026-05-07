@@ -76,7 +76,10 @@ impl MetricsDb {
         clippy::redundant_closure_for_method_calls
     )]
     pub fn record_execution(&self, metrics: &ExecutionMetrics) -> Result<()> {
-        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let conn = self.conn.lock().unwrap_or_else(|e| {
+            tracing::warn!("metrics_db mutex poisoned, recovering: {e}");
+            e.into_inner()
+        });
         conn.execute(
             "INSERT INTO execution_metrics (task_id, task_description, classification,
                 execution_path, outcome, duration_ms, cost_usd, escalations)
