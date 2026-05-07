@@ -191,26 +191,40 @@ impl EventStore {
         let conn = self.conn.lock().map_err(|e| anyhow::anyhow!("lock poisoned: {}", e))?;
 
         let mut query = "SELECT id, session_id, sequence, at, kind, payload FROM sync_events WHERE session_id = ?1".to_string();
-        
+        let mut param_idx = 2u32;
+        let mut from_val: Option<i64> = None;
+        let mut to_val: Option<i64> = None;
+        let mut limit_val: Option<i64> = None;
+
         if !config.include_deltas {
             query.push_str(" AND kind NOT IN ('text_delta', 'thinking_delta', 'token_usage', 'tool_input_delta')");
         }
-        
+
         if let Some(from) = config.from_sequence {
-            query.push_str(&format!(" AND sequence >= {}", from));
+            query.push_str(&format!(" AND sequence >= ?{param_idx}"));
+            from_val = Some(from as i64);
+            param_idx += 1;
         }
         if let Some(to) = config.to_sequence {
-            query.push_str(&format!(" AND sequence <= {}", to));
+            query.push_str(&format!(" AND sequence <= ?{param_idx}"));
+            to_val = Some(to as i64);
+            param_idx += 1;
         }
-        
+
         query.push_str(" ORDER BY sequence ASC");
-        
+
         if let Some(limit) = config.limit {
-            query.push_str(&format!(" LIMIT {}", limit));
+            query.push_str(&format!(" LIMIT ?{param_idx}"));
+            limit_val = Some(limit as i64);
         }
 
         let mut stmt = conn.prepare(&query)?;
-        let rows = stmt.query_map(params![session_id.to_string()], row_to_sync_event)?;
+        let params: Vec<Box<dyn rusqlite::types::ToSql>> = std::iter::once(Box::new(session_id.to_string()) as Box<dyn rusqlite::types::ToSql>)
+            .chain(from_val.map(|v| Box::new(v) as Box<dyn rusqlite::types::ToSql>))
+            .chain(to_val.map(|v| Box::new(v) as Box<dyn rusqlite::types::ToSql>))
+            .chain(limit_val.map(|v| Box::new(v) as Box<dyn rusqlite::types::ToSql>))
+            .collect();
+        let rows = stmt.query_map(params.as_slice(), row_to_sync_event)?;
 
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.into())
     }
