@@ -158,7 +158,10 @@ mod tests {
         let result = native_cat(&file_path);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("too large"), "expected 'too large', got: {err}");
+        assert!(
+            err.contains("too large"),
+            "expected 'too large', got: {err}"
+        );
     }
 
     #[test]

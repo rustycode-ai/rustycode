@@ -291,6 +291,11 @@ impl TUI {
                     | "/lsp"
                     | "/hook"
                     | "/learnings"
+                    | "/ask"
+                    | "/act"
+                    | "/yolo"
+                    | "/auto"
+                    | "/plan"
             );
 
             if is_local_command {

@@ -341,7 +341,7 @@ pub fn dispatch_registered_slash_command(
 /// registered as separate commands in `REGISTERED_SLASH_COMMANDS`.  The command
 /// palette needs to know about these so it does not intercept them with a
 /// fuzzy match when the user types an exact alias and presses Enter.
-const KNOWN_ALIASES: &[&str] = &["/r", "/regen"];
+const KNOWN_ALIASES: &[&str] = &["/r", "/regen", "/auto"];
 
 pub fn is_registered_command(name: &str) -> bool {
     REGISTERED_SLASH_COMMANDS

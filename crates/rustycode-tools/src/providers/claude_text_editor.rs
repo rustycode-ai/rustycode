@@ -85,7 +85,10 @@ impl BackupManager {
         let backup_dir = cwd.join(BACKUP_DIR);
         // Create backup directory if it doesn't exist
         if let Err(e) = fs::create_dir_all(&backup_dir) {
-            tracing::warn!("Failed to create backup directory {}: {e}", backup_dir.display());
+            tracing::warn!(
+                "Failed to create backup directory {}: {e}",
+                backup_dir.display()
+            );
         }
         Self { backup_dir }
     }
