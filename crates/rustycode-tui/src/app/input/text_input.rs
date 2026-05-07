@@ -9,46 +9,53 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 impl TUI {
     /// Handle search box input
-    pub(crate) fn handle_search_input(&mut self, key_code: KeyCode) -> Result<bool> {
+    pub(crate) fn handle_search_input(
+        &mut self,
+        key: crossterm::event::KeyEvent,
+    ) -> Result<bool> {
         if !self.search_state.visible {
             return Ok(false);
         }
 
-        match key_code {
-            KeyCode::Esc => {
+        match (key.code, key.modifiers) {
+            (KeyCode::Esc, _) => {
                 self.search_state.clear();
                 self.dirty = true;
             }
-            KeyCode::Enter => {
+            (KeyCode::Enter, _) => {
                 // Navigate to next match on Enter
                 self.search_state.next_match();
                 self.scroll_to_current_search_match();
                 self.dirty = true;
             }
-            KeyCode::Up => {
+            (KeyCode::Up, _) => {
                 // Navigate to previous match with Up arrow
                 self.search_state.prev_match();
                 self.scroll_to_current_search_match();
                 self.dirty = true;
             }
-            KeyCode::Down => {
+            (KeyCode::Down, _) => {
                 // Navigate to next match with Down arrow
                 self.search_state.next_match();
                 self.scroll_to_current_search_match();
                 self.dirty = true;
             }
-            KeyCode::Char(c) => {
+            (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
+                self.search_state.query.clear();
+                self.refresh_search_matches();
+                self.dirty = true;
+            }
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                 SearchEngine::add_char(&mut self.search_state, c);
                 self.refresh_search_matches();
                 self.dirty = true;
             }
-            KeyCode::Backspace => {
+            (KeyCode::Backspace, _) => {
                 SearchEngine::backspace(&mut self.search_state);
                 self.refresh_search_matches();
                 self.dirty = true;
             }
             _ => {
-                // Ignore other keys
                 return Ok(true);
             }
         }

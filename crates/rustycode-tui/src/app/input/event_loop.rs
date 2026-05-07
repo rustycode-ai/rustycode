@@ -271,8 +271,12 @@ impl TUI {
                     }
                 }
 
-                // Handle sidebar toggle (Ctrl+B)
-                if key.code == KeyCode::Char('b') && key.modifiers == KeyModifiers::CONTROL {
+                // Handle sidebar toggle (Ctrl+B or Ctrl+Shift+B)
+                // Ctrl+Shift+B works when running inside tmux (Ctrl+B is tmux prefix).
+                if key.code == KeyCode::Char('b')
+                    && (key.modifiers == KeyModifiers::CONTROL
+                        || key.modifiers == KeyModifiers::CONTROL | KeyModifiers::SHIFT)
+                {
                     self.handle_sidebar_toggle();
                     return Ok(());
                 }
@@ -340,7 +344,7 @@ impl TUI {
                 }
 
                 // Handle search box input
-                if self.handle_search_input(key.code)? {
+                if self.handle_search_input(key)? {
                     return Ok(());
                 }
 

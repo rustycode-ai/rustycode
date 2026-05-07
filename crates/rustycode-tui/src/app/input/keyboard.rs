@@ -452,11 +452,7 @@ impl TUI {
                 return Ok(());
             }
             (KeyCode::Char('l'), KeyModifiers::CONTROL) => {
-                // Ctrl+L: Toggle session sidebar.
-                // Works alongside Ctrl+B (which conflicts with tmux prefix).
-                // Use Ctrl+U to clear input line (readline convention).
-                self.handle_sidebar_toggle();
-                self.message_renderer.invalidate_cache();
+                self.input_handler.state.clear();
                 self.dirty = true;
                 return Ok(());
             }
