@@ -2276,7 +2276,9 @@ impl Storage {
 
         // Delete from all tables (order matters for FK constraints)
         conn.execute("DELETE FROM events", [])?;
-        conn.execute("DELETE FROM conversation_fts", []).ok();
+        if let Err(e) = conn.execute("DELETE FROM conversation_fts", []) {
+            tracing::warn!(error = %e, "failed to clear conversation_fts table");
+        }
         conn.execute("DELETE FROM session_snapshots", [])?;
         conn.execute("DELETE FROM api_calls", [])?;
         conn.execute("DELETE FROM hook_executions", [])?;

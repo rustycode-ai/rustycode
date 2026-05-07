@@ -169,7 +169,9 @@ impl GitCheckpointStorage {
                 if path.extension().and_then(|s| s.to_str()) == Some("json") {
                     let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
                     if !valid_ids.contains(stem) {
-                        let _ = fs::remove_file(&path);
+                        if let Err(e) = fs::remove_file(&path) {
+                            tracing::warn!(path = %path.display(), error = %e, "failed to remove stale checkpoint file");
+                        }
                     }
                 }
             }

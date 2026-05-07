@@ -216,7 +216,9 @@ impl CheckpointStore {
                 continue;
             };
             if cp.timestamp < cutoff {
-                std::fs::remove_file(&path).ok();
+                if let Err(e) = std::fs::remove_file(&path) {
+                    tracing::warn!(path = %path.display(), error = %e, "failed to remove checkpoint file during prune");
+                }
                 removed += 1;
             }
         }
