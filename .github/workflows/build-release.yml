@@ -78,13 +78,13 @@ jobs:
 
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
           choco install strawberryperl nasm --yes
-          curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip
-          7z x protoc-29.3-win64.zip -oC:/protoc
-          echo "C:/protoc/bin" >> "$GITHUB_PATH"
-          echo "C:/Strawberry/perl/bin" >> "$GITHUB_PATH"
+          Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip -OutFile protoc.zip
+          Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
+          echo "C:\protoc\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          echo "C:\Strawberry\perl\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Configure Linux ARM64 cross-compilation
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -99,6 +99,7 @@ jobs:
         shell: bash
         env:
           OPENSSL_DIR: ${{ runner.os == 'macOS' && '/opt/homebrew/opt/openssl@3' || '' }}
+          PERL: ${{ runner.os == 'Windows' && 'C:\Strawberry\perl\bin\perl.exe' || '' }}
         run: |
           cargo build --release --target ${{ matrix.target }} -p rustycode-cli
 
