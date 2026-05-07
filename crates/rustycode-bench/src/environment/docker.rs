@@ -363,7 +363,11 @@ impl BenchEnvironment for DockerEnvironment {
             .file_name()
             .unwrap_or_default()
             .to_string_lossy();
-        let container_dest = format!("/tmp/{file_name}");
+        let sanitized: String = file_name
+            .chars()
+            .map(|c| if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '_' })
+            .collect();
+        let container_dest = format!("/tmp/{sanitized}");
         self.upload_file(script_path, &container_dest).await?;
         self.exec(&format!("chmod +x {container_dest}")).await?;
         self.exec_with_timeout(&format!("bash {container_dest}"), timeout_secs)
