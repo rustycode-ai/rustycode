@@ -569,9 +569,7 @@ mod tests {
 
         // DEFAULT_RATE_LIMIT is (10, 60). Send exactly 10 messages — all should succeed.
         for i in 0..10 {
-            let result = router
-                .send_to("sender", "receiver", test_msg())
-                .await;
+            let result = router.send_to("sender", "receiver", test_msg()).await;
             assert!(result.is_ok(), "message {i} should be accepted");
         }
     }
@@ -587,9 +585,7 @@ mod tests {
         }
 
         // The 11th send should be rejected.
-        let result = router
-            .send_to("sender", "receiver", test_msg())
-            .await;
+        let result = router.send_to("sender", "receiver", test_msg()).await;
 
         assert!(result.is_err(), "11th message should be rejected");
         let err = result.unwrap_err();
@@ -613,10 +609,16 @@ mod tests {
         }
 
         // sender-A is now blocked.
-        assert!(router.send_to("sender-a", "receiver", test_msg()).await.is_err());
+        assert!(router
+            .send_to("sender-a", "receiver", test_msg())
+            .await
+            .is_err());
 
         // sender-B should still be allowed (independent budget).
-        assert!(router.send_to("sender-b", "receiver", test_msg()).await.is_ok());
+        assert!(router
+            .send_to("sender-b", "receiver", test_msg())
+            .await
+            .is_ok());
     }
 
     #[tokio::test]

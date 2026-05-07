@@ -31,6 +31,7 @@
     clippy::unnecessary_wraps,
     clippy::if_not_else
 )]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod approve;
 pub mod cross_platform;

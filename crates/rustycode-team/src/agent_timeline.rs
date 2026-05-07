@@ -374,11 +374,10 @@ impl AgentTimeline {
             }
         }
 
-        let mut turns: Vec<_> = events_by_turn.keys().collect();
-        turns.sort();
+        let mut turns: Vec<_> = events_by_turn.into_iter().collect();
+        turns.sort_by_key(|(turn, _)| *turn);
 
-        for turn in turns {
-            let events = events_by_turn.get(turn).unwrap();
+        for (turn, events) in turns {
             output.push_str(&format!("\nTurn {}:\n", turn));
             for event in events {
                 match event {

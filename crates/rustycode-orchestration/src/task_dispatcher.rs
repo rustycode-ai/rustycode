@@ -231,7 +231,6 @@ impl TaskDispatcher {
     /// The caller must supply the concrete `LLMProvider`, model name,
     /// `ToolRegistry`, and `AgentEvents` sink — `TaskDispatcher` owns the
     /// orchestration logic but not the infrastructure wiring.
-    #[allow(dead_code)] // Used by V2 dispatch when enabled
     pub async fn execute_via_session(
         &self,
         spec: &TaskSpec,

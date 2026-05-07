@@ -317,10 +317,7 @@ impl RetryState {
         match self.last_error_at {
             None => true,
             Some(last_time) => {
-                let elapsed = last_time
-                    .elapsed()
-                    .unwrap_or_default()
-                    .as_millis() as u64;
+                let elapsed = last_time.elapsed().unwrap_or_default().as_millis() as u64;
                 elapsed >= self.next_backoff_ms()
             }
         }

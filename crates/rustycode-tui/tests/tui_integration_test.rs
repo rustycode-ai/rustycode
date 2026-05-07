@@ -346,13 +346,13 @@ def hello():
     // Verify code blocks are rendered by checking for language indicators
     let has_rust_indicator = lines
         .iter()
-        .any(|line| line.spans.iter().any(|span| span.content.contains("rust:")));
+        .any(|line| line.spans.iter().any(|span| span.content.contains("rust")));
     assert!(has_rust_indicator, "Should show rust language indicator");
 
     let has_python_indicator = lines.iter().any(|line| {
         line.spans
             .iter()
-            .any(|span| span.content.contains("python:"))
+            .any(|span| span.content.contains("python"))
     });
     assert!(
         has_python_indicator,

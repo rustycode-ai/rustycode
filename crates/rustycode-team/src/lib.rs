@@ -38,6 +38,7 @@
     clippy::use_self,
     clippy::used_underscore_binding
 )]
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod agent_timeline;
 pub mod architect;

@@ -2,6 +2,8 @@
 //! Cost tracking now depends on rustycode_llm which causes circular deps.
 //! These tests are temporarily ignored.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use rustycode_storage::{ApiCallRecord, Storage};
 use std::sync::Arc;
 
