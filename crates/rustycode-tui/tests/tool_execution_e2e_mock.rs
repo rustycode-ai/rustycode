@@ -213,7 +213,9 @@ fn test_tool_schema_validation() {
             let props_value = obj.get("properties");
             assert!(
                 type_value.is_some() || props_value.is_some(),
-                "Schema should have type or properties"
+                "Schema for '{}' should have type or properties, got: {}",
+                tool.name,
+                schema
             );
         }
 
