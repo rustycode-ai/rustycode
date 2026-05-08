@@ -5,6 +5,8 @@
 //! - JSON stdin/stdout protocol for hook scripts
 //! - Blocking semantics (hooks can prevent tool execution)
 //! - Security profiles (Minimal, Standard, Strict)
+//! - Claude Code / Codex compatible config format with matcher filtering
+//! - Rich per-event protocol with mutable PostToolUse output
 //!
 //! # Hook Execution Flow
 //!
