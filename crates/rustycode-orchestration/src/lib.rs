@@ -115,7 +115,6 @@ pub mod structured_thinking_tool;
 pub mod structured_thinking_tool_impl;
 pub mod summary;
 pub mod supervisor;
-pub mod swebench;
 pub mod task_context;
 pub mod task_decomposer;
 pub mod task_dispatcher;
@@ -241,7 +240,6 @@ pub use state_derivation::{
     MilestoneRef, MilestoneState, OrchestraState, SliceRef, SliceState, StateDeriver, TaskRef,
     TaskState,
 };
-pub use swebench::{SweBenchPrediction, SweBenchRunner};
 pub use task_decomposer::{
     decompose_local, detect_task_type, extract_concepts, DecomposedTask, Decomposer,
     TaskDecomposer, TaskType,

@@ -9,4 +9,4 @@ pub mod runner;
 
 pub use instance::SweBenchInstance;
 pub use prediction::SweBenchPrediction;
-pub use runner::{SweBenchConfig, run_swebench};
+pub use runner::{run_swebench, SweBenchConfig};

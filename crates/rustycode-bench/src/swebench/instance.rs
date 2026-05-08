@@ -20,10 +20,10 @@ pub struct SweBenchInstance {
     #[serde(default)]
     pub version: String,
     /// JSON array of test names that should transition from FAIL to PASS.
-    #[serde(default)]
+    #[serde(default, alias = "FAIL_TO_PASS")]
     pub fail_to_pass: String,
     /// JSON array of test names that should remain PASS.
-    #[serde(default)]
+    #[serde(default, alias = "PASS_TO_PASS")]
     pub pass_to_pass: String,
     /// The test patch to apply during evaluation.
     #[serde(default)]

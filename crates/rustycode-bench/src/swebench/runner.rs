@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 
 use super::instance::SweBenchInstance;
-use super::prediction::{SweBenchPrediction, save_predictions};
+use super::prediction::{save_predictions, SweBenchPrediction};
 use crate::agent::{CodeAgent, CodeAgentConfig};
 
 /// Configuration for the SWE-bench runner.
@@ -108,7 +108,10 @@ pub async fn run_swebench(config: SweBenchConfig) -> Result<Vec<SweBenchPredicti
     }
 
     // Summary
-    let with_patches = predictions.iter().filter(|p| !p.model_patch.is_empty()).count();
+    let with_patches = predictions
+        .iter()
+        .filter(|p| !p.model_patch.is_empty())
+        .count();
     println!();
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("SWE-bench complete");
@@ -134,7 +137,12 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         tracing::info!("[{}] Cloning {}...", inst.instance_id, inst.repo);
 
         let status = std::process::Command::new("git")
-            .args(["clone", "--quiet", &repo_url, clone_dir.to_str().unwrap_or("")])
+            .args([
+                "clone",
+                "--quiet",
+                &repo_url,
+                clone_dir.to_str().unwrap_or(""),
+            ])
             .current_dir(&instance_dir)
             .status()
             .context("git clone")?;
@@ -145,11 +153,7 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
     }
 
     // Checkout base commit
-    tracing::info!(
-        "[{}] Checking out {}",
-        inst.instance_id,
-        inst.base_commit
-    );
+    tracing::info!("[{}] Checking out {}", inst.instance_id, inst.base_commit);
     let status = std::process::Command::new("git")
         .args(["checkout", "--quiet", &inst.base_commit])
         .current_dir(&clone_dir)
@@ -182,8 +186,18 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
     );
 
     // Run the CodeAgent against the cloned repo
-    let agent = CodeAgent::auto(config.agent_config.clone())
-        .context("Failed to create code agent")?;
+    let provider = &config.agent_config.provider;
+    let agent = CodeAgent::auto(config.agent_config.clone()).with_context(|| {
+        let key_name = match provider.as_str() {
+            "anthropic" | "claude" => "ANTHROPIC_API_KEY",
+            "openai" | "gpt" => "OPENAI_API_KEY",
+            _ => "API_KEY",
+        };
+        format!(
+            "Failed to create {provider} agent — is {key_name} set? \
+             Run: export {key_name}=sk-..."
+        )
+    })?;
 
     run_agent_with_timeout(agent, &prompt, &clone_dir, config.timeout_secs).await?;
 
@@ -220,11 +234,7 @@ async fn run_agent_with_timeout(
 /// Run a CodeAgent against a bare workspace (no BenchEnvironment).
 ///
 /// Creates a minimal environment wrapper that provides `workspace_path()`.
-async fn run_agent_on_workspace(
-    agent: CodeAgent,
-    prompt: &str,
-    workspace: &Path,
-) -> Result<()> {
+async fn run_agent_on_workspace(agent: CodeAgent, prompt: &str, workspace: &Path) -> Result<()> {
     use crate::environment::native::NativeEnvironment;
 
     let mut env = NativeEnvironment::new(workspace.to_path_buf(), workspace.to_path_buf());

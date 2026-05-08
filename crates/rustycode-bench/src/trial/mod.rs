@@ -534,7 +534,10 @@ mod tests {
         // Jittered value should be in [base * 0.5, base]
         let jittered = config.wait_duration_secs_with_jitter(0);
         assert!(jittered <= base, "jittered should be <= base");
-        assert!(jittered >= base * 0.5, "jittered should be >= base * (1 - jitter)");
+        assert!(
+            jittered >= base * 0.5,
+            "jittered should be >= base * (1 - jitter)"
+        );
     }
 
     #[test]
