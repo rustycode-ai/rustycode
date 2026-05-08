@@ -299,8 +299,6 @@ pub enum StreamChunk {
         action_hint: String,
         plan_rows: Vec<rustycode_orchestration::bus::MilestonePlanProgress>,
     },
-    /// Sync LLM todo state into persisted workspace tasks
-    TodoSync,
 }
 
 /// Result from tool execution

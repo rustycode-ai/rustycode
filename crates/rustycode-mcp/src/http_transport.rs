@@ -161,16 +161,24 @@ impl HttpTransport {
 }
 
 async fn route_sse_event(data: &str, inbox_tx: &mpsc::Sender<IncomingMessage>) {
-    if let Ok(resp) = JsonRpcResponse::from_json(data) {
+    let value: serde_json::Value = match serde_json::from_str(data) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+
+    if value.get("method").is_some() {
+        if value.get("id").is_some() {
+            if let Ok(req) = serde_json::from_value::<JsonRpcRequest>(value) {
+                let _ = inbox_tx.send(IncomingMessage::Request(req)).await;
+            }
+        } else if let Ok(notif) = serde_json::from_value::<JsonRpcNotification>(value) {
+            let _ = inbox_tx.send(IncomingMessage::Notification(notif)).await;
+        }
+        return;
+    }
+
+    if let Ok(resp) = serde_json::from_value::<JsonRpcResponse>(value) {
         let _ = inbox_tx.send(IncomingMessage::Response(resp)).await;
-        return;
-    }
-    if let Ok(notif) = JsonRpcNotification::from_json(data) {
-        let _ = inbox_tx.send(IncomingMessage::Notification(notif)).await;
-        return;
-    }
-    if let Ok(req) = JsonRpcRequest::from_json(data) {
-        let _ = inbox_tx.send(IncomingMessage::Request(req)).await;
     }
 }
 
@@ -276,8 +284,27 @@ impl Transport for HttpTransport {
 
             let mut found_response = None;
             for event in events {
-                // Try JSON-RPC response
-                if let Ok(json_resp) = JsonRpcResponse::from_json(&event.data) {
+                let value: serde_json::Value = match serde_json::from_str(&event.data) {
+                    Ok(v) => v,
+                    Err(_) => continue,
+                };
+
+                if value.get("method").is_some() {
+                    if value.get("id").is_some() {
+                        if let Ok(req) = serde_json::from_value::<JsonRpcRequest>(value) {
+                            if let Some(sender) = &self.inbox_sender {
+                                let _ = sender.send(IncomingMessage::Request(req)).await;
+                            }
+                        }
+                    } else if let Ok(notif) = serde_json::from_value::<JsonRpcNotification>(value) {
+                        if let Some(sender) = &self.inbox_sender {
+                            let _ = sender.send(IncomingMessage::Notification(notif)).await;
+                        }
+                    }
+                    continue;
+                }
+
+                if let Ok(json_resp) = serde_json::from_value::<JsonRpcResponse>(value) {
                     let resp_id_str = match &json_resp.id {
                         JsonRpcId::String(s) => s.clone(),
                         JsonRpcId::Number(n) => n.to_string(),
@@ -287,22 +314,6 @@ impl Transport for HttpTransport {
                         found_response = Some(json_resp);
                     } else if let Some(sender) = &self.inbox_sender {
                         let _ = sender.send(IncomingMessage::Response(json_resp)).await;
-                    }
-                    continue;
-                }
-
-                // Try notification
-                if let Ok(notif) = JsonRpcNotification::from_json(&event.data) {
-                    if let Some(sender) = &self.inbox_sender {
-                        let _ = sender.send(IncomingMessage::Notification(notif)).await;
-                    }
-                    continue;
-                }
-
-                // Try server-initiated request
-                if let Ok(req) = JsonRpcRequest::from_json(&event.data) {
-                    if let Some(sender) = &self.inbox_sender {
-                        let _ = sender.send(IncomingMessage::Request(req)).await;
                     }
                 }
             }

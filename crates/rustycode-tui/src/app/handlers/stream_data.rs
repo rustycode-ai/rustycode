@@ -214,16 +214,3 @@ pub(super) fn handle_milestone_progress_chunk(
     );
     tui.dirty = true;
 }
-
-pub(super) fn handle_todo_sync_chunk(tui: &mut TUI) {
-    if crate::app::tasks::sync_from_todo_state(&mut tui.workspace_tasks, &tui.todo_state) {
-        tracing::debug!("TodoSync: state changed, saving workspace tasks");
-        crate::app::tasks::save_tasks_with_storage(
-            &tui.workspace_tasks,
-            tui.storage.as_deref(),
-            tui.services.cwd(),
-            None,
-        );
-    }
-    tui.dirty = true;
-}

@@ -200,7 +200,28 @@ async fn route_stdio_message(
     pending: &Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>>,
     inbox: &mpsc::Sender<IncomingMessage>,
 ) {
-    if let Ok(response) = JsonRpcResponse::from_json(json) {
+    // Parse generically first to check for "method" field — serde ignores
+    // unknown fields, so a request like {"id":"x","method":"y"} would
+    // otherwise parse as a JsonRpcResponse (dropping "method").
+    let value: serde_json::Value = match serde_json::from_str(json) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+
+    if value.get("method").is_some() {
+        // Has "method" → request or notification
+        if value.get("id").is_some() {
+            if let Ok(req) = serde_json::from_value::<JsonRpcRequest>(value) {
+                let _ = inbox.send(IncomingMessage::Request(req)).await;
+            }
+        } else if let Ok(notif) = serde_json::from_value::<JsonRpcNotification>(value) {
+            let _ = inbox.send(IncomingMessage::Notification(notif)).await;
+        }
+        return;
+    }
+
+    // No "method" → response
+    if let Ok(response) = serde_json::from_value::<JsonRpcResponse>(value) {
         let id_str = match &response.id {
             JsonRpcId::String(s) => s.clone(),
             JsonRpcId::Number(n) => n.to_string(),
@@ -216,16 +237,6 @@ async fn route_stdio_message(
             }
         }
         let _ = inbox.send(IncomingMessage::Response(response)).await;
-        return;
-    }
-
-    if let Ok(notif) = JsonRpcNotification::from_json(json) {
-        let _ = inbox.send(IncomingMessage::Notification(notif)).await;
-        return;
-    }
-
-    if let Ok(req) = JsonRpcRequest::from_json(json) {
-        let _ = inbox.send(IncomingMessage::Request(req)).await;
     }
 }
 

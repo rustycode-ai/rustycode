@@ -1006,6 +1006,16 @@ impl TUI {
         // Register built-in tools - these are essential for AI coding assistant functionality
         self.register_builtin_tools(&mut tool_registry);
 
+        if let Some(ref bus) = self.todo_event_bus {
+            let dirty_flag = self.todo_dirty.clone();
+            use rustycode_shared_runtime::SHARED_RUNTIME;
+            let _sub_handle =
+                SHARED_RUNTIME.block_on(bus.subscribe_callback("todo.updated", move |_event| {
+                    dirty_flag.store(true, Ordering::SeqCst);
+                    Ok(())
+                }));
+        }
+
         // Register structured thinking tool for AgentSession path
         tool_registry.register(
             rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool::new(
@@ -1516,6 +1526,22 @@ impl TUI {
             self.poll_services()
                 .context("failed to poll background services")?;
             self.poll_mcp_events()?;
+
+            if self.todo_dirty.swap(false, Ordering::SeqCst) {
+                if crate::app::tasks::sync_from_todo_state(
+                    &mut self.workspace_tasks,
+                    &self.todo_state,
+                ) {
+                    crate::app::tasks::save_tasks_with_storage(
+                        &self.workspace_tasks,
+                        self.storage.as_deref(),
+                        self.services.cwd(),
+                        None,
+                    );
+                }
+                self.dirty = true;
+            }
+
             {
                 use rustycode_shared_runtime::SHARED_RUNTIME;
                 let pipeline_tick_start = Instant::now();

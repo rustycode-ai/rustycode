@@ -205,8 +205,16 @@ impl McpServer {
                 }
             };
 
-            // Handle request
-            let response = self.handle_request(request).await;
+            // Handle request with per-request timeout
+            let timeout = std::time::Duration::from_secs(self.config.timeout_secs);
+            let response = match tokio::time::timeout(timeout, self.handle_request(request)).await {
+                Ok(response) => response,
+                Err(_) => JsonRpcResponse::error(
+                    "timeout",
+                    error_codes::INTERNAL_ERROR,
+                    format!("Request timeout ({}s exceeded)", self.config.timeout_secs),
+                ),
+            };
 
             // Send response
             self.send_response(&mut stdout, &response)?;

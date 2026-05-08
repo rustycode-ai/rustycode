@@ -79,7 +79,6 @@ impl StreamEventAdapter {
                     .remove(&tool_id)
                     .map(|t| t.elapsed_ms())
                     .unwrap_or(0);
-                let is_todo_tool = tool_name == "todo_write" || tool_name == "todo_update";
                 self.emit(StreamChunk::ToolComplete {
                     tool_name,
                     tool_id,
@@ -88,9 +87,6 @@ impl StreamEventAdapter {
                     output_size: output_preview.len(),
                     output: Some(output_preview),
                 });
-                if is_todo_tool {
-                    self.emit(StreamChunk::TodoSync);
-                }
             }
             OrchestrationEvent::ToolExecutionStarted {
                 task_id,
@@ -117,7 +113,6 @@ impl StreamEventAdapter {
                     .remove(&tool_id)
                     .map(|t| t.elapsed_ms())
                     .unwrap_or(0);
-                let is_todo_tool = tool == "todo_write" || tool == "todo_update";
                 self.emit(StreamChunk::ToolComplete {
                     tool_name: tool,
                     tool_id,
@@ -126,9 +121,6 @@ impl StreamEventAdapter {
                     output_size: result.len(),
                     output: Some(result),
                 });
-                if is_todo_tool {
-                    self.emit(StreamChunk::TodoSync);
-                }
             }
             OrchestrationEvent::MilestoneProgress {
                 milestone_id,
@@ -282,7 +274,6 @@ impl AgentEvents for StreamEventAdapter {
                     .remove(&id)
                     .map(|t| t.elapsed_ms())
                     .unwrap_or(0);
-                let is_todo_tool = name == "todo_write" || name == "todo_update";
                 self.emit(StreamChunk::ToolComplete {
                     tool_name: name,
                     tool_id: id,
@@ -291,9 +282,6 @@ impl AgentEvents for StreamEventAdapter {
                     output_size: output.len(),
                     output: Some(output),
                 });
-                if is_todo_tool {
-                    self.emit(StreamChunk::TodoSync);
-                }
             }
             StreamEvent::TokenUsage {
                 input_tokens,
