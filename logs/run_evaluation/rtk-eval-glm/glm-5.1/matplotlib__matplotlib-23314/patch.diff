@@ -1,0 +1,14 @@
+diff --git a/lib/mpl_toolkits/mplot3d/axes3d.py b/lib/mpl_toolkits/mplot3d/axes3d.py
+index 9db44b7994..1338a9502b 100644
+--- a/lib/mpl_toolkits/mplot3d/axes3d.py
++++ b/lib/mpl_toolkits/mplot3d/axes3d.py
+@@ -389,6 +389,9 @@ class Axes3D(Axes):
+     def draw(self, renderer):
+         self._unstale_viewLim()
+ 
++        if not self.get_visible():
++            return
++
+         # draw the background patch
+         self.patch.draw(renderer)
+         self._frameon = False

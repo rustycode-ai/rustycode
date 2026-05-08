@@ -1,0 +1,74 @@
+diff --git a/django/conf/global_settings.py b/django/conf/global_settings.py
+index acee9887d2..bdeec80610 100644
+--- a/django/conf/global_settings.py
++++ b/django/conf/global_settings.py
+@@ -304,7 +304,7 @@ FILE_UPLOAD_TEMP_DIR = None
+ 
+ # The numeric mode to set newly-uploaded files to. The value should be a mode
+ # you'd pass directly to os.chmod; see https://docs.python.org/library/os.html#files-and-directories.
+-FILE_UPLOAD_PERMISSIONS = None
++FILE_UPLOAD_PERMISSIONS = 0o644
+ 
+ # The numeric mode to assign to newly-created directories, when uploading files.
+ # The value should be a mode as you'd pass to os.chmod;
+diff --git a/docs/howto/deployment/checklist.txt b/docs/howto/deployment/checklist.txt
+index c31bcac62a..01b06a70db 100644
+--- a/docs/howto/deployment/checklist.txt
++++ b/docs/howto/deployment/checklist.txt
+@@ -161,6 +161,12 @@ With the default file upload settings, files smaller than
+ :setting:`FILE_UPLOAD_MAX_MEMORY_SIZE` may be stored with a different mode
+ than larger files as described in :setting:`FILE_UPLOAD_PERMISSIONS`.
+ 
++.. versionchanged:: 3.0
++
++    The default of :setting:`FILE_UPLOAD_PERMISSIONS` changed from ``None`` to
++    ``0o644`` to ensure consistent file permissions regardless of the file size
++    and whether the temporary file upload handler is used.
++
+ Setting :setting:`FILE_UPLOAD_PERMISSIONS` ensures all files are uploaded with
+ the same permissions.
+ 
+diff --git a/docs/ref/settings.txt b/docs/ref/settings.txt
+index 46e99af993..a9ebfa4d74 100644
+--- a/docs/ref/settings.txt
++++ b/docs/ref/settings.txt
+@@ -1484,7 +1484,7 @@ This value mirrors the functionality and caveats of the
+ ``FILE_UPLOAD_PERMISSIONS``
+ ---------------------------
+ 
+-Default: ``None``
++Default: ``0o644``
+ 
+ The numeric mode (i.e. ``0o644``) to set newly uploaded files to. For
+ more information about what these modes mean, see the documentation for
+@@ -1495,6 +1495,13 @@ dependent behavior. On most platforms, temporary files will have a mode
+ of ``0o600``, and files saved from memory will be saved using the
+ system's standard umask.
+ 
++.. versionchanged:: 3.0
++
++    The default changed from ``None`` to ``0o644`` to ensure consistent
++    file permissions regardless of the file size and whether the
++    temporary file upload handler is used. If you need the previous
++    behavior, set ``FILE_UPLOAD_PERMISSIONS`` to ``None``.
++
+ For security reasons, these permissions aren't applied to the temporary files
+ that are stored in :setting:`FILE_UPLOAD_TEMP_DIR`.
+ 
+diff --git a/docs/releases/3.0.txt b/docs/releases/3.0.txt
+index 5d9bff086e..48a734e1e2 100644
+--- a/docs/releases/3.0.txt
++++ b/docs/releases/3.0.txt
+@@ -203,6 +203,12 @@ Validators
+ Backwards incompatible changes in 3.0
+ =====================================
+ 
++Default value of :setting:`FILE_UPLOAD_PERMISSIONS` changes from ``None`` to ``0o644``
++-------------------------------------------------------------------------------------
++
++If you need the previous behavior of operating-system dependent permissions,
++set :setting:`FILE_UPLOAD_PERMISSIONS` to ``None`` in your settings.
++
+ Database backend API
+ --------------------
+ 
