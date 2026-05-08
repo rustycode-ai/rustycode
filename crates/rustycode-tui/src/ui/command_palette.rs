@@ -1021,6 +1021,13 @@ impl CommandPaletteRenderer {
             Command::new("/quit", "Exit the TUI (Ctrl+D/Ctrl+Q)", || {
                 CommandResult::Close
             }),
+            Command::with_hint(
+                "/feedback",
+                "Open browser to submit feedback or report a bug",
+                "[description]",
+                || CommandResult::Close,
+            ),
+            Command::new("/bug", "Alias for /feedback", || CommandResult::Close),
         ]
     }
 

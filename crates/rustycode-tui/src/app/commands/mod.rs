@@ -12,10 +12,10 @@ mod workers_commands;
 
 use file_commands::{handle_diff_command, handle_export_command, handle_undo_command};
 use info_commands::{
-    handle_checkpoint_command, handle_cost_command, handle_help_command, handle_hook_command,
-    handle_lsp_command, handle_marketplace_command, handle_mcp_command, handle_plugin_command,
-    handle_skill_command, handle_skillify_command, handle_stats_command, handle_theme_command,
-    handle_track_command,
+    handle_checkpoint_command, handle_cost_command, handle_feedback_command, handle_help_command,
+    handle_hook_command, handle_lsp_command, handle_marketplace_command, handle_mcp_command,
+    handle_plugin_command, handle_skill_command, handle_skillify_command, handle_stats_command,
+    handle_theme_command, handle_track_command,
 };
 use lifecycle_commands::{
     handle_extract_command, handle_load_command, handle_rename_command, handle_resume_command,
@@ -315,6 +315,10 @@ const REGISTERED_SLASH_COMMANDS: &[SlashCommandPlugin] = &[
     SlashCommandPlugin {
         names: &["/sessions"],
         handler: handle_sessions_command,
+    },
+    SlashCommandPlugin {
+        names: &["/feedback", "/bug"],
+        handler: handle_feedback_command,
     },
 ];
 

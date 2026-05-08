@@ -6839,6 +6839,7 @@ dependencies = [
  "ulid",
  "unicode-segmentation",
  "unicode-width 0.2.2",
+ "urlencoding",
  "uuid",
  "which 8.0.2",
 ]

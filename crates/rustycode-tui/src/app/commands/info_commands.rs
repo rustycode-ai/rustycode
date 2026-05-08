@@ -551,6 +551,52 @@ pub fn handle_checkpoint_command(
     Ok(CommandEffect::SystemMessage(msg))
 }
 
+/// Handle /feedback command — open browser to create a pre-filled GitHub issue
+pub fn handle_feedback_command(parts: &[&str], _ctx: CommandContext<'_>) -> Result<CommandEffect> {
+    let user_text = if parts.len() > 1 {
+        parts[1..].join(" ")
+    } else {
+        String::new()
+    };
+
+    let title = if user_text.is_empty() {
+        "Feedback".to_string()
+    } else {
+        user_text
+    };
+
+    let body = [
+        "### What would you like to share?".to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
+        "---".to_string(),
+        format!("*Version: {}*", env!("CARGO_PKG_VERSION")),
+        format!("*OS: {}*", std::env::consts::OS),
+    ]
+    .join("\n");
+
+    let url = format!(
+        "https://github.com/rustycode-ai/rustycode/issues/new?title={}&body={}",
+        urlencoding::encode(&title),
+        urlencoding::encode(&body),
+    );
+
+    let opened = rustycode_auth::open_url(&url).is_ok();
+
+    let msg = if opened {
+        format!(
+            "Opening browser to create a feedback issue...\n\
+             If the browser didn't open, visit:\n  {}",
+            url
+        )
+    } else {
+        format!("Could not open browser. Create an issue at:\n  {}", url)
+    };
+
+    Ok(CommandEffect::SystemMessage(msg))
+}
+
 /// Handle /skillify command — create a new skill from conversation context
 pub fn handle_skillify_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
     let input = parts.join(" ");

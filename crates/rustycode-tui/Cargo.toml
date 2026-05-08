@@ -62,6 +62,7 @@ rand.workspace = true
 cron.workspace = true
 ctrlc = "3.4"
 reqwest = { workspace = true }
+urlencoding.workspace = true
 chromiumoxide.workspace = true
 which.workspace = true
 tempfile.workspace = true
