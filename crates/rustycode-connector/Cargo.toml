@@ -7,6 +7,7 @@ license = "MIT"
 
 [dependencies]
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "time", "fs"] }
+tracing = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # Native iTerm2 WebSocket/Unix socket support is macOS-only.

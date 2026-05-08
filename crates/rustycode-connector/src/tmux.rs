@@ -271,7 +271,9 @@ impl TerminalConnector for TmuxConnector {
         }
 
         // Apply tiled layout for even distribution
-        let _ = self.run_tmux(&["select-layout", "-t", &session.0, "tiled"]);
+        if let Err(e) = self.run_tmux(&["select-layout", "-t", &session.0, "tiled"]) {
+            tracing::debug!("failed to apply tiled layout: {e}");
+        }
 
         Ok(new_index)
     }

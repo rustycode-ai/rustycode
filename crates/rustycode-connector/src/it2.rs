@@ -81,7 +81,9 @@ impl TerminalConnector for It2Connector {
 
         // Set the session name
         let session_id = TerminalSessionId(format!("it2-{}-{}", name, std::process::id()));
-        let _ = self.run_it2_silent(&["session", "set-name", "-s", &session_id.0, name]); // Name setting is optional
+        if let Err(e) = self.run_it2_silent(&["session", "set-name", "-s", &session_id.0, name]) {
+            tracing::debug!("failed to set it2 session name (optional): {e}");
+        }
 
         let session = It2Session {
             id: session_id.clone(),
@@ -226,7 +228,9 @@ impl TerminalConnector for It2Connector {
         })?;
 
         // Clean up temp file
-        let _ = std::fs::remove_file(&temp_file);
+        if let Err(e) = std::fs::remove_file(&temp_file) {
+            tracing::debug!("failed to remove temp file {temp_file}: {e}");
+        }
 
         Ok(PaneContent::new(content))
     }

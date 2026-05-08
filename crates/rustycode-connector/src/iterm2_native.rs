@@ -546,7 +546,9 @@ impl TerminalConnector for ITerm2NativeConnector {
                     for sess in &tab.sessions {
                         if sess.id == session_data.session_id {
                             let json_val = format!("\"{title}\"");
-                            let _ = sess.set_variable("user.title", &json_val).await;
+                            if let Err(e) = sess.set_variable("user.title", &json_val).await {
+                                tracing::debug!("failed to set iTerm2 tab title: {e}");
+                            }
                             return Ok::<_, ConnectorError>(());
                         }
                     }
