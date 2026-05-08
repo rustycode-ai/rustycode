@@ -152,6 +152,12 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         }
     }
 
+    // Fetch the specific base commit (shallow clones may not include it)
+    let _ = std::process::Command::new("git")
+        .args(["fetch", "--quiet", "origin", &inst.base_commit])
+        .current_dir(&clone_dir)
+        .status();
+
     // Checkout base commit
     tracing::info!("[{}] Checking out {}", inst.instance_id, inst.base_commit);
     let status = std::process::Command::new("git")
