@@ -101,7 +101,12 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
         .workspace_tasks
         .todos
         .iter()
-        .filter(|t| !t.done)
+        .filter(|t| {
+            !matches!(
+                t.status,
+                crate::app::tasks::TodoStatus::Completed | crate::app::tasks::TodoStatus::Cancelled
+            )
+        })
         .collect();
 
     // Build the continuation context and send

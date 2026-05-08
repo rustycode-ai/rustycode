@@ -8,7 +8,9 @@ use crate::app::lsp_status::LspStatus;
 use crate::app::mcp_status::McpStatus;
 use crate::app::rate_limit_handler::RateLimitHandler;
 use crate::app::renderer::RendererMode;
-use crate::app::tasks::{load_tasks, WorkspaceTasks};
+use crate::app::tasks::{
+    load_tasks, load_tasks_from_storage, save_tasks_with_storage, WorkspaceTasks,
+};
 use crate::app::team_mode_handler::TeamModeHandler;
 use crate::app::tool_panel_state::ToolPanelState;
 use crate::app::wizard_handler::WizardHandler;
@@ -53,6 +55,7 @@ use rustycode_tools::ToolRegistry;
 use std::collections::HashSet;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
@@ -304,6 +307,14 @@ pub struct TUI {
 
     /// Shared todo state for LLM todo tools (todo_read, todo_write, todo_update)
     pub(crate) todo_state: rustycode_tools::todo::TodoState,
+
+    /// Event bus for reactive todo updates (published by tools, subscribed by TUI)
+    pub(crate) todo_event_bus: Option<std::sync::Arc<rustycode_bus::EventBus>>,
+
+    /// Flag set by todo.updated event callback; checked each frame to trigger sync_from_todo_state
+    pub(crate) todo_dirty: Arc<AtomicBool>,
+
+    pub(crate) storage: Option<std::sync::Arc<rustycode_storage::Storage>>,
 
     pub(crate) tool_manager: crate::services::tool_manager::ToolManager,
     pub(crate) session_manager: crate::services::session_manager::SessionManager,
@@ -692,6 +703,9 @@ impl TUI {
             renderer_mode,
             // MCP proxy cache (managed by tool_manager)
             todo_state: rustycode_tools::todo::new_todo_state(),
+            todo_event_bus: Some(std::sync::Arc::new(rustycode_bus::EventBus::new())),
+            todo_dirty: Arc::new(AtomicBool::new(false)),
+            storage: None,
             tool_manager: crate::services::tool_manager::ToolManager::new(),
             session_manager: crate::services::session_manager::SessionManager::new(
                 crate::app::session_recovery_integration::SessionRecoveryManager::new(
@@ -919,6 +933,9 @@ impl TUI {
             tag_filter: TagFilter::new(),
             renderer_mode,
             todo_state: rustycode_tools::todo::new_todo_state(),
+            todo_event_bus: Some(std::sync::Arc::new(rustycode_bus::EventBus::new())),
+            todo_dirty: Arc::new(AtomicBool::new(false)),
+            storage: None,
             tool_manager: crate::services::tool_manager::ToolManager::new(),
             session_manager: crate::services::session_manager::SessionManager::new(None),
             team_panel: crate::ui::team_panel::TeamPanel::new(),
@@ -956,6 +973,33 @@ impl TUI {
     /// Initialize all background services
     pub fn init_services(&mut self) -> Result<()> {
         crate::info_log!("init_services starting");
+
+        if self.storage.is_none() {
+            let db_path = rustycode_tools::app_paths::AppPaths::data_dir().join("rustycode.db");
+            match rustycode_storage::Storage::open(&db_path) {
+                Ok(s) => {
+                    tracing::debug!("Opened storage at {}", db_path.display());
+                    self.storage = Some(std::sync::Arc::new(s));
+
+                    let cwd = self.services.cwd();
+                    let storage = self.storage.as_ref().unwrap();
+                    let reloaded = load_tasks_from_storage(storage.as_ref(), cwd);
+                    let had_json_data = !self.workspace_tasks.tasks.is_empty()
+                        || !self.workspace_tasks.todos.is_empty();
+                    if !reloaded.tasks.is_empty() || !reloaded.todos.is_empty() || !had_json_data {
+                        self.workspace_tasks = reloaded;
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to open storage at {}: {} (todos will be ephemeral)",
+                        db_path.display(),
+                        e
+                    );
+                }
+            }
+        }
+
         let config = ConversationConfig::default();
         let mut tool_registry = ToolRegistry::new();
 
@@ -1164,6 +1208,59 @@ impl TUI {
                     self.view.selected_message = self.messages.len().saturating_sub(1);
                 }
 
+                if let Some(ref storage) = self.storage {
+                    match storage.todos(&session.session_id) {
+                        Ok(db_todos) if !db_todos.is_empty() => {
+                            let items: Vec<rustycode_tools::todo::TodoItem> = db_todos
+                                .into_iter()
+                                .filter(|t| {
+                                    !matches!(
+                                        t.status,
+                                        rustycode_storage::task_store::TodoStatus::Cancelled
+                                    )
+                                })
+                                .map(|t| rustycode_tools::todo::TodoItem {
+                                    id: t.id,
+                                    title: t.content,
+                                    status: match t.status {
+                                        rustycode_storage::task_store::TodoStatus::Pending => {
+                                            rustycode_tools::todo::TodoStatus::Pending
+                                        }
+                                        rustycode_storage::task_store::TodoStatus::InProgress => {
+                                            rustycode_tools::todo::TodoStatus::InProgress
+                                        }
+                                        rustycode_storage::task_store::TodoStatus::Completed => {
+                                            rustycode_tools::todo::TodoStatus::Completed
+                                        }
+                                        _ => rustycode_tools::todo::TodoStatus::Pending,
+                                    },
+                                    active_form: None,
+                                })
+                                .collect();
+                            if let Ok(mut state) = self.todo_state.lock() {
+                                *state = items;
+                            }
+                            crate::app::tasks::sync_from_todo_state(
+                                &mut self.workspace_tasks,
+                                &self.todo_state,
+                            );
+                            tracing::info!(
+                                "Restored {} todos for session {}",
+                                self.todo_state.lock().map(|s| s.len()).unwrap_or(0),
+                                session.session_id
+                            );
+                        }
+                        Ok(_) => {}
+                        Err(e) => {
+                            tracing::warn!(
+                                "Failed to load todos for session {}: {}",
+                                session.session_id,
+                                e
+                            );
+                        }
+                    }
+                }
+
                 let display_id = session
                     .session_id
                     .split('-')
@@ -1199,6 +1296,8 @@ impl TUI {
             self.services.cwd(),
             &self.skill_manager,
             &self.todo_state,
+            self.storage.clone(),
+            self.todo_event_bus.clone(),
         );
     }
 

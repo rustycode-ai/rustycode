@@ -70,6 +70,7 @@ pub fn extended_tool_set() -> HashSet<&'static str> {
         "lsp_outgoing_calls",
         "lsp_document_symbols",
         "todo_write",
+        "todo_update",
         "todo_read",
         "memory_search",
         "memory_list",

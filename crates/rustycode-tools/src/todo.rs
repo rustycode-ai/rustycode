@@ -1,5 +1,6 @@
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
 use anyhow::Result;
+use rustycode_bus::{EventBus, TodoSnapshot, TodoUpdatedEvent};
 use rustycode_storage::Storage;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
@@ -58,9 +59,36 @@ fn persist_todos(storage: &Storage, state: &[TodoItem], session_id: &str, projec
     }
 }
 
+fn publish_todo_event(
+    bus: Option<&Arc<EventBus>>,
+    session_id: Option<&str>,
+    todos_snapshot: &[TodoItem],
+) {
+    let Some(bus) = bus else { return };
+    let Some(sid) = session_id else { return };
+    let bus = Arc::clone(bus);
+    let sid = sid.to_string();
+    let snapshots: Vec<TodoSnapshot> = todos_snapshot
+        .iter()
+        .map(|t| TodoSnapshot {
+            id: t.id.clone(),
+            title: t.title.clone(),
+            status: format_status(t.status),
+            active_form: t.active_form.clone(),
+        })
+        .collect();
+    tokio::spawn(async move {
+        let event = TodoUpdatedEvent::new(sid, snapshots);
+        if let Err(e) = bus.publish(event).await {
+            tracing::debug!("Failed to publish todo.updated event: {}", e);
+        }
+    });
+}
+
 pub struct TodoWriteTool {
     pub state: TodoState,
     storage: Option<Arc<Storage>>,
+    event_bus: Option<Arc<EventBus>>,
 }
 
 impl TodoWriteTool {
@@ -68,6 +96,7 @@ impl TodoWriteTool {
         Self {
             state,
             storage: None,
+            event_bus: None,
         }
     }
 
@@ -75,7 +104,13 @@ impl TodoWriteTool {
         Self {
             state,
             storage: Some(storage),
+            event_bus: None,
         }
+    }
+
+    pub fn with_event_bus(mut self, bus: Arc<EventBus>) -> Self {
+        self.event_bus = Some(bus);
+        self
     }
 }
 
@@ -219,6 +254,8 @@ the activeForm would be "Fixing build errors"."#
             persist_todos(storage, &state, sid, pid);
         }
 
+        publish_todo_event(self.event_bus.as_ref(), ctx.session_id.as_deref(), &state);
+
         let mut output = format!(
             "Todo list '{}' updated:\n- {} items total\n- {} completed\n- {} in progress",
             title,
@@ -242,6 +279,7 @@ the activeForm would be "Fixing build errors"."#
 pub struct TodoUpdateTool {
     pub state: TodoState,
     storage: Option<Arc<Storage>>,
+    event_bus: Option<Arc<EventBus>>,
 }
 
 impl TodoUpdateTool {
@@ -249,6 +287,7 @@ impl TodoUpdateTool {
         Self {
             state,
             storage: None,
+            event_bus: None,
         }
     }
 
@@ -256,7 +295,13 @@ impl TodoUpdateTool {
         Self {
             state,
             storage: Some(storage),
+            event_bus: None,
         }
+    }
+
+    pub fn with_event_bus(mut self, bus: Arc<EventBus>) -> Self {
+        self.event_bus = Some(bus);
+        self
     }
 }
 
@@ -367,6 +412,8 @@ Parameters:
         {
             persist_todos(storage, &state, sid, pid);
         }
+
+        publish_todo_event(self.event_bus.as_ref(), ctx.session_id.as_deref(), &state);
 
         Ok(ToolOutput::text(format!(
             "Todo '{}': {}",

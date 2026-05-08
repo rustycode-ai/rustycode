@@ -5,7 +5,6 @@ use crate::headers_helper::merge_headers;
 use crate::http_transport::HttpTransport;
 use crate::oauth::OAuthManager;
 use crate::server_enablement::ServerEnablementManager;
-use crate::sse_transport::SseTransport;
 use crate::types::McpTool;
 use crate::{McpError, McpResult, Transport};
 use serde::{Deserialize, Serialize};
@@ -173,7 +172,7 @@ async fn build_transport_for_server(
 
             match resolve_transport_type(config)? {
                 McpTransportType::Http => Ok(Box::new(HttpTransport::new(url, headers)?)),
-                McpTransportType::Sse => Ok(Box::new(SseTransport::new(url, headers)?)),
+                McpTransportType::Sse => Ok(Box::new(HttpTransport::new(url, headers)?)),
                 McpTransportType::Stdio => unreachable!(),
             }
         }

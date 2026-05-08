@@ -4,7 +4,7 @@
 //!
 //! This test verifies the logic for counting and formatting tasks and todos.
 
-use rustycode_tui::tasks::{TaskStatus, Todo, WorkspaceTasks};
+use rustycode_tui::tasks::{TaskStatus, Todo, TodoStatus, WorkspaceTasks};
 use std::time::SystemTime;
 
 fn create_test_tasks() -> WorkspaceTasks {
@@ -31,19 +31,19 @@ fn create_test_tasks() -> WorkspaceTasks {
             Todo {
                 id: "1".to_string(),
                 text: "Todo 1".to_string(),
-                done: false,
+                status: TodoStatus::Pending,
                 created_at: SystemTime::now(),
             },
             Todo {
                 id: "2".to_string(),
                 text: "Todo 2".to_string(),
-                done: false,
+                status: TodoStatus::Pending,
                 created_at: SystemTime::now(),
             },
             Todo {
                 id: "3".to_string(),
                 text: "Todo 3".to_string(),
-                done: true, // Completed
+                status: TodoStatus::Completed,
                 created_at: SystemTime::now(),
             },
         ],
@@ -61,7 +61,11 @@ fn test_task_status_counts() {
         .filter(|t| matches!(t.status, TaskStatus::InProgress))
         .count();
 
-    let pending_todos = tasks.todos.iter().filter(|t| !t.done).count();
+    let pending_todos = tasks
+        .todos
+        .iter()
+        .filter(|t| !matches!(t.status, TodoStatus::Completed | TodoStatus::Cancelled))
+        .count();
 
     println!("✓ In-progress tasks: {}", in_progress_count);
     println!("✓ Pending todos: {}", pending_todos);
@@ -74,14 +78,17 @@ fn test_task_status_counts() {
 fn test_status_bar_formatting() {
     let tasks = create_test_tasks();
 
-    // Simulate the status bar logic
     let in_progress_tasks = tasks
         .tasks
         .iter()
         .filter(|t| matches!(t.status, TaskStatus::InProgress))
         .count();
 
-    let pending_todos = tasks.todos.iter().filter(|t| !t.done).count();
+    let pending_todos = tasks
+        .todos
+        .iter()
+        .filter(|t| !matches!(t.status, TodoStatus::Completed | TodoStatus::Cancelled))
+        .count();
 
     // Build status string (simplified)
     let mut status_parts = Vec::new();
@@ -121,7 +128,11 @@ fn test_empty_state() {
         .filter(|t| matches!(t.status, TaskStatus::InProgress))
         .count();
 
-    let pending_todos = tasks.todos.iter().filter(|t| !t.done).count();
+    let pending_todos = tasks
+        .todos
+        .iter()
+        .filter(|t| !matches!(t.status, TodoStatus::Completed | TodoStatus::Cancelled))
+        .count();
 
     println!(
         "✓ Empty state - tasks: {}, todos: {}",
@@ -204,22 +215,30 @@ fn test_todo_done_states() {
             Todo {
                 id: "1".to_string(),
                 text: "Done todo".to_string(),
-                done: true,
+                status: TodoStatus::Completed,
                 created_at: SystemTime::now(),
             },
             Todo {
                 id: "2".to_string(),
                 text: "Pending todo".to_string(),
-                done: false,
+                status: TodoStatus::Pending,
                 created_at: SystemTime::now(),
             },
         ],
         active_agents: vec![],
     };
 
-    let done_count = tasks.todos.iter().filter(|t| t.done).count();
+    let done_count = tasks
+        .todos
+        .iter()
+        .filter(|t| matches!(t.status, TodoStatus::Completed))
+        .count();
 
-    let pending_count = tasks.todos.iter().filter(|t| !t.done).count();
+    let pending_count = tasks
+        .todos
+        .iter()
+        .filter(|t| !matches!(t.status, TodoStatus::Completed | TodoStatus::Cancelled))
+        .count();
 
     println!(
         "✓ Todo states - done: {}, pending: {}",

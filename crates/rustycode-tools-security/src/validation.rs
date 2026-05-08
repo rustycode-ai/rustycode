@@ -450,11 +450,6 @@ pub fn validate_list_path(
 ) -> Result<PathBuf> {
     let validated = validate_path(path, workspace, true, false, enforce_workspace)?;
 
-    // Check if it's actually a directory
-    if validated.exists() && !validated.is_dir() {
-        return Err(anyhow!("path '{}' is not a directory", validated.display()));
-    }
-
     Ok(validated)
 }
 
@@ -1179,13 +1174,12 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_list_path_rejects_file() {
+    fn test_validate_list_path_accepts_file() {
         let workspace = tempdir().unwrap();
         let file = workspace.path().join("file.txt");
         fs::write(&file, "content").unwrap();
         let path = validate_list_path("file.txt", workspace.path(), true);
-        assert!(path.is_err());
-        assert!(path.unwrap_err().to_string().contains("not a directory"));
+        assert!(path.is_ok());
     }
 
     #[test]

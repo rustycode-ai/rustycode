@@ -6800,6 +6800,7 @@ dependencies = [
  "reqwest 0.13.3",
  "rustycode-agent-runtime",
  "rustycode-auth",
+ "rustycode-bus",
  "rustycode-classification",
  "rustycode-config",
  "rustycode-core",

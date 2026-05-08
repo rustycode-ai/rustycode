@@ -42,6 +42,8 @@ impl ToolManager {
         cwd: &Path,
         skill_manager: &Arc<std::sync::RwLock<crate::skills::manager::SkillStateManager>>,
         todo_state: &rustycode_tools::todo::TodoState,
+        storage: Option<std::sync::Arc<rustycode_storage::Storage>>,
+        event_bus: Option<std::sync::Arc<rustycode_bus::EventBus>>,
     ) {
         use crate::skills::as_tool::{CreateCronTool, CreateTeamTool, SkillToolRegistry};
         use rustycode_tools::todo::{TodoUpdateTool, TodoWriteTool};
@@ -55,8 +57,27 @@ impl ToolManager {
         // Register stateful tools that require runtime state
         // Todo tools (shared state with TUI sidebar)
         tool_registry.register(TodoReadTool::new(todo_state.clone()));
-        tool_registry.register(TodoWriteTool::new(todo_state.clone()));
-        tool_registry.register(TodoUpdateTool::new(todo_state.clone()));
+        if let (Some(ref s), Some(ref bus)) = (&storage, &event_bus) {
+            tool_registry.register(
+                TodoWriteTool::with_storage(todo_state.clone(), s.clone())
+                    .with_event_bus(bus.clone()),
+            );
+            tool_registry.register(
+                TodoUpdateTool::with_storage(todo_state.clone(), s.clone())
+                    .with_event_bus(bus.clone()),
+            );
+        } else if let Some(ref s) = storage {
+            tool_registry.register(TodoWriteTool::with_storage(todo_state.clone(), s.clone()));
+            tool_registry.register(TodoUpdateTool::with_storage(todo_state.clone(), s.clone()));
+        } else if let Some(ref bus) = event_bus {
+            tool_registry
+                .register(TodoWriteTool::new(todo_state.clone()).with_event_bus(bus.clone()));
+            tool_registry
+                .register(TodoUpdateTool::new(todo_state.clone()).with_event_bus(bus.clone()));
+        } else {
+            tool_registry.register(TodoWriteTool::new(todo_state.clone()));
+            tool_registry.register(TodoUpdateTool::new(todo_state.clone()));
+        }
 
         // Semantic search tool (conditional feature)
         #[cfg(feature = "vector-memory")]

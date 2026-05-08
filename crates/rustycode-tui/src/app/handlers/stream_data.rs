@@ -30,10 +30,12 @@ pub(super) fn handle_extract_tasks_chunk(tui: &mut TUI, text: String) {
         .len()
         .saturating_sub(initial_tasks);
 
-    // Save the updated tasks
-    if let Err(e) = crate::app::tasks::save_tasks(&tui.workspace_tasks) {
-        tracing::warn!("Failed to save extracted tasks: {}", e);
-    }
+    crate::app::tasks::save_tasks_with_storage(
+        &tui.workspace_tasks,
+        tui.storage.as_deref(),
+        tui.services.cwd(),
+        None,
+    );
 
     // Provide feedback to user
     if new_todos > 0 || new_tasks > 0 {
@@ -216,8 +218,12 @@ pub(super) fn handle_milestone_progress_chunk(
 pub(super) fn handle_todo_sync_chunk(tui: &mut TUI) {
     if crate::app::tasks::sync_from_todo_state(&mut tui.workspace_tasks, &tui.todo_state) {
         tracing::debug!("TodoSync: state changed, saving workspace tasks");
-        if let Err(e) = crate::app::tasks::save_tasks(&tui.workspace_tasks) {
-            tracing::warn!("TodoSync: failed to save synced todo state: {}", e);
-        }
+        crate::app::tasks::save_tasks_with_storage(
+            &tui.workspace_tasks,
+            tui.storage.as_deref(),
+            tui.services.cwd(),
+            None,
+        );
     }
+    tui.dirty = true;
 }

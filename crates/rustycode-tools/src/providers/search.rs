@@ -458,8 +458,8 @@ impl Tool for GlobTool {
             .and_then(Value::as_str)
         {
             let resolved = ctx.cwd.join(custom_path);
-            if !resolved.is_dir() {
-                anyhow::bail!("path '{custom_path}' is not a directory");
+            if !resolved.exists() {
+                anyhow::bail!("path '{custom_path}' does not exist");
             }
             resolved
         } else {

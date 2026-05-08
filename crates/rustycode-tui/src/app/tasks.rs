@@ -6,7 +6,7 @@
 //! - Active agents (background agent processes)
 
 use anyhow::Context;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -37,13 +37,83 @@ pub enum TaskStatus {
     Killed,
 }
 
+/// Status of a todo item.
+///
+/// Matches the 4-variant model used by the storage layer and tool definitions,
+/// replacing the previous `done: bool` field for richer status tracking.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TodoStatus {
+    #[default]
+    Pending,
+    InProgress,
+    Completed,
+    Cancelled,
+}
+
 /// A simple todo item
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Todo {
     pub id: String,
     pub text: String,
-    pub done: bool,
+    #[serde(
+        serialize_with = "serialize_status",
+        deserialize_with = "deserialize_status"
+    )]
+    pub status: TodoStatus,
     pub created_at: SystemTime,
+}
+
+/// Serialize `status` as a string, omitting the old `done` field entirely.
+fn serialize_status<S: Serializer>(status: &TodoStatus, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_str(match status {
+        TodoStatus::Pending => "pending",
+        TodoStatus::InProgress => "in_progress",
+        TodoStatus::Completed => "completed",
+        TodoStatus::Cancelled => "cancelled",
+    })
+}
+
+/// Deserialize `status` from either the new string format or the legacy `done: bool` format.
+///
+/// This accepts:
+/// - `"pending"` / `"in_progress"` / `"completed"` / `"cancelled"` (new format)
+/// - `true` / `false` (legacy `done` boolean)
+fn deserialize_status<'de, D: Deserializer<'de>>(d: D) -> Result<TodoStatus, D::Error> {
+    use serde::de::{self, Visitor};
+
+    struct StatusVisitor;
+
+    impl Visitor<'_> for StatusVisitor {
+        type Value = TodoStatus;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a todo status string or legacy boolean")
+        }
+
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<TodoStatus, E> {
+            match v {
+                "pending" => Ok(TodoStatus::Pending),
+                "in_progress" => Ok(TodoStatus::InProgress),
+                "completed" => Ok(TodoStatus::Completed),
+                "cancelled" => Ok(TodoStatus::Cancelled),
+                other => Err(de::Error::unknown_variant(
+                    other,
+                    &["pending", "in_progress", "completed", "cancelled"],
+                )),
+            }
+        }
+
+        fn visit_bool<E: de::Error>(self, v: bool) -> Result<TodoStatus, E> {
+            if v {
+                Ok(TodoStatus::Completed)
+            } else {
+                Ok(TodoStatus::Pending)
+            }
+        }
+    }
+
+    d.deserialize_any(StatusVisitor)
 }
 
 /// An active agent process
@@ -147,6 +217,230 @@ pub fn save_tasks(tasks: &WorkspaceTasks) -> std::io::Result<()> {
     Ok(())
 }
 
+// ── SQLite-backed persistence ─────────────────────────────────────────────
+
+/// Load workspace tasks from SQLite storage, falling back to the JSON file
+/// if the storage layer is unavailable or returns no data.
+///
+/// The strategy is:
+/// 1. Try to get or create a `project_id` from `storage` using `cwd`.
+/// 2. Query `tasks_by_project` and `todos_by_project` from SQLite.
+/// 3. Map storage types → TUI types.
+/// 4. If anything fails or the DB is empty, fall through to `load_tasks()`
+///    (the JSON file) so we never lose data.
+pub fn load_tasks_from_storage(
+    storage: &rustycode_storage::Storage,
+    cwd: &std::path::Path,
+) -> WorkspaceTasks {
+    let project = match storage.or_create_project(&cwd.to_string_lossy()) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(
+                "Failed to resolve project for {}: {e}, falling back to tasks.json",
+                cwd.display()
+            );
+            return load_tasks();
+        }
+    };
+
+    let db_tasks = match storage.tasks_by_project(&project.id) {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!("Failed to query tasks from SQLite: {e}, falling back to tasks.json");
+            return load_tasks();
+        }
+    };
+
+    let db_todos = match storage.todos_by_project(&project.id) {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!("Failed to query todos from SQLite: {e}, falling back to tasks.json");
+            return load_tasks();
+        }
+    };
+
+    if db_tasks.is_empty() && db_todos.is_empty() {
+        tracing::debug!("SQLite has no tasks/todos, trying tasks.json fallback");
+        return load_tasks();
+    }
+
+    let tasks: Vec<Task> = db_tasks.into_iter().map(storage_task_to_tui).collect();
+    let todos: Vec<Todo> = db_todos.into_iter().map(storage_todo_to_tui).collect();
+
+    tracing::debug!(
+        "Loaded {} tasks, {} todos from SQLite (project {})",
+        tasks.len(),
+        todos.len(),
+        project.id
+    );
+
+    let mut result = WorkspaceTasks {
+        active_agents: vec![],
+        tasks,
+        todos,
+    };
+    result.active_agents = result.active_agents_from_tasks();
+    result
+}
+
+/// Map a storage `Task` to a TUI `Task`.
+fn storage_task_to_tui(t: rustycode_storage::task_store::Task) -> Task {
+    use rustycode_storage::task_store::TaskStatus as StTUI;
+
+    Task {
+        id: t.id,
+        description: t.description,
+        status: match t.status {
+            StTUI::Pending => TaskStatus::Pending,
+            StTUI::InProgress => TaskStatus::InProgress,
+            StTUI::Completed => TaskStatus::Completed,
+            StTUI::Blocked => TaskStatus::Blocked,
+            StTUI::Running => TaskStatus::Running,
+            StTUI::Failed => TaskStatus::Failed,
+            StTUI::Killed => TaskStatus::Killed,
+        },
+        created_at: datetime_to_system_time(t.created_at),
+        dependencies: t.dependencies,
+        owner: t.owner,
+    }
+}
+
+/// Map a storage `TodoItem` to a TUI `Todo`.
+fn storage_todo_to_tui(t: rustycode_storage::task_store::TodoItem) -> Todo {
+    use rustycode_storage::task_store::TodoStatus as StTUI;
+
+    Todo {
+        id: t.id,
+        text: t.content,
+        status: match t.status {
+            StTUI::Pending => TodoStatus::Pending,
+            StTUI::InProgress => TodoStatus::InProgress,
+            StTUI::Completed => TodoStatus::Completed,
+            StTUI::Cancelled => TodoStatus::Cancelled,
+        },
+        created_at: datetime_to_system_time(t.created_at),
+    }
+}
+
+/// Convert a `chrono::DateTime<Utc>` to `SystemTime`.
+fn datetime_to_system_time(dt: chrono::DateTime<chrono::Utc>) -> SystemTime {
+    let nanos = dt.timestamp_nanos_opt().unwrap_or(0);
+    let duration = if nanos >= 0 {
+        Duration::from_nanos(nanos as u64)
+    } else {
+        Duration::from_nanos((-nanos) as u64)
+    };
+    SystemTime::UNIX_EPOCH + duration
+}
+
+/// Persist workspace tasks to SQLite when storage is available, and optionally
+/// also to the JSON fallback file.
+///
+/// Callers should use this in preference to `save_tasks()` alone so that the
+/// SQLite database stays in sync.
+pub fn save_tasks_with_storage(
+    workspace: &WorkspaceTasks,
+    storage: Option<&rustycode_storage::Storage>,
+    cwd: &std::path::Path,
+    session_id: Option<&str>,
+) {
+    if let Err(e) = save_tasks(workspace) {
+        tracing::warn!("Failed to save tasks.json fallback: {e}");
+    }
+
+    let Some(storage) = storage else {
+        return;
+    };
+
+    let project = match storage.or_create_project(&cwd.to_string_lossy()) {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!("Failed to resolve project for save: {e}");
+            return;
+        }
+    };
+
+    for task in &workspace.tasks {
+        let storage_task = rustycode_storage::task_store::Task {
+            id: task.id.clone(),
+            project_id: project.id.clone(),
+            session_id: session_id.map(|s| s.to_string()),
+            description: task.description.clone(),
+            status: tui_status_to_storage(&task.status),
+            owner: task.owner.clone(),
+            dependencies: task.dependencies.clone(),
+            output: None,
+            created_at: system_time_to_datetime(task.created_at),
+            updated_at: chrono::Utc::now(),
+            started_at: None,
+            completed_at: None,
+        };
+        if let Err(e) = storage.insert_task(&storage_task) {
+            if let Err(e2) =
+                storage.update_task_status(&task.id, tui_status_to_storage(&task.status))
+            {
+                tracing::debug!(
+                    "Could not insert/update task {} in SQLite: insert={e}, update={e2}",
+                    task.id
+                );
+            }
+        }
+    }
+
+    if let Some(sid) = session_id {
+        let storage_todos: Vec<rustycode_storage::task_store::TodoItem> = workspace
+            .todos
+            .iter()
+            .enumerate()
+            .map(|(i, todo)| rustycode_storage::task_store::TodoItem {
+                id: todo.id.clone(),
+                session_id: sid.to_string(),
+                project_id: project.id.clone(),
+                content: todo.text.clone(),
+                status: tui_todo_status_to_storage(&todo.status),
+                priority: rustycode_storage::task_store::Priority::Medium,
+                position: i as i64,
+                created_at: system_time_to_datetime(todo.created_at),
+                updated_at: chrono::Utc::now(),
+            })
+            .collect();
+
+        if let Err(e) = storage.replace_todos(sid, &storage_todos) {
+            tracing::warn!("Failed to save todos to SQLite: {e}");
+        }
+    }
+}
+
+/// Map a TUI `TaskStatus` to a storage `TaskStatus`.
+fn tui_status_to_storage(s: &TaskStatus) -> rustycode_storage::task_store::TaskStatus {
+    match s {
+        TaskStatus::Pending => rustycode_storage::task_store::TaskStatus::Pending,
+        TaskStatus::InProgress => rustycode_storage::task_store::TaskStatus::InProgress,
+        TaskStatus::Completed => rustycode_storage::task_store::TaskStatus::Completed,
+        TaskStatus::Blocked => rustycode_storage::task_store::TaskStatus::Blocked,
+        TaskStatus::Running => rustycode_storage::task_store::TaskStatus::Running,
+        TaskStatus::Failed => rustycode_storage::task_store::TaskStatus::Failed,
+        TaskStatus::Killed => rustycode_storage::task_store::TaskStatus::Killed,
+    }
+}
+
+/// Map a TUI `TodoStatus` to a storage `TodoStatus`.
+fn tui_todo_status_to_storage(s: &TodoStatus) -> rustycode_storage::task_store::TodoStatus {
+    match s {
+        TodoStatus::Pending => rustycode_storage::task_store::TodoStatus::Pending,
+        TodoStatus::InProgress => rustycode_storage::task_store::TodoStatus::InProgress,
+        TodoStatus::Completed => rustycode_storage::task_store::TodoStatus::Completed,
+        TodoStatus::Cancelled => rustycode_storage::task_store::TodoStatus::Cancelled,
+    }
+}
+
+/// Convert `SystemTime` to `chrono::DateTime<Utc>`.
+fn system_time_to_datetime(t: SystemTime) -> chrono::DateTime<chrono::Utc> {
+    let duration = t.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default();
+    chrono::DateTime::from_timestamp(duration.as_secs() as i64, duration.subsec_nanos())
+        .unwrap_or_else(chrono::Utc::now)
+}
+
 // ── Task Operations ───────────────────────────────────────────────────────
 
 pub fn create_task(description: String) -> Task {
@@ -191,25 +485,42 @@ pub fn create_todo(text: String) -> Todo {
     Todo {
         id: ulid::Ulid::new().to_string(),
         text,
-        done: false,
+        status: TodoStatus::Pending,
         created_at: SystemTime::now(),
     }
 }
 
-pub fn toggle_todo(tasks: &mut WorkspaceTasks, id: &str) -> anyhow::Result<bool> {
+pub fn toggle_todo(tasks: &mut WorkspaceTasks, id: &str) -> anyhow::Result<TodoStatus> {
     if let Some(todo) = tasks.todos.iter_mut().find(|t| t.id == id) {
-        todo.done = !todo.done;
-        Ok(todo.done)
+        todo.status = match todo.status {
+            TodoStatus::Completed | TodoStatus::Cancelled => TodoStatus::Pending,
+            _ => TodoStatus::Completed,
+        };
+        Ok(todo.status.clone())
     } else {
         anyhow::bail!("Todo {} not found", id)
     }
 }
 
-pub fn todo_checkbox(done: bool) -> &'static str {
-    if done {
-        "☑"
+pub fn set_todo_status(
+    tasks: &mut WorkspaceTasks,
+    id: &str,
+    status: TodoStatus,
+) -> anyhow::Result<()> {
+    if let Some(todo) = tasks.todos.iter_mut().find(|t| t.id == id) {
+        todo.status = status;
+        Ok(())
     } else {
-        "☐"
+        anyhow::bail!("Todo {} not found", id)
+    }
+}
+
+pub fn todo_status_icon(status: &TodoStatus) -> &'static str {
+    match status {
+        TodoStatus::Pending => "☐",
+        TodoStatus::InProgress => "•",
+        TodoStatus::Completed => "☑",
+        TodoStatus::Cancelled => "✗",
     }
 }
 
@@ -433,7 +744,7 @@ mod tests {
     fn test_create_todo() {
         let todo = create_todo("Test todo".to_string());
         assert_eq!(todo.text, "Test todo");
-        assert!(!todo.done);
+        assert_eq!(todo.status, TodoStatus::Pending);
         assert!(!todo.id.is_empty());
     }
 
@@ -469,8 +780,8 @@ mod tests {
         let id = tasks.todos[0].id.clone();
 
         let result = toggle_todo(&mut tasks, &id).unwrap();
-        assert!(result);
-        assert!(tasks.todos[0].done);
+        assert_eq!(result, TodoStatus::Completed);
+        assert_eq!(tasks.todos[0].status, TodoStatus::Completed);
     }
 
     #[test]
@@ -483,8 +794,10 @@ mod tests {
         assert_eq!(task_status_icon(&TaskStatus::Failed), "💥");
         assert_eq!(task_status_icon(&TaskStatus::Killed), "🗑️");
 
-        assert_eq!(todo_checkbox(false), "☐");
-        assert_eq!(todo_checkbox(true), "☑");
+        assert_eq!(todo_status_icon(&TodoStatus::Pending), "☐");
+        assert_eq!(todo_status_icon(&TodoStatus::InProgress), "•");
+        assert_eq!(todo_status_icon(&TodoStatus::Completed), "☑");
+        assert_eq!(todo_status_icon(&TodoStatus::Cancelled), "✗");
 
         assert_eq!(agent_status_icon(&AgentStatus::Starting), "⚡");
         assert_eq!(agent_status_icon(&AgentStatus::Running), "🤖");

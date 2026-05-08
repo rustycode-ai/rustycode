@@ -264,6 +264,16 @@ impl McpServer {
         &self,
         params: Option<serde_json::Value>,
     ) -> McpResult<serde_json::Value> {
+        // Guard against double-initialize
+        {
+            let initialized = self.initialized.read().await;
+            if *initialized {
+                return Err(McpError::InvalidRequest(
+                    "Server already initialized".to_string(),
+                ));
+            }
+        }
+
         let params = params
             .ok_or_else(|| McpError::InvalidRequest("Initialize requires params".to_string()))?;
 
@@ -884,5 +894,25 @@ mod tests {
         assert!(result["capabilities"]["tools"].is_object());
         assert!(result["capabilities"]["resources"].is_object());
         assert!(result["capabilities"]["prompts"].is_object());
+    }
+
+    #[tokio::test]
+    async fn test_server_double_initialize_rejected() {
+        let server = McpServer::default_config("test");
+
+        // First initialize should succeed
+        let request = JsonRpcRequest::new("init-1", "initialize")
+            .with_params(json!({"protocolVersion": "2024-11-05", "capabilities": {}}));
+        let response = server.handle_request(request).await;
+        assert!(response.is_success());
+
+        // Second initialize should fail with INVALID_PARAMS (-32600 maps to -32602 in our code)
+        let request2 = JsonRpcRequest::new("init-2", "initialize")
+            .with_params(json!({"protocolVersion": "2024-11-05", "capabilities": {}}));
+        let response2 = server.handle_request(request2).await;
+        assert!(!response2.is_success());
+        let err = response2.error.unwrap();
+        assert_eq!(err.code, error_codes::INVALID_PARAMS);
+        assert!(err.message.contains("already initialized"));
     }
 }

@@ -571,6 +571,9 @@ impl BenchAgent for CodeAgent {
             intent
         );
 
+        let mut made_edits = false;
+        let mut turns_since_edit = 0usize;
+
         for turn in 0..self.config.max_turns {
             Self::prune_messages(&mut messages, self.config.max_context_chars);
 
@@ -683,6 +686,24 @@ impl BenchAgent for CodeAgent {
                 .iter()
                 .map(|t| Self::execute_tool(&registry, t, &ctx))
                 .collect();
+
+            // Track edit/write operations for early-stop detection.
+            let has_edits = tool_uses
+                .iter()
+                .any(|t| t.name == "write_file" || t.name == "edit_file");
+            if has_edits {
+                made_edits = true;
+                turns_since_edit = 0;
+            } else if made_edits {
+                turns_since_edit += 1;
+            }
+            if made_edits && turns_since_edit >= 3 {
+                tracing::info!(
+                    "[code] Early stop: {} turns since last edit",
+                    turns_since_edit
+                );
+                break;
+            }
 
             // Process results: repetition detection, truncation, error detection.
             let mut tool_result_blocks: Vec<ContentBlock> = Vec::new();

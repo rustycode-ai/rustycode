@@ -7,8 +7,8 @@
 //! - `/schedule list|stats` - View task scheduler status
 
 use crate::app::tasks::{
-    create_agent_from_task, create_task, create_todo, save_tasks, toggle_todo, update_task_status,
-    AgentStatus, TaskStatus, WorkspaceTasks,
+    create_agent_from_task, create_task, create_todo, save_tasks, set_todo_status, toggle_todo,
+    update_task_status, AgentStatus, TaskStatus, TodoStatus, WorkspaceTasks,
 };
 
 /// Result type for command execution
@@ -88,10 +88,12 @@ pub fn handle_todo_command(
         "list" => cmd_todo_list(tasks),
         "add" | "new" => cmd_todo_add(args, tasks),
         "done" | "complete" | "check" => cmd_todo_done(args, tasks),
+        "start" => cmd_todo_start(args, tasks),
+        "cancel" => cmd_todo_cancel(args, tasks),
         "uncheck" | "undo" => cmd_todo_uncheck(args, tasks),
         "delete" | "remove" => cmd_todo_delete(args, tasks),
         _ => TaskCommandResult::Error(format!(
-            "Unknown todo action: {}. Use: list, add, done, uncheck, delete",
+            "Unknown todo action: {}. Use: list, add, done, start, cancel, uncheck, delete",
             action
         )),
     }
@@ -306,8 +308,8 @@ fn cmd_todo_list(tasks: &WorkspaceTasks) -> TaskCommandResult {
     let mut output = String::from("📝 Todos:\n");
 
     for (idx, todo) in tasks.todos.iter().enumerate() {
-        let checkbox = if todo.done { "☑" } else { "☐" };
-        output.push_str(&format!("{}  {}. {}\n", checkbox, idx + 1, todo.text));
+        let icon = crate::app::tasks::todo_status_icon(&todo.status);
+        output.push_str(&format!("{}  {}. {}\n", icon, idx + 1, todo.text));
     }
 
     TaskCommandResult::Success(output)
@@ -344,20 +346,14 @@ fn cmd_todo_done(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResu
         );
     }
 
-    // Parse todo number (1-based index)
-    let todo_num = match args[0].parse::<usize>() {
-        Ok(n) if n >= 1 && n <= tasks.todos.len() => n - 1,
-        _ => {
-            return TaskCommandResult::Error(format!(
-                "Invalid todo number. Must be between 1 and {}",
-                tasks.todos.len()
-            ))
-        }
+    let todo_num = match parse_todo_index(args, tasks) {
+        Ok(idx) => idx,
+        Err(e) => return e,
     };
 
     let todo_id = tasks.todos[todo_num].id.clone();
-    match toggle_todo(tasks, &todo_id) {
-        Ok(done) => {
+    match set_todo_status(tasks, &todo_id, TodoStatus::Completed) {
+        Ok(()) => {
             if let Err(e) = save_tasks(tasks) {
                 tracing::error!("Failed to save tasks: {}", e);
                 return TaskCommandResult::Error(
@@ -366,11 +362,7 @@ fn cmd_todo_done(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResu
             }
 
             let text = &tasks.todos[todo_num].text;
-            if done {
-                TaskCommandResult::Success(format!("☑ Done: {}", text))
-            } else {
-                TaskCommandResult::Success(format!("☐ Undone: {}", text))
-            }
+            TaskCommandResult::Success(format!("☑ Done: {}", text))
         }
         Err(e) => TaskCommandResult::Error(e.to_string()),
     }
@@ -384,20 +376,14 @@ fn cmd_todo_uncheck(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandR
         );
     }
 
-    // Parse todo number (1-based index)
-    let todo_num = match args[0].parse::<usize>() {
-        Ok(n) if n >= 1 && n <= tasks.todos.len() => n - 1,
-        _ => {
-            return TaskCommandResult::Error(format!(
-                "Invalid todo number. Must be between 1 and {}",
-                tasks.todos.len()
-            ))
-        }
+    let todo_num = match parse_todo_index(args, tasks) {
+        Ok(idx) => idx,
+        Err(e) => return e,
     };
 
     let todo_id = tasks.todos[todo_num].id.clone();
-    match toggle_todo(tasks, &todo_id) {
-        Ok(done) => {
+    match set_todo_status(tasks, &todo_id, TodoStatus::Pending) {
+        Ok(()) => {
             if let Err(e) = save_tasks(tasks) {
                 tracing::error!("Failed to save tasks: {}", e);
                 return TaskCommandResult::Error(
@@ -406,11 +392,7 @@ fn cmd_todo_uncheck(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandR
             }
 
             let text = &tasks.todos[todo_num].text;
-            if !done {
-                TaskCommandResult::Success(format!("☐ Unchecked: {}", text))
-            } else {
-                TaskCommandResult::Success(format!("☑ Checked: {}", text))
-            }
+            TaskCommandResult::Success(format!("☐ Unchecked: {}", text))
         }
         Err(e) => TaskCommandResult::Error(e.to_string()),
     }
@@ -446,6 +428,77 @@ fn cmd_todo_delete(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandRe
     }
 
     TaskCommandResult::Success(format!("🗑️ Deleted: {}", text))
+}
+
+/// Start working on a todo (set to InProgress)
+fn cmd_todo_start(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResult {
+    if args.is_empty() {
+        return TaskCommandResult::Error(
+            "Usage: `/todo start <number>` - Mark todo as in progress".to_string(),
+        );
+    }
+
+    let todo_num = match parse_todo_index(args, tasks) {
+        Ok(idx) => idx,
+        Err(e) => return e,
+    };
+
+    let todo_id = tasks.todos[todo_num].id.clone();
+    match set_todo_status(tasks, &todo_id, TodoStatus::InProgress) {
+        Ok(()) => {
+            if let Err(e) = save_tasks(tasks) {
+                tracing::error!("Failed to save tasks: {}", e);
+                return TaskCommandResult::Error(
+                    "Failed to save task changes. Changes may be lost on restart.".to_string(),
+                );
+            }
+
+            let text = &tasks.todos[todo_num].text;
+            TaskCommandResult::Success(format!("• Started: {}", text))
+        }
+        Err(e) => TaskCommandResult::Error(e.to_string()),
+    }
+}
+
+/// Cancel a todo
+fn cmd_todo_cancel(args: &[String], tasks: &mut WorkspaceTasks) -> TaskCommandResult {
+    if args.is_empty() {
+        return TaskCommandResult::Error(
+            "Usage: `/todo cancel <number>` - Mark todo as cancelled".to_string(),
+        );
+    }
+
+    let todo_num = match parse_todo_index(args, tasks) {
+        Ok(idx) => idx,
+        Err(e) => return e,
+    };
+
+    let todo_id = tasks.todos[todo_num].id.clone();
+    match set_todo_status(tasks, &todo_id, TodoStatus::Cancelled) {
+        Ok(()) => {
+            if let Err(e) = save_tasks(tasks) {
+                tracing::error!("Failed to save tasks: {}", e);
+                return TaskCommandResult::Error(
+                    "Failed to save task changes. Changes may be lost on restart.".to_string(),
+                );
+            }
+
+            let text = &tasks.todos[todo_num].text;
+            TaskCommandResult::Success(format!("✗ Cancelled: {}", text))
+        }
+        Err(e) => TaskCommandResult::Error(e.to_string()),
+    }
+}
+
+/// Parse a 1-based todo index from args, returning a 0-based index.
+fn parse_todo_index(args: &[String], tasks: &WorkspaceTasks) -> Result<usize, TaskCommandResult> {
+    match args[0].parse::<usize>() {
+        Ok(n) if n >= 1 && n <= tasks.todos.len() => Ok(n - 1),
+        _ => Err(TaskCommandResult::Error(format!(
+            "Invalid todo number. Must be between 1 and {}",
+            tasks.todos.len()
+        ))),
+    }
 }
 
 // Agent Commands
@@ -605,7 +658,7 @@ mod tests {
 
             let result = handle_todo_command("done", &["1".to_string()], &mut tasks);
             assert!(matches!(result, TaskCommandResult::Success(_)));
-            assert!(tasks.todos[0].done);
+            assert_eq!(tasks.todos[0].status, TodoStatus::Completed);
         });
     }
 

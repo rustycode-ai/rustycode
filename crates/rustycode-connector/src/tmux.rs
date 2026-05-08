@@ -5,10 +5,9 @@
 use crate::{
     ConnectorError, ConnectorResult, Key, PaneContent, PaneInfo, Region, ResizeDirection,
     Screenshot, ScreenshotOptions, SessionInfo, SplitDirection, TerminalConnector,
-    TerminalSessionId, TmuxBatch, TmuxNotification, TmuxOp, TmuxResult, WindowInfo,
+    TerminalSessionId, TmuxBatch, TmuxOp, TmuxResult, WindowInfo,
 };
-use std::io::{BufRead, BufReader, Write};
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
 /// Tmux session metadata
@@ -18,146 +17,12 @@ struct TmuxSession {
     pane_count: usize,
 }
 
-/// Backend for tmux command execution.
-enum TmuxBackend {
-    /// Persistent tmux control mode connection (`tmux -C`).
-    ControlMode(ControlModeConnection),
-    /// Standard CLI mode (one process spawn per command).
-    Cli,
-}
-
-/// A persistent connection to tmux control mode.
-///
-/// Holds the child process, its stdin for sending commands, and a buffered
-/// reader on stdout for receiving responses and notifications.
-struct ControlModeConnection {
-    _child: Child,
-    stdin: ChildStdin,
-    reader: BufReader<ChildStdout>,
-}
-
-impl ControlModeConnection {
-    /// Open a new control mode connection by spawning `tmux -C`.
-    fn new() -> Result<Self, ConnectorError> {
-        let mut child = Command::new("tmux")
-            .arg("-C")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .map_err(|e| ConnectorError::Other(format!("Failed to start tmux -C: {e}")))?;
-
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| ConnectorError::Other("tmux -C did not provide stdin".into()))?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| ConnectorError::Other("tmux -C did not provide stdout".into()))?;
-
-        Ok(Self {
-            _child: child,
-            stdin,
-            reader: BufReader::new(stdout),
-        })
-    }
-
-    /// Send a command line to tmux control mode.
-    fn send_command(&mut self, cmd: &str) -> Result<(), ConnectorError> {
-        writeln!(self.stdin, "{cmd}")
-            .map_err(|e| ConnectorError::Other(format!("Failed to write to tmux stdin: {e}")))
-    }
-
-    /// Read the response from a control mode command.
-    ///
-    /// Accumulates output lines until `%end` or `%error` is received.
-    fn read_response(&mut self) -> Result<String, ConnectorError> {
-        let mut output = String::new();
-        let mut line = String::new();
-
-        loop {
-            line.clear();
-            match self.reader.read_line(&mut line) {
-                Ok(0) => {
-                    return Err(ConnectorError::Other(
-                        "tmux control mode closed connection".into(),
-                    ));
-                }
-                Ok(_) => {
-                    let trimmed = line.trim_end();
-                    if trimmed == "%end" || trimmed.starts_with("%end ") {
-                        break;
-                    }
-                    if trimmed.starts_with("%error") {
-                        let err_msg = trimmed.strip_prefix("%error").unwrap_or(trimmed).trim();
-                        return Err(ConnectorError::Other(format!("tmux error: {err_msg}")));
-                    }
-                    // Collect non-control output lines
-                    if !trimmed.starts_with('%') && !trimmed.is_empty() {
-                        if !output.is_empty() {
-                            output.push('\n');
-                        }
-                        output.push_str(trimmed);
-                    }
-                }
-                Err(e) => {
-                    return Err(ConnectorError::Other(format!(
-                        "Failed to read from tmux stdout: {e}"
-                    )));
-                }
-            }
-        }
-
-        Ok(output)
-    }
-
-    /// Try to read a pending notification without blocking.
-    ///
-    /// Returns `None` if no complete notification line is available.
-    /// Full notification reading happens during `read_response`.
-    fn try_read_notification(&mut self) -> Option<TmuxNotification> {
-        let mut line = String::new();
-        match self.reader.read_line(&mut line) {
-            Ok(0) | Err(_) => None,
-            Ok(_) => parse_notification(&line),
-        }
-    }
-}
-fn parse_notification(line: &str) -> Option<TmuxNotification> {
-    let trimmed = line.trim();
-    if let Some(rest) = trimmed.strip_prefix("%output ") {
-        let parts: Vec<&str> = rest.splitn(2, ' ').collect();
-        if parts.len() == 2 {
-            return Some(TmuxNotification::Output {
-                pane_id: parts[0].to_string(),
-                data: parts[1].to_string(),
-            });
-        }
-    }
-    if let Some(rest) = trimmed.strip_prefix("%session-changed ") {
-        return Some(TmuxNotification::SessionChanged {
-            session_id: rest.trim().to_string(),
-        });
-    }
-    if let Some(rest) = trimmed.strip_prefix("%layout-change ") {
-        let session_id = rest.split_whitespace().next().unwrap_or("").to_string();
-        return Some(TmuxNotification::LayoutChange { session_id });
-    }
-    if trimmed.starts_with('%') && !trimmed.starts_with("%end") && !trimmed.starts_with("%error") {
-        return Some(TmuxNotification::Unknown(trimmed.to_string()));
-    }
-    None
-}
-
 /// Connector for tmux terminal multiplexer
 pub struct TmuxConnector {
     /// Base session name prefix
     session_prefix: String,
     /// Track created sessions
     sessions: Mutex<Vec<TmuxSession>>,
-    /// Command execution backend (control mode or CLI)
-    backend: Mutex<TmuxBackend>,
 }
 
 impl Default for TmuxConnector {
@@ -168,46 +33,9 @@ impl Default for TmuxConnector {
 
 impl TmuxConnector {
     pub fn new(session_prefix: impl Into<String>) -> Self {
-        let backend = match Self::probe_control_mode() {
-            Ok(conn) => {
-                tracing::debug!("tmux control mode available, using persistent connection");
-                TmuxBackend::ControlMode(conn)
-            }
-            Err(e) => {
-                tracing::debug!("tmux control mode not available ({e}), falling back to CLI");
-                TmuxBackend::Cli
-            }
-        };
         Self {
             session_prefix: session_prefix.into(),
             sessions: Mutex::new(Vec::new()),
-            backend: Mutex::new(backend),
-        }
-    }
-
-    /// Try to establish a tmux control mode connection.
-    fn probe_control_mode() -> Result<ControlModeConnection, ConnectorError> {
-        let mut conn = ControlModeConnection::new()?;
-        conn.send_command("list-sessions")?;
-        let _ = conn.read_response()?;
-        Ok(conn)
-    }
-
-    /// Check if using control mode backend.
-    pub fn is_control_mode(&self) -> bool {
-        self.backend
-            .lock()
-            .is_ok_and(|b| matches!(&*b, TmuxBackend::ControlMode(_)))
-    }
-
-    /// Try to read a pending notification from the control mode connection.
-    ///
-    /// Returns `None` if using CLI backend or no notification is pending.
-    pub fn try_read_notification(&self) -> Option<TmuxNotification> {
-        let mut backend = self.backend.lock().ok()?;
-        match &mut *backend {
-            TmuxBackend::ControlMode(conn) => conn.try_read_notification(),
-            TmuxBackend::Cli => None,
         }
     }
 
@@ -254,62 +82,37 @@ impl TmuxConnector {
         format!("{}.{}", self.session_target(session), pane_index)
     }
 
-    /// Run a tmux command and capture output, dispatching through the active backend.
+    /// Run a tmux command and capture output.
     fn run_tmux(&self, args: &[&str]) -> Result<String, ConnectorError> {
-        let mut backend = self
-            .backend
-            .lock()
-            .map_err(|e| ConnectorError::Other(format!("Lock error: {e}")))?;
+        let output = Command::new("tmux")
+            .args(args)
+            .output()
+            .map_err(|e| ConnectorError::Other(format!("Failed to execute tmux: {e}")))?;
 
-        match &mut *backend {
-            TmuxBackend::ControlMode(conn) => {
-                let cmd = args.join(" ");
-                conn.send_command(&cmd)?;
-                conn.read_response()
-            }
-            TmuxBackend::Cli => {
-                let output = Command::new("tmux")
-                    .args(args)
-                    .output()
-                    .map_err(|e| ConnectorError::Other(format!("Failed to execute tmux: {e}")))?;
-
-                if !output.status.success() {
-                    let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(ConnectorError::Other(format!(
-                        "tmux command failed: {}",
-                        stderr.trim()
-                    )));
-                }
-
-                Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-            }
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(ConnectorError::Other(format!(
+                "tmux command failed: {}",
+                stderr.trim()
+            )));
         }
+
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
-    /// Run a tmux command without capturing output, dispatching through the active backend.
+    /// Run a tmux command without capturing output.
     fn run_tmux_silent(&self, args: &[&str]) -> Result<(), ConnectorError> {
-        let mut backend = self
-            .backend
-            .lock()
-            .map_err(|e| ConnectorError::Other(format!("Lock error: {e}")))?;
+        let status = Command::new("tmux")
+            .args(args)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map_err(|e| ConnectorError::Other(format!("Failed to execute tmux: {e}")))?;
 
-        match &mut *backend {
-            TmuxBackend::ControlMode(conn) => {
-                let cmd = args.join(" ");
-                conn.send_command(&cmd)?;
-                let _ = conn.read_response()?;
-                Ok(())
-            }
-            TmuxBackend::Cli => {
-                Command::new("tmux")
-                    .args(args)
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .status()
-                    .map_err(|e| ConnectorError::Other(format!("Failed to execute tmux: {e}")))?;
-                Ok(())
-            }
+        if !status.success() {
+            return Err(ConnectorError::Other("tmux command failed".into()));
         }
+        Ok(())
     }
 
     /// Parse pane information from tmux
@@ -387,60 +190,41 @@ impl TmuxConnector {
         }
 
         let ops = batch.ops();
+        let mut results = Vec::with_capacity(ops.len());
 
-        // Separate capture ops (need stdout) from silent ops
-        let mut silent_args: Vec<String> = Vec::new();
-        let mut capture_indices: Vec<usize> = Vec::new();
-
-        for (i, op) in ops.iter().enumerate() {
+        for op in ops {
             if let TmuxOp::CapturePane { .. } = op {
-                capture_indices.push(i);
+                match self.execute_single_capture(op) {
+                    Ok(output) => results.push(TmuxResult {
+                        success: true,
+                        output: Some(output),
+                        error: None,
+                    }),
+                    Err(e) => results.push(TmuxResult {
+                        success: false,
+                        output: None,
+                        error: Some(e.to_string()),
+                    }),
+                }
             } else {
-                if !silent_args.is_empty() {
-                    silent_args.push(" ; ".to_string());
+                let args = Self::op_to_args(op);
+                let args_ref: Vec<&str> = args.iter().map(String::as_str).collect();
+                match self.run_tmux_silent(&args_ref) {
+                    Ok(()) => results.push(TmuxResult {
+                        success: true,
+                        output: None,
+                        error: None,
+                    }),
+                    Err(e) => results.push(TmuxResult {
+                        success: false,
+                        output: None,
+                        error: Some(e.to_string()),
+                    }),
                 }
-                silent_args.extend(Self::op_to_args(op));
             }
         }
 
-        // Execute silent ops as a batch
-        if !silent_args.is_empty() {
-            let args_ref: Vec<&str> = silent_args.iter().map(String::as_str).collect();
-            self.run_tmux_silent(&args_ref)?;
-        }
-
-        // Execute capture ops individually (they need stdout)
-        let mut results = vec![
-            TmuxResult {
-                success: true,
-                output: None,
-                error: None,
-            };
-            ops.len()
-        ];
-
-        self.populate_capture_results(ops, &capture_indices, &mut results);
         Ok(results)
-    }
-
-    fn populate_capture_results(
-        &self,
-        ops: &[TmuxOp],
-        capture_indices: &[usize],
-        results: &mut [TmuxResult],
-    ) {
-        for &idx in capture_indices {
-            let op = &ops[idx];
-            match self.execute_single_capture(op) {
-                Ok(output) => {
-                    results[idx].output = Some(output);
-                }
-                Err(e) => {
-                    results[idx].success = false;
-                    results[idx].error = Some(e.to_string());
-                }
-            }
-        }
     }
 
     /// Convert a TmuxOp to tmux CLI arguments.
@@ -1656,95 +1440,9 @@ mod tests {
         assert!(args.contains(&"my pane".to_string()));
     }
 
-    // --- Control mode notification tests ---
-
-    #[test]
-    fn test_parse_notification_output() {
-        let notif = parse_notification("%output %0 hello world");
-        assert!(notif.is_some());
-        let notif = notif.unwrap();
-        match notif {
-            TmuxNotification::Output { pane_id, data } => {
-                assert_eq!(pane_id, "%0");
-                assert_eq!(data, "hello world");
-            }
-            _ => panic!("Expected Output variant"),
-        }
-    }
-
-    #[test]
-    fn test_parse_notification_session_changed() {
-        let notif = parse_notification("%session-changed my-session");
-        assert!(notif.is_some());
-        match notif.unwrap() {
-            TmuxNotification::SessionChanged { session_id } => {
-                assert_eq!(session_id, "my-session");
-            }
-            _ => panic!("Expected SessionChanged variant"),
-        }
-    }
-
-    #[test]
-    fn test_parse_notification_layout_change() {
-        let notif = parse_notification("%layout-change my-session window-layout-here");
-        assert!(notif.is_some());
-        match notif.unwrap() {
-            TmuxNotification::LayoutChange { session_id } => {
-                assert_eq!(session_id, "my-session");
-            }
-            _ => panic!("Expected LayoutChange variant"),
-        }
-    }
-
-    #[test]
-    fn test_parse_notification_unknown_percent_line() {
-        let notif = parse_notification("%some-new-feature arg1 arg2");
-        assert!(notif.is_some());
-        match notif.unwrap() {
-            TmuxNotification::Unknown(s) => {
-                assert!(s.contains("%some-new-feature"));
-            }
-            _ => panic!("Expected Unknown variant"),
-        }
-    }
-
-    #[test]
-    fn test_parse_notification_skips_end() {
-        assert!(parse_notification("%end").is_none());
-        assert!(parse_notification("%end 123").is_none());
-    }
-
-    #[test]
-    fn test_parse_notification_skips_error() {
-        assert!(parse_notification("%error something broke").is_none());
-    }
-
-    #[test]
-    fn test_parse_notification_skips_plain_text() {
-        assert!(parse_notification("just regular output").is_none());
-        assert!(parse_notification("").is_none());
-    }
-
-    #[test]
-    fn test_connector_new_creates_backend() {
-        let connector = TmuxConnector::new("test");
-        // is_control_mode() should return a bool without panicking
-        // (will be false in test env without tmux server)
-        let _ = connector.is_control_mode();
-    }
-
-    #[test]
-    fn test_try_read_notification_does_not_panic() {
-        let connector = TmuxConnector::new("test");
-        // Just verify the method can be called without panicking.
-        // Result depends on whether control mode is available.
-        let _ = connector.try_read_notification();
-    }
-
     #[test]
     fn test_tmux_backend_cli_still_works() {
         let connector = TmuxConnector::new("test");
-        // verify the connector can still be used for basic operations
         assert_eq!(connector.name(), "tmux");
     }
 

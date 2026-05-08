@@ -23,12 +23,7 @@ pub fn handle_extract_command(parts: &[&str], ctx: CommandContext<'_>) -> Result
         if let Some((old_tasks, old_todos)) = ctx.last_extraction.take() {
             ctx.workspace_tasks.tasks = old_tasks;
             ctx.workspace_tasks.todos = old_todos;
-            if let Err(e) = crate::app::tasks::save_tasks(ctx.workspace_tasks) {
-                return Ok(CommandEffect::SystemMessage(format!(
-                    "Failed to save reverted tasks: {}",
-                    e
-                )));
-            }
+            crate::app::tasks::save_tasks_with_storage(ctx.workspace_tasks, None, ctx.cwd, None);
 
             Ok(CommandEffect::SystemMessage(
                 "✅ Successfully reverted the last task extraction.".to_string(),

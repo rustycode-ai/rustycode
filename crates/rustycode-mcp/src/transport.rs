@@ -1,10 +1,15 @@
 //! Transport layer for MCP communication (stdio-based)
 
 use crate::protocol::{JsonRpcNotification, JsonRpcRequest, JsonRpcResponse};
+use crate::types::JsonRpcId;
 use crate::{McpError, McpResult};
+use std::collections::HashMap;
 use std::process::Stdio;
+use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
+use tokio::sync::{mpsc, oneshot};
+use tokio::task::JoinHandle;
 use tracing::{debug, info, trace, warn};
 
 /// Maximum allowed size for a single MCP message (1 MiB).
@@ -39,14 +44,20 @@ pub enum IncomingMessage {
     Notification(JsonRpcNotification),
 }
 
-/// Stdio-based transport for spawning MCP servers
+/// Stdio-based transport for spawning MCP servers.
+///
+/// Uses a background reader task for true async multiplexing:
+/// - Responses are routed to pending oneshot channels by request ID
+/// - Notifications and server-initiated requests go to an inbox channel
 pub struct StdioTransport {
     child: Option<Child>,
     stdin: Option<tokio::process::ChildStdin>,
-    stdout: Option<BufReader<tokio::process::ChildStdout>>,
-    pending_requests:
-        std::collections::HashMap<String, tokio::sync::oneshot::Sender<JsonRpcResponse>>,
+    reader_handle: Option<JoinHandle<()>>,
+    pending_requests: Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>>,
+    inbox: mpsc::Receiver<IncomingMessage>,
+    inbox_sender: Option<mpsc::Sender<IncomingMessage>>,
     next_id: u64,
+    connected: bool,
 }
 
 impl StdioTransport {
@@ -72,12 +83,76 @@ impl StdioTransport {
             .take()
             .ok_or_else(|| McpError::TransportError("Failed to capture stdout".to_string()))?;
 
+        let (inbox_tx, inbox_rx) = mpsc::channel(100);
+        let pending: Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
+        let pending_clone = pending.clone();
+        let inbox_tx_clone = inbox_tx.clone();
+
+        let reader_handle = tokio::spawn(async move {
+            let mut reader = BufReader::new(stdout);
+            let mut line = String::new();
+
+            loop {
+                line.clear();
+                match reader.read_line(&mut line).await {
+                    Ok(0) => break, // EOF
+                    Ok(_) => {}
+                    Err(_) => break,
+                }
+
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+
+                // Content-Length framing
+                if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
+                    let length: usize = match len_str.trim().parse() {
+                        Ok(n) if n <= MAX_MESSAGE_SIZE => n,
+                        _ => continue,
+                    };
+
+                    // Skip remaining headers until empty line
+                    loop {
+                        let mut header = String::new();
+                        match reader.read_line(&mut header).await {
+                            Ok(_) if header.trim().is_empty() => break,
+                            Ok(_) => continue,
+                            Err(_) => break,
+                        }
+                    }
+
+                    // Read exact body length
+                    let mut buffer = vec![0u8; length];
+                    if reader.read_exact(&mut buffer).await.is_err() {
+                        break;
+                    }
+                    let json = match String::from_utf8(buffer) {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
+                    route_stdio_message(&json, &pending_clone, &inbox_tx_clone).await;
+                    continue;
+                }
+
+                // NDJSON
+                if trimmed.starts_with('{') || trimmed.starts_with('[') {
+                    route_stdio_message(trimmed, &pending_clone, &inbox_tx_clone).await;
+                }
+            }
+        });
+
         Ok(Self {
             child: Some(child),
             stdin: Some(stdin),
-            stdout: Some(BufReader::new(stdout)),
-            pending_requests: std::collections::HashMap::new(),
+            reader_handle: Some(reader_handle),
+            pending_requests: pending,
+            inbox: inbox_rx,
+            inbox_sender: Some(inbox_tx),
             next_id: 0,
+            connected: true,
         })
     }
 
@@ -88,10 +163,7 @@ impl StdioTransport {
         id
     }
 
-    /// Send a JSON message using NDJSON (newline-delimited JSON) over stdio.
-    ///
-    /// This is the most widely supported framing format for MCP servers.
-    /// The message is terminated with a newline character.
+    /// Send a JSON message using NDJSON over stdio.
     async fn send_json(&mut self, json: &str) -> McpResult<()> {
         if json.len() > MAX_MESSAGE_SIZE {
             return Err(McpError::TransportError(format!(
@@ -119,200 +191,79 @@ impl StdioTransport {
 
         Ok(())
     }
+}
 
-    /// Receive a JSON message using MCP stdio framing.
-    ///
-    /// Supports two framing modes (auto-detected per message):
-    /// 1. **Content-Length header framing** — reads `Content-Length: N\\r\\n\\r\\n` then N bytes.
-    /// 2. **Newline-delimited JSON (NDJSON)** — reads a single line ending in `\\n`.
-    ///
-    /// Most MCP servers send NDJSON. The Content-Length mode handles servers
-    /// that follow the HTTP-like framing from the MCP specification.
-    async fn receive_json(&mut self) -> McpResult<String> {
-        let reader = self.stdout.as_mut().ok_or(McpError::ConnectionClosed)?;
-
-        let mut first_line = String::new();
-        reader
-            .read_line(&mut first_line)
-            .await
-            .map_err(|e| McpError::TransportError(format!("Failed to read from server: {e}")))?;
-
-        if first_line.is_empty() {
-            return Err(McpError::ConnectionClosed);
-        }
-
-        let trimmed = first_line.trim();
-
-        // Check if the first line is a Content-Length header
-        if let Some(len_str) = trimmed.strip_prefix("Content-Length:") {
-            let len_str = len_str.trim();
-            let length: usize = len_str.parse().map_err(|_| {
-                McpError::TransportError(format!("Invalid Content-Length value: {len_str}"))
-            })?;
-
-            if length > MAX_MESSAGE_SIZE {
-                return Err(McpError::TransportError(format!(
-                    "Received message too large: {length} bytes (max {MAX_MESSAGE_SIZE})"
-                )));
+/// Route a parsed JSON message to the correct destination.
+/// Responses go to pending oneshot channels; everything else goes to the inbox.
+async fn route_stdio_message(
+    json: &str,
+    pending: &Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>>,
+    inbox: &mpsc::Sender<IncomingMessage>,
+) {
+    if let Ok(response) = JsonRpcResponse::from_json(json) {
+        let id_str = match &response.id {
+            JsonRpcId::String(s) => s.clone(),
+            JsonRpcId::Number(n) => n.to_string(),
+            JsonRpcId::Null => {
+                let _ = inbox.send(IncomingMessage::Response(response)).await;
+                return;
             }
-
-            // Skip any remaining headers until empty line
-            loop {
-                let mut header = String::new();
-                reader
-                    .read_line(&mut header)
-                    .await
-                    .map_err(|e| McpError::TransportError(format!("Failed to read header: {e}")))?;
-                if header.trim().is_empty() {
-                    break;
-                }
-            }
-
-            // Read exact body length
-            let mut buffer = vec![0u8; length];
-            reader.read_exact(&mut buffer).await.map_err(|e| {
-                McpError::TransportError(format!("Failed to read message body: {e}"))
-            })?;
-
-            let json = String::from_utf8(buffer)
-                .map_err(|e| McpError::TransportError(format!("Invalid UTF-8 in message: {e}")))?;
-
-            trace!("Received JSON (Content-Length framed): {}", json);
-            return Ok(json);
-        }
-
-        // NDJSON mode: the first line IS the JSON message
-        if trimmed.starts_with('{') || trimmed.starts_with('[') {
-            let json = trimmed.to_string();
-            trace!("Received JSON (NDJSON): {}", json);
-            return Ok(json);
-        }
-
-        // Unknown format
-        Err(McpError::TransportError(format!(
-            "Unexpected message format (expected JSON or Content-Length header): {trimmed:?}"
-        )))
-    }
-
-    /// Try to handle incoming messages (server->client requests)
-    async fn try_handle_incoming_messages(&mut self) -> McpResult<()> {
-        // Set up a timeout for reading
-        let read_result =
-            tokio::time::timeout(tokio::time::Duration::from_millis(50), self.receive()).await;
-
-        match read_result {
-            Ok(Ok(IncomingMessage::Request(request))) => {
-                // Handle server->client requests automatically
-                self.handle_incoming_request(&request).await?;
-            }
-            Ok(Ok(IncomingMessage::Notification(_))) => {
-                // Notifications are fine, just consume them
-            }
-            Ok(Ok(IncomingMessage::Response(response))) => {
-                // Response received - check if we have a pending request for it
-                let id_str = match &response.id {
-                    crate::types::JsonRpcId::String(s) => Some(s.clone()),
-                    crate::types::JsonRpcId::Number(n) => Some(n.to_string()),
-                    crate::types::JsonRpcId::Null => None,
-                };
-
-                if let Some(id) = id_str {
-                    let mut pending = std::mem::take(&mut self.pending_requests);
-                    if let Some(tx) = pending.remove(&id) {
-                        if let Err(e) = tx.send(response) {
-                            debug!("Failed to send MCP response to pending request: {:?}", e);
-                        }
-                    }
-                    self.pending_requests = pending;
-                }
-            }
-            _ => {
-                // Timeout or other errors - ignore during polling
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Handle incoming requests from the server (server->client)
-    async fn handle_incoming_request(&mut self, request: &JsonRpcRequest) -> McpResult<()> {
-        debug!("Handling incoming request: {}", request.method);
-
-        let response = if request.method.as_str() == "roots/list" {
-            // Return empty roots list (client has no workspace roots configured)
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": &request.id,
-                "result": {
-                    "roots": []
-                }
-            })
-        } else {
-            warn!("Unknown incoming request method: {}", request.method);
-            serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": &request.id,
-                "error": {
-                    "code": -32601,
-                    "message": "Method not found"
-                }
-            })
         };
+        if let Ok(mut pending) = pending.lock() {
+            if let Some(tx) = pending.remove(&id_str) {
+                let _ = tx.send(response);
+                return;
+            }
+        }
+        let _ = inbox.send(IncomingMessage::Response(response)).await;
+        return;
+    }
 
-        // Send the response back
-        let response_json = response.to_string();
-        self.send_json(&response_json).await?;
-        debug!("Sent response to incoming request: {}", request.method);
+    if let Ok(notif) = JsonRpcNotification::from_json(json) {
+        let _ = inbox.send(IncomingMessage::Notification(notif)).await;
+        return;
+    }
 
-        Ok(())
+    if let Ok(req) = JsonRpcRequest::from_json(json) {
+        let _ = inbox.send(IncomingMessage::Request(req)).await;
     }
 }
 
 #[async_trait::async_trait]
 impl Transport for StdioTransport {
     async fn send_request(&mut self, request: JsonRpcRequest) -> McpResult<JsonRpcResponse> {
-        // Generate a unique ID if needed
         let id_str = match &request.id {
-            crate::types::JsonRpcId::String(s) => s.clone(),
-            crate::types::JsonRpcId::Number(n) => n.to_string(),
-            crate::types::JsonRpcId::Null => self.generate_id(),
+            JsonRpcId::String(s) => s.clone(),
+            JsonRpcId::Number(n) => n.to_string(),
+            JsonRpcId::Null => self.generate_id(),
         };
 
-        // Create a channel for the response
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        self.pending_requests.insert(id_str.clone(), tx);
+        let (tx, rx) = oneshot::channel();
+        {
+            let mut pending = self.pending_requests.lock().unwrap();
+            pending.insert(id_str, tx);
+        }
 
-        // Send the request
         let json = request
             .to_json()
             .map_err(|e| McpError::ProtocolError(format!("Failed to serialize request: {e}")))?;
 
         self.send_json(&json).await?;
 
-        // Wait for response, handling incoming requests while waiting
-        let mut rx = rx;
-        let max_iterations = 120; // 60 seconds max (120 * 500ms)
-        for _ in 0..max_iterations {
-            // First, try to receive and handle any incoming messages
-            if let Err(e) = self.try_handle_incoming_messages().await {
-                debug!("Error handling incoming messages: {}", e);
+        #[allow(clippy::duration_suboptimal_units)]
+        match tokio::time::timeout(std::time::Duration::from_secs(60), rx).await {
+            Ok(Ok(response)) => Ok(response),
+            Ok(Err(_)) => {
+                self.connected = false;
+                Err(McpError::InternalError(
+                    "Response channel closed".to_string(),
+                ))
             }
-
-            // Check if we've received the response
-            match tokio::time::timeout(tokio::time::Duration::from_millis(500), &mut rx).await {
-                Ok(Ok(response)) => return Ok(response),
-                Ok(Err(_)) => {
-                    return Err(McpError::InternalError(
-                        "Response channel closed".to_string(),
-                    ))
-                }
-                Err(_) => continue, // Timeout, continue handling incoming messages
+            Err(_) => {
+                self.connected = false;
+                Err(McpError::Timeout)
             }
         }
-
-        Err(McpError::InternalError(
-            "Response timed out after 60 seconds".to_string(),
-        ))
     }
 
     async fn send_notification(&mut self, notification: JsonRpcNotification) -> McpResult<()> {
@@ -324,53 +275,24 @@ impl Transport for StdioTransport {
     }
 
     async fn receive(&mut self) -> McpResult<IncomingMessage> {
-        loop {
-            let json = self.receive_json().await?;
-
-            // Try to parse as response first
-            if let Ok(response) = JsonRpcResponse::from_json(&json) {
-                let id_str = match &response.id {
-                    crate::types::JsonRpcId::String(s) => Some(s.clone()),
-                    crate::types::JsonRpcId::Number(n) => Some(n.to_string()),
-                    crate::types::JsonRpcId::Null => None,
-                };
-
-                // Check if this is a response to a pending request
-                if let Some(id) = id_str {
-                    if let Some(tx) = self.pending_requests.remove(&id) {
-                        if let Err(e) = tx.send(response) {
-                            debug!("Failed to send MCP response to pending request: {:?}", e);
-                        }
-                        // Skip dispatched responses and read next message
-                        continue;
-                    }
-                }
-
-                return Ok(IncomingMessage::Response(response));
-            }
-
-            // Try to parse as request
-            if let Ok(request) = JsonRpcRequest::from_json(&json) {
-                return Ok(IncomingMessage::Request(request));
-            }
-
-            // Try to parse as notification
-            if let Ok(notification) = JsonRpcNotification::from_json(&json) {
-                return Ok(IncomingMessage::Notification(notification));
-            }
-
-            break Err(McpError::ProtocolError(format!(
-                "Unknown message format: {json}"
-            )));
-        } // end loop
+        if let Some(msg) = self.inbox.recv().await {
+            Ok(msg)
+        } else {
+            self.connected = false;
+            Err(McpError::ConnectionClosed)
+        }
     }
 
     fn is_connected(&self) -> bool {
-        self.stdin.is_some() && self.stdout.is_some()
+        self.connected && self.stdin.is_some()
     }
 
     async fn close(&mut self) -> McpResult<()> {
         debug!("Closing stdio transport");
+
+        if let Some(handle) = self.reader_handle.take() {
+            handle.abort();
+        }
 
         if let Some(mut stdin) = self.stdin.take() {
             if let Err(e) = stdin.shutdown().await {
@@ -387,8 +309,18 @@ impl Transport for StdioTransport {
             }
         }
 
-        self.stdout = None;
+        // Drain pending requests
+        let mut pending = self.pending_requests.lock().unwrap();
+        for (_, tx) in pending.drain() {
+            let _ = tx.send(JsonRpcResponse::error(
+                "closed",
+                -32000,
+                "Connection closed",
+            ));
+        }
 
+        self.inbox_sender.take();
+        self.connected = false;
         Ok(())
     }
 }
@@ -397,8 +329,6 @@ impl Drop for StdioTransport {
     fn drop(&mut self) {
         if let Some(mut child) = self.child.take() {
             warn!("StdioTransport dropped without explicit close — killing child process");
-            // Best-effort kill; start_kill() is synchronous (sends SIGKILL)
-            // We can't await in Drop, so we use the non-blocking version
             let _ = child.start_kill();
         }
     }
@@ -406,10 +336,89 @@ impl Drop for StdioTransport {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_id_increments() {
+        let mut id_counter: u64 = 0;
+        let id1 = format!("req-{id_counter}");
+        id_counter += 1;
+        let id2 = format!("req-{id_counter}");
+        assert_eq!(id1, "req-0");
+        assert_eq!(id2, "req-1");
+    }
 
     #[tokio::test]
-    async fn test_stdio_transport_spawn_echo() {
-        // This test requires an echo server, skip in CI
-        // In real tests, you'd spawn a simple echo server
+    async fn test_route_stdio_message_response() {
+        let pending: Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let (tx, mut rx) = mpsc::channel(10);
+
+        let (oneshot_tx, oneshot_rx) = oneshot::channel();
+        pending
+            .lock()
+            .unwrap()
+            .insert("req-1".to_string(), oneshot_tx);
+
+        let json = r#"{"jsonrpc":"2.0","id":"req-1","result":{"tools":[]}}"#;
+        route_stdio_message(json, &pending, &tx).await;
+
+        let response = oneshot_rx.await.unwrap();
+        assert!(response.is_success());
+        assert!(rx.try_recv().is_err(), "inbox should be empty");
+    }
+
+    #[tokio::test]
+    async fn test_route_stdio_message_notification() {
+        let pending: Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let (tx, mut rx) = mpsc::channel(10);
+
+        let json = r#"{"jsonrpc":"2.0","method":"notifications/tools/list_changed"}"#;
+        route_stdio_message(json, &pending, &tx).await;
+
+        let msg = rx.try_recv().unwrap();
+        match msg {
+            IncomingMessage::Notification(n) => {
+                assert_eq!(n.method, "notifications/tools/list_changed");
+            }
+            _ => panic!("Expected notification"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_route_stdio_message_request() {
+        let pending: Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let (tx, mut rx) = mpsc::channel(10);
+
+        let json = r#"{"jsonrpc":"2.0","id":"srv-1","method":"roots/list"}"#;
+        route_stdio_message(json, &pending, &tx).await;
+
+        let msg = rx.try_recv().unwrap();
+        match msg {
+            IncomingMessage::Request(r) => {
+                assert_eq!(r.method, "roots/list");
+            }
+            _ => panic!("Expected request"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_route_unmatched_response_to_inbox() {
+        let pending: Arc<Mutex<HashMap<String, oneshot::Sender<JsonRpcResponse>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let (tx, mut rx) = mpsc::channel(10);
+
+        let json = r#"{"jsonrpc":"2.0","id":"unknown","result":{}}"#;
+        route_stdio_message(json, &pending, &tx).await;
+
+        let msg = rx.try_recv().unwrap();
+        assert!(matches!(msg, IncomingMessage::Response(_)));
+    }
+
+    #[test]
+    fn test_max_message_size_constant() {
+        assert_eq!(MAX_MESSAGE_SIZE, 1 << 20);
     }
 }

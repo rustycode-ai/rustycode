@@ -1,6 +1,6 @@
 //! Checkpoint save/restore for session state (conversation, tasks, git info).
 
-use crate::app::tasks::WorkspaceTasks;
+use crate::app::tasks::{TodoStatus, WorkspaceTasks};
 use crate::ui::message::Message;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
@@ -88,7 +88,11 @@ impl CheckpointManager {
         let (git_branch, git_commit) = self.get_git_info(&cwd).await;
 
         // Count incomplete todos
-        let todo_count = tasks.todos.iter().filter(|t| !t.done).count();
+        let todo_count = tasks
+            .todos
+            .iter()
+            .filter(|t| !matches!(t.status, TodoStatus::Completed | TodoStatus::Cancelled))
+            .count();
 
         let metadata = CheckpointMetadata {
             id: id.clone(),

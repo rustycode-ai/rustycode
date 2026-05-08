@@ -210,6 +210,9 @@ fn evaluate_single(
     // Apply model_patch
     apply_patch(&clone_dir, &pred.model_patch, "model_patch")?;
 
+    // Install dependencies (best-effort)
+    install_deps(&clone_dir);
+
     // Run FAIL_TO_PASS tests
     let ftp_total = ftp_tests.len();
     let ftp_passed = run_tests(&clone_dir, &ftp_tests, config.test_timeout_secs);
@@ -240,6 +243,20 @@ fn evaluate_single(
     })
 }
 
+/// Install project dependencies (best-effort, non-blocking).
+fn install_deps(repo_dir: &Path) {
+    // Try pip install -e . for Python repos
+    if repo_dir.join("setup.py").exists()
+        || repo_dir.join("setup.cfg").exists()
+        || repo_dir.join("pyproject.toml").exists()
+    {
+        let _ = std::process::Command::new("pip3")
+            .args(["install", "-e", ".", "--quiet"])
+            .current_dir(repo_dir)
+            .output();
+    }
+}
+
 /// Apply a patch string to the repo using `git apply`.
 fn apply_patch(repo_dir: &Path, patch: &str, label: &str) -> Result<()> {
     let tmp = tempfile::NamedTempFile::new().context("create temp file")?;
@@ -265,21 +282,57 @@ fn run_tests(repo_dir: &Path, tests: &[String], _timeout_secs: u64) -> usize {
         return 0;
     }
 
-    let output = std::process::Command::new("python3")
-        .args(["-m", "pytest", "--tb=no", "-q", "--no-header", "-x"])
-        .args(tests)
-        .current_dir(repo_dir)
-        .env("PYTHONDONTWRITEBYTECODE", "1")
-        .output();
+    let is_django = repo_dir.join("tests").join("runtests.py").exists()
+        || repo_dir.join("runtests.py").exists()
+        || repo_dir.join("django").is_dir();
+
+    let output = if is_django {
+        // Django: extract module from "test_name (module.Class)" format
+        let modules: Vec<String> = tests
+            .iter()
+            .filter_map(|t| {
+                if let Some(start) = t.find('(') {
+                    let inner = &t[start + 1..];
+                    inner
+                        .find('.')
+                        .or_else(|| inner.find(')'))
+                        .map(|end| inner[..end].to_string())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let mut cmd = std::process::Command::new("python3");
+        cmd.args(["tests/runtests.py", "--verbosity=2", "--no-input"])
+            .env("PYTHONDONTWRITEBYTECODE", "1")
+            .current_dir(repo_dir);
+        for module in &modules {
+            cmd.arg(module);
+        }
+        cmd.output()
+    } else {
+        std::process::Command::new("python3")
+            .args(["-m", "pytest", "--tb=no", "-q", "--no-header", "-x"])
+            .args(tests)
+            .current_dir(repo_dir)
+            .env("PYTHONDONTWRITEBYTECODE", "1")
+            .output()
+    };
 
     match output {
-        Ok(out) => parse_pytest_passed(&String::from_utf8_lossy(&out.stdout)),
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            let combined = format!("{stdout}\n{stderr}");
+            parse_test_passed(&combined)
+        }
         Err(_) => 0,
     }
 }
 
-/// Parse pytest summary line to extract passed count.
-fn parse_pytest_passed(output: &str) -> usize {
+/// Parse test passed count from pytest or Django output.
+fn parse_test_passed(output: &str) -> usize {
     for line in output.lines().rev().take(5) {
         if line.contains(" passed") {
             if let Some(idx) = line.find(" passed") {
@@ -334,22 +387,22 @@ mod tests {
 
     #[test]
     fn parse_pytest_output_simple() {
-        assert_eq!(parse_pytest_passed("5 passed, 2 failed in 3.5s"), 5);
+        assert_eq!(parse_test_passed("5 passed, 2 failed in 3.5s"), 5);
     }
 
     #[test]
     fn parse_pytest_output_only_passed() {
-        assert_eq!(parse_pytest_passed("3 passed in 1.2s"), 3);
+        assert_eq!(parse_test_passed("3 passed in 1.2s"), 3);
     }
 
     #[test]
     fn parse_pytest_output_no_passed() {
-        assert_eq!(parse_pytest_passed("2 failed in 1.0s"), 0);
+        assert_eq!(parse_test_passed("2 failed in 1.0s"), 0);
     }
 
     #[test]
     fn parse_pytest_output_empty() {
-        assert_eq!(parse_pytest_passed(""), 0);
+        assert_eq!(parse_test_passed(""), 0);
     }
 
     #[test]

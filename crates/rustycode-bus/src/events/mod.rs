@@ -12,6 +12,7 @@ pub mod inspection_events;
 pub mod plan_events;
 pub mod session_events;
 pub mod skill_events;
+pub mod todo_events;
 pub mod tool_events;
 
 // Re-exports for backward compatibility — all types remain accessible
@@ -30,6 +31,7 @@ pub use session_events::{
 pub use skill_events::{
     SkillActivatedEvent, SkillDeactivatedEvent, SkillQualityAssessedEvent, SkillSuggestedEvent,
 };
+pub use todo_events::{TodoSnapshot, TodoUpdatedEvent};
 pub use tool_events::{ToolBlockedEvent, ToolExecutedEvent};
 
 /// Cross-cutting test: verifies that all event types produce valid JSON via

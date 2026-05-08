@@ -1154,54 +1154,137 @@ fn notebook_edit_tool() -> ToolDefinition {
 fn todo_write_tool() -> ToolDefinition {
     ToolDefinition::new(
         "todo_write",
-        "Update the todo list for the current session. Use this to create and manage a structured task list \
-         for tracking progress on complex, multi-step tasks. \
-         Each task has a content (imperative description), status (pending/in_progress/completed), \
-         and activeForm (present continuous form shown during execution). \
-         Keep exactly ONE task in_progress at a time. \
-         Mark tasks completed IMMEDIATELY after finishing. \
-         Use proactively for tasks with 3+ steps. \
-         Skip for single trivial tasks.",
+        "Create and manage a structured task list for tracking progress on complex work. \
+         Each call replaces the entire list. Use this tool proactively to organize multi-step work, \
+         demonstrate thoroughness, and help the user understand progress.\n\n\
+         ## When to Use\n\
+         - Complex multistep tasks that require 3 or more distinct steps or actions\n\
+         - User provides multiple tasks in a comma-separated list\n\
+         - Tasks require careful planning and tracking to ensure nothing is missed\n\
+         - User explicitly requests a todo list or asks to track work\n\
+         - After receiving new instructions that expand the scope of existing work\n\
+         - When starting work that was previously planned (retrieve context)\n\
+         - To signal that you have captured all the user's requirements\n\n\
+         ## When NOT to Use\n\
+         - Single trivial task that can be completed in one step\n\
+         - Purely informational or conversational requests with no coding/work\n\
+         - The request is a simple question that you can answer directly\n\
+         - User is just browsing code or exploring without a specific goal\n\
+         NOTE: If you already have an active task list and only need to update a single item's status, \
+         prefer `todo_update` instead of rewriting the full list.\n\n\
+         ## Task States and Management\n\
+         - `pending` — Not started. Waiting to be picked up.\n\
+         - `in_progress` — Currently being worked on. Keep exactly ONE task in this state at a time.\n\
+         - `completed` — Fully done. Mark IMMEDIATELY after finishing, never batch completions.\n\
+         - `cancelled` — No longer relevant or superseded. Use when a task becomes unnecessary.\n\
+         Update the list in real-time as you work. Mark tasks in_progress BEFORE starting, \
+         and completed right after finishing. Cancel tasks that become irrelevant.\n\n\
+         ## Task Breakdown\n\
+         Create specific, actionable items with clear names. Prefer many thin slices over few thick ones. \
+         Use imperative form for titles (e.g., 'Add dark mode toggle') and present continuous for activeForm \
+         (e.g., 'Adding dark mode toggle'). Mark dependency order explicitly through ID ordering.",
         json!({
             "type": "object",
             "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Title for this todo list"
+                },
                 "todos": {
                     "type": "array",
-                    "description": "The updated todo list. Each item has content (what to do), status (pending/in_progress/completed), and activeForm (present continuous form). Replaces the entire list on each call.",
+                    "description": "The updated todo list. Replaces the entire list on each call.",
                     "items": {
                         "type": "object",
                         "properties": {
-                            "content": {
+                            "id": {
                                 "type": "string",
-                                "description": "A brief, actionable task description in imperative form (e.g., 'Fix authentication bug')"
+                                "description": "Unique identifier for this todo item"
+                            },
+                            "title": {
+                                "type": "string",
+                                "description": "Task description in imperative form (e.g., 'Fix authentication bug')"
                             },
                             "status": {
                                 "type": "string",
-                                "enum": ["pending", "in_progress", "completed"],
-                                "description": "Task status: pending (not started), in_progress (currently working), completed (done)"
+                                "enum": ["pending", "in_progress", "completed", "cancelled"],
+                                "description": "Task status: pending (not started), in_progress (currently working), completed (done), cancelled (no longer relevant)"
                             },
                             "activeForm": {
                                 "type": "string",
                                 "description": "Present continuous form shown during execution (e.g., 'Fixing authentication bug')"
                             }
                         },
-                        "required": ["content", "status", "activeForm"]
+                        "required": ["id", "title", "status"]
                     }
                 }
             },
-            "required": ["todos"]
+            "required": ["title", "todos"]
         }),
     ).with_examples(vec![
-        json!({"todos": [
-            {"content": "Add dark mode toggle", "status": "in_progress", "activeForm": "Adding dark mode toggle"},
-            {"content": "Update existing components", "status": "pending", "activeForm": "Updating existing components"},
-            {"content": "Run tests and build", "status": "pending", "activeForm": "Running tests and build"}
+        json!({"title": "Feature work", "todos": [
+            {"id": "1", "title": "Add dark mode toggle to Settings page", "status": "in_progress", "activeForm": "Adding dark mode toggle to Settings page"},
+            {"id": "2", "title": "Update existing components for dark mode", "status": "pending", "activeForm": "Updating existing components for dark mode"},
+            {"id": "3", "title": "Run tests and verify build", "status": "pending", "activeForm": "Running tests and verifying build"}
         ]}),
-        json!({"todos": [
-            {"content": "Fix authentication bug", "status": "completed", "activeForm": "Fixing authentication bug"},
-            {"content": "Add unit tests for auth", "status": "in_progress", "activeForm": "Adding unit tests for auth"}
+        json!({"title": "E-commerce checkout", "todos": [
+            {"id": "1", "title": "Design checkout data model", "status": "completed", "activeForm": "Designing checkout data model"},
+            {"id": "2", "title": "Implement Stripe payment integration", "status": "completed", "activeForm": "Implementing Stripe payment integration"},
+            {"id": "3", "title": "Add order confirmation email", "status": "in_progress", "activeForm": "Adding order confirmation email"},
+            {"id": "4", "title": "Write integration tests for checkout flow", "status": "pending", "activeForm": "Writing integration tests for checkout flow"},
+            {"id": "5", "title": "Add input validation to payment form", "status": "cancelled", "activeForm": "Adding input validation to payment form"}
         ]}),
     ])
+}
+
+/// Update a single todo item by ID
+fn todo_update_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "todo_update",
+        "Update a single todo item by ID. Use this to mark a task in_progress, completed, or cancelled \
+         without rewriting the full list. At least one of status, title, or activeForm must be provided. \
+         Prefer this over todo_write when you only need to change one item's status.",
+        json!({
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "Todo item identifier"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["pending", "in_progress", "completed", "cancelled"],
+                    "description": "New status: pending (not started), in_progress (currently working), completed (done), cancelled (no longer relevant)"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Updated task description"
+                },
+                "activeForm": {
+                    "type": "string",
+                    "description": "Updated present continuous form for spinner (e.g., 'Fixing authentication bug')"
+                }
+            },
+            "required": ["id"]
+        }),
+    ).with_examples(vec![
+        json!({"id": "1", "status": "in_progress"}),
+        json!({"id": "2", "status": "completed"}),
+        json!({"id": "3", "status": "cancelled"}),
+    ])
+}
+
+/// Read the current todo list
+fn todo_read_tool() -> ToolDefinition {
+    ToolDefinition::new(
+        "todo_read",
+        "Read the current todo list. Returns all items with their IDs, titles, statuses, and active forms. \
+         Use this before calling todo_write or todo_update to understand the current state.",
+        json!({
+            "type": "object",
+            "properties": {},
+            "description": "No parameters needed. Returns the full current todo list."
+        }),
+    )
 }
 
 /// Get all available tools for the TUI
@@ -1241,6 +1324,8 @@ pub fn tui_tools() -> Vec<ToolDefinition> {
         lsp_inline_symbol_tool(),
         notebook_edit_tool(),
         todo_write_tool(),
+        todo_update_tool(),
+        todo_read_tool(),
     ]
 }
 

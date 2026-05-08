@@ -314,7 +314,12 @@ impl PolishedRenderer {
             })
             .count();
 
-        let pending_todos = tui.workspace_tasks.todos.iter().filter(|t| !t.done).count();
+        let pending_todos = tui
+            .workspace_tasks
+            .todos
+            .iter()
+            .filter(|t| !matches!(t.status, crate::app::tasks::TodoStatus::Completed | crate::app::tasks::TodoStatus::Cancelled))
+            .count();
 
         if show_task_counts
             && (!running_agents.is_empty() || in_progress_tasks > 0 || pending_todos > 0)

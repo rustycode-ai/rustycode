@@ -1,7 +1,7 @@
 //! Unified workspace progress snapshot and renderer.
 
 use crate::agents::{AgentStatus, AgentTask};
-use crate::app::tasks::{TaskStatus, Todo, WorkspaceTasks};
+use crate::app::tasks::{TaskStatus, Todo, TodoStatus, WorkspaceTasks};
 use chrono::{DateTime, Utc};
 use rustycode_orchestration::state_derivation::StateDeriver;
 use serde_json::Value;
@@ -318,10 +318,10 @@ fn summarize_todos(todos: &[Todo]) -> CountSummary {
     };
 
     for todo in todos {
-        if todo.done {
-            summary.completed += 1;
-        } else {
-            summary.pending += 1;
+        match todo.status {
+            TodoStatus::Completed => summary.completed += 1,
+            TodoStatus::Cancelled => summary.completed += 1,
+            _ => summary.pending += 1,
         }
     }
 
@@ -460,7 +460,7 @@ fn format_task_lines(tasks: &[crate::app::tasks::Task]) -> Vec<String> {
 fn format_todo_lines(todos: &[Todo]) -> Vec<String> {
     todos
         .iter()
-        .filter(|todo| !todo.done)
+        .filter(|todo| !matches!(todo.status, TodoStatus::Completed | TodoStatus::Cancelled))
         .take(6)
         .map(|todo| format!("☐ {} - {}", todo.id, todo.text))
         .collect()
@@ -577,7 +577,7 @@ fn task_status_icon(status: &TaskStatus) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::tasks::{Task, Todo};
+    use crate::app::tasks::{Task, Todo, TodoStatus};
     use std::time::SystemTime;
 
     fn sample_task(id: &str, description: &str, status: TaskStatus) -> Task {
@@ -591,11 +591,11 @@ mod tests {
         }
     }
 
-    fn sample_todo(id: &str, text: &str, done: bool) -> Todo {
+    fn sample_todo(id: &str, text: &str, status: TodoStatus) -> Todo {
         Todo {
             id: id.to_string(),
             text: text.to_string(),
-            done,
+            status,
             created_at: SystemTime::now(),
         }
     }
@@ -634,8 +634,8 @@ mod tests {
                 sample_task("2", "Ship feature", TaskStatus::Pending),
             ],
             todos: vec![
-                sample_todo("todo-1", "Update docs", false),
-                sample_todo("todo-2", "Clean up", true),
+                sample_todo("todo-1", "Update docs", TodoStatus::Pending),
+                sample_todo("todo-2", "Clean up", TodoStatus::Completed),
             ],
             active_agents: vec![],
         };
@@ -659,7 +659,7 @@ mod tests {
         let cwd = temp.path();
         let tasks = WorkspaceTasks {
             tasks: vec![sample_task("1", "Write tests", TaskStatus::Pending)],
-            todos: vec![sample_todo("todo-1", "Update docs", false)],
+            todos: vec![sample_todo("todo-1", "Update docs", TodoStatus::Pending)],
             active_agents: vec![],
         };
 

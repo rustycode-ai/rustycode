@@ -209,6 +209,18 @@ enum Commands {
         /// Output path for evaluation results JSON
         #[arg(long)]
         output: Option<PathBuf>,
+
+        /// Use Docker-based evaluation via swebench Python package (requires Docker)
+        #[arg(long)]
+        docker: bool,
+
+        /// Max parallel Docker evaluations (docker mode only)
+        #[arg(long, default_value_t = 1)]
+        max_workers: usize,
+
+        /// Run ID for Docker containers (docker mode only)
+        #[arg(long, default_value = "rtk-eval")]
+        run_id: String,
     },
 }
 
@@ -387,26 +399,79 @@ async fn main() -> Result<()> {
             max_pass_to_pass,
             work_dir,
             output,
+            docker,
+            max_workers,
+            run_id,
         } => {
-            let ids = instance_ids.map(|s| {
-                s.split(',')
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect()
-            });
-            let config = EvalConfig {
-                predictions_path: predictions,
-                instances_path: instances,
-                work_dir,
-                instance_ids: ids,
-                test_timeout_secs: timeout,
-                max_pass_to_pass,
-                output_path: output,
-            };
-            run_evaluation(config).await?;
+            if docker {
+                run_docker_evaluation(
+                    &predictions,
+                    &instances,
+                    instance_ids.as_deref(),
+                    max_workers,
+                    &run_id,
+                    timeout,
+                    output.as_deref(),
+                )?;
+            } else {
+                let ids = instance_ids.map(|s| {
+                    s.split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect()
+                });
+                let config = EvalConfig {
+                    predictions_path: predictions,
+                    instances_path: instances,
+                    work_dir,
+                    instance_ids: ids,
+                    test_timeout_secs: timeout,
+                    max_pass_to_pass,
+                    output_path: output,
+                };
+                run_evaluation(config).await?;
+            }
             Ok(())
         }
     }
+}
+
+/// Run Docker-based SWE-bench evaluation via the Python swebench package.
+fn run_docker_evaluation(
+    predictions: &std::path::Path,
+    instances: &std::path::Path,
+    instance_ids: Option<&str>,
+    max_workers: usize,
+    run_id: &str,
+    timeout: u64,
+    output: Option<&std::path::Path>,
+) -> anyhow::Result<()> {
+    let script = std::path::Path::new("scripts/swebench_evaluate.py");
+    anyhow::ensure!(script.exists(), "scripts/swebench_evaluate.py not found");
+
+    let mut cmd = std::process::Command::new("python3");
+    cmd.arg(script)
+        .arg("--predictions")
+        .arg(predictions)
+        .arg("--instances")
+        .arg(instances)
+        .arg("--max-workers")
+        .arg(max_workers.to_string())
+        .arg("--run-id")
+        .arg(run_id)
+        .arg("--timeout")
+        .arg(timeout.to_string());
+
+    if let Some(ids) = instance_ids {
+        cmd.arg("--instance-ids").arg(ids);
+    }
+    if let Some(path) = output {
+        cmd.arg("--output").arg(path);
+    }
+
+    let status = cmd.status().context("failed to run swebench_evaluate.py")?;
+    anyhow::ensure!(status.success(), "swebench evaluation failed");
+    Ok(())
 }
 
 // run subcommand

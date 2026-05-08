@@ -130,7 +130,7 @@ pub mod proxy;
 pub mod resources;
 pub mod server;
 pub mod server_enablement;
-pub mod sse_transport;
+pub mod sse;
 pub mod stdio_client;
 pub mod system_prompt;
 pub mod testing;
@@ -164,7 +164,6 @@ pub use server_enablement::{
     BlockType, ServerDisplayState, ServerEnablementConfig, ServerEnablementManager,
     ServerEnablementState, ServerLoadResult,
 };
-pub use sse_transport::SseTransport;
 pub use stdio_client::{
     McpClientError as StdioClientError, McpClientManager, McpClientResult as StdioClientResult,
     McpServerConfig as StdioServerConfig, McpStdioClient,
@@ -231,6 +230,9 @@ pub enum McpError {
 
     #[error("Rate limited: try again in {0:?}")]
     RateLimited(Duration),
+
+    #[error("Session expired: {0}")]
+    SessionExpired(String),
 }
 
 impl Serialize for McpError {

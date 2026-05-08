@@ -8,6 +8,7 @@ use crate::{McpError, McpResult};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, info, warn};
@@ -68,6 +69,7 @@ pub struct McpClient {
     server_capabilities: Arc<RwLock<HashMap<String, McpServerCapabilities>>>,
     #[allow(dead_code)]
     event_sender: broadcast::Sender<McpEvent>,
+    next_request_id: AtomicU64,
 }
 
 impl McpClient {
@@ -78,7 +80,15 @@ impl McpClient {
             transports: Arc::new(RwLock::new(HashMap::new())),
             server_capabilities: Arc::new(RwLock::new(HashMap::new())),
             event_sender,
+            next_request_id: AtomicU64::new(1),
         }
+    }
+
+    /// Generate a unique request ID for JSON-RPC
+    fn next_id(&self) -> String {
+        self.next_request_id
+            .fetch_add(1, Ordering::Relaxed)
+            .to_string()
     }
 
     /// Process incoming notification and dispatch event
@@ -155,12 +165,23 @@ impl McpClient {
             "Connecting to MCP server '{}' via custom transport",
             server_name
         );
-        // Initialize the connection
-        Self::initialize_connection_static(transport.as_mut(), &server_name, &self.config).await?;
+
+        let request_id = self.next_id();
+        let init_response = Self::initialize_connection_static(
+            transport.as_mut(),
+            &server_name,
+            &self.config,
+            request_id,
+        )
+        .await?;
+
+        // Store server capabilities
+        let mut caps = self.server_capabilities.write().await;
+        caps.insert(server_name.clone(), init_response.capabilities);
 
         // Store the transport
         let mut transports = self.transports.write().await;
-        transports.insert(server_name.clone(), transport);
+        transports.insert(server_name, transport);
 
         Ok(())
     }
@@ -170,10 +191,11 @@ impl McpClient {
         transport: &mut dyn Transport,
         server_name: &str,
         config: &McpClientConfig,
-    ) -> McpResult<()> {
+        request_id: String,
+    ) -> McpResult<InitializeResponse> {
         debug!("Initializing connection to '{}'", server_name);
 
-        let init_req = JsonRpcRequest::new("init-1", "initialize").with_params(json!({
+        let init_req = JsonRpcRequest::new(request_id, "initialize").with_params(json!({
             "protocolVersion": crate::MCP_VERSION,
             "capabilities": {
                 "roots": {
@@ -198,18 +220,17 @@ impl McpClient {
             )));
         }
 
-        // Extract server capabilities
-        if let Some(result) = response.result {
-            let init_response: InitializeResponse =
-                serde_json::from_value(result).map_err(|e| {
-                    McpError::ProtocolError(format!("Invalid initialize response: {e}"))
-                })?;
+        let result = response.result.ok_or_else(|| {
+            McpError::ProtocolError("Initialize returned empty result".to_string())
+        })?;
 
-            debug!(
-                "Connected to server {} v{}",
-                init_response.server_info.name, init_response.server_info.version
-            );
-        }
+        let init_response: InitializeResponse = serde_json::from_value(result)
+            .map_err(|e| McpError::ProtocolError(format!("Invalid initialize response: {e}")))?;
+
+        debug!(
+            "Connected to server {} v{}",
+            init_response.server_info.name, init_response.server_info.version
+        );
 
         // Send initialized notification
         transport
@@ -219,7 +240,7 @@ impl McpClient {
             )
             .await?;
 
-        Ok(())
+        Ok(init_response)
     }
 
     /// List available tools from a server
@@ -231,7 +252,7 @@ impl McpClient {
             McpError::InvalidRequest(format!("Server '{server_name}' not connected"))
         })?;
 
-        let req = JsonRpcRequest::new("tools-list-1", "tools/list");
+        let req = JsonRpcRequest::new(self.next_id(), "tools/list");
 
         let response = transport
             .send_request(req)
@@ -269,7 +290,7 @@ impl McpClient {
             McpError::InvalidRequest(format!("Server '{server_name}' not connected"))
         })?;
 
-        let req = JsonRpcRequest::new("tool-call-1", "tools/call").with_params(json!({
+        let req = JsonRpcRequest::new(self.next_id(), "tools/call").with_params(json!({
             "name": tool_name,
             "arguments": arguments
         }));
@@ -307,7 +328,7 @@ impl McpClient {
             McpError::InvalidRequest(format!("Server '{server_name}' not connected"))
         })?;
 
-        let req = JsonRpcRequest::new("resources-list-1", "resources/list");
+        let req = JsonRpcRequest::new(self.next_id(), "resources/list");
 
         let response = transport
             .send_request(req)
@@ -344,7 +365,7 @@ impl McpClient {
             McpError::InvalidRequest(format!("Server '{server_name}' not connected"))
         })?;
 
-        let req = JsonRpcRequest::new("resource-read-1", "resources/read").with_params(json!({
+        let req = JsonRpcRequest::new(self.next_id(), "resources/read").with_params(json!({
             "uri": uri
         }));
 
@@ -381,7 +402,7 @@ impl McpClient {
             McpError::InvalidRequest(format!("Server '{server_name}' not connected"))
         })?;
 
-        let req = JsonRpcRequest::new("prompts-list-1", "prompts/list");
+        let req = JsonRpcRequest::new(self.next_id(), "prompts/list");
 
         let response = transport
             .send_request(req)
@@ -427,7 +448,7 @@ impl McpClient {
             params["arguments"] = args;
         }
 
-        let req = JsonRpcRequest::new("prompt-get-1", "prompts/get").with_params(params);
+        let req = JsonRpcRequest::new(self.next_id(), "prompts/get").with_params(params);
 
         let response = transport
             .send_request(req)

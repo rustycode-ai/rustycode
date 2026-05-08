@@ -85,7 +85,7 @@ pub use events::{
     PlanExecutionFailedEvent, PlanExecutionStartedEvent, PlanRejectedEvent, PostCompactEvent,
     PreCompactEvent, SessionCompletedEvent, SessionFailedEvent, SessionStartedEvent,
     SkillActivatedEvent, SkillDeactivatedEvent, SkillQualityAssessedEvent, SkillSuggestedEvent,
-    ToolBlockedEvent, ToolExecutedEvent,
+    TodoSnapshot, TodoUpdatedEvent, ToolBlockedEvent, ToolExecutedEvent,
 };
 // Export hook system
 pub use hook_registry::HookRegistry;
