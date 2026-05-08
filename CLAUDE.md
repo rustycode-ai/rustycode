@@ -20,7 +20,7 @@ See `/docs/architecture/ARCHITECTURE-REVIEW-2026-04-20.md` for the full analysis
 
 **Resolved P0 issues:** Unified `LLMProvider` trait, `CheckpointRecovery` complete, orchestration crate consolidation (deep-thinker/orchestra merged into `rustycode-orchestration`), module splits (bus/events, llm/openai, llm/anthropic, git/*, storage/*).
 
-**Remaining P0:** Circular dependency `rustycode-llm` ↔ `rustycode-tools` — mitigated by `rustycode-tool-integration` shim crate.
+**Resolved P0:** Circular dependency `rustycode-llm` ↔ `rustycode-tools` — broken by `rustycode-tool-integration` shim crate. Both crates now depend on the shim (which provides `ToolExecutorApi`, `ToolInfo`, `TokenCounter`, `CostTracker`) and build/test independently.
 
 **P2 (pending):** God objects in `rustycode-tui`, `rustycode-core`, `rustycode-tools` — keep changes localized, don't add dependencies, prefer extracting to new crates.
 
@@ -276,10 +276,10 @@ mod tests {
 
 ### Known Issues & Workarounds
 
-**Circular Dependency: `rustycode-llm` ↔ `rustycode-tools`**
-- Mitigated by `rustycode-tool-integration` shim crate
-- Cannot test these independently
-- **When modifying:** consider both crates together
+**Circular Dependency: `rustycode-llm` ↔ `rustycode-tools`** — **Resolved.**
+- Broken by `rustycode-tool-integration` shim crate providing shared traits (`ToolExecutorApi`, `ToolInfo`, `TokenCounter`, `CostTracker`)
+- Both crates build and test independently
+- **When modifying:** no special coordination needed between these two crates
 
 **Provider trait:** Use `rustycode-llm::LLMProvider` (consolidated). Do not create new provider traits.
 
@@ -309,7 +309,7 @@ These crates are too large and will be refactored:
 
 - `rustycode-tui` (22 dependencies, 5K+ LOC) → Will split into thin UI layer
 - `rustycode-core` (40K+ LOC, 18 modules) → Will separate agents/execution/recovery
-- `rustycode-tools` (50+ modules, circular dep) → Will split into api/executor/registry/security
+- `rustycode-tools` (50+ modules) → Will split into api/executor/registry/security
 
 **When modifying these crates:**
 - Keep changes localized to modules

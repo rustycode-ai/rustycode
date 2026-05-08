@@ -6054,6 +6054,7 @@ version = "0.1.0"
 dependencies = [
  "iterm2-client",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

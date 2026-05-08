@@ -136,7 +136,9 @@ impl LocalIntelligence {
                             let mut idx = index_clone
                                 .lock()
                                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-                            let _ = idx.update_file(path.clone());
+                            if let Err(e) = idx.update_file(path.clone()) {
+                                tracing::debug!("failed to update index for {}: {e}", path.display());
+                            }
                             idx.file_symbols(path)
                                 .iter()
                                 .map(|s| s.name.clone())
@@ -157,7 +159,9 @@ impl LocalIntelligence {
                             let mut idx = index_clone
                                 .lock()
                                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-                            let _ = idx.remove_file(path.clone());
+                            if let Err(e) = idx.remove_file(path.clone()) {
+                                tracing::debug!("failed to remove file from index: {}: {e}", path.display());
+                            }
                         }
                         Some(FileChange {
                             path: path.clone(),
