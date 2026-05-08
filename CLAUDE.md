@@ -24,7 +24,7 @@ See `/docs/architecture/ARCHITECTURE-REVIEW-2026-04-20.md` for the full analysis
 
 **P2 (pending):** God objects in `rustycode-tui`, `rustycode-core`, `rustycode-tools` — keep changes localized, don't add dependencies, prefer extracting to new crates.
 
-**Known build issue:** `Cargo.toml` has a duplicate `rustycode-protocol` entry in workspace members. Cargo tolerates it but it should be cleaned up.
+**Known build issue:** None — workspace members are clean.
 
 ## Orchestration — Responsibility Boundary
 

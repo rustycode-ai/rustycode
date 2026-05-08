@@ -223,7 +223,11 @@ impl StepExecutorRegistry {
     }
 
     /// Register an executor for a step type.
-    pub fn register(&mut self, step_type: String, executor: Arc<dyn StepExecutor<ExecutionContext>>) {
+    pub fn register(
+        &mut self,
+        step_type: String,
+        executor: Arc<dyn StepExecutor<ExecutionContext>>,
+    ) {
         self.executors.insert(step_type, executor);
     }
 

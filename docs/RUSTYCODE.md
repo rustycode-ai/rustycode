@@ -104,7 +104,7 @@ cargo run -- bench run --dataset terminal-bench-v2
 1. **Downward only**: Upper layers depend on lower layers, never the reverse
 2. **Protocol as lingua franca**: Cross-crate types live in `rustycode-protocol`
 3. **Orchestration is standalone**: Never depends on CLI, TUI, or session crates
-4. **No circular dependencies**: `rustycode-tool-integration` shim breaks the llm↔tools cycle
+4. **No circular dependencies**: `rustycode-tool-integration` provides shared traits (`ToolExecutorApi`, `TokenCounter`, `CostTracker`) that both `rustycode-llm` and `rustycode-tools` depend on — no edge between them
 5. **Event bus for decoupling**: Crates communicate events via `rustycode-bus`, not direct calls
 
 ### Crate Size Distribution
@@ -173,7 +173,7 @@ cargo run -- bench run --dataset terminal-bench-v2
 | `rustycode-ui-model` | 1K | UI data models |
 | `rustycode-macros` | 1K | Proc macros |
 | `rustycode-thread-guard` | 1K | Thread safety utilities |
-| `rustycode-tool-integration` | 1K | Shim to break llm↔tools circular dependency |
+| `rustycode-tool-integration` | 1K | Shared tool/LLM traits: `ToolExecutorApi`, `TokenCounter`, `CostTracker` |
 | `rustycode-sandbox` | <1K | Sandbox execution environment |
 | `rustycode-tool-server` | <1K | Tool server for external process execution |
 | `rustycode-shared-runtime` | <1K | Shared tokio runtime |

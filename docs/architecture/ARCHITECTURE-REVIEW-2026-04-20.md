@@ -27,7 +27,7 @@
 - `lsp.rs`: Diagnostics, hover, definition, completion tools now available in Explore/Implement profiles
 - `tool_selection.rs`: Clippy fixes (`Self::` variants, `#[allow(clippy::too_many_lines)]`)
 
-**Remaining P0:** Circular dependency `rustycode-llm` ↔ `rustycode-tools` (mitigated by `rustycode-tool-integration`)
+**Resolved P0:** Circular dependency `rustycode-llm` ↔ `rustycode-tools` — fully resolved via `rustycode-tool-integration` (both crates build/test independently)
 
 ---
 
@@ -220,7 +220,7 @@
 |-------|--------|---------|
 | 4x `LLMProvider` traits | ✅ RESOLVED | Consolidated to unified `LLMProvider` trait. All 750 tests passing. |
 | Checkpoint/rewind system | ✅ COMPLETE | `CheckpointRecovery` implemented in `rustycode-core/src/recovery/checkpoint.rs` |
-| Circular dependency (llm ↔ tools) | 🟠 PARTIALLY RESOLVED | Mitigation: `rustycode-tool-integration` crate created. Full resolution: 1-2 days |
+| Circular dependency (llm ↔ tools) | ✅ RESOLVED | `rustycode-tool-integration` provides shared traits. Both crates build/test independently |
 
 ---
 
@@ -474,8 +474,8 @@ impl ToolExecutor for BlockingToolExecutor {
 - [ ] Create ARCHITECTURE-SPEC.md with crate responsibilities
 
 ### Phase 1: Resolve Critical Dependencies (2 weeks)
-- [ ] Break `llm` <-> `tools` circular dependency
-  - [ ] Create `rustycode-tool-integration` or add to protocol
+- [x] Break `llm` <-> `tools` circular dependency
+  - [x] Create `rustycode-tool-integration` — provides shared traits, both crates build independently
   - [ ] Move cost/execution abstractions
   - [ ] Update dependents (6+ crates)
 - [ ] Consolidate `LLMProvider` traits

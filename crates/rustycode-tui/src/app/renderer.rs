@@ -100,20 +100,15 @@ impl RendererState {
             .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
             .count();
 
+        let total_tasks = tui.workspace_tasks.tasks.len();
         let done_count = tui
             .workspace_tasks
             .tasks
             .iter()
             .filter(|t| matches!(t.status, crate::app::tasks::TaskStatus::Completed))
             .count();
-        let pending_count = tui
-            .workspace_tasks
-            .tasks
-            .iter()
-            .filter(|t| matches!(t.status, crate::app::tasks::TaskStatus::Pending))
-            .count();
-        let task_summary = if done_count > 0 || pending_count > 0 {
-            format!("{}/{} tasks", done_count, done_count + pending_count)
+        let task_summary = if total_tasks > 0 {
+            format!("{}/{} tasks", done_count, total_tasks)
         } else {
             String::new()
         };

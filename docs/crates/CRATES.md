@@ -297,7 +297,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **See Also:** [README](../../crates/rustycode-tool-server/README.md)
 
 ### rustycode-tool-integration
-**Purpose:** Bridge between LLM providers and tool execution (breaks circular dep `rustycode-llm` ↔ `rustycode-tools`)
+**Purpose:** Shared traits for tool/LLM boundary (`ToolExecutorApi`, `ToolInfo`, `TokenCounter`, `CostTracker`) — both `rustycode-llm` and `rustycode-tools` depend on this
 **Key Types:** ToolIntegrationBridge
 **Dependencies:** rustycode-tools-api, rustycode-llm
 **Used By:** rustycode-core, rustycode-tui
