@@ -552,7 +552,14 @@ impl BenchAgent for CodeAgent {
         let tools = Self::build_tool_schemas();
 
         let task_prompt = format!(
-            "You have {} turns total. Use them wisely.\n\n{instruction}",
+            "You have {} turns total. Use them wisely.\n\n\
+             CRITICAL RULES:\n\
+             1. Make the MINIMAL change needed to fix the issue.\n\
+             2. Do NOT add tests, documentation, or unrelated changes.\n\
+             3. Do NOT run verification scripts after your fix.\n\
+             4. Once you have applied the fix, STOP immediately — do not re-read or re-check.\n\
+             5. Never edit the same file more than twice.\n\n\
+             {instruction}",
             self.config.max_turns
         );
         let mut messages = vec![rustycode_llm::ChatMessage::user(task_prompt)];
@@ -561,7 +568,7 @@ impl BenchAgent for CodeAgent {
         let intent = classify_intent(instruction);
         let system_prompt = format!(
             "Solve the task. Use the tools provided. Read workspace files first to understand \
-             the task requirements and test expectations, then implement.\n\n{}",
+             the task requirements, then make the minimal fix. Stop as soon as the fix is applied.\n\n{}",
             intent.prompt_suffix()
         );
         tracing::info!("[code] Intent: {:?} → frame applied", intent);
@@ -573,6 +580,9 @@ impl BenchAgent for CodeAgent {
 
         let mut made_edits = false;
         let mut turns_since_edit = 0usize;
+        let mut total_edits = 0usize;
+        let mut file_edit_counts: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         for turn in 0..self.config.max_turns {
             Self::prune_messages(&mut messages, self.config.max_context_chars);
@@ -688,20 +698,49 @@ impl BenchAgent for CodeAgent {
                 .collect();
 
             // Track edit/write operations for early-stop detection.
-            let has_edits = tool_uses
+            let edited_files: Vec<String> = tool_uses
                 .iter()
-                .any(|t| t.name == "write_file" || t.name == "edit_file");
-            if has_edits {
+                .filter(|t| t.name == "write_file" || t.name == "edit_file")
+                .filter_map(|t| {
+                    t.input
+                        .get("path")
+                        .or(t.input.get("file_path"))
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
+                .collect();
+
+            if !edited_files.is_empty() {
                 made_edits = true;
                 turns_since_edit = 0;
+                total_edits += edited_files.len();
+                for f in &edited_files {
+                    *file_edit_counts.entry(f.clone()).or_insert(0) += 1;
+                }
             } else if made_edits {
                 turns_since_edit += 1;
             }
+
+            // Stop if: 3+ turns since last edit, same file edited 3+ times, or 6+ total edits.
             if made_edits && turns_since_edit >= 3 {
                 tracing::info!(
                     "[code] Early stop: {} turns since last edit",
                     turns_since_edit
                 );
+                break;
+            }
+            if let Some((file, count)) = file_edit_counts.iter().max_by_key(|(_, c)| *c) {
+                if *count >= 3 {
+                    tracing::info!(
+                        "[code] Early stop: '{}' edited {} times (thrashing)",
+                        file,
+                        count
+                    );
+                    break;
+                }
+            }
+            if total_edits >= 6 {
+                tracing::info!("[code] Early stop: {} total edits (excessive)", total_edits);
                 break;
             }
 
