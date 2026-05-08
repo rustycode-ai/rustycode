@@ -7,7 +7,7 @@
 //! - Comprehensive benchmarking
 
 use crate::hierarchical::EnsembleCoordinator;
-use crate::multi_agent::{AgentCommunicationHub, AgentMessage, AgentRole};
+use crate::multi_agent::{AgentMessage, AgentRole};
 use crate::shared_memory::{AccessLevel, MemoryData, MemoryType, SharedWorkingMemory};
 use crate::workflow::Result;
 use chrono::Utc;
@@ -22,10 +22,6 @@ use uuid::Uuid;
 pub struct EnhancedOrchestrator {
     /// Ensemble coordinator
     team_coordinator: EnsembleCoordinator,
-
-    /// Communication hub
-    #[allow(dead_code)] // Kept for future use
-    communication_hub: AgentCommunicationHub,
 
     /// Shared working memory
     memory: SharedWorkingMemory,
@@ -115,7 +111,6 @@ impl EnhancedOrchestrator {
     pub fn new(config: OrchestratorConfig) -> Self {
         Self {
             team_coordinator: EnsembleCoordinator::new(),
-            communication_hub: AgentCommunicationHub::new(),
             memory: SharedWorkingMemory::new(),
             config,
             session_state: Arc::new(RwLock::new(SessionState {
@@ -326,7 +321,6 @@ impl EnhancedOrchestrator {
                     message_id: Uuid::new_v4().to_string(),
                 };
 
-                // In real implementation, would use communication_hub
                 message_count += 1;
                 debug!(
                     "{:?} -> {:?}: Request for collaboration",

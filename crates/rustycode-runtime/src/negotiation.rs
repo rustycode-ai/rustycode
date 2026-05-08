@@ -289,9 +289,6 @@ pub struct AgentNegotiator {
     /// Active negotiation sessions
     sessions: HashMap<String, NegotiationSession>,
 
-    /// Negotiation timeout (seconds)
-    #[allow(dead_code)] // Kept for future use
-    negotiation_timeout_seconds: u64,
 }
 
 impl AgentNegotiator {
@@ -299,7 +296,6 @@ impl AgentNegotiator {
         Self {
             memory: SharedWorkingMemory::new(),
             sessions: HashMap::new(),
-            negotiation_timeout_seconds: 300, // 5 minutes
         }
     }
 

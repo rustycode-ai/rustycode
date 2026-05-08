@@ -277,13 +277,10 @@ pub struct QualityComparison {
 }
 
 /// Task evaluator
+#[derive(Default)]
 pub struct TaskEvaluator {
     /// Historical results for comparison
     historical_results: Vec<TaskEvaluation>,
-
-    /// Current benchmark configuration
-    #[allow(dead_code)] // Kept for future use
-    config: EvaluatorConfig,
 }
 
 /// Configuration for task evaluation
@@ -300,20 +297,6 @@ pub struct EvaluatorConfig {
 
     /// Time limit multiplier (over estimated manual time)
     pub time_limit_multiplier: f64,
-}
-
-impl Default for TaskEvaluator {
-    fn default() -> Self {
-        Self {
-            historical_results: Vec::new(),
-            config: EvaluatorConfig {
-                verbose_logging: true,
-                save_results: true,
-                results_dir: "benchmark_results".to_string(),
-                time_limit_multiplier: 2.0,
-            },
-        }
-    }
 }
 
 impl TaskEvaluator {

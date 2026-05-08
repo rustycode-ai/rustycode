@@ -7,7 +7,7 @@
 //! - Advanced conflict resolution strategies
 
 use crate::hierarchical::EnsembleCoordinator;
-use crate::multi_agent::{AgentCommunicationHub, AgentRole};
+use crate::multi_agent::AgentRole;
 use crate::shared_memory::{AccessLevel, MemoryData, MemoryType, SharedWorkingMemory};
 use crate::workflow::Result;
 use chrono::Utc;
@@ -23,10 +23,6 @@ use uuid::Uuid;
 pub struct AdvancedOrchestrator {
     /// Ensemble coordinator
     team_coordinator: EnsembleCoordinator,
-
-    /// Communication hub
-    #[allow(dead_code)] // Kept for future use
-    communication_hub: AgentCommunicationHub,
 
     /// Shared working memory
     memory: SharedWorkingMemory,
@@ -176,7 +172,6 @@ impl AdvancedOrchestrator {
 
         Self {
             team_coordinator: EnsembleCoordinator::new(),
-            communication_hub: AgentCommunicationHub::new(),
             memory: SharedWorkingMemory::new(),
             config,
             session_state: Arc::new(RwLock::new(SessionState {

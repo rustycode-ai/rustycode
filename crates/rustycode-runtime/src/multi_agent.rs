@@ -294,9 +294,6 @@ pub struct AgentCommunicationHub {
     broadcasts: Vec<AgentMessage>,
     /// Message queue for processing
     message_queue: Vec<AgentMessage>,
-    /// Timeout for responses
-    #[allow(dead_code)] // Kept for future use
-    response_timeout: std::time::Duration,
 }
 
 impl AgentCommunicationHub {
@@ -306,7 +303,6 @@ impl AgentCommunicationHub {
             completed_conversations: Vec::new(),
             broadcasts: Vec::new(),
             message_queue: Vec::new(),
-            response_timeout: std::time::Duration::from_secs(30),
         }
     }
 
