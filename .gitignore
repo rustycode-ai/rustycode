@@ -186,3 +186,9 @@ tests/sessions/
 scorecard.png
 *.disabled
 terminal_bench_tasks.csv
+
+# Temp/test files
+hello_insert.txt
+lib_bottom.rs
+lib_top.rs
+todo-api-spec.md
