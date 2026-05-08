@@ -1,39 +1,21 @@
-//! SWE-bench prediction pipeline — generates patches for each instance.
+//! SWE-bench prediction result and output formatting.
 
-use std::path::Path;
+use serde::{Deserialize, Serialize};
 
-use anyhow::{Context, Result};
-
-use super::report::SweBenchPrediction;
-
-/// Capture `git diff` from an already-cloned repo directory.
-///
-/// Used by `SweBenchRunner` after the agent has made edits.
-pub(super) fn predict_instance_direct(repo_dir: &Path) -> Result<String> {
-    if !repo_dir.join(".git").exists() {
-        return Ok(String::new());
-    }
-    capture_diff(repo_dir)
+/// A single prediction: the agent's patch for an instance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SweBenchPrediction {
+    pub instance_id: String,
+    pub model_patch: String,
 }
 
-/// Capture `git diff` as the model patch.
-fn capture_diff(repo_dir: &Path) -> Result<String> {
-    let output = std::process::Command::new("git")
-        .args(["diff"])
-        .current_dir(repo_dir)
-        .output()
-        .context("git diff")?;
-
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
-
-/// Save predictions to file in the requested format.
-pub(super) fn save_predictions(
+/// Save predictions in the standard SWE-bench format (JSON array or JSONL).
+pub fn save_predictions(
     predictions: &[SweBenchPrediction],
-    output_path: &Path,
+    output_path: &std::path::Path,
     format: &str,
     model_name: &str,
-) -> Result<()> {
+) -> anyhow::Result<()> {
     if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -68,7 +50,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn save_predictions_json_format() {
+    fn save_json_format() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("pred.json");
         let preds = vec![SweBenchPrediction {
@@ -82,7 +64,7 @@ mod tests {
     }
 
     #[test]
-    fn save_predictions_jsonl_format() {
+    fn save_jsonl_format() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("pred.jsonl");
         let preds = vec![

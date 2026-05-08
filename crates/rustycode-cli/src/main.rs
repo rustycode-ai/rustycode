@@ -572,10 +572,15 @@ async fn async_main() -> Result<()> {
             let swebench_args = SweBenchArgs {
                 instances: args.instances,
                 output: args.output,
-                budget: args.budget,
+                model: args.model,
+                provider: args.provider,
+                max_turns: args.max_turns,
+                max_tokens: args.max_tokens,
+                timeout: args.timeout,
                 parallel: args.parallel,
                 instance_ids: args.instance_ids,
                 format: args.format,
+                work_dir: args.work_dir,
             };
             run_swebench(swebench_args).await?;
         }

@@ -85,6 +85,7 @@ pub mod mcp_bridge;
 pub mod registry;
 pub mod report;
 pub mod runner;
+pub mod swebench;
 pub mod task;
 pub mod trial;
 pub mod verifier;

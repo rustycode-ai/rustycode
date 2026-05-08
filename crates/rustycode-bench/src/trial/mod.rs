@@ -68,7 +68,13 @@ impl RetryConfig {
     pub fn wait_duration_secs_with_jitter(&self, attempt: usize) -> f64 {
         let base = self.wait_duration_secs(attempt);
         let jitter_range = base * self.jitter;
-        base - jitter_range / 2.0
+        // Simple entropy from nanosecond timestamp (good enough for retry jitter)
+        let ns = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .subsec_nanos();
+        let pseudo_rand = f64::from(ns) / 1_000_000_000.0;
+        base - jitter_range * pseudo_rand
     }
 
     /// Determine whether an error should be retried based on include/exclude patterns.
@@ -525,9 +531,10 @@ mod tests {
             ..Default::default()
         };
         let base = config.wait_duration_secs(0);
+        // Jittered value should be in [base * 0.5, base]
         let jittered = config.wait_duration_secs_with_jitter(0);
-        assert!(jittered < base);
-        assert!(jittered > 0.0);
+        assert!(jittered <= base, "jittered should be <= base");
+        assert!(jittered >= base * 0.5, "jittered should be >= base * (1 - jitter)");
     }
 
     #[test]

@@ -449,12 +449,28 @@ pub struct SweBenchCliArgs {
     #[arg(long, default_value = "predictions.json")]
     pub output: std::path::PathBuf,
 
-    /// Cost budget per instance (dollars)
-    #[arg(long, default_value = "0.50")]
-    pub budget: f64,
+    /// Model to use (e.g. claude-sonnet-4-6)
+    #[arg(long, default_value = "claude-sonnet-4-6")]
+    pub model: String,
+
+    /// LLM provider: anthropic, openai
+    #[arg(long, default_value = "anthropic")]
+    pub provider: String,
+
+    /// Max tool-use turns per instance
+    #[arg(long, default_value_t = 30)]
+    pub max_turns: usize,
+
+    /// Max tokens per LLM response
+    #[arg(long, default_value_t = 16_384)]
+    pub max_tokens: u32,
+
+    /// Timeout per instance in seconds
+    #[arg(long, default_value_t = 600)]
+    pub timeout: u64,
 
     /// Number of instances to run in parallel
-    #[arg(long, default_value = "1")]
+    #[arg(long, default_value_t = 1)]
     pub parallel: usize,
 
     /// Specific instance IDs to run (comma-separated)
@@ -464,6 +480,10 @@ pub struct SweBenchCliArgs {
     /// Output format: json (array) or jsonl (one per line)
     #[arg(long, default_value = "json")]
     pub format: String,
+
+    /// Working directory for cloned repos
+    #[arg(long, default_value = "swebench-work")]
+    pub work_dir: std::path::PathBuf,
 }
 
 /// Harness framework commands for long-running agent tasks
@@ -549,6 +569,9 @@ pub enum BenchCommand {
         /// Command timeout in seconds for code agent (default: 300)
         #[arg(long, default_value_t = 300)]
         timeout: u64,
+        /// Execution environment: native or docker (default: native)
+        #[arg(long, default_value = "native")]
+        env: String,
     },
     /// Show results from a completed or interrupted benchmark run.
     #[command(about = "Show results from a benchmark run")]

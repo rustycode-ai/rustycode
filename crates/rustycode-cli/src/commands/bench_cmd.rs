@@ -1,7 +1,7 @@
 //! `rustycode bench` subcommand — benchmark runner for agent evaluation.
 
 use anyhow::Result;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::cli_args::BenchCommand;
 
@@ -21,6 +21,7 @@ pub async fn execute(cmd: BenchCommand) -> Result<()> {
             max_turns,
             max_tokens,
             timeout,
+            env,
         } => {
             run_bench(
                 dataset,
@@ -36,6 +37,7 @@ pub async fn execute(cmd: BenchCommand) -> Result<()> {
                 max_turns,
                 max_tokens,
                 timeout,
+                env,
             )
             .await
         }
@@ -59,6 +61,7 @@ async fn run_bench(
     max_turns: usize,
     max_tokens: u32,
     timeout: u64,
+    env: String,
 ) -> Result<()> {
     // Resolve dataset directory
     let dataset_dir = if let Some(p) = path {
@@ -75,28 +78,34 @@ async fn run_bench(
         let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
         format!("bench-{ts}")
     });
-    let jobs_dir = jobs_dir.unwrap_or_else(|| PathBuf::from("jobs"));
-
-    let job_config = rustycode_bench::JobConfig {
-        job_name: job_name.clone(),
-        jobs_dir,
-        n_concurrent,
-        force_build,
-        cleanup,
-    };
 
     println!("Dataset: {}", dataset_dir.display());
     println!("Job: {job_name}");
     println!("Agent: {agent} (model: {model}, provider: {provider})");
     println!("Concurrency: {n_concurrent}");
+    println!("Environment: {env}");
 
     let tasks = rustycode_bench::ResolvedTask::discover(&dataset_dir)?;
     println!("Tasks: {}", tasks.len());
 
-    async_run(
-        &tasks, agent, model, provider, job_config, max_turns, max_tokens, timeout,
-    )
-    .await
+    match env.as_str() {
+        "native" => run_native(&tasks, &dataset_dir, &agent, &model, &provider, n_concurrent, &job_name, max_turns, max_tokens, timeout).await,
+        "docker" => {
+            let jobs_dir = jobs_dir.unwrap_or_else(|| PathBuf::from("jobs"));
+            let job_config = rustycode_bench::JobConfig {
+                job_name: job_name.clone(),
+                jobs_dir,
+                n_concurrent,
+                force_build,
+                cleanup,
+            };
+            async_run(
+                &tasks, agent, model, provider, job_config, max_turns, max_tokens, timeout,
+            )
+            .await
+        }
+        other => anyhow::bail!("Unknown environment: '{other}'. Use 'native' or 'docker'"),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -184,6 +193,69 @@ async fn async_run(
         }
     }
 
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn run_native(
+    tasks: &[rustycode_bench::ResolvedTask],
+    dataset_path: &Path,
+    agent_name: &str,
+    model: &str,
+    provider: &str,
+    n_concurrent: usize,
+    job_name: &str,
+    max_turns: usize,
+    max_tokens: u32,
+    timeout: u64,
+) -> Result<()> {
+    let runner_config = rustycode_bench::NativeRunnerConfig {
+        agent_name: agent_name.to_string(),
+        model: model.to_string(),
+        n_concurrent,
+        job_name: job_name.to_string(),
+        retry_config: rustycode_bench::RetryConfig::default(),
+        per_trial_timeout: timeout,
+    };
+    let runner = rustycode_bench::NativeRunner::new(runner_config);
+
+    let provider_owned = provider.to_string();
+    let agent_factory: rustycode_bench::AgentFactory =
+        Box::new(move |name: &str, mdl: &str, solution_dir: PathBuf| {
+            match name {
+                "oracle" => Ok(Box::new(rustycode_bench::OracleAgent::new(solution_dir))
+                    as Box<dyn rustycode_bench::BenchAgent>),
+                "nop" => {
+                    let _ = solution_dir;
+                    Ok(Box::new(rustycode_bench::NopAgent)
+                        as Box<dyn rustycode_bench::BenchAgent>)
+                }
+                "code" => {
+                    let config = rustycode_bench::CodeAgentConfig {
+                        model: mdl.to_string(),
+                        provider: provider_owned.clone(),
+                        max_turns,
+                        max_tokens,
+                        ..Default::default()
+                    };
+                    match rustycode_bench::CodeAgent::auto(config) {
+                        Ok(agent) => {
+                            let _ = solution_dir;
+                            Ok(Box::new(agent) as Box<dyn rustycode_bench::BenchAgent>)
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to create code agent: {e}");
+                            Ok(Box::new(rustycode_bench::NopAgent)
+                                as Box<dyn rustycode_bench::BenchAgent>)
+                        }
+                    }
+                }
+                other => anyhow::bail!("Unknown agent: '{other}'. Supported: oracle, nop, code"),
+            }
+        });
+
+    let results = runner.run(tasks, dataset_path, agent_factory).await?;
+    println!("\n{}", results.summary());
     Ok(())
 }
 

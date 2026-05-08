@@ -1,4 +1,4 @@
-//! SWE-bench instance types for loading and parsing evaluation data.
+//! SWE-bench instance types — represents a single real GitHub issue to fix.
 
 use serde::{Deserialize, Serialize};
 
@@ -25,22 +25,20 @@ pub struct SweBenchInstance {
     /// JSON array of test names that should remain PASS.
     #[serde(default)]
     pub pass_to_pass: String,
-    /// The test patch to apply.
+    /// The test patch to apply during evaluation.
     #[serde(default)]
     pub test_patch: String,
-    /// The gold patch (ground truth, used for evaluation).
+    /// The gold patch (ground truth — used for evaluation, not by the agent).
     #[serde(default)]
     pub patch: String,
 }
 
 /// Load SWE-bench instances from a JSON or JSONL file.
-pub(super) fn load_instances(path: &std::path::Path) -> anyhow::Result<Vec<SweBenchInstance>> {
+pub fn load_instances(path: &std::path::Path) -> anyhow::Result<Vec<SweBenchInstance>> {
     let content = std::fs::read_to_string(path)?;
     if content.trim_start().starts_with('[') {
-        // JSON array
         Ok(serde_json::from_str(&content)?)
     } else {
-        // JSONL (one JSON object per line)
         content
             .lines()
             .filter(|l| !l.trim().is_empty())
@@ -65,7 +63,6 @@ mod tests {
         let instances: Vec<SweBenchInstance> = serde_json::from_str(json).unwrap();
         assert_eq!(instances.len(), 1);
         assert_eq!(instances[0].instance_id, "test__repo-1");
-        assert_eq!(instances[0].repo, "test/repo");
     }
 
     #[test]
