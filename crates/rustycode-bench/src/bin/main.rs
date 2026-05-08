@@ -16,8 +16,9 @@ use rustycode_bench::{
     dataset::DatasetRegistry,
     history::{format_diff, HistoryStore},
     registry::RegistryDownloader,
-    AgentFactory, BenchmarkResults, DockerRunner, DockerRunnerConfig, NativeRunner,
-    NativeRunnerConfig, ResolvedTask, RetryConfig,
+    swebench::{run_evaluation, run_swebench, EvalConfig, SweBenchConfig},
+    AgentFactory, BenchmarkResults, CodeAgentConfig, DockerRunner, DockerRunnerConfig,
+    NativeRunner, NativeRunnerConfig, ResolvedTask, RetryConfig,
 };
 
 // CLI definition
@@ -135,6 +136,80 @@ enum Commands {
         #[command(subcommand)]
         action: HistoryAction,
     },
+
+    /// Run SWE-bench evaluation (honest, no-tricks)
+    Swebench {
+        /// Path to SWE-bench instances JSON/JSONL file
+        #[arg(long)]
+        instances: PathBuf,
+
+        /// Output path for predictions
+        #[arg(long, default_value = "predictions.json")]
+        output: PathBuf,
+
+        /// Model to use (e.g. claude-sonnet-4-6)
+        #[arg(long, default_value = "claude-sonnet-4-6")]
+        model: String,
+
+        /// LLM provider: anthropic, openai
+        #[arg(long, default_value = "anthropic")]
+        provider: String,
+
+        /// Max tool-use turns per instance
+        #[arg(long, default_value_t = 30)]
+        max_turns: usize,
+
+        /// Max tokens per LLM response
+        #[arg(long, default_value_t = 16_384)]
+        max_tokens: u32,
+
+        /// Timeout per instance in seconds
+        #[arg(long, default_value_t = 600)]
+        timeout: u64,
+
+        /// Specific instance IDs to run (comma-separated)
+        #[arg(long)]
+        instance_ids: Option<String>,
+
+        /// Output format: json or jsonl
+        #[arg(long, default_value = "json")]
+        format: String,
+
+        /// Working directory for cloned repos
+        #[arg(long, default_value = "swebench-work")]
+        work_dir: PathBuf,
+    },
+
+    /// Evaluate SWE-bench predictions (apply patches + run tests)
+    Evaluate {
+        /// Path to predictions JSON/JSONL file
+        #[arg(long)]
+        predictions: PathBuf,
+
+        /// Path to instances JSON/JSONL file
+        #[arg(long)]
+        instances: PathBuf,
+
+        /// Specific instance IDs to evaluate (comma-separated)
+        #[arg(long)]
+        instance_ids: Option<String>,
+
+        /// Per-instance test timeout in seconds
+        #[arg(long, default_value_t = 300)]
+        timeout: u64,
+
+        /// Max `PASS_TO_PASS` tests to run (0 = all)
+        #[arg(long, default_value_t = 50)]
+        max_pass_to_pass: usize,
+
+        /// Working directory containing cloned repos
+        #[arg(long, default_value = "swebench-work")]
+        work_dir: PathBuf,
+
+        /// Output path for evaluation results JSON
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -165,6 +240,7 @@ enum HistoryAction {
 // Entry point
 
 #[tokio::main]
+#[allow(clippy::too_many_lines)]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -264,6 +340,72 @@ async fn main() -> Result<()> {
         }
 
         Commands::History { action } => handle_history(action),
+
+        Commands::Swebench {
+            instances,
+            output,
+            model,
+            provider,
+            max_turns,
+            max_tokens,
+            timeout,
+            instance_ids,
+            format,
+            work_dir,
+        } => {
+            let ids = instance_ids.map(|s| {
+                s.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            });
+            let config = SweBenchConfig {
+                instances_path: instances,
+                output_path: output,
+                format,
+                model_name: model.clone(),
+                instance_ids: ids,
+                work_dir,
+                agent_config: CodeAgentConfig {
+                    model,
+                    provider,
+                    max_turns,
+                    max_tokens,
+                    ..Default::default()
+                },
+                timeout_secs: timeout,
+            };
+            run_swebench(config).await?;
+            Ok(())
+        }
+
+        Commands::Evaluate {
+            predictions,
+            instances,
+            instance_ids,
+            timeout,
+            max_pass_to_pass,
+            work_dir,
+            output,
+        } => {
+            let ids = instance_ids.map(|s| {
+                s.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            });
+            let config = EvalConfig {
+                predictions_path: predictions,
+                instances_path: instances,
+                work_dir,
+                instance_ids: ids,
+                test_timeout_secs: timeout,
+                max_pass_to_pass,
+                output_path: output,
+            };
+            run_evaluation(config).await?;
+            Ok(())
+        }
     }
 }
 

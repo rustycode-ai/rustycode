@@ -174,14 +174,27 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         .current_dir(&clone_dir)
         .status();
 
-    // Build prompt — honest, no tricks
+    // Build file tree for context (saves ~10 turns of exploration)
+    let file_tree = build_file_tree(&clone_dir, 2);
+
+    // Build hints section if available
+    let hints_section = if inst.hints_text.is_empty() {
+        String::new()
+    } else {
+        format!("\n## Hints\n\n{}\n", inst.hints_text)
+    };
+
+    // Build prompt — honest, no tricks, but includes context to reduce exploration turns
     let prompt = format!(
         "Please fix the following issue in this repository.\n\n\
-         ## Issue\n\n{}\n\n\
+         ## Repository Structure\n\n```\n{file_tree}\n```\n\n\
+         ## Issue\n\n{}\n\
+         {hints_section}\
          ## Instructions\n\n\
-         1. Read the codebase to understand the problem.\n\
+         1. Use MULTIPLE tool calls per turn (e.g. read several files at once, or grep + glob together).\n\
          2. Make minimal, targeted changes to fix the issue.\n\
-         3. Do NOT add tests — only fix the source code.",
+         3. Do NOT add tests — only fix the source code.\n\
+         4. Prefer editing over reading — once you understand the bug, fix it immediately.",
         inst.problem_statement
     );
 
@@ -266,6 +279,51 @@ fn truncate(s: &str, max: usize) -> String {
     } else {
         let truncated: String = s.chars().take(max).collect();
         format!("{truncated}...")
+    }
+}
+
+/// Build a compact file tree (top-level + one level of subdirs) for prompt context.
+fn build_file_tree(repo_dir: &Path, max_depth: usize) -> String {
+    let mut lines = Vec::new();
+    build_tree_inner(repo_dir, repo_dir, 0, max_depth, &mut lines);
+    if lines.len() > 80 {
+        lines.truncate(80);
+        lines.push("... (truncated)".to_string());
+    }
+    lines.join("\n")
+}
+
+#[allow(clippy::only_used_in_recursion)]
+fn build_tree_inner(
+    base: &Path,
+    dir: &Path,
+    depth: usize,
+    max_depth: usize,
+    lines: &mut Vec<String>,
+) {
+    if depth > max_depth {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut entries: Vec<_> = entries.filter_map(|e| e.ok()).collect();
+    entries.sort_by_key(|e| e.file_name());
+
+    for entry in entries {
+        let name = entry.file_name().to_string_lossy().to_string();
+        // Skip hidden, __pycache__, node_modules, .git
+        if name.starts_with('.') || name == "__pycache__" || name == "node_modules" {
+            continue;
+        }
+        let indent = "  ".repeat(depth);
+        let path = entry.path();
+        if path.is_dir() {
+            lines.push(format!("{indent}{name}/"));
+            build_tree_inner(base, &path, depth + 1, max_depth, lines);
+        } else {
+            lines.push(format!("{indent}{name}"));
+        }
     }
 }
 

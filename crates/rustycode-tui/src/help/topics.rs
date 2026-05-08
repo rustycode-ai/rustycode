@@ -125,6 +125,12 @@ pub fn all_topics() -> Vec<HelpTopic> {
             key_bindings: vec!["Ctrl+G".to_string()],
         },
         HelpTopic {
+            title: "Task dashboard".to_string(),
+            category: HelpCategory::Tools,
+            content: "Toggle the task dashboard to see all workspace tasks with their statuses and active agents.".to_string(),
+            key_bindings: vec!["Ctrl+T".to_string(), "Esc".to_string()],
+        },
+        HelpTopic {
             title: "Worker panel".to_string(),
             category: HelpCategory::Tools,
             content: "Toggle the worker status panel to see spawned sub-agents and their states (spawning, running, finished, failed). Only toggles when input is empty.".to_string(),

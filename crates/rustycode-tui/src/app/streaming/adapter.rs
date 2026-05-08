@@ -282,6 +282,7 @@ impl AgentEvents for StreamEventAdapter {
                     .remove(&id)
                     .map(|t| t.elapsed_ms())
                     .unwrap_or(0);
+                let is_todo_tool = name == "todo_write" || name == "todo_update";
                 self.emit(StreamChunk::ToolComplete {
                     tool_name: name,
                     tool_id: id,
@@ -290,6 +291,9 @@ impl AgentEvents for StreamEventAdapter {
                     output_size: output.len(),
                     output: Some(output),
                 });
+                if is_todo_tool {
+                    self.emit(StreamChunk::TodoSync);
+                }
             }
             StreamEvent::TokenUsage {
                 input_tokens,

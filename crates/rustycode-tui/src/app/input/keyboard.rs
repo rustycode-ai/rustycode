@@ -769,6 +769,11 @@ impl TUI {
             self.dirty = true;
             return true;
         }
+        if self.show_task_dashboard {
+            self.show_task_dashboard = false;
+            self.dirty = true;
+            return true;
+        }
         if self.session_sidebar.is_visible() {
             self.session_sidebar.hide();
             self.dirty = true;

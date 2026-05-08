@@ -327,6 +327,12 @@ impl TUI {
                     return Ok(());
                 }
 
+                // Handle task dashboard toggle (Ctrl+T)
+                if key.code == KeyCode::Char('t') && key.modifiers == KeyModifiers::CONTROL {
+                    self.handle_task_dashboard_toggle();
+                    return Ok(());
+                }
+
                 // Handle tool panel navigation
                 if self.tool_panel.showing_tool_panel && self.handle_tool_panel_input(key)? {
                     return Ok(());

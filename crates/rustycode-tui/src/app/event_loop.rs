@@ -317,6 +317,9 @@ pub struct TUI {
     // Plan mode for plan-first execution gates
     pub(crate) plan_mode: rustycode_orchestration::plan_mode::PlanMode,
 
+    // Task dashboard overlay (Ctrl+T)
+    pub(crate) show_task_dashboard: bool,
+
     // Cached API key warning (computed once, not per-frame)
     pub(crate) api_key_warning: String,
 }
@@ -717,6 +720,8 @@ impl TUI {
                 plan_mode.set_role(AgentRole::Worker);
                 plan_mode
             },
+            // Task dashboard overlay (Ctrl+T)
+            show_task_dashboard: false,
             // Cached API key warning (computed once)
             api_key_warning: Self::compute_api_key_warning(),
         })
@@ -939,6 +944,8 @@ impl TUI {
                 plan_mode.set_role(AgentRole::Worker);
                 plan_mode
             },
+            // Task dashboard overlay (Ctrl+T)
+            show_task_dashboard: false,
             // Cached API key warning
             api_key_warning: String::new(),
             event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY).1,

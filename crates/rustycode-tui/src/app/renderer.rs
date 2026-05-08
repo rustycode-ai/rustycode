@@ -424,6 +424,22 @@ impl PolishedRenderer {
             frame.render_widget(tui.team_panel.clone(), message_area);
         }
 
+        if tui.show_task_dashboard {
+            use crate::app::task_dashboard::TaskDashboard;
+            let dashboard = TaskDashboard::new(
+                &tui.workspace_tasks.tasks,
+                &tui.workspace_tasks.active_agents,
+            );
+            let text = dashboard.render();
+            if !text.is_empty() {
+                frame.render_widget(Clear, message_area);
+                let paragraph = ratatui::widgets::Paragraph::new(text)
+                    .style(ratatui::style::Style::default().fg(ratatui::style::Color::White))
+                    .wrap(ratatui::widgets::Wrap { trim: false });
+                frame.render_widget(paragraph, message_area);
+            }
+        }
+
         if tui.awaiting_clarification && tui.clarification_panel.visible {
             let panel_height = 15u16.min(size.height.saturating_sub(4));
             let panel_width = (size.width * 3 / 4).min(60);

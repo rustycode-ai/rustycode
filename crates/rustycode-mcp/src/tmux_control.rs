@@ -4,8 +4,9 @@ use crate::types::{McpContent, McpTool, McpToolResult};
 use crate::{McpError, McpResult, McpServer};
 use chrono::Utc;
 use rustycode_connector::{
-    CapturePaneOptions, ConnectorError, ITerm2NativeConnector, It2Connector, SessionInfo,
-    SplitDirection, TerminalConnector, TerminalSessionId, TmuxConnector,
+    CapturePaneOptions, ConnectorError, ITerm2NativeConnector, It2Connector, Key, Region,
+    ScreenshotLayer, ScreenshotOptions, SessionInfo, SplitDirection, TerminalConnector,
+    TerminalSessionId, TmuxBatch, TmuxConnector, TmuxOp, TmuxResult, WindowInfo,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -219,6 +220,108 @@ impl TerminalBackend {
             Self::Iterm2Native(connector) => {
                 connector.wait_for_output(session, pane_index, pattern, timeout_secs)
             }
+        }
+    }
+
+    // -- Tmux-specific methods (return NotAvailable for other backends) --
+
+    fn tmux_type(
+        &mut self,
+        session: &TerminalSessionId,
+        pane_index: usize,
+        text: &str,
+    ) -> Result<(), ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.tmux_type(session, pane_index, text),
+            _ => Err(ConnectorError::NotAvailable(
+                "typed keys require tmux backend".into(),
+            )),
+        }
+    }
+
+    fn tmux_send_keys(
+        &mut self,
+        session: &TerminalSessionId,
+        pane_index: usize,
+        keys: &[Key],
+    ) -> Result<(), ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.tmux_send_keys(session, pane_index, keys),
+            _ => Err(ConnectorError::NotAvailable(
+                "typed keys require tmux backend".into(),
+            )),
+        }
+    }
+
+    fn list_windows(&self, session: &TerminalSessionId) -> Result<Vec<WindowInfo>, ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.list_windows(session),
+            _ => Err(ConnectorError::NotAvailable(
+                "window management requires tmux backend".into(),
+            )),
+        }
+    }
+
+    fn new_window(
+        &mut self,
+        session: &TerminalSessionId,
+        name: Option<&str>,
+    ) -> Result<String, ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.new_window(session, name),
+            _ => Err(ConnectorError::NotAvailable(
+                "window management requires tmux backend".into(),
+            )),
+        }
+    }
+
+    fn kill_window(&self, target: &str) -> Result<(), ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.kill_window(target),
+            _ => Err(ConnectorError::NotAvailable(
+                "window management requires tmux backend".into(),
+            )),
+        }
+    }
+
+    fn rename_window(&self, target: &str, name: &str) -> Result<(), ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.rename_window(target, name),
+            _ => Err(ConnectorError::NotAvailable(
+                "window management requires tmux backend".into(),
+            )),
+        }
+    }
+
+    fn select_window(&self, target: &str) -> Result<(), ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.select_window(target),
+            _ => Err(ConnectorError::NotAvailable(
+                "window management requires tmux backend".into(),
+            )),
+        }
+    }
+
+    fn capture_screenshot(
+        &self,
+        session: &TerminalSessionId,
+        pane_index: usize,
+        options: &ScreenshotOptions,
+    ) -> Result<rustycode_connector::Screenshot, ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.capture_screenshot(session, pane_index, options),
+            _ => Err(ConnectorError::NotAvailable(
+                "screenshots require tmux backend".into(),
+            )),
+        }
+    }
+
+    fn execute_batch(&self, batch: &TmuxBatch) -> Result<Vec<TmuxResult>, ConnectorError> {
+        match self {
+            Self::Tmux(connector) => connector.execute_batch(batch),
+            _ => Err(ConnectorError::NotAvailable(
+                "batch operations require tmux backend".into(),
+            )),
         }
     }
 }
@@ -466,6 +569,161 @@ impl TmuxMcpServer {
                 }),
             ),
             tool(
+                &format!("{namespace}.type_keys"),
+                &format!("Send typed keys or key combinations to a {backend_label} pane (tmux only). Supports control keys like ctrl-c, arrows, etc."),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "pane_index": {"type": "integer"},
+                        "keys": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Array of key strings. Use 'ctrl-c', 'alt-enter', 'Up', 'Enter', or plain text."
+                        },
+                        "auto_enter": {
+                            "type": "boolean",
+                            "description": "If true and keys is a single text string, append Enter automatically."
+                        },
+                    },
+                    "required": ["session_id", "pane_index", "keys"]
+                }),
+            ),
+            tool(
+                &format!("{namespace}.screenshot"),
+                &format!("Take a token-optimized screenshot of a {backend_label} pane (tmux only). Returns layered text + cursor data."),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "pane_index": {"type": "integer"},
+                        "layers": {
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["text", "cursor", "fg_colors", "bg_colors", "styles"]},
+                            "description": "Data layers to include. Default: [\"text\", \"cursor\"]"
+                        },
+                        "region": {
+                            "type": "object",
+                            "properties": {
+                                "left": {"type": "integer"},
+                                "top": {"type": "integer"},
+                                "width": {"type": "integer"},
+                                "height": {"type": "integer"}
+                            },
+                            "description": "Rectangular region to capture (full screen if omitted)."
+                        },
+                        "around_cursor": {
+                            "type": "integer",
+                            "description": "Number of lines around cursor to include (mutually exclusive with region)."
+                        },
+                        "compact": {
+                            "type": "boolean",
+                            "description": "Skip empty lines to reduce token usage."
+                        },
+                    },
+                    "required": ["session_id", "pane_index"]
+                }),
+            ),
+            tool(
+                &format!("{namespace}.list_windows"),
+                &format!("List windows in a {backend_label} session (tmux only)."),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                    },
+                    "required": ["session_id"]
+                }),
+            ),
+            tool(
+                &format!("{namespace}.new_window"),
+                &format!("Create a new window in a {backend_label} session (tmux only)."),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string"},
+                        "name": {"type": "string", "description": "Optional window name."},
+                    },
+                    "required": ["session_id"]
+                }),
+            ),
+            tool(
+                &format!("{namespace}.kill_window"),
+                &format!("Kill a {backend_label} window (tmux only)."),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "target": {"type": "string", "description": "Window target (e.g., 'session_name:window_index')."},
+                    },
+                    "required": ["target"]
+                }),
+            ),
+            tool(
+                &format!("{namespace}.rename_window"),
+                &format!("Rename a {backend_label} window (tmux only)."),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "target": {"type": "string", "description": "Window target."},
+                        "name": {"type": "string"},
+                    },
+                    "required": ["target", "name"]
+                }),
+            ),
+            tool(
+                &format!("{namespace}.select_window"),
+                &format!("Select/activate a {backend_label} window (tmux only)."),
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "target": {"type": "string", "description": "Window target."},
+                    },
+                    "required": ["target"]
+                }),
+            ),
+            tool(
+                &format!("{namespace}.execute_batch"),
+                "Execute a batch of tmux operations atomically (tmux only).",
+                json!({
+                    "type": "object",
+                    "properties": {
+                        "operations": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "kind": {
+                                        "type": "string",
+                                        "enum": [
+                                            "new_session", "kill_session", "split_pane",
+                                            "send_keys", "send_text", "capture_pane",
+                                            "new_window", "kill_pane", "resize_pane",
+                                            "swap_pane", "select_pane", "select_layout",
+                                            "set_pane_title"
+                                        ]
+                                    },
+                                    "target": {"type": "string"},
+                                    "text": {"type": "string"},
+                                    "keys": {"type": "array", "items": {"type": "string"}},
+                                    "direction": {"type": "string", "enum": ["horizontal", "vertical"]},
+                                    "layout": {"type": "string"},
+                                    "title": {"type": "string"},
+                                    "cells": {"type": "integer"},
+                                    "src": {"type": "string"},
+                                    "dst": {"type": "string"},
+                                    "name": {"type": "string"},
+                                    "start_dir": {"type": "string"},
+                                    "start": {"type": "integer"},
+                                    "end": {"type": "integer"},
+                                },
+                                "required": ["kind"]
+                            },
+                        },
+                    },
+                    "required": ["operations"]
+                }),
+            ),
+            tool(
                 "workspace.exec",
                 "Run a command in the workspace root and return captured output.",
                 json!({
@@ -596,6 +854,14 @@ impl TmuxMcpServer {
             }
             "terminal.wait_for_output" | "tmux.wait_for_output" => self.wait_for_output(args),
             "terminal.reap_leases" | "tmux.reap_leases" => self.reap_leases(args),
+            "terminal.type_keys" | "tmux.type_keys" => self.type_keys(args),
+            "terminal.screenshot" | "tmux.screenshot" => self.screenshot(args),
+            "terminal.list_windows" | "tmux.list_windows" => self.list_windows(args),
+            "terminal.new_window" | "tmux.new_window" => self.new_window(args),
+            "terminal.kill_window" | "tmux.kill_window" => self.kill_window(args),
+            "terminal.rename_window" | "tmux.rename_window" => self.rename_window(args),
+            "terminal.select_window" | "tmux.select_window" => self.select_window(args),
+            "terminal.execute_batch" | "tmux.execute_batch" => self.execute_batch(args),
             "workspace.exec" => self.workspace_exec(args),
             "workspace.run_tests" => self.workspace_run_tests(args),
             other => Err(McpError::ToolNotFound(other.to_string())),
@@ -866,6 +1132,185 @@ impl TmuxMcpServer {
         })))
     }
 
+    fn type_keys(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
+        let pane_index = required_usize(&args, "pane_index")?;
+        let keys_raw = args
+            .get("keys")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| McpError::InvalidRequest("'keys' array is required".into()))?;
+        let auto_enter = args
+            .get("auto_enter")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true);
+
+        let keys: Vec<String> = keys_raw
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect();
+
+        if keys.is_empty() {
+            return Err(McpError::InvalidRequest("'keys' must not be empty".into()));
+        }
+
+        if auto_enter && keys.len() == 1 {
+            // Simple path: type text with auto-enter
+            self.with_backend_mut(|backend| backend.tmux_type(&session_id, pane_index, &keys[0]))?;
+        } else {
+            // Precise path: parse each key string into typed Key
+            let parsed: Vec<Key> = keys.iter().map(|k| Key::from_llm(k)).collect();
+            self.with_backend_mut(|backend| {
+                backend.tmux_send_keys(&session_id, pane_index, &parsed)
+            })?;
+        }
+
+        self.touch_session(&session_id.0)?;
+        Ok(ok_result(json!({
+            "session_id": session_id.0,
+            "pane_index": pane_index,
+            "sent": true,
+        })))
+    }
+
+    fn screenshot(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
+        let pane_index = required_usize(&args, "pane_index")?;
+        let layers = args.get("layers").and_then(|v| v.as_array()).map_or_else(
+            || vec![ScreenshotLayer::Text, ScreenshotLayer::Cursor],
+            |arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().and_then(parse_screenshot_layer))
+                    .collect::<Vec<_>>()
+            },
+        );
+        let region = args.get("region").and_then(|v| {
+            Some(Region {
+                left: v.get("left")?.as_u64()? as usize,
+                top: v.get("top")?.as_u64()? as usize,
+                width: v.get("width")?.as_u64()? as usize,
+                height: v.get("height")?.as_u64()? as usize,
+            })
+        });
+        let around_cursor = args
+            .get("around_cursor")
+            .and_then(serde_json::Value::as_u64)
+            .map(|n| n as usize);
+        let compact = args
+            .get("compact")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+
+        let options = ScreenshotOptions {
+            layers,
+            region,
+            around_cursor,
+            compact,
+        };
+
+        let screenshot = self.with_backend_ref(|backend| {
+            backend.capture_screenshot(&session_id, pane_index, &options)
+        })?;
+        self.touch_session(&session_id.0)?;
+
+        Ok(ok_result(json!({
+            "session_id": session_id.0,
+            "pane_index": pane_index,
+            "dimensions": [screenshot.dimensions.0, screenshot.dimensions.1],
+            "cursor": screenshot.cursor.map(|(r, c)| json!([r, c])),
+            "compact_output": screenshot.to_compact(),
+        })))
+    }
+
+    fn list_windows(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
+        let windows = self.with_backend_ref(|backend| backend.list_windows(&session_id))?;
+        self.touch_session(&session_id.0)?;
+        Ok(ok_result(json!({
+            "session_id": session_id.0,
+            "windows": windows.into_iter().map(|w| json!({
+                "id": w.id,
+                "index": w.index,
+                "name": w.name,
+                "is_active": w.is_active,
+                "pane_count": w.pane_count,
+            })).collect::<Vec<_>>(),
+        })))
+    }
+
+    fn new_window(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let session_id = TerminalSessionId(required_str(&args, "session_id")?.to_string());
+        let name = args.get("name").and_then(serde_json::Value::as_str);
+        let window_id = self.with_backend_mut(|backend| backend.new_window(&session_id, name))?;
+        self.touch_session(&session_id.0)?;
+        Ok(ok_result(json!({
+            "session_id": session_id.0,
+            "window_id": window_id,
+        })))
+    }
+
+    fn kill_window(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let target = required_str(&args, "target")?;
+        self.with_backend_ref(|backend| backend.kill_window(target))?;
+        Ok(ok_result(json!({
+            "target": target,
+            "killed": true,
+        })))
+    }
+
+    fn rename_window(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let target = required_str(&args, "target")?;
+        let name = required_str(&args, "name")?;
+        self.with_backend_ref(|backend| backend.rename_window(target, name))?;
+        Ok(ok_result(json!({
+            "target": target,
+            "renamed_to": name,
+        })))
+    }
+
+    fn select_window(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let target = required_str(&args, "target")?;
+        self.with_backend_ref(|backend| backend.select_window(target))?;
+        Ok(ok_result(json!({
+            "target": target,
+            "selected": true,
+        })))
+    }
+
+    fn execute_batch(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
+        let ops_raw = args
+            .get("operations")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| McpError::InvalidRequest("'operations' array is required".into()))?;
+
+        let mut batch = TmuxBatch::new();
+        for op_val in ops_raw {
+            let op = parse_batch_op(op_val)?;
+            batch.push(op);
+        }
+
+        if batch.is_empty() {
+            return Err(McpError::InvalidRequest(
+                "'operations' must not be empty".into(),
+            ));
+        }
+
+        let results = self.with_backend_ref(|backend| backend.execute_batch(&batch))?;
+        let results_json: Vec<serde_json::Value> = results
+            .into_iter()
+            .map(|r| {
+                json!({
+                    "success": r.success,
+                    "output": r.output,
+                    "error": r.error,
+                })
+            })
+            .collect();
+
+        Ok(ok_result(json!({
+            "results": results_json,
+        })))
+    }
+
     fn workspace_exec(&self, args: serde_json::Value) -> McpResult<McpToolResult> {
         let command = required_str(&args, "command")?;
         let timeout_secs = args
@@ -1132,6 +1577,155 @@ fn snapshot_state(
     }))
 }
 
+fn parse_screenshot_layer(s: &str) -> Option<ScreenshotLayer> {
+    match s {
+        "text" => Some(ScreenshotLayer::Text),
+        "cursor" => Some(ScreenshotLayer::Cursor),
+        "fg_colors" => Some(ScreenshotLayer::FgColors),
+        "bg_colors" => Some(ScreenshotLayer::BgColors),
+        "styles" => Some(ScreenshotLayer::Styles),
+        "bold" => Some(ScreenshotLayer::Bold),
+        "italic" => Some(ScreenshotLayer::Italic),
+        "underline" => Some(ScreenshotLayer::Underline),
+        _ => None,
+    }
+}
+
+fn parse_batch_op(val: &serde_json::Value) -> McpResult<TmuxOp> {
+    let kind = val
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| McpError::InvalidRequest("each operation needs a 'kind'".into()))?;
+    let target = val.get("target").and_then(serde_json::Value::as_str);
+    let str_field = |v: &serde_json::Value, field: &str| {
+        v.get(field)
+            .and_then(serde_json::Value::as_str)
+            .map(String::from)
+    };
+
+    match kind {
+        "new_session" => Ok(TmuxOp::NewSession {
+            name: target.unwrap_or("session").to_string(),
+            start_dir: str_field(val, "start_dir"),
+        }),
+        "kill_session" => Ok(TmuxOp::KillSession {
+            target: target
+                .ok_or_else(|| McpError::InvalidRequest("kill_session needs 'target'".into()))?
+                .to_string(),
+        }),
+        "split_pane" => {
+            let direction = match val
+                .get("direction")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("horizontal")
+            {
+                "vertical" => SplitDirection::Vertical,
+                _ => SplitDirection::Horizontal,
+            };
+            Ok(TmuxOp::SplitPane {
+                target: target
+                    .ok_or_else(|| McpError::InvalidRequest("split_pane needs 'target'".into()))?
+                    .to_string(),
+                direction,
+                start_dir: str_field(val, "start_dir"),
+            })
+        }
+        "send_keys" => {
+            let keys: Vec<Key> = val
+                .get("keys")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(Key::from_llm))
+                        .collect()
+                })
+                .unwrap_or_default();
+            Ok(TmuxOp::SendKeys {
+                target: target
+                    .ok_or_else(|| McpError::InvalidRequest("send_keys needs 'target'".into()))?
+                    .to_string(),
+                keys,
+            })
+        }
+        "send_text" => Ok(TmuxOp::SendText {
+            target: target
+                .ok_or_else(|| McpError::InvalidRequest("send_text needs 'target'".into()))?
+                .to_string(),
+            text: str_field(val, "text").unwrap_or_default(),
+        }),
+        "capture_pane" => Ok(TmuxOp::CapturePane {
+            target: target
+                .ok_or_else(|| McpError::InvalidRequest("capture_pane needs 'target'".into()))?
+                .to_string(),
+            start: val.get("start").and_then(serde_json::Value::as_i64),
+            end: val.get("end").and_then(serde_json::Value::as_i64),
+        }),
+        "new_window" => Ok(TmuxOp::NewWindow {
+            session: target
+                .ok_or_else(|| {
+                    McpError::InvalidRequest("new_window needs 'target' (session)".into())
+                })?
+                .to_string(),
+            name: str_field(val, "name"),
+        }),
+        "kill_pane" => Ok(TmuxOp::KillPane {
+            target: target
+                .ok_or_else(|| McpError::InvalidRequest("kill_pane needs 'target'".into()))?
+                .to_string(),
+        }),
+        "resize_pane" => {
+            let direction = match val
+                .get("direction")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("up")
+            {
+                "down" => rustycode_connector::ResizeDirection::Down,
+                "left" => rustycode_connector::ResizeDirection::Left,
+                "right" => rustycode_connector::ResizeDirection::Right,
+                _ => rustycode_connector::ResizeDirection::Up,
+            };
+            Ok(TmuxOp::ResizePane {
+                target: target
+                    .ok_or_else(|| McpError::InvalidRequest("resize_pane needs 'target'".into()))?
+                    .to_string(),
+                direction,
+                cells: val
+                    .get("cells")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(5) as usize,
+            })
+        }
+        "swap_pane" => Ok(TmuxOp::SwapPane {
+            src: target
+                .ok_or_else(|| McpError::InvalidRequest("swap_pane needs 'target' (src)".into()))?
+                .to_string(),
+            dst: str_field(val, "dst")
+                .ok_or_else(|| McpError::InvalidRequest("swap_pane needs 'dst'".into()))?,
+        }),
+        "select_pane" => Ok(TmuxOp::SelectPane {
+            target: target
+                .ok_or_else(|| McpError::InvalidRequest("select_pane needs 'target'".into()))?
+                .to_string(),
+        }),
+        "select_layout" => Ok(TmuxOp::SelectLayout {
+            target: target
+                .ok_or_else(|| McpError::InvalidRequest("select_layout needs 'target'".into()))?
+                .to_string(),
+            layout: str_field(val, "layout").unwrap_or_else(|| "even-horizontal".into()),
+        }),
+        "set_pane_title" => Ok(TmuxOp::SetPaneTitle {
+            target: target
+                .ok_or_else(|| McpError::InvalidRequest("set_pane_title needs 'target'".into()))?
+                .to_string(),
+            title: str_field(val, "title")
+                .ok_or_else(|| McpError::InvalidRequest("set_pane_title needs 'title'".into()))?,
+        }),
+        other => Err(McpError::InvalidRequest(format!(
+            "unknown operation kind '{other}'"
+        ))),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1200,5 +1794,182 @@ mod tests {
 
         let it2_server = TmuxMcpServer::with_backend_kind(config, TerminalBackendKind::It2);
         assert_eq!(it2_server.backend_kind(), TerminalBackendKind::It2);
+    }
+
+    // -- New tool tests --
+
+    #[test]
+    fn test_tool_definitions_include_new_tools() {
+        let tools = TmuxMcpServer::tool_definitions();
+        let names: Vec<_> = tools.iter().map(|t| t.name.as_str()).collect();
+        assert!(names.contains(&"terminal.type_keys"));
+        assert!(names.contains(&"terminal.screenshot"));
+        assert!(names.contains(&"terminal.list_windows"));
+        assert!(names.contains(&"terminal.new_window"));
+        assert!(names.contains(&"terminal.kill_window"));
+        assert!(names.contains(&"terminal.rename_window"));
+        assert!(names.contains(&"terminal.select_window"));
+        assert!(names.contains(&"terminal.execute_batch"));
+
+        let legacy = TmuxMcpServer::legacy_tool_definitions();
+        let legacy_names: Vec<_> = legacy.iter().map(|t| t.name.as_str()).collect();
+        assert!(legacy_names.contains(&"tmux.type_keys"));
+        assert!(legacy_names.contains(&"tmux.screenshot"));
+        assert!(legacy_names.contains(&"tmux.list_windows"));
+        assert!(legacy_names.contains(&"tmux.execute_batch"));
+    }
+
+    #[test]
+    fn test_parse_screenshot_layer_all_valid() {
+        assert_eq!(parse_screenshot_layer("text"), Some(ScreenshotLayer::Text));
+        assert_eq!(
+            parse_screenshot_layer("cursor"),
+            Some(ScreenshotLayer::Cursor)
+        );
+        assert_eq!(
+            parse_screenshot_layer("fg_colors"),
+            Some(ScreenshotLayer::FgColors)
+        );
+        assert_eq!(
+            parse_screenshot_layer("bg_colors"),
+            Some(ScreenshotLayer::BgColors)
+        );
+        assert_eq!(
+            parse_screenshot_layer("styles"),
+            Some(ScreenshotLayer::Styles)
+        );
+        assert_eq!(parse_screenshot_layer("bold"), Some(ScreenshotLayer::Bold));
+        assert_eq!(
+            parse_screenshot_layer("italic"),
+            Some(ScreenshotLayer::Italic)
+        );
+        assert_eq!(
+            parse_screenshot_layer("underline"),
+            Some(ScreenshotLayer::Underline)
+        );
+    }
+
+    #[test]
+    fn test_parse_screenshot_layer_unknown_returns_none() {
+        assert_eq!(parse_screenshot_layer("unknown"), None);
+        assert_eq!(parse_screenshot_layer(""), None);
+    }
+
+    #[test]
+    fn test_parse_batch_op_new_session() {
+        let op = parse_batch_op(&json!({"kind": "new_session", "target": "my-session"})).unwrap();
+        if let TmuxOp::NewSession { name, start_dir } = op {
+            assert_eq!(name, "my-session");
+            assert!(start_dir.is_none());
+        } else {
+            panic!("expected NewSession");
+        }
+    }
+
+    #[test]
+    fn test_parse_batch_op_send_keys_parses_ctrl() {
+        let op = parse_batch_op(&json!({
+            "kind": "send_keys",
+            "target": "sess:0.0",
+            "keys": ["ctrl-c", "Enter"]
+        }))
+        .unwrap();
+        if let TmuxOp::SendKeys { target, keys } = op {
+            assert_eq!(target, "sess:0.0");
+            assert_eq!(keys.len(), 2);
+        } else {
+            panic!("expected SendKeys");
+        }
+    }
+
+    #[test]
+    fn test_parse_batch_op_resize_pane_defaults() {
+        let op = parse_batch_op(&json!({"kind": "resize_pane", "target": "sess:0.0"})).unwrap();
+        if let TmuxOp::ResizePane {
+            target,
+            direction,
+            cells,
+        } = op
+        {
+            assert_eq!(target, "sess:0.0");
+            assert_eq!(cells, 5);
+            assert!(matches!(
+                direction,
+                rustycode_connector::ResizeDirection::Up
+            ));
+        } else {
+            panic!("expected ResizePane");
+        }
+    }
+
+    #[test]
+    fn test_parse_batch_op_unknown_kind_errors() {
+        let result = parse_batch_op(&json!({"kind": "nonexistent"}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_batch_op_missing_target_errors() {
+        let result = parse_batch_op(&json!({"kind": "kill_session"}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_batch_op_swap_pane_needs_dst() {
+        let result = parse_batch_op(&json!({"kind": "swap_pane", "target": "a"}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_batch_op_split_pane_vertical() {
+        let op = parse_batch_op(&json!({
+            "kind": "split_pane",
+            "target": "sess:0",
+            "direction": "vertical"
+        }))
+        .unwrap();
+        if let TmuxOp::SplitPane { direction, .. } = op {
+            assert_eq!(direction, SplitDirection::Vertical);
+        } else {
+            panic!("expected SplitPane");
+        }
+    }
+
+    #[test]
+    fn test_type_keys_requires_keys_array() {
+        let server = TmuxMcpServer::new(TmuxMcpConfig::default());
+        let result = server.dispatch(
+            "terminal.type_keys",
+            json!({"session_id": "s1", "pane_index": 0}),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_execute_batch_empty_ops_errors() {
+        let server = TmuxMcpServer::new(TmuxMcpConfig::default());
+        let result = server.dispatch("terminal.execute_batch", json!({"operations": []}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_execute_batch_missing_ops_errors() {
+        let server = TmuxMcpServer::new(TmuxMcpConfig::default());
+        let result = server.dispatch("terminal.execute_batch", json!({}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_kill_window_requires_target() {
+        let server = TmuxMcpServer::new(TmuxMcpConfig::default());
+        let result = server.dispatch("terminal.kill_window", json!({}));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_rename_window_requires_both_fields() {
+        let server = TmuxMcpServer::new(TmuxMcpConfig::default());
+        let result = server.dispatch("terminal.rename_window", json!({"target": "s:0"}));
+        assert!(result.is_err());
     }
 }

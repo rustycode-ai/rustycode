@@ -547,6 +547,13 @@ impl TUI {
         }
     }
 
+    pub(crate) fn handle_task_dashboard_toggle(&mut self) {
+        if self.show_task_dashboard || !self.is_any_overlay_open() {
+            self.show_task_dashboard = !self.show_task_dashboard;
+            self.dirty = true;
+        }
+    }
+
     /// Handle theme preview input
     pub(crate) fn handle_theme_preview_input(&mut self, key: KeyEvent) -> bool {
         if self.theme_preview.is_visible() {

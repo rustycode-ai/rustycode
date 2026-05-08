@@ -235,6 +235,442 @@ pub use iterm2_native::ITerm2NativeConnector;
 pub use tmux::CapturePaneOptions;
 pub use tmux::TmuxConnector;
 
+// ---------------------------------------------------------------------------
+// Typed Key Model
+// ---------------------------------------------------------------------------
+
+/// Key modifier (Ctrl or Alt/Option).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Modifier {
+    Ctrl,
+    Alt,
+}
+
+/// Terminal key codes recognized by tmux send-keys.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum KeyCode {
+    Enter,
+    Escape,
+    Tab,
+    Backspace,
+    Delete,
+    Up,
+    Down,
+    Left,
+    Right,
+    Home,
+    End,
+    PageUp,
+    PageDown,
+    Space,
+    F(u8),
+    Char(char),
+}
+
+/// A single key or key combination that can be sent to a terminal pane.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum Key {
+    /// Literal text to type character-by-character (tmux `-l` flag).
+    Text(String),
+    /// A single key press (Enter, Tab, Arrow, etc.).
+    Key(KeyCode),
+    /// Modified key press (Ctrl+C, Alt+Enter, etc.).
+    Mod(Modifier, KeyCode),
+    /// Raw tmux key name escape hatch for anything not covered above.
+    Raw(String),
+}
+
+impl Key {
+    /// Normalize an LLM-provided string into a typed key.
+    ///
+    /// Handles common variations:
+    /// - `"ctrl-c"` / `"Ctrl+C"` / `"C-c"` → `Mod(Ctrl, Char('c'))`
+    /// - `"enter"` / `"Enter"` / `"return"` → `Key(Enter)`
+    /// - `"up"` / `"Up"` / `"arrow-up"` → `Key(Up)`
+    /// - Unknown strings fall through to `Raw(s)`
+    pub fn from_llm(s: &str) -> Self {
+        let trimmed = s.trim();
+
+        // Handle modifier+key patterns: "ctrl-c", "C-c", "Ctrl+C", "alt-enter", "M-Enter"
+        if let Some(key) = Self::parse_modifier_key(trimmed) {
+            return key;
+        }
+
+        // Handle bare key names
+        if let Some(key) = Self::parse_bare_key(trimmed) {
+            return key;
+        }
+
+        // Fallback: pass through as raw tmux key name
+        Self::Raw(trimmed.to_string())
+    }
+
+    /// Convert this key into tmux send-keys arguments.
+    pub fn to_tmux_args(&self) -> Vec<String> {
+        match self {
+            Self::Text(s) => vec!["-l".to_string(), s.clone()],
+            Self::Key(kc) => vec![key_code_to_tmux_name(*kc)],
+            Self::Mod(modifier, kc) => {
+                let prefix = match modifier {
+                    Modifier::Ctrl => "C-",
+                    Modifier::Alt => "M-",
+                };
+                let name = key_code_to_tmux_name(*kc);
+                vec![format!("{prefix}{name}")]
+            }
+            Self::Raw(s) => vec![s.clone()],
+        }
+    }
+
+    fn parse_modifier_key(s: &str) -> Option<Self> {
+        let lower = s.to_ascii_lowercase();
+
+        // "ctrl-c", "ctrl+c", "c-c" patterns
+        for (prefix, modifier) in [("ctrl-", Modifier::Ctrl), ("ctrl+", Modifier::Ctrl)] {
+            if let Some(rest) = lower.strip_prefix(prefix) {
+                if let Some(kc) = parse_key_name(rest) {
+                    return Some(Self::Mod(modifier, kc));
+                }
+            }
+        }
+
+        // "alt-", "alt+", "m-" patterns
+        for (prefix, modifier) in [
+            ("alt-", Modifier::Alt),
+            ("alt+", Modifier::Alt),
+            ("m-", Modifier::Alt),
+        ] {
+            if let Some(rest) = lower.strip_prefix(prefix) {
+                if let Some(kc) = parse_key_name(rest) {
+                    return Some(Self::Mod(modifier, kc));
+                }
+            }
+        }
+
+        // "C-c" single-char modifier (Ctrl+letter)
+        if let Some(rest) = lower.strip_prefix("c-") {
+            if rest.len() == 1 {
+                if let Some(c) = rest.chars().next() {
+                    if c.is_ascii_lowercase() {
+                        return Some(Self::Mod(Modifier::Ctrl, KeyCode::Char(c)));
+                    }
+                }
+            }
+            // Also handle "C-enter", "C-up" etc.
+            if let Some(kc) = parse_key_name(rest) {
+                return Some(Self::Mod(Modifier::Ctrl, kc));
+            }
+        }
+
+        None
+    }
+
+    fn parse_bare_key(s: &str) -> Option<Self> {
+        parse_key_name(s).map(Self::Key)
+    }
+}
+
+/// Parse a key name string into a KeyCode.
+fn parse_key_name(s: &str) -> Option<KeyCode> {
+    let lower = s.to_ascii_lowercase();
+    match lower.as_str() {
+        "enter" | "return" | "ret" => Some(KeyCode::Enter),
+        "escape" | "esc" => Some(KeyCode::Escape),
+        "tab" => Some(KeyCode::Tab),
+        "backspace" | "bs" | "bspace" => Some(KeyCode::Backspace),
+        "delete" | "del" => Some(KeyCode::Delete),
+        "up" | "arrow-up" => Some(KeyCode::Up),
+        "down" | "arrow-down" => Some(KeyCode::Down),
+        "left" | "arrow-left" => Some(KeyCode::Left),
+        "right" | "arrow-right" => Some(KeyCode::Right),
+        "home" => Some(KeyCode::Home),
+        "end" => Some(KeyCode::End),
+        "pageup" | "page-up" | "pgup" => Some(KeyCode::PageUp),
+        "pagedown" | "page-down" | "pgdn" => Some(KeyCode::PageDown),
+        "space" => Some(KeyCode::Space),
+        _ => {
+            // Function keys: f1-f12
+            if let Some(num_str) = lower.strip_prefix('f') {
+                if let Ok(n) = num_str.parse::<u8>() {
+                    if (1..=12).contains(&n) {
+                        return Some(KeyCode::F(n));
+                    }
+                }
+            }
+            // Single character
+            let mut chars = s.chars();
+            match (chars.next(), chars.next()) {
+                (Some(c), None) if !c.is_control() => Some(KeyCode::Char(c)),
+                _ => None,
+            }
+        }
+    }
+}
+
+/// Convert a KeyCode to its tmux key name.
+fn key_code_to_tmux_name(kc: KeyCode) -> String {
+    match kc {
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Escape => "Escape".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        KeyCode::Backspace => "BSpace".to_string(),
+        KeyCode::Delete => "Delete".to_string(),
+        KeyCode::Up => "Up".to_string(),
+        KeyCode::Down => "Down".to_string(),
+        KeyCode::Left => "Left".to_string(),
+        KeyCode::Right => "Right".to_string(),
+        KeyCode::Home => "Home".to_string(),
+        KeyCode::End => "End".to_string(),
+        KeyCode::PageUp => "PageUp".to_string(),
+        KeyCode::PageDown => "PageDown".to_string(),
+        KeyCode::Space => "Space".to_string(),
+        KeyCode::F(n) => format!("F{n}"),
+        KeyCode::Char(c) => c.to_string(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Control Mode Notifications
+// ---------------------------------------------------------------------------
+
+/// A notification received from tmux control mode.
+#[derive(Debug, Clone)]
+pub enum TmuxNotification {
+    /// Pane output was received.
+    Output { pane_id: String, data: String },
+    /// The active session changed.
+    SessionChanged { session_id: String },
+    /// A layout change occurred.
+    LayoutChange { session_id: String },
+    /// An unrecognized notification line.
+    Unknown(String),
+}
+
+// ---------------------------------------------------------------------------
+// Batch Operations
+// ---------------------------------------------------------------------------
+
+/// Direction for resizing a pane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResizeDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+/// A single tmux operation for batch execution.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum TmuxOp {
+    NewSession {
+        name: String,
+        start_dir: Option<String>,
+    },
+    KillSession {
+        target: String,
+    },
+    SplitPane {
+        target: String,
+        direction: SplitDirection,
+        start_dir: Option<String>,
+    },
+    SendKeys {
+        target: String,
+        keys: Vec<Key>,
+    },
+    SendText {
+        target: String,
+        text: String,
+    },
+    CapturePane {
+        target: String,
+        start: Option<i64>,
+        end: Option<i64>,
+    },
+    NewWindow {
+        session: String,
+        name: Option<String>,
+    },
+    KillPane {
+        target: String,
+    },
+    ResizePane {
+        target: String,
+        direction: ResizeDirection,
+        cells: usize,
+    },
+    SwapPane {
+        src: String,
+        dst: String,
+    },
+    SelectPane {
+        target: String,
+    },
+    SelectLayout {
+        target: String,
+        layout: String,
+    },
+    SetPaneTitle {
+        target: String,
+        title: String,
+    },
+}
+
+/// Result of a single tmux operation within a batch.
+#[derive(Debug, Clone)]
+pub struct TmuxResult {
+    /// Whether the operation succeeded.
+    pub success: bool,
+    /// Captured stdout (for CapturePane operations).
+    pub output: Option<String>,
+    /// Error message if the operation failed.
+    pub error: Option<String>,
+}
+
+/// A batch of tmux operations to execute together.
+#[derive(Debug, Clone, Default)]
+pub struct TmuxBatch {
+    ops: Vec<TmuxOp>,
+}
+
+impl TmuxBatch {
+    pub fn new() -> Self {
+        Self { ops: Vec::new() }
+    }
+
+    pub fn push(&mut self, op: TmuxOp) -> &mut Self {
+        self.ops.push(op);
+        self
+    }
+
+    pub fn len(&self) -> usize {
+        self.ops.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ops.is_empty()
+    }
+
+    pub fn ops(&self) -> &[TmuxOp] {
+        &self.ops
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Window Management
+// ---------------------------------------------------------------------------
+
+/// Information about a tmux window.
+#[derive(Debug, Clone)]
+pub struct WindowInfo {
+    /// Window ID (e.g., "@0").
+    pub id: String,
+    /// Window index within the session.
+    pub index: usize,
+    /// Window name.
+    pub name: String,
+    /// Whether this is the active window.
+    pub is_active: bool,
+    /// Number of panes in the window.
+    pub pane_count: usize,
+}
+
+// ---------------------------------------------------------------------------
+// Screenshot
+// ---------------------------------------------------------------------------
+
+/// Data layers available in a terminal screenshot.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ScreenshotLayer {
+    /// Visible text content.
+    Text,
+    /// Cursor position (row, col).
+    Cursor,
+    /// Foreground color indices per cell.
+    FgColors,
+    /// Background color indices per cell.
+    BgColors,
+    /// Combined style flags per cell (bold, italic, etc.).
+    Styles,
+    /// Bold style only.
+    Bold,
+    /// Italic style only.
+    Italic,
+    /// Underline style only.
+    Underline,
+}
+
+/// A rectangular region of the terminal screen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Region {
+    /// Left column (0-based).
+    pub left: usize,
+    /// Top row (0-based).
+    pub top: usize,
+    /// Width in columns.
+    pub width: usize,
+    /// Height in rows.
+    pub height: usize,
+}
+
+/// Options for capturing a token-optimized screenshot.
+#[derive(Debug, Clone)]
+pub struct ScreenshotOptions {
+    /// Which data layers to include.
+    pub layers: Vec<ScreenshotLayer>,
+    /// Optional rectangular region (full screen if None).
+    pub region: Option<Region>,
+    /// Number of lines around the cursor to include (mutually exclusive with region).
+    pub around_cursor: Option<usize>,
+    /// Skip empty lines to reduce token usage.
+    pub compact: bool,
+}
+
+impl Default for ScreenshotOptions {
+    fn default() -> Self {
+        Self {
+            layers: vec![ScreenshotLayer::Text, ScreenshotLayer::Cursor],
+            region: None,
+            around_cursor: None,
+            compact: false,
+        }
+    }
+}
+
+/// A token-optimized terminal screenshot with layered data.
+#[derive(Debug, Clone)]
+pub struct Screenshot {
+    /// Visible text lines.
+    pub text: Vec<String>,
+    /// Cursor position (row, col) if detected.
+    pub cursor: Option<(usize, usize)>,
+    /// Terminal dimensions (rows, cols).
+    pub dimensions: (usize, usize),
+}
+
+impl Screenshot {
+    /// Render the screenshot as a compact string for LLM consumption.
+    pub fn to_compact(&self) -> String {
+        let mut out = String::new();
+        let (rows, _cols) = self.dimensions;
+        out.push_str(&format!("Terminal: {} rows\n", rows));
+
+        if let Some((row, col)) = self.cursor {
+            out.push_str(&format!("Cursor: row={}, col={}\n", row, col));
+        }
+
+        out.push('\n');
+        for (i, line) in self.text.iter().enumerate() {
+            out.push_str(line);
+            if i < self.text.len() - 1 {
+                out.push('\n');
+            }
+        }
+        out
+    }
+}
+
 /// Result type for connector operations
 pub type ConnectorResult<T> = Result<T, ConnectorError>;
 

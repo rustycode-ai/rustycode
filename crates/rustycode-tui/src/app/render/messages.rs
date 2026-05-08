@@ -462,7 +462,7 @@ impl PolishedRenderer {
                 // spaced_lines already include the space prefix, so their .width()
                 // is the true content width. Content area = area.width - 1 (border).
                 let content_width = area.width.saturating_sub(1).max(1) as usize;
-                let wrapped_height: u16 = spaced_lines
+                let char_wrapped_height: u16 = spaced_lines
                     .iter()
                     .map(|l| {
                         if l.width() == 0 {
@@ -472,6 +472,10 @@ impl PolishedRenderer {
                         }
                     })
                     .fold(0u16, |acc, rows| acc.saturating_add(rows));
+                // +2 buffer: div_ceil assumes char wrapping but ratatui uses word wrapping,
+                // which can produce extra rows. The buffer ensures the Clear widget covers
+                // all rendered rows, preventing stale content from previous frames.
+                let wrapped_height = char_wrapped_height.saturating_add(2);
                 let render_height = remaining.min(wrapped_height);
 
                 // Create the full message area (border column + content)

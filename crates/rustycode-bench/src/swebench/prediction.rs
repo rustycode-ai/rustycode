@@ -9,6 +9,20 @@ pub struct SweBenchPrediction {
     pub model_patch: String,
 }
 
+/// Load predictions from a JSON or JSONL file.
+pub fn load_predictions(path: &std::path::Path) -> anyhow::Result<Vec<SweBenchPrediction>> {
+    let content = std::fs::read_to_string(path)?;
+    if content.trim_start().starts_with('[') {
+        Ok(serde_json::from_str(&content)?)
+    } else {
+        content
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .map(|line| serde_json::from_str(line).map_err(|e| anyhow::anyhow!(e)))
+            .collect()
+    }
+}
+
 /// Save predictions in the standard SWE-bench format (JSON array or JSONL).
 pub fn save_predictions(
     predictions: &[SweBenchPrediction],

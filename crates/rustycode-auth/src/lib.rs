@@ -7,14 +7,24 @@
 //! - `GitHub` (Copilot)
 //! - Custom OAuth providers
 
+pub mod browser;
+pub mod callback_server;
 pub mod error;
 pub mod github_copilot;
+pub mod login;
 pub mod oauth;
+pub mod providers;
 pub mod token_store;
 
+pub use browser::{is_headless, open_url};
+pub use callback_server::{CallbackResult, CallbackServer};
 pub use error::{AuthError, AuthResult};
 pub use github_copilot::{CopilotAuthResult, DeviceCodeResponse, GitHubCopilotAuth};
+pub use login::{login, LoginMethod, LoginResult};
 pub use oauth::{AuthMethod, OAuthClient, OAuthConfig};
+pub use providers::{
+    env_api_key, find_provider, ProviderAuthConfig, ProviderAuthMethod, PROVIDERS,
+};
 pub use token_store::{StoredToken, TokenStore};
 
 use secrecy::ExposeSecret;
