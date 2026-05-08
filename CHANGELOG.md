@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1] - 2026-05-08
+
+### Features
+
+- Add git-cliff changelog generation and release notes script
+
+### Bug Fixes
+
+- **auth**: Redact tokens from Debug output, add CSRF state to OAuth flow
+- **bench**: Add sandbox path traversal protection for native runner
+- **storage**: Propagate checkpoint path errors instead of ignoring
+- **tools**: Log cleanup/delete failures instead of silently ignoring them
+- **tui**: Improve keyboard handling, overlay guards, and input formatting
+- **orchestration**: Remove dead code from AST classifier, handlers, and recovery modules
+- **team**: Use tool registry instead of bare ToolExecutor
+
 ## [0.1.0] - 2026-05-07
 
 Initial release of RustyCode — an AI-powered autonomous development framework built in Rust.
