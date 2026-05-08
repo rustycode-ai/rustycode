@@ -12,7 +12,7 @@
 
 use rustycode_protocol::team::*;
 use rustycode_protocol::ConvoyPlan; // Added
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::warn;
 
 /// The team coordinator. Manages the execution loop.
@@ -371,7 +371,7 @@ impl Coordinator {
     }
 
     /// Get the project root.
-    pub fn project_root(&self) -> &PathBuf {
+    pub fn project_root(&self) -> &Path {
         &self.project_root
     }
 

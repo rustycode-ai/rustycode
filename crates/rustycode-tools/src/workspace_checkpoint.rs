@@ -413,7 +413,10 @@ impl CheckpointManager {
                         // Delete from store
                         if let Some(ref store) = self.store {
                             if let Err(e) = store.delete_checkpoint(&cp.id.0) {
-                                tracing::warn!("failed to delete evicted checkpoint {}: {e}", cp.id.0);
+                                tracing::warn!(
+                                    "failed to delete evicted checkpoint {}: {e}",
+                                    cp.id.0
+                                );
                             }
                         }
                     }

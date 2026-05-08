@@ -49,7 +49,7 @@ pub fn inspect(cwd: &Path) -> Result<GitStatus> {
 
 /// Find the root of the git repository containing `path`.
 pub(crate) fn find_repository_root(path: &Path) -> Result<PathBuf> {
-    let root_str = git_output(path, &["rev-parse", "--show-toplevel"])
-        .context("Not in a git repository")?;
+    let root_str =
+        git_output(path, &["rev-parse", "--show-toplevel"]).context("Not in a git repository")?;
     Ok(PathBuf::from(root_str.trim()))
 }

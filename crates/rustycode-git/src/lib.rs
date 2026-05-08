@@ -81,12 +81,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 // Re-exports from sub-modules
-pub use conflict::{
-    Conflict, ConflictDetector, ConflictReport, ConflictSeverity, ConflictType,
-};
-pub use hooks::{
-    GitHook, GitHookContext, GitHookResult, GitHookType, HookContext, HookResult,
-};
+pub use conflict::{Conflict, ConflictDetector, ConflictReport, ConflictSeverity, ConflictType};
+pub use hooks::{GitHook, GitHookContext, GitHookResult, GitHookType, HookContext, HookResult};
 pub use status::FileStatus;
 pub use util::{inspect, GitStatus};
 
@@ -462,7 +458,11 @@ impl GitClient {
     }
 
     /// Execute hooks of a specific type
-    pub(crate) fn execute_hooks(&self, hook_type: GitHookType, context: &HookContext) -> Result<()> {
+    pub(crate) fn execute_hooks(
+        &self,
+        hook_type: GitHookType,
+        context: &HookContext,
+    ) -> Result<()> {
         let hooks = self
             .hooks
             .read()

@@ -288,7 +288,6 @@ pub struct AgentNegotiator {
 
     /// Active negotiation sessions
     sessions: HashMap<String, NegotiationSession>,
-
 }
 
 impl AgentNegotiator {
