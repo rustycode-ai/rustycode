@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2026-05-08
+
+### Features
+
+- **bench**: Add SWE-bench runner module and expand orchestration support
+
+### Bug Fixes
+
+- **team**: Use default_registry in test helper to match production constructors
+- **connector**: Improve iTerm2 integration and tmux error handling
+- Improve error handling in storage crate
+- Error handling and cleanup across runtime, team, tools, and git
+
+### Refactor
+
+- **runtime**: Remove dead code from orchestrator and negotiation modules
+- **tools**: Remove dead semantic search code, fix watcher warnings
+- Move SWE-bench from orchestration to bench crate
+- Clean up LLM provider implementations
+- Remove dead code from orchestration modules
+- Remove swebench CLI command, clean up bench and memory commands
+
+### Chores
+
+- Update CLAUDE.md, lock file, and agent intelligence module
+- Add temp files to .gitignore
+- Update docs, config, and minor TUI/core cleanup
+
 ## [0.1.1] - 2026-05-08
 
 ### Features
