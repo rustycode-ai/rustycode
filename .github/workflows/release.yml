@@ -4,13 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Git ref to build (tag or branch)'
+        description: "Git ref to build (tag or branch)"
         required: true
-        default: 'main'
+        default: "main"
       release_type:
-        description: 'nightly or stable'
+        description: "nightly or stable"
         type: choice
-        options: [nightly, stable]
+        options:
+          - nightly
+          - stable
         default: stable
 
 env:
@@ -26,23 +28,23 @@ jobs:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             artifact_name: rustycode-linux-x64
-            exe_ext: ''
+            exe_ext: ""
           - os: ubuntu-24.04
             target: aarch64-unknown-linux-gnu
             artifact_name: rustycode-linux-arm64
-            exe_ext: ''
+            exe_ext: ""
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             artifact_name: rustycode-windows-x64
-            exe_ext: '.exe'
+            exe_ext: ".exe"
           - os: macos-14
             target: aarch64-apple-darwin
             artifact_name: rustycode-macos-arm64
-            exe_ext: ''
+            exe_ext: ""
           - os: macos-14
             target: x86_64-apple-darwin
             artifact_name: rustycode-macos-x64
-            exe_ext: ''
+            exe_ext: ""
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -71,8 +73,7 @@ jobs:
 
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
-        run: |
-          brew install protobuf openssl
+        run: brew install protobuf openssl
 
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
@@ -81,9 +82,9 @@ jobs:
           choco install strawberryperl nasm --yes
           Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip -OutFile protoc.zip
           Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
-          echo "C:\protocin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
-          echo "C:\Strawberry\perlin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
-          echo "PERL=C:\Strawberry\perlin\perl.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          echo "C:\protoc\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          echo "C:\Strawberry\perl\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          echo "PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Configure Linux ARM64 cross-compilation
         if: matrix.target == 'aarch64-unknown-linux-gnu'
