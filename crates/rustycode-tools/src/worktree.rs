@@ -1,8 +1,7 @@
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
 use anyhow::{anyhow, Result};
-use rustycode_runtime::git_worktree::{
-    clear_session_original_cwd, in_worktree_session, set_session_original_cwd, WorktreeManager,
-    WorktreeType,
+use rustycode_tools_api::{
+    clear_session_original_cwd, in_worktree_session, session_original_cwd, set_session_original_cwd,
 };
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -13,7 +12,45 @@ pub struct WorktreeDeleteTool;
 pub struct EnterWorktreeTool;
 pub struct ExitWorktreeTool;
 
-// --- Existing tools ---
+// --- Helpers ---
+
+/// Get the git root directory for the given CWD.
+fn git_root(cwd: &PathBuf) -> Result<PathBuf> {
+    let output = std::process::Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| anyhow!("Failed to find git root: {}", e))?;
+    if !output.status.success() {
+        return Err(anyhow!("Not inside a git repository"));
+    }
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(PathBuf::from(path))
+}
+
+/// Parse `git worktree list --porcelain` into a list of (path, branch) tuples.
+fn parse_worktree_list(output: &str) -> Vec<(PathBuf, Option<String>)> {
+    let mut worktrees = Vec::new();
+    let mut current_path: Option<PathBuf> = None;
+    for line in output.lines() {
+        if let Some(path) = line.strip_prefix("worktree ") {
+            current_path = Some(PathBuf::from(path));
+        } else if let Some(branch) = line.strip_prefix("branch refs/heads/") {
+            if let Some(path) = current_path.take() {
+                worktrees.push((path, Some(branch.to_string())));
+            }
+        } else if line.is_empty() {
+            current_path = None;
+        }
+    }
+    // Handle last entry without trailing blank line
+    if let Some(path) = current_path.take() {
+        worktrees.push((path, None));
+    }
+    worktrees
+}
+
+// --- CRUD tools ---
 
 impl Tool for WorktreeCreateTool {
     fn name(&self) -> &str {
@@ -30,39 +67,37 @@ impl Tool for WorktreeCreateTool {
             "type": "object",
             "properties": {
                 "name": { "type": "string" },
-                "branch": { "type": "string" },
-                "type": { "type": "string", "enum": ["session", "feature", "bugfix", "experiment"] }
+                "branch": { "type": "string" }
             },
-            "required": ["name", "branch", "type"]
+            "required": ["name", "branch"]
         })
     }
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let name = params["name"].as_str().ok_or(anyhow!("Missing name"))?;
         let branch = params["branch"].as_str().ok_or(anyhow!("Missing branch"))?;
-        let wt_type = match params["type"].as_str().unwrap_or("feature") {
-            "session" => WorktreeType::Session,
-            "feature" => WorktreeType::Feature,
-            "bugfix" => WorktreeType::Bugfix,
-            "experiment" => WorktreeType::Experiment,
-            _ => WorktreeType::Feature,
-        };
 
-        let manager = WorktreeManager::new(ctx.cwd.clone(), Default::default())
-            .map_err(|e| anyhow!("WorktreeManager init failed: {}", e))?;
+        let root = git_root(&ctx.cwd)?;
+        let wt_path = root.join(".worktrees").join(name);
 
-        let wt = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(manager.create_worktree(
-                name.to_string(),
-                branch.to_string(),
-                wt_type,
-            ))
-        })
-        .map_err(|e| anyhow!("Failed to create worktree: {}", e))?;
+        let output = std::process::Command::new("git")
+            .args(["worktree", "add", "--detach"])
+            .arg(&wt_path)
+            .arg("-b")
+            .arg(branch)
+            .arg("HEAD")
+            .current_dir(&ctx.cwd)
+            .output()
+            .map_err(|e| anyhow!("Failed to create worktree: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("Failed to create worktree: {}", stderr.trim()));
+        }
 
         Ok(ToolOutput::text(format!(
             "Worktree '{}' created at {}",
             name,
-            wt.path.display()
+            wt_path.display()
         )))
     }
 }
@@ -81,12 +116,27 @@ impl Tool for WorktreeListTool {
         json!({})
     }
     fn execute(&self, _params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let manager = WorktreeManager::new(ctx.cwd.clone(), Default::default())
-            .map_err(|e| anyhow!("WorktreeManager init failed: {}", e))?;
+        let output = std::process::Command::new("git")
+            .args(["worktree", "list", "--porcelain"])
+            .current_dir(&ctx.cwd)
+            .output()
+            .map_err(|e| anyhow!("Failed to list worktrees: {}", e))?;
 
-        let worktrees = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(manager.list_worktrees())
-        });
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("Failed to list worktrees: {}", stderr.trim()));
+        }
+
+        let list = String::from_utf8_lossy(&output.stdout);
+        let worktrees: Vec<Value> = parse_worktree_list(&list)
+            .into_iter()
+            .map(|(path, branch)| {
+                json!({
+                    "path": path.display().to_string(),
+                    "branch": branch
+                })
+            })
+            .collect();
 
         Ok(ToolOutput::with_structured(
             format!("Found {} worktrees", worktrees.len()),
@@ -114,13 +164,20 @@ impl Tool for WorktreeDeleteTool {
     }
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let name = params["name"].as_str().ok_or(anyhow!("Missing name"))?;
-        let manager = WorktreeManager::new(ctx.cwd.clone(), Default::default())
-            .map_err(|e| anyhow!("WorktreeManager init failed: {}", e))?;
+        let root = git_root(&ctx.cwd)?;
+        let wt_path = root.join(".worktrees").join(name);
 
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(manager.remove_worktree(name))
-        })
-        .map_err(|e| anyhow!("Failed to remove worktree: {}", e))?;
+        let output = std::process::Command::new("git")
+            .args(["worktree", "remove"])
+            .arg(&wt_path)
+            .current_dir(&ctx.cwd)
+            .output()
+            .map_err(|e| anyhow!("Failed to remove worktree: {}", e))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("Failed to remove worktree: {}", stderr.trim()));
+        }
 
         Ok(ToolOutput::text(format!("Worktree '{}' removed.", name)))
     }
@@ -184,9 +241,9 @@ The session CWD changes to the worktree path. Use `worktree_exit` to return."#
             let canonical = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
             let mut found = false;
             for line in list.lines() {
-                if line.starts_with("worktree ") {
-                    let wt_path = PathBuf::from(line.strip_prefix("worktree ").unwrap());
-                    if wt_path == canonical || wt_path == path {
+                if let Some(wt_path) = line.strip_prefix("worktree ") {
+                    let wt = PathBuf::from(wt_path);
+                    if wt == canonical || wt == path {
                         found = true;
                         break;
                     }
@@ -211,27 +268,30 @@ The session CWD changes to the worktree path. Use `worktree_exit` to return."#
                 .map(String::from)
                 .unwrap_or_else(|| format!("wt-{}", &uuid::Uuid::new_v4().to_string()[..8]));
 
-            let branch = name.clone();
-            let manager = WorktreeManager::new(original_cwd.clone(), Default::default())
-                .map_err(|e| anyhow!("WorktreeManager init failed: {}", e))?;
+            let root = git_root(&original_cwd)?;
+            let wt_path = root.join(".worktrees").join(&name);
 
-            let wt = tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(manager.create_worktree(
-                    name.clone(),
-                    branch,
-                    WorktreeType::Session,
-                ))
-            })
-            .map_err(|e| anyhow!("Failed to create worktree: {}", e))?;
+            let output = std::process::Command::new("git")
+                .args(["worktree", "add", "-b", &name])
+                .arg(&wt_path)
+                .arg("HEAD")
+                .current_dir(&original_cwd)
+                .output()
+                .map_err(|e| anyhow!("Failed to create worktree: {}", e))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(anyhow!("Failed to create worktree: {}", stderr.trim()));
+            }
 
             set_session_original_cwd(original_cwd);
             Ok(ToolOutput::with_cwd_change(
                 format!(
                     "Created and entered worktree '{}' at {}",
-                    wt.name,
-                    wt.path.display()
+                    name,
+                    wt_path.display()
                 ),
-                wt.path,
+                wt_path,
             ))
         }
     }
@@ -273,7 +333,7 @@ The `action` parameter controls cleanup:
         })
     }
     fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let original_cwd = rustycode_runtime::git_worktree::session_original_cwd()
+        let original_cwd = session_original_cwd()
             .ok_or_else(|| anyhow!("Not in a worktree session. Use worktree_enter first."))?;
 
         let action = params["action"]
@@ -300,20 +360,27 @@ The `action` parameter controls cleanup:
                 ));
             }
 
-            // Find worktree name from path for removal
-            let worktree_name = ctx
-                .cwd
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
+            // Remove worktree via git command
+            let force_flag = if has_changes && discard {
+                vec!["--force"]
+            } else {
+                vec![]
+            };
 
-            let manager = WorktreeManager::new(original_cwd.clone(), Default::default())
-                .map_err(|e| anyhow!("WorktreeManager init failed: {}", e))?;
+            let mut args = vec!["worktree", "remove"];
+            args.extend(force_flag);
+            args.push(ctx.cwd.to_str().unwrap_or("."));
 
-            tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(manager.remove_worktree(&worktree_name))
-            })
-            .map_err(|e| anyhow!("Failed to remove worktree: {}", e))?;
+            let output = std::process::Command::new("git")
+                .args(&args)
+                .current_dir(&original_cwd)
+                .output()
+                .map_err(|e| anyhow!("Failed to remove worktree: {}", e))?;
+
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                return Err(anyhow!("Failed to remove worktree: {}", stderr.trim()));
+            }
         }
 
         clear_session_original_cwd();
@@ -335,17 +402,18 @@ The `action` parameter controls cleanup:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Serialize tests that touch global session state
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn enter_rejects_if_already_in_session() {
-        // Set up session state
+        let _lock = TEST_LOCK.lock().unwrap();
         set_session_original_cwd(PathBuf::from("/tmp/test-project"));
 
         let tool = EnterWorktreeTool;
-        let ctx = ToolContext {
-            cwd: PathBuf::from("/tmp/test-project"),
-            ..Default::default()
-        };
+        let ctx = ToolContext::new("/tmp/test-project");
         let result = tool.execute(json!({}), &ctx);
         assert!(result.is_err());
         assert!(result
@@ -353,20 +421,16 @@ mod tests {
             .to_string()
             .contains("Already in a worktree session"));
 
-        // Clean up
         clear_session_original_cwd();
     }
 
     #[test]
     fn exit_rejects_if_not_in_session() {
-        // Ensure no session state
+        let _lock = TEST_LOCK.lock().unwrap();
         clear_session_original_cwd();
 
         let tool = ExitWorktreeTool;
-        let ctx = ToolContext {
-            cwd: PathBuf::from("/tmp/test-project"),
-            ..Default::default()
-        };
+        let ctx = ToolContext::new("/tmp/test-project");
         let result = tool.execute(json!({"action": "keep"}), &ctx);
         assert!(result.is_err());
         assert!(result
@@ -377,15 +441,34 @@ mod tests {
 
     #[test]
     fn enter_rejects_nonexistent_path() {
+        let _lock = TEST_LOCK.lock().unwrap();
         clear_session_original_cwd();
 
         let tool = EnterWorktreeTool;
-        let ctx = ToolContext {
-            cwd: PathBuf::from("/tmp"),
-            ..Default::default()
-        };
+        let ctx = ToolContext::new("/tmp");
         let result = tool.execute(json!({"path": "/nonexistent/worktree/path"}), &ctx);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("does not exist"));
+    }
+
+    #[test]
+    fn parse_worktree_list_handles_standard_format() {
+        let input = "worktree /home/user/project\nbranch refs/heads/main\n\nworktree /home/user/project/.worktrees/feature\nbranch refs/heads/feature\n";
+        let result = parse_worktree_list(input);
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].0, PathBuf::from("/home/user/project"));
+        assert_eq!(result[0].1, Some("main".to_string()));
+        assert_eq!(
+            result[1].0,
+            PathBuf::from("/home/user/project/.worktrees/feature")
+        );
+        assert_eq!(result[1].1, Some("feature".to_string()));
+    }
+
+    #[test]
+    fn parse_worktree_list_handles_bare_worktree() {
+        let input = "worktree /home/user/project\nbranch refs/heads/main\n";
+        let result = parse_worktree_list(input);
+        assert_eq!(result.len(), 1);
     }
 }

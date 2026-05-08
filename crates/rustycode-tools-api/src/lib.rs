@@ -91,6 +91,7 @@ pub mod search_strategy;
 pub mod tiers;
 pub mod tool_selection;
 pub mod tool_selector;
+pub mod worktree_session;
 
 pub use edit_format::*;
 pub use file_read_state::*;
@@ -98,6 +99,7 @@ pub use search_strategy::*;
 pub use tiers::*;
 pub use tool_selection::*;
 pub use tool_selector::*;
+pub use worktree_session::*;
 
 /// A single recorded tool invocation for audit purposes.
 #[derive(Debug, Clone, serde::Serialize)]

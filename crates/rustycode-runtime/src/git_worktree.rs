@@ -26,45 +26,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
-// --- Session-scoped worktree state (shared across crates) ---
+// --- Session-scoped worktree state (re-exported from tools-api) ---
 
-/// Original project root before entering a worktree via `worktree_enter`.
-static SESSION_ORIGINAL_CWD: OnceLock<Mutex<Option<PathBuf>>> = OnceLock::new();
-
-/// Get the session's original CWD (before entering worktree).
-/// Returns `None` if not in a worktree session.
-pub fn session_original_cwd() -> Option<PathBuf> {
-    SESSION_ORIGINAL_CWD.get().and_then(|m| {
-        m.lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone()
-    })
-}
-
-/// Store the original CWD when entering a worktree session.
-pub fn set_session_original_cwd(path: PathBuf) {
-    let lock = SESSION_ORIGINAL_CWD.get_or_init(|| Mutex::new(None));
-    *lock
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(path);
-}
-
-/// Clear the session worktree state (when exiting worktree).
-pub fn clear_session_original_cwd() {
-    if let Some(lock) = SESSION_ORIGINAL_CWD.get() {
-        *lock
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
-    }
-}
-
-/// Check if currently in a worktree session (entered via `worktree_enter`).
-pub fn in_worktree_session() -> bool {
-    session_original_cwd().is_some()
-}
+pub use rustycode_tools_api::{
+    clear_session_original_cwd, in_worktree_session, session_original_cwd, set_session_original_cwd,
+};
 
 /// Worktree information
 #[derive(Debug, Clone, Serialize, Deserialize)]

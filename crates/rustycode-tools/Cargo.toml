@@ -74,10 +74,12 @@ default = ["sandbox", "llm-cost-tracking"]
 sandbox = []
 vector-memory = ["dep:rustycode-vector-memory"]
 llm-cost-tracking = []
+worktree = []
 
 [dev-dependencies]
 tempfile.workspace = true
 rustycode-session = { path = "../rustycode-session" }
+rustycode-runtime = { path = "../rustycode-runtime" }
 
 
 # Note: sandbox_benchmarks and sandbox_performance will be added when implemented

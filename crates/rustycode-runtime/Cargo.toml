@@ -32,6 +32,7 @@ rustycode-prompt = { path = "../rustycode-prompt" }
 rustycode-llm = { path = "../rustycode-llm" }
 rustycode-team = { path = "../rustycode-team" }
 rand.workspace = true
+rustycode-tools-api = { path = "../rustycode-tools-api" }
 shell-words.workspace = true
 
 [[example]]

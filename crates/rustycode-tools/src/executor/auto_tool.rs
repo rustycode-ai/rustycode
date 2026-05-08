@@ -138,6 +138,11 @@ impl AutoToolContext {
         // Execute via registry
         let result = self.registry.execute(call, &self.tool_context);
 
+        // Propagate CWD change from tools like worktree_enter/worktree_exit
+        if let Some(ref new_cwd) = result.new_cwd {
+            self.tool_context.cwd = new_cwd.clone();
+        }
+
         // Decrement depth
         self.current_depth -= 1;
 

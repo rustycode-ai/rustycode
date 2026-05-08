@@ -210,9 +210,6 @@ pub mod code_review;
 // Re-export Checkpoint trait so `crate::Checkpoint` resolves.
 pub use checkpoint::Checkpoint;
 
-// worktree module depends on rustycode_runtime which is not a dependency of this crate.
-// Gate behind an always-false cfg to avoid compilation errors.
-#[cfg(any())]
 pub mod worktree;
 
 // -- Missing items expected by provider files --

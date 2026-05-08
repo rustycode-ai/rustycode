@@ -140,6 +140,8 @@ pub enum ToolCatalog {
     WorktreeCreate(WorktreeCreateInput),
     WorktreeList,
     WorktreeDelete(WorktreeDeleteInput),
+    WorktreeEnter(WorktreeEnterInput),
+    WorktreeExit(WorktreeExitInput),
 
     // User communication
     Brief(BriefInput),
@@ -626,6 +628,23 @@ pub struct WorktreeDeleteInput {
     pub name: String,
 }
 
+/// Input for entering/creating a worktree session
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorktreeEnterInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+}
+
+/// Input for exiting a worktree session
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct WorktreeExitInput {
+    pub action: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub discard_changes: Option<bool>,
+}
+
 /// Input for brief (user message)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BriefInput {
@@ -860,6 +879,14 @@ impl ToolCatalog {
             Self::HttpPost(_) => "HTTP POST request",
             Self::HttpPut(_) => "HTTP PUT request",
             Self::HttpDelete(_) => "HTTP DELETE request",
+
+            // Worktree session
+            Self::WorktreeEnter(_) => {
+                "Create or enter a git worktree and switch session working directory"
+            }
+            Self::WorktreeExit(_) => {
+                "Exit current worktree session and restore original working directory"
+            }
             _ => "General tool",
         }
     }
@@ -947,6 +974,8 @@ impl ToolCatalog {
             | Self::DatabaseTransaction(_)
             | Self::WorktreeCreate(_)
             | Self::WorktreeDelete(_)
+            | Self::WorktreeEnter(_)
+            | Self::WorktreeExit(_)
             | Self::TaskStop(_)
             | Self::CronDelete(_)
             | Self::REPL(_) => ToolPermission::Execute,
@@ -1034,6 +1063,8 @@ impl ToolCatalog {
             Self::WorktreeCreate(_) => "worktree_create",
             Self::WorktreeList => "worktree_list",
             Self::WorktreeDelete(_) => "worktree_delete",
+            Self::WorktreeEnter(_) => "worktree_enter",
+            Self::WorktreeExit(_) => "worktree_exit",
             Self::Brief(_) => "brief",
             Self::SendMessage(_) => "send_message",
             Self::TaskOutput(_) => "task_output",
@@ -1163,6 +1194,8 @@ impl ToolCatalog {
             "worktree_create",
             "worktree_list",
             "worktree_delete",
+            "worktree_enter",
+            "worktree_exit",
             "brief",
             "send_message",
             "task_output",
