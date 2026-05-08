@@ -4,43 +4,25 @@
 //! by providing a read-only view of the current todo state.
 
 use crate::todo::{get_or_create_todo_state, TodoStatus};
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use schemars::JsonSchema;
-use serde_json::Value;
+use serde::Deserialize;
 
-#[derive(serde::Deserialize, JsonSchema)]
+#[derive(Deserialize, JsonSchema)]
 pub struct TodoReadParams {}
 
-// Zero-sized tool struct
-#[derive(Debug, Clone, Copy)]
-pub struct TodoReadTool;
+rustycode_tools_api::define_tool! {
+    pub struct TodoReadTool;
 
-impl Tool for TodoReadTool {
-    fn name(&self) -> &'static str {
-        "todo_read"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Read the current todo list.
+    name: "todo_read",
+    description: r#"Read the current todo list.
 
 Returns the full list of uncompleted and completed tasks. Use this tool
 to understand what tasks are pending, or to verify if a task was successfully
-marked as completed."#
-    }
+marked as completed."#,
+    permission: ToolPermission::Read,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {},
-            "required": []
-        })
-    }
-
-    fn execute(&self, _params: Value, ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
+    execute(_params: TodoReadParams, ctx) {
         // Retrieve state from global store, keyed by session_id
         let session_id = ctx.session_id.as_deref().unwrap_or("default-session");
         let state = get_or_create_todo_state(session_id);
@@ -95,6 +77,7 @@ marked as completed."#
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
 
     #[test]
     fn test_todo_read_empty() {

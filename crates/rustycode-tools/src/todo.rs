@@ -1,10 +1,9 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
-use anyhow::Result;
+use crate::{ToolOutput, ToolPermission};
 use dashmap::DashMap;
-use once_cell::sync::Lazy;
 use rustycode_bus::{EventBus, TodoSnapshot, TodoUpdatedEvent};
 use rustycode_storage::Storage;
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde::Deserialize;
 use std::sync::{Arc, Mutex};
 
 // ============================================================================
@@ -12,7 +11,8 @@ use std::sync::{Arc, Mutex};
 // ============================================================================
 
 /// Global todo state storage, keyed by session ID
-static GLOBAL_TODO_STATES: Lazy<DashMap<String, TodoState>> = Lazy::new(DashMap::new);
+static GLOBAL_TODO_STATES: std::sync::LazyLock<DashMap<String, TodoState>> =
+    std::sync::LazyLock::new(DashMap::new);
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -53,6 +53,7 @@ pub fn get_or_create_todo_state(session_id: &str) -> TodoState {
 // Helper functions
 // ============================================================================
 
+#[allow(dead_code)]
 const fn to_storage_status(status: TodoStatus) -> rustycode_storage::task_store::TodoStatus {
     match status {
         TodoStatus::Pending => rustycode_storage::task_store::TodoStatus::Pending,
@@ -61,6 +62,7 @@ const fn to_storage_status(status: TodoStatus) -> rustycode_storage::task_store:
     }
 }
 
+#[allow(dead_code)]
 fn persist_todos(storage: &Storage, state: &[TodoItem], session_id: &str, project_id: &str) {
     let storage_todos: Vec<rustycode_storage::task_store::TodoItem> = state
         .iter()
@@ -83,6 +85,7 @@ fn persist_todos(storage: &Storage, state: &[TodoItem], session_id: &str, projec
     }
 }
 
+#[allow(dead_code)]
 fn publish_todo_event(
     bus: Option<&Arc<EventBus>>,
     session_id: Option<&str>,
@@ -118,19 +121,53 @@ fn format_status(status: TodoStatus) -> String {
 }
 
 // ============================================================================
-// TodoWriteTool — zero-sized struct
+// Params structs
 // ============================================================================
 
-#[derive(Debug, Clone, Copy)]
-pub struct TodoWriteTool;
+/// A single todo item input
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct TodoItemInput {
+    /// Unique identifier for this todo
+    pub id: String,
+    /// Task description
+    pub title: String,
+    /// Current status: pending, in_progress, or completed
+    pub status: String,
+    /// Present continuous form for spinner
+    #[serde(rename = "activeForm")]
+    pub active_form: Option<String>,
+}
 
-impl Tool for TodoWriteTool {
-    fn name(&self) -> &'static str {
-        "todo_write"
-    }
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TodoWriteParams {
+    /// Title for this todo list
+    pub title: String,
+    /// Array of todo items
+    pub todos: Vec<TodoItemInput>,
+}
 
-    fn description(&self) -> &'static str {
-        r#"Use this tool to create and manage a structured task list for your current coding session. \
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TodoUpdateParams {
+    /// Todo item identifier
+    pub id: String,
+    /// New status: pending, in_progress, or completed
+    pub status: Option<String>,
+    /// Updated task description
+    pub title: Option<String>,
+    /// Updated present continuous form for spinner
+    #[serde(rename = "activeForm")]
+    pub active_form: Option<String>,
+}
+
+// ============================================================================
+// TodoWriteTool
+// ============================================================================
+
+rustycode_tools_api::define_tool! {
+    pub struct TodoWriteTool;
+
+    name: "todo_write",
+    description: r#"Use this tool to create and manage a structured task list for your current coding session. \
 This helps you track progress on complex, multi-step tasks and demonstrate thoroughness to the user. \
 It also helps the user understand the progress of the task and overall progress of their requests.
 
@@ -152,7 +189,7 @@ Skip using this tool when:
 ## Task Management Rules
 - Keep only ONE task in_progress at a time — complete the current task before starting the next
 - Mark tasks in_progress BEFORE beginning work, and completed immediately when FULLY done
-- Only mark a task completed when you have FULLY accomplished it — not when it's partially done
+- Only mark a task completed when you have FULLY accomplished it — not when it is partially done
 - If tests are failing, the implementation is partial, or you encountered unresolved errors, keep it in_progress
 - After completing your current task, check the list to find the next available task
 - Prefer working on tasks in ID order (lowest ID first) when multiple tasks are available
@@ -160,86 +197,26 @@ Skip using this tool when:
 ## activeForm
 The activeForm field is a present continuous form of the task title, used to display \
 a spinner or progress indicator. For example, if the title is "Fix build errors", \
-the activeForm would be "Fixing build errors"."#
-    }
+the activeForm would be "Fixing build errors"."#,
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "title": {
-                    "type": "string",
-                    "description": "Title for this todo list"
-                },
-                "todos": {
-                    "type": "array",
-                    "description": "Array of todo items",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string",
-                                "description": "Unique identifier for this todo"
-                            },
-                            "title": {
-                                "type": "string",
-                                "description": "Task description"
-                            },
-                            "status": {
-                                "type": "string",
-                                "enum": ["pending", "in_progress", "completed"],
-                                "description": "Current status"
-                            },
-                            "activeForm": {
-                                "type": "string",
-                                "description": "Present continuous form for spinner (e.g., 'Fixing build errors')"
-                            }
-                        },
-                        "required": ["id", "title", "status"]
-                    }
-                }
-            },
-            "required": ["title", "todos"]
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let title = params["title"]
-            .as_str()
-            .ok_or(anyhow::anyhow!("Missing title"))?;
-        let todos_input = params["todos"]
-            .as_array()
-            .ok_or(anyhow::anyhow!("Missing todos"))?;
+    execute(params: TodoWriteParams, ctx) {
+        let title = &params.title;
 
         let mut todos = Vec::new();
-        for item in todos_input {
-            let id = item["id"].as_str().ok_or(anyhow::anyhow!("Missing id"))?;
-            let item_title = item["title"]
-                .as_str()
-                .ok_or(anyhow::anyhow!("Missing title"))?;
-            let status_str = item["status"]
-                .as_str()
-                .ok_or(anyhow::anyhow!("Missing status"))?;
-
-            let status = match status_str {
+        for item in &params.todos {
+            let status = match item.status.as_str() {
                 "pending" => TodoStatus::Pending,
                 "in_progress" => TodoStatus::InProgress,
                 "completed" => TodoStatus::Completed,
-                _ => return Err(anyhow::anyhow!("Invalid status: {status_str}")),
+                _ => return Err(anyhow::anyhow!("Invalid status: {}", item.status)),
             };
 
             todos.push(TodoItem {
-                id: id.to_string(),
-                title: item_title.to_string(),
+                id: item.id.clone(),
+                title: item.title.clone(),
                 status,
-                active_form: item
-                    .get("activeForm")
-                    .and_then(|v| v.as_str())
-                    .map(String::from),
+                active_form: item.active_form.clone(),
             });
         }
 
@@ -284,19 +261,14 @@ the activeForm would be "Fixing build errors"."#
 }
 
 // ============================================================================
-// TodoUpdateTool — zero-sized struct
+// TodoUpdateTool
 // ============================================================================
 
-#[derive(Debug, Clone, Copy)]
-pub struct TodoUpdateTool;
+rustycode_tools_api::define_tool! {
+    pub struct TodoUpdateTool;
 
-impl Tool for TodoUpdateTool {
-    fn name(&self) -> &'static str {
-        "todo_update"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Update a single todo item's status, title, or activeForm.
+    name: "todo_update",
+    description: r#"Update a single todo item's status, title, or activeForm.
 
 Use this to mark tasks in_progress before starting work, and completed when fully done. \
 Only mark a task completed when you have FULLY accomplished it. If tests are failing, \
@@ -306,45 +278,15 @@ Parameters:
 - id (string, required): Todo item identifier
 - status (string, optional): New status: pending, in_progress, or completed
 - title (string, optional): Updated task description
-- activeForm (string, optional): Updated present continuous form for spinner"#
-    }
+- activeForm (string, optional): Updated present continuous form for spinner"#,
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Todo item identifier"
-                },
-                "status": {
-                    "type": "string",
-                    "enum": ["pending", "in_progress", "completed"],
-                    "description": "New status"
-                },
-                "title": {
-                    "type": "string",
-                    "description": "Updated task description"
-                },
-                "activeForm": {
-                    "type": "string",
-                    "description": "Updated present continuous form for spinner"
-                }
-            },
-            "required": ["id"]
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let id = params["id"].as_str().ok_or(anyhow::anyhow!("Missing id"))?;
+    execute(params: TodoUpdateParams, ctx) {
+        let id = &params.id;
 
         let new_status = params
-            .get("status")
-            .and_then(|v| v.as_str())
+            .status
+            .as_deref()
             .map(|s| match s {
                 "pending" => Ok(TodoStatus::Pending),
                 "in_progress" => Ok(TodoStatus::InProgress),
@@ -353,14 +295,8 @@ Parameters:
             })
             .transpose()?;
 
-        let new_title = params
-            .get("title")
-            .and_then(|v| v.as_str())
-            .map(String::from);
-        let new_active_form = params
-            .get("activeForm")
-            .and_then(|v| v.as_str())
-            .map(String::from);
+        let new_title = params.title.clone();
+        let new_active_form = params.active_form.clone();
 
         if new_status.is_none() && new_title.is_none() && new_active_form.is_none() {
             return Err(anyhow::anyhow!(
@@ -377,7 +313,7 @@ Parameters:
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         let item = state_guard
             .iter_mut()
-            .find(|t| t.id == id)
+            .find(|t| t.id == *id)
             .ok_or_else(|| anyhow::anyhow!("Todo item not found: {id}"))?;
 
         let mut changes = Vec::new();
@@ -408,6 +344,8 @@ Parameters:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
+    use serde_json::json;
 
     #[test]
     fn test_todo_write() {

@@ -13,9 +13,10 @@
 //! - Support workspace projects
 //! - Show test execution time
 
-use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{Checkpoint, ToolOutput, ToolPermission};
 use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::path::PathBuf;
 use std::process::Command;
 use std::time::Instant;
@@ -71,6 +72,65 @@ pub struct TestConfig {
     pub threads: Option<usize>,
     /// Whether to run in release mode
     pub release_mode: bool,
+}
+
+// PARAMS STRUCTS
+
+/// Parameters for `RunTestsTool`
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct RunTestsParams {
+    /// Specific package to test (default: all)
+    pub package: Option<String>,
+    /// Test name filter (e.g., 'test::*')
+    pub filter: Option<String>,
+    /// Include ignored tests
+    #[serde(default)]
+    pub include_ignored: bool,
+    /// Show test output
+    #[serde(default)]
+    pub show_output: bool,
+    /// Number of test threads (default: auto)
+    pub threads: Option<usize>,
+    /// Run in release mode
+    #[serde(default)]
+    pub release_mode: bool,
+}
+
+/// Parameters for `RunTestTool`
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct RunTestParams {
+    /// Exact name of the test to run
+    pub test_name: String,
+    /// Package containing the test
+    pub package: Option<String>,
+    /// Show full test output
+    #[serde(default = "default_true")]
+    pub show_output: bool,
+    /// Run in release mode
+    #[serde(default)]
+    pub release_mode: bool,
+}
+
+/// Parameters for `RunBenchTool`
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct RunBenchParams {
+    /// Benchmark name filter
+    pub filter: Option<String>,
+    /// Package containing the benchmarks
+    pub package: Option<String>,
+}
+
+/// Parameters for `CoverageTool`
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct CoverageParams {
+    /// Specific package to analyze coverage for
+    pub package: Option<String>,
+    /// Test filter to run
+    pub filter: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 // TEST EXECUTION
@@ -360,87 +420,23 @@ fn parse_test_results(output: &str) -> Result<Vec<IndividualTestResult>> {
 
 // TOOL IMPLEMENTATIONS
 
-/// Tool for running cargo test
-pub struct RunTestsTool;
+rustycode_tools_api::define_tool! {
+    pub struct RunTestsTool;
 
-impl Tool for RunTestsTool {
-    fn name(&self) -> &'static str {
-        "run_tests"
-    }
+    name: "run_tests",
+    description: "Run Rust tests using cargo test. Supports test filtering, workspace packages, \
+    release mode, and parallel execution. Returns test results with pass/fail counts \
+    and detailed output for failed tests.",
+    permission: ToolPermission::Execute,
 
-    fn description(&self) -> &'static str {
-        "Run Rust tests using cargo test. Supports test filtering, workspace packages, \
-        release mode, and parallel execution. Returns test results with pass/fail counts \
-        and detailed output for failed tests."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "package": {
-                    "type": "string",
-                    "description": "Specific package to test (default: all)"
-                },
-                "filter": {
-                    "type": "string",
-                    "description": "Test name filter (e.g., 'test::*')"
-                },
-                "include_ignored": {
-                    "type": "boolean",
-                    "description": "Include ignored tests",
-                    "default": false
-                },
-                "show_output": {
-                    "type": "boolean",
-                    "description": "Show test output",
-                    "default": false
-                },
-                "threads": {
-                    "type": "integer",
-                    "description": "Number of test threads (default: auto)"
-                },
-                "release_mode": {
-                    "type": "boolean",
-                    "description": "Run in release mode",
-                    "default": false
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        // Build config
-        let package = params.get("package").and_then(|v| v.as_str());
-        let filter = params.get("filter").and_then(|v| v.as_str());
-        let include_ignored = params
-            .get("include_ignored")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let show_output = params
-            .get("show_output")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let threads = params
-            .get("threads")
-            .and_then(Value::as_u64)
-            .map(|v| v as usize);
-        let release_mode = params
-            .get("release_mode")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
+    execute(params: RunTestsParams, ctx) {
         let config = TestConfig {
-            package: package.map(ToString::to_string),
-            filter: filter.map(ToString::to_string),
-            include_ignored,
-            show_output,
-            threads,
-            release_mode,
+            package: params.package,
+            filter: params.filter,
+            include_ignored: params.include_ignored,
+            show_output: params.show_output,
+            threads: params.threads,
+            release_mode: params.release_mode,
         };
 
         // Run tests
@@ -492,78 +488,32 @@ impl Tool for RunTestsTool {
             "failed": result.failed,
             "ignored": result.ignored,
             "duration_ms": result.duration_ms,
-            "package": package,
-            "filter": filter,
+            "package": config.package,
+            "filter": config.filter,
         });
 
         Ok(ToolOutput::with_structured(output, metadata))
     }
 }
 
-/// Tool for running a specific test
-pub struct RunTestTool;
+rustycode_tools_api::define_tool! {
+    pub struct RunTestTool;
 
-impl Tool for RunTestTool {
-    fn name(&self) -> &'static str {
-        "run_test"
-    }
+    name: "run_test",
+    description: "Run a specific Rust test by exact name. Uses cargo test with the test name \
+    as filter. Shows detailed output including test assertions and panic messages.",
+    permission: ToolPermission::Execute,
 
-    fn description(&self) -> &'static str {
-        "Run a specific Rust test by exact name. Uses cargo test with the test name \
-        as filter. Shows detailed output including test assertions and panic messages."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["test_name"],
-            "properties": {
-                "test_name": {
-                    "type": "string",
-                    "description": "Exact name of the test to run"
-                },
-                "package": {
-                    "type": "string",
-                    "description": "Package containing the test"
-                },
-                "show_output": {
-                    "type": "boolean",
-                    "description": "Show full test output",
-                    "default": true
-                },
-                "release_mode": {
-                    "type": "boolean",
-                    "description": "Run in release mode",
-                    "default": false
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let test_name = params
-            .get("test_name")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow!("Missing 'test_name' parameter"))?;
-
-        let package = params.get("package").and_then(|v| v.as_str());
-        let show_output = params
-            .get("show_output")
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
-        let release_mode = params
-            .get("release_mode")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+    execute(params: RunTestParams, ctx) {
+        let test_name = params.test_name;
+        let package = params.package;
+        let show_output = params.show_output;
+        let release_mode = params.release_mode;
 
         // Build config for single test
         let config = TestConfig {
-            package: package.map(ToString::to_string),
-            filter: Some(test_name.to_string()),
+            package: package.clone(),
+            filter: Some(test_name.clone()),
             include_ignored: false,
             show_output,
             threads: Some(1),
@@ -615,44 +565,19 @@ impl Tool for RunTestTool {
     }
 }
 
-/// Tool for running benchmarks
-pub struct RunBenchTool;
+rustycode_tools_api::define_tool! {
+    pub struct RunBenchTool;
 
-impl Tool for RunBenchTool {
-    fn name(&self) -> &'static str {
-        "run_bench"
-    }
+    name: "run_bench",
+    description: "Run Rust benchmarks using cargo bench. Supports test filtering and workspace packages. \
+    Returns benchmark results with timing information.",
+    permission: ToolPermission::Execute,
 
-    fn description(&self) -> &'static str {
-        "Run Rust benchmarks using cargo bench. Supports test filtering and workspace packages. \
-        Returns benchmark results with timing information."
-    }
+    execute(params: RunBenchParams, ctx) {
+        let filter = params.filter;
+        let package = params.package;
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "filter": {
-                    "type": "string",
-                    "description": "Benchmark name filter"
-                },
-                "package": {
-                    "type": "string",
-                    "description": "Package containing the benchmarks"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let filter = params.get("filter").and_then(|v| v.as_str());
-        let package = params.get("package").and_then(|v| v.as_str());
-
-        let result = run_cargo_bench(&ctx.cwd, filter, ctx)?;
+        let result = run_cargo_bench(&ctx.cwd, filter.as_deref(), ctx)?;
 
         let mut output = String::new();
 
@@ -688,42 +613,17 @@ impl Tool for RunBenchTool {
     }
 }
 
-/// Tool for generating test coverage report
-pub struct CoverageTool;
+rustycode_tools_api::define_tool! {
+    pub struct CoverageTool;
 
-impl Tool for CoverageTool {
-    fn name(&self) -> &'static str {
-        "test_coverage"
-    }
+    name: "test_coverage",
+    description: "Generate test coverage report using cargo-tarpaulin. Requires cargo-tarpaulin to be installed. \
+    Generates HTML coverage report in target/tarpaulin/ directory.",
+    permission: ToolPermission::Execute,
 
-    fn description(&self) -> &'static str {
-        "Generate test coverage report using cargo-tarpaulin. Requires cargo-tarpaulin to be installed. \
-        Generates HTML coverage report in target/tarpaulin/ directory."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "package": {
-                    "type": "string",
-                    "description": "Specific package to analyze coverage for"
-                },
-                "filter": {
-                    "type": "string",
-                    "description": "Test filter to run"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let _package = params.get("package").and_then(|v| v.as_str());
-        let _filter = params.get("filter").and_then(|v| v.as_str());
+    execute(params: CoverageParams, ctx) {
+        let _package = params.package;
+        let _filter = params.filter;
 
         let output = generate_coverage(&ctx.cwd, &TestConfig::default(), ctx)?;
 
@@ -741,6 +641,7 @@ impl Tool for CoverageTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
 
     #[test]
     fn test_test_config_default() {
@@ -803,5 +704,90 @@ mod tests {
         assert_eq!(result.name, "tests::test_success");
         assert!(result.passed);
         assert!(result.message.is_none());
+    }
+
+    #[test]
+    fn test_run_tests_tool_metadata() {
+        let tool = RunTestsTool;
+        assert_eq!(tool.name(), "run_tests");
+        assert_eq!(tool.permission(), ToolPermission::Execute);
+    }
+
+    #[test]
+    fn test_run_test_tool_metadata() {
+        let tool = RunTestTool;
+        assert_eq!(tool.name(), "run_test");
+        assert_eq!(tool.permission(), ToolPermission::Execute);
+    }
+
+    #[test]
+    fn test_run_bench_tool_metadata() {
+        let tool = RunBenchTool;
+        assert_eq!(tool.name(), "run_bench");
+        assert_eq!(tool.permission(), ToolPermission::Execute);
+    }
+
+    #[test]
+    fn test_coverage_tool_metadata() {
+        let tool = CoverageTool;
+        assert_eq!(tool.name(), "test_coverage");
+        assert_eq!(tool.permission(), ToolPermission::Execute);
+    }
+
+    #[test]
+    fn test_run_tests_params_schema() {
+        let tool = RunTestsTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+        // All fields are optional (Option<T> or serde(default))
+        // No required fields expected
+    }
+
+    #[test]
+    fn test_run_test_params_schema() {
+        let tool = RunTestTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+        let required = schema["required"].as_array().unwrap();
+        assert_eq!(required.len(), 1);
+        assert_eq!(required[0], "test_name");
+    }
+
+    #[test]
+    fn test_run_bench_params_schema() {
+        let tool = RunBenchTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+    }
+
+    #[test]
+    fn test_coverage_params_schema() {
+        let tool = CoverageTool;
+        let schema = tool.parameters_schema();
+        assert_eq!(schema["type"], "object");
+    }
+
+    #[test]
+    fn test_run_test_missing_test_name() {
+        let tool = RunTestTool;
+        let ctx = ToolContext::new("/tmp");
+        let result = tool.execute(json!({}), &ctx);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("test_name"));
+    }
+
+    #[test]
+    fn test_run_tests_accepts_empty_params() {
+        let tool = RunTestsTool;
+        let ctx = ToolContext::new("/tmp");
+        // All fields are optional, so empty params should deserialize
+        // (will likely fail on cargo test but params parse correctly)
+        let result = tool.execute(json!({}), &ctx);
+        // Should parse params OK, may fail on cargo test execution
+        if let Err(e) = result {
+            let msg = e.to_string();
+            // Should NOT be a params parse error
+            assert!(!msg.contains("Invalid parameters"));
+        }
     }
 }

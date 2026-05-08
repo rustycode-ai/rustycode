@@ -1,4 +1,4 @@
-use crate::{ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use anyhow::{anyhow, Result};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -346,6 +346,7 @@ define_tool! {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
     use std::sync::Mutex;
 
     // Serialize tests that touch global session state

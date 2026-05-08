@@ -1,44 +1,48 @@
 use super::batch_state;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
-use anyhow::{anyhow, Result};
+use crate::{ToolOutput, ToolPermission};
+use anyhow::anyhow;
 use rustycode_protocol::{ToolCall, ToolResult};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde::Deserialize;
+use serde_json::json;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
 
-/// Batch tool - Execute multiple independent tool calls in parallel
-///
-/// This tool enables parallel execution of independent operations for 2-5x efficiency gain.
-/// Use this when you need to run multiple operations that don't depend on each other.
-///
-/// **Performance benefits:**
-/// - Network calls (`web_fetch`, codesearch): Run simultaneously
-/// - File I/O (`read_file`, glob, grep): Parallel disk access
-/// - LSP operations: Multiple queries at once
-///
-/// **When to use:**
-/// - Reading multiple files at once
-/// - Searching across different locations
-/// - Fetching multiple URLs
-/// - Running multiple LSP queries
-///
-/// **When NOT to use:**
-/// - Operations that depend on each other's results
-/// - Operations that modify the same resource
-/// - When order matters for correctness
-///
-/// Zero-sized struct using session-keyed global registry state.
-#[derive(Debug, Clone, Copy)]
-pub struct BatchTool;
+/// A single tool call within a batch
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+pub struct BatchCall {
+    /// Tool name to execute
+    pub tool: Option<String>,
+    /// Parameters for the tool call
+    #[serde(default = "default_empty_object")]
+    pub parameters: serde_json::Value,
+}
 
-impl Tool for BatchTool {
-    fn name(&self) -> &'static str {
-        "batch"
-    }
+fn default_empty_object() -> serde_json::Value {
+    serde_json::json!({})
+}
 
-    fn description(&self) -> &'static str {
-        r#"Execute multiple independent tool calls in parallel for 2-5x efficiency gain.
+/// Parameters for the batch tool
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct BatchParams {
+    /// Array of tool calls to execute in parallel (2-20 calls)
+    #[schemars(length(min = 2, max = 20))]
+    pub calls: Vec<BatchCall>,
+    /// Continue executing remaining calls if one fails (default: true)
+    #[serde(default = "default_true")]
+    pub continue_on_error: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+rustycode_tools_api::define_tool! {
+    pub struct BatchTool;
+
+    name: "batch",
+    description: r#"Execute multiple independent tool calls in parallel for 2-5x efficiency gain.
 
 **Use cases:**
 - Read multiple files at once
@@ -73,54 +77,12 @@ impl Tool for BatchTool {
 - Group independent operations together
 - Avoid batching operations that depend on each other
 - Network operations benefit most from batching
-- File I/O also sees significant speedups"#
-    }
+- File I/O also sees significant speedups"#,
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["calls"],
-            "properties": {
-                "calls": {
-                    "type": "array",
-                    "description": "Array of tool calls to execute in parallel",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "tool": { "type": "string" },
-                            "parameters": { "type": "object" }
-                        },
-                        "required": ["tool", "parameters"]
-                    },
-                    "minItems": 2,
-                    "maxItems": 20
-                },
-                "continue_on_error": {
-                    "type": "boolean",
-                    "description": "Continue executing remaining calls if one fails (default: true)",
-                    "default": true
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let calls_value = params
-            .get("calls")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| anyhow!("missing 'calls' array parameter"))?;
-
-        let continue_on_error = params
-            .get("continue_on_error")
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
-
-        // Validate and convert calls
-        let num_calls = calls_value.len();
+    execute(params: BatchParams, ctx) {
+        // Validate call count
+        let num_calls = params.calls.len();
         if num_calls < 2 {
             return Err(anyhow!("batch requires at least 2 calls, got {num_calls}"));
         }
@@ -137,20 +99,21 @@ impl Tool for BatchTool {
 
         // Execute calls in parallel using threads
         let ctx = ctx.clone();
-        let calls = calls_value.to_vec();
+        let calls = params.calls;
 
         // Spawn a thread for each call
         let threads: Vec<_> = calls
             .iter()
             .enumerate()
-            .map(|(index, call_value)| {
+            .map(|(index, call)| {
                 let registry = Arc::clone(&registry);
                 let ctx = ctx.clone();
-                let call_value = call_value.clone();
+                let tool_name = call.tool.clone();
+                let parameters = call.parameters.clone();
                 thread::spawn(move || {
-                    let tool_name = match call_value.get("tool").and_then(|v| v.as_str()) {
-                        Some(name) => name,
-                        None => {
+                    let tool_name = match tool_name {
+                        Some(name) if !name.is_empty() => name,
+                        _ => {
                             return (
                                 index,
                                 ToolResult {
@@ -166,24 +129,19 @@ impl Tool for BatchTool {
                         }
                     };
 
-                    let parameters = call_value
-                        .get("parameters")
-                        .cloned()
-                        .unwrap_or_else(|| json!({}));
-
-                    let call = ToolCall {
+                    let tool_call = ToolCall {
                         call_id: format!("batch-{index}-{tool_name}"),
-                        name: tool_name.to_string(),
+                        name: tool_name,
                         arguments: parameters,
                     };
 
                     // Check plan gate before dispatching each tool in the batch
                     if let Some(ref gate) = ctx.plan_gate {
-                        if let Err(reason) = gate.check_access(ctx.role, &call.name) {
+                        if let Err(reason) = gate.check_access(ctx.role, &tool_call.name) {
                             return (
                                 index,
                                 ToolResult {
-                                    call_id: call.call_id,
+                                    call_id: tool_call.call_id,
                                     output: String::new(),
                                     error: Some(format!("Permission denied: {reason}")),
                                     success: false,
@@ -195,7 +153,7 @@ impl Tool for BatchTool {
                         }
                     }
 
-                    (index, registry.execute(&call, &ctx))
+                    (index, registry.execute(&tool_call, &ctx))
                 })
             })
             .collect();
@@ -236,10 +194,10 @@ impl Tool for BatchTool {
         sorted_results.sort_by_key(|(index, _)| *index);
 
         for (index, result) in sorted_results {
-            let call_info = &calls_value[index];
-            let tool_name = call_info
-                .get("tool")
-                .and_then(|v| v.as_str())
+            let tool_name = calls[index]
+                .tool
+                .as_deref()
+                .filter(|s| !s.is_empty())
                 .unwrap_or("unknown");
 
             if result.success {
@@ -275,7 +233,7 @@ impl Tool for BatchTool {
             "success_count": success_count,
             "failure_count": failure_count,
             "execution_time_ms": execution_time.as_millis(),
-            "continue_on_error": continue_on_error,
+            "continue_on_error": params.continue_on_error,
         });
 
         Ok(ToolOutput::with_structured(output, metadata))
@@ -285,6 +243,7 @@ impl Tool for BatchTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
     use std::sync::Arc;
 
     fn setup_batch_tool(session_id: &str) -> BatchTool {

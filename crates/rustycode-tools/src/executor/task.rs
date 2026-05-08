@@ -17,9 +17,10 @@
 //! - **Bounded execution**: Max 10 turns per sub-agent to prevent infinite loops
 //! - **Timeout**: 5min total per sub-agent task
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use anyhow::Result;
-use serde_json::Value;
+use schemars::JsonSchema;
+use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -42,15 +43,74 @@ pub trait SubAgentRunner: Send + Sync {
 /// Type-erased runner stored in the tool
 type RunnerFn = dyn Fn(&Path, &str, &str) -> Result<String> + Send + Sync;
 
-/// Tool for delegating focused subtasks to a sub-agent
-///
-/// The sub-agent runs a nested LLM conversation with tool access,
-/// executing autonomously until the task is complete or limits are reached.
-pub struct TaskTool {
-    /// Working directory for tool execution
-    cwd: PathBuf,
-    /// Optional sub-agent runner (injected from TUI layer)
-    runner: Option<Arc<RunnerFn>>,
+/// Parameters for the task tool
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TaskParams {
+    /// Short description of the task (used for logging)
+    pub description: Option<String>,
+    /// Detailed instructions for the sub-agent. Be specific about what to do,
+    /// which files to modify, and what the expected outcome is.
+    pub prompt: String,
+}
+
+rustycode_tools_api::define_tool! {
+    pub struct TaskTool {
+        cwd: PathBuf,
+        runner: Option<Arc<RunnerFn>>,
+    }
+
+    name: "task",
+    description: "Launch a focused sub-agent to handle a specific task autonomously. \
+     The sub-agent has access to all tools (read_file, write_file, bash, etc.) \
+     and runs independently until completion. Use this for delegating focused work \
+     like implementing a feature, fixing a bug, or analyzing code.",
+    permission: ToolPermission::Execute,
+
+    execute(&self, params: TaskParams, _ctx) {
+        let description = params
+            .description
+            .unwrap_or_else(|| "unnamed task".to_string());
+
+        if params.prompt.trim().is_empty() {
+            anyhow::bail!("Parameter 'prompt' must not be empty");
+        }
+
+        tracing::info!("TaskTool: Starting sub-agent for: {description}");
+
+        match &self.runner {
+            Some(runner) => {
+                let start = std::time::Instant::now();
+                match runner(&self.cwd, &description, &params.prompt) {
+                    Ok(output) => {
+                        let elapsed = start.elapsed();
+                        tracing::info!(
+                            "TaskTool: Sub-agent completed '{}' in {:.1}s ({} chars)",
+                            description,
+                            elapsed.as_secs_f64(),
+                            output.len()
+                        );
+                        Ok(ToolOutput::text(output))
+                    }
+                    Err(e) => {
+                        let elapsed = start.elapsed();
+                        tracing::warn!(
+                            "TaskTool: Sub-agent failed '{}' after {:.1}s: {}",
+                            description,
+                            elapsed.as_secs_f64(),
+                            e
+                        );
+                        Ok(ToolOutput::text(format!(
+                            "Sub-agent task '{description}' failed: {e}"
+                        )))
+                    }
+                }
+            }
+            None => Ok(ToolOutput::text(format!(
+                "Sub-agent task '{description}' could not run: no sub-agent runner configured. \
+                 This tool requires the TUI layer to inject an LLM runner."
+            ))),
+        }
+    }
 }
 
 impl TaskTool {
@@ -84,103 +144,21 @@ impl TaskTool {
     }
 }
 
-impl Tool for TaskTool {
-    fn name(&self) -> &'static str {
-        "task"
-    }
-
-    fn description(&self) -> &'static str {
-        "Launch a focused sub-agent to handle a specific task autonomously. \
-         The sub-agent has access to all tools (read_file, write_file, bash, etc.) \
-         and runs independently until completion. Use this for delegating focused work \
-         like implementing a feature, fixing a bug, or analyzing code."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "required": ["description", "prompt"],
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "description": "Short description of the task (used for logging)"
-                },
-                "prompt": {
-                    "type": "string",
-                    "description": "Detailed instructions for the sub-agent. Be specific about what to do, which files to modify, and what the expected outcome is."
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let description = params["description"]
-            .as_str()
-            .unwrap_or("unnamed task")
-            .to_string();
-
-        let prompt = params["prompt"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("Missing required parameter: prompt"))?
-            .to_string();
-
-        if prompt.trim().is_empty() {
-            anyhow::bail!("Parameter 'prompt' must not be empty");
-        }
-
-        tracing::info!("TaskTool: Starting sub-agent for: {description}");
-
-        match &self.runner {
-            Some(runner) => {
-                let start = std::time::Instant::now();
-                match runner(&self.cwd, &description, &prompt) {
-                    Ok(output) => {
-                        let elapsed = start.elapsed();
-                        tracing::info!(
-                            "TaskTool: Sub-agent completed '{}' in {:.1}s ({} chars)",
-                            description,
-                            elapsed.as_secs_f64(),
-                            output.len()
-                        );
-                        Ok(ToolOutput::text(output))
-                    }
-                    Err(e) => {
-                        let elapsed = start.elapsed();
-                        tracing::warn!(
-                            "TaskTool: Sub-agent failed '{}' after {:.1}s: {}",
-                            description,
-                            elapsed.as_secs_f64(),
-                            e
-                        );
-                        Ok(ToolOutput::text(format!(
-                            "Sub-agent task '{description}' failed: {e}"
-                        )))
-                    }
-                }
-            }
-            None => Ok(ToolOutput::text(format!(
-                "Sub-agent task '{description}' could not run: no sub-agent runner configured. \
-                 This tool requires the TUI layer to inject an LLM runner."
-            ))),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
 
     #[test]
     fn test_task_tool_schema() {
         let tool = TaskTool::new(PathBuf::from("/tmp"));
         let schema = tool.parameters_schema();
 
-        assert_eq!(schema["required"][0], "description");
-        assert_eq!(schema["required"][1], "prompt");
+        // description is Option<String> so only prompt is required
+        let required = schema["required"]
+            .as_array()
+            .expect("required should be array");
+        assert!(required.contains(&serde_json::Value::String("prompt".to_string())));
         assert!(schema["properties"]["description"].is_object());
         assert!(schema["properties"]["prompt"].is_object());
     }
