@@ -129,6 +129,15 @@ pub use crate::registry_builder::{RegistryBuilder, ToolProvider};
 pub use crate::security::*;
 pub use crate::side_effects::{RecoveryStatus, SideEffect, SideEffectLedger, SideEffectType};
 
+// Re-export unified hook types for convenient access
+pub use hooks::config::{CompiledHook, ConfigLoader, MatcherGroup, UnifiedHooksConfig};
+pub use hooks::matcher::ToolMatcher;
+pub use hooks::protocol::{
+    HookDecision, HookEvent, HookProtocolInput, HookProtocolOutput, PermissionResult,
+    PostToolUseResult, PreToolUseResult,
+};
+pub use hooks::{HookManager, HookProfile, HookTrigger};
+
 // Root-level exports that were moved, need to be updated to point to new modules
 // Example:
 // pub use crate::security::permission::*;

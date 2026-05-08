@@ -14,6 +14,11 @@
 //! Tool requested → PreToolUse hooks → [blocked?] → Execute tool → PostToolUse hooks
 //! ```
 
+pub mod config;
+pub mod env;
+pub mod matcher;
+pub mod protocol;
+
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -157,15 +162,18 @@ pub struct HooksConfig {
 pub struct HookManager {
     hooks_dir: PathBuf,
     hooks: Vec<Hook>,
+    /// Unified hooks loaded from Claude Code / Codex format configs.
+    compiled_hooks: std::collections::HashMap<HookTrigger, Vec<config::CompiledHook>>,
     profile: HookProfile,
     session_id: String,
 }
 
 impl HookManager {
-    pub const fn new(hooks_dir: PathBuf, profile: HookProfile, session_id: String) -> Self {
+    pub fn new(hooks_dir: PathBuf, profile: HookProfile, session_id: String) -> Self {
         Self {
             hooks_dir,
             hooks: Vec::new(),
+            compiled_hooks: std::collections::HashMap::new(),
             profile,
             session_id,
         }
@@ -187,6 +195,290 @@ impl HookManager {
         self.hooks = config.hooks;
         tracing::info!("Loaded {} hooks from {:?}", self.hooks.len(), config_path);
         Ok(())
+    }
+
+    /// Load hooks from all unified config sources (Claude Code / Codex format).
+    /// Merges with any legacy hooks loaded via `load_hooks`.
+    pub async fn load_unified_hooks(&mut self, project_dir: &Path) -> Result<()> {
+        let user_config_dir = config::ConfigLoader::default_user_config_dir();
+        self.compiled_hooks = config::ConfigLoader::load_all(project_dir, &user_config_dir).await?;
+        let total: usize = self.compiled_hooks.values().map(|v| v.len()).sum();
+        tracing::info!("Loaded {total} unified hooks for project {:?}", project_dir);
+        Ok(())
+    }
+
+    /// Execute PreToolUse hooks with matcher filtering.
+    /// Returns Ok with result — check `blocked` to see if execution should proceed.
+    pub async fn pre_tool_use(
+        &self,
+        tool_name: &str,
+        tool_input: &serde_json::Value,
+        cwd: &Path,
+    ) -> Result<protocol::PreToolUseResult> {
+        let hooks = self.compiled_hooks.get(&HookTrigger::PreToolUse);
+        let relevant = match hooks {
+            Some(h) => h
+                .iter()
+                .filter(|h| h.matcher.matches(tool_name))
+                .collect::<Vec<_>>(),
+            None => return Ok(protocol::PreToolUseResult::default()),
+        };
+
+        if relevant.is_empty() {
+            return Ok(protocol::PreToolUseResult::default());
+        }
+
+        let input = protocol::HookProtocolInput::PreToolUse {
+            session_id: self.session_id.clone(),
+            tool_name: tool_name.to_string(),
+            tool_input: tool_input.clone(),
+            cwd: cwd.to_string_lossy().into(),
+        };
+        let env_vars = env::hook_env(
+            protocol::HookEvent::PreToolUse,
+            tool_name,
+            &self.session_id,
+            cwd,
+        );
+
+        for hook in &relevant {
+            if let Some(msg) = &hook.status_message {
+                tracing::info!("[hook] {msg}");
+            }
+            match self.run_compiled_hook(hook, &input, &env_vars).await {
+                Ok(output) => {
+                    if output.decision == Some(protocol::HookDecision::Block) {
+                        return Ok(protocol::PreToolUseResult {
+                            blocked: true,
+                            reason: output.reason,
+                            additional_context: output.additional_context,
+                            system_message: output.system_message,
+                        });
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("PreToolUse hook '{}' failed: {e}", hook.command);
+                }
+            }
+        }
+
+        Ok(protocol::PreToolUseResult::default())
+    }
+
+    /// Execute PostToolUse hooks with matcher filtering.
+    /// Hooks can return `decision: "block"` to replace the tool response.
+    pub async fn post_tool_use(
+        &self,
+        tool_name: &str,
+        tool_input: &serde_json::Value,
+        tool_response: &mut serde_json::Value,
+        cwd: &Path,
+    ) -> Result<protocol::PostToolUseResult> {
+        let hooks = self.compiled_hooks.get(&HookTrigger::PostToolUse);
+        let relevant = match hooks {
+            Some(h) => h
+                .iter()
+                .filter(|h| h.matcher.matches(tool_name))
+                .collect::<Vec<_>>(),
+            None => return Ok(protocol::PostToolUseResult::default()),
+        };
+
+        if relevant.is_empty() {
+            return Ok(protocol::PostToolUseResult::default());
+        }
+
+        let input = protocol::HookProtocolInput::PostToolUse {
+            session_id: self.session_id.clone(),
+            tool_name: tool_name.to_string(),
+            tool_input: tool_input.clone(),
+            tool_response: tool_response.clone(),
+            cwd: cwd.to_string_lossy().into(),
+        };
+        let env_vars = env::hook_env(
+            protocol::HookEvent::PostToolUse,
+            tool_name,
+            &self.session_id,
+            cwd,
+        );
+
+        let mut result = protocol::PostToolUseResult::default();
+        for hook in &relevant {
+            if let Some(msg) = &hook.status_message {
+                tracing::info!("[hook] {msg}");
+            }
+            match self.run_compiled_hook(hook, &input, &env_vars).await {
+                Ok(output) => {
+                    if output.decision == Some(protocol::HookDecision::Block) {
+                        // Replace tool response with hook's reason
+                        let replacement = output
+                            .reason
+                            .unwrap_or_else(|| "Hook blocked tool output".to_string());
+                        *tool_response = serde_json::json!(replacement);
+                        result.replaced = true;
+                        result.replacement_text = Some(replacement);
+                    }
+                    if let Some(ctx) = output.additional_context {
+                        result.additional_context = Some(ctx);
+                    }
+                    if let Some(msg) = output.system_message {
+                        result.system_message = Some(msg);
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("PostToolUse hook '{}' failed: {e}", hook.command);
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Execute PermissionRequest hooks with matcher filtering.
+    /// Returns Some(true) to auto-approve, Some(false) to auto-deny, None for no opinion.
+    pub async fn permission_request(
+        &self,
+        tool_name: &str,
+        tool_input: &serde_json::Value,
+        cwd: &Path,
+    ) -> Result<protocol::PermissionResult> {
+        let hooks = self.compiled_hooks.get(&HookTrigger::PermissionRequest);
+        let relevant = match hooks {
+            Some(h) => h
+                .iter()
+                .filter(|h| h.matcher.matches(tool_name))
+                .collect::<Vec<_>>(),
+            None => return Ok(protocol::PermissionResult::default()),
+        };
+
+        if relevant.is_empty() {
+            return Ok(protocol::PermissionResult::default());
+        }
+
+        let input = protocol::HookProtocolInput::PermissionRequest {
+            session_id: self.session_id.clone(),
+            tool_name: tool_name.to_string(),
+            tool_input: tool_input.clone(),
+            cwd: cwd.to_string_lossy().into(),
+        };
+        let env_vars = env::hook_env(
+            protocol::HookEvent::PermissionRequest,
+            tool_name,
+            &self.session_id,
+            cwd,
+        );
+
+        for hook in &relevant {
+            match self.run_compiled_hook(hook, &input, &env_vars).await {
+                Ok(output) => match output.decision {
+                    Some(protocol::HookDecision::Allow | protocol::HookDecision::Approve) => {
+                        return Ok(protocol::PermissionResult {
+                            decision: Some(true),
+                            reason: output.reason,
+                        });
+                    }
+                    Some(protocol::HookDecision::Block) => {
+                        return Ok(protocol::PermissionResult {
+                            decision: Some(false),
+                            reason: output.reason,
+                        });
+                    }
+                    None => continue,
+                },
+                Err(e) => {
+                    tracing::error!("PermissionRequest hook '{}' failed: {e}", hook.command);
+                }
+            }
+        }
+
+        Ok(protocol::PermissionResult::default())
+    }
+
+    /// Run a compiled hook (from unified config), sending protocol input via stdin.
+    async fn run_compiled_hook(
+        &self,
+        hook: &config::CompiledHook,
+        input: &protocol::HookProtocolInput,
+        env_vars: &std::collections::HashMap<String, String>,
+    ) -> Result<protocol::HookProtocolOutput> {
+        let input_json = serde_json::to_string(input)?;
+        let start = Instant::now();
+
+        let timeout = std::time::Duration::from_secs(hook.timeout_secs.max(1));
+
+        let output = tokio::time::timeout(timeout, async {
+            use std::process::Stdio;
+            use tokio::io::AsyncWriteExt;
+
+            let mut cmd = Command::new("sh");
+            cmd.arg("-c").arg(&hook.command);
+            for (k, v) in env_vars {
+                cmd.env(k, v);
+            }
+
+            let mut child = cmd
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()?;
+
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(input_json.as_bytes()).await?;
+                drop(stdin);
+            }
+
+            child.wait_with_output().await
+        })
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "Hook '{}' timed out after {}s",
+                hook.command,
+                hook.timeout_secs
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Hook '{}' failed: {e}", hook.command))?;
+
+        let duration_ms = start.elapsed().as_millis();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let exit_code = output.status.code();
+
+        // Exit code 2 means block (Codex convention)
+        if exit_code == Some(2) {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Ok(protocol::HookProtocolOutput {
+                decision: Some(protocol::HookDecision::Block),
+                reason: Some(if stderr.trim().is_empty() {
+                    "Hook blocked via exit code 2".to_string()
+                } else {
+                    stderr.trim().to_string()
+                }),
+                ..Default::default()
+            });
+        }
+
+        if stdout.trim().is_empty() {
+            return Ok(protocol::HookProtocolOutput::default());
+        }
+
+        let parsed: protocol::HookProtocolOutput = serde_json::from_str(stdout.trim())
+            .unwrap_or_else(|e| {
+                tracing::debug!(
+                    "Hook '{}' non-JSON stdout (exit {}): {}",
+                    hook.command,
+                    exit_code.unwrap_or(-1),
+                    e
+                );
+                protocol::HookProtocolOutput::default()
+            });
+
+        tracing::debug!(
+            "Hook '{}' completed in {}ms (exit {})",
+            hook.command,
+            duration_ms,
+            exit_code.unwrap_or(-1)
+        );
+
+        Ok(parsed)
     }
 
     /// Execute hooks for a trigger event, respecting blocking semantics
@@ -387,6 +679,48 @@ impl HookManager {
                 tracing::debug!("No tokio runtime, skipping {trigger} hooks");
                 HookExecutionResult::default()
             }
+        }
+    }
+
+    /// Synchronous wrapper for `pre_tool_use`.
+    pub fn pre_tool_use_blocking(
+        &self,
+        tool_name: &str,
+        tool_input: &serde_json::Value,
+        cwd: &Path,
+    ) -> protocol::PreToolUseResult {
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => match handle.block_on(self.pre_tool_use(tool_name, tool_input, cwd)) {
+                Ok(result) => result,
+                Err(e) => {
+                    tracing::error!("PreToolUse hook error: {e}");
+                    protocol::PreToolUseResult::default()
+                }
+            },
+            Err(_) => protocol::PreToolUseResult::default(),
+        }
+    }
+
+    /// Synchronous wrapper for `post_tool_use`.
+    pub fn post_tool_use_blocking(
+        &self,
+        tool_name: &str,
+        tool_input: &serde_json::Value,
+        tool_response: &mut serde_json::Value,
+        cwd: &Path,
+    ) -> protocol::PostToolUseResult {
+        match tokio::runtime::Handle::try_current() {
+            Ok(handle) => {
+                match handle.block_on(self.post_tool_use(tool_name, tool_input, tool_response, cwd))
+                {
+                    Ok(result) => result,
+                    Err(e) => {
+                        tracing::error!("PostToolUse hook error: {e}");
+                        protocol::PostToolUseResult::default()
+                    }
+                }
+            }
+            Err(_) => protocol::PostToolUseResult::default(),
         }
     }
 }

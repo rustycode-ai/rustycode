@@ -17,6 +17,7 @@
 //! let result = middleware.execute(&tool, params, &ctx);
 //! ```
 
+use crate::hooks::HookManager;
 use crate::{Tool, ToolContext, ToolOutput};
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
@@ -80,6 +81,8 @@ pub enum PlanModeState {
 pub struct ExecutionMiddleware {
     config: MiddlewareConfig,
     state: Arc<RwLock<MiddlewareState>>,
+    /// Optional hook manager for pre/post tool hooks.
+    hook_manager: Option<Arc<HookManager>>,
 }
 
 impl ExecutionMiddleware {
@@ -91,12 +94,23 @@ impl ExecutionMiddleware {
                 session_cost: 0.0,
                 tool_count: 0,
             })),
+            hook_manager: None,
         }
     }
 
     /// Create with existing state (for testing/continuation)
     pub const fn with_state(config: MiddlewareConfig, state: Arc<RwLock<MiddlewareState>>) -> Self {
-        Self { config, state }
+        Self {
+            config,
+            state,
+            hook_manager: None,
+        }
+    }
+
+    /// Attach a hook manager for pre/post tool hook execution.
+    pub fn with_hook_manager(mut self, mgr: Arc<HookManager>) -> Self {
+        self.hook_manager = Some(mgr);
+        self
     }
 
     /// Execute a tool through the middleware pipeline
@@ -108,20 +122,59 @@ impl ExecutionMiddleware {
     ) -> Result<ToolOutput> {
         let tool_name = tool.name().to_string();
 
-        // Phase 0: Input validation (before permission/approval gate)
+        // Phase 0: PreToolUse hooks (new — unified config)
+        if self.config.hooks_enabled {
+            if let Some(hooks) = &self.hook_manager {
+                let result = hooks.pre_tool_use_blocking(&tool_name, &params, &ctx.cwd);
+                if result.blocked {
+                    let reason = result
+                        .reason
+                        .unwrap_or_else(|| "Blocked by hook".to_string());
+                    return Ok(ToolOutput::text(reason));
+                }
+            }
+        }
+
+        // Phase 1: Input validation (before permission/approval gate)
         tool.validate_input(&params, ctx)
             .with_context(|| format!("input validation failed for tool '{tool_name}'"))?;
 
-        // Phase 1: Pre-execution checks
+        // Phase 2: Pre-execution checks
         self.pre_execute_check(&tool_name, ctx)?;
 
-        // Phase 2: Execute tool
-        let result = tool.execute(params, ctx);
+        // Phase 3: Execute tool
+        let result = tool.execute(params, ctx)?;
 
-        // Phase 3: Post-execution processing
-        self.post_execute_check(&tool_name, &result, ctx)?;
+        // Phase 4: PostToolUse hooks with mutable output (new — unified config)
+        let output = if self.config.hooks_enabled {
+            if let Some(hooks) = &self.hook_manager {
+                let mut response = serde_json::json!(&result.text);
+                let hook_result = hooks.post_tool_use_blocking(
+                    &tool_name,
+                    &serde_json::json!(null),
+                    &mut response,
+                    &ctx.cwd,
+                );
+                if hook_result.replaced {
+                    if let Some(text) = hook_result.replacement_text {
+                        ToolOutput::text(text)
+                    } else {
+                        result
+                    }
+                } else {
+                    result
+                }
+            } else {
+                result
+            }
+        } else {
+            result
+        };
 
-        result
+        // Phase 5: Post-execution processing
+        self.post_execute_check(&tool_name, &Ok(output.clone()), ctx)?;
+
+        Ok(output)
     }
 
     /// Pre-execution checks (hooks, plan mode, cost)
