@@ -12,6 +12,7 @@ pub mod gate;
 pub mod inspector;
 pub mod middleware;
 pub mod task;
+pub mod task_state;
 pub mod tool_shim;
 
 // Re-export key types for backward compatibility.
