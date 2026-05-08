@@ -156,15 +156,6 @@ jobs:
             echo "name=RustyCode Nightly ${DATE}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: List
-        run: ls -lh artifacts/
-
       - name: Checkout for changelog
         uses: actions/checkout@v4
         with:
@@ -185,10 +176,8 @@ jobs:
           # For subsequent releases, generate from commits since last tag
           PREV_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
           if [ -z "$PREV_TAG" ]; then
-            # No previous tag — extract the matching section from CHANGELOG.md
             TAG="${{ steps.meta.outputs.tag }}"
             VERSION="${TAG#v}"
-            # Extract section for this version from CHANGELOG.md
             NOTES=$(sed -n "/## \[${VERSION}\]/,/## \[/p" CHANGELOG.md | head -n -1 | tail -n +3)
             if [ -z "$NOTES" ]; then
               NOTES="See [CHANGELOG.md](https://github.com/rustycode-ai/rustycode/blob/main/CHANGELOG.md) for details."
@@ -199,6 +188,15 @@ jobs:
           echo "notes<<EOF" >> "$GITHUB_OUTPUT"
           echo "$NOTES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List
+        run: ls -lh artifacts/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
