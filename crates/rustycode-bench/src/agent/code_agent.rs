@@ -553,12 +553,13 @@ impl BenchAgent for CodeAgent {
 
         let task_prompt = format!(
             "You have {} turns total. Use them wisely.\n\n\
-             CRITICAL RULES:\n\
-             1. Make the MINIMAL change needed to fix the issue.\n\
-             2. Do NOT add tests, documentation, or unrelated changes.\n\
-             3. Do NOT run verification scripts after your fix.\n\
-             4. Once you have applied the fix, STOP immediately — do not re-read or re-check.\n\
-             5. Never edit the same file more than twice.\n\n\
+             CRITICAL RULES — you will be stopped if you violate these:\n\
+             1. Read files to understand the issue, then make the MINIMAL fix.\n\
+             2. You get at most 4 file edits total. Use them carefully.\n\
+             3. Do NOT add tests, docs, or unrelated changes.\n\
+             4. Do NOT re-read or re-check files after editing.\n\
+             5. NEVER edit the same file more than twice.\n\
+             6. After your last edit, respond with text only — no more tool calls.\n\n\
              {instruction}",
             self.config.max_turns
         );
@@ -567,8 +568,9 @@ impl BenchAgent for CodeAgent {
         // Classify intent to steer the conversation frame
         let intent = classify_intent(instruction);
         let system_prompt = format!(
-            "Solve the task. Use the tools provided. Read workspace files first to understand \
-             the task requirements, then make the minimal fix. Stop as soon as the fix is applied.\n\n{}",
+            "You are an expert programmer. Read the relevant files, understand the bug, \
+             apply the smallest possible fix, and stop. Do not verify your fix. \
+             Do not run tests. Just fix it and respond with a brief summary.\n\n{}",
             intent.prompt_suffix()
         );
         tracing::info!("[code] Intent: {:?} → frame applied", intent);
@@ -721,8 +723,11 @@ impl BenchAgent for CodeAgent {
                 turns_since_edit += 1;
             }
 
-            // Stop if: 3+ turns since last edit, same file edited 3+ times, or 6+ total edits.
-            if made_edits && turns_since_edit >= 3 {
+            // Early-stop: model has applied its fix and is now wasting turns.
+            // 1) No edits for 2+ turns after making at least one edit.
+            // 2) Same file edited 3+ times → thrashing.
+            // 3) 4+ total edits across all files → scope creep.
+            if made_edits && turns_since_edit >= 2 {
                 tracing::info!(
                     "[code] Early stop: {} turns since last edit",
                     turns_since_edit
@@ -739,7 +744,7 @@ impl BenchAgent for CodeAgent {
                     break;
                 }
             }
-            if total_edits >= 6 {
+            if total_edits >= 4 {
                 tracing::info!("[code] Early stop: {} total edits (excessive)", total_edits);
                 break;
             }
