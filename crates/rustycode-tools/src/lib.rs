@@ -95,6 +95,7 @@ pub use rustycode_tools_api::{
 // Modules
 pub mod executor;
 pub mod indexing;
+pub mod inputs;
 pub mod providers;
 pub mod registry;
 pub mod registry_builder;

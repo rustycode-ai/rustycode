@@ -79,7 +79,7 @@ impl EditFormat {
     /// Get the tool name(s) that implement this edit format.
     pub const fn tool_names(&self) -> &'static [&'static str] {
         match self {
-            Self::ClaudeNative => &["text_editor_20250728", "text_editor_20250124"],
+            Self::ClaudeNative => &["text_editor_20250124"],
             Self::SearchReplace => &["edit_file"],
             Self::RegexReplace => &["search_replace"],
             Self::MultiEdit => &["multiedit"],
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_select_with_fallback_native_available() {
-        let available = &["text_editor_20250728", "edit_file", "write_file"];
+        let available = &["text_editor_20250124", "edit_file", "write_file"];
         let format = select_with_fallback("claude-sonnet-4-6", available);
         assert_eq!(format, EditFormat::ClaudeNative);
     }
@@ -509,7 +509,7 @@ mod tests {
     fn test_tool_names_mapping() {
         assert!(EditFormat::ClaudeNative
             .tool_names()
-            .contains(&"text_editor_20250728"));
+            .contains(&"text_editor_20250124"));
         assert!(EditFormat::SearchReplace
             .tool_names()
             .contains(&"edit_file"));
@@ -525,7 +525,7 @@ mod tests {
     fn test_primary_tool() {
         assert_eq!(
             EditFormat::ClaudeNative.primary_tool(),
-            "text_editor_20250728"
+            "text_editor_20250124"
         );
         assert_eq!(EditFormat::SearchReplace.primary_tool(), "edit_file");
         assert_eq!(EditFormat::WholeFile.primary_tool(), "write_file");

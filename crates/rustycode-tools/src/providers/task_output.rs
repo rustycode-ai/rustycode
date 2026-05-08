@@ -1,70 +1,46 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use schemars::JsonSchema;
+use serde_json::json;
 
-/// Retrieve output from a running or completed background task.
-pub struct TaskOutputTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct TaskOutputParams {
+    /// The task ID to get output from
+    task_id: String,
+    /// Whether to wait for completion (default: true)
+    #[serde(default = "default_true")]
+    block: bool,
+    /// Max wait time in ms (default: 30000)
+    #[serde(default = "default_timeout")]
+    timeout: u64,
+}
 
-impl Tool for TaskOutputTool {
-    fn name(&self) -> &'static str {
-        "task_output"
-    }
+fn default_true() -> bool {
+    true
+}
 
-    fn description(&self) -> &'static str {
-        r#"Retrieves output from a running or completed background task.
+fn default_timeout() -> u64 {
+    30000
+}
+
+rustycode_tools_api::define_tool! {
+    pub struct TaskOutputTool;
+
+    name: "task_output",
+    description: r#"Retrieves output from a running or completed background task.
 
 - For bash tasks: prefer using the Read tool on the output file path
 - For local_agent tasks: use the Agent tool result directly
 - For remote_agent tasks: prefer using the Read tool on the output file path
 
 Takes a task_id parameter identifying the task. Returns the task output along with status information.
-Use block=true (default) to wait for completion, block=false for non-blocking status check."#
-    }
+Use block=true (default) to wait for completion, block=false for non-blocking status check."#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["task_id"],
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "The task ID to get output from"
-                },
-                "block": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Whether to wait for completion (default: true)"
-                },
-                "timeout": {
-                    "type": "number",
-                    "description": "Max wait time in ms (default: 30000)",
-                    "minimum": 0,
-                    "maximum": 600000
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let task_id = params
-            .get("task_id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing task_id"))?;
-
-        let block = params.get("block").and_then(Value::as_bool).unwrap_or(true);
-
-        let timeout = params
-            .get("timeout")
-            .and_then(Value::as_u64)
-            .unwrap_or(30000);
+    execute(params: TaskOutputParams, _ctx) {
+        let task_id = &params.task_id;
+        let block = params.block;
+        let timeout = params.timeout;
 
         // Placeholder: actual task lookup requires runtime integration
         Ok(ToolOutput::with_structured(
@@ -79,43 +55,24 @@ Use block=true (default) to wait for completion, block=false for non-blocking st
     }
 }
 
-/// Stop a running background task by its ID.
-pub struct TaskStopTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct TaskStopParams {
+    /// The task ID to stop
+    task_id: String,
+}
 
-impl Tool for TaskStopTool {
-    fn name(&self) -> &'static str {
-        "task_stop"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct TaskStopTool;
 
-    fn description(&self) -> &'static str {
-        r#"Stops a running background task by its ID.
+    name: "task_stop",
+    description: r#"Stops a running background task by its ID.
 Takes a task_id parameter identifying the task to stop.
 Returns a success or failure status.
-Use this tool when you need to terminate a long-running task."#
-    }
+Use this tool when you need to terminate a long-running task."#,
+    permission: ToolPermission::Execute,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["task_id"],
-            "properties": {
-                "task_id": {
-                    "type": "string",
-                    "description": "The task ID to stop"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let task_id = params
-            .get("task_id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing task_id"))?;
+    execute(params: TaskStopParams, _ctx) {
+        let task_id = &params.task_id;
 
         // Placeholder: actual task stop requires runtime integration
         Ok(ToolOutput::with_structured(
@@ -131,6 +88,8 @@ Use this tool when you need to terminate a long-running task."#
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")

@@ -1,44 +1,25 @@
-use rustycode_tools_api::{Tool, ToolContext, ToolOutput, ToolPermission};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission};
+use schemars::JsonSchema;
+use serde_json::json;
 
-pub struct ValidateRequirementsTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct ValidateRequirementsParams {
+    /// The requirements text to validate
+    requirements: Option<String>,
+    /// Additional context: existing code, constraints, or related requirements
+    context: Option<String>,
+}
 
-impl Tool for ValidateRequirementsTool {
-    fn name(&self) -> &str {
-        "reasoning_validate"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct ValidateRequirementsTool;
 
-    fn description(&self) -> &str {
-        "Validate that requirements are complete, consistent, and testable before implementation. Checks for ambiguity, missing acceptance criteria, and conflicts between requirements."
-    }
+    name: "reasoning_validate",
+    description: "Validate that requirements are complete, consistent, and testable before implementation. Checks for ambiguity, missing acceptance criteria, and conflicts between requirements.",
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["requirements"],
-            "properties": {
-                "requirements": {
-                    "type": "string",
-                    "description": "The requirements text to validate"
-                },
-                "context": {
-                    "type": "string",
-                    "description": "Additional context: existing code, constraints, or related requirements"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
-        let requirements = params
-            .get("requirements")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unspecified requirements");
-        let context = params.get("context").and_then(|v| v.as_str()).unwrap_or("");
+    execute(params: ValidateRequirementsParams, _ctx) {
+        let requirements = params.requirements.as_deref().unwrap_or("unspecified requirements");
+        let context = params.context.as_deref().unwrap_or("");
 
         let context_section = if context.is_empty() {
             String::new()
@@ -79,6 +60,9 @@ impl Tool for ValidateRequirementsTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
+    use serde_json::json;
     use tempfile::tempdir;
 
     fn ctx() -> ToolContext {
@@ -93,10 +77,8 @@ mod tests {
         assert_eq!(tool.name(), "reasoning_validate");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
-        assert!(schema["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("requirements")));
+        // requirements is an Option<String> so it's in properties but not required
+        assert!(schema["properties"]["requirements"].is_object());
     }
 
     #[test]

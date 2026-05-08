@@ -1,81 +1,43 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use anyhow::anyhow;
+use schemars::JsonSchema;
+use serde_json::json;
 
-/// Primary user communication channel.
-///
-/// Text outside this tool is "detail view" — most users won't open it.
-/// Anything the agent wants the user to actually see goes through this tool.
-pub struct BriefTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct BriefParams {
+    /// The message to send to the user. Supports markdown formatting.
+    message: String,
+    /// Intent label. 'normal' when replying; 'proactive' when initiating (background task, blocker, unsolicited input).
+    #[serde(default)]
+    status: Option<String>,
+    /// File paths (absolute or cwd-relative) for images, diffs, logs to attach.
+    #[serde(default)]
+    attachments: Option<Vec<String>>,
+}
 
-impl Tool for BriefTool {
-    fn name(&self) -> &'static str {
-        "brief"
-    }
+// Primary user communication channel.
+rustycode_tools_api::define_tool! {
+    pub struct BriefTool;
 
-    fn description(&self) -> &'static str {
-        r#"Send a message the user will read. Text outside this tool is visible in the detail view, but most won't open it — the answer lives here.
+    name: "brief",
+    description: r#"Send a message the user will read. Text outside this tool is visible in the detail view, but most won't open it — the answer lives here.
 
 `message` supports markdown. `attachments` takes file paths (absolute or cwd-relative) for images, diffs, logs.
 
-`status` labels intent: "normal" when replying to what they just asked; "proactive" when initiating — a scheduled task finished, a blocker surfaced during background work, you need input on something they haven't asked about. Set it honestly; downstream routing uses it."#
-    }
+`status` labels intent: "normal" when replying to what they just asked; "proactive" when initiating — a scheduled task finished, a blocker surfaced during background work, you need input on something they haven't asked about. Set it honestly; downstream routing uses it."#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["message"],
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "description": "The message to send to the user. Supports markdown formatting."
-                },
-                "status": {
-                    "type": "string",
-                    "enum": ["normal", "proactive"],
-                    "description": "Intent label. 'normal' when replying; 'proactive' when initiating (background task, blocker, unsolicited input)."
-                },
-                "attachments": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "File paths (absolute or cwd-relative) for images, diffs, logs to attach."
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let message = params
-            .get("message")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing message"))?;
+    execute(params: BriefParams, ctx) {
+        let message = &params.message;
 
         if message.trim().is_empty() {
             return Err(anyhow!("message must not be empty"));
         }
 
-        let status = params
-            .get("status")
-            .and_then(Value::as_str)
-            .unwrap_or("normal");
+        let status = params.status.as_deref().unwrap_or("normal");
 
-        let attachments: Vec<String> = params
-            .get("attachments")
-            .and_then(Value::as_array)
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or_default();
+        let attachments = params.attachments.unwrap_or_default();
 
         // Resolve relative attachment paths against cwd
         let resolved: Vec<String> = attachments
@@ -102,6 +64,8 @@ impl Tool for BriefTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")

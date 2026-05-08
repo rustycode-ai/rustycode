@@ -1,40 +1,52 @@
 use crate::security::validate_read_path;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
+use crate::{ToolContext, ToolOutput, ToolPermission, ToolTag};
+use anyhow::Result;
+use schemars::JsonSchema;
 use serde_json::{json, Value};
 use std::process::Command;
 
-pub struct GitStatusTool;
-pub struct GitDiffTool;
-pub struct GitCommitTool;
-pub struct GitLogTool;
+// ── Params structs ──────────────────────────────────────────────────────────
 
-impl Tool for GitStatusTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct GitStatusParams {}
 
-    fn name(&self) -> &'static str {
-        "git_status"
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct GitDiffParams {
+    /// Show staged (cached) diff (default false)
+    #[serde(default)]
+    staged: bool,
+    /// Optional path to show diff for (alias: file_path)
+    path: Option<String>,
+    /// Alias for path
+    file_path: Option<String>,
+}
 
-    fn description(&self) -> &'static str {
-        "Show git status for current workspace."
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct GitCommitParams {
+    /// Commit message
+    message: String,
+    /// Files to stage before committing (omit to commit already-staged changes)
+    files: Option<Vec<String>>,
+}
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct GitLogParams {
+    /// Maximum number of commits to show (default: 10, max: 1000)
+    limit: Option<u64>,
+}
 
-    fn parameters_schema(&self) -> Value {
-        json!({ "type": "object", "properties": {} })
-    }
+// ── Tool definitions ────────────────────────────────────────────────────────
 
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
+rustycode_tools_api::define_tool! {
+    pub struct GitStatusTool;
 
-    fn execute(&self, _params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    name: "git_status",
+    description: "Show git status for current workspace.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Ops],
+    defer_loading: true,
+
+    execute(_params: GitStatusParams, ctx) {
         let result = run_git(ctx, &["status", "--short", "--branch"])?;
 
         // Parse git status output for structured metadata
@@ -91,53 +103,24 @@ impl Tool for GitStatusTool {
     }
 }
 
-impl Tool for GitDiffTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+rustycode_tools_api::define_tool! {
+    pub struct GitDiffTool;
 
-    fn name(&self) -> &'static str {
-        "git_diff"
-    }
+    name: "git_diff",
+    description: "Show git diff, optionally staged and/or for a specific path.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Ops],
+    defer_loading: true,
 
-    fn description(&self) -> &'static str {
-        "Show git diff, optionally staged and/or for a specific path."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "staged": { "type": "boolean", "description": "Show staged (cached) diff (default false)" },
-                "path": { "type": "string", "description": "Optional path to show diff for (alias: file_path)" },
-                "file_path": { "type": "string", "description": "Alias for path" }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let staged = params
-            .get("staged")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+    execute(params: GitDiffParams, ctx) {
+        let staged = params.staged;
+        let path_opt = params.path.as_deref().or(params.file_path.as_deref());
         let mut args = vec!["diff", "--numstat"];
         if staged {
             args.push("--cached");
         }
         args.push("--");
-        if let Some(path) = params
-            .get("path")
-            .or_else(|| params.get("file_path"))
-            .and_then(Value::as_str)
-        {
+        if let Some(path) = path_opt {
             // Validate path is within workspace
             validate_read_path(path, &ctx.cwd, !ctx.allow_outside_workspace)?;
             args.push(path);
@@ -181,7 +164,7 @@ impl Tool for GitDiffTool {
             diff_args.push("--cached");
         }
         diff_args.push("--");
-        if let Some(path) = params.get("path").and_then(Value::as_str) {
+        if let Some(path) = params.path.as_deref() {
             diff_args.push(path);
         }
         let result = run_git(ctx, &diff_args)?;
@@ -200,59 +183,28 @@ impl Tool for GitDiffTool {
     }
 }
 
-impl Tool for GitCommitTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+rustycode_tools_api::define_tool! {
+    pub struct GitCommitTool;
 
-    fn name(&self) -> &'static str {
-        "git_commit"
-    }
+    name: "git_commit",
+    description: "Stage files and create a git commit with provided message.",
+    permission: ToolPermission::Write,
+    tags: [ToolTag::Ops],
+    defer_loading: true,
 
-    fn description(&self) -> &'static str {
-        "Stage files and create a git commit with provided message."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["message"],
-            "properties": {
-                "message": { "type": "string" },
-                "files": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Files to stage before committing (omit to commit already-staged changes)"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let message = params
-            .get("message")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing string parameter 'message'"))?;
-
-        let staged_files = if let Some(files) = params.get("files").and_then(Value::as_array) {
-            let paths: Vec<&str> = files.iter().filter_map(|v| v.as_str()).collect();
+    execute(params: GitCommitParams, ctx) {
+        let message = params.message;
+        let staged_files = if let Some(files) = params.files {
             // Validate all file paths are within workspace
-            for p in &paths {
+            for p in &files {
                 validate_read_path(p, &ctx.cwd, !ctx.allow_outside_workspace)?;
             }
-            if !paths.is_empty() {
+            if !files.is_empty() {
                 let mut add_args = vec!["add", "--"];
+                let paths: Vec<&str> = files.iter().map(|s| s.as_str()).collect();
                 add_args.extend_from_slice(&paths);
                 run_git(ctx, &add_args)?;
-                Some(paths)
+                Some(files)
             } else {
                 None
             }
@@ -260,7 +212,7 @@ impl Tool for GitCommitTool {
             None
         };
 
-        let result = run_git(ctx, &["commit", "-m", message])?;
+        let result = run_git(ctx, &["commit", "-m", &message])?;
 
         // Get the commit SHA that was just created
         let rev_parse = Command::new("git")
@@ -286,40 +238,17 @@ impl Tool for GitCommitTool {
     }
 }
 
-impl Tool for GitLogTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+rustycode_tools_api::define_tool! {
+    pub struct GitLogTool;
 
-    fn name(&self) -> &'static str {
-        "git_log"
-    }
+    name: "git_log",
+    description: "Show recent git commits.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Ops],
+    defer_loading: true,
 
-    fn description(&self) -> &'static str {
-        "Show recent git commits."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": { "limit": { "type": "integer" } }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let limit = params
-            .get("limit")
-            .and_then(Value::as_u64)
-            .unwrap_or(10)
-            .min(1000);
+    execute(params: GitLogParams, ctx) {
+        let limit = params.limit.unwrap_or(10).min(1000);
         let n = limit.to_string();
         let output = run_git(ctx, &["log", "--oneline", "--no-decorate", "-n", &n])?;
         let commits: Vec<Value> = output
@@ -360,6 +289,7 @@ fn run_git(ctx: &ToolContext, args: &[&str]) -> Result<ToolOutput> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;

@@ -1,52 +1,28 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use anyhow::anyhow;
+use schemars::JsonSchema;
 use serde_json::{json, Value};
 
-/// Deferred tool loading — fetches full schema definitions on demand.
-///
-/// Tools are initially announced by name only. When the model needs to call
-/// a tool, it uses this to load the full schema. Token optimization pattern.
-pub struct ToolSearchTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct ToolSearchParams {
+    /// Tool name to search for and load full schema
+    query: String,
+}
 
-impl Tool for ToolSearchTool {
-    fn name(&self) -> &'static str {
-        "tool_search"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct ToolSearchTool;
 
-    fn description(&self) -> &'static str {
-        r#"Fetches full schema definitions for deferred tools so they can be called.
+    name: "tool_search",
+    description: r#"Fetches full schema definitions for deferred tools so they can be called.
 
-When you see a tool name in the available tools list but don't have its full schema, use this tool to load it. Pass the tool name and get back the complete parameter schema and description."#
-    }
+When you see a tool name in the available tools list but don't have its full schema, use this tool to load it. Pass the tool name and get back the complete parameter schema and description."#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
+    execute(params: ToolSearchParams, ctx) {
+        let query = params.query.trim();
 
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Tool name to search for and load full schema"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let query = params
-            .get("query")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing query"))?;
-
-        if query.trim().is_empty() {
+        if query.is_empty() {
             return Err(anyhow!("query must not be empty"));
         }
 
@@ -118,7 +94,7 @@ When you see a tool name in the available tools list but don't have its full sch
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ToolRegistry;
+    use crate::{Tool, ToolContext, ToolRegistry};
     use std::sync::Arc;
 
     fn test_ctx() -> ToolContext {

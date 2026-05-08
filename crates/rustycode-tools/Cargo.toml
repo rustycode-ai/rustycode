@@ -62,6 +62,7 @@ tree-sitter-go = "0.25"
 tree-sitter-typescript = "0.23"
 url = "2.5"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+schemars = "1.2.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -8,8 +8,8 @@
 use crate::file_formatter;
 use crate::line_endings::{detect_line_ending, generate_diff, normalize_quotes, normalize_to_lf};
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::Result;
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -25,7 +25,7 @@ fn suggest_similar_files(target: &std::path::Path, cwd: &std::path::Path) -> Vec
     crate::file_suggest::suggest_similar_files(target, cwd, 3)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct EditFileInput {
     #[serde(alias = "file_path")]
     pub path: PathBuf,
@@ -146,95 +146,16 @@ pub(crate) fn try_trimmed_match(content: &str, old_text: &str, new_text: &str) -
     None
 }
 
-pub struct EditFile;
+// Edit file tool
+rustycode_tools_api::define_tool! {
+    pub struct EditFile;
 
-impl Tool for EditFile {
-    fn name(&self) -> &'static str {
-        "edit_file"
-    }
+    name: "edit_file",
+    description: "Replace text in a file. Tries exact match first, then line-ending-normalized match (handles CRLF/LF differences), then quote-normalized match (handles curly/smart quotes), then trimmed-whitespace match. Preserves original line endings. Returns a diff of changes.",
+    permission: ToolPermission::Write,
+    tags: [ToolTag::Implement],
 
-    fn description(&self) -> &'static str {
-        "Replace text in a file. Tries exact match first, then line-ending-normalized match (handles CRLF/LF differences), then quote-normalized match (handles curly/smart quotes), then trimmed-whitespace match. Preserves original line endings. Returns a diff of changes."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "File path relative to workspace root (alias: file_path)"
-                },
-                "file_path": {
-                    "type": "string",
-                    "description": "Alias for path"
-                },
-                "old_text": {
-                    "type": "string",
-                    "description": "Text to find (alias: old_string). Matching is flexible: tries exact, then line-ending-normalized (CRLF/LF), then quote-normalized (curly/smart quotes), then trimmed-whitespace."
-                },
-                "old_string": {
-                    "type": "string",
-                    "description": "Alias for old_text"
-                },
-                "new_text": {
-                    "type": "string",
-                    "description": "Replacement text (alias: new_string). Original file line endings (CRLF/LF) are preserved."
-                },
-                "new_string": {
-                    "type": "string",
-                    "description": "Alias for new_text"
-                },
-                "replace_all": {
-                    "type": "boolean",
-                    "description": "Replace all occurrences of old_text (default false). Only applies to exact match strategy."
-                }
-            },
-            "required": ["path", "old_text", "new_text"]
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Implement]
-    }
-
-    fn validate_input(&self, params: &serde_json::Value, ctx: &ToolContext) -> Result<()> {
-        let input: EditFileInput = serde_json::from_value(params.clone())
-            .map_err(|e| anyhow::anyhow!("Invalid parameters: {e}"))?;
-        let path_str = input
-            .path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path: contains non-UTF-8 characters"))?;
-        let path = if std::path::Path::new(path_str).is_absolute() {
-            std::path::PathBuf::from(path_str)
-        } else {
-            ctx.cwd.join(path_str)
-        };
-        if let Some(state) = &ctx.file_read_state {
-            let canonical = path.canonicalize().ok();
-            let current_mtime = canonical
-                .as_ref()
-                .and_then(|p| fs::metadata(p).ok())
-                .and_then(|m| m.modified().ok());
-            let check_path = canonical.as_ref().unwrap_or(&path);
-            if let Err(reason) = state.check_stale(check_path, current_mtime) {
-                return Err(anyhow::anyhow!("{reason}"));
-            }
-        }
-        Ok(())
-    }
-
-    fn execute(&self, params: serde_json::Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        // Role-based gating
-        if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
-        }
-        let input: EditFileInput = serde_json::from_value(params)
-            .map_err(|e| anyhow::anyhow!("Invalid parameters: {e}"))?;
+    execute(input: EditFileInput, ctx) {
 
         // Validate path and check size limits
         let path_str = input
@@ -439,6 +360,7 @@ impl Tool for EditFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
     use tempfile::tempdir;
 
     #[test]

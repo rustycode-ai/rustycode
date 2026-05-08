@@ -8,21 +8,149 @@
 //! - `DockerLogsTool`: View container logs
 //! - `DockerInspectTool`: Inspect containers/images
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
+use schemars::JsonSchema;
 use serde_json::{json, Value};
 use std::process::Command;
 
-/// Docker build tool - Build Docker images from Dockerfile
-pub struct DockerBuildTool;
+// ── Params structs ──────────────────────────────────────────────────────────
 
-impl Tool for DockerBuildTool {
-    fn name(&self) -> &'static str {
-        "docker_build"
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DockerBuildParams {
+    /// Image tag (e.g., 'myapp:latest' or 'myapp:v1.0')
+    tag: String,
+    /// Path to Dockerfile (default: 'Dockerfile' in current directory)
+    dockerfile: Option<String>,
+    /// Build context path (default: '.')
+    context: Option<String>,
+    /// Build arguments as key-value pairs (e.g., {"VERSION": "1.0"})
+    build_args: Option<Value>,
+    /// Target stage for multi-stage builds
+    target: Option<String>,
+    /// Disable cache (default: false)
+    #[serde(default)]
+    no_cache: bool,
+}
 
-    fn description(&self) -> &'static str {
-        r#"Build a Docker image from a Dockerfile
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DockerRunParams {
+    /// Docker image to run (e.g., 'ubuntu:latest' or 'myapp:v1.0')
+    image: String,
+    /// Command to run in the container
+    command: Option<String>,
+    /// Port mappings as host:container (e.g., {"8080": "80"})
+    ports: Option<Value>,
+    /// Volume mappings (e.g., {"/host/path": "/container/path"})
+    volumes: Option<Value>,
+    /// Environment variables (e.g., {"API_KEY": "secret"})
+    environment: Option<Value>,
+    /// Run in detached mode (default: true)
+    #[serde(default = "default_true")]
+    detach: bool,
+    /// Auto-remove container on exit (default: false)
+    #[serde(default)]
+    remove: bool,
+    /// Container name
+    name: Option<String>,
+    /// Working directory inside the container
+    workdir: Option<String>,
+    /// User to run as (e.g., "1000:1000")
+    user: Option<String>,
+    /// Add Linux capabilities (e.g., ["SYS_ADMIN"])
+    cap_add: Option<Vec<String>>,
+    /// Give extended privileges to the container (default: false)
+    #[serde(default)]
+    privileged: bool,
+    /// Network mode to connect the container to
+    network: Option<String>,
+    /// Memory limit (e.g., "512m", "1g")
+    memory_limit: Option<String>,
+    /// CPU limit (e.g., "0.5" for 50% of one CPU)
+    cpu_limit: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DockerPsParams {
+    /// Show all containers (including stopped ones)
+    #[serde(default)]
+    all: bool,
+    /// Only display container IDs
+    #[serde(default)]
+    quiet: bool,
+    /// Format output using Go template (e.g., '{{.ID}}: {{.Names}}')
+    format: Option<String>,
+}
+
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DockerStopParams {
+    /// Container ID(s) or name(s) to stop. Can be a single string or array of strings.
+    containers: ContainersValue,
+    /// Seconds to wait before killing (default: 10)
+    time: Option<i64>,
+}
+
+/// Helper type to accept either a string or array of strings for containers parameter.
+#[derive(serde::Deserialize, JsonSchema)]
+#[serde(untagged)]
+enum ContainersValue {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DockerLogsParams {
+    /// Container ID or name
+    container: String,
+    /// Follow log output (default: false)
+    #[serde(default)]
+    follow: bool,
+    /// Number of lines to show from the end (default: 'all'). Use '100' for last 100 lines.
+    tail: Option<String>,
+    /// Show timestamps (default: false)
+    #[serde(default)]
+    timestamps: bool,
+    /// Show logs since timestamp (e.g., '2023-01-01T00:00:00Z') or relative time (e.g., '10m')
+    since: Option<String>,
+}
+
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DockerInspectParams {
+    /// Container ID, image name, or other Docker object to inspect
+    target: String,
+    /// Format output using Go template (e.g., '{{.Config.Image}}')
+    format: Option<String>,
+    /// Return JSON for specified type
+    #[serde(rename = "type")]
+    inspect_type: Option<String>,
+}
+
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DockerImagesParams {
+    /// Show all images (including intermediate layers)
+    #[serde(default)]
+    all: bool,
+    /// Show only dangling images (untagged)
+    #[serde(default)]
+    dangling: bool,
+    /// Only show image IDs
+    #[serde(default)]
+    quiet: bool,
+    /// Format output using Go template
+    format: Option<String>,
+}
+
+// ── Tool definitions ────────────────────────────────────────────────────────
+
+rustycode_tools_api::define_tool! {
+    pub struct DockerBuildTool;
+
+    name: "docker_build",
+    description: r#"Build a Docker image from a Dockerfile
 
 Use this tool to:
 - Build Docker images from a Dockerfile in the current directory
@@ -35,60 +163,16 @@ Use this tool to:
 - Build with custom Dockerfile: specify dockerfile path
 - Build with build args: pass build arguments like "VERSION=1.0"
 
-**Note:** This requires Docker to be installed and running on the system."#
-    }
+**Note:** This requires Docker to be installed and running on the system."#,
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["tag"],
-            "properties": {
-                "tag": {
-                    "type": "string",
-                    "description": "Image tag (e.g., 'myapp:latest' or 'myapp:v1.0')"
-                },
-                "dockerfile": {
-                    "type": "string",
-                    "description": "Path to Dockerfile (default: 'Dockerfile' in current directory)"
-                },
-                "context": {
-                    "type": "string",
-                    "description": "Build context path (default: '.')"
-                },
-                "build_args": {
-                    "type": "object",
-                    "description": "Build arguments as key-value pairs (e.g., {\"VERSION\": \"1.0\"})",
-                    "additionalProperties": { "type": "string" }
-                },
-                "target": {
-                    "type": "string",
-                    "description": "Target stage for multi-stage builds"
-                },
-                "no_cache": {
-                    "type": "boolean",
-                    "description": "Disable cache (default: false)"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let tag = required_string(&params, "tag")?;
-        let dockerfile = optional_string(&params, "dockerfile").unwrap_or("Dockerfile");
-        let context = optional_string(&params, "context").unwrap_or(".");
-        let no_cache = params
-            .get("no_cache")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let target = optional_string(&params, "target");
+    execute(params: DockerBuildParams, ctx) {
+        let tag = &params.tag;
+        let dockerfile = params.dockerfile.as_deref().unwrap_or("Dockerfile");
+        let context = params.context.as_deref().unwrap_or(".");
+        let no_cache = params.no_cache;
+        let target = params.target.as_deref();
 
         // Build command args as owned strings
         let mut args_vec: Vec<String> =
@@ -106,11 +190,13 @@ Use this tool to:
         }
 
         // Add build args
-        if let Some(build_args) = params.get("build_args").and_then(|v| v.as_object()) {
-            for (key, value) in build_args {
-                if let Some(value_str) = value.as_str() {
-                    args_vec.push("--build-arg".to_string());
-                    args_vec.push(format!("{key}={value_str}"));
+        if let Some(ref build_args) = params.build_args {
+            if let Some(build_args_obj) = build_args.as_object() {
+                for (key, value) in build_args_obj {
+                    if let Some(value_str) = value.as_str() {
+                        args_vec.push("--build-arg".to_string());
+                        args_vec.push(format!("{key}={value_str}"));
+                    }
                 }
             }
         }
@@ -143,16 +229,11 @@ Use this tool to:
     }
 }
 
-/// Docker run tool - Run Docker containers
-pub struct DockerRunTool;
+rustycode_tools_api::define_tool! {
+    pub struct DockerRunTool;
 
-impl Tool for DockerRunTool {
-    fn name(&self) -> &'static str {
-        "docker_run"
-    }
-
-    fn description(&self) -> &'static str {
-        r"Run a Docker container
+    name: "docker_run",
+    description: r"Run a Docker container
 
 Use this tool to:
 - Run a container from an image
@@ -166,114 +247,15 @@ Use this tool to:
 - Run with volumes: mount host directories into container
 - Run with environment: pass environment variables
 
-**Note:** This requires Docker to be installed and running on the system."
-    }
+**Note:** This requires Docker to be installed and running on the system.",
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["image"],
-            "properties": {
-                "image": {
-                    "type": "string",
-                    "description": "Docker image to run (e.g., 'ubuntu:latest' or 'myapp:v1.0')"
-                },
-                "command": {
-                    "type": "string",
-                    "description": "Command to run in the container"
-                },
-                "ports": {
-                    "type": "object",
-                    "description": "Port mappings as host:container (e.g., {\"8080\": \"80\"})",
-                    "additionalProperties": { "type": "string" }
-                },
-                "volumes": {
-                    "type": "object",
-                    "description": "Volume mappings (e.g., {\"/host/path\": \"/container/path\"})",
-                    "additionalProperties": { "type": "string" }
-                },
-                "environment": {
-                    "type": "object",
-                    "description": "Environment variables (e.g., {\"API_KEY\": \"secret\"})",
-                    "additionalProperties": { "type": "string" }
-                },
-                "detach": {
-                    "type": "boolean",
-                    "description": "Run in detached mode (default: true)",
-                    "default": true
-                },
-                "remove": {
-                    "type": "boolean",
-                    "description": "Auto-remove container on exit (default: false)",
-                    "default": false
-                },
-                "name": {
-                    "type": "string",
-                    "description": "Container name"
-                },
-                "workdir": {
-                    "type": "string",
-                    "description": "Working directory inside the container"
-                },
-                "user": {
-                    "type": "string",
-                    "description": "User to run as (e.g., \"1000:1000\")"
-                },
-                "cap_add": {
-                    "type": "array",
-                    "description": "Add Linux capabilities (e.g., [\"SYS_ADMIN\"])",
-                    "items": { "type": "string" }
-                },
-                "privileged": {
-                    "type": "boolean",
-                    "description": "Give extended privileges to the container (default: false)",
-                    "default": false
-                },
-                "network": {
-                    "type": "string",
-                    "description": "Network mode to connect the container to"
-                },
-                "memory_limit": {
-                    "type": "string",
-                    "description": "Memory limit (e.g., \"512m\", \"1g\")"
-                },
-                "cpu_limit": {
-                    "type": "string",
-                    "description": "CPU limit (e.g., \"0.5\" for 50% of one CPU)"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let image = required_string(&params, "image")?;
-        let command = optional_string(&params, "command");
-        let detach = params
-            .get("detach")
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
-        let remove = params
-            .get("remove")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let name = optional_string(&params, "name");
-        let workdir = optional_string(&params, "workdir");
-        let user = optional_string(&params, "user");
-        let privileged = params
-            .get("privileged")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let network = optional_string(&params, "network");
-        let memory_limit = optional_string(&params, "memory_limit");
-        let cpu_limit = optional_string(&params, "cpu_limit");
+    execute(params: DockerRunParams, ctx) {
+        let image = &params.image;
+        let detach = params.detach;
+        let remove = params.remove;
+        let privileged = params.privileged;
 
         // Build command args as owned strings
         let mut args_vec: Vec<String> = vec!["run".to_string()];
@@ -289,19 +271,19 @@ Use this tool to:
         }
 
         // Add name if specified
-        if let Some(container_name) = name {
+        if let Some(ref container_name) = params.name {
             args_vec.push("--name".to_string());
             args_vec.push(container_name.to_string());
         }
 
         // Add workdir if specified
-        if let Some(wd) = workdir {
+        if let Some(ref wd) = params.workdir {
             args_vec.push("-w".to_string());
             args_vec.push(wd.to_string());
         }
 
         // Add user if specified
-        if let Some(u) = user {
+        if let Some(ref u) = params.user {
             args_vec.push("-u".to_string());
             args_vec.push(u.to_string());
         }
@@ -312,60 +294,64 @@ Use this tool to:
         }
 
         // Add network if specified
-        if let Some(net) = network {
+        if let Some(ref net) = params.network {
             args_vec.push("--network".to_string());
             args_vec.push(net.to_string());
         }
 
         // Add memory limit
-        if let Some(mem) = memory_limit {
+        if let Some(ref mem) = params.memory_limit {
             args_vec.push("-m".to_string());
             args_vec.push(mem.to_string());
         }
 
         // Add CPU limit
-        if let Some(cpu) = cpu_limit {
+        if let Some(ref cpu) = params.cpu_limit {
             args_vec.push("--cpus".to_string());
             args_vec.push(cpu.to_string());
         }
 
         // Add port mappings
-        if let Some(ports) = params.get("ports").and_then(|v| v.as_object()) {
-            for (host_port, container_port) in ports {
-                if let Some(container_port_str) = container_port.as_str() {
-                    args_vec.push("-p".to_string());
-                    args_vec.push(format!("{host_port}:{container_port_str}"));
+        if let Some(ref ports) = params.ports {
+            if let Some(ports_obj) = ports.as_object() {
+                for (host_port, container_port) in ports_obj {
+                    if let Some(container_port_str) = container_port.as_str() {
+                        args_vec.push("-p".to_string());
+                        args_vec.push(format!("{host_port}:{container_port_str}"));
+                    }
                 }
             }
         }
 
         // Add volume mappings
-        if let Some(volumes) = params.get("volumes").and_then(|v| v.as_object()) {
-            for (host_path, container_path) in volumes {
-                if let Some(container_path_str) = container_path.as_str() {
-                    args_vec.push("-v".to_string());
-                    args_vec.push(format!("{host_path}:{container_path_str}"));
+        if let Some(ref volumes) = params.volumes {
+            if let Some(volumes_obj) = volumes.as_object() {
+                for (host_path, container_path) in volumes_obj {
+                    if let Some(container_path_str) = container_path.as_str() {
+                        args_vec.push("-v".to_string());
+                        args_vec.push(format!("{host_path}:{container_path_str}"));
+                    }
                 }
             }
         }
 
         // Add environment variables
-        if let Some(env) = params.get("environment").and_then(|v| v.as_object()) {
-            for (key, value) in env {
-                if let Some(value_str) = value.as_str() {
-                    args_vec.push("-e".to_string());
-                    args_vec.push(format!("{key}={value_str}"));
+        if let Some(ref env) = params.environment {
+            if let Some(env_obj) = env.as_object() {
+                for (key, value) in env_obj {
+                    if let Some(value_str) = value.as_str() {
+                        args_vec.push("-e".to_string());
+                        args_vec.push(format!("{key}={value_str}"));
+                    }
                 }
             }
         }
 
         // Add capabilities
-        if let Some(cap_adds) = params.get("cap_add").and_then(|v| v.as_array()) {
+        if let Some(ref cap_adds) = params.cap_add {
             for cap in cap_adds {
-                if let Some(cap_str) = cap.as_str() {
-                    args_vec.push("--cap-add".to_string());
-                    args_vec.push(cap_str.to_string());
-                }
+                args_vec.push("--cap-add".to_string());
+                args_vec.push(cap.to_string());
             }
         }
 
@@ -373,7 +359,7 @@ Use this tool to:
         args_vec.push(image.to_string());
 
         // Add command if specified
-        if let Some(cmd) = command {
+        if let Some(ref cmd) = params.command {
             args_vec.push("sh".to_string());
             args_vec.push("-c".to_string());
             args_vec.push(cmd.to_string());
@@ -398,62 +384,25 @@ Use this tool to:
     }
 }
 
-/// Docker ps tool - List running containers
-pub struct DockerPsTool;
+rustycode_tools_api::define_tool! {
+    pub struct DockerPsTool;
 
-impl Tool for DockerPsTool {
-    fn name(&self) -> &'static str {
-        "docker_ps"
-    }
-
-    fn description(&self) -> &'static str {
-        r"List Docker containers
+    name: "docker_ps",
+    description: r"List Docker containers
 
 Use this tool to:
 - List running containers
 - List all containers (including stopped ones)
 - Get detailed information about containers
 
-**Note:** This requires Docker to be installed and running on the system."
-    }
+**Note:** This requires Docker to be installed and running on the system.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "all": {
-                    "type": "boolean",
-                    "description": "Show all containers (including stopped ones)",
-                    "default": false
-                },
-                "quiet": {
-                    "type": "boolean",
-                    "description": "Only display container IDs",
-                    "default": false
-                },
-                "format": {
-                    "type": "string",
-                    "description": "Format output using Go template (e.g., '{{.ID}}: {{.Names}}')"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let all = params.get("all").and_then(Value::as_bool).unwrap_or(false);
-        let quiet = params
-            .get("quiet")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let format_str = optional_string(&params, "format");
+    execute(params: DockerPsParams, ctx) {
+        let all = params.all;
+        let quiet = params.quiet;
+        let format_str = params.format.as_deref();
 
         let mut args = vec!["ps"];
 
@@ -479,69 +428,27 @@ Use this tool to:
     }
 }
 
-/// Docker stop tool - Stop running containers
-pub struct DockerStopTool;
+rustycode_tools_api::define_tool! {
+    pub struct DockerStopTool;
 
-impl Tool for DockerStopTool {
-    fn name(&self) -> &'static str {
-        "docker_stop"
-    }
-
-    fn description(&self) -> &'static str {
-        r"Stop one or more running Docker containers
+    name: "docker_stop",
+    description: r"Stop one or more running Docker containers
 
 Use this tool to:
 - Stop running containers by ID or name
 - Gracefully stop containers (SIGTERM)
 - Force stop containers after timeout
 
-**Note:** This requires Docker to be installed and running on the system."
-    }
+**Note:** This requires Docker to be installed and running on the system.",
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
+    execute(params: DockerStopParams, ctx) {
+        let time = params.time.unwrap_or(10);
 
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["containers"],
-            "properties": {
-                "containers": {
-                    "oneOf": [
-                        { "type": "string" },
-                        { "type": "array", "items": { "type": "string" } }
-                    ],
-                    "description": "Container ID(s) or name(s) to stop"
-                },
-                "time": {
-                    "type": "integer",
-                    "description": "Seconds to wait before killing (default: 10)",
-                    "default": 10,
-                    "minimum": 1
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let containers_param = params
-            .get("containers")
-            .ok_or_else(|| anyhow!("missing 'containers' parameter"))?;
-        let time = params.get("time").and_then(Value::as_i64).unwrap_or(10);
-
-        let containers: Vec<String> = match containers_param {
-            Value::String(s) => vec![s.clone()],
-            Value::Array(arr) => arr
-                .iter()
-                .filter_map(|v| v.as_str())
-                .map(ToString::to_string)
-                .collect(),
-            _ => return Err(anyhow!("containers must be a string or array of strings")),
+        let containers: Vec<String> = match &params.containers {
+            ContainersValue::Single(s) => vec![s.clone()],
+            ContainersValue::Multiple(arr) => arr.clone(),
         };
 
         if containers.is_empty() {
@@ -562,16 +469,11 @@ Use this tool to:
     }
 }
 
-/// Docker logs tool - View container logs
-pub struct DockerLogsTool;
+rustycode_tools_api::define_tool! {
+    pub struct DockerLogsTool;
 
-impl Tool for DockerLogsTool {
-    fn name(&self) -> &'static str {
-        "docker_logs"
-    }
-
-    fn description(&self) -> &'static str {
-        r"View logs from a Docker container
+    name: "docker_logs",
+    description: r"View logs from a Docker container
 
 Use this tool to:
 - View container logs
@@ -579,60 +481,16 @@ Use this tool to:
 - View logs from a specific number of lines
 - View logs with timestamps
 
-**Note:** This requires Docker to be installed and running on the system."
-    }
+**Note:** This requires Docker to be installed and running on the system.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["container"],
-            "properties": {
-                "container": {
-                    "type": "string",
-                    "description": "Container ID or name"
-                },
-                "follow": {
-                    "type": "boolean",
-                    "description": "Follow log output (default: false)",
-                    "default": false
-                },
-                "tail": {
-                    "type": "string",
-                    "description": "Number of lines to show from the end (default: 'all'). Use '100' for last 100 lines."
-                },
-                "timestamps": {
-                    "type": "boolean",
-                    "description": "Show timestamps (default: false)",
-                    "default": false
-                },
-                "since": {
-                    "type": "string",
-                    "description": "Show logs since timestamp (e.g., '2023-01-01T00:00:00Z') or relative time (e.g., '10m')"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let container = required_string(&params, "container")?;
-        let follow = params
-            .get("follow")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let timestamps = params
-            .get("timestamps")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let tail = optional_string(&params, "tail");
-        let since = optional_string(&params, "since");
+    execute(params: DockerLogsParams, ctx) {
+        let container = &params.container;
+        let follow = params.follow;
+        let timestamps = params.timestamps;
+        let tail = params.tail.as_deref();
+        let since = params.since.as_deref();
 
         let mut args = vec!["logs"];
 
@@ -665,59 +523,25 @@ Use this tool to:
     }
 }
 
-/// Docker inspect tool - Inspect containers or images
-pub struct DockerInspectTool;
+rustycode_tools_api::define_tool! {
+    pub struct DockerInspectTool;
 
-impl Tool for DockerInspectTool {
-    fn name(&self) -> &'static str {
-        "docker_inspect"
-    }
-
-    fn description(&self) -> &'static str {
-        r"Inspect Docker containers or images
+    name: "docker_inspect",
+    description: r"Inspect Docker containers or images
 
 Use this tool to:
 - View detailed configuration of containers
 - View image metadata
 - Get low-level information about Docker objects
 
-**Note:** This requires Docker to be installed and running on the system."
-    }
+**Note:** This requires Docker to be installed and running on the system.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["target"],
-            "properties": {
-                "target": {
-                    "type": "string",
-                    "description": "Container ID, image name, or other Docker object to inspect"
-                },
-                "format": {
-                    "type": "string",
-                    "description": "Format output using Go template (e.g., '{{.Config.Image}}')"
-                },
-                "type": {
-                    "type": "string",
-                    "enum": ["container", "image", "task"],
-                    "description": "Return JSON for specified type"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let target = required_string(&params, "target")?;
-        let format_str = optional_string(&params, "format");
-        let inspect_type = optional_string(&params, "type");
+    execute(params: DockerInspectParams, ctx) {
+        let target = &params.target;
+        let format_str = params.format.as_deref();
+        let inspect_type = params.inspect_type.as_deref();
 
         let mut args = vec!["inspect"];
 
@@ -754,71 +578,26 @@ Use this tool to:
     }
 }
 
-/// Docker images tool - List Docker images
-pub struct DockerImagesTool;
+rustycode_tools_api::define_tool! {
+    pub struct DockerImagesTool;
 
-impl Tool for DockerImagesTool {
-    fn name(&self) -> &'static str {
-        "docker_images"
-    }
-
-    fn description(&self) -> &'static str {
-        r"List Docker images
+    name: "docker_images",
+    description: r"List Docker images
 
 Use this tool to:
 - List all locally available Docker images
 - Show image sizes and tags
 - Find dangling images
 
-**Note:** This requires Docker to be installed and running on the system."
-    }
+**Note:** This requires Docker to be installed and running on the system.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "all": {
-                    "type": "boolean",
-                    "description": "Show all images (including intermediate layers)",
-                    "default": false
-                },
-                "dangling": {
-                    "type": "boolean",
-                    "description": "Show only dangling images (untagged)",
-                    "default": false
-                },
-                "quiet": {
-                    "type": "boolean",
-                    "description": "Only show image IDs",
-                    "default": false
-                },
-                "format": {
-                    "type": "string",
-                    "description": "Format output using Go template"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let all = params.get("all").and_then(Value::as_bool).unwrap_or(false);
-        let dangling = params
-            .get("dangling")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let quiet = params
-            .get("quiet")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let format_str = optional_string(&params, "format");
+    execute(params: DockerImagesParams, ctx) {
+        let all = params.all;
+        let dangling = params.dangling;
+        let quiet = params.quiet;
+        let format_str = params.format.as_deref();
 
         let mut args = vec!["images"];
 
@@ -903,20 +682,10 @@ fn extract_image_id(output: &str) -> Option<String> {
     None
 }
 
-fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("missing string parameter '{key}'"))
-}
-
-fn optional_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key).and_then(Value::as_str)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
 
     /// Helper to create a ToolContext
     fn ctx() -> ToolContext {
@@ -941,9 +710,7 @@ mod tests {
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
-        let required = schema["required"].as_array().unwrap();
-        assert_eq!(required.len(), 1);
-        assert_eq!(required[0], "tag");
+        assert!(schema["properties"]["tag"].is_object());
     }
 
     #[test]
@@ -972,9 +739,7 @@ mod tests {
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
-        let required = schema["required"].as_array().unwrap();
-        assert_eq!(required.len(), 1);
-        assert_eq!(required[0], "image");
+        assert!(schema["properties"]["image"].is_object());
     }
 
     #[test]

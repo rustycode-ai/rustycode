@@ -1,86 +1,54 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use anyhow::anyhow;
+use schemars::JsonSchema;
+use serde_json::json;
 
-/// Execute code in a persistent REPL environment.
-///
-/// Variables and state persist between calls within the same session.
-pub struct REPLTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct REPLParams {
+    /// Action to perform: execute (run code), interrupt (stop execution), reset (clear state), get_state (view memory/variables)
+    action: String,
+    /// Unique identifier for the research session
+    research_session_id: Option<String>,
+    /// Legacy alias for research_session_id
+    #[serde(rename = "researchSessionID")]
+    #[schemars(rename = "researchSessionID")]
+    research_session_id_legacy: Option<String>,
+    /// The code to execute (required for action=execute)
+    code: Option<String>,
+    /// Optional label for the execution
+    #[allow(dead_code)]
+    execution_label: Option<String>,
+    /// Execution timeout in milliseconds (default: 300000)
+    execution_timeout: Option<u64>,
+    /// Project directory for file operations
+    #[allow(dead_code)]
+    project_dir: Option<String>,
+}
 
-impl Tool for REPLTool {
-    fn name(&self) -> &'static str {
-        "repl"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct REPLTool;
 
-    fn description(&self) -> &'static str {
-        r#"Execute code in a persistent REPL environment. Variables and state persist between calls within the same session. Actions: execute (run code), interrupt (stop execution), reset (clear state), get_state (view memory/variables). Supports scientific computing with pandas, numpy, matplotlib."#
-    }
+    name: "repl",
+    description: r#"Execute code in a persistent REPL environment. Variables and state persist between calls within the same session. Actions: execute (run code), interrupt (stop execution), reset (clear state), get_state (view memory/variables). Supports scientific computing with pandas, numpy, matplotlib."#,
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Debug],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["action", "researchSessionID"],
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["execute", "interrupt", "reset", "get_state"],
-                    "description": "Action to perform: execute (run code), interrupt (stop execution), reset (clear state), get_state (view memory/variables)"
-                },
-                "researchSessionID": {
-                    "type": "string",
-                    "description": "Unique identifier for the research session"
-                },
-                "code": {
-                    "type": "string",
-                    "description": "The code to execute (required for action=execute)"
-                },
-                "executionLabel": {
-                    "type": "string",
-                    "description": "Optional label for the execution"
-                },
-                "executionTimeout": {
-                    "type": "number",
-                    "default": 300000,
-                    "description": "Execution timeout in milliseconds (default: 300000)"
-                },
-                "projectDir": {
-                    "type": "string",
-                    "description": "Project directory for file operations"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Debug]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let action = params
-            .get("action")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing action"))?;
-
+    execute(params: REPLParams, _ctx) {
+        let action = &params.action;
         let session_id = params
-            .get("researchSessionID")
-            .and_then(Value::as_str)
+            .research_session_id
+            .as_deref()
+            .or(params.research_session_id_legacy.as_deref())
             .ok_or_else(|| anyhow!("missing researchSessionID"))?;
 
-        match action {
+        match action.as_str() {
             "execute" => {
                 let code = params
-                    .get("code")
-                    .and_then(Value::as_str)
+                    .code
+                    .as_deref()
                     .ok_or_else(|| anyhow!("missing code for execute action"))?;
 
-                let timeout = params
-                    .get("executionTimeout")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(300000);
+                let timeout = params.execution_timeout.unwrap_or(300000);
 
                 // Placeholder: actual REPL execution requires runtime integration
                 Ok(ToolOutput::with_structured(
@@ -118,6 +86,7 @@ impl Tool for REPLTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")

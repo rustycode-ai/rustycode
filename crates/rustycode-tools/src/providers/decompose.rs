@@ -1,44 +1,27 @@
-use rustycode_tools_api::{Tool, ToolContext, ToolOutput, ToolPermission};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission};
+use schemars::JsonSchema;
+use serde_json::json;
 
-pub struct DecomposeProblemTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DecomposeParams {
+    /// The task or goal to decompose
+    #[serde(default)]
+    goal: Option<String>,
+    /// Problem domain, constraints, or known information
+    #[serde(default)]
+    context: Option<String>,
+}
 
-impl Tool for DecomposeProblemTool {
-    fn name(&self) -> &str {
-        "reasoning_decompose"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct DecomposeProblemTool;
 
-    fn description(&self) -> &str {
-        "Break a complex task into 3-5 critical submodules with confidence scores. Use BEFORE starting implementation to identify what you don't know. Returns a structured decomposition with open questions per module and recommended next steps."
-    }
+    name: "reasoning_decompose",
+    description: "Break a complex task into 3-5 critical submodules with confidence scores. Use BEFORE starting implementation to identify what you don't know. Returns a structured decomposition with open questions per module and recommended next steps.",
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["goal"],
-            "properties": {
-                "goal": {
-                    "type": "string",
-                    "description": "The task or goal to decompose"
-                },
-                "context": {
-                    "type": "string",
-                    "description": "Problem domain, constraints, or known information"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
-        let goal = params
-            .get("goal")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unspecified task");
-        let context = params.get("context").and_then(|v| v.as_str()).unwrap_or("");
+    execute(params: DecomposeParams, _ctx) {
+        let goal = params.goal.as_deref().unwrap_or("unspecified task");
+        let context = params.context.as_deref().unwrap_or("");
 
         let context_section = if context.is_empty() {
             String::new()
@@ -75,6 +58,8 @@ impl Tool for DecomposeProblemTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
     use tempfile::tempdir;
 
     fn ctx() -> ToolContext {
@@ -89,10 +74,7 @@ mod tests {
         assert_eq!(tool.name(), "reasoning_decompose");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
-        assert!(schema["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("goal")));
+        assert!(schema["properties"]["goal"].is_object());
     }
 
     #[test]

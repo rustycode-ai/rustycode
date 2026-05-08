@@ -9,10 +9,8 @@ pub mod brief;
 pub mod browser_fetch;
 pub mod builtin;
 pub mod check_integration;
-pub mod claude_text_editor;
 pub mod cmd;
 pub mod codesearch;
-pub mod compile_time;
 pub mod cron;
 pub mod decompose;
 pub mod delegation_tool;
@@ -32,6 +30,7 @@ pub mod multiedit;
 pub mod notebook;
 pub mod powershell;
 pub mod question;
+pub mod read_file;
 pub mod reasoning_types;
 pub mod repl;
 pub mod search;
@@ -44,6 +43,7 @@ pub mod tool_search;
 pub mod validate_requirements;
 pub mod web_fetch_tool;
 pub mod web_search;
+pub mod write_file;
 
 // Re-exports for backward-compatible access via `rustycode_tools::TypeName`
 #[allow(ambiguous_glob_reexports)]
@@ -53,18 +53,13 @@ pub use bash::*;
 #[allow(ambiguous_glob_reexports)]
 pub use brief::*;
 #[allow(ambiguous_glob_reexports)]
-pub use check_integration::*;
+pub use browser_fetch::*;
 #[allow(ambiguous_glob_reexports)]
-pub use claude_text_editor::*;
+pub use check_integration::*;
 #[allow(ambiguous_glob_reexports)]
 pub use cmd::*;
 #[allow(ambiguous_glob_reexports)]
 pub use codesearch::*;
-// compile_time defines its own Tool/ToolPermission types that shadow the
-// crate-level re-exports. Skip glob re-export; consumers access it via
-// providers::compile_time:: directly.
-#[allow(ambiguous_glob_reexports)]
-pub use browser_fetch::*;
 #[allow(ambiguous_glob_reexports)]
 pub use cron::*;
 #[allow(ambiguous_glob_reexports)]
@@ -79,8 +74,6 @@ pub use docker_isolation::*;
 pub use edit::*;
 #[allow(ambiguous_glob_reexports)]
 pub use explore::*;
-#[allow(ambiguous_glob_reexports)]
-pub use fs::*;
 #[allow(ambiguous_glob_reexports)]
 pub use git::*;
 #[allow(ambiguous_glob_reexports)]
@@ -99,6 +92,8 @@ pub use notebook::*;
 pub use powershell::*;
 #[allow(ambiguous_glob_reexports)]
 pub use question::*;
+#[allow(ambiguous_glob_reexports)]
+pub use read_file::*;
 #[allow(ambiguous_glob_reexports)]
 pub use reasoning_types::*;
 #[allow(ambiguous_glob_reexports)]
@@ -123,3 +118,5 @@ pub use validate_requirements::*;
 pub use web_fetch_tool::*;
 #[allow(ambiguous_glob_reexports)]
 pub use web_search::*;
+#[allow(ambiguous_glob_reexports)]
+pub use write_file::*;

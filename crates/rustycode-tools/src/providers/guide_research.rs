@@ -1,55 +1,31 @@
-use rustycode_tools_api::{Tool, ToolContext, ToolOutput, ToolPermission};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission};
+use schemars::JsonSchema;
+use serde_json::json;
 
-pub struct GuideResearchTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct GuideResearchParams {
+    /// The module to research
+    #[serde(default)]
+    module_name: Option<String>,
+    /// The specific question to answer
+    #[serde(default)]
+    open_question: Option<String>,
+    /// Any constraints or requirements to consider
+    #[serde(default)]
+    known_constraints: Option<String>,
+}
 
-impl Tool for GuideResearchTool {
-    fn name(&self) -> &str {
-        "reasoning_research"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct GuideResearchTool;
 
-    fn description(&self) -> &str {
-        "Get prioritized research targets for a specific module's open questions. Returns structured research guidance with what to investigate, why it matters, and what you should find. Use AFTER reasoning_decompose to plan your research efficiently."
-    }
+    name: "reasoning_research",
+    description: "Get prioritized research targets for a specific module's open questions. Returns structured research guidance with what to investigate, why it matters, and what you should find. Use AFTER reasoning_decompose to plan your research efficiently.",
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["module_name", "open_question"],
-            "properties": {
-                "module_name": {
-                    "type": "string",
-                    "description": "The module to research"
-                },
-                "open_question": {
-                    "type": "string",
-                    "description": "The specific question to answer"
-                },
-                "known_constraints": {
-                    "type": "string",
-                    "description": "Any constraints or requirements to consider"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
-        let module_name = params
-            .get("module_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown module");
-        let open_question = params
-            .get("open_question")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown question");
-        let known_constraints = params
-            .get("known_constraints")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+    execute(params: GuideResearchParams, _ctx) {
+        let module_name = params.module_name.as_deref().unwrap_or("unknown module");
+        let open_question = params.open_question.as_deref().unwrap_or("unknown question");
+        let known_constraints = params.known_constraints.as_deref().unwrap_or("");
 
         let constraints_section = if known_constraints.is_empty() {
             String::new()
@@ -90,6 +66,8 @@ impl Tool for GuideResearchTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
     use tempfile::tempdir;
 
     fn ctx() -> ToolContext {
@@ -104,9 +82,8 @@ mod tests {
         assert_eq!(tool.name(), "reasoning_research");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
-        let required = schema["required"].as_array().unwrap();
-        assert!(required.contains(&json!("module_name")));
-        assert!(required.contains(&json!("open_question")));
+        assert!(schema["properties"]["module_name"].is_object());
+        assert!(schema["properties"]["open_question"].is_object());
     }
 
     #[test]

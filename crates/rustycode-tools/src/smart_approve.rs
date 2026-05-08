@@ -88,7 +88,6 @@ impl SmartApprove {
             write_tools: HashSet::from([
                 "write_file",
                 "edit_file",
-                "text_editor_20250728",
                 "text_editor_20250124",
                 "apply_patch",
                 "multi_edit",

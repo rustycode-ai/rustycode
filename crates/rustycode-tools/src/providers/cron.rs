@@ -1,20 +1,34 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static JOB_COUNTER: AtomicU64 = AtomicU64::new(1);
 
-/// Schedule a prompt to run at a future time (cron-based or one-shot).
-pub struct CronCreateTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct CronCreateParams {
+    /// Standard 5-field cron expression in local time: M H DoM Mon DoW (e.g., '*/5 * * * *' = every 5 min, '30 14 28 2 *' = Feb 28 at 2:30pm local once)
+    cron: String,
+    /// The prompt to enqueue at each fire time
+    prompt: String,
+    /// true = fire on every cron match until deleted; false = fire once at next match then auto-delete
+    #[serde(default = "default_true")]
+    recurring: bool,
+    /// true = persist to .claude/scheduled_tasks.json and survive restarts. Only use when user explicitly asks for persistence
+    #[serde(default)]
+    durable: bool,
+}
 
-impl Tool for CronCreateTool {
-    fn name(&self) -> &'static str {
-        "cron_create"
-    }
+fn default_true() -> bool {
+    true
+}
 
-    fn description(&self) -> &'static str {
-        r#"Schedule a prompt to be enqueued at a future time. Use for both recurring schedules and one-shot reminders.
+rustycode_tools_api::define_tool! {
+    pub struct CronCreateTool;
+
+    name: "cron_create",
+    description: r#"Schedule a prompt to be enqueued at a future time. Use for both recurring schedules and one-shot reminders.
 
 Uses standard 5-field cron in the user's local timezone: minute hour day-of-month month day-of-week. "0 9 * * *" means 9am local — no timezone conversion needed.
 
@@ -25,54 +39,13 @@ Pin minute/hour/day-of-month/month to specific values.
 ## Recurring jobs (recurring: true, default)
 For "every N minutes" / "every hour" / "weekdays at 9am".
 
-Returns a job ID you can pass to cron_delete."#
-    }
+Returns a job ID you can pass to cron_delete."#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["cron", "prompt"],
-            "properties": {
-                "cron": {
-                    "type": "string",
-                    "description": "Standard 5-field cron expression in local time: M H DoM Mon DoW (e.g., '*/5 * * * *' = every 5 min, '30 14 28 2 *' = Feb 28 at 2:30pm local once)"
-                },
-                "prompt": {
-                    "type": "string",
-                    "description": "The prompt to enqueue at each fire time"
-                },
-                "recurring": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "true = fire on every cron match until deleted; false = fire once at next match then auto-delete"
-                },
-                "durable": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "true = persist to .claude/scheduled_tasks.json and survive restarts. Only use when user explicitly asks for persistence"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let cron = params
-            .get("cron")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing cron expression"))?;
-
-        let prompt = params
-            .get("prompt")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing prompt"))?;
+    execute(params: CronCreateParams, _ctx) {
+        let cron = &params.cron;
+        let prompt = &params.prompt;
 
         if prompt.trim().is_empty() {
             return Err(anyhow!("prompt must not be empty"));
@@ -80,15 +53,8 @@ Returns a job ID you can pass to cron_delete."#
 
         validate_cron(cron)?;
 
-        let recurring = params
-            .get("recurring")
-            .and_then(Value::as_bool)
-            .unwrap_or(true);
-
-        let durable = params
-            .get("durable")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        let recurring = params.recurring;
+        let durable = params.durable;
 
         let job_id = format!("cron-{}", JOB_COUNTER.fetch_add(1, Ordering::Relaxed));
 
@@ -104,44 +70,22 @@ Returns a job ID you can pass to cron_delete."#
     }
 }
 
-/// Cancel a scheduled cron job by ID.
-pub struct CronDeleteTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct CronDeleteParams {
+    /// Job ID returned by cron_create
+    id: String,
+}
 
-impl Tool for CronDeleteTool {
-    fn name(&self) -> &'static str {
-        "cron_delete"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct CronDeleteTool;
 
-    fn description(&self) -> &'static str {
-        r#"Cancel a cron job previously scheduled with cron_create. Removes it from the in-memory session store."#
-    }
+    name: "cron_delete",
+    description: r#"Cancel a cron job previously scheduled with cron_create. Removes it from the in-memory session store."#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["id"],
-            "properties": {
-                "id": {
-                    "type": "string",
-                    "description": "Job ID returned by cron_create"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let id = params
-            .get("id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing job id"))?;
+    execute(params: CronDeleteParams, _ctx) {
+        let id = &params.id;
 
         // Placeholder: actual removal from scheduler requires runtime integration
         Ok(ToolOutput::with_structured(
@@ -151,34 +95,18 @@ impl Tool for CronDeleteTool {
     }
 }
 
-/// List all scheduled cron jobs.
-pub struct CronListTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct CronListParams {}
 
-impl Tool for CronListTool {
-    fn name(&self) -> &'static str {
-        "cron_list"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct CronListTool;
 
-    fn description(&self) -> &'static str {
-        r#"List all cron jobs scheduled via cron_create in this session."#
-    }
+    name: "cron_list",
+    description: r#"List all cron jobs scheduled via cron_create in this session."#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {}
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(_params: CronListParams, _ctx) {
         // Placeholder: actual listing from scheduler requires runtime integration
         Ok(ToolOutput::with_structured(
             "No active cron jobs".to_string(),
@@ -202,6 +130,8 @@ fn validate_cron(expr: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")

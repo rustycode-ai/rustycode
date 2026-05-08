@@ -10,9 +10,10 @@
 //! - Graceful fallback when not on Windows
 
 use crate::truncation::truncate_bash_output;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -389,83 +390,43 @@ fn validate_cmd_command(command: &str) -> Result<()> {
     Ok(())
 }
 
+// Params
+
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct CmdParams {
+    /// The cmd.exe command to execute
+    command: String,
+    /// Restart the cmd.exe session (fresh process)
+    #[serde(default)]
+    restart: bool,
+    /// Wall-clock timeout in seconds (default: 120, max: 600)
+    timeout_secs: Option<u64>,
+}
+
 // CmdTool
 
-/// Windows cmd.exe tool for executing native Windows commands.
-///
-/// This tool provides a persistent cmd.exe session with delimiter-based
-/// output parsing and wall-clock timeouts. Only available on Windows.
-pub struct CmdTool;
+rustycode_tools_api::define_tool! {
+    pub struct CmdTool;
 
-impl Tool for CmdTool {
-    fn name(&self) -> &'static str {
-        "cmd"
-    }
+    name: "cmd",
+    description: "Execute commands in Windows cmd.exe. \
+     Windows-only — returns an error on other platforms. \
+     Supports persistent sessions, wall-clock timeouts, \
+     and background execution. \
+     Commands are validated against a security blocklist.",
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Implement, ToolTag::Ops],
 
-    fn description(&self) -> &'static str {
-        "Execute commands in Windows cmd.exe. \
-         Windows-only — returns an error on other platforms. \
-         Supports persistent sessions, wall-clock timeouts, \
-         and background execution. \
-         Commands are validated against a security blocklist."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["command"],
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "The cmd.exe command to execute"
-                },
-                "restart": {
-                    "type": "boolean",
-                    "description": "Restart the cmd.exe session (fresh process)",
-                    "default": false
-                },
-                "timeout_secs": {
-                    "type": "integer",
-                    "description": "Wall-clock timeout in seconds (default: 120, max: 600)",
-                    "default": 120,
-                    "minimum": 1,
-                    "maximum": 600
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Implement, ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        crate::check_permission(self.permission(), ctx)?;
+    execute(params: CmdParams, ctx) {
+        crate::check_permission(ToolPermission::Execute, ctx)?;
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "cmd")?;
         }
 
-        let command = params
-            .get("command")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing string parameter 'command'"))?
-            .to_string();
-
-        let restart = params
-            .get("restart")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
-        let timeout_secs = params
-            .get("timeout_secs")
-            .and_then(Value::as_u64)
-            .unwrap_or(120)
-            .min(600);
+        let command = params.command;
+        let restart = params.restart;
+        let timeout_secs = params.timeout_secs.unwrap_or(120).min(600);
 
         use crate::security::cross_platform::validate_path_in_workspace;
         validate_path_in_workspace(&ctx.cwd, &ctx.cwd)?;

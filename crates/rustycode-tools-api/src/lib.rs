@@ -4,7 +4,10 @@ use rustycode_protocol::{
     agent_protocol::AgentRole, permission_role::ToolBlockedReason, SessionMode,
     ToolPermission as ProtocolToolPermission, ToolResult,
 };
+use serde::Serialize;
 use serde_json::Value;
+
+pub use schemars;
 
 /// Capability tags that tools self-declare for profile-based autodiscovery.
 /// These are the ONLY valid tags — typos are caught at compile time.
@@ -44,6 +47,7 @@ impl std::fmt::Display for ToolTag {
 /// MCP-aligned tool annotations
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[allow(clippy::struct_excessive_bools)]
+#[serde(rename_all = "camelCase")]
 pub struct ToolAnnotations {
     pub read_only_hint: bool,
     pub destructive_hint: bool,
@@ -412,6 +416,18 @@ impl ToolOutput {
             new_cwd: Some(new_cwd),
         }
     }
+
+    /// Create a new output with a structured payload that implements Serialize.
+    pub fn serialized<T: Serialize>(
+        text: impl Into<String>,
+        structured: T,
+    ) -> Result<Self, serde_json::Error> {
+        Ok(Self {
+            text: text.into(),
+            structured: Some(serde_json::to_value(structured)?),
+            new_cwd: None,
+        })
+    }
 }
 
 /// Requirement for tool execution
@@ -439,6 +455,21 @@ pub trait Tool: Send + Sync {
     fn tags(&self) -> &[ToolTag] {
         &[]
     }
+    fn output_schema(&self) -> Option<Value> {
+        None
+    }
+
+    fn annotations(&self) -> ToolAnnotations {
+        let mut ann = ToolAnnotations::default();
+        if matches!(
+            self.permission(),
+            ToolPermission::None | ToolPermission::Read
+        ) {
+            ann.read_only_hint = true;
+        }
+        ann
+    }
+
     fn execute(&self, params: Value, ctx: &ToolContext) -> anyhow::Result<ToolOutput>;
 
     /// Whether this specific invocation is read-only (input-aware).
@@ -511,7 +542,7 @@ impl ToolInfo {
             parameters_schema: tool.parameters_schema(),
             permission: tool.permission(),
             defer_loading: tool.defer_loading(),
-            annotations: None,
+            annotations: Some(tool.annotations()),
             tags: tool.tags().to_vec(),
             max_result_size_chars: tool.max_result_size_chars(),
             is_destructive_default: tool.is_destructive(&Value::Null),
@@ -758,9 +789,258 @@ pub fn check_tool_permission(tool_name: &str, mode: SessionMode) -> bool {
     }
 }
 
+#[macro_export]
+macro_rules! define_tool {
+    (
+        pub struct $name:ident;
+
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute($params:ident: $params_ty:ty, $ctx:ident) $body:block
+    ) => {
+        pub struct $name;
+
+        $crate::__define_tool_impl!(
+            $name;
+            name: $tool_name,
+            description: $desc,
+            $( permission: $perm, )?
+            $( tags: [$($tag),*], )?
+            $( defer_loading: $defer, )?
+            $( returns: $output_ty, )?
+            $( read_only: $read_only, )?
+            $( destructive: $destructive, )?
+            $( idempotent: $idempotent, )?
+            $( open_world: $open_world, )?
+            execute($params: $params_ty, $ctx) $body
+        );
+    };
+    (
+        pub struct $name:ident {
+            $($field_vis:vis $field_name:ident : $field_type:ty),* $(,)?
+        }
+
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute(&$self_ident:ident, $params:ident: $params_ty:ty, $ctx:ident) $body:block
+    ) => {
+        pub struct $name {
+            $($field_vis $field_name : $field_type),*
+        }
+
+        $crate::__define_tool_impl!(
+            $name;
+            name: $tool_name,
+            description: $desc,
+            $( permission: $perm, )?
+            $( tags: [$($tag),*], )?
+            $( defer_loading: $defer, )?
+            $( returns: $output_ty, )?
+            $( read_only: $read_only, )?
+            $( destructive: $destructive, )?
+            $( idempotent: $idempotent, )?
+            $( open_world: $open_world, )?
+            execute(&$self_ident, $params: $params_ty, $ctx) $body
+        );
+    };
+}
+
+#[macro_export]
+macro_rules! __define_tool_impl {
+    (
+        $name:ident;
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute($params:ident: $params_ty:ty, $ctx:ident) $body:block
+    ) => {
+        impl $crate::Tool for $name {
+            fn name(&self) -> &'static str {
+                $tool_name
+            }
+
+            fn description(&self) -> &'static str {
+                $desc
+            }
+
+            fn parameters_schema(&self) -> serde_json::Value {
+                serde_json::to_value($crate::schemars::schema_for!($params_ty)).unwrap()
+            }
+
+            $crate::__define_tool_optional!(permission, $($perm)?);
+            $crate::__define_tool_optional!(tags, [$($($tag),*)?]);
+            $crate::__define_tool_optional!(defer_loading, $($defer)?);
+            $crate::__define_tool_output_schema!($($output_ty)?);
+            $crate::__define_tool_annotations!(
+                $($read_only)?,
+                $($destructive)?,
+                $($idempotent)?,
+                $($open_world)?
+            );
+
+            fn execute(&self, params_raw: serde_json::Value, $ctx: &$crate::ToolContext) -> anyhow::Result<$crate::ToolOutput> {
+                let $params: $params_ty = serde_json::from_value(params_raw)
+                    .map_err(|e| anyhow::anyhow!("Invalid parameters for tool {}: {}", $tool_name, e))?;
+                $body
+            }
+        }
+    };
+    (
+        $name:ident;
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute(&$self_ident:ident, $params:ident: $params_ty:ty, $ctx:ident) $body:block
+    ) => {
+        impl $crate::Tool for $name {
+            fn name(&self) -> &'static str {
+                $tool_name
+            }
+
+            fn description(&self) -> &'static str {
+                $desc
+            }
+
+            fn parameters_schema(&self) -> serde_json::Value {
+                serde_json::to_value($crate::schemars::schema_for!($params_ty)).unwrap()
+            }
+
+            $crate::__define_tool_optional!(permission, $($perm)?);
+            $crate::__define_tool_optional!(tags, [$($($tag),*)?]);
+            $crate::__define_tool_optional!(defer_loading, $($defer)?);
+            $crate::__define_tool_output_schema!($($output_ty)?);
+            $crate::__define_tool_annotations!(
+                $($read_only)?,
+                $($destructive)?,
+                $($idempotent)?,
+                $($open_world)?
+            );
+
+            fn execute(&$self_ident, params_raw: serde_json::Value, $ctx: &$crate::ToolContext) -> anyhow::Result<$crate::ToolOutput> {
+                let $params: $params_ty = serde_json::from_value(params_raw)
+                    .map_err(|e| anyhow::anyhow!("Invalid parameters for tool {}: {}", $tool_name, e))?;
+                $body
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! __define_tool_optional {
+    (permission, ) => {};
+    (permission, $perm:expr) => {
+        fn permission(&self) -> $crate::ToolPermission {
+            $perm
+        }
+    };
+    (tags, []) => {};
+    (tags, [$($tag:expr),*]) => {
+        fn tags(&self) -> &[$crate::ToolTag] {
+            &[$($tag),*]
+        }
+    };
+    (defer_loading, ) => {};
+    (defer_loading, $defer:expr) => {
+        fn defer_loading(&self) -> Option<bool> {
+            Some($defer)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! __define_tool_output_schema {
+    () => {};
+    ($output_ty:ty) => {
+        fn output_schema(&self) -> Option<serde_json::Value> {
+            Some(serde_json::to_value($crate::schemars::schema_for!($output_ty)).unwrap())
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! __define_tool_annotations {
+    ($($read_only:expr)?, $($destructive:expr)?, $($idempotent:expr)?, $($open_world:expr)?) => {
+        fn annotations(&self) -> $crate::ToolAnnotations {
+            #[allow(unused_mut)]
+            let mut ann = $crate::ToolAnnotations::default();
+            $( ann.read_only_hint = $read_only; )?
+            $( ann.destructive_hint = $destructive; )?
+            $( ann.idempotent_hint = $idempotent; )?
+            $( ann.open_world_hint = $open_world; )?
+            ann
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_define_tool_with_annotations() {
+        use schemars::JsonSchema;
+        use serde::Deserialize;
+
+        #[derive(Deserialize, JsonSchema)]
+        struct MyParams {
+            #[allow(dead_code)]
+            text: String,
+        }
+
+        define_tool! {
+            pub struct AnnotatedTool;
+            name: "annotated",
+            description: "desc",
+            read_only: true,
+            destructive: false,
+            idempotent: true,
+            open_world: false,
+            execute(params: MyParams, _ctx) {
+                Ok(ToolOutput::text(params.text))
+            }
+        }
+
+        let tool = AnnotatedTool;
+        let ann = tool.annotations();
+        assert!(ann.read_only_hint);
+        assert!(!ann.destructive_hint);
+        assert!(ann.idempotent_hint);
+        assert!(!ann.open_world_hint);
+    }
 
     #[test]
     fn test_tool_output_text() {

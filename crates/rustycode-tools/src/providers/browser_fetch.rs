@@ -4,11 +4,27 @@
 //! bridges to async chromiumoxide via `tokio::task::block_in_place`.
 
 use crate::security::validation::validate_url;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::anyhow;
 use base64::Engine;
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde::Deserialize;
 use std::sync::OnceLock;
+
+/// Parameters for the browser fetch tool.
+#[derive(Deserialize, JsonSchema)]
+pub struct BrowserFetchParams {
+    /// URL to fetch
+    url: String,
+    /// 'content' returns page as markdown, 'screenshot' returns base64 PNG. Default: content
+    action: Option<String>,
+    /// CSS selector to extract specific element
+    selector: Option<String>,
+    /// CSS selector to wait for before extracting
+    wait_for: Option<String>,
+    /// Page load timeout in ms (default 30000)
+    timeout_ms: Option<u64>,
+}
 
 static HEADLESS_POOL: OnceLock<crate::browser_pool::BrowserPool> = OnceLock::new();
 
@@ -16,58 +32,24 @@ fn pool() -> &'static crate::browser_pool::BrowserPool {
     HEADLESS_POOL.get_or_init(|| crate::browser_pool::BrowserPool::new(true))
 }
 
-pub struct BrowserFetchTool;
+rustycode_tools_api::define_tool! {
+    pub struct BrowserFetchTool;
 
-impl Tool for BrowserFetchTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+    name: "browser_fetch",
+    description: "Fetch a URL using headless Chrome (supports JS-rendered pages). Use for SPA content that requires JavaScript.",
+    permission: ToolPermission::Network,
+    tags: [ToolTag::Explore],
+    defer_loading: true,
 
-    fn name(&self) -> &str {
-        "browser_fetch"
-    }
-
-    fn description(&self) -> &str {
-        "Fetch a URL using headless Chrome (supports JS-rendered pages). Use for SPA content that requires JavaScript."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Network
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["url"],
-            "properties": {
-                "url": { "type": "string", "description": "URL to fetch" },
-                "action": {
-                    "type": "string",
-                    "enum": ["content", "screenshot"],
-                    "description": "'content' returns page as markdown, 'screenshot' returns base64 PNG. Default: content"
-                },
-                "selector": { "type": "string", "description": "CSS selector to extract specific element" },
-                "wait_for": { "type": "string", "description": "CSS selector to wait for before extracting" },
-                "timeout_ms": { "type": "number", "description": "Page load timeout in ms (default 30000)" }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
-        let url = params["url"]
-            .as_str()
-            .ok_or_else(|| anyhow!("'url' parameter required"))?;
+    execute(params: BrowserFetchParams, _ctx) {
+        let url = &params.url;
 
         validate_url(url)?;
 
-        let action = params["action"].as_str().unwrap_or("content");
-        let selector = params["selector"].as_str().map(String::from);
-        let wait_for = params["wait_for"].as_str().map(String::from);
-        let timeout_ms = params["timeout_ms"].as_u64().unwrap_or(30_000);
+        let action = params.action.as_deref().unwrap_or("content");
+        let selector = params.selector;
+        let wait_for = params.wait_for;
+        let timeout_ms = params.timeout_ms.unwrap_or(30_000);
         let pool = pool();
 
         tokio::task::block_in_place(|| {

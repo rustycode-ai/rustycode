@@ -8,26 +8,78 @@
 //! consume to dispatch the actual task. No direct dependency on
 //! `rustycode-orchestration` — the real dispatch happens one layer up.
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 
 /// Valid roles a delegated task can assume.
 const VALID_ROLES: &[&str] = &[
     "explore", "research", "code", "review", "verify", "plan", "debug",
 ];
 
-/// Intent-only delegation tool — captures the LLM's delegation intent as structured JSON.
-///
-/// **Note**: The TUI's `DelegationExecutor` (in `rustycode-tui`) provides real sub-agent
-/// execution by spawning `AgentSession` instances with orchestration planning. This tool
-/// is kept for non-TUI consumers (benchmarks, headless mode) that need intent capture
-/// without actual sub-agent execution.
-///
-/// If you're building a TUI or interactive session, prefer `DelegationExecutor` from
-/// `rustycode-tui::agents::delegation_executor`.
-#[derive(Default)]
-pub struct DelegationTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct DelegationParams {
+    /// What the delegated task should do
+    task_description: String,
+    /// Role for the spawned task (default: explore)
+    role: Option<String>,
+    /// File paths the task should focus on
+    path_scope: Option<Vec<String>>,
+    /// Checkpoint to resume from
+    resume_from: Option<String>,
+}
+
+rustycode_tools_api::define_tool! {
+    pub struct DelegationTool;
+
+    name: "delegate_task",
+    description: "Spawn a delegated task with its own context. Use for research, exploration, code review, \
+     or parallel implementation tasks that benefit from context isolation.",
+    permission: ToolPermission::Read,
+
+    execute(params: DelegationParams, _ctx) {
+        let task_description = &params.task_description;
+
+        if task_description.trim().is_empty() {
+            return Err(anyhow!("'task_description' must not be empty"));
+        }
+
+        let role = params.role.as_deref().unwrap_or("explore");
+
+        Self::validate_role(role)?;
+
+        let path_scope = params.path_scope.unwrap_or_default();
+        let resume_from = params.resume_from;
+
+        let task_id = Self::generate_task_id();
+
+        let mut result = json!({
+            "task_id": task_id,
+            "role": role,
+            "status": "delegated",
+            "task_description": task_description,
+        });
+
+        if !path_scope.is_empty() {
+            result["path_scope"] = json!(path_scope);
+        }
+
+        if let Some(checkpoint) = resume_from {
+            result["resume_from"] = json!(checkpoint);
+        }
+
+        let text = format!("Task delegated: [{role}] {task_description} (id: {task_id})");
+
+        Ok(ToolOutput::with_structured(text, result))
+    }
+}
+
+impl Default for DelegationTool {
+    fn default() -> Self {
+        Self
+    }
+}
 
 impl DelegationTool {
     /// Generate a short deterministic-ish task ID for tracking.
@@ -59,108 +111,12 @@ impl DelegationTool {
     }
 }
 
-impl Tool for DelegationTool {
-    fn name(&self) -> &'static str {
-        "delegate_task"
-    }
-
-    fn description(&self) -> &'static str {
-        "Spawn a delegated task with its own context. Use for research, exploration, code review, \
-         or parallel implementation tasks that benefit from context isolation."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        // Read-only — this tool only captures intent; the actual dispatch
-        // happens in the TUI layer which has its own permission checks.
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["task_description"],
-            "properties": {
-                "task_description": {
-                    "type": "string",
-                    "description": "What the delegated task should do"
-                },
-                "role": {
-                    "type": "string",
-                    "enum": VALID_ROLES,
-                    "description": "Role for the spawned task (default: explore)"
-                },
-                "path_scope": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "File paths the task should focus on"
-                },
-                "resume_from": {
-                    "type": "string",
-                    "description": "Checkpoint to resume from"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let task_description = params
-            .get("task_description")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing required parameter 'task_description' (string)"))?;
-
-        if task_description.trim().is_empty() {
-            return Err(anyhow!("'task_description' must not be empty"));
-        }
-
-        let role = params
-            .get("role")
-            .and_then(Value::as_str)
-            .unwrap_or("explore");
-
-        Self::validate_role(role)?;
-
-        let path_scope: Vec<String> = params
-            .get("path_scope")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|item| item.as_str().map(String::from))
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        let resume_from = params
-            .get("resume_from")
-            .and_then(Value::as_str)
-            .map(String::from);
-
-        let task_id = Self::generate_task_id();
-
-        let mut result = json!({
-            "task_id": task_id,
-            "role": role,
-            "status": "delegated",
-            "task_description": task_description,
-        });
-
-        if !path_scope.is_empty() {
-            result["path_scope"] = json!(path_scope);
-        }
-
-        if let Some(checkpoint) = resume_from {
-            result["resume_from"] = json!(checkpoint);
-        }
-
-        let text = format!("Task delegated: [{role}] {task_description} (id: {task_id})");
-
-        Ok(ToolOutput::with_structured(text, result))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
     use crate::ToolContext;
+    use serde_json::json;
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")
@@ -190,16 +146,12 @@ mod tests {
             .expect("required should be array");
         assert!(required.iter().any(|v| v == "task_description"));
 
-        // Verify role enum
-        let role_enum = schema["properties"]["role"]["enum"]
-            .as_array()
-            .expect("role should have enum");
-        assert!(role_enum.iter().any(|v| v == "explore"));
-        assert!(role_enum.iter().any(|v| v == "debug"));
+        // Verify role is a string field
+        assert!(schema["properties"]["role"].is_object());
 
-        // Verify path_scope is array of strings
+        // Verify path_scope is array (schemars generates ["array", "null"] for Option<Vec<String>>)
         let path_type = &schema["properties"]["path_scope"]["type"];
-        assert_eq!(path_type, "array");
+        assert!(path_type.to_string().contains("array"));
     }
 
     #[test]

@@ -1,84 +1,50 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use anyhow::{anyhow, Context, Result};
+use schemars::JsonSchema;
 use serde_json::{json, Value};
 use std::fs;
 
-pub struct NotebookEditTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct NotebookEditParams {
+    /// The absolute path to the Jupyter notebook file to edit
+    notebook_path: String,
+    /// The ID of the cell to edit. When inserting, the new cell is inserted after this cell, or at the beginning if not specified.
+    cell_id: Option<String>,
+    /// The new source for the cell
+    new_source: String,
+    /// The type of the cell. Defaults to current cell type. Required for edit_mode=insert.
+    cell_type: Option<String>,
+    /// The type of edit to make. Defaults to replace.
+    edit_mode: Option<String>,
+}
 
-impl Tool for NotebookEditTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+rustycode_tools_api::define_tool! {
+    pub struct NotebookEditTool;
 
-    fn name(&self) -> &'static str {
-        "notebook_edit"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source.
+    name: "notebook_edit",
+    description: r#"Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source.
 Jupyter notebooks are interactive documents that combine code, text, and visualizations.
 The notebook_path parameter must be an absolute path, not a relative path.
 The cell_number is 0-indexed. Use edit_mode=insert to add a new cell at the index specified by cell_number.
-Use edit_mode=delete to delete the cell at the index specified by cell_number."#
-    }
+Use edit_mode=delete to delete the cell at the index specified by cell_number."#,
+    permission: ToolPermission::Write,
+    defer_loading: true,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "notebook_path": {
-                    "type": "string",
-                    "description": "The absolute path to the Jupyter notebook file to edit"
-                },
-                "cell_id": {
-                    "type": "string",
-                    "description": "The ID of the cell to edit. When inserting, the new cell is inserted after this cell, or at the beginning if not specified."
-                },
-                "new_source": {
-                    "type": "string",
-                    "description": "The new source for the cell"
-                },
-                "cell_type": {
-                    "type": "string",
-                    "enum": ["code", "markdown"],
-                    "description": "The type of the cell. Defaults to current cell type. Required for edit_mode=insert."
-                },
-                "edit_mode": {
-                    "type": "string",
-                    "enum": ["replace", "insert", "delete"],
-                    "description": "The type of edit to make. Defaults to replace."
-                }
-            },
-            "required": ["notebook_path", "new_source"]
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let path = params["notebook_path"]
-            .as_str()
-            .ok_or_else(|| anyhow!("missing notebook_path"))?;
+    execute(params: NotebookEditParams, _ctx) {
+        let path = &params.notebook_path;
 
         if !path.starts_with('/') {
             return Err(anyhow!("notebook_path must be absolute, got: {path}"));
         }
 
-        let edit_mode = params
-            .get("edit_mode")
-            .and_then(Value::as_str)
-            .unwrap_or("replace");
-        let cell_id = params.get("cell_id").and_then(Value::as_str);
-        let new_source = params["new_source"]
-            .as_str()
-            .ok_or_else(|| anyhow!("missing new_source"))?;
-        let cell_type = params.get("cell_type").and_then(Value::as_str);
+        let edit_mode = params.edit_mode.as_deref().unwrap_or("replace");
+        let cell_id = params.cell_id.as_deref();
+        let new_source = &params.new_source;
+        let cell_type = params.cell_type.as_deref();
 
         let content =
             fs::read_to_string(path).with_context(|| format!("Failed to read notebook: {path}"))?;
-        let mut nb: serde_json::Value = serde_json::from_str(&content)
+        let mut nb: Value = serde_json::from_str(&content)
             .with_context(|| format!("Failed to parse notebook JSON: {path}"))?;
 
         let cells = nb
@@ -167,6 +133,7 @@ fn generate_cell_id() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
     use std::fs;
 
     fn make_notebook(cells: Vec<Value>) -> String {

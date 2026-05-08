@@ -1,22 +1,25 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 
-/// Create a team to coordinate multiple agents.
-///
-/// Creates a team config file and corresponding task list directory.
-/// Teams have a 1:1 correspondence with task lists.
-pub struct TeamCreateTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct TeamCreateParams {
+    /// Name for the new team. Used as directory name under ~/.claude/teams/
+    team_name: String,
+    /// Team description/purpose
+    description: Option<String>,
+    /// Type/role of the team lead (e.g., 'researcher', 'test-runner')
+    agent_type: Option<String>,
+}
 
-impl Tool for TeamCreateTool {
-    fn name(&self) -> &'static str {
-        "team_create"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct TeamCreateTool;
 
-    fn description(&self) -> &'static str {
-        r#"Create a new team to coordinate multiple agents working on a project. Teams have a 1:1 correspondence with task lists (Team = TaskList).
+    name: "team_create",
+    description: r#"Create a new team to coordinate multiple agents working on a project. Teams have a 1:1 correspondence with task lists (Team = TaskList).
 
 Use this tool proactively whenever:
 - The user explicitly asks to use a team, swarm, or group of agents
@@ -25,55 +28,17 @@ Use this tool proactively whenever:
 
 This creates:
 - A team file at ~/.claude/teams/{team-name}/config.json
-- A corresponding task list directory at ~/.claude/tasks/{team-name}/"#
-    }
+- A corresponding task list directory at ~/.claude/tasks/{team-name}/"#,
+    permission: ToolPermission::Write,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["team_name"],
-            "properties": {
-                "team_name": {
-                    "type": "string",
-                    "description": "Name for the new team. Used as directory name under ~/.claude/teams/"
-                },
-                "description": {
-                    "type": "string",
-                    "description": "Team description/purpose"
-                },
-                "agent_type": {
-                    "type": "string",
-                    "description": "Type/role of the team lead (e.g., 'researcher', 'test-runner')"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let team_name = params
-            .get("team_name")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing team_name"))?;
+    execute(params: TeamCreateParams, _ctx) {
+        let team_name = &params.team_name;
 
         validate_team_name(team_name)?;
 
-        let description = params
-            .get("description")
-            .and_then(Value::as_str)
-            .unwrap_or("");
-
-        let agent_type = params
-            .get("agent_type")
-            .and_then(Value::as_str)
-            .unwrap_or("team-lead");
+        let description = params.description.as_deref().unwrap_or("");
+        let agent_type = params.agent_type.as_deref().unwrap_or("team-lead");
 
         let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
         let team_dir = home.join(".claude").join("teams").join(team_name);
@@ -115,41 +80,25 @@ This creates:
     }
 }
 
-/// Delete a team and its task list directory.
-pub struct TeamDeleteTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct TeamDeleteParams {}
 
-impl Tool for TeamDeleteTool {
-    fn name(&self) -> &'static str {
-        "team_delete"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct TeamDeleteTool;
 
-    fn description(&self) -> &'static str {
-        r#"Remove team and task directories when the swarm work is complete.
+    name: "team_delete",
+    description: r#"Remove team and task directories when the swarm work is complete.
 
 This operation:
 - Removes the team directory (~/.claude/teams/{team-name}/)
 - Removes the task directory (~/.claude/tasks/{team-name}/)
 - Clears team context from the current session
 
-IMPORTANT: TeamDelete will fail if the team still has active members. Gracefully terminate teammates first, then call TeamDelete after all teammates have shut down."#
-    }
+IMPORTANT: TeamDelete will fail if the team still has active members. Gracefully terminate teammates first, then call TeamDelete after all teammates have shut down."#,
+    permission: ToolPermission::Write,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {},
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(_params: TeamDeleteParams, _ctx) {
         // In production, the team name comes from session context.
         // For now, return a message indicating the operation needs context.
         Ok(ToolOutput::text(
@@ -188,6 +137,7 @@ fn chrono_now_rfc3339() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")

@@ -1,50 +1,32 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use schemars::JsonSchema;
+use serde_json::json;
 
-/// List available resources from configured MCP servers.
-pub struct ListMcpResourcesTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct ListMcpResourcesParams {
+    /// Optional server name to filter resources by
+    server: Option<String>,
+}
 
-impl Tool for ListMcpResourcesTool {
-    fn name(&self) -> &'static str {
-        "list_mcp_resources"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct ListMcpResourcesTool;
 
-    fn description(&self) -> &'static str {
-        r#"List available resources from configured MCP servers.
+    name: "list_mcp_resources",
+    description: r#"List available resources from configured MCP servers.
 
 Each returned resource includes all standard MCP resource fields plus a 'server' field indicating which server the resource belongs to.
 
 Parameters:
-- server (optional): The name of a specific MCP server to get resources from. If not provided, resources from all servers will be returned."#
-    }
+- server (optional): The name of a specific MCP server to get resources from. If not provided, resources from all servers will be returned."#,
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "server": {
-                    "type": "string",
-                    "description": "Optional server name to filter resources by"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let server = params.get("server").and_then(Value::as_str);
+    execute(params: ListMcpResourcesParams, _ctx) {
+        let server = params.server;
 
         // Placeholder: actual MCP resource listing requires rustycode-mcp integration
         let msg = match server {
-            Some(s) => format!("MCP resources for server '{s}' — requires MCP runtime"),
+            Some(ref s) => format!("MCP resources for server '{s}' — requires MCP runtime"),
             None => "MCP resources from all servers — requires MCP runtime".to_string(),
         };
 
@@ -58,57 +40,29 @@ Parameters:
     }
 }
 
-/// Read a specific resource from an MCP server by URI.
-pub struct ReadMcpResourceTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct ReadMcpResourceParams {
+    /// The MCP server name
+    server: String,
+    /// The URI of the resource to read
+    uri: String,
+}
 
-impl Tool for ReadMcpResourceTool {
-    fn name(&self) -> &'static str {
-        "read_mcp_resource"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct ReadMcpResourceTool;
 
-    fn description(&self) -> &'static str {
-        r#"Reads a specific resource from an MCP server, identified by server name and resource URI.
+    name: "read_mcp_resource",
+    description: r#"Reads a specific resource from an MCP server, identified by server name and resource URI.
 
 Parameters:
 - server (required): The name of the MCP server to read from
-- uri (required): The URI of the resource to read"#
-    }
+- uri (required): The URI of the resource to read"#,
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["server", "uri"],
-            "properties": {
-                "server": {
-                    "type": "string",
-                    "description": "The MCP server name"
-                },
-                "uri": {
-                    "type": "string",
-                    "description": "The URI of the resource to read"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let server = params
-            .get("server")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing server name"))?;
-
-        let uri = params
-            .get("uri")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing resource URI"))?;
+    execute(params: ReadMcpResourceParams, _ctx) {
+        let server = &params.server;
+        let uri = &params.uri;
 
         // Placeholder: actual MCP resource reading requires rustycode-mcp integration
         Ok(ToolOutput::with_structured(
@@ -124,6 +78,8 @@ Parameters:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
 
     fn test_ctx() -> ToolContext {
         ToolContext::new("/tmp")

@@ -13,7 +13,8 @@ use crate::streaming::{StreamChunk, StreamReceiver, StreamSender, ToolStreaming}
 use crate::truncation::truncate_bash_output;
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -776,79 +777,46 @@ impl Drop for PSPermit<'_> {
 
 static PS_RATE_LIMITER: PSRateLimiter = PSRateLimiter::new(4);
 
-// PowerShellTool
+// Params
 
-pub struct PowerShellTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct PowerShellParams {
+    /// PowerShell command (e.g., 'Get-ChildItem', 'Select-String pattern file.txt', '$env:PATH')
+    command: String,
+    /// If true, restart the PowerShell session before executing the command
+    #[serde(default)]
+    restart: bool,
+    /// Timeout in seconds (default 120s, max 600s)
+    timeout_secs: Option<u64>,
+}
 
-impl Tool for PowerShellTool {
-    fn name(&self) -> &'static str {
-        "powershell"
-    }
+// PowerShellTool via define_tool!
 
-    fn description(&self) -> &'static str {
-        "Run PowerShell commands in a persistent session. \
-         Supports PowerShell Core (pwsh 7+, cross-platform) and Windows PowerShell (5.1). \
-         Use PowerShell cmdlets and syntax (e.g., Get-ChildItem, Select-String, $env:PATH). \
-         PowerShell Core supports && and || chain operators; Windows PowerShell 5.1 does not. \
-         Prefer dedicated tools for common operations: read_file/edit_file for file I/O, \
-         grep for searching, glob for file matching. \
-         Use powershell for: .NET operations, Windows-specific tasks, object pipeline processing, \
-         and commands that need PS cmdlets (Get-Content, Invoke-WebRequest, etc.)."
-    }
+rustycode_tools_api::define_tool! {
+    pub struct PowerShellTool;
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
+    name: "powershell",
+    description: "Run PowerShell commands in a persistent session. \
+     Supports PowerShell Core (pwsh 7+, cross-platform) and Windows PowerShell (5.1). \
+     Use PowerShell cmdlets and syntax (e.g., Get-ChildItem, Select-String, $env:PATH). \
+     PowerShell Core supports && and || chain operators; Windows PowerShell 5.1 does not. \
+     Prefer dedicated tools for common operations: read_file/edit_file for file I/O, \
+     grep for searching, glob for file matching. \
+     Use powershell for: .NET operations, Windows-specific tasks, object pipeline processing, \
+     and commands that need PS cmdlets (Get-Content, Invoke-WebRequest, etc.).",
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Implement, ToolTag::Ops],
 
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["command"],
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": "PowerShell command (e.g., 'Get-ChildItem', 'Select-String pattern file.txt', '$env:PATH')"
-                },
-                "restart": {
-                    "type": "boolean",
-                    "description": "If true, restart the PowerShell session before executing the command"
-                },
-                "timeout_secs": {
-                    "type": "integer",
-                    "description": "Timeout in seconds (default 120s, max 600s)",
-                    "default": 120
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Implement, ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        crate::check_permission(self.permission(), ctx)?;
+    execute(params: PowerShellParams, ctx) {
+        crate::check_permission(ToolPermission::Execute, ctx)?;
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "powershell")?;
         }
 
-        let command = params
-            .get("command")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing string parameter 'command'"))?
-            .to_string();
-
-        let restart = params
-            .get("restart")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
-        let timeout_secs = params
-            .get("timeout_secs")
-            .and_then(Value::as_u64)
-            .unwrap_or(120)
-            .min(600);
+        let command = params.command;
+        let restart = params.restart;
+        let timeout_secs = params.timeout_secs.unwrap_or(120).min(600);
 
         // Validate command safety
         use crate::security::cross_platform::{
@@ -1016,8 +984,14 @@ impl Tool for PowerShellTool {
     }
 }
 
+// ToolStreaming — kept as separate impl since define_tool! does not cover it.
+
 impl ToolStreaming for PowerShellTool {
-    fn execute_stream(&self, params: Value, ctx: &ToolContext) -> Result<StreamReceiver> {
+    fn execute_stream(
+        &self,
+        params: serde_json::Value,
+        ctx: &ToolContext,
+    ) -> Result<StreamReceiver> {
         use crate::streaming::create_stream_channel;
 
         crate::check_permission(self.permission(), ctx)?;
@@ -1028,18 +1002,18 @@ impl ToolStreaming for PowerShellTool {
 
         let command = params
             .get("command")
-            .and_then(Value::as_str)
+            .and_then(serde_json::Value::as_str)
             .unwrap_or("")
             .to_string();
 
         let restart = params
             .get("restart")
-            .and_then(Value::as_bool)
+            .and_then(serde_json::Value::as_bool)
             .unwrap_or(false);
 
         let timeout_secs = params
             .get("timeout_secs")
-            .and_then(Value::as_u64)
+            .and_then(serde_json::Value::as_u64)
             .unwrap_or(120)
             .min(600);
 
@@ -1143,6 +1117,7 @@ fn extract_binary_name(command: &str) -> anyhow::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
 
     fn pwsh_available() -> bool {
         find_pwsh().is_some()

@@ -9,25 +9,29 @@
 
 const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
+use schemars::JsonSchema;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::env;
 
-/// Web search tool for general queries
-pub struct WebSearchTool;
+/// Parameters for the web search tool.
+#[derive(Deserialize, JsonSchema)]
+pub struct WebSearchParams {
+    /// Search query. Use specific, factual questions for best results.
+    query: String,
+    /// Maximum number of results to return (default: 5)
+    num_results: Option<u64>,
+    /// Preferred search source (default: 'auto')
+    source: Option<String>,
+}
 
-impl Tool for WebSearchTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+rustycode_tools_api::define_tool! {
+    pub struct WebSearchTool;
 
-    fn name(&self) -> &'static str {
-        "web_search"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Search the web for current information and factual queries.
+    name: "web_search",
+    description: r#"Search the web for current information and factual queries.
 
 Use this tool when you need to:
 - Find current events or recent news
@@ -46,53 +50,15 @@ The tool searches using multiple FREE sources:
 - DuckDuckGo Instant Answer (general queries, definitions) - NO API key needed
 - Exa Search (premium results, optional - requires EXA_API_KEY env var)
 
-No API key required for basic functionality!"#
-    }
+No API key required for basic functionality!"#,
+    permission: ToolPermission::Network,
+    tags: [ToolTag::Explore],
+    defer_loading: true,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Network
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query. Use specific, factual questions for best results."
-                },
-                "num_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default: 5)",
-                    "default": 5,
-                    "minimum": 1,
-                    "maximum": 10
-                },
-                "source": {
-                    "type": "string",
-                    "description": "Preferred search source (default: 'auto')",
-                    "enum": ["auto", "wikipedia", "news", "web"],
-                    "default": "auto"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let query = required_string(&params, "query")?;
-        let num_results = params
-            .get("num_results")
-            .and_then(Value::as_u64)
-            .unwrap_or(5) as usize;
-        let source = optional_string(&params, "source").unwrap_or("auto");
-
-        // Clamp num_results
-        let num_results = num_results.clamp(1, 10);
+    execute(params: WebSearchParams, _ctx) {
+        let query = &params.query;
+        let num_results = params.num_results.unwrap_or(5).clamp(1, 10) as usize;
+        let source = params.source.as_deref().unwrap_or("auto");
 
         // Check for Exa API key (optional, for premium results)
         let exa_api_key = env::var("EXA_API_KEY").ok();
@@ -621,22 +587,10 @@ fn truncate_text(text: &str, max_len: usize) -> String {
     }
 }
 
-/// Helper function to get required string parameter
-fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("missing string parameter `{key}`"))
-}
-
-/// Helper function to get optional string parameter
-fn optional_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key).and_then(Value::as_str)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
 
     #[test]
     fn test_web_search_tool_metadata() {

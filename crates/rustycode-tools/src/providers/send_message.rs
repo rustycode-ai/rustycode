@@ -1,20 +1,27 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use anyhow::anyhow;
+use schemars::JsonSchema;
+use serde_json::json;
 
-/// Send a message to another agent by name.
-///
-/// Plain text output is NOT visible to other agents — communication
-/// MUST go through this tool. Supports named teammates and broadcast.
-pub struct SendMessageTool;
+// ── Params structs ──────────────────────────────────────────────────────────
 
-impl Tool for SendMessageTool {
-    fn name(&self) -> &'static str {
-        "send_message"
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct SendMessageParams {
+    /// Recipient: teammate name, or '*' for broadcast
+    to: String,
+    /// Plain text message content, or structured JSON for protocol responses
+    message: String,
+    /// A 5-10 word summary shown as a preview in the UI
+    summary: Option<String>,
+}
 
-    fn description(&self) -> &'static str {
-        r#"Send a message to another agent.
+// ── Tool definition ─────────────────────────────────────────────────────────
+
+rustycode_tools_api::define_tool! {
+    pub struct SendMessageTool;
+
+    name: "send_message",
+    description: r#"Send a message to another agent.
 
 ```json
 {"to": "researcher", "summary": "assign task 1", "message": "start on task #1"}
@@ -29,65 +36,30 @@ Your plain text output is NOT visible to other agents — to communicate, you MU
 
 ## Protocol responses (legacy)
 
-If you receive a JSON message with `type: "shutdown_request"` or `type: "plan_approval_request"`, respond with the matching `_response` type — echo the `request_id`, set `approve` true/false."#
-    }
+If you receive a JSON message with `type: "shutdown_request"` or `type: "plan_approval_request"`, respond with the matching `_response` type — echo the `request_id`, set `approve` true/false."#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["to", "message"],
-            "properties": {
-                "to": {
-                    "type": "string",
-                    "description": "Recipient: teammate name, or '*' for broadcast"
-                },
-                "message": {
-                    "description": "Plain text message content, or structured JSON for protocol responses",
-                    "type": "string"
-                },
-                "summary": {
-                    "type": "string",
-                    "description": "A 5-10 word summary shown as a preview in the UI"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let to = params
-            .get("to")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing recipient"))?;
-
-        let message = params
-            .get("message")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing message"))?;
+    execute(params: SendMessageParams, ctx) {
+        let to = params.to;
+        let message = params.message;
 
         if message.trim().is_empty() {
             return Err(anyhow!("message must not be empty"));
         }
 
-        let summary = params.get("summary").and_then(Value::as_str).unwrap_or("");
+        let summary = params.summary.as_deref().unwrap_or("");
 
         let is_broadcast = to == "*";
 
-        if let Some(ref sender) = _ctx.message_sender {
+        if let Some(ref sender) = ctx.message_sender {
             if is_broadcast {
                 sender
-                    .broadcast(message, summary)
+                    .broadcast(&message, summary)
                     .map_err(|e| anyhow!("broadcast failed: {e}"))?;
             } else {
                 sender
-                    .send(to, message, summary)
+                    .send(&to, &message, summary)
                     .map_err(|e| anyhow!("send failed: {e}"))?;
             }
             return Ok(ToolOutput::with_structured(
@@ -122,6 +94,8 @@ If you receive a JSON message with `type: "shutdown_request"` or `type: "plan_ap
 mod tests {
     use super::*;
     use crate::MessageSender;
+    use crate::Tool;
+    use crate::ToolContext;
     use std::sync::{Arc, Mutex};
 
     fn test_ctx() -> ToolContext {

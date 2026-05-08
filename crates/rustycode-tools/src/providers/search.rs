@@ -1,9 +1,11 @@
 use crate::security::{validate_list_path, validate_regex_pattern, MAX_REGEX_MATCHES};
 use crate::truncation::{truncate_items, GREP_MAX_MATCHES, LIST_MAX_ITEMS};
-use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{Checkpoint, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use parking_lot::Mutex;
 use regex::Regex;
+use schemars::JsonSchema;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -79,73 +81,97 @@ fn get_regex_with_flags(
     Ok(compiled)
 }
 
-pub struct GrepTool;
-pub struct GlobTool;
+/// Parameters for the grep tool.
+#[derive(Deserialize, JsonSchema)]
+pub struct GrepParams {
+    /// Regex pattern to search for
+    pattern: String,
+    /// Directory or file path to search within (alias: file_path, include_pattern)
+    path: Option<String>,
+    /// Alias for path
+    file_path: Option<String>,
+    /// Alias for path
+    include_pattern: Option<String>,
+    /// Lines of context before match
+    before_context: Option<u64>,
+    /// Lines of context after match
+    after_context: Option<u64>,
+    /// Limit matches per file
+    max_matches_per_file: Option<u64>,
+    /// Case-insensitive flag
+    #[serde(rename = "-i")]
+    case_insensitive_dash: Option<bool>,
+    /// Case-insensitive flag (long form)
+    case_insensitive: Option<bool>,
+    /// Multiline mode — . matches newlines
+    multiline: Option<bool>,
+    /// Unified context lines (sets both before and after)
+    context: Option<u64>,
+    /// Alias for context
+    #[serde(rename = "-C")]
+    context_dash_c: Option<u64>,
+    /// Alias for before_context
+    #[serde(rename = "-B")]
+    before_context_dash_b: Option<u64>,
+    /// Alias for after_context
+    #[serde(rename = "-A")]
+    after_context_dash_a: Option<u64>,
+    /// Alias for max_matches_per_file
+    head_limit: Option<u64>,
+    /// Glob filter for file inclusion
+    glob: Option<String>,
+    /// Type filter maps to file extensions
+    #[serde(rename = "type")]
+    type_filter: Option<String>,
+    /// Skip first N results
+    offset: Option<u64>,
+    /// Cap total matches (-1 means unlimited)
+    limit: Option<i64>,
+}
 
-impl Tool for GrepTool {
-    fn name(&self) -> &'static str {
-        "grep"
-    }
+/// Parameters for the glob tool.
+#[derive(Deserialize, JsonSchema)]
+pub struct GlobParams {
+    /// Glob pattern (e.g., '**/*.rs', 'src/**/*.ts')
+    pattern: String,
+    /// Directory to search in (alias: file_path). Default: workspace root.
+    path: Option<String>,
+    /// Alias for path
+    file_path: Option<String>,
+}
 
-    fn description(&self) -> &'static str {
-        "Search for text patterns across all files in the codebase. Use this to find function definitions, variable usages, or any text pattern in code. Supports simple text search (no regex required) and can show context around matches."
-    }
+rustycode_tools_api::define_tool! {
+    pub struct GrepTool;
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
+    name: "grep",
+    description: "Search for text patterns across all files in the codebase. Use this to find function definitions, variable usages, or any text pattern in code. Supports simple text search (no regex required) and can show context around matches.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore, ToolTag::Debug],
 
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["pattern"],
-            "properties": {
-                "pattern": { "type": "string", "description": "Regex pattern to search for" },
-                "path": { "type": "string", "description": "Directory or file path to search within (alias: file_path, include_pattern)" },
-                "file_path": { "type": "string", "description": "Alias for path" },
-                "include_pattern": { "type": "string", "description": "Alias for path" },
-                "before_context": { "type": "integer", "description": "Lines of context before match" },
-                "after_context": { "type": "integer", "description": "Lines of context after match" },
-                "max_matches_per_file": { "type": "integer", "description": "Limit matches per file" }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore, ToolTag::Debug]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: GrepParams, ctx) {
         // Role-based gating
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "grep")?;
         }
 
-        let pattern = required_string(&params, "pattern")?;
+        let pattern = &params.pattern;
 
         // Validate regex pattern for ReDoS
         validate_regex_pattern(pattern)?;
 
-        let path_str = params
-            .get("path")
-            .or_else(|| params.get("file_path"))
-            .or_else(|| params.get("include_pattern"))
-            .and_then(Value::as_str)
+        let path_str = params.path.as_deref()
+            .or(params.file_path.as_deref())
+            .or(params.include_pattern.as_deref())
             .unwrap_or(".");
         let root = validate_list_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         // Case-insensitive flag — support both -i and case_insensitive
-        let case_insensitive = params
-            .get("-i")
-            .or_else(|| params.get("case_insensitive"))
-            .and_then(Value::as_bool)
+        let case_insensitive = params.case_insensitive_dash
+            .or(params.case_insensitive)
             .unwrap_or(false);
 
         // Multiline mode — . matches newlines
-        let multiline = params
-            .get("multiline")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        let multiline = params.multiline.unwrap_or(false);
 
         // Use cached regex compilation for better performance
         let re = if case_insensitive && multiline {
@@ -163,42 +189,26 @@ impl Tool for GrepTool {
 
         // Get context parameters — support both internal and LLM schema field names
         // LLM schema uses -B/-A/context, internal uses before_context/after_context
-        let context_from_c = params
-            .get("context")
-            .or_else(|| params.get("-C"))
-            .and_then(Value::as_u64)
-            .map(|v| v as usize);
+        let context_from_c = params.context.or(params.context_dash_c).map(|v| v as usize);
         let before_context = context_from_c.unwrap_or_else(|| {
-            params
-                .get("before_context")
-                .or_else(|| params.get("-B"))
-                .and_then(Value::as_u64)
-                .unwrap_or(0) as usize
+            params.before_context.or(params.before_context_dash_b).unwrap_or(0) as usize
         });
         let after_context = context_from_c.unwrap_or_else(|| {
-            params
-                .get("after_context")
-                .or_else(|| params.get("-A"))
-                .and_then(Value::as_u64)
-                .unwrap_or(0) as usize
+            params.after_context.or(params.after_context_dash_a).unwrap_or(0) as usize
         });
-        let max_matches_per_file = params
-            .get("max_matches_per_file")
-            .or_else(|| params.get("head_limit"))
-            .and_then(Value::as_u64)
+        let max_matches_per_file = params.max_matches_per_file
+            .or(params.head_limit)
             .map(|v| v as usize);
 
         // Glob filter for file inclusion (e.g., "*.rs", "*.{ts,tsx}")
-        let glob_filter = optional_string(&params, "glob");
+        let glob_filter = params.glob.as_deref();
         // Type filter maps to file extensions (e.g., "rust" → ".rs")
-        let type_filter = optional_string(&params, "type");
+        let type_filter = params.type_filter.as_deref();
 
         // Offset: skip first N results
-        let offset = params.get("offset").and_then(Value::as_u64).unwrap_or(0) as usize;
+        let offset = params.offset.unwrap_or(0) as usize;
         // Limit: cap total matches (-1 means unlimited)
-        let match_limit = params
-            .get("limit")
-            .and_then(Value::as_i64)
+        let match_limit = params.limit
             .map(|v| if v < 0 { None } else { Some(v as usize) })
             .unwrap_or(None);
 
@@ -405,57 +415,25 @@ impl Tool for GrepTool {
     }
 }
 
-impl Tool for GlobTool {
-    fn name(&self) -> &'static str {
-        "glob"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct GlobTool;
 
-    fn description(&self) -> &'static str {
-        "Find files whose path contains a glob-like fragment."
-    }
+    name: "glob",
+    description: "Find files whose path contains a glob-like fragment.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["pattern"],
-            "properties": {
-                "pattern": {
-                    "type": "string",
-                    "description": "Glob pattern (e.g., '**/*.rs', 'src/**/*.ts')"
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Directory to search in (alias: file_path). Default: workspace root."
-                },
-                "file_path": {
-                    "type": "string",
-                    "description": "Alias for path"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: GlobParams, ctx) {
         // Role-based gating
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "glob")?;
         }
 
-        let pattern = required_string(&params, "pattern")?;
+        let pattern = &params.pattern;
 
         // Resolve search directory — support optional "path" parameter and "file_path" alias
-        let search_root = if let Some(custom_path) = params
-            .get("path")
-            .or_else(|| params.get("file_path"))
-            .and_then(Value::as_str)
+        let search_root = if let Some(custom_path) = params.path.as_deref()
+            .or(params.file_path.as_deref())
         {
             let resolved = ctx.cwd.join(custom_path);
             if !resolved.exists() {
@@ -559,17 +537,6 @@ impl Tool for GlobTool {
 
         Ok(ToolOutput::with_structured(output, metadata))
     }
-}
-
-fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("missing string parameter `{key}`"))
-}
-
-fn optional_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key).and_then(Value::as_str)
 }
 
 fn should_skip(path: &Path) -> bool {
@@ -727,6 +694,9 @@ fn matches_type(path: &Path, type_name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
+    use serde_json::json;
     use std::fs;
     use tempfile::tempdir;
 
@@ -816,38 +786,6 @@ mod tests {
         assert!(required.iter().any(|r| r == "pattern"));
         // Verify path property exists (optional)
         assert!(schema["properties"]["path"].is_object());
-    }
-
-    // --- required_string / optional_string helpers ---
-
-    #[test]
-    fn required_string_present() {
-        let v = json!({"name": "test"});
-        assert_eq!(required_string(&v, "name").unwrap(), "test");
-    }
-
-    #[test]
-    fn required_string_missing() {
-        let v = json!({});
-        assert!(required_string(&v, "name").is_err());
-    }
-
-    #[test]
-    fn optional_string_present() {
-        let v = json!({"name": "test"});
-        assert_eq!(optional_string(&v, "name"), Some("test"));
-    }
-
-    #[test]
-    fn optional_string_missing() {
-        let v = json!({});
-        assert_eq!(optional_string(&v, "name"), None);
-    }
-
-    #[test]
-    fn optional_string_wrong_type() {
-        let v = json!({"name": 123});
-        assert_eq!(optional_string(&v, "name"), None);
     }
 
     // --- glob matching ---

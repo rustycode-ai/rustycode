@@ -34,6 +34,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::inputs::{BashInput, GlobInput, GrepInput, ReadFileInput, WriteFileInput};
+
 /// Master enum of all built-in tools.
 ///
 /// Uses internally tagged serde for consistent serialization format:
@@ -175,25 +177,6 @@ pub enum ToolCatalog {
 
 // Input Types
 
-/// Input for reading a file
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ReadFileInput {
-    pub file_path: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub offset: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub limit: Option<usize>,
-}
-
-/// Input for writing a file
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct WriteFileInput {
-    pub file_path: String,
-    pub content: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub create_parents: Option<bool>,
-}
-
 /// Input for editing a file (search and replace)
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EditFileInput {
@@ -208,38 +191,6 @@ pub struct ListDirInput {
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recursive: Option<bool>,
-}
-
-/// Input for bash execution
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct BashInput {
-    pub command: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_secs: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub restart: Option<bool>,
-}
-
-/// Input for glob pattern matching
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct GlobInput {
-    pub pattern: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub path: Option<String>,
-}
-
-/// Input for grep search
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct GrepInput {
-    pub pattern: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub path: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub before_context: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub after_context: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_matches_per_file: Option<usize>,
 }
 
 /// Input for git status
@@ -1244,22 +1195,22 @@ mod tests {
     #[test]
     fn test_tool_serialization() {
         let tool = ToolCatalog::ReadFile(ReadFileInput {
-            file_path: "/path/to/file.txt".to_string(),
-            offset: None,
-            limit: None,
+            path: "/path/to/file.txt".into(),
+            start_line: None,
+            end_line: None,
         });
 
         let json = to_value(&tool).unwrap();
         assert_eq!(json["name"], "read_file");
-        assert_eq!(json["arguments"]["file_path"], "/path/to/file.txt");
+        assert_eq!(json["arguments"]["path"], "/path/to/file.txt");
     }
 
     #[test]
     fn test_tool_description() {
         let tool = ToolCatalog::ReadFile(ReadFileInput {
-            file_path: "/path/to/file.txt".to_string(),
-            offset: None,
-            limit: None,
+            path: "/path/to/file.txt".into(),
+            start_line: None,
+            end_line: None,
         });
 
         assert!(tool.description().contains("file"));
@@ -1268,14 +1219,14 @@ mod tests {
     #[test]
     fn test_tool_permission() {
         let read_tool = ToolCatalog::ReadFile(ReadFileInput {
-            file_path: "/path/to/file.txt".to_string(),
-            offset: None,
-            limit: None,
+            path: "/path/to/file.txt".into(),
+            start_line: None,
+            end_line: None,
         });
         assert_eq!(read_tool.permission(), ToolPermission::Read);
 
         let write_tool = ToolCatalog::WriteFile(WriteFileInput {
-            file_path: "/path/to/file.txt".to_string(),
+            path: "/path/to/file.txt".into(),
             content: "content".to_string(),
             create_parents: None,
         });
@@ -1283,8 +1234,9 @@ mod tests {
 
         let bash_tool = ToolCatalog::Bash(BashInput {
             command: "echo test".to_string(),
+            args: None,
+            working_dir: None,
             timeout_secs: None,
-            restart: None,
         });
         assert_eq!(bash_tool.permission(), ToolPermission::Execute);
 
@@ -1297,9 +1249,9 @@ mod tests {
     #[test]
     fn test_tool_name() {
         let tool = ToolCatalog::ReadFile(ReadFileInput {
-            file_path: "/path/to/file.txt".to_string(),
-            offset: None,
-            limit: None,
+            path: "/path/to/file.txt".into(),
+            start_line: None,
+            end_line: None,
         });
         assert_eq!(tool.name(), "read_file");
     }
@@ -1307,28 +1259,28 @@ mod tests {
     #[test]
     fn test_input_serialization() {
         let input = ReadFileInput {
-            file_path: "/path/to/file.txt".to_string(),
-            offset: Some(10),
-            limit: Some(100),
+            path: "/path/to/file.txt".into(),
+            start_line: Some(10),
+            end_line: Some(100),
         };
 
         let json = to_value(&input).unwrap();
-        assert_eq!(json["file_path"], "/path/to/file.txt");
-        assert_eq!(json["offset"], 10);
-        assert_eq!(json["limit"], 100);
+        assert_eq!(json["path"], "/path/to/file.txt");
+        assert_eq!(json["start_line"], 10);
+        assert_eq!(json["end_line"], 100);
     }
 
     #[test]
     fn test_input_skip_none() {
         let input = ReadFileInput {
-            file_path: "/path/to/file.txt".to_string(),
-            offset: None,
-            limit: None,
+            path: "/path/to/file.txt".into(),
+            start_line: None,
+            end_line: None,
         };
 
         let json = to_value(&input).unwrap();
-        assert_eq!(json["file_path"], "/path/to/file.txt");
-        assert!(json.get("offset").is_none());
-        assert!(json.get("limit").is_none());
+        assert_eq!(json["path"], "/path/to/file.txt");
+        assert!(json.get("start_line").is_none());
+        assert!(json.get("end_line").is_none());
     }
 }

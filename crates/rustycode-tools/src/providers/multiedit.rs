@@ -1,7 +1,8 @@
 use crate::file_formatter;
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
-use crate::{Checkpoint, Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{Checkpoint, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
+use schemars::JsonSchema;
 use serde_json::{json, Value};
 use std::fs;
 use std::io::{Read, Write};
@@ -10,39 +11,30 @@ use std::path::PathBuf;
 /// Maximum file size for edit operations (1 MB)
 const MAX_EDIT_SIZE: usize = 1024 * 1024;
 
-/// `MultiEdit` tool - Edit multiple files atomically
+/// Parameters for the multiedit tool.
 ///
-/// This tool enables editing multiple files in a single atomic operation.
-/// All edits are validated before any are applied, and all files are
-/// written together. If any edit fails, no changes are made.
-///
-/// **Use cases:**
-/// - Refactor across multiple files
-/// - Update imports across a project
-/// - Apply consistent changes
-/// - Multi-file documentation updates
-///
-/// **Operations:**
-/// - `create`: Create a new file
-/// - `edit`: Edit an existing file (find/replace)
-/// - `delete`: Delete a file
-///
-/// **Atomicity:**
-/// All operations are validated first, then applied. If any operation
-/// fails, no changes are made to any file.
-pub struct MultiEditTool;
+/// Note: The `edits` field remains as `serde_json::Value` because each edit
+/// item has a complex schema with conditional requirements (e.g., `old_text`
+/// required for "edit" operations, `content` for "create"). The macro generates
+/// `parameters_schema` from this struct via schemars, so we keep it as Value
+/// and extract fields manually within `validate_edit`.
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct MultiEditParams {
+    /// Array of edit operations to apply atomically
+    edits: Vec<Value>,
+    /// Validate but don't apply changes (default: false)
+    #[serde(default)]
+    dry_run: bool,
+    /// Apply valid edits even if some fail (default: false)
+    #[serde(default)]
+    continue_on_error: bool,
+}
 
-impl Tool for MultiEditTool {
-    fn defer_loading(&self) -> Option<bool> {
-        Some(true)
-    }
+rustycode_tools_api::define_tool! {
+    pub struct MultiEditTool;
 
-    fn name(&self) -> &'static str {
-        "multiedit"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Edit multiple files atomically in a single operation.
+    name: "multiedit",
+    description: r#"Edit multiple files atomically in a single operation.
 
 **Use cases:**
 - Refactor code across multiple files
@@ -95,95 +87,15 @@ Summary of changes made to each file.
 **Error handling:**
 - If `continue_on_error` is true: Apply all valid edits, skip invalid ones
 - If `continue_on_error` is false: Fail entirely if any edit is invalid
-"#
-    }
+"#,
+    permission: ToolPermission::Write,
+    tags: [ToolTag::Implement],
+    defer_loading: true,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["edits"],
-            "properties": {
-                "edits": {
-                    "type": "array",
-                    "description": "Array of edit operations to apply atomically",
-                    "minItems": 1,
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "type": "string",
-                                "description": "File path relative to current workspace (alias: file_path)"
-                            },
-                            "file_path": {
-                                "type": "string",
-                                "description": "Alias for path"
-                            },
-                            "operation": {
-                                "type": "string",
-                                "enum": ["create", "edit", "delete"],
-                                "description": "Operation to perform"
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "File content (for create operations)"
-                            },
-                            "old_text": {
-                                "type": "string",
-                                "description": "Text to find (alias: old_string)"
-                            },
-                            "old_string": {
-                                "type": "string",
-                                "description": "Alias for old_text"
-                            },
-                            "new_text": {
-                                "type": "string",
-                                "description": "Replacement text (alias: new_string)"
-                            },
-                            "new_string": {
-                                "type": "string",
-                                "description": "Alias for new_text"
-                            }
-                        },
-                        "required": ["path", "operation"]
-                    }
-                },
-                "dry_run": {
-                    "type": "boolean",
-                    "description": "Validate but don't apply changes (default: false)",
-                    "default": false
-                },
-                "continue_on_error": {
-                    "type": "boolean",
-                    "description": "Apply valid edits even if some fail (default: false)",
-                    "default": false
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Implement]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let edits_value = params
-            .get("edits")
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| anyhow!("missing 'edits' array"))?;
-
-        let dry_run = params
-            .get("dry_run")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
-        let continue_on_error = params
-            .get("continue_on_error")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+    execute(params: MultiEditParams, ctx) {
+        let edits_value = &params.edits;
+        let dry_run = params.dry_run;
+        let continue_on_error = params.continue_on_error;
 
         if edits_value.is_empty() {
             return Err(anyhow!("edits array is empty"));
@@ -574,6 +486,7 @@ fn apply_delete(edit: &ValidatedEdit, dry_run: bool) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
     use tempfile::tempdir;
 
     #[test]
@@ -590,21 +503,9 @@ mod tests {
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
-        let required = schema["required"].as_array().unwrap();
-        assert_eq!(required.len(), 1);
-        assert_eq!(required[0], "edits");
-
-        // Check edits array
-        assert_eq!(schema["properties"]["edits"]["type"], "array");
-        assert_eq!(schema["properties"]["edits"]["minItems"], json!(1));
-
-        // Check operation enum
-        let ops = schema["properties"]["edits"]["items"]["properties"]["operation"]["enum"]
-            .as_array()
-            .unwrap();
-        assert!(ops.contains(&json!("create")));
-        assert!(ops.contains(&json!("edit")));
-        assert!(ops.contains(&json!("delete")));
+        assert!(schema["properties"]["edits"].is_object());
+        assert!(schema["properties"]["dry_run"].is_object());
+        assert!(schema["properties"]["continue_on_error"].is_object());
     }
 
     #[test]

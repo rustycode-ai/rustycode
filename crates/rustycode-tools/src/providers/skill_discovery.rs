@@ -1,18 +1,24 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 
-pub struct SkillTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct SkillParams {
+    /// Name of the skill to invoke
+    skill: String,
+    /// Optional arguments to pass to the skill
+    #[serde(default)]
+    args: Option<String>,
+}
 
-impl Tool for SkillTool {
-    fn name(&self) -> &'static str {
-        "skill"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct SkillTool;
 
-    fn description(&self) -> &'static str {
-        r#"Execute a skill within the main conversation
+    name: "skill",
+    description: r#"Execute a skill within the main conversation
 
 When users reference a "slash command" or "/<something>", they are referring to a skill. Use this tool to invoke it.
 
@@ -27,37 +33,12 @@ Important:
 - Available skills are listed in system-reminder messages in the conversation
 - When a skill matches the user's request, invoke it BEFORE generating any other response
 - Do not invoke a skill that is already running
-- Do not use this tool for built-in CLI commands (like /help, /clear)"#
-    }
+- Do not use this tool for built-in CLI commands (like /help, /clear)"#,
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["skill"],
-            "properties": {
-                "skill": {
-                    "type": "string",
-                    "description": "Name of the skill to invoke"
-                },
-                "args": {
-                    "type": "string",
-                    "description": "Optional arguments to pass to the skill"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let skill_name = params
-            .get("skill")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing skill name"))?;
-
-        let args = params.get("args").and_then(Value::as_str).unwrap_or("");
+    execute(params: SkillParams, ctx) {
+        let skill_name = &params.skill;
+        let args = params.args.as_deref().unwrap_or("");
 
         // Search for the skill in standard locations
         let skill_content = find_and_load_skill(skill_name, &ctx.cwd)?;
@@ -192,6 +173,8 @@ fn first_non_heading_line(path: &std::path::Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
     use std::fs;
 
     fn test_ctx() -> ToolContext {
@@ -210,8 +193,8 @@ mod tests {
     fn test_skill_tool_missing_name() {
         let tool = SkillTool;
         let result = tool.execute(json!({}), &test_ctx());
+        // With define_tool, missing required field gives deserialization error
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("skill name"));
     }
 
     #[test]

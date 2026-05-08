@@ -1,48 +1,27 @@
-use rustycode_tools_api::{Tool, ToolContext, ToolOutput, ToolPermission};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission};
+use schemars::JsonSchema;
+use serde_json::json;
 
-pub struct CheckIntegrationTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct CheckIntegrationParams {
+    /// Description of the changes or code being integrated
+    #[serde(default)]
+    changes: Option<String>,
+    /// Scope of integration check: 'module', 'crate', or 'workspace'
+    #[serde(default)]
+    scope: Option<String>,
+}
 
-impl Tool for CheckIntegrationTool {
-    fn name(&self) -> &str {
-        "reasoning_integrate"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct CheckIntegrationTool;
 
-    fn description(&self) -> &str {
-        "Check how new code integrates with existing codebase. Identifies affected modules, potential breakage points, and required test coverage for safe integration."
-    }
+    name: "reasoning_integrate",
+    description: "Check how new code integrates with existing codebase. Identifies affected modules, potential breakage points, and required test coverage for safe integration.",
+    permission: ToolPermission::None,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["changes"],
-            "properties": {
-                "changes": {
-                    "type": "string",
-                    "description": "Description of the changes or code being integrated"
-                },
-                "scope": {
-                    "type": "string",
-                    "description": "Scope of integration check: 'module', 'crate', or 'workspace'",
-                    "default": "crate"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
-        let changes = params
-            .get("changes")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unspecified changes");
-        let scope = params
-            .get("scope")
-            .and_then(|v| v.as_str())
-            .unwrap_or("crate");
+    execute(params: CheckIntegrationParams, _ctx) {
+        let changes = params.changes.as_deref().unwrap_or("unspecified changes");
+        let scope = params.scope.as_deref().unwrap_or("crate");
 
         let output = json!({
             "phase": "check_integration",
@@ -77,6 +56,8 @@ impl Tool for CheckIntegrationTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
     use tempfile::tempdir;
 
     fn ctx() -> ToolContext {
@@ -91,10 +72,9 @@ mod tests {
         assert_eq!(tool.name(), "reasoning_integrate");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
-        assert!(schema["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("changes")));
+        // With define_tool, schema is auto-generated from struct; check properties exist
+        assert!(schema["properties"]["changes"].is_object());
+        assert!(schema["properties"]["scope"].is_object());
     }
 
     #[test]

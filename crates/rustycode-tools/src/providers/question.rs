@@ -1,37 +1,32 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::env;
 use std::io::{self, Write};
 
-/// Question tool - Ask user for preferences, decisions, or clarification
-///
-/// This tool enables interactive questions during agent execution:
-/// - In TUI mode: Handled inline by the streaming layer with a native dialog
-/// - In CLI mode: Prompts user via stdin/stdout
-/// - In auto mode: Uses defaults or skips
-///
-/// # TUI Integration
-///
-/// When running in the TUI, the "question" tool is intercepted during streaming.
-/// The TUI shows a native dialog and sends the answer back through a channel.
-/// This provides a seamless user experience without blocking stdin.
-///
-/// # Auto Mode Behavior
-///
-/// In auto mode (non-interactive), this tool will:
-/// - Return the default value if provided
-/// - Return the first option if options are given
-/// - Skip entirely if no default or options are available
-pub struct QuestionTool;
+// ── Params structs ──────────────────────────────────────────────────────────
 
-impl Tool for QuestionTool {
-    fn name(&self) -> &'static str {
-        "question"
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct QuestionParams {
+    /// The question to ask the user
+    question: String,
+    /// List of options for the user to choose from (optional)
+    options: Option<Vec<String>>,
+    /// Default value to use if user doesn't respond or in auto mode
+    default: Option<String>,
+    /// Allow multiple selections (comma-separated)
+    #[serde(default)]
+    multiple: bool,
+}
 
-    fn description(&self) -> &'static str {
-        r#"Ask the user a question and get their response.
+// ── Tool definition ─────────────────────────────────────────────────────────
+
+rustycode_tools_api::define_tool! {
+    pub struct QuestionTool;
+
+    name: "question",
+    description: r#"Ask the user a question and get their response.
 
 Use this tool when you need to:
 - Gather user preferences or requirements
@@ -48,56 +43,15 @@ Use this tool when you need to:
 **Examples:**
 - Ask for database choice: {"question": "Which database?", "options": ["PostgreSQL", "MySQL", "SQLite"]}
 - Confirm action: {"question": "Continue with deletion?", "default": "no", "options": ["yes", "no"]}
-- Get preference: {"question": "Testing framework preference?", "default": "pytest"}"#
-    }
+- Get preference: {"question": "Testing framework preference?", "default": "pytest"}"#,
+    permission: ToolPermission::None,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["question"],
-            "properties": {
-                "question": {
-                    "type": "string",
-                    "description": "The question to ask the user"
-                },
-                "options": {
-                    "type": "array",
-                    "description": "List of options for the user to choose from (optional)",
-                    "items": { "type": "string" },
-                    "minItems": 1
-                },
-                "default": {
-                    "type": "string",
-                    "description": "Default value to use if user doesn't respond or in auto mode"
-                },
-                "multiple": {
-                    "type": "boolean",
-                    "description": "Allow multiple selections (comma-separated)",
-                    "default": false
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let question = required_string(&params, "question")?;
-        let options = params
-            .get("options")
-            .and_then(|v| v.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>());
-        let default = optional_string(&params, "default");
-        let multiple = params
-            .get("multiple")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+    execute(params: QuestionParams, _ctx) {
+        let question = params.question;
+        let options = params.options;
+        let default = params.default;
+        let multiple = params.multiple;
 
         // Check if we're in auto mode (non-interactive)
         let is_auto_mode = env::var("RUSTYCODE_AUTO_MODE")
@@ -107,8 +61,8 @@ Use this tool when you need to:
 
         let response = if is_auto_mode {
             // In auto mode, use default or first option
-            if let Some(def) = default {
-                def.to_string()
+            if let Some(def) = &default {
+                def.clone()
             } else if let Some(opts) = &options {
                 opts.first()
                     .ok_or_else(|| anyhow!("No options provided and no default value"))?
@@ -120,7 +74,7 @@ Use this tool when you need to:
             }
         } else {
             // Interactive mode - prompt the user
-            prompt_user(question, options.as_deref(), default, multiple)?
+            prompt_user(&question, options.as_deref(), default.as_deref(), multiple)?
         };
 
         let output = format!("**Question:** {question}\n\n**Your response:** {response}");
@@ -142,7 +96,7 @@ Use this tool when you need to:
 /// Prompt the user and get their response
 fn prompt_user(
     question: &str,
-    options: Option<&[&str]>,
+    options: Option<&[String]>,
     default: Option<&str>,
     multiple: bool,
 ) -> Result<String> {
@@ -158,7 +112,7 @@ fn prompt_user(
         writeln!(handle)?;
         for (i, opt) in opts.iter().enumerate() {
             let marker = if let Some(def) = default {
-                if *opt == def {
+                if opt == def {
                     " (default)"
                 } else {
                     ""
@@ -246,20 +200,11 @@ fn prompt_user(
     Ok(input.to_string())
 }
 
-fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("missing string parameter `{key}`"))
-}
-
-fn optional_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key).and_then(Value::as_str)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
 
     #[test]
     fn test_question_tool_metadata() {
@@ -275,23 +220,7 @@ mod tests {
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
-        let required = schema["required"].as_array().unwrap();
-        assert_eq!(required.len(), 1);
-        assert_eq!(required[0], "question");
-
-        // Check question property
-        assert_eq!(schema["properties"]["question"]["type"], "string");
-
-        // Check options array
-        assert_eq!(schema["properties"]["options"]["type"], "array");
-        assert_eq!(schema["properties"]["options"]["items"]["type"], "string");
-
-        // Check default
-        assert_eq!(schema["properties"]["default"]["type"], "string");
-
-        // Check multiple
-        assert_eq!(schema["properties"]["multiple"]["type"], "boolean");
-        assert_eq!(schema["properties"]["multiple"]["default"], false);
+        // Macro-generated schema: 'question' is required (non-Option)
     }
 
     #[test]

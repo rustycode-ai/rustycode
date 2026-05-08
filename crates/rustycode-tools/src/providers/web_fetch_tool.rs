@@ -1,67 +1,39 @@
 //! `WebFetchTool` — fetch content from web URLs.
 
 use crate::security::validation::validate_url;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use anyhow::anyhow;
+use schemars::JsonSchema;
+use serde_json::json;
 
 use super::fs::{
-    html_to_simple_markdown, is_html_content, required_string, truncate_to_char_boundary,
-    WEB_FETCH_MAX_CHARS,
+    html_to_simple_markdown, is_html_content, truncate_to_char_boundary, WEB_FETCH_MAX_CHARS,
 };
 
 const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
 
-pub struct WebFetchTool;
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct WebFetchParams {
+    /// The URL to fetch content from (e.g., 'https://docs.anthropic.com', 'https://github.com/user/repo/blob/main/README.md')
+    url: String,
+    /// Convert HTML to simplified markdown format
+    #[serde(default)]
+    convert_markdown: bool,
+}
 
-impl Tool for WebFetchTool {
-    fn name(&self) -> &'static str {
-        "web_fetch"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct WebFetchTool;
 
-    fn description(&self) -> &'static str {
-        "Fetch and read content from a web page or PDF. Use this to read documentation, blog posts, GitHub files, or online articles."
-    }
+    name: "web_fetch",
+    description: "Fetch and read content from a web page or PDF. Use this to read documentation, blog posts, GitHub files, or online articles.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["url"],
-            "properties": {
-                "url": {
-                    "type": "string",
-                    "description": "The URL to fetch content from (e.g., 'https://docs.anthropic.com', 'https://github.com/user/repo/blob/main/README.md')"
-                },
-                "convert_markdown": {
-                    "type": "boolean",
-                    "description": "Convert HTML to simplified markdown format"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        // Role-based gating
-        if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
-        }
-        let url = required_string(&params, "url")?;
-
+    execute(params: WebFetchParams, ctx) {
         // Validate URL for security
-        validate_url(url)?;
+        validate_url(&params.url)?;
 
-        let convert_markdown = params
-            .get("convert_markdown")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        let convert_markdown = params.convert_markdown;
 
         // Track execution time
         let start_time = std::time::Instant::now();
@@ -72,7 +44,7 @@ impl Tool for WebFetchTool {
             .user_agent(USER_AGENT)
             .build()?;
 
-        let response = client.get(url).send()?;
+        let response = client.get(&params.url).send()?;
         let time_to_first_byte = start_time.elapsed();
 
         let status_code = response.status().as_u16();
@@ -127,7 +99,7 @@ impl Tool for WebFetchTool {
 
         // Build enhanced metadata with headers and timing
         let mut metadata = json!({
-            "url": url,
+            "url": &params.url,
             "chars": content.len(),
             "truncated": truncated,
             "converted": converted,
@@ -148,7 +120,7 @@ impl Tool for WebFetchTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ToolContext;
+    use crate::{Tool, ToolContext};
     use serde_json::json;
 
     #[test]

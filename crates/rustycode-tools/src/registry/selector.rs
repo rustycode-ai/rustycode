@@ -510,7 +510,7 @@ impl ToolSelector {
     /// ```rust,ignore
     /// let selector = ToolSelector::new()
     ///     .with_model("claude-sonnet-4-6");
-    /// // Claude models get text_editor_20250728 instead of generic "edit"
+    /// // Claude models get text_editor_20250124 instead of generic "edit"
     /// ```
     pub fn with_model(mut self, model_id: impl Into<String>) -> Self {
         self.model_id = Some(model_id.into());
@@ -757,8 +757,8 @@ mod tests {
         let tools = selector.select_tools(&registry);
         // Claude models should get text_editor tool
         assert!(
-            tools.iter().any(|t| t == "text_editor_20250728"),
-            "Claude should get text_editor_20250728, got: {:?}",
+            tools.iter().any(|t| t == "text_editor_20250124"),
+            "Claude should get text_editor_20250124, got: {:?}",
             tools
         );
     }
@@ -815,8 +815,7 @@ mod tests {
             .with_model("claude-opus-4-6");
 
         let tools = selector.select_tools(&registry);
-        // All profile with Claude should include both text_editor versions
-        assert!(tools.iter().any(|t| t == "text_editor_20250728"));
+        // All profile with Claude should include text_editor tool
         assert!(tools.iter().any(|t| t == "text_editor_20250124"));
     }
 

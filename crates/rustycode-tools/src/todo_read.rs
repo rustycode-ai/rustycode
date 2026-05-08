@@ -4,44 +4,27 @@
 //! by providing a read-only view of the current todo state.
 
 use crate::todo::TodoState;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
-use anyhow::Result;
-use serde_json::Value;
+use crate::{ToolOutput, ToolPermission};
 
-/// Read the current todo list
-pub struct TodoReadTool {
-    /// Shared todo state
-    pub state: TodoState,
-}
+use schemars::JsonSchema;
 
-impl TodoReadTool {
-    pub const fn new(state: TodoState) -> Self {
-        Self { state }
-    }
-}
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct TodoReadParams {}
 
-impl Tool for TodoReadTool {
-    fn name(&self) -> &'static str {
-        "todo_read"
+rustycode_tools_api::define_tool! {
+    pub struct TodoReadTool {
+        pub state: TodoState,
     }
 
-    fn description(&self) -> &'static str {
-        "Read the current todo list. Returns all items with their IDs, titles, and statuses (pending/in_progress/completed). Use this before calling todo_write or todo_update to understand the current state."
-    }
+    name: "todo_read",
+    description: "Read the current todo list.
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
+Returns the full list of uncompleted and completed tasks. Use this tool
+to understand what tasks are pending, or to verify if a task was successfully
+marked as completed.",
+    permission: ToolPermission::Read,
 
-    fn parameters_schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {},
-            "description": "No parameters needed. Returns the full current todo list."
-        })
-    }
-
-    fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(&self, _params: TodoReadParams, _ctx) {
         let state = self
             .state
             .lock()
@@ -90,10 +73,16 @@ impl Tool for TodoReadTool {
     }
 }
 
+impl TodoReadTool {
+    pub const fn new(state: TodoState) -> Self {
+        Self { state }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::todo::TodoWriteTool;
+    use crate::{todo::TodoWriteTool, Tool, ToolContext};
     use serde_json::json;
 
     #[test]
@@ -154,7 +143,7 @@ mod tests {
     fn tool_permission() {
         let state = crate::todo::new_todo_state();
         let tool = TodoReadTool::new(state);
-        assert_eq!(tool.permission(), ToolPermission::None);
+        assert_eq!(tool.permission(), ToolPermission::Read);
     }
 
     #[test]

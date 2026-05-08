@@ -8,13 +8,28 @@ use crate::line_endings::generate_diff;
 use crate::security::{
     create_file_symlink_safe, open_file_symlink_safe, validate_read_path, validate_write_path,
 };
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
-use serde_json::{json, Value};
+use schemars::JsonSchema;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 // Input
+
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct ApplyPatchParams {
+    /// The unified diff patch text to apply. Use standard `diff -u` format with `--- a/file` and `+++ b/file` headers.
+    patch: Option<String>,
+    /// Path to a .patch or .diff file (alternative to inline `patch`)
+    patch_file: Option<String>,
+    /// Path components to strip (default: 1)
+    #[serde(default = "default_strip")]
+    strip: u64,
+}
+
+fn default_strip() -> u64 {
+    1
+}
 
 #[derive(Debug)]
 enum PatchSource {
@@ -60,56 +75,19 @@ enum PatchLine {
 
 // Tool implementation
 
-pub struct ApplyPatchTool;
+rustycode_tools_api::define_tool! {
+    pub struct ApplyPatchTool;
 
-impl Tool for ApplyPatchTool {
-    fn name(&self) -> &'static str {
-        "apply_patch"
-    }
+    name: "apply_patch",
+    description: "Apply a unified diff patch to one or more files. \
+     Supports adding new files, updating existing files, and deleting files. \
+     Prefer this over edit_file for multi-file or multi-hunk changes.",
+    permission: ToolPermission::Write,
+    tags: [ToolTag::Implement],
 
-    fn description(&self) -> &'static str {
-        "Apply a unified diff patch to one or more files. \
-         Supports adding new files, updating existing files, and deleting files. \
-         Prefer this over edit_file for multi-file or multi-hunk changes."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "patch": {
-                    "type": "string",
-                    "description": "The unified diff patch text to apply. \
-                     Use standard `diff -u` format with `--- a/file` and `+++ b/file` headers."
-                },
-                "patch_file": {
-                    "type": "string",
-                    "description": "Path to a .patch or .diff file (alternative to inline `patch`)"
-                },
-                "strip": {
-                    "type": "integer",
-                    "description": "Path components to strip (default: 1)",
-                    "default": 1
-                }
-            },
-            "oneOf": [
-                { "required": ["patch"] },
-                { "required": ["patch_file"] }
-            ]
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Implement]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: ApplyPatchParams, ctx) {
         let source = resolve_source(&params, ctx)?;
-        let strip = params.get("strip").and_then(Value::as_u64).unwrap_or(1) as usize;
+        let strip = params.strip as usize;
         let patch_text = read_source(&source, ctx)?;
 
         if patch_text.trim().is_empty() {
@@ -134,13 +112,13 @@ impl Tool for ApplyPatchTool {
 
 // Source resolution
 
-fn resolve_source(params: &Value, ctx: &ToolContext) -> Result<PatchSource> {
-    if let Some(text) = params.get("patch").and_then(Value::as_str) {
+fn resolve_source(params: &ApplyPatchParams, ctx: &crate::ToolContext) -> Result<PatchSource> {
+    if let Some(ref text) = params.patch {
         if !text.is_empty() {
-            return Ok(PatchSource::Inline(text.to_string()));
+            return Ok(PatchSource::Inline(text.clone()));
         }
     }
-    if let Some(path) = params.get("patch_file").and_then(Value::as_str) {
+    if let Some(ref path) = params.patch_file {
         let validated = validate_read_path(path, &ctx.cwd, !ctx.allow_outside_workspace)?;
         return Ok(PatchSource::File(validated));
     }
@@ -563,6 +541,8 @@ fn git_apply_fallback(patch_text: &str, strip: usize, ctx: &ToolContext) -> Resu
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
+    use serde_json::json;
     use tempfile::tempdir;
 
     #[test]

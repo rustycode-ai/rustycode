@@ -14,7 +14,6 @@ use rustycode_agent_runtime::{
     AgentConfig, AgentEvents, AgentResult, AgentSession, ApprovalDecision, StoppedReason,
 };
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageContent, MessageRole};
-use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_tools::ToolRegistry;
 use std::collections::HashMap;
@@ -357,11 +356,10 @@ impl AgentSessionExecutor {
                     "description": info.description,
                     "input_schema": info.parameters_schema,
                 });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &info.name,
-                    matches!(info.permission, rustycode_tools::ToolPermission::Read),
-                ) {
-                    schema["annotations"] = annotations;
+                if let Some(ann) = info.annotations {
+                    if let Ok(val) = serde_json::to_value(ann) {
+                        schema["annotations"] = val;
+                    }
                 }
                 schema
             })

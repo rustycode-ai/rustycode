@@ -374,7 +374,6 @@ impl PermissionInspector {
             restricted_tools: vec![
                 "bash",
                 "write_file",
-                "text_editor_20250728",
                 "text_editor_20250124",
                 "git_commit",
                 "apply_patch",

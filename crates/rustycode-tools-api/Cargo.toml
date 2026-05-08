@@ -13,6 +13,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
+schemars = "1.2.1"
 
 [lints]
 workspace = true

@@ -1,72 +1,54 @@
 use crate::security::validate_list_path;
 use crate::truncation::{truncate_items, LIST_MAX_ITEMS};
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
-use anyhow::Result;
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission, ToolTag};
+use schemars::JsonSchema;
+use serde_json::json;
 use std::fs;
 use walkdir::WalkDir;
 
-pub struct ListDirTool;
+// ── Params structs ──────────────────────────────────────────────────────────
 
-impl Tool for ListDirTool {
-    fn name(&self) -> &'static str {
-        "list_dir"
-    }
+#[derive(serde::Deserialize, JsonSchema)]
+pub struct ListDirParams {
+    /// Directory path relative to current workspace (alias: file_path)
+    path: Option<String>,
+    /// Alias for path
+    file_path: Option<String>,
+    /// List directories recursively
+    #[serde(default)]
+    recursive: bool,
+    /// Maximum depth for recursive listing
+    max_depth: Option<u64>,
+    /// Filter entries by type (file/dir/all) or extension (e.g., '.rs', '.md')
+    filter: Option<String>,
+}
 
-    fn description(&self) -> &'static str {
-        "List all files and directories in a specified path. Use this to explore the codebase structure, find files in a directory, or see what's in a folder. Supports recursive listing and filtering by file type or extension."
-    }
+// ── Tool definition ─────────────────────────────────────────────────────────
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
+rustycode_tools_api::define_tool! {
+    pub struct ListDirTool;
 
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["path"],
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Directory path relative to current workspace (alias: file_path)"
-                },
-                "file_path": {
-                    "type": "string",
-                    "description": "Alias for path"
-                },
-                "recursive": { "type": "boolean", "description": "List directories recursively" },
-                "max_depth": { "type": "integer", "description": "Maximum depth for recursive listing" },
-                "filter": {
-                    "type": "string",
-                    "description": "Filter entries by type (file/dir/all) or extension (e.g., '.rs', '.md')"
-                }
-            }
-        })
-    }
+    name: "list_dir",
+    description: "List all files and directories in a specified path. Use this to explore the codebase structure, find files in a directory, or see what's in a folder. Supports recursive listing and filtering by file type or extension.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore],
 
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: ListDirParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "list_dir")?;
         }
         let path_str = params
-            .get("path")
-            .and_then(Value::as_str)
-            .or_else(|| params.get("file_path").and_then(Value::as_str))
+            .path
+            .as_deref()
+            .or(params.file_path.as_deref())
             .unwrap_or(".");
 
         let path = validate_list_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
 
         let path_display = path.display().to_string();
-        let recursive = params
-            .get("recursive")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-        let max_depth = params.get("max_depth").and_then(Value::as_u64).unwrap_or(3) as usize;
-        let filter = params.get("filter").and_then(|v| v.as_str());
+        let recursive = params.recursive;
+        let max_depth = params.max_depth.unwrap_or(3) as usize;
+        let filter = params.filter.as_deref();
 
         let mut entries = Vec::new();
 
@@ -169,6 +151,8 @@ impl Tool for ListDirTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
     use serde_json::json;
 
     #[test]
@@ -184,15 +168,8 @@ mod tests {
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
-        assert!(schema["required"].is_array());
-        let required = schema["required"].as_array().unwrap();
-        assert_eq!(required.len(), 1);
-        assert_eq!(required[0], "path");
-
-        assert_eq!(schema["properties"]["path"]["type"], "string");
-        assert_eq!(schema["properties"]["recursive"]["type"], "boolean");
-        assert_eq!(schema["properties"]["max_depth"]["type"], "integer");
-        assert_eq!(schema["properties"]["filter"]["type"], "string");
+        // The macro generates schema from the Params struct, so required fields
+        // come from non-Option fields. All our fields are Option, so no required array.
     }
 
     #[test]

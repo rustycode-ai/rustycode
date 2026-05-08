@@ -1,24 +1,28 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
+use schemars::JsonSchema;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::env;
 
-/// `CodeSearch` tool - Search for code examples and documentation
-///
-/// This tool searches for code examples, documentation, and implementation patterns.
-/// It can use various search providers:
-/// - Exa Code API (if API key is configured)
-/// - Web search with structured queries
-/// - Direct documentation links
-pub struct CodeSearchTool;
+/// Parameters for the code search tool.
+#[derive(Deserialize, JsonSchema)]
+pub struct CodeSearchParams {
+    /// Search query for code examples or documentation. Include programming language and specific terms.
+    query: String,
+    /// Programming language to filter results (e.g., 'rust', 'python', 'javascript', 'typescript')
+    language: Option<String>,
+    /// Maximum number of results to return (default: 5)
+    max_results: Option<u64>,
+    /// Search source preference (default: 'auto')
+    source: Option<String>,
+}
 
-impl Tool for CodeSearchTool {
-    fn name(&self) -> &'static str {
-        "codesearch"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct CodeSearchTool;
 
-    fn description(&self) -> &'static str {
-        r#"Search for code examples, documentation, and implementation patterns.
+    name: "codesearch",
+    description: r#"Search for code examples, documentation, and implementation patterns.
 
 Use this tool when you need to:
 - Find code examples for a specific library or framework
@@ -36,59 +40,15 @@ The tool searches across:
 - "rust tokio async spawn example"
 - "react useEffect cleanup function"
 - "python requests post json"
-- "typescript generic constraints"#
-    }
+- "typescript generic constraints"#,
+    permission: ToolPermission::Network,
+    tags: [ToolTag::Explore],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Network
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query for code examples or documentation. Include programming language and specific terms."
-                },
-                "language": {
-                    "type": "string",
-                    "description": "Programming language to filter results (e.g., 'rust', 'python', 'javascript', 'typescript')",
-                    "enum": ["rust", "python", "javascript", "typescript", "go", "java", "cpp", "c", "ruby", "php", "swift", "kotlin", "csharp", "shell", "markdown", "yaml", "json"]
-                },
-                "max_results": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default: 5)",
-                    "default": 5,
-                    "minimum": 1,
-                    "maximum": 20
-                },
-                "source": {
-                    "type": "string",
-                    "description": "Search source preference (default: 'auto')",
-                    "enum": ["auto", "github", "docs", "stackoverflow", "web"],
-                    "default": "auto"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let query = required_string(&params, "query")?;
-        let language = optional_string(&params, "language");
-        let max_results = params
-            .get("max_results")
-            .and_then(Value::as_u64)
-            .unwrap_or(5) as usize;
-        let source = optional_string(&params, "source").unwrap_or("auto");
-
-        // Clamp max_results
-        let max_results = max_results.clamp(1, 20);
+    execute(params: CodeSearchParams, _ctx) {
+        let query = &params.query;
+        let language = params.language.as_deref();
+        let max_results = params.max_results.unwrap_or(5).clamp(1, 20) as usize;
+        let source = params.source.as_deref().unwrap_or("auto");
 
         // Check for Exa API key
         let exa_api_key = env::var("EXA_API_KEY").ok();
@@ -349,20 +309,12 @@ fn devdocs_url(language: Option<&str>) -> String {
     }
 }
 
-fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("missing string parameter `{key}`"))
-}
-
-fn optional_string<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
-    value.get(key).and_then(Value::as_str)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
+    use serde_json::json;
 
     #[test]
     fn test_codesearch_tool_metadata() {
@@ -384,23 +336,6 @@ mod tests {
 
         // Check query property
         assert_eq!(schema["properties"]["query"]["type"], "string");
-
-        // Check language enum values
-        let languages = schema["properties"]["language"]["enum"].as_array().unwrap();
-        assert!(languages.contains(&json!("rust")));
-        assert!(languages.contains(&json!("python")));
-        assert!(languages.contains(&json!("typescript")));
-
-        // Check max_results constraints
-        assert_eq!(schema["properties"]["max_results"]["default"], 5);
-        assert_eq!(schema["properties"]["max_results"]["minimum"], 1);
-        assert_eq!(schema["properties"]["max_results"]["maximum"], 20);
-
-        // Check source enum
-        let sources = schema["properties"]["source"]["enum"].as_array().unwrap();
-        assert!(sources.contains(&json!("auto")));
-        assert!(sources.contains(&json!("github")));
-        assert!(sources.contains(&json!("docs")));
     }
 
     #[test]

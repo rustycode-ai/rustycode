@@ -1,10 +1,12 @@
 use crate::indexing::CodeIndex;
 use crate::providers::lsp::{get_lsp_config_for_project, read_file_blocking, with_lsp_client};
 use crate::providers::symbol::symbols_overview;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use lsp_types::{GotoDefinitionResponse, Location, Position, SymbolInformation, Uri as LspUrl};
 use rustycode_lsp::LanguageId;
+use schemars::JsonSchema;
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -152,62 +154,48 @@ fn choose_symbol_information<'a>(
         .or_else(|| candidates.first())
 }
 
-/// Discover code locations using the code index.
-pub struct FindTool;
+/// Parameters for the find tool.
+#[derive(Deserialize, JsonSchema)]
+pub struct FindParams {
+    /// What to look for in the codebase
+    query: String,
+    /// Optional scope path or prefix to narrow the search
+    #[serde(rename = "in")]
+    #[schemars(rename = "in")]
+    scope: Option<String>,
+    /// Maximum number of results to return
+    limit: Option<u64>,
+}
 
-impl Tool for FindTool {
-    fn name(&self) -> &'static str {
-        "find"
-    }
+/// Parameters for the inspect tool.
+#[derive(Deserialize, JsonSchema)]
+pub struct InspectParams {
+    /// Symbol name or path to inspect
+    symbol: String,
+    /// What aspect to inspect
+    aspect: Option<String>,
+    /// Optional scope path or prefix to disambiguate
+    #[serde(rename = "in")]
+    #[schemars(rename = "in")]
+    scope: Option<String>,
+}
 
-    fn description(&self) -> &'static str {
-        "Find relevant code locations for a query. Use this first for broad discovery, then inspect the best match with inspect."
-    }
+rustycode_tools_api::define_tool! {
+    pub struct FindTool;
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
+    name: "find",
+    description: "Find relevant code locations for a query. Use this first for broad discovery, then inspect the best match with inspect.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore],
 
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["query"],
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "What to look for in the codebase"
-                },
-                "in": {
-                    "type": "string",
-                    "description": "Optional scope path or prefix to narrow the search"
-                },
-                "limit": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return",
-                    "default": 8,
-                    "minimum": 1,
-                    "maximum": 20
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: FindParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "find")?;
         }
 
-        let query = params
-            .get("query")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing required parameter: query"))?;
-        let scope = params.get("in").and_then(Value::as_str);
-        let limit = params.get("limit").and_then(Value::as_u64).unwrap_or(8) as usize;
-        let limit = limit.clamp(1, 20);
+        let query = &params.query;
+        let scope = params.scope.as_deref();
+        let limit = params.limit.unwrap_or(8).clamp(1, 20) as usize;
 
         let index = build_code_index(ctx)?;
         let mut exact_symbols: Vec<Value> = symbol_candidates(&index, query, scope, &ctx.cwd)
@@ -291,63 +279,22 @@ impl Tool for FindTool {
     }
 }
 
-/// Inspect a specific symbol with a chosen aspect.
-pub struct InspectTool;
+rustycode_tools_api::define_tool! {
+    pub struct InspectTool;
 
-impl Tool for InspectTool {
-    fn name(&self) -> &'static str {
-        "inspect"
-    }
+    name: "inspect",
+    description: "Inspect a symbol deeply. Use after find to look at definition, hover info, references, outline, or dependencies.",
+    permission: ToolPermission::Read,
+    tags: [ToolTag::Explore],
 
-    fn description(&self) -> &'static str {
-        "Inspect a symbol deeply. Use after find to look at definition, hover info, references, outline, or dependencies."
-    }
-
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["symbol"],
-            "properties": {
-                "symbol": {
-                    "type": "string",
-                    "description": "Symbol name or path to inspect"
-                },
-                "aspect": {
-                    "type": "string",
-                    "enum": ["definition", "hover", "references", "outline", "dependencies", "overview"],
-                    "default": "definition",
-                    "description": "What aspect to inspect"
-                },
-                "in": {
-                    "type": "string",
-                    "description": "Optional scope path or prefix to disambiguate"
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Explore]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: InspectParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "inspect")?;
         }
 
-        let symbol = params
-            .get("symbol")
-            .and_then(Value::as_str)
-            .ok_or_else(|| anyhow!("missing required parameter: symbol"))?;
-        let aspect = params
-            .get("aspect")
-            .and_then(Value::as_str)
-            .unwrap_or("definition");
-        let scope = params.get("in").and_then(Value::as_str);
+        let symbol = &params.symbol;
+        let aspect = params.aspect.as_deref().unwrap_or("definition");
+        let scope = params.scope.as_deref();
 
         let index = build_code_index(ctx)?;
         let candidates = symbol_candidates(&index, symbol, scope, &ctx.cwd);
@@ -494,7 +441,7 @@ impl Tool for InspectTool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use crate::Tool;
 
     #[test]
     fn scope_matches_accepts_narrowing_prefixes() {
