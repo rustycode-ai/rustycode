@@ -5,7 +5,6 @@
 
 /// Search strategy to use for a given query
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(dead_code)] // Kept for future use
 #[non_exhaustive]
 pub enum SearchStrategy {
     /// Use LSP for exact symbol lookups
@@ -21,7 +20,6 @@ pub enum SearchStrategy {
 }
 
 /// Analyze query intent and recommend search strategy
-#[allow(dead_code)] // Kept for future use
 pub fn route_query(query: &str) -> SearchStrategy {
     let q = query.trim().to_lowercase();
 

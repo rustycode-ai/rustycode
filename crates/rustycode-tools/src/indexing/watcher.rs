@@ -15,7 +15,10 @@ pub enum FileEvent {
     Deleted(PathBuf),
 }
 
-/// Service that watches for file system changes
+/// Service that watches for file system changes.
+///
+/// The struct fields are not read directly — the struct exists as a handle
+/// that must stay alive to keep the background watcher active.
 #[allow(dead_code)]
 pub struct FileSystemWatcher {
     watcher: RecommendedWatcher,

@@ -332,6 +332,11 @@ const fn permission_level(p: &ToolPermission) -> u8 {
     }
 }
 
+/// Returns a friendly greeting.
+pub fn hello() -> &'static str {
+    "Hello, world!"
+}
+
 /// Tool executor combining a registry and a context.
 /// Used by the `auto_tool` module for programmatic tool invocation.
 pub struct ToolExecutor {
