@@ -2050,7 +2050,9 @@ mod tests {
         let mut event_engine = EventEngine::new();
         event_engine.register_standard_team();
         let root = PathBuf::from("/tmp/rustycode-test");
-        let tool_executor = LLMToolExecutor::with_executor(ToolExecutor::from_cwd(root.clone()));
+        let registry = std::sync::Arc::new(rustycode_tools::default_registry());
+        let context = rustycode_tools::ToolContext::new(root.clone());
+        let tool_executor = LLMToolExecutor::with_executor(ToolExecutor::new(registry, context));
 
         TeamOrchestrator {
             project_root: root,
