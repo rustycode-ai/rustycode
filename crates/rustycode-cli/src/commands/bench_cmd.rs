@@ -89,7 +89,21 @@ async fn run_bench(
     println!("Tasks: {}", tasks.len());
 
     match env.as_str() {
-        "native" => run_native(&tasks, &dataset_dir, &agent, &model, &provider, n_concurrent, &job_name, max_turns, max_tokens, timeout).await,
+        "native" => {
+            run_native(
+                &tasks,
+                &dataset_dir,
+                &agent,
+                &model,
+                &provider,
+                n_concurrent,
+                &job_name,
+                max_turns,
+                max_tokens,
+                timeout,
+            )
+            .await
+        }
         "docker" => {
             let jobs_dir = jobs_dir.unwrap_or_else(|| PathBuf::from("jobs"));
             let job_config = rustycode_bench::JobConfig {
@@ -220,39 +234,37 @@ async fn run_native(
     let runner = rustycode_bench::NativeRunner::new(runner_config);
 
     let provider_owned = provider.to_string();
-    let agent_factory: rustycode_bench::AgentFactory =
-        Box::new(move |name: &str, mdl: &str, solution_dir: PathBuf| {
-            match name {
-                "oracle" => Ok(Box::new(rustycode_bench::OracleAgent::new(solution_dir))
-                    as Box<dyn rustycode_bench::BenchAgent>),
-                "nop" => {
-                    let _ = solution_dir;
-                    Ok(Box::new(rustycode_bench::NopAgent)
-                        as Box<dyn rustycode_bench::BenchAgent>)
-                }
-                "code" => {
-                    let config = rustycode_bench::CodeAgentConfig {
-                        model: mdl.to_string(),
-                        provider: provider_owned.clone(),
-                        max_turns,
-                        max_tokens,
-                        ..Default::default()
-                    };
-                    match rustycode_bench::CodeAgent::auto(config) {
-                        Ok(agent) => {
-                            let _ = solution_dir;
-                            Ok(Box::new(agent) as Box<dyn rustycode_bench::BenchAgent>)
-                        }
-                        Err(e) => {
-                            tracing::error!("Failed to create code agent: {e}");
-                            Ok(Box::new(rustycode_bench::NopAgent)
-                                as Box<dyn rustycode_bench::BenchAgent>)
-                        }
+    let agent_factory: rustycode_bench::AgentFactory = Box::new(
+        move |name: &str, mdl: &str, solution_dir: PathBuf| match name {
+            "oracle" => Ok(Box::new(rustycode_bench::OracleAgent::new(solution_dir))
+                as Box<dyn rustycode_bench::BenchAgent>),
+            "nop" => {
+                let _ = solution_dir;
+                Ok(Box::new(rustycode_bench::NopAgent) as Box<dyn rustycode_bench::BenchAgent>)
+            }
+            "code" => {
+                let config = rustycode_bench::CodeAgentConfig {
+                    model: mdl.to_string(),
+                    provider: provider_owned.clone(),
+                    max_turns,
+                    max_tokens,
+                    ..Default::default()
+                };
+                match rustycode_bench::CodeAgent::auto(config) {
+                    Ok(agent) => {
+                        let _ = solution_dir;
+                        Ok(Box::new(agent) as Box<dyn rustycode_bench::BenchAgent>)
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to create code agent: {e}");
+                        Ok(Box::new(rustycode_bench::NopAgent)
+                            as Box<dyn rustycode_bench::BenchAgent>)
                     }
                 }
-                other => anyhow::bail!("Unknown agent: '{other}'. Supported: oracle, nop, code"),
             }
-        });
+            other => anyhow::bail!("Unknown agent: '{other}'. Supported: oracle, nop, code"),
+        },
+    );
 
     let results = runner.run(tasks, dataset_path, agent_factory).await?;
     println!("\n{}", results.summary());

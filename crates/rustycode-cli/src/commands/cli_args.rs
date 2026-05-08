@@ -438,54 +438,6 @@ pub enum MemoryCommand {
     },
 }
 
-/// SWE-bench evaluation arguments (used by the Swebench subcommand in main.rs)
-#[derive(Debug, clap::Args)]
-pub struct SweBenchCliArgs {
-    /// Path to SWE-bench instances JSON file
-    #[arg(long)]
-    pub instances: std::path::PathBuf,
-
-    /// Output path for predictions
-    #[arg(long, default_value = "predictions.json")]
-    pub output: std::path::PathBuf,
-
-    /// Model to use (e.g. claude-sonnet-4-6)
-    #[arg(long, default_value = "claude-sonnet-4-6")]
-    pub model: String,
-
-    /// LLM provider: anthropic, openai
-    #[arg(long, default_value = "anthropic")]
-    pub provider: String,
-
-    /// Max tool-use turns per instance
-    #[arg(long, default_value_t = 30)]
-    pub max_turns: usize,
-
-    /// Max tokens per LLM response
-    #[arg(long, default_value_t = 16_384)]
-    pub max_tokens: u32,
-
-    /// Timeout per instance in seconds
-    #[arg(long, default_value_t = 600)]
-    pub timeout: u64,
-
-    /// Number of instances to run in parallel
-    #[arg(long, default_value_t = 1)]
-    pub parallel: usize,
-
-    /// Specific instance IDs to run (comma-separated)
-    #[arg(long)]
-    pub instance_ids: Option<String>,
-
-    /// Output format: json (array) or jsonl (one per line)
-    #[arg(long, default_value = "json")]
-    pub format: String,
-
-    /// Working directory for cloned repos
-    #[arg(long, default_value = "swebench-work")]
-    pub work_dir: std::path::PathBuf,
-}
-
 /// Harness framework commands for long-running agent tasks
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]

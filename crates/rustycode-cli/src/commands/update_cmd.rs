@@ -70,9 +70,7 @@ async fn find_release(args: &UpdateArgs) -> Result<ReleaseInfo> {
         // List all releases, find first prerelease
         let url = format!("{RELEASES_API}?per_page=10");
         let resp = http_get_json(&url).await?;
-        let releases = resp
-            .as_array()
-            .context("expected array of releases")?;
+        let releases = resp.as_array().context("expected array of releases")?;
 
         for release in releases {
             if release
@@ -183,15 +181,13 @@ async fn download_and_replace(release: &ReleaseInfo, exe_path: &Path) -> Result<
         "rustycode"
     };
 
-    let new_binary = find_file_recursive(tmp_dir.path(), binary_name)
-        .context("binary not found in archive")?;
+    let new_binary =
+        find_file_recursive(tmp_dir.path(), binary_name).context("binary not found in archive")?;
 
     // Replace: rename old, copy new, remove old
     let old_path = exe_path.with_extension("old");
-    fs::rename(exe_path, &old_path)
-        .context("failed to rename current binary")?;
-    fs::copy(&new_binary, exe_path)
-        .context("failed to copy new binary")?;
+    fs::rename(exe_path, &old_path).context("failed to rename current binary")?;
+    fs::copy(&new_binary, exe_path).context("failed to copy new binary")?;
 
     #[cfg(unix)]
     {

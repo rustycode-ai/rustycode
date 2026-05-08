@@ -11,11 +11,9 @@ pub mod omo_cmd;
 pub mod plan_cmd;
 pub mod provider_command;
 pub mod skills_cmd;
-pub mod swebench_command;
-pub mod web_start;
 pub mod update_cmd;
+pub mod web_start;
 pub mod worktree_cmd;
 
 pub use cli_args::*;
 pub use provider_command::*;
-pub use swebench_command::*;

@@ -553,7 +553,7 @@ fn print_confidence_bar(label: &str, count: usize, total: usize, bar_char: char,
         0
     };
 
-    let bar_width = 30;
+    let bar_width: usize = 30;
     let filled = if total > 0 {
         (count as f32 / total as f32 * bar_width as f32) as usize
     } else {
@@ -561,7 +561,7 @@ fn print_confidence_bar(label: &str, count: usize, total: usize, bar_char: char,
     };
 
     let bar: String = std::iter::repeat_n(bar_char, filled).collect();
-    let empty: String = " ".repeat(bar_width - filled);
+    let empty: String = " ".repeat(bar_width.saturating_sub(filled));
 
     let bar_colored = match color {
         "green" => bar.green().to_string(),

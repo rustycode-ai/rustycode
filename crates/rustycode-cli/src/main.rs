@@ -204,11 +204,6 @@ enum Command {
         #[arg(short, long)]
         dir: Option<String>,
     },
-    /// Run SWE-bench evaluation (load instances, generate predictions).
-    Swebench {
-        #[command(flatten)]
-        args: SweBenchCliArgs,
-    },
     /// Rewind a repository to a checkpoint (git hash) and optionally restore specific files.
     Checkpoint {
         /// Path to the repository (defaults to current directory)
@@ -565,24 +560,6 @@ async fn async_main() -> Result<()> {
                 .await
                 .with_context(|| format!("Failed to rewind repository {}", repo_path.display()))?;
             println!("Rewound {} to {}", repo_path.display(), snapshot.git_hash);
-        }
-
-        Command::Swebench { args } => {
-            use commands::swebench_command::{run_swebench, SweBenchArgs};
-            let swebench_args = SweBenchArgs {
-                instances: args.instances,
-                output: args.output,
-                model: args.model,
-                provider: args.provider,
-                max_turns: args.max_turns,
-                max_tokens: args.max_tokens,
-                timeout: args.timeout,
-                parallel: args.parallel,
-                instance_ids: args.instance_ids,
-                format: args.format,
-                work_dir: args.work_dir,
-            };
-            run_swebench(swebench_args).await?;
         }
 
         Command::Doctor => {
@@ -1293,7 +1270,6 @@ fn suggest_similar_subcommand(task: &str) -> Option<String> {
         "learnings",
         "tui",
         "serve",
-        "swebench",
         "bench",
         "ast",
     ];
