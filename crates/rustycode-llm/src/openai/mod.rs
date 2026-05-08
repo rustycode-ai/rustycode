@@ -21,9 +21,6 @@ use crate::provider_metadata::{
 };
 use rustycode_tools_api::{Tool, ToolProfile, ToolRegistry, ToolSelector};
 
-// Import macros exported at crate root
-use crate::response_debug::ResponseDebugContext;
-use crate::retry::extract_retry_after_ms;
 use crate::{build_request, get_api_key, shared_client};
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
@@ -149,25 +146,13 @@ impl OpenAiProvider {
                 .text()
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
-
-            let debug = ResponseDebugContext::from_response_headers(&headers);
-            return Err(match status.as_u16() {
-                401 | 403 => ProviderError::auth(debug.format_error_message(&format!(
-                    "Authentication failed. Check your OPENAI_API_KEY env var. {}",
-                    text
-                ))),
-                404 => ProviderError::InvalidModel(debug.format_error_message(&text)),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(debug.format_error_message(&format!(
-                    "OpenAI service temporarily unavailable ({}). Please retry in a few seconds.",
-                    text
-                ))),
-                _ => {
-                    ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text)))
-                }
-            });
+            return Err(crate::openai_compatible::map_http_error(
+                status,
+                text,
+                &headers,
+                "OpenAI",
+                "OPENAI_API_KEY",
+            ));
         }
 
         let resp_text = response
@@ -863,25 +848,13 @@ impl OpenAiProvider {
                 .text()
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
-
-            let debug = ResponseDebugContext::from_response_headers(&headers);
-            return Err(match status.as_u16() {
-                401 | 403 => ProviderError::auth(debug.format_error_message(&format!(
-                    "Authentication failed. Check your OPENAI_API_KEY env var. {}",
-                    error_text
-                ))),
-                404 => ProviderError::InvalidModel(debug.format_error_message(&error_text)),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(debug.format_error_message(&format!(
-                    "OpenAI service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                ))),
-                _ => ProviderError::api(
-                    debug.format_error_message(&format!("{}: {}", status, error_text)),
-                ),
-            });
+            return Err(crate::openai_compatible::map_http_error(
+                status,
+                error_text,
+                &headers,
+                "OpenAI",
+                "OPENAI_API_KEY",
+            ));
         }
 
         // Convert bytes stream to SSE stream

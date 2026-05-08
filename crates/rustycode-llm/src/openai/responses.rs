@@ -4,12 +4,9 @@
 //! plus the WebSocket streaming path (feature-gated).
 
 use crate::provider::{CompletionRequest, CompletionResponse, ProviderError, StreamChunk};
-use crate::response_debug::ResponseDebugContext;
-use crate::retry::extract_retry_after_ms;
 use crate::{build_request, get_api_key};
 use secrecy::ExposeSecret;
 use std::pin::Pin;
-use std::time::Duration;
 
 use super::OpenAiProvider;
 
@@ -147,29 +144,13 @@ impl OpenAiProvider {
                 .text()
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
-
-            let debug = ResponseDebugContext::from_response_headers(&headers);
-            return Err(match status.as_u16() {
-                401 => ProviderError::auth(debug.format_error_message(&format!(
-                    "Authentication failed. Check your OPENAI_API_KEY env var. {}",
-                    text
-                ))),
-                404 => ProviderError::InvalidModel(
-                    debug.format_error_message(&format!("model not found: {}", text)),
-                ),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                500..=599 => {
-                    ProviderError::network(debug.format_error_message(&format!(
-                        "OpenAI service error ({}): {}",
-                        status, text
-                    )))
-                }
-                _ => {
-                    ProviderError::api(debug.format_error_message(&format!("{}: {}", status, text)))
-                }
-            });
+            return Err(crate::openai_compatible::map_http_error(
+                status,
+                text,
+                &headers,
+                "OpenAI",
+                "OPENAI_API_KEY",
+            ));
         }
         let resp: crate::openai_compatible::ResponsesApiResponse = response
             .json()
@@ -303,27 +284,13 @@ impl OpenAiProvider {
                 .text()
                 .await
                 .unwrap_or_else(|_| "unable to read error".to_string());
-
-            let debug = ResponseDebugContext::from_response_headers(&headers);
-            return Err(match status.as_u16() {
-                401 => ProviderError::auth(debug.format_error_message(&format!(
-                    "Authentication failed. Check your OPENAI_API_KEY env var. {}",
-                    error_text
-                ))),
-                404 => ProviderError::InvalidModel(
-                    debug.format_error_message(&format!("model not found: {}", error_text)),
-                ),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                500..=599 => ProviderError::network(debug.format_error_message(&format!(
-                    "OpenAI service error ({}): {}",
-                    status, error_text
-                ))),
-                _ => ProviderError::api(
-                    debug.format_error_message(&format!("{}: {}", status, error_text)),
-                ),
-            });
+            return Err(crate::openai_compatible::map_http_error(
+                status,
+                error_text,
+                &headers,
+                "OpenAI",
+                "OPENAI_API_KEY",
+            ));
         }
 
         let bytes_stream = response.bytes_stream();

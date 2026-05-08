@@ -174,28 +174,16 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                         }
                     }
                 } else if let Some(error) = data.get("error") {
-                    let code = error
-                        .get("code")
-                        .and_then(|c| c.as_str())
-                        .unwrap_or("unknown");
-                    let message = error
-                        .get("message")
-                        .and_then(|m| m.as_str())
-                        .unwrap_or("Unknown streaming error");
-                    events.push(Err(ProviderError::api(format!("{}: {}", code, message))));
+                    events.push(Err(crate::openai_compatible::map_stream_error(
+                        error, "OpenAI",
+                    )));
                 }
             }
         } else if let Ok(data) = serde_json::from_str::<serde_json::Value>(line) {
             if let Some(error) = data.get("error") {
-                let code = error
-                    .get("code")
-                    .and_then(|c| c.as_str())
-                    .unwrap_or("unknown");
-                let message = error
-                    .get("message")
-                    .and_then(|m| m.as_str())
-                    .unwrap_or("Unknown streaming error");
-                events.push(Err(ProviderError::api(format!("{}: {}", code, message))));
+                events.push(Err(crate::openai_compatible::map_stream_error(
+                    error, "OpenAI",
+                )));
             }
         }
     }
@@ -409,13 +397,7 @@ fn parse_usage(u: &serde_json::Value) -> Option<Usage> {
 /// Extract an error from a JSON value that has a top-level "error" object.
 fn extract_stream_error(data: &serde_json::Value) -> Option<Result<StreamEvent, ProviderError>> {
     let error = data.get("error")?;
-    let code = error
-        .get("code")
-        .and_then(|c| c.as_str())
-        .unwrap_or("unknown");
-    let message = error
-        .get("message")
-        .and_then(|m| m.as_str())
-        .unwrap_or("Unknown streaming error");
-    Some(Err(ProviderError::api(format!("{}: {}", code, message))))
+    Some(Err(crate::openai_compatible::map_stream_error(
+        error, "OpenAI",
+    )))
 }
