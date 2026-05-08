@@ -282,6 +282,8 @@ pub struct ToolContext {
     pub file_read_state: Option<Arc<FileReadState>>,
     /// Optional message sender for agent-to-agent communication.
     pub message_sender: Option<Arc<dyn MessageSender>>,
+    /// Optional JSON schema for structured output validation (StructuredOutputTool).
+    pub structured_output_schema: Option<serde_json::Value>,
 }
 
 impl std::fmt::Debug for ToolContext {
@@ -313,6 +315,7 @@ impl ToolContext {
             allow_outside_workspace: false,
             file_read_state: None,
             message_sender: None,
+            structured_output_schema: None,
         }
     }
     pub fn with_sandbox(mut self, sandbox: SandboxConfig) -> Self {
@@ -370,6 +373,11 @@ impl ToolContext {
     /// Attach a message sender for agent-to-agent communication.
     pub fn with_message_sender(mut self, sender: Arc<dyn MessageSender>) -> Self {
         self.message_sender = Some(sender);
+        self
+    }
+    /// Set the JSON schema for structured output validation.
+    pub fn with_structured_output_schema(mut self, schema: serde_json::Value) -> Self {
+        self.structured_output_schema = Some(schema);
         self
     }
 }
@@ -729,6 +737,7 @@ impl ToolMetadataProvider for ToolRegistry {
         self.get(name).map(ToolInfo::from_tool)
     }
 }
+
 /// Todo item status
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -910,6 +919,7 @@ macro_rules! __define_tool_impl {
                 $body
             }
         }
+
     };
     (
         $name:ident;
@@ -956,6 +966,7 @@ macro_rules! __define_tool_impl {
                 $body
             }
         }
+
     };
 }
 

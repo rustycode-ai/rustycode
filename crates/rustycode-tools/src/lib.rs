@@ -95,7 +95,6 @@ pub use rustycode_tools_api::{
 // Modules
 pub mod executor;
 pub mod indexing;
-pub mod inputs;
 pub mod providers;
 pub mod registry;
 pub mod registry_builder;
@@ -442,7 +441,6 @@ pub fn default_registry() -> ToolRegistry {
     use crate::providers::lsp::*;
     use crate::providers::multiedit::MultiEditTool;
     use crate::providers::notebook::NotebookEditTool;
-    use crate::providers::search::{GlobTool, GrepTool};
     use crate::providers::send_message::SendMessageTool;
     use crate::providers::task_output::{TaskOutputTool, TaskStopTool};
     use crate::providers::tool_search::ToolSearchTool;
@@ -450,7 +448,8 @@ pub fn default_registry() -> ToolRegistry {
     use crate::providers::web_search::WebSearchTool;
     use crate::providers::{
         BashTool, CmdTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool,
-        InspectTool, ListDirTool, PowerShellTool, QuestionTool, ReadFileTool, WriteFileTool,
+        GlobTool, GrepTool, InspectTool, ListDirTool, PowerShellTool, QuestionTool, ReadFileTool,
+        WriteFileTool,
     };
 
     let mut reg = ToolRegistry::new();

@@ -255,6 +255,13 @@ impl ServiceManager {
         let tool_registry_arc = Arc::new(tool_registry);
         self.tool_registry = Some(Arc::clone(&tool_registry_arc));
 
+        // Set up batch tool registry for the default session.
+        // This allows BatchTool to execute other tools in parallel during batch operations.
+        rustycode_tools::executor::batch_state::set_batch_registry(
+            "default-session",
+            Arc::clone(&tool_registry_arc),
+        );
+
         // Create conversation service - pass the Arc'd registry
         let service = ConversationService::new(config, tool_registry_arc);
 

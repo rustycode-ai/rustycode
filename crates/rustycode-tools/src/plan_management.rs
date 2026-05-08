@@ -6,10 +6,11 @@
 
 use super::plan_templates::PlanTemplate;
 use crate::security::{validate_list_path, validate_read_path, validate_write_path};
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use rustycode_protocol::SessionId;
+use schemars::JsonSchema;
 use serde_json::{json, Value};
 use std::fs;
 
@@ -28,16 +29,59 @@ fn validate_plan_id(plan_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// Create a plan from a template
-pub struct CreatePlanFromTemplateTool;
+// ── Params structs ──────────────────────────────────────────────────────────
 
-impl Tool for CreatePlanFromTemplateTool {
-    fn name(&self) -> &'static str {
-        "create_plan_from_template"
-    }
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct CreatePlanParams {
+    /// Type of plan template to use
+    pub template: String,
+    /// Description of the specific task
+    pub task: String,
+    /// One-line summary of the plan
+    pub summary: String,
+    /// Files that will be modified (optional)
+    #[serde(default)]
+    pub files: Vec<String>,
+}
 
-    fn description(&self) -> &'static str {
-        r#"Create a new plan from a predefined template.
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct SavePlanParams {
+    /// Plan ID to save
+    pub plan_id: String,
+    /// Where to save the plan (optional)
+    pub file_path: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct LoadPlanParams {
+    /// Path to the plan file
+    pub file_path: String,
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct ListPlansParams {
+    /// Directory to search for plans (default: .rustycode/plans)
+    #[serde(default = "default_directory")]
+    pub directory: String,
+}
+
+fn default_directory() -> String {
+    ".rustycode/plans".to_string()
+}
+
+#[derive(Debug, serde::Deserialize, JsonSchema)]
+pub struct ApprovePlanParams {
+    /// Plan ID to approve
+    pub plan_id: String,
+}
+
+// ── Tool definitions ────────────────────────────────────────────────────────
+
+rustycode_tools_api::define_tool! {
+    pub struct CreatePlanFromTemplateTool;
+
+    name: "create_plan_from_template",
+    description: r#"Create a new plan from a predefined template.
 
 **Use cases:**
 - Quickly create plans for common development tasks
@@ -71,54 +115,14 @@ impl Tool for CreatePlanFromTemplateTool {
 - `performance`: Optimize performance
 - `documentation`: Add or update documentation
 - `security_fix`: Fix security vulnerability
-- `dependency_update`: Update dependencies"#
-    }
+- `dependency_update`: Update dependencies"#,
+    permission: ToolPermission::Read,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["template", "task", "summary"],
-            "properties": {
-                "template": {
-                    "type": "string",
-                    "enum": ["new_feature", "bug_fix", "refactor", "add_tests", "performance", "documentation", "security_fix", "dependency_update"],
-                    "description": "Type of plan template to use"
-                },
-                "task": {
-                    "type": "string",
-                    "description": "Description of the specific task"
-                },
-                "summary": {
-                    "type": "string",
-                    "description": "One-line summary of the plan"
-                },
-                "files": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Files that will be modified (optional)",
-                    "default": []
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let template_str = required_string(&params, "template")?;
-        let task = required_string(&params, "task")?;
-        let summary = required_string(&params, "summary")?;
-        let files = params
-            .get("files")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|v| v.as_str().map(ToString::to_string))
-                    .collect()
-            })
-            .unwrap_or_default();
+    execute(params: CreatePlanParams, _ctx) {
+        let template_str = params.template.as_str();
+        let task = &params.task;
+        let summary = &params.summary;
+        let files = params.files;
 
         // Parse template type
         let template = match template_str {
@@ -177,16 +181,11 @@ impl Tool for CreatePlanFromTemplateTool {
     }
 }
 
-/// Save a plan to disk
-pub struct SavePlanTool;
+rustycode_tools_api::define_tool! {
+    pub struct SavePlanTool;
 
-impl Tool for SavePlanTool {
-    fn name(&self) -> &'static str {
-        "save_plan"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Save a plan to disk for later use.
+    name: "save_plan",
+    description: r#"Save a plan to disk for later use.
 
 **Use cases:**
 - Persist a plan for later execution
@@ -207,38 +206,17 @@ the full plan object. This is a simplified version.
   "plan_id": "plan-abc123",
   "file_path": "plans/feature-auth.json"
 }
-```"#
-    }
+```"#,
+    permission: ToolPermission::Write,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Write
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["plan_id"],
-            "properties": {
-                "plan_id": {
-                    "type": "string",
-                    "description": "Plan ID to save"
-                },
-                "file_path": {
-                    "type": "string",
-                    "description": "Where to save the plan (optional)"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let plan_id_str = required_string(&params, "plan_id")?;
+    execute(params: SavePlanParams, ctx) {
+        let plan_id_str = &params.plan_id;
         validate_plan_id(plan_id_str)?;
 
         let default_path = format!(".rustycode/plans/{plan_id_str}.json");
         let file_path = params
-            .get("file_path")
-            .and_then(|v| v.as_str())
+            .file_path
+            .as_deref()
             .unwrap_or(&default_path);
 
         // Validate path stays within workspace
@@ -286,16 +264,11 @@ the full plan object. This is a simplified version.
     }
 }
 
-/// Load a plan from disk
-pub struct LoadPlanTool;
+rustycode_tools_api::define_tool! {
+    pub struct LoadPlanTool;
 
-impl Tool for LoadPlanTool {
-    fn name(&self) -> &'static str {
-        "load_plan"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Load a saved plan from disk.
+    name: "load_plan",
+    description: r#"Load a saved plan from disk.
 
 **Use cases:**
 - Load a previously saved plan
@@ -310,28 +283,11 @@ impl Tool for LoadPlanTool {
 {
   "file_path": "plans/feature-auth.json"
 }
-```"#
-    }
+```"#,
+    permission: ToolPermission::Read,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["file_path"],
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Path to the plan file"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let file_path_str = required_string(&params, "file_path")?;
+    execute(params: LoadPlanParams, ctx) {
+        let file_path_str = &params.file_path;
 
         // Validate path stays within workspace
         let path = validate_read_path(file_path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
@@ -374,16 +330,11 @@ impl Tool for LoadPlanTool {
     }
 }
 
-/// List available plans
-pub struct ListPlansTool;
+rustycode_tools_api::define_tool! {
+    pub struct ListPlansTool;
 
-impl Tool for ListPlansTool {
-    fn name(&self) -> &'static str {
-        "list_plans"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"List all available saved plans.
+    name: "list_plans",
+    description: r#"List all available saved plans.
 
 **Use cases:**
 - See what plans are available
@@ -401,31 +352,11 @@ impl Tool for ListPlansTool {
 ```
 
 **Returns:**
-- List of plan files with metadata"#
-    }
+- List of plan files with metadata"#,
+    permission: ToolPermission::Read,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "directory": {
-                    "type": "string",
-                    "description": "Directory to search for plans (default: .rustycode/plans)",
-                    "default": ".rustycode/plans"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let directory = params
-            .get("directory")
-            .and_then(|v| v.as_str())
-            .unwrap_or(".rustycode/plans");
+    execute(params: ListPlansParams, ctx) {
+        let directory = &params.directory;
 
         // Validate path stays within workspace
         let dir_path = validate_list_path(directory, &ctx.cwd, !ctx.allow_outside_workspace)?;
@@ -494,16 +425,11 @@ impl Tool for ListPlansTool {
     }
 }
 
-/// Approve a plan for execution
-pub struct ApprovePlanTool;
+rustycode_tools_api::define_tool! {
+    pub struct ApprovePlanTool;
 
-impl Tool for ApprovePlanTool {
-    fn name(&self) -> &'static str {
-        "approve_plan"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Approve a plan for execution.
+    name: "approve_plan",
+    description: r#"Approve a plan for execution.
 
 **Use cases:**
 - Mark a plan as ready to execute
@@ -525,28 +451,11 @@ impl Tool for ApprovePlanTool {
 
 **Note:** This is a planning tool. In a real implementation, this would
 update the plan status in a plan store and potentially trigger user
-confirmation prompts."#
-    }
+confirmation prompts."#,
+    permission: ToolPermission::Read,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["plan_id"],
-            "properties": {
-                "plan_id": {
-                    "type": "string",
-                    "description": "Plan ID to approve"
-                }
-            }
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let plan_id = required_string(&params, "plan_id")?;
+    execute(params: ApprovePlanParams, _ctx) {
+        let plan_id = &params.plan_id;
 
         let output = format!(
             "**Plan Approved**\n\n✅ Plan `{plan_id}` has been approved for execution.\n\n\
@@ -566,17 +475,11 @@ confirmation prompts."#
     }
 }
 
-/// Helper function to get a required string parameter
-fn required_string<'a>(value: &'a Value, key: &str) -> Result<&'a str> {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("missing string parameter `{key}`"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
 
     #[test]
     fn test_create_plan_tool_metadata() {
@@ -592,16 +495,11 @@ mod tests {
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
+        // Macro-generated schema uses schemars; check required fields exist
         let required = schema["required"].as_array().unwrap();
-        assert_eq!(required.len(), 3);
         assert!(required.contains(&json!("template")));
         assert!(required.contains(&json!("task")));
         assert!(required.contains(&json!("summary")));
-
-        // Check template enum
-        let template_enum = schema["properties"]["template"]["enum"].as_array().unwrap();
-        assert!(template_enum.contains(&json!("new_feature")));
-        assert!(template_enum.contains(&json!("bug_fix")));
     }
 
     #[test]

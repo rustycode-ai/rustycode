@@ -1,4 +1,5 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolRegistry};
+use super::batch_state;
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
 use anyhow::{anyhow, Result};
 use rustycode_protocol::{ToolCall, ToolResult};
 use serde_json::{json, Value};
@@ -26,15 +27,10 @@ use std::time::Instant;
 /// - Operations that depend on each other's results
 /// - Operations that modify the same resource
 /// - When order matters for correctness
-pub struct BatchTool {
-    registry: Arc<ToolRegistry>,
-}
-
-impl BatchTool {
-    pub const fn new(registry: Arc<ToolRegistry>) -> Self {
-        Self { registry }
-    }
-}
+///
+/// Zero-sized struct using session-keyed global registry state.
+#[derive(Debug, Clone, Copy)]
+pub struct BatchTool;
 
 impl Tool for BatchTool {
     fn name(&self) -> &'static str {
@@ -134,9 +130,12 @@ impl Tool for BatchTool {
 
         let start_time = Instant::now();
 
+        // Retrieve registry from global state keyed by session_id
+        let session_id = ctx.session_id.as_deref().unwrap_or("default-session");
+        let registry = batch_state::get_batch_registry(session_id)
+            .ok_or_else(|| anyhow!("No batch registry found for session '{session_id}'"))?;
+
         // Execute calls in parallel using threads
-        // Clone registry and context for each thread
-        let registry = Arc::clone(&self.registry);
         let ctx = ctx.clone();
         let calls = calls_value.to_vec();
 
@@ -286,15 +285,23 @@ impl Tool for BatchTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
 
-    fn create_batch_tool() -> BatchTool {
+    fn setup_batch_tool(session_id: &str) -> BatchTool {
         let registry = Arc::new(crate::default_registry());
-        BatchTool::new(registry)
+        batch_state::set_batch_registry(session_id, registry);
+        BatchTool
+    }
+
+    #[test]
+    fn test_batch_tool_zero_sized() {
+        let tool = BatchTool;
+        assert_eq!(std::mem::size_of_val(&tool), 0);
     }
 
     #[test]
     fn test_batch_tool_metadata() {
-        let tool = create_batch_tool();
+        let tool = BatchTool;
         assert_eq!(tool.name(), "batch");
         assert!(tool.description().contains("parallel"));
         assert_eq!(tool.permission(), ToolPermission::None);
@@ -302,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_batch_parameters_schema() {
-        let tool = create_batch_tool();
+        let tool = BatchTool;
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
@@ -322,8 +329,8 @@ mod tests {
 
     #[test]
     fn test_batch_missing_calls() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-missing-calls");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-missing-calls");
 
         let result = tool.execute(json!({}), &ctx);
         assert!(result.is_err());
@@ -331,9 +338,31 @@ mod tests {
     }
 
     #[test]
+    fn test_batch_missing_registry() {
+        let tool = BatchTool;
+        let ctx = ToolContext::new("/tmp").with_session_id("nonexistent-session");
+
+        let result = tool.execute(
+            json!({
+                "calls": [
+                    {"tool": "read_file", "parameters": {"path": "/tmp/test"}},
+                    {"tool": "glob", "parameters": {"pattern": "*.rs"}}
+                ]
+            }),
+            &ctx,
+        );
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No batch registry found"));
+    }
+
+    #[test]
     fn test_batch_too_few_calls() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-too-few");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-too-few");
 
         let result = tool.execute(
             json!({
@@ -350,8 +379,8 @@ mod tests {
 
     #[test]
     fn test_batch_too_many_calls() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-too-many");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-too-many");
 
         let mut calls = vec![];
         for i in 0..21 {
@@ -372,8 +401,8 @@ mod tests {
 
     #[test]
     fn test_batch_missing_tool_field() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-missing-tool");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-missing-tool");
 
         let result = tool.execute(
             json!({
@@ -392,8 +421,8 @@ mod tests {
 
     #[test]
     fn test_batch_execution_metadata() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-metadata");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-metadata");
 
         // This will fail (files don't exist) but we can test the structure
         let result = tool.execute(
@@ -421,8 +450,8 @@ mod tests {
 
     #[test]
     fn test_batch_output_format() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-output-format");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-output-format");
 
         let result = tool.execute(
             json!({
@@ -445,8 +474,8 @@ mod tests {
 
     #[test]
     fn test_batch_mixed_success_and_failure() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-mixed");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-mixed");
 
         let result = tool.execute(
             json!({
@@ -466,8 +495,8 @@ mod tests {
 
     #[test]
     fn test_batch_results_order_preserved() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-order");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-order");
 
         let result = tool.execute(
             json!({
@@ -491,8 +520,8 @@ mod tests {
 
     #[test]
     fn test_batch_exactly_2_calls_accepted() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-2-calls");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-2-calls");
 
         let result = tool.execute(
             json!({
@@ -509,8 +538,8 @@ mod tests {
 
     #[test]
     fn test_batch_exactly_20_calls_accepted() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-20-calls");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-20-calls");
 
         let mut calls = vec![];
         for i in 0..20 {
@@ -528,12 +557,32 @@ mod tests {
 
     #[test]
     fn test_batch_non_array_calls_rejected() {
-        let tool = create_batch_tool();
-        let ctx = ToolContext::new("/tmp");
+        let tool = setup_batch_tool("test-non-array");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-non-array");
 
         let result = tool.execute(json!({"calls": "not an array"}), &ctx);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_batch_session_isolation() {
+        let session_1 = "session-1";
+        let session_2 = "session-2";
+
+        let registry_1 = Arc::new(crate::default_registry());
+        let registry_2 = Arc::new(crate::default_registry());
+
+        batch_state::set_batch_registry(session_1, registry_1);
+        batch_state::set_batch_registry(session_2, registry_2);
+
+        let retrieved_1 = batch_state::get_batch_registry(session_1);
+        let retrieved_2 = batch_state::get_batch_registry(session_2);
+
+        assert!(retrieved_1.is_some());
+        assert!(retrieved_2.is_some());
+        // Verify they're different instances
+        assert!(!Arc::ptr_eq(&retrieved_1.unwrap(), &retrieved_2.unwrap()));
     }
 
     #[test]
@@ -561,9 +610,10 @@ mod tests {
             }
         }
 
-        let registry = Arc::new(crate::default_registry());
-        let tool = BatchTool::new(registry);
-        let ctx = ToolContext::new("/tmp").with_plan_gate(Arc::new(BlockWriteGate));
+        let tool = setup_batch_tool("test-gate");
+        let ctx = ToolContext::new("/tmp")
+            .with_session_id("test-gate")
+            .with_plan_gate(Arc::new(BlockWriteGate));
 
         let result = tool.execute(
             json!({

@@ -21,7 +21,9 @@ pub mod explore;
 pub mod fs;
 pub mod git;
 pub mod git_provider;
+pub mod glob;
 pub mod goal;
+pub mod grep;
 pub mod guide_research;
 pub mod list_dir;
 pub mod lsp;
@@ -33,7 +35,6 @@ pub mod question;
 pub mod read_file;
 pub mod reasoning_types;
 pub mod repl;
-pub mod search;
 pub mod send_message;
 pub mod skill_discovery;
 pub mod symbol;
@@ -77,6 +78,12 @@ pub use explore::*;
 #[allow(ambiguous_glob_reexports)]
 pub use git::*;
 #[allow(ambiguous_glob_reexports)]
+pub use glob::*;
+#[allow(ambiguous_glob_reexports)]
+pub use goal::*;
+#[allow(ambiguous_glob_reexports)]
+pub use grep::*;
+#[allow(ambiguous_glob_reexports)]
 pub use guide_research::*;
 #[allow(ambiguous_glob_reexports)]
 pub use list_dir::*;
@@ -98,8 +105,6 @@ pub use read_file::*;
 pub use reasoning_types::*;
 #[allow(ambiguous_glob_reexports)]
 pub use repl::*;
-#[allow(ambiguous_glob_reexports)]
-pub use search::*;
 #[allow(ambiguous_glob_reexports)]
 pub use send_message::*;
 #[allow(ambiguous_glob_reexports)]

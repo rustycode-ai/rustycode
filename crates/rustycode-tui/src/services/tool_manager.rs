@@ -41,11 +41,12 @@ impl ToolManager {
         current_model: &str,
         cwd: &Path,
         skill_manager: &Arc<std::sync::RwLock<crate::skills::manager::SkillStateManager>>,
-        todo_state: &rustycode_tools::todo::TodoState,
-        storage: Option<std::sync::Arc<rustycode_storage::Storage>>,
-        event_bus: Option<std::sync::Arc<rustycode_bus::EventBus>>,
+        _todo_state: &rustycode_tools::todo::TodoState,
+        _storage: Option<std::sync::Arc<rustycode_storage::Storage>>,
+        _event_bus: Option<std::sync::Arc<rustycode_bus::EventBus>>,
     ) {
         use crate::skills::as_tool::{CreateCronTool, CreateTeamTool, SkillToolRegistry};
+        use rustycode_tools::executor::BatchTool;
         use rustycode_tools::todo::{TodoUpdateTool, TodoWriteTool};
         use rustycode_tools::todo_read::TodoReadTool;
         #[cfg(feature = "vector-memory")]
@@ -55,29 +56,13 @@ impl ToolManager {
         *tool_registry = rustycode_tools::default_registry();
 
         // Register stateful tools that require runtime state
-        // Todo tools (shared state with TUI sidebar)
-        tool_registry.register(TodoReadTool::new(todo_state.clone()));
-        if let (Some(ref s), Some(ref bus)) = (&storage, &event_bus) {
-            tool_registry.register(
-                TodoWriteTool::with_storage(todo_state.clone(), s.clone())
-                    .with_event_bus(bus.clone()),
-            );
-            tool_registry.register(
-                TodoUpdateTool::with_storage(todo_state.clone(), s.clone())
-                    .with_event_bus(bus.clone()),
-            );
-        } else if let Some(ref s) = storage {
-            tool_registry.register(TodoWriteTool::with_storage(todo_state.clone(), s.clone()));
-            tool_registry.register(TodoUpdateTool::with_storage(todo_state.clone(), s.clone()));
-        } else if let Some(ref bus) = event_bus {
-            tool_registry
-                .register(TodoWriteTool::new(todo_state.clone()).with_event_bus(bus.clone()));
-            tool_registry
-                .register(TodoUpdateTool::new(todo_state.clone()).with_event_bus(bus.clone()));
-        } else {
-            tool_registry.register(TodoWriteTool::new(todo_state.clone()));
-            tool_registry.register(TodoUpdateTool::new(todo_state.clone()));
-        }
+        // Todo tools are now zero-sized and use global state keyed by session_id
+        tool_registry.register(TodoReadTool);
+        tool_registry.register(TodoWriteTool);
+        tool_registry.register(TodoUpdateTool);
+
+        // Batch tool is now zero-sized and uses session-keyed global registry state
+        tool_registry.register(BatchTool);
 
         // Semantic search tool (conditional feature)
         #[cfg(feature = "vector-memory")]

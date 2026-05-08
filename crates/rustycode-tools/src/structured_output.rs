@@ -1,58 +1,41 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
-use anyhow::Result;
+use crate::{ToolOutput, ToolPermission};
+use anyhow::anyhow;
 use serde_json::Value;
 
 #[cfg(test)]
 use serde_json::json;
 
-/// A synthetic tool for enforcing structured output.
-///
-/// When a JSON schema is provided via `output_config.format`, this tool is
-/// injected into the tool list. The model must call it to return its final
-/// response as structured JSON matching the schema. This follows the same
-/// pattern as Claude Code's `SyntheticOutputTool`.
-pub struct StructuredOutputTool {
-    schema: Value,
-}
+// A synthetic tool for enforcing structured output.
+// When a JSON schema is provided via `ctx.structured_output_schema`, this tool validates
+// and accepts structured JSON matching the schema. This follows the same
+// pattern as Claude Code's `SyntheticOutputTool`.
+rustycode_tools_api::define_tool! {
+    pub struct StructuredOutputTool;
 
-impl StructuredOutputTool {
-    pub fn new(schema: Value) -> Self {
-        Self { schema }
-    }
-}
+    name: "StructuredOutput",
+    description: "Return your final response as structured JSON. You MUST call this tool exactly once at the end of your response to provide the structured output.",
+    permission: ToolPermission::None,
 
-impl Tool for StructuredOutputTool {
-    fn name(&self) -> &str {
-        "StructuredOutput"
-    }
+    execute(_params: serde_json::Value, ctx) {
+        let schema = ctx.structured_output_schema
+            .as_ref()
+            .ok_or_else(|| anyhow!("No structured output schema configured"))?;
 
-    fn description(&self) -> &str {
-        "Return your final response as structured JSON. You MUST call this tool \
-         exactly once at the end of your response to provide the structured output."
-    }
+        let params = _params;
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::None
-    }
-
-    fn parameters_schema(&self) -> Value {
-        self.schema.clone()
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         // Basic structural validation: check that all required properties exist
-        if let Some(required) = self.schema.get("required").and_then(|r| r.as_array()) {
+        if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
             for req in required {
                 if let Some(key) = req.as_str() {
                     if params.get(key).is_none() {
-                        return Err(anyhow::anyhow!("Missing required field: {key}"));
+                        return Err(anyhow!("Missing required field: {key}"));
                     }
                 }
             }
         }
 
         // Validate property types if schema declares them
-        if let Some(properties) = self.schema.get("properties").and_then(|p| p.as_object()) {
+        if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
             for (key, prop_schema) in properties {
                 if let Some(value) = params.get(key) {
                     if let Some(expected_type) = prop_schema.get("type").and_then(|t| t.as_str()) {
@@ -65,7 +48,7 @@ impl Tool for StructuredOutputTool {
                             _ => true,
                         };
                         if !actual_matches {
-                            return Err(anyhow::anyhow!(
+                            return Err(anyhow!(
                                 "Field '{key}' expected type '{expected_type}' but got '{}'",
                                 json_type_of(value)
                             ));
@@ -98,10 +81,10 @@ pub fn is_structured_output_tool(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ToolContext;
+    use crate::{Tool, ToolContext};
 
-    fn test_ctx() -> ToolContext {
-        ToolContext::new(".")
+    fn test_ctx_with_schema(schema: Value) -> ToolContext {
+        ToolContext::new(".").with_structured_output_schema(schema)
     }
 
     #[test]
@@ -113,11 +96,12 @@ mod tests {
             },
             "required": ["answer"]
         });
-        let tool = StructuredOutputTool::new(schema);
+        let tool = StructuredOutputTool;
         assert_eq!(tool.name(), "StructuredOutput");
 
         let input = json!({"answer": "42"});
-        let result = tool.execute(input, &test_ctx());
+        let ctx = test_ctx_with_schema(schema);
+        let result = tool.execute(input, &ctx);
         assert!(result.is_ok());
     }
 
@@ -131,10 +115,11 @@ mod tests {
             },
             "required": ["answer", "confidence"]
         });
-        let tool = StructuredOutputTool::new(schema);
 
         let input = json!({"answer": "42"});
-        let result = tool.execute(input, &test_ctx());
+        let ctx = test_ctx_with_schema(schema);
+        let tool = StructuredOutputTool;
+        let result = tool.execute(input, &ctx);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -151,10 +136,11 @@ mod tests {
             },
             "required": ["count"]
         });
-        let tool = StructuredOutputTool::new(schema);
 
         let input = json!({"count": "not a number"});
-        let result = tool.execute(input, &test_ctx());
+        let ctx = test_ctx_with_schema(schema);
+        let tool = StructuredOutputTool;
+        let result = tool.execute(input, &ctx);
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -164,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_structured_output_no_permission() {
-        let tool = StructuredOutputTool::new(json!({"type": "object"}));
+        let tool = StructuredOutputTool;
         assert!(matches!(tool.permission(), ToolPermission::None));
     }
 
@@ -172,5 +158,18 @@ mod tests {
     fn test_is_structured_output_tool() {
         assert!(is_structured_output_tool("StructuredOutput"));
         assert!(!is_structured_output_tool("bash"));
+    }
+
+    #[test]
+    fn test_structured_output_no_schema() {
+        let ctx = ToolContext::new(".");
+        let tool = StructuredOutputTool;
+        let input = json!({"answer": "42"});
+        let result = tool.execute(input, &ctx);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No structured output schema configured"));
     }
 }

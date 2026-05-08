@@ -5,7 +5,7 @@ use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use regex::Regex;
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -194,31 +194,41 @@ fn truncate_bytes_to_boundary(bytes: &[u8], max_bytes: usize) -> &[u8] {
     &bytes[..end]
 }
 
-#[derive(Deserialize, JsonSchema)]
-struct ReadFileParams {
-    /// File path to read (alias: file_path)
-    #[serde(alias = "file_path")]
-    path: std::path::PathBuf,
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
+pub struct ReadFileParams {
+    /// The absolute path to the file to read
+    #[serde(alias = "path")]
+    pub file_path: std::path::PathBuf,
     /// First line to return, 1-indexed inclusive
-    start_line: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_line: Option<usize>,
     /// Last line to return, 1-indexed inclusive
-    end_line: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_line: Option<usize>,
     /// Regex pattern to filter matching lines
-    pattern: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
     /// Case-insensitive pattern matching
-    case_insensitive: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub case_insensitive: Option<bool>,
     /// Maximum number of pattern matches to return
-    max_matches: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_matches: Option<usize>,
     /// Lines to show before/after each pattern match
-    context_lines: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context_lines: Option<usize>,
     /// Return file statistics instead of content
-    stats: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stats: Option<bool>,
     /// Read binary files as base64 instead of blocking them
-    binary: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub binary: Option<bool>,
     /// Skip N lines before reading (for pagination)
-    offset: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<usize>,
     /// Maximum lines to return (for pagination)
-    limit: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
 }
 
 rustycode_tools_api::define_tool! {
@@ -231,10 +241,10 @@ rustycode_tools_api::define_tool! {
 
     execute(params: ReadFileParams, ctx) {
         // Block device/system paths (was validate_input)
-        if is_blocked_device_path(&params.path) {
+        if is_blocked_device_path(&params.file_path) {
             return Err(anyhow!(
                 "Reading from device/system paths is blocked: {}",
-                params.path.display()
+                params.file_path.display()
             ));
         }
 
@@ -243,7 +253,7 @@ rustycode_tools_api::define_tool! {
         }
         crate::check_permission(ToolPermission::Read, ctx)?;
 
-        let path_str = params.path.to_str()
+        let path_str = params.file_path.to_str()
             .ok_or_else(|| anyhow!("path contains invalid UTF-8"))?;
         let path = validate_read_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
         crate::check_sandbox_path(&path, ctx)?;

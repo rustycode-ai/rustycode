@@ -2,9 +2,9 @@
 
 #![allow(dead_code)]
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
-use anyhow::Result;
-use serde_json::{json, Value};
+use crate::{ToolOutput, ToolPermission};
+use schemars::JsonSchema;
+use serde::Deserialize;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,78 +54,82 @@ impl HttpResponse {
     }
 }
 
-pub struct GetTool;
-impl Tool for GetTool {
-    fn name(&self) -> &'static str {
-        "http_get"
-    }
-    fn description(&self) -> &'static str {
-        "Execute HTTP GET requests"
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}}})
-    }
-    fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+// ── Params structs ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct HttpGetParams {
+    /// URL to fetch
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct HttpPostParams {
+    /// URL to post to
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct HttpPutParams {
+    /// URL to put to
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct HttpDeleteParams {
+    /// URL to delete
+    pub url: String,
+}
+
+// ── Tool definitions ─────────────────────────────────────────────────────────
+
+rustycode_tools_api::define_tool! {
+    pub struct GetTool;
+
+    name: "http_get",
+    description: "Execute HTTP GET requests",
+    permission: ToolPermission::Read,
+
+    execute(params: HttpGetParams, ctx) {
+        let _ = (&params, ctx);
         Ok(ToolOutput::text("OK"))
     }
 }
 
-pub struct PostTool;
-impl Tool for PostTool {
-    fn name(&self) -> &'static str {
-        "http_post"
-    }
-    fn description(&self) -> &'static str {
-        "Execute HTTP POST requests"
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Network
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}}})
-    }
-    fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+rustycode_tools_api::define_tool! {
+    pub struct PostTool;
+
+    name: "http_post",
+    description: "Execute HTTP POST requests",
+    permission: ToolPermission::Network,
+
+    execute(params: HttpPostParams, ctx) {
+        let _ = (&params, ctx);
         Ok(ToolOutput::text("OK"))
     }
 }
 
-pub struct PutTool;
-impl Tool for PutTool {
-    fn name(&self) -> &'static str {
-        "http_put"
-    }
-    fn description(&self) -> &'static str {
-        "Execute HTTP PUT requests"
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Network
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}}})
-    }
-    fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+rustycode_tools_api::define_tool! {
+    pub struct PutTool;
+
+    name: "http_put",
+    description: "Execute HTTP PUT requests",
+    permission: ToolPermission::Network,
+
+    execute(params: HttpPutParams, ctx) {
+        let _ = (&params, ctx);
         Ok(ToolOutput::text("OK"))
     }
 }
 
-pub struct DeleteTool;
-impl Tool for DeleteTool {
-    fn name(&self) -> &'static str {
-        "http_delete"
-    }
-    fn description(&self) -> &'static str {
-        "Execute HTTP DELETE requests"
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Network
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({"type": "object", "required": ["url"], "properties": {"url": {"type": "string"}}})
-    }
-    fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+rustycode_tools_api::define_tool! {
+    pub struct DeleteTool;
+
+    name: "http_delete",
+    description: "Execute HTTP DELETE requests",
+    permission: ToolPermission::Network,
+
+    execute(params: HttpDeleteParams, ctx) {
+        let _ = (&params, ctx);
         Ok(ToolOutput::text("OK"))
     }
 }
@@ -133,6 +137,10 @@ impl Tool for DeleteTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tool;
+    use crate::ToolContext;
+    use serde_json::json;
+
     #[test]
     fn test_http_method_display() {
         assert_eq!(HttpMethod::GET.to_string(), "GET");

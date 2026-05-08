@@ -138,7 +138,8 @@ impl AgentTool {
     fn build_subagent_tool_registry(&self) -> rustycode_tools::ToolRegistry {
         use rustycode_tools::apply_patch::ApplyPatchTool;
         use rustycode_tools::edit::EditFile;
-        use rustycode_tools::search::{GlobTool, GrepTool};
+        use rustycode_tools::glob::GlobTool;
+        use rustycode_tools::grep::GrepTool;
         use rustycode_tools::{
             BashTool, GitDiffTool, GitLogTool, GitStatusTool, ListDirTool, ReadFileTool,
             WriteFileTool,

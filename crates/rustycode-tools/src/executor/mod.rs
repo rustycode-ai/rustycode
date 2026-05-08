@@ -4,6 +4,7 @@
 
 pub mod auto_tool;
 pub mod batch;
+pub mod batch_state;
 pub mod cache;
 pub mod convoy;
 pub mod decompose;

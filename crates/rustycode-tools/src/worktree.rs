@@ -1,16 +1,50 @@
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolContext, ToolOutput, ToolPermission};
 use anyhow::{anyhow, Result};
-use rustycode_tools_api::{
-    clear_session_original_cwd, in_worktree_session, session_original_cwd, set_session_original_cwd,
-};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 
-pub struct WorktreeCreateTool;
-pub struct WorktreeListTool;
-pub struct WorktreeDeleteTool;
-pub struct EnterWorktreeTool;
-pub struct ExitWorktreeTool;
+use rustycode_tools_api::{
+    clear_session_original_cwd, define_tool, in_worktree_session, session_original_cwd,
+    set_session_original_cwd,
+};
+
+// --- Params structs ---
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct WorktreeCreateParams {
+    /// Name for the new worktree
+    pub name: String,
+    /// Branch name for the worktree
+    pub branch: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct WorktreeListParams;
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct WorktreeDeleteParams {
+    /// Name of the worktree to delete
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct EnterWorktreeParams {
+    /// Name for a new worktree. Random name generated if neither name nor path is provided.
+    pub name: Option<String>,
+    /// Path to an existing worktree to enter (must appear in `git worktree list`). Mutually exclusive with name.
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ExitWorktreeParams {
+    /// 'keep' leaves the worktree on disk. 'remove' deletes it.
+    pub action: String,
+    /// Only meaningful with action='remove'. Must be true to remove a worktree with uncommitted changes.
+    #[serde(default)]
+    pub discard_changes: bool,
+}
 
 // --- Helpers ---
 
@@ -52,38 +86,22 @@ fn parse_worktree_list(output: &str) -> Vec<(PathBuf, Option<String>)> {
 
 // --- CRUD tools ---
 
-impl Tool for WorktreeCreateTool {
-    fn name(&self) -> &str {
-        "worktree_create"
-    }
-    fn description(&self) -> &str {
-        "Create a new git worktree for isolated development."
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "name": { "type": "string" },
-                "branch": { "type": "string" }
-            },
-            "required": ["name", "branch"]
-        })
-    }
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let name = params["name"].as_str().ok_or(anyhow!("Missing name"))?;
-        let branch = params["branch"].as_str().ok_or(anyhow!("Missing branch"))?;
+define_tool! {
+    pub struct WorktreeCreateTool;
 
+    name: "worktree_create",
+    description: "Create a new git worktree for isolated development.",
+    permission: ToolPermission::Execute,
+
+    execute(params: WorktreeCreateParams, ctx) {
         let root = git_root(&ctx.cwd)?;
-        let wt_path = root.join(".worktrees").join(name);
+        let wt_path = root.join(".worktrees").join(&params.name);
 
         let output = std::process::Command::new("git")
             .args(["worktree", "add", "--detach"])
             .arg(&wt_path)
             .arg("-b")
-            .arg(branch)
+            .arg(&params.branch)
             .arg("HEAD")
             .current_dir(&ctx.cwd)
             .output()
@@ -96,26 +114,20 @@ impl Tool for WorktreeCreateTool {
 
         Ok(ToolOutput::text(format!(
             "Worktree '{}' created at {}",
-            name,
+            params.name,
             wt_path.display()
         )))
     }
 }
 
-impl Tool for WorktreeListTool {
-    fn name(&self) -> &str {
-        "worktree_list"
-    }
-    fn description(&self) -> &str {
-        "List all active git worktrees."
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({})
-    }
-    fn execute(&self, _params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+define_tool! {
+    pub struct WorktreeListTool;
+
+    name: "worktree_list",
+    description: "List all active git worktrees.",
+    permission: ToolPermission::Read,
+
+    execute(_params: WorktreeListParams, ctx) {
         let output = std::process::Command::new("git")
             .args(["worktree", "list", "--porcelain"])
             .current_dir(&ctx.cwd)
@@ -145,27 +157,16 @@ impl Tool for WorktreeListTool {
     }
 }
 
-impl Tool for WorktreeDeleteTool {
-    fn name(&self) -> &str {
-        "worktree_delete"
-    }
-    fn description(&self) -> &str {
-        "Delete an existing git worktree."
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": { "name": { "type": "string" } },
-            "required": ["name"]
-        })
-    }
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let name = params["name"].as_str().ok_or(anyhow!("Missing name"))?;
+define_tool! {
+    pub struct WorktreeDeleteTool;
+
+    name: "worktree_delete",
+    description: "Delete an existing git worktree.",
+    permission: ToolPermission::Execute,
+
+    execute(params: WorktreeDeleteParams, ctx) {
         let root = git_root(&ctx.cwd)?;
-        let wt_path = root.join(".worktrees").join(name);
+        let wt_path = root.join(".worktrees").join(&params.name);
 
         let output = std::process::Command::new("git")
             .args(["worktree", "remove"])
@@ -179,44 +180,20 @@ impl Tool for WorktreeDeleteTool {
             return Err(anyhow!("Failed to remove worktree: {}", stderr.trim()));
         }
 
-        Ok(ToolOutput::text(format!("Worktree '{}' removed.", name)))
+        Ok(ToolOutput::text(format!("Worktree '{}' removed.", params.name)))
     }
 }
 
 // --- Session-scoped enter/exit tools ---
 
-impl Tool for EnterWorktreeTool {
-    fn name(&self) -> &str {
-        "worktree_enter"
-    }
-    fn description(&self) -> &str {
-        r#"Create or enter a git worktree and switch the session working directory into it.
+define_tool! {
+    pub struct EnterWorktreeTool;
 
-Use when: the user explicitly says "worktree", "use a worktree", "start a worktree", or project instructions require worktree isolation.
-Do NOT use when: the user asks to create or switch branches (use git commands instead).
+    name: "worktree_enter",
+    description: "Create or enter a git worktree and switch the session working directory into it.\n\nUse when: the user explicitly says \"worktree\", \"use a worktree\", \"start a worktree\", or project instructions require worktree isolation.\nDo NOT use when: the user asks to create or switch branches (use git commands instead).\n\nCreates a new worktree from the current HEAD unless `path` is provided to enter an existing one.\nThe session CWD changes to the worktree path. Use `worktree_exit` to return.",
+    permission: ToolPermission::Execute,
 
-Creates a new worktree from the current HEAD unless `path` is provided to enter an existing one.
-The session CWD changes to the worktree path. Use `worktree_exit` to return."#
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Name for a new worktree. Random name generated if neither name nor path is provided."
-                },
-                "path": {
-                    "type": "string",
-                    "description": "Path to an existing worktree to enter (must appear in `git worktree list`). Mutually exclusive with name."
-                }
-            }
-        })
-    }
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: EnterWorktreeParams, ctx) {
         if in_worktree_session() {
             return Err(anyhow!(
                 "Already in a worktree session. Exit the current worktree with worktree_exit first."
@@ -225,7 +202,7 @@ The session CWD changes to the worktree path. Use `worktree_exit` to return."#
 
         let original_cwd = ctx.cwd.clone();
 
-        if let Some(path_str) = params["path"].as_str() {
+        if let Some(path_str) = &params.path {
             // Enter existing worktree by path
             let path = PathBuf::from(path_str);
             if !path.exists() {
@@ -263,10 +240,9 @@ The session CWD changes to the worktree path. Use `worktree_exit` to return."#
             ))
         } else {
             // Create new worktree
-            let name = params["name"]
-                .as_str()
-                .map(String::from)
-                .unwrap_or_else(|| format!("wt-{}", &uuid::Uuid::new_v4().to_string()[..8]));
+            let name = params.name.unwrap_or_else(|| {
+                format!("wt-{}", &uuid::Uuid::new_v4().to_string()[..8])
+            });
 
             let root = git_root(&original_cwd)?;
             let wt_path = root.join(".worktrees").join(&name);
@@ -297,50 +273,18 @@ The session CWD changes to the worktree path. Use `worktree_exit` to return."#
     }
 }
 
-impl Tool for ExitWorktreeTool {
-    fn name(&self) -> &str {
-        "worktree_exit"
-    }
-    fn description(&self) -> &str {
-        r#"Exit the current worktree session and restore the original working directory.
+define_tool! {
+    pub struct ExitWorktreeTool;
 
-Use when: the user explicitly asks to "exit the worktree", "leave the worktree", or end the worktree session.
-Do NOT call proactively — only when the user asks.
+    name: "worktree_exit",
+    description: "Exit the current worktree session and restore the original working directory.\n\nUse when: the user explicitly asks to \"exit the worktree\", \"leave the worktree\", or end the worktree session.\nDo NOT call proactively — only when the user asks.\n\nThe `action` parameter controls cleanup:\n- \"keep\": Leaves the worktree directory and branch on disk for later use.\n- \"remove\": Deletes the worktree directory and branch. Refuses if there are uncommitted changes unless `discard_changes` is true.",
+    permission: ToolPermission::Execute,
 
-The `action` parameter controls cleanup:
-- "keep": Leaves the worktree directory and branch on disk for later use.
-- "remove": Deletes the worktree directory and branch. Refuses if there are uncommitted changes unless `discard_changes` is true."#
-    }
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "required": ["action"],
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "enum": ["keep", "remove"],
-                    "description": "'keep' leaves the worktree on disk. 'remove' deletes it."
-                },
-                "discard_changes": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Only meaningful with action='remove'. Must be true to remove a worktree with uncommitted changes."
-                }
-            }
-        })
-    }
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
+    execute(params: ExitWorktreeParams, ctx) {
         let original_cwd = session_original_cwd()
             .ok_or_else(|| anyhow!("Not in a worktree session. Use worktree_enter first."))?;
 
-        let action = params["action"]
-            .as_str()
-            .ok_or(anyhow!("Missing 'action' parameter"))?;
-
-        if action == "remove" {
+        if params.action == "remove" {
             // Check for uncommitted changes
             let status_output = std::process::Command::new("git")
                 .args(["status", "--porcelain"])
@@ -349,7 +293,7 @@ The `action` parameter controls cleanup:
                 .map_err(|e| anyhow!("Failed to check git status: {}", e))?;
 
             let has_changes = !status_output.stdout.is_empty();
-            let discard = params["discard_changes"].as_bool().unwrap_or(false);
+            let discard = params.discard_changes;
 
             if has_changes && !discard {
                 let dirty_files = String::from_utf8_lossy(&status_output.stdout);
@@ -388,7 +332,7 @@ The `action` parameter controls cleanup:
         Ok(ToolOutput::with_cwd_change(
             format!(
                 "Exited worktree. {}",
-                if action == "remove" {
+                if params.action == "remove" {
                     "Worktree removed."
                 } else {
                     "Worktree kept on disk."

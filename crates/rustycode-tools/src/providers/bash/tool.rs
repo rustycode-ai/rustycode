@@ -8,10 +8,32 @@ use crate::transform::transform_by_name;
 use crate::truncation::truncate_bash_output;
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
+
+/// Input parameters for `Bash`
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
+pub struct BashParams {
+    /// Command to execute
+    pub command: String,
+    /// Optional timeout in milliseconds (max 600000)
+    #[serde(
+        rename = "timeout",
+        alias = "timeout_secs",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub timeout_secs: Option<u64>,
+    /// Description of what this command does
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Set to true to run this command in the background
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_in_background: Option<bool>,
+}
 
 #[derive(Default)]
 pub struct BashTool;
@@ -222,10 +244,10 @@ impl Tool for BashTool {
                     "type": "boolean",
                     "description": "If true, restart the bash session before executing the command"
                 },
-                "timeout_secs": {
+                "timeout": {
                     "type": "integer",
-                    "description": "Timeout in seconds (default 120s, max 600s)",
-                    "default": 120
+                    "description": "Timeout in milliseconds (max 600000)",
+                    "default": 120000
                 }
             }
         })
@@ -260,8 +282,10 @@ impl Tool for BashTool {
             .unwrap_or(false);
 
         let timeout_secs = params
-            .get("timeout_secs")
+            .get("timeout")
+            .or_else(|| params.get("timeout_secs"))
             .and_then(Value::as_u64)
+            .map(|t| if t > 600 { t / 1000 } else { t })
             .unwrap_or(120)
             .min(600);
 
@@ -461,7 +485,7 @@ impl Tool for BashTool {
             meta["exit_code"] = json!(exit_code);
             meta["command"] = json!(crate::security::validation::sanitize_for_log(&command));
             meta["execution_time_ms"] = json!(execution_time.as_millis());
-            meta["timeout_secs"] = json!(timeout_secs);
+            meta["timeout"] = json!(timeout_secs);
             if exit_code != 0 {
                 meta["failed"] = json!(true);
             }
@@ -504,8 +528,10 @@ impl crate::streaming::ToolStreaming for BashTool {
             .unwrap_or(false);
 
         let timeout_secs = params
-            .get("timeout_secs")
+            .get("timeout")
+            .or_else(|| params.get("timeout_secs"))
             .and_then(Value::as_u64)
+            .map(|t| if t > 600 { t / 1000 } else { t })
             .unwrap_or(120)
             .min(600);
 
@@ -557,7 +583,7 @@ impl crate::streaming::ToolStreaming for BashTool {
                 "exit_code": exit_code,
                 "command": command,
                 "execution_time_ms": execution_time.as_millis(),
-                "timeout_secs": timeout_secs,
+                "timeout": timeout_secs,
                 "streaming": true,
             });
 

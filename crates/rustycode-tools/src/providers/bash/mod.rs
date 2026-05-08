@@ -4,7 +4,7 @@ mod session;
 mod tool;
 mod validation;
 
-pub use tool::BashTool;
+pub use tool::{BashParams, BashTool};
 pub use validation::*;
 
 #[cfg(test)]

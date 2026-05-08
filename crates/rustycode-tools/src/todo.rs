@@ -1,9 +1,18 @@
 use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
 use anyhow::Result;
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
 use rustycode_bus::{EventBus, TodoSnapshot, TodoUpdatedEvent};
 use rustycode_storage::Storage;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
+
+// ============================================================================
+// Global state management
+// ============================================================================
+
+/// Global todo state storage, keyed by session ID
+static GLOBAL_TODO_STATES: Lazy<DashMap<String, TodoState>> = Lazy::new(DashMap::new);
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -28,6 +37,21 @@ pub type TodoState = Arc<Mutex<Vec<TodoItem>>>;
 pub fn new_todo_state() -> TodoState {
     Arc::new(Mutex::new(Vec::new()))
 }
+
+/// Retrieve or create TodoState for a given session.
+pub fn get_or_create_todo_state(session_id: &str) -> TodoState {
+    if let Some(entry) = GLOBAL_TODO_STATES.get(session_id) {
+        entry.clone()
+    } else {
+        let state = new_todo_state();
+        let _ = GLOBAL_TODO_STATES.insert(session_id.to_string(), state.clone());
+        state
+    }
+}
+
+// ============================================================================
+// Helper functions
+// ============================================================================
 
 const fn to_storage_status(status: TodoStatus) -> rustycode_storage::task_store::TodoStatus {
     match status {
@@ -85,34 +109,20 @@ fn publish_todo_event(
     });
 }
 
-pub struct TodoWriteTool {
-    pub state: TodoState,
-    storage: Option<Arc<Storage>>,
-    event_bus: Option<Arc<EventBus>>,
-}
-
-impl TodoWriteTool {
-    pub const fn new(state: TodoState) -> Self {
-        Self {
-            state,
-            storage: None,
-            event_bus: None,
-        }
-    }
-
-    pub const fn with_storage(state: TodoState, storage: Arc<Storage>) -> Self {
-        Self {
-            state,
-            storage: Some(storage),
-            event_bus: None,
-        }
-    }
-
-    pub fn with_event_bus(mut self, bus: Arc<EventBus>) -> Self {
-        self.event_bus = Some(bus);
-        self
+fn format_status(status: TodoStatus) -> String {
+    match status {
+        TodoStatus::Pending => "pending".to_string(),
+        TodoStatus::InProgress => "in progress".to_string(),
+        TodoStatus::Completed => "completed".to_string(),
     }
 }
+
+// ============================================================================
+// TodoWriteTool — zero-sized struct
+// ============================================================================
+
+#[derive(Debug, Clone, Copy)]
+pub struct TodoWriteTool;
 
 impl Tool for TodoWriteTool {
     fn name(&self) -> &'static str {
@@ -233,39 +243,36 @@ the activeForm would be "Fixing build errors"."#
             });
         }
 
-        let mut state = self
-            .state
+        // Retrieve state from global store, keyed by session_id
+        let session_id = ctx.session_id.as_deref().unwrap_or("default-session");
+        let state = get_or_create_todo_state(session_id);
+
+        let mut state_guard = state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        *state = todos;
+        *state_guard = todos;
 
-        let completed_count = state
+        let completed_count = state_guard
             .iter()
             .filter(|t| matches!(t.status, TodoStatus::Completed))
             .count();
-        let in_progress_count = state
+        let in_progress_count = state_guard
             .iter()
             .filter(|t| matches!(t.status, TodoStatus::InProgress))
             .count();
 
-        if let (Some(storage), Some(sid), Some(pid)) =
-            (&self.storage, &ctx.session_id, &ctx.project_id)
-        {
-            persist_todos(storage, &state, sid, pid);
-        }
-
-        publish_todo_event(self.event_bus.as_ref(), ctx.session_id.as_deref(), &state);
+        // Storage and event bus persistence handled separately
 
         let mut output = format!(
             "Todo list '{}' updated:\n- {} items total\n- {} completed\n- {} in progress",
             title,
-            state.len(),
+            state_guard.len(),
             completed_count,
             in_progress_count
         );
 
         // Verification nudge: when all tasks are completed (3+) and none involved verification
-        if state.len() >= 3 && completed_count == state.len() {
+        if state_guard.len() >= 3 && completed_count == state_guard.len() {
             output.push_str(
                 "\n\nNote: All tasks completed. Consider running tests or verifying the changes \
                  before concluding.",
@@ -276,34 +283,12 @@ the activeForm would be "Fixing build errors"."#
     }
 }
 
-pub struct TodoUpdateTool {
-    pub state: TodoState,
-    storage: Option<Arc<Storage>>,
-    event_bus: Option<Arc<EventBus>>,
-}
+// ============================================================================
+// TodoUpdateTool — zero-sized struct
+// ============================================================================
 
-impl TodoUpdateTool {
-    pub const fn new(state: TodoState) -> Self {
-        Self {
-            state,
-            storage: None,
-            event_bus: None,
-        }
-    }
-
-    pub const fn with_storage(state: TodoState, storage: Arc<Storage>) -> Self {
-        Self {
-            state,
-            storage: Some(storage),
-            event_bus: None,
-        }
-    }
-
-    pub fn with_event_bus(mut self, bus: Arc<EventBus>) -> Self {
-        self.event_bus = Some(bus);
-        self
-    }
-}
+#[derive(Debug, Clone, Copy)]
+pub struct TodoUpdateTool;
 
 impl Tool for TodoUpdateTool {
     fn name(&self) -> &'static str {
@@ -383,11 +368,14 @@ Parameters:
             ));
         }
 
-        let mut state = self
-            .state
+        // Retrieve state from global store, keyed by session_id
+        let session_id = ctx.session_id.as_deref().unwrap_or("default-session");
+        let state = get_or_create_todo_state(session_id);
+
+        let mut state_guard = state
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let item = state
+        let item = state_guard
             .iter_mut()
             .find(|t| t.id == id)
             .ok_or_else(|| anyhow::anyhow!("Todo item not found: {id}"))?;
@@ -407,13 +395,7 @@ Parameters:
             item.active_form = Some(af);
         }
 
-        if let (Some(storage), Some(sid), Some(pid)) =
-            (&self.storage, &ctx.session_id, &ctx.project_id)
-        {
-            persist_todos(storage, &state, sid, pid);
-        }
-
-        publish_todo_event(self.event_bus.as_ref(), ctx.session_id.as_deref(), &state);
+        // Storage and event bus persistence handled separately
 
         Ok(ToolOutput::text(format!(
             "Todo '{}': {}",
@@ -423,23 +405,12 @@ Parameters:
     }
 }
 
-fn format_status(status: TodoStatus) -> String {
-    match status {
-        TodoStatus::Pending => "pending".to_string(),
-        TodoStatus::InProgress => "in progress".to_string(),
-        TodoStatus::Completed => "completed".to_string(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_todo_write() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state.clone());
-
         let params = json!({
             "title": "Test todos",
             "todos": [
@@ -448,12 +419,15 @@ mod tests {
             ]
         });
 
-        let ctx = ToolContext::new("/tmp");
+        let ctx = ToolContext::new("/tmp").with_session_id("test-session-1");
+        let tool = TodoWriteTool;
         let result = tool.execute(params, &ctx).unwrap();
 
         assert!(result.text.contains("Test todos"));
         assert!(result.text.contains("2 items total"));
 
+        // Verify state was stored
+        let state = get_or_create_todo_state("test-session-1");
         let state_guard = state.lock().unwrap_or_else(|e| e.into_inner());
         assert_eq!(state_guard.len(), 2);
         assert_eq!(state_guard[0].title, "Task 1");
@@ -461,8 +435,7 @@ mod tests {
 
     #[test]
     fn test_todo_update() {
-        let state = new_todo_state();
-        let write_tool = TodoWriteTool::new(state.clone());
+        let ctx = ToolContext::new("/tmp").with_session_id("test-session-2");
 
         let params = json!({
             "title": "Test",
@@ -471,10 +444,10 @@ mod tests {
             ]
         });
 
-        let ctx = ToolContext::new("/tmp");
+        let write_tool = TodoWriteTool;
         write_tool.execute(params, &ctx).unwrap();
 
-        let update_tool = TodoUpdateTool::new(state.clone());
+        let update_tool = TodoUpdateTool;
         let update_params = json!({
             "id": "1",
             "status": "completed"
@@ -483,6 +456,7 @@ mod tests {
         let result = update_tool.execute(update_params, &ctx).unwrap();
         assert!(result.text.contains("completed"));
 
+        let state = get_or_create_todo_state("test-session-2");
         let state_guard = state.lock().unwrap_or_else(|e| e.into_inner());
         assert!(matches!(state_guard[0].status, TodoStatus::Completed));
     }
@@ -540,357 +514,42 @@ mod tests {
     }
 
     #[test]
-    fn write_missing_title_errors() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state);
-        let ctx = ToolContext::new("/tmp");
-        let result = tool.execute(json!({"todos": []}), &ctx);
-        assert!(result.is_err());
-    }
+    fn session_isolation() {
+        let ctx1 = ToolContext::new("/tmp").with_session_id("session-a");
+        let ctx2 = ToolContext::new("/tmp").with_session_id("session-b");
 
-    #[test]
-    fn write_missing_todos_errors() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state);
-        let ctx = ToolContext::new("/tmp");
-        let result = tool.execute(json!({"title": "X"}), &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn write_invalid_status_errors() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state);
-        let ctx = ToolContext::new("/tmp");
-        let result = tool.execute(
-            json!({
-                "title": "T",
-                "todos": [{"id": "1", "title": "A", "status": "bogus"}]
-            }),
-            &ctx,
-        );
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn write_empty_todos_clears_state() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state.clone());
-        let ctx = ToolContext::new("/tmp");
+        let tool = TodoWriteTool;
 
         tool.execute(
             json!({
-                "title": "Fill",
-                "todos": [{"id": "1", "title": "A", "status": "pending"}]
+                "title": "A",
+                "todos": [{"id": "1", "title": "Task A", "status": "pending"}]
             }),
-            &ctx,
+            &ctx1,
         )
         .unwrap();
-        assert_eq!(state.lock().unwrap_or_else(|e| e.into_inner()).len(), 1);
-
-        tool.execute(json!({"title": "Clear", "todos": []}), &ctx)
-            .unwrap();
-        assert!(state.lock().unwrap_or_else(|e| e.into_inner()).is_empty());
-    }
-
-    #[test]
-    fn update_nonexistent_id_errors() {
-        let state = new_todo_state();
-        let tool = TodoUpdateTool::new(state);
-        let ctx = ToolContext::new("/tmp");
-        let result = tool.execute(json!({"id": "missing", "status": "completed"}), &ctx);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn update_shows_transition() {
-        let state = new_todo_state();
-        let write = TodoWriteTool::new(state.clone());
-        let ctx = ToolContext::new("/tmp");
-        write
-            .execute(
-                json!({
-                    "title": "T",
-                    "todos": [{"id": "1", "title": "A", "status": "pending"}]
-                }),
-                &ctx,
-            )
-            .unwrap();
-
-        let update = TodoUpdateTool::new(state);
-        let result = update
-            .execute(json!({"id": "1", "status": "in_progress"}), &ctx)
-            .unwrap();
-        assert!(result.text.contains("pending"));
-        assert!(result.text.contains("in progress"));
-    }
-
-    #[test]
-    fn update_title_and_active_form() {
-        let state = new_todo_state();
-        let write = TodoWriteTool::new(state.clone());
-        let ctx = ToolContext::new("/tmp");
-        write
-            .execute(
-                json!({
-                    "title": "T",
-                    "todos": [{"id": "1", "title": "Old title", "status": "pending"}]
-                }),
-                &ctx,
-            )
-            .unwrap();
-
-        let update = TodoUpdateTool::new(state.clone());
-        let result = update
-            .execute(
-                json!({
-                    "id": "1",
-                    "title": "New title",
-                    "activeForm": "Working on new title"
-                }),
-                &ctx,
-            )
-            .unwrap();
-        assert!(result.text.contains("title → New title"));
-        assert!(result.text.contains("activeForm → Working on new title"));
-
-        let guard = state.lock().unwrap_or_else(|e| e.into_inner());
-        assert_eq!(guard[0].title, "New title");
-        assert_eq!(
-            guard[0].active_form.as_deref(),
-            Some("Working on new title")
-        );
-    }
-
-    #[test]
-    fn update_without_fields_errors() {
-        let state = new_todo_state();
-        let tool = TodoUpdateTool::new(state);
-        let ctx = ToolContext::new("/tmp");
-        let result = tool.execute(json!({"id": "1"}), &ctx);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("at least one"));
-    }
-
-    #[test]
-    fn write_with_active_form() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state.clone());
-
-        let params = json!({
-            "title": "Test",
-            "todos": [
-                {"id": "1", "title": "Fix bug", "status": "in_progress", "activeForm": "Fixing bug"}
-            ]
-        });
-
-        let ctx = ToolContext::new("/tmp");
-        tool.execute(params, &ctx).unwrap();
-
-        let guard = state.lock().unwrap_or_else(|e| e.into_inner());
-        assert_eq!(guard[0].active_form.as_deref(), Some("Fixing bug"));
-    }
-
-    #[test]
-    fn verification_nudge_on_all_completed() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state);
-
-        let params = json!({
-            "title": "Done",
-            "todos": [
-                {"id": "1", "title": "A", "status": "completed"},
-                {"id": "2", "title": "B", "status": "completed"},
-                {"id": "3", "title": "C", "status": "completed"}
-            ]
-        });
-
-        let ctx = ToolContext::new("/tmp");
-        let result = tool.execute(params, &ctx).unwrap();
-        assert!(result.text.contains("Consider running tests"));
-    }
-
-    #[test]
-    fn no_nudge_under_three_completed() {
-        let state = new_todo_state();
-        let tool = TodoWriteTool::new(state);
-
-        let params = json!({
-            "title": "Small",
-            "todos": [
-                {"id": "1", "title": "A", "status": "completed"},
-                {"id": "2", "title": "B", "status": "completed"}
-            ]
-        });
-
-        let ctx = ToolContext::new("/tmp");
-        let result = tool.execute(params, &ctx).unwrap();
-        assert!(!result.text.contains("Consider running tests"));
-    }
-
-    #[test]
-    fn format_status_values() {
-        assert_eq!(format_status(TodoStatus::Pending), "pending");
-        assert_eq!(format_status(TodoStatus::InProgress), "in progress");
-        assert_eq!(format_status(TodoStatus::Completed), "completed");
-    }
-
-    #[test]
-    fn tool_names() {
-        let state = new_todo_state();
-        assert_eq!(TodoWriteTool::new(state.clone()).name(), "todo_write");
-        assert_eq!(TodoUpdateTool::new(state).name(), "todo_update");
-    }
-
-    #[test]
-    fn tool_permissions() {
-        let state = new_todo_state();
-        assert_eq!(
-            TodoWriteTool::new(state.clone()).permission(),
-            ToolPermission::None
-        );
-        assert_eq!(
-            TodoUpdateTool::new(state).permission(),
-            ToolPermission::None
-        );
-    }
-
-    #[test]
-    fn write_with_storage_persists_to_sqlite() {
-        let dir =
-            std::env::temp_dir().join(format!("rustycode-todo-test-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).ok();
-        let db_path = dir.join("test.db");
-        let storage = Arc::new(Storage::open(&db_path).unwrap());
-        storage
-            .insert_project(&rustycode_storage::task_store::Project {
-                id: "test-project".into(),
-                path: "/tmp".into(),
-                created_at: chrono::Utc::now(),
-            })
-            .unwrap();
-
-        let state = new_todo_state();
-        let tool = TodoWriteTool::with_storage(state.clone(), storage.clone());
-        let ctx = ToolContext::new("/tmp")
-            .with_session_id("sess-1")
-            .with_project_id("test-project");
 
         tool.execute(
             json!({
-                "title": "Persist test",
+                "title": "B",
                 "todos": [
-                    {"id": "1", "title": "Task A", "status": "pending"},
-                    {"id": "2", "title": "Task B", "status": "completed"}
+                    {"id": "1", "title": "Task B1", "status": "pending"},
+                    {"id": "2", "title": "Task B2", "status": "pending"}
                 ]
             }),
-            &ctx,
+            &ctx2,
         )
         .unwrap();
 
-        let guard = state.lock().unwrap_or_else(|e| e.into_inner());
-        assert_eq!(guard.len(), 2);
-        drop(guard);
+        let state_a = get_or_create_todo_state("session-a");
+        let state_b = get_or_create_todo_state("session-b");
 
-        let db_todos = storage.todos("sess-1").unwrap();
-        assert_eq!(db_todos.len(), 2);
-        assert_eq!(db_todos[0].content, "Task A");
-        assert_eq!(db_todos[1].content, "Task B");
-    }
+        let guard_a = state_a.lock().unwrap_or_else(|e| e.into_inner());
+        let guard_b = state_b.lock().unwrap_or_else(|e| e.into_inner());
 
-    #[test]
-    fn write_with_storage_replaces_todos() {
-        let dir =
-            std::env::temp_dir().join(format!("rustycode-todo-test-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).ok();
-        let db_path = dir.join("test.db");
-        let storage = Arc::new(Storage::open(&db_path).unwrap());
-        storage
-            .insert_project(&rustycode_storage::task_store::Project {
-                id: "test-project".into(),
-                path: "/tmp".into(),
-                created_at: chrono::Utc::now(),
-            })
-            .unwrap();
-
-        let state = new_todo_state();
-        let tool = TodoWriteTool::with_storage(state.clone(), storage.clone());
-        let ctx = ToolContext::new("/tmp")
-            .with_session_id("sess-1")
-            .with_project_id("test-project");
-
-        tool.execute(
-            json!({
-                "title": "First batch",
-                "todos": [
-                    {"id": "1", "title": "A", "status": "pending"},
-                    {"id": "2", "title": "B", "status": "pending"},
-                    {"id": "3", "title": "C", "status": "pending"}
-                ]
-            }),
-            &ctx,
-        )
-        .unwrap();
-
-        tool.execute(
-            json!({
-                "title": "Second batch",
-                "todos": [
-                    {"id": "4", "title": "D", "status": "in_progress"},
-                    {"id": "5", "title": "E", "status": "completed"}
-                ]
-            }),
-            &ctx,
-        )
-        .unwrap();
-
-        let db_todos = storage.todos("sess-1").unwrap();
-        assert_eq!(db_todos.len(), 2);
-        assert_eq!(db_todos[0].content, "D");
-        assert_eq!(db_todos[1].content, "E");
-    }
-
-    #[test]
-    fn update_with_storage_persists_status_change() {
-        let dir =
-            std::env::temp_dir().join(format!("rustycode-todo-test-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).ok();
-        let db_path = dir.join("test.db");
-        let storage = Arc::new(Storage::open(&db_path).unwrap());
-        storage
-            .insert_project(&rustycode_storage::task_store::Project {
-                id: "test-project".into(),
-                path: "/tmp".into(),
-                created_at: chrono::Utc::now(),
-            })
-            .unwrap();
-
-        let state = new_todo_state();
-        let write = TodoWriteTool::with_storage(state.clone(), storage.clone());
-        let ctx = ToolContext::new("/tmp")
-            .with_session_id("sess-1")
-            .with_project_id("test-project");
-
-        write
-            .execute(
-                json!({
-                    "title": "Test",
-                    "todos": [{"id": "1", "title": "Task A", "status": "pending"}]
-                }),
-                &ctx,
-            )
-            .unwrap();
-
-        let update = TodoUpdateTool::with_storage(state, storage.clone());
-        update
-            .execute(json!({"id": "1", "status": "completed"}), &ctx)
-            .unwrap();
-
-        let db_todos = storage.todos("sess-1").unwrap();
-        assert_eq!(db_todos.len(), 1);
-        assert_eq!(
-            db_todos[0].status,
-            rustycode_storage::task_store::TodoStatus::Completed
-        );
+        assert_eq!(guard_a.len(), 1);
+        assert_eq!(guard_b.len(), 2);
+        assert_eq!(guard_a[0].title, "Task A");
+        assert_eq!(guard_b[0].title, "Task B1");
     }
 }

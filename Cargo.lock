@@ -6684,6 +6684,7 @@ dependencies = [
  "lru 0.18.0",
  "lsp-types",
  "notify",
+ "once_cell",
  "parking_lot",
  "rand 0.10.1",
  "regex",
@@ -6735,6 +6736,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "lru 0.18.0",
+ "once_cell",
  "parking_lot",
  "regex",
  "rustycode-protocol",

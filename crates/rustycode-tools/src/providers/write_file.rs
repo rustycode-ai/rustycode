@@ -3,7 +3,7 @@ use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use schemars::JsonSchema;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs;
 use std::path::Path;
@@ -114,17 +114,20 @@ fn execute_append(
     ))
 }
 
-#[derive(Deserialize, JsonSchema)]
-struct WriteFileParams {
-    /// File path to write (alias: file_path). Parent directories are created automatically.
-    #[serde(alias = "file_path")]
-    path: std::path::PathBuf,
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
+pub struct WriteFileParams {
+    /// The absolute path to the file to write
+    #[serde(alias = "path")]
+    pub file_path: std::path::PathBuf,
     /// UTF-8 text content. Completely replaces existing file content unless append=true.
-    content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
     /// Base64-encoded binary content to write.
-    content_base64: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_base64: Option<String>,
     /// If true, append content to the end of the existing file instead of overwriting.
-    append: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub append: Option<bool>,
 }
 
 rustycode_tools_api::define_tool! {
@@ -141,7 +144,7 @@ rustycode_tools_api::define_tool! {
         }
         crate::check_permission(ToolPermission::Write, ctx)?;
 
-        let path_str = params.path.to_str()
+        let path_str = params.file_path.to_str()
             .ok_or_else(|| anyhow!("path contains invalid UTF-8"))?;
         let text_content = params.content.as_deref();
         let binary_content = params.content_base64.as_deref();
