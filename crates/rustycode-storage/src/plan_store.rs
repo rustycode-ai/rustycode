@@ -6,8 +6,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::params;
 use rustycode_protocol::{
-    Milestone, MilestoneId, MilestoneStatus, Plan, PlanId, PlanStatus, PlanStep,
-    SessionId,
+    Milestone, MilestoneId, MilestoneStatus, Plan, PlanId, PlanStatus, PlanStep, SessionId,
 };
 
 use crate::search::milestone_from_row;

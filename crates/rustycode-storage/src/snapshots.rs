@@ -3,11 +3,11 @@
 //! Contains `SessionSnapshot` struct and `impl Storage` methods for
 //! persisting, loading, and deleting session snapshots.
 
-use std::collections::HashMap;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::params;
 use rustycode_protocol::{PlanId, SessionId};
+use std::collections::HashMap;
 
 use crate::Storage;
 

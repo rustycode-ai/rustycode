@@ -129,10 +129,10 @@ pub mod record_store;
 pub mod search;
 
 // Re-exports from existing modules
+pub use checkpoint::GitRewindSnapshot;
 pub use checkpoint::{
     repo_has_uncommitted_changes, Checkpoint, CheckpointStorage, GitCheckpointStorage,
 };
-pub use checkpoint::GitRewindSnapshot;
 
 pub use checkpoint_store::{CheckpointSnapshot, CheckpointStore, ExecutionPhase};
 
@@ -140,8 +140,7 @@ pub use checkpoint_store::{CheckpointSnapshot, CheckpointStore, ExecutionPhase};
 pub use capture_manager::SessionCaptureManager;
 pub use event_subscriber::EventSubscriber;
 pub use records::{
-    ApiCallRecord, CheckpointRecord, EventRecord, HookExecutionRecord, MemoryRecord,
-    RewindSnapshot,
+    ApiCallRecord, CheckpointRecord, EventRecord, HookExecutionRecord, MemoryRecord, RewindSnapshot,
 };
 pub use search::ConversationSearchHit;
 pub use snapshots::SessionSnapshot;

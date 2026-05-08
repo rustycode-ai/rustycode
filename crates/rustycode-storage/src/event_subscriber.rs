@@ -267,10 +267,12 @@ pub(crate) fn process_event_for_capture(
             }
         }
         "session.completed" => {
-            capture_manager.finalize_session(session_id, crate::session_capture::SessionOutcome::Success);
+            capture_manager
+                .finalize_session(session_id, crate::session_capture::SessionOutcome::Success);
         }
         "session.failed" => {
-            capture_manager.finalize_session(session_id, crate::session_capture::SessionOutcome::Failed);
+            capture_manager
+                .finalize_session(session_id, crate::session_capture::SessionOutcome::Failed);
         }
         "tool.executed" => {
             if let (Some(tool_name), Some(success)) = (

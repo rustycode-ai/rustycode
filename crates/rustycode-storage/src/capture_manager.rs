@@ -83,7 +83,11 @@ impl SessionCaptureManager {
     }
 
     /// Finalize a session capture and store the summary
-    pub fn finalize_session(&self, session_id: &str, outcome: crate::session_capture::SessionOutcome) {
+    pub fn finalize_session(
+        &self,
+        session_id: &str,
+        outcome: crate::session_capture::SessionOutcome,
+    ) {
         if let Ok(mut captures) = self.active_captures.lock() {
             if let Some(mut capture) = captures.remove(session_id) {
                 // Force outcome by capturing a synthetic event if needed
