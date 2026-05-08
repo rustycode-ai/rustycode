@@ -83,9 +83,9 @@ jobs:
           choco install strawberryperl nasm --yes
           Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/releases/download/v29.3/protoc-29.3-win64.zip -OutFile protoc.zip
           Expand-Archive -Path protoc.zip -DestinationPath C:\protoc
-          echo "C:\protoc\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
-          echo "C:\Strawberry\perl\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
-          echo "PERL=C:\Strawberry\perl\bin\perl.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          echo "C:\protocin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          echo "C:\Strawberry\perlin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          echo "PERL=C:\Strawberry\perlin\perl.exe" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Configure Linux ARM64 cross-compilation
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -108,7 +108,7 @@ jobs:
       - name: Verify binaries exist
         shell: bash
         run: |
-          CLI="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
+          CLI="target/${{ matrix.target }}/release/rustycode${{ matrix.exe_ext }}"
           if [ ! -f "$CLI" ]; then
             echo "::error::CLI binary not found at $CLI"
             exit 1
@@ -118,10 +118,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p "artifacts/${{ matrix.artifact_name }}"
-          cp "target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}" "artifacts/${{ matrix.artifact_name }}/"
-          if [ -f "target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}" ]; then
-            cp "target/${{ matrix.target }}/release/rustycode-tui${{ matrix.exe_ext }}" "artifacts/${{ matrix.artifact_name }}/"
-          fi
+          cp "target/${{ matrix.target }}/release/rustycode${{ matrix.exe_ext }}" "artifacts/${{ matrix.artifact_name }}/"
           cd artifacts
           if [ "${{ runner.os }}" = "Windows" ]; then
             7z a -tzip "${{ matrix.artifact_name }}.zip" "${{ matrix.artifact_name }}/"
@@ -133,7 +130,7 @@ jobs:
       - name: Test binary
         shell: bash
         run: |
-          CLI="target/${{ matrix.target }}/release/rustycode-cli${{ matrix.exe_ext }}"
+          CLI="target/${{ matrix.target }}/release/rustycode${{ matrix.exe_ext }}"
           "$CLI" --version || true
 
       - name: Upload binary artifact
