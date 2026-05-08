@@ -147,7 +147,6 @@ impl TaskClassifier {
             trimmed.to_string()
         }
     }
-
 }
 
 impl Default for TaskClassifier {

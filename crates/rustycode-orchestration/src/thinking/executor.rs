@@ -497,7 +497,6 @@ impl RealExecutor {
 
         Ok(response.content)
     }
-
 }
 
 pub struct DefaultExecutor;

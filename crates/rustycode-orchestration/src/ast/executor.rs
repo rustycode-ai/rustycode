@@ -57,9 +57,7 @@ pub struct ShellStepRunner {
 
 impl ShellStepRunner {
     pub const fn new(workspace: PathBuf) -> Self {
-        Self {
-            workspace,
-        }
+        Self { workspace }
     }
 }
 

@@ -17,9 +17,7 @@ use crate::reasoning_store::ReasoningStore;
 use crate::shared_workspace::SharedWorkspace;
 use crate::skeptic::Skeptic;
 use crate::state_machine::{TaskContext, TaskPhase};
-use crate::supervisor::{
-    RuleBasedSupervisor, SupervisionDirective, Supervisor, TaskSnapshot,
-};
+use crate::supervisor::{RuleBasedSupervisor, SupervisionDirective, Supervisor, TaskSnapshot};
 use crate::verification_gates::VerificationGateRegistry;
 use chrono::Utc;
 use rustycode_prompt::environment::EnvironmentContext;
