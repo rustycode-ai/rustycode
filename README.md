@@ -13,112 +13,91 @@ AI-powered autonomous development framework built in Rust.
 ## Install
 
 **macOS / Linux:**
-RustyCode Installer
-===================
-Fetching latest release...
-Downloading macos-arm64 binary...
-Extracting...
 
-Installed to /Users/nat/.local/bin/rustycode
-
-Run 'rustycode --help' to get started.
+```bash
+curl -fsSL https://rustycode-ai.github.io/install.sh | sh
+```
 
 **Windows (PowerShell):**
 
+```powershell
+irm https://rustycode-ai.github.io/install.ps1 | iex
+```
 
 **Build from source:**
 
+```bash
+git clone https://github.com/rustycode-ai/rustycode.git
+cd rustycode
+cargo build --release
+```
 
 ## Quick Start
 
-[?1049h[?2004h[?1000h[?1002h[?1003h[?1015h[?1006h[2J
-✅ Task completed successfully
+```bash
+# Launch interactive TUI
+rustycode tui
 
-# Hello World HTTP Server
+# Run a one-shot task
+rustycode "fix the authentication bug in src/auth.rs"
 
-Here are implementations in a few popular languages:
+# Autonomous agent mode
+rustycode agent new "implement user registration endpoint"
 
-## Python
-
-```python
-from http.server import HTTPServer, BaseHTTPRequestHandler
-
-class HelloHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"Hello, World!")
-
-if __name__ == "__main__":
-    server = HTTPServer(("localhost", 8080), HelloHandler)
-    print("Serving on http://localhost:8080")
-    server.serve_forever()
+# Self-update to latest release
+rustycode update
 ```
 
-## Node.js
+## Configuration
 
-```javascript
-const http = require("http");
+Create `~/.rustycode/config.toml` to set your default provider:
 
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Hello, World!");
-});
+```toml
+[provider]
+default = "anthropic"
 
-server.listen(8080, "localhost", () => {
-  console.log("Serving on http://localhost:8080");
-});
+[provider.anthropic]
+model = "claude-sonnet-4-20250514"
+
+[provider.openai]
+model = "gpt-4o"
+
+[provider.ollama]
+model = "codellama"
+base_url = "http://localhost:11434"
 ```
 
-## Go
-
-```go
-package main
-
-import (
-	"fmt"
-	"net/http"
-)
-
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "Hello, World!")
-}
-
-func main() {
-	http.HandleFunc("/", helloHandler)
-	fmt.Println("Serving on http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
-}
-```
-
----
-
-### How to run
-
-| Language | Command |
-|----------|---------|
-| Python | `python server.py` |
-| Node.js | `node server.js` |
-| Go | `go run server.go` |
-
-### Test it
+Set your API key via environment variable:
 
 ```bash
-curl http://localhost:8080
-# Output: Hello, World!
+export ANTHROPIC_API_KEY=sk-...
 ```
 
-All three servers listen on **port 8080** and respond to any GET request with `Hello, World!`.
+Run `rustycode provider list` to see all configured providers.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `rustycode "task"` | Run a single task with the default agent |
+| `rustycode tui` | Launch interactive terminal UI |
+| `rustycode agent new "task"` | Start an autonomous agent session |
+| `rustycode agent list` | List agent sessions |
+| `rustycode provider list` | Show configured LLM providers |
+| `rustycode skills list` | List installed skill plugins |
+| `rustycode update` | Self-update to latest stable release |
+| `rustycode update --nightly` | Update to latest nightly build |
+| `rustycode bench` | Run benchmarks (Terminal Bench 2.0 compatible) |
+
+## LLM Providers
+
+Unified interface across 12+ providers: Anthropic, OpenAI, Google Gemini, AWS Bedrock, Azure, Ollama, LiteRT, Mistral, Cohere, HuggingFace, OpenRouter, GitHub Copilot.
 
 ## Documentation
 
-- [Getting Started](https://rustycode-ai.github.io/getting-started.html)
-- [Configuration](https://rustycode-ai.github.io/configuration.html)
-- [Manual](https://rustycode-ai.github.io/manual.html)
-- [Tips & Tricks](https://rustycode-ai.github.io/tips-and-tricks.html)
+- [Install Script](https://rustycode-ai.github.io/install.sh)
+- [GitHub Releases](https://github.com/rustycode-ai/rustycode/releases)
+- [Landing Page](https://rustycode-ai.github.io/)
 
 ## License
 
