@@ -15,21 +15,24 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             }
         }
         CommandEffect::ShowHelp => {
-            self.help_state.visible = true;
-            self.help_state.scroll_offset = 0;
-            self.add_system_message("Help opened - press Esc to close".to_string());
+            if !self.is_any_overlay_open() {
+                self.help_state.visible = true;
+                self.help_state.scroll_offset = 0;
+            }
         }
         CommandEffect::ShowPluginManager => {
-            self.showing_plugin_manager = true;
-            self.plugin_manager_ui.show();
-            {
-                let mut manager = self
-                    .plugin_manager
-                    .write()
-                    .unwrap_or_else(|e| e.into_inner());
-                let _ = manager.reload_from_disk();
+            if !self.is_any_overlay_open() {
+                self.showing_plugin_manager = true;
+                self.plugin_manager_ui.show();
+                {
+                    let mut manager = self
+                        .plugin_manager
+                        .write()
+                        .unwrap_or_else(|e| e.into_inner());
+                    let _ = manager.reload_from_disk();
+                }
+                self.dirty = true;
             }
-            self.dirty = true;
         }
         CommandEffect::None => {}
         CommandEffect::ModelSwitch { model_id } => {

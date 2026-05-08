@@ -404,8 +404,10 @@ impl TUI {
 
     /// Handle sidebar toggle (Ctrl+B)
     pub(crate) fn handle_sidebar_toggle(&mut self) {
-        self.session_sidebar.toggle();
-        self.dirty = true;
+        if self.session_sidebar.is_visible() || !self.is_any_overlay_open() {
+            self.session_sidebar.toggle();
+            self.dirty = true;
+        }
     }
 
     /// Handle brutalist mode toggle (Alt+B)
@@ -511,9 +513,8 @@ impl TUI {
     /// Handle search toggle (Ctrl+F)
     pub(crate) fn handle_search_toggle(&mut self) {
         if self.search_state.visible {
-            // Already visible — close search
             self.search_state.clear();
-        } else {
+        } else if !self.is_any_overlay_open() {
             self.search_state.visible = true;
             self.search_state.query.clear();
             self.search_state.matches.clear();
@@ -524,20 +525,26 @@ impl TUI {
 
     /// Handle tool panel toggle (Ctrl+P)
     pub(crate) fn handle_tool_panel_toggle(&mut self) {
-        self.tool_panel.showing_tool_panel = !self.tool_panel.showing_tool_panel;
-        self.dirty = true;
+        if self.tool_panel.showing_tool_panel || !self.is_any_overlay_open() {
+            self.tool_panel.showing_tool_panel = !self.tool_panel.showing_tool_panel;
+            self.dirty = true;
+        }
     }
 
     /// Handle team agent timeline toggle (Ctrl+G)
     pub(crate) fn handle_team_panel_toggle(&mut self) {
-        self.team_panel.toggle();
-        self.dirty = true;
+        if self.team_panel.visible || !self.is_any_overlay_open() {
+            self.team_panel.toggle();
+            self.dirty = true;
+        }
     }
 
     /// Handle worker status panel toggle (Ctrl+W)
     pub(crate) fn handle_worker_panel_toggle(&mut self) {
-        self.worker_panel.toggle();
-        self.dirty = true;
+        if self.worker_panel.visible || !self.is_any_overlay_open() {
+            self.worker_panel.toggle();
+            self.dirty = true;
+        }
     }
 
     /// Handle theme preview input
@@ -711,8 +718,10 @@ impl TUI {
 
     /// Toggle file finder overlay (Ctrl+O)
     pub(crate) fn handle_file_finder_toggle(&mut self) {
-        self.file_finder.toggle();
-        self.dirty = true;
+        if self.file_finder.is_visible() || !self.is_any_overlay_open() {
+            self.file_finder.toggle();
+            self.dirty = true;
+        }
     }
 
     /// Handle file finder input when visible.

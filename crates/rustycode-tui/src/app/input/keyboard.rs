@@ -20,12 +20,7 @@ impl TUI {
                 && modifiers.contains(KeyModifiers::CONTROL)
                 && modifiers.contains(KeyModifiers::SHIFT))
         {
-            if !self.wizard.showing_wizard
-                && self.tool_approval.pending_requests.is_empty()
-                && !self.error_manager.is_showing()
-                && !self.awaiting_clarification
-                && !self.compaction.showing_preview
-            {
+            if !self.is_any_overlay_open() {
                 self.showing_command_palette = true;
                 self.showing_skill_palette = false;
                 self.showing_plugin_manager = false;
@@ -41,20 +36,22 @@ impl TUI {
             && modifiers.contains(KeyModifiers::CONTROL)
             && modifiers.contains(KeyModifiers::SHIFT)
         {
-            self.showing_command_palette = false;
-            self.command_palette.hide();
-            self.showing_skill_palette = false;
-            self.skill_palette.close();
-            self.showing_plugin_manager = true;
-            self.plugin_manager_ui.show();
-            {
-                let mut manager = self
-                    .plugin_manager
-                    .write()
-                    .unwrap_or_else(|e| e.into_inner());
-                let _ = manager.reload_from_disk();
+            if !self.is_any_overlay_open() {
+                self.showing_command_palette = false;
+                self.command_palette.hide();
+                self.showing_skill_palette = false;
+                self.skill_palette.close();
+                self.showing_plugin_manager = true;
+                self.plugin_manager_ui.show();
+                {
+                    let mut manager = self
+                        .plugin_manager
+                        .write()
+                        .unwrap_or_else(|e| e.into_inner());
+                    let _ = manager.reload_from_disk();
+                }
+                self.dirty = true;
             }
-            self.dirty = true;
             return Ok(());
         }
 
@@ -62,15 +59,17 @@ impl TUI {
             && modifiers.contains(KeyModifiers::CONTROL)
             && modifiers.contains(KeyModifiers::ALT)
         {
-            self.showing_command_palette = false;
-            self.command_palette.hide();
-            self.showing_skill_palette = false;
-            self.skill_palette.close();
-            self.showing_plugin_manager = false;
-            self.plugin_manager_ui.hide();
-            self.showing_marketplace_browser = true;
-            self.marketplace_browser.open();
-            self.dirty = true;
+            if !self.is_any_overlay_open() {
+                self.showing_command_palette = false;
+                self.command_palette.hide();
+                self.showing_skill_palette = false;
+                self.skill_palette.close();
+                self.showing_plugin_manager = false;
+                self.plugin_manager_ui.hide();
+                self.showing_marketplace_browser = true;
+                self.marketplace_browser.open();
+                self.dirty = true;
+            }
             return Ok(());
         }
 
@@ -212,15 +211,17 @@ impl TUI {
             // Ctrl+Shift+S: Toggle skill palette
             #[allow(unreachable_patterns)]
             (KeyCode::Char('S'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.showing_skill_palette = !self.showing_skill_palette;
-                if self.showing_skill_palette {
-                    self.skill_palette.open();
-                } else {
-                    self.skill_palette.close();
+                if !self.is_any_overlay_open() || self.showing_skill_palette {
+                    self.showing_command_palette = false;
+                    self.command_palette.hide();
+                    self.showing_skill_palette = !self.showing_skill_palette;
+                    if self.showing_skill_palette {
+                        self.skill_palette.open();
+                    } else {
+                        self.skill_palette.close();
+                    }
+                    self.dirty = true;
                 }
-                self.dirty = true;
             }
             (KeyCode::Char('y'), KeyModifiers::CONTROL) => {
                 // Ctrl+Y: Quick copy last AI response
@@ -535,16 +536,12 @@ impl TUI {
                 }
                 self.last_esc_press = Some(now);
             }
-            (KeyCode::Char('?'), KeyModifiers::NONE) => {
-                if !self.help_state.visible && input_is_empty {
-                    self.help_state.visible = true;
-                    self.help_state.scroll_offset = 0;
-                    self.add_system_message("ℹ️  Help opened - press Esc to close".to_string());
-                }
-            }
+            // REMOVED: '?' key handler moved to event_loop.rs (early intercept before InputHandler)
             (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
-                self.theme_preview.toggle();
-                self.dirty = true;
+                if !self.is_any_overlay_open() || self.theme_preview.is_visible() {
+                    self.theme_preview.toggle();
+                    self.dirty = true;
+                }
             }
             (KeyCode::Char('t'), KeyModifiers::ALT) => {
                 if let Some(theme) = self.theme_switcher.next_theme() {
@@ -621,9 +618,10 @@ impl TUI {
                 }
             }
             (KeyCode::Char('p'), KeyModifiers::ALT) => {
-                // Show model selector
-                self.model_selector.show();
-                self.dirty = true;
+                if !self.is_any_overlay_open() {
+                    self.model_selector.show();
+                    self.dirty = true;
+                }
             }
             // Message collapse/expand shortcuts
             (KeyCode::Char('e'), KeyModifiers::ALT) => {
@@ -657,6 +655,28 @@ impl TUI {
         Ok(())
     }
 
+    /// Returns true if any modal overlay is currently visible.
+    /// Used to prevent opening new overlays on top of existing ones.
+    /// Persistent panels (sidebar, worker panel, team panel, tool panel) are
+    /// excluded since they don't block modal interactions.
+    pub(crate) fn is_any_overlay_open(&self) -> bool {
+        self.wizard.showing_wizard
+            || !self.tool_approval.pending_requests.is_empty()
+            || self.showing_error
+            || self.awaiting_clarification
+            || self.compaction.showing_preview
+            || self.model_selector.is_visible()
+            || self.showing_provider_selector
+            || self.showing_command_palette
+            || self.showing_skill_palette
+            || self.showing_plugin_manager
+            || self.showing_marketplace_browser
+            || self.file_finder.is_visible()
+            || self.search_state.visible
+            || self.theme_preview.is_visible()
+            || self.help_state.visible
+    }
+
     /// Dismiss the topmost overlay (if any). Returns true if one was dismissed.
     ///
     /// Used by both Ctrl+C and Esc to ensure consistent overlay dismissal.
@@ -674,77 +694,94 @@ impl TUI {
         if self.awaiting_clarification && self.clarification_panel.visible {
             self.clarification_panel.visible = false;
             self.awaiting_clarification = false;
+            self.dirty = true;
             return true;
         }
         if self.compaction.showing_preview {
             self.compaction.showing_preview = false;
             self.compaction.pending = false;
+            self.dirty = true;
             return true;
         }
         if self.error_manager.is_showing() {
             self.error_manager.dismiss();
             self.showing_error = false;
+            self.dirty = true;
             return true;
         }
         if self.model_selector.is_visible() {
             self.model_selector.hide();
+            self.dirty = true;
             return true;
         }
         if self.showing_provider_selector {
             self.showing_provider_selector = false;
+            self.dirty = true;
             return true;
         }
         if self.showing_command_palette {
             self.showing_command_palette = false;
             self.command_palette.hide();
+            self.dirty = true;
             return true;
         }
         if self.showing_skill_palette {
             self.showing_skill_palette = false;
             self.skill_palette.close();
+            self.dirty = true;
             return true;
         }
         if self.showing_plugin_manager {
             self.showing_plugin_manager = false;
             self.plugin_manager_ui.hide();
+            self.dirty = true;
             return true;
         }
         if self.showing_marketplace_browser {
             self.showing_marketplace_browser = false;
             self.marketplace_browser.close();
+            self.dirty = true;
             return true;
         }
         if self.file_finder.is_visible() {
             self.file_finder.hide();
+            self.dirty = true;
             return true;
         }
         if self.search_state.visible {
             self.search_state.visible = false;
             self.search_state.query.clear();
+            self.dirty = true;
             return true;
         }
         if self.tool_panel.showing_tool_panel {
             self.tool_panel.showing_tool_panel = false;
+            self.dirty = true;
             return true;
         }
         if self.worker_panel.visible {
             self.worker_panel.visible = false;
+            self.dirty = true;
             return true;
         }
         if self.team_panel.visible {
             self.team_panel.visible = false;
+            self.dirty = true;
             return true;
         }
         if self.session_sidebar.is_visible() {
             self.session_sidebar.hide();
+            self.dirty = true;
             return true;
         }
         if self.theme_preview.is_visible() {
             self.theme_preview.hide();
+            self.dirty = true;
             return true;
         }
         if self.help_state.visible {
             self.help_state.visible = false;
+            self.dirty = true;
             return true;
         }
         false

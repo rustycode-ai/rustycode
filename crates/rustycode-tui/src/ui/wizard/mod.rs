@@ -384,7 +384,9 @@ impl FirstRunWizard {
         // We store results in files that we poll.
         let status_path = std::env::temp_dir().join("rustycode_copilot_status.json");
         // Remove any stale status file
-        let _ = std::fs::remove_file(&status_path);
+        if let Err(e) = std::fs::remove_file(&status_path) {
+            tracing::debug!("could not remove stale copilot status file: {e}");
+        }
 
         std::thread::spawn(move || {
             use rustycode_auth::GitHubCopilotAuth;
@@ -403,16 +405,18 @@ impl FirstRunWizard {
                 let device = match auth.request_device_code().await {
                     Ok(d) => d,
                     Err(e) => {
-                        let _ = std::fs::write(
+                        if let Err(we) = std::fs::write(
                             &status_path,
                             serde_json::json!({"error": e.to_string()}).to_string(),
-                        );
+                        ) {
+                            tracing::warn!("failed to write copilot error status: {we}");
+                        }
                         return;
                     }
                 };
 
                 // Write the device code info so the TUI can display it
-                let _ = std::fs::write(
+                if let Err(e) = std::fs::write(
                     &status_path,
                     serde_json::json!({
                         "stage": "waiting",
@@ -420,7 +424,9 @@ impl FirstRunWizard {
                         "verification_uri": device.verification_uri,
                     })
                     .to_string(),
-                );
+                ) {
+                    tracing::warn!("failed to write copilot device code status: {e}");
+                }
 
                 // Step 2: Poll for token
                 let github_token = match auth
@@ -429,10 +435,12 @@ impl FirstRunWizard {
                 {
                     Ok(t) => t,
                     Err(e) => {
-                        let _ = std::fs::write(
+                        if let Err(we) = std::fs::write(
                             &status_path,
                             serde_json::json!({"error": e.to_string()}).to_string(),
-                        );
+                        ) {
+                            tracing::warn!("failed to write copilot poll error status: {we}");
+                        }
                         return;
                     }
                 };

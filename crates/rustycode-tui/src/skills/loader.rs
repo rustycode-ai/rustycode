@@ -177,7 +177,10 @@ impl SkillLoader {
 
         // Load skills in parallel — each skill is an independent file read + parse.
         let skills: Vec<Skill> = std::thread::scope(|s| {
-            let handles: Vec<_> = dirs.iter().map(|path| s.spawn(|| self.load_skill(path))).collect();
+            let handles: Vec<_> = dirs
+                .iter()
+                .map(|path| s.spawn(|| self.load_skill(path)))
+                .collect();
 
             handles
                 .into_iter()

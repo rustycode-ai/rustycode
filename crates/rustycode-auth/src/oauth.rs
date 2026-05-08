@@ -12,7 +12,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[non_exhaustive]
 pub enum AuthMethod {
     /// User visits URL, gets code, pastes it back
-    Code { url: String, verifier: String },
+    Code {
+        url: String,
+        verifier: String,
+        /// CSRF protection state — must be validated against the callback's `state` parameter
+        state: String,
+    },
     /// Automatic redirect
     Auto { url: String },
 }
@@ -51,6 +56,19 @@ pub trait OAuthClient: Send + Sync {
         config: &OAuthConfig,
         refresh_token: &str,
     ) -> AuthResult<AuthToken>;
+}
+
+/// Compute absolute expiry timestamp from a relative `expires_in` seconds value.
+fn compute_expires_at(expires_in: Option<u64>) -> Option<i64> {
+    let secs = expires_in?;
+    #[allow(clippy::cast_possible_wrap)]
+    let now_secs = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_else(|_| std::time::Duration::from_secs(0))
+        .as_secs() as i64;
+    #[allow(clippy::cast_possible_wrap)]
+    let offset = secs as i64;
+    Some(now_secs.saturating_add(offset))
 }
 
 /// Default OAuth 2.0 implementation
@@ -105,7 +123,11 @@ impl OAuthClient for DefaultOAuthClient {
             urlencoding::encode(&state)
         );
 
-        Ok(AuthMethod::Code { url, verifier })
+        Ok(AuthMethod::Code {
+            url,
+            verifier,
+            state,
+        })
     }
 
     async fn exchange_code(
@@ -132,21 +154,10 @@ impl OAuthClient for DefaultOAuthClient {
 
         let token_resp: TokenResponse = response.json().await?;
 
-        let expires_at = token_resp.expires_in.map(|secs| {
-            #[allow(clippy::cast_possible_wrap)]
-            let now_secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_else(|_| std::time::Duration::from_secs(0))
-                .as_secs() as i64;
-            #[allow(clippy::cast_possible_wrap)]
-            let secs = secs as i64;
-            now_secs.saturating_add(secs)
-        });
-
         Ok(AuthToken {
             access_token: token_resp.access_token.into(),
             refresh_token: token_resp.refresh_token.map(Into::into),
-            expires_at,
+            expires_at: compute_expires_at(token_resp.expires_in),
             token_type: token_resp.token_type,
         })
     }
@@ -172,21 +183,10 @@ impl OAuthClient for DefaultOAuthClient {
 
         let token_resp: TokenResponse = response.json().await?;
 
-        let expires_at = token_resp.expires_in.map(|secs| {
-            #[allow(clippy::cast_possible_wrap)]
-            let now_secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_else(|_| std::time::Duration::from_secs(0))
-                .as_secs() as i64;
-            #[allow(clippy::cast_possible_wrap)]
-            let secs = secs as i64;
-            now_secs.saturating_add(secs)
-        });
-
         Ok(AuthToken {
             access_token: token_resp.access_token.into(),
             refresh_token: token_resp.refresh_token.map(Into::into),
-            expires_at,
+            expires_at: compute_expires_at(token_resp.expires_in),
             token_type: token_resp.token_type,
         })
     }
@@ -246,6 +246,7 @@ mod tests {
         let method = AuthMethod::Code {
             url: "https://example.com".to_string(),
             verifier: "abc123".to_string(),
+            state: "state123".to_string(),
         };
         let debug_str = format!("{method:?}");
         assert!(debug_str.contains("Code"));
@@ -316,10 +317,17 @@ mod tests {
         let method = AuthMethod::Code {
             url: "https://auth.example.com?code=abc".to_string(),
             verifier: "my-pkce-verifier-123".to_string(),
+            state: "state-value-xyz".to_string(),
         };
-        if let AuthMethod::Code { url, verifier } = &method {
+        if let AuthMethod::Code {
+            url,
+            verifier,
+            state,
+        } = &method
+        {
             assert_eq!(url, "https://auth.example.com?code=abc");
             assert_eq!(verifier, "my-pkce-verifier-123");
+            assert!(!state.is_empty());
         } else {
             panic!("Expected Code variant");
         }
@@ -353,13 +361,20 @@ mod tests {
         let result = rt.block_on(client.authorize(&config)).unwrap();
 
         match result {
-            AuthMethod::Code { url, verifier } => {
+            AuthMethod::Code {
+                url,
+                verifier,
+                state,
+            } => {
                 // URL should contain PKCE params
                 assert!(url.contains("code_challenge="));
                 assert!(url.contains("code_challenge_method=S256"));
                 assert!(url.contains("client_id=test-client"));
                 assert!(url.contains("response_type=code"));
                 assert!(url.contains("scope="));
+                // URL should contain the state parameter for CSRF protection
+                assert!(url.contains("state="));
+                assert!(!state.is_empty(), "state must not be empty");
                 // Verifier should be a reasonable length
                 assert!(
                     verifier.len() >= 43,

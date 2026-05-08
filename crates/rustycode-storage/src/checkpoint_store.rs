@@ -118,7 +118,7 @@ impl CheckpointStore {
             )
         })?;
 
-        let path = self.checkpoint_path(&checkpoint.id);
+        let path = self.checkpoint_path(&checkpoint.id)?;
         let json = serde_json::to_string_pretty(checkpoint)
             .with_context(|| format!("failed to serialize checkpoint {}", checkpoint.id))?;
         std::fs::write(&path, json)
@@ -128,7 +128,7 @@ impl CheckpointStore {
 
     /// Load a checkpoint by id.
     pub fn load(&self, id: &str) -> Result<CheckpointSnapshot> {
-        let path = self.checkpoint_path(id);
+        let path = self.checkpoint_path(id)?;
         let data = std::fs::read_to_string(&path)
             .with_context(|| format!("failed to read checkpoint {}", id))?;
         serde_json::from_str(&data)
@@ -137,7 +137,7 @@ impl CheckpointStore {
 
     /// Check whether a checkpoint with the given id exists on disk.
     pub fn exists(&self, id: &str) -> bool {
-        self.checkpoint_path(id).is_file()
+        self.checkpoint_path(id).is_ok_and(|p| p.is_file())
     }
 
     /// List all checkpoints belonging to a given session.
@@ -184,7 +184,7 @@ impl CheckpointStore {
     ///
     /// Deleting a non-existent checkpoint is not an error.
     pub fn delete(&self, id: &str) -> Result<()> {
-        let path = self.checkpoint_path(id);
+        let path = self.checkpoint_path(id)?;
         if path.exists() {
             std::fs::remove_file(&path)
                 .with_context(|| format!("failed to delete checkpoint {}", path.display()))?;
@@ -226,8 +226,15 @@ impl CheckpointStore {
         Ok(removed)
     }
 
-    fn checkpoint_path(&self, id: &str) -> PathBuf {
-        self.base_path.join(format!("{id}.json"))
+    fn checkpoint_path(&self, id: &str) -> Result<PathBuf> {
+        for ch in id.chars() {
+            if !ch.is_alphanumeric() && ch != '-' {
+                return Err(anyhow::anyhow!(
+                    "invalid checkpoint ID: {id:?} (only alphanumeric and hyphens allowed)"
+                ));
+            }
+        }
+        Ok(self.base_path.join(format!("{id}.json")))
     }
 }
 
@@ -331,5 +338,25 @@ mod tests {
         assert_eq!(removed, 1);
         assert!(!store.exists(&cp_old.id));
         assert!(store.exists(&cp_new.id));
+    }
+
+    #[test]
+    fn rejects_path_traversal_in_id() {
+        let (_dir, store) = temp_store();
+        assert!(store.load("../../etc/passwd").is_err());
+        assert!(store.load("../other").is_err());
+        assert!(store.load("ok/still_bad").is_err());
+        // exists safely returns false for invalid IDs (no escape from base_path)
+        assert!(!store.exists("../../etc/passwd"));
+        assert!(!store.exists("../other"));
+    }
+
+    #[test]
+    fn accepts_uuid_id() {
+        let (_dir, store) = temp_store();
+        let cp = CheckpointSnapshot::generate("sess-1", ExecutionPhase::Plan);
+        store.save(&cp).expect("save");
+        // UUID format uses hyphens — must be allowed
+        assert!(store.exists(&cp.id));
     }
 }

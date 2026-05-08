@@ -191,7 +191,9 @@ impl PermissionClassifier {
     pub fn clear_cache(&mut self) {
         self.cache.clear();
         if let Some(ref path) = self.cache_path {
-            let _ = std::fs::remove_file(path);
+            if let Err(e) = std::fs::remove_file(path) {
+                tracing::warn!("failed to remove permission classifier cache: {e}");
+            }
         }
     }
 

@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context};
 use serde::Deserialize;
 
+use crate::environment::native::copy_dir_recursive;
+
 /// Default Harbor cache directory.
 const HARBOR_CACHE_DIR: &str = ".cache/harbor";
 
@@ -361,22 +363,6 @@ fn count_tasks_in_dir(dir: &Path) -> usize {
         .flatten()
         .filter(|e| e.path().is_dir() && e.path().join("task.toml").exists())
         .count()
-}
-
-/// Recursively copy a directory.
-fn copy_dir_recursive(src: &Path, dest: &Path) -> anyhow::Result<()> {
-    std::fs::create_dir_all(dest)?;
-    let entries = std::fs::read_dir(src)?;
-    for entry in entries.flatten() {
-        let src_path = entry.path();
-        let dest_path = dest.join(entry.file_name());
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dest_path)?;
-        } else {
-            std::fs::copy(&src_path, &dest_path)?;
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]

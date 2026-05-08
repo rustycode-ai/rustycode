@@ -9,7 +9,6 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::bedd::BeddFunnel;
 use super::crew::{ArtifactKind, ConsultationReport, CrewDispatcher, CrewRole};
 use super::executor::{StepExecutor, StepRunner};
 use super::expander::MilestoneExpander;
@@ -92,8 +91,6 @@ impl Default for ScoutHandler {
 pub struct ArchitectHandler {
     skeleton_builder: SkeletonBuilder,
     expander: MilestoneExpander,
-    #[allow(dead_code)] // Reserved for BEDD funnel integration on COMPLEX tasks
-    bedd: BeddFunnel,
 }
 
 impl ArchitectHandler {
@@ -101,7 +98,6 @@ impl ArchitectHandler {
         Self {
             skeleton_builder: SkeletonBuilder::new(),
             expander: MilestoneExpander::new(),
-            bedd: BeddFunnel::new(),
         }
     }
 
@@ -138,15 +134,12 @@ impl Default for ArchitectHandler {
 /// Executes steps sequentially, collects evidence, triggers recovery on failure.
 pub struct BuilderHandler<R: StepRunner> {
     executor: StepExecutor<R>,
-    #[allow(dead_code)] // Reserved for local recovery integration
-    recovery: MilestoneRecovery,
 }
 
 impl BuilderHandler<super::executor::SimulatedRunner> {
     pub const fn new() -> Self {
         Self {
             executor: StepExecutor::new(),
-            recovery: MilestoneRecovery::new(),
         }
     }
 }
@@ -155,7 +148,6 @@ impl<R: StepRunner> BuilderHandler<R> {
     pub const fn with_runner(runner: R) -> Self {
         Self {
             executor: StepExecutor::with_runner(runner),
-            recovery: MilestoneRecovery::new(),
         }
     }
 

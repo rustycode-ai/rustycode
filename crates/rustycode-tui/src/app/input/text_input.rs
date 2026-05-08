@@ -9,10 +9,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 impl TUI {
     /// Handle search box input
-    pub(crate) fn handle_search_input(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-    ) -> Result<bool> {
+    pub(crate) fn handle_search_input(&mut self, key: crossterm::event::KeyEvent) -> Result<bool> {
         if !self.search_state.visible {
             return Ok(false);
         }

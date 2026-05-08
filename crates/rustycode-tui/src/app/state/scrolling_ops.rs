@@ -260,7 +260,9 @@ impl TUI {
                 // Use actual line offsets from last render, with rough fallback
                 let target_line = {
                     let offsets = self.message_line_offsets.borrow();
-                    offsets.get(msg_idx).copied()
+                    offsets
+                        .get(msg_idx)
+                        .copied()
                         .filter(|&o| o != usize::MAX)
                         .unwrap_or(msg_idx * 3)
                 };
@@ -290,7 +292,9 @@ impl TUI {
                 // Scroll to show this message
                 let target_line = {
                     let offsets = self.message_line_offsets.borrow();
-                    offsets.get(i).copied()
+                    offsets
+                        .get(i)
+                        .copied()
                         .filter(|&o| o != usize::MAX)
                         .unwrap_or(i * 3)
                 };
@@ -327,7 +331,9 @@ impl TUI {
                 // Scroll to show this message
                 let target_line = {
                     let offsets = self.message_line_offsets.borrow();
-                    offsets.get(i).copied()
+                    offsets
+                        .get(i)
+                        .copied()
                         .filter(|&o| o != usize::MAX)
                         .unwrap_or(i * 3)
                 };

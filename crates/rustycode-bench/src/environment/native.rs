@@ -68,6 +68,17 @@ impl NativeEnvironment {
         self.workspace.join("tests")
     }
 
+    /// Resolve a sandbox-relative path, blocking traversal outside the workspace.
+    fn sandbox_path(&self, relative: &str) -> anyhow::Result<PathBuf> {
+        let stripped = relative.trim_start_matches('/');
+        for component in std::path::Path::new(stripped).components() {
+            if component == std::path::Component::ParentDir {
+                anyhow::bail!("path traversal rejected: {relative}");
+            }
+        }
+        Ok(self.workspace.join(stripped))
+    }
+
     /// Execute a script file in the workspace, rewriting container-style paths.
     ///
     /// Reads the script, replaces hardcoded container paths (`/logs/`, `/tests/`,
@@ -174,7 +185,9 @@ impl NativeEnvironment {
             if parts.len() < 3 {
                 continue;
             }
-            let dest = parts.last().expect("dest exists");
+            let Some(dest) = parts.last() else {
+                continue;
+            };
             let sources = &parts[1..parts.len() - 1];
 
             for src in sources {
@@ -521,12 +534,12 @@ impl BenchEnvironment for NativeEnvironment {
     }
 
     async fn upload_file(&self, src: &Path, dest: &str) -> anyhow::Result<()> {
-        let dest_path = self.workspace.join(dest.trim_start_matches('/'));
+        let dest_path = self.sandbox_path(dest)?;
         copy_file_with_rewrite(src, &dest_path, &self.workspace)
     }
 
     async fn download_file(&self, src: &str, dest: &Path) -> anyhow::Result<()> {
-        let src_path = self.workspace.join(src.trim_start_matches('/'));
+        let src_path = self.sandbox_path(src)?;
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -576,7 +589,7 @@ fn copy_dir_recursive_filtered(
 }
 
 /// Recursively copy a directory.
-fn copy_dir_recursive(src: &Path, dest: &Path) -> anyhow::Result<()> {
+pub(crate) fn copy_dir_recursive(src: &Path, dest: &Path) -> anyhow::Result<()> {
     copy_dir_recursive_filtered(src, dest, &[], None)
 }
 

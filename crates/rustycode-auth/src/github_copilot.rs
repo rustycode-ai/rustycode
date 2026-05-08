@@ -60,7 +60,7 @@ struct CopilotTokenResponse {
 }
 
 /// The result of a successful Copilot login
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct CopilotAuthResult {
     /// The Copilot API token to use as Bearer token
     pub copilot_token: String,
@@ -68,6 +68,16 @@ pub struct CopilotAuthResult {
     pub expires_at: u64,
     /// The underlying `GitHub` OAuth token (for refresh)
     pub github_token: String,
+}
+
+impl std::fmt::Debug for CopilotAuthResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CopilotAuthResult")
+            .field("copilot_token", &"[REDACTED]")
+            .field("expires_at", &self.expires_at)
+            .field("github_token", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// `GitHub` Copilot authenticator
@@ -334,14 +344,16 @@ mod tests {
     #[test]
     fn test_copilot_auth_result_debug() {
         let result = CopilotAuthResult {
-            copilot_token: "tok".into(),
+            copilot_token: "secret_copilot_token_value".into(),
             expires_at: 100,
-            github_token: "ght".into(),
+            github_token: "secret_github_token_value".into(),
         };
         let debug = format!("{result:?}");
         assert!(debug.contains("CopilotAuthResult"));
-        assert!(debug.contains("copilot_token"));
-        assert!(debug.contains("github_token"));
+        assert!(debug.contains("[REDACTED]"));
+        // Token values must never appear in debug output
+        assert!(!debug.contains("secret_copilot_token_value"));
+        assert!(!debug.contains("secret_github_token_value"));
     }
 
     #[test]

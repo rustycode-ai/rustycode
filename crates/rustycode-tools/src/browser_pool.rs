@@ -81,7 +81,9 @@ impl BrowserPool {
         if let Some(instance) = inner.take() {
             drop(inner);
             drop(instance.browser);
-            let _ = instance.handler.await;
+            if let Err(e) = instance.handler.await {
+                tracing::debug!("browser handler join error: {e}");
+            }
             return Ok(());
         }
         drop(inner);

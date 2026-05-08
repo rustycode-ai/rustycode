@@ -71,7 +71,9 @@ pub fn prepare_log_directory(
     component: &str,
     use_date_subdir: bool,
 ) -> Result<PathBuf> {
-    let _ = cleanup_old_logs(config, component);
+    if let Err(e) = cleanup_old_logs(config, component) {
+        tracing::warn!("log rotation cleanup failed: {e}");
+    }
 
     let component_dir = config.base_dir.join(component);
 
@@ -110,7 +112,9 @@ pub fn cleanup_old_logs(config: &LogConfig, component: &str) -> Result<()> {
         if let Ok(metadata) = entry.metadata() {
             if let Ok(modified) = metadata.modified() {
                 if modified < cutoff && path.is_dir() {
-                    let _ = fs::remove_dir_all(&path);
+                    if let Err(e) = fs::remove_dir_all(&path) {
+                        tracing::warn!("failed to remove old log dir {}: {e}", path.display());
+                    }
                 }
             }
         }

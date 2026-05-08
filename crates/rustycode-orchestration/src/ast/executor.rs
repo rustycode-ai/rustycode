@@ -53,15 +53,12 @@ impl StepRunner for SimulatedRunner {
 /// disk, and optionally runs `verification_command`.
 pub struct ShellStepRunner {
     workspace: PathBuf,
-    #[allow(dead_code)]
-    timeout_secs: u64,
 }
 
 impl ShellStepRunner {
     pub const fn new(workspace: PathBuf) -> Self {
         Self {
             workspace,
-            timeout_secs: 120,
         }
     }
 }

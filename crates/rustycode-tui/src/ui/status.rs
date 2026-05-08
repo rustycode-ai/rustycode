@@ -307,10 +307,16 @@ impl StatusBar {
                     let remaining = max_w.saturating_sub(used);
                     if remaining > 3 {
                         truncated_spans.push(Span::raw(
-                            span.content.chars().take(remaining.saturating_sub(3)).collect::<String>(),
+                            span.content
+                                .chars()
+                                .take(remaining.saturating_sub(3))
+                                .collect::<String>(),
                         ));
                     }
-                    truncated_spans.push(Span::styled("…".to_string(), Style::default().fg(Color::DarkGray)));
+                    truncated_spans.push(Span::styled(
+                        "…".to_string(),
+                        Style::default().fg(Color::DarkGray),
+                    ));
                     break;
                 }
                 truncated_spans.push(span);

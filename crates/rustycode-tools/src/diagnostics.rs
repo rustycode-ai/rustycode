@@ -292,11 +292,9 @@ fn collect_file(relative_path: &str, full_path: &PathBuf) -> DiagnosticsFile {
 fn find_source_for_diagnostics_file(relative_path: &str) -> PathBuf {
     if relative_path.starts_with("logs/") {
         AppPaths::in_state_dir(relative_path)
-    } else if relative_path.starts_with("config/") {
-        let name = relative_path.strip_prefix("config/").unwrap();
+    } else if let Some(name) = relative_path.strip_prefix("config/") {
         AppPaths::in_config_dir(name)
-    } else if relative_path.starts_with("sessions/") {
-        let name = relative_path.strip_prefix("sessions/").unwrap();
+    } else if let Some(name) = relative_path.strip_prefix("sessions/") {
         AppPaths::in_data_dir(name)
     } else {
         PathBuf::from(relative_path)

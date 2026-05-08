@@ -8,23 +8,11 @@ use super::types::{ComplexityLevel, PhaseRoute, SuccessCriterion, TaskAssessment
 ///
 /// Uses a hybrid approach: rule-based heuristics for known patterns,
 /// with a model-based fallback for ambiguous cases.
-pub struct TaskClassifier {
-    #[allow(dead_code)] // Used by future rule-based classification
-    rules: Vec<ClassificationRule>,
-}
-
-/// A single classification rule.
-#[allow(dead_code)] // Used by future rule-based classification
-struct ClassificationRule {
-    pattern: fn(&str) -> bool,
-    complexity: ComplexityLevel,
-}
+pub struct TaskClassifier {}
 
 impl TaskClassifier {
     pub const fn new() -> Self {
-        Self {
-            rules: Self::default_rules(),
-        }
+        Self {}
     }
 
     /// Classify a task request into a `TaskAssessment`.
@@ -160,10 +148,6 @@ impl TaskClassifier {
         }
     }
 
-    const fn default_rules() -> Vec<ClassificationRule> {
-        // Future: load rules from config or learn from history
-        Vec::new()
-    }
 }
 
 impl Default for TaskClassifier {

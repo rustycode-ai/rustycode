@@ -271,10 +271,16 @@ impl RolloutRecorder {
             match serde_json::to_string(&event) {
                 Ok(line) => {
                     // Append newline-terminated JSON
-                    let _ = file.write_all(line.as_bytes()).await;
-                    let _ = file.write_all(b"\n").await;
+                    if let Err(e) = file.write_all(line.as_bytes()).await {
+                        tracing::warn!("rollout: write failed: {e}");
+                    }
+                    if let Err(e) = file.write_all(b"\n").await {
+                        tracing::warn!("rollout: newline write failed: {e}");
+                    }
                     if flush_every {
-                        let _ = file.flush().await;
+                        if let Err(e) = file.flush().await {
+                            tracing::warn!("rollout: flush failed: {e}");
+                        }
                     }
                 }
                 Err(e) => {
@@ -283,7 +289,9 @@ impl RolloutRecorder {
             }
         }
         // Flush on channel close (session end)
-        let _ = file.flush().await;
+        if let Err(e) = file.flush().await {
+            tracing::warn!("rollout: final flush failed: {e}");
+        }
     }
 }
 

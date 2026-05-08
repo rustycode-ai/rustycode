@@ -18,7 +18,7 @@ use crate::shared_workspace::SharedWorkspace;
 use crate::skeptic::Skeptic;
 use crate::state_machine::{TaskContext, TaskPhase};
 use crate::supervisor::{
-    translate_event, RuleBasedSupervisor, SupervisionDirective, Supervisor, TaskSnapshot,
+    RuleBasedSupervisor, SupervisionDirective, Supervisor, TaskSnapshot,
 };
 use crate::verification_gates::VerificationGateRegistry;
 use chrono::Utc;
@@ -704,19 +704,6 @@ impl OrchestrationPipeline {
                 "Supervisor directive (advisory)"
             );
         }
-    }
-
-    /// Feed an orchestration bus event into the supervisor for observation.
-    ///
-    /// Returns the directive (if any) for callers to optionally act on.
-    ///
-    /// TODO: Wire bus events into this method during the step loop so that
-    /// `observe()` runs alongside `reconcile()` for full supervisor coverage.
-    #[allow(dead_code)]
-    pub async fn observe_event(&self, event: &OrchestrationEvent) -> Option<SupervisionDirective> {
-        let sup_event = translate_event(event)?;
-        let mut guard = self.supervisor.lock().await;
-        guard.observe(&sup_event)
     }
 }
 

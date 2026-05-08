@@ -92,13 +92,7 @@ impl TUI {
                     || (key.code == KeyCode::Char('P')
                         && key.modifiers.contains(KeyModifiers::CONTROL)
                         && key.modifiers.contains(KeyModifiers::SHIFT));
-                if is_cmd_palette_shortcut
-                    && !self.wizard.showing_wizard
-                    && self.tool_approval.pending_requests.is_empty()
-                    && !self.error_manager.is_showing()
-                    && !self.awaiting_clarification
-                    && !self.compaction.showing_preview
-                {
+                if is_cmd_palette_shortcut && !self.is_any_overlay_open() {
                     self.showing_command_palette = true;
                     self.showing_skill_palette = false;
                     self.showing_plugin_manager = false;
@@ -390,7 +384,7 @@ impl TUI {
                 if key.code == KeyCode::Char('?') && key.modifiers == KeyModifiers::NONE {
                     let input_is_empty = self.input_handler.state.lines.len() == 1
                         && self.input_handler.state.lines[0].is_empty();
-                    if input_is_empty && !self.help_state.visible {
+                    if input_is_empty && !self.is_any_overlay_open() {
                         self.help_state.visible = true;
                         self.help_state.scroll_offset = 0;
                         self.add_system_message("ℹ️  Help opened - press Esc to close".to_string());

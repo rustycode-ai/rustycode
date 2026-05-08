@@ -311,34 +311,6 @@ impl DirectoryTrust {
     }
 }
 
-/// Normalize a path, resolving symlinks if possible.
-#[allow(dead_code)] // Kept for future use
-fn normalize_dir(path: &Path) -> PathBuf {
-    // Use Path::canonicalize if possible, otherwise just clean up the path
-    path.canonicalize().unwrap_or_else(|_| {
-        let mut components = Vec::new();
-        for comp in path.components() {
-            match comp {
-                std::path::Component::CurDir => {} // skip "."
-                std::path::Component::ParentDir => {
-                    // Best-effort: pop last if possible
-                    if !components.is_empty() {
-                        components.pop();
-                    } else {
-                        components.push(comp);
-                    }
-                }
-                _ => components.push(comp),
-            }
-        }
-        if components.is_empty() {
-            PathBuf::from(".")
-        } else {
-            components.iter().collect()
-        }
-    })
-}
-
 /// Detect the git repository root from the current directory.
 fn detect_git_root(path: &Path) -> Option<PathBuf> {
     let output = std::process::Command::new("git")

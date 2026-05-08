@@ -207,7 +207,9 @@ impl SideEffectLedger {
             )
         })?;
         if let Err(e) = std::fs::rename(&tmp_path, path) {
-            let _ = std::fs::remove_file(&tmp_path);
+            if let Err(cleanup_err) = std::fs::remove_file(&tmp_path) {
+                tracing::warn!("failed to clean up temp file {}: {cleanup_err}", tmp_path.display());
+            }
             return Err(e).with_context(|| {
                 format!("Failed to rename side effect ledger to {}", path.display())
             });

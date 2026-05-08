@@ -113,7 +113,9 @@ impl LogWriter {
             });
 
             for (path, _) in backups.into_iter().skip(5) {
-                let _ = std::fs::remove_file(path); // Ignore errors
+                if let Err(e) = std::fs::remove_file(path) {
+                    tracing::debug!("failed to remove old log backup: {e}");
+                }
             }
         }
 

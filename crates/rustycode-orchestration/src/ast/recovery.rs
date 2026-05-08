@@ -262,8 +262,6 @@ pub enum RecoveryOutcome {
 /// Orchestrates milestone-level recovery decisions.
 #[derive(Debug, Clone)]
 pub struct MilestoneRecovery {
-    #[allow(dead_code)] // Reserved for model-based failure classification
-    classifier: FailureClassifier,
     max_retries_per_step: u32,
     max_milestone_failures: u32,
 }
@@ -276,7 +274,6 @@ const DEFAULT_MAX_MILESTONE_FAILURES: u32 = 3;
 impl MilestoneRecovery {
     pub const fn new() -> Self {
         Self {
-            classifier: FailureClassifier,
             max_retries_per_step: DEFAULT_MAX_RETRIES,
             max_milestone_failures: DEFAULT_MAX_MILESTONE_FAILURES,
         }
@@ -639,17 +636,6 @@ fn extract_command_name(text: &str) -> Option<String> {
     }
 
     None
-}
-
-/// Extract the token after `prefix` from `haystack` (case-insensitive search).
-#[allow(dead_code)] // Used by future enhanced failure diagnosis
-fn extract_last_token(haystack: &str, prefix: &str) -> Option<String> {
-    let lower = haystack.to_lowercase();
-    let prefix_lower = prefix.to_lowercase();
-    let idx = lower.find(&prefix_lower)?;
-    let rest = &haystack[idx + prefix.len()..];
-    let token = rest.split_whitespace().next()?;
-    Some(token.to_string())
 }
 
 /// Extract a path after a marker string like "permission denied: ".
