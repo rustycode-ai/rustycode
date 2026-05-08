@@ -235,6 +235,7 @@ pub fn execute_tool(
             exit_code: None,
             success: false,
             data: None,
+            new_cwd: None,
         });
 
     // Return the appropriate content based on result

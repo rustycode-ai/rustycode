@@ -125,6 +125,7 @@ impl AutoToolContext {
                 success: false,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             };
         }
 

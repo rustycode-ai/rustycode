@@ -4,6 +4,7 @@ use crate::client::McpClient;
 use crate::headers_helper::merge_headers;
 use crate::http_transport::HttpTransport;
 use crate::oauth::OAuthManager;
+use crate::protocol::McpEvent;
 use crate::server_enablement::ServerEnablementManager;
 use crate::types::McpTool;
 use crate::{McpError, McpResult, Transport};
@@ -252,7 +253,6 @@ pub enum HealthStatus {
 }
 
 /// Server state
-#[derive(Debug, Clone)]
 struct ServerState {
     config: ServerConfig,
     status: HealthStatus,
@@ -269,6 +269,8 @@ struct ServerState {
     reconnection_attempts: usize,
     /// When the last reconnection was attempted
     last_reconnection_attempt: Option<Instant>,
+    /// Receiver for MCP events (tools changed, progress, etc.)
+    notification_rx: tokio::sync::broadcast::Receiver<McpEvent>,
 }
 
 /// Managed MCP server
@@ -367,6 +369,8 @@ impl McpServerManager {
             ))
         })?;
 
+        let notification_rx = client.subscribe_events();
+
         let state = ServerState {
             config: config.clone(),
             status: HealthStatus::Healthy,
@@ -378,6 +382,7 @@ impl McpServerManager {
             tools_stale: true, // Mark as stale initially, will be populated after connect
             reconnection_attempts: 0,
             last_reconnection_attempt: None,
+            notification_rx,
         };
 
         let server = McpServer {
@@ -604,6 +609,41 @@ impl McpServerManager {
                                 state.reconnection_attempts = 0;
                                 state.last_reconnection_attempt = None;
                                 state.status = HealthStatus::Healthy;
+                            }
+                            drop(state);
+
+                            // Drain pending notifications from the transport inbox
+                            // and process tool-change events
+                            {
+                                let client = client_lock.read().await;
+                                client.drain_notifications(&server_id).await;
+                            }
+
+                            // Check for dispatched events (non-blocking)
+                            let needs_refresh = {
+                                let mut state = server.state.write().await;
+                                let mut refresh = false;
+                                loop {
+                                    match state.notification_rx.try_recv() {
+                                        Ok(McpEvent::ToolsListChanged { .. }) => {
+                                            info!("Server '{}' sent tools/list_changed, marking stale", server_id);
+                                            state.tools_stale = true;
+                                            refresh = true;
+                                        }
+                                        Ok(_) => {} // ignore other events
+                                        Err(_) => break,
+                                    }
+                                }
+                                refresh
+                            };
+
+                            if needs_refresh {
+                                if let Err(e) = server.refresh_cached_tools().await {
+                                    warn!(
+                                        "Failed to refresh tools for server '{}': {}",
+                                        server_id, e
+                                    );
+                                }
                             }
                         } else {
                             warn!("Server '{}' is not connected", server_id);

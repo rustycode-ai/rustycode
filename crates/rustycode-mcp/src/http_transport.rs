@@ -364,6 +364,18 @@ impl Transport for HttpTransport {
         }
     }
 
+    fn try_receive(&mut self) -> McpResult<IncomingMessage> {
+        self.inbox.try_recv().map_err(|e| match e {
+            tokio::sync::mpsc::error::TryRecvError::Empty => {
+                McpError::TransportError("no pending messages".to_string())
+            }
+            tokio::sync::mpsc::error::TryRecvError::Disconnected => {
+                self.connected = false;
+                McpError::ConnectionClosed
+            }
+        })
+    }
+
     fn is_connected(&self) -> bool {
         self.connected
     }

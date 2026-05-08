@@ -637,6 +637,7 @@ impl Runtime {
                 success: true,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             });
         }
 

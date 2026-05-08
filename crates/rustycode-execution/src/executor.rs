@@ -409,6 +409,7 @@ impl StepExecutor for GenericStepExecutor {
                 success: true,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             });
 
         // Process through feedback loop
@@ -655,6 +656,7 @@ mod tests {
             success: true,
             exit_code: Some(0),
             data: None,
+            new_cwd: None,
         };
         let msg = ToolInvocationWrapper::wrap_result("read_file", &result);
         let content = &msg.content;
@@ -671,6 +673,7 @@ mod tests {
             success: false,
             exit_code: Some(1),
             data: None,
+            new_cwd: None,
         };
         let msg = ToolInvocationWrapper::wrap_result("write_file", &result);
         let content = &msg.content;
@@ -771,6 +774,7 @@ mod tests {
             success: true,
             exit_code: None,
             data: None,
+            new_cwd: None,
         };
         let msg = ToolInvocationWrapper::result_to_message("bash", &result);
         assert!(msg.content.contains("bash"));
@@ -787,6 +791,7 @@ mod tests {
             success: false,
             exit_code: Some(1),
             data: None,
+            new_cwd: None,
         };
         let msg = ToolInvocationWrapper::result_to_message("write_file", &result);
         assert!(msg.content.contains("write_file failed"));

@@ -264,7 +264,7 @@ impl super::AnthropicProvider {
                                         block_obj.get("type").and_then(|t| t.as_str())
                                     {
                                         match block_type {
-                                            "tool_use" => {
+                                            "tool_use" | "tool_reference" => {
                                                 let id = block_obj
                                                     .get("id")
                                                     .and_then(|i| i.as_str())

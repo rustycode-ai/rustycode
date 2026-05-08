@@ -161,6 +161,7 @@ impl Tool for BatchTool {
                                     success: false,
                                     exit_code: None,
                                     data: None,
+                                    new_cwd: None,
                                 },
                             );
                         }
@@ -189,6 +190,7 @@ impl Tool for BatchTool {
                                     success: false,
                                     exit_code: None,
                                     data: None,
+                                    new_cwd: None,
                                 },
                             );
                         }
@@ -212,6 +214,7 @@ impl Tool for BatchTool {
                         success: false,
                         exit_code: None,
                         data: None,
+                        new_cwd: None,
                     },
                 )
             });

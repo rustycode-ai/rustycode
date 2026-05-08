@@ -563,6 +563,7 @@ impl AsyncRuntime {
                         success: false,
                         exit_code: None,
                         data: None,
+                        new_cwd: None,
                     },
                     Duration::ZERO,
                     false,
@@ -586,6 +587,7 @@ impl AsyncRuntime {
                     success: true,
                     exit_code: None,
                     data: None,
+                    new_cwd: None,
                 })
             })
             .await;
@@ -601,6 +603,7 @@ impl AsyncRuntime {
                         success: false,
                         exit_code: None,
                         data: None,
+                        new_cwd: None,
                     },
                     false,
                 ),
@@ -612,6 +615,7 @@ impl AsyncRuntime {
                         success: false,
                         exit_code: None,
                         data: None,
+                        new_cwd: None,
                     },
                     true,
                 ),
@@ -661,6 +665,7 @@ impl AsyncRuntime {
                         success: false,
                         exit_code: None,
                         data: None,
+                        new_cwd: None,
                     })
                 })
                 .await;
@@ -676,6 +681,7 @@ impl AsyncRuntime {
                             success: false,
                             exit_code: None,
                             data: None,
+                            new_cwd: None,
                         },
                         false,
                     ),
@@ -687,6 +693,7 @@ impl AsyncRuntime {
                             success: false,
                             exit_code: None,
                             data: None,
+                            new_cwd: None,
                         },
                         true,
                     ),
@@ -1171,6 +1178,7 @@ mod tests {
             success: false,
             exit_code: None,
             data: None,
+            new_cwd: None,
         };
 
         let concurrent_result = ConcurrentToolResult {
@@ -1203,6 +1211,7 @@ mod tests {
                     success: false,
                     exit_code: None,
                     data: None,
+                    new_cwd: None,
                 },
                 duration: Duration::from_millis(50),
                 timed_out: false,
@@ -1220,6 +1229,7 @@ mod tests {
                     success: false,
                     exit_code: None,
                     data: None,
+                    new_cwd: None,
                 },
                 duration: Duration::from_millis(75),
                 timed_out: false,
@@ -1413,6 +1423,7 @@ mod tests {
                 success: false,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             },
             duration: Duration::from_secs(30),
             timed_out: true,
@@ -1437,6 +1448,7 @@ mod tests {
                 success: false,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             },
             duration: Duration::from_millis(100),
             timed_out: false,
@@ -1464,6 +1476,7 @@ mod tests {
                     success: false,
                     exit_code: None,
                     data: None,
+                    new_cwd: None,
                 },
                 duration: Duration::from_millis(50),
                 timed_out: false,
@@ -1557,6 +1570,7 @@ mod tests {
             success: true,
             exit_code: None,
             data: Some(serde_json::json!({"count": 3})),
+            new_cwd: None,
         };
         assert!(result.success);
         assert!(result.data.is_some());
@@ -1573,6 +1587,7 @@ mod tests {
             success: false,
             exit_code: None,
             data: None,
+            new_cwd: None,
         };
         assert!(!result.success);
         assert!(result.error.is_some());
@@ -1604,6 +1619,7 @@ mod tests {
                 success: false,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             },
             duration: Duration::from_millis(50),
             timed_out: false,

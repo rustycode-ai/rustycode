@@ -348,6 +348,7 @@ fn test_format_tool_result_success() {
         error: None,
         exit_code: None,
         data: None,
+        new_cwd: None,
     };
 
     let summary = tool_helpers::format_tool_result_summary(&result, "bash");
@@ -368,6 +369,7 @@ fn test_format_tool_result_failure() {
         error: Some("Command not found".to_string()),
         exit_code: None,
         data: None,
+        new_cwd: None,
     };
 
     let summary = tool_helpers::format_tool_result_summary(&result, "bash");
@@ -389,6 +391,7 @@ fn test_format_tool_result_with_structured() {
         error: None,
         exit_code: None,
         data: Some(structured),
+        new_cwd: None,
     };
 
     let summary = tool_helpers::format_tool_result_summary(&result, "bash");
@@ -410,6 +413,7 @@ fn test_format_long_output_truncation() {
         error: None,
         exit_code: None,
         data: None,
+        new_cwd: None,
     };
 
     let summary = tool_helpers::format_tool_result_summary(&result, "bash");
@@ -497,10 +501,11 @@ fn test_tool_result_channel_send_receive() {
         error: None,
         exit_code: None,
         data: None,
+        new_cwd: None,
     };
 
-    tx.send(tool_result).expect("Should send result");
-    let received = rx.recv().expect("Should receive result");
+    tx.send(tool_result).unwrap();
+    let received = rx.recv().unwrap();
 
     assert_eq!(received.output, "channel test");
     assert_eq!(received.call_id, "test-channel");

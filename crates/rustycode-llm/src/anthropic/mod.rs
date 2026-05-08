@@ -18,7 +18,7 @@ use crate::provider_metadata::{
 use crate::tool_annotations::anthropic_annotations_for_tool_info;
 use async_trait::async_trait;
 use futures::Stream;
-use rustycode_tools_api::{Tool, ToolProfile, ToolRegistry, ToolSelector};
+use rustycode_tools_api::{Tool, ToolMetadataProvider, ToolProfile, ToolRegistry, ToolSelector};
 use secrecy::ExposeSecret;
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -146,13 +146,48 @@ impl AnthropicProvider {
             }
         });
 
+        // Replace prompt-based deferred stubs with native Anthropic defer_loading.
+        // Stub tools are identified by the "[DEFERRED:" marker in their description.
+        let has_deferred = !tools.is_empty()
+            && tools.iter().any(|t| {
+                t.get("description")
+                    .and_then(|d| d.as_str())
+                    .is_some_and(|d| d.contains("[DEFERRED:"))
+            });
+
+        if has_deferred {
+            for tool in &mut tools {
+                let is_deferred = tool
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .is_some_and(|d| d.contains("[DEFERRED:"));
+                if is_deferred {
+                    if let Some(name) = tool
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .map(|s| s.to_string())
+                    {
+                        *tool = serde_json::json!({
+                            "name": name,
+                            "defer_loading": true
+                        });
+                    }
+                }
+            }
+        }
+
         let tools = if !tools.is_empty() {
             if use_cache_control {
                 if let Some(last_tool) = tools.last_mut().and_then(|t| t.as_object_mut()) {
-                    last_tool.insert(
-                        "cache_control".to_string(),
-                        serde_json::json!({"type": "ephemeral"}),
-                    );
+                    // Don't add cache_control to deferred-only tools (no description key)
+                    if last_tool.contains_key("description")
+                        || last_tool.contains_key("input_schema")
+                    {
+                        last_tool.insert(
+                            "cache_control".to_string(),
+                            serde_json::json!({"type": "ephemeral"}),
+                        );
+                    }
                 }
             }
             Some(tools)
@@ -211,6 +246,10 @@ impl AnthropicProvider {
             for header in crate::tools::anthropic_skills_beta_headers() {
                 request_builder = request_builder.header("anthropic-beta", header);
             }
+        }
+
+        if has_deferred {
+            request_builder = request_builder.header("anthropic-beta", "prompt-caching-2024-07-31");
         }
 
         let response = request_builder.send().await.map_err(|e| {
@@ -311,6 +350,27 @@ impl AnthropicProvider {
                     "arguments": block.input
                 });
                 tool_calls.push(tool_call);
+            } else if block.content_type == "tool_reference" {
+                // Native deferred tool resolution: the model wants to use a
+                // deferred tool. Resolve by looking up the full schema from the
+                // registry so downstream code can treat this as a normal tool_use.
+                let tool_name = &block.name;
+                let resolved = self.tool_registry.tool_info(tool_name).map(|info| {
+                    serde_json::json!({
+                        "id": block.id,
+                        "name": tool_name,
+                        "arguments": info.parameters_schema
+                    })
+                });
+                if let Some(tool_call) = resolved {
+                    tracing::debug!("Resolved tool_reference '{}' to tool_use", tool_name);
+                    tool_calls.push(tool_call);
+                } else {
+                    tracing::warn!(
+                        "tool_reference '{}' could not be resolved from registry",
+                        tool_name
+                    );
+                }
             } else if block.content_type == "thinking" {
                 tracing::debug!("Received thinking block ({} chars)", block.thinking.len());
                 thinking_blocks.push(crate::provider::ThinkingBlock {

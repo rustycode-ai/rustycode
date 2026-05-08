@@ -4,6 +4,7 @@
 //! allowing the LLM to read files, execute commands, and perform other operations.
 
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// A request to invoke a named tool.
 ///
@@ -60,6 +61,9 @@ pub struct ToolResult {
     pub success: bool,
     /// Optional structured data (e.g., for tool with rich output)
     pub data: Option<serde_json::Value>,
+    /// If set, the tool requests a CWD change to this path
+    #[serde(skip)]
+    pub new_cwd: Option<PathBuf>,
 }
 
 impl ToolResult {
@@ -72,6 +76,7 @@ impl ToolResult {
             exit_code: Some(0),
             success: true,
             data: None,
+            new_cwd: None,
         }
     }
 
@@ -84,6 +89,7 @@ impl ToolResult {
             exit_code: None,
             success: false,
             data: None,
+            new_cwd: None,
         }
     }
 
@@ -100,6 +106,7 @@ impl ToolResult {
             exit_code: Some(exit_code),
             success: false,
             data: None,
+            new_cwd: None,
         }
     }
 
@@ -413,6 +420,7 @@ mod tests {
             exit_code: Some(0),
             success: true,
             data: None,
+            new_cwd: None,
         };
         assert!(!result.is_success()); // error is Some
     }

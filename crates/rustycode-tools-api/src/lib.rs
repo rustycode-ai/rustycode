@@ -384,6 +384,8 @@ pub enum ToolPermission {
 pub struct ToolOutput {
     pub text: String,
     pub structured: Option<Value>,
+    /// If set, signals that the session CWD should change to this path.
+    pub new_cwd: Option<PathBuf>,
 }
 
 impl ToolOutput {
@@ -391,12 +393,21 @@ impl ToolOutput {
         Self {
             text: text.into(),
             structured: None,
+            new_cwd: None,
         }
     }
     pub fn with_structured(text: impl Into<String>, structured: Value) -> Self {
         Self {
             text: text.into(),
             structured: Some(structured),
+            new_cwd: None,
+        }
+    }
+    pub fn with_cwd_change(text: impl Into<String>, new_cwd: PathBuf) -> Self {
+        Self {
+            text: text.into(),
+            structured: None,
+            new_cwd: Some(new_cwd),
         }
     }
 }
@@ -636,7 +647,13 @@ impl ToolRegistry {
                 )
             },
             |tool| match tool.execute(call.arguments.clone(), ctx) {
-                Ok(output) => rustycode_protocol::ToolResult::success(&call.call_id, output.text),
+                Ok(output) => {
+                    let mut result =
+                        rustycode_protocol::ToolResult::success(&call.call_id, output.text);
+                    result.new_cwd = output.new_cwd;
+                    result.data = output.structured;
+                    result
+                }
                 Err(e) => rustycode_protocol::ToolResult::error(&call.call_id, e.to_string()),
             },
         );

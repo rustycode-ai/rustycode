@@ -35,6 +35,7 @@ impl ConvoyDispatcher {
                 success: false,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             };
         }
 
@@ -76,6 +77,7 @@ mod tests {
             success: true,
             exit_code: None,
             data: None,
+            new_cwd: None,
         });
 
         assert!(result.success);

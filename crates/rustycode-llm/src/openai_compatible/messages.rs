@@ -235,7 +235,18 @@ pub fn convert_messages_to_responses_input(
                                         output: content.clone(),
                                     });
                                 }
-                                ContentBlock::Thinking { .. } => {}
+                                ContentBlock::Thinking { .. } => {
+                                    // Anthropic-style thinking summaries — no OpenAI round-trip needed
+                                }
+                                ContentBlock::RedactedThinking { data } => {
+                                    if !data.is_empty() {
+                                        items.push(ResponsesApiInputItem::Reasoning {
+                                            id: String::new(),
+                                            summary: Vec::new(),
+                                            encrypted_content: Some(data.clone()),
+                                        });
+                                    }
+                                }
                                 _ => {}
                             }
                         }
@@ -253,4 +264,112 @@ pub fn convert_messages_to_responses_input(
     }
 
     (instructions, items)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::provider::{ChatMessage, ContentBlock, MessageContent, MessageRole};
+
+    fn make_request(messages: Vec<ChatMessage>) -> CompletionRequest {
+        CompletionRequest {
+            model: "o3".to_string(),
+            messages,
+            system_prompt: None,
+            tools: None,
+            temperature: None,
+            max_tokens: None,
+            stream: false,
+            tool_choice: None,
+            parallel_tool_calls: None,
+            session_id: None,
+            output_config: None,
+            thinking: None,
+            container: None,
+            api_mode: None,
+        }
+    }
+
+    #[test]
+    fn redacted_thinking_produces_reasoning_input_item() {
+        let request = make_request(vec![
+            ChatMessage {
+                role: MessageRole::User,
+                content: MessageContent::Simple("What is 2+2?".to_string()),
+            },
+            ChatMessage {
+                role: MessageRole::Assistant,
+                content: MessageContent::Blocks(vec![
+                    ContentBlock::RedactedThinking {
+                        data: "enc_reasoning_data_abc".to_string(),
+                    },
+                    ContentBlock::Text {
+                        text: "4".to_string(),
+                        cache_control: None,
+                    },
+                ]),
+            },
+        ]);
+
+        let (_, items) = convert_messages_to_responses_input(&request);
+
+        // Should have: user message, reasoning, assistant message
+        assert_eq!(items.len(), 3);
+
+        // Second item should be the reasoning from RedactedThinking
+        match &items[1] {
+            ResponsesApiInputItem::Reasoning {
+                encrypted_content, ..
+            } => {
+                assert_eq!(encrypted_content.as_deref(), Some("enc_reasoning_data_abc"));
+            }
+            other => panic!("expected Reasoning input item, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn empty_redacted_thinking_skipped() {
+        let request = make_request(vec![ChatMessage {
+            role: MessageRole::Assistant,
+            content: MessageContent::Blocks(vec![
+                ContentBlock::RedactedThinking {
+                    data: String::new(),
+                },
+                ContentBlock::Text {
+                    text: "Hello".to_string(),
+                    cache_control: None,
+                },
+            ]),
+        }]);
+
+        let (_, items) = convert_messages_to_responses_input(&request);
+
+        // Empty RedactedThinking should be skipped; only the text message remains
+        assert_eq!(items.len(), 1);
+        assert!(
+            matches!(&items[0], ResponsesApiInputItem::Message { role, .. } if role == "assistant")
+        );
+    }
+
+    #[test]
+    fn thinking_blocks_skipped_for_responses_api() {
+        let request = make_request(vec![ChatMessage {
+            role: MessageRole::Assistant,
+            content: MessageContent::Blocks(vec![
+                ContentBlock::Thinking {
+                    thinking: "I need to think about this...".to_string(),
+                    signature: "sig_123".to_string(),
+                },
+                ContentBlock::Text {
+                    text: "Here's my answer".to_string(),
+                    cache_control: None,
+                },
+            ]),
+        }]);
+
+        let (_, items) = convert_messages_to_responses_input(&request);
+
+        // Thinking blocks should be silently skipped; only text message
+        assert_eq!(items.len(), 1);
+    }
 }

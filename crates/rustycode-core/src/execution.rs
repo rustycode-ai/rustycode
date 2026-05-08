@@ -447,6 +447,7 @@ impl StepExecutor<ExecutionContext> for GenericStepExecutor {
                 success: true,
                 exit_code: None,
                 data: None,
+                new_cwd: None,
             });
 
         // Process through feedback loop

@@ -476,6 +476,7 @@ impl Tool for ReadFileTool {
             return Ok(ToolOutput {
                 text: "File appears to be binary. Use bash with `xxd` or `hexdump` for binary inspection.".to_string(),
                 structured: None,
+                new_cwd: None,
             });
         }
 

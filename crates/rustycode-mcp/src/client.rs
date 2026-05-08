@@ -1,7 +1,7 @@
 //! MCP client implementation
 
 use crate::protocol::{JsonRpcRequest, McpEvent};
-use crate::transport::Transport;
+use crate::transport::{IncomingMessage, Transport};
 use crate::types::*;
 use crate::StdioTransport;
 use crate::{McpError, McpResult};
@@ -91,8 +91,45 @@ impl McpClient {
             .to_string()
     }
 
+    /// Subscribe to MCP events (tool changes, progress, logs).
+    pub fn subscribe_events(&self) -> broadcast::Receiver<McpEvent> {
+        self.event_sender.subscribe()
+    }
+
+    /// Drain pending notifications from a server's transport and dispatch as events.
+    ///
+    /// This should be called periodically (e.g., from a background task) so that
+    /// server-initiated notifications like `notifications/tools/list_changed` are
+    /// processed.
+    pub async fn drain_notifications(&self, server_id: &str) {
+        let mut transports = self.transports.write().await;
+        let Some(transport) = transports.get_mut(server_id) else {
+            return;
+        };
+
+        // Drain all pending messages without blocking
+        while let Ok(msg) = transport.try_receive() {
+            match msg {
+                IncomingMessage::Notification(n) => {
+                    self.handle_notification(server_id, &n.method, n.params);
+                }
+                IncomingMessage::Request(r) => {
+                    debug!(
+                        "Received server-initiated request from '{}': {}",
+                        server_id, r.method
+                    );
+                }
+                IncomingMessage::Response(r) => {
+                    debug!(
+                        "Received unsolicited response from '{}': {:?}",
+                        server_id, r.id
+                    );
+                }
+            }
+        }
+    }
+
     /// Process incoming notification and dispatch event
-    #[allow(dead_code)]
     fn handle_notification(&self, server_id: &str, method: &str, params: Option<Value>) {
         let event = match method {
             "notifications/tools/list_changed" => McpEvent::ToolsListChanged {
@@ -586,5 +623,83 @@ mod tests {
     async fn test_client_get_capabilities_none() {
         let client = McpClient::default_config();
         assert!(client.capabilities("nonexistent").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_subscribe_events_receives_notification() {
+        let client = McpClient::default_config();
+        let mut rx = client.subscribe_events();
+
+        // Simulate a notification dispatch
+        client.handle_notification("test-server", "notifications/tools/list_changed", None);
+
+        let event = rx.try_recv().unwrap();
+        match event {
+            McpEvent::ToolsListChanged { server_id } => {
+                assert_eq!(server_id, "test-server");
+            }
+            other => panic!("expected ToolsListChanged, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_handle_notification_progress() {
+        let client = McpClient::new(McpClientConfig::default());
+        let mut rx = client.subscribe_events();
+
+        client.handle_notification(
+            "srv",
+            "notifications/progress",
+            Some(json!({"progress": 0.5, "message": "halfway"})),
+        );
+
+        match rx.try_recv().unwrap() {
+            McpEvent::ProgressNotification { progress, message } => {
+                assert!((progress - 0.5).abs() < f64::EPSILON);
+                assert_eq!(message.as_deref(), Some("halfway"));
+            }
+            other => panic!("expected ProgressNotification, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_handle_notification_log() {
+        let client = McpClient::new(McpClientConfig::default());
+        let mut rx = client.subscribe_events();
+
+        client.handle_notification(
+            "srv",
+            "notifications/message",
+            Some(json!({"message": "hello from server"})),
+        );
+
+        match rx.try_recv().unwrap() {
+            McpEvent::LogNotification { message, .. } => {
+                assert_eq!(message, "hello from server");
+            }
+            other => panic!("expected LogNotification, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_handle_notification_unknown() {
+        let client = McpClient::new(McpClientConfig::default());
+        let mut rx = client.subscribe_events();
+
+        client.handle_notification("srv", "custom/method", Some(json!({"k": "v"})));
+
+        match rx.try_recv().unwrap() {
+            McpEvent::UnknownNotification { method, .. } => {
+                assert_eq!(method, "custom/method");
+            }
+            other => panic!("expected UnknownNotification, got {:?}", other),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_drain_notifications_no_server() {
+        let client = McpClient::default_config();
+        // Should not panic on missing server
+        client.drain_notifications("nonexistent").await;
     }
 }

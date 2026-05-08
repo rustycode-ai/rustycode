@@ -28,6 +28,11 @@ pub trait Transport: Send + Sync {
     /// Receive the next message (request or notification)
     async fn receive(&mut self) -> McpResult<IncomingMessage>;
 
+    /// Try to receive a pending message without blocking.
+    ///
+    /// Returns `Ok(message)` if one was buffered, or `Err` if none available.
+    fn try_receive(&mut self) -> McpResult<IncomingMessage>;
+
     /// Check if transport is connected
     fn is_connected(&self) -> bool;
 
@@ -292,6 +297,18 @@ impl Transport for StdioTransport {
             self.connected = false;
             Err(McpError::ConnectionClosed)
         }
+    }
+
+    fn try_receive(&mut self) -> McpResult<IncomingMessage> {
+        self.inbox.try_recv().map_err(|e| match e {
+            tokio::sync::mpsc::error::TryRecvError::Empty => {
+                McpError::TransportError("no pending messages".to_string())
+            }
+            tokio::sync::mpsc::error::TryRecvError::Disconnected => {
+                self.connected = false;
+                McpError::ConnectionClosed
+            }
+        })
     }
 
     fn is_connected(&self) -> bool {

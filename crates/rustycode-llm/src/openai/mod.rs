@@ -77,7 +77,10 @@ impl OpenAiProvider {
         let tools = match request.tools {
             Some(tools) => {
                 let normalized = crate::tools::normalize_tools_for_openai(&tools);
-                crate::tools::sanitize_tools_for_strict_providers(&normalized)
+                // Chat Completions: no strict mode, no sanitization
+                // (OpenAI accepts schemas as-is; sanitization is only for
+                // providers that don't support strict mode like Zhipu/GLM)
+                normalized
             }
             None => {
                 // Auto-select tools based on user prompt
@@ -797,8 +800,16 @@ impl OpenAiProvider {
         // Use intelligent tool selection if tools not explicitly provided
         let tools = match request.tools {
             Some(tools) => {
-                let normalized = crate::tools::normalize_tools_for_openai(&tools);
-                crate::tools::sanitize_tools_for_strict_providers(&normalized)
+                let mut normalized = crate::tools::normalize_tools_for_openai(&tools);
+                // Responses API: enable strict mode so OpenAI normalizes schemas
+                // (adds additionalProperties: false, marks all fields required)
+                for tool in &mut normalized {
+                    if let Some(func) = tool.get_mut("function") {
+                        func.as_object_mut()
+                            .map(|obj| obj.insert("strict".to_string(), serde_json::json!(true)));
+                    }
+                }
+                normalized
             }
             None => {
                 // Auto-select tools based on user prompt

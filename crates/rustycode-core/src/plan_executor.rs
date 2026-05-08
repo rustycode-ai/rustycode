@@ -421,6 +421,7 @@ mod tests {
                 exit_code: Some(1),
                 success: false,
                 data: None,
+                new_cwd: None,
             })
         };
 
@@ -477,6 +478,7 @@ mod tests {
                 exit_code: Some(1),
                 success: false,
                 data: None,
+                new_cwd: None,
             })
         };
 
@@ -513,6 +515,7 @@ mod tests {
                 exit_code: Some(0),
                 success: true,
                 data: None,
+                new_cwd: None,
             })
         };
 
@@ -580,6 +583,7 @@ mod tests {
                 exit_code: Some(0),
                 success: true,
                 data: None,
+                new_cwd: None,
             })
         };
 

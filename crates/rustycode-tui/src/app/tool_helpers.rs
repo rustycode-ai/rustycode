@@ -285,6 +285,7 @@ mod tests {
             success: true,
             data: Some(serde_json::json!({"k":"v"})),
             exit_code: Some(0),
+            new_cwd: None,
         };
         let summary = format_tool_result_summary(&result, "read_file");
         assert!(summary.contains("success=true"));

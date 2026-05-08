@@ -97,6 +97,19 @@ pub enum ResponsesApiInputItem {
     /// The output of a function call.
     #[serde(rename = "function_call_output")]
     FunctionCallOutput { call_id: String, output: String },
+    /// A reasoning item from a previous response (for round-tripping).
+    ///
+    /// OpenAI reasoning models (o4-mini, GPT-5.x) return encrypted reasoning
+    /// that MUST be passed back in follow-up requests or the model errors.
+    #[serde(rename = "reasoning")]
+    Reasoning {
+        #[serde(default)]
+        id: String,
+        #[serde(default)]
+        summary: Vec<ResponsesApiReasoningSummary>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        encrypted_content: Option<String>,
+    },
 }
 
 /// Content can be a plain string or an array of typed content parts.
@@ -790,5 +803,45 @@ mod tests {
         assert_eq!(blocks.len(), 1);
         assert!(blocks[0].thinking.is_empty());
         assert_eq!(blocks[0].data, "enc_only_data");
+    }
+
+    #[test]
+    fn responses_input_item_reasoning_roundtrip() {
+        let item = ResponsesApiInputItem::Reasoning {
+            id: "rs_abc123".to_string(),
+            summary: vec![ResponsesApiReasoningSummary::SummaryText {
+                text: "Analyzing the problem...".to_string(),
+            }],
+            encrypted_content: Some("enc_data_xyz".to_string()),
+        };
+        let json = serde_json::to_string(&item).unwrap();
+        assert!(json.contains("\"type\":\"reasoning\""));
+        assert!(json.contains("\"encrypted_content\":\"enc_data_xyz\""));
+        assert!(json.contains("\"id\":\"rs_abc123\""));
+
+        let parsed: ResponsesApiInputItem = serde_json::from_str(&json).unwrap();
+        if let ResponsesApiInputItem::Reasoning {
+            id,
+            encrypted_content,
+            ..
+        } = parsed
+        {
+            assert_eq!(id, "rs_abc123");
+            assert_eq!(encrypted_content.as_deref(), Some("enc_data_xyz"));
+        } else {
+            panic!("expected Reasoning variant");
+        }
+    }
+
+    #[test]
+    fn responses_input_item_reasoning_skips_none_encrypted() {
+        let item = ResponsesApiInputItem::Reasoning {
+            id: String::new(),
+            summary: Vec::new(),
+            encrypted_content: None,
+        };
+        let json = serde_json::to_string(&item).unwrap();
+        assert!(json.contains("\"type\":\"reasoning\""));
+        assert!(!json.contains("encrypted_content"));
     }
 }

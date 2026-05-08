@@ -47,7 +47,7 @@ pub fn original_base() -> Option<PathBuf> {
     })
 }
 
-/// Check if currently in a worktree
+/// Check if currently in a worktree (milestone auto-worktree)
 pub fn in_worktree() -> bool {
     original_base().is_some()
 }
