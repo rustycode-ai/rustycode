@@ -525,10 +525,7 @@ fn test_roundtrip_tool_result_block_forced_user_role() {
     let provider = make_anthropic_provider();
     let msgs = vec![ChatMessage {
         role: MessageRole::User,
-        content: MessageContent::Blocks(vec![ProtoBlock::tool_result(
-            "tu_1",
-            "file content here",
-        )]),
+        content: MessageContent::Blocks(vec![ProtoBlock::tool_result("tu_1", "file content here")]),
     }];
     let result = provider.parse_conversation_messages(&msgs);
     assert_eq!(result.len(), 1);
@@ -592,10 +589,7 @@ fn test_roundtrip_tool_result_no_error_omits_flag() {
     let provider = make_anthropic_provider();
     let msgs = vec![ChatMessage {
         role: MessageRole::User,
-        content: MessageContent::Blocks(vec![ProtoBlock::tool_result(
-            "tu_ok",
-            "success output",
-        )]),
+        content: MessageContent::Blocks(vec![ProtoBlock::tool_result("tu_ok", "success output")]),
     }];
     let result = provider.parse_conversation_messages(&msgs);
     assert_eq!(result.len(), 1);
@@ -1005,9 +999,8 @@ fn test_completion_request_with_json_schema() {
         },
         "required": ["items"]
     });
-    let request =
-        crate::provider::CompletionRequest::new("claude-sonnet-4-6".to_string(), vec![])
-            .with_json_schema(schema.clone());
+    let request = crate::provider::CompletionRequest::new("claude-sonnet-4-6".to_string(), vec![])
+        .with_json_schema(schema.clone());
     assert!(request.output_config.is_some());
     let oc = request.output_config.unwrap();
     assert!(oc.format.is_some());

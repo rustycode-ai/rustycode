@@ -444,11 +444,7 @@ impl LLMProvider for ZhipuProvider {
             let body_json = serde_json::to_string(&body).unwrap_or_default();
             let preview = if body_json.len() > 2000 {
                 let end = body_json.floor_char_boundary(2000);
-                format!(
-                    "{}... ({} bytes total)",
-                    &body_json[..end],
-                    body_json.len()
-                )
+                format!("{}... ({} bytes total)", &body_json[..end], body_json.len())
             } else {
                 body_json
             };

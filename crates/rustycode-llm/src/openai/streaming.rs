@@ -72,15 +72,12 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                                 delta.get("tool_calls").and_then(|tc| tc.as_array())
                             {
                                 for tc_delta in tool_calls {
-                                    let index = tc_delta
-                                        .get("index")
-                                        .and_then(|i| i.as_u64())
-                                        .unwrap_or(0) as usize;
+                                    let index =
+                                        tc_delta.get("index").and_then(|i| i.as_u64()).unwrap_or(0)
+                                            as usize;
 
                                     // Check for tool call start (has id and function.name)
-                                    if let Some(id) =
-                                        tc_delta.get("id").and_then(|i| i.as_str())
-                                    {
+                                    if let Some(id) = tc_delta.get("id").and_then(|i| i.as_str()) {
                                         let name = tc_delta
                                             .get("function")
                                             .and_then(|f| f.get("name"))
@@ -108,10 +105,9 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                                         if !partial.is_empty() {
                                             events.push(Ok(SSEEvent::ContentBlockDelta {
                                                 index,
-                                                delta:
-                                                    crate::provider::ContentDelta::PartialJson {
-                                                        partial_json: partial.to_string(),
-                                                    },
+                                                delta: crate::provider::ContentDelta::PartialJson {
+                                                    partial_json: partial.to_string(),
+                                                },
                                             }));
                                         }
                                     }
@@ -411,9 +407,7 @@ fn parse_usage(u: &serde_json::Value) -> Option<Usage> {
 }
 
 /// Extract an error from a JSON value that has a top-level "error" object.
-fn extract_stream_error(
-    data: &serde_json::Value,
-) -> Option<Result<StreamEvent, ProviderError>> {
+fn extract_stream_error(data: &serde_json::Value) -> Option<Result<StreamEvent, ProviderError>> {
     let error = data.get("error")?;
     let code = error
         .get("code")

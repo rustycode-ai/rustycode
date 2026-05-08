@@ -242,8 +242,7 @@ fn test_is_reasoning_model() {
 
 #[test]
 fn test_build_request_body_standard_model() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "gpt-4o".to_string(),
         vec![],
@@ -265,8 +264,7 @@ fn test_build_request_body_standard_model() {
 
 #[test]
 fn test_build_request_body_reasoning_model() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "o4-mini".to_string(),
         vec![],
@@ -288,8 +286,7 @@ fn test_build_request_body_reasoning_model() {
 
 #[test]
 fn test_build_request_body_glm5_thinking() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "glm-5.1".to_string(),
         vec![],
@@ -317,8 +314,7 @@ fn test_build_request_body_glm5_thinking() {
 
 #[test]
 fn test_build_request_body_standard_model_no_thinking() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "gpt-4o".to_string(),
         vec![],
@@ -500,8 +496,7 @@ fn test_new_without_validation() {
     let config = make_config(Some(
         &std::env::var("OPENAI_API_KEY").unwrap_or_else(|_| "sk-test".to_string()),
     ));
-    let provider =
-        OpenAiProvider::new_without_validation(config, "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new_without_validation(config, "gpt-4o".to_string()).unwrap();
     assert_eq!(<OpenAiProvider as LLMProvider>::name(&provider), "openai");
 }
 
@@ -523,8 +518,8 @@ async fn test_is_available_with_key() {
 
 #[tokio::test]
 async fn test_is_available_without_key() {
-    let p = OpenAiProvider::new_without_validation(make_config(None), "gpt-4o".to_string())
-        .unwrap();
+    let p =
+        OpenAiProvider::new_without_validation(make_config(None), "gpt-4o".to_string()).unwrap();
     assert!(!<OpenAiProvider as LLMProvider>::is_available(&p).await);
 }
 
@@ -755,10 +750,12 @@ fn test_sse_finish_reason_tool_calls_and_stop() {
     let has_stop = events_tool
         .iter()
         .any(|e| matches!(e, Ok(SSEEvent::ContentBlockStop { .. })));
-    let has_msg_delta = events_tool.iter().any(|e| matches!(
-        e,
-        Ok(SSEEvent::MessageDelta { stop_reason: Some(ref s), .. }) if s == "tool_use"
-    ));
+    let has_msg_delta = events_tool.iter().any(|e| {
+        matches!(
+            e,
+            Ok(SSEEvent::MessageDelta { stop_reason: Some(ref s), .. }) if s == "tool_use"
+        )
+    });
     assert!(
         has_stop,
         "tool_calls finish should produce ContentBlockStop"
@@ -773,10 +770,12 @@ fn test_sse_finish_reason_tool_calls_and_stop() {
     let has_stop2 = events_stop
         .iter()
         .any(|e| matches!(e, Ok(SSEEvent::ContentBlockStop { .. })));
-    let has_msg_delta2 = events_stop.iter().any(|e| matches!(
-        e,
-        Ok(SSEEvent::MessageDelta { stop_reason: Some(ref s), .. }) if s == "end_turn"
-    ));
+    let has_msg_delta2 = events_stop.iter().any(|e| {
+        matches!(
+            e,
+            Ok(SSEEvent::MessageDelta { stop_reason: Some(ref s), .. }) if s == "end_turn"
+        )
+    });
     assert!(has_stop2, "stop finish should produce ContentBlockStop");
     assert!(has_msg_delta2, "stop finish should produce MessageDelta");
 }
@@ -1463,8 +1462,7 @@ fn test_sse_parse_tool_call_no_id_no_name_no_args() {
 
 #[test]
 fn test_build_request_body_standard_model_uses_max_tokens() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "gpt-4o".to_string(),
         vec![types::OpenAiMessage {
@@ -1570,8 +1568,7 @@ fn test_build_request_body_effort_levels() {
 
 #[test]
 fn test_build_request_body_standard_model_no_effort() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "gpt-4o".to_string(),
         vec![],
@@ -1593,8 +1590,7 @@ fn test_build_request_body_standard_model_no_effort() {
 
 #[test]
 fn test_build_request_body_with_tools() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let tools = vec![
         serde_json::json!({
             "type": "function",
@@ -1637,8 +1633,7 @@ fn test_build_request_body_with_tools() {
 
 #[test]
 fn test_build_request_body_empty_tools_omits_field() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "gpt-4o".to_string(),
         vec![],
@@ -1660,8 +1655,7 @@ fn test_build_request_body_empty_tools_omits_field() {
 
 #[test]
 fn test_build_request_body_no_max_tokens_no_temperature() {
-    let provider =
-        OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
+    let provider = OpenAiProvider::new(make_config(Some("sk-test")), "gpt-4o".to_string()).unwrap();
     let body = provider.build_request_body(
         "gpt-4o".to_string(),
         vec![types::OpenAiMessage {

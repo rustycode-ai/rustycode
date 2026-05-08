@@ -4,9 +4,7 @@
 //! and parses SSE events into structured `StreamEvent` results.
 
 use crate::advisor::AdvisorTool;
-use crate::provider::{
-    CompletionRequest, ProviderError, StreamChunk, Usage,
-};
+use crate::provider::{CompletionRequest, ProviderError, StreamChunk, Usage};
 use futures::{Stream, StreamExt};
 use rustycode_protocol::stream_event::StreamEvent;
 use std::collections::HashMap;
@@ -17,9 +15,7 @@ use super::helpers::{
     apply_cache_to_last_messages, map_anthropic_error, map_anthropic_structured_error,
     normalize_thinking_for_model,
 };
-use super::types::{
-    AnthropicRequest, CacheControl, SystemContentBlock, SystemPrompt,
-};
+use super::types::{AnthropicRequest, CacheControl, SystemContentBlock, SystemPrompt};
 
 impl super::AnthropicProvider {
     /// Internal implementation of streaming completion without retry logic.

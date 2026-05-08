@@ -1,9 +1,9 @@
 //! Anthropic Claude LLM provider implementation.
 
 pub(crate) mod helpers;
+pub(crate) mod streaming;
 #[cfg(test)]
 mod tests;
-pub(crate) mod streaming;
 pub(crate) mod types;
 
 use crate::advisor::{AdvisorConfig, AdvisorTool};
@@ -30,13 +30,12 @@ use helpers::{
     normalize_thinking_for_model, parse_tool_result_content,
 };
 use types::{
-    AnthropicMessage, AnthropicRequest, AnthropicResponse, ContentBlock,
-    ImageSource, SystemContentBlock, SystemPrompt, ToolResultContent,
+    AnthropicMessage, AnthropicRequest, AnthropicResponse, ContentBlock, ImageSource,
+    SystemContentBlock, SystemPrompt, ToolResultContent,
 };
 // Re-export types used by integration tests and examples
 pub use types::{
-    AnthropicRequestContent, CacheControl, CitationMetadata, SearchResultBlock,
-    SearchResultContent,
+    AnthropicRequestContent, CacheControl, CitationMetadata, SearchResultBlock, SearchResultContent,
 };
 
 /// Anthropic Claude LLM provider

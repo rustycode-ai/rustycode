@@ -3,9 +3,7 @@
 //! Contains the non-streaming and streaming Responses API methods,
 //! plus the WebSocket streaming path (feature-gated).
 
-use crate::provider::{
-    CompletionRequest, CompletionResponse, ProviderError, StreamChunk,
-};
+use crate::provider::{CompletionRequest, CompletionResponse, ProviderError, StreamChunk};
 use crate::response_debug::ResponseDebugContext;
 use crate::retry::extract_retry_after_ms;
 use crate::{build_request, get_api_key};

@@ -34,7 +34,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 // Re-export internal types for use within this module's methods and tests.
-use types::{OpenAiContentPart, OpenAiImageUrl, OpenAiMessage, OpenAiRequest, OpenAiResponse, OpenAiToolCall, OpenAiFunction};
+use types::{
+    OpenAiContentPart, OpenAiFunction, OpenAiImageUrl, OpenAiMessage, OpenAiRequest,
+    OpenAiResponse, OpenAiToolCall,
+};
 
 /// OpenAI LLM provider (also supports OpenAI-compatible APIs)
 pub struct OpenAiProvider {
