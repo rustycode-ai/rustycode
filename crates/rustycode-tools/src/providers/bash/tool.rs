@@ -4,9 +4,8 @@ use super::rate_limiter::BASH_RATE_LIMITER;
 use super::registry::BASH_SESSION_REGISTRY;
 use super::session::BashSession;
 use super::validation::{ensure_path_within_workspace, validate_command_safety};
-use crate::transform::transform_by_name;
 use crate::truncation::truncate_bash_output;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use crate::{ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -20,6 +19,9 @@ use std::time::{Duration, Instant};
 pub struct BashParams {
     /// Command to execute
     pub command: String,
+    /// If true, restart the bash session before executing the command
+    #[serde(default)]
+    pub restart: bool,
     /// Optional timeout in milliseconds (max 600000)
     #[serde(
         rename = "timeout",
@@ -27,264 +29,199 @@ pub struct BashParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub timeout_secs: Option<u64>,
-    /// Description of what this command does
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    /// Set to true to run this command in the background
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub run_in_background: Option<bool>,
 }
 
-#[derive(Default)]
-pub struct BashTool;
+/// Execute a command in an isolated Docker container.
+///
+/// Falls back to normal execution if Docker is unavailable.
+fn execute_in_docker(command: &str, workspace: &Path) -> Result<ToolOutput> {
+    use crate::providers::docker_isolation::{DockerIsolation, DockerIsolationConfig};
 
-impl BashTool {
-    /// Execute a command in an isolated Docker container.
-    ///
-    /// Falls back to normal execution if Docker is unavailable.
-    fn execute_in_docker(&self, command: &str, workspace: &Path) -> Result<ToolOutput> {
-        use crate::providers::docker_isolation::{DockerIsolation, DockerIsolationConfig};
-
-        if !DockerIsolation::is_docker_available() {
-            tracing::warn!("Docker isolation requested but Docker not available, falling back to local execution");
-            return Err(anyhow!(
-                "Docker isolation requested but Docker is not available. \
-                 Please install Docker or disable isolation mode."
-            ));
-        }
-
-        let config = DockerIsolationConfig::new();
-        let isolation = DockerIsolation::new(config);
-
-        let result = isolation.execute(command, workspace)?;
-
-        let truncated = truncate_bash_output(&result.stdout, &result.stderr, result.exit_code);
-        let output = if result.exit_code == 0 {
-            truncated.output
-        } else {
-            format!(
-                "Exit code: {}\n\n{}{}",
-                result.exit_code,
-                truncated.output,
-                if result.stderr.is_empty() {
-                    String::new()
-                } else {
-                    format!("\nStderr:\n{}", result.stderr)
-                }
-            )
-        };
-
-        Ok(ToolOutput::with_structured(
-            output,
-            json!({
-                "exit_code": result.exit_code,
-                "container_id": result.container_id,
-                "duration_ms": result.duration_ms,
-                "isolated": true
-            }),
-        ))
+    if !DockerIsolation::is_docker_available() {
+        tracing::warn!(
+            "Docker isolation requested but Docker not available, falling back to local execution"
+        );
+        return Err(anyhow!(
+            "Docker isolation requested but Docker is not available. \
+             Please install Docker or disable isolation mode."
+        ));
     }
 
-    /// Execute a command inside an OS-level sandbox.
-    ///
-    /// Uses `rustycode-sandbox` for platform-specific isolation:
-    /// - macOS: Seatbelt (sandbox-exec)
-    /// - Linux: Landlock + env stripping
-    /// - Windows: Job Objects (stub)
-    fn execute_in_os_sandbox(&self, command: &str, ctx: &ToolContext) -> Result<ToolOutput> {
-        use rustycode_sandbox::{SandboxManager, SandboxPolicy};
+    let config = DockerIsolationConfig::new();
+    let isolation = DockerIsolation::new(config);
 
-        let manager =
-            SandboxManager::new().map_err(|e| anyhow!("Failed to initialize OS sandbox: {e}"))?;
+    let result = isolation.execute(command, workspace)?;
 
-        let policy = SandboxPolicy::from_config(
-            ctx.sandbox.allowed_paths.as_deref(),
-            &ctx.sandbox.denied_paths,
-            ctx.sandbox.timeout_secs,
-            &ctx.cwd,
-        );
+    let truncated = truncate_bash_output(&result.stdout, &result.stderr, result.exit_code);
+    let output = if result.exit_code == 0 {
+        truncated.output
+    } else {
+        format!(
+            "Exit code: {}\n\n{}{}",
+            result.exit_code,
+            truncated.output,
+            if result.stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\nStderr:\n{}", result.stderr)
+            }
+        )
+    };
 
-        let sandbox_result = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(manager.execute(command, &policy))
-        })
-        .map_err(|e| anyhow!("OS sandbox execution failed: {e}"))?;
+    Ok(ToolOutput::with_structured(
+        output,
+        json!({
+            "exit_code": result.exit_code,
+            "container_id": result.container_id,
+            "duration_ms": result.duration_ms,
+            "isolated": true
+        }),
+    ))
+}
 
-        let truncated = truncate_bash_output(
-            &sandbox_result.stdout,
-            &sandbox_result.stderr,
-            sandbox_result.exit_code.unwrap_or(-1),
-        );
+/// Execute a command inside an OS-level sandbox.
+///
+/// Uses `rustycode-sandbox` for platform-specific isolation:
+/// - macOS: Seatbelt (sandbox-exec)
+/// - Linux: Landlock + env stripping
+/// - Windows: Job Objects (stub)
+fn execute_in_os_sandbox(command: &str, ctx: &ToolContext) -> Result<ToolOutput> {
+    use rustycode_sandbox::{SandboxManager, SandboxPolicy};
 
-        let output = if sandbox_result.exit_code.unwrap_or(-1) == 0 {
-            truncated.output
-        } else {
-            format!(
-                "Exit code: {}\n\n{}{}",
-                sandbox_result
-                    .exit_code
-                    .map(|c| c.to_string())
-                    .unwrap_or_else(|| "unknown".to_string()),
-                truncated.output,
-                if sandbox_result.stderr.is_empty() {
-                    String::new()
-                } else {
-                    format!("\nStderr:\n{}", sandbox_result.stderr)
-                },
-            )
-        };
+    let manager =
+        SandboxManager::new().map_err(|e| anyhow!("Failed to initialize OS sandbox: {e}"))?;
 
-        Ok(ToolOutput::with_structured(
-            output,
-            json!({
-                "exit_code": sandbox_result.exit_code,
-                "os_sandbox": true,
-                "sandbox_available": manager.is_available(),
-                "timed_out": sandbox_result.timed_out,
-            }),
-        ))
-    }
+    let policy = SandboxPolicy::from_config(
+        ctx.sandbox.allowed_paths.as_deref(),
+        &ctx.sandbox.denied_paths,
+        ctx.sandbox.timeout_secs,
+        &ctx.cwd,
+    );
+
+    let sandbox_result = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(manager.execute(command, &policy))
+    })
+    .map_err(|e| anyhow!("OS sandbox execution failed: {e}"))?;
+
+    let truncated = truncate_bash_output(
+        &sandbox_result.stdout,
+        &sandbox_result.stderr,
+        sandbox_result.exit_code.unwrap_or(-1),
+    );
+
+    let output = if sandbox_result.exit_code.unwrap_or(-1) == 0 {
+        truncated.output
+    } else {
+        format!(
+            "Exit code: {}\n\n{}{}",
+            sandbox_result
+                .exit_code
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "unknown".to_string()),
+            truncated.output,
+            if sandbox_result.stderr.is_empty() {
+                String::new()
+            } else {
+                format!("\nStderr:\n{}", sandbox_result.stderr)
+            },
+        )
+    };
+
+    Ok(ToolOutput::with_structured(
+        output,
+        json!({
+            "exit_code": sandbox_result.exit_code,
+            "os_sandbox": true,
+            "sandbox_available": manager.is_available(),
+            "timed_out": sandbox_result.timed_out,
+        }),
+    ))
 }
 
 #[cfg(windows)]
-impl BashTool {
-    fn try_native_fallback(&self, command: &str) -> Option<Result<ToolOutput>> {
-        use crate::native_tools::{native_cat, native_grep, native_ls};
+fn try_native_fallback(command: &str) -> Option<Result<ToolOutput>> {
+    use crate::native_tools::{native_cat, native_grep, native_ls};
 
-        let trimmed = command.trim();
-        let parts: Vec<&str> = trimmed.split_whitespace().collect();
-        if parts.is_empty() {
-            return None;
+    let trimmed = command.trim();
+    let parts: Vec<&str> = trimmed.split_whitespace().collect();
+    if parts.is_empty() {
+        return None;
+    }
+
+    let binary = parts[0].to_lowercase();
+    match binary.as_str() {
+        "cat" if parts.len() == 2 && !parts[1].starts_with('-') => {
+            let path = std::path::Path::new(parts[1]);
+            Some(
+                native_cat(path)
+                    .map(ToolOutput::text)
+                    .map_err(|e| anyhow::anyhow!("native cat failed: {e}")),
+            )
         }
+        "ls" if parts.len() == 1 || (parts.len() == 2 && !parts[1].starts_with('-')) => {
+            let target = if parts.len() == 2 {
+                std::path::Path::new(parts[1])
+            } else {
+                std::path::Path::new(".")
+            };
+            Some(
+                native_ls(target)
+                    .map(|files| ToolOutput::text(files.join("\n")))
+                    .map_err(|e| anyhow::anyhow!("native ls failed: {e}")),
+            )
+        }
+        "grep" => {
+            let mut args = parts[1..].iter().peekable();
+            let mut pattern = None;
+            let mut target_path = None;
 
-        let binary = parts[0].to_lowercase();
-        match binary.as_str() {
-            "cat" if parts.len() == 2 && !parts[1].starts_with('-') => {
-                let path = std::path::Path::new(parts[1]);
-                Some(
-                    native_cat(path)
-                        .map(ToolOutput::text)
-                        .map_err(|e| anyhow::anyhow!("native cat failed: {e}")),
-                )
-            }
-            "ls" if parts.len() == 1 || (parts.len() == 2 && !parts[1].starts_with('-')) => {
-                let target = if parts.len() == 2 {
-                    std::path::Path::new(parts[1])
+            while let Some(&arg) = args.next() {
+                if arg.starts_with('-') {
+                    continue;
+                }
+                if pattern.is_none() {
+                    pattern = Some(arg);
                 } else {
-                    std::path::Path::new(".")
-                };
-                Some(
-                    native_ls(target)
-                        .map(|files| ToolOutput::text(files.join("\n")))
-                        .map_err(|e| anyhow::anyhow!("native ls failed: {e}")),
-                )
-            }
-            "grep" => {
-                let mut args = parts[1..].iter().peekable();
-                let mut pattern = None;
-                let mut target_path = None;
-
-                while let Some(&arg) = args.next() {
-                    if arg.starts_with('-') {
-                        continue;
-                    }
-                    if pattern.is_none() {
-                        pattern = Some(arg);
-                    } else {
-                        target_path = Some(arg);
-                    }
-                }
-
-                match (pattern, target_path) {
-                    (Some(pat), Some(path)) => Some(
-                        native_grep(std::path::Path::new(path), pat)
-                            .map(ToolOutput::text)
-                            .map_err(|e| anyhow::anyhow!("native grep failed: {e}")),
-                    ),
-                    _ => None,
+                    target_path = Some(arg);
                 }
             }
-            _ => None,
+
+            match (pattern, target_path) {
+                (Some(pat), Some(path)) => Some(
+                    native_grep(std::path::Path::new(path), pat)
+                        .map(ToolOutput::text)
+                        .map_err(|e| anyhow::anyhow!("native grep failed: {e}")),
+                ),
+                _ => None,
+            }
         }
+        _ => None,
     }
 }
 
-impl Tool for BashTool {
-    fn name(&self) -> &'static str {
-        "bash"
-    }
+rustycode_tools_api::define_tool! {
+    pub struct BashTool;
 
-    fn description(&self) -> &'static str {
-        "Run bash/POSIX commands in a persistent shell session (works on Unix, Linux, macOS, WSL, and Cygwin). \
+    name: "bash",
+    description: "Run bash/POSIX commands in a persistent shell session (works on Unix, Linux, macOS, WSL, and Cygwin). \
          Prefer dedicated tools over bash for common operations: use read_file/edit_file for file I/O, \
          grep for searching, glob for file matching, write_file for creating files. \
          Use bash for: running tests, build commands, git operations, installing packages, \
          and complex multi-step operations that need shell features (pipes, redirects, loops). \
-         On Windows: bash is detected via WSL or Cygwin if available."
-    }
+         On Windows: bash is detected via WSL or Cygwin if available.",
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Implement, ToolTag::Ops],
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        let cmd_desc = if cfg!(unix) {
-            "Shell command to execute (bash/zsh syntax)"
-        } else {
-            "Shell command to execute (PowerShell/cmd syntax)"
-        };
-        json!({
-            "type": "object",
-            "required": ["command"],
-            "properties": {
-                "command": {
-                    "type": "string",
-                    "description": cmd_desc
-                },
-                "restart": {
-                    "type": "boolean",
-                    "description": "If true, restart the bash session before executing the command"
-                },
-                "timeout": {
-                    "type": "integer",
-                    "description": "Timeout in milliseconds (max 600000)",
-                    "default": 120000
-                }
-            }
-        })
-    }
-
-    fn tags(&self) -> &[ToolTag] {
-        &[ToolTag::Implement, ToolTag::Ops]
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        crate::check_permission(self.permission(), ctx)?;
+    execute(params: BashParams, ctx) {
+        crate::check_permission(ToolPermission::Execute, ctx)?;
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "bash")?;
         }
 
-        let command = params
-            .get("command")
-            .and_then(Value::as_str)
-            .ok_or_else(|| {
-                let actual = params
-                    .get("command")
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| "null".to_string());
-                anyhow!("missing string parameter 'command', got: {actual}")
-            })?
-            .to_string();
-
-        let restart = params
-            .get("restart")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-
-        let timeout_secs = params
-            .get("timeout")
-            .or_else(|| params.get("timeout_secs"))
-            .and_then(Value::as_u64)
+        let command = params.command;
+        let restart = params.restart;
+        let timeout_secs = params.timeout_secs
             .map(|t| if t > 600 { t / 1000 } else { t })
             .unwrap_or(120)
             .min(600);
@@ -314,7 +251,7 @@ impl Tool for BashTool {
                 .unwrap_or(false);
 
         if docker_requested {
-            return self.execute_in_docker(&command, &ctx.cwd);
+            return execute_in_docker(&command, &ctx.cwd);
         }
 
         let os_sandbox_requested = ctx.sandbox.os_sandbox
@@ -326,12 +263,12 @@ impl Tool for BashTool {
                 .unwrap_or(false);
 
         if os_sandbox_requested {
-            return self.execute_in_os_sandbox(&command, ctx);
+            return execute_in_os_sandbox(&command, ctx);
         }
 
         #[cfg(windows)]
         {
-            if let Some(native_result) = self.try_native_fallback(&command) {
+            if let Some(native_result) = try_native_fallback(&command) {
                 return native_result;
             }
         }
@@ -448,22 +385,6 @@ impl Tool for BashTool {
 
         let execution_time = start_time.elapsed();
 
-        if let Some(transform_name) = params.get("transform").and_then(Value::as_str) {
-            if let Some(transformed) = transform_by_name(transform_name, &stdout, &stderr) {
-                let structured = json!({
-                    "status": exit_code,
-                    "transformed": {
-                        "title": transformed.title,
-                        "short": transformed.short,
-                        "full": transformed.full,
-                        "structured": transformed.structured,
-                    },
-                    "execution_time_ms": execution_time.as_millis()
-                });
-                return Ok(ToolOutput::with_structured(transformed.short, structured));
-            }
-        }
-
         let truncated = truncate_bash_output(&stdout, &stderr, exit_code);
         let mut output_text = truncated.as_str().to_string();
 
@@ -496,6 +417,8 @@ impl Tool for BashTool {
     }
 }
 
+// ToolStreaming — kept as separate impl since define_tool! does not cover it.
+
 impl crate::streaming::ToolStreaming for BashTool {
     fn execute_stream(
         &self,
@@ -504,10 +427,10 @@ impl crate::streaming::ToolStreaming for BashTool {
     ) -> Result<crate::streaming::StreamReceiver> {
         use crate::streaming::{create_stream_channel, StreamChunk};
 
-        crate::check_permission(self.permission(), ctx)?;
+        crate::check_permission(ToolPermission::Execute, ctx)?;
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, self.name())?;
+            gate.check_access(ctx.role, "bash")?;
         }
 
         let command = params

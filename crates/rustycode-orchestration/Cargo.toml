@@ -17,9 +17,11 @@ anyhow.workspace = true
 async-trait.workspace = true
 bincode.workspace = true
 chrono = { workspace = true, features = ["serde"] }
+dashmap.workspace = true
 dirs.workspace = true
 fs2 = "0.4"
 futures.workspace = true
+parking_lot.workspace = true
 handlebars.workspace = true
 jsonschema = "0.26"
 once_cell.workspace = true

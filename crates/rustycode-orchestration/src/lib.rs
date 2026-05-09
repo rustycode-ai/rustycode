@@ -120,6 +120,7 @@ pub mod task_decomposer;
 pub mod task_dispatcher;
 pub mod task_runner;
 pub mod thinking;
+pub mod thinking_state;
 pub mod tool_tiers;
 pub mod types;
 pub mod verification_gates;
