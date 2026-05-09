@@ -1,19 +1,9 @@
+use super::*;
 use crate::{ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Context, Result};
-use schemars::JsonSchema;
+use anyhow::{anyhow, Context};
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
-
-#[derive(serde::Deserialize, JsonSchema)]
-pub struct TeamCreateParams {
-    /// Name for the new team. Used as directory name under ~/.claude/teams/
-    team_name: String,
-    /// Team description/purpose
-    description: Option<String>,
-    /// Type/role of the team lead (e.g., 'researcher', 'test-runner')
-    agent_type: Option<String>,
-}
 
 rustycode_tools_api::define_tool! {
     pub struct TeamCreateTool;
@@ -80,68 +70,11 @@ This creates:
     }
 }
 
-#[derive(serde::Deserialize, JsonSchema)]
-pub struct TeamDeleteParams {}
-
-rustycode_tools_api::define_tool! {
-    pub struct TeamDeleteTool;
-
-    name: "team_delete",
-    description: r#"Remove team and task directories when the swarm work is complete.
-
-This operation:
-- Removes the team directory (~/.claude/teams/{team-name}/)
-- Removes the task directory (~/.claude/tasks/{team-name}/)
-- Clears team context from the current session
-
-IMPORTANT: TeamDelete will fail if the team still has active members. Gracefully terminate teammates first, then call TeamDelete after all teammates have shut down."#,
-    permission: ToolPermission::Write,
-    tags: [ToolTag::Ops],
-
-    execute(_params: TeamDeleteParams, _ctx) {
-        // In production, the team name comes from session context.
-        // For now, return a message indicating the operation needs context.
-        Ok(ToolOutput::text(
-            "Team delete requires active team context from the session",
-        ))
-    }
-}
-
-fn validate_team_name(name: &str) -> Result<()> {
-    if name.is_empty() {
-        return Err(anyhow!("team_name must not be empty"));
-    }
-    if name.len() > 64 {
-        return Err(anyhow!("team_name must be at most 64 characters"));
-    }
-    // Allow alphanumeric, hyphens, underscores
-    let valid = name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-    if !valid {
-        return Err(anyhow!(
-            "team_name may only contain letters, digits, hyphens, and underscores"
-        ));
-    }
-    Ok(())
-}
-
-fn chrono_now_rfc3339() -> String {
-    // Avoid depending on chrono; use std time
-    let duration = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    format!("{}s since epoch", duration.as_secs())
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::tests_common::*;
     use super::*;
-    use crate::{Tool, ToolContext};
-
-    fn test_ctx() -> ToolContext {
-        ToolContext::new("/tmp")
-    }
+    use crate::Tool;
 
     #[test]
     fn test_team_create_metadata() {
@@ -190,19 +123,5 @@ mod tests {
         assert!(validate_team_name("has space").is_err());
         assert!(validate_team_name("bad!char").is_err());
         assert!(validate_team_name(&"x".repeat(65)).is_err());
-    }
-
-    #[test]
-    fn test_team_delete_metadata() {
-        let tool = TeamDeleteTool;
-        assert_eq!(tool.name(), "team_delete");
-        assert_eq!(tool.permission(), ToolPermission::Write);
-    }
-
-    #[test]
-    fn test_team_delete_returns_message() {
-        let tool = TeamDeleteTool;
-        let result = tool.execute(json!({}), &test_ctx());
-        assert!(result.is_ok());
     }
 }

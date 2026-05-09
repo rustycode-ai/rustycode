@@ -105,9 +105,7 @@ impl Runtime {
 
         // Register structured thinking tool for headless agent
         tools.register(
-            rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool::new(
-                None,
-            ),
+            rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool,
         );
         // Register ask_user tool so LLM can request clarification when stuck
         tools.register(rustycode_orchestration::ask_user_tool::AskUserTool);

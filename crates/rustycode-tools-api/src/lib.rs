@@ -870,6 +870,83 @@ macro_rules! define_tool {
             execute(&$self_ident, $params: $params_ty, $ctx) $body
         );
     };
+    // Variant with streaming support (zero-sized struct, no self in execute)
+    (
+        pub struct $name:ident;
+
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute($params:ident: $params_ty:ty, $ctx:ident) $body:block
+
+        execute_stream($stream_params:ident: $stream_params_ty:ty, $stream_ctx:ident) $stream_body:block
+    ) => {
+        pub struct $name;
+
+        $crate::__define_tool_impl!(
+            $name;
+            name: $tool_name,
+            description: $desc,
+            $( permission: $perm, )?
+            $( tags: [$($tag),*], )?
+            $( defer_loading: $defer, )?
+            $( returns: $output_ty, )?
+            $( read_only: $read_only, )?
+            $( destructive: $destructive, )?
+            $( idempotent: $idempotent, )?
+            $( open_world: $open_world, )?
+            execute($params: $params_ty, $ctx) $body
+            execute_stream($stream_params: $stream_params_ty, $stream_ctx) $stream_body
+        );
+    };
+    // Variant with streaming support (struct with fields, self in execute)
+    (
+        pub struct $name:ident {
+            $($field_vis:vis $field_name:ident : $field_type:ty),* $(,)?
+        }
+
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute(&$self_ident:ident, $params:ident: $params_ty:ty, $ctx:ident) $body:block
+
+        execute_stream(&$stream_self_ident:ident, $stream_params:ident: $stream_params_ty:ty, $stream_ctx:ident) $stream_body:block
+    ) => {
+        pub struct $name {
+            $($field_vis $field_name : $field_type),*
+        }
+
+        $crate::__define_tool_impl!(
+            $name;
+            name: $tool_name,
+            description: $desc,
+            $( permission: $perm, )?
+            $( tags: [$($tag),*], )?
+            $( defer_loading: $defer, )?
+            $( returns: $output_ty, )?
+            $( read_only: $read_only, )?
+            $( destructive: $destructive, )?
+            $( idempotent: $idempotent, )?
+            $( open_world: $open_world, )?
+            execute(&$self_ident, $params: $params_ty, $ctx) $body
+        );
+    };
 }
 
 #[macro_export]
@@ -967,6 +1044,126 @@ macro_rules! __define_tool_impl {
             }
         }
 
+    };
+    // Tool impl + ToolStreaming impl (zero-sized struct)
+    (
+        $name:ident;
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute($params:ident: $params_ty:ty, $ctx:ident) $body:block
+        execute_stream($stream_params:ident: $stream_params_ty:ty, $stream_ctx:ident) $stream_body:block
+    ) => {
+        impl $crate::Tool for $name {
+            fn name(&self) -> &'static str {
+                $tool_name
+            }
+
+            fn description(&self) -> &'static str {
+                $desc
+            }
+
+            fn parameters_schema(&self) -> serde_json::Value {
+                serde_json::to_value($crate::schemars::schema_for!($params_ty)).unwrap()
+            }
+
+            $crate::__define_tool_optional!(permission, $($perm)?);
+            $crate::__define_tool_optional!(tags, [$($($tag),*)?]);
+            $crate::__define_tool_optional!(defer_loading, $($defer)?);
+            $crate::__define_tool_output_schema!($($output_ty)?);
+            $crate::__define_tool_annotations!(
+                $($read_only)?,
+                $($destructive)?,
+                $($idempotent)?,
+                $($open_world)?
+            );
+
+            fn execute(&self, params_raw: serde_json::Value, $ctx: &$crate::ToolContext) -> anyhow::Result<$crate::ToolOutput> {
+                let $params: $params_ty = serde_json::from_value(params_raw)
+                    .map_err(|e| anyhow::anyhow!("Invalid parameters for tool {}: {}", $tool_name, e))?;
+                $body
+            }
+        }
+
+        impl $crate::streaming::ToolStreaming for $name {
+            fn execute_stream(
+                &self,
+                params_raw: serde_json::Value,
+                $stream_ctx: &$crate::ToolContext,
+            ) -> anyhow::Result<$crate::streaming::StreamReceiver> {
+                let $stream_params: $stream_params_ty = serde_json::from_value(params_raw)
+                    .map_err(|e| anyhow::anyhow!("Invalid parameters for tool {}: {}", $tool_name, e))?;
+                $stream_body
+            }
+        }
+    };
+    // Tool impl + ToolStreaming impl (struct with fields)
+    (
+        $name:ident;
+        name: $tool_name:expr,
+        description: $desc:expr,
+        $( permission: $perm:expr, )?
+        $( tags: [$($tag:expr),*], )?
+        $( defer_loading: $defer:expr, )?
+        $( returns: $output_ty:ty, )?
+        $( read_only: $read_only:expr, )?
+        $( destructive: $destructive:expr, )?
+        $( idempotent: $idempotent:expr, )?
+        $( open_world: $open_world:expr, )?
+
+        execute(&$self_ident:ident, $params:ident: $params_ty:ty, $ctx:ident) $body:block
+        execute_stream(&$stream_self_ident:ident, $stream_params:ident: $stream_params_ty:ty, $stream_ctx:ident) $stream_body:block
+    ) => {
+        impl $crate::Tool for $name {
+            fn name(&self) -> &'static str {
+                $tool_name
+            }
+
+            fn description(&self) -> &'static str {
+                $desc
+            }
+
+            fn parameters_schema(&self) -> serde_json::Value {
+                serde_json::to_value($crate::schemars::schema_for!($params_ty)).unwrap()
+            }
+
+            $crate::__define_tool_optional!(permission, $($perm)?);
+            $crate::__define_tool_optional!(tags, [$($($tag),*)?]);
+            $crate::__define_tool_optional!(defer_loading, $($defer)?);
+            $crate::__define_tool_output_schema!($($output_ty)?);
+            $crate::__define_tool_annotations!(
+                $($read_only)?,
+                $($destructive)?,
+                $($idempotent)?,
+                $($open_world)?
+            );
+
+            fn execute(&$self_ident, params_raw: serde_json::Value, $ctx: &$crate::ToolContext) -> anyhow::Result<$crate::ToolOutput> {
+                let $params: $params_ty = serde_json::from_value(params_raw)
+                    .map_err(|e| anyhow::anyhow!("Invalid parameters for tool {}: {}", $tool_name, e))?;
+                $body
+            }
+        }
+
+        impl $crate::streaming::ToolStreaming for $name {
+            fn execute_stream(
+                &$stream_self_ident,
+                params_raw: serde_json::Value,
+                $stream_ctx: &$crate::ToolContext,
+            ) -> anyhow::Result<$crate::streaming::StreamReceiver> {
+                let $stream_params: $stream_params_ty = serde_json::from_value(params_raw)
+                    .map_err(|e| anyhow::anyhow!("Invalid parameters for tool {}: {}", $tool_name, e))?;
+                $stream_body
+            }
+        }
     };
 }
 

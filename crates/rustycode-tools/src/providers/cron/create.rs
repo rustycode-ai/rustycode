@@ -1,28 +1,8 @@
+use super::*;
 use crate::{ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Result};
-use schemars::JsonSchema;
+use anyhow::anyhow;
 use serde_json::json;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static JOB_COUNTER: AtomicU64 = AtomicU64::new(1);
-
-#[derive(serde::Deserialize, JsonSchema)]
-pub struct CronCreateParams {
-    /// Standard 5-field cron expression in local time: M H DoM Mon DoW (e.g., '*/5 * * * *' = every 5 min, '30 14 28 2 *' = Feb 28 at 2:30pm local once)
-    cron: String,
-    /// The prompt to enqueue at each fire time
-    prompt: String,
-    /// true = fire on every cron match until deleted; false = fire once at next match then auto-delete
-    #[serde(default = "default_true")]
-    recurring: bool,
-    /// true = persist to .claude/scheduled_tasks.json and survive restarts. Only use when user explicitly asks for persistence
-    #[serde(default)]
-    durable: bool,
-}
-
-fn default_true() -> bool {
-    true
-}
+use std::sync::atomic::Ordering;
 
 rustycode_tools_api::define_tool! {
     pub struct CronCreateTool;
@@ -70,72 +50,11 @@ Returns a job ID you can pass to cron_delete."#,
     }
 }
 
-#[derive(serde::Deserialize, JsonSchema)]
-pub struct CronDeleteParams {
-    /// Job ID returned by cron_create
-    id: String,
-}
-
-rustycode_tools_api::define_tool! {
-    pub struct CronDeleteTool;
-
-    name: "cron_delete",
-    description: r#"Cancel a cron job previously scheduled with cron_create. Removes it from the in-memory session store."#,
-    permission: ToolPermission::None,
-    tags: [ToolTag::Ops],
-
-    execute(params: CronDeleteParams, _ctx) {
-        let id = &params.id;
-
-        // Placeholder: actual removal from scheduler requires runtime integration
-        Ok(ToolOutput::with_structured(
-            format!("Job {id} cancelled"),
-            json!({"job_id": id, "deleted": true}),
-        ))
-    }
-}
-
-#[derive(serde::Deserialize, JsonSchema)]
-pub struct CronListParams {}
-
-rustycode_tools_api::define_tool! {
-    pub struct CronListTool;
-
-    name: "cron_list",
-    description: r#"List all cron jobs scheduled via cron_create in this session."#,
-    permission: ToolPermission::None,
-    tags: [ToolTag::Ops],
-
-    execute(_params: CronListParams, _ctx) {
-        // Placeholder: actual listing from scheduler requires runtime integration
-        Ok(ToolOutput::with_structured(
-            "No active cron jobs".to_string(),
-            json!({"jobs": []}),
-        ))
-    }
-}
-
-/// Validate a 5-field cron expression has the right number of fields.
-fn validate_cron(expr: &str) -> Result<()> {
-    let fields: Vec<&str> = expr.split_whitespace().collect();
-    if fields.len() != 5 {
-        return Err(anyhow!(
-            "cron expression must have exactly 5 fields (M H DoM Mon DoW), got {}: '{expr}'",
-            fields.len()
-        ));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::tests_common::*;
     use super::*;
     use crate::Tool;
-    use crate::ToolContext;
-
-    fn test_ctx() -> ToolContext {
-        ToolContext::new("/tmp")
-    }
 
     #[test]
     fn test_cron_create_metadata() {
@@ -188,41 +107,6 @@ mod tests {
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("5 fields"));
-    }
-
-    #[test]
-    fn test_cron_delete_metadata() {
-        let tool = CronDeleteTool;
-        assert_eq!(tool.name(), "cron_delete");
-        assert_eq!(tool.permission(), ToolPermission::None);
-    }
-
-    #[test]
-    fn test_cron_delete_requires_id() {
-        let tool = CronDeleteTool;
-        let result = tool.execute(json!({}), &test_ctx());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_cron_delete_confirms() {
-        let tool = CronDeleteTool;
-        let result = tool.execute(json!({"id": "cron-1"}), &test_ctx());
-        assert!(result.is_ok());
-        assert!(result.unwrap().text.contains("cron-1"));
-    }
-
-    #[test]
-    fn test_cron_list_metadata() {
-        let tool = CronListTool;
-        assert_eq!(tool.name(), "cron_list");
-    }
-
-    #[test]
-    fn test_cron_list_returns_empty() {
-        let tool = CronListTool;
-        let result = tool.execute(json!({}), &test_ctx());
-        assert!(result.is_ok());
     }
 
     #[test]

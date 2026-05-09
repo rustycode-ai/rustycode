@@ -154,12 +154,7 @@ impl UriPathExt for Url {
     }
 }
 
-pub(crate) fn resolve_file_path(ctx: &ToolContext, params: &Value) -> Result<PathBuf> {
-    let path = params
-        .get("file_path")
-        .or_else(|| params.get("path"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| anyhow!("missing required parameter: file_path"))?;
+pub(crate) fn resolve_file_path_from_str(ctx: &ToolContext, path: &str) -> Result<PathBuf> {
     let p = PathBuf::from(path);
     let resolved = if p.is_absolute() { p } else { ctx.cwd.join(p) };
     ensure_path_within_workspace(ctx, &resolved)?;
@@ -213,18 +208,6 @@ fn canonicalize_existing_or_parent(path: &Path) -> Result<PathBuf> {
             ));
         }
     }
-}
-
-pub(crate) fn param_u32(params: &Value, key: &str) -> Result<u32> {
-    params
-        .get(key)
-        .and_then(Value::as_u64)
-        .map(|v| {
-            v.try_into()
-                .map_err(|_| anyhow!("{key} value {v} exceeds u32 range"))
-        })
-        .transpose()?
-        .ok_or_else(|| anyhow!("missing required parameter: {key}"))
 }
 
 pub(crate) fn run_async_result<F, T>(fut: F) -> Result<T>
@@ -429,61 +412,6 @@ mod tests {
     }
 
     #[test]
-    fn test_param_u32_valid() {
-        let params = json!({ "value": 42 });
-        assert_eq!(param_u32(&params, "value").unwrap(), 42);
-    }
-
-    #[test]
-    fn test_param_u32_missing() {
-        let params = json!({ "other": 42 });
-        assert!(param_u32(&params, "value").is_err());
-    }
-
-    #[test]
-    fn test_param_u32_zero() {
-        let params = json!({ "value": 0 });
-        assert_eq!(param_u32(&params, "value").unwrap(), 0);
-    }
-
-    #[test]
-    fn test_resolve_file_path_absolute() {
-        let temp_dir = TempDir::new().unwrap();
-        let ctx = ToolContext::new(temp_dir.path());
-        let file_path = temp_dir.path().join("test.rs");
-
-        let params = json!({
-            "file_path": file_path.to_string_lossy()
-        });
-
-        let resolved = resolve_file_path(&ctx, &params).unwrap();
-        assert_eq!(resolved, file_path);
-    }
-
-    #[test]
-    fn test_resolve_file_path_relative() {
-        let temp_dir = TempDir::new().unwrap();
-        let ctx = ToolContext::new(temp_dir.path());
-
-        let params = json!({ "file_path": "test.rs" });
-
-        let resolved = resolve_file_path(&ctx, &params).unwrap();
-        assert_eq!(resolved, temp_dir.path().join("test.rs"));
-    }
-
-    #[test]
-    fn test_resolve_file_path_missing_parameter() {
-        let temp_dir = TempDir::new().unwrap();
-        let ctx = ToolContext::new(temp_dir.path());
-
-        let params = json!({ "other": "test.rs" });
-
-        let result = resolve_file_path(&ctx, &params);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("file_path"));
-    }
-
-    #[test]
     fn test_path_validation_workspace_boundary() {
         let temp_dir = TempDir::new().unwrap();
         let ctx = ToolContext::new(temp_dir.path());
@@ -509,13 +437,6 @@ mod tests {
 
         let result = ensure_path_within_workspace(&ctx, &valid_path);
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_param_u32_overflow() {
-        let params = json!({"line": u64::MAX});
-        let result = param_u32(&params, "line");
-        assert!(result.is_err(), "u64::MAX should not fit in u32");
     }
 
     #[test]

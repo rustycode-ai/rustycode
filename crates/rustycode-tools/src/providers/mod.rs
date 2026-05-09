@@ -40,6 +40,7 @@ pub mod skill_discovery;
 pub mod symbol;
 pub mod task_output;
 pub mod team;
+pub mod todo;
 pub mod tool_search;
 pub mod validate_requirements;
 pub mod web_fetch_tool;
@@ -115,6 +116,8 @@ pub use symbol::*;
 pub use task_output::*;
 #[allow(ambiguous_glob_reexports)]
 pub use team::*;
+#[allow(ambiguous_glob_reexports)]
+pub use todo::*;
 #[allow(ambiguous_glob_reexports)]
 pub use tool_search::*;
 #[allow(ambiguous_glob_reexports)]

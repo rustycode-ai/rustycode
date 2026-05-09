@@ -197,31 +197,23 @@ impl From<crate::ToolExecutor> for AutoToolContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Tool;
-    use anyhow::Result;
-    use serde_json::Value;
+    use crate::ToolPermission;
+    use schemars::JsonSchema;
+    use serde::{Deserialize, Serialize};
     use tempfile::tempdir;
 
-    /// Mock tool for testing that doesn't execute anything
-    struct MockTool;
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+    struct MockParamsSchema {}
 
-    impl Tool for MockTool {
-        fn name(&self) -> &str {
-            "mock"
-        }
+    rustycode_tools_api::define_tool! {
+        pub struct MockTool;
 
-        fn description(&self) -> &str {
-            "A mock tool for testing"
-        }
+        name: "mock",
+        description: "A mock tool for testing",
+        permission: ToolPermission::Execute,
+        tags: [],
 
-        fn parameters_schema(&self) -> Value {
-            serde_json::json!({
-                "type": "object",
-                "properties": {}
-            })
-        }
-
-        fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+        execute(params: MockParamsSchema, _ctx) {
             Ok(ToolOutput::text("mock output"))
         }
     }

@@ -212,26 +212,28 @@ impl Callable for InfoOnlyCallable {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rustycode_tools_api::{Tool, ToolOutput, ToolPermission};
-    use serde_json::Value;
+    use rustycode_tools_api::{ToolOutput, ToolPermission};
+    use schemars::JsonSchema;
+    use serde::{Deserialize, Serialize};
 
-    struct EchoTool;
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    struct EchoParams {
+        #[serde(default)]
+        msg: String,
+    }
 
-    impl Tool for EchoTool {
-        fn name(&self) -> &str {
-            "echo"
-        }
-        fn description(&self) -> &str {
-            "Echoes input"
-        }
-        fn parameters_schema(&self) -> Value {
-            serde_json::json!({"type": "object", "properties": {"msg": {"type": "string"}}})
-        }
-        fn execute(&self, params: Value, _ctx: &ToolContext) -> anyhow::Result<ToolOutput> {
-            let msg = params.get("msg").and_then(|v| v.as_str()).unwrap_or("");
+    rustycode_tools_api::define_tool! {
+        pub struct EchoTool;
+
+        name: "echo",
+        description: "Echoes input",
+        permission: ToolPermission::Execute,
+        tags: [],
+
+        execute(params: EchoParams, _ctx) {
             Ok(ToolOutput::with_structured(
-                msg,
-                serde_json::json!({"echo": msg}),
+                params.msg.clone(),
+                serde_json::json!({"echo": params.msg}),
             ))
         }
     }

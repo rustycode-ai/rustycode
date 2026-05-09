@@ -376,33 +376,22 @@ pub struct LoaderStats {
 mod tests {
     use super::*;
 
-    // Mock tool delegate
-    struct MockTool {
+    struct SimpleTool {
         name: String,
-        expensive: bool,
     }
 
-    impl ToolDelegate for MockTool {
+    impl ToolDelegate for SimpleTool {
         fn name(&self) -> &str {
             &self.name
         }
 
         fn description(&self) -> &str {
-            "Mock tool"
+            "Simple tool"
         }
 
         fn is_expensive(&self) -> bool {
-            self.expensive
+            false
         }
-    }
-
-    fn mock_factory(name: &'static str) -> ToolFactory {
-        Box::new(move || {
-            Ok(Arc::new(MockTool {
-                name: name.to_string(),
-                expensive: false,
-            }))
-        })
     }
 
     #[test]
@@ -417,7 +406,14 @@ mod tests {
             requires_external: false,
         };
 
-        let result = loader.register(metadata.clone(), mock_factory("test_tool"));
+        let result = loader.register(
+            metadata.clone(),
+            Box::new(|| {
+                Ok(Arc::new(SimpleTool {
+                    name: "test_tool".to_string(),
+                }))
+            }),
+        );
         assert!(result.is_ok());
     }
 
@@ -434,9 +430,23 @@ mod tests {
         };
 
         loader
-            .register(metadata.clone(), mock_factory("test_tool"))
+            .register(
+                metadata.clone(),
+                Box::new(|| {
+                    Ok(Arc::new(SimpleTool {
+                        name: "test_tool".to_string(),
+                    }))
+                }),
+            )
             .unwrap();
-        let result = loader.register(metadata, mock_factory("test_tool"));
+        let result = loader.register(
+            metadata,
+            Box::new(|| {
+                Ok(Arc::new(SimpleTool {
+                    name: "test_tool".to_string(),
+                }))
+            }),
+        );
         assert!(result.is_err());
     }
 
@@ -453,7 +463,14 @@ mod tests {
         };
 
         loader
-            .register(metadata, mock_factory("lazy_tool"))
+            .register(
+                metadata,
+                Box::new(|| {
+                    Ok(Arc::new(SimpleTool {
+                        name: "lazy_tool".to_string(),
+                    }))
+                }),
+            )
             .unwrap();
 
         // Tool should not be loaded initially
@@ -478,7 +495,14 @@ mod tests {
         };
 
         loader
-            .register(metadata, mock_factory("test_tool"))
+            .register(
+                metadata,
+                Box::new(|| {
+                    Ok(Arc::new(SimpleTool {
+                        name: "test_tool".to_string(),
+                    }))
+                }),
+            )
             .unwrap();
 
         let stats = loader.stats();
@@ -505,7 +529,14 @@ mod tests {
         };
 
         loader
-            .register(metadata, mock_factory("test_tool"))
+            .register(
+                metadata,
+                Box::new(|| {
+                    Ok(Arc::new(SimpleTool {
+                        name: "test_tool".to_string(),
+                    }))
+                }),
+            )
             .unwrap();
 
         // Load the tool

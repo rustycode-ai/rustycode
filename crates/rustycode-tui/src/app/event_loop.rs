@@ -1018,9 +1018,7 @@ impl TUI {
 
         // Register structured thinking tool for AgentSession path
         tool_registry.register(
-            rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool::new(
-                None,
-            ),
+            rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool,
         );
 
         // Load MCP tools if MCP servers are configured

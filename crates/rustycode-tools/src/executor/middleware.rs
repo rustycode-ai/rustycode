@@ -305,30 +305,25 @@ impl ExecutionMiddleware {
 mod tests {
     use super::*;
 
-    fn make_test_tool(name: &str) -> impl Tool {
-        struct TestTool {
-            name: String,
+    struct TestTool {
+        name: String,
+    }
+
+    impl Tool for TestTool {
+        fn name(&self) -> &str {
+            &self.name
         }
-        impl Tool for TestTool {
-            fn name(&self) -> &str {
-                &self.name
-            }
-            fn description(&self) -> &str {
-                "test tool"
-            }
-            fn parameters_schema(&self) -> serde_json::Value {
-                serde_json::json!({ "type": "object" })
-            }
-            fn execute(
-                &self,
-                _params: serde_json::Value,
-                _ctx: &ToolContext,
-            ) -> Result<ToolOutput> {
-                Ok(ToolOutput::text("ok"))
-            }
+
+        fn description(&self) -> &str {
+            "test tool"
         }
-        TestTool {
-            name: name.to_string(),
+
+        fn parameters_schema(&self) -> serde_json::Value {
+            serde_json::json!({ "type": "object" })
+        }
+
+        fn execute(&self, _params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+            Ok(ToolOutput::text("ok"))
         }
     }
 
@@ -349,7 +344,9 @@ mod tests {
         let state = middleware.state();
         state.write().plan_mode = PlanModeState::Executing;
 
-        let tool = make_test_tool("read");
+        let tool = TestTool {
+            name: "read".to_string(),
+        };
         let result = middleware.execute(
             &tool,
             serde_json::json!({}),
@@ -367,7 +364,9 @@ mod tests {
         middleware.set_plan_mode(PlanModeState::Planning);
 
         // Write should be blocked
-        let tool = make_test_tool("write");
+        let tool = TestTool {
+            name: "write".to_string(),
+        };
         let result = middleware.execute(
             &tool,
             serde_json::json!({}),
@@ -386,7 +385,9 @@ mod tests {
         middleware.set_plan_mode(PlanModeState::Planning);
 
         // Read should be allowed
-        let tool = make_test_tool("read");
+        let tool = TestTool {
+            name: "read".to_string(),
+        };
         let result = middleware.execute(
             &tool,
             serde_json::json!({}),
@@ -400,7 +401,9 @@ mod tests {
         let config = MiddlewareConfig::default();
         let middleware = ExecutionMiddleware::new(config);
 
-        let tool = make_test_tool("read");
+        let tool = TestTool {
+            name: "read".to_string(),
+        };
         let _ = middleware.execute(
             &tool,
             serde_json::json!({}),
@@ -420,7 +423,9 @@ mod tests {
         };
         let middleware = ExecutionMiddleware::new(config);
 
-        let tool = make_test_tool("read");
+        let tool = TestTool {
+            name: "read".to_string(),
+        };
 
         // First call succeeds (cost 0.001 estimated, under limit 0.001)
         let _result1 = middleware.execute(
