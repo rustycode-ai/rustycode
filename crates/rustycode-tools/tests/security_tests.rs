@@ -163,12 +163,14 @@ fn test_read_file_blocks_symlink_to_file_inside_workspace() {
         let ctx = ToolContext::new(workspace.path());
 
         let result = tool.execute(json!({ "path": "link.txt" }), &ctx);
-        // Symlinks within workspace are blocked by security module
+        // Symlinks are blocked by O_NOFOLLOW at file-open level
         assert!(result.is_err(), "Should block symlink to file");
         let err_msg = result.err().unwrap().to_string();
         assert!(
-            err_msg.contains("symlink") || err_msg.contains("blocked"),
-            "Error should mention symlink: {}",
+            err_msg.contains("symbolic")
+                || err_msg.contains("symlink")
+                || err_msg.contains("blocked"),
+            "Error should mention symbolic link: {}",
             err_msg
         );
     }
