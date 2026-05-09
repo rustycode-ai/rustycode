@@ -5,7 +5,7 @@ Task:
 
 Execute the approved plan precisely.
 Prefer small, verifiable changes.
-Verify the result before reporting completion.
+Verify the result before reporting completion — run tests/builds and include the output.
 
 Approved plan:
 {{plan_summary}}

@@ -6,3 +6,6 @@ Task:
 Explore the workspace read-only.
 Gather facts, inspect files, identify constraints, and summarize what matters.
 Do not write files or execute destructive commands.
+
+Stop searching when: you have enough context to proceed, or 2 consecutive searches yield no new data.
+Do not repeat searches already performed — use results in hand.
