@@ -35,6 +35,12 @@ pub struct SubagentConfig {
 
     /// Temperature for responses
     pub temperature: Option<f32>,
+
+    /// Tools this subagent is NOT allowed to use
+    pub disallowed_tools: Vec<String>,
+
+    /// Agent level (1 = default)
+    pub level: u32,
 }
 
 impl SubagentConfig {
@@ -48,6 +54,8 @@ impl SubagentConfig {
             allowed_tools: Vec::new(),
             max_tokens: Some(4096),
             temperature: Some(0.7),
+            disallowed_tools: Vec::new(),
+            level: 1,
         }
     }
 
@@ -150,6 +158,18 @@ impl SubagentConfig {
         // Parse temperature
         let temperature = yaml["temperature"].as_f64().map(|v| v as f32);
 
+        let disallowed_tools = yaml["disallowedTools"]
+            .as_str()
+            .map(|s| {
+                s.split(',')
+                    .map(|t| t.trim().to_string())
+                    .filter(|t| !t.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let level = yaml["level"].as_u64().unwrap_or(1) as u32;
+
         Ok(Self {
             id,
             name,
@@ -159,19 +179,43 @@ impl SubagentConfig {
             allowed_tools,
             max_tokens,
             temperature,
+            disallowed_tools,
+            level,
         })
     }
+}
+
+/// Source of a subagent definition
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AgentSource {
+    #[default]
+    Embedded,
+    User,
+    Project,
 }
 
 /// A specialized subagent
 #[derive(Debug, Clone)]
 pub struct Subagent {
     config: SubagentConfig,
+    source: AgentSource,
 }
 
 impl Subagent {
     pub const fn new(config: SubagentConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            source: AgentSource::Embedded,
+        }
+    }
+
+    pub fn source(&self) -> AgentSource {
+        self.source
+    }
+
+    pub fn with_source(mut self, source: AgentSource) -> Self {
+        self.source = source;
+        self
     }
 
     /// Get the subagent's configuration
@@ -232,6 +276,49 @@ impl SubagentRegistry {
     /// List all registered subagent IDs
     pub fn list_ids(&self) -> Vec<String> {
         self.subagents.keys().cloned().collect()
+    }
+
+    pub fn list_with_sources(&self) -> Vec<(String, String, AgentSource)> {
+        self.subagents
+            .values()
+            .map(|s| {
+                (
+                    s.id().to_string(),
+                    s.config().description.clone(),
+                    s.source(),
+                )
+            })
+            .collect()
+    }
+
+    pub fn load_with_overlays(project_dir: Option<&Path>, user_dir: Option<&Path>) -> Self {
+        let mut registry = Self::with_defaults();
+
+        if let Some(dir) = user_dir {
+            let mut user_registry = Self::new();
+            if user_registry.load_from_directory(dir).unwrap_or(0) > 0 {
+                for (_, subagent) in user_registry.subagents {
+                    let id = subagent.id().to_string();
+                    registry
+                        .subagents
+                        .insert(id, subagent.with_source(AgentSource::User));
+                }
+            }
+        }
+
+        if let Some(dir) = project_dir {
+            let mut project_registry = Self::new();
+            if project_registry.load_from_directory(dir).unwrap_or(0) > 0 {
+                for (_, subagent) in project_registry.subagents {
+                    let id = subagent.id().to_string();
+                    registry
+                        .subagents
+                        .insert(id, subagent.with_source(AgentSource::Project));
+                }
+            }
+        }
+
+        registry
     }
 
     /// Load subagents from a directory
