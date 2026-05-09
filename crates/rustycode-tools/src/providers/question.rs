@@ -3,7 +3,7 @@ use anyhow::{anyhow, Result};
 use schemars::JsonSchema;
 use serde_json::json;
 use std::env;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 
 // ── Params structs ──────────────────────────────────────────────────────────
 
@@ -59,8 +59,14 @@ Use this tool when you need to:
             .and_then(|v| v.parse::<bool>().ok())
             .unwrap_or(false);
 
-        let response = if is_auto_mode {
-            // In auto mode, use default or first option
+        // When stdin is not a terminal (e.g., TUI has captured it, or piped
+        // input), attempting to read from it would deadlock. Fall back to
+        // auto-answer with a note so the LLM knows it should re-ask later
+        // if the answer matters.
+        let stdin_is_tty = io::stdin().is_terminal();
+        let use_auto = is_auto_mode || !stdin_is_tty;
+
+        let response = if use_auto {
             if let Some(def) = &default {
                 def.clone()
             } else if let Some(opts) = &options {
@@ -77,7 +83,15 @@ Use this tool when you need to:
             prompt_user(&question, options.as_deref(), default.as_deref(), multiple)?
         };
 
-        let output = format!("**Question:** {question}\n\n**Your response:** {response}");
+        let auto_selected = !is_auto_mode && !stdin_is_tty;
+
+        let output = if auto_selected {
+            format!(
+                "**Question:** {question}\n\nAuto-selected answer (non-interactive mode): **{response}**\n\nThis is a default, not a user choice. If the specific choice matters, proceed with the recommended option and note this in your response."
+            )
+        } else {
+            format!("**Question:** {question}\n\n**Your response:** {response}")
+        };
 
         // Build metadata
         let metadata = json!({
@@ -206,6 +220,20 @@ mod tests {
     use crate::Tool;
     use crate::ToolContext;
 
+    fn with_auto_mode<F, R>(f: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        let previous = env::var("RUSTYCODE_AUTO_MODE").ok();
+        env::set_var("RUSTYCODE_AUTO_MODE", "true");
+        let result = f();
+        match previous {
+            Some(v) => env::set_var("RUSTYCODE_AUTO_MODE", v),
+            None => env::remove_var("RUSTYCODE_AUTO_MODE"),
+        }
+        result
+    }
+
     #[test]
     fn test_question_tool_metadata() {
         let tool = QuestionTool;
@@ -220,122 +248,108 @@ mod tests {
         let schema = tool.parameters_schema();
 
         assert_eq!(schema["type"], "object");
-        // Macro-generated schema: 'question' is required (non-Option)
     }
 
     #[test]
     fn test_question_missing_question() {
-        let tool = QuestionTool;
-        let ctx = ToolContext::new("/tmp");
+        with_auto_mode(|| {
+            let tool = QuestionTool;
+            let ctx = ToolContext::new("/tmp");
 
-        // Set auto mode to avoid stdin issues in tests
-        env::set_var("RUSTYCODE_AUTO_MODE", "true");
-
-        let result = tool.execute(json!({}), &ctx);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("question"));
-
-        env::remove_var("RUSTYCODE_AUTO_MODE");
+            let result = tool.execute(json!({}), &ctx);
+            assert!(result.is_err());
+            assert!(result.unwrap_err().to_string().contains("question"));
+        })
     }
 
     #[test]
     fn test_question_auto_mode_with_default() {
-        let tool = QuestionTool;
-        let ctx = ToolContext::new("/tmp");
+        with_auto_mode(|| {
+            let tool = QuestionTool;
+            let ctx = ToolContext::new("/tmp");
 
-        env::set_var("RUSTYCODE_AUTO_MODE", "true");
+            let result = tool.execute(
+                json!({
+                    "question": "Choose a framework",
+                    "default": "React"
+                }),
+                &ctx,
+            );
 
-        let result = tool.execute(
-            json!({
-                "question": "Choose a framework",
-                "default": "React"
-            }),
-            &ctx,
-        );
-
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.text.contains("React"));
-        assert!(output.text.contains("**Your response:** React"));
-
-        env::remove_var("RUSTYCODE_AUTO_MODE");
+            assert!(result.is_ok());
+            let output = result.unwrap();
+            assert!(output.text.contains("React"));
+            assert!(output.text.contains("**Your response:** React"));
+        })
     }
 
     #[test]
     fn test_question_auto_mode_with_options() {
-        let tool = QuestionTool;
-        let ctx = ToolContext::new("/tmp");
+        with_auto_mode(|| {
+            let tool = QuestionTool;
+            let ctx = ToolContext::new("/tmp");
 
-        env::set_var("RUSTYCODE_AUTO_MODE", "true");
+            let result = tool.execute(
+                json!({
+                    "question": "Choose a framework",
+                    "options": ["React", "Vue", "Angular"]
+                }),
+                &ctx,
+            );
 
-        let result = tool.execute(
-            json!({
-                "question": "Choose a framework",
-                "options": ["React", "Vue", "Angular"]
-            }),
-            &ctx,
-        );
-
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        // Should return first option in auto mode
-        assert!(output.text.contains("React"));
-
-        env::remove_var("RUSTYCODE_AUTO_MODE");
+            assert!(result.is_ok());
+            let output = result.unwrap();
+            assert!(output.text.contains("React"));
+        })
     }
 
     #[test]
     fn test_question_auto_mode_no_default_or_options() {
-        let tool = QuestionTool;
-        let ctx = ToolContext::new("/tmp");
+        with_auto_mode(|| {
+            let tool = QuestionTool;
+            let ctx = ToolContext::new("/tmp");
 
-        env::set_var("RUSTYCODE_AUTO_MODE", "true");
+            let result = tool.execute(
+                json!({
+                    "question": "What's your name?"
+                }),
+                &ctx,
+            );
 
-        let result = tool.execute(
-            json!({
-                "question": "What's your name?"
-            }),
-            &ctx,
-        );
-
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("requires either 'default' or 'options'"));
-
-        env::remove_var("RUSTYCODE_AUTO_MODE");
+            assert!(result.is_err());
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("requires either 'default' or 'options'"));
+        })
     }
 
     #[test]
     fn test_question_metadata() {
-        let tool = QuestionTool;
-        let ctx = ToolContext::new("/tmp").with_structured_output(true);
+        with_auto_mode(|| {
+            let tool = QuestionTool;
+            let ctx = ToolContext::new("/tmp").with_structured_output(true);
 
-        env::set_var("RUSTYCODE_AUTO_MODE", "true");
+            let result = tool.execute(
+                json!({
+                    "question": "Choose a database",
+                    "options": ["PostgreSQL", "MySQL"],
+                    "default": "PostgreSQL",
+                    "multiple": false
+                }),
+                &ctx,
+            );
 
-        let result = tool.execute(
-            json!({
-                "question": "Choose a database",
-                "options": ["PostgreSQL", "MySQL"],
-                "default": "PostgreSQL",
-                "multiple": false
-            }),
-            &ctx,
-        );
+            assert!(result.is_ok());
+            let output = result.unwrap();
 
-        assert!(result.is_ok());
-        let output = result.unwrap();
-
-        // Check metadata
-        let metadata = output.structured.unwrap();
-        assert_eq!(metadata["question"], "Choose a database");
-        assert_eq!(metadata["response"], "PostgreSQL");
-        assert_eq!(metadata["has_options"], true);
-        assert_eq!(metadata["has_default"], true);
-        assert_eq!(metadata["multiple"], false);
-        assert_eq!(metadata["auto_mode"], true);
-
-        env::remove_var("RUSTYCODE_AUTO_MODE");
+            let metadata = output.structured.unwrap();
+            assert_eq!(metadata["question"], "Choose a database");
+            assert_eq!(metadata["response"], "PostgreSQL");
+            assert_eq!(metadata["has_options"], true);
+            assert_eq!(metadata["has_default"], true);
+            assert_eq!(metadata["multiple"], false);
+            assert_eq!(metadata["auto_mode"], true);
+        })
     }
 }
