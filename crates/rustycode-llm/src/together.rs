@@ -145,6 +145,7 @@ impl TogetherProvider {
                     cost_tier: 2,
                 },
             ],
+                    model_behavior_profiles: HashMap::new(),
         }
     }
 

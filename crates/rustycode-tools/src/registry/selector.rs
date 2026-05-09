@@ -74,22 +74,22 @@ pub enum ToolProfile {
 
 /// All tools available across every profile
 const ALL_TOOLS: &[&str] = &[
-    "read_file",
-    "write_file",
+    "Read",
+    "Write",
     "list_dir",
-    "edit_file",
-    "grep",
-    "glob",
+    "Edit",
+    "Grep",
+    "Glob",
     "find",
     "inspect",
     "code_search",
     "apply_patch",
-    "bash",
+    "Bash",
     "git_status",
     "git_diff",
     "git_log",
     "git_commit",
-    "web_fetch",
+    "WebFetch",
     "lsp_diagnostics",
     "lsp_hover",
     "lsp_definition",
@@ -116,10 +116,10 @@ impl ToolProfile {
     /// Return the list of tool names available for this profile.
     pub fn available_tools(&self) -> &'static [&'static str] {
         const EXPLORE: &[&str] = &[
-            "read_file",
+            "Read",
             "list_dir",
-            "grep",
-            "glob",
+            "Grep",
+            "Glob",
             "find",
             "inspect",
             "code_search",
@@ -134,12 +134,12 @@ impl ToolProfile {
             "lsp_analyze_symbol",
         ];
         const IMPLEMENT: &[&str] = &[
-            "read_file",
-            "write_file",
-            "edit_file",
-            "bash",
-            "grep",
-            "glob",
+            "Read",
+            "Write",
+            "Edit",
+            "Bash",
+            "Grep",
+            "Glob",
             "find",
             "apply_patch",
             "lsp_diagnostics",
@@ -153,10 +153,10 @@ impl ToolProfile {
             "lsp_full_diagnostics",
         ];
         const DEBUG: &[&str] = &[
-            "read_file",
-            "bash",
-            "grep",
-            "glob",
+            "Read",
+            "Bash",
+            "Grep",
+            "Glob",
             "lsp_diagnostics",
             "lsp_hover",
             "lsp_full_diagnostics",
@@ -165,20 +165,20 @@ impl ToolProfile {
             "lsp_analyze_symbol",
         ];
         const OPS: &[&str] = &[
-            "bash",
-            "read_file",
+            "Bash",
+            "Read",
             "list_dir",
-            "grep",
-            "glob",
+            "Grep",
+            "Glob",
             "git_status",
             "git_diff",
             "git_log",
         ];
         const REFACTOR: &[&str] = &[
-            "read_file",
-            "edit_file",
-            "grep",
-            "glob",
+            "Read",
+            "Edit",
+            "Grep",
+            "Glob",
             "lsp_rename",
             "lsp_references",
             "lsp_document_symbols",
@@ -693,21 +693,21 @@ mod tests {
         let tags = ToolProfile::Explore.required_tags();
         let listed = registry.list_for_tags(tags);
         let tools: Vec<_> = listed.iter().map(|t| &t.name).collect();
-        assert!(tools.iter().any(|t| t.as_str() == "read_file"));
-        assert!(tools.iter().any(|t| t.as_str() == "grep"));
-        assert!(!tools.iter().any(|t| t.as_str() == "write_file"));
+        assert!(tools.iter().any(|t| t.as_str() == "Read"));
+        assert!(tools.iter().any(|t| t.as_str() == "Grep"));
+        assert!(!tools.iter().any(|t| t.as_str() == "Write"));
     }
 
     #[test]
     fn test_usage_tracking() {
         let mut tracker = UsageTracker::new();
-        tracker.record_use("read_file");
-        tracker.record_use("read_file");
-        tracker.record_use("bash");
+        tracker.record_use("Read");
+        tracker.record_use("Read");
+        tracker.record_use("Bash");
 
-        assert_eq!(tracker.usage_count("read_file"), 2);
-        assert_eq!(tracker.usage_count("bash"), 1);
-        assert_eq!(tracker.usage_count("grep"), 0);
+        assert_eq!(tracker.usage_count("Read"), 2);
+        assert_eq!(tracker.usage_count("Bash"), 1);
+        assert_eq!(tracker.usage_count("Grep"), 0);
     }
 
     #[test]
@@ -716,8 +716,8 @@ mod tests {
         let selector = ToolSelector::new().with_profile(ToolProfile::Explore);
 
         let tools = selector.select_tools(&registry);
-        assert!(tools.iter().any(|t| t == "read_file"));
-        assert!(tools.iter().any(|t| t == "grep"));
+        assert!(tools.iter().any(|t| t == "Read"));
+        assert!(tools.iter().any(|t| t == "Grep"));
     }
 
     #[test]
@@ -725,24 +725,24 @@ mod tests {
         let registry = test_registry();
         let selector = ToolSelector::new()
             .always_include("custom_tool")
-            .always_exclude("bash");
+            .always_exclude("Bash");
 
         let tools = selector.select_tools(&registry);
         assert!(tools.iter().any(|t| t == "custom_tool"));
-        assert!(!tools.iter().any(|t| t == "bash"));
+        assert!(!tools.iter().any(|t| t == "Bash"));
     }
 
     #[test]
     fn test_prediction_from_prompt() {
         let registry = test_registry();
         let mut selector = ToolSelector::new();
-        selector.record_use("read_file");
-        selector.record_use("read_file");
+        selector.record_use("Read");
+        selector.record_use("Read");
 
         let predicted = selector.predict_from_prompt("Show me authentication code", &registry);
-        assert!(predicted.iter().any(|t| t == "read_file"));
+        assert!(predicted.iter().any(|t| t == "Read"));
         // read_file should be near the top due to high usage
-        assert_eq!(predicted[0], "read_file");
+        assert_eq!(predicted[0], "Read");
     }
 
     // ── Model-Aware Edit Format Integration Tests ────────────────────────────────
@@ -773,7 +773,7 @@ mod tests {
         let tools = selector.select_tools(&registry);
         // GPT models prefer edit_file (SearchReplace)
         assert!(
-            tools.iter().any(|t| t == "edit_file"),
+            tools.iter().any(|t| t == "Edit"),
             "GPT should get edit_file, got: {:?}",
             tools
         );
@@ -825,9 +825,9 @@ mod tests {
         let selector = ToolSelector::new().with_profile(ToolProfile::Implement);
 
         let tools = selector.select_tools(&registry);
-        // Without model, "edit_file" should be present
+        // Without model, "Edit" should be present
         assert!(
-            tools.iter().any(|t| t == "edit_file"),
+            tools.iter().any(|t| t == "Edit"),
             "Without model, 'edit_file' should be present, got: {:?}",
             tools
         );

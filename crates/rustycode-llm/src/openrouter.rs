@@ -385,6 +385,7 @@ impl OpenRouterProvider {
                     cost_tier: 0,
                 },
             ],
+                    model_behavior_profiles: HashMap::new(),
         }
     }
 

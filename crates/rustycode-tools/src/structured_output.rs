@@ -157,7 +157,7 @@ mod tests {
     #[test]
     fn test_is_structured_output_tool() {
         assert!(is_structured_output_tool("StructuredOutput"));
-        assert!(!is_structured_output_tool("bash"));
+        assert!(!is_structured_output_tool("Bash"));
     }
 
     #[test]

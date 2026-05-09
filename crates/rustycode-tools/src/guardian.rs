@@ -302,7 +302,7 @@ mod tests {
                 timeout: Duration::from_millis(50),
             },
         );
-        let d = a.assess("write_file", "{}", "").await;
+        let d = a.assess("Write", "{}", "").await;
         assert!(
             matches!(d, GuardianDecision::DeferToUser { ref reason } if reason.contains("timed out")),
             "got {d:?}"
@@ -312,7 +312,7 @@ mod tests {
     #[tokio::test]
     async fn llm_error_produces_defer_to_user() {
         let a = GuardianAssessor::new(Box::new(FailingLlm), test_config());
-        let d = a.assess("write_file", "{}", "").await;
+        let d = a.assess("Write", "{}", "").await;
         assert!(
             matches!(d, GuardianDecision::DeferToUser { ref reason } if reason.contains("LLM call failed")),
             "got {d:?}"
@@ -328,7 +328,7 @@ mod tests {
             test_config(),
         );
         assert_eq!(
-            a.assess("write_file", r#"{"path":"tests/foo.rs"}"#, "")
+            a.assess("Write", r#"{"path":"tests/foo.rs"}"#, "")
                 .await,
             GuardianDecision::Allow {
                 reason: "new test file".into()
@@ -345,7 +345,7 @@ mod tests {
             test_config(),
         );
         assert_eq!(
-            a.assess("write_file", r#"{"path":".env"}"#, "").await,
+            a.assess("Write", r#"{"path":".env"}"#, "").await,
             GuardianDecision::Deny {
                 reason: "writes to .env".into()
             },
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn build_prompt_contains_tool_name() {
-        let p = build_prompt("write_file", r#"{"path":"a.rs"}"#, "create");
-        assert!(p.contains("write_file") && p.contains("JSON"));
+        let p = build_prompt("Write", r#"{"path":"a.rs"}"#, "create");
+        assert!(p.contains("Write") && p.contains("JSON"));
     }
 }

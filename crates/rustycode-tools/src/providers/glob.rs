@@ -258,7 +258,7 @@ mod tests {
 
     #[test]
     fn glob_tool_name() {
-        assert_eq!(GlobTool.name(), "glob");
+        assert_eq!(GlobTool.name(), "Glob");
     }
 
     #[test]

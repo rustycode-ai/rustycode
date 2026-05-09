@@ -240,8 +240,10 @@ pub use utils::{
 
 // Provider metadata system for dynamic configuration and prompt optimization
 pub use provider_metadata::{
-    metadata, ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptOptimizations,
-    PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat, ToolSchema,
+    metadata, ConfigField, ConfigFieldType, ConfigSchema, ModelBehaviorOverlayError,
+    ModelBehaviorProfile, ModelBehaviorRegistry, ModelInfo, OutputStructure, PromptOptimizations,
+    PromptLength, PromptTemplate, ProviderMetadata, ReasoningGuidance, ToolCallingMetadata,
+    ToolFormat, ToolSchema, ToolUsagePosture,
 };
 
 // Model info and capability metadata exports

@@ -280,6 +280,7 @@ impl OllamaProvider {
                 use_cases: vec!["General tasks".to_string(), "Local inference".to_string()],
                 cost_tier: 0,
             }],
+                    model_behavior_profiles: HashMap::new(),
         }
     }
 

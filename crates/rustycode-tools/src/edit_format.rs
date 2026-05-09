@@ -80,10 +80,10 @@ impl EditFormat {
     pub const fn tool_names(&self) -> &'static [&'static str] {
         match self {
             Self::ClaudeNative => &["text_editor_20250124"],
-            Self::SearchReplace => &["edit_file"],
+            Self::SearchReplace => &["Edit"],
             Self::RegexReplace => &["search_replace"],
             Self::MultiEdit => &["multiedit"],
-            Self::WholeFile => &["write_file"],
+            Self::WholeFile => &["Write"],
             Self::DiffPatch => &["apply_patch"],
         }
     }
@@ -484,7 +484,7 @@ mod tests {
     // Fallback tests
     #[test]
     fn test_select_with_fallback_claude() {
-        let available = &["edit_file", "write_file", "search_replace"];
+        let available = &["Edit", "Write", "search_replace"];
         // Claude prefers ClaudeNative but edit_file (SearchReplace) is available
         let format = select_with_fallback("claude-sonnet-4-6", available);
         assert_eq!(format, EditFormat::SearchReplace);
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_select_with_fallback_native_available() {
-        let available = &["text_editor_20250124", "edit_file", "write_file"];
+        let available = &["text_editor_20250124", "Edit", "Write"];
         let format = select_with_fallback("claude-sonnet-4-6", available);
         assert_eq!(format, EditFormat::ClaudeNative);
     }
@@ -512,12 +512,12 @@ mod tests {
             .contains(&"text_editor_20250124"));
         assert!(EditFormat::SearchReplace
             .tool_names()
-            .contains(&"edit_file"));
+            .contains(&"Edit"));
         assert!(EditFormat::RegexReplace
             .tool_names()
             .contains(&"search_replace"));
         assert!(EditFormat::MultiEdit.tool_names().contains(&"multiedit"));
-        assert!(EditFormat::WholeFile.tool_names().contains(&"write_file"));
+        assert!(EditFormat::WholeFile.tool_names().contains(&"Write"));
         assert!(EditFormat::DiffPatch.tool_names().contains(&"apply_patch"));
     }
 
@@ -527,8 +527,8 @@ mod tests {
             EditFormat::ClaudeNative.primary_tool(),
             "text_editor_20250124"
         );
-        assert_eq!(EditFormat::SearchReplace.primary_tool(), "edit_file");
-        assert_eq!(EditFormat::WholeFile.primary_tool(), "write_file");
+        assert_eq!(EditFormat::SearchReplace.primary_tool(), "Edit");
+        assert_eq!(EditFormat::WholeFile.primary_tool(), "Write");
     }
 
     // Supports format tests

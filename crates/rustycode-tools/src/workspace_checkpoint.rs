@@ -78,7 +78,7 @@ pub struct CheckpointConfig {
 }
 
 fn default_auto_trigger_tools() -> Vec<String> {
-    vec!["edit".to_string(), "write".to_string(), "bash".to_string()]
+    vec!["Edit".to_string(), "Write".to_string(), "Bash".to_string()]
 }
 
 impl Default for CheckpointConfig {
@@ -687,15 +687,15 @@ mod tests {
         let config = CheckpointConfig::default();
         assert!(config.enabled);
         assert_eq!(config.max_checkpoints, 20);
-        assert!(config.auto_trigger_tools.contains(&"edit".to_string()));
+        assert!(config.auto_trigger_tools.contains(&"Edit".to_string()));
     }
 
     #[test]
     fn should_auto_checkpoint_enabled() {
         let config = CheckpointConfig::default();
-        assert!(should_auto_checkpoint("edit", &config));
-        assert!(should_auto_checkpoint("write", &config));
-        assert!(should_auto_checkpoint("bash", &config));
+        assert!(should_auto_checkpoint("Edit", &config));
+        assert!(should_auto_checkpoint("Write", &config));
+        assert!(should_auto_checkpoint("Bash", &config));
     }
 
     #[test]

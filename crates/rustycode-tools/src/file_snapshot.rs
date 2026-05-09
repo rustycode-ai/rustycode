@@ -239,7 +239,7 @@ mod tests {
         fs::write(&file_path, "original content").unwrap();
 
         let mut mgr = FileSnapshotManager::new(10);
-        let group_id = mgr.create_group("write_file");
+        let group_id = mgr.create_group("Write");
 
         mgr.snapshot_file(&group_id, &file_path).unwrap();
 
@@ -248,7 +248,7 @@ mod tests {
 
         // Undo should restore original
         let result = mgr.undo_last().unwrap();
-        assert_eq!(result.tool_name, "write_file");
+        assert_eq!(result.tool_name, "Write");
         assert!(result.restored.contains(&file_path));
 
         let content = fs::read_to_string(&file_path).unwrap();
@@ -262,7 +262,7 @@ mod tests {
         // File doesn't exist yet
 
         let mut mgr = FileSnapshotManager::new(10);
-        let group_id = mgr.create_group("write_file");
+        let group_id = mgr.create_group("Write");
 
         // Snapshot non-existent file
         mgr.snapshot_file(&group_id, &file_path).unwrap();
@@ -283,7 +283,7 @@ mod tests {
         fs::write(&file_path, "content").unwrap();
 
         let mut mgr = FileSnapshotManager::new(10);
-        let group_id = mgr.create_group("write_file");
+        let group_id = mgr.create_group("Write");
         mgr.snapshot_file(&group_id, &file_path).unwrap();
 
         let first = mgr.undo_last();

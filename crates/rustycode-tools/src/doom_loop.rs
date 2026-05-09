@@ -197,7 +197,7 @@ mod tests {
     #[test]
     fn test_clean_on_first_call() {
         let mut detector = DoomLoopDetector::new();
-        let status = detector.record("read_file", r#"{"path": "/foo"}"#);
+        let status = detector.record("Read", r#"{"path": "/foo"}"#);
         assert_eq!(status, DoomLoopStatus::Clean);
     }
 
@@ -207,9 +207,9 @@ mod tests {
         let args = r#"{"path": "/foo"}"#;
 
         for _ in 0..2 {
-            detector.record("read_file", args);
+            detector.record("Read", args);
         }
-        let status = detector.record("read_file", args);
+        let status = detector.record("Read", args);
 
         assert!(matches!(status, DoomLoopStatus::Warning { .. }));
     }
@@ -220,10 +220,10 @@ mod tests {
         let args = r#"{"path": "/foo"}"#;
 
         for _ in 0..5 {
-            detector.record("read_file", args);
+            detector.record("Read", args);
         }
 
-        let status = detector.record("read_file", args);
+        let status = detector.record("Read", args);
         assert!(matches!(status, DoomLoopStatus::Abort { .. }));
     }
 
@@ -232,17 +232,17 @@ mod tests {
         let mut detector = DoomLoopDetector::new();
 
         for i in 0..5 {
-            detector.record("read_file", &format!(r#"{{"path": "/foo/{i}"}}"#));
+            detector.record("Read", &format!(r#"{{"path": "/foo/{i}"}}"#));
         }
         // Different args each time should be clean
-        let status = detector.record("read_file", r#"{"path": "/foo/5"}"#);
+        let status = detector.record("Read", r#"{"path": "/foo/5"}"#);
         assert_eq!(status, DoomLoopStatus::Clean);
     }
 
     #[test]
     fn test_reset_clears_history() {
         let mut detector = DoomLoopDetector::new();
-        detector.record("read_file", r#"{"path": "/foo"}"#);
+        detector.record("Read", r#"{"path": "/foo"}"#);
         detector.reset();
         assert!(detector.recent_tools(10).is_empty());
     }

@@ -222,11 +222,11 @@ pub fn check_tool_permission(tool_name: &str, mode: rustycode_protocol::SessionM
         rustycode_protocol::SessionMode::Planning => {
             matches!(
                 tool_name,
-                "read_file"
+                "Read"
                     | "list_dir"
-                    | "grep"
+                    | "Grep"
                     | "search"
-                    | "glob"
+                    | "Glob"
                     | "find"
                     | "inspect"
                     | "lsp_diagnostics"
@@ -592,9 +592,9 @@ mod filtered_registry_tests {
         let names = tool_names(&reg);
 
         // Core tools still present
-        assert!(names.contains(&"read_file".to_string()));
-        assert!(names.contains(&"bash".to_string()));
-        assert!(names.contains(&"grep".to_string()));
+        assert!(names.contains(&"Read".to_string()));
+        assert!(names.contains(&"Bash".to_string()));
+        assert!(names.contains(&"Grep".to_string()));
 
         // Complex-schema tools skipped
         assert!(!names.iter().any(|n| n.starts_with("lsp_")));
@@ -626,12 +626,12 @@ mod filtered_registry_tests {
         let reg = default_registry_filtered(&filter);
         let names = tool_names(&reg);
 
-        assert!(names.contains(&"read_file".to_string()));
-        assert!(names.contains(&"write_file".to_string()));
-        assert!(names.contains(&"edit_file".to_string()));
-        assert!(names.contains(&"bash".to_string()));
-        assert!(names.contains(&"grep".to_string()));
-        assert!(names.contains(&"glob".to_string()));
+        assert!(names.contains(&"Read".to_string()));
+        assert!(names.contains(&"Write".to_string()));
+        assert!(names.contains(&"Edit".to_string()));
+        assert!(names.contains(&"Bash".to_string()));
+        assert!(names.contains(&"Grep".to_string()));
+        assert!(names.contains(&"Glob".to_string()));
     }
 
     #[test]

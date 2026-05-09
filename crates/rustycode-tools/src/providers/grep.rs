@@ -468,7 +468,7 @@ mod tests {
 
     #[test]
     fn grep_tool_name() {
-        assert_eq!(GrepTool.name(), "grep");
+        assert_eq!(GrepTool.name(), "Grep");
     }
 
     #[test]

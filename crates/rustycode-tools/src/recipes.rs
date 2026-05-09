@@ -440,9 +440,9 @@ impl RecipeRegistry {
     pub fn resolve_tools(&self, recipe: &Recipe) -> Vec<String> {
         if recipe.tools.is_empty() {
             vec![
-                "read_file".to_string(),
-                "grep".to_string(),
-                "glob".to_string(),
+                "Read".to_string(),
+                "Grep".to_string(),
+                "Glob".to_string(),
                 "list_dir".to_string(),
             ]
         } else {
@@ -608,7 +608,7 @@ impl RecipeRegistry {
                  {{code_path}}"
                     .into(),
             ),
-            tools: vec!["read_file".into(), "grep".into(), "glob".into()],
+            tools: vec!["Read".into(), "Grep".into(), "Glob".into()],
             parameters: vec![RecipeParameter {
                 name: "code_path".into(),
                 description: "Path to the code file or directory".into(),
@@ -659,7 +659,7 @@ impl RecipeRegistry {
                  {{code_path}}"
                     .into(),
             ),
-            tools: vec!["read_file".into(), "grep".into(), "glob".into()],
+            tools: vec!["Read".into(), "Grep".into(), "Glob".into()],
             parameters: vec![RecipeParameter {
                 name: "code_path".into(),
                 description: "Path to code to refactor".into(),

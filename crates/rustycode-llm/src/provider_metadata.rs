@@ -10,6 +10,66 @@ use crate::provider::ProviderError;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fmt;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ToolUsagePosture {
+    Aggressive,
+    Conservative,
+    Minimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum OutputStructure {
+    StructuredXml,
+    ConciseBullet,
+    Freeform,
+    CodeFocused,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum ReasoningGuidance {
+    ChainOfThought,
+    Direct,
+    StepByStep,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ModelBehaviorProfile {
+    pub tool_usage_posture: ToolUsagePosture,
+    pub output_structure_preference: OutputStructure,
+    pub reasoning_guidance_style: ReasoningGuidance,
+    pub parallel_tool_calls: bool,
+    pub special_instructions: Vec<String>,
+}
+
+impl Default for ModelBehaviorProfile {
+    fn default() -> Self {
+        Self {
+            tool_usage_posture: ToolUsagePosture::Conservative,
+            output_structure_preference: OutputStructure::Freeform,
+            reasoning_guidance_style: ReasoningGuidance::Direct,
+            parallel_tool_calls: true,
+            special_instructions: vec![],
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelBehaviorOverlayError {
+    pub message: String,
+}
+
+impl fmt::Display for ModelBehaviorOverlayError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "model behavior overlay error: {}", self.message)
+    }
+}
+
+impl std::error::Error for ModelBehaviorOverlayError {}
 
 /// Metadata for a single provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,6 +94,10 @@ pub struct ProviderMetadata {
 
     /// Recommended models for this provider
     pub recommended_models: Vec<ModelInfo>,
+
+    /// Model-specific behavior profiles keyed by model ID or prefix.
+    #[serde(default)]
+    pub model_behavior_profiles: HashMap<String, ModelBehaviorProfile>,
 }
 
 /// Schema for provider configuration
@@ -383,6 +447,148 @@ impl ProviderMetadata {
             _ => String::new(),
         }
     }
+
+    /// Resolve the effective `ModelBehaviorProfile` for a given model ID.
+    ///
+    /// Resolution order:
+    /// 1. Exact match on `model_id` in `model_behavior_profiles`
+    /// 2. Longest prefix match (e.g., `"claude-opus"` matches `"claude-opus-4-7-20250501"`)
+    /// 3. Fallback to provider-level defaults derived from `PromptOptimizations`
+    pub fn resolve_model_profile(
+        &self,
+        model_id: &str,
+    ) -> Result<ModelBehaviorProfile, ModelBehaviorOverlayError> {
+        if let Some(profile) = self.model_behavior_profiles.get(model_id) {
+            return Ok(self.compose_with_provider_defaults(profile));
+        }
+
+        let best_match = self
+            .model_behavior_profiles
+            .keys()
+            .filter(|prefix| model_id.starts_with(prefix.as_str()))
+            .max_by_key(|prefix| prefix.len());
+
+        if let Some(prefix_key) = best_match {
+            let profile = &self.model_behavior_profiles[prefix_key];
+            return Ok(self.compose_with_provider_defaults(profile));
+        }
+
+        Ok(self.provider_default_profile())
+    }
+
+    fn compose_with_provider_defaults(
+        &self,
+        model_profile: &ModelBehaviorProfile,
+    ) -> ModelBehaviorProfile {
+        let provider_default = self.provider_default_profile();
+
+        let mut instructions = provider_default.special_instructions;
+        for instr in &model_profile.special_instructions {
+            if !instructions.contains(instr) {
+                instructions.push(instr.clone());
+            }
+        }
+
+        ModelBehaviorProfile {
+            tool_usage_posture: model_profile.tool_usage_posture.clone(),
+            output_structure_preference: model_profile.output_structure_preference.clone(),
+            reasoning_guidance_style: model_profile.reasoning_guidance_style.clone(),
+            parallel_tool_calls: model_profile.parallel_tool_calls,
+            special_instructions: instructions,
+        }
+    }
+
+    fn provider_default_profile(&self) -> ModelBehaviorProfile {
+        let opts = &self.prompt_template.optimizations;
+        ModelBehaviorProfile {
+            output_structure_preference: if opts.prefer_xml_structure {
+                OutputStructure::StructuredXml
+            } else {
+                OutputStructure::Freeform
+            },
+            special_instructions: opts.special_instructions.clone(),
+            ..ModelBehaviorProfile::default()
+        }
+    }
+
+    /// Generate a system prompt augmented with model-specific behavior profile.
+    pub fn generate_system_prompt_with_profile(
+        &self,
+        context: &str,
+        profile: &ModelBehaviorProfile,
+    ) -> String {
+        let mut prompt = self.generate_system_prompt(context);
+
+        match profile.output_structure_preference {
+            OutputStructure::StructuredXml => {
+                prompt.push_str(
+                    "\n\nUse clear XML tags for sections in your responses when appropriate.",
+                );
+            }
+            OutputStructure::ConciseBullet => {
+                prompt.push_str("\n\nPrefer concise bullet points for your responses.");
+            }
+            OutputStructure::CodeFocused => {
+                prompt.push_str(
+                    "\n\nFocus on code blocks and technical output. Minimize prose.",
+                );
+            }
+            OutputStructure::Freeform => {}
+            #[allow(unreachable_patterns)]
+            _ => {}
+        }
+
+        match profile.reasoning_guidance_style {
+            ReasoningGuidance::ChainOfThought => {
+                prompt.push_str(
+                    "\n\nThink through problems step by step, showing your reasoning before giving the final answer.",
+                );
+            }
+            ReasoningGuidance::StepByStep => {
+                prompt.push_str("\n\nBreak down complex problems into numbered steps.");
+            }
+            ReasoningGuidance::Direct => {}
+            #[allow(unreachable_patterns)]
+            _ => {}
+        }
+
+        for instruction in &profile.special_instructions {
+            prompt.push_str("\n\n");
+            prompt.push_str(instruction);
+        }
+
+        prompt
+    }
+}
+
+/// Registry holding metadata for all providers with cross-provider model lookup.
+#[derive(Debug, Clone, Default)]
+pub struct ModelBehaviorRegistry {
+    providers: HashMap<String, ProviderMetadata>,
+}
+
+impl ModelBehaviorRegistry {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn register(&mut self, metadata: ProviderMetadata) {
+        self.providers.insert(metadata.provider_id.clone(), metadata);
+    }
+
+    pub fn get(&self, provider_id: &str) -> Option<&ProviderMetadata> {
+        self.providers.get(provider_id)
+    }
+
+    pub fn resolve_profile_for_model(
+        &self,
+        provider_id: &str,
+        model_id: &str,
+    ) -> Option<ModelBehaviorProfile> {
+        self.providers
+            .get(provider_id)
+            .and_then(|meta| meta.resolve_model_profile(model_id).ok())
+    }
 }
 
 /// Schema for a tool/function
@@ -483,5 +689,346 @@ mod tests {
 
         let unknown = metadata("unknown_provider");
         assert!(unknown.is_none());
+    }
+
+    #[test]
+    fn model_behavior_profile_default_values() {
+        let profile = ModelBehaviorProfile::default();
+        assert_eq!(profile.tool_usage_posture, ToolUsagePosture::Conservative);
+        assert_eq!(
+            profile.output_structure_preference,
+            OutputStructure::Freeform
+        );
+        assert_eq!(profile.reasoning_guidance_style, ReasoningGuidance::Direct);
+        assert!(profile.parallel_tool_calls);
+        assert!(profile.special_instructions.is_empty());
+    }
+
+    #[test]
+    fn tool_usage_posture_serde_roundtrip() {
+        let variants = [
+            ToolUsagePosture::Aggressive,
+            ToolUsagePosture::Conservative,
+            ToolUsagePosture::Minimal,
+        ];
+        for variant in &variants {
+            let json = serde_json::to_string(variant).unwrap();
+            let deserialized: ToolUsagePosture = serde_json::from_str(&json).unwrap();
+            assert_eq!(*variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn output_structure_serde_roundtrip() {
+        let variants = [
+            OutputStructure::StructuredXml,
+            OutputStructure::ConciseBullet,
+            OutputStructure::Freeform,
+            OutputStructure::CodeFocused,
+        ];
+        for variant in &variants {
+            let json = serde_json::to_string(variant).unwrap();
+            let deserialized: OutputStructure = serde_json::from_str(&json).unwrap();
+            assert_eq!(*variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn reasoning_guidance_serde_roundtrip() {
+        let variants = [
+            ReasoningGuidance::ChainOfThought,
+            ReasoningGuidance::Direct,
+            ReasoningGuidance::StepByStep,
+        ];
+        for variant in &variants {
+            let json = serde_json::to_string(variant).unwrap();
+            let deserialized: ReasoningGuidance = serde_json::from_str(&json).unwrap();
+            assert_eq!(*variant, deserialized);
+        }
+    }
+
+    #[test]
+    fn model_behavior_profile_serde_roundtrip() {
+        let profile = ModelBehaviorProfile {
+            tool_usage_posture: ToolUsagePosture::Aggressive,
+            output_structure_preference: OutputStructure::CodeFocused,
+            reasoning_guidance_style: ReasoningGuidance::StepByStep,
+            parallel_tool_calls: false,
+            special_instructions: vec!["Use Rust idioms".to_string()],
+        };
+        let json = serde_json::to_string(&profile).unwrap();
+        let deserialized: ModelBehaviorProfile = serde_json::from_str(&json).unwrap();
+        assert_eq!(profile, deserialized);
+    }
+
+    #[test]
+    fn overlay_error_display() {
+        let err = ModelBehaviorOverlayError {
+            message: "conflict detected".to_string(),
+        };
+        assert_eq!(
+            err.to_string(),
+            "model behavior overlay error: conflict detected"
+        );
+    }
+
+    fn test_metadata_empty_profiles() -> ProviderMetadata {
+        ProviderMetadata {
+            provider_id: "test".to_string(),
+            display_name: "Test".to_string(),
+            description: "Test provider".to_string(),
+            config_schema: ConfigSchema {
+                required_fields: vec![],
+                optional_fields: vec![],
+                env_mappings: HashMap::new(),
+            },
+            prompt_template: PromptTemplate {
+                base_template: "You are an assistant.\n\n{context}".to_string(),
+                optimizations: PromptOptimizations {
+                    prefer_xml_structure: true,
+                    include_examples: false,
+                    preferred_prompt_length: PromptLength::Medium,
+                    special_instructions: vec!["Provider instruction".to_string()],
+                },
+                tool_format: ToolFormat::AnthropicXML,
+            },
+            tool_calling: ToolCallingMetadata {
+                supported: true,
+                max_tools_per_call: None,
+                parallel_calling: false,
+                streaming_support: true,
+            },
+            recommended_models: vec![],
+            model_behavior_profiles: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn resolve_model_profile_empty_profiles_returns_provider_default() {
+        let meta = test_metadata_empty_profiles();
+        let profile = meta.resolve_model_profile("any-model").unwrap();
+        assert_eq!(profile.output_structure_preference, OutputStructure::StructuredXml);
+        assert_eq!(profile.special_instructions, vec!["Provider instruction".to_string()]);
+    }
+
+    #[test]
+    fn resolve_model_profile_exact_match() {
+        let mut meta = test_metadata_empty_profiles();
+        let opus_profile = ModelBehaviorProfile {
+            tool_usage_posture: ToolUsagePosture::Aggressive,
+            output_structure_preference: OutputStructure::CodeFocused,
+            reasoning_guidance_style: ReasoningGuidance::ChainOfThought,
+            parallel_tool_calls: false,
+            special_instructions: vec!["Opus-specific".to_string()],
+        };
+        meta.model_behavior_profiles
+            .insert("claude-opus-4-7".to_string(), opus_profile.clone());
+
+        let resolved = meta.resolve_model_profile("claude-opus-4-7").unwrap();
+        assert_eq!(resolved.tool_usage_posture, ToolUsagePosture::Aggressive);
+        assert_eq!(resolved.output_structure_preference, OutputStructure::CodeFocused);
+        assert_eq!(resolved.reasoning_guidance_style, ReasoningGuidance::ChainOfThought);
+        assert!(!resolved.parallel_tool_calls);
+    }
+
+    #[test]
+    fn resolve_model_profile_prefix_match() {
+        let mut meta = test_metadata_empty_profiles();
+        let opus_profile = ModelBehaviorProfile {
+            tool_usage_posture: ToolUsagePosture::Aggressive,
+            ..ModelBehaviorProfile::default()
+        };
+        meta.model_behavior_profiles
+            .insert("claude-opus".to_string(), opus_profile);
+
+        let resolved = meta
+            .resolve_model_profile("claude-opus-4-7-20250501")
+            .unwrap();
+        assert_eq!(resolved.tool_usage_posture, ToolUsagePosture::Aggressive);
+    }
+
+    #[test]
+    fn resolve_model_profile_longest_prefix_wins() {
+        let mut meta = test_metadata_empty_profiles();
+        let short = ModelBehaviorProfile {
+            tool_usage_posture: ToolUsagePosture::Conservative,
+            ..ModelBehaviorProfile::default()
+        };
+        let long = ModelBehaviorProfile {
+            tool_usage_posture: ToolUsagePosture::Minimal,
+            ..ModelBehaviorProfile::default()
+        };
+        meta.model_behavior_profiles
+            .insert("claude".to_string(), short);
+        meta.model_behavior_profiles
+            .insert("claude-opus".to_string(), long);
+
+        let resolved = meta
+            .resolve_model_profile("claude-opus-4-7-20250501")
+            .unwrap();
+        assert_eq!(resolved.tool_usage_posture, ToolUsagePosture::Minimal);
+    }
+
+    #[test]
+    fn resolve_model_profile_instructions_appended_and_deduped() {
+        let mut meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            special_instructions: vec![
+                "Provider instruction".to_string(),
+                "Model-specific".to_string(),
+            ],
+            ..ModelBehaviorProfile::default()
+        };
+        meta.model_behavior_profiles
+            .insert("test-model".to_string(), profile);
+
+        let resolved = meta.resolve_model_profile("test-model").unwrap();
+        assert_eq!(
+            resolved.special_instructions,
+            vec![
+                "Provider instruction".to_string(),
+                "Model-specific".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn resolve_model_profile_instruction_dedup_preserves_order() {
+        let mut meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            special_instructions: vec![
+                "Provider instruction".to_string(),
+                "New instruction".to_string(),
+            ],
+            ..ModelBehaviorProfile::default()
+        };
+        meta.model_behavior_profiles
+            .insert("test-model".to_string(), profile);
+
+        let resolved = meta.resolve_model_profile("test-model").unwrap();
+        assert_eq!(resolved.special_instructions.len(), 2);
+        assert_eq!(resolved.special_instructions[0], "Provider instruction");
+        assert_eq!(resolved.special_instructions[1], "New instruction");
+    }
+
+    #[test]
+    fn registry_new_is_empty() {
+        let registry = ModelBehaviorRegistry::new();
+        assert!(registry.get("anthropic").is_none());
+    }
+
+    #[test]
+    fn registry_register_and_get() {
+        let mut registry = ModelBehaviorRegistry::new();
+        let meta = test_metadata_empty_profiles();
+        registry.register(meta);
+        assert!(registry.get("test").is_some());
+        assert!(registry.get("nonexistent").is_none());
+    }
+
+    #[test]
+    fn registry_resolve_profile_for_model() {
+        let mut registry = ModelBehaviorRegistry::new();
+        let mut meta = test_metadata_empty_profiles();
+        meta.model_behavior_profiles.insert(
+            "test-opus".to_string(),
+            ModelBehaviorProfile {
+                tool_usage_posture: ToolUsagePosture::Aggressive,
+                ..ModelBehaviorProfile::default()
+            },
+        );
+        registry.register(meta);
+
+        let profile = registry.resolve_profile_for_model("test", "test-opus");
+        assert!(profile.is_some());
+        assert_eq!(
+            profile.unwrap().tool_usage_posture,
+            ToolUsagePosture::Aggressive
+        );
+    }
+
+    #[test]
+    fn registry_resolve_profile_missing_provider() {
+        let registry = ModelBehaviorRegistry::new();
+        assert!(registry
+            .resolve_profile_for_model("nonexistent", "some-model")
+            .is_none());
+    }
+
+    #[test]
+    fn generate_system_prompt_with_profile_appends_special_instructions() {
+        let meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            special_instructions: vec!["Custom instruction".to_string()],
+            ..ModelBehaviorProfile::default()
+        };
+        let prompt = meta.generate_system_prompt_with_profile("Test context", &profile);
+        assert!(prompt.contains("Custom instruction"));
+    }
+
+    #[test]
+    fn generate_system_prompt_with_profile_structured_xml_hint() {
+        let meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            output_structure_preference: OutputStructure::StructuredXml,
+            ..ModelBehaviorProfile::default()
+        };
+        let prompt = meta.generate_system_prompt_with_profile("ctx", &profile);
+        assert!(prompt.contains("XML tags"));
+    }
+
+    #[test]
+    fn generate_system_prompt_with_profile_code_focused_hint() {
+        let meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            output_structure_preference: OutputStructure::CodeFocused,
+            ..ModelBehaviorProfile::default()
+        };
+        let prompt = meta.generate_system_prompt_with_profile("ctx", &profile);
+        assert!(prompt.contains("code blocks"));
+    }
+
+    #[test]
+    fn generate_system_prompt_with_profile_chain_of_thought() {
+        let meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            reasoning_guidance_style: ReasoningGuidance::ChainOfThought,
+            ..ModelBehaviorProfile::default()
+        };
+        let prompt = meta.generate_system_prompt_with_profile("ctx", &profile);
+        assert!(prompt.contains("step by step"));
+    }
+
+    #[test]
+    fn generate_system_prompt_with_profile_step_by_step() {
+        let meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            reasoning_guidance_style: ReasoningGuidance::StepByStep,
+            ..ModelBehaviorProfile::default()
+        };
+        let prompt = meta.generate_system_prompt_with_profile("ctx", &profile);
+        assert!(prompt.contains("numbered steps"));
+    }
+
+    #[test]
+    fn generate_system_prompt_with_profile_freeform_direct_no_extras() {
+        let meta = test_metadata_empty_profiles();
+        let profile = ModelBehaviorProfile {
+            output_structure_preference: OutputStructure::Freeform,
+            reasoning_guidance_style: ReasoningGuidance::Direct,
+            special_instructions: vec![],
+            ..ModelBehaviorProfile::default()
+        };
+        let base = meta.generate_system_prompt("ctx");
+        let with_profile = meta.generate_system_prompt_with_profile("ctx", &profile);
+        assert_eq!(base, with_profile);
+    }
+
+    #[test]
+    fn generate_system_prompt_unchanged_by_profile_method() {
+        let meta = crate::anthropic::AnthropicProvider::metadata();
+        let prompt1 = meta.generate_system_prompt("Hello");
+        let prompt2 = meta.generate_system_prompt("Hello");
+        assert_eq!(prompt1, prompt2, "generate_system_prompt must remain stable");
     }
 }

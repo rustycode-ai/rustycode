@@ -165,9 +165,9 @@ mod tests {
 
     #[test]
     fn pipe_separated_with_underscores() {
-        let m = ToolMatcher::new("read_file|write_file").unwrap();
-        assert!(m.matches("read_file"));
-        assert!(m.matches("WRITE_FILE"));
-        assert!(!m.matches("edit_file"));
+        let m = ToolMatcher::new("Read|Write").unwrap();
+        assert!(m.matches("Read"));
+        assert!(m.matches("WRITE"));
+        assert!(!m.matches("Edit"));
     }
 }

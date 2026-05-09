@@ -451,6 +451,7 @@ impl GeminiProvider {
                     cost_tier: 4,
                 },
             ],
+                    model_behavior_profiles: HashMap::new(),
         }
     }
 

@@ -136,6 +136,7 @@ impl HuggingFaceProvider {
             },
             recommended_models: vec![
             ],
+                    model_behavior_profiles: HashMap::new(),
         }
     }
 

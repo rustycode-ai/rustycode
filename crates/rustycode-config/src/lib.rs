@@ -211,6 +211,14 @@ pub struct TaskRoutingConfig {
     #[serde(default = "default_task_routing_max_research_passes")]
     pub max_research_passes: usize,
 
+    /// Confidence threshold below which LLM fallback classification is attempted.
+    #[serde(default = "default_llm_fallback_threshold")]
+    pub llm_fallback_threshold: f64,
+
+    /// Maximum LLM fallback classification calls per session.
+    #[serde(default = "default_max_llm_fallback_calls")]
+    pub max_llm_fallback_calls: usize,
+
     /// Optional per-intent routing overrides.
     #[serde(default)]
     pub intent_overrides: BTreeMap<String, TaskRoutingOverride>,
@@ -227,6 +235,8 @@ impl Default for TaskRoutingConfig {
             confidence_threshold: default_task_routing_confidence_threshold(),
             max_clarifying_questions: default_task_routing_max_clarifying_questions(),
             max_research_passes: default_task_routing_max_research_passes(),
+            llm_fallback_threshold: default_llm_fallback_threshold(),
+            max_llm_fallback_calls: default_max_llm_fallback_calls(),
             intent_overrides: BTreeMap::new(),
             workflow_overrides: BTreeMap::new(),
         }
@@ -279,6 +289,14 @@ const fn default_task_routing_max_clarifying_questions() -> usize {
 
 const fn default_task_routing_max_research_passes() -> usize {
     2
+}
+
+const fn default_llm_fallback_threshold() -> f64 {
+    0.65
+}
+
+const fn default_max_llm_fallback_calls() -> usize {
+    3
 }
 
 /// MCP transport type
