@@ -160,7 +160,7 @@ mod tests {
     fn test_tool_executed_event() {
         let event = ToolExecutedEvent::new(
             SessionId::new(),
-            "read_file".to_string(),
+            "Read".to_string(),
             serde_json::json!({ "path": "/test" }),
             true,
             "success".to_string(),
@@ -178,13 +178,13 @@ mod tests {
     fn test_tool_blocked_event() {
         let event = ToolBlockedEvent::new(
             SessionId::new(),
-            "write_file".into(),
+            "Write".into(),
             serde_json::json!({"path": "test.txt"}),
             "Planning mode".into(),
             "Not permitted".into(),
         );
         assert_eq!(event.event_type(), "tool.blocked");
-        assert_eq!(event.tool_name, "write_file");
+        assert_eq!(event.tool_name, "Write");
         assert_eq!(event.reason, "Planning mode");
     }
 
@@ -192,7 +192,7 @@ mod tests {
     fn test_tool_executed_with_error() {
         let event = ToolExecutedEvent::new(
             SessionId::new(),
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"command": "false"}),
             false,
             String::new(),
@@ -206,7 +206,7 @@ mod tests {
     fn test_tool_executed_serialization_roundtrip() {
         let event = ToolExecutedEvent::new(
             SessionId::new(),
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"cmd": "ls"}),
             true,
             "output".into(),
@@ -214,7 +214,7 @@ mod tests {
         );
         let json = serde_json::to_value(&event).unwrap();
         let decoded: ToolExecutedEvent = serde_json::from_value(json).unwrap();
-        assert_eq!(decoded.tool_name, "bash");
+        assert_eq!(decoded.tool_name, "Bash");
         assert!(decoded.success);
     }
 
@@ -222,14 +222,14 @@ mod tests {
     fn test_tool_blocked_serialization_roundtrip() {
         let event = ToolBlockedEvent::new(
             SessionId::new(),
-            "write_file".into(),
+            "Write".into(),
             serde_json::json!({"path": "/tmp/test"}),
             "Planning mode".into(),
             "not allowed".into(),
         );
         let json = serde_json::to_value(&event).unwrap();
         let decoded: ToolBlockedEvent = serde_json::from_value(json).unwrap();
-        assert_eq!(decoded.tool_name, "write_file");
+        assert_eq!(decoded.tool_name, "Write");
         assert_eq!(decoded.reason, "Planning mode");
     }
 
@@ -237,7 +237,7 @@ mod tests {
     fn test_tool_executed_with_error_serialization_roundtrip() {
         let event = ToolExecutedEvent::new(
             SessionId::new(),
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"cmd": "rm -rf /"}),
             false,
             "failed output".into(),

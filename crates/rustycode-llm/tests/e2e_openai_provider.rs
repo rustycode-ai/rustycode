@@ -432,7 +432,7 @@ fn test_openai_function_calling_with_nested_parameters() {
     let tool_definition = serde_json::json!({
         "type": "function",
         "function": {
-            "name": "write_file",
+            "name": "Write",
             "description": "Write content to a file",
             "parameters": {
                 "type": "object",
@@ -535,7 +535,7 @@ fn test_openai_multiple_functions_format() {
         serde_json::json!({
             "type": "function",
             "function": {
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read contents of a file",
                 "parameters": {
                     "type": "object",
@@ -549,7 +549,7 @@ fn test_openai_multiple_functions_format() {
         serde_json::json!({
             "type": "function",
             "function": {
-                "name": "write_file",
+                "name": "Write",
                 "description": "Write content to a file",
                 "parameters": {
                     "type": "object",

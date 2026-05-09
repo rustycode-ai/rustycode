@@ -97,7 +97,7 @@ mod tests {
     fn matches_all_with_star() {
         let m = ToolMatcher::new("*").unwrap();
         assert!(m.matches("Edit"));
-        assert!(m.matches("bash"));
+        assert!(m.matches("Bash"));
         assert!(m.matches("mcp__fs__read"));
     }
 
@@ -112,7 +112,7 @@ mod tests {
     fn matches_single_tool_case_insensitive() {
         let m = ToolMatcher::new("Bash").unwrap();
         assert!(m.matches("Bash"));
-        assert!(m.matches("bash"));
+        assert!(m.matches("Bash"));
         assert!(m.matches("BASH"));
         assert!(!m.matches("Edit"));
     }
@@ -125,7 +125,7 @@ mod tests {
         assert!(m.matches("Bash"));
         assert!(m.matches("edit"));
         assert!(m.matches("write"));
-        assert!(m.matches("bash"));
+        assert!(m.matches("Bash"));
         assert!(!m.matches("Read"));
         assert!(!m.matches("Grep"));
     }

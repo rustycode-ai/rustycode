@@ -1232,7 +1232,7 @@ pub async fn execute(cwd: &Path, command: HarnessCommand) -> Result<()> {
 fn build_tools_schema() -> Vec<serde_json::Value> {
     vec![
         serde_json::json!({
-            "name": "bash",
+            "name": "Bash",
             "description": "Execute a shell command. Use for git operations, running tests, installing packages, building, compiling, and any system commands. \
             For long-running commands (builds, pip install), set timeout_secs to 300. \
             Use `cat > file << 'EOF'` heredoc syntax for writing large files. \
@@ -1248,7 +1248,7 @@ fn build_tools_schema() -> Vec<serde_json::Value> {
             }
         }),
         serde_json::json!({
-            "name": "read_file",
+            "name": "Read",
             "description": "Read the contents of a file. Shows line numbers (0-based). \
             Use offset and limit for large files — do NOT read entire large files. \
             If output is truncated, use grep to find specific lines, then read_file with offset/limit.",
@@ -1263,7 +1263,7 @@ fn build_tools_schema() -> Vec<serde_json::Value> {
             }
         }),
         serde_json::json!({
-            "name": "write_file",
+            "name": "Write",
             "description": "Write content to a file, creating it if needed. Overwrites existing files. \
             For files over 50 lines, prefer bash with heredoc: `cat > file << 'EOF'\\ncode\\nEOF`",
             "input_schema": {
@@ -1276,7 +1276,7 @@ fn build_tools_schema() -> Vec<serde_json::Value> {
             }
         }),
         serde_json::json!({
-            "name": "edit_file",
+            "name": "Edit",
             "description": "Replace an exact string in a file. The old_string must match EXACTLY (including whitespace and indentation). \
             Use replace_all to replace ALL occurrences. Use regex for pattern matching. \
             If edit fails, re-read the file to get the exact current text.",
@@ -1303,7 +1303,7 @@ fn build_tools_schema() -> Vec<serde_json::Value> {
             }
         }),
         serde_json::json!({
-            "name": "grep",
+            "name": "Grep",
             "description": "Search for a pattern in files. Returns matching lines with file paths and line numbers. \
             Use include to filter by file extension. Use ignore_case for case-insensitive search.",
             "input_schema": {
@@ -1319,7 +1319,7 @@ fn build_tools_schema() -> Vec<serde_json::Value> {
             }
         }),
         serde_json::json!({
-            "name": "glob",
+            "name": "Glob",
             "description": "Find files matching a pattern. Supports ** for recursive search.",
             "input_schema": {
                 "type": "object",

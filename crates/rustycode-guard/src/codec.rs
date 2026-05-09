@@ -149,10 +149,10 @@ mod tests {
     #[test]
     fn test_parse_input_valid() {
         let json =
-            r#"{"session_id":"s1","tool_name":"bash","tool_input":{"command":"ls"},"cwd":"/tmp"}"#;
+            r#"{"session_id":"s1","tool_name":"Bash","tool_input":{"command":"ls"},"cwd":"/tmp"}"#;
         let input = parse_input(json).unwrap();
         assert_eq!(input.session_id, Some("s1".to_string()));
-        assert_eq!(input.tool_name, "bash");
+        assert_eq!(input.tool_name, "Bash");
         assert_eq!(input.cwd, Some("/tmp".to_string()));
     }
 

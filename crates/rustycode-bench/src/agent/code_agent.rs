@@ -140,12 +140,12 @@ impl CodeAgent {
     /// Normalize tool name from various LLM naming conventions.
     fn normalize_tool_name(name: &str) -> &str {
         match name {
-            "Edit" | "edit" => "edit_file",
-            "Read" | "read" => "read_file",
-            "Write" | "Create" => "write_file",
-            "Bash" | "Shell" | "shell" => "bash",
-            "Grep" | "Search" => "grep",
-            "Glob" | "Find" | "ListFiles" => "glob",
+            "Edit" | "edit" => "Edit",
+            "Read" | "read" => "Read",
+            "Write" | "Create" => "Write",
+            "Bash" | "Shell" | "shell" => "Bash",
+            "Grep" | "Search" => "Grep",
+            "Glob" | "Find" | "ListFiles" => "Glob",
             "ListDir" | "ls" => "list_dir",
             other => other,
         }
@@ -162,7 +162,7 @@ impl CodeAgent {
             }
         } else if tool_use.input.get("command").is_some() {
             // Fallback: unknown tool with "command" field → bash
-            if let Some(bash) = registry.get("bash") {
+            if let Some(bash) = registry.get("Bash") {
                 match bash.execute(tool_use.input.clone(), ctx) {
                     Ok(output) => output.text,
                     Err(e) => format!("ERROR: {e}"),
@@ -644,13 +644,13 @@ impl BenchAgent for CodeAgent {
                 ));
                 for (i, tu) in tool_uses.iter().enumerate() {
                     let input_preview = match tu.name.as_str() {
-                        "bash" => tu
+                        "Bash" => tu
                             .input
                             .get("command")
                             .and_then(|v| v.as_str())
                             .map(|s| truncate(s, 500))
                             .unwrap_or_default(),
-                        "write_file" | "read_file" | "edit_file" => {
+                        "Write" | "Read" | "Edit" => {
                             let p = tu
                                 .input
                                 .get("path")
@@ -702,7 +702,7 @@ impl BenchAgent for CodeAgent {
             // Track edit/write operations for early-stop detection.
             let edited_files: Vec<String> = tool_uses
                 .iter()
-                .filter(|t| t.name == "write_file" || t.name == "edit_file")
+                .filter(|t| t.name == "Write" || t.name == "Edit")
                 .filter_map(|t| {
                     t.input
                         .get("path")
@@ -755,7 +755,7 @@ impl BenchAgent for CodeAgent {
                 let tool_use = &tool_uses[i];
 
                 // Repetition detection for bash commands.
-                if tool_use.name == "bash" {
+                if tool_use.name == "Bash" {
                     let normalized = tool_use
                         .input
                         .get("command")
@@ -847,7 +847,7 @@ mod tests {
         let content = "I'll run a command.\n```tool\n[{\"name\": \"bash\", \"arguments\": {\"command\": \"ls -la\"}}]\n```";
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "bash");
+        assert_eq!(tools[0].name, "Bash");
     }
 
     #[test]
@@ -867,7 +867,7 @@ mod tests {
     #[test]
     fn parse_direct_json_tool_use_blocks() {
         let content =
-            r#"[{"type":"tool_use","id":"tu_1","name":"bash","input":{"command":"echo hello"}}]"#;
+            r#"[{"type":"tool_use","id":"tu_1","name":"Bash","input":{"command":"echo hello"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0].id, "tu_1");
@@ -875,7 +875,7 @@ mod tests {
 
     #[test]
     fn parse_direct_json_with_arguments_key() {
-        let content = r#"[{"name":"bash","arguments":{"command":"ls -la"}}]"#;
+        let content = r#"[{"name":"Bash","arguments":{"command":"ls -la"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
     }
@@ -892,7 +892,7 @@ mod tests {
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0].id, "call_abc123");
-        assert_eq!(tools[0].name, "bash");
+        assert_eq!(tools[0].name, "Bash");
     }
 
     #[test]
@@ -905,7 +905,7 @@ mod tests {
 
     #[test]
     fn parse_mixed_text_and_tool_blocks() {
-        let content = r#"[{"type":"text","text":"I'll run this."},{"type":"tool_use","id":"tu_0","name":"bash","input":{"command":"pwd"}}]"#;
+        let content = r#"[{"type":"text","text":"I'll run this."},{"type":"tool_use","id":"tu_0","name":"Bash","input":{"command":"pwd"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
     }
@@ -977,45 +977,45 @@ mod tests {
 
     #[test]
     fn parse_write_file_tool() {
-        let content = r#"[{"type":"tool_use","id":"wf_1","name":"write_file","input":{"path":"test.py","content":"print('hi')"}}]"#;
+        let content = r#"[{"type":"tool_use","id":"wf_1","name":"Write","input":{"path":"test.py","content":"print('hi')"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "write_file");
+        assert_eq!(tools[0].name, "Write");
     }
 
     #[test]
     fn parse_read_file_tool() {
         let content =
-            r#"[{"type":"tool_use","id":"rf_1","name":"read_file","input":{"path":"main.py"}}]"#;
+            r#"[{"type":"tool_use","id":"rf_1","name":"Read","input":{"path":"main.py"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "read_file");
+        assert_eq!(tools[0].name, "Read");
     }
 
     #[test]
     fn parse_edit_file_tool() {
-        let content = r#"[{"type":"tool_use","id":"ef_1","name":"edit_file","input":{"path":"a.py","old_string":"x=1","new_string":"x=2"}}]"#;
+        let content = r#"[{"type":"tool_use","id":"ef_1","name":"Edit","input":{"path":"a.py","old_string":"x=1","new_string":"x=2"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "edit_file");
+        assert_eq!(tools[0].name, "Edit");
     }
 
     #[test]
     fn parse_grep_tool() {
         let content =
-            r#"[{"type":"tool_use","id":"gr_1","name":"grep","input":{"pattern":"TODO"}}]"#;
+            r#"[{"type":"tool_use","id":"gr_1","name":"Grep","input":{"pattern":"TODO"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "grep");
+        assert_eq!(tools[0].name, "Grep");
     }
 
     #[test]
     fn parse_glob_tool() {
         let content =
-            r#"[{"type":"tool_use","id":"gb_1","name":"glob","input":{"pattern":"**/*.py"}}]"#;
+            r#"[{"type":"tool_use","id":"gb_1","name":"Glob","input":{"pattern":"**/*.py"}}]"#;
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "glob");
+        assert_eq!(tools[0].name, "Glob");
     }
 
     #[test]
@@ -1058,7 +1058,7 @@ mod tests {
         let content = "I'll run the tests.\n```json\n{\"name\": \"bash\", \"input\": {\"command\": \"pytest\"}}\n```\nLet me check.";
         let tools = CodeAgent::parse_tool_uses(content);
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "bash");
+        assert_eq!(tools[0].name, "Bash");
     }
 
     #[test]
@@ -1076,16 +1076,16 @@ mod tests {
             .filter_map(|s| s.get("name").and_then(|n| n.as_str()))
             .collect();
         // File tools
-        assert!(names.contains(&"read_file"), "missing read_file");
-        assert!(names.contains(&"write_file"), "missing write_file");
-        assert!(names.contains(&"edit_file"), "missing edit_file");
+        assert!(names.contains(&"Read"), "missing read_file");
+        assert!(names.contains(&"Write"), "missing write_file");
+        assert!(names.contains(&"Edit"), "missing edit_file");
         assert!(names.contains(&"list_dir"), "missing list_dir");
         // Search tools
-        assert!(names.contains(&"grep"), "missing grep");
-        assert!(names.contains(&"glob"), "missing glob");
+        assert!(names.contains(&"Grep"), "missing grep");
+        assert!(names.contains(&"Glob"), "missing glob");
         assert!(names.contains(&"apply_patch"), "missing apply_patch");
         // Bash
-        assert!(names.contains(&"bash"), "missing bash");
+        assert!(names.contains(&"Bash"), "missing bash");
         // Git (read-only)
         assert!(names.contains(&"git_status"), "missing git_status");
         assert!(names.contains(&"git_diff"), "missing git_diff");
@@ -1103,14 +1103,14 @@ mod tests {
 
     #[test]
     fn normalize_tool_name_maps_common_aliases() {
-        assert_eq!(CodeAgent::normalize_tool_name("Edit"), "edit_file");
-        assert_eq!(CodeAgent::normalize_tool_name("Read"), "read_file");
-        assert_eq!(CodeAgent::normalize_tool_name("Write"), "write_file");
-        assert_eq!(CodeAgent::normalize_tool_name("Bash"), "bash");
-        assert_eq!(CodeAgent::normalize_tool_name("Grep"), "grep");
-        assert_eq!(CodeAgent::normalize_tool_name("Glob"), "glob");
-        assert_eq!(CodeAgent::normalize_tool_name("bash"), "bash");
-        assert_eq!(CodeAgent::normalize_tool_name("edit_file"), "edit_file");
+        assert_eq!(CodeAgent::normalize_tool_name("Edit"), "Edit");
+        assert_eq!(CodeAgent::normalize_tool_name("Read"), "Read");
+        assert_eq!(CodeAgent::normalize_tool_name("Write"), "Write");
+        assert_eq!(CodeAgent::normalize_tool_name("Bash"), "Bash");
+        assert_eq!(CodeAgent::normalize_tool_name("Grep"), "Grep");
+        assert_eq!(CodeAgent::normalize_tool_name("Glob"), "Glob");
+        assert_eq!(CodeAgent::normalize_tool_name("Bash"), "Bash");
+        assert_eq!(CodeAgent::normalize_tool_name("Edit"), "Edit");
         assert_eq!(CodeAgent::normalize_tool_name("unknown"), "unknown");
     }
 }

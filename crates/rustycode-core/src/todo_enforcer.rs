@@ -286,14 +286,14 @@ mod tests {
         detector.record_iteration(false, &[]);
         assert_eq!(detector.idle_level(), IdleLevel::GentleNudge);
         // Tool use resets idle
-        detector.record_iteration(true, &["read_file".to_string()]);
+        detector.record_iteration(true, &["Read".to_string()]);
         assert_eq!(detector.idle_level(), IdleLevel::Active);
     }
 
     #[test]
     fn test_repeated_pattern_detection() {
         let mut detector = IdleDetector::new("implement auth");
-        let tools = vec!["read_file".to_string()];
+        let tools = vec!["Read".to_string()];
         detector.record_iteration(true, &tools); // sets baseline, repeated=0
         detector.record_iteration(true, &tools); // repeated=1
         detector.record_iteration(true, &tools); // repeated=2
@@ -304,9 +304,9 @@ mod tests {
     #[test]
     fn test_different_tools_dont_trigger_repeated() {
         let mut detector = IdleDetector::new("implement auth");
-        detector.record_iteration(true, &["read_file".to_string()]);
-        detector.record_iteration(true, &["write_file".to_string()]);
-        detector.record_iteration(true, &["bash".to_string()]);
+        detector.record_iteration(true, &["Read".to_string()]);
+        detector.record_iteration(true, &["Write".to_string()]);
+        detector.record_iteration(true, &["Bash".to_string()]);
         assert_eq!(detector.idle_level(), IdleLevel::Active);
     }
 
@@ -325,36 +325,33 @@ mod tests {
     fn test_doom_loop_not_triggered_with_different_calls() {
         let mut detector = IdleDetector::new("fix bug");
         let r1 = detector
-            .record_tool_signatures(&[ToolCallSignature::new("read_file", r#"{"path": "/a.rs"}"#)]);
+            .record_tool_signatures(&[ToolCallSignature::new("Read", r#"{"path": "/a.rs"}"#)]);
         assert!(!r1.detected);
         let r2 = detector
-            .record_tool_signatures(&[ToolCallSignature::new("read_file", r#"{"path": "/b.rs"}"#)]);
+            .record_tool_signatures(&[ToolCallSignature::new("Read", r#"{"path": "/b.rs"}"#)]);
         assert!(!r2.detected);
     }
 
     #[test]
     fn test_doom_loop_triggered_with_identical_calls() {
         let mut detector = IdleDetector::new("fix bug");
-        let sig = ToolCallSignature::new("read_file", r#"{"path": "/a.rs"}"#);
+        let sig = ToolCallSignature::new("Read", r#"{"path": "/a.rs"}"#);
         detector.record_tool_signatures(std::slice::from_ref(&sig));
         detector.record_tool_signatures(std::slice::from_ref(&sig));
         let result = detector.record_tool_signatures(std::slice::from_ref(&sig));
         assert!(result.detected);
-        assert_eq!(result.tool_name, Some("read_file".to_string()));
+        assert_eq!(result.tool_name, Some("Read".to_string()));
         assert_eq!(result.consecutive_count, 3);
     }
 
     #[test]
     fn test_doom_loop_resets_on_different_call() {
         let mut detector = IdleDetector::new("fix bug");
-        let sig = ToolCallSignature::new("read_file", r#"{"path": "/a.rs"}"#);
+        let sig = ToolCallSignature::new("Read", r#"{"path": "/a.rs"}"#);
         detector.record_tool_signatures(std::slice::from_ref(&sig));
         detector.record_tool_signatures(std::slice::from_ref(&sig));
         // Different call breaks the chain
-        detector.record_tool_signatures(&[ToolCallSignature::new(
-            "write_file",
-            r#"{"path": "/a.rs"}"#,
-        )]);
+        detector.record_tool_signatures(&[ToolCallSignature::new("Write", r#"{"path": "/a.rs"}"#)]);
         // Same as first again — only 1 consecutive
         let result = detector.record_tool_signatures(&[sig]);
         assert!(!result.detected);
@@ -363,8 +360,8 @@ mod tests {
     #[test]
     fn test_doom_loop_with_multiple_tools_per_iteration() {
         let mut detector = IdleDetector::new("fix bug");
-        let s1 = ToolCallSignature::new("read_file", r#"{"path": "/a.rs"}"#);
-        let s2 = ToolCallSignature::new("grep", r#"{"pattern": "todo"}"#);
+        let s1 = ToolCallSignature::new("Read", r#"{"path": "/a.rs"}"#);
+        let s2 = ToolCallSignature::new("Grep", r#"{"pattern": "todo"}"#);
         detector.record_tool_signatures(&[s1.clone(), s2.clone()]);
         detector.record_tool_signatures(&[s1.clone(), s2.clone()]);
         let result = detector.record_tool_signatures(&[s1, s2]);
@@ -379,9 +376,9 @@ mod tests {
 
     #[test]
     fn test_doom_loop_nudge_message() {
-        let msg = IdleDetector::doom_loop_nudge("bash");
+        let msg = IdleDetector::doom_loop_nudge("Bash");
         assert!(msg.contains("DOOM LOOP DETECTED"));
-        assert!(msg.contains("bash"));
+        assert!(msg.contains("Bash"));
         assert!(msg.contains("3 times"));
     }
 
@@ -389,12 +386,10 @@ mod tests {
     fn test_doom_loop_with_different_inputs_same_name() {
         let mut detector = IdleDetector::new("fix bug");
         // Same tool name but different inputs should NOT trigger
-        detector
-            .record_tool_signatures(&[ToolCallSignature::new("read_file", r#"{"path": "/a.rs"}"#)]);
-        detector
-            .record_tool_signatures(&[ToolCallSignature::new("read_file", r#"{"path": "/b.rs"}"#)]);
+        detector.record_tool_signatures(&[ToolCallSignature::new("Read", r#"{"path": "/a.rs"}"#)]);
+        detector.record_tool_signatures(&[ToolCallSignature::new("Read", r#"{"path": "/b.rs"}"#)]);
         let result = detector
-            .record_tool_signatures(&[ToolCallSignature::new("read_file", r#"{"path": "/c.rs"}"#)]);
+            .record_tool_signatures(&[ToolCallSignature::new("Read", r#"{"path": "/c.rs"}"#)]);
         assert!(!result.detected);
     }
 
@@ -404,7 +399,7 @@ mod tests {
         // Add many signatures — should not grow unbounded
         for i in 0..100 {
             detector.record_tool_signatures(&[ToolCallSignature::new(
-                "read_file",
+                "Read",
                 &format!(r#"{{"path": "/{}.rs"}}"#, i),
             )]);
         }

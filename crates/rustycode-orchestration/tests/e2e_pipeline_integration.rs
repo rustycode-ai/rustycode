@@ -187,7 +187,7 @@ mod execution_trace_recording {
             "step-1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"desc": "echo hello"}),
             "hello".into(),
             Some(0),
@@ -209,13 +209,13 @@ mod execution_trace_recording {
             Some(1),
             "assertion failed".into(),
             "step-2".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         trace.append(TraceEntry::new_failure(
             "step-2".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             "error output".into(),
             Some(1),
@@ -235,7 +235,7 @@ mod execution_trace_recording {
                 format!("step-{i}"),
                 i as u8,
                 2,
-                "bash".into(),
+                "Bash".into(),
                 serde_json::json!({}),
                 format!("output-{i}"),
                 Some(0),
@@ -254,7 +254,7 @@ mod execution_trace_recording {
             "s1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             "ok".into(),
             Some(0),
@@ -266,13 +266,13 @@ mod execution_trace_recording {
             Some(1),
             "parse error".into(),
             "s2".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         trace.append(TraceEntry::new_failure(
             "s2".into(),
             1,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             "fail".into(),
             Some(1),
@@ -342,7 +342,7 @@ mod error_classification {
             None,
             msg_2048,
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert!(!signal.message.contains("truncated"));
 
@@ -353,7 +353,7 @@ mod error_classification {
             None,
             msg_2049,
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert!(signal.message.contains("truncated"));
     }

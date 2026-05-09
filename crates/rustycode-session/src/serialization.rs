@@ -535,7 +535,7 @@ mod tests {
         let mut msg = Message::assistant("I'll run it");
         msg.add_part(MessagePart::ToolCall {
             id: "call_1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({"command": "ls -la"}),
         });
         session.add_message(msg);

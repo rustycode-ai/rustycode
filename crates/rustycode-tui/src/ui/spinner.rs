@@ -333,7 +333,7 @@ mod tests {
         let loading = Spinner::loading("file");
         assert!(loading.label.as_ref().unwrap().contains("Loading file"));
 
-        let working = Spinner::working("read_file");
+        let working = Spinner::working("Read");
         assert!(working
             .label
             .as_ref()

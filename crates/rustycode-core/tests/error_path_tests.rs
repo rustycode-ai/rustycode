@@ -96,7 +96,7 @@ mod runtime_error_tests {
         // Try to execute a tool not permitted in planning mode
         let call = rustycode_protocol::ToolCall {
             call_id: "test-call".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             arguments: serde_json::json!({"command": "echo test"}),
         };
 
@@ -131,7 +131,7 @@ mod runtime_error_tests {
         // Create a call and test with non-existent session
         let call = rustycode_protocol::ToolCall {
             call_id: "test".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             arguments: serde_json::json!({"path": "test.txt"}),
         };
 
@@ -223,15 +223,15 @@ mod execution_error_tests {
     #[test]
     fn test_is_critical_tool_detection() {
         // Critical tools
-        assert!(is_critical_tool("read_file"));
-        assert!(is_critical_tool("write_file"));
-        assert!(is_critical_tool("bash"));
+        assert!(is_critical_tool("Read"));
+        assert!(is_critical_tool("Write"));
+        assert!(is_critical_tool("Bash"));
         assert!(is_critical_tool("bash:ls -la"));
         assert!(is_critical_tool("read_file:path=test.txt"));
 
         // Non-critical tools
-        assert!(!is_critical_tool("grep"));
-        assert!(!is_critical_tool("glob"));
+        assert!(!is_critical_tool("Grep"));
+        assert!(!is_critical_tool("Glob"));
         assert!(!is_critical_tool("git_status"));
         assert!(!is_critical_tool("list_dir"));
     }
@@ -1057,12 +1057,12 @@ mod error_message_tests {
         assert!(msg.contains("step 1"));
 
         let err = ValidationError::ToolNotFound {
-            tool_name: "read_file".to_string(),
+            tool_name: "Read".to_string(),
             step_title: "Read config".to_string(),
         };
         let msg = format!("{}", err);
         assert!(msg.contains("Tool not found"));
-        assert!(msg.contains("read_file"));
+        assert!(msg.contains("Read"));
         assert!(msg.contains("Read config"));
 
         let err = ValidationError::InvalidPath {

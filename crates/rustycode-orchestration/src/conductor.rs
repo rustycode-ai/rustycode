@@ -252,7 +252,7 @@ mod tests {
             None,
             "test error".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         )
     }
 
@@ -319,7 +319,7 @@ mod tests {
                     "step-1".into(),
                     0,
                     2,
-                    "bash".into(),
+                    "Bash".into(),
                     serde_json::json!({"cmd": "same"}),
                     "ok".into(),
                     Some(0),
@@ -471,7 +471,7 @@ mod tests {
                     format!("step-{i}"),
                     i as u8,
                     2,
-                    "bash".into(),
+                    "Bash".into(),
                     serde_json::json!({"cmd": format!("cmd_{i}")}),
                     "ok".into(),
                     Some(0),
@@ -511,7 +511,7 @@ mod tests {
                     "step-1".into(),
                     0,
                     2,
-                    "bash".into(),
+                    "Bash".into(),
                     serde_json::json!({"cmd": "same"}),
                     "ok".into(),
                     Some(0),

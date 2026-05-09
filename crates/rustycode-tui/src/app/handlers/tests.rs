@@ -157,7 +157,7 @@ mod tests {
         handle_stream_chunk(
             &mut tui,
             StreamChunk::ToolStart {
-                tool_name: "read_file".to_string(),
+                tool_name: "Read".to_string(),
                 tool_id: "tool-1".to_string(),
                 input_json: r#"{"path":"/a"}"#.to_string(),
             },
@@ -165,7 +165,7 @@ mod tests {
         handle_stream_chunk(
             &mut tui,
             StreamChunk::ToolStart {
-                tool_name: "read_file".to_string(),
+                tool_name: "Read".to_string(),
                 tool_id: "tool-2".to_string(),
                 input_json: r#"{"path":"/b"}"#.to_string(),
             },
@@ -176,7 +176,7 @@ mod tests {
             &mut tui,
             StreamChunk::ToolProgress {
                 tool_id: Some("tool-2".to_string()),
-                tool_name: "read_file".to_string(),
+                tool_name: "Read".to_string(),
                 stage: "reading".to_string(),
                 elapsed_ms: 100,
                 output_preview: Some("file b content".to_string()),
@@ -224,7 +224,7 @@ mod tests {
         handle_stream_chunk(
             &mut tui,
             StreamChunk::ToolStart {
-                tool_name: "bash".to_string(),
+                tool_name: "Bash".to_string(),
                 tool_id: "tool-x".to_string(),
                 input_json: r#"{"command":"ls"}"#.to_string(),
             },
@@ -256,7 +256,7 @@ mod tests {
         // so the fallback branch fires and uses active_start
         let result = ToolResult {
             id: "tool-x".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Success("file1\nfile2".to_string()),
         };
         handle_tool_result(&mut tui, result);

@@ -212,12 +212,12 @@ fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
 /// Normalize tool names from different providers to our canonical names.
 fn normalize_tool_name(name: &str) -> &str {
     match name {
-        "Edit" => "edit_file",
-        "Read" => "read_file",
-        "Write" | "Create" => "write_file",
-        "Bash" | "Shell" => "bash",
-        "Grep" | "Search" => "grep",
-        "Glob" | "Find" => "glob",
+        "Edit" => "Edit",
+        "Read" => "Read",
+        "Write" | "Create" => "Write",
+        "Bash" | "Shell" => "Bash",
+        "Grep" | "Search" => "Grep",
+        "Glob" | "Find" => "Glob",
         _ => name,
     }
 }

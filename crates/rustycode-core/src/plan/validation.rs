@@ -10,7 +10,7 @@ const INSPECTION_TOOLS: &[&str] = &[
     // File reading
     "read",
     // Code search
-    "grep",
+    "Grep",
     "search_for_pattern",
     // Symbol inspection
     "find_symbol",
@@ -24,12 +24,12 @@ const INSPECTION_TOOLS: &[&str] = &[
     // Listing
     "list_dir",
     "find_file",
-    "glob",
+    "Glob",
 ];
 
 /// Tools explicitly forbidden in plan mode
 const DESTRUCTIVE_TOOLS: &[&str] = &[
-    "bash",   // Shell commands
+    "Bash",   // Shell commands
     "write",  // File writes
     "edit",   // File edits
     "delete", // File deletion
@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn test_destructive_tools_forbidden() {
         let step = ExecutionStep {
-            tool: "bash".to_string(),
+            tool: "Bash".to_string(),
             params: Default::default(),
         };
         assert!(PlanValidator::validate_step(&step).is_err());
@@ -138,7 +138,7 @@ mod tests {
                 params: Default::default(),
             },
             ExecutionStep {
-                tool: "grep".to_string(),
+                tool: "Grep".to_string(),
                 params: Default::default(),
             },
             ExecutionStep {
@@ -172,9 +172,9 @@ mod tests {
     fn test_allowed_tools_list() {
         let allowed = PlanValidator::allowed_tools();
         assert!(allowed.contains(&"read"));
-        assert!(allowed.contains(&"grep"));
+        assert!(allowed.contains(&"Grep"));
         assert!(!allowed.contains(&"write"));
-        assert!(!allowed.contains(&"bash"));
+        assert!(!allowed.contains(&"Bash"));
     }
 
     #[test]
@@ -182,6 +182,6 @@ mod tests {
         assert!(PlanValidator::is_tool_allowed("read"));
         assert!(PlanValidator::is_tool_allowed("find_symbol"));
         assert!(!PlanValidator::is_tool_allowed("write"));
-        assert!(!PlanValidator::is_tool_allowed("bash"));
+        assert!(!PlanValidator::is_tool_allowed("Bash"));
     }
 }

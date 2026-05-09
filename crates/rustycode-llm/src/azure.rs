@@ -1056,7 +1056,7 @@ mod tests {
             tools: Some(vec![serde_json::json!({
                 "type": "function",
                 "function": {
-                    "name": "read_file",
+                    "name": "Read",
                     "description": "Read a file",
                     "parameters": {"type": "object", "properties": {"path": {"type": "string"}}}
                 }
@@ -1111,7 +1111,7 @@ mod tests {
             role: MessageRole::Assistant,
             content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "call_123".to_string(),
-                name: "read_file".to_string(),
+                name: "Read".to_string(),
                 input: serde_json::json!({"path": "/tmp/test.rs"}),
             }]),
         }];
@@ -1120,19 +1120,19 @@ mod tests {
         assert_eq!(converted[0].role, "assistant");
         assert!(converted[0].tool_calls.is_some());
         let tc = converted[0].tool_calls.as_ref().unwrap();
-        assert_eq!(tc[0].function.name, "read_file");
+        assert_eq!(tc[0].function.name, "Read");
     }
 
     #[test]
     fn test_convert_tools_normalization() {
         let anthropic_tool = serde_json::json!({
-            "name": "bash",
+            "name": "Bash",
             "description": "Run a command",
             "input_schema": {"type": "object", "properties": {"cmd": {"type": "string"}}}
         });
         let converted = convert_tools(&[anthropic_tool]);
         assert_eq!(converted[0]["type"], "function");
-        assert_eq!(converted[0]["function"]["name"], "bash");
+        assert_eq!(converted[0]["function"]["name"], "Bash");
         assert!(converted[0]["function"]["parameters"].is_object());
     }
 

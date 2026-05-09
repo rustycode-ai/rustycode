@@ -73,7 +73,7 @@ mod integration_tests {
         original.push_str("Final result: success\n");
 
         let summary = summarizer
-            .summarize("bash", &original)
+            .summarize("Bash", &original)
             .expect("summarization should succeed");
 
         let original_tokens = summarizer.estimate_tokens(&original);

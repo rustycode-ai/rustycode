@@ -24,10 +24,10 @@ impl ToolProfile {
     #[allow(clippy::too_many_lines)]
     pub const fn available_tools(&self) -> &'static [&'static str] {
         const EXPLORE: &[&str] = &[
-            "read_file",
+            "Read",
             "list_dir",
-            "grep",
-            "glob",
+            "Grep",
+            "Glob",
             "find",
             "inspect",
             "codesearch",
@@ -42,12 +42,12 @@ impl ToolProfile {
             "lsp_analyze_symbol",
         ];
         const IMPLEMENT: &[&str] = &[
-            "read_file",
-            "write_file",
-            "edit_file",
-            "bash",
-            "grep",
-            "glob",
+            "Read",
+            "Write",
+            "Edit",
+            "Bash",
+            "Grep",
+            "Glob",
             "find",
             "apply_patch",
             "lsp_diagnostics",
@@ -61,10 +61,10 @@ impl ToolProfile {
             "lsp_full_diagnostics",
         ];
         const DEBUG: &[&str] = &[
-            "read_file",
-            "bash",
-            "grep",
-            "glob",
+            "Read",
+            "Bash",
+            "Grep",
+            "Glob",
             "lsp_diagnostics",
             "lsp_hover",
             "lsp_full_diagnostics",
@@ -73,20 +73,20 @@ impl ToolProfile {
             "lsp_analyze_symbol",
         ];
         const OPS: &[&str] = &[
-            "bash",
-            "read_file",
+            "Bash",
+            "Read",
             "list_dir",
-            "grep",
-            "glob",
+            "Grep",
+            "Glob",
             "git_status",
             "git_diff",
             "git_log",
         ];
         const REFACTOR: &[&str] = &[
-            "read_file",
-            "edit_file",
-            "grep",
-            "glob",
+            "Read",
+            "Edit",
+            "Grep",
+            "Glob",
             "lsp_rename",
             "lsp_references",
             "lsp_document_symbols",
@@ -98,17 +98,17 @@ impl ToolProfile {
             "lsp_analyze_symbol",
         ];
         const ALL_TOOLS: &[&str] = &[
-            "read_file",
-            "write_file",
+            "Read",
+            "Write",
             "list_dir",
-            "edit_file",
-            "grep",
-            "glob",
+            "Edit",
+            "Grep",
+            "Glob",
             "find",
             "inspect",
             "codesearch",
             "apply_patch",
-            "bash",
+            "Bash",
             "git_status",
             "git_diff",
             "git_log",
@@ -291,32 +291,32 @@ mod tests {
     #[test]
     fn tool_profile_explore_tools() {
         let tools = ToolProfile::Explore.available_tools();
-        assert!(tools.contains(&"read_file"));
-        assert!(tools.contains(&"grep"));
+        assert!(tools.contains(&"Read"));
+        assert!(tools.contains(&"Grep"));
         assert!(tools.contains(&"find"));
         assert!(tools.contains(&"inspect"));
-        assert!(!tools.contains(&"write_file"));
+        assert!(!tools.contains(&"Write"));
     }
 
     #[test]
     fn tool_profile_implement_tools() {
         let tools = ToolProfile::Implement.available_tools();
-        assert!(tools.contains(&"write_file"));
-        assert!(tools.contains(&"bash"));
-        assert!(tools.contains(&"edit_file"));
+        assert!(tools.contains(&"Write"));
+        assert!(tools.contains(&"Bash"));
+        assert!(tools.contains(&"Edit"));
     }
 
     #[test]
     fn tool_profile_debug_tools() {
         let tools = ToolProfile::Debug.available_tools();
-        assert!(tools.contains(&"bash"));
-        assert!(tools.contains(&"grep"));
+        assert!(tools.contains(&"Bash"));
+        assert!(tools.contains(&"Grep"));
     }
 
     #[test]
     fn tool_profile_ops_tools() {
         let tools = ToolProfile::Ops.available_tools();
-        assert!(tools.contains(&"bash"));
+        assert!(tools.contains(&"Bash"));
         assert!(tools.contains(&"git_diff"));
     }
 
@@ -325,19 +325,19 @@ mod tests {
         let tools = ToolProfile::Refactor.available_tools();
         assert!(tools.contains(&"lsp_rename"));
         assert!(tools.contains(&"lsp_references"));
-        assert!(tools.contains(&"edit_file"));
-        assert!(tools.contains(&"grep"));
-        assert!(!tools.contains(&"write_file"));
-        assert!(!tools.contains(&"bash"));
+        assert!(tools.contains(&"Edit"));
+        assert!(tools.contains(&"Grep"));
+        assert!(!tools.contains(&"Write"));
+        assert!(!tools.contains(&"Bash"));
     }
 
     #[test]
     fn tool_profile_all_includes_all_categories() {
         let tools = ToolProfile::All.available_tools();
-        assert!(tools.contains(&"bash"));
-        assert!(tools.contains(&"read_file"));
-        assert!(tools.contains(&"write_file"));
-        assert!(tools.contains(&"grep"));
+        assert!(tools.contains(&"Bash"));
+        assert!(tools.contains(&"Read"));
+        assert!(tools.contains(&"Write"));
+        assert!(tools.contains(&"Grep"));
         assert!(tools.contains(&"git_log"));
     }
 
@@ -351,11 +351,11 @@ mod tests {
     #[test]
     fn usage_tracker_record_and_count() {
         let mut tracker = UsageTracker::new();
-        tracker.record_use("bash");
-        tracker.record_use("bash");
+        tracker.record_use("Bash");
+        tracker.record_use("Bash");
         tracker.record_use("read");
 
-        assert_eq!(tracker.usage_count("bash"), 2);
+        assert_eq!(tracker.usage_count("Bash"), 2);
         assert_eq!(tracker.usage_count("read"), 1);
         assert_eq!(tracker.usage_count("write"), 0);
         assert_eq!(tracker.total_uses(), 3);
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn usage_tracker_recent_tools() {
         let mut tracker = UsageTracker::new();
-        tracker.record_use("bash");
+        tracker.record_use("Bash");
         tracker.record_use("read");
         tracker.record_use("write");
 
@@ -376,26 +376,26 @@ mod tests {
     #[test]
     fn usage_tracker_frequent_tools() {
         let mut tracker = UsageTracker::new();
-        tracker.record_use("bash");
-        tracker.record_use("bash");
-        tracker.record_use("bash");
+        tracker.record_use("Bash");
+        tracker.record_use("Bash");
+        tracker.record_use("Bash");
         tracker.record_use("read");
 
         let frequent = tracker.frequent_tools(1);
         assert_eq!(frequent.len(), 1);
-        assert_eq!(frequent[0], "bash");
+        assert_eq!(frequent[0], "Bash");
     }
 
     #[test]
     fn usage_tracker_get_statistics() {
         let mut tracker = UsageTracker::new();
-        tracker.record_use("bash");
+        tracker.record_use("Bash");
         tracker.record_use("read");
 
         let stats = tracker.get_statistics();
         assert_eq!(stats.len(), 2);
         for (name, count, last_used) in &stats {
-            if name == "bash" {
+            if name == "Bash" {
                 assert_eq!(*count, 1);
                 assert!(last_used.is_some());
             }

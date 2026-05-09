@@ -424,7 +424,7 @@ fn test_gemini_function_declaration_format() {
 fn test_gemini_function_with_nested_parameters() {
     // Verify more complex function schema
     let tool_definition = serde_json::json!({
-        "name": "write_file",
+        "name": "Write",
         "description": "Write content to a file",
         "parameters": {
             "type": "object",
@@ -548,7 +548,7 @@ fn test_gemini_function_response_parts_format_multiple() {
         "parts": [
             {
                 "functionCall": {
-                    "name": "read_file",
+                    "name": "Read",
                     "args": {
                         "path": "Cargo.toml"
                     }
@@ -556,7 +556,7 @@ fn test_gemini_function_response_parts_format_multiple() {
             },
             {
                 "functionCall": {
-                    "name": "read_file",
+                    "name": "Read",
                     "args": {
                         "path": "src/main.rs"
                     }
@@ -570,7 +570,7 @@ fn test_gemini_function_response_parts_format_multiple() {
 
     for part in parts {
         assert!(part["functionCall"].is_object());
-        assert_eq!(part["functionCall"]["name"], "read_file");
+        assert_eq!(part["functionCall"]["name"], "Read");
     }
 }
 
@@ -579,7 +579,7 @@ fn test_gemini_multiple_functions_format() {
     // Verify format for multiple functions in a single request
     let tools = vec![
         serde_json::json!({
-            "name": "read_file",
+            "name": "Read",
             "description": "Read contents of a file",
             "parameters": {
                 "type": "object",
@@ -590,7 +590,7 @@ fn test_gemini_multiple_functions_format() {
             }
         }),
         serde_json::json!({
-            "name": "write_file",
+            "name": "Write",
             "description": "Write content to a file",
             "parameters": {
                 "type": "object",

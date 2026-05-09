@@ -521,12 +521,12 @@ mod delegation_token {
     #[test]
     fn child_inherits_constraints() {
         let mut root = DelegationToken::root("coordinator-1");
-        root.allowed_tools = vec!["read_file".into(), "edit_file".into()];
+        root.allowed_tools = vec!["Read".into(), "Edit".into()];
 
         let child = root.child("builder-1").unwrap();
         assert_eq!(child.allowed_tools.len(), 2);
-        assert!(child.allowed_tools.contains(&"read_file".to_string()));
-        assert!(child.allowed_tools.contains(&"edit_file".to_string()));
+        assert!(child.allowed_tools.contains(&"Read".to_string()));
+        assert!(child.allowed_tools.contains(&"Edit".to_string()));
     }
 
     #[test]
@@ -860,7 +860,7 @@ mod e2e_scenario {
             description: "Validates user input".to_string(),
             available: true,
             success_rate: 0.88,
-            tool_scope: vec!["read_file".into()],
+            tool_scope: vec!["Read".into()],
         });
         registry
             .generated

@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn format_tool_message_includes_tool_name() {
         let message = ChatMessage {
-            role: MessageRole::Tool("bash".to_string()),
+            role: MessageRole::Tool("Bash".to_string()),
             content: "done".into(),
         };
 

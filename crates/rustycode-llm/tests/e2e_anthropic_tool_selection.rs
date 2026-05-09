@@ -283,7 +283,7 @@ fn test_tool_formatting_for_anthropic_api() {
     let registry = Arc::new(ToolRegistry::new());
 
     // Try to get a tool, but handle case where registry is empty
-    if let Some(tool) = registry.get("read_file") {
+    if let Some(tool) = registry.get("Read") {
         // Format tool for Anthropic
         let formatted = serde_json::json!({
             "name": tool.name(),
@@ -293,7 +293,7 @@ fn test_tool_formatting_for_anthropic_api() {
 
         // Verify structure
         assert!(formatted.is_object());
-        assert_eq!(formatted["name"], "read_file");
+        assert_eq!(formatted["name"], "Read");
         assert!(formatted["description"].is_string());
         assert!(formatted["input_schema"].is_object());
 

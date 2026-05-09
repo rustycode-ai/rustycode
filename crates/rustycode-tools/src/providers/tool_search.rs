@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_tool_search_requires_registry() {
         let tool = ToolSearchTool;
-        let result = tool.execute(json!({"query": "bash"}), &test_ctx());
+        let result = tool.execute(json!({"query": "Bash"}), &test_ctx());
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("registry"));
     }

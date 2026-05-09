@@ -373,7 +373,7 @@ impl AsyncRuntime {
     /// let calls = vec![
     ///     ToolCall {
     ///         call_id: "1".to_string(),
-    ///         name: "read_file".to_string(),
+    ///         name: "Read".to_string(),
     ///         arguments: serde_json::json!({"path": "file.txt"}),
     ///     },
     /// ];

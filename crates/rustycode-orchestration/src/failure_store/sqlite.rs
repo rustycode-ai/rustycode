@@ -294,10 +294,10 @@ mod tests {
     fn test_record_and_query_failure() {
         let store = SqliteFailureStore::in_memory().unwrap();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
 
-        let patterns = store.query_patterns("bash").unwrap();
+        let patterns = store.query_patterns("Bash").unwrap();
         assert_eq!(patterns.len(), 1);
         assert_eq!(patterns[0].occurrence_count, 1);
         assert_eq!(patterns[0].error_category, SignalCategory::LogicError);
@@ -307,13 +307,13 @@ mod tests {
     fn test_record_failure_increments_count() {
         let store = SqliteFailureStore::in_memory().unwrap();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
 
-        let patterns = store.query_patterns("bash").unwrap();
+        let patterns = store.query_patterns("Bash").unwrap();
         assert_eq!(patterns.len(), 1);
         assert_eq!(patterns[0].occurrence_count, 2);
     }
@@ -322,15 +322,15 @@ mod tests {
     fn test_query_patterns_filters_by_task_type() {
         let store = SqliteFailureStore::in_memory().unwrap();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
         store
             .record_failure(&make_pattern("python", SignalCategory::ToolTimeout))
             .unwrap();
 
-        let bash_patterns = store.query_patterns("bash").unwrap();
+        let bash_patterns = store.query_patterns("Bash").unwrap();
         assert_eq!(bash_patterns.len(), 1);
-        assert_eq!(bash_patterns[0].task_type, "bash");
+        assert_eq!(bash_patterns[0].task_type, "Bash");
     }
 
     #[test]
@@ -386,7 +386,7 @@ mod tests {
     fn test_get_escalation_success_rate_with_data() {
         let store = SqliteFailureStore::in_memory().unwrap();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
 
         let rate = store

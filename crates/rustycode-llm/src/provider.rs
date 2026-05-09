@@ -433,7 +433,7 @@ impl CompletionRequest {
     /// Set tool choice to control how the model selects tools.
     ///
     /// Common values: `"auto"` (default), `"required"` (force tool use),
-    /// `"none"` (disable tools), or `{"type": "tool", "name": "edit_file"}`.
+    /// `"none"` (disable tools), or `{"type": "tool", "name": "Edit"}`.
     pub fn with_tool_choice(mut self, choice: serde_json::Value) -> Self {
         self.tool_choice = Some(choice);
         self

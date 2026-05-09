@@ -14,7 +14,7 @@ fn mock_provider_parses_pure_json() {
       "summary": "Do the thing",
       "approach": "Simple approach",
       "steps": [
-        { "title": "Step One", "description": "Do step one", "tools": ["read_file"], "expected_outcome": "Done", "rollback_hint": "N/A" }
+        { "title": "Step One", "description": "Do step one", "tools": ["Read"], "expected_outcome": "Done", "rollback_hint": "N/A" }
       ],
       "files_to_modify": ["src/lib.rs"],
       "risks": ["low risk"]
@@ -22,7 +22,7 @@ fn mock_provider_parses_pure_json() {
     "#;
 
     let provider = MockProvider::from_text(json);
-    let plan = generate_plan_with_llm(&provider, "task", &["read_file"]).expect("parsed plan");
+    let plan = generate_plan_with_llm(&provider, "task", &["Read"]).expect("parsed plan");
 
     assert_eq!(plan.summary, "Do the thing");
     assert_eq!(plan.approach, "Simple approach");

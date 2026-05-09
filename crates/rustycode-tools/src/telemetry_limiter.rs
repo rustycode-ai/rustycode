@@ -18,7 +18,7 @@
 //!
 //! sender.send_span(SpanData {
 //!     name: "tool_execution".to_string(),
-//!     attributes: vec![("tool".to_string(), "bash".to_string())],
+//!     attributes: vec![("tool".to_string(), "Bash".to_string())],
 //!     duration: Some(Duration::from_millis(150)),
 //! }).ok();
 //! ```

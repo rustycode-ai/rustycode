@@ -258,7 +258,7 @@ mod tests {
             index: 0,
             description: "test".into(),
             expected_output_type: OutputType::Verification,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: RequiredResources::new(),
         };

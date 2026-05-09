@@ -76,7 +76,7 @@ pub struct ToolExecution {
     /// Unique tool execution ID (matches tool_use_id from LLM)
     pub tool_id: String,
 
-    /// Tool name (e.g., "read_file")
+    /// Tool name (e.g., "Read")
     pub name: String,
 
     /// Execution status
@@ -596,12 +596,12 @@ mod tests {
     fn test_message_with_tools() {
         let tool1 = ToolExecution::new(
             "tool_1".to_string(),
-            "read_file".to_string(),
+            "Read".to_string(),
             "read_file: src/main.rs (145b)".to_string(),
         );
         let tool2 = ToolExecution::new(
             "tool_2".to_string(),
-            "write_file".to_string(),
+            "Write".to_string(),
             "write_file: src/tree.rs (122b)".to_string(),
         );
 
@@ -616,7 +616,7 @@ mod tests {
     fn test_tool_execution_complete() {
         let mut tool = ToolExecution::new(
             "tool_1".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             "bash: cargo check".to_string(),
         );
         assert_eq!(tool.status, ToolStatus::Running);
@@ -632,7 +632,7 @@ mod tests {
     fn test_tool_execution_fail() {
         let mut tool = ToolExecution::new(
             "tool_1".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             "bash: cargo check".to_string(),
         );
         tool.fail("Compilation failed".to_string());
@@ -792,7 +792,7 @@ mod tests {
     fn test_duration_string() {
         let mut tool = ToolExecution::new(
             "tool_1".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             "bash: test".to_string(),
         );
         assert_eq!(tool.duration_string(), "running");

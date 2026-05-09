@@ -87,12 +87,12 @@ impl ExecutionReport {
 // ── PlanExecutor ─────────────────────────────────────────────────────────────
 
 const INSPECTION_TOOLS: &[&str] = &[
-    "read_file",
-    "grep",
+    "Read",
+    "Grep",
     "lsp_find_symbol",
     "lsp_get_symbols_overview",
     "list_dir",
-    "glob",
+    "Glob",
 ];
 
 /// Executes a plan step-by-step, invoking tool calls via a caller-supplied function.
@@ -199,7 +199,7 @@ impl PlanExecutor {
 
                     // Inject automatic checkpoint before potentially destructive tools
                     if let Some(ref manager) = self.options.checkpoint_manager {
-                        let trigger_tools = ["bash", "write_file", "edit_file", "apply_patch"];
+                        let trigger_tools = ["Bash", "Write", "Edit", "apply_patch"];
                         if trigger_tools.contains(&tc.name.as_str()) {
                             if let Err(e) = manager.create() {
                                 tracing::warn!(
@@ -361,8 +361,8 @@ mod tests {
     #[test]
     fn test_dry_run_marks_all_completed() {
         let steps = vec![
-            make_step_with_tool("step one", "bash"),
-            make_step_with_tool("step two", "read_file"),
+            make_step_with_tool("step one", "Bash"),
+            make_step_with_tool("step two", "Read"),
             make_step("step three"),
         ];
         let plan = make_plan(steps);
@@ -399,9 +399,9 @@ mod tests {
     #[test]
     fn test_fail_fast_stops_after_first_failure() {
         let steps = vec![
-            make_step_with_tool("step one", "bash"),   // will fail
-            make_step_with_tool("step two", "bash"),   // should be skipped
-            make_step_with_tool("step three", "bash"), // should be skipped
+            make_step_with_tool("step one", "Bash"),   // will fail
+            make_step_with_tool("step two", "Bash"),   // should be skipped
+            make_step_with_tool("step three", "Bash"), // should be skipped
         ];
         let plan = make_plan(steps);
 
@@ -458,9 +458,9 @@ mod tests {
     #[test]
     fn test_continue_on_failure() {
         let steps = vec![
-            make_step_with_tool("step one", "bash"),
-            make_step_with_tool("step two", "bash"),
-            make_step_with_tool("step three", "bash"),
+            make_step_with_tool("step one", "Bash"),
+            make_step_with_tool("step two", "Bash"),
+            make_step_with_tool("step three", "Bash"),
         ];
         let plan = make_plan(steps);
 
@@ -570,7 +570,7 @@ mod tests {
     /// Successful tool execution should complete the step.
     #[test]
     fn test_successful_tool_execution() {
-        let steps = vec![make_step_with_tool("good step", "read_file")];
+        let steps = vec![make_step_with_tool("good step", "Read")];
         let plan = make_plan(steps);
 
         let executor = PlanExecutor::new(ExecutionOptions::default());

@@ -5,7 +5,7 @@ use std::sync::Arc;
 /// A callable entity that can behave as tool, skill, or agent based on context
 #[derive(Clone)]
 pub struct ExecutableUnit {
-    /// Unique identifier (e.g., "bash", `edit_file`, `code_reviewer`)
+    /// Unique identifier (e.g., "Bash", `edit_file`, `code_reviewer`)
     pub id: String,
 
     /// Human-readable name

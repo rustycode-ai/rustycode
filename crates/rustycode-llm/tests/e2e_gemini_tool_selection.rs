@@ -137,7 +137,7 @@ fn test_gemini_tool_formatting() {
     // Verify Gemini's function declaration format structure
     let tool_definitions = vec![
         serde_json::json!({
-            "name": "read_file",
+            "name": "Read",
             "description": "Read a UTF-8 text file",
             "parameters": {
                 "type": "object",
@@ -151,7 +151,7 @@ fn test_gemini_tool_formatting() {
             }
         }),
         serde_json::json!({
-            "name": "write_file",
+            "name": "Write",
             "description": "Write content to a file",
             "parameters": {
                 "type": "object",

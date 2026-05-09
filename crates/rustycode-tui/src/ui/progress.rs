@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_tool_progress_lifecycle() {
-        let mut tool = ToolProgress::new("read_file");
+        let mut tool = ToolProgress::new("Read");
 
         assert_eq!(tool.status, ToolStatus::Pending);
 

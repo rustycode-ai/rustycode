@@ -62,7 +62,7 @@ mod conductor_thinking_trigger {
             Some(1),
             "tier 4 failed".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         // Tier 4 should abandon
@@ -286,7 +286,7 @@ mod conductor_bus_thinking_flow {
             Some(1),
             "tier 2 error".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         // Escalate to tier 3
@@ -329,7 +329,7 @@ mod conductor_bus_thinking_flow {
             Some(1),
             "syntax error".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         let decision = conductor.handle_error(&mut ctx, &signal);
         // With no escalation config for tier_2, should retry
@@ -345,7 +345,7 @@ mod conductor_bus_thinking_flow {
             Some(1),
             "still failing".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         let decision = conductor.handle_error(&mut ctx, &signal);
         assert!(matches!(decision, EscalationDecision::Abandon { .. }));

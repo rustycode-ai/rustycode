@@ -31,12 +31,12 @@ pub fn execute_tool(
 ) -> String {
     // Normalize tool names from different providers to our canonical names
     let tool_name = match tool_name {
-        "Edit" => "edit_file",
-        "Read" => "read_file",
-        "Write" | "Create" => "write_file",
-        "Bash" | "Shell" => "bash",
-        "Grep" | "Search" => "grep",
-        "Glob" | "Find" => "glob",
+        "Edit" => "Edit",
+        "Read" => "Read",
+        "Write" | "Create" => "Write",
+        "Bash" | "Shell" => "Bash",
+        "Grep" | "Search" => "Grep",
+        "Glob" | "Find" => "Glob",
         other => other,
     };
 
@@ -150,7 +150,7 @@ pub fn execute_tool(
         .map(|s| s.to_string());
 
     // Check file read cache for read_file tool
-    if tool_name == "read_file" {
+    if tool_name == "Read" {
         if let Some(ref path_value) = path_str {
             let file_path = cwd.join(path_value);
             if let Some(cache) = file_read_cache {
@@ -171,7 +171,7 @@ pub fn execute_tool(
     }
 
     // Invalidate cache on write operations
-    if matches!(tool_name, "write_file" | "apply_patch" | "edit_file") {
+    if matches!(tool_name, "Write" | "apply_patch" | "Edit") {
         if let Some(ref path_value) = path_str {
             let file_path = cwd.join(path_value);
             if let Some(cache) = file_read_cache {
@@ -243,7 +243,7 @@ pub fn execute_tool(
         tracing::info!("Tool executed successfully");
 
         // Record successful file reads in cache
-        if tool_name == "read_file" {
+        if tool_name == "Read" {
             if let Some(ref path_value) = path_str {
                 let file_path = cwd.join(path_value);
                 if let Some(cache) = file_read_cache {
@@ -306,7 +306,7 @@ pub fn snapshot_files_for_undo(
     tool_name: &str,
     parameters_json: &str,
 ) -> Option<Vec<(String, String)>> {
-    if !matches!(tool_name, "write_file" | "edit_file" | "apply_patch") {
+    if !matches!(tool_name, "Write" | "Edit" | "apply_patch") {
         return None;
     }
 
@@ -517,7 +517,7 @@ mod tests {
         })
         .to_string();
 
-        let result = snapshot_files_for_undo(temp.path(), "write_file", &params);
+        let result = snapshot_files_for_undo(temp.path(), "Write", &params);
         assert!(result.is_some());
         let batch = result.unwrap();
         assert_eq!(batch.len(), 1);
@@ -529,7 +529,7 @@ mod tests {
     fn test_snapshot_files_for_non_write_tool_returns_none() {
         let temp = tempfile::tempdir().unwrap();
         let params = serde_json::json!({"command": "echo hi"}).to_string();
-        let result = snapshot_files_for_undo(temp.path(), "bash", &params);
+        let result = snapshot_files_for_undo(temp.path(), "Bash", &params);
         assert!(result.is_none());
     }
 
@@ -541,7 +541,7 @@ mod tests {
         })
         .to_string();
 
-        let result = snapshot_files_for_undo(temp.path(), "write_file", &params);
+        let result = snapshot_files_for_undo(temp.path(), "Write", &params);
         assert!(result.is_some());
         let batch = result.unwrap();
         assert_eq!(batch[0].1, "");
@@ -558,7 +558,7 @@ mod tests {
         })
         .to_string();
 
-        let result = snapshot_files_for_undo(temp.path(), "edit_file", &params);
+        let result = snapshot_files_for_undo(temp.path(), "Edit", &params);
         assert!(result.is_some());
         assert_eq!(result.unwrap()[0].1, "fn main() {}");
     }
@@ -568,7 +568,7 @@ mod tests {
         // A tool call with no guard violations should return None or allow
         let input = serde_json::json!({"command": "echo hello"});
         let temp = tempfile::tempdir().unwrap();
-        let result = check_tool_guard("bash", &input, temp.path());
+        let result = check_tool_guard("Bash", &input, temp.path());
         // With no guardrail rules configured, should either return None or allow
         // The actual behavior depends on the guardrail config
         if let Some(hr) = result {
@@ -590,7 +590,7 @@ mod tests {
         let output = execute_tool(
             temp.path(),
             "tool_search",
-            r#"{"query":"bash","algorithm":"bm25","limit":5}"#,
+            r#"{"query":"Bash","algorithm":"bm25","limit":5}"#,
             None,
             None,
             None,

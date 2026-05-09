@@ -119,7 +119,7 @@ impl SyntaxHighlighter {
             "cs" => "csharp",
             "php" => "php",
             "rb" => "ruby",
-            "sh" => "bash",
+            "sh" => "Bash",
             "yaml" | "yml" => "yaml",
             "toml" => "toml",
             "json" => "json",

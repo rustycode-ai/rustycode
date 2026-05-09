@@ -46,11 +46,11 @@ impl Default for MiddlewareConfig {
             cost_tracking_enabled: true,
             max_session_cost: None,
             checkpoint_tools: vec![
-                "edit_file".to_string(),
+                "Edit".to_string(),
                 "multiedit".to_string(),
                 "apply_patch".to_string(),
-                "write_file".to_string(),
-                "bash".to_string(),
+                "Write".to_string(),
+                "Bash".to_string(),
             ],
         }
     }
@@ -220,7 +220,7 @@ impl ExecutionMiddleware {
 
         if state.plan_mode == PlanModeState::Planning {
             // In plan mode, only allow read-only tools
-            let allowed = ["glob", "grep", "search", "read", "lsp", "web_fetch"];
+            let allowed = ["Glob", "Grep", "search", "read", "lsp", "WebFetch"];
             if !allowed.contains(&tool_name) {
                 anyhow::bail!(
                     "tool '{tool_name}' not allowed in plan mode. Use read-only tools: {allowed:?}"
@@ -252,8 +252,8 @@ impl ExecutionMiddleware {
         let base_cost = match tool_name {
             "read" => 0.001,
             "write" | "edit" => 0.002,
-            "bash" => 0.005,
-            "grep" | "glob" => 0.003,
+            "Bash" => 0.005,
+            "Grep" | "Glob" => 0.003,
             _ => 0.001,
         };
 
@@ -333,7 +333,7 @@ mod tests {
         assert!(config.hooks_enabled);
         assert!(config.plan_mode_enabled);
         assert!(config.cost_tracking_enabled);
-        assert!(config.checkpoint_tools.contains(&"edit_file".to_string()));
+        assert!(config.checkpoint_tools.contains(&"Edit".to_string()));
     }
 
     #[test]

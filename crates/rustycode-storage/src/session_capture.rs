@@ -468,7 +468,7 @@ impl SessionCapture {
             steps.push("Consider breaking down future tasks into smaller chunks".to_string());
         }
 
-        if self.tools_used.contains("bash") {
+        if self.tools_used.contains("Bash") {
             steps.push("Verify any shell commands executed during session".to_string());
         }
 
@@ -524,7 +524,7 @@ mod tests {
     fn test_capture_tool_call() {
         let mut capture = create_test_capture();
         capture.capture_interaction(InteractionEvent::ToolCall {
-            tool_name: "read_file".to_string(),
+            tool_name: "Read".to_string(),
             input: serde_json::json!({"path": "/tmp/test"}),
             output: None,
             success: true,

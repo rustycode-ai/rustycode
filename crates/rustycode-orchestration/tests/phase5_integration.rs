@@ -44,7 +44,7 @@ async fn test_step_orchestrator_isolation_blocks_exec_at_editor() {
         index: 0,
         description: "test".into(),
         expected_output_type: OutputType::Verification,
-        suggested_tool: Some("bash".into()),
+        suggested_tool: Some("Bash".into()),
         retry_on_failure: false,
         required_resources: rustycode_orchestration::guard::RequiredResources::default(),
     };

@@ -415,7 +415,7 @@ mod tests {
         // Valid tool definition array
         let valid_tools = r#"[
             {
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read a file from the filesystem",
                 "parameters": {
                     "type": "object",
@@ -429,7 +429,7 @@ mod tests {
 
         // Valid single tool definition
         let valid_single = r#"{
-            "name": "bash",
+            "name": "Bash",
             "description": "Run a bash command",
             "parameters": {"type": "object"}
         }"#;

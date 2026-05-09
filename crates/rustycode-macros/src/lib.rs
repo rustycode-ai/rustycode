@@ -96,7 +96,7 @@ pub fn tool(args: TokenStream, input: TokenStream) -> TokenStream {
 /// struct WriteFile;
 ///
 /// assert_eq!(ReadFile::description(), "Reads a file from the filesystem.");
-/// assert_eq!(ReadFile::tool_name(), "read_file");
+/// assert_eq!(ReadFile::tool_name(), "Read");
 /// ```
 #[proc_macro_derive(ToolDescription, attributes(tool_description_file))]
 pub fn tool_description(input: TokenStream) -> TokenStream {
@@ -218,7 +218,7 @@ fn extract_description(input: &ItemStruct) -> proc_macro2::TokenStream {
 /// /// Reads from a file system.
 /// struct FSRead;
 ///
-/// assert_eq!(ReadFile::tool_name(), "read_file");
+/// assert_eq!(ReadFile::tool_name(), "Read");
 /// assert_eq!(FSRead::tool_name(), "fs_read");
 /// ```
 fn to_snake_case(input: &str) -> String {

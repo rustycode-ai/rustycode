@@ -125,10 +125,10 @@ mod tests {
     #[test]
     fn test_tool_blocked_reason_display() {
         let reason = ToolBlockedReason::NotAllowedForRole {
-            tool: "bash".into(),
+            tool: "Bash".into(),
             role: AgentRole::Reviewer,
         };
-        assert!(reason.to_string().contains("bash"));
+        assert!(reason.to_string().contains("Bash"));
         assert!(reason.to_string().contains("Reviewer"));
 
         assert!(ToolBlockedReason::RequiresApproval

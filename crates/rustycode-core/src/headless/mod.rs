@@ -58,19 +58,19 @@ mod tests {
 
     #[test]
     fn test_normalize_tool_name_aliases() {
-        assert_eq!(normalize_tool_name("Edit"), "edit_file");
-        assert_eq!(normalize_tool_name("Read"), "read_file");
-        assert_eq!(normalize_tool_name("Write"), "write_file");
-        assert_eq!(normalize_tool_name("Create"), "write_file");
-        assert_eq!(normalize_tool_name("Bash"), "bash");
-        assert_eq!(normalize_tool_name("Shell"), "bash");
-        assert_eq!(normalize_tool_name("Grep"), "grep");
-        assert_eq!(normalize_tool_name("Search"), "grep");
-        assert_eq!(normalize_tool_name("Glob"), "glob");
-        assert_eq!(normalize_tool_name("Find"), "glob");
+        assert_eq!(normalize_tool_name("Edit"), "Edit");
+        assert_eq!(normalize_tool_name("Read"), "Read");
+        assert_eq!(normalize_tool_name("Write"), "Write");
+        assert_eq!(normalize_tool_name("Create"), "Write");
+        assert_eq!(normalize_tool_name("Bash"), "Bash");
+        assert_eq!(normalize_tool_name("Shell"), "Bash");
+        assert_eq!(normalize_tool_name("Grep"), "Grep");
+        assert_eq!(normalize_tool_name("Search"), "Grep");
+        assert_eq!(normalize_tool_name("Glob"), "Glob");
+        assert_eq!(normalize_tool_name("Find"), "Glob");
         // Unknown names pass through unchanged
-        assert_eq!(normalize_tool_name("edit_file"), "edit_file");
-        assert_eq!(normalize_tool_name("web_fetch"), "web_fetch");
+        assert_eq!(normalize_tool_name("Edit"), "Edit");
+        assert_eq!(normalize_tool_name("WebFetch"), "WebFetch");
     }
 
     #[test]
@@ -257,7 +257,7 @@ mod tests {
         // Simulate the assistant response with text + bash tool call
         let assistant_text = "I'll fix the bug. Let me read the file first.";
         let tool_id_1 = "toolu_abc123";
-        let tool_name_1 = "bash";
+        let tool_name_1 = "Bash";
         let _tool_json_1 = r#"{"command": "cat main.py"}"#;
 
         let mut assistant_blocks: Vec<ContentBlock> = Vec::new();
@@ -362,7 +362,7 @@ mod tests {
             ContentBlock::text("I'll fix the print statement."),
             ContentBlock::ToolUse {
                 id: tool_id_2.to_string(),
-                name: "edit_file".to_string(),
+                name: "Edit".to_string(),
                 input: edit_input,
             },
         ];
@@ -483,14 +483,14 @@ mod tests {
     fn test_tool_use_serialization_format() {
         let block = ContentBlock::ToolUse {
             id: "toolu_xyz789".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({"command": "echo hello"}),
         };
         let json = serde_json::to_value(&block).expect("Failed to serialize tool_use");
 
         assert_eq!(json["type"], "tool_use", "type field should be 'tool_use'");
         assert_eq!(json["id"], "toolu_xyz789", "id should match");
-        assert_eq!(json["name"], "bash", "name should match");
+        assert_eq!(json["name"], "Bash", "name should match");
         assert_eq!(json["input"]["command"], "echo hello", "input should match");
     }
 
@@ -538,9 +538,9 @@ mod tests {
 
         // Assistant responds with 3 tool calls in one turn
         let tools = vec![
-            ("toolu_1", "bash", r#"{"command": "grep -r BUG src/"}"#),
-            ("toolu_2", "read_file", r#"{"path": "src/main.rs"}"#),
-            ("toolu_3", "bash", r#"{"command": "cargo test"}"#),
+            ("toolu_1", "Bash", r#"{"command": "grep -r BUG src/"}"#),
+            ("toolu_2", "Read", r#"{"path": "src/main.rs"}"#),
+            ("toolu_3", "Bash", r#"{"command": "cargo test"}"#),
         ];
 
         let mut assistant_blocks: Vec<ContentBlock> = Vec::new();
@@ -635,10 +635,10 @@ mod tests {
     #[test]
     fn test_is_modifying_detects_write_tools() {
         let is_modifying = |name: &str, json: &str| -> bool {
-            if name == "write_file" || name == "edit_file" || name == "apply_patch" {
+            if name == "Write" || name == "Edit" || name == "apply_patch" {
                 return true;
             }
-            if name == "bash" {
+            if name == "Bash" {
                 let cmd = json.to_lowercase();
                 if cmd.contains("sed -i") || cmd.contains("awk -i") || cmd.contains("awk --inplace")
                 {
@@ -730,94 +730,94 @@ mod tests {
 
         // Modifying commands
         assert!(is_modifying(
-            "write_file",
+            "Write",
             r#"{"path": "/app/test.py", "content": "hello"}"#
         ));
         assert!(is_modifying(
-            "edit_file",
+            "Edit",
             r#"{"path": "main.py", "old": "x", "new": "y"}"#
         ));
         assert!(is_modifying("apply_patch", r#"{"path": "a.py"}"#));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "sed -i 's/old/new/g' file.py"}"#
         ));
-        assert!(is_modifying("bash", r#"{"command": "pip install numpy"}"#));
-        assert!(is_modifying("bash", r#"{"command": "git add ."}"#));
+        assert!(is_modifying("Bash", r#"{"command": "pip install numpy"}"#));
+        assert!(is_modifying("Bash", r#"{"command": "git add ."}"#));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "git commit -m 'fix'"}"#
         ));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "cat > file.py << 'EOF'"}"#
         ));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "python -c \"import os\""}"#
         ));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "python3 -c \"open('f','w')\""}"#
         ));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "service nginx start"}"#
         ));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "systemctl start postfix"}"#
         ));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "nohup python app.py &"}"#
         ));
-        assert!(is_modifying("bash", r#"{"command": "mkdir -p /app/data"}"#));
+        assert!(is_modifying("Bash", r#"{"command": "mkdir -p /app/data"}"#));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "echo hello > out.txt"}"#
         ));
-        assert!(is_modifying("bash", r#"{"command": "make install"}"#));
+        assert!(is_modifying("Bash", r#"{"command": "make install"}"#));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "cargo build --release"}"#
         ));
-        assert!(is_modifying("bash", r#"{"command": "git stash"}"#));
+        assert!(is_modifying("Bash", r#"{"command": "git stash"}"#));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "git clone https://github.com/example/repo.git"}"#
         ));
 
         // Non-modifying commands
-        assert!(!is_modifying("read_file", r#"{"path": "/app/test.py"}"#));
-        assert!(!is_modifying("bash", r#"{"command": "ls -la"}"#));
-        assert!(!is_modifying("bash", r#"{"command": "cat file.py"}"#));
+        assert!(!is_modifying("Read", r#"{"path": "/app/test.py"}"#));
+        assert!(!is_modifying("Bash", r#"{"command": "ls -la"}"#));
+        assert!(!is_modifying("Bash", r#"{"command": "cat file.py"}"#));
         assert!(!is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "grep -r pattern src/"}"#
         ));
-        assert!(!is_modifying("bash", r#"{"command": "git status"}"#));
-        assert!(!is_modifying("bash", r#"{"command": "git log --oneline"}"#));
-        assert!(!is_modifying("bash", r#"{"command": "pip list"}"#));
-        assert!(!is_modifying("bash", r#"{"command": "pip show numpy"}"#));
-        assert!(!is_modifying("glob", r#"{"pattern": "**/*.py"}"#));
-        assert!(!is_modifying("grep", r#"{"pattern": "TODO"}"#));
+        assert!(!is_modifying("Bash", r#"{"command": "git status"}"#));
+        assert!(!is_modifying("Bash", r#"{"command": "git log --oneline"}"#));
+        assert!(!is_modifying("Bash", r#"{"command": "pip list"}"#));
+        assert!(!is_modifying("Bash", r#"{"command": "pip show numpy"}"#));
+        assert!(!is_modifying("Glob", r#"{"pattern": "**/*.py"}"#));
+        assert!(!is_modifying("Grep", r#"{"pattern": "TODO"}"#));
         // curl/wget checking (not downloading to file) should NOT be modifying
         assert!(!is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "curl http://localhost:8080/health"}"#
         ));
         assert!(!is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "wget -qO- http://localhost:8080/"}"#
         ));
         // curl downloading to file SHOULD be modifying
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "curl -o data.json http://example.com/data"}"#
         ));
         assert!(is_modifying(
-            "bash",
+            "Bash",
             r#"{"command": "wget -O data.json http://example.com/data"}"#
         ));
     }
@@ -892,7 +892,7 @@ mod tests {
         for cmd_json in &non_verification_cmds {
             let cmd = cmd_json.to_lowercase();
             let is_verification = cmd.contains("pytest")
-                || (cmd.contains("python -c") && !cmd.contains("grep"))
+                || (cmd.contains("python -c") && !cmd.contains("Grep"))
                 || cmd.contains("cargo test")
                 || cmd.contains("go test");
             assert!(
@@ -924,36 +924,32 @@ mod tests {
 
     #[test]
     fn test_detect_tool_loop_no_loop() {
-        let tools = vec![
-            "read_file".to_string(),
-            "edit_file".to_string(),
-            "bash".to_string(),
-        ];
+        let tools = vec!["Read".to_string(), "Edit".to_string(), "Bash".to_string()];
         assert!(detect_tool_loop(&tools, 4).is_none());
     }
 
     #[test]
     fn test_detect_tool_loop_period_1() {
         let tools = vec![
-            "read_file".to_string(),
-            "read_file".to_string(),
-            "read_file".to_string(),
-            "read_file".to_string(),
+            "Read".to_string(),
+            "Read".to_string(),
+            "Read".to_string(),
+            "Read".to_string(),
         ];
         let result = detect_tool_loop(&tools, 4);
         assert!(result.is_some());
-        assert!(result.unwrap().contains("read_file"));
+        assert!(result.unwrap().contains("Read"));
     }
 
     #[test]
     fn test_detect_tool_loop_period_2() {
         let tools = vec![
-            "read_file".to_string(),
-            "edit_file".to_string(),
-            "read_file".to_string(),
-            "edit_file".to_string(),
-            "read_file".to_string(),
-            "edit_file".to_string(),
+            "Read".to_string(),
+            "Edit".to_string(),
+            "Read".to_string(),
+            "Edit".to_string(),
+            "Read".to_string(),
+            "Edit".to_string(),
         ];
         let result = detect_tool_loop(&tools, 4);
         assert!(result.is_some());
@@ -962,7 +958,7 @@ mod tests {
 
     #[test]
     fn test_detect_tool_loop_too_few() {
-        let tools = vec!["read_file".to_string()];
+        let tools = vec!["Read".to_string()];
         assert!(detect_tool_loop(&tools, 4).is_none());
     }
 
@@ -970,10 +966,10 @@ mod tests {
     fn test_detect_tool_loop_breaks_on_change() {
         // Same tool 3 times, then different tool breaks the pattern
         let tools = vec![
-            "read_file".to_string(),
-            "read_file".to_string(),
-            "read_file".to_string(),
-            "bash".to_string(),
+            "Read".to_string(),
+            "Read".to_string(),
+            "Read".to_string(),
+            "Bash".to_string(),
         ];
         assert!(detect_tool_loop(&tools, 4).is_none());
     }

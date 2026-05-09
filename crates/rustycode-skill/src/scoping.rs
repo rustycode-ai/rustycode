@@ -114,10 +114,10 @@ mod tests {
 
     #[test]
     fn scope_allows_declared_tools() {
-        let scope = SkillToolScope::allowed(vec!["read_file".to_string(), "bash".to_string()]);
-        assert!(scope.is_allowed("read_file"));
-        assert!(scope.is_allowed("bash"));
-        assert!(!scope.is_allowed("web_fetch"));
+        let scope = SkillToolScope::allowed(vec!["Read".to_string(), "Bash".to_string()]);
+        assert!(scope.is_allowed("Read"));
+        assert!(scope.is_allowed("Bash"));
+        assert!(!scope.is_allowed("WebFetch"));
     }
 
     #[test]
@@ -130,9 +130,9 @@ mod tests {
 
     #[test]
     fn resolve_allowed_tools_from_skill_definition() {
-        let def = base_definition(vec!["read_file".to_string(), "bash".to_string()]);
+        let def = base_definition(vec!["Read".to_string(), "Bash".to_string()]);
         let tools = resolve_allowed_tools(&def);
-        assert_eq!(tools, vec!["read_file".to_string(), "bash".to_string()]);
+        assert_eq!(tools, vec!["Read".to_string(), "Bash".to_string()]);
     }
 
     #[test]
@@ -154,11 +154,11 @@ mod tests {
 
     #[test]
     fn scope_intersection_filters_tools() {
-        let scope1 = SkillToolScope::allowed(vec!["read_file".to_string(), "bash".to_string()]);
-        let scope2 = SkillToolScope::allowed(vec!["bash".to_string(), "grep".to_string()]);
+        let scope1 = SkillToolScope::allowed(vec!["Read".to_string(), "Bash".to_string()]);
+        let scope2 = SkillToolScope::allowed(vec!["Bash".to_string(), "Grep".to_string()]);
         let merged = scope1.intersect(&scope2);
-        assert!(merged.is_allowed("bash"));
-        assert!(!merged.is_allowed("read_file"));
-        assert!(!merged.is_allowed("grep"));
+        assert!(merged.is_allowed("Bash"));
+        assert!(!merged.is_allowed("Read"));
+        assert!(!merged.is_allowed("Grep"));
     }
 }

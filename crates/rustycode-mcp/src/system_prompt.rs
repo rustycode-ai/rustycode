@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn test_tool_description_generation() {
         let tool = McpTool {
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             title: None,
             description: "Read contents of a file".to_string(),
             input_schema: serde_json::json!({
@@ -328,7 +328,7 @@ mod tests {
             when_to_use: generator.generate_when_to_use(&tool),
         };
 
-        assert_eq!(desc.name, "read_file");
+        assert_eq!(desc.name, "Read");
         assert!(desc.when_to_use.is_some());
         assert!(desc.example.is_some());
     }

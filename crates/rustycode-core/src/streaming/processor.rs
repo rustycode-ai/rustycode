@@ -221,7 +221,7 @@ mod tests {
         // Start tool
         let start = StreamEvent::ToolCallStarted {
             id: "call_1".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
         };
         processor.process_event(start, &mut callbacks).unwrap();
 
@@ -248,7 +248,7 @@ mod tests {
 
         assert_eq!(callbacks.tools_completed.len(), 1);
         assert_eq!(callbacks.tools_completed[0].0, "call_1");
-        assert_eq!(callbacks.tools_completed[0].1, "read_file");
+        assert_eq!(callbacks.tools_completed[0].1, "Read");
     }
 
     #[test]

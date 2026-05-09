@@ -936,22 +936,22 @@ mod tests {
     #[test]
     fn start_and_complete_tool_execution() {
         let mut s = make_session();
-        s.start_tool_execution("bash".to_string());
+        s.start_tool_execution("Bash".to_string());
         assert_eq!(s.tool_runtime.active_tools.len(), 1);
-        assert_eq!(s.tool_runtime.active_tools[0].name, "bash");
+        assert_eq!(s.tool_runtime.active_tools[0].name, "Bash");
         assert_eq!(s.tool_runtime.active_tools[0].status, ToolStatus::Running);
         assert!(s
             .tool_runtime
             .current_session_tools
-            .contains(&"bash".to_string()));
+            .contains(&"Bash".to_string()));
 
-        s.complete_tool_execution("bash", "output text".to_string());
+        s.complete_tool_execution("Bash", "output text".to_string());
         // Completed tools are removed from active_tools to prevent unbounded growth
         assert!(s.tool_runtime.active_tools.is_empty());
         assert!(s
             .tool_runtime
             .current_session_tools
-            .contains(&"bash".to_string()));
+            .contains(&"Bash".to_string()));
     }
 
     #[test]
@@ -1075,7 +1075,7 @@ mod tests {
 
         let tc = ToolCall {
             call_id: "call_1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             arguments: serde_json::json!({"command": "ls"}),
         };
         s.add_tool_calls(vec![tc]);
@@ -1099,7 +1099,7 @@ mod tests {
 
         let tc = ToolCall {
             call_id: "call_1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             arguments: serde_json::json!({}),
         };
         s.add_tool_calls(vec![tc]);
@@ -1109,10 +1109,10 @@ mod tests {
     #[test]
     fn tool_execution_completed_and_removed() {
         let mut s = make_session();
-        s.start_tool_execution("bash".to_string());
+        s.start_tool_execution("Bash".to_string());
         assert_eq!(s.tool_runtime.active_tools.len(), 1);
         let long_output = "x".repeat(200);
-        s.complete_tool_execution("bash", long_output);
+        s.complete_tool_execution("Bash", long_output);
         // Completed tools are removed from active_tools
         assert!(s.tool_runtime.active_tools.is_empty());
     }

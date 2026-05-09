@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn extract_tools_from_description() {
         let tools = extract_tools("Tools: read_file, write_file, bash");
-        assert_eq!(tools, vec!["read_file", "write_file", "bash"]);
+        assert_eq!(tools, vec!["Read", "Write", "Bash"]);
     }
 
     #[test]

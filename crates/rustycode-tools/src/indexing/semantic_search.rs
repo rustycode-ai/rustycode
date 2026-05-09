@@ -240,7 +240,7 @@ impl Default for CodeIndexer {
                 "kt".into(),
                 "scala".into(),
                 "sh".into(),
-                "bash".into(),
+                "Bash".into(),
                 "zsh".into(),
                 "fish".into(),
                 "toml".into(),

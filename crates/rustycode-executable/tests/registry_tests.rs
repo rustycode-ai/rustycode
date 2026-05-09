@@ -9,14 +9,14 @@ use rustycode_executable::ExecutableRegistry;
 #[test]
 fn register_and_retrieve_unit() {
     let registry = ExecutableRegistry::new();
-    let unit = make_tool_unit("bash");
+    let unit = make_tool_unit("Bash");
     let id = unit.id.clone();
 
     registry.register(unit).expect("register should succeed");
 
     let retrieved = registry.get_sync(&id).expect("unit should exist");
-    assert_eq!(retrieved.id, "bash");
-    assert_eq!(retrieved.name, "bash");
+    assert_eq!(retrieved.id, "Bash");
+    assert_eq!(retrieved.name, "Bash");
 }
 
 #[tokio::test]
@@ -59,13 +59,13 @@ async fn list_metadata_returns_all_units() {
 #[tokio::test]
 async fn discover_by_name() {
     let registry = ExecutableRegistry::new();
-    registry.register(make_tool_unit("grep")).unwrap();
-    registry.register(make_tool_unit("glob")).unwrap();
-    registry.register(make_tool_unit("bash")).unwrap();
+    registry.register(make_tool_unit("Grep")).unwrap();
+    registry.register(make_tool_unit("Glob")).unwrap();
+    registry.register(make_tool_unit("Bash")).unwrap();
 
-    let results = registry.discover("grep", None).await;
+    let results = registry.discover("Grep", None).await;
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].id, "grep");
+    assert_eq!(results[0].id, "Grep");
 }
 
 #[tokio::test]

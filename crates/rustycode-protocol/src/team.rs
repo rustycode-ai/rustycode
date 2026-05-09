@@ -806,7 +806,7 @@ impl ApproachCategory {
         {
             Self::Configuration
         } else if lower.contains("read")
-            || lower.contains("grep")
+            || lower.contains("Grep")
             || lower.contains("search")
             || lower.contains("find")
             || lower.contains("investigate")
@@ -1077,6 +1077,15 @@ pub struct EscalationOption {
 impl TaskProfile {
     /// Assemble the right team for this profile.
     pub fn assemble_team(&self) -> TeamConfig {
+        self.assemble_team_with_context(None)
+    }
+
+    /// Assemble the right team, optionally using `AssemblyContext` to enrich
+    /// the roster with specialists, architects, and budget-capped sizing.
+    pub fn assemble_team_with_context(
+        &self,
+        context: Option<&crate::task_routing::AssemblyContext>,
+    ) -> TeamConfig {
         let mut attitude = match (self.risk, self.reach, self.familiarity) {
             // Critical risk — always strict
             (RiskLevel::Critical, _, _) => AgentAttitude::strict(),
@@ -1127,12 +1136,75 @@ impl TaskProfile {
             roles.push(TeamRole::Skeptic);
         }
 
+        if let Some(ctx) = context {
+            if matches!(
+                ctx.thinking_depth,
+                crate::task_routing::TaskThinkingMode::Deep
+                    | crate::task_routing::TaskThinkingMode::Extended
+            ) && !roles.contains(&TeamRole::Architect)
+            {
+                roles.push(TeamRole::Architect);
+            }
+
+            for _spec in &ctx.required_specialists {
+                roles.push(TeamRole::Scalpel);
+            }
+        }
+
         TeamConfig {
             roles,
             attitude,
             builder_generation: 0,
         }
     }
+}
+
+/// Priority value used for budget-capped team sizing.
+/// Higher priority roles are retained first when trimming.
+pub const fn role_priority(role: TeamRole) -> u8 {
+    match role {
+        TeamRole::Coordinator => 5,
+        TeamRole::Builder => 4,
+        TeamRole::Judge => 3,
+        TeamRole::Architect => 2,
+        TeamRole::Skeptic => 1,
+        TeamRole::Scalpel => 0,
+    }
+}
+
+/// Build a roster of `AgentRoleAssignment`s from a `TeamConfig` and optional
+/// `AssemblyContext`, capped to `max_size` by priority.
+pub fn build_roster(
+    config: &TeamConfig,
+    context: Option<&crate::task_routing::AssemblyContext>,
+    max_size: usize,
+) -> Vec<crate::task_routing::AgentRoleAssignment> {
+    use crate::task_routing::AgentRoleAssignment;
+
+    let mut assignments: Vec<AgentRoleAssignment> = config
+        .roles
+        .iter()
+        .filter(|r| !matches!(r, TeamRole::Scalpel))
+        .map(|&role| AgentRoleAssignment {
+            role,
+            specialization: None,
+            priority: role_priority(role),
+        })
+        .collect();
+
+    if let Some(ctx) = context {
+        for spec in &ctx.required_specialists {
+            assignments.push(AgentRoleAssignment {
+                role: TeamRole::Scalpel,
+                specialization: Some(spec.clone()),
+                priority: role_priority(TeamRole::Scalpel),
+            });
+        }
+    }
+
+    assignments.sort_by(|a, b| b.priority.cmp(&a.priority));
+    assignments.truncate(max_size);
+    assignments
 }
 
 impl fmt::Display for RiskLevel {
@@ -2039,5 +2111,152 @@ mod tests {
             architect_request.escalation.unwrap().reason,
             "need guidance"
         );
+    }
+
+    // ── Phase D: Team Composition Integration tests ──
+
+    fn default_profile() -> TaskProfile {
+        TaskProfile {
+            risk: RiskLevel::Moderate,
+            reach: ReachLevel::Local,
+            familiarity: Familiarity::WellKnown,
+            reversibility: Reversibility::Easy,
+            strategy: ReasoningStrategy::ActFirst,
+            signals: vec![],
+        }
+    }
+
+    #[test]
+    fn d1_assembly_context_adds_specialists_as_scalpel() {
+        let profile = default_profile();
+        let ctx = crate::task_routing::AssemblyContext {
+            intent_category: crate::intent::IntentCategory::Implementation,
+            thinking_depth: crate::task_routing::TaskThinkingMode::Standard,
+            confidence: 0.8,
+            required_specialists: vec!["security".into(), "performance".into()],
+        };
+        let team = profile.assemble_team_with_context(Some(&ctx));
+        let scalpel_count = team
+            .roles
+            .iter()
+            .filter(|r| **r == TeamRole::Scalpel)
+            .count();
+        assert_eq!(scalpel_count, 2);
+    }
+
+    #[test]
+    fn d1_assemble_team_without_context_unchanged() {
+        let profile = default_profile();
+        let baseline = profile.assemble_team();
+        let with_none = profile.assemble_team_with_context(None);
+        assert_eq!(baseline.roles, with_none.roles);
+    }
+
+    #[test]
+    fn d1_assembly_context_adds_architect_for_deep_thinking() {
+        let mut profile = default_profile();
+        profile.strategy = ReasoningStrategy::ActFirst;
+        let ctx = crate::task_routing::AssemblyContext {
+            intent_category: crate::intent::IntentCategory::Implementation,
+            thinking_depth: crate::task_routing::TaskThinkingMode::Deep,
+            confidence: 0.8,
+            required_specialists: vec![],
+        };
+        let team = profile.assemble_team_with_context(Some(&ctx));
+        assert!(team.roles.contains(&TeamRole::Architect));
+    }
+
+    #[test]
+    fn d3_specialist_fallback_no_context_gives_standard_team() {
+        let profile = default_profile();
+        let team = profile.assemble_team();
+        assert!(team.roles.contains(&TeamRole::Coordinator));
+        assert!(team.roles.contains(&TeamRole::Builder));
+        assert!(team.roles.contains(&TeamRole::Judge));
+    }
+
+    #[test]
+    fn d5_budget_capped_team_sizing() {
+        let profile = default_profile();
+        let ctx = crate::task_routing::AssemblyContext {
+            intent_category: crate::intent::IntentCategory::Implementation,
+            thinking_depth: crate::task_routing::TaskThinkingMode::Extended,
+            confidence: 0.9,
+            required_specialists: vec![
+                "security".into(),
+                "performance".into(),
+                "testing".into(),
+                "docs".into(),
+            ],
+        };
+        let team = profile.assemble_team_with_context(Some(&ctx));
+        let roster = build_roster(&team, Some(&ctx), 3);
+        assert_eq!(roster.len(), 3);
+        assert!(roster[0].priority >= roster[1].priority);
+        assert!(roster[1].priority >= roster[2].priority);
+    }
+
+    #[test]
+    fn d5_budget_capped_preserves_high_priority() {
+        let profile = default_profile();
+        let ctx = crate::task_routing::AssemblyContext {
+            intent_category: crate::intent::IntentCategory::Implementation,
+            thinking_depth: crate::task_routing::TaskThinkingMode::Standard,
+            confidence: 0.7,
+            required_specialists: vec!["x".into()],
+        };
+        let team = profile.assemble_team_with_context(Some(&ctx));
+        let roster = build_roster(&team, Some(&ctx), 2);
+        assert_eq!(roster.len(), 2);
+        assert_eq!(roster[0].role, TeamRole::Coordinator);
+        assert_eq!(roster[1].role, TeamRole::Builder);
+    }
+
+    #[test]
+    fn d5_build_roster_without_context_no_scalpel() {
+        let profile = default_profile();
+        let team = profile.assemble_team();
+        let roster = build_roster(&team, None, 10);
+        assert!(roster.iter().all(|a| a.role != TeamRole::Scalpel));
+    }
+
+    #[test]
+    fn d7_end_to_end_intent_to_roster() {
+        let profile = default_profile();
+        let ctx = crate::task_routing::AssemblyContext {
+            intent_category: crate::intent::IntentCategory::Implementation,
+            thinking_depth: crate::task_routing::TaskThinkingMode::Deep,
+            confidence: 0.85,
+            required_specialists: vec!["auth".into()],
+        };
+        let team = profile.assemble_team_with_context(Some(&ctx));
+        let roster = build_roster(&team, Some(&ctx), 6);
+
+        let roles: Vec<TeamRole> = roster.iter().map(|a| a.role).collect();
+        assert!(roles.contains(&TeamRole::Coordinator));
+        assert!(roles.contains(&TeamRole::Builder));
+        assert!(roles.contains(&TeamRole::Judge));
+        assert!(roles.contains(&TeamRole::Skeptic));
+        assert!(roles.contains(&TeamRole::Architect));
+        assert!(roles.contains(&TeamRole::Scalpel));
+
+        let scalpel_assignments: Vec<_> = roster
+            .iter()
+            .filter(|a| a.role == TeamRole::Scalpel)
+            .collect();
+        assert_eq!(scalpel_assignments.len(), 1);
+        assert_eq!(
+            scalpel_assignments[0].specialization.as_deref(),
+            Some("auth")
+        );
+    }
+
+    #[test]
+    fn role_priority_ordering() {
+        assert!(role_priority(TeamRole::Coordinator) > role_priority(TeamRole::Builder));
+        assert!(role_priority(TeamRole::Builder) > role_priority(TeamRole::Judge));
+        assert!(role_priority(TeamRole::Judge) > role_priority(TeamRole::Architect));
+        assert!(role_priority(TeamRole::Architect) > role_priority(TeamRole::Skeptic));
+        assert!(role_priority(TeamRole::Skeptic) > role_priority(TeamRole::Scalpel));
     }
 }

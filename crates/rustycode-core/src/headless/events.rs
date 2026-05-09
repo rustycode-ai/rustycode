@@ -22,7 +22,7 @@ impl AgentEvents for HeadlessAgentBridge {
         use rustycode_tools_security::approve::SmartApprove;
 
         let sa = SmartApprove::new();
-        let command = if tool_name == "bash" {
+        let command = if tool_name == "Bash" {
             input
                 .as_object()
                 .and_then(|obj| obj.get("command"))

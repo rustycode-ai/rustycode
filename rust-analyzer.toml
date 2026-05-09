@@ -18,7 +18,7 @@ cargo.buildScripts.overrideCommand = ["cargo", "check", "--message-format=json"]
 cargo.loadOutDirsFromCheck = true
 
 # Use rustc wrapper for faster analysis (optional, uncomment if using sccache)
-# rustc.wrapper = "sccache"
+rustc.wrapper = "sccache"
 
 [completion]
 # Add call parentheses/snippets automatically

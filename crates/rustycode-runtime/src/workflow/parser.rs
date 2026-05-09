@@ -498,7 +498,7 @@ error_handling:
     {
       "id": "step1",
       "tool_call": {
-        "tool": "read_file",
+        "tool": "Read",
         "parameters": {}
       }
     }
@@ -633,7 +633,7 @@ steps: []
     fn test_step_type_tool_call() {
         let json = r#"{
             "id": "wf1", "name": "T", "description": "d",
-            "steps": [{"id": "s1", "tool_call": {"tool": "bash"}}]
+            "steps": [{"id": "s1", "tool_call": {"tool": "Bash"}}]
         }"#;
         let workflow = parse_json(json).unwrap();
         assert!(matches!(

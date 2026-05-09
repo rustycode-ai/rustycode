@@ -49,7 +49,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
     match rule.id {
         // R01: Block sudo commands
         "R01" => {
-            if tool.contains("bash") {
+            if tool.contains("Bash") {
                 if let Some(c) = &cmd {
                     return c.contains("sudo");
                 }
@@ -67,7 +67,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R03: Bash writes to protected paths via redirection
         "R03" => {
-            if tool.contains("bash") {
+            if tool.contains("Bash") {
                 if let Some(c) = &cmd {
                     if c.contains('>') || c.contains("=>") {
                         if let Some(p) = path {
@@ -83,7 +83,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         // Relative paths are always inside workspace by definition.
         // For absolute paths, check if they start with the cwd.
         "R04" => {
-            if tool.contains("write") || tool.contains("edit") || tool.contains("bash") {
+            if tool.contains("write") || tool.contains("edit") || tool.contains("Bash") {
                 if let Some(p) = path {
                     let path_is_relative = !p.starts_with('/');
                     if path_is_relative {
@@ -98,7 +98,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R05: rm -rf
         "R05" => {
-            if tool.contains("bash") {
+            if tool.contains("Bash") {
                 if let Some(c) = &cmd {
                     return c.contains("rm -rf");
                 }
@@ -107,7 +107,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R06: git push --force or -f
         "R06" => {
-            if tool.contains("bash") {
+            if tool.contains("Bash") {
                 if let Some(c) = &cmd {
                     return c.contains("git push --force") || c.contains("git push -f");
                 }
@@ -116,7 +116,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R07: Secrets in content — only check write/edit/bash (reading secrets is fine)
         "R07" => {
-            if tool.contains("write") || tool.contains("edit") || tool.contains("bash") {
+            if tool.contains("write") || tool.contains("edit") || tool.contains("Bash") {
                 if let Some(ct) = &content {
                     let s = ct.to_lowercase();
                     return s.contains("sk-")
@@ -130,7 +130,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R08: Binary write extensions — only applies to write/edit/bash tools
         "R08" => {
-            if tool.contains("write") || tool.contains("edit") || tool.contains("bash") {
+            if tool.contains("write") || tool.contains("edit") || tool.contains("Bash") {
                 if let Some(p) = &path {
                     let ex = p.rsplit('.').next().unwrap_or("");
                     let blocked = ["exe", "dll", "so", "dylib", "bin", "db", "sqlite"];
@@ -141,7 +141,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R09: Path traversal — only apply to write/edit/bash (reads are safe)
         "R09" => {
-            if tool.contains("write") || tool.contains("edit") || tool.contains("bash") {
+            if tool.contains("write") || tool.contains("edit") || tool.contains("Bash") {
                 if let Some(p) = &path {
                     return p.contains("..");
                 }
@@ -150,7 +150,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R10: no-verify / no-gpg-sign in Bash
         "R10" => {
-            if tool.contains("bash") {
+            if tool.contains("Bash") {
                 if let Some(c) = &cmd {
                     return c.contains("--no-verify") || c.contains("--no-gpg-sign");
                 }
@@ -159,7 +159,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R11: git reset --hard main/master
         "R11" => {
-            if tool.contains("bash") {
+            if tool.contains("Bash") {
                 if let Some(c) = &cmd {
                     return c.contains("git reset --hard")
                         && (c.contains("main") || c.contains("master"));
@@ -169,7 +169,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R12: git push origin main/master
         "R12" => {
-            if tool.contains("bash") {
+            if tool.contains("Bash") {
                 if let Some(c) = &cmd {
                     return c.contains("git push origin main")
                         || c.contains("git push origin master");
@@ -179,7 +179,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R13: config edits — only apply to write/edit/bash tools
         "R13" => {
-            if tool.contains("write") || tool.contains("edit") || tool.contains("bash") {
+            if tool.contains("write") || tool.contains("edit") || tool.contains("Bash") {
                 if let Some(p) = &path {
                     let lowered = p.to_lowercase();
                     return lowered.contains("settings.json")
@@ -192,7 +192,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R14: symlink in path — only check write/edit/bash (reading through symlinks is fine)
         "R14" => {
-            if tool.contains("write") || tool.contains("edit") || tool.contains("bash") {
+            if tool.contains("write") || tool.contains("edit") || tool.contains("Bash") {
                 if let Some(p) = &path {
                     return is_symlink_in_path(p);
                 }
@@ -201,7 +201,7 @@ fn matches_rule(rule: &GuardRule, input: &HookInput) -> bool {
         }
         // R15: content length > 10MB — only check write/edit/bash
         "R15" => {
-            if tool.contains("write") || tool.contains("edit") || tool.contains("bash") {
+            if tool.contains("write") || tool.contains("edit") || tool.contains("Bash") {
                 if let Some(ct) = &content {
                     return ct.len() > 10_000_000;
                 }

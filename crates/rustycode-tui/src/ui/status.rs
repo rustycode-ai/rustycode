@@ -635,12 +635,12 @@ mod tests {
         let status = Status::ExecutingTools {
             remaining_tools: 2,
             total_tools: 5,
-            current_tool: Some("read_file".to_string()),
+            current_tool: Some("Read".to_string()),
             progress_percentage: Some(60),
         };
         assert!(status.is_animating());
         assert_eq!(status.color(), Color::Magenta);
-        assert!(status.accessible_text().contains("read_file"));
+        assert!(status.accessible_text().contains("Read"));
         assert!(status.accessible_text().contains("60%"));
     }
 

@@ -25,7 +25,7 @@ use uuid::Uuid;
 pub struct CheckpointToolCall {
     /// Unique ID for this tool call
     pub id: String,
-    /// Tool name (e.g., "bash", "read_file", "write_file")
+    /// Tool name (e.g., "Bash", "Read", "Write")
     pub name: String,
     /// Input arguments as JSON
     pub input: serde_json::Value,
@@ -279,7 +279,7 @@ mod tests {
     fn create_test_checkpoint() -> IterationCheckpoint {
         let tool_call = CheckpointToolCall {
             id: "tc_001".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({"command": "echo test"}),
             output: Some("test output".to_string()),
             success: true,
@@ -349,7 +349,7 @@ mod tests {
     fn test_checkpoint_integrity() {
         let tool_call = CheckpointToolCall {
             id: "tc_001".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({"command": "echo test"}),
             output: Some("test output".to_string()),
             success: true,
@@ -371,7 +371,7 @@ mod tests {
         for i in 0..5 {
             tool_calls.push(CheckpointToolCall {
                 id: format!("tc_{:03}", i),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 input: serde_json::json!({"command": format!("echo {}", i)}),
                 output: Some(format!("output {}", i)),
                 success: true,

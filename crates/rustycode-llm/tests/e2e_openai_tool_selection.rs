@@ -143,7 +143,7 @@ fn test_openai_tool_formatting() {
         serde_json::json!({
             "type": "function",
             "function": {
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read a UTF-8 text file",
                 "parameters": {
                     "type": "object",
@@ -160,7 +160,7 @@ fn test_openai_tool_formatting() {
         serde_json::json!({
             "type": "function",
             "function": {
-                "name": "write_file",
+                "name": "Write",
                 "description": "Write content to a file",
                 "parameters": {
                     "type": "object",

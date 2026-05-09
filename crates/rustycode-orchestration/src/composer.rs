@@ -93,7 +93,7 @@ impl Composer {
             index: 0,
             description: result,
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::default(),
         }])

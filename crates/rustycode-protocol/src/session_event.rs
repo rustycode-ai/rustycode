@@ -109,7 +109,7 @@ mod tests {
             1,
             StreamEvent::ToolCallStarted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             },
         );
         let ev2 = SyncEvent::new(
@@ -117,7 +117,7 @@ mod tests {
             2,
             StreamEvent::ToolExecCompleted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
                 output: "ok".into(),
                 is_error: false,
             },
@@ -133,7 +133,7 @@ mod tests {
         let session_id = SessionId::new();
         let ev = StreamEvent::ToolExecCompleted {
             id: "t1".into(),
-            name: "bash".into(),
+            name: "Bash".into(),
             output: "ok".into(),
             is_error: false,
         };

@@ -20,14 +20,14 @@
 //! let mut registry = HookRegistry::new();
 //!
 //! registry.register(HookPoint::PreToolUse, |ctx| {
-//!     if ctx.subject == "bash" {
+//!     if ctx.subject == "Bash" {
 //!         // Inspect or log the command
 //!         tracing::info!("About to run: {:?}", ctx.metadata);
 //!     }
 //!     Ok(HookResult::Continue)
 //! });
 //!
-//! let event = HookContext::new(HookPoint::PreToolUse, "bash", serde_json::json!({"command": "ls"}));
+//! let event = HookContext::new(HookPoint::PreToolUse, "Bash", serde_json::json!({"command": "ls"}));
 //! let results = registry.trigger(&event)?;
 //! ```
 
@@ -500,11 +500,11 @@ mod tests {
     fn hook_context_carries_hook_and_metadata() {
         let ctx = HookContext::new(
             HookPoint::PreToolUse,
-            "bash",
+            "Bash",
             serde_json::json!({"command": "ls"}),
         );
         assert_eq!(ctx.hook, HookPoint::PreToolUse);
-        assert_eq!(ctx.subject, "bash");
+        assert_eq!(ctx.subject, "Bash");
         assert_eq!(ctx.metadata["command"], "ls");
         assert!(ctx.timestamp <= Utc::now());
     }
@@ -553,12 +553,12 @@ mod tests {
         let called_clone = called.clone();
 
         registry.register(HookPoint::PreToolUse, move |ctx| {
-            assert_eq!(ctx.subject, "bash");
+            assert_eq!(ctx.subject, "Bash");
             called_clone.store(true, Ordering::SeqCst);
             Ok(HookResult::Continue)
         });
 
-        let ctx = HookContext::new(HookPoint::PreToolUse, "bash", serde_json::json!({}));
+        let ctx = HookContext::new(HookPoint::PreToolUse, "Bash", serde_json::json!({}));
         let results = registry.trigger(&ctx).unwrap();
         assert!(called.load(Ordering::SeqCst));
         assert_eq!(results.len(), 1);
@@ -582,7 +582,7 @@ mod tests {
             Ok(HookResult::Continue)
         });
 
-        let ctx = HookContext::new(HookPoint::PostToolUse, "read_file", serde_json::json!({}));
+        let ctx = HookContext::new(HookPoint::PostToolUse, "Read", serde_json::json!({}));
         registry.trigger(&ctx).unwrap();
         assert_eq!(*order.lock().unwrap(), vec![1, 2]);
     }
@@ -630,7 +630,7 @@ mod tests {
             Ok(HookResult::Continue)
         });
 
-        let ctx = HookContext::new(HookPoint::PermissionCheck, "bash", serde_json::json!({}));
+        let ctx = HookContext::new(HookPoint::PermissionCheck, "Bash", serde_json::json!({}));
         let results = registry.trigger(&ctx).unwrap();
         assert!(!second_called.load(Ordering::SeqCst));
         assert_eq!(results.len(), 1);
@@ -715,7 +715,7 @@ mod tests {
             ))
         });
 
-        let ctx = HookContext::new(HookPoint::PostToolUse, "bash", serde_json::json!({}));
+        let ctx = HookContext::new(HookPoint::PostToolUse, "Bash", serde_json::json!({}));
         let results = registry.trigger(&ctx).unwrap();
         assert_eq!(results.len(), 1);
         assert!(matches!(results[0], HookResult::ModifyOutput(_)));

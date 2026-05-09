@@ -347,7 +347,7 @@ mod tests {
         match &events[0] {
             Ok(StreamEvent::ToolCallStarted { id, name }) => {
                 assert_eq!(id, "call_1");
-                assert_eq!(name, "read_file");
+                assert_eq!(name, "Read");
             }
             other => panic!("expected ToolCallStarted, got {:?}", other),
         }
@@ -356,11 +356,7 @@ mod tests {
     #[test]
     fn parse_tool_argument_delta_with_state() {
         let state = ResponsesSseState::default();
-        state.register_call(
-            "call_1".to_string(),
-            "fc_1".to_string(),
-            "read_file".to_string(),
-        );
+        state.register_call("call_1".to_string(), "fc_1".to_string(), "Read".to_string());
 
         let input = "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"call_id\":\"call_1\",\"delta\":\"{\\\"path\\\":\"}\n\n";
         let events = parse_responses_sse_lines(input, &state);

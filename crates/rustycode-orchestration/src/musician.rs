@@ -54,7 +54,7 @@ impl ToolExecutor for ShellToolExecutor {
             .map_err(|e| OrchestrationError::execution(e.to_string()))?;
 
         match tool_name {
-            "bash" | "sh" => {
+            "Bash" | "sh" => {
                 // Validate input for injection attempts before shell interpretation
                 if let Err(e) = rustycode_tools::security::validation::validate_command_arg(input) {
                     return Err(OrchestrationError::ToolExecution(format!(
@@ -424,7 +424,7 @@ fn tools_for_role(role: AgentRole) -> Vec<&'static str> {
         | AgentRole::Judge
         | AgentRole::Worker
         | AgentRole::Builder
-        | AgentRole::Scalpel => vec!["noop", "bash", "sh"],
+        | AgentRole::Scalpel => vec!["noop", "Bash", "sh"],
         _ => vec!["noop"],
     }
 }
@@ -456,11 +456,11 @@ mod tests {
     #[tokio::test]
     async fn test_play_step_appends_trace() {
         let musician = Musician::new();
-        let step = make_step("s1", Some("bash"));
+        let step = make_step("s1", Some("Bash"));
         let mut trace = ExecutionTrace::new("t1".into());
         musician.play_step(&step, &mut trace).await.unwrap();
         assert_eq!(trace.steps.len(), 1);
-        assert_eq!(trace.steps[0].tool_name, "bash");
+        assert_eq!(trace.steps[0].tool_name, "Bash");
     }
 
     #[tokio::test]
@@ -475,7 +475,7 @@ mod tests {
     #[tokio::test]
     async fn test_play_step_returns_success() {
         let musician = Musician::new();
-        let step = make_step("s3", Some("bash"));
+        let step = make_step("s3", Some("Bash"));
         let mut trace = ExecutionTrace::new("t3".into());
         let result = musician.play_step(&step, &mut trace).await.unwrap();
         assert!(result.is_success());
@@ -485,7 +485,7 @@ mod tests {
     #[tokio::test]
     async fn test_play_step_uses_correct_tier() {
         let musician = Musician::new();
-        let step = make_step("s4", Some("bash"));
+        let step = make_step("s4", Some("Bash"));
         let mut trace = ExecutionTrace::new("t4".into());
         musician.play_step(&step, &mut trace).await.unwrap();
         assert_eq!(trace.steps[0].tier, 2);
@@ -531,7 +531,7 @@ mod tests {
             exit_code: Some(0),
         });
         let musician = Musician::with_tool_executor(executor);
-        let step = make_step("s-custom", Some("bash"));
+        let step = make_step("s-custom", Some("Bash"));
         let mut trace = ExecutionTrace::new("t-custom".into());
         let result = musician.play_step(&step, &mut trace).await.unwrap();
         assert_eq!(result.output, "custom result");
@@ -540,7 +540,7 @@ mod tests {
     #[tokio::test]
     async fn test_play_step_with_context() {
         let musician = Musician::new();
-        let step = make_step("s-ctx", Some("bash"));
+        let step = make_step("s-ctx", Some("Bash"));
         let mut ctx = TaskContext::new("t-ctx".into(), "test".into());
         let result = musician
             .play_step_with_context(&step, &mut ctx)
@@ -553,7 +553,7 @@ mod tests {
     #[tokio::test]
     async fn test_play_step_with_context_tracks_tier() {
         let musician = Musician::new();
-        let step = make_step("s-tier", Some("bash"));
+        let step = make_step("s-tier", Some("Bash"));
         let mut ctx = TaskContext::new("t-tier".into(), "test".into());
         musician
             .play_step_with_context(&step, &mut ctx)
@@ -568,7 +568,7 @@ mod tests {
             cwd: std::env::current_dir().unwrap_or_default(),
         };
         let result = executor
-            .execute("t1", "bash", "echo test_output", &["bash", "sh"], "model")
+            .execute("t1", "Bash", "echo test_output", &["Bash", "sh"], "model")
             .await
             .unwrap();
         assert!(result.output.contains("test_output"));
@@ -594,7 +594,7 @@ mod tests {
             cwd: std::env::current_dir().unwrap_or_default(),
         };
         let result = executor
-            .execute("t1", "python", "code", &["bash"], "model")
+            .execute("t1", "python", "code", &["Bash"], "model")
             .await;
         assert!(result.is_err());
     }
@@ -613,10 +613,10 @@ mod tests {
     #[test]
     fn test_tools_for_role() {
         let planner_tools = tools_for_role(AgentRole::Planner);
-        assert!(planner_tools.contains(&"bash"));
+        assert!(planner_tools.contains(&"Bash"));
 
         let reviewer_tools = tools_for_role(AgentRole::Reviewer);
-        assert!(reviewer_tools.contains(&"bash"));
+        assert!(reviewer_tools.contains(&"Bash"));
     }
 
     #[tokio::test]
@@ -628,7 +628,7 @@ mod tests {
             index: 0,
             description: "echo hello".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: false,
             required_resources: crate::guard::RequiredResources::new()
                 .read("/tmp/musician-test-read.rs"),
@@ -658,7 +658,7 @@ mod tests {
             index: 0,
             description: "echo hello".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: false,
             required_resources: crate::guard::RequiredResources::new()
                 .write("/tmp/musician-test-conflict.rs"),
@@ -687,7 +687,7 @@ mod tests {
             index: 0,
             description: "failing command".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::default(),
         };
@@ -718,7 +718,7 @@ mod tests {
             index: 0,
             description: "good command".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::default(),
         };
@@ -744,7 +744,7 @@ mod tests {
             index: 0,
             description: "echo blocked".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: false,
             required_resources: crate::guard::RequiredResources::default(),
         };
@@ -772,7 +772,7 @@ mod tests {
             index: 0,
             description: "echo allowed".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: false,
             required_resources: crate::guard::RequiredResources::default(),
         };
@@ -793,7 +793,7 @@ mod tests {
             index: 0,
             description: "echo default".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: false,
             required_resources: crate::guard::RequiredResources::default(),
         };

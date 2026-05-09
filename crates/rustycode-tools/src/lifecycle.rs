@@ -418,7 +418,7 @@ mod tests {
     fn tool_call_start_payload_with_call_id() {
         let p = ToolCallStartPayload {
             conversation_id: "c1".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             call_id: Some("call_123".into()),
         };
         assert_eq!(p.call_id.unwrap(), "call_123");
@@ -428,7 +428,7 @@ mod tests {
     fn tool_call_end_payload_error() {
         let p = ToolCallEndPayload {
             conversation_id: "c1".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             call_id: None,
             is_error: true,
         };
@@ -504,11 +504,11 @@ mod tests {
     fn hooks_on_tool_start_and_end() {
         let hooks = LifecycleHooks::new().with_handler(Arc::new(TracingHandler::new()));
         assert_eq!(
-            hooks.on_tool_start("c1", "bash", Some("call_1")),
+            hooks.on_tool_start("c1", "Bash", Some("call_1")),
             HookResult::Continue
         );
         assert_eq!(
-            hooks.on_tool_end("c1", "bash", Some("call_1"), false),
+            hooks.on_tool_end("c1", "Bash", Some("call_1"), false),
             HookResult::Continue
         );
     }
@@ -578,12 +578,12 @@ mod tests {
             }),
             LifecycleEvent::ToolCallStart(ToolCallStartPayload {
                 conversation_id: "c".into(),
-                tool_name: "bash".into(),
+                tool_name: "Bash".into(),
                 call_id: None,
             }),
             LifecycleEvent::ToolCallEnd(ToolCallEndPayload {
                 conversation_id: "c".into(),
-                tool_name: "bash".into(),
+                tool_name: "Bash".into(),
                 call_id: None,
                 is_error: false,
             }),

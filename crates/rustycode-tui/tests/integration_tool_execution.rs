@@ -95,7 +95,7 @@ async fn test_tool_execution_end_to_end() {
         ToolExecutionTest {
             name: "Read main.rs".to_string(),
             prompt: "Read the main.rs file and tell me what function is defined in it".to_string(),
-            expected_tool: "read_file".to_string(),
+            expected_tool: "Read".to_string(),
             verify_result: Box::new(|output| {
                 output.contains("fn main")
                     || output.contains("hello")
@@ -116,7 +116,7 @@ async fn test_tool_execution_end_to_end() {
         ToolExecutionTest {
             name: "Search for function".to_string(),
             prompt: "Search for 'fn helper_function' in the codebase".to_string(),
-            expected_tool: "grep".to_string(),
+            expected_tool: "Grep".to_string(),
             verify_result: Box::new(|output| {
                 output.contains("helper_function") || output.contains("Helper")
             }),
@@ -245,7 +245,7 @@ fn test_direct_tool_execution() {
     println!("\n▶ Test: Read main.rs");
     let read_result = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "test-1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({"path": "src/main.rs"}),
     });
 
@@ -283,7 +283,7 @@ fn test_direct_tool_execution() {
     println!("\n▶ Test: Search for 'fn main'");
     let search_result = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "test-3".to_string(),
-        name: "grep".to_string(),
+        name: "Grep".to_string(),
         arguments: serde_json::json!({"pattern": "fn main"}),
     });
 

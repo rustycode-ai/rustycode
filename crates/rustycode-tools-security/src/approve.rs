@@ -48,10 +48,10 @@ impl SmartApprove {
     pub fn new() -> Self {
         Self {
             read_only_tools: HashSet::from([
-                "read_file",
+                "Read",
                 "list_dir",
-                "grep",
-                "glob",
+                "Grep",
+                "Glob",
                 "find",
                 "inspect",
                 "git_status",
@@ -66,7 +66,7 @@ impl SmartApprove {
                 "lsp_full_diagnostics",
                 "lsp_code_actions",
                 "lsp_formatting",
-                "web_fetch",
+                "WebFetch",
                 "web_search",
                 "semantic_search",
                 "code_search",
@@ -82,8 +82,8 @@ impl SmartApprove {
                 "todo_read",
             ]),
             write_tools: HashSet::from([
-                "write_file",
-                "edit_file",
+                "Write",
+                "Edit",
                 "text_editor_20250728",
                 "text_editor_20250124",
                 "apply_patch",
@@ -203,7 +203,7 @@ impl SmartApprove {
         }
 
         // Bash needs special handling — inspect the command
-        if name == "bash" {
+        if name == "Bash" {
             return self.classify_bash_command(args.unwrap_or(""));
         }
 
@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn test_read_file_is_readonly() {
         assert_eq!(
-            classifier().classify("read_file", None),
+            classifier().classify("Read", None),
             OperationClass::ReadOnly
         );
     }
@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn test_grep_is_readonly() {
         assert_eq!(
-            classifier().classify("grep", None),
+            classifier().classify("Grep", None),
             OperationClass::ReadOnly
         );
     }
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn test_glob_is_readonly() {
         assert_eq!(
-            classifier().classify("glob", None),
+            classifier().classify("Glob", None),
             OperationClass::ReadOnly
         );
     }
@@ -366,7 +366,7 @@ mod tests {
     #[test]
     fn test_web_fetch_is_readonly() {
         assert_eq!(
-            classifier().classify("web_fetch", None),
+            classifier().classify("WebFetch", None),
             OperationClass::ReadOnly
         );
     }
@@ -409,18 +409,12 @@ mod tests {
 
     #[test]
     fn test_write_file_is_write() {
-        assert_eq!(
-            classifier().classify("write_file", None),
-            OperationClass::Write
-        );
+        assert_eq!(classifier().classify("Write", None), OperationClass::Write);
     }
 
     #[test]
     fn test_edit_file_is_write() {
-        assert_eq!(
-            classifier().classify("edit_file", None),
-            OperationClass::Write
-        );
+        assert_eq!(classifier().classify("Edit", None), OperationClass::Write);
     }
 
     #[test]
@@ -452,7 +446,7 @@ mod tests {
     #[test]
     fn test_bash_ls_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("ls -la")),
+            classifier().classify("Bash", Some("ls -la")),
             OperationClass::ReadOnly
         );
     }
@@ -460,7 +454,7 @@ mod tests {
     #[test]
     fn test_bash_cat_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("cat /etc/hosts")),
+            classifier().classify("Bash", Some("cat /etc/hosts")),
             OperationClass::ReadOnly
         );
     }
@@ -468,7 +462,7 @@ mod tests {
     #[test]
     fn test_bash_grep_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("grep -r pattern src/")),
+            classifier().classify("Bash", Some("grep -r pattern src/")),
             OperationClass::ReadOnly
         );
     }
@@ -476,7 +470,7 @@ mod tests {
     #[test]
     fn test_bash_git_status_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("git status")),
+            classifier().classify("Bash", Some("git status")),
             OperationClass::ReadOnly
         );
     }
@@ -484,7 +478,7 @@ mod tests {
     #[test]
     fn test_bash_cargo_check_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("cargo check")),
+            classifier().classify("Bash", Some("cargo check")),
             OperationClass::ReadOnly
         );
     }
@@ -492,7 +486,7 @@ mod tests {
     #[test]
     fn test_bash_cargo_test_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("cargo test")),
+            classifier().classify("Bash", Some("cargo test")),
             OperationClass::ReadOnly
         );
     }
@@ -500,7 +494,7 @@ mod tests {
     #[test]
     fn test_bash_pwd_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("pwd")),
+            classifier().classify("Bash", Some("pwd")),
             OperationClass::ReadOnly
         );
     }
@@ -508,7 +502,7 @@ mod tests {
     #[test]
     fn test_bash_echo_is_readonly() {
         assert_eq!(
-            classifier().classify("bash", Some("echo hello")),
+            classifier().classify("Bash", Some("echo hello")),
             OperationClass::ReadOnly
         );
     }
@@ -516,7 +510,7 @@ mod tests {
     #[test]
     fn test_bash_rm_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("rm -rf /tmp/test")),
+            classifier().classify("Bash", Some("rm -rf /tmp/test")),
             OperationClass::Destructive
         );
     }
@@ -524,7 +518,7 @@ mod tests {
     #[test]
     fn test_bash_git_push_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("git push origin main")),
+            classifier().classify("Bash", Some("git push origin main")),
             OperationClass::Destructive
         );
     }
@@ -532,7 +526,7 @@ mod tests {
     #[test]
     fn test_bash_git_reset_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("git reset --hard HEAD~1")),
+            classifier().classify("Bash", Some("git reset --hard HEAD~1")),
             OperationClass::Destructive
         );
     }
@@ -540,7 +534,7 @@ mod tests {
     #[test]
     fn test_bash_docker_rm_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("docker rm container_id")),
+            classifier().classify("Bash", Some("docker rm container_id")),
             OperationClass::Destructive
         );
     }
@@ -548,7 +542,7 @@ mod tests {
     #[test]
     fn test_bash_redirect_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("echo data > /tmp/file")),
+            classifier().classify("Bash", Some("echo data > /tmp/file")),
             OperationClass::Destructive
         );
     }
@@ -556,7 +550,7 @@ mod tests {
     #[test]
     fn test_bash_chained_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("cd src && rm test.txt")),
+            classifier().classify("Bash", Some("cd src && rm test.txt")),
             OperationClass::Destructive
         );
     }
@@ -564,7 +558,7 @@ mod tests {
     #[test]
     fn test_bash_unknown_command() {
         assert_eq!(
-            classifier().classify("bash", Some("some-custom-tool arg1")),
+            classifier().classify("Bash", Some("some-custom-tool arg1")),
             OperationClass::Unknown
         );
     }
@@ -572,7 +566,7 @@ mod tests {
     #[test]
     fn test_bash_empty_command() {
         assert_eq!(
-            classifier().classify("bash", Some("")),
+            classifier().classify("Bash", Some("")),
             OperationClass::Unknown
         );
     }
@@ -580,7 +574,7 @@ mod tests {
     #[test]
     fn test_bash_sudo_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("sudo apt install foo")),
+            classifier().classify("Bash", Some("sudo apt install foo")),
             OperationClass::Destructive
         );
     }
@@ -588,7 +582,7 @@ mod tests {
     #[test]
     fn test_bash_chmod_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("chmod 777 /etc/passwd")),
+            classifier().classify("Bash", Some("chmod 777 /etc/passwd")),
             OperationClass::Destructive
         );
     }
@@ -596,7 +590,7 @@ mod tests {
     #[test]
     fn test_bash_chown_is_destructive() {
         assert_eq!(
-            classifier().classify("bash", Some("chown root:root /etc/shadow")),
+            classifier().classify("Bash", Some("chown root:root /etc/shadow")),
             OperationClass::Destructive
         );
     }
@@ -631,14 +625,14 @@ mod tests {
 
     #[test]
     fn test_can_auto_approve_readonly() {
-        assert!(classifier().can_auto_approve("read_file", None));
-        assert!(classifier().can_auto_approve("bash", Some("ls -la")));
+        assert!(classifier().can_auto_approve("Read", None));
+        assert!(classifier().can_auto_approve("Bash", Some("ls -la")));
     }
 
     #[test]
     fn test_cannot_auto_approve_write() {
-        assert!(!classifier().can_auto_approve("write_file", None));
-        assert!(!classifier().can_auto_approve("bash", Some("rm file.txt")));
+        assert!(!classifier().can_auto_approve("Write", None));
+        assert!(!classifier().can_auto_approve("Bash", Some("rm file.txt")));
     }
 
     #[test]
@@ -701,11 +695,11 @@ mod tests {
     fn test_batch_classify_mixed() {
         let sa = classifier();
         let results: Vec<_> = [
-            ("read_file", None),
-            ("write_file", None),
-            ("bash", Some("rm -rf /")),
-            ("grep", None),
-            ("bash", Some("ls")),
+            ("Read", None),
+            ("Write", None),
+            ("Bash", Some("rm -rf /")),
+            ("Grep", None),
+            ("Bash", Some("ls")),
         ]
         .iter()
         .map(|(name, args)| sa.classify(name, *args))

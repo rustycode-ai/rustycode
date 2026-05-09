@@ -184,7 +184,7 @@ fn test_removes_trailing_assistant_without_tool_use() {
 fn test_keeps_trailing_assistant_with_tool_use() {
     let tool_use_block = ContentBlock::ToolUse {
         id: "call-1".to_string(),
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         input: serde_json::json!({"command": "ls"}),
     };
     let mut msgs = vec![
@@ -217,7 +217,7 @@ fn test_merges_consecutive_same_role_messages() {
 fn test_does_not_merge_tool_messages() {
     let tool_use_block = ContentBlock::ToolUse {
         id: "call-1".to_string(),
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         input: serde_json::json!({"command": "ls"}),
     };
     let tool_result_block = ContentBlock::ToolResult {

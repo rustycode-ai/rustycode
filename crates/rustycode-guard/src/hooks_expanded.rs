@@ -205,13 +205,13 @@ mod tests {
     fn lifecycle_event_serialization_roundtrip() {
         let event = LifecycleEvent::new(
             LifecycleHook::PreToolUse,
-            "bash",
+            "Bash",
             serde_json::json!({"command": "ls"}),
         );
         let json = serde_json::to_string(&event).unwrap();
         let decoded: LifecycleEvent = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.hook, LifecycleHook::PreToolUse);
-        assert_eq!(decoded.subject, "bash");
+        assert_eq!(decoded.subject, "Bash");
     }
 
     #[test]
@@ -220,15 +220,15 @@ mod tests {
         let count = Arc::new(AtomicUsize::new(0));
         let count_clone = Arc::clone(&count);
         dispatcher.register(LifecycleHook::PreToolUse, move |event| {
-            assert_eq!(event.subject, "bash");
+            assert_eq!(event.subject, "Bash");
             count_clone.fetch_add(1, Ordering::SeqCst);
             Ok(())
         });
 
         let event = LifecycleEvent::new(
             LifecycleHook::PreToolUse,
-            "bash",
-            serde_json::json!({"tool": "bash"}),
+            "Bash",
+            serde_json::json!({"tool": "Bash"}),
         );
         dispatcher.dispatch(&event).unwrap();
         assert_eq!(count.load(Ordering::SeqCst), 1);

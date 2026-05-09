@@ -13,11 +13,11 @@ const FILE_HEAD_LINES: usize = 10;
 const FILE_TAIL_LINES: usize = 10;
 
 /// Tool type constants used for dispatch.
-const TOOL_BASH: &str = "bash";
+const TOOL_BASH: &str = "Bash";
 const TOOL_JSON: &str = "json";
 const TOOL_API: &str = "api_response";
 const TOOL_FILE: &str = "file_content";
-const TOOL_READ: &str = "read_file";
+const TOOL_READ: &str = "Read";
 
 /// Summarizes tool outputs to reduce token consumption.
 pub struct ResultSummarizer {

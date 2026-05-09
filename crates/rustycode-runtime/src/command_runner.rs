@@ -215,13 +215,13 @@ mod tests {
     fn test_command_result_fields() {
         let result = CommandResult {
             command: "echo hello".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             stdout: "hello\n".into(),
             stderr: String::new(),
             exit_code: 0,
         };
         assert_eq!(result.command, "echo hello");
-        assert_eq!(result.tool_name, "bash");
+        assert_eq!(result.tool_name, "Bash");
         assert_eq!(result.stdout, "hello\n");
         assert!(result.stderr.is_empty());
         assert_eq!(result.exit_code, 0);
@@ -231,7 +231,7 @@ mod tests {
     fn test_command_result_debug_format() {
         let result = CommandResult {
             command: "ls".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             stdout: "file.txt".into(),
             stderr: String::new(),
             exit_code: 0,
@@ -265,7 +265,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "echo hello".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
 
@@ -280,7 +280,7 @@ mod tests {
     fn test_spawn_false_returns_nonzero() {
         let tmp = tmp_dir();
         let (rx, handle) =
-            spawn_command_worker(tmp.path().to_path_buf(), "false".into(), "bash".into(), 10);
+            spawn_command_worker(tmp.path().to_path_buf(), "false".into(), "Bash".into(), 10);
 
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
         handle.join().unwrap();
@@ -310,7 +310,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "echo hello world".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
 
@@ -328,7 +328,7 @@ mod tests {
         fs::write(sub.join("marker.txt"), "found").unwrap();
 
         let (rx, handle) =
-            spawn_command_worker(sub.clone(), "cat marker.txt".into(), "bash".into(), 10);
+            spawn_command_worker(sub.clone(), "cat marker.txt".into(), "Bash".into(), 10);
 
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
         handle.join().unwrap();
@@ -343,7 +343,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "echo one two three".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
 
@@ -361,7 +361,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "sleep 30".into(),
-            "bash".into(),
+            "Bash".into(),
             1, // 1 second timeout
         );
 
@@ -384,7 +384,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "touch created.txt".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
 
@@ -402,7 +402,7 @@ mod tests {
         let (rx1, h1) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "touch marker.txt".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let r1 = rx1.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -413,7 +413,7 @@ mod tests {
         let (rx2, h2) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "ls marker.txt".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let result = rx2.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -426,7 +426,7 @@ mod tests {
     fn test_spawn_empty_command_rejected() {
         let tmp = tmp_dir();
         let (rx, handle) =
-            spawn_command_worker(tmp.path().to_path_buf(), "".into(), "bash".into(), 10);
+            spawn_command_worker(tmp.path().to_path_buf(), "".into(), "Bash".into(), 10);
 
         let result = rx.recv_timeout(Duration::from_secs(5)).unwrap();
         drop(handle);
@@ -444,7 +444,7 @@ mod tests {
     fn command_result_nonzero_exit() {
         let result = CommandResult {
             command: "exit 1".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             stdout: String::new(),
             stderr: "error".into(),
             exit_code: 1,
@@ -458,7 +458,7 @@ mod tests {
     fn command_result_negative_exit() {
         let result = CommandResult {
             command: "kill -9 $$".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             stdout: String::new(),
             stderr: "killed".into(),
             exit_code: -1,
@@ -472,7 +472,7 @@ mod tests {
         let big_output = "x".repeat(10_000);
         let result = CommandResult {
             command: "cat bigfile".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             stdout: big_output.clone(),
             stderr: String::new(),
             exit_code: 0,
@@ -485,7 +485,7 @@ mod tests {
     fn command_result_unicode_content() {
         let result = CommandResult {
             command: "echo".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             stdout: "Hello 🌍 世界 مرحبا".into(),
             stderr: String::new(),
             exit_code: 0,
@@ -518,7 +518,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "echo 'hello world'".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -531,7 +531,7 @@ mod tests {
     fn spawn_pwd_returns_dir() {
         let tmp = tmp_dir();
         let (rx, handle) =
-            spawn_command_worker(tmp.path().to_path_buf(), "pwd".into(), "bash".into(), 10);
+            spawn_command_worker(tmp.path().to_path_buf(), "pwd".into(), "Bash".into(), 10);
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
         handle.join().unwrap();
         assert!(result.stdout.contains(tmp.path().to_str().unwrap()));
@@ -544,7 +544,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "echo error_msg >&2".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -561,7 +561,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "echo zero_exit".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -577,7 +577,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "cat nonexistent_file_xyz.txt".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -595,7 +595,7 @@ mod tests {
         let (rx1, h1) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "touch shared_state.txt".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let r1 = rx1.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -606,7 +606,7 @@ mod tests {
         let (rx2, h2) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "ls shared_state.txt".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let r2 = rx2.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -637,7 +637,7 @@ mod tests {
         let (rx, handle) = spawn_command_worker(
             tmp.path().to_path_buf(),
             "mkdir newdir".into(),
-            "bash".into(),
+            "Bash".into(),
             10,
         );
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
@@ -651,7 +651,7 @@ mod tests {
     fn spawn_env_command() {
         let tmp = tmp_dir();
         let (rx, handle) =
-            spawn_command_worker(tmp.path().to_path_buf(), "env".into(), "bash".into(), 10);
+            spawn_command_worker(tmp.path().to_path_buf(), "env".into(), "Bash".into(), 10);
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
         handle.join().unwrap();
         assert_eq!(result.exit_code, 0);
@@ -664,7 +664,7 @@ mod tests {
     fn spawn_whoami_returns_user() {
         let tmp = tmp_dir();
         let (rx, handle) =
-            spawn_command_worker(tmp.path().to_path_buf(), "whoami".into(), "bash".into(), 10);
+            spawn_command_worker(tmp.path().to_path_buf(), "whoami".into(), "Bash".into(), 10);
         let result = rx.recv_timeout(Duration::from_secs(10)).unwrap();
         handle.join().unwrap();
         assert_eq!(result.exit_code, 0);

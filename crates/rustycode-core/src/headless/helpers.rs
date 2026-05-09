@@ -13,11 +13,11 @@ pub fn dispatch_agent_action(
 ) -> String {
     let (name, args) = match action {
         AgentAction::EditFile { path, content } => (
-            "edit_file".to_string(),
+            "Edit".to_string(),
             serde_json::json!({"path": path, "content": content}),
         ),
         AgentAction::Bash { command, cwd } => (
-            "bash".to_string(),
+            "Bash".to_string(),
             serde_json::json!({"command": command, "cwd": cwd.unwrap_or_else(|| ".".to_string())}),
         ),
         AgentAction::ListFiles { path } => {
@@ -45,7 +45,7 @@ pub fn dispatch_agent_action(
 }
 
 pub fn summarize_tool_args(name: &str, partial_json: &str) -> String {
-    if name == "bash" {
+    if name == "Bash" {
         if let Ok(args) = serde_json::from_str::<serde_json::Value>(partial_json) {
             if let Some(cmd) = args.get("command").and_then(|v| v.as_str()) {
                 let cmd = cmd.trim();
@@ -69,12 +69,12 @@ pub fn summarize_tool_args(name: &str, partial_json: &str) -> String {
 
 pub(crate) fn normalize_tool_name(name: &str) -> &str {
     match name {
-        "Edit" => "edit_file",
-        "Read" => "read_file",
-        "Write" | "Create" => "write_file",
-        "Bash" | "Shell" => "bash",
-        "Grep" | "Search" => "grep",
-        "Glob" | "Find" => "glob",
+        "Edit" => "Edit",
+        "Read" => "Read",
+        "Write" | "Create" => "Write",
+        "Bash" | "Shell" => "Bash",
+        "Grep" | "Search" => "Grep",
+        "Glob" | "Find" => "Glob",
         _ => name,
     }
 }
@@ -108,7 +108,7 @@ pub fn execute_headless_tool(
     };
 
     // Bash-specific hints that improve agent behavior in headless mode.
-    if tool_name == "bash" {
+    if tool_name == "Bash" {
         if let Some(command) = args.get("command").and_then(|v| v.as_str()) {
             let cmd_lower = command.to_lowercase();
             let out_lower = output.to_lowercase();
@@ -406,7 +406,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "edit_file" || tool_name == "Edit" {
+    if tool_name == "Edit" {
         let out_lower = output.to_lowercase();
         if out_lower.contains("not found")
             || out_lower.contains("no match")
@@ -428,7 +428,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "write_file" || tool_name == "Write" {
+    if tool_name == "Write" {
         let out_lower = output.to_lowercase();
         if !out_lower.contains("error")
             && !out_lower.contains("failed")
@@ -451,7 +451,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "grep" || tool_name == "Grep" {
+    if tool_name == "Grep" {
         let no_results = output.contains("no matches")
             || output.contains("No files found")
             || output.contains("0 matches")
@@ -471,7 +471,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "read_file" || tool_name == "Read" {
+    if tool_name == "Read" {
         let line_count = output.lines().count();
         let has_offset = args.get("offset").and_then(|v| v.as_u64()).unwrap_or(0) > 0;
         let has_limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(0) > 0;
@@ -503,7 +503,7 @@ pub fn enrich_tool_output_with_args(tool_name: &str, tool_json: &str, output: &s
 
     let mut output = output.to_string();
 
-    if tool_name == "bash" {
+    if tool_name == "Bash" {
         if let Some(command) = args.get("command").and_then(|v| v.as_str()) {
             let cmd_lower = command.to_lowercase();
             let out_lower = output.to_lowercase();
@@ -560,7 +560,7 @@ pub fn enrich_tool_output_with_args(tool_name: &str, tool_json: &str, output: &s
         }
     }
 
-    if tool_name == "edit_file" {
+    if tool_name == "Edit" {
         let out_lower = output.to_lowercase();
         if out_lower.contains("not found") || out_lower.contains("no match") {
             let file_path = args
@@ -575,7 +575,7 @@ pub fn enrich_tool_output_with_args(tool_name: &str, tool_json: &str, output: &s
         }
     }
 
-    let hint_cmd = if tool_name == "bash" {
+    let hint_cmd = if tool_name == "Bash" {
         args.get("command")
             .and_then(|c| c.as_str())
             .unwrap_or("")

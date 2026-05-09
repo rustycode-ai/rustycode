@@ -2,13 +2,13 @@
 
 /// Known tool name constants — single source of truth for classification.
 pub mod tool_names {
-    pub const READ_FILE: &str = "read_file";
-    pub const WRITE_FILE: &str = "write_file";
-    pub const EDIT_FILE: &str = "edit_file";
+    pub const READ_FILE: &str = "Read";
+    pub const WRITE_FILE: &str = "Write";
+    pub const EDIT_FILE: &str = "Edit";
     pub const APPLY_PATCH: &str = "apply_patch";
-    pub const BASH: &str = "bash";
-    pub const GREP: &str = "grep";
-    pub const GLOB: &str = "glob";
+    pub const BASH: &str = "Bash";
+    pub const GREP: &str = "Grep";
+    pub const GLOB: &str = "Glob";
     pub const LIST_FILES: &str = "list_files";
     pub const LIST_DIR: &str = "list_dir";
     pub const GIT_STATUS: &str = "git_status";
@@ -75,7 +75,7 @@ pub fn classify_tool_risk(tool_type: &ToolType, command: &str) -> RiskLevel {
         ToolType::Bash => {
             use rustycode_tools_security::approve::OperationClass;
             let sa = rustycode_tools_security::approve::SmartApprove::new();
-            match sa.classify("bash", Some(command)) {
+            match sa.classify("Bash", Some(command)) {
                 OperationClass::ReadOnly => RiskLevel::Safe,
                 OperationClass::Write => RiskLevel::Medium,
                 OperationClass::Destructive => RiskLevel::Dangerous,

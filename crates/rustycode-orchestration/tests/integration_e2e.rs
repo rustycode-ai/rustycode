@@ -152,7 +152,7 @@ mod conductor_e2e {
             Some(1),
             "test error".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         )
     }
 
@@ -730,14 +730,14 @@ mod error_handling_e2e {
             Some(1),
             "test error message".into(),
             "step-42".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         assert_eq!(signal.category, SignalCategory::LogicError);
         assert_eq!(signal.exit_code, Some(1));
         assert_eq!(signal.message, "test error message");
         assert_eq!(signal.step_id, "step-42");
-        assert_eq!(signal.tool_name, "bash");
+        assert_eq!(signal.tool_name, "Bash");
         assert!(signal.captured_at <= chrono::Utc::now());
     }
 
@@ -749,7 +749,7 @@ mod error_handling_e2e {
             None,
             long_msg,
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert!(
             signal.message.len() <= 2100,
@@ -861,7 +861,7 @@ mod execution_trace_e2e {
             "step-1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"cmd": "echo hello"}),
             "hello".into(),
             Some(0),
@@ -873,13 +873,13 @@ mod execution_trace_e2e {
             Some(1),
             "wrong output".into(),
             "step-2".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         trace.append(TraceEntry::new_failure(
             "step-2".into(),
             1,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"cmd": "bad command"}),
             "error output".into(),
             Some(1),
@@ -891,7 +891,7 @@ mod execution_trace_e2e {
             "step-2-retry".into(),
             1,
             3,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"cmd": "fixed command"}),
             "correct output".into(),
             Some(0),
@@ -919,7 +919,7 @@ mod execution_trace_e2e {
             "s1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({"arg": "value"}),
             "output".into(),
             Some(0),
@@ -974,7 +974,7 @@ mod types_e2e {
             index: 0,
             description: "Run tests".into(),
             expected_output_type: OutputType::Verification,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: rustycode_orchestration::guard::RequiredResources::default(),
         };
@@ -1052,7 +1052,7 @@ mod verification_gates_e2e {
             index: 0,
             description: "test".into(),
             expected_output_type: OutputType::Code,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: false,
             required_resources: rustycode_orchestration::guard::RequiredResources::default(),
         };
@@ -1060,7 +1060,7 @@ mod verification_gates_e2e {
             "s1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             "output".into(),
             Some(0),
@@ -1105,7 +1105,7 @@ mod verification_gates_e2e {
             "s1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             String::new(),
             Some(0),
@@ -1119,7 +1119,7 @@ mod verification_gates_e2e {
             "s1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             "some output".into(),
             Some(0),
@@ -1160,7 +1160,7 @@ mod pipeline_conductor_integration {
                 "step-x".into(),
                 0,
                 2,
-                "bash".into(),
+                "Bash".into(),
                 serde_json::json!({"cmd": "same command"}),
                 "same output".into(),
                 Some(0),
@@ -1173,7 +1173,7 @@ mod pipeline_conductor_integration {
             Some(1),
             "stuck".into(),
             "step-x".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         let decision = conductor.handle_error(&mut ctx, &signal);
@@ -1204,7 +1204,7 @@ mod pipeline_conductor_integration {
             Some(1),
             "error".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         ctx.attempt_count = 1;

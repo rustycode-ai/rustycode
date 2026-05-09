@@ -728,7 +728,7 @@ mod tests {
         let (code, _) = server.error_to_code(&McpError::MethodNotFound("x".to_string()));
         assert_eq!(code, error_codes::METHOD_NOT_FOUND);
 
-        let (code, _) = server.error_to_code(&McpError::ToolNotFound("bash".to_string()));
+        let (code, _) = server.error_to_code(&McpError::ToolNotFound("Bash".to_string()));
         assert_eq!(code, error_codes::INVALID_PARAMS);
 
         let (code, _) = server.error_to_code(&McpError::ResourceNotFound("file://x".to_string()));

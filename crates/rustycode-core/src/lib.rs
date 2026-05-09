@@ -519,8 +519,8 @@ Generate a practical, actionable plan with 2-5 steps. Each step should use appro
                 title: "Explore codebase".to_string(),
                 description: "Use available tools to understand the codebase.".to_string(),
                 tools: vec![
-                    "read_file".to_string(),
-                    "grep".to_string(),
+                    "Read".to_string(),
+                    "Grep".to_string(),
                     "list_dir".to_string(),
                 ],
                 expected_outcome: "Understand the codebase structure.".to_string(),
@@ -602,8 +602,8 @@ async fn generate_smart_plan_async(
         description: "Use read_file, grep, and list_dir to understand the relevant code."
             .to_string(),
         tools: vec![
-            "read_file".to_string(),
-            "grep".to_string(),
+            "Read".to_string(),
+            "Grep".to_string(),
             "list_dir".to_string(),
         ],
         expected_outcome: "Understand the files that need to change.".to_string(),
@@ -736,7 +736,7 @@ mod tests {
         let tool_report = runtime
             .run_tool(
                 &cwd,
-                "read_file".to_string(),
+                "Read".to_string(),
                 serde_json::json!({ "path": ".rustycode/config.json" }),
             )
             .unwrap();
@@ -839,7 +839,7 @@ mod tests {
             {
               "title": "Step One",
               "description": "Do step one",
-              "tools": ["read_file"],
+              "tools": ["Read"],
               "expected_outcome": "Done",
               "rollback_hint": "N/A"
             }
@@ -854,7 +854,7 @@ mod tests {
             config: ProviderConfig::default(),
         };
 
-        let plan = generate_plan_with_llm(&provider, "task", &["read_file"]).expect("parsed plan");
+        let plan = generate_plan_with_llm(&provider, "task", &["Read"]).expect("parsed plan");
 
         assert_eq!(plan.summary, "Do the thing");
         assert_eq!(plan.approach, "Simple approach");

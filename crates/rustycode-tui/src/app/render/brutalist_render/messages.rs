@@ -1720,7 +1720,7 @@ mod tests {
         let messages = vec![
             make_tool_only_assistant("read"),
             make_tool_only_assistant("edit"),
-            make_tool_only_assistant("bash"),
+            make_tool_only_assistant("Bash"),
         ];
         let renderer = BrutalistRendererBuilder::new(&messages, "").build();
         let (_total, heights, _chain_map) = renderer.compute_message_layout(80);

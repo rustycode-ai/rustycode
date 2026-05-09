@@ -119,7 +119,7 @@ fn test_full_workflow() {
     ai_response.append_content("How can I help?");
 
     // 4. Tool execution is triggered
-    let mut tool = ToolExecution::new("read_file".to_string());
+    let mut tool = ToolExecution::new("Read".to_string());
     tool.update_status(ToolStatus::Running);
     tool.append_output("File contents...");
 
@@ -268,7 +268,7 @@ fn test_large_message_set() {
 
 #[test]
 fn test_tool_execution_lifecycle() {
-    let mut tool = ToolExecution::new("bash".to_string());
+    let mut tool = ToolExecution::new("Bash".to_string());
 
     // Initial state
     assert_eq!(tool.status(), ToolStatus::Running);
@@ -296,7 +296,7 @@ fn test_tool_execution_lifecycle() {
 
 #[test]
 fn test_tool_execution_failure() {
-    let mut tool = ToolExecution::new("read_file".to_string());
+    let mut tool = ToolExecution::new("Read".to_string());
 
     tool.update_status(ToolStatus::Failed);
     tool.append_output("Error: File not found");
@@ -313,7 +313,7 @@ fn test_status_bar_updates() {
 
     // Update tools
     status.update_tools(ToolExecutions {
-        active: vec!["read_file".to_string(), "bash".to_string()],
+        active: vec!["Read".to_string(), "Bash".to_string()],
         completed: 5,
         failed: 1,
     });
@@ -323,7 +323,7 @@ fn test_status_bar_updates() {
     let rendered = status.render(80);
     assert!(!rendered.is_empty());
     // Should contain tool info
-    assert!(rendered.contains("read_file") || rendered.contains("2"));
+    assert!(rendered.contains("Read") || rendered.contains("2"));
 }
 
 #[test]

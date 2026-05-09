@@ -31,7 +31,7 @@ fn make_step(id: &str, desc: &str) -> Step {
         index: 0,
         description: desc.into(),
         expected_output_type: OutputType::Verification,
-        suggested_tool: Some("bash".into()),
+        suggested_tool: Some("Bash".into()),
         retry_on_failure: true,
         required_resources: rustycode_orchestration::guard::RequiredResources::default(),
     }
@@ -159,7 +159,7 @@ mod conductor_events {
             Some(1),
             "assertion failed".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         let decision = conductor.handle_error(&mut ctx, &signal);
@@ -201,7 +201,7 @@ mod conductor_events {
             None,
             "internal error".into(),
             "step-2".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         let decision = conductor.handle_error(&mut ctx, &signal);
@@ -238,7 +238,7 @@ mod conductor_events {
             None,
             "error".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         let decision = conductor.handle_error(&mut ctx, &signal);
@@ -261,7 +261,7 @@ mod conductor_events {
             None,
             "error".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         let decision = conductor.handle_error(&mut ctx, &signal);

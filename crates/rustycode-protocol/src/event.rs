@@ -127,10 +127,10 @@ mod tests {
     #[test]
     fn test_tool_executed_event() {
         let session_id = SessionId::new();
-        let event = SessionEvent::tool_executed(session_id, "read_file");
+        let event = SessionEvent::tool_executed(session_id, "Read");
 
         assert!(matches!(event.kind, EventKind::ToolExecuted));
-        assert!(event.detail.contains("read_file"));
+        assert!(event.detail.contains("Read"));
     }
 
     #[test]
@@ -231,8 +231,8 @@ mod tests {
 
     #[test]
     fn test_session_event_tool_executed_detail() {
-        let event = SessionEvent::tool_executed(SessionId::new(), "bash");
-        assert_eq!(event.detail, "Tool bash executed");
+        let event = SessionEvent::tool_executed(SessionId::new(), "Bash");
+        assert_eq!(event.detail, "Tool Bash executed");
     }
 
     #[test]

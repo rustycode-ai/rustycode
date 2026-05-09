@@ -201,7 +201,7 @@ mod tests {
         // Turn 1: user("summarize") + assistant("summary text")
         let msgs = vec![
             user_msg("read file"),
-            tool_use_msg("t1", "read_file"),
+            tool_use_msg("t1", "Read"),
             tool_result_msg("t1", "file contents here"),
             assistant_msg("done reading"),
             user_msg("summarize"),

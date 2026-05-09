@@ -965,7 +965,7 @@ mod tests {
                         "id": "call_def456",
                         "type": "function",
                         "function": {
-                            "name": "read_file",
+                            "name": "Read",
                             "arguments": "{\"path\": \"/tmp/test.rs\"}"
                         }
                     }
@@ -978,7 +978,7 @@ mod tests {
         let calls = msg.tool_calls.unwrap();
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].function.name, "search");
-        assert_eq!(calls[1].function.name, "read_file");
+        assert_eq!(calls[1].function.name, "Read");
         assert_eq!(
             msg.tool_plan,
             Some("I need to search for information.".to_string())

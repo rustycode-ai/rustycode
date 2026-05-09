@@ -193,24 +193,24 @@ mod tests {
     #[test]
     fn extract_signals_from_tool() {
         let c = CapabilityCurator::new();
-        let signals = c.extract_signals("write_file", "{\"path\": \"/src/auth/login.rs\"}");
-        assert!(signals.contains(&"write_file".to_string()));
+        let signals = c.extract_signals("Write", "{\"path\": \"/src/auth/login.rs\"}");
+        assert!(signals.contains(&"Write".to_string()));
         assert!(signals.contains(&"auth".to_string()));
     }
 
     #[test]
     fn extract_signals_no_keywords() {
         let c = CapabilityCurator::new();
-        let signals = c.extract_signals("read_file", "{\"path\": \"/README.md\"}");
+        let signals = c.extract_signals("Read", "{\"path\": \"/README.md\"}");
         assert_eq!(signals.len(), 1);
-        assert_eq!(signals[0], "read_file");
+        assert_eq!(signals[0], "Read");
     }
 
     #[test]
     fn observe_tool_increments_counts() {
         let mut c = CapabilityCurator::new();
-        c.observe_tool_execution("bash", "npm run deploy");
-        assert_eq!(c.signal_count("bash"), 1);
+        c.observe_tool_execution("Bash", "npm run deploy");
+        assert_eq!(c.signal_count("Bash"), 1);
         assert_eq!(c.signal_count("deploy"), 1);
     }
 
@@ -232,8 +232,8 @@ mod tests {
         ));
 
         let mut c = CapabilityCurator::new();
-        c.observe_tool_execution("bash", "deploy to production");
-        c.observe_tool_execution("bash", "deploy to staging");
+        c.observe_tool_execution("Bash", "deploy to production");
+        c.observe_tool_execution("Bash", "deploy to staging");
 
         let unmatched = c.detect_unmatched_signals(&reg);
         assert!(unmatched.contains(&"deploy".to_string()));
@@ -249,8 +249,8 @@ mod tests {
     #[test]
     fn suggest_for_unmatched_with_evidence() {
         let mut c = CapabilityCurator::new().with_min_evidence(2);
-        c.observe_tool_execution("bash", "run deploy");
-        c.observe_tool_execution("bash", "run deploy again");
+        c.observe_tool_execution("Bash", "run deploy");
+        c.observe_tool_execution("Bash", "run deploy again");
 
         let suggestions = c.suggest_for_unmatched();
         assert!(!suggestions.is_empty());
@@ -265,7 +265,7 @@ mod tests {
     #[test]
     fn reset_clears_state() {
         let mut c = CapabilityCurator::new();
-        c.observe_tool_execution("bash", "test");
+        c.observe_tool_execution("Bash", "test");
         assert!(!c.signal_counts.is_empty());
         c.reset();
         assert!(c.signal_counts.is_empty());

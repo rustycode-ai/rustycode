@@ -49,7 +49,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             // Example: Call a tool (if filesystem server has read_file)
-            if let Some(read_tool) = client.find_tool("read_file") {
+            if let Some(read_tool) = client.find_tool("Read") {
                 println!("\n✓ Found tool: {}", read_tool.name);
 
                 // Note: This would fail if /tmp/test.txt doesn't exist

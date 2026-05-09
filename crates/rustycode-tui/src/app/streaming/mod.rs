@@ -66,24 +66,17 @@ mod tests {
 
     #[test]
     fn test_active_tool_use_creation() {
-        let tool = ActiveToolUse::new(
-            "toolu_123".to_string(),
-            "read_file".to_string(),
-            String::new(),
-        );
+        let tool = ActiveToolUse::new("toolu_123".to_string(), "Read".to_string(), String::new());
 
         assert_eq!(tool.id, "toolu_123");
-        assert_eq!(tool.name, "read_file");
+        assert_eq!(tool.name, "Read");
         assert!(tool.partial_json.is_empty());
     }
 
     #[test]
     fn test_active_tool_use_accumulation() {
-        let mut tool = ActiveToolUse::new(
-            "toolu_123".to_string(),
-            "read_file".to_string(),
-            String::new(),
-        );
+        let mut tool =
+            ActiveToolUse::new("toolu_123".to_string(), "Read".to_string(), String::new());
 
         tool.partial_json.push_str("{\"path\"");
         tool.partial_json.push_str(": \"");
@@ -97,12 +90,12 @@ mod tests {
     fn test_tool_execution_result_creation() {
         let result = ToolExecutionResult {
             tool_use_id: "toolu_123".to_string(),
-            tool_name: "read_file".to_string(),
+            tool_name: "Read".to_string(),
             result_content: "File contents here".to_string(),
         };
 
         assert_eq!(result.tool_use_id, "toolu_123");
-        assert_eq!(result.tool_name, "read_file");
+        assert_eq!(result.tool_name, "Read");
         assert_eq!(result.result_content, "File contents here");
     }
 

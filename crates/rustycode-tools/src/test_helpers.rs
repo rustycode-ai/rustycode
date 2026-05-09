@@ -41,7 +41,7 @@ pub fn find_command(name: &str) -> Option<PathBuf> {
 
 /// Get a shell command, preferring available shells in order: bash, zsh, sh, powershell, cmd.
 pub fn find_shell() -> Option<PathBuf> {
-    for shell in &["bash", "zsh", "sh"] {
+    for shell in &["Bash", "zsh", "sh"] {
         if let Some(path) = find_command(shell) {
             return Some(path);
         }

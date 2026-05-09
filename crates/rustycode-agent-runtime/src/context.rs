@@ -289,13 +289,13 @@ fn extract_context_summary(messages: &[ChatMessage], turn_ranges: &[(usize, usiz
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("");
                                 match name.as_str() {
-                                    "write_file" | "text_editor_20250728" if !path.is_empty() => {
+                                    "Write" | "text_editor_20250728" if !path.is_empty() => {
                                         let entry = path.to_string();
                                         if !files_written.contains(&entry) {
                                             files_written.push(entry);
                                         }
                                     }
-                                    "edit_file" | "apply_patch" if !path.is_empty() => {
+                                    "Edit" | "apply_patch" if !path.is_empty() => {
                                         let entry = path.to_string();
                                         if !files_edited.contains(&entry) {
                                             files_edited.push(entry);
@@ -329,7 +329,7 @@ fn extract_context_summary(messages: &[ChatMessage], turn_ranges: &[(usize, usiz
                 }
                 MessageContent::Simple(text) => {
                     // Check assistant text for tool calls embedded as text
-                    if text.contains("write_file") || text.contains("edit_file") {
+                    if text.contains("Write") || text.contains("Edit") {
                         let lower = text.to_lowercase();
                         if lower.contains("success") || lower.contains("wrote") {
                             let info: String = text.chars().take(150).collect();
@@ -466,7 +466,7 @@ mod tests {
                 ContentBlock::text("thinking..."),
                 ContentBlock::ToolUse {
                     id: format!("tool_{i}"),
-                    name: "bash".to_string(),
+                    name: "Bash".to_string(),
                     input: serde_json::json!({"command": format!("echo {}", i)}),
                 },
             ])));
@@ -524,7 +524,7 @@ mod tests {
             // Turn 1: write a file
             ChatMessage::assistant(MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "t1".into(),
-                name: "write_file".into(),
+                name: "Write".into(),
                 input: serde_json::json!({"path": "/app/solution.py", "content": "print('hi')"}),
             }])),
             ChatMessage::user(MessageContent::Blocks(vec![ContentBlock::tool_result(
@@ -534,7 +534,7 @@ mod tests {
             // Turn 2: edit a file
             ChatMessage::assistant(MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "t2".into(),
-                name: "edit_file".into(),
+                name: "Edit".into(),
                 input: serde_json::json!({"path": "/app/solution.py", "old_string": "hi", "new_string": "hello"}),
             }])),
             ChatMessage::user(MessageContent::Blocks(vec![ContentBlock::tool_result(
@@ -544,7 +544,7 @@ mod tests {
             // Turn 3: bash error
             ChatMessage::assistant(MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "t3".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
                 input: serde_json::json!({"command": "python3 solution.py"}),
             }])),
             ChatMessage::user(MessageContent::Blocks(vec![ContentBlock::ToolResult {

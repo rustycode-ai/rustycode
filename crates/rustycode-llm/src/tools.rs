@@ -85,7 +85,7 @@ impl ToolDefinition {
 /// Bash/command execution tool
 fn bash_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "bash",
+        "Bash",
         "Executes a given bash command and returns its output. \
          The working directory persists between commands, but shell state does not. \
          The shell environment is initialized from the user's profile (bash or zsh). \
@@ -137,7 +137,7 @@ fn bash_tool() -> ToolDefinition {
 /// File reading tool
 fn read_file_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "read_file",
+        "Read",
         "Reads a file from the local filesystem. You can access any file directly by using this tool. \
          The file_path parameter must be an absolute path, not a relative path. \
          By default, it reads up to 2000 lines starting from the beginning of the file. \
@@ -181,7 +181,7 @@ fn read_file_tool() -> ToolDefinition {
 /// File writing tool
 fn write_file_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "write_file",
+        "Write",
         "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. \
          Prefer the edit tool for modifying existing files — it only sends the diff. \
          Only use this tool to create new files or for complete rewrites. \
@@ -212,7 +212,7 @@ fn write_file_tool() -> ToolDefinition {
 /// Web fetch tool
 fn web_fetch_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "web_fetch",
+        "WebFetch",
         "Fetches content from a URL and converts it to markdown for analysis. \
          Takes a URL and an optional prompt describing what to extract. \
          HTTP URLs are automatically upgraded to HTTPS. \
@@ -249,7 +249,7 @@ fn web_fetch_tool() -> ToolDefinition {
 /// File editing tool — performs exact string replacement in files
 fn edit_file_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "edit_file",
+        "Edit",
         "Performs exact string replacements in files. \
          You MUST read the file first before editing it. \
          The edit will FAIL if old_string is not unique in the file — \
@@ -290,7 +290,7 @@ fn edit_file_tool() -> ToolDefinition {
 /// Content search tool — search file contents with regex
 fn grep_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "grep",
+        "Grep",
         "Search file contents using regex patterns (built on ripgrep). \
          ALWAYS use this tool instead of running grep/rg as a bash command. \
          Supports full regex syntax (e.g., \"log.*Error\", \"function\\s+\\w+\"). \
@@ -309,7 +309,7 @@ fn grep_tool() -> ToolDefinition {
                     "type": "string",
                     "description": "Directory or file to search in (defaults to current directory)"
                 },
-                "glob": {
+                "Glob": {
                     "type": "string",
                     "description": "File pattern filter (e.g., '*.rs', '**/*.tsx')"
                 },
@@ -362,7 +362,7 @@ fn grep_tool() -> ToolDefinition {
             "required": ["pattern"]
         }),
     ).with_examples(vec![
-        json!({"pattern": "fn main", "glob": "*.rs"}),
+        json!({"pattern": "fn main", "Glob": "*.rs"}),
         json!({"pattern": "TODO|FIXME", "output_mode": "content"}),
         json!({"pattern": "error", "type": "rust", "output_mode": "content", "context": 2}),
     ])
@@ -371,7 +371,7 @@ fn grep_tool() -> ToolDefinition {
 /// File pattern matching tool — find files by name patterns
 fn glob_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "glob",
+        "Glob",
         "Find files matching glob patterns. Fast file pattern matching that works with any codebase size. \
          Returns matching file paths sorted by modification time. \
          Use this when you need to find files by name patterns. \
@@ -1108,7 +1108,7 @@ fn lsp_inline_symbol_tool() -> ToolDefinition {
 /// Notebook editing tool — replace, insert, or delete cells in Jupyter notebooks
 fn notebook_edit_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "notebook_edit",
+        "NotebookEdit",
         "Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source. \
          Jupyter notebooks are interactive documents that combine code, text, and visualizations, \
          commonly used for data analysis and scientific computing. \
@@ -1620,10 +1620,10 @@ mod tests {
     #[test]
     fn test_bash_tool_definition() {
         let tools = tui_tools();
-        let bash = tools.iter().find(|t| t.name == "bash").unwrap();
+        let bash = tools.iter().find(|t| t.name == "Bash").unwrap();
 
-        assert_eq!(bash.name, "bash");
-        assert!(bash.description.contains("bash"));
+        assert_eq!(bash.name, "Bash");
+        assert!(bash.description.contains("Bash"));
         assert!(bash.input_schema["required"]
             .as_array()
             .unwrap()
@@ -1638,12 +1638,12 @@ mod tests {
         assert!(!anthropic_tools.is_empty());
         let read_file_tool = anthropic_tools
             .iter()
-            .find(|t| t["name"] == "read_file")
+            .find(|t| t["name"] == "Read")
             .unwrap();
         assert_eq!(read_file_tool["annotations"]["readOnlyHint"], true);
         let bash_tool = anthropic_tools
             .iter()
-            .find(|t| t["name"] == "bash")
+            .find(|t| t["name"] == "Bash")
             .unwrap();
         assert!(bash_tool["description"].is_string());
         assert!(bash_tool["input_schema"].is_object());
@@ -1685,14 +1685,14 @@ mod tests {
         );
 
         // Local tools should not be marked as server tools
-        let bash = tools.iter().find(|t| t.name == "bash").unwrap();
+        let bash = tools.iter().find(|t| t.name == "Bash").unwrap();
         assert!(!bash.is_server_tool, "bash should not be a server tool");
     }
 
     #[test]
     fn test_normalize_anthropic_format_to_openai() {
         let anthropic_tools = vec![json!({
-            "name": "bash",
+            "name": "Bash",
             "description": "Run a bash command",
             "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}}
         })];
@@ -1702,7 +1702,7 @@ mod tests {
 
         let tool = &normalized[0];
         assert_eq!(tool["type"], "function");
-        assert_eq!(tool["function"]["name"], "bash");
+        assert_eq!(tool["function"]["name"], "Bash");
         assert_eq!(tool["function"]["description"], "Run a bash command");
         assert!(tool["function"]["parameters"]["properties"]["command"].is_object());
     }
@@ -1712,7 +1712,7 @@ mod tests {
         let openai_tools = vec![json!({
             "type": "function",
             "function": {
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read a file",
                 "parameters": {"type": "object", "properties": {"path": {"type": "string"}}}
             }
@@ -1727,7 +1727,7 @@ mod tests {
     fn test_normalize_nested_function_format() {
         let nested_tools = vec![json!({
             "function": {
-                "name": "write_file",
+                "name": "Write",
                 "description": "Write a file",
                 "parameters": {"type": "object", "properties": {"content": {"type": "string"}}}
             }
@@ -1738,14 +1738,14 @@ mod tests {
 
         let tool = &normalized[0];
         assert_eq!(tool["type"], "function");
-        assert_eq!(tool["function"]["name"], "write_file");
+        assert_eq!(tool["function"]["name"], "Write");
         assert_eq!(tool["function"]["description"], "Write a file");
     }
 
     #[test]
     fn test_normalize_parameters_field_preferred_over_input_schema() {
         let tools = vec![json!({
-            "name": "bash",
+            "name": "Bash",
             "description": "Run command",
             "parameters": {"type": "object", "properties": {"cmd": {"type": "string"}}},
             "input_schema": {"type": "object", "properties": {"ignored": {"type": "string"}}}
@@ -1770,7 +1770,7 @@ mod tests {
         let openai_tool = json!({
             "type": "function",
             "function": {
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read file contents",
                 "parameters": {
                     "type": "object",
@@ -1866,20 +1866,20 @@ mod tests {
             json!({
                 "type": "function",
                 "function": {
-                    "name": "bash",
+                    "name": "Bash",
                     "description": "Run bash",
                     "parameters": {"type": "object", "properties": {"command": {"type": "string"}}}
                 }
             }),
             // Anthropic format (has "input_schema" instead of "parameters")
             json!({
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read a file",
                 "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}}
             }),
             // Flat format (name/description/parameters at top level)
             json!({
-                "name": "write_file",
+                "name": "Write",
                 "description": "Write a file",
                 "parameters": {"type": "object", "properties": {"content": {"type": "string"}}}
             }),
@@ -1920,7 +1920,7 @@ mod tests {
             .iter()
             .map(|t| t["function"]["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names, &["bash", "read_file", "write_file", "search"]);
+        assert_eq!(names, &["Bash", "Read", "Write", "search"]);
     }
 
     /// Verify that tools with empty parameters get a default empty-object schema.
@@ -1943,7 +1943,7 @@ mod tests {
     #[test]
     fn test_normalize_preserves_required_array() {
         let tools = vec![json!({
-            "name": "edit_file",
+            "name": "Edit",
             "description": "Edit a file",
             "parameters": {
                 "type": "object",

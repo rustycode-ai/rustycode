@@ -839,7 +839,7 @@ mod tests {
     fn test_tool_result() {
         let result = ToolResult {
             id: "call-1".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             result: ToolOutput::Success("File contents".to_string()),
         };
 

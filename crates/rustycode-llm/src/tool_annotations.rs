@@ -1,14 +1,14 @@
 use serde_json::{json, Value};
 
 const READ_ONLY_TOOL_NAMES: &[&str] = &[
-    "read_file",
+    "Read",
     "list_dir",
-    "grep",
-    "glob",
+    "Grep",
+    "Glob",
     "git_status",
     "git_diff",
     "git_log",
-    "web_fetch",
+    "WebFetch",
     "memory_search",
     "memory_list",
     "skill_list",

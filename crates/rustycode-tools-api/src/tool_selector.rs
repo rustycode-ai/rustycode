@@ -406,21 +406,21 @@ mod tests {
     #[test]
     fn test_explore_profile_tools() {
         let tools = ToolProfile::Explore.available_tools();
-        assert!(tools.contains(&"read_file"));
-        assert!(tools.contains(&"grep"));
-        assert!(!tools.contains(&"write_file"));
+        assert!(tools.contains(&"Read"));
+        assert!(tools.contains(&"Grep"));
+        assert!(!tools.contains(&"Write"));
     }
 
     #[test]
     fn test_usage_tracking() {
         let mut tracker = UsageTracker::new();
-        tracker.record_use("read_file");
-        tracker.record_use("read_file");
-        tracker.record_use("bash");
+        tracker.record_use("Read");
+        tracker.record_use("Read");
+        tracker.record_use("Bash");
 
-        assert_eq!(tracker.usage_count("read_file"), 2);
-        assert_eq!(tracker.usage_count("bash"), 1);
-        assert_eq!(tracker.usage_count("grep"), 0);
+        assert_eq!(tracker.usage_count("Read"), 2);
+        assert_eq!(tracker.usage_count("Bash"), 1);
+        assert_eq!(tracker.usage_count("Grep"), 0);
     }
 
     // ToolSelector integration tests requiring &ToolRegistry are in rustycode-tools crate

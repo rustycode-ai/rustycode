@@ -207,15 +207,12 @@ fn get_tool_permission_read_only_tools() {
     use rustycode_protocol::ToolPermission as ProtocolPermission;
 
     // Read-only tools should be AutoAllow
-    assert_eq!(
-        tool_permission("read_file"),
-        Some(ProtocolPermission::AutoAllow)
-    );
+    assert_eq!(tool_permission("Read"), Some(ProtocolPermission::AutoAllow));
     assert_eq!(
         tool_permission("list_dir"),
         Some(ProtocolPermission::AutoAllow)
     );
-    assert_eq!(tool_permission("grep"), Some(ProtocolPermission::AutoAllow));
+    assert_eq!(tool_permission("Grep"), Some(ProtocolPermission::AutoAllow));
     assert_eq!(
         tool_permission("git_status"),
         Some(ProtocolPermission::AutoAllow)
@@ -232,7 +229,7 @@ fn get_tool_permission_write_tools() {
 
     // Write tools require confirmation
     assert_eq!(
-        tool_permission("write_file"),
+        tool_permission("Write"),
         Some(ProtocolPermission::RequiresConfirmation)
     );
     assert_eq!(
@@ -247,7 +244,7 @@ fn get_tool_permission_execute_tools() {
 
     // Bash requires confirmation
     assert_eq!(
-        tool_permission("bash"),
+        tool_permission("Bash"),
         Some(ProtocolPermission::RequiresConfirmation)
     );
 }
@@ -270,10 +267,10 @@ fn check_tool_permission_planning_mode() {
     use rustycode_protocol::SessionMode;
 
     // Planning mode: only auto-allow tools permitted
-    assert!(check_tool_permission("read_file", SessionMode::Planning));
+    assert!(check_tool_permission("Read", SessionMode::Planning));
     assert!(check_tool_permission("list_dir", SessionMode::Planning));
-    assert!(!check_tool_permission("write_file", SessionMode::Planning));
-    assert!(!check_tool_permission("bash", SessionMode::Planning));
+    assert!(!check_tool_permission("Write", SessionMode::Planning));
+    assert!(!check_tool_permission("Bash", SessionMode::Planning));
     assert!(!check_tool_permission("git_commit", SessionMode::Planning));
 }
 
@@ -282,8 +279,8 @@ fn check_tool_permission_executing_mode() {
     use rustycode_protocol::SessionMode;
 
     // Executing mode: all non-blocked tools allowed
-    assert!(check_tool_permission("read_file", SessionMode::Executing));
-    assert!(check_tool_permission("write_file", SessionMode::Executing));
-    assert!(check_tool_permission("bash", SessionMode::Executing));
+    assert!(check_tool_permission("Read", SessionMode::Executing));
+    assert!(check_tool_permission("Write", SessionMode::Executing));
+    assert!(check_tool_permission("Bash", SessionMode::Executing));
     assert!(check_tool_permission("git_commit", SessionMode::Executing));
 }

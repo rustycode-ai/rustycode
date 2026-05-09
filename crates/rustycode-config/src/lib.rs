@@ -226,6 +226,10 @@ pub struct TaskRoutingConfig {
     /// Optional per-workflow routing overrides.
     #[serde(default)]
     pub workflow_overrides: BTreeMap<String, TaskRoutingOverride>,
+
+    /// Maximum number of roles in an assembled team roster.
+    #[serde(default = "default_max_team_size")]
+    pub max_team_size: usize,
 }
 
 impl Default for TaskRoutingConfig {
@@ -239,6 +243,7 @@ impl Default for TaskRoutingConfig {
             max_llm_fallback_calls: default_max_llm_fallback_calls(),
             intent_overrides: BTreeMap::new(),
             workflow_overrides: BTreeMap::new(),
+            max_team_size: default_max_team_size(),
         }
     }
 }
@@ -297,6 +302,10 @@ const fn default_llm_fallback_threshold() -> f64 {
 
 const fn default_max_llm_fallback_calls() -> usize {
     3
+}
+
+const fn default_max_team_size() -> usize {
+    5
 }
 
 /// MCP transport type
@@ -854,6 +863,7 @@ mod tests {
         assert_eq!(routing.max_research_passes, 2);
         assert!(routing.intent_overrides.is_empty());
         assert!(routing.workflow_overrides.is_empty());
+        assert_eq!(routing.max_team_size, 5);
     }
 
     #[test]

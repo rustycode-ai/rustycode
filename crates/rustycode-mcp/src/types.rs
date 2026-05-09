@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn test_mcp_tool_without_category() {
         let tool = McpTool {
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             title: None,
             description: "Read a file".to_string(),
             input_schema: serde_json::json!({"type": "object"}),

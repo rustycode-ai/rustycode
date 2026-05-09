@@ -541,20 +541,20 @@ mod tests {
 
         let event = StreamEvent::ToolCallStarted {
             id: "t1".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
         };
 
         apply_stream_event(&event, &mut state, &mut collector).await;
 
         assert_eq!(state.tools.len(), 1);
         assert_eq!(state.tools[0].id, "t1");
-        assert_eq!(state.tools[0].name, "read_file");
+        assert_eq!(state.tools[0].name, "Read");
         assert!(state.tools[0].input_json.is_empty());
         assert_eq!(collector.events.len(), 1);
         match &collector.events[0] {
             StreamEvent::ToolCallStarted { id, name } => {
                 assert_eq!(id, "t1");
-                assert_eq!(name, "read_file");
+                assert_eq!(name, "Read");
             }
             _ => panic!("Expected ToolCallStarted event"),
         }
@@ -567,7 +567,7 @@ mod tests {
 
         let start = StreamEvent::ToolCallStarted {
             id: "t1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
         };
         apply_stream_event(&start, &mut state, &mut collector).await;
 
@@ -636,7 +636,7 @@ mod tests {
             }),
             Ok(StreamEvent::ToolCallStarted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             }),
             Ok(StreamEvent::ToolInputDelta {
                 id: "t1".into(),
@@ -658,7 +658,7 @@ mod tests {
 
         assert_eq!(state.assistant_text, "Hello");
         assert_eq!(state.tools.len(), 1);
-        assert_eq!(state.tools[0].name, "bash");
+        assert_eq!(state.tools[0].name, "Bash");
         assert_eq!(state.tools[0].input_json, r#"{"command":"ls"}"#);
         assert_eq!(state.stop_reason, Some("tool_use".to_string()));
         assert_eq!(state.total_input_tokens, 100);

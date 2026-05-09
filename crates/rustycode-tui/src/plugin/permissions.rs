@@ -60,8 +60,8 @@ impl FromStr for Permission {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "read_file" => Ok(Permission::ReadFile),
-            "write_file" => Ok(Permission::WriteFile),
+            "Read" => Ok(Permission::ReadFile),
+            "Write" => Ok(Permission::WriteFile),
             "execute_command" => Ok(Permission::ExecuteCommand),
             "network_request" => Ok(Permission::NetworkRequest),
             "notification" => Ok(Permission::Notification),
@@ -217,10 +217,7 @@ mod tests {
 
     #[test]
     fn test_permission_from_str() {
-        assert_eq!(
-            Permission::from_str("read_file").unwrap(),
-            Permission::ReadFile
-        );
+        assert_eq!(Permission::from_str("Read").unwrap(), Permission::ReadFile);
         assert_eq!(
             Permission::from_str("notification").unwrap(),
             Permission::Notification
@@ -233,10 +230,8 @@ mod tests {
 
     #[test]
     fn test_plugin_permissions_from_strings() {
-        let perms = PluginPermissions::from_strings(vec![
-            "read_file".to_string(),
-            "notification".to_string(),
-        ]);
+        let perms =
+            PluginPermissions::from_strings(vec!["Read".to_string(), "notification".to_string()]);
 
         assert_eq!(perms.permissions.len(), 2);
         assert!(!perms.granted);
@@ -244,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_plugin_permissions_grant() {
-        let mut perms = PluginPermissions::from_strings(vec!["read_file".to_string()]);
+        let mut perms = PluginPermissions::from_strings(vec!["Read".to_string()]);
         assert!(!perms.has(&Permission::ReadFile));
 
         perms.grant();
@@ -278,10 +273,8 @@ mod tests {
 
     #[test]
     fn test_permission_describe() {
-        let perms = PluginPermissions::from_strings(vec![
-            "read_file".to_string(),
-            "notification".to_string(),
-        ]);
+        let perms =
+            PluginPermissions::from_strings(vec!["Read".to_string(), "notification".to_string()]);
 
         let desc = perms.describe();
         assert_eq!(desc.len(), 2);

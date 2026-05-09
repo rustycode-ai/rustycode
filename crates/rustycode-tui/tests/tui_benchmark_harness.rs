@@ -143,7 +143,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "easy".into(),
             source: "livebench".into(),
-            expected_tools: vec!["write_file".into(), "bash".into()],
+            expected_tools: vec!["Write".into(), "Bash".into()],
             setup_fn: None,
         },
         BenchTask {
@@ -154,7 +154,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "medium".into(),
             source: "livebench".into(),
-            expected_tools: vec!["read_file".into(), "write_file".into(), "bash".into()],
+            expected_tools: vec!["Read".into(), "Write".into(), "Bash".into()],
             setup_fn: Some(setup_buggy_reverse_string),
         },
         BenchTask {
@@ -165,7 +165,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "medium".into(),
             source: "livebench".into(),
-            expected_tools: vec!["write_file".into(), "bash".into()],
+            expected_tools: vec!["Write".into(), "Bash".into()],
             setup_fn: None,
         },
         // -- Reasoning Tasks (LiveBench-inspired) --
@@ -180,7 +180,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "medium".into(),
             source: "livebench".into(),
-            expected_tools: vec!["read_file".into(), "write_file".into()],
+            expected_tools: vec!["Read".into(), "Write".into()],
             setup_fn: Some(setup_log_file),
         },
         BenchTask {
@@ -192,7 +192,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "medium".into(),
             source: "livebench".into(),
-            expected_tools: vec!["read_file".into(), "write_file".into()],
+            expected_tools: vec!["Read".into(), "Write".into()],
             setup_fn: Some(setup_data_json),
         },
         // -- Terminal Operation Tasks (TerminalBench-inspired) --
@@ -204,7 +204,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "easy".into(),
             source: "terminalbench".into(),
-            expected_tools: vec!["bash".into(), "write_file".into()],
+            expected_tools: vec!["Bash".into(), "Write".into()],
             setup_fn: Some(setup_rust_project_structure),
         },
         BenchTask {
@@ -215,7 +215,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "easy".into(),
             source: "terminalbench".into(),
-            expected_tools: vec!["bash".into()],
+            expected_tools: vec!["Bash".into()],
             setup_fn: Some(setup_simple_repo),
         },
         BenchTask {
@@ -227,7 +227,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "medium".into(),
             source: "terminalbench".into(),
-            expected_tools: vec!["write_file".into(), "bash".into()],
+            expected_tools: vec!["Write".into(), "Bash".into()],
             setup_fn: None,
         },
         // -- Instruction Following Tasks (LiveBench-inspired) --
@@ -241,7 +241,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "easy".into(),
             source: "livebench".into(),
-            expected_tools: vec!["read_file".into(), "write_file".into()],
+            expected_tools: vec!["Read".into(), "Write".into()],
             setup_fn: Some(setup_config_toml),
         },
         BenchTask {
@@ -256,7 +256,7 @@ fn get_all_bench_tasks() -> Vec<BenchTask> {
                 .into(),
             difficulty: "hard".into(),
             source: "livebench".into(),
-            expected_tools: vec!["read_file".into(), "write_file".into()],
+            expected_tools: vec!["Read".into(), "Write".into()],
             setup_fn: Some(setup_users_csv),
         },
     ]

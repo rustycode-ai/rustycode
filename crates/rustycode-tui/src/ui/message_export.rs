@@ -390,7 +390,7 @@ mod tests {
         let mut msg = Message::assistant(content.to_string());
         let mut tool = ToolExecution::new(
             "tool_1".to_string(),
-            "read_file".to_string(),
+            "Read".to_string(),
             "read_file: src/main.rs (145 bytes)".to_string(),
         );
         tool.complete(Some("fn main() { println!(\"Hello!\"); }".to_string()));
@@ -550,7 +550,7 @@ mod tests {
         let path = result.unwrap();
         let content = fs::read_to_string(&path).unwrap();
         assert!(content.contains("### Tools"));
-        assert!(content.contains("read_file"));
+        assert!(content.contains("Read"));
         assert!(content.contains("fn main()"));
     }
 
@@ -572,7 +572,7 @@ mod tests {
         let path = result.unwrap();
         let content = fs::read_to_string(&path).unwrap();
         assert!(!content.contains("### Tools"));
-        assert!(!content.contains("read_file"));
+        assert!(!content.contains("Read"));
     }
 
     #[test]
@@ -798,7 +798,7 @@ mod tests {
         let path = result.unwrap();
         let content = fs::read_to_string(&path).unwrap();
         assert!(content.contains("[TOOLS]"));
-        assert!(content.contains("read_file"));
+        assert!(content.contains("Read"));
         assert!(content.contains("fn main()"));
     }
 
@@ -820,7 +820,7 @@ mod tests {
         let path = result.unwrap();
         let content = fs::read_to_string(&path).unwrap();
         assert!(!content.contains("[TOOLS]"));
-        assert!(!content.contains("read_file"));
+        assert!(!content.contains("Read"));
     }
 
     // ─── Filename Tests ───────────────────────────────────────────────────

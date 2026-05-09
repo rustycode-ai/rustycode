@@ -60,12 +60,12 @@ impl Callable for BenchCallable {
 /// Tool names and descriptions used to populate the registry.
 /// Covers a realistic mix of file ops, search, VCS, and LSP tools.
 const TOOL_DEFINITIONS: &[(&str, &str)] = &[
-    ("read_file", "Read file contents from the filesystem"),
-    ("write_file", "Write content to a file on disk"),
-    ("edit_file", "Apply targeted edits to an existing file"),
-    ("bash", "Execute shell commands in a subprocess"),
-    ("grep", "Search file contents with regex patterns"),
-    ("glob", "Find files matching a glob pattern"),
+    ("Read", "Read file contents from the filesystem"),
+    ("Write", "Write content to a file on disk"),
+    ("Edit", "Apply targeted edits to an existing file"),
+    ("Bash", "Execute shell commands in a subprocess"),
+    ("Grep", "Search file contents with regex patterns"),
+    ("Glob", "Find files matching a glob pattern"),
     ("git_status", "Show working tree status"),
     (
         "git_diff",
@@ -81,8 +81,8 @@ const TOOL_DEFINITIONS: &[(&str, &str)] = &[
     ("lsp_references", "Find all references to a symbol"),
     ("lsp_rename", "Rename a symbol across the workspace"),
     ("lsp_diagnostics", "Get diagnostics for a file"),
-    ("web_fetch", "Fetch content from a URL"),
-    ("notebook_edit", "Edit Jupyter notebook cells"),
+    ("WebFetch", "Fetch content from a URL"),
+    ("NotebookEdit", "Edit Jupyter notebook cells"),
     ("apply_patch", "Apply a unified diff patch to a file"),
     ("search", "Full-text search across the codebase"),
     ("search_replace", "Search and replace across files"),
@@ -230,7 +230,7 @@ fn bench_search_50_units(c: &mut Criterion) {
                     limit: 10,
                 };
                 let results = search_service
-                    .search("grep", opts)
+                    .search("Grep", opts)
                     .await
                     .expect("search should succeed");
                 black_box(results);

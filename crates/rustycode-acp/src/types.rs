@@ -467,14 +467,14 @@ mod tests {
     #[test]
     fn test_content_part_tool_roundtrip() {
         let part = ContentPart::Tool {
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: Some(serde_json::json!({"command": "ls"})),
             id: None,
         };
         let json = serde_json::to_string(&part).unwrap();
         let decoded: ContentPart = serde_json::from_str(&json).unwrap();
         match decoded {
-            ContentPart::Tool { name, .. } => assert_eq!(name, "bash"),
+            ContentPart::Tool { name, .. } => assert_eq!(name, "Bash"),
             _ => panic!("Expected Tool variant"),
         }
     }
@@ -660,7 +660,7 @@ mod tests {
                     text: "Hello".to_string(),
                 },
                 ContentPart::Tool {
-                    name: "read_file".to_string(),
+                    name: "Read".to_string(),
                     input: None,
                     id: None,
                 },
@@ -1091,11 +1091,11 @@ mod tests {
 
     #[test]
     fn test_deserialize_content_part_tool_from_raw_json() {
-        let raw = r#"{"type":"tool","name":"bash","input":{"command":"ls -la"}}"#;
+        let raw = r#"{"type":"tool","name":"Bash","input":{"command":"ls -la"}}"#;
         let part: ContentPart = serde_json::from_str(raw).unwrap();
         match part {
             ContentPart::Tool { name, input, .. } => {
-                assert_eq!(name, "bash");
+                assert_eq!(name, "Bash");
                 assert!(input.is_some());
             }
             _ => panic!("Expected Tool variant"),
@@ -1320,7 +1320,7 @@ mod tests {
                     blob: None,
                 },
                 ContentPart::Tool {
-                    name: "bash".to_string(),
+                    name: "Bash".to_string(),
                     input: Some(serde_json::json!({"command": "cargo build"})),
                     id: None,
                 },

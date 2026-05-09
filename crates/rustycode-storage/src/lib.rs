@@ -591,7 +591,7 @@ mod tests {
                     order: i,
                     title: format!("Step {}", i),
                     description: format!("Description for step {}", i),
-                    tools: vec!["editor".to_string(), "bash".to_string()],
+                    tools: vec!["editor".to_string(), "Bash".to_string()],
                     expected_outcome: format!("Outcome {}", i),
                     rollback_hint: format!("Rollback step {}", i),
                     tool_calls: vec![],
@@ -668,7 +668,7 @@ mod tests {
                     order: 2,
                     title: "Second step".to_string(),
                     description: "Follow-up step".to_string(),
-                    tools: vec!["bash".to_string()],
+                    tools: vec!["Bash".to_string()],
                     expected_outcome: "Tests pass".to_string(),
                     rollback_hint: "Revert changes".to_string(),
                     tool_calls: vec![],
@@ -741,7 +741,7 @@ mod tests {
                 order: 1,
                 title: "Execute step".to_string(),
                 description: "Run the step".to_string(),
-                tools: vec!["bash".to_string()],
+                tools: vec!["Bash".to_string()],
                 expected_outcome: "Success".to_string(),
                 rollback_hint: "N/A".to_string(),
                 tool_calls: vec![],
@@ -774,7 +774,7 @@ mod tests {
             "Output: test passed".to_string(),
         ];
         completed_step.tool_executions = vec![rustycode_protocol::StepToolExecution {
-            tool_name: "bash".to_string(),
+            tool_name: "Bash".to_string(),
             args: serde_json::json!({"command": "cargo test"}).to_string(),
             output: "test result: ok".to_string(),
             error: None,
@@ -794,7 +794,7 @@ mod tests {
         assert!(loaded.steps[0].completed_at.is_some());
         assert_eq!(loaded.steps[0].results.len(), 2);
         assert_eq!(loaded.steps[0].tool_executions.len(), 1);
-        assert_eq!(loaded.steps[0].tool_executions[0].tool_name, "bash");
+        assert_eq!(loaded.steps[0].tool_executions[0].tool_name, "Bash");
     }
 
     #[test]
@@ -815,7 +815,7 @@ mod tests {
                 order: 1,
                 title: "Failing step".to_string(),
                 description: "This step will fail".to_string(),
-                tools: vec!["bash".to_string()],
+                tools: vec!["Bash".to_string()],
                 expected_outcome: "Success".to_string(),
                 rollback_hint: "Check logs".to_string(),
                 tool_calls: vec![],
@@ -1098,7 +1098,7 @@ mod tests {
                     order: 3,
                     title: "Run tests".to_string(),
                     description: "Execute test suite to verify implementation".to_string(),
-                    tools: vec!["bash".to_string()],
+                    tools: vec!["Bash".to_string()],
                     expected_outcome: "All tests pass".to_string(),
                     rollback_hint: "Fix failing tests".to_string(),
                     execution_status: rustycode_protocol::StepStatus::Pending,
@@ -1203,7 +1203,7 @@ mod tests {
         step3_final.completed_at = Some(Utc::now());
         step3_final.results = vec!["All tests passed".to_string(), "Coverage: 95%".to_string()];
         step3_final.tool_executions = vec![rustycode_protocol::StepToolExecution {
-            tool_name: "bash".to_string(),
+            tool_name: "Bash".to_string(),
             args: serde_json::json!({"command": "cargo test"}).to_string(),
             output: "test result: ok. 15 passed, 0 failed".to_string(),
             error: None,
@@ -1256,7 +1256,7 @@ mod tests {
         // Create and insert a tool executed event
         let tool_event = ToolExecutedEvent::new(
             SessionId::new(),
-            "read_file".to_string(),
+            "Read".to_string(),
             json!({ "path": "/test/path" }),
             true,
             "success".to_string(),
@@ -1275,7 +1275,7 @@ mod tests {
 
         // Verify first event (most recent - tool event)
         assert_eq!(events[0].event_type, "tool.executed");
-        assert!(events[0].event_data.contains("read_file"));
+        assert!(events[0].event_data.contains("Read"));
         assert!(events[0].id > 0);
 
         // Verify second event (session started)

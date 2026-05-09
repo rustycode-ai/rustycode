@@ -370,7 +370,7 @@ mod tests {
                     text: "hello".to_string(),
                 },
                 ContentPart::Tool {
-                    name: "bash".to_string(),
+                    name: "Bash".to_string(),
                     input: Some(serde_json::json!({"command": "ls"})),
                     id: None,
                 },
@@ -426,12 +426,12 @@ mod tests {
     fn test_tool_call_result_debug() {
         let result = ToolCallResult {
             id: "call-1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({"cmd": "ls"}),
             output: serde_json::json!({"stdout": "file.txt"}),
         };
         let debug_str = format!("{:?}", result);
         assert!(debug_str.contains("call-1"));
-        assert!(debug_str.contains("bash"));
+        assert!(debug_str.contains("Bash"));
     }
 }

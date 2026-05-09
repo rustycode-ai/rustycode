@@ -9,11 +9,11 @@ use rustycode_llm::provider::LLMProvider;
 use rustycode_llm::provider_metadata::ModelInfo;
 use rustycode_protocol::intent::{classify_intent_with_confidence, IntentCategory};
 use rustycode_protocol::task_routing::{
-    parse_handoff_block, render_handoff_block, TaskExecutionPlan, TaskHarness, TaskRoutingAction,
-    TaskRoutingDecision, TaskRoutingHandoff, TaskThinkingMode, TaskThinkingProfile,
-    TaskThinkingStyle, TaskWorkflow,
+    parse_handoff_block, render_handoff_block, AssemblyContext, TaskExecutionPlan, TaskHarness,
+    TaskRoutingAction, TaskRoutingDecision, TaskRoutingHandoff, TaskThinkingMode,
+    TaskThinkingProfile, TaskThinkingStyle, TaskWorkflow,
 };
-use rustycode_protocol::{AgentRole, TeamRole, WorkingMode};
+use rustycode_protocol::{build_roster, AgentRole, TeamRole, WorkingMode};
 use rustycode_team::profiler::TaskProfiler;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -27,6 +27,7 @@ struct EffectiveRoutingConfig {
     team_override: Option<TeamRole>,
     agent_override: Option<AgentRole>,
     skills_override: Vec<String>,
+    max_team_size: usize,
 }
 
 impl EffectiveRoutingConfig {
@@ -39,6 +40,7 @@ impl EffectiveRoutingConfig {
             team_override: None,
             agent_override: None,
             skills_override: Vec::new(),
+            max_team_size: base.max_team_size,
         }
     }
 
@@ -153,6 +155,7 @@ pub async fn resolve_task_routing(
             agent,
             skills: skills.clone(),
             missing_info: missing_info.clone(),
+            roster: None,
         },
         "Structured execution plan generated from routing decision.",
     );
@@ -185,6 +188,7 @@ pub async fn resolve_task_routing(
         agent,
         skills,
         missing_info,
+        roster: None,
     }
 }
 
@@ -710,6 +714,20 @@ pub async fn resolve_task_routing_async(
         assessment.confidence,
         &missing_info,
     );
+
+    let assembly_context = AssemblyContext {
+        intent_category: assessment.category,
+        thinking_depth: thinking.depth,
+        confidence: assessment.confidence,
+        required_specialists: Vec::new(),
+    };
+    let team_config = profile.assemble_team_with_context(Some(&assembly_context));
+    let roster = build_roster(
+        &team_config,
+        Some(&assembly_context),
+        effective.max_team_size,
+    );
+
     let execution_plan = TaskExecutionPlan::from_decision(
         &TaskRoutingDecision {
             intent: assessment.category,
@@ -723,8 +741,9 @@ pub async fn resolve_task_routing_async(
             agent,
             skills: skills.clone(),
             missing_info: missing_info.clone(),
+            roster: Some(roster.clone()),
         },
-        "Structured execution plan generated from async routing decision.",
+        "Structured execution plan generated from routing decision.",
     );
     let action = if !config.enabled || assessment.confidence >= effective.confidence_threshold {
         TaskRoutingAction::Proceed
@@ -755,6 +774,7 @@ pub async fn resolve_task_routing_async(
         agent,
         skills,
         missing_info,
+        roster: Some(roster),
     }
 }
 

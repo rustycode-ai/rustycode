@@ -82,19 +82,19 @@ async fn test_multi_tool_workflows() {
         WorkflowTest {
             name: "Analyze codebase structure".to_string(),
             prompt: "Analyze the project structure. Tell me what files are in src/ and briefly describe what each module does based on reading the files.".to_string(),
-            expected_tools: vec!["list_dir".to_string(), "read_file".to_string()],
+            expected_tools: vec!["list_dir".to_string(), "Read".to_string()],
             min_steps: 2,
         },
         WorkflowTest {
             name: "Find function usage".to_string(),
             prompt: "Find where the 'process_data' function is defined and then search for all places where it's called in the codebase.".to_string(),
-            expected_tools: vec!["grep".to_string()],
+            expected_tools: vec!["Grep".to_string()],
             min_steps: 2,
         },
         WorkflowTest {
             name: "File modification workflow".to_string(),
             prompt: "Read the config.rs file, find the DEFAULT_PORT value, and tell me what it's set to.".to_string(),
-            expected_tools: vec!["read_file".to_string()],
+            expected_tools: vec!["Read".to_string()],
             min_steps: 1,
         },
     ];
@@ -155,12 +155,12 @@ When completing multi-step tasks, use each tool's output to inform the next step
                                 || response_text.contains("find .")
                                 || response_text.contains("files in")
                         }
-                        "grep" => {
-                            response_text.contains("grep")
+                        "Grep" => {
+                            response_text.contains("Grep")
                                 || response_text.contains("search")
                                 || response_text.contains("find.*function")
                         }
-                        "read_file" => {
+                        "Read" => {
                             response_text.contains("cat")
                                 || response_text.contains("read")
                                 || response_text.contains("open")

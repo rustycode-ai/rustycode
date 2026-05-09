@@ -226,7 +226,7 @@ pub type McpClientResult<T> = Result<T, McpClientError>;
 /// println!("Available tools: {:?}", tools);
 ///
 /// // Call a tool
-/// let result = client.call_tool("read_file", serde_json::json!({
+/// let result = client.call_tool("Read", serde_json::json!({
 ///     "path": "/tmp/test.txt"
 /// })).unwrap();
 ///
@@ -548,7 +548,7 @@ impl Drop for McpStdioClient {
 /// }
 ///
 /// // Call a tool on a specific server
-/// let result = manager.call_tool("filesystem", "read_file", serde_json::json!({
+/// let result = manager.call_tool("filesystem", "Read", serde_json::json!({
 ///     "path": "/tmp/test.txt"
 /// })).unwrap();
 /// ```
@@ -805,8 +805,8 @@ mod tests {
         let not_connected = McpClientError::NotConnected;
         assert!(not_connected.to_string().contains("Not connected"));
 
-        let tool_not_found = McpClientError::ToolNotFound("bash".to_string());
-        assert!(tool_not_found.to_string().contains("bash"));
+        let tool_not_found = McpClientError::ToolNotFound("Bash".to_string());
+        assert!(tool_not_found.to_string().contains("Bash"));
 
         let timeout = McpClientError::Timeout;
         assert!(timeout.to_string().contains("Timeout"));

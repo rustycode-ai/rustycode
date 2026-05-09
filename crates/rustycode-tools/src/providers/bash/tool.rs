@@ -179,7 +179,7 @@ fn try_native_fallback(command: &str) -> Option<Result<ToolOutput>> {
                     .map_err(|e| anyhow::anyhow!("native ls failed: {e}")),
             )
         }
-        "grep" => {
+        "Grep" => {
             let mut args = parts[1..].iter().peekable();
             let mut pattern = None;
             let mut target_path = None;

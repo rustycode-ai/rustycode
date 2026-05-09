@@ -427,7 +427,7 @@ fn test_anthropic_tool_format_structure() {
 fn test_anthropic_tool_format_with_nested_parameters() {
     // Verify more complex tool schema
     let tool_definition = serde_json::json!({
-        "name": "write_file",
+        "name": "Write",
         "description": "Write content to a file at the specified path",
         "input_schema": {
             "type": "object",
@@ -509,7 +509,7 @@ fn test_anthropic_multiple_tools_format() {
     // Verify format for multiple tools in a single request
     let tools = vec![
         serde_json::json!({
-            "name": "read_file",
+            "name": "Read",
             "description": "Read contents of a text file",
             "input_schema": {
                 "type": "object",
@@ -520,7 +520,7 @@ fn test_anthropic_multiple_tools_format() {
             }
         }),
         serde_json::json!({
-            "name": "write_file",
+            "name": "Write",
             "description": "Write content to a file",
             "input_schema": {
                 "type": "object",

@@ -318,7 +318,7 @@ mod tests {
         let counter = TokenCounter::new();
 
         let tools = vec![(
-            "bash".to_string(),
+            "Bash".to_string(),
             "Execute a shell command".to_string(),
             serde_json::json!({
                 "properties": {

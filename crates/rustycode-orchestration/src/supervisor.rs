@@ -379,7 +379,7 @@ mod tests {
             attempt_count: 0,
             consecutive_failures: 0,
             steps_completed: 5,
-            active_tools: vec!["bash".into(), "read".into()],
+            active_tools: vec!["Bash".into(), "read".into()],
         }
     }
 
@@ -396,7 +396,7 @@ mod tests {
     #[test]
     fn directive_expand_scope_roundtrip() {
         let d = SupervisionDirective::ExpandScope {
-            allowed_tools: vec!["write".into(), "bash".into()],
+            allowed_tools: vec!["write".into(), "Bash".into()],
             reason: "need write access".into(),
         };
         let json = serde_json::to_string(&d).unwrap();
@@ -463,7 +463,7 @@ mod tests {
     fn observe_tool_started_returns_none() {
         let mut sup = RuleBasedSupervisor::new();
         let result = sup.observe(&SupervisionEvent::ToolStarted {
-            tool: "bash".into(),
+            tool: "Bash".into(),
         });
         assert!(result.is_none());
     }
@@ -471,11 +471,11 @@ mod tests {
     #[test]
     fn observe_tool_finished_success_resets_failures() {
         let mut sup = RuleBasedSupervisor::new();
-        sup.record_failure("bash".into(), "err".into());
+        sup.record_failure("Bash".into(), "err".into());
         assert_eq!(sup.consecutive_failures, 1);
 
         let result = sup.observe(&SupervisionEvent::ToolFinished {
-            tool: "bash".into(),
+            tool: "Bash".into(),
             success: true,
         });
         assert!(result.is_none());
@@ -487,16 +487,16 @@ mod tests {
         let mut sup = RuleBasedSupervisor::new();
         // First 2 failures: not enough
         sup.observe(&SupervisionEvent::ToolFinished {
-            tool: "bash".into(),
+            tool: "Bash".into(),
             success: false,
         });
         sup.observe(&SupervisionEvent::ToolFinished {
-            tool: "bash".into(),
+            tool: "Bash".into(),
             success: false,
         });
         // 3rd failure crosses threshold (max_consecutive_failures = 3)
         let result = sup.observe(&SupervisionEvent::ToolFinished {
-            tool: "bash".into(),
+            tool: "Bash".into(),
             success: false,
         });
         assert!(matches!(
@@ -596,7 +596,7 @@ mod tests {
     fn observe_scope_change_updates_tools() {
         let mut sup = RuleBasedSupervisor::new();
         let result = sup.observe(&SupervisionEvent::ScopeChanged {
-            active_tools: vec!["bash".into(), "write".into(), "read".into()],
+            active_tools: vec!["Bash".into(), "write".into(), "read".into()],
         });
         assert!(result.is_none());
         assert_eq!(sup.active_tools.len(), 3);
@@ -701,7 +701,7 @@ mod tests {
             Some(1),
             "test".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         let event = OrchestrationEvent::StepFailed {
             step_id: "s1".into(),
@@ -777,7 +777,7 @@ mod tests {
     fn architectural_failure_pattern_mixed_tools_no_false_positive() {
         let mut sup = RuleBasedSupervisor::new();
         sup.observe(&SupervisionEvent::ToolFailed {
-            tool: "bash".into(),
+            tool: "Bash".into(),
             error: "err".into(),
         });
         sup.observe(&SupervisionEvent::ToolFailed {
@@ -785,7 +785,7 @@ mod tests {
             error: "err".into(),
         });
         let result = sup.observe(&SupervisionEvent::ToolFailed {
-            tool: "bash".into(),
+            tool: "Bash".into(),
             error: "err".into(),
         });
         assert!(

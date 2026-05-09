@@ -866,7 +866,7 @@ mod tests {
         .add_step(WorkflowStep::new(
             "step1".to_string(),
             StepType::ToolCall {
-                tool: "read_file".to_string(),
+                tool: "Read".to_string(),
                 parameters: {
                     let mut params = HashMap::new();
                     params.insert("path".to_string(), "{{file_path}}".to_string());

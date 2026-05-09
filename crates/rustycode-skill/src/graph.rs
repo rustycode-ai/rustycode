@@ -248,8 +248,8 @@ mod tests {
     #[test]
     fn add_tool() {
         let mut g = CapabilityGraph::new();
-        g.add_tool("bash");
-        assert_eq!(g.node("bash").unwrap().kind, NodeType::Tool);
+        g.add_tool("Bash");
+        assert_eq!(g.node("Bash").unwrap().kind, NodeType::Tool);
     }
 
     #[test]
@@ -272,8 +272,8 @@ mod tests {
     fn add_edge_between_nodes() {
         let mut g = CapabilityGraph::new();
         g.add_skill("code-review");
-        g.add_tool("read_file");
-        let edge = g.add_edge("code-review", "read_file", EdgeKind::Uses);
+        g.add_tool("Read");
+        let edge = g.add_edge("code-review", "Read", EdgeKind::Uses);
         assert!(edge.is_some());
         assert_eq!(g.edge_count(), 1);
     }
@@ -289,15 +289,15 @@ mod tests {
     fn walk_from_finds_related() {
         let mut g = CapabilityGraph::new();
         g.add_skill("code-review");
-        g.add_tool("read_file");
+        g.add_tool("Read");
         g.add_skill("testing");
-        g.add_edge("code-review", "read_file", EdgeKind::Uses);
+        g.add_edge("code-review", "Read", EdgeKind::Uses);
         g.add_edge("code-review", "testing", EdgeKind::RelatedTo);
 
         let related = g.walk_from("code-review", 3);
         assert_eq!(related.len(), 2);
         assert!(related.iter().any(|(n, _)| n == "testing"));
-        assert!(related.iter().any(|(n, _)| n == "read_file"));
+        assert!(related.iter().any(|(n, _)| n == "Read"));
     }
 
     #[test]

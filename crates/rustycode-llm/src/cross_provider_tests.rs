@@ -98,7 +98,7 @@ fn cross_provider_tool_use_block() {
             ContentBlock::text("I'll read that file."),
             ContentBlock::tool_use(
                 "toolu_01",
-                "read_file",
+                "Read",
                 serde_json::json!({"path": "src/main.rs"}),
             ),
         ]),
@@ -116,7 +116,7 @@ fn cross_provider_tool_use_block() {
             let json = serde_json::to_value(&blocks[1]).unwrap();
             assert_eq!(json["type"], "tool_use");
             assert_eq!(json["id"], "toolu_01");
-            assert_eq!(json["name"], "read_file");
+            assert_eq!(json["name"], "Read");
         }
         other => panic!("Anthropic: expected Blocks, got {:?}", other),
     }
@@ -128,7 +128,7 @@ fn cross_provider_tool_use_block() {
     let tool_calls = o_msgs[0].tool_calls.as_ref().expect("expected tool_calls");
     assert_eq!(tool_calls.len(), 1);
     assert_eq!(tool_calls[0].id, "toolu_01");
-    assert_eq!(tool_calls[0].function.name, "read_file");
+    assert_eq!(tool_calls[0].function.name, "Read");
 
     // Ollama: flattened to text
     let ol_msgs = OllamaProvider::convert_messages(vec![msg]);
@@ -428,7 +428,7 @@ fn cross_provider_role_mapping_system() {
 #[test]
 fn cross_provider_role_mapping_tool() {
     let msg = ChatMessage {
-        role: MessageRole::Tool("read_file".to_string()),
+        role: MessageRole::Tool("Read".to_string()),
         content: MessageContent::simple("tool output"),
     };
 
@@ -499,7 +499,7 @@ fn cross_provider_multi_turn_conversation() {
                 ContentBlock::text("I'll read that file."),
                 ContentBlock::tool_use(
                     "toolu_01",
-                    "read_file",
+                    "Read",
                     serde_json::json!({"path": "src/main.rs"}),
                 ),
             ]),
@@ -607,7 +607,7 @@ fn cross_provider_tool_use_id_roundtrip() {
         role: MessageRole::Assistant,
         content: MessageContent::Blocks(vec![ContentBlock::tool_use(
             tool_use_id,
-            "bash",
+            "Bash",
             serde_json::json!({"command": "ls"}),
         )]),
     };

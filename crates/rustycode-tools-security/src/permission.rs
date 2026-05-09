@@ -522,7 +522,7 @@ pub struct ToolConfirmation {
 /// // In UI handler:
 /// router.deliver("req-1", ToolConfirmation {
 ///     request_id: "req-1".to_string(),
-///     tool_name: "bash".to_string(),
+///     tool_name: "Bash".to_string(),
 ///     decision: ConfirmationDecision::AllowOnce,
 /// }).await;
 /// ```
@@ -610,7 +610,7 @@ mod confirmation_tests {
                     "req_1",
                     ToolConfirmation {
                         request_id: "req_1".to_string(),
-                        tool_name: "bash".to_string(),
+                        tool_name: "Bash".to_string(),
                         decision: ConfirmationDecision::AllowOnce,
                     }
                 )
@@ -619,7 +619,7 @@ mod confirmation_tests {
 
         let confirmation = rx.await.unwrap();
         assert_eq!(confirmation.decision, ConfirmationDecision::AllowOnce);
-        assert_eq!(confirmation.tool_name, "bash");
+        assert_eq!(confirmation.tool_name, "Bash");
     }
 
     #[tokio::test]
@@ -631,7 +631,7 @@ mod confirmation_tests {
                     "unknown",
                     ToolConfirmation {
                         request_id: "unknown".to_string(),
-                        tool_name: "bash".to_string(),
+                        tool_name: "Bash".to_string(),
                         decision: ConfirmationDecision::DenyOnce,
                     }
                 )
@@ -651,7 +651,7 @@ mod confirmation_tests {
                     "req_1",
                     ToolConfirmation {
                         request_id: "req_1".to_string(),
-                        tool_name: "bash".to_string(),
+                        tool_name: "Bash".to_string(),
                         decision: ConfirmationDecision::AllowOnce,
                     }
                 )
@@ -684,7 +684,7 @@ mod confirmation_tests {
                     "req_2",
                     ToolConfirmation {
                         request_id: "req_2".to_string(),
-                        tool_name: "write_file".to_string(),
+                        tool_name: "Write".to_string(),
                         decision: ConfirmationDecision::DenyOnce,
                     }
                 )
@@ -698,7 +698,7 @@ mod confirmation_tests {
                     "req_1",
                     ToolConfirmation {
                         request_id: "req_1".to_string(),
-                        tool_name: "bash".to_string(),
+                        tool_name: "Bash".to_string(),
                         decision: ConfirmationDecision::AllowOnce,
                     }
                 )
@@ -732,7 +732,7 @@ mod confirmation_tests {
                 "req_1",
                 ToolConfirmation {
                     request_id: "req_1".to_string(),
-                    tool_name: "read_file".to_string(),
+                    tool_name: "Read".to_string(),
                     decision: ConfirmationDecision::AllowSession,
                 },
             )

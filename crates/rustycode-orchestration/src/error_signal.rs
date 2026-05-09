@@ -222,13 +222,13 @@ mod tests {
             Some(1),
             "test error".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert_eq!(signal.category, ErrorCategory::LogicError);
         assert_eq!(signal.exit_code, Some(1));
         assert_eq!(signal.message, "test error");
         assert_eq!(signal.step_id, "step-1");
-        assert_eq!(signal.tool_name, "bash");
+        assert_eq!(signal.tool_name, "Bash");
     }
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
             None,
             long_msg,
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert!(signal.message.len() <= 2100);
         assert!(signal.message.contains("truncated"));
@@ -355,7 +355,7 @@ mod tests {
             None,
             long_msg,
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert!(signal.message.contains("[truncated]"));
         // Verify the message doesn't panic and is valid UTF-8
@@ -450,7 +450,7 @@ mod tests {
             Some(1),
             "short".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert_eq!(signal.message, "short");
         assert!(!signal.message.contains("[truncated]"));

@@ -27,8 +27,8 @@
 //! let recipe = RecipeBuilder::new("Security Audit")
 //!     .description("Audit code for security vulnerabilities")
 //!     .prompt("Scan {{code_path}} for security issues")
-//!     .tool("read_file")
-//!     .tool("grep")
+//!     .tool("Read")
+//!     .tool("Grep")
 //!     .parameter(RecipeParameter {
 //!         name: "code_path".into(),
 //!         required: true,
@@ -231,8 +231,8 @@ pub struct SubRecipe {
 /// let recipe = RecipeBuilder::new("Security Audit")
 ///     .description("Audit code for security vulnerabilities")
 ///     .prompt("Scan {{code_path}} for security issues")
-///     .tool("read_file")
-///     .tool("grep")
+///     .tool("Read")
+///     .tool("Grep")
 ///     .parameter(RecipeParameter {
 ///         name: "code_path".into(),
 ///         required: true,
@@ -631,12 +631,7 @@ impl RecipeRegistry {
                  4. Suggest a fix with explanation"
                     .into(),
             ),
-            tools: vec![
-                "read_file".into(),
-                "grep".into(),
-                "glob".into(),
-                "bash".into(),
-            ],
+            tools: vec!["Read".into(), "Grep".into(), "Glob".into(), "Bash".into()],
             parameters: vec![RecipeParameter {
                 name: "bug_description".into(),
                 description: "Description of the bug".into(),
@@ -683,12 +678,7 @@ impl RecipeRegistry {
                  - Minimum 80% code coverage"
                     .into(),
             ),
-            tools: vec![
-                "read_file".into(),
-                "grep".into(),
-                "glob".into(),
-                "bash".into(),
-            ],
+            tools: vec!["Read".into(), "Grep".into(), "Glob".into(), "Bash".into()],
             parameters: vec![RecipeParameter {
                 name: "code_path".into(),
                 description: "Path to code to test".into(),
@@ -782,13 +772,13 @@ mod tests {
         let recipe = RecipeBuilder::new("Test Recipe")
             .description("A test recipe")
             .prompt("Do something with {{input}}")
-            .tool("read_file")
-            .tool("grep")
+            .tool("Read")
+            .tool("Grep")
             .build();
 
         assert_eq!(recipe.title, "Test Recipe");
         assert_eq!(recipe.description, "A test recipe");
-        assert_eq!(recipe.tools, vec!["read_file", "grep"]);
+        assert_eq!(recipe.tools, vec!["Read", "Grep"]);
         assert_eq!(
             recipe.prompt,
             Some("Do something with {{input}}".to_string())
@@ -799,7 +789,7 @@ mod tests {
     fn test_builder_with_tools_vec() {
         let recipe = RecipeBuilder::new("Multi-Tool")
             .description("Uses many tools")
-            .tools(vec!["read_file", "grep", "bash"])
+            .tools(vec!["Read", "Grep", "Bash"])
             .build();
 
         assert_eq!(recipe.tools.len(), 3);

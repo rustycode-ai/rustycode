@@ -266,7 +266,7 @@ mod tests {
         let mut ledger = SideEffectLedger::new();
         let id = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "/tmp/test.rs".to_string(),
             description: "Created test module".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -283,7 +283,7 @@ mod tests {
         let mut ledger = SideEffectLedger::new();
         let id = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "/tmp/test.rs".to_string(),
             description: "Created test module".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -302,7 +302,7 @@ mod tests {
         let mut ledger = SideEffectLedger::new();
         let id1 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "a.rs".to_string(),
             description: "Write A".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -312,7 +312,7 @@ mod tests {
         });
         let id2 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "b.rs".to_string(),
             description: "Write B".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -322,7 +322,7 @@ mod tests {
         });
         let id3 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "bash".to_string(),
+            tool_name: "Bash".to_string(),
             target: "cargo test".to_string(),
             description: "Run tests".to_string(),
             side_effect_type: SideEffectType::CommandExecution,
@@ -344,7 +344,7 @@ mod tests {
         let mut ledger = SideEffectLedger::new();
         let id1 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "new_file.rs".to_string(),
             description: "Created new file".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -354,7 +354,7 @@ mod tests {
         });
         let id2 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "bash".to_string(),
+            tool_name: "Bash".to_string(),
             target: "cargo build".to_string(),
             description: "Built project".to_string(),
             side_effect_type: SideEffectType::CommandExecution,
@@ -377,7 +377,7 @@ mod tests {
         let mut ledger = SideEffectLedger::new();
         let id = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "edit_file".to_string(),
+            tool_name: "Edit".to_string(),
             target: "src/main.rs".to_string(),
             description: "Fixed bug".to_string(),
             side_effect_type: SideEffectType::FileEdit,
@@ -414,7 +414,7 @@ mod tests {
         let mut ledger = SideEffectLedger::new();
         let id1 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "a.rs".to_string(),
             description: "Write A".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -424,7 +424,7 @@ mod tests {
         });
         let id2 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "b.rs".to_string(),
             description: "Write B".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -445,7 +445,7 @@ mod tests {
         let mut ledger = SideEffectLedger::new();
         let id1 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "a.rs".to_string(),
             description: "Write A".to_string(),
             side_effect_type: SideEffectType::FileWrite,
@@ -455,7 +455,7 @@ mod tests {
         });
         let _id2 = ledger.record(SideEffect {
             id: String::new(),
-            tool_name: "write_file".to_string(),
+            tool_name: "Write".to_string(),
             target: "b.rs".to_string(),
             description: "Write B".to_string(),
             side_effect_type: SideEffectType::FileWrite,

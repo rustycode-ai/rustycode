@@ -151,7 +151,7 @@ mod tests {
             effort: SkillEffortLevel::Medium,
             context: ExecutionContext::Inline,
             procedure: None,
-            allowed_tools: vec!["bash".to_string()],
+            allowed_tools: vec!["Bash".to_string()],
             user_invocable: true,
             model_invocable: true,
             agent: None,

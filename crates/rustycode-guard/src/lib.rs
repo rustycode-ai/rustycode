@@ -356,7 +356,7 @@ mod tests {
         // R08 should only block writing .dll/.exe etc, not reading
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "read_file",
+            "tool_name": "Read",
             "tool_input": {"path": "/project/lib/library.dll"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"
@@ -373,7 +373,7 @@ mod tests {
     fn read_sqlite_file_allowed() {
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "read_file",
+            "tool_name": "Read",
             "tool_input": {"path": "/project/data.sqlite"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"
@@ -388,7 +388,7 @@ mod tests {
         // R08 should still block writing binary extensions
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "write_file",
+            "tool_name": "Write",
             "tool_input": {"path": "/project/malware.exe"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"
@@ -403,7 +403,7 @@ mod tests {
         // R09 should only block writes with .., not reads
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "read_file",
+            "tool_name": "Read",
             "tool_input": {"path": "../sibling/file.txt"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"
@@ -421,7 +421,7 @@ mod tests {
         // R13 should only block writes to config files, not reads
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "read_file",
+            "tool_name": "Read",
             "tool_input": {"path": "/project/.claude/settings.json"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"
@@ -436,7 +436,7 @@ mod tests {
         // R04 should only block writes outside cwd, not reads
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "read_file",
+            "tool_name": "Read",
             "tool_input": {"path": "/usr/local/config.yml"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"
@@ -451,7 +451,7 @@ mod tests {
         // R04 should still block writes outside cwd
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "write_file",
+            "tool_name": "Write",
             "tool_input": {"path": "/etc/hosts"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"
@@ -466,7 +466,7 @@ mod tests {
         // R07 (secrets) only applies to write content, not reads
         let input = serde_json::json!({
             "session_id": "s1",
-            "tool_name": "grep",
+            "tool_name": "Grep",
             "tool_input": {"pattern": "test"},
             "cwd": "/project",
             "hook_event_name": "PreToolUse"

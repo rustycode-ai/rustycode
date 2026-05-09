@@ -345,7 +345,7 @@ mod tests {
     fn test_compute_result_summary_success_output() {
         let result = ToolResult {
             id: "id-1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Success("Build successful".to_string()),
         };
         let summary = compute_result_summary(&result);
@@ -356,7 +356,7 @@ mod tests {
     fn test_compute_result_summary_success_empty() {
         let result = ToolResult {
             id: "id-2".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Success(String::new()),
         };
         let summary = compute_result_summary(&result);
@@ -367,9 +367,9 @@ mod tests {
     fn test_compute_result_summary_error() {
         let result = ToolResult {
             id: "id-3".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Error(ToolExecutionError::ExecutionFailed {
-                tool: "bash".to_string(),
+                tool: "Bash".to_string(),
                 output: "command not found".to_string(),
             }),
         };
@@ -382,7 +382,7 @@ mod tests {
     fn test_compute_result_summary_timeout() {
         let result = ToolResult {
             id: "id-4".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Timeout,
         };
         let summary = compute_result_summary(&result);
@@ -393,9 +393,9 @@ mod tests {
     fn test_compute_result_summary_permission_denied() {
         let result = ToolResult {
             id: "id-5".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Error(ToolExecutionError::PermissionDenied {
-                tool: "bash".to_string(),
+                tool: "Bash".to_string(),
                 reason: "blocked by policy".to_string(),
             }),
         };
@@ -407,7 +407,7 @@ mod tests {
     fn test_compute_result_summary_strips_ansi_from_success() {
         let result = ToolResult {
             id: "id-6".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Success("\x1b[32mOK\x1b[0m".to_string()),
         };
         let summary = compute_result_summary(&result);
@@ -420,7 +420,7 @@ mod tests {
     fn test_format_detailed_output_short_output_unchanged() {
         let result = ToolResult {
             id: "id-10".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Success("short output".to_string()),
         };
         let output = format_detailed_output(&result, "short output".to_string());
@@ -431,7 +431,7 @@ mod tests {
     fn test_format_detailed_output_strips_ansi() {
         let result = ToolResult {
             id: "id-11".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Success("colored".to_string()),
         };
         let output = format_detailed_output(&result, "\x1b[31mcolored\x1b[0m text".to_string());
@@ -443,7 +443,7 @@ mod tests {
     fn test_format_detailed_output_truncates_large_output() {
         let result = ToolResult {
             id: "id-12".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             result: ToolOutput::Success(String::new()),
         };
         // Generate output exceeding MAX_INLINE_CHARS (4000 chars) AND more than 20 lines
@@ -468,7 +468,7 @@ mod tests {
     fn test_format_detailed_output_under_limit_unchanged() {
         let result = ToolResult {
             id: "id-13".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             result: ToolOutput::Success(String::new()),
         };
         let input = "line 1\nline 2\nline 3".to_string();

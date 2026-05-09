@@ -215,7 +215,7 @@ mod tests {
         let counter = TokenCounter::new();
         let messages = vec![("user".to_string(), "Hello".to_string())];
         let tools = vec![(
-            "bash".to_string(),
+            "Bash".to_string(),
             "Execute a shell command".to_string(),
             serde_json::json!({
                 "type": "object",
@@ -347,7 +347,7 @@ mod tests {
         let counter = TokenCounter::new();
         let tools = vec![
             (
-                "bash".to_string(),
+                "Bash".to_string(),
                 "Run a command".to_string(),
                 serde_json::json!({"type": "object", "properties": {}}),
             ),

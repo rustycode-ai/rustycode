@@ -179,7 +179,7 @@ impl DockerIsolation {
 
         // Image and command
         docker_args.push(self.config.image.clone());
-        docker_args.push("bash".to_string());
+        docker_args.push("Bash".to_string());
         docker_args.push("-c".to_string());
         docker_args.push(command.to_string());
 

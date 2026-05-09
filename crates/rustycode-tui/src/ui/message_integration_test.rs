@@ -14,10 +14,10 @@ mod integration_tests {
         messages.push(Message::user("Help me implement a BST".to_string()));
 
         // AI response with tools
-        let tool1 = ToolExecution::new("read_file".to_string(), "read_file: src/main.rs (23b)".to_string());
-        let mut tool2 = ToolExecution::new("write_file".to_string(), "write_file: src/tree.rs (122b)".to_string());
+        let tool1 = ToolExecution::new("Read".to_string(), "read_file: src/main.rs (23b)".to_string());
+        let mut tool2 = ToolExecution::new("Write".to_string(), "write_file: src/tree.rs (122b)".to_string());
         tool2.complete(Some("File written successfully".to_string()));
-        let mut tool3 = ToolExecution::new("bash".to_string(), "bash: cargo check".to_string());
+        let mut tool3 = ToolExecution::new("Bash".to_string(), "bash: cargo check".to_string());
         tool3.complete(Some("Compiling... Done".to_string()));
 
         let ai_msg = Message::assistant("I'll help you implement a binary search tree. Let me create the file.".to_string())
@@ -71,7 +71,7 @@ mod integration_tests {
 
     #[test]
     fn test_tool_lifecycle() {
-        let mut tool = ToolExecution::new("bash".to_string(), "bash: cargo test".to_string());
+        let mut tool = ToolExecution::new("Bash".to_string(), "bash: cargo test".to_string());
 
         // Initial state
         assert_eq!(tool.status, ToolStatus::Running);
@@ -171,7 +171,7 @@ mod integration_tests {
 
     #[test]
     fn test_tool_failure_handling() {
-        let mut tool = ToolExecution::new("bash".to_string(), "bash: cargo build".to_string());
+        let mut tool = ToolExecution::new("Bash".to_string(), "bash: cargo build".to_string());
 
         // Fail the tool
         tool.fail("Compilation failed with errors".to_string());

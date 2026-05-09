@@ -222,16 +222,12 @@ mod tests {
     #[test]
     fn trace_permission_records_entry() {
         let mut tracer = RuleTracer::new();
-        tracer.trace_permission(
-            "write_file",
-            "allowed write to src/main.rs",
-            TraceLevel::Allow,
-        );
+        tracer.trace_permission("Write", "allowed write to src/main.rs", TraceLevel::Allow);
         assert_eq!(tracer.len(), 1);
 
         let entry = &tracer.traces[0];
         assert_eq!(entry.rule_type, "permission");
-        assert_eq!(entry.rule_id, "write_file");
+        assert_eq!(entry.rule_id, "Write");
         assert_eq!(entry.level, TraceLevel::Allow);
         assert_eq!(entry.decision, "allowed write to src/main.rs");
     }

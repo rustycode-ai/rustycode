@@ -798,9 +798,10 @@ pub fn new_todo_state() -> TodoState {
 pub fn tool_permission(tool_name: &str) -> Option<ProtocolToolPermission> {
     match tool_name {
         // Read-only tools - auto-allow (safe operations)
-        "read_file" | "list_dir" | "grep" | "glob" | "find" | "inspect" | "git_status"
-        | "git_diff" | "git_log" | "lsp_diagnostics" | "lsp_hover" | "lsp_definition"
-        | "lsp_completion" => Some(ProtocolToolPermission::AutoAllow),
+        "Read" | "list_dir" | "Grep" | "Glob" | "find" | "inspect" | "git_status" | "git_diff"
+        | "git_log" | "lsp_diagnostics" | "lsp_hover" | "lsp_definition" | "lsp_completion" => {
+            Some(ProtocolToolPermission::AutoAllow)
+        }
         // Write, execute, and unknown tools - require confirmation for safety
         _ => Some(ProtocolToolPermission::RequiresConfirmation),
     }
@@ -1342,7 +1343,7 @@ mod tests {
 
     #[test]
     fn test_get_tool_permission_read_tools() {
-        for tool in &["read_file", "list_dir", "grep", "glob"] {
+        for tool in &["Read", "list_dir", "Grep", "Glob"] {
             assert!(
                 matches!(
                     tool_permission(tool),
@@ -1355,7 +1356,7 @@ mod tests {
 
     #[test]
     fn test_get_tool_permission_write_tools() {
-        for tool in &["write_file", "git_commit", "bash"] {
+        for tool in &["Write", "git_commit", "Bash"] {
             assert!(
                 matches!(
                     tool_permission(tool),
@@ -1368,17 +1369,17 @@ mod tests {
 
     #[test]
     fn test_check_tool_permission_planning_mode() {
-        assert!(check_tool_permission("read_file", SessionMode::Planning));
-        assert!(check_tool_permission("glob", SessionMode::Planning));
-        assert!(!check_tool_permission("bash", SessionMode::Planning));
-        assert!(!check_tool_permission("write_file", SessionMode::Planning));
+        assert!(check_tool_permission("Read", SessionMode::Planning));
+        assert!(check_tool_permission("Glob", SessionMode::Planning));
+        assert!(!check_tool_permission("Bash", SessionMode::Planning));
+        assert!(!check_tool_permission("Write", SessionMode::Planning));
     }
 
     #[test]
     fn test_check_tool_permission_executing_mode() {
-        assert!(check_tool_permission("read_file", SessionMode::Executing));
-        assert!(check_tool_permission("bash", SessionMode::Executing));
-        assert!(check_tool_permission("write_file", SessionMode::Executing));
+        assert!(check_tool_permission("Read", SessionMode::Executing));
+        assert!(check_tool_permission("Bash", SessionMode::Executing));
+        assert!(check_tool_permission("Write", SessionMode::Executing));
     }
 
     struct MockTool;
@@ -1531,7 +1532,7 @@ mod tests {
     #[test]
     fn test_tool_info_serialization() {
         let info = ToolInfo {
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             description: "Reads a file".to_string(),
             parameters_schema: serde_json::json!({"type": "object"}),
             permission: ToolPermission::Read,
@@ -1542,7 +1543,7 @@ mod tests {
             is_destructive_default: false,
         };
         let json = serde_json::to_string(&info).unwrap();
-        assert!(json.contains("read_file"));
+        assert!(json.contains("Read"));
         assert!(json.contains("Reads a file"));
     }
 

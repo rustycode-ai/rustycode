@@ -163,11 +163,7 @@ impl Default for LoaderConfig {
             max_loaded: 50,
             idle_timeout_secs: 300, // 5 minutes
             preload_common: true,
-            preload_list: vec![
-                "read_file".to_string(),
-                "write_file".to_string(),
-                "bash".to_string(),
-            ],
+            preload_list: vec!["Read".to_string(), "Write".to_string(), "Bash".to_string()],
         }
     }
 }
@@ -234,7 +230,7 @@ impl LazyToolLoader {
         }
 
         let tools_to_load = if self.config.preload_list.is_empty() {
-            vec!["read_file".to_string(), "write_file".to_string()]
+            vec!["Read".to_string(), "Write".to_string()]
         } else {
             self.config.preload_list.clone()
         };

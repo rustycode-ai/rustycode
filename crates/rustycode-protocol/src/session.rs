@@ -204,8 +204,8 @@ pub enum SessionMode {
 /// use rustycode_protocol::ToolApprovalMode;
 ///
 /// let mode = ToolApprovalMode::SmartApprove;
-/// assert!(mode.requires_confirmation_for("bash"));
-/// assert!(!mode.requires_confirmation_for("read_file"));
+/// assert!(mode.requires_confirmation_for("Bash"));
+/// assert!(!mode.requires_confirmation_for("Read"));
 /// ```
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "snake_case")]
@@ -237,9 +237,9 @@ impl ToolApprovalMode {
     fn is_sensitive_tool(tool_name: &str) -> bool {
         matches!(
             tool_name,
-            "bash"
-                | "write_file"
-                | "edit_file"
+            "Bash"
+                | "Write"
+                | "Edit"
                 | "text_editor_20250728"
                 | "text_editor_20250124"
                 | "git_commit"

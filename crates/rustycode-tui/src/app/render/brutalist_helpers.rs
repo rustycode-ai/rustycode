@@ -97,7 +97,7 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("bash")
+        if name.contains("Bash")
             || name.contains("exec")
             || name.contains("shell")
             || name.contains("run")
@@ -124,7 +124,7 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("grep") || name.contains("search") {
+        if name.contains("Grep") || name.contains("search") {
             if let Some(pattern) = json
                 .get("pattern")
                 .or(json.get("query"))
@@ -146,10 +146,10 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("glob") || name.contains("find") || name.contains("list") {
+        if name.contains("Glob") || name.contains("find") || name.contains("list") {
             if let Some(pattern) = json
                 .get("pattern")
-                .or(json.get("glob"))
+                .or(json.get("Glob"))
                 .and_then(|v| v.as_str())
             {
                 return Some(pattern.to_string());
@@ -311,11 +311,11 @@ pub fn tool_type_icon(name: &str) -> &'static str {
         "◎"
     } else if n.contains("write") || n.contains("edit") || n.contains("create") {
         "✎"
-    } else if n.contains("bash") || n.contains("shell") || n.contains("exec") {
+    } else if n.contains("Bash") || n.contains("shell") || n.contains("exec") {
         "▸"
-    } else if n.contains("search") || n.contains("grep") || n.contains("find") {
+    } else if n.contains("search") || n.contains("Grep") || n.contains("find") {
         "⌕"
-    } else if n.contains("glob") || n.contains("list") {
+    } else if n.contains("Glob") || n.contains("list") {
         "⋮"
     } else if n.contains("diff") || n.contains("patch") {
         "≠"
@@ -374,7 +374,7 @@ mod tests {
         let input = serde_json::json!({
             "path": "/项目/代码"
         });
-        let extracted = extract_tool_key_param("read_file", Some(&input), "");
+        let extracted = extract_tool_key_param("Read", Some(&input), "");
         assert_eq!(extracted.as_deref(), Some("/项目/代码"));
     }
 
@@ -481,14 +481,14 @@ mod tests {
 
     #[test]
     fn test_tool_type_icon_categories() {
-        assert_eq!(tool_type_icon("read_file"), "◎");
+        assert_eq!(tool_type_icon("Read"), "◎");
         assert_eq!(tool_type_icon("View"), "◎");
-        assert_eq!(tool_type_icon("write_file"), "✎");
+        assert_eq!(tool_type_icon("Write"), "✎");
         assert_eq!(tool_type_icon("Edit"), "✎");
-        assert_eq!(tool_type_icon("bash"), "▸");
+        assert_eq!(tool_type_icon("Bash"), "▸");
         assert_eq!(tool_type_icon("Search"), "⌕");
-        assert_eq!(tool_type_icon("grep"), "⌕");
-        assert_eq!(tool_type_icon("glob"), "⋮");
+        assert_eq!(tool_type_icon("Grep"), "⌕");
+        assert_eq!(tool_type_icon("Glob"), "⋮");
         assert_eq!(tool_type_icon("diff"), "≠");
         assert_eq!(tool_type_icon("git_status"), "⎇");
         assert_eq!(tool_type_icon("mcp_server"), "◉");

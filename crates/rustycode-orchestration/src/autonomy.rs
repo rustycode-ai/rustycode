@@ -76,10 +76,10 @@ impl AutonomyLevel {
     #[must_use]
     pub fn is_tool_allowed(&self, tool_name: &str) -> bool {
         let dangerous_tools = [
-            "bash",
+            "Bash",
             "subprocess",
-            "write_file",
-            "edit_file",
+            "Write",
+            "Edit",
             "apply_patch",
             "multi_edit",
         ];
@@ -212,12 +212,12 @@ impl OperationType {
     #[must_use]
     pub fn from_tool(tool_name: &str) -> Self {
         match tool_name {
-            "read_file"
+            "Read"
             | "list_dir"
-            | "grep"
-            | "glob"
+            | "Grep"
+            | "Glob"
             | "find"
-            | "web_fetch"
+            | "WebFetch"
             | "web_search"
             | "lsp_diagnostics"
             | "lsp_hover"
@@ -225,9 +225,9 @@ impl OperationType {
             | "lsp_references"
             | "lsp_document_symbols"
             | "todo_read" => Self::Read,
-            "write_file" | "edit_file" | "text_editor" | "apply_patch" | "multi_edit"
-            | "todo_write" | "todo_update" | "notebook_edit" => Self::Write,
-            "bash" | "subprocess" => Self::Execute,
+            "Write" | "Edit" | "text_editor" | "apply_patch" | "multi_edit" | "todo_write"
+            | "todo_update" | "NotebookEdit" => Self::Write,
+            "Bash" | "subprocess" => Self::Execute,
             _ => Self::Unknown,
         }
     }
@@ -616,11 +616,11 @@ mod tests {
 
     #[test]
     fn operation_classification() {
-        assert_eq!(OperationType::from_tool("read_file"), OperationType::Read);
-        assert_eq!(OperationType::from_tool("write_file"), OperationType::Write);
-        assert_eq!(OperationType::from_tool("edit_file"), OperationType::Write);
-        assert_eq!(OperationType::from_tool("bash"), OperationType::Execute);
-        assert_eq!(OperationType::from_tool("grep"), OperationType::Read);
+        assert_eq!(OperationType::from_tool("Read"), OperationType::Read);
+        assert_eq!(OperationType::from_tool("Write"), OperationType::Write);
+        assert_eq!(OperationType::from_tool("Edit"), OperationType::Write);
+        assert_eq!(OperationType::from_tool("Bash"), OperationType::Execute);
+        assert_eq!(OperationType::from_tool("Grep"), OperationType::Read);
         assert_eq!(OperationType::from_tool("unknown"), OperationType::Unknown);
     }
 
@@ -711,7 +711,7 @@ mod tests {
     fn l0_always_denies_execution() {
         let config = test_config(AutonomyLevel::L0);
         let decider = AutonomyDecider::new(&config);
-        let decision = decider.decide("write_file", TaskCategory::FeatureImplementation);
+        let decision = decider.decide("Write", TaskCategory::FeatureImplementation);
         assert!(matches!(decision, AutonomyDecision::Blocked { .. }));
     }
 
@@ -719,7 +719,7 @@ mod tests {
     fn l1_requires_approval_for_writes() {
         let config = test_config(AutonomyLevel::L1);
         let decider = AutonomyDecider::new(&config);
-        let decision = decider.decide("write_file", TaskCategory::FeatureImplementation);
+        let decision = decider.decide("Write", TaskCategory::FeatureImplementation);
         assert!(matches!(decision, AutonomyDecision::RequireApproval { .. }));
     }
 
@@ -727,7 +727,7 @@ mod tests {
     fn l2_executes_with_notification() {
         let config = test_config(AutonomyLevel::L2);
         let decider = AutonomyDecider::new(&config);
-        let decision = decider.decide("write_file", TaskCategory::FeatureImplementation);
+        let decision = decider.decide("Write", TaskCategory::FeatureImplementation);
         assert!(matches!(
             decision,
             AutonomyDecision::AllowWithNotification { .. }
@@ -738,7 +738,7 @@ mod tests {
     fn l3_allows_for_high_freedom_tasks() {
         let config = test_config(AutonomyLevel::L3);
         let decider = AutonomyDecider::new(&config);
-        let decision = decider.decide("write_file", TaskCategory::CodeReview);
+        let decision = decider.decide("Write", TaskCategory::CodeReview);
         assert!(matches!(decision, AutonomyDecision::Allow { .. }));
     }
 
@@ -746,7 +746,7 @@ mod tests {
     fn l4_allows_everything() {
         let config = test_config(AutonomyLevel::L4);
         let decider = AutonomyDecider::new(&config);
-        let decision = decider.decide("bash", TaskCategory::Deployment);
+        let decision = decider.decide("Bash", TaskCategory::Deployment);
         assert!(matches!(decision, AutonomyDecision::Allow { .. }));
     }
 
@@ -754,7 +754,7 @@ mod tests {
     fn read_operations_always_allowed() {
         let config = test_config(AutonomyLevel::L0);
         let decider = AutonomyDecider::new(&config);
-        let decision = decider.decide("read_file", TaskCategory::General);
+        let decision = decider.decide("Read", TaskCategory::General);
         assert!(matches!(decision, AutonomyDecision::Allow { .. }));
     }
 
@@ -770,7 +770,7 @@ mod tests {
             ..Default::default()
         };
         let decider = AutonomyDecider::new(&config);
-        let decision = decider.decide("write_file", TaskCategory::DatabaseMigration);
+        let decision = decider.decide("Write", TaskCategory::DatabaseMigration);
         assert!(matches!(decision, AutonomyDecision::Blocked { .. }));
     }
 

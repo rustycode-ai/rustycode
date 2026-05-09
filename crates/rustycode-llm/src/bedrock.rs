@@ -928,7 +928,7 @@ mod tests {
             role: MessageRole::Assistant,
             content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "t2".to_string(),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 input: serde_json::json!({"command": "ls"}),
             }]),
         }];
@@ -936,19 +936,19 @@ mod tests {
         assert_eq!(c.len(), 1);
         assert_eq!(c[0].role, "assistant");
         let tu = &c[0].content[0]["toolUse"];
-        assert_eq!(tu["name"], "bash");
+        assert_eq!(tu["name"], "Bash");
         assert_eq!(tu["toolUseId"], "t2");
     }
 
     #[test]
     fn test_convert_tools() {
         let tools = vec![serde_json::json!({
-            "name": "read_file", "description": "Read file",
+            "name": "Read", "description": "Read file",
             "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}}
         })];
         let c = convert_tools(&tools);
         assert_eq!(c.len(), 1);
-        assert_eq!(c[0].tool_spec.name, "read_file");
+        assert_eq!(c[0].tool_spec.name, "Read");
     }
 
     #[test]
@@ -962,8 +962,8 @@ mod tests {
             serde_json::json!({"any": {}})
         );
         assert_eq!(
-            convert_tool_choice(&serde_json::json!("bash")),
-            serde_json::json!({"tool": {"name": "bash"}})
+            convert_tool_choice(&serde_json::json!("Bash")),
+            serde_json::json!({"tool": {"name": "Bash"}})
         );
     }
 
@@ -1004,7 +1004,7 @@ mod tests {
             tool_config: Some(BedrockToolConfig {
                 tools: vec![BedrockTool {
                     tool_spec: BedrockToolSpec {
-                        name: "bash".to_string(),
+                        name: "Bash".to_string(),
                         description: Some("Run command".to_string()),
                         input_schema: BedrockInputSchema {
                             json: serde_json::json!({"type": "object"}),
@@ -1017,6 +1017,6 @@ mod tests {
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("toolConfig"));
         assert!(json.contains("toolSpec"));
-        assert!(json.contains("bash"));
+        assert!(json.contains("Bash"));
     }
 }

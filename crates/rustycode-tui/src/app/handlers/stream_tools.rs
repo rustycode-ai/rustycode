@@ -94,7 +94,7 @@ pub(super) fn handle_tool_start_chunk(
         Ok(()) => false,
         Err(reason) => {
             const DOC_EXTENSIONS: &[&str] = &[".md", ".txt", ".rst", ".adoc", ".doc", ".docx"];
-            if tool_name == "write_file" {
+            if tool_name == "Write" {
                 if let Some(path) = input_json
                     .as_ref()
                     .and_then(|v| v.get("path"))
@@ -417,7 +417,7 @@ pub(super) fn handle_tool_complete_chunk(
                 }
             } else if matches!(
                 tool_name.as_str(),
-                "write_file" | "edit_file" | "multiedit" | "apply_patch" | "bash"
+                "Write" | "Edit" | "multiedit" | "apply_patch" | "Bash"
             ) {
                 budget.record_code();
             }
@@ -496,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_is_reasoning_tool_bash_is_not_reasoning() {
-        assert!(!is_reasoning_tool("bash"));
+        assert!(!is_reasoning_tool("Bash"));
     }
 
     #[test]
@@ -516,7 +516,7 @@ mod tests {
     fn test_new_running_tool_status_is_running() {
         let tool = new_running_tool(
             "id-1".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             None,
             "running...".to_string(),
         );
@@ -527,12 +527,12 @@ mod tests {
     fn test_new_running_tool_preserves_id_and_name() {
         let tool = new_running_tool(
             "tool-abc".to_string(),
-            "read_file".to_string(),
+            "Read".to_string(),
             None,
             "summary".to_string(),
         );
         assert_eq!(tool.tool_id, "tool-abc");
-        assert_eq!(tool.name, "read_file");
+        assert_eq!(tool.name, "Read");
         assert_eq!(tool.result_summary, "summary");
     }
 
@@ -540,7 +540,7 @@ mod tests {
     fn test_new_running_tool_no_end_time_or_duration() {
         let tool = new_running_tool(
             "id".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             None,
             "summary".to_string(),
         );
@@ -552,7 +552,7 @@ mod tests {
     fn test_new_running_tool_no_detailed_output() {
         let tool = new_running_tool(
             "id".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             None,
             "summary".to_string(),
         );
@@ -564,7 +564,7 @@ mod tests {
         let json = serde_json::json!({"command": "ls -la"});
         let tool = new_running_tool(
             "id".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             Some(json.clone()),
             "bash ls -la...".to_string(),
         );
@@ -575,7 +575,7 @@ mod tests {
     fn test_new_running_tool_without_input_json() {
         let tool = new_running_tool(
             "id".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             None,
             "bash...".to_string(),
         );
@@ -586,7 +586,7 @@ mod tests {
     fn test_new_running_tool_no_progress_fields() {
         let tool = new_running_tool(
             "id".to_string(),
-            "bash".to_string(),
+            "Bash".to_string(),
             None,
             "summary".to_string(),
         );

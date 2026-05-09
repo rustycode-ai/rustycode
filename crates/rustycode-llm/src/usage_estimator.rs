@@ -93,7 +93,7 @@ mod tests {
 
     fn test_tools() -> Vec<(String, String, serde_json::Value)> {
         vec![(
-            "bash".to_string(),
+            "Bash".to_string(),
             "Execute a shell command".to_string(),
             serde_json::json!({
                 "properties": {
@@ -224,12 +224,12 @@ mod tests {
 
         let tools = vec![
             (
-                "bash".to_string(),
+                "Bash".to_string(),
                 "Run commands".to_string(),
                 serde_json::json!({"properties": {"cmd": {"type": "string"}}}),
             ),
             (
-                "read_file".to_string(),
+                "Read".to_string(),
                 "Read file contents".to_string(),
                 serde_json::json!({"properties": {"path": {"type": "string"}}}),
             ),

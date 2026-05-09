@@ -108,9 +108,9 @@ impl BenchmarkStats {
 fn get_coding_tasks() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
         (
-            "read_file",
+            "Read",
             "Read the main.rs file and tell me what it does",
-            "read_file",
+            "Read",
         ),
         (
             "list_files",
@@ -120,7 +120,7 @@ fn get_coding_tasks() -> Vec<(&'static str, &'static str, &'static str)> {
         (
             "search_code",
             "Search for 'fn main' in the codebase",
-            "grep",
+            "Grep",
         ),
         (
             "find_files",

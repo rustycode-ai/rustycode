@@ -12,7 +12,7 @@ const DOOM_WARNING_TRUNCATE: usize = 200;
 /// A lightweight record of a single tool invocation.
 #[derive(Debug, Clone)]
 struct ToolCallRecord {
-    /// Tool name (e.g. "edit_file", "bash", "write_file").
+    /// Tool name (e.g. "Edit", "Bash", "Write").
     tool_name: String,
     /// Primary argument — file path for file tools, command for bash, etc.
     /// Used to distinguish "edit_file(a.rs)" from "edit_file(b.rs)".
@@ -185,22 +185,22 @@ mod tests {
     #[test]
     fn test_no_doom_loop_on_varied_calls() {
         let mut d = DoomLoopDetector::new();
-        d.record("edit_file", Some("a.rs"), true);
-        d.record("bash", Some("cargo build"), false);
-        d.record("edit_file", Some("b.rs"), true);
+        d.record("Edit", Some("a.rs"), true);
+        d.record("Bash", Some("cargo build"), false);
+        d.record("Edit", Some("b.rs"), true);
         assert!(!d.is_doom_loop());
     }
 
     #[test]
     fn test_doom_loop_on_repeated_failures() {
         let mut d = DoomLoopDetector::new();
-        d.record("edit_file", Some("src/main.rs"), false);
-        d.record("edit_file", Some("src/main.rs"), false);
+        d.record("Edit", Some("src/main.rs"), false);
+        d.record("Edit", Some("src/main.rs"), false);
         assert!(!d.is_doom_loop()); // Only 2 — not yet
-        d.record("edit_file", Some("src/main.rs"), false);
+        d.record("Edit", Some("src/main.rs"), false);
         assert!(d.is_doom_loop());
         let reason = d.doom_loop_reason().unwrap();
-        assert!(reason.contains("edit_file"));
+        assert!(reason.contains("Edit"));
         assert!(reason.contains("src/main.rs"));
         assert!(reason.contains("3 consecutive"));
     }
@@ -208,29 +208,29 @@ mod tests {
     #[test]
     fn test_no_doom_loop_when_interleaved_with_success() {
         let mut d = DoomLoopDetector::new();
-        d.record("edit_file", Some("a.rs"), false);
-        d.record("edit_file", Some("a.rs"), false);
-        d.record("edit_file", Some("a.rs"), true); // Success resets
-        d.record("edit_file", Some("a.rs"), false);
-        d.record("edit_file", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), true); // Success resets
+        d.record("Edit", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
         assert!(!d.is_doom_loop()); // Only 2 failures in a row
     }
 
     #[test]
     fn test_different_args_dont_trigger() {
         let mut d = DoomLoopDetector::new();
-        d.record("edit_file", Some("a.rs"), false);
-        d.record("edit_file", Some("b.rs"), false);
-        d.record("edit_file", Some("c.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
+        d.record("Edit", Some("b.rs"), false);
+        d.record("Edit", Some("c.rs"), false);
         assert!(!d.is_doom_loop()); // All different args
     }
 
     #[test]
     fn test_reset_clears_detection() {
         let mut d = DoomLoopDetector::new();
-        d.record("edit_file", Some("a.rs"), false);
-        d.record("edit_file", Some("a.rs"), false);
-        d.record("edit_file", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
         assert!(d.is_doom_loop());
         d.reset();
         assert!(!d.is_doom_loop());
@@ -242,13 +242,13 @@ mod tests {
         let mut d = DoomLoopDetector::new();
         // Fill with 8 varied records
         for i in 0..8 {
-            d.record("bash", Some(&format!("cmd_{}", i)), true);
+            d.record("Bash", Some(&format!("cmd_{}", i)), true);
         }
         assert_eq!(d.len(), 8);
         // Add 3 more to exceed WINDOW_SIZE (10)
-        d.record("edit_file", Some("x.rs"), false);
-        d.record("edit_file", Some("x.rs"), false);
-        d.record("edit_file", Some("x.rs"), false);
+        d.record("Edit", Some("x.rs"), false);
+        d.record("Edit", Some("x.rs"), false);
+        d.record("Edit", Some("x.rs"), false);
         assert!(d.is_doom_loop());
         assert_eq!(d.len(), 10); // Window capped
     }
@@ -257,9 +257,9 @@ mod tests {
     fn test_soft_doom_loop_many_same_calls() {
         let mut d = DoomLoopDetector::new();
         for _ in 0..5 {
-            d.record("edit_file", Some("a.rs"), true);
+            d.record("Edit", Some("a.rs"), true);
         }
-        d.record("edit_file", Some("a.rs"), false);
+        d.record("Edit", Some("a.rs"), false);
         assert!(d.is_doom_loop());
         let reason = d.doom_loop_reason().unwrap();
         assert!(reason.contains("without convergence"));
@@ -269,7 +269,7 @@ mod tests {
     fn test_soft_doom_loop_all_success_no_false_positive() {
         let mut d = DoomLoopDetector::new();
         for _ in 0..6 {
-            d.record("edit_file", Some("a.rs"), true);
+            d.record("Edit", Some("a.rs"), true);
         }
         assert!(!d.is_doom_loop());
     }
@@ -285,7 +285,7 @@ mod tests {
     fn test_long_arg_truncated() {
         let mut d = DoomLoopDetector::new();
         let long_arg = "a".repeat(300);
-        d.record("edit_file", Some(&long_arg), false);
+        d.record("Edit", Some(&long_arg), false);
         assert_eq!(
             d.records[0].key_arg.as_ref().unwrap().len(),
             DOOM_WARNING_TRUNCATE
@@ -295,12 +295,12 @@ mod tests {
     #[test]
     fn test_bash_doom_loop() {
         let mut d = DoomLoopDetector::new();
-        d.record("bash", Some("cargo build"), false);
-        d.record("bash", Some("cargo build"), false);
-        d.record("bash", Some("cargo build"), false);
+        d.record("Bash", Some("cargo build"), false);
+        d.record("Bash", Some("cargo build"), false);
+        d.record("Bash", Some("cargo build"), false);
         assert!(d.is_doom_loop());
         let reason = d.doom_loop_reason().unwrap();
-        assert!(reason.contains("bash"));
+        assert!(reason.contains("Bash"));
         assert!(reason.contains("cargo build"));
     }
 }

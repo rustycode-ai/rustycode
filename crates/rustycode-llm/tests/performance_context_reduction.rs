@@ -204,7 +204,7 @@ fn test_tool_selection_relevance() {
     }
 
     // Verify expected explore tools are present (if registry has them)
-    let expected_explore_tools = vec!["read_file", "grep", "list_dir", "glob"];
+    let expected_explore_tools = vec!["Read", "Grep", "list_dir", "Glob"];
     for expected_tool in expected_explore_tools {
         if explore_tools.contains(&expected_tool.to_string()) {
             println!("  ✓ Explore profile includes {}", expected_tool);
@@ -228,7 +228,7 @@ fn test_tool_selection_relevance() {
     }
 
     // Verify expected implement tools are present
-    let expected_implement_tools = vec!["write_file", "bash", "edit"];
+    let expected_implement_tools = vec!["Write", "Bash", "edit"];
     for expected_tool in expected_implement_tools {
         if implement_tools.contains(&expected_tool.to_string()) {
             println!("  ✓ Implement profile includes {}", expected_tool);
@@ -251,7 +251,7 @@ fn test_tool_selection_relevance() {
     }
 
     // Verify expected debug tools are present
-    let expected_debug_tools = vec!["bash", "grep", "read_file"];
+    let expected_debug_tools = vec!["Bash", "Grep", "Read"];
     for expected_tool in expected_debug_tools {
         if debug_tools.contains(&expected_tool.to_string()) {
             println!("  ✓ Debug profile includes {}", expected_tool);

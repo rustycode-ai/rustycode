@@ -212,8 +212,8 @@ impl MistakeTracker {
 
     fn get_alternative_example(&self, operation: &str, mistake_type: &MistakeType) -> String {
         match (operation, mistake_type) {
-            ("bash", _) => "Instead of bash, try using the specific tool (read_file, write_file, etc.) directly".to_string(),
-            ("edit_file", _) => "Use apply_patch for multi-hunk changes, or read the file first to see its exact content".to_string(),
+            ("Bash", _) => "Instead of bash, try using the specific tool (read_file, write_file, etc.) directly".to_string(),
+            ("Edit", _) => "Use apply_patch for multi-hunk changes, or read the file first to see its exact content".to_string(),
             (_, MistakeType::FileNotFoundError) => "Use 'glob' or 'list_dir' to find the correct file path first".to_string(),
             _ => "Let me try a different approach to solve this problem".to_string(),
         }
@@ -302,7 +302,7 @@ mod tests {
 
         tracker.record_mistake(
             MistakeType::ToolFailed,
-            "bash".to_string(),
+            "Bash".to_string(),
             "command not found".to_string(),
             "trying to run foo".to_string(),
         );
@@ -318,7 +318,7 @@ mod tests {
         for i in 0..3 {
             tracker.record_mistake(
                 MistakeType::ToolFailed,
-                "bash".to_string(),
+                "Bash".to_string(),
                 format!("error {}", i),
                 "context".to_string(),
             );
@@ -335,7 +335,7 @@ mod tests {
         for i in 0..5 {
             tracker.record_mistake(
                 MistakeType::ToolFailed,
-                "bash".to_string(),
+                "Bash".to_string(),
                 format!("error {}", i),
                 "context".to_string(),
             );
@@ -351,7 +351,7 @@ mod tests {
 
         tracker.record_mistake(
             MistakeType::ToolFailed,
-            "bash".to_string(),
+            "Bash".to_string(),
             "error".to_string(),
             "context".to_string(),
         );

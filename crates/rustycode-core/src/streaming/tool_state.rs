@@ -53,15 +53,15 @@ mod tests {
 
     #[test]
     fn new_call_has_empty_input() {
-        let tool = ToolCall::new("call_123".into(), "read_file".into(), String::new());
+        let tool = ToolCall::new("call_123".into(), "Read".into(), String::new());
         assert_eq!(tool.id, "call_123");
-        assert_eq!(tool.name, "read_file");
+        assert_eq!(tool.name, "Read");
         assert!(tool.partial_json.is_empty());
     }
 
     #[test]
     fn new_call_with_initial_json() {
-        let tool = ToolCall::new("call_456".into(), "write_file".into(), r#"{"path":"#.into());
+        let tool = ToolCall::new("call_456".into(), "Write".into(), r#"{"path":"#.into());
         assert_eq!(tool.partial_json, r#"{"path":"#);
     }
 
@@ -98,11 +98,11 @@ mod tests {
             std::collections::HashMap::new();
         tools.insert(
             "t1".into(),
-            ToolCall::new("t1".into(), "grep".into(), String::new()),
+            ToolCall::new("t1".into(), "Grep".into(), String::new()),
         );
         tools.insert(
             "t2".into(),
-            ToolCall::new("t2".into(), "glob".into(), String::new()),
+            ToolCall::new("t2".into(), "Glob".into(), String::new()),
         );
 
         tools
@@ -112,10 +112,10 @@ mod tests {
         tools
             .get_mut("t2")
             .unwrap()
-            .push_json(r#"{"glob":"**/*.rs"}"#);
+            .push_json(r#"{"Glob":"**/*.rs"}"#);
 
         assert_eq!(tools["t1"].partial_json, r#"{"pattern":"foo"}"#);
-        assert_eq!(tools["t2"].partial_json, r#"{"glob":"**/*.rs"}"#);
+        assert_eq!(tools["t2"].partial_json, r#"{"Glob":"**/*.rs"}"#);
     }
 
     #[test]

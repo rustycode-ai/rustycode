@@ -845,7 +845,7 @@ mod tests {
         .add_step(WorkflowStep {
             id: "step1".to_string(),
             step_type: StepType::ToolCall {
-                tool: "read_file".to_string(),
+                tool: "Read".to_string(),
                 parameters: [("path".to_string(), "{{file_path}}".to_string())]
                     .iter()
                     .map(|(k, v)| (k.clone(), v.clone()))
@@ -969,7 +969,7 @@ mod tests {
             .add_step(WorkflowStep::new(
                 "s1".into(),
                 StepType::ToolCall {
-                    tool: "bash".into(),
+                    tool: "Bash".into(),
                     parameters: HashMap::new(),
                 },
             ));
@@ -1438,7 +1438,7 @@ mod tests {
         let step = WorkflowStep::new(
             "s1".into(),
             StepType::ToolCall {
-                tool: "bash".into(),
+                tool: "Bash".into(),
                 parameters: [("ref".into(), "{{unknown_var}}".into())].into(),
             },
         );
@@ -1450,7 +1450,7 @@ mod tests {
         let step = WorkflowStep::new(
             "s1".into(),
             StepType::ToolCall {
-                tool: "bash".into(),
+                tool: "Bash".into(),
                 parameters: [("ref".into(), "{{step.result}}".into())].into(),
             },
         );

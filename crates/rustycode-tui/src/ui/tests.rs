@@ -18,10 +18,10 @@ mod integration_tests {
         let mut tools = ToolExecutions::new();
 
         // Simulate tool execution lifecycle
-        let mut tool = ToolProgress::new("read_file");
+        let mut tool = ToolProgress::new("Read");
         tool.start(); // Mark as running
         tools.add(tool);
-        tools.update_progress("read_file", 5, 10);
+        tools.update_progress("Read", 5, 10);
 
         // Verify it's running
         assert_eq!(tools.running_count(), 1);
@@ -29,7 +29,7 @@ mod integration_tests {
         assert_eq!(tool.status, ProgressToolStatus::Running);
 
         // Complete it
-        tools.complete("read_file", "File contents".to_string());
+        tools.complete("Read", "File contents".to_string());
         assert_eq!(tools.running_count(), 0);
         assert_eq!(tools.tools[0].status, ProgressToolStatus::Complete);
     }
@@ -44,7 +44,7 @@ mod integration_tests {
             Status::ExecutingTools {
                 remaining_tools: 1,
                 total_tools: 3,
-                current_tool: Some("bash".to_string()),
+                current_tool: Some("Bash".to_string()),
                 progress_percentage: Some(33),
             },
             Status::Ready,

@@ -28,7 +28,7 @@ use serde_json::json;
 #[test]
 fn test_tool_with_eager_streaming_enabled() {
     let tool = ToolDefinition::new(
-        "bash",
+        "Bash",
         "Execute bash commands",
         json!({
             "type": "object",
@@ -39,14 +39,14 @@ fn test_tool_with_eager_streaming_enabled() {
     )
     .with_eager_streaming();
 
-    assert_eq!(tool.name, "bash");
+    assert_eq!(tool.name, "Bash");
     assert_eq!(tool.eager_input_streaming, Some(true));
 }
 
 #[test]
 fn test_tool_without_eager_streaming() {
     let tool = ToolDefinition::new(
-        "read_file",
+        "Read",
         "Read file contents",
         json!({
             "type": "object",
@@ -56,14 +56,14 @@ fn test_tool_without_eager_streaming() {
         }),
     );
 
-    assert_eq!(tool.name, "read_file");
+    assert_eq!(tool.name, "Read");
     assert_eq!(tool.eager_input_streaming, None);
 }
 
 #[test]
 fn test_anthropic_tool_conversion_with_eager_streaming() {
     let tools = vec![ToolDefinition::new(
-        "bash",
+        "Bash",
         "Execute bash commands",
         json!({
             "type": "object",
@@ -78,14 +78,14 @@ fn test_anthropic_tool_conversion_with_eager_streaming() {
     assert_eq!(anthropic_tools.len(), 1);
 
     let bash_tool = &anthropic_tools[0];
-    assert_eq!(bash_tool["name"], "bash");
+    assert_eq!(bash_tool["name"], "Bash");
     assert_eq!(bash_tool["eager_input_streaming"], true);
 }
 
 #[test]
 fn test_anthropic_tool_conversion_without_eager_streaming() {
     let tools = vec![ToolDefinition::new(
-        "read_file",
+        "Read",
         "Read file contents",
         json!({
             "type": "object",
@@ -99,7 +99,7 @@ fn test_anthropic_tool_conversion_without_eager_streaming() {
     assert_eq!(anthropic_tools.len(), 1);
 
     let read_file_tool = &anthropic_tools[0];
-    assert_eq!(read_file_tool["name"], "read_file");
+    assert_eq!(read_file_tool["name"], "Read");
     // eager_input_streaming should not be present
     assert!(read_file_tool.get("eager_input_streaming").is_none());
 }
@@ -108,7 +108,7 @@ fn test_anthropic_tool_conversion_without_eager_streaming() {
 fn test_mixed_tools_with_and_without_eager_streaming() {
     let tools = vec![
         ToolDefinition::new(
-            "bash",
+            "Bash",
             "Execute bash commands",
             json!({
                 "type": "object",
@@ -119,7 +119,7 @@ fn test_mixed_tools_with_and_without_eager_streaming() {
         )
         .with_eager_streaming(),
         ToolDefinition::new(
-            "read_file",
+            "Read",
             "Read file contents",
             json!({
                 "type": "object",
@@ -129,7 +129,7 @@ fn test_mixed_tools_with_and_without_eager_streaming() {
             }),
         ),
         ToolDefinition::new(
-            "web_fetch",
+            "WebFetch",
             "Fetch web content",
             json!({
                 "type": "object",
@@ -157,7 +157,7 @@ fn test_mixed_tools_with_and_without_eager_streaming() {
 #[test]
 fn test_eager_streaming_with_examples() {
     let tool = ToolDefinition::new(
-        "bash",
+        "Bash",
         "Execute bash commands",
         json!({
             "type": "object",
@@ -217,7 +217,7 @@ fn test_server_tool_with_eager_streaming() {
 fn test_tool_builder_chaining() {
     // Test that builder methods can be chained in any order
     let tool = ToolDefinition::new(
-        "bash",
+        "Bash",
         "Execute bash commands",
         json!({
             "type": "object",
@@ -229,13 +229,13 @@ fn test_tool_builder_chaining() {
     .with_examples(vec![json!({"command": "ls"})])
     .with_eager_streaming();
 
-    assert_eq!(tool.name, "bash");
+    assert_eq!(tool.name, "Bash");
     assert!(tool.examples.is_some());
     assert_eq!(tool.eager_input_streaming, Some(true));
 
     // Test reverse order
     let tool2 = ToolDefinition::new(
-        "bash",
+        "Bash",
         "Execute bash commands",
         json!({
             "type": "object",
@@ -247,7 +247,7 @@ fn test_tool_builder_chaining() {
     .with_eager_streaming()
     .with_examples(vec![json!({"command": "ls"})]);
 
-    assert_eq!(tool2.name, "bash");
+    assert_eq!(tool2.name, "Bash");
     assert!(tool2.examples.is_some());
     assert_eq!(tool2.eager_input_streaming, Some(true));
 }
@@ -257,7 +257,7 @@ fn test_production_tools_have_eager_streaming() {
     let tools = rustycode_llm::tools::tui_tools();
     let anthropic_tools = to_anthropic_tools(&tools);
 
-    let eager_tools = ["bash", "read_file", "write_file", "web_fetch"];
+    let eager_tools = ["Bash", "Read", "Write", "WebFetch"];
     for name in &eager_tools {
         let tool = anthropic_tools
             .iter()

@@ -112,7 +112,7 @@ mod tests {
             },
             StreamEvent::ToolCallStarted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             },
             StreamEvent::ToolInputDelta {
                 id: "t1".into(),
@@ -124,11 +124,11 @@ mod tests {
             },
             StreamEvent::ToolExecStarted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             },
             StreamEvent::ToolExecCompleted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
                 output: "ok".into(),
                 is_error: false,
             },

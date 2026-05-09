@@ -289,7 +289,7 @@ mod tests {
         assert!(format!("{}", WorkflowError::Validation("bad".into())).contains("bad"));
         assert!(format!("{}", WorkflowError::NotFound("wf1".into())).contains("wf1"));
         assert!(format!("{}", WorkflowError::Timeout).contains("timeout"));
-        assert!(format!("{}", WorkflowError::ToolNotFound("bash".into())).contains("bash"));
+        assert!(format!("{}", WorkflowError::ToolNotFound("Bash".into())).contains("Bash"));
     }
 
     #[test]

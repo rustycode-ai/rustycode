@@ -12,10 +12,10 @@
 //! use rustycode_tools::tool_permissions::{PermissionStore, PermissionLevel};
 //!
 //! let store = PermissionStore::new("/path/to/config/dir");
-//! store.update("user", "bash", PermissionLevel::AskBefore);
-//! store.update("user", "read_file", PermissionLevel::AlwaysAllow);
+//! store.update("user", "Bash", PermissionLevel::AskBefore);
+//! store.update("user", "Read", PermissionLevel::AlwaysAllow);
 //!
-//! let level = store.get("user", "bash");
+//! let level = store.get("user", "Bash");
 //! assert_eq!(level, Some(PermissionLevel::AskBefore));
 //! ```
 
@@ -340,24 +340,24 @@ mod tests {
     fn test_update_and_get() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AskBefore)
+            .update("user", "Bash", PermissionLevel::AskBefore)
             .unwrap();
-        assert_eq!(store.get("user", "bash"), Some(PermissionLevel::AskBefore));
+        assert_eq!(store.get("user", "Bash"), Some(PermissionLevel::AskBefore));
     }
 
     #[test]
     fn test_multiple_principals() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AskBefore)
+            .update("user", "Bash", PermissionLevel::AskBefore)
             .unwrap();
         store
-            .update("auto", "bash", PermissionLevel::AlwaysAllow)
+            .update("auto", "Bash", PermissionLevel::AlwaysAllow)
             .unwrap();
 
-        assert_eq!(store.get("user", "bash"), Some(PermissionLevel::AskBefore));
+        assert_eq!(store.get("user", "Bash"), Some(PermissionLevel::AskBefore));
         assert_eq!(
-            store.get("auto", "bash"),
+            store.get("auto", "Bash"),
             Some(PermissionLevel::AlwaysAllow)
         );
     }
@@ -366,43 +366,43 @@ mod tests {
     fn test_update_replaces_level() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AlwaysAllow)
+            .update("user", "Bash", PermissionLevel::AlwaysAllow)
             .unwrap();
         assert_eq!(
-            store.get("user", "bash"),
+            store.get("user", "Bash"),
             Some(PermissionLevel::AlwaysAllow)
         );
 
         store
-            .update("user", "bash", PermissionLevel::NeverAllow)
+            .update("user", "Bash", PermissionLevel::NeverAllow)
             .unwrap();
-        assert_eq!(store.get("user", "bash"), Some(PermissionLevel::NeverAllow));
+        assert_eq!(store.get("user", "Bash"), Some(PermissionLevel::NeverAllow));
     }
 
     #[test]
     fn test_not_found() {
         let (store, _temp) = create_test_store();
-        assert_eq!(store.get("user", "bash"), None);
+        assert_eq!(store.get("user", "Bash"), None);
     }
 
     #[test]
     fn test_is_allowed() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "read_file", PermissionLevel::AlwaysAllow)
+            .update("user", "Read", PermissionLevel::AlwaysAllow)
             .unwrap();
-        assert!(store.is_allowed("user", "read_file"));
-        assert!(!store.is_allowed("user", "bash"));
+        assert!(store.is_allowed("user", "Read"));
+        assert!(!store.is_allowed("user", "Bash"));
     }
 
     #[test]
     fn test_needs_confirmation() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AskBefore)
+            .update("user", "Bash", PermissionLevel::AskBefore)
             .unwrap();
-        assert!(store.needs_confirmation("user", "bash"));
-        assert!(!store.needs_confirmation("user", "read_file"));
+        assert!(store.needs_confirmation("user", "Bash"));
+        assert!(!store.needs_confirmation("user", "Read"));
     }
 
     #[test]
@@ -412,17 +412,17 @@ mod tests {
             .update("user", "dangerous_tool", PermissionLevel::NeverAllow)
             .unwrap();
         assert!(store.is_blocked("user", "dangerous_tool"));
-        assert!(!store.is_blocked("user", "bash"));
+        assert!(!store.is_blocked("user", "Bash"));
     }
 
     #[test]
     fn test_list_permissions() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AskBefore)
+            .update("user", "Bash", PermissionLevel::AskBefore)
             .unwrap();
         store
-            .update("user", "read_file", PermissionLevel::AlwaysAllow)
+            .update("user", "Read", PermissionLevel::AlwaysAllow)
             .unwrap();
         store
             .update("user", "danger", PermissionLevel::NeverAllow)
@@ -431,15 +431,12 @@ mod tests {
         let perms = store.list_permissions("user");
         assert_eq!(perms.len(), 3);
         // Should be sorted by tool name
-        assert_eq!(perms[0], ("bash".to_string(), PermissionLevel::AskBefore));
+        assert_eq!(perms[0], ("Bash".to_string(), PermissionLevel::AskBefore));
         assert_eq!(
             perms[1],
             ("danger".to_string(), PermissionLevel::NeverAllow)
         );
-        assert_eq!(
-            perms[2],
-            ("read_file".to_string(), PermissionLevel::AlwaysAllow)
-        );
+        assert_eq!(perms[2], ("Read".to_string(), PermissionLevel::AlwaysAllow));
     }
 
     #[test]
@@ -469,23 +466,23 @@ mod tests {
     fn test_remove_tool() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AskBefore)
+            .update("user", "Bash", PermissionLevel::AskBefore)
             .unwrap();
         store
-            .update("auto", "bash", PermissionLevel::AlwaysAllow)
+            .update("auto", "Bash", PermissionLevel::AlwaysAllow)
             .unwrap();
 
-        store.remove_tool("bash").unwrap();
+        store.remove_tool("Bash").unwrap();
 
-        assert_eq!(store.get("user", "bash"), None);
-        assert_eq!(store.get("auto", "bash"), None);
+        assert_eq!(store.get("user", "Bash"), None);
+        assert_eq!(store.get("auto", "Bash"), None);
     }
 
     #[test]
     fn test_clear() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AskBefore)
+            .update("user", "Bash", PermissionLevel::AskBefore)
             .unwrap();
         store.clear().unwrap();
         assert!(store.principals().is_empty());
@@ -499,19 +496,19 @@ mod tests {
         {
             let store = PermissionStore::new(temp.path()).unwrap();
             store
-                .update("user", "bash", PermissionLevel::AskBefore)
+                .update("user", "Bash", PermissionLevel::AskBefore)
                 .unwrap();
             store
-                .update("user", "read_file", PermissionLevel::AlwaysAllow)
+                .update("user", "Read", PermissionLevel::AlwaysAllow)
                 .unwrap();
         }
 
         // Read back from same directory
         {
             let store = PermissionStore::new(temp.path()).unwrap();
-            assert_eq!(store.get("user", "bash"), Some(PermissionLevel::AskBefore));
+            assert_eq!(store.get("user", "Bash"), Some(PermissionLevel::AskBefore));
             assert_eq!(
-                store.get("user", "read_file"),
+                store.get("user", "Read"),
                 Some(PermissionLevel::AlwaysAllow)
             );
         }
@@ -521,10 +518,10 @@ mod tests {
     fn test_in_memory_store() {
         let store = PermissionStore::new_in_memory();
         store
-            .update("user", "bash", PermissionLevel::AlwaysAllow)
+            .update("user", "Bash", PermissionLevel::AlwaysAllow)
             .unwrap();
         assert_eq!(
-            store.get("user", "bash"),
+            store.get("user", "Bash"),
             Some(PermissionLevel::AlwaysAllow)
         );
     }
@@ -575,10 +572,10 @@ mod tests {
     fn test_principals() {
         let (store, _temp) = create_test_store();
         store
-            .update("user", "bash", PermissionLevel::AskBefore)
+            .update("user", "Bash", PermissionLevel::AskBefore)
             .unwrap();
         store
-            .update("auto", "bash", PermissionLevel::AlwaysAllow)
+            .update("auto", "Bash", PermissionLevel::AlwaysAllow)
             .unwrap();
 
         let mut principals = store.principals();

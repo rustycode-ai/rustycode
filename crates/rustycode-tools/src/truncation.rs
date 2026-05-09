@@ -521,7 +521,7 @@ pub fn truncate_bash_output(stdout: &str, stderr: &str, exit_code: i32) -> Trunc
         summary
     } else {
         // Fallback to truncation
-        return truncate_bytes(&combined, BASH_MAX_BYTES, "bash");
+        return truncate_bytes(&combined, BASH_MAX_BYTES, "Bash");
     };
 
     TruncatedOutput {
@@ -710,7 +710,7 @@ mod tests {
     #[test]
     fn test_truncate_bytes_with_truncation() {
         let large_content = "x".repeat(100 * 1024); // 100KB
-        let result = truncate_bytes(&large_content, 50 * 1024, "bash");
+        let result = truncate_bytes(&large_content, 50 * 1024, "Bash");
 
         assert!(result.truncated);
         assert!(result.output.contains("(Output truncated at 50KB"));

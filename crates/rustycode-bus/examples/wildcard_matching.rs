@@ -101,7 +101,7 @@ async fn main() -> anyhow::Result<()> {
     // Publish tool event
     bus.publish(ToolExecutedEvent::new(
         SessionId::new(),
-        "read_file".to_string(),
+        "Read".to_string(),
         json!({ "path": "/test/path" }),
         true,
         "File read successfully".to_string(),

@@ -495,12 +495,12 @@ mod tests {
             timestamp: Utc::now(),
             unit_id: "T01".into(),
             event_type: ActivityType::ToolUse,
-            detail: serde_json::json!({"tool": "bash", "args": "ls"}),
+            detail: serde_json::json!({"tool": "Bash", "args": "ls"}),
         };
         let json = serde_json::to_string(&event).unwrap();
         let decoded: ActivityEvent = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.unit_id, "T01");
-        assert_eq!(decoded.detail["tool"], "bash");
+        assert_eq!(decoded.detail["tool"], "Bash");
     }
 
     #[test]

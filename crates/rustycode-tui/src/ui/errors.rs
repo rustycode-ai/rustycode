@@ -549,8 +549,8 @@ mod tests {
         let perm_error = ErrorDisplay::permission_denied("/restricted");
         assert_eq!(perm_error.title, "Permission Denied");
 
-        let tool_error = ErrorDisplay::tool_error("read_file", "Failed");
-        assert!(tool_error.title.contains("read_file"));
+        let tool_error = ErrorDisplay::tool_error("Read", "Failed");
+        assert!(tool_error.title.contains("Read"));
 
         let net_error = ErrorDisplay::network_error("Connection failed");
         assert_eq!(net_error.title, "Network Error");

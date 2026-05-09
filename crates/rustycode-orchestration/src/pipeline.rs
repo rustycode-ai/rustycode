@@ -580,7 +580,7 @@ impl OrchestrationPipeline {
             index: 0,
             description: ctx.original_request.clone(),
             expected_output_type: crate::types::OutputType::Verification,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::default(),
         }];

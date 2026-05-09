@@ -51,10 +51,10 @@ impl EditFormat {
     pub const fn tool_names(&self) -> &'static [&'static str] {
         match self {
             Self::ClaudeNative => &["text_editor_20250728", "text_editor_20250124"],
-            Self::SearchReplace => &["edit_file"],
+            Self::SearchReplace => &["Edit"],
             Self::RegexReplace => &["search_replace"],
             Self::MultiEdit => &["multiedit"],
-            Self::WholeFile => &["write_file"],
+            Self::WholeFile => &["Write"],
             Self::DiffPatch => &["apply_patch"],
         }
     }
@@ -309,7 +309,7 @@ mod tests {
             EditFormat::ClaudeNative.primary_tool(),
             "text_editor_20250728"
         );
-        assert_eq!(EditFormat::SearchReplace.primary_tool(), "edit_file");
+        assert_eq!(EditFormat::SearchReplace.primary_tool(), "Edit");
     }
 
     #[test]

@@ -45,7 +45,7 @@ fn test_tool_result_channel() {
     channel
         .try_send(ToolResult::new(
             "1",
-            "read_file",
+            "Read",
             ToolOutput::Success("File contents".to_string()),
         ))
         .unwrap();
@@ -53,7 +53,7 @@ fn test_tool_result_channel() {
     channel
         .try_send(ToolResult::new(
             "2",
-            "bash",
+            "Bash",
             ToolOutput::Error(ToolExecutionError::Other("Command failed".to_string())),
         ))
         .unwrap();
@@ -61,11 +61,11 @@ fn test_tool_result_channel() {
     // Receive and verify
     let result1 = channel.try_recv().unwrap();
     assert_eq!(result1.id, "1");
-    assert_eq!(result1.name, "read_file");
+    assert_eq!(result1.name, "Read");
 
     let result2 = channel.try_recv().unwrap();
     assert_eq!(result2.id, "2");
-    assert_eq!(result2.name, "bash");
+    assert_eq!(result2.name, "Bash");
 }
 
 #[test]

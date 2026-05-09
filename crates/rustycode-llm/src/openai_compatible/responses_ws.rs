@@ -113,14 +113,14 @@ mod tests {
 
     #[test]
     fn ws_parse_tool_call_started() {
-        let msg = r#"{"type":"response.output_item.added","item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"read_file"}}"#;
+        let msg = r#"{"type":"response.output_item.added","item":{"type":"function_call","id":"fc_1","call_id":"call_1","name":"Read"}}"#;
         let state = ResponsesSseState::default();
         let events = parse_ws_message(msg, &state);
         assert_eq!(events.len(), 1);
         match &events[0] {
             Ok(StreamEvent::ToolCallStarted { id, name }) => {
                 assert_eq!(id, "call_1");
-                assert_eq!(name, "read_file");
+                assert_eq!(name, "Read");
             }
             other => panic!("expected ToolCallStarted, got {:?}", other),
         }

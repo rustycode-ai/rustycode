@@ -62,11 +62,11 @@ fn main() {
     hooks.on_request(conv_id, 1, 3);
     hooks.on_response(conv_id, 1, Some("tool_calls"), 2);
 
-    hooks.on_tool_start(conv_id, "read_file", Some("call-1"));
-    hooks.on_tool_end(conv_id, "read_file", Some("call-1"), false);
+    hooks.on_tool_start(conv_id, "Read", Some("call-1"));
+    hooks.on_tool_end(conv_id, "Read", Some("call-1"), false);
 
-    hooks.on_tool_start(conv_id, "bash", Some("call-2"));
-    hooks.on_tool_end(conv_id, "bash", Some("call-2"), false);
+    hooks.on_tool_start(conv_id, "Bash", Some("call-2"));
+    hooks.on_tool_end(conv_id, "Bash", Some("call-2"), false);
 
     hooks.on_request(conv_id, 2, 6);
     hooks.on_response(conv_id, 2, Some("stop"), 0);

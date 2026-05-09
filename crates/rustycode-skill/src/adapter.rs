@@ -322,7 +322,7 @@ mod tests {
             effort: SkillEffortLevel::High,
             context: ExecutionContext::Inline,
             procedure: None,
-            allowed_tools: vec!["bash".to_string(), "read_file".to_string()],
+            allowed_tools: vec!["Bash".to_string(), "Read".to_string()],
             user_invocable: true,
             model_invocable: true,
             agent: None,
@@ -375,7 +375,7 @@ mod tests {
                 PipelineStage {
                     name: "Analyze".to_string(),
                     description: "Analyze changed files".to_string(),
-                    required_tools: vec!["read_file".to_string()],
+                    required_tools: vec!["Read".to_string()],
                     parallel: false,
                 },
                 PipelineStage {
@@ -410,8 +410,8 @@ mod tests {
     fn anthropic_includes_allowed_tools() {
         let tool = to_anthropic(&test_skill());
         let desc = tool["description"].as_str().unwrap();
-        assert!(desc.contains("bash"));
-        assert!(desc.contains("read_file"));
+        assert!(desc.contains("Bash"));
+        assert!(desc.contains("Read"));
     }
 
     #[test]
@@ -628,22 +628,22 @@ mod tests {
         assert!(is_skill_tool("plugin__my-plugin"));
         assert!(is_skill_tool("dyn__my-dynamic"));
         assert!(is_skill_tool("mcp__server__tool"));
-        assert!(!is_skill_tool("bash"));
-        assert!(!is_skill_tool("read_file"));
+        assert!(!is_skill_tool("Bash"));
+        assert!(!is_skill_tool("Read"));
     }
 
     #[test]
     fn identifies_mcp_tools() {
         assert!(is_mcp_tool("mcp__server__tool"));
         assert!(!is_mcp_tool("skill__tdd-guide"));
-        assert!(!is_mcp_tool("bash"));
+        assert!(!is_mcp_tool("Bash"));
     }
 
     // -- sanitize_name --
 
     #[test]
     fn sanitize_short_name_unchanged() {
-        assert_eq!(sanitize_name("bash"), "bash");
+        assert_eq!(sanitize_name("Bash"), "Bash");
     }
 
     #[test]

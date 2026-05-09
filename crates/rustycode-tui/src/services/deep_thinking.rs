@@ -287,7 +287,7 @@ mod tests {
         assert!(result.activated);
         assert!(result.content.contains("<system-reminder>"));
         assert!(result.content.contains("MIPS I interpreter"));
-        assert!(result.content.contains("write_file"));
+        assert!(result.content.contains("Write"));
         assert!(result.content.contains("MUST produce code"));
     }
 

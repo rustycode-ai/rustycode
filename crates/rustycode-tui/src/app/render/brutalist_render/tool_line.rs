@@ -30,10 +30,10 @@ impl BrutalistRenderer<'_> {
         }
 
         let display_name = match tool.name.as_str() {
-            "read_file" => "read",
-            "write_file" => "write",
-            "edit_file" | "apply_patch" => "edit",
-            "execute_command" | "bash" => "sh",
+            "Read" => "read",
+            "Write" => "write",
+            "Edit" | "apply_patch" => "edit",
+            "execute_command" | "Bash" => "sh",
             "list_dir" | "list_files" => "ls",
             n => n,
         };

@@ -273,8 +273,9 @@ pub use intent::{
     classify_intent, classify_intent_with_confidence, IntentAssessment, IntentCategory,
 };
 pub use task_routing::{
-    parse_handoff_block, render_handoff_block, TaskRoutingAction, TaskRoutingDecision,
-    TaskRoutingHandoff, TaskWorkflow, HANDOFF_END, HANDOFF_START,
+    parse_handoff_block, render_handoff_block, AgentRoleAssignment, AssemblyContext,
+    TaskRoutingAction, TaskRoutingDecision, TaskRoutingHandoff, TaskWorkflow, HANDOFF_END,
+    HANDOFF_START,
 };
 
 // Harness execution results
@@ -287,13 +288,13 @@ pub use permission_modes::{
 };
 // Team types
 pub use team::{
-    AgentAttitude, ApproachCategory, ApproachFingerprint, AttemptOutcome, AttemptSummary, Briefing,
-    BuilderTurn, BurdenOfProof, Escalation, EscalationLevel, EscalationOption, Familiarity,
-    FeedbackTone, FileChange, FileSnippet, JudgeTurn, ProfileSignal, ProgressDelta, ReachLevel,
-    RefutedClaim, Reversibility, ReviewDepth, RiskLevel, RoleBriefing, SignalKind, SkepticTurn,
-    SkepticVerdict, StopReason, TaskProfile, TeamConfig, TeamLoopState, TeamRole, TestSummary,
-    TokenBudget, ToolSet, TrustContext, TrustEvent, TrustEventKind, TrustScore, VerificationState,
-    VetoAction,
+    build_roster, role_priority, AgentAttitude, ApproachCategory, ApproachFingerprint,
+    AttemptOutcome, AttemptSummary, Briefing, BuilderTurn, BurdenOfProof, Escalation,
+    EscalationLevel, EscalationOption, Familiarity, FeedbackTone, FileChange, FileSnippet,
+    JudgeTurn, ProfileSignal, ProgressDelta, ReachLevel, RefutedClaim, Reversibility, ReviewDepth,
+    RiskLevel, RoleBriefing, SignalKind, SkepticTurn, SkepticVerdict, StopReason, TaskProfile,
+    TeamConfig, TeamLoopState, TeamRole, TestSummary, TokenBudget, ToolSet, TrustContext,
+    TrustEvent, TrustEventKind, TrustScore, VerificationState, VetoAction,
 };
 
 // Agent protocol types

@@ -22,12 +22,12 @@
 //! });
 //!
 //! // Check cache before executing tool
-//! if let Some(cached) = cache.get("read_file", &params) {
+//! if let Some(cached) = cache.get("Read", &params) {
 //!     // Use cached result
 //! } else {
 //!     // Execute tool, then cache result
 //!     let result = execute_tool(...);
-//!     cache.insert("read_file", &params, &result);
+//!     cache.insert("Read", &params, &result);
 //! }
 //! ```
 
@@ -325,7 +325,7 @@ mod tests {
     #[test]
     fn small_result_stays_in_context() {
         let (_tmp, mut storage) = setup_storage();
-        let result = storage.process_result("tool_1", "read_file", "hello world");
+        let result = storage.process_result("tool_1", "Read", "hello world");
         assert!(matches!(result, ProcessedResult::InContext { .. }));
         assert_eq!(result.to_context_string(), "hello world");
     }
@@ -334,7 +334,7 @@ mod tests {
     fn large_result_spills_to_disk() {
         let (_tmp, mut storage) = setup_storage();
         let large_content = "x".repeat(60_000); // 60 KB
-        let result = storage.process_result("tool_2", "bash", &large_content);
+        let result = storage.process_result("tool_2", "Bash", &large_content);
 
         assert!(result.is_persisted());
         let path = result.file_path().unwrap().to_path_buf();
@@ -354,7 +354,7 @@ mod tests {
     fn persisted_result_can_be_read_back() {
         let (_tmp, mut storage) = setup_storage();
         let content = "y".repeat(100_000);
-        let result = storage.process_result("tool_3", "bash", &content);
+        let result = storage.process_result("tool_3", "Bash", &content);
 
         if let ProcessedResult::Persisted { file_path, .. } = &result {
             let read_back = storage.read_persisted(file_path).unwrap();
@@ -396,7 +396,7 @@ mod tests {
     #[test]
     fn cleanup_removes_storage_dir() {
         let (_tmp, mut storage) = setup_storage();
-        let _ = storage.process_result("tool_6", "bash", &"z".repeat(60_000));
+        let _ = storage.process_result("tool_6", "Bash", &"z".repeat(60_000));
         assert!(storage.storage_dir.exists());
 
         storage.cleanup().unwrap();
@@ -407,7 +407,7 @@ mod tests {
     fn json_content_gets_json_extension() {
         let (_tmp, mut storage) = setup_storage();
         let large_json = format!("{{\"data\": \"{}\"}}", "x".repeat(60_000));
-        let result = storage.process_result("tool_7", "glob", &large_json);
+        let result = storage.process_result("tool_7", "Glob", &large_json);
 
         if let ProcessedResult::Persisted { file_path, .. } = &result {
             assert!(file_path.extension().unwrap() == "json");
@@ -427,11 +427,11 @@ mod tests {
         let (_tmp, mut storage) = setup_storage();
         let content = "a".repeat(60_000);
 
-        let result1 = storage.process_result("tool_8", "bash", &content);
+        let result1 = storage.process_result("tool_8", "Bash", &content);
         assert!(result1.is_persisted());
 
         // Same ID again — should return InContext (already persisted)
-        let result2 = storage.process_result("tool_8", "bash", &content);
+        let result2 = storage.process_result("tool_8", "Bash", &content);
         assert!(matches!(result2, ProcessedResult::InContext { .. }));
     }
 }
@@ -495,13 +495,13 @@ impl CachedResult {
 ///
 /// // Before executing a tool, check cache
 /// let params = serde_json::json!({"path": "src/main.rs"});
-/// if let Some(cached) = cache.get("read_file", &params) {
+/// if let Some(cached) = cache.get("Read", &params) {
 ///     // Use cached result - saved tool execution time and tokens
 ///     println!("Cache hit! Saved ~{} tokens", cached.token_count);
 /// } else {
 ///     // Execute tool and cache result
-///     let result = execute_tool("read_file", &params)?;
-///     cache.insert("read_file", &params, &result);
+///     let result = execute_tool("Read", &params)?;
+///     cache.insert("Read", &params, &result);
 /// }
 /// ```
 #[derive(Debug)]
@@ -707,12 +707,12 @@ mod cache_tests {
         let params = serde_json::json!({"path": "src/main.rs"});
 
         // Miss on first lookup
-        assert!(cache.get("read_file", &params).is_none());
+        assert!(cache.get("Read", &params).is_none());
         assert_eq!(cache.stats().misses, 1);
 
         // Insert and verify hit
-        cache.insert("read_file", &params, "fn main() { println!(\"hello\"); }");
-        assert!(cache.get("read_file", &params).is_some());
+        cache.insert("Read", &params, "fn main() { println!(\"hello\"); }");
+        assert!(cache.get("Read", &params).is_some());
         assert_eq!(cache.stats().hits, 1);
     }
 
@@ -721,9 +721,9 @@ mod cache_tests {
         let params1 = serde_json::json!({"path": "src/main.rs"});
         let params2 = serde_json::json!({"path": "src/lib.rs"});
 
-        let key1 = ToolResultCache::compute_cache_key("read_file", &params1);
-        let key2 = ToolResultCache::compute_cache_key("read_file", &params2);
-        let key3 = ToolResultCache::compute_cache_key("read_file", &params1);
+        let key1 = ToolResultCache::compute_cache_key("Read", &params1);
+        let key2 = ToolResultCache::compute_cache_key("Read", &params2);
+        let key3 = ToolResultCache::compute_cache_key("Read", &params1);
 
         // Same inputs produce same keys
         assert_eq!(key1, key3);
@@ -732,7 +732,7 @@ mod cache_tests {
         assert_ne!(key1, key2);
 
         // Different tools produce different keys
-        let key4 = ToolResultCache::compute_cache_key("grep", &params1);
+        let key4 = ToolResultCache::compute_cache_key("Grep", &params1);
         assert_ne!(key1, key4);
     }
 
@@ -747,11 +747,11 @@ mod cache_tests {
         let params = serde_json::json!({});
 
         // Small content should not be cached
-        assert!(!cache.insert("read_file", &params, "small"));
+        assert!(!cache.insert("Read", &params, "small"));
         assert_eq!(cache.stats().inserts, 0);
 
         // Large content should be cached
-        assert!(cache.insert("read_file", &params, &"x".repeat(200)));
+        assert!(cache.insert("Read", &params, &"x".repeat(200)));
         assert_eq!(cache.stats().inserts, 1);
     }
 
@@ -764,16 +764,16 @@ mod cache_tests {
         });
 
         let params = serde_json::json!({});
-        cache.insert("read_file", &params, "content-data-for-testing"); // > 10 bytes
+        cache.insert("Read", &params, "content-data-for-testing"); // > 10 bytes
 
         // Immediately accessible
-        assert!(cache.get("read_file", &params).is_some());
+        assert!(cache.get("Read", &params).is_some());
 
         // Wait for TTL to expire
         std::thread::sleep(Duration::from_millis(100));
 
         // Should be expired now
-        assert!(cache.get("read_file", &params).is_none());
+        assert!(cache.get("Read", &params).is_none());
         assert!(cache.stats().ttl_evictions > 0);
     }
 

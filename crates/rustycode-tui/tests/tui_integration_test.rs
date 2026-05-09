@@ -374,7 +374,7 @@ fn test_syntax_highlighting_all_supported_languages() {
         ("cpp", "int main() { int x = 42; }"),
         ("ruby", "x = 42"),
         ("php", "$x = 42;"),
-        ("bash", "x=42"),
+        ("Bash", "x=42"),
         ("sql", "SELECT * FROM users"),
         ("html", "<div>Hello</div>"),
         ("css", ".class { color: red; }"),

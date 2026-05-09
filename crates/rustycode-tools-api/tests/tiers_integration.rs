@@ -34,14 +34,14 @@ fn test_tool_availability_by_tier() {
     let manager = ToolActivationManager::new();
 
     // Extended tier (default start) should have basic + extended tools
-    assert!(manager.is_tool_allowed("read_file"));
-    assert!(manager.is_tool_allowed("edit_file"));
-    assert!(manager.is_tool_allowed("write_file"));
-    assert!(manager.is_tool_allowed("bash"));
-    assert!(manager.is_tool_allowed("grep"));
-    assert!(manager.is_tool_allowed("glob"));
-    assert!(manager.is_tool_allowed("web_fetch"));
-    assert!(manager.is_tool_allowed("notebook_edit"));
+    assert!(manager.is_tool_allowed("Read"));
+    assert!(manager.is_tool_allowed("Edit"));
+    assert!(manager.is_tool_allowed("Write"));
+    assert!(manager.is_tool_allowed("Bash"));
+    assert!(manager.is_tool_allowed("Grep"));
+    assert!(manager.is_tool_allowed("Glob"));
+    assert!(manager.is_tool_allowed("WebFetch"));
+    assert!(manager.is_tool_allowed("NotebookEdit"));
     assert!(manager.is_tool_allowed("lsp_hover"));
 
     // Extended tier should NOT allow arbitrary tools
@@ -51,8 +51,8 @@ fn test_tool_availability_by_tier() {
     let mut manager = manager;
     manager.promote(rustycode_tools_api::tiers::ToolTier::Full);
 
-    assert!(manager.is_tool_allowed("read_file"));
-    assert!(manager.is_tool_allowed("web_fetch"));
+    assert!(manager.is_tool_allowed("Read"));
+    assert!(manager.is_tool_allowed("WebFetch"));
     assert!(manager.is_tool_allowed("custom_tool_xyz"));
     assert!(manager.is_tool_allowed("another_unknown_tool"));
 }
@@ -62,23 +62,23 @@ fn test_skill_scoping_intersects_with_tier() {
     let mut manager = ToolActivationManager::new();
 
     // Extended tier: basic + extended tools all available
-    assert!(manager.is_tool_allowed("read_file"));
-    assert!(manager.is_tool_allowed("web_fetch"));
+    assert!(manager.is_tool_allowed("Read"));
+    assert!(manager.is_tool_allowed("WebFetch"));
 
     // Apply skill scope that restricts to subset
     manager = manager.with_scope(vec![
-        "read_file".to_string(),
-        "web_fetch".to_string(),
-        "bash".to_string(),
+        "Read".to_string(),
+        "WebFetch".to_string(),
+        "Bash".to_string(),
     ]);
 
     // Scope filters to intersection with tier
-    assert!(manager.is_tool_allowed("read_file"));
-    assert!(manager.is_tool_allowed("web_fetch"));
+    assert!(manager.is_tool_allowed("Read"));
+    assert!(manager.is_tool_allowed("WebFetch"));
 
     // But scope should still filter
-    assert!(!manager.is_tool_allowed("edit_file")); // in tier but not in scope
-    assert!(!manager.is_tool_allowed("grep")); // in tier but not in scope
+    assert!(!manager.is_tool_allowed("Edit")); // in tier but not in scope
+    assert!(!manager.is_tool_allowed("Grep")); // in tier but not in scope
 }
 
 #[test]
@@ -87,17 +87,17 @@ fn test_tool_sets_match_expectations() {
     let extended = extended_tool_set();
 
     // Default tools should be core six
-    assert!(defaults.contains("read_file"));
-    assert!(defaults.contains("edit_file"));
-    assert!(defaults.contains("write_file"));
-    assert!(defaults.contains("bash"));
-    assert!(defaults.contains("grep"));
-    assert!(defaults.contains("glob"));
+    assert!(defaults.contains("Read"));
+    assert!(defaults.contains("Edit"));
+    assert!(defaults.contains("Write"));
+    assert!(defaults.contains("Bash"));
+    assert!(defaults.contains("Grep"));
+    assert!(defaults.contains("Glob"));
     assert_eq!(defaults.len(), 6);
 
     // Extended tools should have expected additional tools
-    assert!(extended.contains("web_fetch"));
-    assert!(extended.contains("notebook_edit"));
+    assert!(extended.contains("WebFetch"));
+    assert!(extended.contains("NotebookEdit"));
     assert!(extended.contains("lsp_diagnostics"));
     assert!(extended.contains("lsp_hover"));
     assert!(extended.contains("lsp_definition"));
@@ -122,19 +122,19 @@ fn test_tool_sets_match_expectations() {
 fn test_usage_tracking() {
     let mut manager = ToolActivationManager::new();
 
-    manager.record_use("read_file", true);
-    manager.record_use("read_file", true);
-    manager.record_use("bash", false);
-    manager.record_use("web_fetch", true);
+    manager.record_use("Read", true);
+    manager.record_use("Read", true);
+    manager.record_use("Bash", false);
+    manager.record_use("WebFetch", true);
 
-    assert_eq!(manager.usage().invocation_count("read_file"), 2);
-    assert_eq!(manager.usage().invocation_count("bash"), 1);
-    assert_eq!(manager.usage().invocation_count("web_fetch"), 1);
+    assert_eq!(manager.usage().invocation_count("Read"), 2);
+    assert_eq!(manager.usage().invocation_count("Bash"), 1);
+    assert_eq!(manager.usage().invocation_count("WebFetch"), 1);
     assert_eq!(manager.usage().invocation_count("nonexistent"), 0);
 
-    let read_rate = manager.usage().success_rate("read_file");
+    let read_rate = manager.usage().success_rate("Read");
     assert!((read_rate - 1.0).abs() < 0.001);
 
-    let bash_rate = manager.usage().success_rate("bash");
+    let bash_rate = manager.usage().success_rate("Bash");
     assert!((bash_rate - 0.0).abs() < 0.001);
 }

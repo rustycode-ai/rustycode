@@ -242,7 +242,7 @@ fn test_session_with_tool_calls() {
                 "id": "call_001",
                 "type": "function",
                 "function": {
-                    "name": "read_file",
+                    "name": "Read",
                     "arguments": "{\"path\": \"src/main.rs\"}"
                 }
             }

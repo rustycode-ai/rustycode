@@ -136,7 +136,7 @@ mod error_signal_api {
             Some(1),
             "logic failed".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         assert_eq!(signal.category, SignalCategory::LogicError);
         assert_eq!(signal.exit_code, Some(1));
@@ -279,7 +279,7 @@ mod verification_api {
             "s1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             "ok".into(),
             Some(0),

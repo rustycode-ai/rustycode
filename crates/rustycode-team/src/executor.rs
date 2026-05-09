@@ -278,12 +278,12 @@ pub(crate) mod prompts {
 /// Returns tool names appropriate for each role.
 pub fn tools_for_role(role: TeamRole) -> Vec<&'static str> {
     match role {
-        TeamRole::Builder => vec!["read_file", "write_file", "bash", "grep", "glob"],
-        TeamRole::Scalpel => vec!["read_file", "write_file", "bash"],
-        TeamRole::Skeptic => vec!["read_file", "grep", "glob"],
-        TeamRole::Architect => vec!["read_file", "grep", "glob", "lsp_references", "lsp_hover"],
-        TeamRole::Judge => vec!["bash", "read_file"],
-        TeamRole::Coordinator => vec!["read_file", "bash"],
+        TeamRole::Builder => vec!["Read", "Write", "Bash", "Grep", "Glob"],
+        TeamRole::Scalpel => vec!["Read", "Write", "Bash"],
+        TeamRole::Skeptic => vec!["Read", "Grep", "Glob"],
+        TeamRole::Architect => vec!["Read", "Grep", "Glob", "lsp_references", "lsp_hover"],
+        TeamRole::Judge => vec!["Bash", "Read"],
+        TeamRole::Coordinator => vec!["Read", "Bash"],
         #[allow(unreachable_patterns)]
         _ => vec![],
     }
@@ -1021,18 +1021,18 @@ mod tests {
     #[test]
     fn tools_for_role_are_appropriate() {
         let builder_tools = tools_for_role(TeamRole::Builder);
-        assert!(builder_tools.contains(&"write_file"));
-        assert!(builder_tools.contains(&"bash"));
+        assert!(builder_tools.contains(&"Write"));
+        assert!(builder_tools.contains(&"Bash"));
 
-        assert!(builder_tools.contains(&"write_file") || builder_tools.contains(&"read_file"));
+        assert!(builder_tools.contains(&"Write") || builder_tools.contains(&"Read"));
 
         let skeptic_tools = tools_for_role(TeamRole::Skeptic);
-        assert!(skeptic_tools.contains(&"read_file"));
-        assert!(!skeptic_tools.contains(&"write_file"));
+        assert!(skeptic_tools.contains(&"Read"));
+        assert!(!skeptic_tools.contains(&"Write"));
 
         let judge_tools = tools_for_role(TeamRole::Judge);
-        assert!(judge_tools.contains(&"bash"));
-        assert!(!judge_tools.contains(&"write_file"));
+        assert!(judge_tools.contains(&"Bash"));
+        assert!(!judge_tools.contains(&"Write"));
     }
 
     #[test]

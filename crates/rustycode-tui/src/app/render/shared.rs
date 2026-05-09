@@ -196,9 +196,9 @@ pub fn tool_kind_icon(name: &str) -> &'static str {
         (&["write", "create", "insert"], "W"),
         (&["edit", "patch", "replace", "apply_patch"], "E"),
         (&["delete", "remove"], "D"),
-        (&["grep", "search"], "G"),
-        (&["glob", "find", "list"], "F"),
-        (&["bash", "exec", "shell", "run", "cmd"], "$"),
+        (&["Grep", "search"], "G"),
+        (&["Glob", "find", "list"], "F"),
+        (&["Bash", "exec", "shell", "run", "cmd"], "$"),
         (&["git"], "G"),
         (&["fetch", "http", "web", "curl", "download"], "~"),
         (&["question", "ask", "think", "reason"], "?"),
@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn tool_kind_icon_read() {
-        assert_eq!(tool_kind_icon("read_file"), "R");
+        assert_eq!(tool_kind_icon("Read"), "R");
     }
 
     #[test]
@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn tool_kind_icon_edit() {
-        assert_eq!(tool_kind_icon("edit_file"), "E");
+        assert_eq!(tool_kind_icon("Edit"), "E");
     }
 
     #[test]
@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn tool_kind_icon_http() {
-        assert_eq!(tool_kind_icon("web_fetch"), "~");
+        assert_eq!(tool_kind_icon("WebFetch"), "~");
     }
 
     #[test]

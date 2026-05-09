@@ -226,7 +226,7 @@ mod tests {
         let handler = LargeResponseHandler::new();
         let content = "This is a small response".to_string();
 
-        let result = handler.handle("read_file", content.clone());
+        let result = handler.handle("Read", content.clone());
 
         assert!(!result.spilled_to_file);
         assert_eq!(result.content, content);
@@ -238,7 +238,7 @@ mod tests {
         let handler = LargeResponseHandler::with_threshold(100);
         let large_content = "a".repeat(200);
 
-        let result = handler.handle("bash", large_content);
+        let result = handler.handle("Bash", large_content);
 
         assert!(result.spilled_to_file);
         assert!(result.content.contains("too large"));

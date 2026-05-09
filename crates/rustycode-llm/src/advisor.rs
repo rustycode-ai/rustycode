@@ -237,8 +237,8 @@ mod tests {
     fn test_tool_list_merges_advisor() {
         let config = AdvisorConfig::new();
         let standard_tools = vec![
-            json!({"type": "custom", "name": "bash"}),
-            json!({"type": "custom", "name": "read_file"}),
+            json!({"type": "custom", "name": "Bash"}),
+            json!({"type": "custom", "name": "Read"}),
         ];
 
         let merged = config.tool_list(standard_tools);

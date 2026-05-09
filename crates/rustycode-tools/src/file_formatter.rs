@@ -520,7 +520,7 @@ fn detect_shfmt_config(root: &Path, formatters: &mut Vec<DetectedFormatter>) {
         name: "shfmt".to_string(),
         command: "shfmt".to_string(),
         args: vec!["-w".to_string()],
-        extensions: vec!["sh".to_string(), "bash".to_string()],
+        extensions: vec!["sh".to_string(), "Bash".to_string()],
         config_file: Some(editorconfig),
     });
 }

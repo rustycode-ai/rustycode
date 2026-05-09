@@ -346,7 +346,7 @@ mod tests {
     fn test_is_mcp_tool() {
         assert!(McpIntegration::is_mcp_tool("mcp_read_file"));
         assert!(McpIntegration::is_mcp_tool("mcp_github_list_issues"));
-        assert!(!McpIntegration::is_mcp_tool("read_file"));
-        assert!(!McpIntegration::is_mcp_tool("bash"));
+        assert!(!McpIntegration::is_mcp_tool("Read"));
+        assert!(!McpIntegration::is_mcp_tool("Bash"));
     }
 }

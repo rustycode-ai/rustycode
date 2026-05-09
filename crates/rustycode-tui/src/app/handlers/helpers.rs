@@ -163,7 +163,7 @@ pub(super) fn build_tool_summary_arg(
     input_json: &serde_json::Value,
 ) -> Option<String> {
     let lower = tool_name.to_lowercase();
-    if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
+    if lower.contains("Bash") || lower.contains("exec") || lower.contains("shell") {
         return input_json.get("command").and_then(|v| v.as_str()).map(|s| {
             if s.len() > TOOL_SUMMARY_MAX_LEN {
                 format!("{}…", &s[..s.floor_char_boundary(TOOL_SUMMARY_TRUNCATE_AT)])
@@ -188,7 +188,7 @@ pub(super) fn build_tool_summary_arg(
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
     }
-    if lower.contains("grep") || lower.contains("search") {
+    if lower.contains("Grep") || lower.contains("search") {
         return input_json
             .get("pattern")
             .or_else(|| input_json.get("query"))
@@ -204,7 +204,7 @@ pub(super) fn build_tool_summary_arg(
                 )
             });
     }
-    if lower.contains("glob") || lower.contains("find") || lower.contains("list") {
+    if lower.contains("Glob") || lower.contains("find") || lower.contains("list") {
         return input_json
             .get("pattern")
             .or_else(|| input_json.get("path"))
@@ -244,7 +244,7 @@ mod tests {
     #[test]
     fn test_build_tool_summary_bash_command() {
         let json = serde_json::json!({"command": "cargo build --release"});
-        let result = build_tool_summary_arg("bash", &json);
+        let result = build_tool_summary_arg("Bash", &json);
         assert_eq!(result, Some("cargo build --release".to_string()));
     }
 
@@ -252,7 +252,7 @@ mod tests {
     fn test_build_tool_summary_bash_truncation() {
         let long_cmd = "x".repeat(80);
         let json = serde_json::json!({"command": long_cmd});
-        let result = build_tool_summary_arg("bash", &json);
+        let result = build_tool_summary_arg("Bash", &json);
         assert!(result.is_some());
         assert!(result.as_ref().unwrap().contains('…'));
         assert!(result.as_ref().unwrap().len() <= TOOL_SUMMARY_MAX_LEN + 1);
@@ -261,21 +261,21 @@ mod tests {
     #[test]
     fn test_build_tool_summary_read_file() {
         let json = serde_json::json!({"path": "/src/main.rs"});
-        let result = build_tool_summary_arg("read_file", &json);
+        let result = build_tool_summary_arg("Read", &json);
         assert_eq!(result, Some("/src/main.rs".to_string()));
     }
 
     #[test]
     fn test_build_tool_summary_edit_file_path() {
         let json = serde_json::json!({"file_path": "/src/lib.rs"});
-        let result = build_tool_summary_arg("edit_file", &json);
+        let result = build_tool_summary_arg("Edit", &json);
         assert_eq!(result, Some("/src/lib.rs".to_string()));
     }
 
     #[test]
     fn test_build_tool_summary_grep_pattern() {
         let json = serde_json::json!({"pattern": "fn main"});
-        let result = build_tool_summary_arg("grep", &json);
+        let result = build_tool_summary_arg("Grep", &json);
         assert_eq!(result, Some("\"fn main\"".to_string()));
     }
 
@@ -289,7 +289,7 @@ mod tests {
     #[test]
     fn test_build_tool_summary_glob_pattern() {
         let json = serde_json::json!({"pattern": "**/*.rs"});
-        let result = build_tool_summary_arg("glob", &json);
+        let result = build_tool_summary_arg("Glob", &json);
         assert_eq!(result, Some("**/*.rs".to_string()));
     }
 
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn test_build_tool_summary_missing_field() {
         let json = serde_json::json!({"other": "value"});
-        let result = build_tool_summary_arg("bash", &json);
+        let result = build_tool_summary_arg("Bash", &json);
         assert_eq!(result, None);
     }
 
@@ -341,7 +341,7 @@ mod tests {
         // Command exactly at TOOL_SUMMARY_MAX_LEN (60 chars) should NOT be truncated
         let cmd = "x".repeat(60);
         let json = serde_json::json!({"command": cmd});
-        let result = build_tool_summary_arg("bash", &json);
+        let result = build_tool_summary_arg("Bash", &json);
         assert!(result.is_some());
         assert!(!result.as_ref().unwrap().contains('…'));
         assert_eq!(result.unwrap().len(), 60);
@@ -352,7 +352,7 @@ mod tests {
         // Command one over TOOL_SUMMARY_MAX_LEN should be truncated
         let cmd = "x".repeat(61);
         let json = serde_json::json!({"command": cmd});
-        let result = build_tool_summary_arg("bash", &json);
+        let result = build_tool_summary_arg("Bash", &json);
         assert!(result.is_some());
         assert!(result.as_ref().unwrap().contains('…'));
     }
@@ -361,7 +361,7 @@ mod tests {
     fn test_build_tool_summary_grep_long_pattern_truncated() {
         let pattern = "a".repeat(60);
         let json = serde_json::json!({"pattern": pattern});
-        let result = build_tool_summary_arg("grep", &json);
+        let result = build_tool_summary_arg("Grep", &json);
         assert!(result.is_some());
         let inner = result.unwrap();
         assert!(inner.starts_with('"'));
@@ -427,14 +427,14 @@ mod tests {
 
     #[test]
     fn test_build_tool_summary_null_json() {
-        let result = build_tool_summary_arg("bash", &serde_json::Value::Null);
+        let result = build_tool_summary_arg("Bash", &serde_json::Value::Null);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_build_tool_summary_glob_prefers_pattern() {
         let json = serde_json::json!({"pattern": "*.rs", "path": "/src"});
-        let result = build_tool_summary_arg("glob", &json);
+        let result = build_tool_summary_arg("Glob", &json);
         assert_eq!(result, Some("*.rs".to_string()));
     }
 

@@ -45,12 +45,12 @@ fn architect_gets_read_only_tools() {
             !tool.contains("write"),
             "Architect must not have write tools"
         );
-        assert!(!tool.contains("bash"), "Architect must not have bash tools");
+        assert!(!tool.contains("Bash"), "Architect must not have bash tools");
     }
     // Architect should have read and exploration tools
-    assert!(architect_tools.contains(&"read_file"));
-    assert!(architect_tools.contains(&"grep"));
-    assert!(architect_tools.contains(&"glob"));
+    assert!(architect_tools.contains(&"Read"));
+    assert!(architect_tools.contains(&"Grep"));
+    assert!(architect_tools.contains(&"Glob"));
 }
 
 #[test]

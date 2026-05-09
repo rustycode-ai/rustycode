@@ -102,24 +102,20 @@ impl TaskRole {
     pub const fn allowed_tools(self) -> &'static [&'static str] {
         match self {
             Self::Explore | Self::Research | Self::Review | Self::Plan => {
-                &["read_file", "search_files", "list_directory", "glob"]
+                &["Read", "search_files", "list_directory", "Glob"]
             }
             Self::Code => &[
-                "read_file",
-                "write_file",
-                "edit_file",
+                "Read",
+                "Write",
+                "Edit",
                 "search_files",
                 "list_directory",
-                "glob",
-                "bash",
+                "Glob",
+                "Bash",
             ],
-            Self::Verify | Self::Debug => &[
-                "read_file",
-                "search_files",
-                "list_directory",
-                "glob",
-                "bash",
-            ],
+            Self::Verify | Self::Debug => {
+                &["Read", "search_files", "list_directory", "Glob", "Bash"]
+            }
         }
     }
 }
@@ -1327,7 +1323,7 @@ mod tests {
         use crate::agent_registry::SpecialistType;
         let mut root = DelegationToken::root("coordinator");
         root.allowed_roles = vec![SpecialistType::SecurityAudit];
-        root.allowed_tools = vec!["read_file".into()];
+        root.allowed_tools = vec!["Read".into()];
 
         let child = root.child("child").unwrap();
         assert_eq!(child.allowed_roles.len(), 1);

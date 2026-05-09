@@ -163,7 +163,7 @@ fn test_tool_calling_e2e() {
                 println!("Tool call JSON: {}", tool_json);
 
                 // Verify it's a read_file call
-                if tool_json.contains("read_file") {
+                if tool_json.contains("Read") {
                     println!("✓ Correct tool (read_file) detected");
                 } else {
                     println!("✗ Unexpected tool in response");
@@ -224,7 +224,7 @@ fn test_tool_execution() {
     let ctx = ToolContext::new(env::current_dir().unwrap());
 
     // Test read_file tool
-    if let Some(tool) = tool_registry.get("read_file") {
+    if let Some(tool) = tool_registry.get("Read") {
         println!("Testing read_file tool...");
 
         let params = serde_json::json!({

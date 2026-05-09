@@ -437,7 +437,7 @@ mod tests {
     fn test_message_part_tool_call_serde_roundtrip() {
         let part = MessagePart::ToolCall {
             id: "call_1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({"cmd": "ls"}),
         };
         let json = serde_json::to_string(&part).unwrap();
@@ -710,7 +710,7 @@ mod tests {
         let mut msg = Message::user("Hello");
         msg.add_part(MessagePart::ToolCall {
             id: "1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({}),
         });
         msg.add_part(MessagePart::Text {
@@ -731,7 +731,7 @@ mod tests {
         let mut msg = Message::assistant("Using tool");
         msg.add_part(MessagePart::ToolCall {
             id: "1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({}),
         });
         assert!(msg.has_tool_calls());
@@ -817,7 +817,7 @@ mod tests {
         let mut msg = Message::assistant("Running tool");
         msg.add_part(MessagePart::ToolCall {
             id: "1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             input: serde_json::json!({"command": "ls"}),
         });
         assert!(msg.char_count() > 0);

@@ -445,7 +445,7 @@ mod tests {
     fn test_meta_tool_builder() {
         let meta_tool = MetaTool::builder("refactor", "Refactor Component")
             .description("Safe component refactoring")
-            .add_tool_call("read_file", &[("component_path", "file_path")])
+            .add_tool_call("Read", &[("component_path", "file_path")])
             .add_tool_call("analyze", &[("analysis_type", "refactor")])
             .build()
             .unwrap();
@@ -514,7 +514,7 @@ mod tests {
 
         let call = ToolCallStep {
             id: "step1".to_string(),
-            tool: "read_file".to_string(),
+            tool: "Read".to_string(),
             parameter_mapping: mapping,
             output_variable: None,
             condition: None,

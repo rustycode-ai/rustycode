@@ -122,7 +122,7 @@ use std::path::PathBuf;
 /// Critical tools are those whose failure should immediately halt
 /// plan execution, as subsequent steps depend on their success.
 fn is_critical_tool(tool_name: &str) -> bool {
-    const CRITICAL_TOOLS: &[&str] = &["read_file", "write_file", "bash"];
+    const CRITICAL_TOOLS: &[&str] = &["Read", "Write", "Bash"];
     let base_name = tool_name.split(':').next().unwrap_or(tool_name);
     CRITICAL_TOOLS.contains(&base_name)
 }
@@ -552,14 +552,14 @@ mod tests {
     #[test]
     fn test_is_critical_tool() {
         // Critical tools should be detected
-        assert!(is_critical_tool("read_file"));
-        assert!(is_critical_tool("write_file"));
-        assert!(is_critical_tool("bash"));
+        assert!(is_critical_tool("Read"));
+        assert!(is_critical_tool("Write"));
+        assert!(is_critical_tool("Bash"));
         assert!(is_critical_tool("bash:some command"));
 
         // Non-critical tools should not be detected
-        assert!(!is_critical_tool("grep"));
-        assert!(!is_critical_tool("glob"));
+        assert!(!is_critical_tool("Grep"));
+        assert!(!is_critical_tool("Glob"));
         assert!(!is_critical_tool("git_status"));
     }
 
@@ -658,9 +658,9 @@ mod tests {
             data: None,
             new_cwd: None,
         };
-        let msg = ToolInvocationWrapper::wrap_result("read_file", &result);
+        let msg = ToolInvocationWrapper::wrap_result("Read", &result);
         let content = &msg.content;
-        assert!(content.contains("read_file"));
+        assert!(content.contains("Read"));
         assert!(content.contains("file contents"));
     }
 
@@ -675,9 +675,9 @@ mod tests {
             data: None,
             new_cwd: None,
         };
-        let msg = ToolInvocationWrapper::wrap_result("write_file", &result);
+        let msg = ToolInvocationWrapper::wrap_result("Write", &result);
         let content = &msg.content;
-        assert!(content.contains("write_file"));
+        assert!(content.contains("Write"));
         assert!(content.contains("file not found"));
     }
 
@@ -776,8 +776,8 @@ mod tests {
             data: None,
             new_cwd: None,
         };
-        let msg = ToolInvocationWrapper::result_to_message("bash", &result);
-        assert!(msg.content.contains("bash"));
+        let msg = ToolInvocationWrapper::result_to_message("Bash", &result);
+        assert!(msg.content.contains("Bash"));
         assert!(msg.content.contains("hello world"));
         assert!(msg.content.contains("c1"));
     }
@@ -793,7 +793,7 @@ mod tests {
             data: None,
             new_cwd: None,
         };
-        let msg = ToolInvocationWrapper::result_to_message("write_file", &result);
+        let msg = ToolInvocationWrapper::result_to_message("Write", &result);
         assert!(msg.content.contains("write_file failed"));
         assert!(msg.content.contains("permission denied"));
     }

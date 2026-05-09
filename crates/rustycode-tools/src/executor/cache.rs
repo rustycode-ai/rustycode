@@ -293,7 +293,7 @@ impl ToolCache {
 
         if let Some(obj) = arguments.as_object() {
             // For grep/glob, handle specially to avoid duplicates
-            if tool_name == "grep" || tool_name == "glob" {
+            if tool_name == "Grep" || tool_name == "Glob" {
                 // Extract pattern directory
                 if let Some(pattern) = obj.get("pattern").and_then(|v| v.as_str()) {
                     if let Some(parent) = PathBuf::from(pattern).parent() {
@@ -470,12 +470,11 @@ mod tests {
 
     #[tokio::test]
     async fn cache_includes_file_dependencies() {
-        let deps =
-            ToolCache::extract_file_dependencies("read_file", &json!({"path": "/tmp/test.txt"}));
+        let deps = ToolCache::extract_file_dependencies("Read", &json!({"path": "/tmp/test.txt"}));
         assert_eq!(deps, vec![PathBuf::from("/tmp/test.txt")]);
 
         let deps = ToolCache::extract_file_dependencies(
-            "write_file",
+            "Write",
             &json!({"file": "/tmp/out.txt", "content": "test"}),
         );
         assert_eq!(deps, vec![PathBuf::from("/tmp/out.txt")]);

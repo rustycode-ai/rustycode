@@ -141,13 +141,13 @@ mod tests {
                 PipelineStage {
                     name: "Analyze".to_string(),
                     description: "Read the code".to_string(),
-                    required_tools: vec!["read_file".to_string()],
+                    required_tools: vec!["Read".to_string()],
                     parallel: false,
                 },
                 PipelineStage {
                     name: "Implement".to_string(),
                     description: String::new(),
-                    required_tools: vec!["write_file".to_string()],
+                    required_tools: vec!["Write".to_string()],
                     parallel: false,
                 },
             ],

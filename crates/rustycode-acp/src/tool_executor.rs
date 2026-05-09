@@ -177,13 +177,13 @@ mod tests {
     async fn test_tool_executor_mock_response_without_init() {
         let executor = ToolExecutor::new("/tmp".to_string());
         let result = executor
-            .execute_tool("bash", serde_json::json!({"command": "ls"}))
+            .execute_tool("Bash", serde_json::json!({"command": "ls"}))
             .await;
         assert!(result.is_ok());
         let val = result.unwrap();
         assert!(val.is_error);
         if let ContentPart::Text { text } = &val.content[0] {
-            assert!(text.contains("bash"));
+            assert!(text.contains("Bash"));
         } else {
             panic!("Expected ContentPart::Text");
         }
@@ -193,13 +193,13 @@ mod tests {
     async fn test_tool_executor_mock_response_includes_tool_name() {
         let executor = ToolExecutor::new("/tmp".to_string());
         let result = executor
-            .execute_tool("read_file", serde_json::json!({"path": "/etc/hosts"}))
+            .execute_tool("Read", serde_json::json!({"path": "/etc/hosts"}))
             .await;
         assert!(result.is_ok());
         let val = result.unwrap();
         assert!(val.is_error);
         if let ContentPart::Text { text } = &val.content[0] {
-            assert!(text.contains("read_file"));
+            assert!(text.contains("Read"));
         } else {
             panic!("Expected ContentPart::Text");
         }

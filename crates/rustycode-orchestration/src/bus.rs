@@ -435,7 +435,7 @@ mod tests {
             Some(1),
             "test error".into(),
             "s1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
 
         handle.publish(OrchestrationEvent::StepFailed {
@@ -673,7 +673,7 @@ mod tests {
             task_id: "t1".into(),
             step_id: "s1".into(),
             tool_id: "tc-1".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             input_preview: "echo hi".into(),
         });
 
@@ -681,7 +681,7 @@ mod tests {
         assert!(matches!(
             event,
             OrchestrationEvent::ToolCallStarted { task_id, tool_name, .. }
-                if task_id == "t1" && tool_name == "bash"
+                if task_id == "t1" && tool_name == "Bash"
         ));
     }
 
@@ -814,7 +814,7 @@ mod tests {
             task_id: "t1".into(),
             step_id: "s1".into(),
             tool_id: "tc-1".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             success: true,
             output_preview: "hi".into(),
         });

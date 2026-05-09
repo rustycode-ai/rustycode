@@ -428,7 +428,7 @@ impl TaskDecomposer for Decomposer {
                 index: i as u8,
                 description: desc,
                 expected_output_type: OutputType::Verification,
-                suggested_tool: Some("bash".into()),
+                suggested_tool: Some("Bash".into()),
                 retry_on_failure: true,
                 required_resources: crate::guard::RequiredResources::default(),
             })
@@ -1323,7 +1323,7 @@ mod tests {
                 index: 0,
                 description: "Do the thing".into(),
                 expected_output_type: OutputType::Verification,
-                suggested_tool: Some("bash".into()),
+                suggested_tool: Some("Bash".into()),
                 retry_on_failure: true,
                 required_resources: crate::guard::RequiredResources::default(),
             }],

@@ -863,7 +863,7 @@ mod tests {
         }
 
         let mut e = DefaultEvents;
-        let decision = e.on_approval_needed("bash", &json!({})).await;
+        let decision = e.on_approval_needed("Bash", &json!({})).await;
         assert!(matches!(decision, ApprovalDecision::AutoApproved));
     }
 
@@ -894,7 +894,7 @@ mod tests {
         collector
             .on_event(StreamEvent::ToolExecStarted {
                 id: "1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             })
             .await;
         collector.on_event(StreamEvent::Done).await;

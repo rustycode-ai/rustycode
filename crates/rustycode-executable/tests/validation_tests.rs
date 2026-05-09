@@ -709,7 +709,7 @@ async fn examples_preserved_through_register_get_cycle() {
 
     let unit = ExecutableUnit {
         id: "bash_with_examples".to_string(),
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         description: "Execute shell commands".to_string(),
         capabilities: UnitCapabilities {
             can_execute_directly: true,
@@ -719,7 +719,7 @@ async fn examples_preserved_through_register_get_cycle() {
         advanced_metadata: AdvancedToolMetadata {
             examples,
             defer_loading: false,
-            search_hints: vec!["bash".to_string(), "shell".to_string()],
+            search_hints: vec!["Bash".to_string(), "shell".to_string()],
             execution_strategy: ExecutionMode::Direct,
             result_processor: None,
         },

@@ -499,7 +499,7 @@ mod tests {
 
         let tool_entry = AllowlistEntry::Tool {
             server: "srv".to_string(),
-            tool: "bash".to_string(),
+            tool: "Bash".to_string(),
         };
         let json = serde_json::to_string(&tool_entry).unwrap();
         let parsed: AllowlistEntry = serde_json::from_str(&json).unwrap();
@@ -558,7 +558,7 @@ mod tests {
         allowlist.add(AllowlistEntry::Server("srv1".to_string()));
         allowlist.add(AllowlistEntry::Tool {
             server: "srv1".to_string(),
-            tool: "bash".to_string(),
+            tool: "Bash".to_string(),
         });
         allowlist.add(AllowlistEntry::Server("srv2".to_string()));
 

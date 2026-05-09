@@ -296,7 +296,7 @@ pub fn extract_todos_from_tool_result(tool_name: &str, output: &str) -> Vec<Stri
     let mut todos = Vec::new();
 
     match tool_name {
-        "grep" | "search_files" | "ripgrep" => {
+        "Grep" | "search_files" | "ripgrep" => {
             // Extract TODO/FIXME from grep results
             // Grep output format: "path/to/file.rs:42: // TODO: description"
             // We need to find the TODO:/FIXME: marker, not the first colon (which is in the file path)
@@ -317,7 +317,7 @@ pub fn extract_todos_from_tool_result(tool_name: &str, output: &str) -> Vec<Stri
                 }
             }
         }
-        "read_file" | "read" => {
+        "Read" | "read" => {
             // Extract TODO/FIXME from file contents
             for line in output.lines() {
                 let trimmed = line.trim();
@@ -500,7 +500,7 @@ src/main.rs:42: // TODO: Add error handling
 src/auth.rs:15: // FIXME: This is a security risk
 src/utils.rs:78: fn helper() {"#;
 
-        let todos = extract_todos_from_tool_result("grep", output);
+        let todos = extract_todos_from_tool_result("Grep", output);
         assert!(todos.len() >= 2);
         assert!(todos
             .iter()

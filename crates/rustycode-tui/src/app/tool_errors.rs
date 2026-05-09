@@ -162,13 +162,13 @@ impl ErrorTracker {
         }
 
         match tool_name {
-            "bash" => Some(
+            "Bash" => Some(
                 "Instead of using bash, try using a specific tool designed for this operation".to_string(),
             ),
-            "edit_file" | "apply_patch" => Some(
+            "Edit" | "apply_patch" => Some(
                 "For repeated edit failures, try using write_file to replace the entire file content".to_string(),
             ),
-            "read_file" => Some(
+            "Read" => Some(
                 "If read_file is failing, the file may not exist. Use glob to find it first".to_string(),
             ),
             _ => Some(format!(
@@ -268,21 +268,21 @@ mod tests {
     fn test_recovery_suggestions() {
         let suggestions = ToolErrorType::FileNotFound.recovery_suggestions();
         assert!(!suggestions.is_empty());
-        assert!(suggestions.iter().any(|s| s.contains("glob")));
+        assert!(suggestions.iter().any(|s| s.contains("Glob")));
     }
 
     #[test]
     fn test_error_tracker() {
         let mut tracker = ErrorTracker::new();
-        assert_eq!(tracker.error_count("bash"), 0);
+        assert_eq!(tracker.error_count("Bash"), 0);
 
-        tracker.record_error("bash", "command not found");
-        assert_eq!(tracker.error_count("bash"), 1);
+        tracker.record_error("Bash", "command not found");
+        assert_eq!(tracker.error_count("Bash"), 1);
 
-        tracker.record_error("bash", "permission denied");
-        assert_eq!(tracker.error_count("bash"), 2);
+        tracker.record_error("Bash", "permission denied");
+        assert_eq!(tracker.error_count("Bash"), 2);
         assert_eq!(
-            tracker.last_error("bash"),
+            tracker.last_error("Bash"),
             Some(&"permission denied".to_string())
         );
     }
@@ -291,29 +291,29 @@ mod tests {
     fn test_suggest_alternative_threshold() {
         let mut tracker = ErrorTracker::new().with_threshold(2);
 
-        tracker.record_error("bash", "error 1");
-        assert!(!tracker.should_suggest_alternative("bash"));
+        tracker.record_error("Bash", "error 1");
+        assert!(!tracker.should_suggest_alternative("Bash"));
 
-        tracker.record_error("bash", "error 2");
-        assert!(tracker.should_suggest_alternative("bash"));
-        assert!(tracker.suggest_alternative_tool("bash").is_some());
+        tracker.record_error("Bash", "error 2");
+        assert!(tracker.should_suggest_alternative("Bash"));
+        assert!(tracker.suggest_alternative_tool("Bash").is_some());
     }
 
     #[test]
     fn test_format_file_not_found() {
         let error = format_file_not_found_error("src/main.rs");
         assert!(error.contains("File not found"));
-        assert!(error.contains("glob"));
+        assert!(error.contains("Glob"));
         assert!(error.contains("list_dir"));
     }
 
     #[test]
     fn test_clear_errors() {
         let mut tracker = ErrorTracker::new();
-        tracker.record_error("bash", "error");
-        assert_eq!(tracker.error_count("bash"), 1);
+        tracker.record_error("Bash", "error");
+        assert_eq!(tracker.error_count("Bash"), 1);
 
-        tracker.clear_errors("bash");
-        assert_eq!(tracker.error_count("bash"), 0);
+        tracker.clear_errors("Bash");
+        assert_eq!(tracker.error_count("Bash"), 0);
     }
 }

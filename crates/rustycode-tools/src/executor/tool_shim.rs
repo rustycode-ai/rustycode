@@ -11,10 +11,10 @@
 //! The extractor handles multiple common formats that LLMs use to express
 //! tool calls in text:
 //!
-//! - **XML-style**: `<tool_call name="bash" arguments='{"command":"ls"}' />`
-//! - **JSON blocks**: `{"name": "bash", "arguments": {"command": "ls"}}`
+//! - **XML-style**: `<tool_call name="Bash" arguments='{"command":"ls"}' />`
+//! - **JSON blocks**: `{"name": "Bash", "arguments": {"command": "ls"}}`
 //! - **Function-call style**: `bash(command="ls")`
-//! - **Markdown code blocks**: ```json\n{"name": "bash", ...}\n```
+//! - **Markdown code blocks**: ```json\n{"name": "Bash", ...}\n```
 //!
 //! # Example
 //!
@@ -22,11 +22,11 @@
 //! use rustycode_tools::{ToolCallExtractor, ExtractedToolCall};
 //!
 //! let text = r#"I'll check the files for you.
-//! {"name": "bash", "arguments": {"command": "ls -la"}}"#;
+//! {"name": "Bash", "arguments": {"command": "ls -la"}}"#;
 //!
 //! let calls = ToolCallExtractor::extract(text);
 //! assert_eq!(calls.len(), 1);
-//! assert_eq!(calls[0].name, "bash");
+//! assert_eq!(calls[0].name, "Bash");
 //! assert_eq!(calls[0].arguments["command"], "ls -la");
 //! ```
 
@@ -37,7 +37,7 @@ use serde_json::Value;
 /// An extracted tool call from LLM text output.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExtractedToolCall {
-    /// Tool name (e.g., "bash", "`read_file`")
+    /// Tool name (e.g., "Bash", "`read_file`")
     pub name: String,
     /// Tool arguments as a JSON object
     pub arguments: Value,
@@ -312,18 +312,18 @@ impl ToolCallExtractor {
             config.known_tools.clone()
         } else {
             vec![
-                "bash".to_string(),
-                "read_file".to_string(),
-                "write_file".to_string(),
-                "edit_file".to_string(),
+                "Bash".to_string(),
+                "Read".to_string(),
+                "Write".to_string(),
+                "Edit".to_string(),
                 "list_dir".to_string(),
-                "glob".to_string(),
-                "grep".to_string(),
+                "Glob".to_string(),
+                "Grep".to_string(),
                 "git_status".to_string(),
                 "git_diff".to_string(),
                 "git_log".to_string(),
                 "git_commit".to_string(),
-                "web_fetch".to_string(),
+                "WebFetch".to_string(),
                 "web_search".to_string(),
                 "run_tests".to_string(),
                 "multi_edit".to_string(),
@@ -335,7 +335,7 @@ impl ToolCallExtractor {
                 break;
             }
             // Match: tool_name(key="value", key2="value2")
-            let pattern = format!(r"\b{}\s*\(([^)]*)\)", regex::escape(tool_name));
+            let pattern = format!(r"(?i)\b{}\s*\(([^)]*)\)", regex::escape(tool_name));
             if let Ok(re) = Regex::new(&pattern) {
                 for cap in re.captures_iter(text) {
                     if calls.len() >= config.max_calls {
@@ -462,7 +462,7 @@ impl ToolCallExtractor {
 /// ```
 /// use rustycode_tools::sanitize_function_name;
 ///
-/// assert_eq!(sanitize_function_name("read_file"), "read_file");
+/// assert_eq!(sanitize_function_name("Read"), "Read");
 /// assert_eq!(sanitize_function_name("read file"), "read_file");
 /// assert_eq!(sanitize_function_name("tool@v2"), "tool_v2");
 /// assert_eq!(sanitize_function_name("my.tool"), "my_tool");
@@ -485,8 +485,8 @@ pub fn sanitize_function_name(name: &str) -> String {
 /// ```
 /// use rustycode_tools::is_valid_function_name;
 ///
-/// assert!(is_valid_function_name("read_file"));
-/// assert!(is_valid_function_name("bash"));
+/// assert!(is_valid_function_name("Read"));
+/// assert!(is_valid_function_name("Bash"));
 /// assert!(!is_valid_function_name("read file"));
 /// assert!(!is_valid_function_name("tool@v2"));
 /// ```
@@ -510,7 +510,7 @@ pub fn is_valid_function_name(name: &str) -> bool {
 /// use rustycode_tools::extract_tool_calls;
 ///
 /// let text = r#"Let me check the files:
-/// {"name": "bash", "arguments": {"command": "ls -la"}}"#;
+/// {"name": "Bash", "arguments": {"command": "ls -la"}}"#;
 ///
 /// let calls = extract_tool_calls(text);
 /// assert_eq!(calls.len(), 1);
@@ -580,11 +580,11 @@ mod tests {
     #[test]
     fn test_extract_json_tool_call() {
         let text = r#"I'll check the files.
-{"name": "bash", "arguments": {"command": "ls -la"}}"#;
+{"name": "Bash", "arguments": {"command": "ls -la"}}"#;
 
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "bash");
+        assert_eq!(calls[0].name, "Bash");
         assert_eq!(calls[0].arguments["command"], "ls -la");
         assert_eq!(calls[0].source, ExtractionSource::JsonBlock);
         assert!(calls[0].confidence > 0.8);
@@ -593,11 +593,11 @@ mod tests {
     #[test]
     fn test_extract_xml_tool_call() {
         let text = r#"Let me read that file.
-<tool_call name="read_file" arguments='{"file_path": "/tmp/test.txt"}' />"#;
+<tool_call name="Read" arguments='{"file_path": "/tmp/test.txt"}' />"#;
 
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "read_file");
+        assert_eq!(calls[0].name, "Read");
         assert_eq!(calls[0].arguments["file_path"], "/tmp/test.txt");
         assert_eq!(calls[0].source, ExtractionSource::XmlTag);
     }
@@ -609,7 +609,7 @@ bash(command="ls -la")"#;
 
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "bash");
+        assert_eq!(calls[0].name, "Bash");
         assert_eq!(calls[0].arguments["command"], "ls -la");
         assert_eq!(calls[0].source, ExtractionSource::FunctionCall);
     }
@@ -618,12 +618,12 @@ bash(command="ls -la")"#;
     fn test_extract_code_block_json() {
         let text = r#"Here's the tool call:
 ```json
-{"name": "grep", "arguments": {"pattern": "TODO"}}
+{"name": "Grep", "arguments": {"pattern": "TODO"}}
 ```"#;
 
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "grep");
+        assert_eq!(calls[0].name, "Grep");
         assert_eq!(calls[0].arguments["pattern"], "TODO");
         // May be extracted as JsonBlock or CodeBlock depending on which regex matches first
         assert!(matches!(
@@ -635,34 +635,34 @@ bash(command="ls -la")"#;
     #[test]
     fn test_extract_multiple_calls() {
         let text = r#"First, let me check the directory.
-{"name": "bash", "arguments": {"command": "ls"}}
+{"name": "Bash", "arguments": {"command": "ls"}}
 Then read a file.
-{"name": "read_file", "arguments": {"file_path": "/tmp/test.txt"}}"#;
+{"name": "Read", "arguments": {"file_path": "/tmp/test.txt"}}"#;
 
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 2);
-        assert_eq!(calls[0].name, "bash");
-        assert_eq!(calls[1].name, "read_file");
+        assert_eq!(calls[0].name, "Bash");
+        assert_eq!(calls[1].name, "Read");
     }
 
     #[test]
     fn test_extract_with_known_tools_filter() {
-        let text = r#"{"name": "bash", "arguments": {"command": "ls"}}
+        let text = r#"{"name": "Bash", "arguments": {"command": "ls"}}
 {"name": "unknown_tool", "arguments": {}}"#;
 
-        let config = ExtractorConfig::with_known_tools(vec!["bash".to_string()]);
+        let config = ExtractorConfig::with_known_tools(vec!["Bash".to_string()]);
         let calls = ToolCallExtractor::extract_with_config(text, &config);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "bash");
+        assert_eq!(calls[0].name, "Bash");
     }
 
     #[test]
     fn test_extract_respects_max_calls() {
         let text = r#"
-{"name": "bash", "arguments": {"command": "ls"}}
-{"name": "bash", "arguments": {"command": "pwd"}}
-{"name": "bash", "arguments": {"command": "whoami"}}
-{"name": "bash", "arguments": {"command": "date"}}
+{"name": "Bash", "arguments": {"command": "ls"}}
+{"name": "Bash", "arguments": {"command": "pwd"}}
+{"name": "Bash", "arguments": {"command": "whoami"}}
+{"name": "Bash", "arguments": {"command": "date"}}
 "#;
 
         let config = ExtractorConfig {
@@ -689,32 +689,31 @@ Then read a file.
     #[test]
     fn test_extract_nested_json_arguments() {
         // Nested JSON in arguments — the old regex [^}]* couldn't handle this.
-        let text = r#"{"name": "edit_file", "arguments": {"old_string": "fn foo() {\n  bar()\n}", "new_string": "fn foo() {\n  baz()\n}"}}"#;
+        let text = r#"{"name": "Edit", "arguments": {"old_string": "fn foo() {\n  bar()\n}", "new_string": "fn foo() {\n  baz()\n}"}}"#;
 
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "edit_file");
+        assert_eq!(calls[0].name, "Edit");
         assert_eq!(calls[0].arguments["old_string"], "fn foo() {\n  bar()\n}");
         assert_eq!(calls[0].arguments["new_string"], "fn foo() {\n  baz()\n}");
     }
 
     #[test]
     fn test_extract_balanced_json_handles_escaping() {
-        let text =
-            r#"{"name": "write_file", "arguments": {"content": "line1\n\"quoted\"\nline3"}}"#;
+        let text = r#"{"name": "Write", "arguments": {"content": "line1\n\"quoted\"\nline3"}}"#;
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "write_file");
+        assert_eq!(calls[0].name, "Write");
         assert_eq!(calls[0].arguments["content"], "line1\n\"quoted\"\nline3");
     }
 
     #[test]
     fn test_contains_tool_call() {
         assert!(ToolCallExtractor::contains_tool_call(
-            r#"{"name": "bash", "arguments": {"command": "ls"}}"#
+            r#"{"name": "Bash", "arguments": {"command": "ls"}}"#
         ));
         assert!(ToolCallExtractor::contains_tool_call(
-            r#"<tool_call name="bash" arguments='{}' />"#
+            r#"<tool_call name="Bash" arguments='{}' />"#
         ));
         assert!(!ToolCallExtractor::contains_tool_call("Just text"));
     }
@@ -734,7 +733,7 @@ Then read a file.
     #[test]
     fn test_format_tools_for_prompt() {
         let tools = vec![(
-            "bash".to_string(),
+            "Bash".to_string(),
             "Execute a bash command".to_string(),
             json!({
                 "properties": {
@@ -744,7 +743,7 @@ Then read a file.
         )];
 
         let formatted = format_tools_for_prompt(&tools);
-        assert!(formatted.contains("bash"));
+        assert!(formatted.contains("Bash"));
         assert!(formatted.contains("Execute a bash command"));
         assert!(formatted.contains("command"));
     }
@@ -752,36 +751,36 @@ Then read a file.
     #[test]
     fn test_tool_calls_to_text() {
         let calls = vec![ExtractedToolCall {
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             arguments: json!({"command": "ls"}),
             source: ExtractionSource::JsonBlock,
             confidence: 0.9,
         }];
 
         let text = tool_calls_to_text(&calls);
-        assert!(text.contains("bash"));
+        assert!(text.contains("Bash"));
         assert!(text.contains("ls"));
     }
 
     #[test]
     fn test_xml_with_double_quotes() {
-        let text = r#"<tool_call name="bash" arguments='{"command": "ls"}' />"#;
+        let text = r#"<tool_call name="Bash" arguments='{"command": "ls"}' />"#;
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "bash");
+        assert_eq!(calls[0].name, "Bash");
     }
 
     #[test]
     fn test_json_with_extra_whitespace() {
         let text = r#"{
-            "name": "read_file",
+            "name": "Read",
             "arguments": {
                 "file_path": "/etc/hosts"
             }
         }"#;
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "read_file");
+        assert_eq!(calls[0].name, "Read");
     }
 
     #[test]
@@ -789,14 +788,14 @@ Then read a file.
         let text = r#"glob(pattern="**/*.rs", path="/tmp")"#;
         let calls = ToolCallExtractor::extract(text);
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "glob");
+        assert_eq!(calls[0].name, "Glob");
         assert_eq!(calls[0].arguments["pattern"], "**/*.rs");
     }
 
     #[test]
     fn test_extraction_source_confidence_ordering() {
-        let xml_text = r#"<tool_call name="bash" arguments='{}' />"#;
-        let json_text = r#"{"name": "bash", "arguments": {}}"#;
+        let xml_text = r#"<tool_call name="Bash" arguments='{}' />"#;
+        let json_text = r#"{"name": "Bash", "arguments": {}}"#;
         let func_text = r#"bash()"#;
 
         let xml_calls = ToolCallExtractor::extract(xml_text);
@@ -810,11 +809,11 @@ Then read a file.
 
     #[test]
     fn test_sanitize_function_name() {
-        assert_eq!(sanitize_function_name("read_file"), "read_file");
+        assert_eq!(sanitize_function_name("Read"), "Read");
         assert_eq!(sanitize_function_name("read file"), "read_file");
         assert_eq!(sanitize_function_name("tool@v2"), "tool_v2");
         assert_eq!(sanitize_function_name("my.tool"), "my_tool");
-        assert_eq!(sanitize_function_name("bash"), "bash");
+        assert_eq!(sanitize_function_name("Bash"), "Bash");
         assert_eq!(
             sanitize_function_name("has/hyphens-and_underscores"),
             "has_hyphens-and_underscores"
@@ -823,8 +822,8 @@ Then read a file.
 
     #[test]
     fn test_is_valid_function_name() {
-        assert!(is_valid_function_name("read_file"));
-        assert!(is_valid_function_name("bash"));
+        assert!(is_valid_function_name("Read"));
+        assert!(is_valid_function_name("Bash"));
         assert!(is_valid_function_name("my-tool"));
         assert!(is_valid_function_name("Tool123"));
         assert!(!is_valid_function_name("read file"));

@@ -531,6 +531,45 @@ pub enum TaskRoutingAction {
     Handoff,
 }
 
+/// Context provided to team assembly that influences roster composition.
+///
+/// When `Some`, the team assembler uses the intent category, thinking depth,
+/// and required specialists to produce a richer roster. When `None`, the
+/// standard `assemble_team()` path is used unchanged.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AssemblyContext {
+    /// The classified intent category for the task.
+    pub intent_category: IntentCategory,
+    /// The reasoning depth recommended for the task.
+    pub thinking_depth: TaskThinkingMode,
+    /// Classification confidence (0.0–1.0).
+    pub confidence: f64,
+    /// Named specialists that should be added as `Scalpel` roles.
+    pub required_specialists: Vec<String>,
+}
+
+impl Default for AssemblyContext {
+    fn default() -> Self {
+        Self {
+            intent_category: IntentCategory::Implementation,
+            thinking_depth: TaskThinkingMode::Standard,
+            confidence: 0.5,
+            required_specialists: Vec::new(),
+        }
+    }
+}
+
+/// A single role assignment within an assembled team roster.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AgentRoleAssignment {
+    /// The team role (Builder, Skeptic, Judge, etc.).
+    pub role: TeamRole,
+    /// Optional specialization label (e.g., "security", "performance").
+    pub specialization: Option<String>,
+    /// Priority for budget-capped sizing (higher = kept first).
+    pub priority: u8,
+}
+
 /// A structured routing decision for a task.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TaskRoutingDecision {
@@ -550,6 +589,9 @@ pub struct TaskRoutingDecision {
     pub skills: Vec<String>,
     #[serde(default)]
     pub missing_info: Vec<String>,
+    /// A richer roster assembled from `AssemblyContext`. Absent in legacy paths.
+    #[serde(default)]
+    pub roster: Option<Vec<AgentRoleAssignment>>,
 }
 
 impl TaskRoutingDecision {
@@ -588,6 +630,19 @@ impl TaskRoutingDecision {
                 "- Missing information: {}",
                 self.missing_info.join(", ")
             ));
+        }
+
+        if let Some(roster) = &self.roster {
+            let roles: Vec<String> = roster
+                .iter()
+                .map(|a| {
+                    a.specialization
+                        .as_deref()
+                        .map(|s| format!("{}:{}", a.role, s))
+                        .unwrap_or_else(|| a.role.to_string())
+                })
+                .collect();
+            lines.push(format!("- Roster: {}", roles.join(", ")));
         }
 
         lines.join("\n")
@@ -733,5 +788,79 @@ mod tests {
         let rendered = render_handoff_block(&handoff);
         let parsed = parse_handoff_block(&rendered).unwrap();
         assert_eq!(parsed, handoff);
+    }
+
+    #[test]
+    fn assembly_context_default() {
+        let ctx = AssemblyContext::default();
+        assert_eq!(ctx.intent_category, IntentCategory::Implementation);
+        assert_eq!(ctx.thinking_depth, TaskThinkingMode::Standard);
+        assert_eq!(ctx.confidence, 0.5);
+        assert!(ctx.required_specialists.is_empty());
+    }
+
+    #[test]
+    fn assembly_context_serde_roundtrip() {
+        let ctx = AssemblyContext {
+            intent_category: IntentCategory::Diagnostic,
+            thinking_depth: TaskThinkingMode::Deep,
+            confidence: 0.85,
+            required_specialists: vec!["security".into(), "performance".into()],
+        };
+        let json = serde_json::to_string(&ctx).unwrap();
+        let decoded: AssemblyContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.intent_category, ctx.intent_category);
+        assert_eq!(decoded.thinking_depth, ctx.thinking_depth);
+        assert!((decoded.confidence - ctx.confidence).abs() < f64::EPSILON);
+        assert_eq!(decoded.required_specialists, ctx.required_specialists);
+    }
+
+    #[test]
+    fn agent_role_assignment_serde_roundtrip() {
+        let a = AgentRoleAssignment {
+            role: TeamRole::Scalpel,
+            specialization: Some("security".into()),
+            priority: 0,
+        };
+        let json = serde_json::to_string(&a).unwrap();
+        let decoded: AgentRoleAssignment = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded, a);
+    }
+
+    #[test]
+    fn task_routing_decision_roster_backward_compat() {
+        let json = r#"{
+            "intent": "Implementation",
+            "confidence": 0.8,
+            "action": "proceed",
+            "workflow": "code",
+            "team": "builder",
+            "agent": "builder"
+        }"#;
+        let decoded: TaskRoutingDecision = serde_json::from_str(json).unwrap();
+        assert!(decoded.roster.is_none());
+    }
+
+    #[test]
+    fn task_routing_decision_roster_present() {
+        let json = r#"{
+            "intent": "Implementation",
+            "confidence": 0.9,
+            "action": "proceed",
+            "workflow": "code",
+            "team": "builder",
+            "agent": "builder",
+            "roster": [
+                {"role": "coordinator", "specialization": null, "priority": 5},
+                {"role": "builder", "specialization": null, "priority": 4},
+                {"role": "scalpel", "specialization": "security", "priority": 0}
+            ]
+        }"#;
+        let decoded: TaskRoutingDecision = serde_json::from_str(json).unwrap();
+        let roster = decoded.roster.unwrap();
+        assert_eq!(roster.len(), 3);
+        assert_eq!(roster[0].role, TeamRole::Coordinator);
+        assert_eq!(roster[2].role, TeamRole::Scalpel);
+        assert_eq!(roster[2].specialization.as_deref(), Some("security"));
     }
 }

@@ -910,7 +910,7 @@ mod tests {
             role: MessageRole::Assistant,
             content: MessageContent::Blocks(vec![ContentBlock::tool_use(
                 "call_123",
-                "read_file",
+                "Read",
                 serde_json::json!({"path": "a.rs"}),
             )]),
         }];
@@ -918,7 +918,7 @@ mod tests {
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].role, "assistant");
         // Tool use is flattened to a descriptive text string
-        assert!(result[0].content.contains("read_file"));
+        assert!(result[0].content.contains("Read"));
         assert!(result[0].content.contains("[Tool use:"));
     }
 
@@ -1008,7 +1008,7 @@ mod tests {
             role: MessageRole::Assistant,
             content: MessageContent::Blocks(vec![
                 ContentBlock::text("Reading file now."),
-                ContentBlock::tool_use("call_x", "read_file", serde_json::json!({"path": "x.rs"})),
+                ContentBlock::tool_use("call_x", "Read", serde_json::json!({"path": "x.rs"})),
             ]),
         }];
         let result = OllamaProvider::convert_messages(msgs);

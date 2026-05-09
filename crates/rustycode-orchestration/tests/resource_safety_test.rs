@@ -392,7 +392,7 @@ mod musician_resource_integration {
         let musician = Musician::new();
         let step = make_step(
             "s-read",
-            Some("bash"),
+            Some("Bash"),
             RequiredResources::new().read("/tmp/resource-test-read.rs"),
         );
         let mut trace = ExecutionTrace::new("t-read".into());
@@ -422,7 +422,7 @@ mod musician_resource_integration {
 
         let step = make_step(
             "s-blocked",
-            Some("bash"),
+            Some("Bash"),
             RequiredResources::new().write("/tmp/resource-test-blocked.rs"),
         );
         let mut trace = ExecutionTrace::new("t-blocked".into());
@@ -435,7 +435,7 @@ mod musician_resource_integration {
     async fn test_musician_step_no_resources_succeeds() {
         let _bus = BusHandle::new(16);
         let musician = Musician::new();
-        let step = make_step("s-free", Some("bash"), RequiredResources::new());
+        let step = make_step("s-free", Some("Bash"), RequiredResources::new());
         let mut trace = ExecutionTrace::new("t-free".into());
 
         let result = musician.play_step(&step, &mut trace).await.unwrap();
@@ -451,12 +451,12 @@ mod musician_resource_integration {
         let mut trace = ExecutionTrace::new("t-seq".into());
 
         // Step 1
-        let step1 = make_step("s-seq-1", Some("bash"), rr.clone());
+        let step1 = make_step("s-seq-1", Some("Bash"), rr.clone());
         let result1 = musician.play_step(&step1, &mut trace).await.unwrap();
         assert!(result1.is_success());
 
         // Step 2 — same resource, should succeed since step1 released it
-        let step2 = make_step("s-seq-2", Some("bash"), rr);
+        let step2 = make_step("s-seq-2", Some("Bash"), rr);
         let result2 = musician.play_step(&step2, &mut trace).await.unwrap();
         assert!(result2.is_success());
     }
@@ -469,7 +469,7 @@ mod musician_resource_integration {
 
         let step = make_step(
             "s-custom-lm",
-            Some("bash"),
+            Some("Bash"),
             RequiredResources::new().read("/tmp/resource-test-custom.rs"),
         );
         let mut trace = ExecutionTrace::new("t-custom-lm".into());

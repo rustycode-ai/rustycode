@@ -148,7 +148,7 @@ fn test_end_to_end_grep_routing() {
 
     // grep should be sent for exact string search
     assert!(
-        tool_strings.contains(&"grep".to_string()),
+        tool_strings.contains(&"Grep".to_string()),
         "grep should be sent for exact string query. Got: {:?}",
         tool_strings
     );
@@ -182,10 +182,10 @@ fn test_full_pipeline_semantic() {
 
     // Step 2: Verify tool filtering would select semantic_search
     let available_tools = vec![
-        "grep".to_string(),
-        "glob".to_string(),
+        "Grep".to_string(),
+        "Glob".to_string(),
         "semantic_search".to_string(),
-        "read_file".to_string(),
+        "Read".to_string(),
     ];
 
     let filtered = ToolSelectionState::apply_auto_routing(&available_tools, query);

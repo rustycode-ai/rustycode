@@ -382,12 +382,12 @@ mod tests {
                 updated_at: 1000,
                 events: vec![
                     WorkerEvent::ToolCalled {
-                        tool_name: "read_file".to_string(),
+                        tool_name: "Read".to_string(),
                         target: "bash.rs".to_string(),
                         timestamp: 1001,
                     },
                     WorkerEvent::ToolCalled {
-                        tool_name: "grep".to_string(),
+                        tool_name: "Grep".to_string(),
                         target: "panic".to_string(),
                         timestamp: 1002,
                     },
@@ -414,7 +414,7 @@ mod tests {
         assert_eq!(panel.count_by_status(WorkerStatus::Finished), 1);
         // First worker should have 2 tool calls extracted
         assert_eq!(panel.workers[0].recent_tools.len(), 2);
-        assert_eq!(panel.workers[0].recent_tools[0].tool_name, "grep");
+        assert_eq!(panel.workers[0].recent_tools[0].tool_name, "Grep");
         // Second worker has no tool calls
         assert!(panel.workers[1].recent_tools.is_empty());
     }
@@ -442,7 +442,7 @@ mod tests {
             created_at: 1000,
             updated_at: 1000,
             events: vec![WorkerEvent::ToolCalled {
-                tool_name: "read_file".to_string(),
+                tool_name: "Read".to_string(),
                 target: "src/main.rs".to_string(),
                 timestamp: 1001,
             }],

@@ -91,16 +91,16 @@ pub fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
 /// Normalize tool names from different providers to our canonical names.
 fn normalize_tool_name(name: &str) -> &str {
     match name {
-        "Edit" | "edit" | "text_editor_20250728" => "edit_file",
-        "Read" | "read" | "view" => "read_file",
-        "Write" | "Create" | "create" => "write_file",
-        "Bash" | "Shell" | "shell" | "execute" | "run_command" => "bash",
+        "Edit" | "edit" | "text_editor_20250728" => "Edit",
+        "Read" | "read" | "view" => "Read",
+        "Write" | "Create" | "create" => "Write",
+        "Bash" | "Shell" | "shell" | "execute" | "run_command" => "Bash",
         "PowerShell" | "pwsh" => "powershell",
         "Cmd" | "cmd" | "cmd.exe" => "cmd",
-        "Grep" | "Search" | "search" => "grep",
-        "Glob" | "Find" | "find" => "glob",
-        "NotebookEdit" | "notebook_edit" => "notebook_edit",
-        "WebFetch" | "web_fetch" | "fetch" => "web_fetch",
+        "Grep" | "Search" | "search" => "Grep",
+        "Glob" | "Find" | "find" => "Glob",
+        "NotebookEdit" | "notebook_edit" => "NotebookEdit",
+        "WebFetch" | "web_fetch" | "fetch" => "WebFetch",
         "LSP" | "lsp" => "lsp",
         "ApplyPatch" | "apply_patch" | "patch" => "apply_patch",
         _ => name,
@@ -139,23 +139,23 @@ mod tests {
 
     #[test]
     fn normalize_tool_names() {
-        assert_eq!(normalize_tool_name("Edit"), "edit_file");
-        assert_eq!(normalize_tool_name("edit"), "edit_file");
-        assert_eq!(normalize_tool_name("text_editor_20250728"), "edit_file");
-        assert_eq!(normalize_tool_name("Read"), "read_file");
-        assert_eq!(normalize_tool_name("view"), "read_file");
-        assert_eq!(normalize_tool_name("Write"), "write_file");
-        assert_eq!(normalize_tool_name("Create"), "write_file");
-        assert_eq!(normalize_tool_name("Bash"), "bash");
-        assert_eq!(normalize_tool_name("Shell"), "bash");
-        assert_eq!(normalize_tool_name("execute"), "bash");
-        assert_eq!(normalize_tool_name("Grep"), "grep");
-        assert_eq!(normalize_tool_name("Search"), "grep");
-        assert_eq!(normalize_tool_name("Glob"), "glob");
-        assert_eq!(normalize_tool_name("Find"), "glob");
-        assert_eq!(normalize_tool_name("NotebookEdit"), "notebook_edit");
-        assert_eq!(normalize_tool_name("WebFetch"), "web_fetch");
-        assert_eq!(normalize_tool_name("fetch"), "web_fetch");
+        assert_eq!(normalize_tool_name("Edit"), "Edit");
+        assert_eq!(normalize_tool_name("edit"), "Edit");
+        assert_eq!(normalize_tool_name("text_editor_20250728"), "Edit");
+        assert_eq!(normalize_tool_name("Read"), "Read");
+        assert_eq!(normalize_tool_name("view"), "Read");
+        assert_eq!(normalize_tool_name("Write"), "Write");
+        assert_eq!(normalize_tool_name("Create"), "Write");
+        assert_eq!(normalize_tool_name("Bash"), "Bash");
+        assert_eq!(normalize_tool_name("Shell"), "Bash");
+        assert_eq!(normalize_tool_name("execute"), "Bash");
+        assert_eq!(normalize_tool_name("Grep"), "Grep");
+        assert_eq!(normalize_tool_name("Search"), "Grep");
+        assert_eq!(normalize_tool_name("Glob"), "Glob");
+        assert_eq!(normalize_tool_name("Find"), "Glob");
+        assert_eq!(normalize_tool_name("NotebookEdit"), "NotebookEdit");
+        assert_eq!(normalize_tool_name("WebFetch"), "WebFetch");
+        assert_eq!(normalize_tool_name("fetch"), "WebFetch");
         assert_eq!(normalize_tool_name("LSP"), "lsp");
         assert_eq!(normalize_tool_name("ApplyPatch"), "apply_patch");
         assert_eq!(normalize_tool_name("patch"), "apply_patch");

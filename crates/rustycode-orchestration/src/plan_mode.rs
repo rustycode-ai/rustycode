@@ -67,33 +67,25 @@ impl PlanMode {
         role_tool_matrix.insert(
             AgentRole::Planner,
             HashSet::from([
-                "read_file",
-                "write_file",
-                "bash",
+                "Read",
+                "Write",
+                "Bash",
                 "task",
                 "create_plan_from_template",
                 "approve_plan",
             ]),
         );
-        role_tool_matrix.insert(AgentRole::Architect, HashSet::from(["read_file", "task"]));
-        role_tool_matrix.insert(AgentRole::Researcher, HashSet::from(["read_file", "task"]));
-        role_tool_matrix.insert(AgentRole::Coordinator, HashSet::from(["read_file", "task"]));
+        role_tool_matrix.insert(AgentRole::Architect, HashSet::from(["Read", "task"]));
+        role_tool_matrix.insert(AgentRole::Researcher, HashSet::from(["Read", "task"]));
+        role_tool_matrix.insert(AgentRole::Coordinator, HashSet::from(["Read", "task"]));
         role_tool_matrix.insert(
             AgentRole::Worker,
-            HashSet::from([
-                "read_file",
-                "task",
-                "bash",
-                "write_file",
-                "edit_file",
-                "glob",
-                "grep",
-            ]),
+            HashSet::from(["Read", "task", "Bash", "Write", "Edit", "Glob", "Grep"]),
         );
-        role_tool_matrix.insert(AgentRole::Builder, HashSet::from(["read_file", "task"]));
-        role_tool_matrix.insert(AgentRole::Reviewer, HashSet::from(["read_file"]));
-        role_tool_matrix.insert(AgentRole::Skeptic, HashSet::from(["read_file"]));
-        role_tool_matrix.insert(AgentRole::Judge, HashSet::from(["read_file", "bash"]));
+        role_tool_matrix.insert(AgentRole::Builder, HashSet::from(["Read", "task"]));
+        role_tool_matrix.insert(AgentRole::Reviewer, HashSet::from(["Read"]));
+        role_tool_matrix.insert(AgentRole::Skeptic, HashSet::from(["Read"]));
+        role_tool_matrix.insert(AgentRole::Judge, HashSet::from(["Read", "Bash"]));
 
         Self {
             approval_triggers: vec![
@@ -266,8 +258,8 @@ impl PlanMode {
     fn is_sensitive_tool(&self, tool: &str) -> bool {
         matches!(
             tool,
-            "bash"
-                | "write_file"
+            "Bash"
+                | "Write"
                 | "replace_symbol_body"
                 | "insert_before_symbol"
                 | "insert_after_symbol"
@@ -348,16 +340,16 @@ mod tests {
     #[test]
     fn test_can_use_tool_planner() {
         let pm = PlanMode::default();
-        assert!(pm.can_use_tool(AgentRole::Planner, "read_file").is_ok());
-        assert!(pm.can_use_tool(AgentRole::Planner, "write_file").is_ok());
-        assert!(pm.can_use_tool(AgentRole::Planner, "bash").is_ok());
+        assert!(pm.can_use_tool(AgentRole::Planner, "Read").is_ok());
+        assert!(pm.can_use_tool(AgentRole::Planner, "Write").is_ok());
+        assert!(pm.can_use_tool(AgentRole::Planner, "Bash").is_ok());
     }
 
     #[test]
     fn test_can_use_tool_reviewer() {
         let pm = PlanMode::default();
-        assert!(pm.can_use_tool(AgentRole::Reviewer, "read_file").is_ok());
-        assert!(pm.can_use_tool(AgentRole::Reviewer, "bash").is_err());
+        assert!(pm.can_use_tool(AgentRole::Reviewer, "Read").is_ok());
+        assert!(pm.can_use_tool(AgentRole::Reviewer, "Bash").is_err());
     }
 
     #[test]
@@ -376,7 +368,7 @@ mod tests {
         });
         pm.set_role(AgentRole::Reviewer);
         // Everything allowed when plan mode disabled
-        assert!(pm.is_tool_allowed("bash").is_ok());
+        assert!(pm.is_tool_allowed("Bash").is_ok());
     }
 
     #[test]
@@ -446,16 +438,16 @@ mod tests {
     #[test]
     fn test_is_sensitive_tool() {
         let pm = PlanMode::default();
-        assert!(pm.is_sensitive_tool("bash"));
-        assert!(pm.is_sensitive_tool("write_file"));
-        assert!(!pm.is_sensitive_tool("read_file"));
-        assert!(!pm.is_sensitive_tool("glob"));
+        assert!(pm.is_sensitive_tool("Bash"));
+        assert!(pm.is_sensitive_tool("Write"));
+        assert!(!pm.is_sensitive_tool("Read"));
+        assert!(!pm.is_sensitive_tool("Glob"));
     }
 
     #[test]
     fn test_tool_gate_trait() {
         let pm = PlanMode::default();
         let gate: &dyn rustycode_tools::ToolGate = &pm;
-        assert!(gate.check_access(AgentRole::Planner, "bash").is_ok());
+        assert!(gate.check_access(AgentRole::Planner, "Bash").is_ok());
     }
 }

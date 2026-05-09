@@ -331,7 +331,7 @@ mod tests {
             task_id: "t1".into(),
             step_id: "s1".into(),
             tool_id: "tc-1".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             input_preview: "echo hi".into(),
         };
         let result = convert_event(&event).unwrap();
@@ -339,7 +339,7 @@ mod tests {
             result,
             StreamEvent::ToolCallStarted {
                 id: "tc-1".into(),
-                name: "bash".into()
+                name: "Bash".into()
             }
         );
     }
@@ -367,7 +367,7 @@ mod tests {
             task_id: "t1".into(),
             step_id: "s1".into(),
             tool_id: "tc-1".into(),
-            tool_name: "bash".into(),
+            tool_name: "Bash".into(),
             success: true,
             output_preview: "ok".into(),
         };
@@ -376,7 +376,7 @@ mod tests {
             result,
             StreamEvent::ToolExecCompleted {
                 id: "tc-1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
                 output: "ok".into(),
                 is_error: false
             }
@@ -413,7 +413,7 @@ mod tests {
     fn convert_tool_execution_started() {
         let event = OrchestrationEvent::ToolExecutionStarted {
             task_id: "t1".into(),
-            tool: "bash".into(),
+            tool: "Bash".into(),
             args: "echo hi".into(),
         };
         let result = convert_event(&event).unwrap();
@@ -421,7 +421,7 @@ mod tests {
             result,
             StreamEvent::ToolExecStarted {
                 id: "t1".into(),
-                name: "bash".into()
+                name: "Bash".into()
             }
         );
     }
@@ -430,7 +430,7 @@ mod tests {
     fn convert_tool_execution_finished() {
         let event = OrchestrationEvent::ToolExecutionFinished {
             task_id: "t1".into(),
-            tool: "read_file".into(),
+            tool: "Read".into(),
             result: "file contents".into(),
         };
         let result = convert_event(&event).unwrap();
@@ -438,7 +438,7 @@ mod tests {
             result,
             StreamEvent::ToolExecCompleted {
                 id: "t1".into(),
-                name: "read_file".into(),
+                name: "Read".into(),
                 output: "file contents".into(),
                 is_error: false
             }
@@ -454,7 +454,7 @@ mod tests {
                 Some(1),
                 "test failed".into(),
                 "s1".into(),
-                "bash".into(),
+                "Bash".into(),
             ),
         };
         let result = convert_event(&event).unwrap();

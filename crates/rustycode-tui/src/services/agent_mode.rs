@@ -192,16 +192,16 @@ You can add comments and documentation, but avoid changing code logic.
         // Fallback: if tool has no tags yet, allow basic tools
         matches!(
             tool_name,
-            "read_file"
+            "Read"
                 | "list_dir"
-                | "grep"
-                | "glob"
-                | "bash"
-                | "edit_file"
-                | "write_file"
+                | "Grep"
+                | "Glob"
+                | "Bash"
+                | "Edit"
+                | "Write"
                 | "question"
                 | "web_search"
-                | "web_fetch"
+                | "WebFetch"
         )
     }
 

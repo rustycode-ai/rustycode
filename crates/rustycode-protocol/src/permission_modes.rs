@@ -18,10 +18,10 @@
 //!
 //! // Check if a tool should be auto-allowed
 //! let rules = vec![
-//!     PermissionRule::allow("read_file"),
-//!     PermissionRule::deny("bash"),
+//!     PermissionRule::allow("Read"),
+//!     PermissionRule::deny("Bash"),
 //! ];
-//! let decision = PermissionMode::Default.decide("read_file", &rules);
+//! let decision = PermissionMode::Default.decide("Read", &rules);
 //! assert_eq!(decision, PermissionDecision::Allow);
 //! ```
 
@@ -180,10 +180,10 @@ pub(crate) fn is_plan_tool(name: &str) -> bool {
 pub(crate) fn is_read_only_tool(name: &str) -> bool {
     matches!(
         name,
-        "read_file"
+        "Read"
             | "list_dir"
-            | "grep"
-            | "glob"
+            | "Grep"
+            | "Glob"
             | "find"
             | "head"
             | "tail"
@@ -191,13 +191,13 @@ pub(crate) fn is_read_only_tool(name: &str) -> bool {
             | "file_info"
             | "search"
             | "web_search"
-            | "web_fetch"
+            | "WebFetch"
     )
 }
 
 /// Whether a tool modifies files.
 fn is_edit_tool(name: &str) -> bool {
-    matches!(name, "write_file" | "edit_file" | "atomic_write")
+    matches!(name, "Write" | "Edit" | "atomic_write")
 }
 
 /// The outcome of a permission decision.
@@ -289,7 +289,7 @@ impl PermissionRuleSource {
 pub struct PermissionRule {
     /// What to do when the rule matches.
     pub behavior: PermissionBehavior,
-    /// Tool name or glob pattern to match (e.g., "read_file", "bash", "*").
+    /// Tool name or glob pattern to match (e.g., "Read", "Bash", "*").
     pub tool_pattern: String,
     /// Where this rule came from.
     pub source: PermissionRuleSource,
@@ -338,7 +338,7 @@ impl PermissionRule {
         if self.tool_pattern == tool_name {
             return true;
         }
-        // Simple glob: "bash*" matches "bash", "bash_tool"
+        // Simple glob: "bash*" matches "Bash", "bash_tool"
         if let Some(prefix) = self.tool_pattern.strip_suffix('*') {
             return tool_name.starts_with(prefix);
         }
@@ -444,89 +444,81 @@ mod tests {
     #[test]
     fn bypass_mode_allows_everything() {
         let rules = vec![];
-        assert!(PermissionMode::Bypass.decide("bash", &rules).is_allowed());
-        assert!(PermissionMode::Bypass
-            .decide("write_file", &rules)
-            .is_allowed());
-        assert!(PermissionMode::Bypass
-            .decide("read_file", &rules)
-            .is_allowed());
+        assert!(PermissionMode::Bypass.decide("Bash", &rules).is_allowed());
+        assert!(PermissionMode::Bypass.decide("Write", &rules).is_allowed());
+        assert!(PermissionMode::Bypass.decide("Read", &rules).is_allowed());
     }
 
     #[test]
     fn plan_mode_allows_readonly_blocks_writes() {
         let rules = vec![];
-        assert!(PermissionMode::Plan
-            .decide("read_file", &rules)
-            .is_allowed());
+        assert!(PermissionMode::Plan.decide("Read", &rules).is_allowed());
         assert!(PermissionMode::Plan.decide("list_dir", &rules).is_allowed());
-        assert!(PermissionMode::Plan
-            .decide("write_file", &rules)
-            .is_denied());
-        assert!(PermissionMode::Plan.decide("bash", &rules).is_denied());
+        assert!(PermissionMode::Plan.decide("Write", &rules).is_denied());
+        assert!(PermissionMode::Plan.decide("Bash", &rules).is_denied());
     }
 
     #[test]
     fn accept_edits_allows_edits_asks_exec() {
         let rules = vec![];
         assert!(PermissionMode::AcceptEdits
-            .decide("write_file", &rules)
+            .decide("Write", &rules)
             .is_allowed());
         assert!(PermissionMode::AcceptEdits
-            .decide("edit_file", &rules)
+            .decide("Edit", &rules)
             .is_allowed());
         assert!(PermissionMode::AcceptEdits
-            .decide("read_file", &rules)
+            .decide("Read", &rules)
             .is_allowed());
-        assert!(PermissionMode::AcceptEdits.decide("bash", &rules).is_ask());
+        assert!(PermissionMode::AcceptEdits.decide("Bash", &rules).is_ask());
     }
 
     #[test]
     fn deny_rules_override_mode() {
-        let rules = vec![PermissionRule::deny("read_file")];
+        let rules = vec![PermissionRule::deny("Read")];
         // Even bypass mode should respect explicit deny rules
-        let decision = PermissionMode::Bypass.decide("read_file", &rules);
+        let decision = PermissionMode::Bypass.decide("Read", &rules);
         assert!(decision.is_denied());
     }
 
     #[test]
     fn allow_rules_override_mode() {
-        let rules = vec![PermissionRule::allow("bash")];
+        let rules = vec![PermissionRule::allow("Bash")];
         // Plan mode would deny bash, but explicit allow overrides
-        let decision = PermissionMode::Plan.decide("bash", &rules);
+        let decision = PermissionMode::Plan.decide("Bash", &rules);
         assert!(decision.is_allowed());
     }
 
     #[test]
     fn rule_pattern_matching() {
-        let rule = PermissionRule::allow("bash*");
-        assert!(rule.matches("bash"));
-        assert!(rule.matches("bash_tool"));
-        assert!(!rule.matches("read_file"));
+        let rule = PermissionRule::allow("Bash*");
+        assert!(rule.matches("Bash"));
+        assert!(rule.matches("Bash_tool"));
+        assert!(!rule.matches("Read"));
 
         let rule = PermissionRule::deny("*");
         assert!(rule.matches("anything"));
-        assert!(rule.matches("bash"));
+        assert!(rule.matches("Bash"));
     }
 
     #[test]
     fn rule_set_precedence() {
         let mut rules = PermissionRuleSet::new();
-        rules.add(PermissionRule::allow("bash").with_source(PermissionRuleSource::UserSettings));
-        rules.add(PermissionRule::deny("bash").with_source(PermissionRuleSource::Policy));
+        rules.add(PermissionRule::allow("Bash").with_source(PermissionRuleSource::UserSettings));
+        rules.add(PermissionRule::deny("Bash").with_source(PermissionRuleSource::Policy));
 
         // Policy deny should override user allow
-        let decision = rules.decide("bash", PermissionMode::Default);
+        let decision = rules.decide("Bash", PermissionMode::Default);
         assert!(decision.is_denied());
     }
 
     #[test]
     fn rule_set_ask_overrides_mode() {
         let mut rules = PermissionRuleSet::new();
-        rules.add(PermissionRule::ask("read_file"));
+        rules.add(PermissionRule::ask("Read"));
 
         // Even in bypass mode, explicit ask rule should prompt
-        let decision = rules.decide("read_file", PermissionMode::Bypass);
+        let decision = rules.decide("Read", PermissionMode::Bypass);
         assert!(decision.is_ask());
     }
 
@@ -542,44 +534,34 @@ mod tests {
     #[test]
     fn dont_ask_mode_allows_readonly_denies_unknown() {
         let rules = vec![];
-        assert!(PermissionMode::DontAsk
-            .decide("read_file", &rules)
-            .is_allowed());
-        assert!(PermissionMode::DontAsk.decide("bash", &rules).is_denied());
-        assert!(PermissionMode::DontAsk
-            .decide("write_file", &rules)
-            .is_denied());
+        assert!(PermissionMode::DontAsk.decide("Read", &rules).is_allowed());
+        assert!(PermissionMode::DontAsk.decide("Bash", &rules).is_denied());
+        assert!(PermissionMode::DontAsk.decide("Write", &rules).is_denied());
     }
 
     #[test]
     fn dont_ask_mode_respects_explicit_allow_rules() {
-        let rules = vec![PermissionRule::allow("bash")];
-        assert!(PermissionMode::DontAsk.decide("bash", &rules).is_allowed());
+        let rules = vec![PermissionRule::allow("Bash")];
+        assert!(PermissionMode::DontAsk.decide("Bash", &rules).is_allowed());
     }
 
     #[test]
     fn dont_ask_mode_respects_deny_rules() {
-        let rules = vec![PermissionRule::deny("read_file")];
-        assert!(PermissionMode::DontAsk
-            .decide("read_file", &rules)
-            .is_denied());
+        let rules = vec![PermissionRule::deny("Read")];
+        assert!(PermissionMode::DontAsk.decide("Read", &rules).is_denied());
     }
 
     #[test]
     fn bubble_mode_denies_everything() {
         let rules = vec![];
-        assert!(PermissionMode::Bubble
-            .decide("read_file", &rules)
-            .is_denied());
-        assert!(PermissionMode::Bubble.decide("bash", &rules).is_denied());
+        assert!(PermissionMode::Bubble.decide("Read", &rules).is_denied());
+        assert!(PermissionMode::Bubble.decide("Bash", &rules).is_denied());
     }
 
     #[test]
     fn bubble_mode_allows_explicit_rules() {
-        let rules = vec![PermissionRule::allow("read_file")];
-        assert!(PermissionMode::Bubble
-            .decide("read_file", &rules)
-            .is_allowed());
+        let rules = vec![PermissionRule::allow("Read")];
+        assert!(PermissionMode::Bubble.decide("Read", &rules).is_allowed());
     }
 
     #[test]

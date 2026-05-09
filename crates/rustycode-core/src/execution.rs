@@ -70,9 +70,9 @@ impl ExecutionCheckpointStore {
 pub fn is_critical_tool(tool_name: &str) -> bool {
     // Tools that are essential for plan continuation
     const CRITICAL_TOOLS: &[&str] = &[
-        "read_file",  // Can't proceed without reading files
-        "write_file", // Can't save results without writing
-        "bash",       // Command execution is critical
+        "Read",  // Can't proceed without reading files
+        "Write", // Can't save results without writing
+        "Bash",  // Command execution is critical
     ];
 
     // Extract base tool name (without parameters)
@@ -586,13 +586,13 @@ mod tests {
 
     #[test]
     fn test_is_critical_tool() {
-        assert!(is_critical_tool("read_file"));
-        assert!(is_critical_tool("write_file"));
-        assert!(is_critical_tool("bash"));
+        assert!(is_critical_tool("Read"));
+        assert!(is_critical_tool("Write"));
+        assert!(is_critical_tool("Bash"));
         assert!(is_critical_tool("bash:some command"));
 
-        assert!(!is_critical_tool("grep"));
-        assert!(!is_critical_tool("glob"));
+        assert!(!is_critical_tool("Grep"));
+        assert!(!is_critical_tool("Glob"));
         assert!(!is_critical_tool("git_status"));
     }
 

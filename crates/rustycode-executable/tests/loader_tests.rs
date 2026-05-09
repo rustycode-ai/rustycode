@@ -111,10 +111,10 @@ async fn test_loader_basic_interface() {
 
 #[tokio::test]
 async fn test_loader_load_by_id() {
-    let unit = make_tool_unit("bash");
+    let unit = make_tool_unit("Bash");
     let mock = MockLoader::new(vec![unit]);
-    let found = mock.load("bash").await.unwrap();
-    assert_eq!(found.id, "bash");
+    let found = mock.load("Bash").await.unwrap();
+    assert_eq!(found.id, "Bash");
 }
 
 #[tokio::test]
@@ -153,14 +153,14 @@ async fn test_registry_register_from_loader_duplicate_handling() {
 async fn test_registry_register_from_loader_multiple_units() {
     let registry = ExecutableRegistry::new();
     let loader = MockLoader::new(vec![
-        make_tool_unit("bash"),
+        make_tool_unit("Bash"),
         make_tool_unit("read"),
         make_tool_unit("write"),
     ]);
 
     registry.register_from_loader(&loader).await.unwrap();
 
-    assert!(registry.get_sync("bash").is_some());
+    assert!(registry.get_sync("Bash").is_some());
     assert!(registry.get_sync("read").is_some());
     assert!(registry.get_sync("write").is_some());
     assert!(registry.get_sync("nonexistent").is_none());
@@ -171,7 +171,7 @@ async fn test_registry_register_from_loader_multiple_units() {
 #[tokio::test]
 async fn test_native_tool_loader_creates_units() {
     let loader = rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
-        "bash".to_string(),
+        "Bash".to_string(),
         "read".to_string(),
     ]);
 
@@ -179,24 +179,24 @@ async fn test_native_tool_loader_creates_units() {
 
     let units = loader.load_units().await.unwrap();
     assert_eq!(units.len(), 2);
-    assert!(units.iter().any(|u| u.id == "bash"));
+    assert!(units.iter().any(|u| u.id == "Bash"));
     assert!(units.iter().any(|u| u.id == "read"));
 }
 
 #[tokio::test]
 async fn test_native_tool_loader_individual_load() {
     let loader = rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
-        "bash".to_string(),
+        "Bash".to_string(),
     ]);
 
-    let unit = loader.load("bash").await.unwrap();
-    assert_eq!(unit.id, "bash");
+    let unit = loader.load("Bash").await.unwrap();
+    assert_eq!(unit.id, "Bash");
 }
 
 #[tokio::test]
 async fn test_native_tool_loader_missing() {
     let loader = rustycode_executable::registry::native_tool_loader::NativeToolLoader::new(vec![
-        "bash".to_string(),
+        "Bash".to_string(),
     ]);
 
     let result = loader.load("nonexistent").await;

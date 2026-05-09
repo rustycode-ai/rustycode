@@ -14,7 +14,7 @@ use std::path::PathBuf;
 pub struct ToolCall {
     /// Stable, opaque identifier correlating this call to its result
     pub call_id: String,
-    /// Name of the tool to invoke (e.g., "read_file", "bash")
+    /// Name of the tool to invoke (e.g., "Read", "Bash")
     pub name: String,
     /// JSON object whose shape is defined by the tool's parameters_schema
     pub arguments: serde_json::Value,
@@ -243,12 +243,12 @@ mod tests {
     fn test_tool_call_creation() {
         let call = ToolCall::new(
             "test-call",
-            "read_file",
+            "Read",
             serde_json::json!({"path": "/tmp/test.txt"}),
         );
 
         assert_eq!(call.call_id, "test-call");
-        assert_eq!(call.name, "read_file");
+        assert_eq!(call.name, "Read");
     }
 
     #[test]
@@ -281,13 +281,13 @@ mod tests {
             }
         });
 
-        let metadata = ToolMetadata::new("read_file", "Read a file", schema)
+        let metadata = ToolMetadata::new("Read", "Read a file", schema)
             .with_permission(ToolPermission::AutoAllow)
             .with_mutates(false)
             .add_tag("fs")
             .add_tag("read");
 
-        assert_eq!(metadata.name, "read_file");
+        assert_eq!(metadata.name, "Read");
         assert_eq!(metadata.permission, ToolPermission::AutoAllow);
         assert!(!metadata.mutates);
         assert_eq!(metadata.tags.len(), 2);
@@ -361,11 +361,11 @@ mod tests {
 
     #[test]
     fn tool_call_serde_roundtrip() {
-        let call = ToolCall::new("c1", "bash", serde_json::json!({"cmd": "ls"}));
+        let call = ToolCall::new("c1", "Bash", serde_json::json!({"cmd": "ls"}));
         let json = serde_json::to_string(&call).unwrap();
         let decoded: ToolCall = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.call_id, "c1");
-        assert_eq!(decoded.name, "bash");
+        assert_eq!(decoded.name, "Bash");
         assert_eq!(decoded.arguments["cmd"], "ls");
     }
 
@@ -430,7 +430,7 @@ mod tests {
     #[test]
     fn tool_metadata_serde_roundtrip() {
         let meta = ToolMetadata::new(
-            "bash",
+            "Bash",
             "Run commands",
             serde_json::json!({"type": "object"}),
         )
@@ -440,7 +440,7 @@ mod tests {
         .add_tag("dangerous");
         let json = serde_json::to_string(&meta).unwrap();
         let decoded: ToolMetadata = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded.name, "bash");
+        assert_eq!(decoded.name, "Bash");
         assert_eq!(decoded.permission, ToolPermission::Execute);
         assert!(decoded.mutates);
         assert_eq!(decoded.tags, vec!["shell", "dangerous"]);

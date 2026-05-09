@@ -236,7 +236,7 @@ impl DockerEnvironment {
             compose_file.to_str().unwrap_or(""),
             "exec",
             "main",
-            "bash",
+            "Bash",
             "-c",
             command,
         ];

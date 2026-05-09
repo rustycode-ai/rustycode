@@ -80,7 +80,7 @@ use std::sync::mpsc::channel;
 #[test]
 fn test_extract_inline_tool_json() {
     let response = r#"Some text before
-{"calls":[{"name":"bash","arguments":{"command":"ls"}}]}
+{"calls":[{"name":"Bash","arguments":{"command":"ls"}}]}
 Some text after"#;
 
     let payloads = auto_tool_parser::extract_tool_payloads(response);
@@ -95,22 +95,19 @@ Some text after"#;
 fn test_extract_fenced_tool_blocks() {
     let response = r#"Some text before
 ```tool
-{"name":"read_file","arguments":{"path":"test.rs"}}
+{"name":"Read","arguments":{"path":"test.rs"}}
 ```
 Some text after"#;
 
     let payloads = auto_tool_parser::extract_tool_payloads(response);
     assert_eq!(payloads.len(), 1, "Should extract fenced tool blocks");
-    assert!(
-        payloads[0].contains("read_file"),
-        "Should contain tool name"
-    );
+    assert!(payloads[0].contains("Read"), "Should contain tool name");
 }
 
 #[test]
 fn test_extract_multiple_inline_tools() {
-    let response = r#"{"calls":[{"name":"bash","arguments":{"command":"ls"}}]}
-{"calls":[{"name":"bash","arguments":{"command":"pwd"}}]}"#;
+    let response = r#"{"calls":[{"name":"Bash","arguments":{"command":"ls"}}]}
+{"calls":[{"name":"Bash","arguments":{"command":"pwd"}}]}"#;
 
     let payloads = auto_tool_parser::extract_tool_payloads(response);
     assert_eq!(
@@ -124,10 +121,10 @@ fn test_extract_multiple_inline_tools() {
 fn test_extract_mixed_tools() {
     let response = r#"Text
 ```tool
-{"name":"bash","arguments":{"command":"ls"}}
+{"name":"Bash","arguments":{"command":"ls"}}
 ```
 More text
-{"calls":[{"name":"bash","arguments":{"command":"pwd"}}]}
+{"calls":[{"name":"Bash","arguments":{"command":"pwd"}}]}
 End"#;
 
     let payloads = auto_tool_parser::extract_tool_payloads(response);
@@ -142,7 +139,7 @@ End"#;
 fn test_ignore_tool_json_in_code_blocks() {
     let response = r#"Here's a code example:
 ```json
-{"calls":[{"name":"bash","arguments":{"command":"ls"}}]}
+{"calls":[{"name":"Bash","arguments":{"command":"ls"}}]}
 ```
 This should not be extracted"#;
 
@@ -158,34 +155,35 @@ This should not be extracted"#;
 
 #[test]
 fn test_parse_single_tool_call() {
-    let payload = r#"{"calls":[{"name":"bash","arguments":{"command":"ls -la"}}]}"#;
+    let payload = r#"{"calls":[{"name":"Bash","arguments":{"command":"ls -la"}}]}"#;
 
     let calls =
         auto_tool_parser::parse_tool_calls_payload(payload).expect("Should parse tool calls");
 
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].name, "bash");
+    assert_eq!(calls[0].name, "Bash");
     assert_eq!(calls[0].arguments["command"], "ls -la");
 }
 
 #[test]
 fn test_parse_multiple_tool_calls() {
     let payload = r#"{"calls":[
-        {"name":"bash","arguments":{"command":"ls"}},
-        {"name":"bash","arguments":{"command":"pwd"}}
+        {"name":"Bash","arguments":{"command":"ls"}},
+        {"name":"Bash","arguments":{"command":"pwd"}}
     ]}"#;
 
     let calls = auto_tool_parser::parse_tool_calls_payload(payload)
         .expect("Should parse multiple tool calls");
 
     assert_eq!(calls.len(), 2);
-    assert_eq!(calls[0].name, "bash");
-    assert_eq!(calls[1].name, "bash");
+    assert_eq!(calls[0].name, "Bash");
+    assert_eq!(calls[1].name, "Bash");
 }
 
 #[test]
 fn test_parse_tool_with_string_arguments() {
-    let payload = r#"{"calls":[{"name":"write_file","arguments":{"path":"test.txt","content":"Hello World"}}]}"#;
+    let payload =
+        r#"{"calls":[{"name":"Write","arguments":{"path":"test.txt","content":"Hello World"}}]}"#;
 
     let calls = auto_tool_parser::parse_tool_calls_payload(payload)
         .expect("Should parse tool with string arguments");
@@ -351,7 +349,7 @@ fn test_format_tool_result_success() {
         new_cwd: None,
     };
 
-    let summary = tool_helpers::format_tool_result_summary(&result, "bash");
+    let summary = tool_helpers::format_tool_result_summary(&result, "Bash");
 
     assert!(summary.contains("success=true"), "Should indicate success");
     // Small outputs (<2000 chars and <50 lines) now include full output instead of metadata
@@ -372,7 +370,7 @@ fn test_format_tool_result_failure() {
         new_cwd: None,
     };
 
-    let summary = tool_helpers::format_tool_result_summary(&result, "bash");
+    let summary = tool_helpers::format_tool_result_summary(&result, "Bash");
 
     assert!(summary.contains("success=false"), "Should indicate failure");
     assert!(
@@ -394,7 +392,7 @@ fn test_format_tool_result_with_structured() {
         new_cwd: None,
     };
 
-    let summary = tool_helpers::format_tool_result_summary(&result, "bash");
+    let summary = tool_helpers::format_tool_result_summary(&result, "Bash");
 
     assert!(
         summary.contains("success=true"),
@@ -416,7 +414,7 @@ fn test_format_long_output_truncation() {
         new_cwd: None,
     };
 
-    let summary = tool_helpers::format_tool_result_summary(&result, "bash");
+    let summary = tool_helpers::format_tool_result_summary(&result, "Bash");
 
     assert!(summary.contains("…"), "Should truncate long output");
     assert!(
@@ -517,7 +515,7 @@ fn test_tool_result_channel_send_receive() {
 fn test_full_tool_execution_flow() {
     // Simulate full flow: extract -> parse -> sanitize
     let response = r#"Execute: ```tool
-{"name":"bash","arguments":{"command":"ls /tmp"}}
+{"name":"Bash","arguments":{"command":"ls /tmp"}}
 ```"#;
 
     // Step 1: Extract
@@ -527,7 +525,7 @@ fn test_full_tool_execution_flow() {
     // Step 2: Parse
     let calls = auto_tool_parser::parse_tool_calls_payload(&payloads[0]).expect("Should parse");
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].name, "bash");
+    assert_eq!(calls[0].name, "Bash");
 
     // Step 3: Sanitize command
     let cmd = calls[0].arguments["command"].as_str().unwrap();

@@ -353,8 +353,8 @@ mod tests {
             },
             500,
         );
-        recorder.tool_call("write_file", serde_json::json!({"path": "hello.rs"}));
-        recorder.tool_result("write_file", "File written", true, 100);
+        recorder.tool_call("Write", serde_json::json!({"path": "hello.rs"}));
+        recorder.tool_result("Write", "File written", true, 100);
         recorder.session_end("completed", 30);
 
         // Drop to close the channel and flush
@@ -377,7 +377,7 @@ mod tests {
         );
         assert!(matches!(&events[2], RolloutEvent::AssistantMessage { .. }));
         assert!(
-            matches!(&events[3], RolloutEvent::ToolCall { tool_name, .. } if tool_name == "write_file")
+            matches!(&events[3], RolloutEvent::ToolCall { tool_name, .. } if tool_name == "Write")
         );
         assert!(matches!(&events[4], RolloutEvent::ToolResult { .. }));
         assert!(

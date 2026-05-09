@@ -383,7 +383,7 @@ mod tests {
     #[test]
     fn diff_scroll_stops_at_zero() {
         let mut req = ApprovalRequest::new(
-            "edit_file".into(),
+            "Edit".into(),
             risk::ToolType::WriteFile,
             "Edit src/main.rs".into(),
             "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new".into(),
@@ -398,7 +398,7 @@ mod tests {
         let content =
             "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new";
         let mut req = ApprovalRequest::new(
-            "edit_file".into(),
+            "Edit".into(),
             risk::ToolType::WriteFile,
             "Edit".into(),
             content.into(),
@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn has_diff_content_true_for_git_diff() {
         let req = ApprovalRequest::new(
-            "edit_file".into(),
+            "Edit".into(),
             risk::ToolType::WriteFile,
             "desc".into(),
             "diff --git a/foo b/foo\n--- a/foo\n+++ b/foo".into(),
@@ -428,7 +428,7 @@ mod tests {
     #[test]
     fn has_diff_content_false_for_plain_command() {
         let req = ApprovalRequest::new(
-            "bash".into(),
+            "Bash".into(),
             risk::ToolType::Bash,
             "desc".into(),
             "ls -la".into(),
@@ -439,7 +439,7 @@ mod tests {
     #[test]
     fn approval_panel_size_compact_without_diff() {
         let req = ApprovalRequest::new(
-            "bash".into(),
+            "Bash".into(),
             risk::ToolType::Bash,
             "desc".into(),
             "ls -la".into(),
@@ -453,7 +453,7 @@ mod tests {
     #[test]
     fn approval_panel_size_expanded_with_diff() {
         let req = ApprovalRequest::new(
-            "edit_file".into(),
+            "Edit".into(),
             risk::ToolType::WriteFile,
             "desc".into(),
             "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new".into(),
@@ -468,7 +468,7 @@ mod tests {
     #[test]
     fn approval_state_checks() {
         let mut req = ApprovalRequest::new(
-            "bash".into(),
+            "Bash".into(),
             risk::ToolType::Bash,
             "desc".into(),
             "ls".into(),

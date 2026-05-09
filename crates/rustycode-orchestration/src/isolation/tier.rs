@@ -159,10 +159,8 @@ impl ToolPolicy {
 /// Classify a tool name into its capability level.
 pub fn classify_tool(tool_name: &str) -> ToolCapability {
     match tool_name {
-        "read" | "read_file" | "grep" | "glob" | "ls" | "find" | "head" | "cat" => {
-            ToolCapability::Read
-        }
-        "write" | "write_file" | "edit" | "edit_file" | "notebook_edit" => ToolCapability::Write,
+        "read" | "Read" | "Grep" | "Glob" | "ls" | "find" | "head" | "cat" => ToolCapability::Read,
+        "write" | "Write" | "edit" | "Edit" | "NotebookEdit" => ToolCapability::Write,
         _ => ToolCapability::Exec,
     }
 }
@@ -429,19 +427,19 @@ mod tests {
     #[test]
     fn tool_policy_is_tool_allowed_for_read_tool() {
         let policy = ToolPolicy::composer();
-        assert!(policy.is_tool_allowed(classify_tool("read_file")));
+        assert!(policy.is_tool_allowed(classify_tool("Read")));
     }
 
     #[test]
     fn tool_policy_is_tool_allowed_for_write_tool() {
         let policy = ToolPolicy::editor();
-        assert!(policy.is_tool_allowed(classify_tool("write_file")));
+        assert!(policy.is_tool_allowed(classify_tool("Write")));
     }
 
     #[test]
     fn tool_policy_is_tool_allowed_for_exec_tool() {
         let policy = ToolPolicy::musician();
-        assert!(policy.is_tool_allowed(classify_tool("bash")));
+        assert!(policy.is_tool_allowed(classify_tool("Bash")));
     }
 
     #[test]
@@ -500,25 +498,25 @@ mod tests {
     #[test]
     fn tier_isolation_check_tool_allowed_musician_exec() {
         let isolation = TierIsolation::with_defaults();
-        assert!(isolation.check_tool_allowed(2, "bash").is_ok());
+        assert!(isolation.check_tool_allowed(2, "Bash").is_ok());
     }
 
     #[test]
     fn tier_isolation_check_tool_allowed_editor_exec_blocked() {
         let isolation = TierIsolation::with_defaults();
-        assert!(isolation.check_tool_allowed(3, "bash").is_err());
+        assert!(isolation.check_tool_allowed(3, "Bash").is_err());
     }
 
     #[test]
     fn tier_isolation_check_tool_allowed_composer_write_blocked() {
         let isolation = TierIsolation::with_defaults();
-        assert!(isolation.check_tool_allowed(4, "write_file").is_err());
+        assert!(isolation.check_tool_allowed(4, "Write").is_err());
     }
 
     #[test]
     fn tier_isolation_check_tool_allowed_composer_read_ok() {
         let isolation = TierIsolation::with_defaults();
-        assert!(isolation.check_tool_allowed(4, "read_file").is_ok());
+        assert!(isolation.check_tool_allowed(4, "Read").is_ok());
     }
 
     #[test]

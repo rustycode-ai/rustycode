@@ -367,7 +367,7 @@ fn test_cache_control_on_system_and_tools() {
                 "input_schema": {"type": "object", "properties": {}}
             }),
             serde_json::json!({
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read a file",
                 "input_schema": {"type": "object", "properties": {}},
                 "cache_control": {"type": "ephemeral"}
@@ -494,7 +494,7 @@ fn test_roundtrip_tool_use_block_in_assistant_role() {
         role: MessageRole::Assistant,
         content: MessageContent::Blocks(vec![ProtoBlock::tool_use(
             "tu_1",
-            "read_file",
+            "Read",
             serde_json::json!({"path": "main.rs"}),
         )]),
     }];
@@ -510,7 +510,7 @@ fn test_roundtrip_tool_use_block_in_assistant_role() {
                     id, name, input, ..
                 } => {
                     assert_eq!(id, "tu_1");
-                    assert_eq!(name, "read_file");
+                    assert_eq!(name, "Read");
                     assert_eq!(input["path"], "main.rs");
                 }
                 other => panic!("expected ToolUse block, got {:?}", other),
@@ -667,7 +667,7 @@ fn test_roundtrip_mixed_text_and_tool_use() {
         role: MessageRole::Assistant,
         content: MessageContent::Blocks(vec![
             ProtoBlock::text("I'll read that file."),
-            ProtoBlock::tool_use("call_x", "read_file", serde_json::json!({"path": "x.rs"})),
+            ProtoBlock::tool_use("call_x", "Read", serde_json::json!({"path": "x.rs"})),
         ]),
     }];
     let result = provider.parse_conversation_messages(&msgs);
@@ -680,7 +680,7 @@ fn test_roundtrip_mixed_text_and_tool_use() {
                 matches!(&blocks[0], super::ContentBlock::Text { text, .. } if text == "I'll read that file.")
             );
             assert!(
-                matches!(&blocks[1], super::ContentBlock::ToolUse { id, name, .. } if id == "call_x" && name == "read_file")
+                matches!(&blocks[1], super::ContentBlock::ToolUse { id, name, .. } if id == "call_x" && name == "Read")
             );
         }
         other => panic!("expected Blocks, got {:?}", other),
@@ -799,7 +799,7 @@ fn test_roundtrip_very_long_text_content() {
 fn test_anthropic_response_stop_reason_tool_use() {
     let json = r#"{
         "content": [
-            {"type": "tool_use", "text": "", "id": "tu_1", "name": "read_file", "input": {"path": "main.rs"}}
+            {"type": "tool_use", "text": "", "id": "tu_1", "name": "Read", "input": {"path": "main.rs"}}
         ],
         "usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
         "model": "claude-sonnet-4-6",
@@ -1061,7 +1061,7 @@ fn test_tool_use_id_preserved_in_serialized_content() {
     let json = r#"{
         "content": [
             {"type": "text", "text": "I'll run a command.", "id": "", "name": "", "input": null},
-            {"type": "tool_use", "text": "", "id": "call_abc123def456", "name": "bash", "input": {"command": "ls /app/"}}
+            {"type": "tool_use", "text": "", "id": "call_abc123def456", "name": "Bash", "input": {"command": "ls /app/"}}
         ],
         "usage": {"input_tokens": 10, "output_tokens": 5, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
         "model": "glm-5.1",
@@ -1084,7 +1084,7 @@ fn test_tool_use_id_preserved_in_serialized_content() {
 
     assert_eq!(tool_calls.len(), 1);
     assert_eq!(tool_calls[0]["id"], "call_abc123def456");
-    assert_eq!(tool_calls[0]["name"], "bash");
+    assert_eq!(tool_calls[0]["name"], "Bash");
 
     // Verify the serialized JSON contains the id for downstream consumers
     let serialized = serde_json::to_string(&tool_calls).unwrap();

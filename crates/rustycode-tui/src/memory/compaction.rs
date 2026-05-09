@@ -599,11 +599,11 @@ fn truncate_smart(s: &str, max_len: usize) -> String {
 /// Extract a file path from tool input JSON if present.
 fn extract_path_from_input(tool_name: &str, input: &serde_json::Value) -> Option<String> {
     match tool_name {
-        "read_file" | "write_file" | "edit_file" => input
+        "Read" | "Write" | "Edit" => input
             .get("path")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
-        "bash" => input
+        "Bash" => input
             .get("command")
             .and_then(|v| v.as_str())
             .and_then(|cmd| {
@@ -813,21 +813,21 @@ mod tests {
             create_message_with_tool(
                 MessageRole::Assistant,
                 "old response",
-                "read_file",
+                "Read",
                 &"old content ".repeat(10000),
             ),
             create_test_message(MessageRole::User, "old user msg"),
             create_message_with_tool(
                 MessageRole::Assistant,
                 "recent response 1",
-                "read_file",
+                "Read",
                 &"recent content 1 ".repeat(10000),
             ),
             create_test_message(MessageRole::User, "recent user 1"),
             create_message_with_tool(
                 MessageRole::Assistant,
                 "recent response 2",
-                "read_file",
+                "Read",
                 &"recent content 2 ".repeat(10000),
             ),
             create_test_message(MessageRole::User, "recent user 2"),
@@ -854,7 +854,7 @@ mod tests {
             create_message_with_tool(
                 MessageRole::Assistant,
                 "response",
-                "read_file",
+                "Read",
                 "small output", // way below PRUNE_MINIMUM
             ),
             create_test_message(MessageRole::User, "user msg 1"),
@@ -870,7 +870,7 @@ mod tests {
         let msg = create_message_with_tool(
             MessageRole::Assistant,
             "response",
-            "read_file",
+            "Read",
             PRUNED_OUTPUT_STUB,
         );
         // This is already pruned — should not be counted again
@@ -896,13 +896,13 @@ mod tests {
     fn test_extract_path_from_input() {
         let input = serde_json::json!({"path": "/src/main.rs"});
         assert_eq!(
-            extract_path_from_input("read_file", &input),
+            extract_path_from_input("Read", &input),
             Some("/src/main.rs".to_string())
         );
 
         let input = serde_json::json!({"command": "cat /etc/hosts"});
         assert_eq!(
-            extract_path_from_input("bash", &input),
+            extract_path_from_input("Bash", &input),
             Some("/etc/hosts".to_string())
         );
     }

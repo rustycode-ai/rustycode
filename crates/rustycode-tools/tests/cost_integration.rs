@@ -33,7 +33,7 @@ fn test_save_and_list_api_calls() {
         input_tokens: 1000,
         output_tokens: 500,
         cost_usd: 0.015,
-        tool_name: Some("edit_file".to_string()),
+        tool_name: Some("Edit".to_string()),
         provider: Some("anthropic".to_string()),
         called_at: chrono::Utc::now().to_rfc3339(),
         cache_read_tokens: 0,

@@ -57,7 +57,7 @@ impl LLMToolExecutor {
     /// Parse tool calls from Anthropic response content
     ///
     /// Anthropic returns tool_use blocks in content array:
-    /// {"type": "tool_use", "id": "...", "name": "bash", "input": {...}}
+    /// {"type": "tool_use", "id": "...", "name": "Bash", "input": {...}}
     pub fn parse_anthropic_tool_calls(&self, content: &str) -> Result<Vec<ParsedToolCall>> {
         let mut tool_calls = Vec::new();
 
@@ -128,7 +128,7 @@ impl LLMToolExecutor {
     /// Parse tool calls from OpenAI function calling response.
     ///
     /// Handles two formats:
-    /// 1. Pure JSON: `{"tool_calls": [{"id": "...", "function": {"name": "bash", "arguments": "{...}"}}]}`
+    /// 1. Pure JSON: `{"tool_calls": [{"id": "...", "function": {"name": "Bash", "arguments": "{...}"}}]}`
     /// 2. Markdown-wrapped: ```` ```tool\n[{"name": "...", "arguments": {...}}]\n``` ````
     ///
     /// Some providers (e.g. GLM-5.1 via OpenAI-compatible API) embed tool calls inside
@@ -494,7 +494,7 @@ mod tests {
         fn list(&self) -> Vec<ToolInfo> {
             vec![
                 ToolInfo {
-                    name: "bash".to_string(),
+                    name: "Bash".to_string(),
                     description: "Execute a shell command".to_string(),
                     parameters_schema: serde_json::json!({
                         "type": "object",
@@ -524,7 +524,7 @@ mod tests {
                     defer_loading: None,
                 },
                 ToolInfo {
-                    name: "read_file".to_string(),
+                    name: "Read".to_string(),
                     description: "Read a file".to_string(),
                     parameters_schema: serde_json::json!({
                         "type": "object",
@@ -550,14 +550,14 @@ mod tests {
                         call.arguments["path"].as_str().unwrap_or(".")
                     ),
                 ),
-                "read_file" => {
+                "Read" => {
                     if call.arguments["path"].as_str() == Some("/nonexistent/file.txt") {
                         ToolResult::error(call.call_id.clone(), "File not found")
                     } else {
                         ToolResult::success(call.call_id.clone(), "Fake file contents")
                     }
                 }
-                "bash" => ToolResult::success(call.call_id.clone(), "Fake bash output"),
+                "Bash" => ToolResult::success(call.call_id.clone(), "Fake bash output"),
                 other => ToolResult::error(call.call_id.clone(), format!("unknown tool '{other}'")),
             }
         }
@@ -573,12 +573,12 @@ mod tests {
 
         let content = r#"[
             {"type": "text", "text": "I'll help you with that."},
-            {"type": "tool_use", "id": "toolu_123", "name": "bash", "input": {"command": "ls"}}
+            {"type": "tool_use", "id": "toolu_123", "name": "Bash", "input": {"command": "ls"}}
         ]"#;
 
         let tool_calls = executor.parse_anthropic_tool_calls(content).unwrap();
         assert_eq!(tool_calls.len(), 1);
-        assert_eq!(tool_calls[0].name, "bash");
+        assert_eq!(tool_calls[0].name, "Bash");
         assert_eq!(tool_calls[0].id.as_ref().unwrap(), "toolu_123");
     }
 
@@ -591,7 +591,7 @@ mod tests {
                 {
                     "id": "call_123",
                     "function": {
-                        "name": "bash",
+                        "name": "Bash",
                         "arguments": "{\"command\": \"ls\"}"
                     }
                 }
@@ -600,7 +600,7 @@ mod tests {
 
         let tool_calls = executor.parse_openai_tool_calls(content).unwrap();
         assert_eq!(tool_calls.len(), 1);
-        assert_eq!(tool_calls[0].name, "bash");
+        assert_eq!(tool_calls[0].name, "Bash");
         assert_eq!(tool_calls[0].id.as_ref().unwrap(), "call_123");
     }
 
@@ -636,7 +636,7 @@ mod tests {
 
         let tool_calls = executor.parse_anthropic_tool_calls(content).unwrap();
         assert_eq!(tool_calls.len(), 1);
-        assert_eq!(tool_calls[0].name, "bash");
+        assert_eq!(tool_calls[0].name, "Bash");
         assert_eq!(
             tool_calls[0].id.as_ref().unwrap(),
             "call_-7703117166425406227"
@@ -663,12 +663,12 @@ mod tests {
             "id": "call_xyz",
             "type": "function",
             "function": {
-                "name": "read_file",
+                "name": "Read",
                 "arguments": "{\"path\": \"main.rs\"}"
             }
         });
         let parsed = parse_tool_call_item(&item).unwrap();
-        assert_eq!(parsed.name, "read_file");
+        assert_eq!(parsed.name, "Read");
         assert_eq!(parsed.id.as_ref().unwrap(), "call_xyz");
         assert_eq!(parsed.arguments["path"], "main.rs");
     }
@@ -676,11 +676,11 @@ mod tests {
     #[test]
     fn test_parse_tool_call_item_flat_format() {
         let item = serde_json::json!({
-            "name": "bash",
+            "name": "Bash",
             "arguments": {"command": "ls"}
         });
         let parsed = parse_tool_call_item(&item).unwrap();
-        assert_eq!(parsed.name, "bash");
+        assert_eq!(parsed.name, "Bash");
         assert_eq!(parsed.arguments["command"], "ls");
     }
 
@@ -688,11 +688,11 @@ mod tests {
     fn test_parse_tool_call_item_string_arguments() {
         // Some providers return arguments as a JSON string instead of parsed object
         let item = serde_json::json!({
-            "name": "bash",
+            "name": "Bash",
             "arguments": "{\"command\": \"ls -la\"}"
         });
         let parsed = parse_tool_call_item(&item).unwrap();
-        assert_eq!(parsed.name, "bash");
+        assert_eq!(parsed.name, "Bash");
         assert_eq!(parsed.arguments["command"], "ls -la");
     }
 
@@ -700,11 +700,11 @@ mod tests {
     fn test_parse_tool_call_item_invalid_string_arguments_falls_back() {
         // If string arguments aren't valid JSON, use the raw string value
         let item = serde_json::json!({
-            "name": "bash",
+            "name": "Bash",
             "arguments": "not valid json"
         });
         let parsed = parse_tool_call_item(&item).unwrap();
-        assert_eq!(parsed.name, "bash");
+        assert_eq!(parsed.name, "Bash");
         // Should fall back to the raw string value
         assert!(parsed.arguments.is_string());
     }

@@ -76,19 +76,19 @@ impl ToolSelectionState {
         match strategy {
             SearchStrategy::Lsp => tools
                 .iter()
-                .filter(|t| t.starts_with("lsp_") || *t == "read_file")
+                .filter(|t| t.starts_with("lsp_") || *t == "Read")
                 .cloned()
                 .collect(),
             SearchStrategy::Grep => {
-                if tools.contains(&"grep".to_string()) {
-                    vec!["grep".to_string()]
+                if tools.contains(&"Grep".to_string()) {
+                    vec!["Grep".to_string()]
                 } else {
                     tools.to_vec()
                 }
             }
             SearchStrategy::Glob => {
-                if tools.contains(&"glob".to_string()) {
-                    vec!["glob".to_string()]
+                if tools.contains(&"Glob".to_string()) {
+                    vec!["Glob".to_string()]
                 } else {
                     tools.to_vec()
                 }
@@ -96,16 +96,16 @@ impl ToolSelectionState {
             SearchStrategy::Semantic => {
                 if tools.contains(&"semantic_search".to_string()) {
                     vec!["semantic_search".to_string()]
-                } else if tools.contains(&"grep".to_string()) {
-                    vec!["grep".to_string()]
+                } else if tools.contains(&"Grep".to_string()) {
+                    vec!["Grep".to_string()]
                 } else {
                     tools.to_vec()
                 }
             }
             SearchStrategy::GrepThenSemantic => {
                 let mut filtered = Vec::new();
-                if tools.contains(&"grep".to_string()) {
-                    filtered.push("grep".to_string());
+                if tools.contains(&"Grep".to_string()) {
+                    filtered.push("Grep".to_string());
                 }
                 if tools.contains(&"semantic_search".to_string()) {
                     filtered.push("semantic_search".to_string());
@@ -136,9 +136,9 @@ mod tests {
     #[test]
     fn test_auto_routing_semantic() {
         let tools = vec![
-            "grep".to_string(),
+            "Grep".to_string(),
             "semantic_search".to_string(),
-            "read_file".to_string(),
+            "Read".to_string(),
         ];
         let prompt = "how do we validate JWT tokens?";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
@@ -149,13 +149,13 @@ mod tests {
     #[test]
     fn test_auto_routing_grep() {
         let tools = vec![
-            "grep".to_string(),
+            "Grep".to_string(),
             "semantic_search".to_string(),
-            "read_file".to_string(),
+            "Read".to_string(),
         ];
         let prompt = "\"Unauthorized\"";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
-        assert_eq!(filtered, vec!["grep".to_string()]);
+        assert_eq!(filtered, vec!["Grep".to_string()]);
     }
 
     #[test]
@@ -163,7 +163,7 @@ mod tests {
         let tools = vec![
             "lsp_definition".to_string(),
             "lsp_hover".to_string(),
-            "grep".to_string(),
+            "Grep".to_string(),
         ];
         let prompt = "`validate_jwt`";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
@@ -181,31 +181,27 @@ mod tests {
     #[cfg(feature = "vector-memory")]
     #[test]
     fn test_auto_routing_glob() {
-        let tools = vec![
-            "glob".to_string(),
-            "grep".to_string(),
-            "read_file".to_string(),
-        ];
+        let tools = vec!["Glob".to_string(), "Grep".to_string(), "Read".to_string()];
         let prompt = "src/**/*.rs";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
-        assert_eq!(filtered, vec!["glob".to_string()]);
+        assert_eq!(filtered, vec!["Glob".to_string()]);
     }
 
     #[cfg(feature = "vector-memory")]
     #[test]
     fn test_auto_routing_grep_then_semantic() {
-        let tools = vec!["grep".to_string(), "semantic_search".to_string()];
+        let tools = vec!["Grep".to_string(), "semantic_search".to_string()];
         let prompt = "auth";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
         assert_eq!(filtered.len(), 2);
-        assert!(filtered.contains(&"grep".to_string()));
+        assert!(filtered.contains(&"Grep".to_string()));
         assert!(filtered.contains(&"semantic_search".to_string()));
     }
 
     #[cfg(not(feature = "vector-memory"))]
     #[test]
     fn test_auto_routing_noop_without_feature() {
-        let tools = vec!["grep".to_string(), "read_file".to_string()];
+        let tools = vec!["Grep".to_string(), "Read".to_string()];
         let filtered = ToolSelectionState::apply_auto_routing(&tools, "any prompt");
         assert_eq!(filtered, tools);
     }
@@ -324,7 +320,7 @@ pub mod formatters {
 
         fn eager_tool() -> ToolInfo {
             ToolInfo {
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 description: "Run a shell command".to_string(),
                 parameters_schema: serde_json::json!({"type": "object", "properties": {"command": {"type": "string"}}}),
                 permission: ToolPermission::Execute,
@@ -355,7 +351,7 @@ pub mod formatters {
             let tools = vec![eager_tool()];
             let result = format_for_anthropic(&tools);
             assert_eq!(result.len(), 1);
-            assert_eq!(result[0]["name"], "bash");
+            assert_eq!(result[0]["name"], "Bash");
             assert_eq!(
                 result[0]["input_schema"]["properties"]["command"]["type"],
                 "string"

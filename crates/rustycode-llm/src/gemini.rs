@@ -998,14 +998,14 @@ mod tests {
     #[test]
     fn test_convert_tools_wraps_in_function_declarations() {
         let tools = vec![serde_json::json!({
-            "name": "bash",
+            "name": "Bash",
             "description": "Run a command",
             "input_schema": {"type": "object", "properties": {"command": {"type": "string"}}}
         })];
         let blocks = GeminiProvider::convert_tools(&tools);
         assert_eq!(blocks.len(), 1);
         assert_eq!(blocks[0].function_declarations.len(), 1);
-        assert_eq!(blocks[0].function_declarations[0].name, "bash");
+        assert_eq!(blocks[0].function_declarations[0].name, "Bash");
     }
 
     #[test]
@@ -1055,38 +1055,38 @@ mod tests {
 
     #[test]
     fn test_convert_tool_choice_named() {
-        let tc = serde_json::json!({"name": "bash"});
+        let tc = serde_json::json!({"name": "Bash"});
         let config = GeminiProvider::convert_tool_choice(&tc);
         assert!(config.is_some());
         let config = config.unwrap();
         assert_eq!(config.function_calling_config.mode, Some("ANY".to_string()));
         assert_eq!(
             config.function_calling_config.allowed_function_names,
-            Some(vec!["bash".to_string()])
+            Some(vec!["Bash".to_string()])
         );
     }
 
     #[test]
     fn test_gemini_function_call_deserialization() {
-        let json = r#"{"name": "bash", "args": {"command": "ls -la"}}"#;
+        let json = r#"{"name": "Bash", "args": {"command": "ls -la"}}"#;
         let fc: GeminiFunctionCall = serde_json::from_str(json).unwrap();
-        assert_eq!(fc.name, "bash");
+        assert_eq!(fc.name, "Bash");
         assert_eq!(fc.args["command"], "ls -la");
     }
 
     #[test]
     fn test_gemini_part_with_function_call() {
-        let json = r#"{"functionCall": {"name": "bash", "args": {"command": "ls"}}}"#;
+        let json = r#"{"functionCall": {"name": "Bash", "args": {"command": "ls"}}}"#;
         let part: GeminiPart = serde_json::from_str(json).unwrap();
         assert!(part.text.is_none());
         assert!(part.function_call.is_some());
-        assert_eq!(part.function_call.unwrap().name, "bash");
+        assert_eq!(part.function_call.unwrap().name, "Bash");
     }
 
     #[test]
     fn test_gemini_request_with_tools() {
         let tools = vec![serde_json::json!({
-            "name": "bash",
+            "name": "Bash",
             "description": "Run command",
             "input_schema": {"type": "object"}
         })];
@@ -1112,6 +1112,6 @@ mod tests {
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("functionDeclarations"));
-        assert!(json.contains("bash"));
+        assert!(json.contains("Bash"));
     }
 }

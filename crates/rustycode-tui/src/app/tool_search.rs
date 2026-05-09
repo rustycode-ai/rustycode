@@ -545,7 +545,7 @@ mod tests {
     fn make_test_tools() -> Vec<rustycode_tools::ToolInfo> {
         vec![
             rustycode_tools::ToolInfo {
-                name: "read_file".to_string(),
+                name: "Read".to_string(),
                 description: "Read the contents of a file from the filesystem".to_string(),
                 parameters_schema: serde_json::json!({
                     "type": "object",
@@ -565,7 +565,7 @@ mod tests {
                 max_result_size_chars: None,
             },
             rustycode_tools::ToolInfo {
-                name: "write_file".to_string(),
+                name: "Write".to_string(),
                 description: "Write content to a file on the filesystem".to_string(),
                 parameters_schema: serde_json::json!({
                     "type": "object",
@@ -589,7 +589,7 @@ mod tests {
                 max_result_size_chars: None,
             },
             rustycode_tools::ToolInfo {
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 description: "Execute a bash command in the terminal".to_string(),
                 parameters_schema: serde_json::json!({
                     "type": "object",
@@ -624,7 +624,7 @@ mod tests {
 
         let result = search.search(&query);
         assert!(!result.tools.is_empty());
-        assert!(result.tools[0].reference.name == "read_file");
+        assert!(result.tools[0].reference.name == "Read");
     }
 
     #[test]
@@ -633,14 +633,14 @@ mod tests {
         let search = ToolSearch::new(tools);
 
         let query = ToolSearchQuery {
-            query: "bash".to_string(),
+            query: "Bash".to_string(),
             algorithm: SearchAlgorithm::Regex,
             limit: 10,
         };
 
         let result = search.search(&query);
         assert!(!result.tools.is_empty());
-        assert!(result.tools[0].reference.name == "bash");
+        assert!(result.tools[0].reference.name == "Bash");
     }
 
     #[test]
@@ -648,9 +648,9 @@ mod tests {
         let tools = make_test_tools();
         let search = ToolSearch::new(tools);
 
-        let tool = search.tool("read_file");
+        let tool = search.tool("Read");
         assert!(tool.is_some());
-        assert_eq!(tool.unwrap().name, "read_file");
+        assert_eq!(tool.unwrap().name, "Read");
     }
 
     #[test]
@@ -681,6 +681,6 @@ mod tests {
         };
 
         let result = search.search(&query);
-        assert_eq!(result.tools[0].reference.name, "read_file");
+        assert_eq!(result.tools[0].reference.name, "Read");
     }
 }

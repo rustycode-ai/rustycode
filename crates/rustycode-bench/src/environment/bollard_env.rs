@@ -180,7 +180,7 @@ impl BenchEnvironment for BollardEnvironment {
 
         let exec_config = CreateExecOptions {
             cmd: Some(vec![
-                "bash".to_string(),
+                "Bash".to_string(),
                 "-c".to_string(),
                 command.to_string(),
             ]),

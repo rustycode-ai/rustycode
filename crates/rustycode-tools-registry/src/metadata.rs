@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn default_provider_returns_none_for_any_name() {
         let provider = DefaultMetadataProvider::new();
-        assert!(provider.metadata("bash").is_none());
+        assert!(provider.metadata("Bash").is_none());
         assert!(provider.metadata("").is_none());
     }
 

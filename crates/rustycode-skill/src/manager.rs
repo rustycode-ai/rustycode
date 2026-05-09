@@ -626,7 +626,7 @@ mod tests {
         let mut mgr = SkillManager::builder().build().unwrap();
 
         for _ in 0..4 {
-            mgr.observe_tool_use("bash", "cargo test");
+            mgr.observe_tool_use("Bash", "cargo test");
         }
 
         let unmatched = mgr.unmatched_signals();
@@ -712,7 +712,7 @@ mod tests {
         mgr.activate_skill("coder", "manual").unwrap();
         assert!(mgr.is_active("coder"));
 
-        mgr.observe_tool_use("bash", "cargo build");
+        mgr.observe_tool_use("Bash", "cargo build");
 
         let q = mgr.record_quality("coder", 0.9, 0.8, 0.9, 0.7);
         assert!(q.weighted_total() > 0.5);

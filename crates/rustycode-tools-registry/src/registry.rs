@@ -251,8 +251,8 @@ mod tests {
 
     #[test]
     fn test_tool_metadata_new() {
-        let meta = ToolMetadata::new("bash".to_string(), "Run commands".to_string());
-        assert_eq!(meta.name, "bash");
+        let meta = ToolMetadata::new("Bash".to_string(), "Run commands".to_string());
+        assert_eq!(meta.name, "Bash");
         assert_eq!(meta.description, "Run commands");
         assert_eq!(meta.version, "1.0.0");
         assert_eq!(meta.author, "Unknown");
@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_tool_metadata_with_tag() {
-        let meta = ToolMetadata::new("bash".to_string(), "desc".to_string())
+        let meta = ToolMetadata::new("Bash".to_string(), "desc".to_string())
             .with_tag("system".to_string())
             .with_tag("dangerous".to_string());
         assert_eq!(meta.tags, vec!["system", "dangerous"]);
@@ -270,14 +270,14 @@ mod tests {
 
     #[test]
     fn test_tool_metadata_with_version() {
-        let meta = ToolMetadata::new("bash".to_string(), "desc".to_string())
+        let meta = ToolMetadata::new("Bash".to_string(), "desc".to_string())
             .with_version("2.0.0".to_string());
         assert_eq!(meta.version, "2.0.0");
     }
 
     #[test]
     fn test_tool_metadata_with_author() {
-        let meta = ToolMetadata::new("bash".to_string(), "desc".to_string())
+        let meta = ToolMetadata::new("Bash".to_string(), "desc".to_string())
             .with_author("Nat".to_string());
         assert_eq!(meta.author, "Nat");
     }
@@ -312,12 +312,12 @@ mod tests {
     #[test]
     fn list_for_tier_filters_tools() {
         let mut registry = ToolRegistry::new();
-        registry.register(StubTool { name: "read_file" }).unwrap();
-        registry.register(StubTool { name: "web_fetch" }).unwrap();
+        registry.register(StubTool { name: "Read" }).unwrap();
+        registry.register(StubTool { name: "WebFetch" }).unwrap();
 
         let default = registry.list_for_tier(ToolTier::Default);
         assert_eq!(default.len(), 1);
-        assert_eq!(default[0].name, "read_file");
+        assert_eq!(default[0].name, "Read");
 
         let extended = registry.list_for_tier(ToolTier::Extended);
         assert_eq!(extended.len(), 2);
@@ -413,12 +413,12 @@ mod tests {
     fn test_register_single_tool() {
         let mut registry = ToolRegistry::new();
         registry
-            .register(MockTool::new("bash", "Run shell commands"))
+            .register(MockTool::new("Bash", "Run shell commands"))
             .unwrap();
 
         let tools = registry.list();
         assert_eq!(tools.len(), 1);
-        assert_eq!(tools[0].name, "bash");
+        assert_eq!(tools[0].name, "Bash");
         assert_eq!(tools[0].description, "Run shell commands");
     }
 
@@ -426,7 +426,7 @@ mod tests {
     fn test_register_multiple_tools() {
         let mut registry = ToolRegistry::new();
         registry
-            .register(MockTool::new("bash", "Run commands"))
+            .register(MockTool::new("Bash", "Run commands"))
             .unwrap();
         registry
             .register(MockTool::new("read", "Read files"))
@@ -438,7 +438,7 @@ mod tests {
         let tools = registry.list();
         assert_eq!(tools.len(), 3);
         let names: Vec<&str> = tools.iter().map(|t| t.name.as_str()).collect();
-        assert!(names.contains(&"bash"));
+        assert!(names.contains(&"Bash"));
         assert!(names.contains(&"read"));
         assert!(names.contains(&"write"));
     }
@@ -447,13 +447,13 @@ mod tests {
     fn test_register_stores_metadata() {
         let mut registry = ToolRegistry::new();
         registry
-            .register(MockTool::new("grep", "Search files"))
+            .register(MockTool::new("Grep", "Search files"))
             .unwrap();
 
-        let meta = registry.metadata("grep");
+        let meta = registry.metadata("Grep");
         assert!(meta.is_some());
         let meta = meta.unwrap();
-        assert_eq!(meta.name, "grep");
+        assert_eq!(meta.name, "Grep");
         assert_eq!(meta.description, "Search files");
     }
 
@@ -471,8 +471,8 @@ mod tests {
     #[test]
     fn test_get_returns_none_unimplemented() {
         let mut registry = ToolRegistry::new();
-        registry.register(MockTool::new("bash", "Run")).unwrap();
-        assert!(registry.get("bash").is_none());
+        registry.register(MockTool::new("Bash", "Run")).unwrap();
+        assert!(registry.get("Bash").is_none());
     }
 
     #[test]

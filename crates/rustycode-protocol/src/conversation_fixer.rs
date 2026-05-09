@@ -512,7 +512,7 @@ mod tests {
         let messages = vec![Message::assistant(MessageContent::Blocks(vec![
             ContentBlock::text("Hello"),
             ContentBlock::text(" World"),
-            ContentBlock::tool_use("id1", "bash", json!({"cmd": "ls"})),
+            ContentBlock::tool_use("id1", "Bash", json!({"cmd": "ls"})),
             ContentBlock::text(" More text"),
         ]))];
 
@@ -630,8 +630,8 @@ mod tests {
             Message::user("do something"),
             Message::assistant(MessageContent::Blocks(vec![
                 ContentBlock::text("Let me check"),
-                ContentBlock::tool_use("orphan-1", "bash", json!({"cmd": "ls"})),
-                ContentBlock::tool_use("orphan-2", "read_file", json!({"path": "x"})),
+                ContentBlock::tool_use("orphan-1", "Bash", json!({"cmd": "ls"})),
+                ContentBlock::tool_use("orphan-2", "Read", json!({"path": "x"})),
             ])),
             Message::user("next turn"),
         ];
@@ -656,12 +656,12 @@ mod tests {
             Message::user("do something"),
             Message::assistant(MessageContent::Blocks(vec![ContentBlock::tool_use(
                 "call-1",
-                "bash",
+                "Bash",
                 json!({"cmd": "ls"}),
             )])),
             Message::user(MessageContent::Blocks(vec![ContentBlock::tool_use(
                 "call-1",
-                "bash",
+                "Bash",
                 json!({"result": "ok"}),
             )])),
         ];
@@ -765,7 +765,7 @@ mod tests {
             Message::assistant(MessageContent::Blocks(vec![
                 ContentBlock::text("Let me"),
                 ContentBlock::text(" check"),
-                ContentBlock::tool_use("orphan", "bash", json!({"cmd": "ls"})),
+                ContentBlock::tool_use("orphan", "Bash", json!({"cmd": "ls"})),
             ])),
             Message::assistant("Here's more"),
             Message::assistant("  \n"),
@@ -824,7 +824,7 @@ mod tests {
             Message::user("do something"),
             Message::assistant(MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "call-1".to_string(),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 input: Value::Null,
             }])),
         ];
@@ -853,7 +853,7 @@ mod tests {
             Message::user("do something"),
             Message::assistant(MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "call-1".to_string(),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 input: json!({"command": "ls"}),
             }])),
         ];

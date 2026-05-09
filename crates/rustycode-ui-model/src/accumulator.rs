@@ -125,7 +125,7 @@ mod tests {
             &mut session,
             &StreamEvent::ToolCallStarted {
                 id: "t1".to_string(),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
             },
         );
 
@@ -162,7 +162,7 @@ mod tests {
             &mut session,
             &StreamEvent::ToolExecCompleted {
                 id: "t2".to_string(),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 output: "command failed".to_string(),
                 is_error: true,
             },
@@ -299,7 +299,7 @@ mod tests {
             &mut session,
             &StreamEvent::ToolExecStarted {
                 id: "t1".to_string(),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
             },
         );
         assert_eq!(session.messages, before.messages);

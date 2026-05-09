@@ -178,9 +178,9 @@ pub fn bundled_skills() -> Vec<SkillDefinition> {
         SkillifyBuilder::new("debug")
             .description("Systematic debugging tool using instrumentation for stepping, variable inspection, and stack traces.")
             .when_to_use("Use when encountering bugs, test failures, or unexpected behavior.")
-            .allowed_tool("bash")
-            .allowed_tool("read_file")
-            .allowed_tool("grep")
+            .allowed_tool("Bash")
+            .allowed_tool("Read")
+            .allowed_tool("Grep")
             .build(),
         SkillifyBuilder::new("worktree")
             .description("Manage isolated development environments using git worktrees.")
@@ -193,7 +193,7 @@ pub fn bundled_skills() -> Vec<SkillDefinition> {
             .description("Conduct comprehensive web research by searching for information and fetching web content.")
             .when_to_use("Use when performing deep research, gathering market data, or verifying facts.")
             .allowed_tool("web_search")
-            .allowed_tool("web_fetch")
+            .allowed_tool("WebFetch")
             .build(),
     ]
 }
@@ -220,12 +220,12 @@ mod tests {
             .step("Do thing 1")
             .step("Do thing 2")
             .argument("file_path")
-            .allowed_tool("read_file")
+            .allowed_tool("Read")
             .build();
 
         assert_eq!(skill.description, "A full skill");
         assert_eq!(skill.when_to_use, "Use when needed");
-        assert_eq!(skill.allowed_tools, vec!["read_file"]);
+        assert_eq!(skill.allowed_tools, vec!["Read"]);
         assert_eq!(skill.argument_hint, Some("<file_path>".to_string()));
     }
 
@@ -268,8 +268,8 @@ mod tests {
     #[test]
     fn generate_markdown_with_tools() {
         let md = SkillifyBuilder::new("tool-skill")
-            .allowed_tool("bash")
-            .allowed_tool("read_file")
+            .allowed_tool("Bash")
+            .allowed_tool("Read")
             .generate_markdown();
 
         assert!(md.contains("allowed-tools:"));

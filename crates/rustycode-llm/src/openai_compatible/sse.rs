@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn tool_call_start_and_input() {
-        let line1 = r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"read_file"}}]}}]}"#;
+        let line1 = r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"Read"}}]}}]}"#;
         let line2 = r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"path\"}"}}]}}]}"#;
         let input = format!("{line1}\n{line2}\n");
         let state = SseParseState::default();
@@ -375,7 +375,7 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert!(matches!(
             &events[0],
-            Ok(StreamEvent::ToolCallStarted { id, name }) if id == "call_1" && name == "read_file"
+            Ok(StreamEvent::ToolCallStarted { id, name }) if id == "call_1" && name == "Read"
         ));
         assert!(matches!(
             &events[1],
@@ -508,7 +508,7 @@ mod tests {
         let lines = [
             r#"data: {"choices":[{"delta":{"content":"Hello"}}]}"#,
             r#"data: {"choices":[{"delta":{"content":" world"}}]}"#,
-            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"bash"}}]}}]}"#,
+            r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"Bash"}}]}}]}"#,
             r#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"ls"}}]}}]}"#,
             r#"data: {"choices":[{"finish_reason":"tool_calls", "delta":{}}]}"#,
             "data: [DONE]",

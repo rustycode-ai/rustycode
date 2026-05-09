@@ -170,18 +170,18 @@ impl ToolManager {
         // These are common filesystem MCP server tools that overlap with built-in tools.
         let overlap_map: std::collections::HashMap<&str, &str> = [
             // @modelcontextprotocol/server-filesystem equivalents
-            ("read_text_file", "read_file"),
-            ("write_file", "write_file"),
+            ("read_text_file", "Read"),
+            ("Write", "Write"),
             ("list_directory", "list_dir"),
             ("list_allowed_directories", "__skip__"), // no built-in equivalent, wastes turns
-            ("search_files", "grep"),
-            ("get_file_info", "__skip__"), // no useful equivalent
-            ("create_directory", "bash"),  // mkdir via bash
-            ("move_file", "bash"),         // mv via bash
-            ("read_multiple_files", "read_file"), // can read files individually
+            ("search_files", "Grep"),
+            ("get_file_info", "__skip__"),   // no useful equivalent
+            ("create_directory", "Bash"),    // mkdir via bash
+            ("move_file", "Bash"),           // mv via bash
+            ("read_multiple_files", "Read"), // can read files individually
             // Other common MCP servers
             ("directory_tree", "list_dir"),
-            ("read_file", "read_file"), // exact overlap
+            ("Read", "Read"), // exact overlap
         ]
         .into_iter()
         .collect();

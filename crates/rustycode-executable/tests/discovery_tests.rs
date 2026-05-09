@@ -14,9 +14,9 @@ fn setup_search() -> (Arc<ExecutableRegistry>, ToolSearchService) {
     let registry = Arc::new(ExecutableRegistry::new());
 
     // Register a variety of units with different hints
-    registry.register(make_tool_unit("bash")).unwrap();
-    registry.register(make_tool_unit("grep")).unwrap();
-    registry.register(make_tool_unit("glob")).unwrap();
+    registry.register(make_tool_unit("Bash")).unwrap();
+    registry.register(make_tool_unit("Grep")).unwrap();
+    registry.register(make_tool_unit("Glob")).unwrap();
     registry.register(make_skill_unit("code_review")).unwrap();
     registry.register(make_agent_unit("architect")).unwrap();
 
@@ -28,12 +28,12 @@ fn setup_search() -> (Arc<ExecutableRegistry>, ToolSearchService) {
 async fn search_finds_by_name_exact_match() {
     let (_registry, search) = setup_search();
     let results = search
-        .search("grep", ToolSearchOptions::default())
+        .search("Grep", ToolSearchOptions::default())
         .await
         .unwrap();
 
     assert!(!results.is_empty());
-    assert_eq!(results[0].id, "grep");
+    assert_eq!(results[0].id, "Grep");
     assert!(results[0].relevance_score > 0.0);
 }
 
@@ -90,12 +90,12 @@ async fn search_respects_limit() {
 async fn search_exact_name_scores_highest() {
     let (_registry, search) = setup_search();
     let results = search
-        .search("bash", ToolSearchOptions::default())
+        .search("Bash", ToolSearchOptions::default())
         .await
         .unwrap();
 
     // Exact name match should score 2.0, the highest
-    let bash_result = results.iter().find(|r| r.id == "bash").unwrap();
+    let bash_result = results.iter().find(|r| r.id == "Bash").unwrap();
     assert!(bash_result.relevance_score >= 2.0);
 }
 
@@ -107,9 +107,9 @@ async fn search_includes_full_definitions_when_requested() {
         limit: 10,
     };
 
-    let results = search.search("grep", options).await.unwrap();
+    let results = search.search("Grep", options).await.unwrap();
     // grep has no schema, so full_definition should be None
-    let grep_result = results.iter().find(|r| r.id == "grep").unwrap();
+    let grep_result = results.iter().find(|r| r.id == "Grep").unwrap();
     assert!(grep_result.full_definition.is_none());
 }
 
@@ -117,7 +117,7 @@ async fn search_includes_full_definitions_when_requested() {
 async fn search_results_sorted_by_relevance() {
     let (_registry, search) = setup_search();
     let results = search
-        .search("bash", ToolSearchOptions::default())
+        .search("Bash", ToolSearchOptions::default())
         .await
         .unwrap();
 
@@ -131,12 +131,12 @@ async fn search_results_sorted_by_relevance() {
 
 #[tokio::test]
 async fn native_loader_bash_has_examples() {
-    let loader = NativeToolLoader::new(vec!["bash".to_string()]);
+    let loader = NativeToolLoader::new(vec!["Bash".to_string()]);
     let units = loader.load_units().await.unwrap();
 
     assert_eq!(units.len(), 1);
     let bash = &units[0];
-    assert_eq!(bash.id, "bash");
+    assert_eq!(bash.id, "Bash");
     let examples = &bash.advanced_metadata.examples;
     assert_eq!(examples.len(), 2);
 
@@ -195,9 +195,9 @@ async fn native_loader_unknown_tool_has_no_examples() {
 #[tokio::test]
 async fn native_loader_multiple_tools_mixed_examples() {
     let loader = NativeToolLoader::new(vec![
-        "bash".to_string(),
+        "Bash".to_string(),
         "unknown_tool".to_string(),
-        "glob".to_string(),
+        "Glob".to_string(),
     ]);
     let units = loader.load_units().await.unwrap();
 
@@ -214,10 +214,10 @@ async fn native_loader_multiple_tools_mixed_examples() {
 #[tokio::test]
 async fn native_loader_example_content_is_valid_json() {
     let loader = NativeToolLoader::new(vec![
-        "bash".to_string(),
+        "Bash".to_string(),
         "read".to_string(),
         "write".to_string(),
-        "grep".to_string(),
+        "Grep".to_string(),
     ]);
     let units = loader.load_units().await.unwrap();
 
@@ -255,8 +255,8 @@ async fn native_loader_example_content_is_valid_json() {
 
 #[tokio::test]
 async fn native_loader_aliases_share_examples() {
-    // "read" and "read_file" should both get examples
-    let loader = NativeToolLoader::new(vec!["read".to_string(), "read_file".to_string()]);
+    // "read" and "Read" should both get examples
+    let loader = NativeToolLoader::new(vec!["read".to_string(), "Read".to_string()]);
     let units = loader.load_units().await.unwrap();
 
     assert_eq!(units[0].advanced_metadata.examples.len(), 1);

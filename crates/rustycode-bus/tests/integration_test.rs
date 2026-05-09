@@ -291,7 +291,7 @@ async fn test_multiple_event_types() {
 
     bus.publish(ToolExecutedEvent::new(
         SessionId::new(),
-        "read_file".to_string(),
+        "Read".to_string(),
         json!({ "path": "/test" }),
         true,
         "Success".to_string(),

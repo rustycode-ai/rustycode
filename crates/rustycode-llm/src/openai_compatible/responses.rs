@@ -504,14 +504,14 @@ mod tests {
                     "type": "function_call",
                     "id": "fc_1",
                     "call_id": "call_1",
-                    "name": "read_file",
+                    "name": "Read",
                     "arguments": "{\"path\":\"/tmp/x\"}"
                 }
             ]
         }"#;
         let resp: ResponsesApiResponse = serde_json::from_str(json).unwrap();
         if let ResponsesApiOutputItem::FunctionCall { name, .. } = &resp.output[0] {
-            assert_eq!(name, "read_file");
+            assert_eq!(name, "Read");
         } else {
             panic!("expected FunctionCall");
         }
@@ -552,7 +552,7 @@ mod tests {
             output: vec![ResponsesApiOutputItem::FunctionCall {
                 id: "fc_1".to_string(),
                 call_id: "call_1".to_string(),
-                name: "bash".to_string(),
+                name: "Bash".to_string(),
                 arguments: r#"{"command":"ls"}"#.to_string(),
             }],
             status: "completed".to_string(),
@@ -562,7 +562,7 @@ mod tests {
         // Tool calls wrapped in ```tool ... ``` markdown block (matching Chat Completions format)
         assert!(result.content.contains("```tool"));
         assert!(result.content.contains("call_1"));
-        assert!(result.content.contains("bash"));
+        assert!(result.content.contains("Bash"));
         assert!(result.content.contains("\"function\""));
         assert_eq!(result.stop_reason.as_deref(), Some("tool_use"));
     }
@@ -571,7 +571,7 @@ mod tests {
     fn flat_tool_serializes_without_function_wrapper() {
         let tool = ResponsesApiTool {
             tool_type: "function".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             description: Some("Read a file".to_string()),
             parameters: Some(
                 serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),

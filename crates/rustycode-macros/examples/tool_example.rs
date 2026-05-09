@@ -11,14 +11,14 @@
 
 use rustycode_macros::{tool, ToolDescription};
 
-#[tool(name = "read_file", permission = "read")]
+#[tool(name = "Read", permission = "read")]
 /// Read a file from the filesystem.
 #[allow(dead_code)]
 fn read_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
-#[tool(name = "write_file", permission = "write")]
+#[tool(name = "Write", permission = "write")]
 /// Write content to a file.
 #[allow(dead_code)]
 fn write_file(path: String, content: String) -> Result<(), String> {

@@ -44,22 +44,14 @@ impl std::fmt::Display for ToolTier {
 
 /// The default tool set -- always available in every session.
 pub fn default_tool_set() -> HashSet<&'static str> {
-    [
-        "read_file",
-        "edit_file",
-        "write_file",
-        "bash",
-        "grep",
-        "glob",
-    ]
-    .into()
+    ["Read", "Edit", "Write", "Bash", "Grep", "Glob"].into()
 }
 
 /// The extended tool set -- activated when the task requires more capabilities.
 pub fn extended_tool_set() -> HashSet<&'static str> {
     [
-        "web_fetch",
-        "notebook_edit",
+        "WebFetch",
+        "NotebookEdit",
         "lsp_diagnostics",
         "lsp_hover",
         "lsp_definition",
@@ -351,20 +343,20 @@ mod tests {
     #[test]
     fn default_tools_contains_core_six() {
         let defaults = default_tool_set();
-        assert!(defaults.contains("read_file"));
-        assert!(defaults.contains("edit_file"));
-        assert!(defaults.contains("write_file"));
-        assert!(defaults.contains("bash"));
-        assert!(defaults.contains("grep"));
-        assert!(defaults.contains("glob"));
+        assert!(defaults.contains("Read"));
+        assert!(defaults.contains("Edit"));
+        assert!(defaults.contains("Write"));
+        assert!(defaults.contains("Bash"));
+        assert!(defaults.contains("Grep"));
+        assert!(defaults.contains("Glob"));
         assert_eq!(defaults.len(), 6);
     }
 
     #[test]
     fn extended_tools_contains_expected() {
         let extended = extended_tool_set();
-        assert!(extended.contains("web_fetch"));
-        assert!(extended.contains("notebook_edit"));
+        assert!(extended.contains("WebFetch"));
+        assert!(extended.contains("NotebookEdit"));
         assert!(extended.contains("lsp_diagnostics"));
         assert!(extended.contains("lsp_hover"));
         assert!(extended.contains("lsp_definition"));
@@ -379,18 +371,18 @@ mod tests {
 
     #[test]
     fn tier_for_tool_classification() {
-        assert_eq!(tier_for_tool("read_file"), ToolTier::Default);
-        assert_eq!(tier_for_tool("bash"), ToolTier::Default);
-        assert_eq!(tier_for_tool("web_fetch"), ToolTier::Extended);
+        assert_eq!(tier_for_tool("Read"), ToolTier::Default);
+        assert_eq!(tier_for_tool("Bash"), ToolTier::Default);
+        assert_eq!(tier_for_tool("WebFetch"), ToolTier::Extended);
         assert_eq!(tier_for_tool("lsp_hover"), ToolTier::Extended);
         assert_eq!(tier_for_tool("custom_tool_xyz"), ToolTier::Full);
     }
 
     #[test]
     fn capability_for_tool_delegates_to_isolation() {
-        assert_eq!(capability_for_tool("read_file"), ToolCapability::Read);
-        assert_eq!(capability_for_tool("write_file"), ToolCapability::Write);
-        assert_eq!(capability_for_tool("bash"), ToolCapability::Exec);
+        assert_eq!(capability_for_tool("Read"), ToolCapability::Read);
+        assert_eq!(capability_for_tool("Write"), ToolCapability::Write);
+        assert_eq!(capability_for_tool("Bash"), ToolCapability::Exec);
     }
 
     // -- UsageTracker tests --
@@ -398,23 +390,23 @@ mod tests {
     #[test]
     fn usage_tracker_records_invocation() {
         let mut tracker = UsageTracker::new();
-        tracker.record("read_file", true);
-        tracker.record("read_file", true);
-        tracker.record("bash", false);
+        tracker.record("Read", true);
+        tracker.record("Read", true);
+        tracker.record("Bash", false);
 
-        assert_eq!(tracker.invocation_count("read_file"), 2);
-        assert_eq!(tracker.invocation_count("bash"), 1);
-        assert_eq!(tracker.invocation_count("write_file"), 0);
+        assert_eq!(tracker.invocation_count("Read"), 2);
+        assert_eq!(tracker.invocation_count("Bash"), 1);
+        assert_eq!(tracker.invocation_count("Write"), 0);
     }
 
     #[test]
     fn usage_tracker_tracks_success_rate() {
         let mut tracker = UsageTracker::new();
-        tracker.record("bash", true);
-        tracker.record("bash", true);
-        tracker.record("bash", false);
+        tracker.record("Bash", true);
+        tracker.record("Bash", true);
+        tracker.record("Bash", false);
 
-        let rate = tracker.success_rate("bash");
+        let rate = tracker.success_rate("Bash");
         assert!((rate - 0.667).abs() < 0.05);
     }
 
@@ -428,26 +420,26 @@ mod tests {
     #[test]
     fn usage_tracker_most_used_tools() {
         let mut tracker = UsageTracker::new();
-        tracker.record("bash", true);
-        tracker.record("bash", true);
-        tracker.record("bash", true);
-        tracker.record("read_file", true);
-        tracker.record("read_file", true);
+        tracker.record("Bash", true);
+        tracker.record("Bash", true);
+        tracker.record("Bash", true);
+        tracker.record("Read", true);
+        tracker.record("Read", true);
 
         let top = tracker.most_used(2);
         assert_eq!(top.len(), 2);
-        assert_eq!(top[0].0, "bash");
+        assert_eq!(top[0].0, "Bash");
         assert_eq!(top[0].1, 3);
-        assert_eq!(top[1].0, "read_file");
+        assert_eq!(top[1].0, "Read");
         assert_eq!(top[1].1, 2);
     }
 
     #[test]
     fn usage_tracker_reset_clears_all() {
         let mut tracker = UsageTracker::new();
-        tracker.record("bash", true);
+        tracker.record("Bash", true);
         tracker.reset();
-        assert_eq!(tracker.invocation_count("bash"), 0);
+        assert_eq!(tracker.invocation_count("Bash"), 0);
     }
 
     #[test]
@@ -464,10 +456,10 @@ mod tests {
     #[test]
     fn usage_tracker_most_used_fewer_than_n() {
         let mut tracker = UsageTracker::new();
-        tracker.record("bash", true);
+        tracker.record("Bash", true);
         let top = tracker.most_used(5);
         assert_eq!(top.len(), 1);
-        assert_eq!(top[0].0, "bash");
+        assert_eq!(top[0].0, "Bash");
     }
 
     // -- ToolActivationManager tests --
@@ -476,9 +468,9 @@ mod tests {
     fn activation_manager_starts_at_extended_tier() {
         let manager = ToolActivationManager::new();
         assert_eq!(manager.current_tier(), ToolTier::Extended);
-        assert!(manager.is_active("read_file"));
-        assert!(manager.is_active("bash"));
-        assert!(manager.is_active("web_fetch"));
+        assert!(manager.is_active("Read"));
+        assert!(manager.is_active("Bash"));
+        assert!(manager.is_active("WebFetch"));
         assert!(manager.is_active("lsp_hover"));
     }
 
@@ -487,8 +479,8 @@ mod tests {
         let mut manager = ToolActivationManager::new();
         manager.promote(ToolTier::Extended);
         assert_eq!(manager.current_tier(), ToolTier::Extended);
-        assert!(manager.is_active("web_fetch"));
-        assert!(manager.is_active("read_file")); // still active
+        assert!(manager.is_active("WebFetch"));
+        assert!(manager.is_active("Read")); // still active
     }
 
     #[test]
@@ -496,7 +488,7 @@ mod tests {
         let mut manager = ToolActivationManager::new();
         manager.promote(ToolTier::Full);
         assert!(manager.is_active("any_custom_tool"));
-        assert!(manager.is_active("web_fetch"));
+        assert!(manager.is_active("WebFetch"));
     }
 
     #[test]
@@ -511,19 +503,19 @@ mod tests {
     fn activation_manager_active_tools_snapshot() {
         let manager = ToolActivationManager::new();
         let tools = manager.active_tools();
-        assert!(tools.contains(&"read_file"));
-        assert!(tools.contains(&"bash"));
-        assert!(tools.contains(&"web_fetch")); // extended tools are active by default
+        assert!(tools.contains(&"Read"));
+        assert!(tools.contains(&"Bash"));
+        assert!(tools.contains(&"WebFetch")); // extended tools are active by default
     }
 
     #[test]
     fn activation_manager_with_scope_intersection() {
         let mut manager = ToolActivationManager::new();
-        let scope = vec!["read_file".to_string(), "grep".to_string()];
+        let scope = vec!["Read".to_string(), "Grep".to_string()];
         manager.intersect_scope(&scope);
-        assert!(manager.is_active("read_file"));
-        assert!(manager.is_active("grep"));
-        assert!(!manager.is_active("bash")); // restricted by scope
+        assert!(manager.is_active("Read"));
+        assert!(manager.is_active("Grep"));
+        assert!(!manager.is_active("Bash")); // restricted by scope
     }
 
     #[test]
@@ -531,33 +523,33 @@ mod tests {
         let mut manager = ToolActivationManager::new();
         manager.promote(ToolTier::Extended);
         let scope = vec![
-            "read_file".to_string(),
-            "web_fetch".to_string(),
-            "bash".to_string(),
+            "Read".to_string(),
+            "WebFetch".to_string(),
+            "Bash".to_string(),
         ];
         manager.intersect_scope(&scope);
-        assert!(manager.is_active("read_file"));
-        assert!(manager.is_active("web_fetch")); // in both extended tier and scope
-        assert!(manager.is_active("bash")); // bash is in both default tier and scope
-        assert!(!manager.is_active("edit_file")); // not in scope
+        assert!(manager.is_active("Read"));
+        assert!(manager.is_active("WebFetch")); // in both extended tier and scope
+        assert!(manager.is_active("Bash")); // bash is in both default tier and scope
+        assert!(!manager.is_active("Edit")); // not in scope
         assert!(!manager.is_active("lsp_hover")); // not in scope
     }
 
     #[test]
     fn activation_manager_clear_scope_restores_tier() {
         let mut manager = ToolActivationManager::new();
-        let scope = vec!["read_file".to_string()];
+        let scope = vec!["Read".to_string()];
         manager.intersect_scope(&scope);
-        assert!(!manager.is_active("bash"));
+        assert!(!manager.is_active("Bash"));
         manager.clear_scope();
-        assert!(manager.is_active("bash")); // restored
+        assert!(manager.is_active("Bash")); // restored
     }
 
     #[test]
     fn activation_manager_suggest_promotion_to_full_from_extended() {
         let mut manager = ToolActivationManager::new(); // starts at Extended
-        manager.usage_mut().record("read_file", true);
-        manager.usage_mut().record("bash", true);
+        manager.usage_mut().record("Read", true);
+        manager.usage_mut().record("Bash", true);
         manager.usage_mut().record("custom_mcp_tool", true); // non-extended tool used
         assert_eq!(manager.suggest_promotion(), Some(ToolTier::Full));
     }
@@ -565,9 +557,9 @@ mod tests {
     #[test]
     fn activation_manager_suggest_promotion_none_when_default_sufficient() {
         let mut manager = ToolActivationManager::new();
-        manager.usage_mut().record("read_file", true);
-        manager.usage_mut().record("bash", true);
-        manager.usage_mut().record("grep", true);
+        manager.usage_mut().record("Read", true);
+        manager.usage_mut().record("Bash", true);
+        manager.usage_mut().record("Grep", true);
         assert_eq!(manager.suggest_promotion(), None);
     }
 
@@ -590,9 +582,9 @@ mod tests {
     #[test]
     fn activation_manager_usage_tracking() {
         let mut manager = ToolActivationManager::new();
-        manager.usage_mut().record("bash", true);
-        manager.usage_mut().record("bash", false);
-        assert_eq!(manager.usage().invocation_count("bash"), 2);
+        manager.usage_mut().record("Bash", true);
+        manager.usage_mut().record("Bash", false);
+        assert_eq!(manager.usage().invocation_count("Bash"), 2);
     }
 
     #[test]

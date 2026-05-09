@@ -191,7 +191,7 @@ fn test_message_with_tools_but_none_thinking() {
     // Test a common case: assistant message with tools but no thinking
     let mut tool = ToolExecution::new(
         "tool_1".to_string(),
-        "read_file".to_string(),
+        "Read".to_string(),
         "read_file: src/main.rs (145b)".to_string(),
     );
     tool.complete(Some("file contents".to_string()));

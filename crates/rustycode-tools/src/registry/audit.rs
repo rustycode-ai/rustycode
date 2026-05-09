@@ -15,10 +15,10 @@
 //! use rustycode_tools::tool_audit::{ToolAuditLogger, AuditEntry};
 //!
 //! let logger = ToolAuditLogger::new(1000);
-//! logger.record(AuditEntry::new("bash", "ls -la", true, 150, 256));
-//! logger.record(AuditEntry::new("bash", "rm -rf /", false, 50, 0));
+//! logger.record(AuditEntry::new("Bash", "ls -la", true, 150, 256));
+//! logger.record(AuditEntry::new("Bash", "rm -rf /", false, 50, 0));
 //!
-//! let stats = logger.tool_stats("bash").unwrap();
+//! let stats = logger.tool_stats("Bash").unwrap();
 //! assert_eq!(stats.call_count, 2);
 //! assert_eq!(stats.success_count, 1);
 //! ```
@@ -426,8 +426,8 @@ mod tests {
 
     #[test]
     fn test_audit_entry_creation() {
-        let entry = AuditEntry::new("bash", "ls -la", true, 150, 256);
-        assert_eq!(entry.tool_name, "bash");
+        let entry = AuditEntry::new("Bash", "ls -la", true, 150, 256);
+        assert_eq!(entry.tool_name, "Bash");
         assert!(entry.success);
         assert_eq!(entry.duration_ms, 150);
         assert_eq!(entry.output_size, 256);
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn test_audit_entry_with_error() {
         let entry =
-            AuditEntry::new("bash", "rm -rf /", false, 50, 0).with_error("Permission denied");
+            AuditEntry::new("Bash", "rm -rf /", false, 50, 0).with_error("Permission denied");
         assert!(!entry.success);
         assert_eq!(entry.error.as_deref(), Some("Permission denied"));
     }
@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn test_audit_entry_error_truncation() {
         let long_error = "x".repeat(600);
-        let entry = AuditEntry::new("bash", "cmd", false, 10, 0).with_error(long_error);
+        let entry = AuditEntry::new("Bash", "cmd", false, 10, 0).with_error(long_error);
         assert!(entry.error.unwrap().ends_with("[truncated]"));
     }
 
@@ -453,11 +453,11 @@ mod tests {
     fn test_tool_stats_tracking() {
         let logger = ToolAuditLogger::new(100);
 
-        logger.record(AuditEntry::new("bash", "ls", true, 100, 50));
-        logger.record(AuditEntry::new("bash", "pwd", true, 50, 20));
-        logger.record(AuditEntry::new("bash", "rm", false, 200, 0));
+        logger.record(AuditEntry::new("Bash", "ls", true, 100, 50));
+        logger.record(AuditEntry::new("Bash", "pwd", true, 50, 20));
+        logger.record(AuditEntry::new("Bash", "rm", false, 200, 0));
 
-        let stats = logger.tool_stats("bash").unwrap();
+        let stats = logger.tool_stats("Bash").unwrap();
         assert_eq!(stats.call_count, 3);
         assert_eq!(stats.success_count, 2);
         assert_eq!(stats.failure_count, 1);
@@ -470,14 +470,14 @@ mod tests {
     fn test_tool_stats_multiple_tools() {
         let logger = ToolAuditLogger::new(100);
 
-        logger.record(AuditEntry::new("read_file", "main.rs", true, 10, 500));
-        logger.record(AuditEntry::new("write_file", "out.rs", true, 20, 0));
-        logger.record(AuditEntry::new("read_file", "lib.rs", true, 8, 300));
+        logger.record(AuditEntry::new("Read", "main.rs", true, 10, 500));
+        logger.record(AuditEntry::new("Write", "out.rs", true, 20, 0));
+        logger.record(AuditEntry::new("Read", "lib.rs", true, 8, 300));
 
         let all = logger.all_stats();
         assert_eq!(all.len(), 2);
 
-        let read_stats = logger.tool_stats("read_file").unwrap();
+        let read_stats = logger.tool_stats("Read").unwrap();
         assert_eq!(read_stats.call_count, 2);
         assert_eq!(read_stats.total_output_bytes, 800);
     }
@@ -486,9 +486,9 @@ mod tests {
     fn test_session_summary() {
         let logger = ToolAuditLogger::new(100);
 
-        logger.record(AuditEntry::new("bash", "cmd1", true, 100, 50));
-        logger.record(AuditEntry::new("bash", "cmd2", false, 200, 0));
-        logger.record(AuditEntry::new("read_file", "f1", true, 50, 100));
+        logger.record(AuditEntry::new("Bash", "cmd1", true, 100, 50));
+        logger.record(AuditEntry::new("Bash", "cmd2", false, 200, 0));
+        logger.record(AuditEntry::new("Read", "f1", true, 50, 100));
 
         let summary = logger.session_summary();
         assert_eq!(summary.total_calls, 3);
@@ -497,12 +497,12 @@ mod tests {
         assert!((summary.overall_success_rate - 0.667).abs() < 0.01);
 
         // Frequency ranking
-        assert_eq!(summary.tools_by_frequency[0], ("bash".to_string(), 2));
-        assert_eq!(summary.tools_by_frequency[1], ("read_file".to_string(), 1));
+        assert_eq!(summary.tools_by_frequency[0], ("Bash".to_string(), 2));
+        assert_eq!(summary.tools_by_frequency[1], ("Read".to_string(), 1));
 
         // Duration ranking
-        assert_eq!(summary.tools_by_duration[0], ("bash".to_string(), 300));
-        assert_eq!(summary.tools_by_duration[1], ("read_file".to_string(), 50));
+        assert_eq!(summary.tools_by_duration[0], ("Bash".to_string(), 300));
+        assert_eq!(summary.tools_by_duration[1], ("Read".to_string(), 50));
     }
 
     #[test]
@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn test_clear() {
         let logger = ToolAuditLogger::new(100);
-        logger.record(AuditEntry::new("bash", "cmd", true, 100, 50));
+        logger.record(AuditEntry::new("Bash", "cmd", true, 100, 50));
         assert_eq!(logger.entry_count(), 1);
 
         logger.clear();
@@ -546,7 +546,7 @@ mod tests {
         let logger = ToolAuditLogger::new(100);
         let clone = logger.clone();
 
-        clone.record(AuditEntry::new("bash", "cmd", true, 100, 50));
+        clone.record(AuditEntry::new("Bash", "cmd", true, 100, 50));
         assert_eq!(logger.entry_count(), 1);
     }
 
@@ -562,12 +562,12 @@ mod tests {
     fn test_timer_complete() {
         let logger = ToolAuditLogger::new(100);
 
-        let timer = logger.start_timer("bash", "ls -la");
+        let timer = logger.start_timer("Bash", "ls -la");
         std::thread::sleep(std::time::Duration::from_millis(10));
         timer.complete(true, 100, None);
 
         assert_eq!(logger.entry_count(), 1);
-        let stats = logger.tool_stats("bash").unwrap();
+        let stats = logger.tool_stats("Bash").unwrap();
         assert!(stats.total_duration_ms >= 10);
         assert_eq!(stats.success_count, 1);
         assert_eq!(stats.failure_count, 0);
@@ -578,12 +578,12 @@ mod tests {
         let logger = ToolAuditLogger::new(100);
 
         {
-            let _timer = logger.start_timer("bash", "ls -la");
+            let _timer = logger.start_timer("Bash", "ls -la");
             // Timer dropped without calling complete()
         }
 
         assert_eq!(logger.entry_count(), 1);
-        let stats = logger.tool_stats("bash").unwrap();
+        let stats = logger.tool_stats("Bash").unwrap();
         assert_eq!(stats.call_count, 1);
         assert_eq!(stats.failure_count, 1);
         assert_eq!(stats.success_count, 0);
@@ -600,13 +600,13 @@ mod tests {
         let logger = ToolAuditLogger::new(100);
 
         {
-            let timer = logger.start_timer("bash", "ls -la");
+            let timer = logger.start_timer("Bash", "ls -la");
             timer.complete(true, 50, None);
             // Drop happens after complete — should NOT record a second entry
         }
 
         assert_eq!(logger.entry_count(), 1);
-        let stats = logger.tool_stats("bash").unwrap();
+        let stats = logger.tool_stats("Bash").unwrap();
         assert_eq!(stats.success_count, 1);
         assert_eq!(stats.failure_count, 0);
     }

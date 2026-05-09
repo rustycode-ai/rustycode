@@ -166,7 +166,7 @@ const BASH_ALLOWED_COMMANDS: &[&str] = &[
     "basename",
     "dirname",
     // Search tools
-    "grep",
+    "Grep",
     "rg",
     "ag",
     "ack",
@@ -495,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_shell_type_detection() {
-        assert_eq!(ShellType::detect("bash"), ShellType::Bash);
+        assert_eq!(ShellType::detect("Bash"), ShellType::Bash);
         assert_eq!(ShellType::detect("/bin/bash"), ShellType::Bash);
         assert_eq!(ShellType::detect("zsh"), ShellType::Bash);
         assert_eq!(ShellType::detect("powershell"), ShellType::PowerShell);
@@ -526,7 +526,7 @@ mod tests {
     fn test_bash_allowed_commands() {
         let commands = allowed_commands(ShellType::Bash);
         assert!(commands.contains(&"ls"));
-        assert!(commands.contains(&"grep"));
+        assert!(commands.contains(&"Grep"));
         assert!(commands.contains(&"cargo"));
         assert!(commands.contains(&"git"));
     }

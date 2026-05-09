@@ -17,12 +17,12 @@
 //! use rustycode_tools_security::permission_store::{PermissionStore, PermissionRecord};
 //!
 //! let mut store = PermissionStore::new("/tmp/permissions.json");
-//! store.allow("bash", "ls -la", None);           // permanent
-//! store.allow("bash", "rm /tmp/*", Some(3600));  // 1 hour
-//! store.deny("bash", "rm -rf /");
+//! store.allow("Bash", "ls -la", None);           // permanent
+//! store.allow("Bash", "rm /tmp/*", Some(3600));  // 1 hour
+//! store.deny("Bash", "rm -rf /");
 //!
-//! assert!(store.is_allowed("bash", "ls -la"));
-//! assert!(!store.is_allowed("bash", "rm -rf /"));
+//! assert!(store.is_allowed("Bash", "ls -la"));
+//! assert!(!store.is_allowed("Bash", "rm -rf /"));
 //! ```
 
 use serde::{Deserialize, Serialize};
@@ -33,7 +33,7 @@ use tracing;
 /// A stored permission record with optional expiry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PermissionRecord {
-    /// Tool name (e.g., "bash", "`write_file`")
+    /// Tool name (e.g., "Bash", "`write_file`")
     pub tool_name: String,
     /// Whether this permission allows or denies the action
     pub allowed: bool,
@@ -348,69 +348,69 @@ mod tests {
     #[test]
     fn test_allow_and_check() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "ls -la", None);
+        store.allow("Bash", "ls -la", None);
 
-        assert!(store.is_allowed("bash", "ls -la"));
-        assert!(!store.is_allowed("bash", "rm -rf /"));
-        assert!(!store.is_allowed("read_file", "anything"));
+        assert!(store.is_allowed("Bash", "ls -la"));
+        assert!(!store.is_allowed("Bash", "rm -rf /"));
+        assert!(!store.is_allowed("Read", "anything"));
     }
 
     #[test]
     fn test_deny_and_check() {
         let mut store = PermissionStore::in_memory();
-        store.deny("bash", "rm -rf /");
+        store.deny("Bash", "rm -rf /");
 
-        assert!(store.is_denied("bash", "rm -rf /"));
-        assert!(!store.is_allowed("bash", "rm -rf /"));
-        assert!(!store.is_denied("bash", "ls -la"));
+        assert!(store.is_denied("Bash", "rm -rf /"));
+        assert!(!store.is_allowed("Bash", "rm -rf /"));
+        assert!(!store.is_denied("Bash", "ls -la"));
     }
 
     #[test]
     fn test_wildcard_allow() {
         let mut store = PermissionStore::in_memory();
-        store.allow_all("read_file", None);
+        store.allow_all("Read", None);
 
-        assert!(store.is_allowed("read_file", "/tmp/test.txt"));
-        assert!(store.is_allowed("read_file", "/etc/passwd"));
-        assert!(store.is_allowed("read_file", "anything"));
+        assert!(store.is_allowed("Read", "/tmp/test.txt"));
+        assert!(store.is_allowed("Read", "/etc/passwd"));
+        assert!(store.is_allowed("Read", "anything"));
     }
 
     #[test]
     fn test_wildcard_deny() {
         let mut store = PermissionStore::in_memory();
-        store.deny_all("bash");
+        store.deny_all("Bash");
 
-        assert!(store.is_denied("bash", "ls"));
-        assert!(store.is_denied("bash", "rm"));
-        assert!(!store.is_allowed("bash", "anything"));
+        assert!(store.is_denied("Bash", "ls"));
+        assert!(store.is_denied("Bash", "rm"));
+        assert!(!store.is_allowed("Bash", "anything"));
     }
 
     #[test]
     fn test_specific_overrides_wildcard() {
         let mut store = PermissionStore::in_memory();
-        store.deny_all("bash");
-        store.allow("bash", "ls -la", None);
+        store.deny_all("Bash");
+        store.allow("Bash", "ls -la", None);
 
         // Specific should override wildcard
-        assert!(store.is_allowed("bash", "ls -la"));
+        assert!(store.is_allowed("Bash", "ls -la"));
         // But wildcard still applies to other contexts
-        assert!(store.is_denied("bash", "rm -rf /"));
+        assert!(store.is_denied("Bash", "rm -rf /"));
     }
 
     #[test]
     fn test_expiry() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "ls", Some(0)); // expires immediately
+        store.allow("Bash", "ls", Some(0)); // expires immediately
 
         // Should be expired
-        assert!(!store.is_allowed("bash", "ls"));
+        assert!(!store.is_allowed("Bash", "ls"));
     }
 
     #[test]
     fn test_cleanup_expired() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "cmd1", Some(0)); // expired
-        store.allow("bash", "cmd2", None); // permanent
+        store.allow("Bash", "cmd1", Some(0)); // expired
+        store.allow("Bash", "cmd2", None); // permanent
 
         assert_eq!(store.records.len(), 2);
         let removed = store.cleanup_expired();
@@ -421,29 +421,29 @@ mod tests {
     #[test]
     fn test_remove_record() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "ls", None);
+        store.allow("Bash", "ls", None);
 
-        assert!(store.is_allowed("bash", "ls"));
-        assert!(store.remove("bash", "ls"));
-        assert!(!store.is_allowed("bash", "ls"));
+        assert!(store.is_allowed("Bash", "ls"));
+        assert!(store.remove("Bash", "ls"));
+        assert!(!store.is_allowed("Bash", "ls"));
     }
 
     #[test]
     fn test_remove_all_for_tool() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "ls", None);
-        store.allow("bash", "cat", None);
-        store.allow("read_file", "/tmp", None);
+        store.allow("Bash", "ls", None);
+        store.allow("Bash", "cat", None);
+        store.allow("Read", "/tmp", None);
 
-        assert_eq!(store.remove_all_for_tool("bash"), 2);
+        assert_eq!(store.remove_all_for_tool("Bash"), 2);
         assert_eq!(store.records.len(), 1);
     }
 
     #[test]
     fn test_clear() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "ls", None);
-        store.deny("bash", "rm");
+        store.allow("Bash", "ls", None);
+        store.deny("Bash", "rm");
 
         store.clear();
         assert!(store.records.is_empty());
@@ -452,9 +452,9 @@ mod tests {
     #[test]
     fn test_active_count() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "ls", None);
-        store.allow("bash", "rm", Some(0)); // expired
-        store.deny("bash", "curl");
+        store.allow("Bash", "ls", None);
+        store.allow("Bash", "rm", Some(0)); // expired
+        store.deny("Bash", "curl");
 
         assert_eq!(store.active_count(), 2);
     }
@@ -467,14 +467,14 @@ mod tests {
         // Write
         {
             let mut store = PermissionStore::new(&path);
-            store.allow("bash", "ls", None);
-            store.deny("bash", "rm");
+            store.allow("Bash", "ls", None);
+            store.deny("Bash", "rm");
         }
 
         // Read back
         let store = PermissionStore::new(&path);
-        assert!(store.is_allowed("bash", "ls"));
-        assert!(store.is_denied("bash", "rm"));
+        assert!(store.is_allowed("Bash", "ls"));
+        assert!(store.is_denied("Bash", "rm"));
         assert_eq!(store.active_count(), 2);
     }
 
@@ -486,14 +486,14 @@ mod tests {
         // Write with expired entry
         {
             let mut store = PermissionStore::new(&path);
-            store.allow("bash", "ls", None);
-            store.allow("bash", "expired_cmd", Some(0)); // expires immediately
+            store.allow("Bash", "ls", None);
+            store.allow("Bash", "expired_cmd", Some(0)); // expires immediately
         }
 
         // Load should clean up expired
         let store = PermissionStore::new(&path);
         assert_eq!(store.active_count(), 1);
-        assert!(store.is_allowed("bash", "ls"));
+        assert!(store.is_allowed("Bash", "ls"));
     }
 
     #[test]
@@ -514,9 +514,9 @@ mod tests {
 
     #[test]
     fn test_record_creation() {
-        let record = PermissionRecord::new("bash", "ls -la", true, Some(3600));
+        let record = PermissionRecord::new("Bash", "ls -la", true, Some(3600));
 
-        assert_eq!(record.tool_name, "bash");
+        assert_eq!(record.tool_name, "Bash");
         assert!(record.allowed);
         assert!(record.readable_context.is_some());
         assert!(record.expires_at.is_some());
@@ -525,23 +525,23 @@ mod tests {
 
     #[test]
     fn test_record_matches() {
-        let record = PermissionRecord::new("bash", "ls -la", true, None);
+        let record = PermissionRecord::new("Bash", "ls -la", true, None);
 
-        assert!(record.matches("bash", "ls -la"));
-        assert!(!record.matches("bash", "ls -lb"));
-        assert!(!record.matches("read_file", "ls -la"));
+        assert!(record.matches("Bash", "ls -la"));
+        assert!(!record.matches("Bash", "ls -lb"));
+        assert!(!record.matches("Read", "ls -la"));
     }
 
     #[test]
     fn test_get_record() {
         let mut store = PermissionStore::in_memory();
-        store.allow("bash", "ls -la", None);
+        store.allow("Bash", "ls -la", None);
 
-        let record = store.record("bash", "ls -la");
+        let record = store.record("Bash", "ls -la");
         assert!(record.is_some());
         assert!(record.unwrap().allowed);
 
-        let missing = store.record("bash", "nonexistent");
+        let missing = store.record("Bash", "nonexistent");
         assert!(missing.is_none());
     }
 }

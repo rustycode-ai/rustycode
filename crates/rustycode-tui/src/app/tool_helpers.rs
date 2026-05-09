@@ -37,7 +37,7 @@ fn parse_pipeline(command: &str) -> Vec<&str> {
 /// Check if a single command (not a pipeline) is whitelisted and safe.
 fn is_single_command_allowed(base_command: &str) -> bool {
     const ALLOWED_COMMANDS: &[&str] = &[
-        "git", "ls", "pwd", "echo", "cat", "head", "tail", "grep", "find", "wc", "sort", "uniq",
+        "git", "ls", "pwd", "echo", "cat", "head", "tail", "Grep", "find", "wc", "sort", "uniq",
         "cut", "date", "whoami", "basename", "dirname", "realpath", "readlink", "xargs", "awk",
         "sed", "tr", "tee", // Added for pipeline support
     ];
@@ -287,7 +287,7 @@ mod tests {
             exit_code: Some(0),
             new_cwd: None,
         };
-        let summary = format_tool_result_summary(&result, "read_file");
+        let summary = format_tool_result_summary(&result, "Read");
         assert!(summary.contains("success=true"));
     }
 

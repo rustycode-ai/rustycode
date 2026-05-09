@@ -390,12 +390,12 @@ mod tests {
     fn event_payload_tool_call_started() {
         let payload = make_event(StreamEvent::ToolCallStarted {
             id: "tool-1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "tool_call_started");
         assert_eq!(json["data"]["id"], "tool-1");
-        assert_eq!(json["data"]["name"], "bash");
+        assert_eq!(json["data"]["name"], "Bash");
     }
 
     #[test]
@@ -434,26 +434,26 @@ mod tests {
     fn event_payload_tool_exec_started() {
         let payload = make_event(StreamEvent::ToolExecStarted {
             id: "tool-3".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "tool_exec_started");
         assert_eq!(json["data"]["id"], "tool-3");
-        assert_eq!(json["data"]["name"], "read_file");
+        assert_eq!(json["data"]["name"], "Read");
     }
 
     #[test]
     fn event_payload_tool_exec_completed() {
         let payload = make_event(StreamEvent::ToolExecCompleted {
             id: "tool-4".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             output: "file.txt\nmain.rs".to_string(),
             is_error: false,
         });
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["type"], "tool_exec_completed");
         assert_eq!(json["data"]["id"], "tool-4");
-        assert_eq!(json["data"]["name"], "bash");
+        assert_eq!(json["data"]["name"], "Bash");
         assert_eq!(json["data"]["is_error"], false);
     }
 
@@ -461,7 +461,7 @@ mod tests {
     fn event_payload_tool_exec_completed_error() {
         let payload = make_event(StreamEvent::ToolExecCompleted {
             id: "tool-5".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             output: "permission denied".to_string(),
             is_error: true,
         });

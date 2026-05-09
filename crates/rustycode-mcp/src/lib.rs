@@ -284,7 +284,7 @@ mod lib_tests {
 
     #[test]
     fn test_mcp_error_serialize() {
-        let err = McpError::ToolNotFound("bash".into());
+        let err = McpError::ToolNotFound("Bash".into());
         let json = serde_json::to_value(&err).unwrap();
         assert_eq!(json, serde_json::json!("Tool not found: bash"));
     }
@@ -309,7 +309,7 @@ mod lib_tests {
             "Protocol error: version mismatch"
         );
         assert_eq!(
-            McpError::ToolNotFound("bash".into()).to_string(),
+            McpError::ToolNotFound("Bash".into()).to_string(),
             "Tool not found: bash"
         );
         assert_eq!(

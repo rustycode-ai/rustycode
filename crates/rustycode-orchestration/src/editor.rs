@@ -62,7 +62,7 @@ mod tests {
             index: 0,
             description: "Run tests".into(),
             expected_output_type: crate::types::OutputType::Verification,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::new(),
         }
@@ -81,7 +81,7 @@ mod tests {
             Some(1),
             "test failed".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         let trace = ExecutionTrace::new("task-1".into());
         let result = editor.patch_score(&trace, &step, &error).await.unwrap();
@@ -99,7 +99,7 @@ mod tests {
             Some(1),
             "error".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         let trace = ExecutionTrace::new("task-1".into());
         let result = editor.patch_score(&trace, &step, &error).await.unwrap();
@@ -117,7 +117,7 @@ mod tests {
             Some(2),
             "parse error".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         let trace = ExecutionTrace::new("task-1".into());
         editor.patch_score(&trace, &step, &error).await.unwrap();
@@ -148,7 +148,7 @@ mod tests {
                 Some(1),
                 "error msg".into(),
                 "step-1".into(),
-                "bash".into(),
+                "Bash".into(),
             );
             let result = editor.patch_score(&trace, &step, &error).await.unwrap();
             assert_eq!(result.len(), 1);
@@ -165,7 +165,7 @@ mod tests {
             Some(1),
             "err".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         let trace = ExecutionTrace::new("task-1".into());
         let result = editor.patch_score(&trace, &step, &error).await.unwrap();

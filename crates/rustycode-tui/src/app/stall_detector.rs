@@ -8,8 +8,8 @@ pub const MAX_EXPLORATION_TURNS: usize = 5;
 
 /// Tool names that count as "code" (implementation).
 const CODE_TOOLS: &[&str] = &[
-    "write_file",
-    "edit_file",
+    "Write",
+    "Edit",
     "multiedit",
     "apply_patch",
     "claude_text_editor",
@@ -17,15 +17,15 @@ const CODE_TOOLS: &[&str] = &[
 
 /// Tool names that are always read-only (exploration).
 const READ_ONLY_TOOLS: &[&str] = &[
-    "read_file",
-    "grep",
-    "glob",
+    "Read",
+    "Grep",
+    "Glob",
     "find",
     "list_directory",
     "ls",
     "file",
     "web_search",
-    "web_fetch",
+    "WebFetch",
     "lsp_diagnostics",
     "lsp_hover",
     "lsp_definition",
@@ -97,7 +97,7 @@ impl StallDetector {
             ToolCategory::Code
         } else if READ_ONLY_TOOLS.contains(&lower.as_str()) {
             ToolCategory::Exploration
-        } else if lower == "bash" || lower == "shell" {
+        } else if lower == "Bash" || lower == "shell" {
             ToolCategory::Shell
         } else {
             ToolCategory::Unknown
@@ -231,8 +231,8 @@ mod tests {
     #[test]
     fn test_no_stall_when_writing_code() {
         let mut det = StallDetector::new();
-        det.record_tool("read_file", true, false);
-        det.record_tool("write_file", true, false);
+        det.record_tool("Read", true, false);
+        det.record_tool("Write", true, false);
         assert_eq!(det.end_turn(), StallLevel::Normal);
     }
 
@@ -240,7 +240,7 @@ mod tests {
     fn test_stall_after_consecutive_read_only() {
         let mut det = StallDetector::new();
         for _ in 0..STALL_THRESHOLD {
-            det.record_tool("read_file", true, false);
+            det.record_tool("Read", true, false);
             det.end_turn();
         }
         assert_eq!(det.stall_level(), StallLevel::Stalled);
@@ -251,10 +251,10 @@ mod tests {
     fn test_code_resets_stall_counter() {
         let mut det = StallDetector::new();
         for _ in 0..STALL_THRESHOLD - 1 {
-            det.record_tool("read_file", true, false);
+            det.record_tool("Read", true, false);
             det.end_turn();
         }
-        det.record_tool("write_file", true, false);
+        det.record_tool("Write", true, false);
         assert_eq!(det.end_turn(), StallLevel::Normal);
     }
 
@@ -262,7 +262,7 @@ mod tests {
     fn test_critical_level() {
         let mut det = StallDetector::new();
         for _ in 0..MAX_EXPLORATION_TURNS {
-            det.record_tool("read_file", true, false);
+            det.record_tool("Read", true, false);
             det.end_turn();
         }
         assert_eq!(det.stall_level(), StallLevel::Critical);
@@ -270,22 +270,19 @@ mod tests {
 
     #[test]
     fn test_bash_classification() {
-        assert_eq!(StallDetector::classify_tool("bash"), ToolCategory::Shell);
+        assert_eq!(StallDetector::classify_tool("Bash"), ToolCategory::Shell);
         assert_eq!(
-            StallDetector::classify_tool("read_file"),
+            StallDetector::classify_tool("Read"),
             ToolCategory::Exploration
         );
-        assert_eq!(
-            StallDetector::classify_tool("write_file"),
-            ToolCategory::Code
-        );
+        assert_eq!(StallDetector::classify_tool("Write"), ToolCategory::Code);
     }
 
     #[test]
     fn test_nudge_injected_once_per_turn() {
         let mut det = StallDetector::new();
         for _ in 0..STALL_THRESHOLD {
-            det.record_tool("read_file", true, false);
+            det.record_tool("Read", true, false);
             det.end_turn();
         }
         assert!(det.try_mark_nudge());
@@ -295,7 +292,7 @@ mod tests {
     #[test]
     fn test_failed_tools_not_counted() {
         let mut det = StallDetector::new();
-        det.record_tool("read_file", false, false); // Failed — not counted
+        det.record_tool("Read", false, false); // Failed — not counted
         assert_eq!(det.end_turn(), StallLevel::Normal);
     }
 }

@@ -270,16 +270,16 @@ mod tests {
         let infos = reg.list();
         let names: Vec<&str> = infos.iter().map(|i| i.name.as_str()).collect();
         // File tools
-        assert!(names.contains(&"read_file"), "missing read_file");
-        assert!(names.contains(&"write_file"), "missing write_file");
-        assert!(names.contains(&"edit_file"), "missing edit_file");
+        assert!(names.contains(&"Read"), "missing read_file");
+        assert!(names.contains(&"Write"), "missing write_file");
+        assert!(names.contains(&"Edit"), "missing edit_file");
         assert!(names.contains(&"list_dir"), "missing list_dir");
         // Search tools
-        assert!(names.contains(&"grep"), "missing grep");
-        assert!(names.contains(&"glob"), "missing glob");
+        assert!(names.contains(&"Grep"), "missing grep");
+        assert!(names.contains(&"Glob"), "missing glob");
         assert!(names.contains(&"apply_patch"), "missing apply_patch");
         // Bash
-        assert!(names.contains(&"bash"), "missing bash");
+        assert!(names.contains(&"Bash"), "missing bash");
         // Git (read-only)
         assert!(names.contains(&"git_status"), "missing git_status");
         assert!(names.contains(&"git_diff"), "missing git_diff");
@@ -307,24 +307,24 @@ mod tests {
             let mut obs = BenchObserver::new();
             obs.on_event(StreamEvent::ToolCallStarted {
                 id: "c1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             })
             .await;
             obs.on_event(StreamEvent::ToolExecCompleted {
                 id: "c1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
                 output: "file.txt".into(),
                 is_error: false,
             })
             .await;
             obs.on_event(StreamEvent::ToolCallStarted {
                 id: "c2".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             })
             .await;
             obs.on_event(StreamEvent::ToolExecCompleted {
                 id: "c2".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
                 output: "not found".into(),
                 is_error: true,
             })

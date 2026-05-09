@@ -93,7 +93,7 @@ fn test_multi_round_tool_calling_detection() {
     let response2 = r#"I see the files. Let me read Cargo.toml.
 
 ```tool
-[{"name": "read_file", "arguments": {"path": "Cargo.toml"}}]
+[{"name": "Read", "arguments": {"path": "Cargo.toml"}}]
 ```"#;
 
     let payloads2 = extract_tool_payloads(response2);
@@ -101,14 +101,14 @@ fn test_multi_round_tool_calling_detection() {
 
     if let Ok(tool_calls) = parse_tool_calls_payload(&payloads2[0]) {
         assert_eq!(tool_calls.len(), 1);
-        assert_eq!(tool_calls[0].name, "read_file");
+        assert_eq!(tool_calls[0].name, "Read");
     }
 
     // Simulate tool result and Round 3: LLM returns another read_file tool call
     let response3 = r#"Let me also read src/lib.rs.
 
 ```tool
-[{"name": "read_file", "arguments": {"path": "src/lib.rs"}}]
+[{"name": "Read", "arguments": {"path": "src/lib.rs"}}]
 ```"#;
 
     let payloads3 = extract_tool_payloads(response3);
@@ -184,8 +184,8 @@ fn test_multiple_tools_in_single_response() {
 
 ```tool
 [
-  {"name": "read_file", "arguments": {"path": "Cargo.toml"}},
-  {"name": "read_file", "arguments": {"path": "README.md"}}
+  {"name": "Read", "arguments": {"path": "Cargo.toml"}},
+  {"name": "Read", "arguments": {"path": "README.md"}}
 ]
 ```"#;
 
@@ -194,8 +194,8 @@ fn test_multiple_tools_in_single_response() {
 
     if let Ok(tool_calls) = parse_tool_calls_payload(&payloads[0]) {
         assert_eq!(tool_calls.len(), 2, "Should parse two tool calls");
-        assert_eq!(tool_calls[0].name, "read_file");
-        assert_eq!(tool_calls[1].name, "read_file");
+        assert_eq!(tool_calls[0].name, "Read");
+        assert_eq!(tool_calls[1].name, "Read");
     }
 
     println!("✓ Multiple tools in single response test passed");

@@ -977,7 +977,7 @@ mod tests {
         let session = TerminalSessionId("test".into());
         let line = "%1,0,title,bash,,1";
         let pane = connector.parse_pane_info(&session, line).unwrap();
-        assert_eq!(pane.command, Some("bash".to_string()));
+        assert_eq!(pane.command, Some("Bash".to_string()));
         assert!(pane.cwd.is_none());
     }
 
@@ -1463,7 +1463,7 @@ mod tests {
         };
         assert_eq!(info.id, "@0");
         assert_eq!(info.index, 0);
-        assert_eq!(info.name, "bash");
+        assert_eq!(info.name, "Bash");
         assert!(info.is_active);
         assert_eq!(info.pane_count, 2);
     }

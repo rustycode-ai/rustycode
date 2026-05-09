@@ -457,7 +457,7 @@ fn test_openai_response_with_text_and_tool_calls() {
                             "id": "call_xyz",
                             "type": "function",
                             "function": {
-                                "name": "read_file",
+                                "name": "Read",
                                 "arguments": "{\"path\": \"src/main.rs\"}"
                             }
                         }
@@ -561,11 +561,7 @@ fn test_convert_messages_assistant_with_tool_use() {
         role: MessageRole::Assistant,
         content: MessageContent::Blocks(vec![
             ContentBlock::text("I'll read that file."),
-            ContentBlock::tool_use(
-                "call_xyz",
-                "read_file",
-                serde_json::json!({"path": "test.rs"}),
-            ),
+            ContentBlock::tool_use("call_xyz", "Read", serde_json::json!({"path": "test.rs"})),
         ]),
     }];
     let result = OpenAiProvider::convert_messages(&messages);
@@ -575,7 +571,7 @@ fn test_convert_messages_assistant_with_tool_use() {
     let tool_calls = result[0].tool_calls.as_ref().unwrap();
     assert_eq!(tool_calls.len(), 1);
     assert_eq!(tool_calls[0].id, "call_xyz");
-    assert_eq!(tool_calls[0].function.name, "read_file");
+    assert_eq!(tool_calls[0].function.name, "Read");
 }
 
 #[test]
@@ -693,13 +689,13 @@ fn test_sse_multiple_tool_calls_get_separate_starts() {
 
     match &starts[0].1 {
         crate::provider::ContentBlockType::ToolUse { name, .. } => {
-            assert_eq!(name, "read_file");
+            assert_eq!(name, "Read");
         }
         other => panic!("expected ToolUse, got {:?}", other),
     }
     match &starts[1].1 {
         crate::provider::ContentBlockType::ToolUse { name, .. } => {
-            assert_eq!(name, "write_file");
+            assert_eq!(name, "Write");
         }
         other => panic!("expected ToolUse, got {:?}", other),
     }
@@ -860,7 +856,7 @@ fn test_roundtrip_tool_use_block() {
         role: MessageRole::Assistant,
         content: MessageContent::Blocks(vec![ContentBlock::tool_use(
             "call_123",
-            "read_file",
+            "Read",
             serde_json::json!({"path": "a.rs"}),
         )]),
     }];
@@ -873,7 +869,7 @@ fn test_roundtrip_tool_use_block() {
         .expect("should have tool_calls");
     assert_eq!(tcs.len(), 1);
     assert_eq!(tcs[0].id, "call_123");
-    assert_eq!(tcs[0].function.name, "read_file");
+    assert_eq!(tcs[0].function.name, "Read");
     assert_eq!(tcs[0].r#type, "function");
     let args: serde_json::Value = serde_json::from_str(&tcs[0].function.arguments).unwrap();
     assert_eq!(args["path"], "a.rs");
@@ -966,7 +962,7 @@ fn test_roundtrip_mixed_text_and_tool_use() {
         role: MessageRole::Assistant,
         content: MessageContent::Blocks(vec![
             ContentBlock::text("Let me read that file."),
-            ContentBlock::tool_use("call_x", "read_file", serde_json::json!({"path": "x.rs"})),
+            ContentBlock::tool_use("call_x", "Read", serde_json::json!({"path": "x.rs"})),
         ]),
     }];
     let result = OpenAiProvider::convert_messages(&msgs);
@@ -1323,7 +1319,7 @@ data: [DONE]\n";
             ..
         }) => {
             assert_eq!(id, "call_xyz");
-            assert_eq!(name, "read_file");
+            assert_eq!(name, "Read");
         }
         _ => panic!("expected ContentBlockStart at index 0, got {:?}", events[0]),
     }
@@ -1603,7 +1599,7 @@ fn test_build_request_body_with_tools() {
         serde_json::json!({
             "type": "function",
             "function": {
-                "name": "read_file",
+                "name": "Read",
                 "description": "Read a file",
                 "parameters": {"type": "object", "properties": {"path": {"type": "string"}}}
             }
@@ -1628,7 +1624,7 @@ fn test_build_request_body_with_tools() {
     assert_eq!(tools_val.len(), 2);
     let json = serde_json::to_string(&body).unwrap();
     assert!(json.contains("get_weather"));
-    assert!(json.contains("read_file"));
+    assert!(json.contains("Read"));
 }
 
 #[test]

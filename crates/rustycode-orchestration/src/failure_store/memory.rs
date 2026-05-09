@@ -138,10 +138,10 @@ mod tests {
     fn test_record_and_query_failure() {
         let store = MemoryFailureStore::new();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
 
-        let patterns = store.query_patterns("bash").unwrap();
+        let patterns = store.query_patterns("Bash").unwrap();
         assert_eq!(patterns.len(), 1);
         assert_eq!(patterns[0].occurrence_count, 1);
     }
@@ -150,13 +150,13 @@ mod tests {
     fn test_record_failure_increments_existing() {
         let store = MemoryFailureStore::new();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
 
-        let patterns = store.query_patterns("bash").unwrap();
+        let patterns = store.query_patterns("Bash").unwrap();
         assert_eq!(patterns.len(), 1);
         assert_eq!(patterns[0].occurrence_count, 2);
     }
@@ -165,13 +165,13 @@ mod tests {
     fn test_record_failure_different_categories() {
         let store = MemoryFailureStore::new();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::LogicError))
+            .record_failure(&make_pattern("Bash", SignalCategory::LogicError))
             .unwrap();
         store
-            .record_failure(&make_pattern("bash", SignalCategory::ToolTimeout))
+            .record_failure(&make_pattern("Bash", SignalCategory::ToolTimeout))
             .unwrap();
 
-        let patterns = store.query_patterns("bash").unwrap();
+        let patterns = store.query_patterns("Bash").unwrap();
         assert_eq!(patterns.len(), 2);
     }
 

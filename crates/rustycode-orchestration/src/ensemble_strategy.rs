@@ -189,7 +189,7 @@ impl EnsembleStrategy {
                 index: i as u8,
                 description: sub.clone(),
                 expected_output_type: crate::types::OutputType::Verification,
-                suggested_tool: Some("bash".into()),
+                suggested_tool: Some("Bash".into()),
                 retry_on_failure: true,
                 required_resources: crate::guard::RequiredResources::default(),
             };
@@ -250,7 +250,7 @@ impl EnsembleStrategy {
             index: 0,
             description: task.into(),
             expected_output_type: crate::types::OutputType::Verification,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::default(),
         };
@@ -324,7 +324,7 @@ impl EnsembleStrategy {
             index: 1,
             description: format!("Implement: {task}"),
             expected_output_type: crate::types::OutputType::Verification,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::default(),
         };
@@ -375,7 +375,7 @@ impl EnsembleStrategy {
             index: 0,
             description: format!("Propose solution: {task}"),
             expected_output_type: crate::types::OutputType::Verification,
-            suggested_tool: Some("bash".into()),
+            suggested_tool: Some("Bash".into()),
             retry_on_failure: true,
             required_resources: crate::guard::RequiredResources::default(),
         };
@@ -494,13 +494,13 @@ mod tests {
             Some(1),
             "assertion failed".into(),
             "step-1".into(),
-            "bash".into(),
+            "Bash".into(),
         );
         trace.append(crate::execution_trace::TraceEntry::new_failure(
             "step-1".into(),
             0,
             2,
-            "bash".into(),
+            "Bash".into(),
             serde_json::json!({}),
             "error".into(),
             Some(1),

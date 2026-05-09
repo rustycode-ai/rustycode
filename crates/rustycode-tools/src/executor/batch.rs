@@ -66,8 +66,8 @@ rustycode_tools_api::define_tool! {
 ```json
 {
   "calls": [
-    {"tool": "read_file", "parameters": {"path": "src/main.rs"}},
-    {"tool": "read_file", "parameters": {"path": "src/lib.rs"}},
+    {"tool": "Read", "parameters": {"path": "src/main.rs"}},
+    {"tool": "Read", "parameters": {"path": "src/lib.rs"}},
     {"tool": "lsp_document_symbols", "parameters": {"file_path": "src/main.rs"}}
   ]
 }
@@ -304,8 +304,8 @@ mod tests {
         let result = tool.execute(
             json!({
                 "calls": [
-                    {"tool": "read_file", "parameters": {"path": "/tmp/test"}},
-                    {"tool": "glob", "parameters": {"pattern": "*.rs"}}
+                    {"tool": "Read", "parameters": {"path": "/tmp/test"}},
+                    {"tool": "Glob", "parameters": {"pattern": "*.rs"}}
                 ]
             }),
             &ctx,
@@ -326,7 +326,7 @@ mod tests {
         let result = tool.execute(
             json!({
                 "calls": [
-                    {"tool": "read_file", "parameters": {"path": "/tmp/test"}}
+                    {"tool": "Read", "parameters": {"path": "/tmp/test"}}
                 ]
             }),
             &ctx,
@@ -344,7 +344,7 @@ mod tests {
         let mut calls = vec![];
         for i in 0..21 {
             calls.push(json!({
-                "tool": "read_file",
+                "tool": "Read",
                 "parameters": {"path": format!("/tmp/test{}", i)}
             }));
         }
@@ -387,8 +387,8 @@ mod tests {
         let result = tool.execute(
             json!({
                 "calls": [
-                    {"tool": "glob", "parameters": {"pattern": "*.rs"}},
-                    {"tool": "glob", "parameters": {"pattern": "*.toml"}}
+                    {"tool": "Glob", "parameters": {"pattern": "*.rs"}},
+                    {"tool": "Glob", "parameters": {"pattern": "*.toml"}}
                 ],
                 "continue_on_error": true
             }),
@@ -416,7 +416,7 @@ mod tests {
             json!({
                 "calls": [
                     {"tool": "list_dir", "parameters": {"path": "/tmp"}},
-                    {"tool": "glob", "parameters": {"pattern": "*.rs"}}
+                    {"tool": "Glob", "parameters": {"pattern": "*.rs"}}
                 ]
             }),
             &ctx,
@@ -440,7 +440,7 @@ mod tests {
             json!({
                 "calls": [
                     {"tool": "nonexistent_tool_xyz", "parameters": {}},
-                    {"tool": "glob", "parameters": {"pattern": "*.toml"}}
+                    {"tool": "Glob", "parameters": {"pattern": "*.toml"}}
                 ]
             }),
             &ctx,
@@ -460,9 +460,9 @@ mod tests {
         let result = tool.execute(
             json!({
                 "calls": [
-                    {"tool": "glob", "parameters": {"pattern": "a*.rs"}},
-                    {"tool": "glob", "parameters": {"pattern": "b*.rs"}},
-                    {"tool": "glob", "parameters": {"pattern": "c*.rs"}}
+                    {"tool": "Glob", "parameters": {"pattern": "a*.rs"}},
+                    {"tool": "Glob", "parameters": {"pattern": "b*.rs"}},
+                    {"tool": "Glob", "parameters": {"pattern": "c*.rs"}}
                 ]
             }),
             &ctx,
@@ -485,8 +485,8 @@ mod tests {
         let result = tool.execute(
             json!({
                 "calls": [
-                    {"tool": "glob", "parameters": {"pattern": "*.rs"}},
-                    {"tool": "glob", "parameters": {"pattern": "*.toml"}}
+                    {"tool": "Glob", "parameters": {"pattern": "*.rs"}},
+                    {"tool": "Glob", "parameters": {"pattern": "*.toml"}}
                 ]
             }),
             &ctx,
@@ -503,7 +503,7 @@ mod tests {
         let mut calls = vec![];
         for i in 0..20 {
             calls.push(json!({
-                "tool": "glob",
+                "tool": "Glob",
                 "parameters": {"pattern": format!("{}.rs", i)}
             }));
         }
@@ -559,7 +559,7 @@ mod tests {
                 _role: rustycode_protocol::AgentRole,
                 tool_name: &str,
             ) -> Result<(), ToolBlockedReason> {
-                if tool_name == "write_file" {
+                if tool_name == "Write" {
                     return Err(ToolBlockedReason::NotAllowedForRole {
                         tool: tool_name.to_string(),
                         role: rustycode_protocol::AgentRole::Reviewer,
@@ -577,8 +577,8 @@ mod tests {
         let result = tool.execute(
             json!({
                 "calls": [
-                    {"tool": "read_file", "parameters": {"path": "/tmp/test1"}},
-                    {"tool": "write_file", "parameters": {"path": "/tmp/test2", "content": "x"}}
+                    {"tool": "Read", "parameters": {"path": "/tmp/test1"}},
+                    {"tool": "Write", "parameters": {"path": "/tmp/test2", "content": "x"}}
                 ]
             }),
             &ctx,

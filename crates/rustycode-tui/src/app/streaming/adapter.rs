@@ -321,7 +321,7 @@ impl AgentEvents for StreamEventAdapter {
             .unwrap_or_default();
 
         // Extract the actual command for bash tools (not the key=value diff)
-        let bash_command = if tool_name == "bash" {
+        let bash_command = if tool_name == "Bash" {
             input
                 .as_object()
                 .and_then(|obj| obj.get("command"))
@@ -338,7 +338,7 @@ impl AgentEvents for StreamEventAdapter {
 
         // Classify risk for logging
         let tool_type = crate::tool_approval::risk::classify_tool_type(tool_name);
-        let risk_command = if tool_name == "bash" {
+        let risk_command = if tool_name == "Bash" {
             bash_command.to_string()
         } else {
             input.to_string()
@@ -349,7 +349,7 @@ impl AgentEvents for StreamEventAdapter {
             tool_name,
             risk,
             tool_type,
-            if tool_name == "bash" {
+            if tool_name == "Bash" {
                 bash_command
             } else {
                 &diff
@@ -358,7 +358,7 @@ impl AgentEvents for StreamEventAdapter {
 
         // For bash tools, send the raw command (not key=value) so the TUI's
         // SmartApprove can properly classify read-only vs dangerous commands.
-        let display_diff = if tool_name == "bash" && !bash_command.is_empty() {
+        let display_diff = if tool_name == "Bash" && !bash_command.is_empty() {
             Some(bash_command.to_string())
         } else {
             Some(diff)
@@ -512,7 +512,7 @@ mod tests {
         adapter
             .on_event(StreamEvent::ToolCallStarted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             })
             .await;
 
@@ -526,13 +526,13 @@ mod tests {
         adapter
             .on_event(StreamEvent::ToolExecStarted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
             })
             .await;
         assert_eq!(
             rx.recv().unwrap(),
             StreamChunk::ToolStart {
-                tool_name: "bash".into(),
+                tool_name: "Bash".into(),
                 tool_id: "t1".into(),
                 input_json: r#"{"command":"ls -la"}"#.into()
             }
@@ -541,7 +541,7 @@ mod tests {
         adapter
             .on_event(StreamEvent::ToolExecCompleted {
                 id: "t1".into(),
-                name: "bash".into(),
+                name: "Bash".into(),
                 output: "ok".into(),
                 is_error: false,
             })
@@ -556,7 +556,7 @@ mod tests {
                 output_size,
                 output,
             } => {
-                assert_eq!(tool_name, "bash");
+                assert_eq!(tool_name, "Bash");
                 assert_eq!(tool_id, "t1");
                 assert!(
                     duration_ms < 100,
