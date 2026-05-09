@@ -102,19 +102,16 @@ rustycode_tools_api::define_tool! {
             name_path_str.split('/').next().unwrap_or("_")
         );
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&json!({
                 "extracted": name_path_str,
                 "from": file_path.to_string_lossy(),
                 "to": target_file.to_string_lossy(),
                 "import_statement": import_stmt,
                 "symbol_size_bytes": symbol_body.len()
-            }))?,
-            json!({
+            }))?).with_metadata(ctx, || json!({
                 "extracted": name_path_str,
                 "target_file": target_file.to_string_lossy(),
                 "import": import_stmt
-            }),
-        ))
+            })))
     }
 }

@@ -57,10 +57,7 @@ rustycode_tools_api::define_tool! {
             })
         })?;
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&hover)?,
-            json!({ "hover": hover }),
-        ))
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&hover)?).with_metadata(ctx, || json!({ "hover": hover })))
     }
 }
 

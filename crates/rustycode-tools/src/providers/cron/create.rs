@@ -23,7 +23,7 @@ Returns a job ID you can pass to cron_delete."#,
     permission: ToolPermission::None,
     tags: [ToolTag::Ops],
 
-    execute(params: CronCreateParams, _ctx) {
+    execute(params: CronCreateParams, ctx) {
         let cron = &params.cron;
         let prompt = &params.prompt;
 
@@ -38,15 +38,12 @@ Returns a job ID you can pass to cron_delete."#,
 
         let job_id = format!("cron-{}", JOB_COUNTER.fetch_add(1, Ordering::Relaxed));
 
-        Ok(ToolOutput::with_structured(
-            format!("Scheduled job {job_id}: {cron}"),
-            json!({
+        Ok(ToolOutput::text(format!("Scheduled job {job_id}: {cron}")).with_metadata(ctx, || json!({
                 "job_id": job_id,
                 "cron": cron,
                 "recurring": recurring,
                 "durable": durable,
-            }),
-        ))
+            })))
     }
 }
 

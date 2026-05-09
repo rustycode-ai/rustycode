@@ -19,7 +19,7 @@ rustycode_tools_api::define_tool! {
     description: "Check how new code integrates with existing codebase. Identifies affected modules, potential breakage points, and required test coverage for safe integration.",
     permission: ToolPermission::None,
 
-    execute(params: CheckIntegrationParams, _ctx) {
+    execute(params: CheckIntegrationParams, ctx) {
         let changes = params.changes.as_deref().unwrap_or("unspecified changes");
         let scope = params.scope.as_deref().unwrap_or("crate");
 
@@ -49,7 +49,7 @@ rustycode_tools_api::define_tool! {
              5. **Test coverage** — Sufficient tests for changed paths?"
         );
 
-        Ok(ToolOutput::with_structured(text, output))
+        Ok(ToolOutput::text(text).with_metadata(ctx, || output))
     }
 }
 

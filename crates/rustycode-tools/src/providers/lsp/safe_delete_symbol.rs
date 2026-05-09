@@ -84,15 +84,12 @@ rustycode_tools_api::define_tool! {
         let new_text = crate::providers::symbol::replace_range(&text, &target_symbol.range, "")?;
         safe_write_file(&file_path, new_text.as_bytes())?;
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&json!({
                 "deleted": name_path_str,
                 "file_path": file_path.to_string_lossy(),
-            }))?,
-            json!({
+            }))?).with_metadata(ctx, || json!({
                 "deleted": name_path_str,
                 "file_path": file_path.to_string_lossy(),
-            }),
-        ))
+            })))
     }
 }

@@ -26,13 +26,10 @@ rustycode_tools_api::define_tool! {
     tags: [ToolTag::Debug, ToolTag::Explore, ToolTag::Implement],
     defer_loading: true,
 
-    execute(params: LspDiagnosticsParams, _ctx) {
+    execute(params: LspDiagnosticsParams, ctx) {
         let servers = params.servers;
         let statuses = rustycode_lsp::discover(&servers);
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&statuses)?,
-            json!(statuses),
-        ))
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&statuses)?).with_metadata(ctx, || json!(statuses)))
     }
 }
 

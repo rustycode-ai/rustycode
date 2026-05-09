@@ -522,7 +522,7 @@ rustycode_tools_api::define_tool! {
             meta
         };
 
-        Ok(ToolOutput::with_structured(output_text, metadata))
+        Ok(ToolOutput::text(output_text).with_metadata(ctx, || metadata))
     }
 }
 

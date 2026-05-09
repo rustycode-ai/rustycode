@@ -14,18 +14,15 @@ Parameters:
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],
 
-    execute(params: ReadMcpResourceParams, _ctx) {
+    execute(params: ReadMcpResourceParams, ctx) {
         let server = &params.server;
         let uri = &params.uri;
 
         // Placeholder: actual MCP resource reading requires rustycode-mcp integration
-        Ok(ToolOutput::with_structured(
-            format!("MCP resource {uri} from {server} — requires MCP runtime"),
-            json!({
+        Ok(ToolOutput::text(format!("MCP resource {uri} from {server} — requires MCP runtime")).with_metadata(ctx, || json!({
                 "server": server,
                 "uri": uri,
-            }),
-        ))
+            })))
     }
 }
 

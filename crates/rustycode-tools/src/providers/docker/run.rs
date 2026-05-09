@@ -153,7 +153,7 @@ Use this tool to:
             structured["container_id"] = json!(container_id);
         }
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

@@ -50,10 +50,8 @@ Use this tool to:
         }
         structured["inspection"] = structured_output;
 
-        Ok(ToolOutput::with_structured(
-            format!("Inspection result for '{target}'"),
-            structured,
-        ))
+        Ok(ToolOutput::text(format!("Inspection result for '{target}'"))
+            .with_metadata(ctx, || structured))
     }
 }
 

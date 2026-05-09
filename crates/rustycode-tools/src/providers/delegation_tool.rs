@@ -38,7 +38,7 @@ rustycode_tools_api::define_tool! {
      or parallel implementation tasks that benefit from context isolation.",
     permission: ToolPermission::Read,
 
-    execute(params: DelegationParams, _ctx) {
+    execute(params: DelegationParams, ctx) {
         let task_description = &params.task_description;
 
         if task_description.trim().is_empty() {
@@ -71,7 +71,7 @@ rustycode_tools_api::define_tool! {
 
         let text = format!("Task delegated: [{role}] {task_description} (id: {task_id})");
 
-        Ok(ToolOutput::with_structured(text, result))
+        Ok(ToolOutput::text(text).with_metadata(ctx, || result))
     }
 }
 

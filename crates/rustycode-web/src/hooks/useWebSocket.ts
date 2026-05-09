@@ -17,15 +17,15 @@ interface UseWebSocketOptions {
 const SESSION_KEY = "rustycode-session-token";
 
 export function clearSessionToken() {
-  try { localStorage.removeItem(SESSION_KEY); } catch {}
+  try { localStorage.removeItem(SESSION_KEY); } catch (e) { console.error("Failed to clear session token", e); }
 }
 
 export function getSavedSessionToken(): string | null {
-  try { return localStorage.getItem(SESSION_KEY); } catch { return null; }
+  try { return localStorage.getItem(SESSION_KEY); } catch (e) { console.error("Failed to get session token", e); return null; }
 }
 
 function saveSessionToken(token: string) {
-  try { localStorage.setItem(SESSION_KEY, token); } catch {}
+  try { localStorage.setItem(SESSION_KEY, token); } catch (e) { console.error("Failed to save session token", e); }
 }
 
 export function useWebSocket({ url, dispatch, onConnected, onError, onToolApprovalRequest, onConnectionChange }: UseWebSocketOptions) {

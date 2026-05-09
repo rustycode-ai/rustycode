@@ -57,12 +57,9 @@ rustycode_tools_api::define_tool! {
 
         let overview = crate::providers::symbol::symbols_overview(&symbols, depth);
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&overview)?,
-            json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&overview)?).with_metadata(ctx, || json!({
                 "file_path": file_path.to_string_lossy().to_string(),
                 "symbols": overview
-            }),
-        ))
+            })))
     }
 }

@@ -22,7 +22,7 @@ This creates:
     permission: ToolPermission::Write,
     tags: [ToolTag::Ops],
 
-    execute(params: TeamCreateParams, _ctx) {
+    execute(params: TeamCreateParams, ctx) {
         let team_name = &params.team_name;
 
         validate_team_name(team_name)?;
@@ -59,14 +59,11 @@ This creates:
         )
         .with_context(|| format!("Failed to write {}", config_path.display()))?;
 
-        Ok(ToolOutput::with_structured(
-            format!("Team '{team_name}' created"),
-            json!({
+        Ok(ToolOutput::text(format!("Team '{team_name}' created")).with_metadata(ctx, || json!({
                 "team_name": team_name,
                 "team_dir": team_dir.to_string_lossy(),
                 "task_dir": task_dir.to_string_lossy(),
-            }),
-        ))
+            })))
     }
 }
 

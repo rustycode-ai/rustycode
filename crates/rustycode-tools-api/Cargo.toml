@@ -13,6 +13,7 @@ regex.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing.workspace = true
+which.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
 schemars = "1.2.1"
 

@@ -10,14 +10,11 @@ rustycode_tools_api::define_tool! {
     permission: ToolPermission::None,
     tags: [ToolTag::Ops],
 
-    execute(params: CronDeleteParams, _ctx) {
+    execute(params: CronDeleteParams, ctx) {
         let id = &params.id;
 
         // Placeholder: actual removal from scheduler requires runtime integration
-        Ok(ToolOutput::with_structured(
-            format!("Job {id} cancelled"),
-            json!({"job_id": id, "deleted": true}),
-        ))
+        Ok(ToolOutput::text(format!("Job {id} cancelled")).with_metadata(ctx, || json!({"job_id": id, "deleted": true})))
     }
 }
 

@@ -144,7 +144,7 @@ rustycode_tools_api::define_tool! {
             metadata["filter"] = json!(filter_str);
         }
 
-        Ok(ToolOutput::with_structured(output_text, metadata))
+        Ok(ToolOutput::text(output_text).with_metadata(ctx, || metadata.clone()))
     }
 }
 

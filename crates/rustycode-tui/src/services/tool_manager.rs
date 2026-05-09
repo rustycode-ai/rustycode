@@ -52,8 +52,21 @@ impl ToolManager {
         #[cfg(feature = "vector-memory")]
         use rustycode_tools::SemanticSearchTool;
 
-        // Register all zero-config built-in tools from default registry
-        *tool_registry = rustycode_tools::default_registry();
+        // Build ToolFilter from provider capabilities + runtime environment
+        let model_info = rustycode_llm::model_info::KnownModels::get(current_model);
+        let provider_name = provider.name();
+        let is_local = matches!(provider_name, "ollama" | "litert_lm");
+        let provider_caps = rustycode_tools::ProviderCaps {
+            supports_tools: model_info.capabilities.tool_calling,
+            supports_parallel_tools: !is_local,
+            supports_structured_output: model_info.capabilities.json_mode && !is_local,
+            max_output_tokens: if is_local { Some(4096) } else { None },
+            is_local,
+        };
+        let filter = rustycode_tools::ToolFilter::probe(provider_caps, cwd.to_path_buf());
+
+        // Register built-in tools filtered by environment capabilities
+        *tool_registry = rustycode_tools::default_registry_filtered(&filter);
 
         // Register stateful tools that require runtime state
         // Todo tools are now zero-sized and use global state keyed by session_id

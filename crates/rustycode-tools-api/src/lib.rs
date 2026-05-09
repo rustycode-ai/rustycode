@@ -284,6 +284,11 @@ pub struct ToolContext {
     pub message_sender: Option<Arc<dyn MessageSender>>,
     /// Optional JSON schema for structured output validation (StructuredOutputTool).
     pub structured_output_schema: Option<serde_json::Value>,
+    /// When true, tools should populate `ToolOutput::structured` metadata.
+    /// Only ACP (IDE integration) and the WebSocket tool server consume this data;
+    /// the primary CLI/TUI/headless path discards it. Defaults to `false` to avoid
+    /// wasted CPU cycles serialising JSON that is never read.
+    pub structured_output_enabled: bool,
 }
 
 impl std::fmt::Debug for ToolContext {
@@ -316,6 +321,7 @@ impl ToolContext {
             file_read_state: None,
             message_sender: None,
             structured_output_schema: None,
+            structured_output_enabled: false,
         }
     }
     pub fn with_sandbox(mut self, sandbox: SandboxConfig) -> Self {
@@ -342,6 +348,12 @@ impl ToolContext {
     #[allow(clippy::missing_const_for_fn)]
     pub fn with_allow_outside_workspace(mut self, allow: bool) -> Self {
         self.allow_outside_workspace = allow;
+        self
+    }
+    /// Enable structured output for ACP / tool-server consumers.
+    #[allow(clippy::missing_const_for_fn)]
+    pub fn with_structured_output(mut self, enabled: bool) -> Self {
+        self.structured_output_enabled = enabled;
         self
     }
     /// Attach a cancellation token for interruptible operations.
@@ -435,6 +447,21 @@ impl ToolOutput {
             structured: Some(serde_json::to_value(structured)?),
             new_cwd: None,
         })
+    }
+
+    /// Conditionally attach structured metadata based on the execution context.
+    ///
+    /// The closure is only evaluated when `ctx.structured_output_enabled` is true
+    /// (ACP / tool-server path). In the primary CLI/TUI/headless path the closure
+    /// is never called, avoiding wasted CPU serialising JSON that would be dropped.
+    pub fn with_metadata<F>(mut self, ctx: &ToolContext, metadata: F) -> Self
+    where
+        F: FnOnce() -> Value,
+    {
+        if ctx.structured_output_enabled {
+            self.structured = Some(metadata());
+        }
+        self
     }
 }
 

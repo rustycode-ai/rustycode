@@ -35,9 +35,7 @@ When you see a tool name in the available tools list but don't have its full sch
         if let Some(tool) = registry.get(query) {
             let desc = tool.description();
             let first_line = desc.lines().next().unwrap_or(desc);
-            return Ok(ToolOutput::with_structured(
-                format!("Loaded schema for: {query}"),
-                json!({
+            return Ok(ToolOutput::text(format!("Loaded schema for: {query}")).with_metadata(ctx, || json!({
                     "query": query,
                     "found": true,
                     "match_type": "exact",
@@ -46,8 +44,7 @@ When you see a tool name in the available tools list but don't have its full sch
                     "full_description": desc,
                     "parameters_schema": tool.parameters_schema(),
                     "tags": tool.tags().iter().map(|t| t.as_str()).collect::<Vec<_>>(),
-                }),
-            ));
+                })));
         }
 
         // Fuzzy match — name contains query, return up to 5 matches
@@ -69,25 +66,19 @@ When you see a tool name in the available tools list but don't have its full sch
             .collect();
 
         if matches.is_empty() {
-            return Ok(ToolOutput::with_structured(
-                format!("No tools matching: {query}"),
-                json!({
+            return Ok(ToolOutput::text(format!("No tools matching: {query}")).with_metadata(ctx, || json!({
                     "query": query,
                     "found": false,
                     "suggestion": "Try a different search term or use a partial tool name",
-                }),
-            ));
+                })));
         }
 
-        Ok(ToolOutput::with_structured(
-            format!("Found {} tools matching: {query}", matches.len()),
-            json!({
+        Ok(ToolOutput::text(format!("Found {} tools matching: {query}", matches.len())).with_metadata(ctx, || json!({
                 "query": query,
                 "found": true,
                 "match_type": "fuzzy",
                 "results": matches,
-            }),
-        ))
+            })))
     }
 }
 

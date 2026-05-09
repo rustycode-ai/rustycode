@@ -94,19 +94,16 @@ rustycode_tools_api::define_tool! {
 
         affected_files.sort();
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&json!({
                 "renamed": name_path_str,
                 "new_name": new_name,
                 "files_modified": affected_files.len(),
                 "files": affected_files
-            }))?,
-            json!({
+            }))?).with_metadata(ctx, || json!({
                 "renamed": name_path_str,
                 "new_name": new_name,
                 "files_modified": affected_files.len(),
                 "files": affected_files
-            }),
-        ))
+            })))
     }
 }

@@ -41,15 +41,12 @@ rustycode_tools_api::define_tool! {
                 // indexing or doesn't support the request. Return empty results with
                 // a helpful message so callers can fall back to grep.
                 tracing::debug!("workspace_symbols failed (server may still be indexing): {e:#}");
-                return Ok(ToolOutput::with_structured(
-                    format!("Workspace symbol search unavailable for '{query}'. The language server may still be indexing. Try lsp_document_symbols on a specific file instead, or use grep.\n"),
-                    json!({
+                return Ok(ToolOutput::text(format!("Workspace symbol search unavailable for '{query}'. The language server may still be indexing. Try lsp_document_symbols on a specific file instead, or use grep.\n")).with_metadata(ctx, || json!({
                         "query": query,
                         "count": 0,
                         "symbols": [],
                         "error": format!("{e:#}")
-                    }),
-                ));
+                    })));
             }
         };
 
@@ -82,13 +79,10 @@ rustycode_tools_api::define_tool! {
 
         let detailed_text = detailed.collect::<Vec<_>>().join("\n");
 
-        Ok(ToolOutput::with_structured(
-            format!("{text_summary}{detailed_text}"),
-            json!({
+        Ok(ToolOutput::text(format!("{text_summary}{detailed_text}")).with_metadata(ctx, || json!({
                 "query": query,
                 "count": symbols.len(),
                 "symbols": symbol_info
-            }),
-        ))
+            })))
     }
 }

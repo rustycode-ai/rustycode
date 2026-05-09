@@ -22,7 +22,7 @@ rustycode_tools_api::define_tool! {
     description: "Get prioritized research targets for a specific module's open questions. Returns structured research guidance with what to investigate, why it matters, and what you should find. Use AFTER reasoning_decompose to plan your research efficiently.",
     permission: ToolPermission::None,
 
-    execute(params: GuideResearchParams, _ctx) {
+    execute(params: GuideResearchParams, ctx) {
         let module_name = params.module_name.as_deref().unwrap_or("unknown module");
         let open_question = params.open_question.as_deref().unwrap_or("unknown question");
         let known_constraints = params.known_constraints.as_deref().unwrap_or("");
@@ -59,7 +59,7 @@ rustycode_tools_api::define_tool! {
              **Next step:** Research these targets, then call `reasoning_validate` with your findings."
         );
 
-        Ok(ToolOutput::with_structured(text, output))
+        Ok(ToolOutput::text(text).with_metadata(ctx, || output))
     }
 }
 

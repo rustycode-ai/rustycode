@@ -78,7 +78,7 @@ rustycode_tools_api::define_tool! {
             structured["changes"] = json!(files_changed);
         }
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

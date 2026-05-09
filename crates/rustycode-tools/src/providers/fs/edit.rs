@@ -27,12 +27,16 @@ fn suggest_similar_files(target: &std::path::Path, cwd: &std::path::Path) -> Vec
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct EditFileParams {
-    #[serde(alias = "file_path")]
-    pub path: PathBuf,
-    #[serde(alias = "old_string")]
-    pub old_text: String,
-    #[serde(alias = "new_string")]
-    pub new_text: String,
+    /// The absolute path to the file to modify
+    #[serde(alias = "file_path", alias = "path")]
+    pub file_path: PathBuf,
+    /// The text to replace
+    #[serde(alias = "old_text", alias = "old_string")]
+    pub old_string: String,
+    /// The text to replace it with (must be different from old_string)
+    #[serde(alias = "new_text", alias = "new_string")]
+    pub new_string: String,
+    /// Replace all occurrences of old_string (default false)
     #[serde(default)]
     pub replace_all: bool,
 }
@@ -150,8 +154,8 @@ pub(crate) fn try_trimmed_match(content: &str, old_text: &str, new_text: &str) -
 rustycode_tools_api::define_tool! {
     pub struct EditFile;
 
-    name: "edit_file",
-    description: "Replace text in a file. Tries exact match first, then line-ending-normalized match (handles CRLF/LF differences), then quote-normalized match (handles curly/smart quotes), then trimmed-whitespace match. Preserves original line endings. Returns a diff of changes.",
+    name: "Edit",
+    description: "Performs exact string replacements in files.\n\nUsage:\n- You must use your Read tool at least once in the conversation before editing. This tool will error if you attempt an edit without reading the file.\n- When editing text from Read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is: line number + tab. Everything after that is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.\n- ALWAYS prefer editing existing files in the codebase. NEVER write new files unless explicitly required.\n- Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.\n- The edit will FAIL if old_string is not unique in the file. Either provide a larger string with more surrounding context to make it unique or use replace_all to change every instance of old_string.\n- Use replace_all for replacing and renaming strings across the file. This parameter is useful if you want to rename a variable for instance.",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],
 
@@ -159,7 +163,7 @@ rustycode_tools_api::define_tool! {
 
         // Validate path and check size limits
         let path_str = params
-            .path
+            .file_path
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("Invalid path: contains non-UTF-8 characters"))?;
 
@@ -167,13 +171,13 @@ rustycode_tools_api::define_tool! {
         let validated_path = validate_write_path(
             path_str,
             &ctx.cwd,
-            params.new_text.len(),
+            params.new_string.len(),
             !ctx.allow_outside_workspace,
         )
         .map_err(|e| {
             let mut msg = format!("{e}");
             if msg.contains("not found") || msg.contains("No such file") {
-                let suggestions = suggest_similar_files(&params.path, &ctx.cwd);
+                let suggestions = suggest_similar_files(&params.file_path, &ctx.cwd);
                 if !suggestions.is_empty() {
                     msg.push_str(&format!(
                         "\n\nDid you mean one of these files?\n{}",
@@ -192,10 +196,10 @@ rustycode_tools_api::define_tool! {
         let mut file = open_file_symlink_safe(&validated_path).map_err(|e| {
             let msg = format!("{e}");
             if msg.contains("not found") || msg.contains("No such file") {
-                let suggestions = suggest_similar_files(&params.path, &ctx.cwd);
+                let suggestions = suggest_similar_files(&params.file_path, &ctx.cwd);
                 let hint = crate::file_suggest::format_suggestions(&suggestions);
                 if !hint.is_empty() {
-                    return anyhow::anyhow!("File not found: {}{hint}", params.path.display());
+                    return anyhow::anyhow!("File not found: {}{hint}", params.file_path.display());
                 }
             }
             anyhow::anyhow!("Failed to open file: {e}")
@@ -219,7 +223,7 @@ rustycode_tools_api::define_tool! {
         file.read_to_string(&mut content).map_err(|e| {
             if e.kind() == std::io::ErrorKind::InvalidData {
                 anyhow::anyhow!(
-                    "Binary or non-UTF-8 file detected; edit_file only supports text files"
+                    "Binary or non-UTF-8 file detected; Edit only supports text files"
                 )
             } else {
                 anyhow::anyhow!("Failed to read file: {e}")
@@ -235,48 +239,48 @@ rustycode_tools_api::define_tool! {
         }
 
         // Reject empty old_text — it would match everywhere and produce nonsensical results
-        if params.old_text.is_empty() {
+        if params.old_string.is_empty() {
             return Err(anyhow::anyhow!(
-                "old_text cannot be empty. Provide the text to search for and replace."
+                "old_string cannot be empty. Provide the text to search for and replace."
             ));
         }
 
         // Try matching strategies in order: exact → line-ending-normalized → quote-normalized → trimmed
-        let new_content = if let Some((start, end)) = try_exact_match(&content, &params.old_text) {
+        let new_content = if let Some((start, end)) = try_exact_match(&content, &params.old_string) {
             // Strategy 1: Exact match
             if params.replace_all {
-                content.replace(&params.old_text, &params.new_text)
+                content.replace(&params.old_string, &params.new_string)
             } else {
                 // Check for non-unique match — replacing only one of many is error-prone
-                let match_count = content.matches(&params.old_text).count();
+                let match_count = content.matches(&params.old_string).count();
                 if match_count > 1 {
                     return Ok(ToolOutput::text(format!(
-                        "Found {match_count} matches of the old_text in the file, but replace_all is not set. \
+                        "Found {match_count} matches of the old_string in the file, but replace_all is not set. \
                          To replace all occurrences, set replace_all to true. \
                          To replace only one occurrence, provide more surrounding context to uniquely identify the instance.\n\n\
                          Searched for:\n{}",
-                        params.old_text.lines().take(CONTEXT_LINES_ON_FAILURE).collect::<Vec<_>>().join("\n")
+                        params.old_string.lines().take(CONTEXT_LINES_ON_FAILURE).collect::<Vec<_>>().join("\n")
                     )));
                 }
                 let mut result =
-                    String::with_capacity(content.len() - (end - start) + params.new_text.len());
+                    String::with_capacity(content.len() - (end - start) + params.new_string.len());
                 result.push_str(&content[..start]);
-                result.push_str(&params.new_text);
+                result.push_str(&params.new_string);
                 result.push_str(&content[end..]);
                 result
             }
         } else if let Some(replacement) =
-            try_normalized_match(&content, &params.old_text, &params.new_text)
+            try_normalized_match(&content, &params.old_string, &params.new_string)
         {
             // Strategy 2: Line-ending-normalized match
             replacement
         } else if let Some(replacement) =
-            try_quote_normalized_match(&content, &params.old_text, &params.new_text)
+            try_quote_normalized_match(&content, &params.old_string, &params.new_string)
         {
             // Strategy 3: Quote-normalized match (curly → straight quotes)
             replacement
         } else if let Some(replacement) =
-            try_trimmed_match(&content, &params.old_text, &params.new_text)
+            try_trimmed_match(&content, &params.old_string, &params.new_string)
         {
             // Strategy 4: Trimmed match
             replacement
@@ -290,7 +294,7 @@ rustycode_tools_api::define_tool! {
                 .collect::<Vec<_>>()
                 .join("\n");
             let old_preview: String = params
-                .old_text
+                .old_string
                 .lines()
                 .take(CONTEXT_LINES_ON_FAILURE)
                 .collect::<Vec<_>>()
@@ -340,7 +344,7 @@ rustycode_tools_api::define_tool! {
         })?;
 
         // Generate diff output
-        let path_display = params.path.display().to_string();
+        let path_display = params.file_path.display().to_string();
         let diff = generate_diff(&content, &new_content, &path_display, 30);
 
         let mut output = format!("Edited {path_display}:\n{diff}");
@@ -425,7 +429,7 @@ mod tests {
 
     #[test]
     fn edit_file_tool_name() {
-        assert_eq!(EditFile.name(), "edit_file");
+        assert_eq!(EditFile.name(), "Edit");
     }
 
     #[test]
@@ -437,23 +441,23 @@ mod tests {
     fn edit_file_schema_has_required_fields() {
         let schema = EditFile.parameters_schema();
         let required = schema["required"].as_array().unwrap();
-        assert!(required.iter().any(|r| r == "path"));
-        assert!(required.iter().any(|r| r == "old_text"));
-        assert!(required.iter().any(|r| r == "new_text"));
+        assert!(required.iter().any(|r| r == "file_path"));
+        assert!(required.iter().any(|r| r == "old_string"));
+        assert!(required.iter().any(|r| r == "new_string"));
     }
 
     #[test]
     fn edit_file_input_serde_roundtrip() {
         let input = EditFileParams {
-            path: PathBuf::from("src/main.rs"),
-            old_text: "fn main".into(),
-            new_text: "fn main()".into(),
+            file_path: PathBuf::from("src/main.rs"),
+            old_string: "fn main".into(),
+            new_string: "fn main()".into(),
             replace_all: false,
         };
         let json = serde_json::to_string(&input).unwrap();
         let decoded: EditFileParams = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded.path, PathBuf::from("src/main.rs"));
-        assert_eq!(decoded.old_text, "fn main");
+        assert_eq!(decoded.file_path, PathBuf::from("src/main.rs"));
+        assert_eq!(decoded.old_string, "fn main");
     }
 
     #[test]

@@ -155,6 +155,9 @@ impl UriPathExt for Url {
 }
 
 pub(crate) fn resolve_file_path_from_str(ctx: &ToolContext, path: &str) -> Result<PathBuf> {
+    if path.is_empty() {
+        return Err(anyhow!("'relative_path' (file_path) is required"));
+    }
     let p = PathBuf::from(path);
     let resolved = if p.is_absolute() { p } else { ctx.cwd.join(p) };
     ensure_path_within_workspace(ctx, &resolved)?;

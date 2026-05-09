@@ -90,9 +90,6 @@ Returns: List of code actions with titles and kinds",
             })
             .collect();
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&code_actions)?,
-            json!({ "code_actions": actions_summary }),
-        ))
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&code_actions)?).with_metadata(ctx, || json!({ "code_actions": actions_summary })))
     }
 }

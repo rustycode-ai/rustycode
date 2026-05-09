@@ -10,12 +10,9 @@ rustycode_tools_api::define_tool! {
     permission: ToolPermission::None,
     tags: [ToolTag::Ops],
 
-    execute(_params: CronListParams, _ctx) {
+    execute(_params: CronListParams, ctx) {
         // Placeholder: actual listing from scheduler requires runtime integration
-        Ok(ToolOutput::with_structured(
-            "No active cron jobs".to_string(),
-            json!({"jobs": []}),
-        ))
+        Ok(ToolOutput::text("No active cron jobs".to_string()).with_metadata(ctx, || json!({"jobs": []})))
     }
 }
 

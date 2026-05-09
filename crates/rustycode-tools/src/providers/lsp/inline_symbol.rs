@@ -107,13 +107,10 @@ rustycode_tools_api::define_tool! {
             .collect();
 
         if same_file_refs.is_empty() {
-            return Ok(ToolOutput::with_structured(
-                "No references found to inline".to_string(),
-                json!({
+            return Ok(ToolOutput::text("No references found to inline".to_string()).with_metadata(ctx, || json!({
                     "symbol": name_path_str,
                     "status": "no_references"
-                }),
-            ));
+                })));
         }
 
         // Process each reference from end to start (to avoid index shifts)
@@ -188,8 +185,7 @@ rustycode_tools_api::define_tool! {
         safe_write_file(&file_path, text.as_bytes())
             .with_context(|| format!("failed to write file {}", file_path.display()))?;
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&json!({
                 "symbol": name_path_str,
                 "inlined_count": inlined_count,
                 "definition_removed": remove_definition && inlined_count > 0,
@@ -199,13 +195,11 @@ rustycode_tools_api::define_tool! {
                 } else {
                     format!("Inlined {} call site(s) with {} error(s)", inlined_count, errors.len())
                 }
-            }))?,
-            json!({
+            }))?).with_metadata(ctx, || json!({
                 "symbol": name_path_str,
                 "inlined_count": inlined_count,
                 "definition_removed": remove_definition && inlined_count > 0,
                 "errors": errors
-            }),
-        ))
+            })))
     }
 }

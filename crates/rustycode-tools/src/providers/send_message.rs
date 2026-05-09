@@ -62,31 +62,25 @@ If you receive a JSON message with `type: "shutdown_request"` or `type: "plan_ap
                     .send(&to, &message, summary)
                     .map_err(|e| anyhow!("send failed: {e}"))?;
             }
-            return Ok(ToolOutput::with_structured(
-                if is_broadcast {
+            return Ok(ToolOutput::text(if is_broadcast {
                     "Broadcast delivered".into()
                 } else {
                     format!("Message delivered to {to}")
-                },
-                json!({
+                }).with_metadata(ctx, || json!({
                     "to": to,
                     "message": message,
                     "summary": summary,
                     "broadcast": is_broadcast,
                     "delivered": true,
-                }),
-            ));
+                })));
         }
 
-        Ok(ToolOutput::with_structured(
-            format!("Message sent to {to}"),
-            json!({
+        Ok(ToolOutput::text(format!("Message sent to {to}")).with_metadata(ctx, || json!({
                 "to": to,
                 "message": message,
                 "summary": summary,
                 "broadcast": is_broadcast,
-            }),
-        ))
+            })))
     }
 }
 

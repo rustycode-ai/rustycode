@@ -40,7 +40,7 @@ Use this tool to:
         structured["containers"] = json!(containers);
         structured["time"] = json!(time);
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

@@ -105,13 +105,10 @@ rustycode_tools_api::define_tool! {
             })
             .collect();
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&results)?,
-            json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&results)?).with_metadata(ctx, || json!({
                 "file_path": file_path.to_string_lossy(),
                 "matches_count": results.len(),
                 "matches": results
-            }),
-        ))
+            })))
     }
 }

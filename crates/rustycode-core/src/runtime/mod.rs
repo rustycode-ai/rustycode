@@ -101,7 +101,11 @@ impl Runtime {
     pub fn load(cwd: &Path) -> Result<Self> {
         let config = Config::load(cwd)?;
         let storage = Storage::open(&config.data_dir.join("rustycode.db"))?;
-        let mut tools = rustycode_tools::default_registry();
+        let mut tools = {
+            let provider_caps = rustycode_tools::ProviderCaps::full();
+            let filter = rustycode_tools::ToolFilter::probe(provider_caps, cwd.to_path_buf());
+            rustycode_tools::default_registry_filtered(&filter)
+        };
 
         // Register structured thinking tool for headless agent
         tools.register(

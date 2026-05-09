@@ -57,9 +57,6 @@ rustycode_tools_api::define_tool! {
             })
         })?;
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&references)?,
-            json!({ "references": references }),
-        ))
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&references)?).with_metadata(ctx, || json!({ "references": references })))
     }
 }

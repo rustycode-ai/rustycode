@@ -12,17 +12,14 @@ Returns a success or failure status.
 Use this tool when you need to terminate a long-running task."#,
     permission: ToolPermission::Execute,
 
-    execute(params: TaskStopParams, _ctx) {
+    execute(params: TaskStopParams, ctx) {
         let task_id = &params.task_id;
 
         // Placeholder: actual task stop requires runtime integration
-        Ok(ToolOutput::with_structured(
-            format!("Task {task_id}: stop requested"),
-            json!({
+        Ok(ToolOutput::text(format!("Task {task_id}: stop requested")).with_metadata(ctx, || json!({
                 "task_id": task_id,
                 "stopped": true,
-            }),
-        ))
+            })))
     }
 }
 

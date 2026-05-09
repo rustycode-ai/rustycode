@@ -115,14 +115,14 @@ pub(crate) fn glob_pattern_match(text: &str, pattern: &str) -> bool {
 rustycode_tools_api::define_tool! {
     pub struct GlobTool;
 
-    name: "glob",
-    description: "Find files whose path contains a glob-like fragment.",
+    name: "Glob",
+    description: "- Fast file pattern matching tool that works with any codebase size\n- Supports glob patterns like \"**/*.js\" or \"src/**/*.ts\"\n- Returns matching file paths sorted by modification time\n- Use this tool when you need to find files by name patterns\n- When you are doing an open ended search that may require multiple rounds of globbing and grepping, use the Agent tool instead",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],
 
     execute(params: GlobParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "glob")?;
+            gate.check_access(ctx.role, "Glob")?;
         }
 
         let pattern = &params.pattern;
@@ -217,7 +217,7 @@ rustycode_tools_api::define_tool! {
             metadata["extensions"] = json!(ext_stats);
         }
 
-        Ok(ToolOutput::with_structured(output, metadata))
+        Ok(ToolOutput::text(output).with_metadata(ctx, || metadata))
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::tool_selection::UsageTracker;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -270,5 +271,229 @@ mod tests {
         manager.promote(ToolTier::Extended);
         let extended = manager.allowed_tools();
         assert!(extended.contains(&"web_fetch".to_string()));
+    }
+}
+
+// ── Tool filtering ──────────────────────────────────────────────────────────
+
+/// Platform environment detected at startup, refreshable at runtime.
+#[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct PlatformEnv {
+    pub is_unix: bool,
+    pub has_pwsh: bool,
+    pub has_cmd: bool,
+    /// tmux available — needed for session/team orchestration tools.
+    pub has_tmux: bool,
+    /// iTerm2 terminal — supports inline images, proprietary escape sequences.
+    pub has_iterm2: bool,
+}
+
+impl Default for PlatformEnv {
+    fn default() -> Self {
+        Self {
+            is_unix: cfg!(unix),
+            has_pwsh: false,
+            has_cmd: false,
+            has_tmux: false,
+            has_iterm2: false,
+        }
+    }
+}
+
+impl PlatformEnv {
+    /// Probe the current platform for available shells, multiplexers, and terminals.
+    pub fn probe() -> Self {
+        Self {
+            is_unix: cfg!(unix),
+            has_pwsh: which::which("pwsh").is_ok(),
+            has_cmd: cfg!(windows),
+            has_tmux: which::which("tmux").is_ok(),
+            has_iterm2: std::env::var("TERM_PROGRAM").is_ok_and(|v| v == "iTerm.app"),
+        }
+    }
+
+    /// Re-probe all fields from the current environment.
+    pub fn reprobe(&mut self) {
+        *self = Self::probe();
+    }
+}
+
+/// LLM provider/model capabilities relevant to tool selection.
+#[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct ProviderCaps {
+    pub supports_tools: bool,
+    pub supports_parallel_tools: bool,
+    pub supports_structured_output: bool,
+    pub max_output_tokens: Option<usize>,
+    /// True for local providers (Ollama, LiteRT) — limited schema handling.
+    pub is_local: bool,
+}
+
+impl Default for ProviderCaps {
+    fn default() -> Self {
+        Self::full()
+    }
+}
+
+impl ProviderCaps {
+    /// Full cloud capabilities (Anthropic, OpenAI, etc.).
+    pub const fn full() -> Self {
+        Self {
+            supports_tools: true,
+            supports_parallel_tools: true,
+            supports_structured_output: true,
+            max_output_tokens: None,
+            is_local: false,
+        }
+    }
+
+    /// Minimal capabilities — local model with tool support but limited schemas.
+    pub const fn local() -> Self {
+        Self {
+            supports_tools: true,
+            supports_parallel_tools: false,
+            supports_structured_output: false,
+            max_output_tokens: Some(4096),
+            is_local: true,
+        }
+    }
+
+    /// No tool support at all.
+    pub const fn no_tools() -> Self {
+        Self {
+            supports_tools: false,
+            supports_parallel_tools: false,
+            supports_structured_output: false,
+            max_output_tokens: None,
+            is_local: false,
+        }
+    }
+}
+
+/// Runtime environment detected by probing the workspace, refreshable at runtime.
+#[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct RuntimeEnv {
+    pub has_git_repo: bool,
+    pub has_docker: bool,
+    pub has_lsp_running: bool,
+    /// Python interpreter available — needed for notebook/script tools.
+    pub has_python: bool,
+    /// Node.js available — needed for JS execution and npm/yarn tools.
+    pub has_node: bool,
+    pub cwd: PathBuf,
+}
+
+impl RuntimeEnv {
+    /// Probe the runtime environment from the given working directory.
+    pub fn probe(cwd: PathBuf) -> Self {
+        Self {
+            has_git_repo: cwd.join(".git").exists(),
+            has_docker: which::which("docker").is_ok(),
+            has_lsp_running: false, // caller updates this from LSP manager state
+            has_python: which::which("python3").is_ok() || which::which("python").is_ok(),
+            has_node: which::which("node").is_ok(),
+            cwd,
+        }
+    }
+
+    /// Assume everything is available.
+    pub fn full(cwd: PathBuf) -> Self {
+        Self {
+            has_git_repo: true,
+            has_docker: true,
+            has_lsp_running: true,
+            has_python: true,
+            has_node: true,
+            cwd,
+        }
+    }
+
+    /// Re-probe mutable fields (docker, python, node) without changing cwd or lsp state.
+    pub fn reprobe(&mut self) {
+        self.has_git_repo = self.cwd.join(".git").exists();
+        self.has_docker = which::which("docker").is_ok();
+        // has_lsp_running is managed externally — not touched by reprobe
+        self.has_python = which::which("python3").is_ok() || which::which("python").is_ok();
+        self.has_node = which::which("node").is_ok();
+    }
+}
+
+/// Combined filter for conditional tool registration.
+#[derive(Debug, Clone)]
+pub struct ToolFilter {
+    pub platform: PlatformEnv,
+    pub provider_caps: ProviderCaps,
+    pub runtime: RuntimeEnv,
+}
+
+impl ToolFilter {
+    /// Everything enabled — used by benchmarks and when no filtering is needed.
+    pub fn full(cwd: PathBuf) -> Self {
+        Self {
+            platform: PlatformEnv {
+                is_unix: cfg!(unix),
+                has_pwsh: true,
+                has_cmd: cfg!(windows),
+                has_tmux: true,
+                has_iterm2: false,
+            },
+            provider_caps: ProviderCaps::full(),
+            runtime: RuntimeEnv::full(cwd),
+        }
+    }
+
+    /// Probe everything from the current environment.
+    pub fn probe(provider_caps: ProviderCaps, cwd: PathBuf) -> Self {
+        Self {
+            platform: PlatformEnv::probe(),
+            provider_caps,
+            runtime: RuntimeEnv::probe(cwd),
+        }
+    }
+
+    /// Re-probe platform and runtime (shells, tools, terminals).
+    /// Provider caps are not touched — update those via `filter.provider_caps = ...`.
+    /// LSP running state is preserved (managed externally).
+    pub fn reprobe(&mut self) {
+        self.platform.reprobe();
+        self.runtime.reprobe();
+    }
+
+    /// Whether any tools should be registered at all.
+    pub const fn should_register_tools(&self) -> bool {
+        self.provider_caps.supports_tools
+    }
+
+    /// Whether complex-schema tools (LSP suite, notebook, multiedit) should be offered.
+    pub const fn should_register_complex_tools(&self) -> bool {
+        self.provider_caps.supports_tools && !self.provider_caps.is_local
+    }
+
+    /// Whether git tools should be registered.
+    pub const fn should_register_git(&self) -> bool {
+        self.runtime.has_git_repo
+    }
+
+    /// Whether LSP tools should be registered.
+    pub const fn should_register_lsp(&self) -> bool {
+        self.runtime.has_lsp_running && self.should_register_complex_tools()
+    }
+
+    /// Whether PowerShell tool should be registered.
+    pub const fn should_register_pwsh(&self) -> bool {
+        self.platform.has_pwsh
+    }
+
+    /// Whether cmd.exe tool should be registered.
+    pub const fn should_register_cmd(&self) -> bool {
+        self.platform.has_cmd
+    }
+
+    /// Whether notebook/script tools requiring Python should be registered.
+    pub const fn should_register_python(&self) -> bool {
+        self.runtime.has_python
     }
 }

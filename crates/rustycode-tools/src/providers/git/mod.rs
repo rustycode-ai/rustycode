@@ -62,7 +62,7 @@ pub(crate) fn run_git(ctx: &ToolContext, args: &[&str]) -> Result<ToolOutput> {
         "exit_code": output.status.code().unwrap_or(-1)
     });
 
-    Ok(ToolOutput::with_structured(stdout, metadata))
+    Ok(ToolOutput::text(stdout).with_metadata(ctx, || metadata))
 }
 
 #[cfg(test)]

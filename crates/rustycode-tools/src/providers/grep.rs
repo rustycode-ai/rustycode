@@ -87,42 +87,52 @@ pub struct GrepParams {
     /// File or directory to search in. Defaults to current working directory.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
-    /// Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}")
+    /// Glob pattern to filter files (e.g. "*.js", "*.{ts,tsx}") - maps to rg --glob
     #[serde(skip_serializing_if = "Option::is_none")]
     pub glob: Option<String>,
     /// Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit),
     /// "files_with_matches" shows file paths, "count" shows match counts. Defaults to "files_with_matches".
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output_mode: Option<String>,
-    /// Number of lines to show before each match. Requires output_mode: "content".
+    /// Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.
     #[serde(rename = "-B", skip_serializing_if = "Option::is_none")]
     pub context_before: Option<u64>,
-    /// Number of lines to show after each match. Requires output_mode: "content".
+    /// Number of lines to show after each match (rg -A). Requires output_mode: "content", ignored otherwise.
     #[serde(rename = "-A", skip_serializing_if = "Option::is_none")]
     pub context_after: Option<u64>,
+
+    // Hidden from schema — kept for backward compatibility and RustyCode-specific features
     /// Alias for context.
     #[serde(rename = "-C", skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub context_alias_c: Option<u64>,
     /// Number of lines to show before and after each match. Requires output_mode: "content".
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub context: Option<u64>,
     /// Show line numbers in output. Requires output_mode: "content". Defaults to true.
     #[serde(rename = "-n", skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub show_line_numbers: Option<bool>,
     /// Case insensitive search
     #[serde(rename = "-i", skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub case_insensitive: Option<bool>,
     /// File type to search (e.g. "js", "py", "rust", "go"). More efficient than glob for standard file types.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub type_filter: Option<String>,
     /// Limit output to first N lines/entries. Defaults to 250. Pass 0 for unlimited.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub head_limit: Option<u64>,
     /// Skip first N lines/entries before applying head_limit. Defaults to 0.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub offset: Option<u64>,
     /// Enable multiline mode where . matches newlines. Default: false.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub multiline: Option<bool>,
 }
 
@@ -190,14 +200,14 @@ const DEFAULT_HEAD_LIMIT: usize = 250;
 rustycode_tools_api::define_tool! {
     pub struct GrepTool;
 
-    name: "grep",
-    description: "Search for text patterns across all files in the codebase. Use this to find function definitions, variable usages, or any text pattern in code. Supports simple text search (no regex required) and can show context around matches.",
+    name: "Grep",
+    description: "A powerful search tool built on ripgrep\nUsage:\n- ALWAYS use Grep for search tasks. NEVER invoke grep or rg as a Bash command. The Grep tool has been optimized for correct permissions and access.\n- Supports full regex syntax (e.g., \"log.*Error\", \"function\\s+\\w+\")\n- Filter files with glob parameter (e.g., \"*.js\", \"**/*.tsx\") or type parameter (e.g., \"js\", \"py\", \"rust\")\n- Output modes: \"content\" shows matching lines, \"files_with_matches\" shows only file paths (default), \"count\" shows match counts\n- Use Agent tool for open-ended searches requiring multiple rounds\n- Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use `interface\\{\\}` to find `interface{}` in Go code)\n- Multiline matching: By default patterns match within single lines only. For cross-line patterns like `struct \\{[\\s\\S]*?field`, use `multiline: true`",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore, ToolTag::Debug],
 
     execute(params: GrepParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "grep")?;
+            gate.check_access(ctx.role, "Grep")?;
         }
 
         let pattern = &params.pattern;
@@ -420,7 +430,7 @@ rustycode_tools_api::define_tool! {
             metadata["after_context"] = json!(after_context);
         }
 
-        Ok(ToolOutput::with_structured(output, metadata))
+        Ok(ToolOutput::text(output).with_metadata(ctx, || metadata))
     }
 }
 

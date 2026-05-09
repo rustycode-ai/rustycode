@@ -17,11 +17,8 @@ use std::time::{Duration, Instant};
 /// Input parameters for `Bash`
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
 pub struct BashParams {
-    /// Command to execute
+    /// The command to execute
     pub command: String,
-    /// If true, restart the bash session before executing the command
-    #[serde(default)]
-    pub restart: bool,
     /// Optional timeout in milliseconds (max 600000)
     #[serde(
         rename = "timeout",
@@ -29,12 +26,26 @@ pub struct BashParams {
         skip_serializing_if = "Option::is_none"
     )]
     pub timeout_secs: Option<u64>,
+    /// Clear, concise description of what this command does in active voice. Never use words like "complex" or "risk" in the description — just describe what it does.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Set to true to run this command in the background. Use Read to read the output later.
+    #[serde(default)]
+    pub run_in_background: bool,
+    /// If true, restart the bash session before executing the command
+    #[serde(default)]
+    #[schemars(skip)]
+    pub restart: bool,
 }
 
 /// Execute a command in an isolated Docker container.
 ///
 /// Falls back to normal execution if Docker is unavailable.
-fn execute_in_docker(command: &str, workspace: &Path) -> Result<ToolOutput> {
+fn execute_in_docker(
+    command: &str,
+    workspace: &Path,
+    ctx: &crate::ToolContext,
+) -> Result<ToolOutput> {
     use crate::providers::docker_isolation::{DockerIsolation, DockerIsolationConfig};
 
     if !DockerIsolation::is_docker_available() {
@@ -68,15 +79,14 @@ fn execute_in_docker(command: &str, workspace: &Path) -> Result<ToolOutput> {
         )
     };
 
-    Ok(ToolOutput::with_structured(
-        output,
+    Ok(ToolOutput::text(output).with_metadata(ctx, || {
         json!({
             "exit_code": result.exit_code,
             "container_id": result.container_id,
             "duration_ms": result.duration_ms,
             "isolated": true
-        }),
-    ))
+        })
+    }))
 }
 
 /// Execute a command inside an OS-level sandbox.
@@ -127,15 +137,14 @@ fn execute_in_os_sandbox(command: &str, ctx: &ToolContext) -> Result<ToolOutput>
         )
     };
 
-    Ok(ToolOutput::with_structured(
-        output,
+    Ok(ToolOutput::text(output).with_metadata(ctx, || {
         json!({
             "exit_code": sandbox_result.exit_code,
             "os_sandbox": true,
             "sandbox_available": manager.is_available(),
             "timed_out": sandbox_result.timed_out,
-        }),
-    ))
+        })
+    }))
 }
 
 #[cfg(windows)]
@@ -202,13 +211,8 @@ fn try_native_fallback(command: &str) -> Option<Result<ToolOutput>> {
 rustycode_tools_api::define_tool! {
     pub struct BashTool;
 
-    name: "bash",
-    description: "Run bash/POSIX commands in a persistent shell session (works on Unix, Linux, macOS, WSL, and Cygwin). \
-         Prefer dedicated tools over bash for common operations: use read_file/edit_file for file I/O, \
-         grep for searching, glob for file matching, write_file for creating files. \
-         Use bash for: running tests, build commands, git operations, installing packages, \
-         and complex multi-step operations that need shell features (pipes, redirects, loops). \
-         On Windows: bash is detected via WSL or Cygwin if available.",
+    name: "Bash",
+    description: "Executes a given bash command and returns its output.\nThe working directory persists between commands, but shell state does not. The shell environment is initialized from the user's profile (bash or zsh).\nIMPORTANT: Avoid using this tool to run `cat`, `head`, `tail`, `sed`, `awk`, or `echo` commands, unless explicitly instructed or after you have verified that a dedicated tool cannot accomplish your task. Instead, use the appropriate dedicated tool as this will provide a much better experience for the user:\n - Read files: Use Read (NOT cat/head/tail)\n - Edit files: Use Edit (NOT sed/awk)\n - Write files: Use Write (NOT echo >/cat <<EOF)\n - Communication: Output text directly (NOT echo/printf)\nWhile the Bash tool can do similar things, the dedicated tools have been optimized for correct permissions and access.",
     permission: ToolPermission::Execute,
     tags: [ToolTag::Implement, ToolTag::Ops],
 
@@ -216,7 +220,7 @@ rustycode_tools_api::define_tool! {
         crate::check_permission(ToolPermission::Execute, ctx)?;
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "bash")?;
+            gate.check_access(ctx.role, "Bash")?;
         }
 
         let command = params.command;
@@ -251,7 +255,7 @@ rustycode_tools_api::define_tool! {
                 .unwrap_or(false);
 
         if docker_requested {
-            return execute_in_docker(&command, &ctx.cwd);
+            return execute_in_docker(&command, &ctx.cwd, ctx);
         }
 
         let os_sandbox_requested = ctx.sandbox.os_sandbox
@@ -413,7 +417,7 @@ rustycode_tools_api::define_tool! {
             meta
         };
 
-        Ok(ToolOutput::with_structured(output_text, metadata))
+        Ok(ToolOutput::text(output_text).with_metadata(ctx, || metadata))
     }
 }
 
@@ -430,7 +434,7 @@ impl crate::streaming::ToolStreaming for BashTool {
         crate::check_permission(ToolPermission::Execute, ctx)?;
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "bash")?;
+            gate.check_access(ctx.role, "Bash")?;
         }
 
         let command = params

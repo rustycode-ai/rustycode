@@ -102,45 +102,46 @@ fn execute_append(
         output_text.push_str(&formatter_diff);
     }
 
-    Ok(ToolOutput::with_structured(
-        output_text,
+    Ok(ToolOutput::text(output_text).with_metadata(ctx, || {
         json!({
             "path": path_display,
             "appended_bytes": appended_bytes,
             "total_bytes": total_bytes,
             "total_lines": total_lines,
             "old_size": old_size,
-        }),
-    ))
+        })
+    }))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
 pub struct WriteFileParams {
-    /// The absolute path to the file to write
+    /// The absolute path to the file to write (must be absolute, not relative)
     #[serde(alias = "path")]
     pub file_path: std::path::PathBuf,
-    /// UTF-8 text content. Completely replaces existing file content unless append=true.
+    /// The content to write to the file
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     /// Base64-encoded binary content to write.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub content_base64: Option<String>,
     /// If true, append content to the end of the existing file instead of overwriting.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub append: Option<bool>,
 }
 
 rustycode_tools_api::define_tool! {
     pub struct WriteFileTool;
 
-    name: "write_file",
-    description: "Write UTF-8 text to a file. Creates parent directories if needed. Set append=true to add content to the end of an existing file (useful for writing large files in multiple chunks). Returns a diff showing what changed vs the previous file content.",
+    name: "Write",
+    description: "Writes a file to the local filesystem.\nUsage:\n- This tool will overwrite the existing file if there is one at the provided path.\n- If this is an existing file, you MUST use the Read tool first to read the file's contents. This tool will fail if you did not read the file first.\n- Prefer the Edit tool for modifying existing files — it only sends the diff. Only use this tool to create new files or for complete rewrites.\n- NEVER create documentation files (*.md) or README files unless explicitly requested by the User.\n- Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement, ToolTag::Refactor],
 
     execute(params: WriteFileParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "write_file")?;
+            gate.check_access(ctx.role, "Write")?;
         }
         crate::check_permission(ToolPermission::Write, ctx)?;
 
@@ -331,14 +332,11 @@ rustycode_tools_api::define_tool! {
             state.invalidate(&path);
         }
 
-        Ok(ToolOutput::with_structured(
-            output_text,
-            json!({
+        Ok(ToolOutput::text(output_text).with_metadata(ctx, || json!({
                 "path": path_display,
                 "bytes": bytes,
                 "lines": lines
-            }),
-        ))
+            })))
     }
 }
 

@@ -181,7 +181,7 @@ pub(crate) fn run_docker(ctx: &ToolContext, args: &[&str]) -> Result<ToolOutput>
         "exit_code": output.status.code().unwrap_or(-1)
     });
 
-    Ok(ToolOutput::with_structured(text, metadata))
+    Ok(ToolOutput::text(text).with_metadata(ctx, || metadata))
 }
 
 /// Extract image ID from docker build output

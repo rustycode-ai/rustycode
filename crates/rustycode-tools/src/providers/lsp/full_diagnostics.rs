@@ -73,9 +73,7 @@ rustycode_tools_api::define_tool! {
             "success"
         };
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&diagnostics)?,
-            json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&diagnostics)?).with_metadata(ctx, || json!({
                 "diagnostics": diagnostics,
                 "build_status": {
                     "status": status,
@@ -83,7 +81,6 @@ rustycode_tools_api::define_tool! {
                     "warning_count": warning_count,
                     "hint_count": hint_count
                 }
-            }),
-        ))
+            })))
     }
 }

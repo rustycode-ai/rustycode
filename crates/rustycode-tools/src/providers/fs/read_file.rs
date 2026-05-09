@@ -199,43 +199,56 @@ pub struct ReadFileParams {
     /// The absolute path to the file to read
     #[serde(alias = "path")]
     pub file_path: std::path::PathBuf,
+    /// The line number to start reading from. Only provide if the file is too large to read at once
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<usize>,
+    /// The number of lines to read. Only provide if the file is too large to read at once.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<usize>,
+    /// Page range for PDF files (e.g., "1-5", "3", "10-20"). Only applicable to PDF files. Maximum 20 pages per request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pages: Option<String>,
+
+    // Hidden from schema — kept for backward compatibility and RustyCode-specific features
     /// First line to return, 1-indexed inclusive
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub start_line: Option<usize>,
     /// Last line to return, 1-indexed inclusive
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub end_line: Option<usize>,
     /// Regex pattern to filter matching lines
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub pattern: Option<String>,
     /// Case-insensitive pattern matching
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub case_insensitive: Option<bool>,
     /// Maximum number of pattern matches to return
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub max_matches: Option<usize>,
     /// Lines to show before/after each pattern match
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub context_lines: Option<usize>,
     /// Return file statistics instead of content
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub stats: Option<bool>,
     /// Read binary files as base64 instead of blocking them
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[schemars(skip)]
     pub binary: Option<bool>,
-    /// Skip N lines before reading (for pagination)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub offset: Option<usize>,
-    /// Maximum lines to return (for pagination)
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub limit: Option<usize>,
 }
 
 rustycode_tools_api::define_tool! {
     pub struct ReadFileTool;
 
-    name: "read_file",
-    description: "Read the complete contents of a text file. CRLF line endings are normalized to LF for consistent processing. Supports optional line range (offset/limit). Returns file content with language detection.",
+    name: "Read",
+    description: "Reads a file from the local filesystem. You can access any file directly by using this tool.\nAssume this tool is able to read all files on the machine. If the User provides a path to a file assume that path is valid. It is okay to read a file that does not exist; an error will be returned.\nUsage:\n- The file_path parameter must be an absolute path, not a relative path\n- By default, it reads up to 2000 lines starting from the beginning of the file\n- You can optionally specify a line offset and limit (especially handy for large files), but it's recommended to read the whole file by not providing these parameters\n- Results are returned using cat -n format, with line numbers starting at 1\n- This tool allows Claude Code to read images (eg PNG, JPG, etc). When reading an image file the contents are presented visually as Claude Code is a multimodal LLM.\n- This tool can read PDF files (.pdf). For large PDFs (more than 10 pages), you MUST provide the pages parameter to read specific page ranges (e.g., pages: \"1-5\"). Maximum 20 pages per request.\n- This tool can read Jupyter notebooks (.ipynb files) and returns all cells with their outputs, combining code, text, and visualizations.\n- This tool can only read files, not directories. To list files in a directory, use the registered shell tool.\n- You will regularly be asked to read screenshots. If the user provides a path to a screenshot, ALWAYS use this tool to view the file at the path. This tool will work with any temporary file paths.\n- If you read a file that exists but has empty contents you will receive a system reminder warning in place of file contents.\n- Do NOT re-read a file you just edited to verify — Edit/Write would have errored if the change failed, and the harness tracks file state for you.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore, ToolTag::Implement, ToolTag::Debug, ToolTag::Refactor, ToolTag::Ops],
 
@@ -249,7 +262,7 @@ rustycode_tools_api::define_tool! {
         }
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "read_file")?;
+            gate.check_access(ctx.role, "Read")?;
         }
         crate::check_permission(ToolPermission::Read, ctx)?;
 
@@ -283,16 +296,13 @@ rustycode_tools_api::define_tool! {
                 let hash_prefix = compute_hash_prefix(content.as_bytes());
                 record_file_read(ctx, &path, &hash_prefix, true);
                 let path_display = path.display().to_string();
-                return Ok(ToolOutput::with_structured(
-                    parsed.clone(),
-                    json!({
+                return Ok(ToolOutput::text(parsed.clone()).with_metadata(ctx, || json!({
                         "path": path_display,
                         "type": "notebook",
                         "bytes": parsed.len(),
                         "total_lines": total_lines,
                         "binary": false
-                    }),
-                ));
+                    })));
             }
         }
 
@@ -312,21 +322,18 @@ rustycode_tools_api::define_tool! {
                 }
                 _ => "Use a specialized tool for this file type",
             };
-            return Ok(ToolOutput::with_structured(
-                format!(
+            return Ok(ToolOutput::text(format!(
                     "[Binary file detected: {} (type: .{})]\n\nRecovery: {}",
                     path.display(),
                     ext,
                     suggestion
-                ),
-                json!({
+                )).with_metadata(ctx, || json!({
                     "path": path.display().to_string(),
                     "extension": ext,
                     "binary": true,
                     "error": "Binary file - use appropriate tool to view this file type",
                     "recovery_hint": suggestion
-                }),
-            ));
+                })));
         }
 
         if allow_binary {
@@ -338,9 +345,7 @@ rustycode_tools_api::define_tool! {
             if crate::image_detect::image_type_from_extension(&path).is_some() {
                 match crate::image::process_image(&bytes, crate::image::DEFAULT_MAX_TOKENS) {
                     Ok(processed) => {
-                        return Ok(ToolOutput::with_structured(
-                            processed.base64_data.clone(),
-                            json!({
+                        return Ok(ToolOutput::text(processed.base64_data.clone()).with_metadata(ctx, || json!({
                                 "path": path.display().to_string(),
                                 "type": "image",
                                 "media_type": processed.media_type,
@@ -350,8 +355,7 @@ rustycode_tools_api::define_tool! {
                                 "original_size": processed.original_size,
                                 "output_size": processed.output_size,
                                 "compression_level": format!("{:?}", processed.compression_level),
-                            }),
-                        ));
+                            })));
                     }
                     Err(e) => {
                         tracing::warn!(path = %path.display(), error = %e, "image processing failed, falling back to raw base64");
@@ -362,17 +366,14 @@ rustycode_tools_api::define_tool! {
             let total_bytes = bytes.len();
             let preview = truncate_bytes_to_boundary(&bytes, super::super::web::content::WEB_FETCH_MAX_CHARS);
             let encoded = STANDARD.encode(preview);
-            return Ok(ToolOutput::with_structured(
-                encoded,
-                json!({
+            return Ok(ToolOutput::text(encoded).with_metadata(ctx, || json!({
                     "path": path.display().to_string(),
                     "binary": true,
                     "encoding": "base64",
                     "bytes": total_bytes,
                     "shown_bytes": preview.len(),
                     "content_truncated": preview.len() < total_bytes,
-                }),
-            ));
+                })));
         }
 
         let mut file = open_file_symlink_safe(&path).map_err(|e| {
@@ -426,10 +427,7 @@ rustycode_tools_api::define_tool! {
                 "last_modified": get_last_modified(&path),
                 "complexity": estimate_complexity(total_lines, comment_lines)
             });
-            return Ok(ToolOutput::with_structured(
-                serde_json::to_string_pretty(&stats)?,
-                stats,
-            ));
+            return Ok(ToolOutput::text(serde_json::to_string_pretty(&stats)?).with_metadata(ctx, || stats.clone()));
         }
 
         // Pattern matching mode
@@ -469,19 +467,16 @@ rustycode_tools_api::define_tool! {
                         }));
                     }
                 }
-                return Ok(ToolOutput::with_structured(
-                    format!(
+                return Ok(ToolOutput::text(format!(
                         "Found {} match(es) for pattern: {}",
                         matches.len(),
                         pattern_str
-                    ),
-                    json!({
+                    )).with_metadata(ctx, || json!({
                         "pattern": pattern_str,
                         "case_insensitive": case_insensitive,
                         "total_matches": matches.len(),
                         "matches": matches
-                    }),
-                ));
+                    })));
             }
 
             let matches: Vec<PatternMatch> = lines
@@ -496,19 +491,16 @@ rustycode_tools_api::define_tool! {
                 })
                 .take(max_matches)
                 .collect();
-            return Ok(ToolOutput::with_structured(
-                matches
+            return Ok(ToolOutput::text(matches
                     .iter()
                     .map(|m| format!("Line {}: {}", m.line, m.text))
                     .collect::<Vec<_>>()
-                    .join("\n"),
-                json!({
+                    .join("\n")).with_metadata(ctx, || json!({
                     "pattern": pattern_str,
                     "case_insensitive": case_insensitive,
                     "total_matches": matches.len(),
                     "matches": matches
-                }),
-            ));
+                })));
         }
 
         // Pagination mode (offset/limit)
@@ -524,9 +516,7 @@ rustycode_tools_api::define_tool! {
             let shown_lines = paginated_lines.len();
             let hash_prefix = compute_hash_prefix(content.as_bytes());
             record_file_read(ctx, &path, &hash_prefix, true);
-            return Ok(ToolOutput::with_structured(
-                text,
-                json!({
+            return Ok(ToolOutput::text(text).with_metadata(ctx, || json!({
                     "path": path_display,
                     "bytes": text_bytes,
                     "total_lines": total_lines,
@@ -534,8 +524,7 @@ rustycode_tools_api::define_tool! {
                     "offset": offset,
                     "limit": limit,
                     "binary": false
-                }),
-            ));
+                })));
         }
 
         // Line range mode
@@ -551,16 +540,13 @@ rustycode_tools_api::define_tool! {
             let text = format_with_line_numbers(&range_lines, s + 1);
             let hash_prefix = compute_hash_prefix(content.as_bytes());
             record_file_read(ctx, &path, &hash_prefix, true);
-            return Ok(ToolOutput::with_structured(
-                text,
-                json!({
+            return Ok(ToolOutput::text(text).with_metadata(ctx, || json!({
                     "path": path.display().to_string(),
                     "bytes": content.len(),
                     "total_lines": total_lines,
                     "shown_lines": e - s,
                     "binary": false,
-                }),
-            ));
+                })));
         }
 
         // Full file with smart truncation
@@ -591,7 +577,7 @@ rustycode_tools_api::define_tool! {
             metadata["language"] = json!(language);
         }
 
-        Ok(ToolOutput::with_structured(output_text, metadata))
+        Ok(ToolOutput::text(output_text).with_metadata(ctx, || metadata.clone()))
     }
 }
 

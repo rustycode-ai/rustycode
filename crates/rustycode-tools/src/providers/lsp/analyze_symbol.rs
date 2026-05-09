@@ -90,8 +90,7 @@ rustycode_tools_api::define_tool! {
             entry.push((loc.range.start.line + 1, loc.range.start.character + 1));
         }
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&json!({
                 "symbol": name_path_str,
                 "kind": crate::providers::symbol::format_symbol_kind(&target_symbol.kind),
                 "definition": {
@@ -116,14 +115,12 @@ rustycode_tools_api::define_tool! {
                     "nesting_depth": nesting_depth,
                     "cyclomatic_estimate": (nesting_depth / 2).max(1)
                 }
-            }))?,
-            json!({
+            }))?).with_metadata(ctx, || json!({
                 "symbol": name_path_str,
                 "references_count": references.len(),
                 "implementations_count": implementations.len(),
                 "body_lines": body_lines,
                 "nesting_depth": nesting_depth
-            }),
-        ))
+            })))
     }
 }

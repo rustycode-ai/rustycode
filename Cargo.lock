@@ -6759,6 +6759,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+ "which 8.0.2",
 ]
 
 [[package]]

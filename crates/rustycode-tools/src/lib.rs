@@ -385,6 +385,12 @@ impl ToolExecutor {
         self
     }
 
+    /// Builder: enable structured output for ACP / tool-server consumers.
+    pub fn with_structured_output(mut self, enabled: bool) -> Self {
+        self.context = self.context.with_structured_output(enabled);
+        self
+    }
+
     /// Execute a tool call using the registry. The optional `_session` parameter
     /// is ignored in this stub implementation.
     pub fn execute_with_session(&self, call: &ToolCall, _session: Option<()>) -> ToolResult {

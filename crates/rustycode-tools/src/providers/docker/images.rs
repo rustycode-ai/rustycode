@@ -48,7 +48,7 @@ Use this tool to:
         structured["dangling"] = json!(dangling);
         structured["quiet"] = json!(quiet);
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

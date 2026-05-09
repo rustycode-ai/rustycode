@@ -17,21 +17,18 @@ Use block=true (default) to wait for completion, block=false for non-blocking st
     permission: ToolPermission::None,
     tags: [ToolTag::Ops],
 
-    execute(params: TaskOutputParams, _ctx) {
+    execute(params: TaskOutputParams, ctx) {
         let task_id = &params.task_id;
         let block = params.block;
         let timeout = params.timeout;
 
         // Placeholder: actual task lookup requires runtime integration
-        Ok(ToolOutput::with_structured(
-            format!("Task {task_id}: status query (block={block}, timeout={timeout}ms)"),
-            json!({
+        Ok(ToolOutput::text(format!("Task {task_id}: status query (block={block}, timeout={timeout}ms)")).with_metadata(ctx, || json!({
                 "task_id": task_id,
                 "block": block,
                 "timeout": timeout,
                 "status": "pending_integration",
-            }),
-        ))
+            })))
     }
 }
 

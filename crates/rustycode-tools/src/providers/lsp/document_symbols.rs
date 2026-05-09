@@ -57,9 +57,6 @@ Returns: Hierarchical list of symbols with their types and locations",
             })
         })?;
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&symbols)?,
-            json!({ "symbols": symbols }),
-        ))
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&symbols)?).with_metadata(ctx, || json!({ "symbols": symbols })))
     }
 }

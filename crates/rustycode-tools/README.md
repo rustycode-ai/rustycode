@@ -331,6 +331,212 @@ Tests are organized as inline `#[cfg(test)] mod tests` blocks within each source
 
 The crate uses `tempfile` for filesystem tests, mock HTTP responses for web tools, and mock LSP servers for language server tests. Security tests verify path and command validation across edge cases.
 
+## Tool Output Format Specification
+
+Tool output is the text sent to the LLM after execution. This section defines the
+canonical format for each tool category. All output is **text-only** — structured
+metadata (`ToolOutput.structured`) is for TUI display only and never reaches the LLM.
+
+### Design Principles
+
+1. **Text-first**: The `.text` field is what the LLM sees. Keep it concise and informative.
+2. **No JSON in text**: Never embed JSON objects in `.text` — the LLM should not parse structured data from tool output.
+3. **Consistent success messages**: File mutations follow `"<verb> <path>"` format.
+4. **Consistent error messages**: Start with `"Error: "` or the specific error type (e.g., `"Old text not found"`).
+5. **Truncation awareness**: Large output is truncated with a note about total size.
+
+### Output Format by Tool
+
+#### read_file
+```
+<file content with line numbers via cat -n format>
+```
+- Line numbers are 1-based, right-padded
+- Offset/limit parameters control the window
+- Binary files return base64 when `binary: true`
+- Truncation note appended when exceeding limits
+
+#### write_file
+```
+Successfully wrote <path> (<N> lines, <M> bytes)
+```
+- Append mode: `Appended to <path> (<N> lines, <M> bytes, total <T> lines)`
+
+#### edit_file
+Success:
+```
+Successfully edited <path> (<N> replacements)
+```
+Error (not found):
+```
+Old text not found in file. No changes made.
+
+File content (first <K> lines):
+<preview>
+
+Searched for:
+<old_text preview>
+```
+Error (multiple matches):
+```
+Found <N> matches of the old_text in the file, but replace_all is not set. ...
+```
+
+#### multiedit
+```
+Edited <N> files (<S> succeeded, <F> failed)
+--- <path> ---
+<per-file result>
+--- <path2> ---
+<per-file result>
+```
+
+#### apply_patch
+```
+Applied patch to <path> (<N> hunks)
+```
+Or for multi-file patches:
+```
+Applied patch to <N> files
+--- <path> ---
+<per-file result>
+```
+
+#### bash
+```
+<raw stdout/stderr output>
+[exit code: <N>] [timeout: <T>s]
+```
+- Timeout appends `Operation timed out after <T>s`
+- Non-zero exit includes exit code
+- Long output truncated with temp file fallback
+
+#### grep
+```
+<relative_path>:<line_number>: <matching line>
+```
+- `output_mode: "files_with_matches"` returns one path per line
+- `output_mode: "count"` returns `<path>: <count>`
+- Truncation: `[Showing <N> of <total> results]`
+
+#### glob
+```
+<relative_path>
+<relative_path>
+...
+(<N> files found)
+```
+
+#### list_dir
+```
+**<path>** (<N> items[, recursive (depth=<D>)])
+
+<entry>: file
+<entry>: dir
+...
+```
+
+#### git_status
+```
+<raw git status --short output>
+<branch info>
+<N> changed files, <A> additions, <D> deletions
+```
+
+#### git_diff
+```
+<raw git diff output>
+```
+Structured metadata includes `files_changed`, `total_additions`, `total_deletions`.
+
+#### git_log
+```
+<hash> <message>
+<hash> <message>
+...
+(<N> commits shown)
+```
+
+#### LSP tools (hover, definition, references, etc.)
+```
+<json representation of LSP response, pretty-printed>
+```
+- Empty result: `No results found`
+
+#### web_search
+```
+[<index>] <title>
+<url>
+<snippet>
+
+---
+
+[<index+1>] ...
+```
+
+#### web_fetch
+```
+<extracted text content from URL>
+```
+
+### Tool Definition Convention
+
+All tools use the `define_tool!` macro from `rustycode-tools-api`:
+
+```rust
+rustycode_tools_api::define_tool! {
+    pub struct MyTool;
+
+    name: "my_tool",
+    description: "One-line description of what the tool does. Use when: <trigger conditions>.",
+    permission: ToolPermission::Read,  // or Write, Execute, Network, None
+    tags: [ToolTag::Explore],          // optional: Debug, Explore, Ops, Codegen
+
+    execute(params: MyParams, ctx) {
+        // Validate inputs
+        // Execute operation
+        // Format output text
+        Ok(ToolOutput::text(output_text).with_metadata(ctx, || metadata))
+    }
+}
+```
+
+### Parameter Naming Conventions
+
+| Parameter | Convention | Example |
+|-----------|-----------|---------|
+| File path | `relative_path` or `path` | `"src/main.rs"` |
+| Line number | `line` (1-based) | `42` |
+| Character offset | `character` (0-based) | `10` |
+| Pattern | `pattern` or `query` | `"fn main"` |
+| Boolean flags | `snake_case` | `recursive`, `staged`, `replace_all` |
+| Limits | `max_depth`, `limit`, `timeout` | `3`, `100`, `120` |
+
+### Error Handling in Tool Output
+
+Errors should be returned as `Err(anyhow!(...))` for unrecoverable errors, or as
+`Ok(ToolOutput::text(...))` with descriptive text for recoverable situations.
+
+Unrecoverable (return Err):
+- Invalid parameters
+- Path traversal attacks
+- Permission denied
+- File not found (for required files)
+
+Recoverable (return Ok with descriptive text):
+- "Old text not found" (LLM can retry with different text)
+- "No matches found" (valid result, just empty)
+- "File too large for inline editing" (LLM can use different approach)
+
+### Compatibility with Claude Code
+
+RustyCode's tool output follows the same principles as Claude Code:
+1. Text-only results sent to the LLM (no JSON in the message)
+2. `cat -n` format for file reading (line-numbered)
+3. Simple success messages for mutations
+4. Error messages that help the LLM self-correct
+5. Truncation with size indicators for large output
+
 ## See Also
 
 - `rustycode-tools-api` -- Core `Tool` trait and context types (the interface this crate implements)

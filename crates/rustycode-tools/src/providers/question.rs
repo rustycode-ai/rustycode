@@ -47,7 +47,7 @@ Use this tool when you need to:
     permission: ToolPermission::None,
     tags: [ToolTag::Explore],
 
-    execute(params: QuestionParams, _ctx) {
+    execute(params: QuestionParams, ctx) {
         let question = params.question;
         let options = params.options;
         let default = params.default;
@@ -89,7 +89,7 @@ Use this tool when you need to:
             "auto_mode": is_auto_mode
         });
 
-        Ok(ToolOutput::with_structured(output, metadata))
+        Ok(ToolOutput::text(output).with_metadata(ctx, || metadata))
     }
 }
 

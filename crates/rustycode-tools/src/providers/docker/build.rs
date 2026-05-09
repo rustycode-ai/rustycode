@@ -81,7 +81,7 @@ Use this tool to:
             structured["image_id"] = json!(id);
         }
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

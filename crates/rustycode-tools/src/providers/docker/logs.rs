@@ -52,7 +52,7 @@ Use this tool to:
         structured["follow"] = json!(follow);
         structured["timestamps"] = json!(timestamps);
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

@@ -48,14 +48,11 @@ Important:
             output = format!("---\nSkill: {skill_name}\nArgs: {args}\n---\n\n{output}");
         }
 
-        Ok(ToolOutput::with_structured(
-            output.clone(),
-            json!({
+        Ok(ToolOutput::text(output.clone()).with_metadata(ctx, || json!({
                 "skill": skill_name,
                 "args": args,
                 "loaded": true,
-            }),
-        ))
+            })))
     }
 }
 

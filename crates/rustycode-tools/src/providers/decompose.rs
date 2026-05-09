@@ -19,7 +19,7 @@ rustycode_tools_api::define_tool! {
     description: "Break a complex task into 3-5 critical submodules with confidence scores. Use BEFORE starting implementation to identify what you don't know. Returns a structured decomposition with open questions per module and recommended next steps.",
     permission: ToolPermission::None,
 
-    execute(params: DecomposeParams, _ctx) {
+    execute(params: DecomposeParams, ctx) {
         let goal = params.goal.as_deref().unwrap_or("unspecified task");
         let context = params.context.as_deref().unwrap_or("");
 
@@ -51,7 +51,7 @@ rustycode_tools_api::define_tool! {
              **Next step:** Call `reasoning_research` for any module with confidence < 0.7."
         );
 
-        Ok(ToolOutput::with_structured(text, output))
+        Ok(ToolOutput::text(text).with_metadata(ctx, || output))
     }
 }
 

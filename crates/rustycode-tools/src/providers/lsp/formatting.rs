@@ -109,15 +109,12 @@ Returns: Text edits to apply for formatting",
             })
             .collect();
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&text_edits)?,
-            json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&text_edits)?).with_metadata(ctx, || json!({
                 "formatting_edits": text_edits,
                 "summary": {
                     "edit_count": text_edits.len()
                 },
                 "preview": edits_summary
-            }),
-        ))
+            })))
     }
 }

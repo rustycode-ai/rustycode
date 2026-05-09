@@ -64,7 +64,7 @@ rustycode_tools_api::define_tool! {
         structured["has_changes"] =
             json!(!staged.is_empty() || !modified.is_empty() || !untracked.is_empty());
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

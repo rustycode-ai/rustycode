@@ -15,7 +15,7 @@ Parameters:
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],
 
-    execute(params: ListMcpResourcesParams, _ctx) {
+    execute(params: ListMcpResourcesParams, ctx) {
         let server = params.server;
 
         // Placeholder: actual MCP resource listing requires rustycode-mcp integration
@@ -24,13 +24,10 @@ Parameters:
             None => "MCP resources from all servers — requires MCP runtime".to_string(),
         };
 
-        Ok(ToolOutput::with_structured(
-            msg,
-            json!({
+        Ok(ToolOutput::text(msg).with_metadata(ctx, || json!({
                 "resources": [],
                 "server": server,
-            }),
-        ))
+            })))
     }
 }
 

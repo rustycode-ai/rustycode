@@ -120,15 +120,12 @@ Returns: Workspace edit with all changes to apply",
             vec![]
         };
 
-        Ok(ToolOutput::with_structured(
-            serde_json::to_string_pretty(&workspace_edit)?,
-            json!({
+        Ok(ToolOutput::text(serde_json::to_string_pretty(&workspace_edit)?).with_metadata(ctx, || json!({
                 "workspace_edit": workspace_edit,
                 "summary": {
                     "new_name": new_name,
                     "changes": changes_summary
                 }
-            }),
-        ))
+            })))
     }
 }

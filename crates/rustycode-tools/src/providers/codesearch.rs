@@ -44,7 +44,7 @@ The tool searches across:
     permission: ToolPermission::Network,
     tags: [ToolTag::Explore],
 
-    execute(params: CodeSearchParams, _ctx) {
+    execute(params: CodeSearchParams, ctx) {
         let query = &params.query;
         let language = params.language.as_deref();
         let max_results = params.max_results.unwrap_or(5).clamp(1, 20) as usize;
@@ -73,7 +73,7 @@ The tool searches across:
             "has_exa_api_key": has_api_key
         });
 
-        Ok(ToolOutput::with_structured(output, metadata))
+        Ok(ToolOutput::text(output).with_metadata(ctx, || metadata))
     }
 }
 

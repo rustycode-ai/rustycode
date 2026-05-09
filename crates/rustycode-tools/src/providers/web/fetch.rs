@@ -16,16 +16,16 @@ const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
 pub struct WebFetchParams {
     /// The URL to fetch content from (e.g., 'https://docs.anthropic.com', 'https://github.com/user/repo/blob/main/README.md')
     url: String,
-    /// Convert HTML to simplified markdown format
+    /// The prompt to run on the fetched content
     #[serde(default)]
-    convert_markdown: bool,
+    prompt: Option<String>,
 }
 
 rustycode_tools_api::define_tool! {
     pub struct WebFetchTool;
 
-    name: "web_fetch",
-    description: "Fetch and read content from a web page or PDF. Use this to read documentation, blog posts, GitHub files, or online articles.",
+    name: "WebFetch",
+    description: "- Fetches content from a specified URL and processes it using an AI model\n- Takes a URL and a prompt as input\n- Fetches the URL content, converts HTML to markdown\n- Processes the content with the prompt using a small, fast model\n- Returns the model's response about the content\n- Use this tool when you need to retrieve and analyze web content\n\nUsage notes:\n  - IMPORTANT: If an MCP-provided web fetch tool is available, prefer using that tool instead of this one, as it may have fewer restrictions.\n  - The URL must be a fully-formed valid URL\n  - HTTP URLs will be automatically upgraded to HTTPS\n  - The prompt should describe what information you want to extract from the page\n  - This tool is read-only and does not modify any files\n  - Results may be summarized if the content is very large\n  - Includes a self-cleaning 15-minute cache for faster responses when repeatedly accessing the same URL\n  - When a URL redirects to a different host, the tool will inform you and provide the redirect URL in a special format. You should then make a new WebFetch request with the redirect URL to fetch the content.\n  - For GitHub URLs, prefer using the gh CLI via Bash instead (e.g., gh pr view, gh issue view, gh api).",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],
 
@@ -33,7 +33,8 @@ rustycode_tools_api::define_tool! {
         // Validate URL for security
         validate_url(&params.url)?;
 
-        let convert_markdown = params.convert_markdown;
+        let _prompt = params.prompt.unwrap_or_else(|| "Return the full content of this page".to_string());
+        let convert_markdown = true; // Always convert (Claude Code behavior)
 
         // Track execution time
         let start_time = std::time::Instant::now();
@@ -113,7 +114,7 @@ rustycode_tools_api::define_tool! {
             metadata["headers"] = json!(headers_map);
         }
 
-        Ok(ToolOutput::with_structured(output, metadata))
+        Ok(ToolOutput::text(output).with_metadata(ctx, || metadata))
     }
 }
 
@@ -126,10 +127,12 @@ mod tests {
     #[test]
     fn test_web_fetch_tool_metadata() {
         let tool = WebFetchTool;
-        assert_eq!(tool.name(), "web_fetch");
-        assert_eq!(
-            tool.description(),
-            "Fetch and read content from a web page or PDF. Use this to read documentation, blog posts, GitHub files, or online articles."
+        assert_eq!(tool.name(), "WebFetch");
+        assert!(
+            tool.description()
+                .contains("Fetches content from a specified URL"),
+            "unexpected description: {}",
+            tool.description()
         );
         assert_eq!(tool.permission(), ToolPermission::Read);
     }
@@ -149,9 +152,8 @@ mod tests {
         assert_eq!(schema["properties"]["url"]["type"], "string");
         assert!(schema["properties"]["url"]["description"].is_string());
 
-        // Check convert_markdown property (optional)
-        assert_eq!(schema["properties"]["convert_markdown"]["type"], "boolean");
-        assert!(schema["properties"]["convert_markdown"]["description"].is_string());
+        // Check prompt property (optional, hidden from schema via schemars(skip) on convert_markdown)
+        assert!(schema["properties"]["prompt"].is_object());
     }
 
     #[test]

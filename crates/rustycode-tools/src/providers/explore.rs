@@ -267,15 +267,12 @@ rustycode_tools_api::define_tool! {
             output
         };
 
-        Ok(ToolOutput::with_structured(
-            summary,
-            json!({
+        Ok(ToolOutput::text(summary).with_metadata(ctx, || json!({
                 "query": query,
                 "scope": scope,
                 "limit": limit,
                 "results": all_results,
-            }),
-        ))
+            })))
     }
 }
 
@@ -301,15 +298,12 @@ rustycode_tools_api::define_tool! {
 
         if candidates.is_empty() {
             let nearby = nearby_matches(&index, symbol, scope, &ctx.cwd);
-            return Ok(ToolOutput::with_structured(
-                format!("No exact symbol named `{symbol}` was found"),
-                json!({
+            return Ok(ToolOutput::text(format!("No exact symbol named `{symbol}` was found")).with_metadata(ctx, || json!({
                     "symbol": symbol,
                     "aspect": aspect,
                     "scope": scope,
                     "matches": nearby,
-                }),
-            ));
+                })));
         }
 
         if candidates.len() > 1 {
@@ -326,15 +320,12 @@ rustycode_tools_api::define_tool! {
                     })
                 })
                 .collect();
-            return Ok(ToolOutput::with_structured(
-                format!("`{symbol}` matches multiple symbols; pick one and inspect again"),
-                json!({
+            return Ok(ToolOutput::text(format!("`{symbol}` matches multiple symbols; pick one and inspect again")).with_metadata(ctx, || json!({
                     "symbol": symbol,
                     "aspect": aspect,
                     "scope": scope,
                     "matches": matches,
-                }),
-            ));
+                })));
         }
 
         let symbol_info = candidates[0];
@@ -434,7 +425,7 @@ rustycode_tools_api::define_tool! {
             _ => format!("Definition for `{}`", symbol_info.name),
         };
 
-        Ok(ToolOutput::with_structured(summary, result))
+        Ok(ToolOutput::text(summary).with_metadata(ctx, || result))
     }
 }
 

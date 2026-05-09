@@ -17,7 +17,7 @@ rustycode_tools_api::define_tool! {
     description: "Validate that requirements are complete, consistent, and testable before implementation. Checks for ambiguity, missing acceptance criteria, and conflicts between requirements.",
     permission: ToolPermission::None,
 
-    execute(params: ValidateRequirementsParams, _ctx) {
+    execute(params: ValidateRequirementsParams, ctx) {
         let requirements = params.requirements.as_deref().unwrap_or("unspecified requirements");
         let context = params.context.as_deref().unwrap_or("");
 
@@ -53,7 +53,7 @@ rustycode_tools_api::define_tool! {
              **Next step:** Address any issues found, then call `reasoning_integrate`."
         );
 
-        Ok(ToolOutput::with_structured(text, output))
+        Ok(ToolOutput::text(text).with_metadata(ctx, || output))
     }
 }
 

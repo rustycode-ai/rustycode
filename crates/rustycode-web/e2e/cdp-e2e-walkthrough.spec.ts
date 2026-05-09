@@ -1,4 +1,4 @@
-import { test, expect, type Page, type ConsoleMessage, type WebSocketRoute } from "@playwright/test";
+import { test, expect, type Page, type WebSocketRoute } from "@playwright/test";
 
 const META = process.platform === "darwin" ? "Meta" : "Control";
 const BASE_URL = "http://localhost:3000";
@@ -8,62 +8,10 @@ const BASE_URL = "http://localhost:3000";
 let seq = 0;
 function resetSeq() { seq = 0; }
 
-function makeEvent(eventType: string, data: Record<string, unknown>): string {
-  return JSON.stringify({
-    v: 2,
-    type: "event",
-    id: `evt-${++seq}`,
-    payload: { seq, type: eventType, data },
-  });
-}
-
-function makeEnvelope(type: string, payload: Record<string, unknown>): string {
-  return JSON.stringify({ v: 2, type, id: `env-${++seq}`, payload });
-}
-
-function sessionCreated(token = "test-token"): string {
-  return makeEnvelope("session_created", {
-    session_token: token,
-    capabilities: { heartbeat_interval_secs: 30 },
-  });
-}
-
-// ── Page setup ─────────────────────────────────────────────────────
-
-async function setupMockRoutes(page: Page) {
-  await page.route("**/api/providers", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        current: { provider: "mock", model: "mock-model" },
-        providers: [{
-          name: "mock",
-          display_name: "Mock Provider",
-          models: ["mock-model"],
-          default_model: "mock-model",
-          available: true,
-        }],
-      }),
-    })
-  );
-  await page.route("**/api/sessions", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    })
-  );
-}
-
-interface MockWs { server: WebSocketRoute; clientMessages: string[] }
-
 async function connectPage(page: Page): Promise<MockWs> {
   const clientMessages: string[] = [];
-  let server: WebSocketRoute;
 
   await page.routeWebSocket("**/ws", (ws) => {
-    server = ws;
     ws.onMessage((data) => { clientMessages.push(data.toString()); });
     ws.send(sessionCreated());
   });
@@ -77,7 +25,7 @@ async function connectPage(page: Page): Promise<MockWs> {
     document.querySelectorAll(".toast").forEach((t) => t.remove());
   });
 
-  return { server: server!, clientMessages };
+  return { clientMessages };
 }
 
 async function sendUserMessage(page: Page, text: string) {

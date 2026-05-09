@@ -51,13 +51,10 @@ rustycode_tools_api::define_tool! {
             })
             .collect();
 
-        Ok(ToolOutput::with_structured(
-            message.to_string(),
-            json!({
+        Ok(ToolOutput::text(message.to_string()).with_metadata(ctx, || json!({
                 "status": status,
                 "attachments": resolved,
-            }),
-        ))
+            })))
     }
 }
 

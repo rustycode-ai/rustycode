@@ -58,7 +58,9 @@ async fn async_main() {
     tracing_subscriber::fmt::init();
 
     // Shared executor (workspace root)
-    let executor = Arc::new(Mutex::new(ToolExecutor::from_cwd(PathBuf::from("."))));
+    let executor = Arc::new(Mutex::new(
+        ToolExecutor::from_cwd(PathBuf::from(".")).with_structured_output(true),
+    ));
     let cache: Arc<Mutex<HashMap<String, Value>>> = Arc::new(Mutex::new(HashMap::new()));
     let state = AppState {
         executor: executor.clone(),

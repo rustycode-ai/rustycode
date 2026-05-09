@@ -192,16 +192,13 @@ Summary of changes made to each file.
             results.len()
         ));
 
-        // Build metadata
-        let metadata = json!({
+        Ok(ToolOutput::text(output).with_metadata(ctx, || json!({
             "total_edits": results.len(),
             "success_count": success_count,
             "failure_count": failure_count,
             "dry_run": dry_run,
             "continue_on_error": continue_on_error
-        });
-
-        Ok(ToolOutput::with_structured(output, metadata))
+        })))
     }
 }
 

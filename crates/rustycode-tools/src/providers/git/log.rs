@@ -24,10 +24,7 @@ rustycode_tools_api::define_tool! {
                 json!({ "sha": sha, "message": msg })
             })
             .collect();
-        Ok(ToolOutput::with_structured(
-            output.text,
-            json!({ "commits": commits }),
-        ))
+        Ok(ToolOutput::text(output.text).with_metadata(ctx, || json!({ "commits": commits })))
     }
 }
 

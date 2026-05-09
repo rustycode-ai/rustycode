@@ -53,7 +53,7 @@ rustycode_tools_api::define_tool! {
             structured["staged_files"] = json!(files);
         }
 
-        Ok(ToolOutput::with_structured(result.text, structured))
+        Ok(ToolOutput::text(result.text).with_metadata(ctx, || structured))
     }
 }
 

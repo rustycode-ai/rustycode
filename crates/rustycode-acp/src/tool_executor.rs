@@ -71,7 +71,7 @@ impl ToolExecutor {
         let call = ToolCall::with_generated_id(mapped_name, tool_input);
 
         // Create tool context
-        let ctx = ToolContext::new(&self.cwd);
+        let ctx = ToolContext::new(&self.cwd).with_structured_output(true);
 
         // Execute the tool
         let result = registry.execute(&call, &ctx);

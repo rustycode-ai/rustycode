@@ -33,7 +33,7 @@ rustycode_tools_api::define_tool! {
     permission: ToolPermission::Execute,
     tags: [ToolTag::Debug],
 
-    execute(params: REPLParams, _ctx) {
+    execute(params: REPLParams, ctx) {
         let action = &params.action;
         let session_id = params
             .research_session_id
@@ -51,33 +51,21 @@ rustycode_tools_api::define_tool! {
                 let timeout = params.execution_timeout.unwrap_or(300000);
 
                 // Placeholder: actual REPL execution requires runtime integration
-                Ok(ToolOutput::with_structured(
-                    format!("REPL [{session_id}] execute ({timeout}ms timeout)"),
-                    json!({
+                Ok(ToolOutput::text(format!("REPL [{session_id}] execute ({timeout}ms timeout)")).with_metadata(ctx, || json!({
                         "action": "execute",
                         "session_id": session_id,
                         "code_length": code.len(),
                         "timeout": timeout,
                         "status": "pending_integration",
-                    }),
-                ))
+                    })))
             }
-            "interrupt" => Ok(ToolOutput::with_structured(
-                format!("REPL [{session_id}] interrupted"),
-                json!({"action": "interrupt", "session_id": session_id}),
-            )),
-            "reset" => Ok(ToolOutput::with_structured(
-                format!("REPL [{session_id}] state cleared"),
-                json!({"action": "reset", "session_id": session_id}),
-            )),
-            "get_state" => Ok(ToolOutput::with_structured(
-                format!("REPL [{session_id}] state query"),
-                json!({
+            "interrupt" => Ok(ToolOutput::text(format!("REPL [{session_id}] interrupted")).with_metadata(ctx, || json!({"action": "interrupt", "session_id": session_id}))),
+            "reset" => Ok(ToolOutput::text(format!("REPL [{session_id}] state cleared")).with_metadata(ctx, || json!({"action": "reset", "session_id": session_id}))),
+            "get_state" => Ok(ToolOutput::text(format!("REPL [{session_id}] state query")).with_metadata(ctx, || json!({
                     "action": "get_state",
                     "session_id": session_id,
                     "variables": {},
-                }),
-            )),
+                }))),
             _ => Err(anyhow!("Unknown REPL action: {action}")),
         }
     }
