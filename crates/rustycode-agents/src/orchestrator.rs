@@ -178,7 +178,7 @@ impl Orchestrator {
         for subagent_id in self.subagents.list_ids() {
             if let Some(subagent) = self.subagents.get(&subagent_id) {
                 let keywords = match subagent.id() {
-                    "coder" => vec![
+                    "executor" => vec![
                         "write",
                         "implement",
                         "code",
@@ -187,7 +187,7 @@ impl Orchestrator {
                         "refactor",
                     ],
                     "debugger" => vec!["bug", "error", "fix", "debug", "broken", "not working"],
-                    "reviewer" => vec!["review", "check", "improve", "suggest", "optimize"],
+                    "code-reviewer" => vec!["review", "check", "improve", "suggest", "optimize"],
                     _ => continue,
                 };
 
@@ -219,19 +219,19 @@ mod tests {
     #[test]
     fn test_orchestrator_creation() {
         let orchestrator = Orchestrator::with_defaults();
-        assert!(orchestrator.subagents().get("coder").is_some());
+        assert!(orchestrator.subagents().get("executor").is_some());
         assert!(orchestrator.subagents().get("debugger").is_some());
-        assert!(orchestrator.subagents().get("reviewer").is_some());
+        assert!(orchestrator.subagents().get("code-reviewer").is_some());
     }
 
     #[test]
     fn test_route_request() {
         let orchestrator = Orchestrator::with_defaults();
 
-        // Should route to coder (uses "write" keyword)
+        // Should route to executor (uses "write" keyword)
         assert_eq!(
             orchestrator.route_request("Write a function"),
-            Some("coder".to_string())
+            Some("executor".to_string())
         );
 
         // Should route to debugger (uses "bug" keyword)
@@ -240,10 +240,10 @@ mod tests {
             Some("debugger".to_string())
         );
 
-        // Should route to reviewer (uses "review" keyword, not "code")
+        // Should route to code-reviewer (uses "review" keyword, not "code")
         assert_eq!(
             orchestrator.route_request("Please review this"),
-            Some("reviewer".to_string())
+            Some("code-reviewer".to_string())
         );
     }
 
@@ -251,11 +251,11 @@ mod tests {
     fn test_delegate_to() {
         let orchestrator = Orchestrator::with_defaults();
         let result = orchestrator
-            .delegate_to("coder", "Write hello world")
+            .delegate_to("executor", "Write hello world")
             .unwrap();
         assert!(result.success);
         // The result format is "[Delegated to {name}]: {task}"
-        assert!(result.content.contains("Coder") || result.content.contains("coder"));
+        assert!(result.content.contains("Executor") || result.content.contains("executor"));
     }
 
     // --- Additional orchestrator tests ---
@@ -298,7 +298,7 @@ mod tests {
         let orchestrator = Orchestrator::with_defaults();
         assert_eq!(
             orchestrator.route_request("WRITE a function"),
-            Some("coder".to_string())
+            Some("executor".to_string())
         );
         assert_eq!(
             orchestrator.route_request("FIX THIS BUG"),
@@ -327,18 +327,18 @@ mod tests {
     fn test_default_system_prompt_includes_subagents() {
         let orchestrator = Orchestrator::with_defaults();
         let prompt = orchestrator.default_system_prompt();
-        // Subagent names are capitalized: Coder, Debugger, Reviewer
+        // Subagent names are the agent IDs
         assert!(
-            prompt.contains("Coder"),
-            "prompt should mention Coder subagent"
+            prompt.contains("executor"),
+            "prompt should mention executor subagent"
         );
         assert!(
-            prompt.contains("Debugger"),
-            "prompt should mention Debugger subagent"
+            prompt.contains("debugger"),
+            "prompt should mention debugger subagent"
         );
         assert!(
-            prompt.contains("Reviewer"),
-            "prompt should mention Reviewer subagent"
+            prompt.contains("code-reviewer"),
+            "prompt should mention code-reviewer subagent"
         );
         assert!(prompt.contains("Chief of Staff"));
     }
@@ -347,7 +347,7 @@ mod tests {
     fn test_orchestrator_subagents_mut() {
         let mut orchestrator = Orchestrator::with_defaults();
         let registry = orchestrator.subagents_mut();
-        assert!(registry.get("coder").is_some());
+        assert!(registry.get("executor").is_some());
     }
 
     #[test]

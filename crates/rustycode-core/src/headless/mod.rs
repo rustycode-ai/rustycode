@@ -953,7 +953,7 @@ mod tests {
         ];
         let result = detect_tool_loop(&tools, 4);
         assert!(result.is_some());
-        assert!(result.unwrap().contains("read_file -> edit_file"));
+        assert!(result.unwrap().contains("Read -> Edit"));
     }
 
     #[test]

@@ -10,7 +10,6 @@ use crate::provider::ProviderError;
 use secrecy::ExposeSecret;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[non_exhaustive]
@@ -58,18 +57,11 @@ impl Default for ModelBehaviorProfile {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("model behavior overlay error: {message}")]
 pub struct ModelBehaviorOverlayError {
     pub message: String,
 }
-
-impl fmt::Display for ModelBehaviorOverlayError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "model behavior overlay error: {}", self.message)
-    }
-}
-
-impl std::error::Error for ModelBehaviorOverlayError {}
 
 /// Metadata for a single provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -509,6 +501,71 @@ impl ProviderMetadata {
             special_instructions: opts.special_instructions.clone(),
             ..ModelBehaviorProfile::default()
         }
+    }
+
+    pub fn validate_model_profiles(&self) -> Result<(), ModelBehaviorOverlayError> {
+        if !self.tool_calling.supported {
+            for (key, profile) in &self.model_behavior_profiles {
+                if profile.tool_usage_posture != ToolUsagePosture::Minimal {
+                    return Err(ModelBehaviorOverlayError {
+                        message: format!(
+                            "model profile '{}' has tool_usage_posture {:?} but provider does not support tool calling",
+                            key, profile.tool_usage_posture
+                        ),
+                    });
+                }
+            }
+        }
+
+        if !self.tool_calling.parallel_calling {
+            for (key, profile) in &self.model_behavior_profiles {
+                if profile.parallel_tool_calls {
+                    return Err(ModelBehaviorOverlayError {
+                        message: format!(
+                            "model profile '{}' requests parallel_tool_calls but provider does not support parallel calling",
+                            key
+                        ),
+                    });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn validate_profile(
+        &self,
+        profile: &ModelBehaviorProfile,
+        label: &str,
+    ) -> Result<(), ModelBehaviorOverlayError> {
+        if !self.tool_calling.supported && profile.tool_usage_posture != ToolUsagePosture::Minimal {
+            return Err(ModelBehaviorOverlayError {
+                message: format!(
+                    "{} has tool_usage_posture {:?} but provider does not support tool calling",
+                    label, profile.tool_usage_posture
+                ),
+            });
+        }
+
+        if !self.tool_calling.parallel_calling && profile.parallel_tool_calls {
+            return Err(ModelBehaviorOverlayError {
+                message: format!(
+                    "{} requests parallel_tool_calls but provider does not support parallel calling",
+                    label
+                ),
+            });
+        }
+
+        Ok(())
+    }
+
+    pub fn generate_system_prompt_for_model(
+        &self,
+        context: &str,
+        model_id: &str,
+    ) -> Result<String, ModelBehaviorOverlayError> {
+        let profile = self.resolve_model_profile(model_id)?;
+        Ok(self.generate_system_prompt_with_profile(context, &profile))
     }
 
     /// Generate a system prompt augmented with model-specific behavior profile.
@@ -1049,5 +1106,307 @@ mod tests {
             prompt1, prompt2,
             "generate_system_prompt must remain stable"
         );
+    }
+
+    fn test_metadata_no_parallel() -> ProviderMetadata {
+        ProviderMetadata {
+            provider_id: "no-parallel".to_string(),
+            display_name: "NoParallel".to_string(),
+            description: "Provider without parallel calling".to_string(),
+            config_schema: ConfigSchema {
+                required_fields: vec![],
+                optional_fields: vec![],
+                env_mappings: HashMap::new(),
+            },
+            prompt_template: PromptTemplate {
+                base_template: "You are an assistant.\n\n{context}".to_string(),
+                optimizations: PromptOptimizations {
+                    prefer_xml_structure: false,
+                    include_examples: false,
+                    preferred_prompt_length: PromptLength::Medium,
+                    special_instructions: vec![],
+                },
+                tool_format: ToolFormat::OpenAIFunctionCalling,
+            },
+            tool_calling: ToolCallingMetadata {
+                supported: true,
+                max_tools_per_call: Some(5),
+                parallel_calling: false,
+                streaming_support: true,
+            },
+            recommended_models: vec![],
+            model_behavior_profiles: HashMap::new(),
+        }
+    }
+
+    fn test_metadata_no_tools() -> ProviderMetadata {
+        ProviderMetadata {
+            provider_id: "no-tools".to_string(),
+            display_name: "NoTools".to_string(),
+            description: "Provider without tool support".to_string(),
+            config_schema: ConfigSchema {
+                required_fields: vec![],
+                optional_fields: vec![],
+                env_mappings: HashMap::new(),
+            },
+            prompt_template: PromptTemplate {
+                base_template: "You are an assistant.\n\n{context}".to_string(),
+                optimizations: PromptOptimizations {
+                    prefer_xml_structure: false,
+                    include_examples: false,
+                    preferred_prompt_length: PromptLength::Medium,
+                    special_instructions: vec![],
+                },
+                tool_format: ToolFormat::None,
+            },
+            tool_calling: ToolCallingMetadata {
+                supported: false,
+                max_tools_per_call: None,
+                parallel_calling: false,
+                streaming_support: false,
+            },
+            recommended_models: vec![],
+            model_behavior_profiles: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn validate_profiles_ok_when_compatible() {
+        let mut meta = test_metadata_no_parallel();
+        meta.model_behavior_profiles.insert(
+            "claude-opus".to_string(),
+            ModelBehaviorProfile {
+                parallel_tool_calls: false,
+                ..ModelBehaviorProfile::default()
+            },
+        );
+        assert!(meta.validate_model_profiles().is_ok());
+    }
+
+    #[test]
+    fn validate_profiles_rejects_parallel_without_provider_support() {
+        let mut meta = test_metadata_no_parallel();
+        meta.model_behavior_profiles.insert(
+            "gpt-4".to_string(),
+            ModelBehaviorProfile {
+                parallel_tool_calls: true,
+                ..ModelBehaviorProfile::default()
+            },
+        );
+        let err = meta.validate_model_profiles().unwrap_err();
+        assert!(
+            err.message.contains("gpt-4"),
+            "error should identify the conflicting profile: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("parallel_tool_calls"),
+            "error should describe the conflict: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn validate_profiles_rejects_non_minimal_posture_without_tools() {
+        let mut meta = test_metadata_no_tools();
+        meta.model_behavior_profiles.insert(
+            "basic-model".to_string(),
+            ModelBehaviorProfile {
+                tool_usage_posture: ToolUsagePosture::Aggressive,
+                ..ModelBehaviorProfile::default()
+            },
+        );
+        let err = meta.validate_model_profiles().unwrap_err();
+        assert!(
+            err.message.contains("basic-model"),
+            "error should identify the conflicting profile: {}",
+            err.message
+        );
+    }
+
+    #[test]
+    fn validate_profiles_allows_minimal_posture_without_tools() {
+        let mut meta = test_metadata_no_tools();
+        meta.model_behavior_profiles.insert(
+            "safe-model".to_string(),
+            ModelBehaviorProfile {
+                tool_usage_posture: ToolUsagePosture::Minimal,
+                parallel_tool_calls: false,
+                ..ModelBehaviorProfile::default()
+            },
+        );
+        assert!(meta.validate_model_profiles().is_ok());
+    }
+
+    #[test]
+    fn validate_single_profile_rejects_parallel_mismatch() {
+        let meta = test_metadata_no_parallel();
+        let profile = ModelBehaviorProfile {
+            parallel_tool_calls: true,
+            ..ModelBehaviorProfile::default()
+        };
+        let err = meta.validate_profile(&profile, "test-model").unwrap_err();
+        assert!(err.message.contains("test-model"));
+        assert!(err.message.contains("parallel_tool_calls"));
+    }
+
+    #[test]
+    fn validate_single_profile_accepts_compatible() {
+        let meta = test_metadata_no_parallel();
+        let profile = ModelBehaviorProfile {
+            parallel_tool_calls: false,
+            ..ModelBehaviorProfile::default()
+        };
+        assert!(meta.validate_profile(&profile, "test-model").is_ok());
+    }
+
+    #[test]
+    fn registry_resolve_uses_provider_fallback() {
+        let mut registry = ModelBehaviorRegistry::new();
+        let meta = test_metadata_empty_profiles();
+        registry.register(meta);
+
+        let profile = registry.resolve_profile_for_model("test", "unknown-model");
+        assert!(profile.is_some());
+        let p = profile.unwrap();
+        assert_eq!(
+            p.output_structure_preference,
+            OutputStructure::StructuredXml
+        );
+    }
+
+    #[test]
+    fn registry_resolve_exact_model_match() {
+        let mut registry = ModelBehaviorRegistry::new();
+        let mut meta = test_metadata_empty_profiles();
+        meta.model_behavior_profiles.insert(
+            "claude-opus-4-7".to_string(),
+            ModelBehaviorProfile {
+                tool_usage_posture: ToolUsagePosture::Aggressive,
+                ..ModelBehaviorProfile::default()
+            },
+        );
+        registry.register(meta);
+
+        let profile = registry
+            .resolve_profile_for_model("test", "claude-opus-4-7")
+            .unwrap();
+        assert_eq!(profile.tool_usage_posture, ToolUsagePosture::Aggressive);
+    }
+
+    #[test]
+    fn registry_resolve_prefix_model_match() {
+        let mut registry = ModelBehaviorRegistry::new();
+        let mut meta = test_metadata_empty_profiles();
+        meta.model_behavior_profiles.insert(
+            "claude-opus".to_string(),
+            ModelBehaviorProfile {
+                tool_usage_posture: ToolUsagePosture::Minimal,
+                ..ModelBehaviorProfile::default()
+            },
+        );
+        registry.register(meta);
+
+        let profile = registry
+            .resolve_profile_for_model("test", "claude-opus-4-7-20250501")
+            .unwrap();
+        assert_eq!(profile.tool_usage_posture, ToolUsagePosture::Minimal);
+    }
+
+    #[test]
+    fn generate_system_prompt_for_model_applies_overlay() {
+        let mut meta = test_metadata_empty_profiles();
+        meta.model_behavior_profiles.insert(
+            "claude-opus".to_string(),
+            ModelBehaviorProfile {
+                output_structure_preference: OutputStructure::CodeFocused,
+                reasoning_guidance_style: ReasoningGuidance::ChainOfThought,
+                special_instructions: vec!["Prefer unsafe Rust".to_string()],
+                ..ModelBehaviorProfile::default()
+            },
+        );
+
+        let prompt = meta
+            .generate_system_prompt_for_model("Write code", "claude-opus-4-7")
+            .unwrap();
+
+        assert!(prompt.contains("Write code"));
+        assert!(prompt.contains("code blocks"));
+        assert!(prompt.contains("step by step"));
+        assert!(prompt.contains("Prefer unsafe Rust"));
+        assert!(prompt.contains("XML"));
+    }
+
+    #[test]
+    fn generate_system_prompt_for_model_falls_back_to_provider_default() {
+        let meta = test_metadata_empty_profiles();
+        let prompt = meta
+            .generate_system_prompt_for_model("test", "unknown-model")
+            .unwrap();
+
+        assert!(prompt.contains("test"));
+        assert!(prompt.contains("Provider instruction"));
+        assert!(prompt.contains("XML"));
+    }
+
+    #[test]
+    fn generate_system_prompt_for_model_dedupes_instructions() {
+        let mut meta = test_metadata_empty_profiles();
+        meta.model_behavior_profiles.insert(
+            "dedup-model".to_string(),
+            ModelBehaviorProfile {
+                special_instructions: vec![
+                    "Provider instruction".to_string(),
+                    "Extra rule".to_string(),
+                ],
+                ..ModelBehaviorProfile::default()
+            },
+        );
+
+        let prompt = meta
+            .generate_system_prompt_for_model("ctx", "dedup-model")
+            .unwrap();
+
+        let count = prompt.matches("Provider instruction").count();
+        assert_eq!(
+            count, 2,
+            "provider instruction appears once from base prompt + once from profile overlay"
+        );
+        assert!(prompt.contains("Extra rule"));
+    }
+
+    #[test]
+    fn generate_system_prompt_for_model_deterministic() {
+        let mut meta = test_metadata_empty_profiles();
+        meta.model_behavior_profiles.insert(
+            "det-model".to_string(),
+            ModelBehaviorProfile {
+                reasoning_guidance_style: ReasoningGuidance::StepByStep,
+                special_instructions: vec!["Rule A".to_string(), "Rule B".to_string()],
+                ..ModelBehaviorProfile::default()
+            },
+        );
+
+        let prompt1 = meta
+            .generate_system_prompt_for_model("ctx", "det-model")
+            .unwrap();
+        let prompt2 = meta
+            .generate_system_prompt_for_model("ctx", "det-model")
+            .unwrap();
+        assert_eq!(prompt1, prompt2, "prompt generation must be deterministic");
+    }
+
+    #[test]
+    fn overlay_error_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<ModelBehaviorOverlayError>();
+    }
+
+    #[test]
+    fn backward_compat_generate_system_prompt_no_model() {
+        let meta = crate::anthropic::AnthropicProvider::metadata();
+        let prompt = meta.generate_system_prompt("Hello world");
+        assert!(prompt.contains("Hello world"));
+        assert!(!prompt.is_empty());
     }
 }

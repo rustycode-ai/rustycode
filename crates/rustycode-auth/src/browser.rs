@@ -103,14 +103,15 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "opens browser in GUI environments"]
     fn open_url_does_not_panic_on_any_url() {
-        // In a test environment this should fall back to printing
         let _ = open_url("https://example.com/oauth?code=abc&state=xyz");
         let _ = open_url("http://localhost:9090/callback");
         let _ = open_url("");
     }
 
     #[test]
+    #[ignore = "opens browser in GUI environments"]
     fn open_url_handles_special_chars() {
         let _ = open_url("https://example.com/auth?redirect_uri=http%3A%2F%2Flocalhost%3A9090%2Fcallback&scope=read+write");
     }

@@ -18,9 +18,7 @@
 
 use chrono::Utc;
 use rustycode_core::context::{enforce_budget, ContextBudget, RustyCodeIgnore, TokenCounter};
-use rustycode_core::execution::{
-    is_critical_tool, ExecutionConfig, ExecutionContext, StepExecutorRegistry,
-};
+use rustycode_core::execution::{ExecutionConfig, ExecutionContext, StepExecutorRegistry};
 use rustycode_core::recovery::{
     ErrorCategory, ErrorClassification, ErrorClassifier, RecoveryConfig, RecoveryEngine,
     RecoveryStrategy,
@@ -218,22 +216,6 @@ mod execution_error_tests {
 
         // Getting non-existent executor should return None
         assert!(registry.get("nonexistent").is_none());
-    }
-
-    #[test]
-    fn test_is_critical_tool_detection() {
-        // Critical tools
-        assert!(is_critical_tool("Read"));
-        assert!(is_critical_tool("Write"));
-        assert!(is_critical_tool("Bash"));
-        assert!(is_critical_tool("bash:ls -la"));
-        assert!(is_critical_tool("read_file:path=test.txt"));
-
-        // Non-critical tools
-        assert!(!is_critical_tool("Grep"));
-        assert!(!is_critical_tool("Glob"));
-        assert!(!is_critical_tool("git_status"));
-        assert!(!is_critical_tool("list_dir"));
     }
 
     #[test]

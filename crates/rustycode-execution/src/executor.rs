@@ -117,16 +117,6 @@ use rustycode_tools::{FileReadState, ToolContext, ToolRegistry};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-/// Check if a tool is critical for plan execution.
-///
-/// Critical tools are those whose failure should immediately halt
-/// plan execution, as subsequent steps depend on their success.
-fn is_critical_tool(tool_name: &str) -> bool {
-    const CRITICAL_TOOLS: &[&str] = &["Read", "Write", "Bash"];
-    let base_name = tool_name.split(':').next().unwrap_or(tool_name);
-    CRITICAL_TOOLS.contains(&base_name)
-}
-
 /// Create a tool registry with all available tools registered.
 ///
 /// Uses the shared `default_registry()` so plan execution has the same
@@ -387,15 +377,8 @@ impl StepExecutor for GenericStepExecutor {
                 )));
             }
 
-            // If this was a critical tool and it failed, stop execution
-            if !result.success && is_critical_tool(tool_name) {
-                conversation.add_message(Message::assistant(format!(
-                    "Critical tool '{tool_name}' failed - stopping step execution"
-                )));
-                // Mark step as failed but continue to record results
-                step.execution_status = StepStatus::Failed;
-                break;
-            }
+            // Tool failure is circulated back to the LLM via the conversation
+            // so it can decide whether to retry, adapt, or move on.
         }
 
         // Use the first tool result for feedback loop (or create default if none)
@@ -547,20 +530,6 @@ mod tests {
         let _executor = registry.default_executor(PathBuf::from("."));
         // Note: Full executor test requires PlanStep with all fields,
         // which we can't easily construct here without Default
-    }
-
-    #[test]
-    fn test_is_critical_tool() {
-        // Critical tools should be detected
-        assert!(is_critical_tool("Read"));
-        assert!(is_critical_tool("Write"));
-        assert!(is_critical_tool("Bash"));
-        assert!(is_critical_tool("bash:some command"));
-
-        // Non-critical tools should not be detected
-        assert!(!is_critical_tool("Grep"));
-        assert!(!is_critical_tool("Glob"));
-        assert!(!is_critical_tool("git_status"));
     }
 
     // --- ExecutionResult constructors ---
@@ -794,30 +763,13 @@ mod tests {
             new_cwd: None,
         };
         let msg = ToolInvocationWrapper::result_to_message("Write", &result);
-        assert!(msg.content.contains("write_file failed"));
+        assert!(msg.content.contains("Write failed"));
         assert!(msg.content.contains("permission denied"));
     }
 
     #[test]
     fn test_tool_invocation_wrapper_new() {
         let _wrapper = ToolInvocationWrapper::new("tool".to_string(), "args".to_string());
-    }
-
-    // --- is_critical_tool edge cases ---
-
-    #[test]
-    fn test_is_critical_tool_with_colon_suffix() {
-        assert!(is_critical_tool("read_file:some/path"));
-        assert!(is_critical_tool("write_file:some/path"));
-        assert!(is_critical_tool("bash:ls -la"));
-    }
-
-    #[test]
-    fn test_is_critical_tool_empty_and_unknown() {
-        assert!(!is_critical_tool(""));
-        assert!(!is_critical_tool("unknown_tool"));
-        assert!(!is_critical_tool("read")); // partial match should NOT match
-        assert!(!is_critical_tool("bash_script"));
     }
 
     // Helper mock for StepExecutor

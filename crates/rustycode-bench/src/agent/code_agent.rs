@@ -143,7 +143,7 @@ impl CodeAgent {
             "Edit" | "edit" => "Edit",
             "Read" | "read" => "Read",
             "Write" | "Create" => "Write",
-            "Bash" | "Shell" | "shell" => "Bash",
+            "Bash" | "bash" | "Shell" | "shell" => "Bash",
             "Grep" | "Search" => "Grep",
             "Glob" | "Find" | "ListFiles" => "Glob",
             "ListDir" | "ls" => "list_dir",
@@ -231,6 +231,7 @@ impl CodeAgent {
                     };
 
                     if !name.is_empty() {
+                        let name = Self::normalize_tool_name(&name).to_string();
                         tool_uses.push(ToolUse { id, name, input });
                     }
                 }
@@ -267,6 +268,7 @@ impl CodeAgent {
                                 .or_else(|| obj.get("arguments"))
                                 .cloned()
                                 .unwrap_or(serde_json::json!({}));
+                            let name = Self::normalize_tool_name(&name).to_string();
                             tool_uses.push(ToolUse { id, name, input });
                         }
                     }
@@ -328,6 +330,7 @@ impl CodeAgent {
                         };
 
                         if !name.is_empty() {
+                            let name = Self::normalize_tool_name(&name).to_string();
                             tools.push(ToolUse { id, name, input });
                         }
                     }

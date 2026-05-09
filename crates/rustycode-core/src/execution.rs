@@ -63,31 +63,6 @@ impl ExecutionCheckpointStore {
     }
 }
 
-/// Check if a tool is critical for plan execution.
-///
-/// Critical tools are those whose failure should immediately halt
-/// plan execution, as subsequent steps depend on their success.
-pub fn is_critical_tool(tool_name: &str) -> bool {
-    // Tools that are essential for plan continuation
-    const CRITICAL_TOOLS: &[&str] = &[
-        "Read",  // Can't proceed without reading files
-        "Write", // Can't save results without writing
-        "Bash",  // Command execution is critical
-    ];
-
-    // Extract base tool name (without parameters)
-    // Handle both "tool_name:params" and "tool_name(params)" formats
-    let base_name = tool_name
-        .split('(')
-        .next()
-        .unwrap_or(tool_name)
-        .split(':')
-        .next()
-        .unwrap_or(tool_name);
-
-    CRITICAL_TOOLS.contains(&base_name)
-}
-
 /// Create a tool registry with all available tools registered.
 ///
 /// Uses the shared `default_registry()` so plan execution has the same
@@ -424,16 +399,8 @@ impl StepExecutor<ExecutionContext> for GenericStepExecutor {
                 )));
             }
 
-            // If this was a critical tool and it failed, stop execution
-            if !result.success && is_critical_tool(tool_name) {
-                conversation.add_message(Message::assistant(format!(
-                    "Critical tool '{}' failed - stopping step execution",
-                    tool_name
-                )));
-                // Mark step as failed but continue to record results
-                step.execution_status = StepStatus::Failed;
-                break;
-            }
+            // Tool failure is circulated back to the LLM via the conversation
+            // so it can decide whether to retry, adapt, or move on.
         }
 
         // Use the first tool result for feedback loop (or create default if none)
@@ -582,18 +549,6 @@ mod tests {
     fn test_step_executor_registry_default() {
         let registry = StepExecutorRegistry::new();
         let _executor = registry.default_executor(PathBuf::from("."));
-    }
-
-    #[test]
-    fn test_is_critical_tool() {
-        assert!(is_critical_tool("Read"));
-        assert!(is_critical_tool("Write"));
-        assert!(is_critical_tool("Bash"));
-        assert!(is_critical_tool("bash:some command"));
-
-        assert!(!is_critical_tool("Grep"));
-        assert!(!is_critical_tool("Glob"));
-        assert!(!is_critical_tool("git_status"));
     }
 
     // -- Checkpointing integration tests --
