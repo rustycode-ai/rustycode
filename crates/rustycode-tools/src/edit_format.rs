@@ -510,9 +510,7 @@ mod tests {
         assert!(EditFormat::ClaudeNative
             .tool_names()
             .contains(&"text_editor_20250124"));
-        assert!(EditFormat::SearchReplace
-            .tool_names()
-            .contains(&"Edit"));
+        assert!(EditFormat::SearchReplace.tool_names().contains(&"Edit"));
         assert!(EditFormat::RegexReplace
             .tool_names()
             .contains(&"search_replace"));

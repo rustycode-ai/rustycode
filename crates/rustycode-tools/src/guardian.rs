@@ -328,8 +328,7 @@ mod tests {
             test_config(),
         );
         assert_eq!(
-            a.assess("Write", r#"{"path":"tests/foo.rs"}"#, "")
-                .await,
+            a.assess("Write", r#"{"path":"tests/foo.rs"}"#, "").await,
             GuardianDecision::Allow {
                 reason: "new test file".into()
             },
