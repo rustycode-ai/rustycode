@@ -119,7 +119,7 @@ mod tests {
     use serde_json::json;
 
     fn test_ctx() -> ToolContext {
-        ToolContext::new("/tmp")
+        ToolContext::new("/tmp").with_structured_output(true)
     }
 
     #[test]

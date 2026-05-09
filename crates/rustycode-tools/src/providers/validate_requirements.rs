@@ -68,7 +68,7 @@ mod tests {
     fn ctx() -> ToolContext {
         static DIR: std::sync::OnceLock<tempfile::TempDir> = std::sync::OnceLock::new();
         let dir = DIR.get_or_init(|| tempdir().expect("tempdir"));
-        ToolContext::new(dir.path())
+        ToolContext::new(dir.path()).with_structured_output(true)
     }
 
     #[test]

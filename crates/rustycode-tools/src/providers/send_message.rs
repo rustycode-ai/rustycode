@@ -93,7 +93,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     fn test_ctx() -> ToolContext {
-        ToolContext::new("/tmp")
+        ToolContext::new("/tmp").with_structured_output(true)
     }
 
     #[test]
@@ -186,7 +186,9 @@ mod tests {
     fn test_send_message_with_real_sender() {
         let mock = Arc::new(MockMessageSender::new());
         let sent_clone = Arc::clone(&mock.sent);
-        let ctx = ToolContext::new("/tmp").with_message_sender(mock);
+        let ctx = ToolContext::new("/tmp")
+            .with_message_sender(mock)
+            .with_structured_output(true);
 
         let tool = SendMessageTool;
         let result = tool.execute(
@@ -212,7 +214,9 @@ mod tests {
     fn test_send_message_broadcast_with_real_sender() {
         let mock = Arc::new(MockMessageSender::new());
         let broadcasts_clone = Arc::clone(&mock.broadcasts);
-        let ctx = ToolContext::new("/tmp").with_message_sender(mock);
+        let ctx = ToolContext::new("/tmp")
+            .with_message_sender(mock)
+            .with_structured_output(true);
 
         let tool = SendMessageTool;
         let result = tool.execute(
@@ -247,7 +251,9 @@ mod tests {
             }
         }
 
-        let ctx = ToolContext::new("/tmp").with_message_sender(Arc::new(FailingSender));
+        let ctx = ToolContext::new("/tmp")
+            .with_message_sender(Arc::new(FailingSender))
+            .with_structured_output(true);
         let tool = SendMessageTool;
         let result = tool.execute(json!({"to": "researcher", "message": "hello"}), &ctx);
         assert!(result.is_err());

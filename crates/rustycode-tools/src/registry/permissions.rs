@@ -430,13 +430,13 @@ mod tests {
 
         let perms = store.list_permissions("user");
         assert_eq!(perms.len(), 3);
-        // Should be sorted by tool name
+        // Should be sorted by tool name (ASCII: uppercase before lowercase)
         assert_eq!(perms[0], ("Bash".to_string(), PermissionLevel::AskBefore));
+        assert_eq!(perms[1], ("Read".to_string(), PermissionLevel::AlwaysAllow));
         assert_eq!(
-            perms[1],
+            perms[2],
             ("danger".to_string(), PermissionLevel::NeverAllow)
         );
-        assert_eq!(perms[2], ("Read".to_string(), PermissionLevel::AlwaysAllow));
     }
 
     #[test]

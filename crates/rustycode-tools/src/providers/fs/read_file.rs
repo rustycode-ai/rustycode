@@ -753,7 +753,7 @@ mod tests {
         fs::write(&test_file, [0x89u8, 0x50, 0x4e, 0x47, 0x00, 0x01]).expect("write binary file");
 
         let tool = ReadFileTool;
-        let ctx = ToolContext::new(workspace.path());
+        let ctx = ToolContext::new(workspace.path()).with_structured_output(true);
         let res = tool.execute(
             serde_json::json!({ "path": "image.png", "binary": true }),
             &ctx,

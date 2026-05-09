@@ -89,7 +89,7 @@ mod tests {
     use std::sync::Arc;
 
     fn test_ctx() -> ToolContext {
-        ToolContext::new("/tmp")
+        ToolContext::new("/tmp").with_structured_output(true)
     }
 
     fn test_ctx_with_registry() -> ToolContext {

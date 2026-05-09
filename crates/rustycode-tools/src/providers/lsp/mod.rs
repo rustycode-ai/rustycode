@@ -344,7 +344,7 @@ pub(crate) mod tests_common {
     // Helper to create a test context
     pub fn create_test_context() -> (ToolContext, TempDir) {
         let temp_dir = TempDir::new().unwrap();
-        let ctx = ToolContext::new(temp_dir.path());
+        let ctx = ToolContext::new(temp_dir.path()).with_structured_output(true);
         (ctx, temp_dir)
     }
 

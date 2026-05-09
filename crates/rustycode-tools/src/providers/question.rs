@@ -310,7 +310,7 @@ mod tests {
     #[test]
     fn test_question_metadata() {
         let tool = QuestionTool;
-        let ctx = ToolContext::new("/tmp");
+        let ctx = ToolContext::new("/tmp").with_structured_output(true);
 
         env::set_var("RUSTYCODE_AUTO_MODE", "true");
 

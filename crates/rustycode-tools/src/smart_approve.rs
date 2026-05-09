@@ -45,13 +45,14 @@ pub struct SmartApprove {
 }
 
 impl SmartApprove {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             read_only_tools: HashSet::from([
-                "Read",
+                "read",
                 "list_dir",
-                "Grep",
-                "Glob",
+                "grep",
+                "glob",
                 "find",
                 "inspect",
                 "git_status",
@@ -66,7 +67,7 @@ impl SmartApprove {
                 "lsp_full_diagnostics",
                 "lsp_code_actions",
                 "lsp_formatting",
-                "WebFetch",
+                "webfetch",
                 "web_search",
                 "semantic_search",
                 "code_search",
@@ -86,8 +87,8 @@ impl SmartApprove {
                 "tool_search",
             ]),
             write_tools: HashSet::from([
-                "Write",
-                "Edit",
+                "write",
+                "edit",
                 "text_editor_20250124",
                 "apply_patch",
                 "multi_edit",
@@ -101,8 +102,8 @@ impl SmartApprove {
                 "todo_update",
                 "send_message",
                 "task_stop",
-                "NotebookEdit",
-                "StructuredOutput",
+                "notebookedit",
+                "structuredoutput",
             ]),
             destructive_bash_commands: &[
                 "rm ",
@@ -148,6 +149,7 @@ impl SmartApprove {
                 "gh issue create",
                 "gh issue close",
                 "gh issue edit",
+                "gh pr edit",
                 "gh repo delete",
                 "gh release create",
                 "gh release delete",
@@ -198,16 +200,9 @@ impl SmartApprove {
                 "git tag",
                 "git config --get",
                 "cargo check",
-                "cargo test",
-                "cargo build",
-                "cargo clippy",
-                "cargo doc",
                 "cargo metadata",
-                "npm test",
                 "npm list",
                 "npm run",
-                "npx ",
-                "python",
                 "node --version",
                 "node --help",
                 "rustc --version",
@@ -249,6 +244,7 @@ impl SmartApprove {
 
     /// Classify a tool operation by tool name and optional arguments.
     ///
+    #[must_use]
     pub fn classify(&self, tool_name: &str, args: Option<&str>) -> OperationClass {
         // Normalize tool name
         let name = tool_name.trim().to_lowercase();
@@ -264,7 +260,7 @@ impl SmartApprove {
         }
 
         // Bash needs special handling — inspect the command
-        if name == "Bash" {
+        if name == "bash" {
             return self.classify_bash_command(args.unwrap_or(""));
         }
 
@@ -307,38 +303,58 @@ impl SmartApprove {
             return OperationClass::Unknown;
         }
 
-        // Check destructive patterns first (higher priority)
-        for pattern in self.destructive_bash_commands {
-            if cmd.starts_with(pattern) || cmd.contains(pattern) {
-                return OperationClass::Destructive;
-            }
-        }
-
-        // Pipes and redirects suggest mutation potential (before read-only check)
-        if cmd.contains('>') || cmd.contains(">>") || cmd.contains("| rm") {
+        // Redirects to files are always destructive
+        if cmd.contains('>') || cmd.contains(">>") {
             return OperationClass::Destructive;
         }
 
-        // Check read-only patterns
-        for pattern in self.read_only_bash_commands {
-            if cmd.starts_with(pattern) {
-                return OperationClass::ReadOnly;
+        let segments: Vec<&str> = cmd.split('|').map(str::trim).collect();
+        let mut any_read_only = false;
+
+        for segment in &segments {
+            if segment.is_empty() {
+                continue;
+            }
+
+            for pattern in self.destructive_bash_commands {
+                if segment.starts_with(pattern) {
+                    return OperationClass::Destructive;
+                }
+            }
+
+            for pattern in self.read_only_bash_commands {
+                if segment.starts_with(pattern) {
+                    any_read_only = true;
+                    break;
+                }
             }
         }
 
-        // Chained commands with && or ; — check each part
         if cmd.contains("&&") || cmd.contains(";") {
             for part in cmd.split(&['&', ';'][..]) {
                 let part = part.trim();
                 if part.is_empty() {
                     continue;
                 }
-                // If any part looks destructive, whole command is destructive
                 for pattern in self.destructive_bash_commands {
-                    if part.starts_with(pattern) || part.contains(pattern) {
+                    if part.starts_with(pattern) {
                         return OperationClass::Destructive;
                     }
                 }
+            }
+        }
+
+        if any_read_only && !segments.is_empty() {
+            let all_known = segments.iter().all(|segment| {
+                if segment.is_empty() {
+                    return true;
+                }
+                self.read_only_bash_commands
+                    .iter()
+                    .any(|pattern| segment.starts_with(pattern))
+            });
+            if all_known {
+                return OperationClass::ReadOnly;
             }
         }
 
@@ -347,6 +363,7 @@ impl SmartApprove {
     }
 
     /// Check if a tool operation can be auto-approved.
+    #[must_use]
     pub fn can_auto_approve(&self, tool_name: &str, args: Option<&str>) -> bool {
         matches!(self.classify(tool_name, args), OperationClass::ReadOnly)
     }
@@ -545,10 +562,10 @@ mod tests {
     }
 
     #[test]
-    fn test_bash_cargo_test_is_readonly() {
+    fn test_bash_cargo_test_is_unknown() {
         assert_eq!(
             classifier().classify("Bash", Some("cargo test")),
-            OperationClass::ReadOnly
+            OperationClass::Unknown
         );
     }
 
@@ -617,6 +634,38 @@ mod tests {
     }
 
     #[test]
+    fn test_bash_echo_rm_is_not_destructive() {
+        assert_eq!(
+            classifier().classify("Bash", Some("echo 'rm file'")),
+            OperationClass::ReadOnly
+        );
+    }
+
+    #[test]
+    fn test_bash_grep_sudo_is_not_destructive() {
+        assert_eq!(
+            classifier().classify("Bash", Some("grep 'sudo apt' log.txt")),
+            OperationClass::ReadOnly
+        );
+    }
+
+    #[test]
+    fn test_bash_pipe_no_space_is_destructive() {
+        assert_eq!(
+            classifier().classify("Bash", Some("cat file |rm -rf /")),
+            OperationClass::Destructive
+        );
+    }
+
+    #[test]
+    fn test_bash_cargo_build_is_unknown() {
+        assert_eq!(
+            classifier().classify("Bash", Some("cargo build")),
+            OperationClass::Unknown
+        );
+    }
+
+    #[test]
     fn test_bash_unknown_command() {
         assert_eq!(
             classifier().classify("Bash", Some("some-custom-tool arg1")),
@@ -661,13 +710,10 @@ mod tests {
     #[test]
     fn test_case_insensitive_tool_name() {
         assert_eq!(
-            classifier().classify("Read_File", None),
+            classifier().classify("READ", None),
             OperationClass::ReadOnly
         );
-        assert_eq!(
-            classifier().classify("WRITE_FILE", None),
-            OperationClass::Write
-        );
+        assert_eq!(classifier().classify("WRITE", None), OperationClass::Write);
         assert_eq!(
             classifier().classify("Bash", Some("ls")),
             OperationClass::ReadOnly
@@ -677,7 +723,7 @@ mod tests {
     #[test]
     fn test_whitespace_trimmed() {
         assert_eq!(
-            classifier().classify("  read_file  ", None),
+            classifier().classify("  Read  ", None),
             OperationClass::ReadOnly
         );
     }
@@ -770,6 +816,14 @@ mod tests {
     fn test_gh_issue_create_is_destructive() {
         assert_eq!(
             classifier().classify("Bash", Some("gh issue create --title bug")),
+            OperationClass::Destructive
+        );
+    }
+
+    #[test]
+    fn test_gh_pr_edit_is_destructive() {
+        assert_eq!(
+            classifier().classify("Bash", Some("gh pr edit 123 --title new")),
             OperationClass::Destructive
         );
     }

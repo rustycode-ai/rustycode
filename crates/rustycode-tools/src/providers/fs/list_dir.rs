@@ -155,6 +155,10 @@ mod tests {
     use crate::ToolContext;
     use serde_json::json;
 
+    fn test_ctx(path: &str) -> ToolContext {
+        ToolContext::new(path).with_structured_output(true)
+    }
+
     #[test]
     fn test_list_dir_tool_metadata() {
         let tool = ListDirTool;
@@ -175,7 +179,7 @@ mod tests {
     #[test]
     fn test_list_dir_lists_current_directory() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({ "path": "." }), &ctx);
         assert!(result.is_ok());
@@ -188,7 +192,7 @@ mod tests {
     #[test]
     fn test_list_dir_nonexistent_path() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new("/tmp");
+        let ctx = test_ctx("/tmp");
 
         let result = tool.execute(json!({ "path": "/nonexistent_dir_xyz" }), &ctx);
         assert!(result.is_err());
@@ -197,7 +201,7 @@ mod tests {
     #[test]
     fn test_list_dir_with_filter_type() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({ "path": ".", "filter": "file" }), &ctx);
         assert!(result.is_ok());
@@ -206,7 +210,7 @@ mod tests {
     #[test]
     fn test_list_dir_with_filter_extension() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({ "path": ".", "filter": ".rs" }), &ctx);
         assert!(result.is_ok());
@@ -215,7 +219,7 @@ mod tests {
     #[test]
     fn test_list_dir_recursive() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(
             json!({ "path": ".", "recursive": true, "max_depth": 1 }),
@@ -227,7 +231,7 @@ mod tests {
     #[test]
     fn test_list_dir_file_path_alias() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({ "file_path": "." }), &ctx);
         assert!(result.is_ok());
@@ -236,7 +240,7 @@ mod tests {
     #[test]
     fn test_list_dir_default_path() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({}), &ctx);
         assert!(result.is_ok());
@@ -245,7 +249,7 @@ mod tests {
     #[test]
     fn test_list_dir_metadata_fields() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({ "path": "." }), &ctx);
         assert!(result.is_ok());
@@ -260,7 +264,7 @@ mod tests {
     #[test]
     fn test_list_dir_recursive_metadata() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({ "path": ".", "recursive": true }), &ctx);
         assert!(result.is_ok());
@@ -274,7 +278,7 @@ mod tests {
     #[test]
     fn test_list_dir_filter_metadata() {
         let tool = ListDirTool;
-        let ctx = ToolContext::new(".");
+        let ctx = test_ctx(".");
 
         let result = tool.execute(json!({ "path": ".", "filter": ".rs" }), &ctx);
         assert!(result.is_ok());
