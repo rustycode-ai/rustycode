@@ -11,10 +11,10 @@ use tracing;
 use super::helpers::build_tool_summary_arg;
 
 const REASONING_TOOLS: &[&str] = &[
-    "reasoning_decompose",
-    "reasoning_research",
-    "reasoning_validate",
-    "reasoning_integrate",
+    "ReasoningDecompose",
+    "ReasoningResearch",
+    "ReasoningValidate",
+    "ReasoningIntegrate",
 ];
 
 fn is_reasoning_tool(name: &str) -> bool {
@@ -417,7 +417,7 @@ pub(super) fn handle_tool_complete_chunk(
                 }
             } else if matches!(
                 tool_name.as_str(),
-                "Write" | "Edit" | "multiedit" | "apply_patch" | "Bash"
+                "Write" | "Edit" | "MultiEdit" | "ApplyPatch" | "Bash"
             ) {
                 budget.record_code();
             }
@@ -476,22 +476,22 @@ mod tests {
 
     #[test]
     fn test_is_reasoning_tool_decompose() {
-        assert!(is_reasoning_tool("reasoning_decompose"));
+        assert!(is_reasoning_tool("ReasoningDecompose"));
     }
 
     #[test]
     fn test_is_reasoning_tool_research() {
-        assert!(is_reasoning_tool("reasoning_research"));
+        assert!(is_reasoning_tool("ReasoningResearch"));
     }
 
     #[test]
     fn test_is_reasoning_tool_validate() {
-        assert!(is_reasoning_tool("reasoning_validate"));
+        assert!(is_reasoning_tool("ReasoningValidate"));
     }
 
     #[test]
     fn test_is_reasoning_tool_integrate() {
-        assert!(is_reasoning_tool("reasoning_integrate"));
+        assert!(is_reasoning_tool("ReasoningIntegrate"));
     }
 
     #[test]

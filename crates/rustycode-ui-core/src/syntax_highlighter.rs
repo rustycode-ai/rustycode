@@ -134,7 +134,7 @@ impl SyntaxHighlighter {
             "scala" => "scala",
             "dart" => "dart",
             "lua" => "lua",
-            "ps1" => "powershell",
+            "ps1" => "PowerShell",
             "dockerfile" => "dockerfile",
             "r" | "R" => "r",
             _ => return None,

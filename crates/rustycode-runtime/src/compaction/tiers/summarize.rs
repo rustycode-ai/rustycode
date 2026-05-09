@@ -1,7 +1,7 @@
 //! SummarizeTier -- LLM-backed compaction pass that generates structured summaries.
 //!
 //! This tier replaces older conversation turns with an LLM-generated summary,
-//! preserving a configurable number of recent "tail" turns verbatim. The
+//! preserving a configurable number of recent "Tail" turns verbatim. The
 //! summary template degrades from Full (9 sections) to Compact (5) to Minimal (2)
 //! when tighter compaction is needed.
 

@@ -78,7 +78,7 @@ enum PatchLine {
 rustycode_tools_api::define_tool! {
     pub struct ApplyPatchTool;
 
-    name: "apply_patch",
+    name: "ApplyPatch",
     description: "Apply a unified diff patch to one or more files. \
      Supports adding new files, updating existing files, and deleting files. \
      Prefer this over edit_file for multi-file or multi-hunk changes.",
@@ -548,7 +548,7 @@ mod tests {
     #[test]
     fn test_apply_patch_tool_metadata() {
         let tool = ApplyPatchTool;
-        assert_eq!(tool.name(), "apply_patch");
+        assert_eq!(tool.name(), "ApplyPatch");
         assert_eq!(tool.permission(), ToolPermission::Write);
     }
 

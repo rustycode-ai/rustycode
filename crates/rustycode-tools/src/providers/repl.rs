@@ -28,7 +28,7 @@ pub struct REPLParams {
 rustycode_tools_api::define_tool! {
     pub struct REPLTool;
 
-    name: "repl",
+    name: "Repl",
     description: r#"Execute code in a persistent REPL environment. Variables and state persist between calls within the same session. Actions: execute (run code), interrupt (stop execution), reset (clear state), get_state (view memory/variables). Supports scientific computing with pandas, numpy, matplotlib."#,
     permission: ToolPermission::Execute,
     tags: [ToolTag::Debug],
@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn test_repl_metadata() {
         let tool = REPLTool;
-        assert_eq!(tool.name(), "repl");
+        assert_eq!(tool.name(), "Repl");
         assert_eq!(tool.permission(), ToolPermission::Execute);
         assert!(tool.description().contains("persistent"));
     }

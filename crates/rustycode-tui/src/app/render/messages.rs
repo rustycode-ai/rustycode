@@ -940,10 +940,10 @@ fn extract_tool_detail(tool: &crate::ui::message::ToolExecution) -> Option<Strin
         return Some(safe_truncate(summary, 60));
     }
     // Search/grep: show match count
-    if lower.contains("Grep") || lower.contains("search") {
+    if lower.contains("Grep") || lower.contains("Search") {
         return Some(safe_truncate(summary, 80));
     }
-    if lower.contains("Glob") || lower.contains("find") || lower.contains("list") {
+    if lower.contains("Glob") || lower.contains("Find") || lower.contains("list") {
         // Try to extract path from result_summary first (e.g., "list_directory: /path/to/dir (5 files)")
         if let Some(path) = extract_file_path(&tool.result_summary) {
             if let Some(output) = &tool.detailed_output {

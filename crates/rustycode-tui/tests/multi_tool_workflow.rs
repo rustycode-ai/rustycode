@@ -82,7 +82,7 @@ async fn test_multi_tool_workflows() {
         WorkflowTest {
             name: "Analyze codebase structure".to_string(),
             prompt: "Analyze the project structure. Tell me what files are in src/ and briefly describe what each module does based on reading the files.".to_string(),
-            expected_tools: vec!["list_dir".to_string(), "Read".to_string()],
+            expected_tools: vec!["ListDir".to_string(), "Read".to_string()],
             min_steps: 2,
         },
         WorkflowTest {
@@ -150,14 +150,14 @@ When completing multi-step tasks, use each tool's output to inform the next step
 
                     // Check for equivalent actions (e.g., bash commands that do the same thing)
                     let equivalent_action = match tool.as_str() {
-                        "list_dir" => {
+                        "ListDir" => {
                             response_text.contains("ls")
                                 || response_text.contains("find .")
                                 || response_text.contains("files in")
                         }
                         "Grep" => {
                             response_text.contains("Grep")
-                                || response_text.contains("search")
+                                || response_text.contains("Search")
                                 || response_text.contains("find.*function")
                         }
                         "Read" => {

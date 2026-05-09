@@ -20,7 +20,7 @@ struct LspRenameParams {
 rustycode_tools_api::define_tool! {
     pub struct LspRenameTool;
 
-    name: "lsp_rename",
+    name: "LspRename",
     description: "Rename a symbol at a position across all references. Use this to:
 - Rename variables, functions, types, and other symbols
 - Update all references automatically

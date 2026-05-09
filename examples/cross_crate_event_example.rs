@@ -183,10 +183,10 @@ async fn demonstrate_tool_execution_events(
     });
 
     // Execute a tool
-    println!("   🔨 Executing read_file tool...");
+    println!("   🔨 Executing Read tool...");
     let call = ToolCall {
         call_id: uuid::Uuid::new_v4().to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({ "path": "test.txt" }),
     };
 

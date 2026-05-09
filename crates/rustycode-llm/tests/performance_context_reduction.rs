@@ -204,7 +204,7 @@ fn test_tool_selection_relevance() {
     }
 
     // Verify expected explore tools are present (if registry has them)
-    let expected_explore_tools = vec!["Read", "Grep", "list_dir", "Glob"];
+    let expected_explore_tools = vec!["Read", "Grep", "ListDir", "Glob"];
     for expected_tool in expected_explore_tools {
         if explore_tools.contains(&expected_tool.to_string()) {
             println!("  ✓ Explore profile includes {}", expected_tool);

@@ -18,7 +18,7 @@ pub struct GuideResearchParams {
 rustycode_tools_api::define_tool! {
     pub struct GuideResearchTool;
 
-    name: "reasoning_research",
+    name: "ReasoningResearch",
     description: "Get prioritized research targets for a specific module's open questions. Returns structured research guidance with what to investigate, why it matters, and what you should find. Use AFTER reasoning_decompose to plan your research efficiently.",
     permission: ToolPermission::None,
 
@@ -79,7 +79,7 @@ mod tests {
     #[test]
     fn tool_metadata() {
         let tool = GuideResearchTool;
-        assert_eq!(tool.name(), "reasoning_research");
+        assert_eq!(tool.name(), "ReasoningResearch");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
         assert!(schema["properties"]["module_name"].is_object());

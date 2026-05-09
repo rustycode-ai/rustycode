@@ -21,7 +21,7 @@ pub struct CodeSearchParams {
 rustycode_tools_api::define_tool! {
     pub struct CodeSearchTool;
 
-    name: "codesearch",
+    name: "Codesearch",
     description: r#"Search for code examples, documentation, and implementation patterns.
 
 Use this tool when you need to:
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn test_codesearch_tool_metadata() {
         let tool = CodeSearchTool;
-        assert_eq!(tool.name(), "codesearch");
+        assert_eq!(tool.name(), "Codesearch");
         assert!(tool.description().contains("code examples"));
         assert_eq!(tool.permission(), ToolPermission::Network);
     }

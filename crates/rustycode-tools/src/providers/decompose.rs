@@ -15,7 +15,7 @@ pub struct DecomposeParams {
 rustycode_tools_api::define_tool! {
     pub struct DecomposeProblemTool;
 
-    name: "reasoning_decompose",
+    name: "ReasoningDecompose",
     description: "Break a complex task into 3-5 critical submodules with confidence scores. Use BEFORE starting implementation to identify what you don't know. Returns a structured decomposition with open questions per module and recommended next steps.",
     permission: ToolPermission::None,
 
@@ -71,7 +71,7 @@ mod tests {
     #[test]
     fn tool_metadata() {
         let tool = DecomposeProblemTool;
-        assert_eq!(tool.name(), "reasoning_decompose");
+        assert_eq!(tool.name(), "ReasoningDecompose");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
         assert!(schema["properties"]["goal"].is_object());

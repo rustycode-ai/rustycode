@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create and persist a tool executed event
     let tool_event = ToolExecutedEvent::new(
         SessionId::new(),
-        "read_file".to_string(),
+        "Read".to_string(),
         json!({ "path": "/path/to/file.rs" }),
         true,
         "File contents read successfully".to_string(),

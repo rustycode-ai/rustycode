@@ -17,7 +17,7 @@ struct LspSafeDeleteSymbolParams {
 rustycode_tools_api::define_tool! {
     pub struct LspSafeDeleteSymbolTool;
 
-    name: "lsp_safe_delete_symbol",
+    name: "LspSafeDeleteSymbol",
     description: "Safely delete a symbol after checking for references",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],

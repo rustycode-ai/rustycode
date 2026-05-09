@@ -19,7 +19,7 @@ struct LspReferencesParams {
 rustycode_tools_api::define_tool! {
     pub struct LspReferencesTool;
 
-    name: "lsp_references",
+    name: "LspReferences",
     description: "Find ALL references (usages) of a symbol across the codebase. PREFER THIS OVER GREP for finding usages — it understands scope, imports, and renames. Use when: you need to refactor and want to know all call sites, you want to understand how a function/type is used, you're checking impact of a change. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],

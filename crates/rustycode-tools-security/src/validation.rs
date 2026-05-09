@@ -250,29 +250,30 @@ pub fn validate_path(
     Ok(resolved)
 }
 
-/// Check a path and all its parents for symlinks
+/// Check a path and all its parents for broken or looping symlinks.
 ///
-/// This function checks each component of the path to ensure none of them
-/// (including intermediate directories) are symbolic links.
+/// Resolves valid symlinks (e.g., `/tmp` → `/private/tmp` on macOS) and
+/// continues walking the resolved path. Only flags symlinks that cannot be
+/// resolved (broken, looping, or permission-denied).
 ///
-/// Security rationale: Symlinks can be used to escape the workspace or
-/// access files that would otherwise be blocked. By checking every component
-/// of the path, we ensure that no part of the path is a symlink.
+/// Security rationale: The workspace containment check (which runs after this)
+/// ensures the resolved path stays within allowed boundaries. Blocking valid
+/// system symlinks was overly aggressive — we only need to block symlinks
+/// that point to non-existent or unreachable targets.
 fn check_path_for_symlinks(path: &Path, workspace: &Path) -> Result<()> {
-    // Build the path incrementally, checking each component
-    // This is necessary because symlink_metadata on a path that goes through
-    // a symlink directory will return metadata about the target, not the symlink
-
     // For paths outside the workspace (relaxed mode), check only the final
-    // component — we can't walk from workspace root, but still block symlinks
-    // that could redirect to security-sensitive locations.
+    // component — we can't walk from workspace root, but still block broken
+    // symlinks that could redirect to security-sensitive locations.
     let Ok(relative_path) = path.strip_prefix(workspace) else {
         if let Ok(metadata) = fs::symlink_metadata(path) {
             if metadata.file_type().is_symlink() {
-                return Err(anyhow!(
-                    "symbolic link detected at '{}': symlinks are not allowed for security",
-                    path.display()
-                ));
+                // Resolve the symlink — only block if it's broken
+                if fs::canonicalize(path).is_err() {
+                    return Err(anyhow!(
+                        "broken symbolic link at '{}': could not resolve target",
+                        path.display()
+                    ));
+                }
             }
         }
         return Ok(());
@@ -280,18 +281,24 @@ fn check_path_for_symlinks(path: &Path, workspace: &Path) -> Result<()> {
 
     let mut check_path = workspace.to_path_buf();
 
-    // Check each component from workspace root up to the target
+    // Walk each component from workspace root up to the target
     for component in relative_path.components() {
         check_path.push(component);
 
-        // Check if this component is a symlink using symlink_metadata
-        // which doesn't follow symlinks (unlike metadata())
         if let Ok(metadata) = fs::symlink_metadata(&check_path) {
             if metadata.file_type().is_symlink() {
-                return Err(anyhow!(
-                    "symbolic link detected at '{}': symlinks are not allowed for security",
-                    check_path.display()
-                ));
+                // Resolve the symlink and continue from the target
+                match fs::canonicalize(&check_path) {
+                    Ok(resolved) => {
+                        check_path = resolved;
+                    }
+                    Err(_) => {
+                        return Err(anyhow!(
+                            "broken symbolic link at '{}': could not resolve target",
+                            check_path.display()
+                        ));
+                    }
+                }
             }
         }
     }
@@ -1511,23 +1518,23 @@ mod tests {
     }
 
     #[test]
-    fn test_outside_workspace_symlink_blocked_even_when_relaxed() {
+    fn test_outside_workspace_valid_symlink_allowed_when_relaxed() {
         let workspace = tempdir().unwrap();
         let outside = tempdir().unwrap();
         let real_file = outside.path().join("real.txt");
         fs::write(&real_file, "content").unwrap();
 
-        // Create symlink outside workspace pointing to another outside file
+        // Create valid symlink outside workspace
         let symlink_path = outside.path().join("link.txt");
         #[cfg(unix)]
         std::os::unix::fs::symlink(&real_file, &symlink_path).unwrap();
 
-        // Even in relaxed mode, outside-workspace symlinks should be blocked
+        // Valid symlinks should be allowed in relaxed mode (workspace check is relaxed)
         let result = validate_read_path(symlink_path.to_str().unwrap(), workspace.path(), false);
         #[cfg(unix)]
         assert!(
-            result.is_err(),
-            "symlink outside workspace should be blocked even in relaxed mode"
+            result.is_ok(),
+            "valid symlink outside workspace should be allowed in relaxed mode"
         );
     }
 }

@@ -444,7 +444,7 @@ impl ToolSearch {
     pub fn anthropic_tool_definition() -> serde_json::Value {
         serde_json::json!({
             "type": "tool_search_tool_bm25_20251119",
-            "name": "tool_search"
+            "name": "ToolSearch"
         })
     }
 
@@ -453,7 +453,7 @@ impl ToolSearch {
         serde_json::json!({
             "type": "function",
             "function": {
-                "name": "tool_search",
+                "name": "ToolSearch",
                 "description": "Search for available tools by name, description, or functionality. Use this to discover tools when you're not sure which tool to use.",
                 "parameters": {
                     "type": "object",
@@ -665,7 +665,7 @@ mod tests {
     #[test]
     fn test_tool_definition() {
         let def = ToolSearch::anthropic_tool_definition();
-        assert_eq!(def["name"], "tool_search");
+        assert_eq!(def["name"], "ToolSearch");
         assert_eq!(def["type"], "tool_search_tool_bm25_20251119");
     }
 

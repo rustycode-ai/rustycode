@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct GitCommitTool;
 
-    name: "git_commit",
+    name: "GitCommit",
     description: "Stage files and create a git commit with provided message.",
     permission: ToolPermission::Write,
     tags: [ToolTag::Ops],

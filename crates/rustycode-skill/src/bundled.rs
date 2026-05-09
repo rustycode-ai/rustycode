@@ -185,14 +185,14 @@ pub fn bundled_skills() -> Vec<SkillDefinition> {
         SkillifyBuilder::new("worktree")
             .description("Manage isolated development environments using git worktrees.")
             .when_to_use("Use when testing, managing concurrent tasks, or isolating sandbox environments.")
-            .allowed_tool("worktree_create")
-            .allowed_tool("worktree_list")
-            .allowed_tool("worktree_delete")
+            .allowed_tool("WorktreeCreate")
+            .allowed_tool("WorktreeList")
+            .allowed_tool("WorktreeDelete")
             .build(),
         SkillifyBuilder::new("research")
             .description("Conduct comprehensive web research by searching for information and fetching web content.")
             .when_to_use("Use when performing deep research, gathering market data, or verifying facts.")
-            .allowed_tool("web_search")
+            .allowed_tool("WebSearch")
             .allowed_tool("WebFetch")
             .build(),
     ]
@@ -273,8 +273,8 @@ mod tests {
             .generate_markdown();
 
         assert!(md.contains("allowed-tools:"));
-        assert!(md.contains("  - bash"));
-        assert!(md.contains("  - read_file"));
+        assert!(md.contains("  - Bash"));
+        assert!(md.contains("  - Read"));
     }
 
     #[test]

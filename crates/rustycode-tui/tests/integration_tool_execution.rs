@@ -106,7 +106,7 @@ async fn test_tool_execution_end_to_end() {
         ToolExecutionTest {
             name: "List src directory".to_string(),
             prompt: "List all files in the src directory".to_string(),
-            expected_tool: "list_dir".to_string(),
+            expected_tool: "ListDir".to_string(),
             verify_result: Box::new(|output| {
                 output.contains("main.rs")
                     || output.contains("lib.rs")
@@ -264,7 +264,7 @@ fn test_direct_tool_execution() {
     println!("\n▶ Test: List src directory");
     let list_result = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "test-2".to_string(),
-        name: "list_dir".to_string(),
+        name: "ListDir".to_string(),
         arguments: serde_json::json!({"path": "src"}),
     });
 

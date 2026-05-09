@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerPsTool;
 
-    name: "docker_ps",
+    name: "DockerPs",
     description: r"List Docker containers
 
 Use this tool to:
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_docker_ps_tool_metadata() {
         let tool = DockerPsTool;
-        assert_eq!(tool.name(), "docker_ps");
+        assert_eq!(tool.name(), "DockerPs");
         assert!(tool.description().contains("List"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }

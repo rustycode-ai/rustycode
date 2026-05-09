@@ -32,9 +32,9 @@ impl BrutalistRenderer<'_> {
         let display_name = match tool.name.as_str() {
             "Read" => "read",
             "Write" => "write",
-            "Edit" | "apply_patch" => "edit",
+            "Edit" | "ApplyPatch" => "edit",
             "execute_command" | "Bash" => "sh",
-            "list_dir" | "list_files" => "ls",
+            "ListDir" | "list_files" => "ls",
             n => n,
         };
         spans.push(Span::styled(

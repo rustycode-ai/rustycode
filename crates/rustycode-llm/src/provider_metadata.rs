@@ -702,7 +702,7 @@ mod tests {
     fn test_tool_definitions_request_json() {
         let meta = crate::anthropic::AnthropicProvider::metadata();
         let tools = vec![ToolSchema {
-            name: "search".to_string(),
+            name: "Search".to_string(),
             description: "Search the web".to_string(),
             parameters: serde_json::json!({
                 "type": "object",
@@ -716,7 +716,7 @@ mod tests {
         assert!(tool_defs.is_array());
         let tools_array = tool_defs.as_array().unwrap();
         assert_eq!(tools_array.len(), 1);
-        assert_eq!(tools_array[0]["name"], "search");
+        assert_eq!(tools_array[0]["name"], "Search");
         assert_eq!(tools_array[0]["description"], "Search the web");
     }
 

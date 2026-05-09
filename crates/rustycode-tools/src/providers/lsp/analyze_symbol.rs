@@ -17,7 +17,7 @@ struct LspAnalyzeSymbolParams {
 rustycode_tools_api::define_tool! {
     pub struct LspAnalyzeSymbolTool;
 
-    name: "lsp_analyze_symbol",
+    name: "LspAnalyzeSymbol",
     description: "Analyze a symbol to get its references, implementations, call hierarchy, and complexity metrics. Use when: you need a comprehensive understanding of a symbol's role in the codebase, you're planning a refactor, or you need to understand inheritance/implementation chains. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore, ToolTag::Refactor],

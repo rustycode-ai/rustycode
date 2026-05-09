@@ -134,9 +134,9 @@ impl ReasoningPhase {
     /// Get the recommended next tool for this phase.
     pub const fn recommended_next_tool(&self) -> &'static str {
         match self {
-            Self::Decompose => "reasoning_research",
-            Self::Research => "reasoning_validate",
-            Self::Clarify => "reasoning_integrate",
+            Self::Decompose => "ReasoningResearch",
+            Self::Research => "ReasoningValidate",
+            Self::Clarify => "ReasoningIntegrate",
             Self::Integrate => "implement_now",
         }
     }
@@ -303,15 +303,15 @@ mod tests {
     fn reasoning_phase_recommended_next_tool() {
         assert_eq!(
             ReasoningPhase::Decompose.recommended_next_tool(),
-            "reasoning_research"
+            "ReasoningResearch"
         );
         assert_eq!(
             ReasoningPhase::Research.recommended_next_tool(),
-            "reasoning_validate"
+            "ReasoningValidate"
         );
         assert_eq!(
             ReasoningPhase::Clarify.recommended_next_tool(),
-            "reasoning_integrate"
+            "ReasoningIntegrate"
         );
         assert_eq!(
             ReasoningPhase::Integrate.recommended_next_tool(),

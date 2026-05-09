@@ -957,7 +957,7 @@ mod tests {
                         "id": "call_abc123",
                         "type": "function",
                         "function": {
-                            "name": "search",
+                            "name": "Search",
                             "arguments": "{\"query\": \"rust programming\"}"
                         }
                     },
@@ -977,7 +977,7 @@ mod tests {
         let msg = response.message.unwrap();
         let calls = msg.tool_calls.unwrap();
         assert_eq!(calls.len(), 2);
-        assert_eq!(calls[0].function.name, "search");
+        assert_eq!(calls[0].function.name, "Search");
         assert_eq!(calls[1].function.name, "Read");
         assert_eq!(
             msg.tool_plan,
@@ -1022,7 +1022,7 @@ mod tests {
                     id: "call_123".to_string(),
                     r#type: "function".to_string(),
                     function: CohereV2ToolCallFunction {
-                        name: "search".to_string(),
+                        name: "Search".to_string(),
                         arguments: r#"{"query":"rust"}"#.to_string(),
                     },
                 }]),
@@ -1033,7 +1033,7 @@ mod tests {
 
         let result = provider.extract_response(cohere_resp, "command-r".to_string());
         assert!(result.content.starts_with("I need to search."));
-        assert!(result.content.contains("search"));
+        assert!(result.content.contains("Search"));
         assert!(result.content.contains("call_123"));
     }
 

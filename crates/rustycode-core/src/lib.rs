@@ -521,7 +521,7 @@ Generate a practical, actionable plan with 2-5 steps. Each step should use appro
                 tools: vec![
                     "Read".to_string(),
                     "Grep".to_string(),
-                    "list_dir".to_string(),
+                    "ListDir".to_string(),
                 ],
                 expected_outcome: "Understand the codebase structure.".to_string(),
                 rollback_hint: "N/A — read-only step.".to_string(),
@@ -604,7 +604,7 @@ async fn generate_smart_plan_async(
         tools: vec![
             "Read".to_string(),
             "Grep".to_string(),
-            "list_dir".to_string(),
+            "ListDir".to_string(),
         ],
         expected_outcome: "Understand the files that need to change.".to_string(),
         rollback_hint: "N/A — read-only step.".to_string(),

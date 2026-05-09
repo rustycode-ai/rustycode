@@ -33,7 +33,7 @@ pub struct DelegationParams {
 rustycode_tools_api::define_tool! {
     pub struct DelegationTool;
 
-    name: "delegate_task",
+    name: "DelegateTask",
     description: "Spawn a delegated task with its own context. Use for research, exploration, code review, \
      or parallel implementation tasks that benefit from context isolation.",
     permission: ToolPermission::Read,
@@ -125,7 +125,7 @@ mod tests {
     #[test]
     fn test_name() {
         let tool = DelegationTool;
-        assert_eq!(tool.name(), "delegate_task");
+        assert_eq!(tool.name(), "DelegateTask");
     }
 
     #[test]

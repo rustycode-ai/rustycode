@@ -49,13 +49,17 @@ impl std::fmt::Display for EditFormat {
 impl EditFormat {
     /// Get the tool name(s) that implement this edit format.
     pub const fn tool_names(&self) -> &'static [&'static str] {
+        use crate::tool_names;
         match self {
-            Self::ClaudeNative => &["text_editor_20250728", "text_editor_20250124"],
-            Self::SearchReplace => &["Edit"],
-            Self::RegexReplace => &["search_replace"],
-            Self::MultiEdit => &["multiedit"],
-            Self::WholeFile => &["Write"],
-            Self::DiffPatch => &["apply_patch"],
+            Self::ClaudeNative => &[
+                tool_names::TEXT_EDITOR_NEWEST,
+                tool_names::TEXT_EDITOR_LEGACY,
+            ],
+            Self::SearchReplace => &[tool_names::EDIT],
+            Self::RegexReplace => &[tool_names::SEARCH_REPLACE],
+            Self::MultiEdit => &[tool_names::MULTI_EDIT],
+            Self::WholeFile => &[tool_names::WRITE],
+            Self::DiffPatch => &[tool_names::APPLY_PATCH],
         }
     }
 

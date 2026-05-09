@@ -6,7 +6,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerStopTool;
 
-    name: "docker_stop",
+    name: "DockerStop",
     description: r"Stop one or more running Docker containers
 
 Use this tool to:
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn test_docker_stop_tool_metadata() {
         let tool = DockerStopTool;
-        assert_eq!(tool.name(), "docker_stop");
+        assert_eq!(tool.name(), "DockerStop");
         assert!(tool.description().contains("Stop"));
         assert_eq!(tool.permission(), ToolPermission::Execute);
     }

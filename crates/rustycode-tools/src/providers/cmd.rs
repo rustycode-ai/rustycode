@@ -408,7 +408,7 @@ pub struct CmdParams {
 rustycode_tools_api::define_tool! {
     pub struct CmdTool;
 
-    name: "cmd",
+    name: "Cmd",
     description: "Execute commands in Windows cmd.exe. \
      Windows-only — returns an error on other platforms. \
      Supports persistent sessions, wall-clock timeouts, \

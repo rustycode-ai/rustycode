@@ -18,7 +18,7 @@ struct LspInsertAfterSymbolParams {
 rustycode_tools_api::define_tool! {
     pub struct LspInsertAfterSymbolTool;
 
-    name: "lsp_insert_after_symbol",
+    name: "LspInsertAfterSymbol",
     description: "Insert text after a symbol (after the end of its range)",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],

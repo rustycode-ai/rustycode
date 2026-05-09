@@ -733,16 +733,10 @@ let executor = ToolExecutor::with_cache(
 );
 ```
 
-3. **Use compile-time tools for hot paths:**
+3. **Use release builds for hot paths:**
 ```rust
-use rustycode_tools::compile_time::*;
-
-// Faster than runtime tools
-let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(ReadFileInput {
-    path: PathBuf::from("Cargo.toml"),
-    start_line: None,
-    end_line: None,
-})?;
+// Release builds apply optimizations including inlining
+cargo run --release
 ```
 
 ### Issue: High memory consumption

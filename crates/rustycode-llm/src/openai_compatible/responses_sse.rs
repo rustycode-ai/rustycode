@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn parse_tool_call_started() {
-        let input = "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"read_file\"}}\n\n";
+        let input = "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_1\",\"name\":\"Read\"}}\n\n";
         let state = ResponsesSseState::default();
         let events = parse_responses_sse_lines(input, &state);
         assert_eq!(events.len(), 1);

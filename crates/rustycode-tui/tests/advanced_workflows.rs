@@ -44,10 +44,10 @@ fn test_lsp_tool_availability() {
 
     // Check for LSP tools
     let lsp_tools = vec![
-        "lsp_diagnostics",
-        "lsp_hover",
-        "lsp_definition",
-        "lsp_completion",
+        "LspDiagnostics",
+        "LspHover",
+        "LspDefinition",
+        "LspCompletion",
     ];
 
     println!("📊 Available LSP Tools:\n");

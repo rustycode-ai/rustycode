@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 rustycode_tools_api::define_tool! {
     pub struct DockerInspectTool;
 
-    name: "docker_inspect",
+    name: "DockerInspect",
     description: r"Inspect Docker containers or images
 
 Use this tool to:
@@ -22,7 +22,7 @@ Use this tool to:
         let format_str = params.format.as_deref();
         let inspect_type = params.inspect_type.as_deref();
 
-        let mut args = vec!["inspect"];
+        let mut args = vec!["Inspect"];
 
         if let Some(fmt) = format_str {
             args.extend_from_slice(&["--format", fmt]);
@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_docker_inspect_tool_metadata() {
         let tool = DockerInspectTool;
-        assert_eq!(tool.name(), "docker_inspect");
+        assert_eq!(tool.name(), "DockerInspect");
         assert!(tool.description().contains("Inspect"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }

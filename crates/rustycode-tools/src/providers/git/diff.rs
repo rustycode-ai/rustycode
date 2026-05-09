@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct GitDiffTool;
 
-    name: "git_diff",
+    name: "GitDiff",
     description: "Show git diff, optionally staged and/or for a specific path.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Ops],

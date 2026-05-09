@@ -85,7 +85,7 @@ pub struct HttpDeleteParams {
 rustycode_tools_api::define_tool! {
     pub struct GetTool;
 
-    name: "http_get",
+    name: "HttpGet",
     description: "Execute HTTP GET requests",
     permission: ToolPermission::Read,
 
@@ -98,7 +98,7 @@ rustycode_tools_api::define_tool! {
 rustycode_tools_api::define_tool! {
     pub struct PostTool;
 
-    name: "http_post",
+    name: "HttpPost",
     description: "Execute HTTP POST requests",
     permission: ToolPermission::Network,
 
@@ -111,7 +111,7 @@ rustycode_tools_api::define_tool! {
 rustycode_tools_api::define_tool! {
     pub struct PutTool;
 
-    name: "http_put",
+    name: "HttpPut",
     description: "Execute HTTP PUT requests",
     permission: ToolPermission::Network,
 
@@ -124,7 +124,7 @@ rustycode_tools_api::define_tool! {
 rustycode_tools_api::define_tool! {
     pub struct DeleteTool;
 
-    name: "http_delete",
+    name: "HttpDelete",
     description: "Execute HTTP DELETE requests",
     permission: ToolPermission::Network,
 
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn get_tool_metadata() {
         let t = GetTool;
-        assert_eq!(t.name(), "http_get");
+        assert_eq!(t.name(), "HttpGet");
         assert_eq!(t.permission(), ToolPermission::Read);
         assert!(t.parameters_schema().is_object());
     }
@@ -230,21 +230,21 @@ mod tests {
     #[test]
     fn post_tool_metadata() {
         let t = PostTool;
-        assert_eq!(t.name(), "http_post");
+        assert_eq!(t.name(), "HttpPost");
         assert_eq!(t.permission(), ToolPermission::Network);
     }
 
     #[test]
     fn put_tool_metadata() {
         let t = PutTool;
-        assert_eq!(t.name(), "http_put");
+        assert_eq!(t.name(), "HttpPut");
         assert_eq!(t.permission(), ToolPermission::Network);
     }
 
     #[test]
     fn delete_tool_metadata() {
         let t = DeleteTool;
-        assert_eq!(t.name(), "http_delete");
+        assert_eq!(t.name(), "HttpDelete");
         assert_eq!(t.permission(), ToolPermission::Network);
     }
 

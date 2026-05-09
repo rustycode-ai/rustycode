@@ -186,32 +186,52 @@ pub fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
 
 /// Map a tool name to a single-character kind icon for compact display.
 ///
-/// Used by the polished message render path. The brutalist renderer has its
-/// own richer icon set in `brutalist_helpers::tool_type_icon`; this simpler
-/// variant is sufficient for the inline summary rows.
+/// Uses exact matching: standard PascalCase tools are matched first,
+/// then unknown/MCP tools are classified by their name segments
+/// (split on `_`, `-`, `:`) with case-sensitive comparison.
+/// This avoids false positives from substring matching
+/// (e.g., "thread_reader" won't match "read").
 pub fn tool_kind_icon(name: &str) -> &'static str {
-    let lower = name.to_lowercase();
-    const RULES: &[(&[&str], &str)] = &[
-        (&["read", "cat", "view"], "R"),
-        (&["write", "create", "insert"], "W"),
-        (&["edit", "patch", "replace", "apply_patch"], "E"),
-        (&["delete", "remove"], "D"),
-        (&["Grep", "search"], "G"),
-        (&["Glob", "find", "list"], "F"),
-        (&["Bash", "exec", "shell", "run", "cmd"], "$"),
-        (&["git"], "G"),
-        (&["fetch", "http", "web", "curl", "download"], "~"),
-        (&["question", "ask", "think", "reason"], "?"),
-        (&["todo"], "T"),
-        (&["agent", "spawn", "team"], "A"),
-    ];
+    match name {
+        "Read" | "View" => "R",
+        "Write" | "Create" => "W",
+        "Edit" | "MultiEdit" | "ApplyPatch" => "E",
+        "Delete" | "Remove" => "D",
+        "Grep" | "Search" => "G",
+        "Glob" | "ListDir" => "F",
+        "Bash" => "$",
+        "WebFetch" | "WebSearch" => "~",
+        "NotebookEdit" => "N",
+        "AskUserQuestion" => "?",
+        "TodoRead" | "TodoWrite" => "T",
+        "Agent" => "A",
+        _ => icon_from_name_segments(name),
+    }
+}
 
-    for (needles, icon) in RULES {
-        if needles.iter().any(|needle| lower.contains(needle)) {
-            return icon;
+/// Classify unknown/MCP tools by matching name segments exactly.
+///
+/// Splits the tool name on `_`, `-`, and `:` boundaries and checks each
+/// segment against known action words.
+fn icon_from_name_segments(name: &str) -> &'static str {
+    for segment in name.split(['_', '-', ':']) {
+        match segment {
+            "" => continue,
+            "read" | "view" | "cat" => return "R",
+            "write" | "create" | "insert" => return "W",
+            "edit" | "patch" | "replace" => return "E",
+            "delete" | "remove" => return "D",
+            "grep" | "Search" => return "G",
+            "glob" | "Find" | "list" => return "F",
+            "bash" | "exec" | "shell" | "run" | "cmd" => return "$",
+            "git" => return "G",
+            "fetch" | "http" | "web" | "curl" | "download" => return "~",
+            "question" | "ask" | "think" | "reason" => return "?",
+            "todo" => return "T",
+            "agent" | "spawn" | "team" => return "A",
+            _ => continue,
         }
     }
-
     "*"
 }
 
@@ -427,7 +447,7 @@ mod tests {
 
     #[test]
     fn tool_kind_icon_git() {
-        assert_eq!(tool_kind_icon("git_commit"), "G");
+        assert_eq!(tool_kind_icon("GitCommit"), "G");
     }
 
     #[test]
@@ -442,9 +462,9 @@ mod tests {
 
     #[test]
     fn tool_kind_icon_todo() {
-        // "todo_write" matches "write" first in priority order
-        assert_eq!(tool_kind_icon("todo_write"), "W");
-        // "todo" alone matches the todo rule
+        // "TodoWrite" matches "todo" segment first
+        assert_eq!(tool_kind_icon("TodoWrite"), "T");
+        // "todo" alone matches the todo segment
         assert_eq!(tool_kind_icon("todo"), "T");
     }
 
@@ -476,8 +496,20 @@ mod tests {
     }
 
     #[test]
-    fn tool_kind_icon_case_insensitive() {
-        assert_eq!(tool_kind_icon("Read_File"), "R");
-        assert_eq!(tool_kind_icon("BASH"), "$");
+    fn tool_kind_icon_segment_matching() {
+        // MCP-style snake_case names match by segment
+        assert_eq!(tool_kind_icon("mcp__server__read_file"), "R");
+        assert_eq!(tool_kind_icon("web_fetch_tool"), "~");
+    }
+
+    #[test]
+    fn tool_kind_icon_no_false_positive_substring() {
+        // Segment matching prevents substring false positives
+        assert_eq!(tool_kind_icon("thread_reader"), "*");
+        assert_eq!(tool_kind_icon("runtime_check"), "*");
+        assert_eq!(tool_kind_icon("listener_port"), "*");
+        // Case-sensitive: PascalCase segments don't match lowercase
+        assert_eq!(tool_kind_icon("Read_File"), "*");
+        assert_eq!(tool_kind_icon("BASH"), "*");
     }
 }

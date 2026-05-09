@@ -33,7 +33,7 @@ pub struct MultiEditParams {
 rustycode_tools_api::define_tool! {
     pub struct MultiEditTool;
 
-    name: "multiedit",
+    name: "MultiEdit",
     description: r#"Edit multiple files atomically in a single operation.
 
 **Use cases:**
@@ -488,7 +488,7 @@ mod tests {
     #[test]
     fn test_multiedit_tool_metadata() {
         let tool = MultiEditTool;
-        assert_eq!(tool.name(), "multiedit");
+        assert_eq!(tool.name(), "MultiEdit");
         assert!(tool.description().contains("atomically"));
         assert_eq!(tool.permission(), ToolPermission::Write);
     }

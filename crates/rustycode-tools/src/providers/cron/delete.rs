@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct CronDeleteTool;
 
-    name: "cron_delete",
+    name: "CronDelete",
     description: r#"Cancel a cron job previously scheduled with cron_create. Removes it from the in-memory session store."#,
     permission: ToolPermission::None,
     tags: [ToolTag::Ops],
@@ -27,7 +27,7 @@ mod tests {
     #[test]
     fn test_cron_delete_metadata() {
         let tool = CronDeleteTool;
-        assert_eq!(tool.name(), "cron_delete");
+        assert_eq!(tool.name(), "CronDelete");
         assert_eq!(tool.permission(), ToolPermission::None);
     }
 

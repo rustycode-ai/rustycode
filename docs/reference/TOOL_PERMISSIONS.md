@@ -39,10 +39,10 @@ Tools are categorized into four permission levels:
 - Safe for exploratory analysis
 
 **Tools with Read Permission**:
-- `read_file` - Read file contents
+- `Read` - Read file contents
 - `list_dir` - List directory contents
-- `grep` - Search file contents with regex
-- `glob` - Find files by pattern
+- `Grep` - Search file contents with regex
+- `Glob` - Find files by pattern
 - `git_status` - Show git repository status
 - `git_diff` - Show git diffs
 - `git_log` - Show git commit history
@@ -59,7 +59,9 @@ Tools are categorized into four permission levels:
 - Requires explicit user approval
 
 **Tools with Write Permission**:
-- `write_file` - Write or overwrite files
+- `Write` - Write or overwrite files
+- `Edit` - Edit existing files with search/replace
+- `MultiEdit` - Apply multiple edits in one operation
 - `git_commit` - Create git commits (modifies .git directory)
 
 ### 3. Execute
@@ -73,7 +75,7 @@ Tools are categorized into four permission levels:
 - Requires explicit user approval
 
 **Tools with Execute Permission**:
-- `bash` - Execute arbitrary shell commands
+- `Bash` - Execute arbitrary shell commands
 
 ### 4. Dangerous
 
@@ -104,9 +106,10 @@ Tools are categorized into four permission levels:
 - All Read permission tools
 
 **Blocked Tools**:
-- `write_file`
+- `Write`
+- `Edit`
 - `git_commit`
-- `bash`
+- `Bash`
 - Any future Dangerous tools
 
 ### Executing Mode
@@ -126,17 +129,17 @@ Tools are categorized into four permission levels:
 
 | Tool Name | Permission | Planning Mode | Executing Mode | Category | Risk Level |
 |-----------|------------|---------------|----------------|----------|------------|
-| `read_file` | Read | ✅ Allowed | ✅ Allowed | Filesystem | None |
+| `Read` | Read | ✅ Allowed | ✅ Allowed | Filesystem | None |
 | `list_dir` | Read | ✅ Allowed | ✅ Allowed | Filesystem | None |
-| `grep` | Read | ✅ Allowed | ✅ Allowed | Search | None |
-| `glob` | Read | ✅ Allowed | ✅ Allowed | Search | None |
+| `Grep` | Read | ✅ Allowed | ✅ Allowed | Search | None |
+| `Glob` | Read | ✅ Allowed | ✅ Allowed | Search | None |
 | `git_status` | Read | ✅ Allowed | ✅ Allowed | Git | None |
 | `git_diff` | Read | ✅ Allowed | ✅ Allowed | Git | None |
 | `git_log` | Read | ✅ Allowed | ✅ Allowed | Git | None |
 | `lsp_diagnostics` | Read | ✅ Allowed | ✅ Allowed | LSP | None |
-| `write_file` | Write | ❌ Blocked | ✅ Allowed | Filesystem | Medium |
+| `Write` | Write | ❌ Blocked | ✅ Allowed | Filesystem | Medium |
 | `git_commit` | Write | ❌ Blocked | ✅ Allowed | Git | Medium |
-| `bash` | Execute | ❌ Blocked | ✅ Allowed | Shell | High |
+| `Bash` | Execute | ❌ Blocked | ✅ Allowed | Shell | High |
 | `dangerous_tool` | Dangerous | ❌ Blocked | ❌ Blocked | Destructive | Critical |
 
 ### Legend
@@ -350,7 +353,7 @@ async fn main() -> anyhow::Result<()> {
     // Read operations succeed in planning mode
     let read_call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "README.md"}),
     };
     let result = runtime.execute_tool(&session.id, read_call, ".").await?;
@@ -359,7 +362,7 @@ async fn main() -> anyhow::Result<()> {
     // Write operations fail in planning mode
     let write_call = ToolCall {
         call_id: "2".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({"path": "test.txt", "content": "test"}),
     };
     let result = runtime.execute_tool(&session.id, write_call, ".").await?;
@@ -390,7 +393,7 @@ async fn main() -> anyhow::Result<()> {
     // All tools work in executing mode
     let write_call = ToolCall {
         call_id: "1".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({"path": "src/main.rs", "content": "fn main() {}"}),
     };
     let result = runtime.execute_tool(&session.id, write_call, ".").await?;
@@ -399,7 +402,7 @@ async fn main() -> anyhow::Result<()> {
     // Bash execution works in executing mode
     let bash_call = ToolCall {
         call_id: "2".to_string(),
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         arguments: json!({"command": "cargo check"}),
     };
     let result = runtime.execute_tool(&session.id, bash_call, ".").await?;
@@ -446,26 +449,26 @@ use rustycode_protocol::{SessionMode, ToolPermission};
 
 fn main() {
     // Check if a tool is allowed in planning mode
-    assert!(check_tool_permission("read_file", SessionMode::Planning));
-    assert!(!check_tool_permission("write_file", SessionMode::Planning));
-    assert!(!check_tool_permission("bash", SessionMode::Planning));
+    assert!(check_tool_permission("Read", SessionMode::Planning));
+    assert!(!check_tool_permission("Write", SessionMode::Planning));
+    assert!(!check_tool_permission("Bash", SessionMode::Planning));
 
     // Check if a tool is allowed in executing mode
-    assert!(check_tool_permission("read_file", SessionMode::Executing));
-    assert!(check_tool_permission("write_file", SessionMode::Executing));
-    assert!(check_tool_permission("bash", SessionMode::Executing));
+    assert!(check_tool_permission("Read", SessionMode::Executing));
+    assert!(check_tool_permission("Write", SessionMode::Executing));
+    assert!(check_tool_permission("Bash", SessionMode::Executing));
 
     // Get a tool's required permission
     assert_eq!(
-        get_tool_permission("read_file"),
+        get_tool_permission("Read"),
         Some(ToolPermission::Read)
     );
     assert_eq!(
-        get_tool_permission("write_file"),
+        get_tool_permission("Write"),
         Some(ToolPermission::Write)
     );
     assert_eq!(
-        get_tool_permission("bash"),
+        get_tool_permission("Bash"),
         Some(ToolPermission::Execute)
     );
 
@@ -487,34 +490,34 @@ mod tests {
 
     #[test]
     fn test_read_tools_allowed_in_planning_mode() {
-        assert!(check_tool_permission("read_file", SessionMode::Planning));
-        assert!(check_tool_permission("grep", SessionMode::Planning));
+        assert!(check_tool_permission("Read", SessionMode::Planning));
+        assert!(check_tool_permission("Grep", SessionMode::Planning));
         assert!(check_tool_permission("list_dir", SessionMode::Planning));
     }
 
     #[test]
     fn test_write_tools_blocked_in_planning_mode() {
-        assert!(!check_tool_permission("write_file", SessionMode::Planning));
+        assert!(!check_tool_permission("Write", SessionMode::Planning));
         assert!(!check_tool_permission("git_commit", SessionMode::Planning));
     }
 
     #[test]
     fn test_execute_tools_blocked_in_planning_mode() {
-        assert!(!check_tool_permission("bash", SessionMode::Planning));
+        assert!(!check_tool_permission("Bash", SessionMode::Planning));
     }
 
     #[test]
     fn test_all_tools_allowed_in_executing_mode() {
-        assert!(check_tool_permission("read_file", SessionMode::Executing));
-        assert!(check_tool_permission("write_file", SessionMode::Executing));
-        assert!(check_tool_permission("bash", SessionMode::Executing));
+        assert!(check_tool_permission("Read", SessionMode::Executing));
+        assert!(check_tool_permission("Write", SessionMode::Executing));
+        assert!(check_tool_permission("Bash", SessionMode::Executing));
     }
 
     #[test]
     fn test_permission_hierarchy() {
-        assert_eq!(get_tool_permission("read_file"), Some(ToolPermission::Read));
-        assert_eq!(get_tool_permission("write_file"), Some(ToolPermission::Write));
-        assert_eq!(get_tool_permission("bash"), Some(ToolPermission::Execute));
+        assert_eq!(get_tool_permission("Read"), Some(ToolPermission::Read));
+        assert_eq!(get_tool_permission("Write"), Some(ToolPermission::Write));
+        assert_eq!(get_tool_permission("Bash"), Some(ToolPermission::Execute));
     }
 }
 ```
@@ -534,7 +537,7 @@ async fn test_planning_mode_blocks_write_operations() {
 
     let write_call = ToolCall {
         call_id: "1".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({"path": "test.txt", "content": "test"}),
     };
 
@@ -553,7 +556,7 @@ async fn test_executing_mode_allows_write_operations() {
 
     let write_call = ToolCall {
         call_id: "1".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({"path": "test.txt", "content": "test"}),
     };
 
@@ -582,7 +585,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 
 ### Filesystem Tools
 
-#### read_file
+#### Read
 - **Permission**: Read
 - **Description**: Read a UTF-8 text file relative to current workspace
 - **Parameters**:
@@ -592,7 +595,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 - **Planning Mode**: ✅ Allowed
 - **Executing Mode**: ✅ Allowed
 
-#### write_file
+#### Write
 - **Permission**: Write
 - **Description**: Write UTF-8 text to a file relative to current workspace
 - **Parameters**:
@@ -611,7 +614,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 
 ### Search Tools
 
-#### grep
+#### Grep
 - **Permission**: Read
 - **Description**: Search text files for a regex pattern
 - **Parameters**:
@@ -620,7 +623,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 - **Planning Mode**: ✅ Allowed
 - **Executing Mode**: ✅ Allowed
 
-#### glob
+#### Glob
 - **Permission**: Read
 - **Description**: Find files whose path contains a glob-like fragment
 - **Parameters**:
@@ -665,7 +668,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 
 ### Shell Tools
 
-#### bash
+#### Bash
 - **Permission**: Execute
 - **Description**: Execute a shell command in the current workspace
 - **Parameters**:

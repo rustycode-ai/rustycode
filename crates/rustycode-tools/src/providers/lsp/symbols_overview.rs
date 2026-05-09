@@ -22,7 +22,7 @@ fn default_depth() -> u32 {
 rustycode_tools_api::define_tool! {
     pub struct LspGetSymbolsOverviewTool;
 
-    name: "lsp_get_symbols_overview",
+    name: "LspGetSymbolsOverview",
     description: "Get a compact overview of symbols in a file grouped by kind",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Implement],

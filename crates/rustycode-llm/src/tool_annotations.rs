@@ -1,19 +1,21 @@
 use serde_json::{json, Value};
 
+use rustycode_tools_api::tool_names as tn;
+
 const READ_ONLY_TOOL_NAMES: &[&str] = &[
-    "Read",
-    "list_dir",
-    "Grep",
-    "Glob",
-    "git_status",
-    "git_diff",
-    "git_log",
-    "WebFetch",
-    "memory_search",
-    "memory_list",
-    "skill_list",
-    "doctor",
-    "reasoning_research",
+    tn::READ,
+    tn::LIST_DIR,
+    tn::GREP,
+    tn::GLOB,
+    tn::GIT_STATUS,
+    tn::GIT_DIFF,
+    tn::GIT_LOG,
+    tn::WEB_FETCH,
+    tn::MEMORY_SEARCH,
+    tn::MEMORY_LIST,
+    tn::SKILL_LIST,
+    tn::DOCTOR,
+    tn::REASONING_RESEARCH,
 ];
 
 #[must_use]

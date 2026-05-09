@@ -11,6 +11,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+use rustycode_tools_api::tool_names as tn;
+
 use crate::isolation::ToolCapability;
 
 // ToolTier enum
@@ -44,32 +46,32 @@ impl std::fmt::Display for ToolTier {
 
 /// The default tool set -- always available in every session.
 pub fn default_tool_set() -> HashSet<&'static str> {
-    ["Read", "Edit", "Write", "Bash", "Grep", "Glob"].into()
+    [tn::READ, tn::EDIT, tn::WRITE, tn::BASH, tn::GREP, tn::GLOB].into()
 }
 
 /// The extended tool set -- activated when the task requires more capabilities.
 pub fn extended_tool_set() -> HashSet<&'static str> {
     [
-        "WebFetch",
-        "NotebookEdit",
-        "lsp_diagnostics",
-        "lsp_hover",
-        "lsp_definition",
-        "lsp_references",
-        "lsp_completion",
-        "lsp_implementation",
-        "lsp_incoming_calls",
-        "lsp_outgoing_calls",
-        "lsp_document_symbols",
-        "todo_write",
-        "todo_update",
-        "todo_read",
-        "memory_search",
-        "memory_list",
-        "list_dir",
-        "git_status",
-        "git_diff",
-        "git_log",
+        tn::WEB_FETCH,
+        tn::NOTEBOOK_EDIT,
+        tn::LSP_DIAGNOSTICS,
+        tn::LSP_HOVER,
+        tn::LSP_DEFINITION,
+        tn::LSP_REFERENCES,
+        tn::LSP_COMPLETION,
+        tn::LSP_IMPLEMENTATION,
+        tn::LSP_INCOMING_CALLS,
+        tn::LSP_OUTGOING_CALLS,
+        tn::LSP_DOCUMENT_SYMBOLS,
+        tn::TODO_WRITE,
+        tn::TODO_UPDATE,
+        tn::TODO_READ,
+        tn::MEMORY_SEARCH,
+        tn::MEMORY_LIST,
+        tn::LIST_DIR,
+        tn::GIT_STATUS,
+        tn::GIT_DIFF,
+        tn::GIT_LOG,
     ]
     .into()
 }
@@ -357,16 +359,16 @@ mod tests {
         let extended = extended_tool_set();
         assert!(extended.contains("WebFetch"));
         assert!(extended.contains("NotebookEdit"));
-        assert!(extended.contains("lsp_diagnostics"));
-        assert!(extended.contains("lsp_hover"));
-        assert!(extended.contains("lsp_definition"));
-        assert!(extended.contains("lsp_references"));
-        assert!(extended.contains("lsp_completion"));
-        assert!(extended.contains("todo_write"));
-        assert!(extended.contains("memory_search"));
-        assert!(extended.contains("memory_list"));
-        assert!(extended.contains("list_dir"));
-        assert!(extended.contains("git_status"));
+        assert!(extended.contains("LspDiagnostics"));
+        assert!(extended.contains("LspHover"));
+        assert!(extended.contains("LspDefinition"));
+        assert!(extended.contains("LspReferences"));
+        assert!(extended.contains("LspCompletion"));
+        assert!(extended.contains("TodoWrite"));
+        assert!(extended.contains("MemorySearch"));
+        assert!(extended.contains("MemoryList"));
+        assert!(extended.contains("ListDir"));
+        assert!(extended.contains("GitStatus"));
     }
 
     #[test]
@@ -374,7 +376,7 @@ mod tests {
         assert_eq!(tier_for_tool("Read"), ToolTier::Default);
         assert_eq!(tier_for_tool("Bash"), ToolTier::Default);
         assert_eq!(tier_for_tool("WebFetch"), ToolTier::Extended);
-        assert_eq!(tier_for_tool("lsp_hover"), ToolTier::Extended);
+        assert_eq!(tier_for_tool("LspHover"), ToolTier::Extended);
         assert_eq!(tier_for_tool("custom_tool_xyz"), ToolTier::Full);
     }
 
@@ -471,7 +473,7 @@ mod tests {
         assert!(manager.is_active("Read"));
         assert!(manager.is_active("Bash"));
         assert!(manager.is_active("WebFetch"));
-        assert!(manager.is_active("lsp_hover"));
+        assert!(manager.is_active("LspHover"));
     }
 
     #[test]
@@ -532,7 +534,7 @@ mod tests {
         assert!(manager.is_active("WebFetch")); // in both extended tier and scope
         assert!(manager.is_active("Bash")); // bash is in both default tier and scope
         assert!(!manager.is_active("Edit")); // not in scope
-        assert!(!manager.is_active("lsp_hover")); // not in scope
+        assert!(!manager.is_active("LspHover")); // not in scope
     }
 
     #[test]

@@ -20,7 +20,7 @@ fn default_servers() -> Vec<String> {
 rustycode_tools_api::define_tool! {
     pub struct LspDiagnosticsTool;
 
-    name: "lsp_diagnostics",
+    name: "LspDiagnostics",
     description: "Check which language servers are available and their status. Use this to verify code intelligence capabilities before using other LSP tools.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore, ToolTag::Implement],
@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn test_diagnostics_tool_name_and_description() {
         let tool = LspDiagnosticsTool;
-        assert_eq!(tool.name(), "lsp_diagnostics");
+        assert_eq!(tool.name(), "LspDiagnostics");
         assert_eq!(
             tool.description(),
             "Check which language servers are available and their status. Use this to verify code intelligence capabilities before using other LSP tools."

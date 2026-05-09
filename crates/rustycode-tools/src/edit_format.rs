@@ -81,10 +81,10 @@ impl EditFormat {
         match self {
             Self::ClaudeNative => &["text_editor_20250124"],
             Self::SearchReplace => &["Edit"],
-            Self::RegexReplace => &["search_replace"],
-            Self::MultiEdit => &["multiedit"],
+            Self::RegexReplace => &["SearchReplace"],
+            Self::MultiEdit => &["MultiEdit"],
             Self::WholeFile => &["Write"],
-            Self::DiffPatch => &["apply_patch"],
+            Self::DiffPatch => &["ApplyPatch"],
         }
     }
 
@@ -484,7 +484,7 @@ mod tests {
     // Fallback tests
     #[test]
     fn test_select_with_fallback_claude() {
-        let available = &["Edit", "Write", "search_replace"];
+        let available = &["Edit", "Write", "SearchReplace"];
         // Claude prefers ClaudeNative but edit_file (SearchReplace) is available
         let format = select_with_fallback("claude-sonnet-4-6", available);
         assert_eq!(format, EditFormat::SearchReplace);
@@ -513,10 +513,10 @@ mod tests {
         assert!(EditFormat::SearchReplace.tool_names().contains(&"Edit"));
         assert!(EditFormat::RegexReplace
             .tool_names()
-            .contains(&"search_replace"));
-        assert!(EditFormat::MultiEdit.tool_names().contains(&"multiedit"));
+            .contains(&"SearchReplace"));
+        assert!(EditFormat::MultiEdit.tool_names().contains(&"MultiEdit"));
         assert!(EditFormat::WholeFile.tool_names().contains(&"Write"));
-        assert!(EditFormat::DiffPatch.tool_names().contains(&"apply_patch"));
+        assert!(EditFormat::DiffPatch.tool_names().contains(&"ApplyPatch"));
     }
 
     #[test]
@@ -564,7 +564,7 @@ mod tests {
     #[test]
     fn test_edit_format_display() {
         assert_eq!(EditFormat::ClaudeNative.to_string(), "claude_native");
-        assert_eq!(EditFormat::SearchReplace.to_string(), "search_replace");
+        assert_eq!(EditFormat::SearchReplace.to_string(), "SearchReplace");
         assert_eq!(EditFormat::WholeFile.to_string(), "whole_file");
     }
 

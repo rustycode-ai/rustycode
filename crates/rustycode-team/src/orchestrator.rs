@@ -1735,7 +1735,7 @@ impl TeamOrchestrator {
                 }
                 None
             }
-            "lsp_references" | "lsp_hover" => {
+            "LspReferences" | "LspHover" => {
                 let path = tc.arguments.get("path").and_then(|v| v.as_str());
                 if path.is_none_or(|s| s.trim().is_empty()) {
                     return Some(format!("{} requires a non-null 'path' string.", tc.name));
@@ -2195,7 +2195,7 @@ mod tests {
     fn validate_lsp_references_valid() {
         let orch = make_orchestrator();
         let tc = tool_call(
-            "lsp_references",
+            "LspReferences",
             serde_json::json!({"path": "src/main.rs", "line": 10, "character": 5}),
         );
         assert!(orch.validate_tool_call(&tc).is_none());
@@ -2204,7 +2204,7 @@ mod tests {
     #[test]
     fn validate_lsp_hover_missing_path() {
         let orch = make_orchestrator();
-        let tc = tool_call("lsp_hover", serde_json::json!({"line": 10, "character": 5}));
+        let tc = tool_call("LspHover", serde_json::json!({"line": 10, "character": 5}));
         assert!(orch.validate_tool_call(&tc).is_some());
     }
 

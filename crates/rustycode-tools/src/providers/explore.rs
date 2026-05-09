@@ -183,14 +183,14 @@ pub struct InspectParams {
 rustycode_tools_api::define_tool! {
     pub struct FindTool;
 
-    name: "find",
+    name: "Find",
     description: "Find relevant code locations for a query. Use this first for broad discovery, then inspect the best match with inspect.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],
 
     execute(params: FindParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "find")?;
+            gate.check_access(ctx.role, "Find")?;
         }
 
         let query = &params.query;
@@ -279,14 +279,14 @@ rustycode_tools_api::define_tool! {
 rustycode_tools_api::define_tool! {
     pub struct InspectTool;
 
-    name: "inspect",
+    name: "Inspect",
     description: "Inspect a symbol deeply. Use after find to look at definition, hover info, references, outline, or dependencies.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],
 
     execute(params: InspectParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "inspect")?;
+            gate.check_access(ctx.role, "Inspect")?;
         }
 
         let symbol = &params.symbol;
@@ -446,7 +446,7 @@ mod tests {
 
     #[test]
     fn find_and_inspect_names_are_stable() {
-        assert_eq!(FindTool.name(), "find");
-        assert_eq!(InspectTool.name(), "inspect");
+        assert_eq!(FindTool.name(), "Find");
+        assert_eq!(InspectTool.name(), "Inspect");
     }
 }

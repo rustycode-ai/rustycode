@@ -13,7 +13,7 @@ pub struct ValidateRequirementsParams {
 rustycode_tools_api::define_tool! {
     pub struct ValidateRequirementsTool;
 
-    name: "reasoning_validate",
+    name: "ReasoningValidate",
     description: "Validate that requirements are complete, consistent, and testable before implementation. Checks for ambiguity, missing acceptance criteria, and conflicts between requirements.",
     permission: ToolPermission::None,
 
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn tool_metadata() {
         let tool = ValidateRequirementsTool;
-        assert_eq!(tool.name(), "reasoning_validate");
+        assert_eq!(tool.name(), "ReasoningValidate");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
         // requirements is an Option<String> so it's in properties but not required

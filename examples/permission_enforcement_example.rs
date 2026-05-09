@@ -23,12 +23,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // ── Demo 1: Permission Checking API ───────────────────────────────────
     println!("--- Demo 1: Permission Checking API ---");
 
-    let read_perm = get_tool_permission("read_file");
-    let write_perm = get_tool_permission("write_file");
+    let read_perm = get_tool_permission("Read");
+    let write_perm = get_tool_permission("Write");
     let bash_perm = get_tool_permission("bash");
 
-    println!("read_file permission: {:?}", read_perm);
-    println!("write_file permission: {:?}", write_perm);
+    println!("Read permission: {:?}", read_perm);
+    println!("Write permission: {:?}", write_perm);
     println!("bash permission: {:?}", bash_perm);
 
     println!("\nAllowed tools in Planning mode:");
@@ -60,10 +60,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Created Planning mode session: {}", planning_session.id);
 
     // Try read operation (should succeed)
-    println!("\n1. Attempting read_file in Planning mode...");
+    println!("\n1. Attempting Read in Planning mode...");
     let read_call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "Cargo.toml"}),
     };
 
@@ -87,10 +87,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Try write operation (should fail)
-    println!("\n2. Attempting write_file in Planning mode...");
+    println!("\n2. Attempting Write in Planning mode...");
     let write_call = ToolCall {
         call_id: "2".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({
             "path": "test_planning.txt",
             "content": "This should fail in planning mode"
@@ -148,10 +148,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Created Executing mode session: {}", executing_session.id);
 
     // Try read operation (should succeed)
-    println!("\n1. Attempting read_file in Executing mode...");
+    println!("\n1. Attempting Read in Executing mode...");
     let read_call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "Cargo.toml"}),
     };
 
@@ -171,10 +171,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Try write operation (should succeed)
-    println!("\n2. Attempting write_file in Executing mode...");
+    println!("\n2. Attempting Write in Executing mode...");
     let write_call = ToolCall {
         call_id: "2".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({
             "path": "test_executing.txt",
             "content": "This should succeed in executing mode"
@@ -265,7 +265,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n  Read Permission:");
     for tool in &[
-        "read_file",
+        "Read",
         "list_dir",
         "grep",
         "glob",
@@ -278,7 +278,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("\n  Write Permission:");
-    for tool in &["write_file", "git_commit"] {
+    for tool in &["Write", "git_commit"] {
         println!("    - {}", tool);
     }
 

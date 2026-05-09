@@ -166,7 +166,7 @@ pub struct TodoUpdateParams {
 rustycode_tools_api::define_tool! {
     pub struct TodoWriteTool;
 
-    name: "todo_write",
+    name: "TodoWrite",
     description: r#"Use this tool to create and manage a structured task list for your current coding session. \
 This helps you track progress on complex, multi-step tasks and demonstrate thoroughness to the user. \
 It also helps the user understand the progress of the task and overall progress of their requests.
@@ -267,7 +267,7 @@ the activeForm would be "Fixing build errors"."#,
 rustycode_tools_api::define_tool! {
     pub struct TodoUpdateTool;
 
-    name: "todo_update",
+    name: "TodoUpdate",
     description: r#"Update a single todo item's status, title, or activeForm.
 
 Use this to mark tasks in_progress before starting work, and completed when fully done. \

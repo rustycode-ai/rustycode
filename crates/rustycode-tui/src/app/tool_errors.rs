@@ -165,7 +165,7 @@ impl ErrorTracker {
             "Bash" => Some(
                 "Instead of using bash, try using a specific tool designed for this operation".to_string(),
             ),
-            "Edit" | "apply_patch" => Some(
+            "Edit" | "ApplyPatch" => Some(
                 "For repeated edit failures, try using write_file to replace the entire file content".to_string(),
             ),
             "Read" => Some(
@@ -304,7 +304,7 @@ mod tests {
         let error = format_file_not_found_error("src/main.rs");
         assert!(error.contains("File not found"));
         assert!(error.contains("Glob"));
-        assert!(error.contains("list_dir"));
+        assert!(error.contains("ListDir"));
     }
 
     #[test]

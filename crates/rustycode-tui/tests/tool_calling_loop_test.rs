@@ -78,7 +78,7 @@ fn test_multi_round_tool_calling_detection() {
     let response1 = r#"I'll list the directory contents first.
 
 ```tool
-[{"name": "list_dir", "arguments": {"path": "."}}]
+[{"name": "ListDir", "arguments": {"path": "."}}]
 ```"#;
 
     let payloads1 = extract_tool_payloads(response1);
@@ -86,7 +86,7 @@ fn test_multi_round_tool_calling_detection() {
 
     if let Ok(tool_calls) = parse_tool_calls_payload(&payloads1[0]) {
         assert_eq!(tool_calls.len(), 1);
-        assert_eq!(tool_calls[0].name, "list_dir");
+        assert_eq!(tool_calls[0].name, "ListDir");
     }
 
     // Simulate tool result and Round 2: LLM returns read_file tool call
@@ -149,7 +149,7 @@ fn test_tool_calling_loop_termination() {
     let with_tools = r#"Let me check the files.
 
 ```tool
-[{"name": "list_dir", "arguments": {"path": "."}}]
+[{"name": "ListDir", "arguments": {"path": "."}}]
 ```"#;
 
     let payloads_with = extract_tool_payloads(with_tools);

@@ -305,7 +305,7 @@ mod tests {
     fn test_count_tool_tokens_with_enum() {
         let counter = TokenCounter::new();
         let tools = vec![(
-            "search".to_string(),
+            "Search".to_string(),
             "Search for files".to_string(),
             serde_json::json!({
                 "type": "object",
@@ -321,7 +321,7 @@ mod tests {
         let with_enum = counter.count_tool_tokens(&tools);
 
         let tools_no_enum = vec![(
-            "search".to_string(),
+            "Search".to_string(),
             "Search for files".to_string(),
             serde_json::json!({
                 "type": "object",

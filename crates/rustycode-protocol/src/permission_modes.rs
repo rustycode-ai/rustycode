@@ -28,6 +28,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+use crate::tool_names as tn;
+
 /// Runtime permission mode controlling how tool invocations are approved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -172,7 +174,7 @@ impl PermissionMode {
 pub(crate) fn is_plan_tool(name: &str) -> bool {
     matches!(
         name,
-        "submit_plan" | "review_plan" | "approve_plan" | "reject_plan" | "list_plans" | "get_plan"
+        "SubmitPlan" | "ReviewPlan" | "ApprovePlan" | "RejectPlan" | "ListPlans" | "GetPlan"
     )
 }
 
@@ -180,24 +182,20 @@ pub(crate) fn is_plan_tool(name: &str) -> bool {
 pub(crate) fn is_read_only_tool(name: &str) -> bool {
     matches!(
         name,
-        "Read"
-            | "list_dir"
-            | "Grep"
-            | "Glob"
-            | "find"
-            | "head"
-            | "tail"
-            | "wc"
-            | "file_info"
-            | "search"
-            | "web_search"
-            | "WebFetch"
+        tn::READ
+            | tn::LIST_DIR
+            | tn::GREP
+            | tn::GLOB
+            | tn::FIND
+            | tn::INSPECT
+            | tn::WEB_SEARCH
+            | tn::WEB_FETCH
     )
 }
 
 /// Whether a tool modifies files.
 fn is_edit_tool(name: &str) -> bool {
-    matches!(name, "Write" | "Edit" | "atomic_write")
+    matches!(name, tn::WRITE | tn::EDIT | tn::ATOMIC_WRITE)
 }
 
 /// The outcome of a permission decision.
@@ -453,7 +451,7 @@ mod tests {
     fn plan_mode_allows_readonly_blocks_writes() {
         let rules = vec![];
         assert!(PermissionMode::Plan.decide("Read", &rules).is_allowed());
-        assert!(PermissionMode::Plan.decide("list_dir", &rules).is_allowed());
+        assert!(PermissionMode::Plan.decide("ListDir", &rules).is_allowed());
         assert!(PermissionMode::Plan.decide("Write", &rules).is_denied());
         assert!(PermissionMode::Plan.decide("Bash", &rules).is_denied());
     }

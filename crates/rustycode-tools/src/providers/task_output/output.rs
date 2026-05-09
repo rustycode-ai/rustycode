@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct TaskOutputTool;
 
-    name: "task_output",
+    name: "TaskOutput",
     description: r#"Retrieves output from a running or completed background task.
 
 - For bash tasks: prefer using the Read tool on the output file path
@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn test_task_output_metadata() {
         let tool = TaskOutputTool;
-        assert_eq!(tool.name(), "task_output");
+        assert_eq!(tool.name(), "TaskOutput");
         assert_eq!(tool.permission(), ToolPermission::None);
     }
 

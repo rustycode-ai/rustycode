@@ -209,16 +209,16 @@ fn get_tool_permission_read_only_tools() {
     // Read-only tools should be AutoAllow
     assert_eq!(tool_permission("Read"), Some(ProtocolPermission::AutoAllow));
     assert_eq!(
-        tool_permission("list_dir"),
+        tool_permission("ListDir"),
         Some(ProtocolPermission::AutoAllow)
     );
     assert_eq!(tool_permission("Grep"), Some(ProtocolPermission::AutoAllow));
     assert_eq!(
-        tool_permission("git_status"),
+        tool_permission("GitStatus"),
         Some(ProtocolPermission::AutoAllow)
     );
     assert_eq!(
-        tool_permission("lsp_diagnostics"),
+        tool_permission("LspDiagnostics"),
         Some(ProtocolPermission::AutoAllow)
     );
 }
@@ -233,7 +233,7 @@ fn get_tool_permission_write_tools() {
         Some(ProtocolPermission::RequiresConfirmation)
     );
     assert_eq!(
-        tool_permission("git_commit"),
+        tool_permission("GitCommit"),
         Some(ProtocolPermission::RequiresConfirmation)
     );
 }
@@ -268,10 +268,10 @@ fn check_tool_permission_planning_mode() {
 
     // Planning mode: only auto-allow tools permitted
     assert!(check_tool_permission("Read", SessionMode::Planning));
-    assert!(check_tool_permission("list_dir", SessionMode::Planning));
+    assert!(check_tool_permission("ListDir", SessionMode::Planning));
     assert!(!check_tool_permission("Write", SessionMode::Planning));
     assert!(!check_tool_permission("Bash", SessionMode::Planning));
-    assert!(!check_tool_permission("git_commit", SessionMode::Planning));
+    assert!(!check_tool_permission("GitCommit", SessionMode::Planning));
 }
 
 #[test]
@@ -282,5 +282,5 @@ fn check_tool_permission_executing_mode() {
     assert!(check_tool_permission("Read", SessionMode::Executing));
     assert!(check_tool_permission("Write", SessionMode::Executing));
     assert!(check_tool_permission("Bash", SessionMode::Executing));
-    assert!(check_tool_permission("git_commit", SessionMode::Executing));
+    assert!(check_tool_permission("GitCommit", SessionMode::Executing));
 }

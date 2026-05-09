@@ -77,11 +77,11 @@ The tool interface system serves three primary goals:
 
 | Tool | Limit Type | Value | Rationale |
 |------|-----------|-------|-----------|
-| **bash** | Lines | 30 | Most command output fits; prevents log spam |
-| **bash** | Bytes | 50KB | Catches binary output or massive logs |
-| **read_file** | Lines | 80 | Full context for most files; 2-3 screens |
-| **grep** | Matches | 15 | Enough to see pattern; request more if needed |
-| **glob** | Files | 30 | Manageable list; paginate for large repos |
+| **Bash** | Lines | 30 | Most command output fits; prevents log spam |
+| **Bash** | Bytes | 50KB | Catches binary output or massive logs |
+| **Read** | Lines | 80 | Full context for most files; 2-3 screens |
+| **Grep** | Matches | 15 | Enough to see pattern; request more if needed |
+| **Glob** | Files | 30 | Manageable list; paginate for large repos |
 | **list_dir** | Entries | 30 | Directory navigation use case |
 
 ### 2.2 Truncation Behavior
@@ -179,11 +179,11 @@ Usage Ranking (frequency-based)
 **Purpose**: Code discovery and understanding
 
 **Tools**:
-- `read_file` - Read source files
+- `Read` - Read source files
 - `list_dir` - Navigate directory structure
-- `grep` - Search for patterns
-- `glob` - Find files by name
-- `web_fetch` - Read documentation
+- `Grep` - Search for patterns
+- `Glob` - Find files by name
+- `WebFetch` - Read documentation
 - `lsp_hover` - Inspect symbols
 - `lsp_definition` - Jump to definitions
 

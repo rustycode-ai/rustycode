@@ -197,7 +197,7 @@ impl EnvironmentContext {
             "is_git_repo": self.is_git_repo,
             "platform": self.platform,
             "date": self.date,
-            "git_status": self.git_status.as_ref().map(|git| json!({
+            "GitStatus": self.git_status.as_ref().map(|git| json!({
                 "branch": git.branch,
                 "modified": git.modified,
                 "staged": git.staged,
@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(obj["platform"].as_str(), Some("linux"));
         assert_eq!(obj["date"].as_str(), Some("2025-03-13"));
 
-        let git = obj["git_status"].as_object().unwrap();
+        let git = obj["GitStatus"].as_object().unwrap();
         assert_eq!(git["branch"].as_str(), Some("main"));
         assert_eq!(git["modified"].as_array().unwrap().len(), 1);
         assert_eq!(git["staged"].as_array().unwrap().len(), 1);
@@ -371,7 +371,7 @@ mod tests {
 
         let json = env.format_json();
         let obj = json.as_object().unwrap();
-        assert!(obj["git_status"].is_null());
+        assert!(obj["GitStatus"].is_null());
     }
 
     #[test]
@@ -391,7 +391,7 @@ mod tests {
         };
 
         let json = env.format_json();
-        let git = json["git_status"].as_object().unwrap();
+        let git = json["GitStatus"].as_object().unwrap();
         assert!(git["branch"].is_null());
         assert!(git["modified"].as_array().unwrap().is_empty());
         assert!(git["staged"].as_array().unwrap().is_empty());

@@ -124,7 +124,7 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("Grep") || name.contains("search") {
+        if name.contains("Grep") || name.contains("Search") {
             if let Some(pattern) = json
                 .get("pattern")
                 .or(json.get("query"))
@@ -146,7 +146,7 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("Glob") || name.contains("find") || name.contains("list") {
+        if name.contains("Glob") || name.contains("Find") || name.contains("list") {
             if let Some(pattern) = json
                 .get("pattern")
                 .or(json.get("Glob"))
@@ -305,29 +305,42 @@ pub fn find_byte(bytes: &[u8], byte: u8) -> Option<usize> {
     bytes.iter().position(|&b| b == byte)
 }
 
+/// Map a tool name to a unicode icon for the brutalist render path.
+///
+/// Uses exact matching: standard PascalCase tools are matched first,
+/// then unknown/MCP tools are classified by their name segments
+/// (split on `_`, `-`, `:`) with case-sensitive comparison.
 pub fn tool_type_icon(name: &str) -> &'static str {
-    let n = name.to_lowercase();
-    if n.contains("read") || n.contains("view") || n.contains("cat") {
-        "◎"
-    } else if n.contains("write") || n.contains("edit") || n.contains("create") {
-        "✎"
-    } else if n.contains("Bash") || n.contains("shell") || n.contains("exec") {
-        "▸"
-    } else if n.contains("search") || n.contains("Grep") || n.contains("find") {
-        "⌕"
-    } else if n.contains("Glob") || n.contains("list") {
-        "⋮"
-    } else if n.contains("diff") || n.contains("patch") {
-        "≠"
-    } else if n.contains("git") {
-        "⎇"
-    } else if n.contains("mcp") || n.contains("server") {
-        "◉"
-    } else if n.contains("apply") || n.contains("tool") {
-        "▶"
-    } else {
-        "○"
+    match name {
+        "Read" | "View" => "◎",
+        "Write" | "Create" => "✎",
+        "Edit" | "MultiEdit" | "ApplyPatch" => "✎",
+        "Bash" => "▸",
+        "Grep" | "Search" | "WebSearch" => "⌕",
+        "Glob" | "ListDir" => "⋮",
+        "WebFetch" => "◉",
+        "NotebookEdit" => "◎",
+        _ => icon_type_from_segments(name),
     }
+}
+
+fn icon_type_from_segments(name: &str) -> &'static str {
+    for segment in name.split(['_', '-', ':']) {
+        match segment {
+            "" => continue,
+            "read" | "view" | "cat" => return "◎",
+            "write" | "edit" | "create" => return "✎",
+            "bash" | "shell" | "exec" => return "▸",
+            "Search" | "grep" | "Find" => return "⌕",
+            "glob" | "list" => return "⋮",
+            "diff" | "patch" => return "≠",
+            "git" => return "⎇",
+            "mcp" | "server" => return "◉",
+            "apply" | "tool" => return "▶",
+            _ => continue,
+        }
+    }
+    "○"
 }
 
 #[cfg(test)]
@@ -490,10 +503,17 @@ mod tests {
         assert_eq!(tool_type_icon("Grep"), "⌕");
         assert_eq!(tool_type_icon("Glob"), "⋮");
         assert_eq!(tool_type_icon("diff"), "≠");
-        assert_eq!(tool_type_icon("git_status"), "⎇");
+        assert_eq!(tool_type_icon("GitStatus"), "⎇");
         assert_eq!(tool_type_icon("mcp_server"), "◉");
-        assert_eq!(tool_type_icon("apply_patch"), "≠");
+        assert_eq!(tool_type_icon("ApplyPatch"), "▶");
         assert_eq!(tool_type_icon("unknown"), "○");
+    }
+
+    #[test]
+    fn test_tool_type_icon_no_false_positive() {
+        assert_eq!(tool_type_icon("thread_reader"), "○");
+        assert_eq!(tool_type_icon("runtime_check"), "○");
+        assert_eq!(tool_type_icon("listener_port"), "○");
     }
 
     #[test]

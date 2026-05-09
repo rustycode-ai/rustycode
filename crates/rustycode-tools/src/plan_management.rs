@@ -80,7 +80,7 @@ pub struct ApprovePlanParams {
 rustycode_tools_api::define_tool! {
     pub struct CreatePlanFromTemplateTool;
 
-    name: "create_plan_from_template",
+    name: "CreatePlanFromTemplate",
     description: r#"Create a new plan from a predefined template.
 
 **Use cases:**
@@ -184,7 +184,7 @@ rustycode_tools_api::define_tool! {
 rustycode_tools_api::define_tool! {
     pub struct SavePlanTool;
 
-    name: "save_plan",
+    name: "SavePlan",
     description: r#"Save a plan to disk for later use.
 
 **Use cases:**
@@ -267,7 +267,7 @@ the full plan object. This is a simplified version.
 rustycode_tools_api::define_tool! {
     pub struct LoadPlanTool;
 
-    name: "load_plan",
+    name: "LoadPlan",
     description: r#"Load a saved plan from disk.
 
 **Use cases:**
@@ -333,7 +333,7 @@ rustycode_tools_api::define_tool! {
 rustycode_tools_api::define_tool! {
     pub struct ListPlansTool;
 
-    name: "list_plans",
+    name: "ListPlans",
     description: r#"List all available saved plans.
 
 **Use cases:**
@@ -428,7 +428,7 @@ rustycode_tools_api::define_tool! {
 rustycode_tools_api::define_tool! {
     pub struct ApprovePlanTool;
 
-    name: "approve_plan",
+    name: "ApprovePlan",
     description: r#"Approve a plan for execution.
 
 **Use cases:**
@@ -484,7 +484,7 @@ mod tests {
     #[test]
     fn test_create_plan_tool_metadata() {
         let tool = CreatePlanFromTemplateTool;
-        assert_eq!(tool.name(), "create_plan_from_template");
+        assert_eq!(tool.name(), "CreatePlanFromTemplate");
         assert!(tool.description().contains("template"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }
@@ -505,7 +505,7 @@ mod tests {
     #[test]
     fn test_save_plan_tool_metadata() {
         let tool = SavePlanTool;
-        assert_eq!(tool.name(), "save_plan");
+        assert_eq!(tool.name(), "SavePlan");
         assert!(tool.description().contains("save"));
         assert_eq!(tool.permission(), ToolPermission::Write);
     }
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn test_load_plan_tool_metadata() {
         let tool = LoadPlanTool;
-        assert_eq!(tool.name(), "load_plan");
+        assert_eq!(tool.name(), "LoadPlan");
         assert!(tool.description().contains("Load"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }
@@ -521,7 +521,7 @@ mod tests {
     #[test]
     fn test_list_plans_tool_metadata() {
         let tool = ListPlansTool;
-        assert_eq!(tool.name(), "list_plans");
+        assert_eq!(tool.name(), "ListPlans");
         assert!(tool.description().contains("List"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }
@@ -529,7 +529,7 @@ mod tests {
     #[test]
     fn test_approve_plan_tool_metadata() {
         let tool = ApprovePlanTool;
-        assert_eq!(tool.name(), "approve_plan");
+        assert_eq!(tool.name(), "ApprovePlan");
         assert!(tool.description().contains("approve"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }

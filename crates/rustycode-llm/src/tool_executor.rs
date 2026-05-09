@@ -509,7 +509,7 @@ mod tests {
                     defer_loading: None,
                 },
                 ToolInfo {
-                    name: "list_dir".to_string(),
+                    name: "ListDir".to_string(),
                     description: "List directory contents".to_string(),
                     parameters_schema: serde_json::json!({
                         "type": "object",
@@ -543,7 +543,7 @@ mod tests {
 
         fn execute(&self, call: &ToolCall) -> ToolResult {
             match call.name.as_str() {
-                "list_dir" => ToolResult::success(
+                "ListDir" => ToolResult::success(
                     call.call_id.clone(),
                     format!(
                         "Fake directory listing for {}",
@@ -632,7 +632,7 @@ mod tests {
     fn test_parse_openai_format_in_tool_code_block() {
         let executor = create_executor();
 
-        let content = "```tool\n[\n  {\n    \"id\": \"call_-7703117166425406227\",\n    \"type\": \"function\",\n    \"function\": {\n      \"name\": \"bash\",\n      \"arguments\": \"{\\\"command\\\": \\\"ls\\\"}\"\n    }\n  }\n]\n```";
+        let content = "```tool\n[\n  {\n    \"id\": \"call_-7703117166425406227\",\n    \"type\": \"function\",\n    \"function\": {\n      \"name\": \"Bash\",\n      \"arguments\": \"{\\\"command\\\": \\\"ls\\\"}\"\n    }\n  }\n]\n```";
 
         let tool_calls = executor.parse_anthropic_tool_calls(content).unwrap();
         assert_eq!(tool_calls.len(), 1);

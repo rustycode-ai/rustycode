@@ -235,26 +235,27 @@ impl ToolApprovalMode {
 
     /// Check if a tool is sensitive (requires confirmation in SmartApprove mode).
     fn is_sensitive_tool(tool_name: &str) -> bool {
+        use crate::tool_names as tn;
         matches!(
             tool_name,
-            "Bash"
-                | "Write"
-                | "Edit"
-                | "text_editor_20250728"
-                | "text_editor_20250124"
-                | "git_commit"
-                | "git_push"
-                | "git_reset"
-                | "docker_run"
-                | "docker_build"
-                | "docker_stop"
-                | "apply_patch"
-                | "multi_edit"
-                | "database_query"
-                | "database_transaction"
-                | "http_post"
-                | "http_put"
-                | "http_delete"
+            tn::BASH
+                | tn::WRITE
+                | tn::EDIT
+                | tn::TEXT_EDITOR_NEWEST
+                | tn::TEXT_EDITOR_LEGACY
+                | tn::GIT_COMMIT
+                | tn::GIT_PUSH
+                | tn::GIT_RESET
+                | tn::DOCKER_RUN
+                | tn::DOCKER_BUILD
+                | tn::DOCKER_STOP
+                | tn::APPLY_PATCH
+                | tn::MULTI_EDIT
+                | tn::DATABASE_QUERY
+                | tn::DATABASE_TRANSACTION
+                | tn::HTTP_POST
+                | tn::HTTP_PUT
+                | tn::HTTP_DELETE
         )
     }
 

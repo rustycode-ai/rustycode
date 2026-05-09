@@ -26,7 +26,7 @@ pub async fn handle_marketplace_command(input: &str) -> Result<Option<String>, S
 
     match subcommand {
         "browse" | "show" => cmd_browse_marketplace(&parts[1..]).await,
-        "search" => cmd_search_marketplace(&parts[1..]).await,
+        "Search" => cmd_search_marketplace(&parts[1..]).await,
         "install" => cmd_install_item(&parts[1..]).await,
         "uninstall" => cmd_uninstall_item(&parts[1..]).await,
         "update" => cmd_update_items(&parts[1..]).await,

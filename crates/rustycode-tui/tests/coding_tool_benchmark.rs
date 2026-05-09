@@ -115,7 +115,7 @@ fn get_coding_tasks() -> Vec<(&'static str, &'static str, &'static str)> {
         (
             "list_files",
             "List all files in the src directory",
-            "list_dir",
+            "ListDir",
         ),
         (
             "search_code",
@@ -125,7 +125,7 @@ fn get_coding_tasks() -> Vec<(&'static str, &'static str, &'static str)> {
         (
             "find_files",
             "Find all Rust files in the src directory",
-            "list_dir",
+            "ListDir",
         ),
     ]
 }

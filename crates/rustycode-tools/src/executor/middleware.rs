@@ -47,8 +47,8 @@ impl Default for MiddlewareConfig {
             max_session_cost: None,
             checkpoint_tools: vec![
                 "Edit".to_string(),
-                "multiedit".to_string(),
-                "apply_patch".to_string(),
+                "MultiEdit".to_string(),
+                "ApplyPatch".to_string(),
                 "Write".to_string(),
                 "Bash".to_string(),
             ],
@@ -220,7 +220,7 @@ impl ExecutionMiddleware {
 
         if state.plan_mode == PlanModeState::Planning {
             // In plan mode, only allow read-only tools
-            let allowed = ["Glob", "Grep", "search", "read", "lsp", "WebFetch"];
+            let allowed = ["Glob", "Grep", "Search", "read", "lsp", "WebFetch"];
             if !allowed.contains(&tool_name) {
                 anyhow::bail!(
                     "tool '{tool_name}' not allowed in plan mode. Use read-only tools: {allowed:?}"

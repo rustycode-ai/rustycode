@@ -45,7 +45,7 @@ pub fn extract_context_summary(
                                             files_written.push(entry);
                                         }
                                     }
-                                    "Edit" | "apply_patch" if !path.is_empty() => {
+                                    "Edit" | "ApplyPatch" if !path.is_empty() => {
                                         let entry = path.to_string();
                                         if !files_edited.contains(&entry) {
                                             files_edited.push(entry);

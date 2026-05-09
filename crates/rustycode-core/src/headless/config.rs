@@ -108,11 +108,11 @@ mod tests {
             "system prompt must describe tiered access model"
         );
         assert!(
-            HEADLESS_SYSTEM_PROMPT.contains("lsp_diagnostics"),
+            HEADLESS_SYSTEM_PROMPT.contains("LspDiagnostics"),
             "system prompt must mention lsp_diagnostics"
         );
         assert!(
-            HEADLESS_SYSTEM_PROMPT.contains("semantic_search"),
+            HEADLESS_SYSTEM_PROMPT.contains("SemanticSearch"),
             "system prompt must mention semantic_search"
         );
     }

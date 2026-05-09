@@ -193,14 +193,14 @@ You can add comments and documentation, but avoid changing code logic.
         matches!(
             tool_name,
             "Read"
-                | "list_dir"
+                | "ListDir"
                 | "Grep"
                 | "Glob"
                 | "Bash"
                 | "Edit"
                 | "Write"
                 | "question"
-                | "web_search"
+                | "WebSearch"
                 | "WebFetch"
         )
     }

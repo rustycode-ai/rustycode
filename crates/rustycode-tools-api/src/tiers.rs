@@ -25,24 +25,24 @@ pub fn extended_tool_set() -> HashSet<&'static str> {
     [
         "WebFetch",
         "NotebookEdit",
-        "lsp_diagnostics",
-        "lsp_hover",
-        "lsp_definition",
-        "lsp_references",
-        "lsp_completion",
-        "lsp_implementation",
-        "lsp_incoming_calls",
-        "lsp_outgoing_calls",
-        "lsp_document_symbols",
-        "todo_write",
-        "todo_update",
-        "todo_read",
-        "memory_search",
-        "memory_list",
-        "list_dir",
-        "git_status",
-        "git_diff",
-        "git_log",
+        "LspDiagnostics",
+        "LspHover",
+        "LspDefinition",
+        "LspReferences",
+        "LspCompletion",
+        "LspImplementation",
+        "LspIncomingCalls",
+        "LspOutgoingCalls",
+        "LspDocumentSymbols",
+        "TodoWrite",
+        "TodoUpdate",
+        "TodoRead",
+        "MemorySearch",
+        "MemoryList",
+        "ListDir",
+        "GitStatus",
+        "GitDiff",
+        "GitLog",
     ]
     .into_iter()
     .collect()
@@ -184,14 +184,14 @@ mod tests {
         let extended = extended_tool_set();
         assert!(extended.contains("WebFetch"));
         assert!(extended.contains("NotebookEdit"));
-        assert!(extended.contains("lsp_diagnostics"));
-        assert!(extended.contains("lsp_hover"));
-        assert!(extended.contains("lsp_definition"));
-        assert!(extended.contains("lsp_references"));
-        assert!(extended.contains("lsp_completion"));
-        assert!(extended.contains("todo_write"));
-        assert!(extended.contains("memory_search"));
-        assert!(extended.contains("memory_list"));
+        assert!(extended.contains("LspDiagnostics"));
+        assert!(extended.contains("LspHover"));
+        assert!(extended.contains("LspDefinition"));
+        assert!(extended.contains("LspReferences"));
+        assert!(extended.contains("LspCompletion"));
+        assert!(extended.contains("TodoWrite"));
+        assert!(extended.contains("MemorySearch"));
+        assert!(extended.contains("MemoryList"));
     }
 
     #[test]
@@ -228,7 +228,7 @@ mod tests {
         let manager = ToolActivationManager::new();
         assert_eq!(manager.current_tier(), ToolTier::Extended);
         assert!(manager.is_tool_allowed("Read"));
-        assert!(manager.is_tool_allowed("lsp_hover"));
+        assert!(manager.is_tool_allowed("LspHover"));
         assert!(manager.is_tool_allowed("WebFetch"));
     }
 

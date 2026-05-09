@@ -95,14 +95,14 @@ fn normalize_tool_name(name: &str) -> &str {
         "Read" | "read" | "view" => "Read",
         "Write" | "Create" | "create" => "Write",
         "Bash" | "Shell" | "shell" | "execute" | "run_command" => "Bash",
-        "PowerShell" | "pwsh" => "powershell",
+        "PowerShell" | "pwsh" => "PowerShell",
         "Cmd" | "cmd" | "cmd.exe" => "cmd",
-        "Grep" | "Search" | "search" => "Grep",
-        "Glob" | "Find" | "find" => "Glob",
+        "Grep" | "Search" => "Grep",
+        "Glob" | "Find" => "Glob",
         "NotebookEdit" | "notebook_edit" => "NotebookEdit",
         "WebFetch" | "web_fetch" | "fetch" => "WebFetch",
         "LSP" | "lsp" => "lsp",
-        "ApplyPatch" | "apply_patch" | "patch" => "apply_patch",
+        "ApplyPatch" | "patch" => "ApplyPatch",
         _ => name,
     }
 }
@@ -157,9 +157,9 @@ mod tests {
         assert_eq!(normalize_tool_name("WebFetch"), "WebFetch");
         assert_eq!(normalize_tool_name("fetch"), "WebFetch");
         assert_eq!(normalize_tool_name("LSP"), "lsp");
-        assert_eq!(normalize_tool_name("ApplyPatch"), "apply_patch");
-        assert_eq!(normalize_tool_name("patch"), "apply_patch");
-        assert_eq!(normalize_tool_name("apply_patch"), "apply_patch");
+        assert_eq!(normalize_tool_name("ApplyPatch"), "ApplyPatch");
+        assert_eq!(normalize_tool_name("patch"), "ApplyPatch");
+        assert_eq!(normalize_tool_name("ApplyPatch"), "ApplyPatch");
         assert_eq!(normalize_tool_name("unknown_tool"), "unknown_tool");
     }
 

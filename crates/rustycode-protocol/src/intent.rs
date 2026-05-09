@@ -194,8 +194,8 @@ const PLANNING_KEYWORDS: &[&str] = &[
 ];
 
 const INVESTIGATION_KEYWORDS: &[&str] = &[
-    "find",
-    "search",
+    "Find",
+    "Search",
     "where is",
     "locate",
     "list all",

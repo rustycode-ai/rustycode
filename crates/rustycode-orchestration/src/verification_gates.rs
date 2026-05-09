@@ -738,7 +738,7 @@ mod tests {
     fn test_yaml_rule_loading_from_directory() {
         let dir = tempfile::tempdir().unwrap();
         let yaml_content = r#"
-task_type: bash
+task_type: Bash
 rules:
   - description: "check exit code"
     check: "exit_code"

@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 
 /// Check if a shell binary exists and is executable.
 fn which_sh(name: &str) -> bool {
-    let arg = if name == "powershell" {
+    let arg = if name == "PowerShell" {
         "-Command"
     } else {
         "-c"
@@ -47,7 +47,7 @@ impl ToolProvider for ShellProvider {
             }
             
             // Always register PowerShell if available
-            if which_sh("powershell") {
+            if which_sh("PowerShell") {
                 registry.register(PowerShellTool);
             }
             

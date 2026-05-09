@@ -42,7 +42,7 @@ fn test_tool_availability_by_tier() {
     assert!(manager.is_tool_allowed("Glob"));
     assert!(manager.is_tool_allowed("WebFetch"));
     assert!(manager.is_tool_allowed("NotebookEdit"));
-    assert!(manager.is_tool_allowed("lsp_hover"));
+    assert!(manager.is_tool_allowed("LspHover"));
 
     // Extended tier should NOT allow arbitrary tools
     assert!(!manager.is_tool_allowed("custom_tool_xyz"));
@@ -98,18 +98,18 @@ fn test_tool_sets_match_expectations() {
     // Extended tools should have expected additional tools
     assert!(extended.contains("WebFetch"));
     assert!(extended.contains("NotebookEdit"));
-    assert!(extended.contains("lsp_diagnostics"));
-    assert!(extended.contains("lsp_hover"));
-    assert!(extended.contains("lsp_definition"));
-    assert!(extended.contains("lsp_references"));
-    assert!(extended.contains("lsp_completion"));
-    assert!(extended.contains("todo_write"));
-    assert!(extended.contains("memory_search"));
-    assert!(extended.contains("memory_list"));
-    assert!(extended.contains("list_dir"));
-    assert!(extended.contains("git_status"));
-    assert!(extended.contains("git_diff"));
-    assert!(extended.contains("git_log"));
+    assert!(extended.contains("LspDiagnostics"));
+    assert!(extended.contains("LspHover"));
+    assert!(extended.contains("LspDefinition"));
+    assert!(extended.contains("LspReferences"));
+    assert!(extended.contains("LspCompletion"));
+    assert!(extended.contains("TodoWrite"));
+    assert!(extended.contains("MemorySearch"));
+    assert!(extended.contains("MemoryList"));
+    assert!(extended.contains("ListDir"));
+    assert!(extended.contains("GitStatus"));
+    assert!(extended.contains("GitDiff"));
+    assert!(extended.contains("GitLog"));
 
     // No overlap between default and extended (by design)
     assert!(

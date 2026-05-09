@@ -1,3 +1,4 @@
+use crate::tool_names;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -24,116 +25,116 @@ impl ToolProfile {
     #[allow(clippy::too_many_lines)]
     pub const fn available_tools(&self) -> &'static [&'static str] {
         const EXPLORE: &[&str] = &[
-            "Read",
-            "list_dir",
-            "Grep",
-            "Glob",
-            "find",
-            "inspect",
-            "codesearch",
-            "lsp_diagnostics",
-            "lsp_hover",
-            "lsp_definition",
-            "lsp_references",
-            "lsp_document_symbols",
-            "lsp_find_symbol",
-            "lsp_get_symbols_overview",
-            "lsp_workspace_symbols",
-            "lsp_analyze_symbol",
+            tool_names::READ,
+            tool_names::LIST_DIR,
+            tool_names::GREP,
+            tool_names::GLOB,
+            tool_names::FIND,
+            tool_names::INSPECT,
+            tool_names::CODESEARCH,
+            tool_names::LSP_DIAGNOSTICS,
+            tool_names::LSP_HOVER,
+            tool_names::LSP_DEFINITION,
+            tool_names::LSP_REFERENCES,
+            tool_names::LSP_DOCUMENT_SYMBOLS,
+            tool_names::LSP_FIND_SYMBOL,
+            tool_names::LSP_GET_SYMBOLS_OVERVIEW,
+            tool_names::LSP_WORKSPACE_SYMBOLS,
+            tool_names::LSP_ANALYZE_SYMBOL,
         ];
         const IMPLEMENT: &[&str] = &[
-            "Read",
-            "Write",
-            "Edit",
-            "Bash",
-            "Grep",
-            "Glob",
-            "find",
-            "apply_patch",
-            "lsp_diagnostics",
-            "lsp_hover",
-            "lsp_definition",
-            "lsp_completion",
-            "lsp_references",
-            "lsp_document_symbols",
-            "lsp_code_actions",
-            "lsp_formatting",
-            "lsp_full_diagnostics",
+            tool_names::READ,
+            tool_names::WRITE,
+            tool_names::EDIT,
+            tool_names::BASH,
+            tool_names::GREP,
+            tool_names::GLOB,
+            tool_names::FIND,
+            tool_names::APPLY_PATCH,
+            tool_names::LSP_DIAGNOSTICS,
+            tool_names::LSP_HOVER,
+            tool_names::LSP_DEFINITION,
+            tool_names::LSP_COMPLETION,
+            tool_names::LSP_REFERENCES,
+            tool_names::LSP_DOCUMENT_SYMBOLS,
+            tool_names::LSP_CODE_ACTIONS,
+            tool_names::LSP_FORMATTING,
+            tool_names::LSP_FULL_DIAGNOSTICS,
         ];
         const DEBUG: &[&str] = &[
-            "Read",
-            "Bash",
-            "Grep",
-            "Glob",
-            "lsp_diagnostics",
-            "lsp_hover",
-            "lsp_full_diagnostics",
-            "lsp_definition",
-            "lsp_references",
-            "lsp_analyze_symbol",
+            tool_names::READ,
+            tool_names::BASH,
+            tool_names::GREP,
+            tool_names::GLOB,
+            tool_names::LSP_DIAGNOSTICS,
+            tool_names::LSP_HOVER,
+            tool_names::LSP_FULL_DIAGNOSTICS,
+            tool_names::LSP_DEFINITION,
+            tool_names::LSP_REFERENCES,
+            tool_names::LSP_ANALYZE_SYMBOL,
         ];
         const OPS: &[&str] = &[
-            "Bash",
-            "Read",
-            "list_dir",
-            "Grep",
-            "Glob",
-            "git_status",
-            "git_diff",
-            "git_log",
+            tool_names::BASH,
+            tool_names::READ,
+            tool_names::LIST_DIR,
+            tool_names::GREP,
+            tool_names::GLOB,
+            tool_names::GIT_STATUS,
+            tool_names::GIT_DIFF,
+            tool_names::GIT_LOG,
         ];
         const REFACTOR: &[&str] = &[
-            "Read",
-            "Edit",
-            "Grep",
-            "Glob",
-            "lsp_rename",
-            "lsp_references",
-            "lsp_document_symbols",
-            "lsp_find_symbol",
-            "lsp_replace_symbol_body",
-            "lsp_extract_symbol",
-            "lsp_inline_symbol",
-            "lsp_code_actions",
-            "lsp_analyze_symbol",
+            tool_names::READ,
+            tool_names::EDIT,
+            tool_names::GREP,
+            tool_names::GLOB,
+            tool_names::LSP_RENAME,
+            tool_names::LSP_REFERENCES,
+            tool_names::LSP_DOCUMENT_SYMBOLS,
+            tool_names::LSP_FIND_SYMBOL,
+            tool_names::LSP_REPLACE_SYMBOL_BODY,
+            tool_names::LSP_EXTRACT_SYMBOL,
+            tool_names::LSP_INLINE_SYMBOL,
+            tool_names::LSP_CODE_ACTIONS,
+            tool_names::LSP_ANALYZE_SYMBOL,
         ];
         const ALL_TOOLS: &[&str] = &[
-            "Read",
-            "Write",
-            "list_dir",
-            "Edit",
-            "Grep",
-            "Glob",
-            "find",
-            "inspect",
-            "codesearch",
-            "apply_patch",
-            "Bash",
-            "git_status",
-            "git_diff",
-            "git_log",
-            "git_commit",
-            "web_search",
-            "lsp_diagnostics",
-            "lsp_hover",
-            "lsp_definition",
-            "lsp_completion",
-            "lsp_document_symbols",
-            "lsp_references",
-            "lsp_full_diagnostics",
-            "lsp_code_actions",
-            "lsp_rename",
-            "lsp_formatting",
-            "lsp_get_symbols_overview",
-            "lsp_find_symbol",
-            "lsp_replace_symbol_body",
-            "lsp_insert_before_symbol",
-            "lsp_insert_after_symbol",
-            "lsp_safe_delete_symbol",
-            "lsp_analyze_symbol",
-            "lsp_extract_symbol",
-            "lsp_inline_symbol",
-            "lsp_workspace_symbols",
+            tool_names::READ,
+            tool_names::WRITE,
+            tool_names::LIST_DIR,
+            tool_names::EDIT,
+            tool_names::GREP,
+            tool_names::GLOB,
+            tool_names::FIND,
+            tool_names::INSPECT,
+            tool_names::CODESEARCH,
+            tool_names::APPLY_PATCH,
+            tool_names::BASH,
+            tool_names::GIT_STATUS,
+            tool_names::GIT_DIFF,
+            tool_names::GIT_LOG,
+            tool_names::GIT_COMMIT,
+            tool_names::WEB_SEARCH,
+            tool_names::LSP_DIAGNOSTICS,
+            tool_names::LSP_HOVER,
+            tool_names::LSP_DEFINITION,
+            tool_names::LSP_COMPLETION,
+            tool_names::LSP_DOCUMENT_SYMBOLS,
+            tool_names::LSP_REFERENCES,
+            tool_names::LSP_FULL_DIAGNOSTICS,
+            tool_names::LSP_CODE_ACTIONS,
+            tool_names::LSP_RENAME,
+            tool_names::LSP_FORMATTING,
+            tool_names::LSP_GET_SYMBOLS_OVERVIEW,
+            tool_names::LSP_FIND_SYMBOL,
+            tool_names::LSP_REPLACE_SYMBOL_BODY,
+            tool_names::LSP_INSERT_BEFORE_SYMBOL,
+            tool_names::LSP_INSERT_AFTER_SYMBOL,
+            tool_names::LSP_SAFE_DELETE_SYMBOL,
+            tool_names::LSP_ANALYZE_SYMBOL,
+            tool_names::LSP_EXTRACT_SYMBOL,
+            tool_names::LSP_INLINE_SYMBOL,
+            tool_names::LSP_WORKSPACE_SYMBOLS,
         ];
 
         match self {
@@ -293,8 +294,8 @@ mod tests {
         let tools = ToolProfile::Explore.available_tools();
         assert!(tools.contains(&"Read"));
         assert!(tools.contains(&"Grep"));
-        assert!(tools.contains(&"find"));
-        assert!(tools.contains(&"inspect"));
+        assert!(tools.contains(&"Find"));
+        assert!(tools.contains(&"Inspect"));
         assert!(!tools.contains(&"Write"));
     }
 
@@ -317,14 +318,14 @@ mod tests {
     fn tool_profile_ops_tools() {
         let tools = ToolProfile::Ops.available_tools();
         assert!(tools.contains(&"Bash"));
-        assert!(tools.contains(&"git_diff"));
+        assert!(tools.contains(&"GitDiff"));
     }
 
     #[test]
     fn tool_profile_refactor_tools() {
         let tools = ToolProfile::Refactor.available_tools();
-        assert!(tools.contains(&"lsp_rename"));
-        assert!(tools.contains(&"lsp_references"));
+        assert!(tools.contains(&"LspRename"));
+        assert!(tools.contains(&"LspReferences"));
         assert!(tools.contains(&"Edit"));
         assert!(tools.contains(&"Grep"));
         assert!(!tools.contains(&"Write"));
@@ -338,7 +339,7 @@ mod tests {
         assert!(tools.contains(&"Read"));
         assert!(tools.contains(&"Write"));
         assert!(tools.contains(&"Grep"));
-        assert!(tools.contains(&"git_log"));
+        assert!(tools.contains(&"GitLog"));
     }
 
     #[test]
@@ -485,7 +486,7 @@ mod tests {
             .contains("writes enabled"));
         assert!(ToolProfile::Debug
             .format_profile_hint()
-            .contains("lsp_diagnostics"));
+            .contains("LspDiagnostics"));
         assert!(ToolProfile::Ops.format_profile_hint().contains("git_*"));
         assert!(ToolProfile::All
             .format_profile_hint()

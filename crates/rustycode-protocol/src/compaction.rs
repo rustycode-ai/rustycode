@@ -23,7 +23,7 @@ pub struct HybridCompactionConfig {
     /// Maximum number of tightening passes when the first pass undershoots.
     pub max_tightening_passes: usize,
 
-    /// Number of recent turns preserved verbatim (the "tail").
+    /// Number of recent turns preserved verbatim (the "Tail").
     pub initial_tail_turns: usize,
 
     /// Maximum lines kept from each tool-result block during the Snip tier.
@@ -122,7 +122,7 @@ pub struct CompactionResult {
     /// when only Snip or Truncate was used).
     pub summary_messages: Vec<Message>,
 
-    /// Turns preserved verbatim (the "tail").
+    /// Turns preserved verbatim (the "Tail").
     pub preserved_turns: Vec<Message>,
 
     /// Rendered context block (for display / debugging).

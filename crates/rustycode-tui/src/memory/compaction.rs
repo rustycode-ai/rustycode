@@ -615,7 +615,7 @@ fn extract_path_from_input(tool_name: &str, input: &serde_json::Value) -> Option
                 }
                 None
             }),
-        "list_directory" => input
+        "ListDir" => input
             .get("path")
             .and_then(|v| v.as_str())
             .map(|s| format!("{}/", s)),

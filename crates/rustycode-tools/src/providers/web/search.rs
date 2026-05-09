@@ -30,7 +30,7 @@ pub struct WebSearchParams {
 rustycode_tools_api::define_tool! {
     pub struct WebSearchTool;
 
-    name: "web_search",
+    name: "WebSearch",
     description: r#"Search the web for current information and factual queries.
 
 Use this tool when you need to:
@@ -594,7 +594,7 @@ mod tests {
     #[test]
     fn test_web_search_tool_metadata() {
         let tool = WebSearchTool;
-        assert_eq!(tool.name(), "web_search");
+        assert_eq!(tool.name(), "WebSearch");
         assert!(tool.description().contains("current information"));
         assert_eq!(tool.permission(), ToolPermission::Network);
     }

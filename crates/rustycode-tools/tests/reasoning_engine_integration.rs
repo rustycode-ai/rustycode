@@ -136,15 +136,15 @@ fn budget_warning_text_progression() {
 fn phase_next_tool_chain() {
     assert_eq!(
         ReasoningPhase::Decompose.recommended_next_tool(),
-        "reasoning_research"
+        "ReasoningResearch"
     );
     assert_eq!(
         ReasoningPhase::Research.recommended_next_tool(),
-        "reasoning_validate"
+        "ReasoningValidate"
     );
     assert_eq!(
         ReasoningPhase::Clarify.recommended_next_tool(),
-        "reasoning_integrate"
+        "ReasoningIntegrate"
     );
     assert_eq!(
         ReasoningPhase::Integrate.recommended_next_tool(),

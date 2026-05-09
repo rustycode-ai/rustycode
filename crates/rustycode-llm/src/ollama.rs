@@ -1016,7 +1016,7 @@ mod tests {
         assert_eq!(result[0].role, "assistant");
         // Both blocks flattened to text joined with newline
         assert!(result[0].content.contains("Reading file now."));
-        assert!(result[0].content.contains("[Tool use: read_file]"));
+        assert!(result[0].content.contains("[Tool use: Read]"));
     }
 
     #[test]

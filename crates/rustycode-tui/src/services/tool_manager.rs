@@ -172,7 +172,7 @@ impl ToolManager {
             // @modelcontextprotocol/server-filesystem equivalents
             ("read_text_file", "Read"),
             ("Write", "Write"),
-            ("list_directory", "list_dir"),
+            ("list_directory", "ListDir"),
             ("list_allowed_directories", "__skip__"), // no built-in equivalent, wastes turns
             ("search_files", "Grep"),
             ("get_file_info", "__skip__"),   // no useful equivalent
@@ -180,7 +180,7 @@ impl ToolManager {
             ("move_file", "Bash"),           // mv via bash
             ("read_multiple_files", "Read"), // can read files individually
             // Other common MCP servers
-            ("directory_tree", "list_dir"),
+            ("directory_tree", "ListDir"),
             ("Read", "Read"), // exact overlap
         ]
         .into_iter()

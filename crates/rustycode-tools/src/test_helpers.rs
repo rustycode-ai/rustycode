@@ -49,7 +49,7 @@ pub fn find_shell() -> Option<PathBuf> {
 
     #[cfg(target_os = "windows")]
     {
-        for shell in &["powershell", "cmd"] {
+        for shell in &["PowerShell", "cmd"] {
             if let Some(path) = find_command(shell) {
                 return Some(path);
             }

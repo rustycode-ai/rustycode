@@ -394,7 +394,7 @@ fn try_get_image_bytes_from_platform_clipboard() -> Option<Vec<u8>> {
     {
         // Use PowerShell to export clipboard image as PNG bytes.
         let script = "$img = Get-Clipboard -Format Image; if ($img -ne $null) { $ms = New-Object System.IO.MemoryStream; $img.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png); [Console]::OpenStandardOutput().Write($ms.ToArray(), 0, [int]$ms.Length) }";
-        if let Ok(output) = Command::new("powershell")
+        if let Ok(output) = Command::new("PowerShell")
             .args(["-NoProfile", "-Command", script])
             .output()
         {
@@ -444,7 +444,7 @@ fn try_get_text_from_platform_clipboard() -> Option<String> {
 
     #[cfg(target_os = "windows")]
     {
-        if let Ok(output) = Command::new("powershell")
+        if let Ok(output) = Command::new("PowerShell")
             .args(["-NoProfile", "-Command", "Get-Clipboard"])
             .output()
         {

@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct ListMcpResourcesTool;
 
-    name: "list_mcp_resources",
+    name: "ListMcpResources",
     description: r#"List available resources from configured MCP servers.
 
 Each returned resource includes all standard MCP resource fields plus a 'server' field indicating which server the resource belongs to.
@@ -40,7 +40,7 @@ mod tests {
     #[test]
     fn test_list_mcp_resources_metadata() {
         let tool = ListMcpResourcesTool;
-        assert_eq!(tool.name(), "list_mcp_resources");
+        assert_eq!(tool.name(), "ListMcpResources");
         assert_eq!(tool.permission(), ToolPermission::Read);
     }
 

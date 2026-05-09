@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerLogsTool;
 
-    name: "docker_logs",
+    name: "DockerLogs",
     description: r"View logs from a Docker container
 
 Use this tool to:
@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn test_docker_logs_tool_metadata() {
         let tool = DockerLogsTool;
-        assert_eq!(tool.name(), "docker_logs");
+        assert_eq!(tool.name(), "DockerLogs");
         assert!(tool.description().contains("logs"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }

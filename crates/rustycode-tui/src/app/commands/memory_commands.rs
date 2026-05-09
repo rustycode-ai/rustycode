@@ -84,7 +84,7 @@ pub fn handle_memory_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
                         ))
                     }
                 }
-                "search" => {
+                "Search" => {
                     if parts_clone.len() < 2 {
                         Ok("❌ Usage: /memory search <query>".to_string())
                     } else {

@@ -32,9 +32,9 @@ pub struct ShellInfo {
 pub static SHELL_INFO: LazyLock<ShellInfo> = LazyLock::new(|| {
     #[cfg(windows)]
     {
-        if which_sh("powershell") {
+        if which_sh("PowerShell") {
             ShellInfo {
-                binary: "powershell",
+                binary: "PowerShell",
                 exec_flag: "-Command",
                 interactive_flag: None,
                 is_powershell: true,
@@ -71,7 +71,7 @@ pub static SHELL_INFO: LazyLock<ShellInfo> = LazyLock::new(|| {
 
 fn which_sh(name: &str) -> bool {
     StdCommand::new(name)
-        .arg(if name == "powershell" {
+        .arg(if name == "PowerShell" {
             "-Command"
         } else {
             "-c"
@@ -217,11 +217,11 @@ mod tests {
         #[cfg(windows)]
         {
             assert!(
-                info.binary == "powershell" || info.binary == "cmd",
+                info.binary == "PowerShell" || info.binary == "cmd",
                 "Expected Windows shell, got: {}",
                 info.binary
             );
-            if info.binary == "powershell" {
+            if info.binary == "PowerShell" {
                 assert_eq!(info.exec_flag, "-Command");
                 assert!(info.is_powershell);
             } else {

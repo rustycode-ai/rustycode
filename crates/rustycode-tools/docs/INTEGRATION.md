@@ -912,22 +912,20 @@ impl ParallelExecutor {
 }
 ```
 
-### Compile-Time Tool Optimization
+### Tool Performance Optimization
 
 ```rust
-use rustycode_tools::compile_time::*;
+use rustycode_tools::{ReadFileTool, Tool, ToolContext};
 
-/// Use compile-time tools for maximum performance
+/// Use release builds for maximum performance
 pub fn fast_file_processing() -> anyhow::Result<()> {
-    // Zero-cost abstraction - no runtime overhead
-    let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(ReadFileInput {
-        path: std::path::PathBuf::from("Cargo.toml"),
-        start_line: None,
-        end_line: None,
-    })?;
+    let tool = ReadFileTool;
+    let ctx = ToolContext::new(std::path::Path::new("."));
+    let params = serde_json::json!({"path": "Cargo.toml"});
 
-    println!("Read {} lines in {} bytes",
-        result.line_count, result.byte_count);
+    let result = tool.execute(params, &ctx)?;
+
+    println!("Output length: {} bytes", result.output.len());
 
     Ok(())
 }

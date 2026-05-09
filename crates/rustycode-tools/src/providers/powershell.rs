@@ -108,8 +108,8 @@ fn detect_pwsh_uncached() -> Option<&'static str> {
     // Windows PowerShell fallback (Windows only)
     #[cfg(windows)]
     {
-        if probe_pwsh("powershell") {
-            return Some("powershell");
+        if probe_pwsh("PowerShell") {
+            return Some("PowerShell");
         }
     }
     None
@@ -130,7 +130,7 @@ fn probe_pwsh(binary: &str) -> bool {
 pub fn ps_edition() -> Option<PSEdition> {
     match find_pwsh()? {
         "pwsh" => Some(PSEdition::Core),
-        "powershell" => Some(PSEdition::Desktop),
+        "PowerShell" => Some(PSEdition::Desktop),
         _ => None,
     }
 }
@@ -795,7 +795,7 @@ pub struct PowerShellParams {
 rustycode_tools_api::define_tool! {
     pub struct PowerShellTool;
 
-    name: "powershell",
+    name: "PowerShell",
     description: "Run PowerShell commands in a persistent session. \
      Supports PowerShell Core (pwsh 7+, cross-platform) and Windows PowerShell (5.1). \
      Use PowerShell cmdlets and syntax (e.g., Get-ChildItem, Select-String, $env:PATH). \
@@ -811,7 +811,7 @@ rustycode_tools_api::define_tool! {
         crate::check_permission(ToolPermission::Execute, ctx)?;
 
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "powershell")?;
+            gate.check_access(ctx.role, "PowerShell")?;
         }
 
         let command = params.command;
@@ -964,7 +964,7 @@ rustycode_tools_api::define_tool! {
             meta["command"] = json!(command);
             meta["execution_time_ms"] = json!(execution_time.as_millis());
             meta["timeout_secs"] = json!(timeout_secs);
-            meta["shell"] = json!("powershell");
+            meta["shell"] = json!("PowerShell");
             if let Some(edition) = ps_edition() {
                 meta["ps_edition"] = json!(match edition {
                     PSEdition::Core => "core",
@@ -1318,7 +1318,7 @@ mod tests {
     #[test]
     fn test_tool_name_and_schema() {
         let tool = PowerShellTool;
-        assert_eq!(tool.name(), "powershell");
+        assert_eq!(tool.name(), "PowerShell");
         let schema = tool.parameters_schema();
         assert!(schema["properties"]["command"].is_object());
         assert!(schema["properties"]["restart"].is_object());

@@ -14,8 +14,8 @@ pub fn transform_by_name(name: &str, stdout: &str, stderr: &str) -> Option<Trans
         "test_summary" => Some(test_summary(stdout, stderr)),
         "cargo_build" => Some(cargo_build_summary(stdout, stderr)),
         "lint_summary" => Some(lint_summary(stdout, stderr)),
-        "git_log" => Some(compact_git_log(stdout, stderr)),
-        "docker_build" => Some(docker_build_summary(stdout, stderr)),
+        "GitLog" => Some(compact_git_log(stdout, stderr)),
+        "DockerBuild" => Some(docker_build_summary(stdout, stderr)),
         "npm_install" => Some(npm_install_summary(stdout, stderr)),
         "auto" => auto_transform(stdout, stderr),
         _ => None,
@@ -369,12 +369,12 @@ mod tests {
         assert!(transform_by_name("lint_summary", "warning: x", "").is_some());
         // git_log needs lines with 8+ whitespace-separated parts
         assert!(transform_by_name(
-            "git_log",
+            "GitLog",
             "abc1234 def5678 ghi9012 jkl3456 mno7890 pqr1234 stu5678 commit msg",
             ""
         )
         .is_some());
-        assert!(transform_by_name("docker_build", "Step 1/5", "").is_some());
+        assert!(transform_by_name("DockerBuild", "Step 1/5", "").is_some());
         assert!(transform_by_name("npm_install", "added 1", "").is_some());
         assert!(transform_by_name("auto", "test result: ok", "").is_some());
     }

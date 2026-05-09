@@ -84,7 +84,7 @@ pub fn route_query(query: &str) -> SearchStrategy {
         "where",
         "what",
         "which",
-        "find",
+        "Find",
         "show",
         "explain",
         "logic",

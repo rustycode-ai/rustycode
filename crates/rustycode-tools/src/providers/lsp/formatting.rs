@@ -25,7 +25,7 @@ struct LspFormattingParams {
 rustycode_tools_api::define_tool! {
     pub struct LspFormattingTool;
 
-    name: "lsp_formatting",
+    name: "LspFormatting",
     description: "Format a document using the language server's formatter. Use this to:
 - Format entire files according to language standards
 - Apply consistent code style

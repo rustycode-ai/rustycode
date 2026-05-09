@@ -296,7 +296,7 @@ impl TaskRunner for DelegationExecutor {
 
 impl Tool for DelegationExecutor {
     fn name(&self) -> &'static str {
-        "delegate_task"
+        "DelegateTask"
     }
 
     fn description(&self) -> &'static str {
@@ -514,7 +514,7 @@ mod tests {
     #[test]
     fn delegation_executor_metadata() {
         let tool = make_executor();
-        assert_eq!(tool.name(), "delegate_task");
+        assert_eq!(tool.name(), "DelegateTask");
         assert!(tool.description().contains("delegat"));
         assert_eq!(tool.permission(), ToolPermission::Execute);
     }

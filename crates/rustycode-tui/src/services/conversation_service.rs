@@ -706,34 +706,34 @@ Unused Memories (candidates for pruning):
         if provider.is_anthropic() || provider.is_openai() {
             match self.ai_mode {
                 AiMode::Ask => &[
-                    "tool_search",
+                    "ToolSearch",
                     "Read",
-                    "list_dir",
+                    "ListDir",
                     "Grep",
                     "Glob",
-                    "find",
-                    "inspect",
+                    "Find",
+                    "Inspect",
                     "WebFetch",
                 ],
                 AiMode::Plan => &[
-                    "tool_search",
+                    "ToolSearch",
                     "Read",
-                    "list_dir",
+                    "ListDir",
                     "Grep",
                     "Glob",
-                    "find",
-                    "inspect",
+                    "Find",
+                    "Inspect",
                     "WebFetch",
                     "Write",
                 ],
                 AiMode::Act => &[
-                    "tool_search",
+                    "ToolSearch",
                     "Read",
-                    "list_dir",
+                    "ListDir",
                     "Grep",
                     "Glob",
-                    "find",
-                    "inspect",
+                    "Find",
+                    "Inspect",
                     "WebFetch",
                     "Bash",
                     "Write",
@@ -741,21 +741,21 @@ Unused Memories (candidates for pruning):
                     "test",
                 ],
                 AiMode::Yolo => &[
-                    "tool_search",
+                    "ToolSearch",
                     "Read",
-                    "list_dir",
+                    "ListDir",
                     "Grep",
                     "Glob",
-                    "find",
-                    "inspect",
+                    "Find",
+                    "Inspect",
                     "WebFetch",
                     "Bash",
                     "Write",
                     "edit",
                     "test",
-                    "git_status",
-                    "git_diff",
-                    "git_commit",
+                    "GitStatus",
+                    "GitDiff",
+                    "GitCommit",
                 ],
             }
         } else {
@@ -1597,10 +1597,10 @@ mod tests {
         let tool_registry = rustycode_tools::default_registry();
         let service = ConversationService::new(config, Arc::new(tool_registry));
 
-        assert!(service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "find"));
-        assert!(service.is_seed_tool_for_provider(&ModelProvider::GPT5, "inspect"));
-        assert!(!service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "semantic_search"));
-        assert!(!service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "lsp_definition"));
-        assert!(!service.is_seed_tool_for_provider(&ModelProvider::Generic, "lsp_definition"));
+        assert!(service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "Find"));
+        assert!(service.is_seed_tool_for_provider(&ModelProvider::GPT5, "Inspect"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "SemanticSearch"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::ClaudeSonnet, "LspDefinition"));
+        assert!(!service.is_seed_tool_for_provider(&ModelProvider::Generic, "LspDefinition"));
     }
 }

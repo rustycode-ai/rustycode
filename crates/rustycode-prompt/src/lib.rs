@@ -873,11 +873,11 @@ mod tests {
             "System prompt should contain Task Tracking section"
         );
         assert!(
-            result.contains("todo_write"),
+            result.contains("TodoWrite"),
             "System prompt should mention todo_write tool"
         );
         assert!(
-            result.contains("todo_update"),
+            result.contains("TodoUpdate"),
             "System prompt should mention todo_update tool"
         );
     }

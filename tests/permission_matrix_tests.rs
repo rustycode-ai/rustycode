@@ -69,7 +69,7 @@ fn test_all_tools_declare_permissions() {
 fn test_read_permission_tools() {
     // Read-only tools are auto-allowed
     let read_tools = vec![
-        ("read_file", ProtocolToolPermission::AutoAllow),
+        ("Read", ProtocolToolPermission::AutoAllow),
         ("list_dir", ProtocolToolPermission::AutoAllow),
         ("grep", ProtocolToolPermission::AutoAllow),
         ("glob", ProtocolToolPermission::AutoAllow),
@@ -95,7 +95,7 @@ fn test_read_permission_tools() {
 fn test_write_permission_tools() {
     // Write tools require confirmation for security
     let write_tools = vec![
-        ("write_file", ProtocolToolPermission::RequiresConfirmation),
+        ("Write", ProtocolToolPermission::RequiresConfirmation),
         ("git_commit", ProtocolToolPermission::RequiresConfirmation),
     ];
 
@@ -142,8 +142,8 @@ fn test_planning_mode_only_allows_read_tools() {
 
     // Read tools should be allowed
     assert!(
-        check_tool_permission("read_file", planning_mode),
-        "read_file should be allowed in Planning mode"
+        check_tool_permission("Read", planning_mode),
+        "Read should be allowed in Planning mode"
     );
     assert!(
         check_tool_permission("grep", planning_mode),
@@ -156,8 +156,8 @@ fn test_planning_mode_only_allows_read_tools() {
 
     // Write tools should be blocked
     assert!(
-        !check_tool_permission("write_file", planning_mode),
-        "write_file should be blocked in Planning mode"
+        !check_tool_permission("Write", planning_mode),
+        "Write should be blocked in Planning mode"
     );
     assert!(
         !check_tool_permission("git_commit", planning_mode),
@@ -177,12 +177,12 @@ fn test_executing_mode_allows_all_tools() {
 
     // All tools should be allowed
     assert!(
-        check_tool_permission("read_file", executing_mode),
-        "read_file should be allowed in Executing mode"
+        check_tool_permission("Read", executing_mode),
+        "Read should be allowed in Executing mode"
     );
     assert!(
-        check_tool_permission("write_file", executing_mode),
-        "write_file should be allowed in Executing mode"
+        check_tool_permission("Write", executing_mode),
+        "Write should be allowed in Executing mode"
     );
     assert!(
         check_tool_permission("bash", executing_mode),
@@ -206,15 +206,15 @@ fn test_get_allowed_tools_filters_correctly() {
     );
 
     // Planning mode should only have read tools
-    assert!(planning_tools.contains(&"read_file".to_string()));
+    assert!(planning_tools.contains(&"Read".to_string()));
     assert!(planning_tools.contains(&"grep".to_string()));
     assert!(planning_tools.contains(&"git_status".to_string()));
-    assert!(!planning_tools.contains(&"write_file".to_string()));
+    assert!(!planning_tools.contains(&"Write".to_string()));
     assert!(!planning_tools.contains(&"bash".to_string()));
 
     // Executing mode should have all tools
-    assert!(executing_tools.contains(&"read_file".to_string()));
-    assert!(executing_tools.contains(&"write_file".to_string()));
+    assert!(executing_tools.contains(&"Read".to_string()));
+    assert!(executing_tools.contains(&"Write".to_string()));
     assert!(executing_tools.contains(&"bash".to_string()));
 }
 
@@ -333,7 +333,7 @@ async fn test_planning_mode_blocks_write_operations() {
     // Attempt to write a file in planning mode
     let write_call = ToolCall {
         call_id: "test-1".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({
             "path": "new_file.txt",
             "content": "This should fail"
@@ -415,7 +415,7 @@ async fn test_planning_mode_allows_read_operations() {
     // Read a file in planning mode
     let read_call = ToolCall {
         call_id: "test-1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({
             "path": "README.md"
         }),
@@ -445,7 +445,7 @@ async fn test_executing_mode_allows_write_operations() {
     // Write a file in executing mode
     let write_call = ToolCall {
         call_id: "test-1".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({
             "path": "new_file.txt",
             "content": "This should succeed"
@@ -511,7 +511,7 @@ async fn test_executing_mode_allows_read_operations() {
     // Read a file in executing mode
     let read_call = ToolCall {
         call_id: "test-1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({
             "path": "README.md"
         }),
@@ -553,8 +553,8 @@ fn test_empty_tool_name_is_blocked() {
 fn test_permission_enforcement_is_consistent() {
     // Test that permission checking is consistent across different methods
 
-    let read_tools = vec!["read_file", "grep", "git_status"];
-    let write_tools = vec!["write_file", "git_commit"];
+    let read_tools = vec!["Read", "grep", "git_status"];
+    let write_tools = vec!["Write", "git_commit"];
     let execute_tools = vec!["bash"];
 
     // Check planning mode
@@ -603,8 +603,8 @@ fn test_all_declared_tools_are_documented() {
         "git_status",
         "list_dir",
         "lsp_diagnostics",
-        "read_file",
-        "write_file",
+        "Read",
+        "Write",
     ];
 
     for expected in expected_tools {
@@ -633,7 +633,7 @@ async fn test_permission_denied_error_messages() {
     // Test write file error
     let write_call = ToolCall {
         call_id: "test-1".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({"path": "test.txt", "content": "test"}),
     };
 
@@ -676,12 +676,12 @@ async fn test_concurrent_operations_respect_permissions() {
     let calls = vec![
         ToolCall {
             call_id: "1".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             arguments: json!({"path": "README.md"}),
         },
         ToolCall {
             call_id: "2".to_string(),
-            name: "write_file".to_string(),
+            name: "Write".to_string(),
             arguments: json!({"path": "test.txt", "content": "test"}),
         },
         ToolCall {
@@ -698,13 +698,13 @@ async fn test_concurrent_operations_respect_permissions() {
 
     assert_eq!(results.len(), 3);
 
-    // First call (read_file) should succeed
+    // First call (Read) should succeed
     assert!(
         results[0].result.success,
-        "read_file should succeed in planning mode"
+        "Read should succeed in planning mode"
     );
 
-    // Second call (write_file) should fail - but note: concurrent execution
+    // Second call (Write) should fail - but note: concurrent execution
     // uses a mock implementation, so it won't actually check permissions
     // This test documents the current behavior
     assert!(

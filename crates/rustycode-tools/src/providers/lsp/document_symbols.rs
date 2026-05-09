@@ -16,7 +16,7 @@ struct LspDocumentSymbolsParams {
 rustycode_tools_api::define_tool! {
     pub struct LspDocumentSymbolsTool;
 
-    name: "lsp_document_symbols",
+    name: "LspDocumentSymbols",
     description: "Get the structure of a file (functions, classes, modules, etc.) without reading the entire content. Use this to:
 - Understand what's in a file before reading it
 - Get an overview of file organization

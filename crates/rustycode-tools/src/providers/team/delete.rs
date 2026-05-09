@@ -4,7 +4,7 @@ use crate::{ToolOutput, ToolPermission, ToolTag};
 rustycode_tools_api::define_tool! {
     pub struct TeamDeleteTool;
 
-    name: "team_delete",
+    name: "TeamDelete",
     description: r#"Remove team and task directories when the swarm work is complete.
 
 This operation:
@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_team_delete_metadata() {
         let tool = TeamDeleteTool;
-        assert_eq!(tool.name(), "team_delete");
+        assert_eq!(tool.name(), "TeamDelete");
         assert_eq!(tool.permission(), ToolPermission::Write);
     }
 

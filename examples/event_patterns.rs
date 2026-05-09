@@ -128,7 +128,7 @@ async fn wildcard_subscription_example() -> anyhow::Result<()> {
 
     let event2 = ToolExecutedEvent::new(
         SessionId::new(),
-        "read_file".to_string(),
+        "Read".to_string(),
         serde_json::json!({"path": "/test"}),
         true,
         "Success".to_string(),

@@ -813,10 +813,10 @@ mod tests {
             .map(ToOwned::to_owned)
             .collect();
 
-        assert!(names.contains(&"lsp_hover".to_string()));
-        assert!(names.contains(&"lsp_definition".to_string()));
-        assert!(names.contains(&"lsp_completion".to_string()));
-        assert!(names.contains(&"lsp_diagnostics".to_string()));
+        assert!(names.contains(&"LspHover".to_string()));
+        assert!(names.contains(&"LspDefinition".to_string()));
+        assert!(names.contains(&"LspCompletion".to_string()));
+        assert!(names.contains(&"LspDiagnostics".to_string()));
     }
 
     #[tokio::test]

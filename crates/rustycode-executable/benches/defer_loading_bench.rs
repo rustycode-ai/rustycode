@@ -66,34 +66,34 @@ const TOOL_DEFINITIONS: &[(&str, &str)] = &[
     ("Bash", "Execute shell commands in a subprocess"),
     ("Grep", "Search file contents with regex patterns"),
     ("Glob", "Find files matching a glob pattern"),
-    ("git_status", "Show working tree status"),
+    ("GitStatus", "Show working tree status"),
     (
-        "git_diff",
+        "GitDiff",
         "Show changes between commits or the working tree",
     ),
-    ("git_log", "Show commit history"),
+    ("GitLog", "Show commit history"),
     ("git_add", "Stage file changes for the next commit"),
-    ("git_commit", "Record changes to the repository"),
-    ("git_push", "Push local commits to a remote"),
+    ("GitCommit", "Record changes to the repository"),
+    ("GitPush", "Push local commits to a remote"),
     ("git_pull", "Fetch and merge from a remote"),
-    ("lsp_hover", "Show type information at a position"),
+    ("LspHover", "Show type information at a position"),
     ("lsp_goto_definition", "Jump to the definition of a symbol"),
-    ("lsp_references", "Find all references to a symbol"),
-    ("lsp_rename", "Rename a symbol across the workspace"),
-    ("lsp_diagnostics", "Get diagnostics for a file"),
+    ("LspReferences", "Find all references to a symbol"),
+    ("LspRename", "Rename a symbol across the workspace"),
+    ("LspDiagnostics", "Get diagnostics for a file"),
     ("WebFetch", "Fetch content from a URL"),
     ("NotebookEdit", "Edit Jupyter notebook cells"),
-    ("apply_patch", "Apply a unified diff patch to a file"),
-    ("search", "Full-text search across the codebase"),
-    ("search_replace", "Search and replace across files"),
-    ("multiedit", "Apply multiple edits in a single operation"),
+    ("ApplyPatch", "Apply a unified diff patch to a file"),
+    ("Search", "Full-text search across the codebase"),
+    ("SearchReplace", "Search and replace across files"),
+    ("MultiEdit", "Apply multiple edits in a single operation"),
     ("list_directory", "List directory contents"),
     ("create_directory", "Create a directory tree"),
     ("move_file", "Move or rename a file"),
     ("delete_file", "Delete a file from the filesystem"),
-    ("file_info", "Get file metadata (size, permissions, mtime)"),
+    ("FileInfo", "Get file metadata (size, permissions, mtime)"),
     ("skill_install", "Install a skill from a registry"),
-    ("skill_list", "List installed skills"),
+    ("SkillList", "List installed skills"),
     ("skill_execute", "Execute a named skill"),
     ("skill_bundler", "Bundle knowledge for skill execution"),
     ("agent_delegate", "Delegate a subtask to a specialist agent"),
@@ -319,7 +319,7 @@ fn bench_discover_direct(c: &mut Criterion) {
     group.bench_function("narrow_query", |b| {
         b.iter(|| {
             rt.block_on(async {
-                let results = registry.discover("git_status", None).await;
+                let results = registry.discover("GitStatus", None).await;
                 black_box(results);
             })
         })

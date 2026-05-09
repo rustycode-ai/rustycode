@@ -162,7 +162,7 @@ fn test_partial_result_degraded() {
 fn test_partial_result_with_unavailable_features() {
     let result = PartialResult::success("base_data".to_string())
         .unavailable("llm_summary", "API unavailable")
-        .unavailable("semantic_search", "No semantic model");
+        .unavailable("SemanticSearch", "No semantic model");
 
     assert!(result.has_data());
     assert_eq!(result.unavailable.len(), 2);

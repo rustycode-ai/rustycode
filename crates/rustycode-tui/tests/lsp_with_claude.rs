@@ -165,7 +165,7 @@ mod tests {
     println!("📊 Test 1: Check LSP Tools Available");
     let lsp_check = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "lsp-check-1".to_string(),
-        name: "lsp_diagnostics".to_string(),
+        name: "LspDiagnostics".to_string(),
         arguments: serde_json::json!({
             "servers": ["rust-analyzer"]
         }),
@@ -186,7 +186,7 @@ mod tests {
     println!("📊 Test 2: Get Hover Information");
     let hover_test = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "hover-1".to_string(),
-        name: "lsp_hover".to_string(),
+        name: "LspHover".to_string(),
         arguments: serde_json::json!({
             "file_path": "src/main.rs",
             "line": 1,
@@ -210,7 +210,7 @@ mod tests {
     println!("📊 Test 3: Go to Definition");
     let def_test = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "definition-1".to_string(),
-        name: "lsp_definition".to_string(),
+        name: "LspDefinition".to_string(),
         arguments: serde_json::json!({
             "file_path": "src/main.rs",
             "line": 5,
@@ -234,7 +234,7 @@ mod tests {
     println!("📊 Test 4: Get Code Completions");
     let completion_test = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "completion-1".to_string(),
-        name: "lsp_completion".to_string(),
+        name: "LspCompletion".to_string(),
         arguments: serde_json::json!({
             "file_path": "src/main.rs",
             "line": 1,
@@ -301,7 +301,7 @@ Example: To get hover info for main.rs line 5 character 10:
             );
 
             // Check if Claude attempted to use LSP tool
-            let used_lsp_hover = response.content.contains("lsp_hover")
+            let used_lsp_hover = response.content.contains("LspHover")
                 || response.content.contains("hover")
                 || response.content.contains("documentation");
 
@@ -419,7 +419,7 @@ mod tests {
     println!("📊 Test: Get File Structure");
     let symbols_test = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "symbols-1".to_string(),
-        name: "lsp_document_symbols".to_string(),
+        name: "LspDocumentSymbols".to_string(),
         arguments: serde_json::json!({
             "file_path": "src/main.rs",
             "language": "rust"
@@ -502,7 +502,7 @@ fn main() {
     println!("📊 Test: Find All References to `helper`");
     let references_test = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "refs-1".to_string(),
-        name: "lsp_references".to_string(),
+        name: "LspReferences".to_string(),
         arguments: serde_json::json!({
             "file_path": "src/main.rs",
             "line": 0,  // Where `helper` is defined
@@ -591,7 +591,7 @@ fn main() {
     println!("📊 Test: Get Comprehensive Build Status");
     let diagnostics_test = executor.execute(&rustycode_protocol::ToolCall {
         call_id: "diagnostics-1".to_string(),
-        name: "lsp_full_diagnostics".to_string(),
+        name: "LspFullDiagnostics".to_string(),
         arguments: serde_json::json!({
             "file_path": "src/main.rs",
             "language": "rust"

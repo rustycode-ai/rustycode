@@ -1067,7 +1067,7 @@ mod tests {
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"tools\""));
-        assert!(json.contains("\"read_file\""));
+        assert!(json.contains("\"Read\""));
     }
 
     #[test]

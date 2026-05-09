@@ -69,7 +69,7 @@ for tool in executor.list() {
 
 // Execute a tool call
 let call = ToolCall {
-    name: "bash".into(),
+    name: "Bash".into(),
     arguments: json!({"command": "ls"}),
     id: "1".into(),
 };
@@ -88,8 +88,8 @@ let catalog = ToolCatalog::Bash(BashInput {
 });
 
 // Case-insensitive lookup
-assert!(ToolCatalog::contains("bash"));
 assert!(ToolCatalog::contains("Bash"));
+assert!(ToolCatalog::contains("bash"));
 ```
 
 ### Security
@@ -115,11 +115,11 @@ use rustycode_tools::check_tool_permission;
 use rustycode_protocol::SessionMode;
 
 // Planning mode only allows read-only tools
-assert!(check_tool_permission("read_file", SessionMode::Planning));
-assert!(!check_tool_permission("bash", SessionMode::Planning));
+assert!(check_tool_permission("Read", SessionMode::Planning));
+assert!(!check_tool_permission("Bash", SessionMode::Planning));
 
 // Executing mode allows all tools
-assert!(check_tool_permission("bash", SessionMode::Executing));
+assert!(check_tool_permission("Bash", SessionMode::Executing));
 ```
 
 ### Repo map (code indexing)
@@ -136,9 +136,9 @@ println!("{}", map.to_map_string());
 ```rust
 use rustycode_tools::executor::tool_shim::ToolCallExtractor;
 
-let text = r#"{"name": "bash", "arguments": {"command": "ls"}}"#;
+let text = r#"{"name": "Bash", "arguments": {"command": "ls"}}"#;
 let calls = ToolCallExtractor::extract(text);
-assert_eq!(calls[0].name, "bash");
+assert_eq!(calls[0].name, "Bash");
 ```
 
 ## Features
@@ -149,14 +149,14 @@ assert_eq!(calls[0].name, "bash");
 
 | Category | Tools |
 |----------|-------|
-| File I/O | `read_file`, `write_file`, `edit`, `multiedit`, `apply_patch`, `claude_text_editor`, `search_replace` |
-| Shell | `bash` (with timeout, streaming, error detection) |
-| Search | `grep`, `glob`, `codesearch`, `web_search`, `web_fetch` |
+| File I/O | `Read`, `Write`, `Edit`, `MultiEdit`, `apply_patch`, `text_editor_*`, `search_replace` |
+| Shell | `Bash` (with timeout, streaming, error detection) |
+| Search | `Grep`, `Glob`, `codesearch`, `web_search`, `WebFetch` |
 | Version control | `git_status`, `git_diff`, `git_log`, `git_commit` |
 | LSP | `lsp_diagnostics`, `lsp_hover`, `lsp_definitions`, `lsp_references`, `lsp_completion`, `lsp_document_symbols` |
 | Docker | `docker_build`, `docker_run`, `docker_ps`, `docker_stop`, `docker_logs`, `docker_inspect`, `docker_images` |
 | Database | `database_query`, `database_schema`, `database_transaction` |
-| Code intelligence | `symbol`, `question`, `compile_time` |
+| Code intelligence | `symbol`, `question` |
 | Sub-agents | `task` (delegates to nested LLM conversation) |
 
 ### Security subsystem (`security/`)
@@ -347,7 +347,7 @@ metadata (`ToolOutput.structured`) is for TUI display only and never reaches the
 
 ### Output Format by Tool
 
-#### read_file
+#### Read
 ```
 <file content with line numbers via cat -n format>
 ```
@@ -356,13 +356,13 @@ metadata (`ToolOutput.structured`) is for TUI display only and never reaches the
 - Binary files return base64 when `binary: true`
 - Truncation note appended when exceeding limits
 
-#### write_file
+#### Write
 ```
 Successfully wrote <path> (<N> lines, <M> bytes)
 ```
 - Append mode: `Appended to <path> (<N> lines, <M> bytes, total <T> lines)`
 
-#### edit_file
+#### Edit
 Success:
 ```
 Successfully edited <path> (<N> replacements)
@@ -382,7 +382,7 @@ Error (multiple matches):
 Found <N> matches of the old_text in the file, but replace_all is not set. ...
 ```
 
-#### multiedit
+#### MultiEdit
 ```
 Edited <N> files (<S> succeeded, <F> failed)
 --- <path> ---
@@ -402,7 +402,7 @@ Applied patch to <N> files
 <per-file result>
 ```
 
-#### bash
+#### Bash
 ```
 <raw stdout/stderr output>
 [exit code: <N>] [timeout: <T>s]
@@ -411,7 +411,7 @@ Applied patch to <N> files
 - Non-zero exit includes exit code
 - Long output truncated with temp file fallback
 
-#### grep
+#### Grep
 ```
 <relative_path>:<line_number>: <matching line>
 ```
@@ -419,7 +419,7 @@ Applied patch to <N> files
 - `output_mode: "count"` returns `<path>: <count>`
 - Truncation: `[Showing <N> of <total> results]`
 
-#### glob
+#### Glob
 ```
 <relative_path>
 <relative_path>

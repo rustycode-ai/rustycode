@@ -1,21 +1,6 @@
 //! Tool Risk Classification
 
-/// Known tool name constants — single source of truth for classification.
-pub mod tool_names {
-    pub const READ_FILE: &str = "Read";
-    pub const WRITE_FILE: &str = "Write";
-    pub const EDIT_FILE: &str = "Edit";
-    pub const APPLY_PATCH: &str = "apply_patch";
-    pub const BASH: &str = "Bash";
-    pub const GREP: &str = "Grep";
-    pub const GLOB: &str = "Glob";
-    pub const LIST_FILES: &str = "list_files";
-    pub const LIST_DIR: &str = "list_dir";
-    pub const GIT_STATUS: &str = "git_status";
-    pub const GIT_DIFF: &str = "git_diff";
-    pub const GIT_LOG: &str = "git_log";
-    pub const GIT_COMMIT: &str = "git_commit";
-}
+pub use rustycode_tools_api::tool_names;
 
 /// Tool risk level
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -173,12 +158,12 @@ pub fn should_auto_approve(tool_type: &ToolType, command: &str) -> bool {
 /// Map a tool name string to a ToolType
 pub fn classify_tool_type(tool_name: &str) -> ToolType {
     match tool_name {
-        tool_names::READ_FILE => ToolType::ReadFile,
-        tool_names::WRITE_FILE => ToolType::WriteFile,
+        tool_names::READ => ToolType::ReadFile,
+        tool_names::WRITE => ToolType::WriteFile,
         tool_names::BASH => ToolType::Bash,
         tool_names::GREP => ToolType::Grep,
-        tool_names::GLOB | tool_names::LIST_FILES | tool_names::LIST_DIR => ToolType::ListDirectory,
-        tool_names::EDIT_FILE | tool_names::APPLY_PATCH => ToolType::WriteFile,
+        tool_names::GLOB | tool_names::LIST_DIR => ToolType::ListDirectory,
+        tool_names::EDIT | tool_names::APPLY_PATCH => ToolType::WriteFile,
         tool_names::GIT_STATUS
         | tool_names::GIT_DIFF
         | tool_names::GIT_LOG

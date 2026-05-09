@@ -71,8 +71,8 @@ impl PlanMode {
                 "Write",
                 "Bash",
                 "task",
-                "create_plan_from_template",
-                "approve_plan",
+                "CreatePlanFromTemplate",
+                "ApprovePlan",
             ]),
         );
         role_tool_matrix.insert(AgentRole::Architect, HashSet::from(["Read", "task"]));

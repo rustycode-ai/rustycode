@@ -1293,7 +1293,7 @@ fn build_tools_schema() -> Vec<serde_json::Value> {
             }
         }),
         serde_json::json!({
-            "name": "list_dir",
+            "name": "ListDir",
             "description": "List files and directories. Shows file sizes and types.",
             "input_schema": {
                 "type": "object",

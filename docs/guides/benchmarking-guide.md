@@ -63,14 +63,11 @@ Tests event bus throughput and latency:
 
 Tests tool invocation performance:
 
-- `compile_time_dispatch` - Zero-cost abstractions
 - `runtime_dispatch` - Trait object overhead
 - `tool_resolution` - Tool lookup performance
 
 **Expected Results:**
-- Compile-time: < 10ns (inlined)
 - Runtime: < 100ns
-- Speedup: 5-10x for compile-time
 
 ## Regression Detection
 

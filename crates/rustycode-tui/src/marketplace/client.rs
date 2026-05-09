@@ -610,7 +610,7 @@ fn builtin_index() -> Vec<MarketplaceItem> {
             installed_version: None,
             homepage: Some("https://search.brave.com".to_string()),
             tags: vec![
-                "search".to_string(),
+                "Search".to_string(),
                 "brave".to_string(),
                 "web".to_string(),
                 "mcp".to_string(),

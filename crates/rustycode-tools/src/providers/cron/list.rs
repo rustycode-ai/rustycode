@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct CronListTool;
 
-    name: "cron_list",
+    name: "CronList",
     description: r#"List all cron jobs scheduled via cron_create in this session."#,
     permission: ToolPermission::None,
     tags: [ToolTag::Ops],
@@ -25,7 +25,7 @@ mod tests {
     #[test]
     fn test_cron_list_metadata() {
         let tool = CronListTool;
-        assert_eq!(tool.name(), "cron_list");
+        assert_eq!(tool.name(), "CronList");
     }
 
     #[test]

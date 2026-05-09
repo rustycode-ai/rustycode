@@ -13,7 +13,7 @@ use rustycode_protocol::compaction::{HybridCompactionConfig, SummaryTemplate};
 /// after each pass that fails to bring the token count below target.
 #[derive(Debug, Clone)]
 pub struct CompactionPlan {
-    /// Turns to preserve verbatim (the "tail").
+    /// Turns to preserve verbatim (the "Tail").
     ///
     /// A "turn" is one complete user -> assistant round trip, including any
     /// tool_use / tool_result pairs.

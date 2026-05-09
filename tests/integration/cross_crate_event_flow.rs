@@ -88,7 +88,7 @@ async fn test_tool_execution_publishes_events() {
     let session_id = SessionId::new();
     let call = ToolCall {
         call_id: uuid::Uuid::new_v4().to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({ "path": ".rustycode.toml" }),
     };
 
@@ -108,7 +108,7 @@ async fn test_tool_execution_publishes_events() {
 
     // Verify event data
     let event_data = event.serialize();
-    assert_eq!(event_data["tool_name"], "read_file");
+    assert_eq!(event_data["tool_name"], "Read");
     assert_eq!(event_data["session_id"], session_id.to_string());
     assert!(event_data["success"].as_bool().unwrap());
 }
@@ -419,7 +419,7 @@ async fn test_cross_crate_event_flow_integration() {
     let session_id = SessionId::new();
     let call = ToolCall {
         call_id: uuid::Uuid::new_v4().to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({ "path": ".rustycode.toml" }),
     };
 

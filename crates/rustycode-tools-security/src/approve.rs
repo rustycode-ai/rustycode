@@ -49,52 +49,52 @@ impl SmartApprove {
         Self {
             read_only_tools: HashSet::from([
                 "Read",
-                "list_dir",
+                "ListDir",
                 "Grep",
                 "Glob",
-                "find",
-                "inspect",
-                "git_status",
-                "git_diff",
-                "git_log",
-                "lsp_diagnostics",
-                "lsp_hover",
-                "lsp_definition",
-                "lsp_completion",
-                "lsp_document_symbols",
-                "lsp_references",
-                "lsp_full_diagnostics",
-                "lsp_code_actions",
-                "lsp_formatting",
+                "Find",
+                "Inspect",
+                "GitStatus",
+                "GitDiff",
+                "GitLog",
+                "LspDiagnostics",
+                "LspHover",
+                "LspDefinition",
+                "LspCompletion",
+                "LspDocumentSymbols",
+                "LspReferences",
+                "LspFullDiagnostics",
+                "LspCodeActions",
+                "LspFormatting",
                 "WebFetch",
-                "web_search",
-                "semantic_search",
-                "code_search",
+                "WebSearch",
+                "SemanticSearch",
+                "Codesearch",
                 "coverage",
-                "list_plans",
-                "load_plan",
-                "docker_images",
-                "docker_ps",
-                "docker_inspect",
-                "docker_logs",
+                "ListPlans",
+                "LoadPlan",
+                "DockerImages",
+                "DockerPs",
+                "DockerInspect",
+                "DockerLogs",
                 "database_schema",
-                "database_query",
-                "todo_read",
+                "DatabaseQuery",
+                "TodoRead",
             ]),
             write_tools: HashSet::from([
                 "Write",
                 "Edit",
                 "text_editor_20250728",
                 "text_editor_20250124",
-                "apply_patch",
+                "ApplyPatch",
                 "multi_edit",
-                "git_commit",
-                "lsp_rename",
-                "save_plan",
+                "GitCommit",
+                "LspRename",
+                "SavePlan",
                 "create_plan",
-                "approve_plan",
-                "todo_write",
-                "todo_update",
+                "ApprovePlan",
+                "TodoWrite",
+                "TodoUpdate",
             ]),
             destructive_bash_commands: &[
                 "rm ",
@@ -189,16 +189,16 @@ impl SmartApprove {
     /// Classify a tool operation by tool name and optional arguments.
     ///
     pub fn classify(&self, tool_name: &str, args: Option<&str>) -> OperationClass {
-        // Normalize tool name
-        let name = tool_name.trim().to_lowercase();
+        // Normalize tool name (trim whitespace, keep original case)
+        let name = tool_name.trim();
 
         // Direct lookup in read-only tools
-        if self.read_only_tools.contains(name.as_str()) {
+        if self.read_only_tools.contains(name) {
             return OperationClass::ReadOnly;
         }
 
         // Direct lookup in write tools
-        if self.write_tools.contains(name.as_str()) {
+        if self.write_tools.contains(name) {
             return OperationClass::Write;
         }
 
@@ -208,12 +208,12 @@ impl SmartApprove {
         }
 
         // Docker tools — run/build are write-tier
-        if name == "docker_run" || name == "docker_build" {
+        if name == "DockerRun" || name == "DockerBuild" {
             return OperationClass::Write;
         }
 
         // Database mutations
-        if name == "database_transaction" {
+        if name == "DatabaseTransaction" {
             return OperationClass::Destructive;
         }
 
@@ -223,10 +223,10 @@ impl SmartApprove {
         }
 
         // HTTP methods
-        if name == "http_post" || name == "http_put" || name == "http_delete" {
+        if name == "HttpPost" || name == "HttpPut" || name == "HttpDelete" {
             return OperationClass::Write;
         }
-        if name == "http_get" {
+        if name == "HttpGet" {
             return OperationClass::ReadOnly;
         }
 
@@ -334,7 +334,7 @@ mod tests {
     #[test]
     fn test_list_dir_is_readonly() {
         assert_eq!(
-            classifier().classify("list_dir", None),
+            classifier().classify("ListDir", None),
             OperationClass::ReadOnly
         );
     }
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn test_git_status_is_readonly() {
         assert_eq!(
-            classifier().classify("git_status", None),
+            classifier().classify("GitStatus", None),
             OperationClass::ReadOnly
         );
     }
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     fn test_git_diff_is_readonly() {
         assert_eq!(
-            classifier().classify("git_diff", None),
+            classifier().classify("GitDiff", None),
             OperationClass::ReadOnly
         );
     }
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn test_git_log_is_readonly() {
         assert_eq!(
-            classifier().classify("git_log", None),
+            classifier().classify("GitLog", None),
             OperationClass::ReadOnly
         );
     }
@@ -375,10 +375,10 @@ mod tests {
     fn test_lsp_tools_are_readonly() {
         let sa = classifier();
         for tool in &[
-            "lsp_diagnostics",
-            "lsp_hover",
-            "lsp_definition",
-            "lsp_completion",
+            "LspDiagnostics",
+            "LspHover",
+            "LspDefinition",
+            "LspCompletion",
         ] {
             assert_eq!(
                 sa.classify(tool, None),
@@ -392,7 +392,7 @@ mod tests {
     #[test]
     fn test_docker_inspect_is_readonly() {
         assert_eq!(
-            classifier().classify("docker_inspect", None),
+            classifier().classify("DockerInspect", None),
             OperationClass::ReadOnly
         );
     }
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn test_database_query_is_readonly() {
         assert_eq!(
-            classifier().classify("database_query", None),
+            classifier().classify("DatabaseQuery", None),
             OperationClass::ReadOnly
         );
     }
@@ -420,7 +420,7 @@ mod tests {
     #[test]
     fn test_git_commit_is_write() {
         assert_eq!(
-            classifier().classify("git_commit", None),
+            classifier().classify("GitCommit", None),
             OperationClass::Write
         );
     }
@@ -436,7 +436,7 @@ mod tests {
     #[test]
     fn test_lsp_rename_is_write() {
         assert_eq!(
-            classifier().classify("lsp_rename", None),
+            classifier().classify("LspRename", None),
             OperationClass::Write
         );
     }
@@ -600,13 +600,10 @@ mod tests {
     #[test]
     fn test_case_insensitive_tool_name() {
         assert_eq!(
-            classifier().classify("Read_File", None),
+            classifier().classify("Read", None),
             OperationClass::ReadOnly
         );
-        assert_eq!(
-            classifier().classify("WRITE_FILE", None),
-            OperationClass::Write
-        );
+        assert_eq!(classifier().classify("Write", None), OperationClass::Write);
         assert_eq!(
             classifier().classify("Bash", Some("ls")),
             OperationClass::ReadOnly
@@ -616,7 +613,7 @@ mod tests {
     #[test]
     fn test_whitespace_trimmed() {
         assert_eq!(
-            classifier().classify("  read_file  ", None),
+            classifier().classify("  Read  ", None),
             OperationClass::ReadOnly
         );
     }
@@ -645,7 +642,7 @@ mod tests {
     #[test]
     fn test_database_transaction_is_destructive() {
         assert_eq!(
-            classifier().classify("database_transaction", None),
+            classifier().classify("DatabaseTransaction", None),
             OperationClass::Destructive
         );
     }
@@ -658,7 +655,7 @@ mod tests {
     #[test]
     fn test_http_get_is_readonly() {
         assert_eq!(
-            classifier().classify("http_get", None),
+            classifier().classify("HttpGet", None),
             OperationClass::ReadOnly
         );
     }
@@ -666,7 +663,7 @@ mod tests {
     #[test]
     fn test_http_post_is_write() {
         assert_eq!(
-            classifier().classify("http_post", None),
+            classifier().classify("HttpPost", None),
             OperationClass::Write
         );
     }

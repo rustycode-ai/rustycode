@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerBuildTool;
 
-    name: "docker_build",
+    name: "DockerBuild",
     description: r#"Build a Docker image from a Dockerfile
 
 Use this tool to:
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn test_docker_build_tool_metadata() {
         let tool = DockerBuildTool;
-        assert_eq!(tool.name(), "docker_build");
+        assert_eq!(tool.name(), "DockerBuild");
         assert!(tool.description().contains("Build"));
         assert_eq!(tool.permission(), ToolPermission::Execute);
     }

@@ -18,7 +18,7 @@ struct LspExtractSymbolParams {
 rustycode_tools_api::define_tool! {
     pub struct LspExtractSymbolTool;
 
-    name: "lsp_extract_symbol",
+    name: "LspExtractSymbol",
     description: "Extract a symbol definition to a new file or module",
     permission: ToolPermission::Write,
     tags: [ToolTag::Refactor],

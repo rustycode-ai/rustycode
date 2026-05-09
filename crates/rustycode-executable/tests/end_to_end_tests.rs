@@ -93,26 +93,26 @@ async fn full_pipeline_register_route_execute() {
 #[tokio::test]
 async fn full_pipeline_discover_then_execute() {
     let (registry, router) = setup_full_router();
-    registry.register(make_tool_unit("search")).unwrap();
+    registry.register(make_tool_unit("Search")).unwrap();
 
     let search_svc = rustycode_executable::ToolSearchService::new(registry.clone());
     let results = search_svc
         .search(
-            "search",
+            "Search",
             rustycode_executable::discovery::ToolSearchOptions::default(),
         )
         .await
         .unwrap();
 
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].id, "search");
+    assert_eq!(results[0].id, "Search");
 
     let input = make_input(serde_json::json!({"query": "test"}));
     let context = ExecutionContext::DirectTool {
         immediate_result: true,
         timeout_ms: None,
     };
-    let result = router.execute("search", input, context).await.unwrap();
+    let result = router.execute("Search", input, context).await.unwrap();
     assert_eq!(result.data["query"], "test");
 }
 

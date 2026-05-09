@@ -26,7 +26,7 @@ fn default_remove_definition() -> bool {
 rustycode_tools_api::define_tool! {
     pub struct LspInlineSymbolTool;
 
-    name: "lsp_inline_symbol",
+    name: "LspInlineSymbol",
     description: "Inline a symbol definition at its usage sites",
     permission: ToolPermission::Write,
     tags: [ToolTag::Refactor],

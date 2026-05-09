@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerImagesTool;
 
-    name: "docker_images",
+    name: "DockerImages",
     description: r"List Docker images
 
 Use this tool to:
@@ -60,7 +60,7 @@ mod tests {
     #[test]
     fn test_docker_images_tool_metadata() {
         let tool = DockerImagesTool;
-        assert_eq!(tool.name(), "docker_images");
+        assert_eq!(tool.name(), "DockerImages");
         assert!(tool.description().contains("images"));
         assert_eq!(tool.permission(), ToolPermission::Read);
     }

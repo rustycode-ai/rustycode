@@ -8,16 +8,11 @@ use anyhow::Result;
 use regex::Regex;
 use serde_json::Value;
 
+use rustycode_tools_api::tool_names;
+
 /// Number of head/tail lines to keep for file content summarization.
 const FILE_HEAD_LINES: usize = 10;
 const FILE_TAIL_LINES: usize = 10;
-
-/// Tool type constants used for dispatch.
-const TOOL_BASH: &str = "Bash";
-const TOOL_JSON: &str = "json";
-const TOOL_API: &str = "api_response";
-const TOOL_FILE: &str = "file_content";
-const TOOL_READ: &str = "Read";
 
 /// Summarizes tool outputs to reduce token consumption.
 pub struct ResultSummarizer {
@@ -39,9 +34,9 @@ impl ResultSummarizer {
         }
 
         let summarized = match tool_type {
-            TOOL_BASH => self.summarize_bash_output(output),
-            TOOL_JSON | TOOL_API => self.summarize_json_output(output),
-            TOOL_FILE | TOOL_READ => self.summarize_file_content(output),
+            tool_names::BASH => self.summarize_bash_output(output),
+            "json" | "api_response" => self.summarize_json_output(output),
+            "file_content" | tool_names::READ => self.summarize_file_content(output),
             _ => {
                 // Check custom extractors before falling back to generic.
                 self.apply_custom_extractor(tool_type, output)
@@ -333,7 +328,7 @@ Build finished with errors";
         let summarizer = default_summarizer();
         let short = "This is a short output";
         let result = summarizer
-            .summarize(TOOL_BASH, short)
+            .summarize(tool_names::BASH, short)
             .expect("summarize should succeed");
         assert_eq!(result, short, "short output should be returned as-is");
     }

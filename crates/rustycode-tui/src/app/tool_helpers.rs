@@ -37,7 +37,7 @@ fn parse_pipeline(command: &str) -> Vec<&str> {
 /// Check if a single command (not a pipeline) is whitelisted and safe.
 fn is_single_command_allowed(base_command: &str) -> bool {
     const ALLOWED_COMMANDS: &[&str] = &[
-        "git", "ls", "pwd", "echo", "cat", "head", "tail", "Grep", "find", "wc", "sort", "uniq",
+        "git", "ls", "pwd", "echo", "cat", "Head", "Tail", "Grep", "Find", "Wc", "sort", "uniq",
         "cut", "date", "whoami", "basename", "dirname", "realpath", "readlink", "xargs", "awk",
         "sed", "tr", "tee", // Added for pipeline support
     ];

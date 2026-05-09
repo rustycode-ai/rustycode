@@ -281,7 +281,7 @@ pub fn tools_for_role(role: TeamRole) -> Vec<&'static str> {
         TeamRole::Builder => vec!["Read", "Write", "Bash", "Grep", "Glob"],
         TeamRole::Scalpel => vec!["Read", "Write", "Bash"],
         TeamRole::Skeptic => vec!["Read", "Grep", "Glob"],
-        TeamRole::Architect => vec!["Read", "Grep", "Glob", "lsp_references", "lsp_hover"],
+        TeamRole::Architect => vec!["Read", "Grep", "Glob", "LspReferences", "LspHover"],
         TeamRole::Judge => vec!["Bash", "Read"],
         TeamRole::Coordinator => vec!["Read", "Bash"],
         #[allow(unreachable_patterns)]

@@ -15,7 +15,7 @@ pub struct CheckIntegrationParams {
 rustycode_tools_api::define_tool! {
     pub struct CheckIntegrationTool;
 
-    name: "reasoning_integrate",
+    name: "ReasoningIntegrate",
     description: "Check how new code integrates with existing codebase. Identifies affected modules, potential breakage points, and required test coverage for safe integration.",
     permission: ToolPermission::None,
 
@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn tool_metadata() {
         let tool = CheckIntegrationTool;
-        assert_eq!(tool.name(), "reasoning_integrate");
+        assert_eq!(tool.name(), "ReasoningIntegrate");
         assert_eq!(tool.permission(), ToolPermission::None);
         let schema = tool.parameters_schema();
         // With define_tool, schema is auto-generated from struct; check properties exist

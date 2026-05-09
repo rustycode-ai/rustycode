@@ -29,6 +29,6 @@ pub use middleware::{ExecutionMiddleware, MiddlewareConfig, MiddlewareState, Pla
 pub use task::{SubAgentRunner, TaskTool};
 pub use tool_shim::{
     extract_tool_calls, extract_tool_calls_with_config, format_tools_for_prompt,
-    is_valid_function_name, sanitize_function_name, tool_calls_to_text, ExtractedToolCall,
-    ExtractionSource, ExtractorConfig, ToolCallExtractor,
+    is_valid_function_name, tool_calls_to_text, ExtractedToolCall, ExtractionSource,
+    ExtractorConfig, ToolCallExtractor,
 };

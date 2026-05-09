@@ -50,7 +50,7 @@ impl ToolExecutorApi for FakeToolExecutor {
                 defer_loading: None,
             },
             ToolInfo {
-                name: "list_dir".to_string(),
+                name: "ListDir".to_string(),
                 description: "List directory contents".to_string(),
                 parameters_schema: json!({
                     "type": "object",
@@ -82,7 +82,7 @@ impl ToolExecutorApi for FakeToolExecutor {
 
     fn execute(&self, call: &rustycode_protocol::ToolCall) -> ToolResult {
         match call.name.as_str() {
-            "list_dir" => ToolResult::success(call.call_id.clone(), "dir contents"),
+            "ListDir" => ToolResult::success(call.call_id.clone(), "dir contents"),
             "Read" => {
                 if call.arguments["path"].as_str() == Some("/nonexistent/file.txt") {
                     ToolResult::error(call.call_id.clone(), "File not found")
@@ -169,7 +169,7 @@ fn test_get_anthropic_tool_definitions() {
     assert!(bash_tool.get("description").is_some());
     assert!(bash_tool.get("input_schema").is_some());
 
-    let list_dir_tool = tools.iter().find(|t| t["name"] == "list_dir").unwrap();
+    let list_dir_tool = tools.iter().find(|t| t["name"] == "ListDir").unwrap();
     assert_eq!(list_dir_tool["annotations"]["readOnlyHint"], true);
 }
 
@@ -200,13 +200,13 @@ async fn test_execute_simple_tool() {
     let executor = create_executor();
 
     let tool_call = ParsedToolCall {
-        name: "list_dir".to_string(),
+        name: "ListDir".to_string(),
         arguments: json!({"path": "."}),
         id: Some("test-1".to_string()),
     };
 
     let result = executor.execute_tool_call(&tool_call).await.unwrap();
-    assert_eq!(result.tool_name, "list_dir");
+    assert_eq!(result.tool_name, "ListDir");
     assert!(result.success);
     assert!(!result.output.is_empty());
     assert!(result.error.is_none());
@@ -235,12 +235,12 @@ async fn test_execute_multiple_tools() {
 
     let tool_calls = vec![
         ParsedToolCall {
-            name: "list_dir".to_string(),
+            name: "ListDir".to_string(),
             arguments: json!({"path": "."}),
             id: Some("test-1".to_string()),
         },
         ParsedToolCall {
-            name: "list_dir".to_string(),
+            name: "ListDir".to_string(),
             arguments: json!({"path": "src"}),
             id: Some("test-2".to_string()),
         },
@@ -315,14 +315,14 @@ fn test_parse_multiple_anthropic_tool_calls() {
     let executor = create_executor();
 
     let content = json!([
-        {"type": "tool_use", "id": "toolu_1", "name": "list_dir", "input": {"path": "."}},
+        {"type": "tool_use", "id": "toolu_1", "name": "ListDir", "input": {"path": "."}},
         {"type": "tool_use", "id": "toolu_2", "name": "Read", "input": {"path": "Cargo.toml"}}
     ])
     .to_string();
 
     let tool_calls = executor.parse_anthropic_tool_calls(&content).unwrap();
     assert_eq!(tool_calls.len(), 2);
-    assert_eq!(tool_calls[0].name, "list_dir");
+    assert_eq!(tool_calls[0].name, "ListDir");
     assert_eq!(tool_calls[1].name, "Read");
 }
 
@@ -346,7 +346,7 @@ async fn test_execute_and_format_anthropic() {
     let executor = create_executor();
 
     let tool_calls = vec![ParsedToolCall {
-        name: "list_dir".to_string(),
+        name: "ListDir".to_string(),
         arguments: json!({"path": "."}),
         id: Some("toolu_1".to_string()),
     }];
@@ -364,7 +364,7 @@ async fn test_execute_and_format_openai() {
     let executor = create_executor();
 
     let tool_calls = vec![ParsedToolCall {
-        name: "list_dir".to_string(),
+        name: "ListDir".to_string(),
         arguments: json!({"path": "."}),
         id: Some("call_1".to_string()),
     }];

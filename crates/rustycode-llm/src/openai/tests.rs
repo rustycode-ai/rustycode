@@ -665,7 +665,7 @@ fn test_sse_empty_content_delta_not_emitted() {
 /// Multiple tool calls in a single SSE response should produce separate ContentBlockStart events.
 #[test]
 fn test_sse_multiple_tool_calls_get_separate_starts() {
-    let lines = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_aaa\",\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"arguments\":\"\"}},{\"index\":1,\"id\":\"call_bbb\",\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"arguments\":\"\"}}]}}]}\n";
+    let lines = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_aaa\",\"type\":\"function\",\"function\":{\"name\":\"Read\",\"arguments\":\"\"}},{\"index\":1,\"id\":\"call_bbb\",\"type\":\"function\",\"function\":{\"name\":\"Write\",\"arguments\":\"\"}}]}}]}\n";
     let events = streaming::parse_sse_lines(lines);
 
     let starts: Vec<_> = events
@@ -1305,7 +1305,7 @@ data: {\"id\":\"chatcmpl-1\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\"
 #[test]
 fn test_sse_parse_tool_call_full_flow() {
     let input = "\
-data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_xyz\",\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"arguments\":\"\"}}]},\"finish_reason\":null}]}\n\
+data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"call_xyz\",\"type\":\"function\",\"function\":{\"name\":\"Read\",\"arguments\":\"\"}}]},\"finish_reason\":null}]}\n\
 data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"path\\\":\"}}]},\"finish_reason\":null}]}\n\
 data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\" \\\"main.rs\\\"}\"}}]},\"finish_reason\":null}]}\n\
 data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\

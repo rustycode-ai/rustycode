@@ -22,7 +22,7 @@ const INSPECTION_TOOLS: &[&str] = &[
     "findReferences",
     "documentSymbol",
     // Listing
-    "list_dir",
+    "ListDir",
     "find_file",
     "Glob",
 ];

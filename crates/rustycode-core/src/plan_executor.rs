@@ -89,9 +89,9 @@ impl ExecutionReport {
 const INSPECTION_TOOLS: &[&str] = &[
     "Read",
     "Grep",
-    "lsp_find_symbol",
-    "lsp_get_symbols_overview",
-    "list_dir",
+    "LspFindSymbol",
+    "LspGetSymbolsOverview",
+    "ListDir",
     "Glob",
 ];
 
@@ -199,7 +199,7 @@ impl PlanExecutor {
 
                     // Inject automatic checkpoint before potentially destructive tools
                     if let Some(ref manager) = self.options.checkpoint_manager {
-                        let trigger_tools = ["Bash", "Write", "Edit", "apply_patch"];
+                        let trigger_tools = ["Bash", "Write", "Edit", "ApplyPatch"];
                         if trigger_tools.contains(&tc.name.as_str()) {
                             if let Err(e) = manager.create() {
                                 tracing::warn!(

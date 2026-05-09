@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct GitStatusTool;
 
-    name: "git_status",
+    name: "GitStatus",
     description: "Show git status for current workspace.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Ops],

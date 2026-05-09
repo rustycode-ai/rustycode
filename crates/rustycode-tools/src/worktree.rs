@@ -89,7 +89,7 @@ fn parse_worktree_list(output: &str) -> Vec<(PathBuf, Option<String>)> {
 define_tool! {
     pub struct WorktreeCreateTool;
 
-    name: "worktree_create",
+    name: "WorktreeCreate",
     description: "Create a new git worktree for isolated development.",
     permission: ToolPermission::Execute,
 
@@ -123,7 +123,7 @@ define_tool! {
 define_tool! {
     pub struct WorktreeListTool;
 
-    name: "worktree_list",
+    name: "WorktreeList",
     description: "List all active git worktrees.",
     permission: ToolPermission::Read,
 
@@ -160,7 +160,7 @@ define_tool! {
 define_tool! {
     pub struct WorktreeDeleteTool;
 
-    name: "worktree_delete",
+    name: "WorktreeDelete",
     description: "Delete an existing git worktree.",
     permission: ToolPermission::Execute,
 
@@ -189,7 +189,7 @@ define_tool! {
 define_tool! {
     pub struct EnterWorktreeTool;
 
-    name: "worktree_enter",
+    name: "WorktreeEnter",
     description: "Create or enter a git worktree and switch the session working directory into it.\n\nUse when: the user explicitly says \"worktree\", \"use a worktree\", \"start a worktree\", or project instructions require worktree isolation.\nDo NOT use when: the user asks to create or switch branches (use git commands instead).\n\nCreates a new worktree from the current HEAD unless `path` is provided to enter an existing one.\nThe session CWD changes to the worktree path. Use `worktree_exit` to return.",
     permission: ToolPermission::Execute,
 
@@ -276,7 +276,7 @@ define_tool! {
 define_tool! {
     pub struct ExitWorktreeTool;
 
-    name: "worktree_exit",
+    name: "WorktreeExit",
     description: "Exit the current worktree session and restore the original working directory.\n\nUse when: the user explicitly asks to \"exit the worktree\", \"leave the worktree\", or end the worktree session.\nDo NOT call proactively — only when the user asks.\n\nThe `action` parameter controls cleanup:\n- \"keep\": Leaves the worktree directory and branch on disk for later use.\n- \"remove\": Deletes the worktree directory and branch. Refuses if there are uncommitted changes unless `discard_changes` is true.",
     permission: ToolPermission::Execute,
 

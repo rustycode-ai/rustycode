@@ -8,7 +8,7 @@ use std::path::PathBuf;
 rustycode_tools_api::define_tool! {
     pub struct TeamCreateTool;
 
-    name: "team_create",
+    name: "TeamCreate",
     description: r#"Create a new team to coordinate multiple agents working on a project. Teams have a 1:1 correspondence with task lists (Team = TaskList).
 
 Use this tool proactively whenever:
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_team_create_metadata() {
         let tool = TeamCreateTool;
-        assert_eq!(tool.name(), "team_create");
+        assert_eq!(tool.name(), "TeamCreate");
         assert_eq!(tool.permission(), ToolPermission::Write);
     }
 

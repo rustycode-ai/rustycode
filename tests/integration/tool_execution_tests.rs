@@ -13,10 +13,6 @@
 use rustycode_bus::ToolExecutedEvent;
 use rustycode_protocol::{SessionId, ToolCall};
 use rustycode_runtime::AsyncRuntime;
-use rustycode_tools::{
-    BashInput, CompileTimeBash, CompileTimeReadFile, CompileTimeWriteFile, ReadFileInput,
-    ToolDispatcher, WriteFileInput,
-};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -81,11 +77,11 @@ async fn test_write_file_with_small_content() {
     let env = TestEnvironment::new().await;
     let test_file = env.file_path("small_test.txt");
 
-    // Execute write_file tool via runtime
+    // Execute Write tool via runtime
     let session_id = SessionId::new();
     let tool_call = ToolCall {
         call_id: "test-write-small".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: serde_json::json!({
             "path": test_file.to_str().unwrap(),
             "content": "Hello, World!"
@@ -182,11 +178,11 @@ mod tests {
 }
 "#;
 
-    // Execute write_file tool via runtime
+    // Execute Write tool via runtime
     let session_id = SessionId::new();
     let tool_call = ToolCall {
         call_id: "test-write-large".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: serde_json::json!({
             "path": test_file.to_str().unwrap(),
             "content": large_content
@@ -219,14 +215,14 @@ async fn test_read_file_tool() {
     let test_file = env.file_path("read_test.txt");
 
     // Create a test file
-    let test_content = "This is test content for read_file tool.\nLine 2\nLine 3";
+    let test_content = "This is test content for Read tool.\nLine 2\nLine 3";
     std::fs::write(&test_file, test_content).expect("Failed to write test file");
 
-    // Execute read_file tool via runtime
+    // Execute Read tool via runtime
     let session_id = SessionId::new();
     let tool_call = ToolCall {
         call_id: "test-read".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({
             "path": test_file.to_str().unwrap()
         }),
@@ -251,11 +247,11 @@ async fn test_read_file_with_line_range() {
     let test_content = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5";
     std::fs::write(&test_file, test_content).expect("Failed to write test file");
 
-    // Execute read_file tool with line range
+    // Execute Read tool with line range
     let session_id = SessionId::new();
     let tool_call = ToolCall {
         call_id: "test-read-range".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({
             "path": test_file.to_str().unwrap(),
             "start_line": 2,
@@ -346,8 +342,8 @@ fn test_eager_streaming_small_content_parsing() {
     assert_eq!(parsed["content"], "Small content");
 
     // Verify it can be used as tool arguments
-    let tool_call = ToolCall::with_generated_id("write_file", parsed);
-    assert_eq!(tool_call.name, "write_file");
+    let tool_call = ToolCall::with_generated_id("Write", parsed);
+    assert_eq!(tool_call.name, "Write");
     assert!(tool_call.arguments["path"].as_str().is_some());
     assert!(tool_call.arguments["content"].as_str().is_some());
 }
@@ -463,11 +459,11 @@ async fn test_multiple_tools_in_sequence() {
 
     let session_id = SessionId::new();
 
-    // Execute first tool: write_file
+    // Execute first tool: Write
     let file_path = env.file_path("sequence_test.txt");
     let write_call = ToolCall {
         call_id: "seq-write".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: serde_json::json!({
             "path": file_path.to_str().unwrap(),
             "content": "Initial content"
@@ -481,10 +477,10 @@ async fn test_multiple_tools_in_sequence() {
         .expect("Write tool execution failed");
     assert!(result1.success);
 
-    // Execute second tool: read_file
+    // Execute second tool: Read
     let read_call = ToolCall {
         call_id: "seq-read".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({
             "path": file_path.to_str().unwrap()
         }),
@@ -544,7 +540,7 @@ async fn test_write_read_verify_cycle() {
             &session_id,
             ToolCall {
                 call_id: "cycle-write".to_string(),
-                name: "write_file".to_string(),
+                name: "Write".to_string(),
                 arguments: serde_json::json!({
                     "path": test_file.to_str().unwrap(),
                     "content": test_content
@@ -563,7 +559,7 @@ async fn test_write_read_verify_cycle() {
             &session_id,
             ToolCall {
                 call_id: "cycle-read".to_string(),
-                name: "read_file".to_string(),
+                name: "Read".to_string(),
                 arguments: serde_json::json!({
                     "path": test_file.to_str().unwrap()
                 }),
@@ -583,63 +579,6 @@ async fn test_write_read_verify_cycle() {
     assert_eq!(disk_content, test_content);
 }
 
-// Compile-Time Tool Dispatch Tests
-
-#[test]
-fn test_compile_time_write_file_dispatch() {
-    let dir = TempDir::new().unwrap();
-    let file_path = dir.path().join("compile_time_test.txt");
-
-    let input = WriteFileInput {
-        path: file_path.clone(),
-        content: "Compile-time dispatch test".to_string(),
-        create_parents: Some(false),
-    };
-
-    let result = ToolDispatcher::<CompileTimeWriteFile>::dispatch(input).unwrap();
-
-    assert_eq!(result.path, file_path);
-    assert_eq!(result.bytes_written, 26);
-
-    let content = std::fs::read_to_string(&file_path).unwrap();
-    assert_eq!(content, "Compile-time dispatch test");
-}
-
-#[test]
-fn test_compile_time_read_file_dispatch() {
-    let dir = TempDir::new().unwrap();
-    let file_path = dir.path().join("read_test.txt");
-    std::fs::write(&file_path, "Test content for compile-time read").unwrap();
-
-    let input = ReadFileInput {
-        path: file_path.clone(),
-        start_line: None,
-        end_line: None,
-    };
-
-    let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(input).unwrap();
-
-    assert_eq!(result.content, "Test content for compile-time read");
-    assert_eq!(result.path, file_path);
-    assert_eq!(result.bytes, 34);
-}
-
-#[test]
-fn test_compile_time_bash_dispatch() {
-    let input = BashInput {
-        command: "echo".to_string(),
-        args: Some(vec!["-n", "Compile-time bash"]),
-        working_dir: None,
-        timeout_secs: Some(5),
-    };
-
-    let result = ToolDispatcher::<CompileTimeBash>::dispatch(input).unwrap();
-
-    assert_eq!(result.stdout, "Compile-time bash");
-    assert_eq!(result.exit_code, 0);
-    assert!(result.stderr.is_empty());
-}
-
 // Error Handling Tests
 
 #[tokio::test]
@@ -649,7 +588,7 @@ async fn test_read_nonexistent_file() {
     let session_id = SessionId::new();
     let tool_call = ToolCall {
         call_id: "test-read-missing".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({
             "path": "/nonexistent/path/file.txt"
         }),
@@ -695,10 +634,10 @@ async fn test_invalid_tool_parameters() {
     let env = TestEnvironment::new().await;
 
     let session_id = SessionId::new();
-    // Missing required "path" parameter for write_file
+    // Missing required "path" parameter for Write
     let tool_call = ToolCall {
         call_id: "test-invalid-params".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: serde_json::json!({
             "content": "Missing path parameter"
         }),
@@ -777,7 +716,7 @@ async fn test_tool_execution_event_contains_arguments() {
     let session_id = SessionId::new();
     let tool_call = ToolCall {
         call_id: "args-test".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: serde_json::json!({
             "path": "/tmp/test_args.txt",
             "content": "test content"
@@ -889,7 +828,7 @@ mod tests {
             &session_id,
             ToolCall {
                 call_id: "e2e-write".to_string(),
-                name: "write_file".to_string(),
+                name: "Write".to_string(),
                 arguments: serde_json::json!({
                     "path": rust_file.to_str().unwrap(),
                     "content": rust_content
@@ -908,7 +847,7 @@ mod tests {
             &session_id,
             ToolCall {
                 call_id: "e2e-read".to_string(),
-                name: "read_file".to_string(),
+                name: "Read".to_string(),
                 arguments: serde_json::json!({
                     "path": rust_file.to_str().unwrap()
                 }),
@@ -997,7 +936,7 @@ async fn test_complex_parameter_handling() {
     for (i, args) in test_cases.iter().enumerate() {
         let tool_call = ToolCall {
             call_id: format!("complex-params-{}", i),
-            name: "write_file".to_string(),
+            name: "Write".to_string(),
             arguments: args.clone(),
         };
 

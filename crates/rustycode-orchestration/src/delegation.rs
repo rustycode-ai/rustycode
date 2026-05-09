@@ -8,6 +8,7 @@
 use crate::ensemble_strategy::{EnsembleStrategy, ParticipantSpec, StrategyKind};
 use crate::strategy_selector::StrategySelector;
 use crate::types::ExecutionTier;
+use rustycode_tools_api::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -102,20 +103,18 @@ impl TaskRole {
     pub const fn allowed_tools(self) -> &'static [&'static str] {
         match self {
             Self::Explore | Self::Research | Self::Review | Self::Plan => {
-                &["Read", "search_files", "list_directory", "Glob"]
+                &[tn::READ, tn::GREP, tn::LIST_DIR, tn::GLOB]
             }
             Self::Code => &[
-                "Read",
-                "Write",
-                "Edit",
-                "search_files",
-                "list_directory",
-                "Glob",
-                "Bash",
+                tn::READ,
+                tn::WRITE,
+                tn::EDIT,
+                tn::GREP,
+                tn::LIST_DIR,
+                tn::GLOB,
+                tn::BASH,
             ],
-            Self::Verify | Self::Debug => {
-                &["Read", "search_files", "list_directory", "Glob", "Bash"]
-            }
+            Self::Verify | Self::Debug => &[tn::READ, tn::GREP, tn::LIST_DIR, tn::GLOB, tn::BASH],
         }
     }
 }
@@ -666,7 +665,7 @@ pub fn infer_role_from_description(description: &str) -> TaskRole {
     ) {
         return TaskRole::Debug;
     }
-    if contains_any(&lower, &["review", "check", "audit", "inspect", "examine"]) {
+    if contains_any(&lower, &["review", "check", "audit", "Inspect", "examine"]) {
         return TaskRole::Review;
     }
     if contains_any(&lower, &["verify", "test", "validate", "confirm"]) {
@@ -678,7 +677,7 @@ pub fn infer_role_from_description(description: &str) -> TaskRole {
     ) {
         return TaskRole::Plan;
     }
-    if contains_any(&lower, &["explore", "find", "search", "scan", "discover"]) {
+    if contains_any(&lower, &["explore", "Find", "Search", "scan", "discover"]) {
         return TaskRole::Explore;
     }
 

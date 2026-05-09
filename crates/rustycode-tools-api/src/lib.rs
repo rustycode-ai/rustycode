@@ -93,6 +93,7 @@ pub mod edit_format;
 pub mod file_read_state;
 pub mod search_strategy;
 pub mod tiers;
+pub mod tool_names;
 pub mod tool_selection;
 pub mod tool_selector;
 pub mod worktree_session;
@@ -101,6 +102,7 @@ pub use edit_format::*;
 pub use file_read_state::*;
 pub use search_strategy::*;
 pub use tiers::*;
+pub use tool_names::*;
 pub use tool_selection::*;
 pub use tool_selector::*;
 pub use worktree_session::*;
@@ -594,7 +596,7 @@ pub trait ToolMetadataProvider: Send + Sync {
     fn list_immediate_tools(&self) -> Vec<ToolInfo> {
         self.list_tools()
             .into_iter()
-            .filter(|t| t.name == "tool_search" || t.defer_loading != Some(true))
+            .filter(|t| t.name == "ToolSearch" || t.defer_loading != Some(true))
             .collect()
     }
 }
@@ -659,7 +661,7 @@ impl ToolRegistry {
         let mut infos: Vec<ToolInfo> = self
             .tools
             .values()
-            .filter(|t| t.name() == "tool_search" || t.defer_loading() != Some(true))
+            .filter(|t| t.name() == "ToolSearch" || t.defer_loading() != Some(true))
             .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
@@ -672,7 +674,7 @@ impl ToolRegistry {
         let mut infos: Vec<ToolInfo> = self
             .tools
             .values()
-            .filter(|t| t.name() != "tool_search" && t.defer_loading() == Some(true))
+            .filter(|t| t.name() != "ToolSearch" && t.defer_loading() == Some(true))
             .map(|t| {
                 let first_line = t.description().lines().next().unwrap_or("");
                 let mut info = ToolInfo::from_tool(t.as_ref());
@@ -797,12 +799,10 @@ pub fn new_todo_state() -> TodoState {
 /// Map tool name to protocol permission (same mapping as full tools crate)
 pub fn tool_permission(tool_name: &str) -> Option<ProtocolToolPermission> {
     match tool_name {
-        // Read-only tools - auto-allow (safe operations)
-        "Read" | "list_dir" | "Grep" | "Glob" | "find" | "inspect" | "git_status" | "git_diff"
-        | "git_log" | "lsp_diagnostics" | "lsp_hover" | "lsp_definition" | "lsp_completion" => {
+        READ | LIST_DIR | GREP | GLOB | FIND | INSPECT | GIT_STATUS | GIT_DIFF | GIT_LOG
+        | LSP_DIAGNOSTICS | LSP_HOVER | LSP_DEFINITION | LSP_COMPLETION => {
             Some(ProtocolToolPermission::AutoAllow)
         }
-        // Write, execute, and unknown tools - require confirmation for safety
         _ => Some(ProtocolToolPermission::RequiresConfirmation),
     }
 }
@@ -1343,7 +1343,7 @@ mod tests {
 
     #[test]
     fn test_get_tool_permission_read_tools() {
-        for tool in &["Read", "list_dir", "Grep", "Glob"] {
+        for tool in &["Read", "ListDir", "Grep", "Glob"] {
             assert!(
                 matches!(
                     tool_permission(tool),
@@ -1356,7 +1356,7 @@ mod tests {
 
     #[test]
     fn test_get_tool_permission_write_tools() {
-        for tool in &["Write", "git_commit", "Bash"] {
+        for tool in &["Write", "GitCommit", "Bash"] {
             assert!(
                 matches!(
                     tool_permission(tool),
@@ -1638,7 +1638,7 @@ mod tests {
     struct ToolSearchMock;
     impl Tool for ToolSearchMock {
         fn name(&self) -> &'static str {
-            "tool_search"
+            "ToolSearch"
         }
         fn description(&self) -> &'static str {
             "Searches for tools"
@@ -1671,7 +1671,7 @@ mod tests {
         registry.register(ToolSearchMock); // marked deferred but must still appear
 
         let immediate = registry.list_immediate();
-        assert!(immediate.iter().any(|t| t.name == "tool_search"));
+        assert!(immediate.iter().any(|t| t.name == "ToolSearch"));
     }
 
     #[test]
@@ -1684,7 +1684,7 @@ mod tests {
         assert_eq!(stubs.len(), 1);
         assert_eq!(stubs[0].name, "deferred_tool");
         assert!(stubs[0].description.contains("Deferred tool"));
-        assert!(stubs[0].description.contains("tool_search"));
+        assert!(stubs[0].description.contains("ToolSearch"));
         // Stub has empty schema
         assert_eq!(
             stubs[0].parameters_schema["properties"],
@@ -1700,7 +1700,7 @@ mod tests {
         registry.register(DeferredTool);
 
         let stubs = registry.list_deferred_stubs();
-        assert!(!stubs.iter().any(|t| t.name == "tool_search"));
+        assert!(!stubs.iter().any(|t| t.name == "ToolSearch"));
         assert!(stubs.iter().any(|t| t.name == "deferred_tool"));
     }
 
@@ -1717,19 +1717,19 @@ mod tests {
     #[test]
     fn test_get_tool_permission_git_tools() {
         assert!(matches!(
-            tool_permission("git_status"),
+            tool_permission("GitStatus"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            tool_permission("git_diff"),
+            tool_permission("GitDiff"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            tool_permission("git_log"),
+            tool_permission("GitLog"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            tool_permission("git_commit"),
+            tool_permission("GitCommit"),
             Some(ProtocolToolPermission::RequiresConfirmation)
         ));
     }
@@ -1737,19 +1737,19 @@ mod tests {
     #[test]
     fn test_get_tool_permission_lsp_tools() {
         assert!(matches!(
-            tool_permission("lsp_diagnostics"),
+            tool_permission("LspDiagnostics"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            tool_permission("lsp_hover"),
+            tool_permission("LspHover"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            tool_permission("lsp_definition"),
+            tool_permission("LspDefinition"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
         assert!(matches!(
-            tool_permission("lsp_completion"),
+            tool_permission("LspCompletion"),
             Some(ProtocolToolPermission::AutoAllow)
         ));
     }

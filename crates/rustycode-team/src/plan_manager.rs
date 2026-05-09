@@ -754,7 +754,7 @@ fn generate_plan(session_id: SessionId, task: &str, profile: &TaskProfile) -> Pl
                 0,
                 "Analyze scope",
                 "Identify all files that need to change and understand dependencies.",
-                &["Read", "Grep", "lsp_references"],
+                &["Read", "Grep", "LspReferences"],
             ),
             make_step(
                 1,
@@ -792,7 +792,7 @@ fn generate_plan(session_id: SessionId, task: &str, profile: &TaskProfile) -> Pl
                 0,
                 "Deep analysis",
                 "Thoroughly understand the codebase area and all dependencies.",
-                &["Read", "Grep", "lsp_references", "lsp_hover"],
+                &["Read", "Grep", "LspReferences", "LspHover"],
             ),
             make_step(
                 1,
@@ -830,7 +830,7 @@ fn generate_plan(session_id: SessionId, task: &str, profile: &TaskProfile) -> Pl
                 0,
                 "Full audit",
                 "Audit the entire affected area including all callers and dependents.",
-                &["Read", "Grep", "lsp_references", "lsp_hover"],
+                &["Read", "Grep", "LspReferences", "LspHover"],
             ),
             make_step(
                 1,

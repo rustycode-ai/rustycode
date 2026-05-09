@@ -189,7 +189,7 @@ fn test_server_tool_with_eager_streaming() {
     // Server tools shouldn't have eager_input_streaming in the output
     // since they're not sent in the tool definitions
     let tool = ToolDefinition::new(
-        "web_search",
+        "WebSearch",
         "Search the web",
         json!({
             "type": "object",
@@ -208,7 +208,7 @@ fn test_server_tool_with_eager_streaming() {
     // Server tools are included but converted with type field, not eager_input_streaming
     let anthropic_tools = to_anthropic_tools(&[tool]);
     assert_eq!(anthropic_tools.len(), 1);
-    assert_eq!(anthropic_tools[0]["name"], "web_search");
+    assert_eq!(anthropic_tools[0]["name"], "WebSearch");
     assert_eq!(anthropic_tools[0]["type"], "web_search_20260209");
     assert!(anthropic_tools[0].get("eager_input_streaming").is_none());
 }
@@ -277,10 +277,10 @@ fn test_lsp_tools_do_not_have_eager_streaming() {
     let anthropic_tools = to_anthropic_tools(&tools);
 
     let non_eager_tools = [
-        "lsp_diagnostics",
-        "lsp_hover",
-        "lsp_definition",
-        "lsp_completion",
+        "LspDiagnostics",
+        "LspHover",
+        "LspDefinition",
+        "LspCompletion",
     ];
     for name in &non_eager_tools {
         let tool = anthropic_tools

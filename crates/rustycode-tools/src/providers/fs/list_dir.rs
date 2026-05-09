@@ -28,14 +28,14 @@ pub struct ListDirParams {
 rustycode_tools_api::define_tool! {
     pub struct ListDirTool;
 
-    name: "list_dir",
+    name: "ListDir",
     description: "List all files and directories in a specified path. Use this to explore the codebase structure, find files in a directory, or see what's in a folder. Supports recursive listing and filtering by file type or extension.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],
 
     execute(params: ListDirParams, ctx) {
         if let Some(gate) = &ctx.plan_gate {
-            gate.check_access(ctx.role, "list_dir")?;
+            gate.check_access(ctx.role, "ListDir")?;
         }
         let path_str = params
             .path
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn test_list_dir_tool_metadata() {
         let tool = ListDirTool;
-        assert_eq!(tool.name(), "list_dir");
+        assert_eq!(tool.name(), "ListDir");
         assert_eq!(tool.permission(), ToolPermission::Read);
     }
 

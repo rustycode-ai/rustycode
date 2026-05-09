@@ -94,8 +94,8 @@ impl ToolSelectionState {
                 }
             }
             SearchStrategy::Semantic => {
-                if tools.contains(&"semantic_search".to_string()) {
-                    vec!["semantic_search".to_string()]
+                if tools.contains(&"SemanticSearch".to_string()) {
+                    vec!["SemanticSearch".to_string()]
                 } else if tools.contains(&"Grep".to_string()) {
                     vec!["Grep".to_string()]
                 } else {
@@ -107,8 +107,8 @@ impl ToolSelectionState {
                 if tools.contains(&"Grep".to_string()) {
                     filtered.push("Grep".to_string());
                 }
-                if tools.contains(&"semantic_search".to_string()) {
-                    filtered.push("semantic_search".to_string());
+                if tools.contains(&"SemanticSearch".to_string()) {
+                    filtered.push("SemanticSearch".to_string());
                 }
                 if filtered.is_empty() {
                     tools.to_vec()
@@ -137,12 +137,12 @@ mod tests {
     fn test_auto_routing_semantic() {
         let tools = vec![
             "Grep".to_string(),
-            "semantic_search".to_string(),
+            "SemanticSearch".to_string(),
             "Read".to_string(),
         ];
         let prompt = "how do we validate JWT tokens?";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
-        assert_eq!(filtered, vec!["semantic_search".to_string()]);
+        assert_eq!(filtered, vec!["SemanticSearch".to_string()]);
     }
 
     #[cfg(feature = "vector-memory")]
@@ -150,7 +150,7 @@ mod tests {
     fn test_auto_routing_grep() {
         let tools = vec![
             "Grep".to_string(),
-            "semantic_search".to_string(),
+            "SemanticSearch".to_string(),
             "Read".to_string(),
         ];
         let prompt = "\"Unauthorized\"";
@@ -161,16 +161,16 @@ mod tests {
     #[test]
     fn test_auto_routing_lsp() {
         let tools = vec![
-            "lsp_definition".to_string(),
-            "lsp_hover".to_string(),
+            "LspDefinition".to_string(),
+            "LspHover".to_string(),
             "Grep".to_string(),
         ];
         let prompt = "`validate_jwt`";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
         #[cfg(feature = "vector-memory")]
         {
-            assert!(filtered.contains(&"lsp_definition".to_string()));
-            assert!(filtered.contains(&"lsp_hover".to_string()));
+            assert!(filtered.contains(&"LspDefinition".to_string()));
+            assert!(filtered.contains(&"LspHover".to_string()));
         }
         #[cfg(not(feature = "vector-memory"))]
         {
@@ -190,12 +190,12 @@ mod tests {
     #[cfg(feature = "vector-memory")]
     #[test]
     fn test_auto_routing_grep_then_semantic() {
-        let tools = vec!["Grep".to_string(), "semantic_search".to_string()];
+        let tools = vec!["Grep".to_string(), "SemanticSearch".to_string()];
         let prompt = "auth";
         let filtered = ToolSelectionState::apply_auto_routing(&tools, prompt);
         assert_eq!(filtered.len(), 2);
         assert!(filtered.contains(&"Grep".to_string()));
-        assert!(filtered.contains(&"semantic_search".to_string()));
+        assert!(filtered.contains(&"SemanticSearch".to_string()));
     }
 
     #[cfg(not(feature = "vector-memory"))]
@@ -334,7 +334,7 @@ pub mod formatters {
 
         fn deferred_tool() -> ToolInfo {
             ToolInfo {
-                name: "lsp_hover".to_string(),
+                name: "LspHover".to_string(),
                 description: "Show hover info".to_string(),
                 parameters_schema: serde_json::json!({"type": "object", "properties": {"file": {"type": "string"}}}),
                 permission: ToolPermission::Read,
@@ -373,7 +373,7 @@ pub mod formatters {
             assert!(result[0]["description"]
                 .as_str()
                 .unwrap()
-                .contains("tool_search"));
+                .contains("ToolSearch"));
         }
 
         #[test]

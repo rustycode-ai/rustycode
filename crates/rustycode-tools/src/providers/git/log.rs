@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 rustycode_tools_api::define_tool! {
     pub struct GitLogTool;
 
-    name: "git_log",
+    name: "GitLog",
     description: "Show recent git commits.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Ops],

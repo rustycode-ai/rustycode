@@ -19,7 +19,7 @@ fn default_language() -> String {
 rustycode_tools_api::define_tool! {
     pub struct LspWorkspaceSymbolsTool;
 
-    name: "lsp_workspace_symbols",
+    name: "LspWorkspaceSymbols",
     description: "Search for symbols across the entire workspace by name. PREFER THIS OVER GREP for finding function, struct, enum, or trait definitions — it returns exact locations with symbol kinds. Use when: you need to find where a type/function is defined, you know the symbol name but not the file. Requires: query (symbol name), language.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore],

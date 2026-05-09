@@ -273,17 +273,17 @@ mod tests {
         assert!(names.contains(&"Read"), "missing read_file");
         assert!(names.contains(&"Write"), "missing write_file");
         assert!(names.contains(&"Edit"), "missing edit_file");
-        assert!(names.contains(&"list_dir"), "missing list_dir");
+        assert!(names.contains(&"ListDir"), "missing list_dir");
         // Search tools
         assert!(names.contains(&"Grep"), "missing grep");
         assert!(names.contains(&"Glob"), "missing glob");
-        assert!(names.contains(&"apply_patch"), "missing apply_patch");
+        assert!(names.contains(&"ApplyPatch"), "missing apply_patch");
         // Bash
         assert!(names.contains(&"Bash"), "missing bash");
         // Git (read-only)
-        assert!(names.contains(&"git_status"), "missing git_status");
-        assert!(names.contains(&"git_diff"), "missing git_diff");
-        assert!(names.contains(&"git_log"), "missing git_log");
+        assert!(names.contains(&"GitStatus"), "missing git_status");
+        assert!(names.contains(&"GitDiff"), "missing git_diff");
+        assert!(names.contains(&"GitLog"), "missing git_log");
         // No interactive tools
         assert!(
             !names.contains(&"question"),
@@ -295,7 +295,7 @@ mod tests {
         );
         // No git commit
         assert!(
-            !names.contains(&"git_commit"),
+            !names.contains(&"GitCommit"),
             "git_commit should not be registered"
         );
     }

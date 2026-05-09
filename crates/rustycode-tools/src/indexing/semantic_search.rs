@@ -777,7 +777,7 @@ fn default_top_k() -> usize {
 rustycode_tools_api::define_tool! {
     pub struct SemanticSearchTool;
 
-    name: "semantic_search",
+    name: "SemanticSearch",
     description: r#"Search code by **intent/meaning** using AI embeddings (not keyword matching).
 
 ## When to use:

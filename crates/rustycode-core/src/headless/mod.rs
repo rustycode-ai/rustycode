@@ -635,7 +635,7 @@ mod tests {
     #[test]
     fn test_is_modifying_detects_write_tools() {
         let is_modifying = |name: &str, json: &str| -> bool {
-            if name == "Write" || name == "Edit" || name == "apply_patch" {
+            if name == "Write" || name == "Edit" || name == "ApplyPatch" {
                 return true;
             }
             if name == "Bash" {
@@ -737,7 +737,7 @@ mod tests {
             "Edit",
             r#"{"path": "main.py", "old": "x", "new": "y"}"#
         ));
-        assert!(is_modifying("apply_patch", r#"{"path": "a.py"}"#));
+        assert!(is_modifying("ApplyPatch", r#"{"path": "a.py"}"#));
         assert!(is_modifying(
             "Bash",
             r#"{"command": "sed -i 's/old/new/g' file.py"}"#

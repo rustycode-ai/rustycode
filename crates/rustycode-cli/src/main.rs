@@ -1252,7 +1252,7 @@ async fn watch_events(
 /// Suggest similar subcommand names when a task looks like it could be a subcommand
 fn suggest_similar_subcommand(task: &str) -> Option<String> {
     const SUBCOMMANDS: &[&str] = &[
-        "doctor",
+        "Doctor",
         "config",
         "context",
         "run",

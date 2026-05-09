@@ -188,7 +188,7 @@ pub(super) fn build_tool_summary_arg(
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
     }
-    if lower.contains("Grep") || lower.contains("search") {
+    if lower.contains("Grep") || lower.contains("Search") {
         return input_json
             .get("pattern")
             .or_else(|| input_json.get("query"))
@@ -204,7 +204,7 @@ pub(super) fn build_tool_summary_arg(
                 )
             });
     }
-    if lower.contains("Glob") || lower.contains("find") || lower.contains("list") {
+    if lower.contains("Glob") || lower.contains("Find") || lower.contains("list") {
         return input_json
             .get("pattern")
             .or_else(|| input_json.get("path"))
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn test_build_tool_summary_search_query() {
         let json = serde_json::json!({"query": "TODO"});
-        let result = build_tool_summary_arg("search", &json);
+        let result = build_tool_summary_arg("Search", &json);
         assert_eq!(result, Some("\"TODO\"".to_string()));
     }
 
@@ -441,7 +441,7 @@ mod tests {
     #[test]
     fn test_build_tool_summary_find_falls_back_to_path() {
         let json = serde_json::json!({"path": "/workspace"});
-        let result = build_tool_summary_arg("find", &json);
+        let result = build_tool_summary_arg("Find", &json);
         assert_eq!(result, Some("/workspace".to_string()));
     }
 }

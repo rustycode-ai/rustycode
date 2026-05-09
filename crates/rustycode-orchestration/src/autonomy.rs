@@ -80,7 +80,7 @@ impl AutonomyLevel {
             "subprocess",
             "Write",
             "Edit",
-            "apply_patch",
+            "ApplyPatch",
             "multi_edit",
         ];
 
@@ -212,21 +212,11 @@ impl OperationType {
     #[must_use]
     pub fn from_tool(tool_name: &str) -> Self {
         match tool_name {
-            "Read"
-            | "list_dir"
-            | "Grep"
-            | "Glob"
-            | "find"
-            | "WebFetch"
-            | "web_search"
-            | "lsp_diagnostics"
-            | "lsp_hover"
-            | "lsp_definition"
-            | "lsp_references"
-            | "lsp_document_symbols"
-            | "todo_read" => Self::Read,
-            "Write" | "Edit" | "text_editor" | "apply_patch" | "multi_edit" | "todo_write"
-            | "todo_update" | "NotebookEdit" => Self::Write,
+            "Read" | "ListDir" | "Grep" | "Glob" | "Find" | "WebFetch" | "WebSearch"
+            | "LspDiagnostics" | "LspHover" | "LspDefinition" | "LspReferences"
+            | "LspDocumentSymbols" | "TodoRead" => Self::Read,
+            "Write" | "Edit" | "text_editor" | "ApplyPatch" | "multi_edit" | "TodoWrite"
+            | "TodoUpdate" | "NotebookEdit" => Self::Write,
             "Bash" | "subprocess" => Self::Execute,
             _ => Self::Unknown,
         }

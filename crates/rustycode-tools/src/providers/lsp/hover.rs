@@ -19,7 +19,7 @@ struct LspHoverParams {
 rustycode_tools_api::define_tool! {
     pub struct LspHoverTool;
 
-    name: "lsp_hover",
+    name: "LspHover",
     description: "Get type information, documentation, and signature at a specific position. Use when: you need to know the type of a variable, the signature of a function, or the docs for a method. Faster than reading the whole file. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],
@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn test_hover_tool_name_and_description() {
         let tool = LspHoverTool;
-        assert_eq!(tool.name(), "lsp_hover");
+        assert_eq!(tool.name(), "LspHover");
     }
 
     #[test]

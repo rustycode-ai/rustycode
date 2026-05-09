@@ -316,15 +316,15 @@ impl ToolCallExtractor {
                 "Read".to_string(),
                 "Write".to_string(),
                 "Edit".to_string(),
-                "list_dir".to_string(),
+                "ListDir".to_string(),
                 "Glob".to_string(),
                 "Grep".to_string(),
-                "git_status".to_string(),
-                "git_diff".to_string(),
-                "git_log".to_string(),
-                "git_commit".to_string(),
+                "GitStatus".to_string(),
+                "GitDiff".to_string(),
+                "GitLog".to_string(),
+                "GitCommit".to_string(),
                 "WebFetch".to_string(),
-                "web_search".to_string(),
+                "WebSearch".to_string(),
                 "run_tests".to_string(),
                 "multi_edit".to_string(),
             ]
@@ -446,33 +446,6 @@ impl ToolCallExtractor {
             .iter()
             .any(|t| t.eq_ignore_ascii_case(name))
     }
-}
-
-/// Sanitize a tool/function name to be API-compatible.
-///
-/// LLMs sometimes generate tool names with characters that are not valid
-/// in function calling APIs (e.g., spaces, `@`, `.`). This replaces
-/// any character that is not alphanumeric, underscore, or hyphen
-/// with an underscore.
-///
-/// Inspired by goose's `sanitize_function_name` in `providers/utils.rs`.
-///
-/// # Example
-///
-/// ```
-/// use rustycode_tools::sanitize_function_name;
-///
-/// assert_eq!(sanitize_function_name("Read"), "Read");
-/// assert_eq!(sanitize_function_name("read file"), "read_file");
-/// assert_eq!(sanitize_function_name("tool@v2"), "tool_v2");
-/// assert_eq!(sanitize_function_name("my.tool"), "my_tool");
-/// ```
-pub fn sanitize_function_name(name: &str) -> String {
-    use regex::Regex;
-
-    static RE: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"[^a-zA-Z0-9_-]").unwrap());
-    RE.replace_all(name, "_").to_string()
 }
 
 /// Check if a tool/function name is valid for API use.
@@ -805,19 +778,6 @@ Then read a file.
         assert_eq!(xml_calls[0].source, ExtractionSource::XmlTag);
         assert!(xml_calls[0].confidence >= json_calls[0].confidence);
         assert!(json_calls[0].confidence >= func_calls[0].confidence);
-    }
-
-    #[test]
-    fn test_sanitize_function_name() {
-        assert_eq!(sanitize_function_name("Read"), "Read");
-        assert_eq!(sanitize_function_name("read file"), "read_file");
-        assert_eq!(sanitize_function_name("tool@v2"), "tool_v2");
-        assert_eq!(sanitize_function_name("my.tool"), "my_tool");
-        assert_eq!(sanitize_function_name("Bash"), "Bash");
-        assert_eq!(
-            sanitize_function_name("has/hyphens-and_underscores"),
-            "has_hyphens-and_underscores"
-        );
     }
 
     #[test]

@@ -443,7 +443,7 @@ impl RecipeRegistry {
                 "Read".to_string(),
                 "Grep".to_string(),
                 "Glob".to_string(),
-                "list_dir".to_string(),
+                "ListDir".to_string(),
             ]
         } else {
             recipe.tools.clone()

@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn persists_sessions_events_and_memory() {
         let storage = Storage::open(&temp_db_path()).unwrap();
-        let session = make_session("inspect");
+        let session = make_session("Inspect");
         storage.insert_session(&session).unwrap();
         storage
             .insert_event(&SessionEvent {

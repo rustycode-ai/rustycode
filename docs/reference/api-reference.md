@@ -329,7 +329,7 @@ use serde_json::json;
 
 let event = ToolExecutedEvent::new(
     SessionId::new(),
-    "read_file".to_string(),
+    "Read".to_string(),
     json!({"path": "Cargo.toml"}),
     true,
     "Content read successfully".to_string(),
@@ -465,7 +465,7 @@ async fn main() -> anyhow::Result<()> {
     let session_id = SessionId::new();
     let call = ToolCall {
         call_id: "call-1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "Cargo.toml"}),
     };
 
@@ -660,145 +660,11 @@ let tools = executor.list();
 // Execute tool
 let call = ToolCall {
     call_id: "call-1".to_string(),
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: serde_json::json!({"path": "Cargo.toml"}),
 };
 
 let result = executor.execute(&call);
-```
-
-### Compile-Time Tool System
-
-#### ToolDispatcher
-
-The compile-time system provides zero-cost abstraction with type safety:
-
-```rust
-use rustycode_tools::compile_time::*;
-use std::path::PathBuf;
-
-// Read file with compile-time type safety
-let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(ReadFileInput {
-    path: PathBuf::from("Cargo.toml"),
-    start_line: None,
-    end_line: None,
-})?;
-
-println!("Read {} bytes from {}", result.bytes, result.path.display());
-
-// This would NOT compile - wrong type!
-// let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(
-//     WriteFileInput { ... }
-// );
-```
-
-#### CompileTimeReadFile
-
-```rust
-use rustycode_tools::compile_time::*;
-use std::path::PathBuf;
-
-// Basic usage
-let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(ReadFileInput {
-    path: PathBuf::from("src/lib.rs"),
-    start_line: None,
-    end_line: None,
-})?;
-
-println!("Content:\n{}", result.content);
-
-// Read specific line range
-let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(ReadFileInput {
-    path: PathBuf::from("src/lib.rs"),
-    start_line: Some(10),
-    end_line: Some(20),
-})?;
-
-println!("Lines 10-20:\n{}", result.content);
-```
-
-#### CompileTimeWriteFile
-
-```rust
-use rustycode_tools::compile_time::*;
-use std::path::PathBuf;
-
-// Write file
-let result = ToolDispatcher::<CompileTimeWriteFile>::dispatch(WriteFileInput {
-    path: PathBuf::from("output.txt"),
-    content: "Hello, World!".to_string(),
-    create_parents: Some(false),
-})?;
-
-println!("Wrote {} bytes", result.bytes_written);
-
-// Write with parent directory creation
-let result = ToolDispatcher::<CompileTimeWriteFile>::dispatch(WriteFileInput {
-    path: PathBuf::from("nested/dir/output.txt"),
-    content: "Hello, World!".to_string(),
-    create_parents: Some(true),
-})?;
-```
-
-#### CompileTimeBash
-
-```rust
-use rustycode_tools::compile_time::*;
-
-// Execute command
-let result = ToolDispatcher::<CompileTimeBash>::dispatch(BashInput {
-    command: "echo".to_string(),
-    args: Some(vec!["Hello".to_string(), "World".to_string()]),
-    working_dir: None,
-    timeout_secs: Some(5),
-})?;
-
-println!("Output: {}", result.stdout);
-println!("Exit code: {}", result.exit_code);
-
-// Execute with timeout
-let result = ToolDispatcher::<CompileTimeBash>::dispatch(BashInput {
-    command: "sleep".to_string(),
-    args: Some(vec!["10".to_string()]),
-    working_dir: None,
-    timeout_secs: Some(1), // Timeout after 1 second
-});
-
-// This will return Err(BashError::Timeout(1))
-```
-
-#### Tool Metadata
-
-```rust
-use rustycode_tools::compile_time::*;
-
-// Access metadata (const-evaluable)
-assert_eq!(CompileTimeReadFile::METADATA.name, "read_file");
-assert_eq!(CompileTimeReadFile::METADATA.permission, ToolPermission::Read);
-
-assert_eq!(CompileTimeWriteFile::METADATA.name, "write_file");
-assert_eq!(CompileTimeWriteFile::METADATA.permission, ToolPermission::Write);
-
-assert_eq!(CompileTimeBash::METADATA.name, "bash");
-assert_eq!(CompileTimeBash::METADATA.permission, ToolPermission::Execute);
-```
-
-### Performance Comparison
-
-The compile-time system is significantly faster:
-
-```rust
-// Compile-time: ~5-10ns per call (monomorphized, inlined)
-// Runtime: ~50-100ns per call (vtable lookup, JSON parsing)
-// Speedup: 5-10x faster
-
-// Benchmark compile-time dispatch
-let start = std::time::Instant::now();
-for _ in 0..100_000 {
-    let _ = ToolDispatcher::<CompileTimeReadFile>::dispatch(input.clone());
-}
-let duration = start.elapsed();
-println!("Compile-time: {:.2} ns/call", duration.as_nanos() / 100_000);
 ```
 
 ### Built-in Tools
@@ -1087,7 +953,7 @@ pub trait Tool: Send + Sync {
 
 #### `name() -> &str`
 
-Unique identifier for the tool (e.g., `"read_file"`, `"bash"`).
+Unique identifier for the tool (e.g., `"Read"`, `"Bash"`).
 
 #### `description() -> &str`
 
@@ -1145,7 +1011,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### ReadFileTool
 
-**Tool Name:** `"read_file"`
+**Tool Name:** `"Read"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1184,7 +1050,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### WriteFileTool
 
-**Tool Name:** `"write_file"`
+**Tool Name:** `"Write"`
 
 **Permission:** `ToolPermission::Write`
 
@@ -1238,7 +1104,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### GrepTool
 
-**Tool Name:** `"grep"`
+**Tool Name:** `"Grep"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1280,7 +1146,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### GlobTool
 
-**Tool Name:** `"glob"`
+**Tool Name:** `"Glob"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1316,7 +1182,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### BashTool
 
-**Tool Name:** `"bash"`
+**Tool Name:** `"Bash"`
 
 **Permission:** `ToolPermission::Execute`
 
@@ -1635,7 +1501,7 @@ registry.register(ReadFileTool);
 let ctx = ToolContext::new(PathBuf::from("/workspace"));
 let call = ToolCall {
     call_id: "1".to_string(),
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({ "path": "src/lib.rs" }),
 };
 
@@ -1749,10 +1615,10 @@ pub struct CacheMetrics {
 ### Cacheable Tools
 
 Only read-only, idempotent tools are cached:
-- `read_file`
+- `Read`
 - `list_dir`
-- `grep`
-- `glob`
+- `Grep`
+- `Glob`
 - `git_status`
 - `git_diff`
 - `git_log`
@@ -1760,7 +1626,7 @@ Only read-only, idempotent tools are cached:
 - `lsp_hover`
 - `lsp_definition`
 - `lsp_completion`
-- `web_fetch`
+- `WebFetch`
 
 ---
 
@@ -1800,11 +1666,11 @@ use rustycode_protocol::SessionMode;
 use rustycode_tools::check_tool_permission;
 
 // In planning mode
-assert!(check_tool_permission("read_file", SessionMode::Planning));
-assert!(!check_tool_permission("bash", SessionMode::Planning));
+assert!(check_tool_permission("Read", SessionMode::Planning));
+assert!(!check_tool_permission("Bash", SessionMode::Planning));
 
 // In executing mode
-assert!(check_tool_permission("bash", SessionMode::Executing));
+assert!(check_tool_permission("Bash", SessionMode::Executing));
 ```
 
 ---

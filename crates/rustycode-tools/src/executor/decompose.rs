@@ -26,7 +26,7 @@ pub struct DecompositionResult {
 rustycode_tools_api::define_tool! {
     pub struct DecomposeProblemTool;
 
-    name: "decompose_problem",
+    name: "DecomposeProblem",
     description: "Decomposes a complex task into smaller, manageable sub-modules.",
     permission: rustycode_tools_api::ToolPermission::None,
 

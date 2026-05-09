@@ -144,6 +144,7 @@ pub mod context;
 // Tool execution types
 pub mod tool;
 pub mod tool_filter;
+pub mod tool_names;
 
 // Message and conversation types
 pub mod message;

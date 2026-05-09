@@ -49,7 +49,7 @@ fn test_simple_description() {
 fn test_tool_name_conversion() {
     assert_eq!(SimpleTool::tool_name(), "simple_tool");
     assert_eq!(FSRead::tool_name(), "fs_read");
-    assert_eq!(AtomicWrite::tool_name(), "atomic_write");
+    assert_eq!(AtomicWrite::tool_name(), "AtomicWrite");
     assert_eq!(MultiWordToolName::tool_name(), "multi_word_tool_name");
     assert_eq!(HTTPServer::tool_name(), "http_server");
     assert_eq!(Tool2Read::tool_name(), "tool2_read");

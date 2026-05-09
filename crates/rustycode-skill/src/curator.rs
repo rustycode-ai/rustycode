@@ -30,7 +30,7 @@ impl CapabilityCurator {
 
     pub fn extract_signals(&self, tool_name: &str, tool_input: &str) -> Vec<String> {
         let mut signals = Vec::new();
-        signals.push(tool_name.to_lowercase());
+        signals.push(tool_name.to_string());
 
         let input_lower = tool_input.to_lowercase();
         for keyword in &[

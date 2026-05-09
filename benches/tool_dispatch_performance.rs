@@ -3,16 +3,16 @@
 
 //! Tool dispatch benchmarks
 //!
-//! Compares runtime vs compile-time tool dispatch performance:
+//! Benchmarks runtime tool dispatch performance:
 //! - Runtime dispatch (dynamic trait objects)
-//! - Compile-time dispatch (monomorphized calls)
 //! - Tool execution overhead
 //! - Parameter validation
+//! - JSON parsing
+//! - Registry operations
 
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
 use rustycode_tools::{
-    BashInput, BashTool, CompileTimeBash, CompileTimeGlob, CompileTimeGrep, CompileTimeReadFile,
-    GlobInput, GrepInput, ReadFileInput, ReadFileTool, Tool, ToolContext, ToolDispatcher,
+    BashInput, BashTool, GlobInput, GrepInput, ReadFileInput, ReadFileTool, Tool, ToolContext,
 };
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -36,66 +36,6 @@ fn bench_runtime_dispatch(c: &mut Criterion) {
         })
     });
 }
-
-/// Benchmark compile-time tool dispatch
-fn bench_compile_time_dispatch(c: &mut Criterion) {
-    let dir = TempDir::new().unwrap();
-    let test_file = dir.path().join("test.txt");
-    std::fs::write(&test_file, "Hello, World!").unwrap();
-
-    let input = ReadFileInput {
-        path: test_file,
-        start_line: None,
-        end_line: None,
-    };
-
-    c.bench_function("compile_time_dispatch", |b| {
-        b.iter(|| {
-            let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(black_box(input.clone()));
-            black_box(result)
-        })
-    });
-}
-
-/// Compare dispatch methods side-by-side
-fn bench_dispatch_comparison(c: &mut Criterion) {
-    let mut group = c.benchmark_group("dispatch_comparison");
-
-    // Setup
-    let dir = TempDir::new().unwrap();
-    let test_file = dir.path().join("test.txt");
-    std::fs::write(&test_file, "Hello, World!").unwrap();
-
-    // Runtime dispatch
-    let tool = ReadFileTool;
-    let ctx = ToolContext::new(dir.path());
-    let params = serde_json::json!({"path": "test.txt"});
-
-    group.bench_function("runtime", |b| {
-        b.iter(|| {
-            let result = tool.execute(black_box(params.clone()), black_box(&ctx));
-            black_box(result)
-        })
-    });
-
-    // Compile-time dispatch
-    let input = ReadFileInput {
-        path: test_file.clone(),
-        start_line: None,
-        end_line: None,
-    };
-
-    group.bench_function("compile_time", |b| {
-        b.iter(|| {
-            let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(black_box(input.clone()));
-            black_box(result)
-        })
-    });
-
-    group.finish();
-}
-
-// Metadata Benchmarks
 
 /// Benchmark tool metadata access
 fn bench_tool_metadata(c: &mut Criterion) {
@@ -150,7 +90,7 @@ fn bench_dispatch_throughput(c: &mut Criterion) {
     let throughput = Throughput::Elements(1000);
 
     // Runtime dispatch throughput
-    group.throughput(throughput.clone());
+    group.throughput(throughput);
     group.bench_function("runtime_1000", |b| {
         let tool = ReadFileTool;
         let ctx = ToolContext::new(dir.path());
@@ -159,24 +99,6 @@ fn bench_dispatch_throughput(c: &mut Criterion) {
         b.iter(|| {
             for _ in 0..1000 {
                 let result = tool.execute(black_box(params.clone()), black_box(&ctx));
-                let _ = black_box(result);
-            }
-        })
-    });
-
-    // Compile-time dispatch throughput
-    group.throughput(throughput);
-    group.bench_function("compile_time_1000", |b| {
-        let input = ReadFileInput {
-            path: test_file.clone(),
-            start_line: None,
-            end_line: None,
-        };
-
-        b.iter(|| {
-            for _ in 0..1000 {
-                let result =
-                    ToolDispatcher::<CompileTimeReadFile>::dispatch(black_box(input.clone()));
                 let _ = black_box(result);
             }
         })
@@ -200,7 +122,7 @@ fn bench_json_parsing(c: &mut Criterion) {
         })
     });
 
-    // Compare with struct construction (compile-time)
+    // Compare with struct construction
     group.bench_function("construct_struct", |b| {
         b.iter(|| {
             let input = ReadFileInput {
@@ -226,17 +148,17 @@ fn bench_grep_tool(c: &mut Criterion) {
     std::fs::write(dir.path().join("test2.txt"), "Hello Again").unwrap();
     std::fs::write(dir.path().join("test3.txt"), "Goodbye").unwrap();
 
-    let runtime_input = GrepInput {
+    let input = GrepInput {
         pattern: "Hello".to_string(),
         path: Some(dir.path().to_path_buf()),
         max_depth: Some(1),
         case_insensitive: Some(false),
     };
 
-    group.bench_function("compile_time_grep", |b| {
+    group.bench_function("runtime_grep", |b| {
         b.iter(|| {
-            let result =
-                ToolDispatcher::<CompileTimeGrep>::dispatch(black_box(runtime_input.clone()));
+            let result = rustycode_tools::GrepTool
+                .execute(black_box(serde_json::to_value(&input).unwrap()), black_box(&ToolContext::new(dir.path())));
             black_box(result)
         })
     });
@@ -253,17 +175,17 @@ fn bench_glob_tool(c: &mut Criterion) {
     std::fs::write(dir.path().join("test2.rs"), "content").unwrap();
     std::fs::write(dir.path().join("test3.txt"), "content").unwrap();
 
-    let runtime_input = GlobInput {
+    let input = GlobInput {
         pattern: "*.rs".to_string(),
         path: Some(dir.path().to_path_buf()),
         max_depth: Some(1),
         case_insensitive: Some(false),
     };
 
-    group.bench_function("compile_time_glob", |b| {
+    group.bench_function("runtime_glob", |b| {
         b.iter(|| {
-            let result =
-                ToolDispatcher::<CompileTimeGlob>::dispatch(black_box(runtime_input.clone()));
+            let result = rustycode_tools::GlobTool
+                .execute(black_box(serde_json::to_value(&input).unwrap()), black_box(&ToolContext::new(dir.path())));
             black_box(result)
         })
     });
@@ -275,49 +197,17 @@ fn bench_glob_tool(c: &mut Criterion) {
 fn bench_bash_tool(c: &mut Criterion) {
     let mut group = c.benchmark_group("bash_tool");
 
-    let runtime_input = BashInput {
+    let input = BashInput {
         command: "echo".to_string(),
         args: Some(vec!["test".to_string()]),
         working_dir: None,
         timeout_secs: Some(5),
     };
 
-    group.bench_function("compile_time_bash", |b| {
+    group.bench_function("runtime_bash", |b| {
         b.iter(|| {
-            let result =
-                ToolDispatcher::<CompileTimeBash>::dispatch(black_box(runtime_input.clone()));
-            black_box(result)
-        })
-    });
-
-    group.finish();
-}
-
-// Zero-Cost Benchmarks
-
-/// Verify dispatcher is zero-cost
-fn bench_zero_cost_dispatcher(c: &mut Criterion) {
-    c.bench_function("dispatcher_size", |b| {
-        b.iter(|| {
-            let size = black_box(std::mem::size_of::<ToolDispatcher<CompileTimeReadFile>>());
-            black_box(size)
-        })
-    });
-}
-
-/// Benchmark compile-time validation
-fn bench_compile_time_validation(c: &mut Criterion) {
-    let mut group = c.benchmark_group("compile_time_validation");
-
-    let valid_input = ReadFileInput {
-        path: PathBuf::from("/etc/hosts"),
-        start_line: None,
-        end_line: None,
-    };
-
-    group.bench_function("validate_valid", |b| {
-        b.iter(|| {
-            let result = ToolDispatcher::<CompileTimeReadFile>::validate(black_box(&valid_input));
+            let result = BashTool
+                .execute(black_box(serde_json::to_value(&input).unwrap()), black_box(&ToolContext::new(std::env::temp_dir())));
             black_box(result)
         })
     });
@@ -370,7 +260,7 @@ fn bench_different_tools(c: &mut Criterion) {
     let dir = TempDir::new().unwrap();
     let ctx = ToolContext::new(dir.path());
 
-    group.bench_function("runtime_read_file", |b| {
+    group.bench_function("runtime_read", |b| {
         let tool = ReadFileTool;
         let test_file = dir.path().join("test.txt");
         std::fs::write(&test_file, "content").unwrap();
@@ -421,8 +311,6 @@ fn bench_registry_operations(c: &mut Criterion) {
 criterion_group!(
     benches,
     bench_runtime_dispatch,
-    bench_compile_time_dispatch,
-    bench_dispatch_comparison,
     bench_tool_metadata,
     bench_permission_check,
     bench_dispatch_throughput,
@@ -430,8 +318,6 @@ criterion_group!(
     bench_grep_tool,
     bench_glob_tool,
     bench_bash_tool,
-    bench_zero_cost_dispatcher,
-    bench_compile_time_validation,
     bench_error_handling,
     bench_different_tools,
     bench_registry_operations,

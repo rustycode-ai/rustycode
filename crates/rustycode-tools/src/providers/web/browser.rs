@@ -35,7 +35,7 @@ fn pool() -> &'static crate::browser_pool::BrowserPool {
 rustycode_tools_api::define_tool! {
     pub struct BrowserFetchTool;
 
-    name: "browser_fetch",
+    name: "BrowserFetch",
     description: "Fetch a URL using headless Chrome (supports JS-rendered pages). Use for SPA content that requires JavaScript.",
     permission: ToolPermission::Network,
     tags: [ToolTag::Explore],

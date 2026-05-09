@@ -118,8 +118,8 @@ pub use crate::executor::{
     task::{SubAgentRunner, TaskTool},
     tool_shim::{
         extract_tool_calls, extract_tool_calls_with_config, format_tools_for_prompt,
-        is_valid_function_name, sanitize_function_name, tool_calls_to_text, ExtractedToolCall,
-        ExtractionSource, ExtractorConfig, ToolCallExtractor,
+        is_valid_function_name, tool_calls_to_text, ExtractedToolCall, ExtractionSource,
+        ExtractorConfig, ToolCallExtractor,
     },
 };
 #[cfg(feature = "vector-memory")]
@@ -222,40 +222,40 @@ pub fn check_tool_permission(tool_name: &str, mode: rustycode_protocol::SessionM
         rustycode_protocol::SessionMode::Planning => {
             matches!(
                 tool_name,
-                "Read"
-                    | "list_dir"
-                    | "Grep"
-                    | "search"
-                    | "Glob"
-                    | "find"
-                    | "inspect"
-                    | "lsp_diagnostics"
-                    | "lsp_hover"
-                    | "lsp_definition"
-                    | "lsp_completion"
-                    | "lsp_document_symbols"
-                    | "lsp_references"
-                    | "lsp_full_diagnostics"
-                    | "lsp_code_actions"
-                    | "lsp_rename"
-                    | "lsp_formatting"
-                    | "lsp_get_symbols_overview"
-                    | "lsp_find_symbol"
-                    | "lsp_replace_symbol_body"
-                    | "lsp_insert_before_symbol"
-                    | "lsp_insert_after_symbol"
-                    | "lsp_safe_delete_symbol"
-                    | "lsp_rename_symbol"
-                    | "lsp_analyze_symbol"
-                    | "lsp_extract_symbol"
-                    | "lsp_inline_symbol"
-                    | "memory_search"
-                    | "memory_list"
-                    | "skill_list"
-                    | "doctor"
-                    | "git_status"
-                    | "git_log"
-                    | "git_diff"
+                rustycode_tools_api::tool_names::READ
+                    | rustycode_tools_api::tool_names::LIST_DIR
+                    | rustycode_tools_api::tool_names::GREP
+                    | "Search"
+                    | rustycode_tools_api::tool_names::GLOB
+                    | rustycode_tools_api::tool_names::FIND
+                    | rustycode_tools_api::tool_names::INSPECT
+                    | rustycode_tools_api::tool_names::LSP_DIAGNOSTICS
+                    | rustycode_tools_api::tool_names::LSP_HOVER
+                    | rustycode_tools_api::tool_names::LSP_DEFINITION
+                    | rustycode_tools_api::tool_names::LSP_COMPLETION
+                    | rustycode_tools_api::tool_names::LSP_DOCUMENT_SYMBOLS
+                    | rustycode_tools_api::tool_names::LSP_REFERENCES
+                    | rustycode_tools_api::tool_names::LSP_FULL_DIAGNOSTICS
+                    | rustycode_tools_api::tool_names::LSP_CODE_ACTIONS
+                    | rustycode_tools_api::tool_names::LSP_RENAME
+                    | rustycode_tools_api::tool_names::LSP_FORMATTING
+                    | rustycode_tools_api::tool_names::LSP_GET_SYMBOLS_OVERVIEW
+                    | rustycode_tools_api::tool_names::LSP_FIND_SYMBOL
+                    | rustycode_tools_api::tool_names::LSP_REPLACE_SYMBOL_BODY
+                    | rustycode_tools_api::tool_names::LSP_INSERT_BEFORE_SYMBOL
+                    | rustycode_tools_api::tool_names::LSP_INSERT_AFTER_SYMBOL
+                    | rustycode_tools_api::tool_names::LSP_SAFE_DELETE_SYMBOL
+                    | rustycode_tools_api::tool_names::LSP_RENAME_SYMBOL
+                    | rustycode_tools_api::tool_names::LSP_ANALYZE_SYMBOL
+                    | rustycode_tools_api::tool_names::LSP_EXTRACT_SYMBOL
+                    | rustycode_tools_api::tool_names::LSP_INLINE_SYMBOL
+                    | "MemorySearch"
+                    | "MemoryList"
+                    | "SkillList"
+                    | "Doctor"
+                    | rustycode_tools_api::tool_names::GIT_STATUS
+                    | rustycode_tools_api::tool_names::GIT_LOG
+                    | rustycode_tools_api::tool_names::GIT_DIFF
             )
         }
         rustycode_protocol::SessionMode::Executing => true,
@@ -598,8 +598,8 @@ mod filtered_registry_tests {
 
         // Complex-schema tools skipped
         assert!(!names.iter().any(|n| n.starts_with("lsp_")));
-        assert!(!names.contains(&"multiedit".to_string()));
-        assert!(!names.contains(&"browser_fetch".to_string()));
+        assert!(!names.contains(&"MultiEdit".to_string()));
+        assert!(!names.contains(&"BrowserFetch".to_string()));
     }
 
     #[test]
@@ -614,10 +614,10 @@ mod filtered_registry_tests {
         let reg = default_registry_filtered(&filter);
         let names = tool_names(&reg);
 
-        assert!(!names.contains(&"git_status".to_string()));
-        assert!(!names.contains(&"git_diff".to_string()));
-        assert!(!names.contains(&"git_log".to_string()));
-        assert!(!names.contains(&"git_commit".to_string()));
+        assert!(!names.contains(&"GitStatus".to_string()));
+        assert!(!names.contains(&"GitDiff".to_string()));
+        assert!(!names.contains(&"GitLog".to_string()));
+        assert!(!names.contains(&"GitCommit".to_string()));
     }
 
     #[test]

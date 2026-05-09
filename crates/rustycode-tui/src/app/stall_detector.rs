@@ -10,8 +10,8 @@ pub const MAX_EXPLORATION_TURNS: usize = 5;
 const CODE_TOOLS: &[&str] = &[
     "Write",
     "Edit",
-    "multiedit",
-    "apply_patch",
+    "MultiEdit",
+    "ApplyPatch",
     "claude_text_editor",
 ];
 
@@ -20,17 +20,17 @@ const READ_ONLY_TOOLS: &[&str] = &[
     "Read",
     "Grep",
     "Glob",
-    "find",
-    "list_directory",
+    "Find",
+    "ListDir",
     "ls",
     "file",
-    "web_search",
+    "WebSearch",
     "WebFetch",
-    "lsp_diagnostics",
-    "lsp_hover",
-    "lsp_definition",
-    "lsp_references",
-    "lsp_document_symbols",
+    "LspDiagnostics",
+    "LspHover",
+    "LspDefinition",
+    "LspReferences",
+    "LspDocumentSymbols",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -424,7 +424,7 @@ mod tests {
         #[cfg(windows)]
         {
             assert!(
-                shell == "powershell" || shell == "cmd",
+                shell == "PowerShell" || shell == "cmd",
                 "expected a Windows shell, got: {}",
                 shell
             );

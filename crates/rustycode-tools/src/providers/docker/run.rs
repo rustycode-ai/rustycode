@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerRunTool;
 
-    name: "docker_run",
+    name: "DockerRun",
     description: r"Run a Docker container
 
 Use this tool to:
@@ -166,7 +166,7 @@ mod tests {
     #[test]
     fn test_docker_run_tool_metadata() {
         let tool = DockerRunTool;
-        assert_eq!(tool.name(), "docker_run");
+        assert_eq!(tool.name(), "DockerRun");
         assert!(tool.description().contains("Run"));
         assert_eq!(tool.permission(), ToolPermission::Execute);
     }

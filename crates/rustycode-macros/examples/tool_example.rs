@@ -74,5 +74,5 @@ fn main() {
     // Demonstrate snake_case conversion
     println!("=== Snake Case Conversion Examples ===");
     println!("ReadFile -> {}", FSRead::tool_name()); // "fs_read"
-    println!("AtomicWrite -> {}", AtomicWrite::tool_name()); // "atomic_write"
+    println!("AtomicWrite -> {}", AtomicWrite::tool_name()); // "AtomicWrite"
 }

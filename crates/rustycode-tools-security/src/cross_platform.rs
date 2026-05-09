@@ -166,7 +166,7 @@ const BASH_ALLOWED_COMMANDS: &[&str] = &[
     "basename",
     "dirname",
     // Search tools
-    "Grep",
+    "grep",
     "rg",
     "ag",
     "ack",
@@ -449,7 +449,7 @@ const CMD_ALLOWED_COMMANDS: &[&str] = &[
     "tasklist",
     "taskkill",
     "wmic",
-    "powershell",
+    "PowerShell",
     "cmd",
     // Network
     "ping",
@@ -498,7 +498,7 @@ mod tests {
         assert_eq!(ShellType::detect("Bash"), ShellType::Bash);
         assert_eq!(ShellType::detect("/bin/bash"), ShellType::Bash);
         assert_eq!(ShellType::detect("zsh"), ShellType::Bash);
-        assert_eq!(ShellType::detect("powershell"), ShellType::PowerShell);
+        assert_eq!(ShellType::detect("PowerShell"), ShellType::PowerShell);
         assert_eq!(
             ShellType::detect("C:\\Windows\\System32\\powershell.exe"),
             ShellType::PowerShell

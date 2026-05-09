@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct ReadMcpResourceTool;
 
-    name: "read_mcp_resource",
+    name: "ReadMcpResource",
     description: r#"Reads a specific resource from an MCP server, identified by server name and resource URI.
 
 Parameters:
@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_read_mcp_resource_metadata() {
         let tool = ReadMcpResourceTool;
-        assert_eq!(tool.name(), "read_mcp_resource");
+        assert_eq!(tool.name(), "ReadMcpResource");
         assert_eq!(tool.permission(), ToolPermission::Read);
     }
 

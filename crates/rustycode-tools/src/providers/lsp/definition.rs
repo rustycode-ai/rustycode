@@ -19,7 +19,7 @@ struct LspDefinitionParams {
 rustycode_tools_api::define_tool! {
     pub struct LspDefinitionTool;
 
-    name: "lsp_definition",
+    name: "LspDefinition",
     description: "Jump to the definition of a function, variable, type, or import at a specific position. PREFER THIS OVER GREP for navigation — gives the exact definition location. Use when: you see a symbol used in code and want to find where it's defined, you need to trace an import to its source. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],
@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn test_definition_tool_name_and_description() {
         let tool = LspDefinitionTool;
-        assert_eq!(tool.name(), "lsp_definition");
+        assert_eq!(tool.name(), "LspDefinition");
     }
 
     #[test]

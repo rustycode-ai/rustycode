@@ -49,7 +49,7 @@ pub fn execute_tool(
     // Parse the parameters JSON with repair fallback
     let arguments: serde_json::Value = parse_tool_parameters(parameters_json);
 
-    if tool_name == "tool_search" {
+    if tool_name == "ToolSearch" {
         let Some(registry) = tool_registry else {
             return "Error: tool_search requires a tool registry".to_string();
         };
@@ -171,7 +171,7 @@ pub fn execute_tool(
     }
 
     // Invalidate cache on write operations
-    if matches!(tool_name, "Write" | "apply_patch" | "Edit") {
+    if matches!(tool_name, "Write" | "ApplyPatch" | "Edit") {
         if let Some(ref path_value) = path_str {
             let file_path = cwd.join(path_value);
             if let Some(cache) = file_read_cache {
@@ -306,7 +306,7 @@ pub fn snapshot_files_for_undo(
     tool_name: &str,
     parameters_json: &str,
 ) -> Option<Vec<(String, String)>> {
-    if !matches!(tool_name, "Write" | "Edit" | "apply_patch") {
+    if !matches!(tool_name, "Write" | "Edit" | "ApplyPatch") {
         return None;
     }
 
@@ -589,7 +589,7 @@ mod tests {
         let registry = Arc::new(registry);
         let output = execute_tool(
             temp.path(),
-            "tool_search",
+            "ToolSearch",
             r#"{"query":"Bash","algorithm":"bm25","limit":5}"#,
             None,
             None,

@@ -14,7 +14,7 @@ pub struct TodoReadParams {}
 rustycode_tools_api::define_tool! {
     pub struct TodoReadTool;
 
-    name: "todo_read",
+    name: "TodoRead",
     description: r#"Read the current todo list.
 
 Returns the full list of uncompleted and completed tasks. Use this tool

@@ -12,7 +12,7 @@ pub struct ToolSearchParams {
 rustycode_tools_api::define_tool! {
     pub struct ToolSearchTool;
 
-    name: "tool_search",
+    name: "ToolSearch",
     description: r#"Fetches full schema definitions for deferred tools so they can be called.
 
 When you see a tool name in the available tools list but don't have its full schema, use this tool to load it. Pass the tool name and get back the complete parameter schema and description."#,
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn test_tool_search_metadata() {
         let tool = ToolSearchTool;
-        assert_eq!(tool.name(), "tool_search");
+        assert_eq!(tool.name(), "ToolSearch");
         assert_eq!(tool.permission(), ToolPermission::None);
     }
 
@@ -131,11 +131,11 @@ mod tests {
     fn test_tool_search_exact_match() {
         let tool = ToolSearchTool;
         let ctx = test_ctx_with_registry();
-        let result = tool.execute(json!({"query": "tool_search"}), &ctx).unwrap();
+        let result = tool.execute(json!({"query": "ToolSearch"}), &ctx).unwrap();
         let data = result.structured.unwrap();
         assert_eq!(data["found"], true);
         assert_eq!(data["match_type"], "exact");
-        assert_eq!(data["name"], "tool_search");
+        assert_eq!(data["name"], "ToolSearch");
     }
 
     #[test]

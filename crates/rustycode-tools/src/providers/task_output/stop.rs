@@ -5,7 +5,7 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct TaskStopTool;
 
-    name: "task_stop",
+    name: "TaskStop",
     description: r#"Stops a running background task by its ID.
 Takes a task_id parameter identifying the task to stop.
 Returns a success or failure status.
@@ -32,7 +32,7 @@ mod tests {
     #[test]
     fn test_task_stop_metadata() {
         let tool = TaskStopTool;
-        assert_eq!(tool.name(), "task_stop");
+        assert_eq!(tool.name(), "TaskStop");
         assert_eq!(tool.permission(), ToolPermission::Execute);
     }
 

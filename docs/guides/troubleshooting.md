@@ -315,12 +315,8 @@ heaptrack target/release/rustycode
 
 **Solutions**:
 
-1. **Use compile-time tools** (5-10x faster):
+1. **Use release builds** for performance-sensitive paths:
 ```rust
-// FAST: Compile-time
-let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(input)?;
-
-// SLOW: Runtime
 let result = tool.execute(params, &ctx)?;
 ```
 
@@ -499,20 +495,23 @@ for _ in 0..4 {
 error[E0277]: the trait bound `WriteFileInput:Into<ReadFileInput>` is not satisfied
 ```
 
-**Solution**: Use correct input types:
+**Solution**: Use correct tool names and parameter types:
 
 ```rust
-// CORRECT
-let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(ReadFileInput {
-    path: PathBuf::from("test.txt"),
-    start_line: None,
-    end_line: None,
-})?;
+// CORRECT: Use the registry with correct tool name
+let call = ToolCall {
+    call_id: "call-1".to_string(),
+    name: "Read".to_string(),
+    arguments: serde_json::json!({"path": "test.txt"}),
+};
+let result = registry.execute(&call, &ctx)?;
 
-// WRONG: Type mismatch
-let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(
-    WriteFileInput { ... }  // Wrong type!
-)?;
+// WRONG: Misspelled tool name
+let call = ToolCall {
+    call_id: "call-2".to_string(),
+    name: "red_fle".to_string(),  // Typo!
+    arguments: serde_json::json!({"path": "test.txt"}),
+};
 ```
 
 ---

@@ -52,7 +52,7 @@ const ALLOWED_COMMANDS: &[&str] = &[
     "basename",
     "dirname",
     // Search tools
-    "Grep",
+    "grep",
     "rg",
     "ag",
     "ack",
@@ -215,7 +215,7 @@ const ALLOWED_COMMANDS: &[&str] = &[
 /// Platform-specific commands allowed in addition to [`ALLOWED_COMMANDS`].
 #[cfg(unix)]
 const PLATFORM_COMMANDS: &[&str] = &[
-    "sed", "awk", "Grep", "find", "curl", "wget", "xargs", "tee", "nohup", "screen", "tmux",
+    "sed", "awk", "grep", "find", "curl", "wget", "xargs", "tee", "nohup", "screen", "tmux",
     "strace", "lsof", "ss", "nc", "socat",
 ];
 

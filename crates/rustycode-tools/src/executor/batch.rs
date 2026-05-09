@@ -68,7 +68,7 @@ rustycode_tools_api::define_tool! {
   "calls": [
     {"tool": "Read", "parameters": {"path": "src/main.rs"}},
     {"tool": "Read", "parameters": {"path": "src/lib.rs"}},
-    {"tool": "lsp_document_symbols", "parameters": {"file_path": "src/main.rs"}}
+    {"tool": "LspDocumentSymbols", "parameters": {"file_path": "src/main.rs"}}
   ]
 }
 ```
@@ -415,7 +415,7 @@ mod tests {
         let result = tool.execute(
             json!({
                 "calls": [
-                    {"tool": "list_dir", "parameters": {"path": "/tmp"}},
+                    {"tool": "ListDir", "parameters": {"path": "/tmp"}},
                     {"tool": "Glob", "parameters": {"pattern": "*.rs"}}
                 ]
             }),

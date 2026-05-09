@@ -382,7 +382,7 @@ mod tests {
 
         let messages = vec![("user".to_string(), "List files".to_string())];
         let tools = vec![(
-            "list_dir".to_string(),
+            "ListDir".to_string(),
             "List directory contents".to_string(),
             serde_json::json!({"properties": {"path": {"type": "string", "description": "Directory path"}}}),
         )];

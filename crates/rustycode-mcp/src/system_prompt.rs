@@ -150,39 +150,33 @@ impl McpPromptGenerator {
         let name = tool.name.to_lowercase();
         let desc = tool.description.to_lowercase();
 
-        if name.contains("read")
-            || name.contains("get")
-            || name.contains("fetch")
+        // Name matching uses segments (split on _, -, :) to avoid false positives
+        // like "thread_reader" matching "read". Description matching uses substrings
+        // since descriptions are free-text prose.
+        if rustycode_protocol::tool_names::has_segment(&name, &["read", "get", "fetch"])
             || desc.contains("read")
             || desc.contains("retrieve")
             || desc.contains("fetch")
         {
             Some("Use when you need to retrieve information or data".to_string())
-        } else if name.contains("write")
-            || name.contains("create")
-            || name.contains("save")
+        } else if rustycode_protocol::tool_names::has_segment(&name, &["write", "create", "save"])
             || desc.contains("write")
             || desc.contains("create")
             || desc.contains("save")
         {
             Some("Use when you need to create or modify data".to_string())
-        } else if name.contains("delete")
-            || name.contains("remove")
+        } else if rustycode_protocol::tool_names::has_segment(&name, &["delete", "remove"])
             || desc.contains("delete")
             || desc.contains("remove")
         {
             Some("Use when you need to delete or remove something".to_string())
-        } else if name.contains("list")
-            || name.contains("search")
-            || name.contains("find")
+        } else if rustycode_protocol::tool_names::has_segment(&name, &["list", "Search", "Find"])
             || desc.contains("list")
-            || desc.contains("search")
-            || desc.contains("find")
+            || desc.contains("Search")
+            || desc.contains("Find")
         {
             Some("Use when you need to find or list items".to_string())
-        } else if name.contains("execute")
-            || name.contains("run")
-            || name.contains("call")
+        } else if rustycode_protocol::tool_names::has_segment(&name, &["execute", "run", "call"])
             || desc.contains("execute")
             || desc.contains("run")
             || desc.contains("invoke")
@@ -629,7 +623,7 @@ mod tests {
         };
         let when = generator.generate_when_to_use(&tool);
         assert!(when.is_some());
-        assert!(when.unwrap().to_lowercase().contains("find"));
+        assert!(when.unwrap().to_lowercase().contains("Find"));
     }
 
     #[test]

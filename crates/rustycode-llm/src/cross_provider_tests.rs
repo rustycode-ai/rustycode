@@ -135,7 +135,7 @@ fn cross_provider_tool_use_block() {
     assert_eq!(ol_msgs.len(), 1);
     assert_eq!(ol_msgs[0].role, "assistant");
     assert!(ol_msgs[0].content.contains("I'll read that file."));
-    assert!(ol_msgs[0].content.contains("[Tool use: read_file]"));
+    assert!(ol_msgs[0].content.contains("[Tool use: Read]"));
 }
 
 // ── 3. ContentBlock::ToolResult ──────────────────────────────────────────────

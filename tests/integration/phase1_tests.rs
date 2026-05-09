@@ -401,7 +401,7 @@ mod event_bus_tests {
 
         bus.publish(ToolExecutedEvent::new(
             session_id.clone(),
-            "read_file".to_string(),
+            "Read".to_string(),
             serde_json::json!({"path": "/test"}),
             true,
             "File contents".to_string(),
@@ -618,137 +618,6 @@ mod runtime_tests {
 
         assert_eq!(recv1.event_type(), "session.started");
         assert_eq!(recv2.event_type(), "session.started");
-    }
-}
-
-// Compile-Time Tool System Tests
-
-#[cfg(test)]
-mod compile_time_tool_tests {
-    use rustycode_tools::{
-        BashInput, CompileTimeBash, CompileTimeReadFile, CompileTimeTool,
-        CompileTimeToolPermission, CompileTimeWriteFile, ReadFileInput, ToolDispatcher,
-        WriteFileInput,
-    };
-    use std::fs;
-    use std::io::Write;
-    use std::path::PathBuf;
-    use tempfile::TempDir;
-
-    fn create_test_file(content: &str) -> (TempDir, PathBuf) {
-        let dir = TempDir::new().unwrap();
-        let file_path = dir.path().join("test.txt");
-        let mut file = fs::File::create(&file_path).unwrap();
-        file.write_all(content.as_bytes()).unwrap();
-        (dir, file_path)
-    }
-
-    #[test]
-    fn test_compile_time_tool_metadata() {
-        assert_eq!(CompileTimeReadFile::METADATA.name, "read_file");
-        assert_eq!(
-            CompileTimeReadFile::METADATA.permission,
-            CompileTimeToolPermission::Read
-        );
-
-        assert_eq!(CompileTimeWriteFile::METADATA.name, "write_file");
-        assert_eq!(
-            CompileTimeWriteFile::METADATA.permission,
-            CompileTimeToolPermission::Write
-        );
-
-        assert_eq!(CompileTimeBash::METADATA.name, "bash");
-        assert_eq!(
-            CompileTimeBash::METADATA.permission,
-            CompileTimeToolPermission::Execute
-        );
-    }
-
-    #[test]
-    fn test_compile_time_read_file() {
-        let (_dir, path) = create_test_file("Hello, World!");
-
-        let input = ReadFileInput {
-            path: path.clone(),
-            start_line: None,
-            end_line: None,
-        };
-
-        let result = ToolDispatcher::<CompileTimeReadFile>::dispatch(input).unwrap();
-
-        assert_eq!(result.content, "Hello, World!");
-        assert_eq!(result.path, path);
-        assert_eq!(result.bytes, 13);
-    }
-
-    #[test]
-    fn test_compile_time_write_file() {
-        let dir = TempDir::new().unwrap();
-        let path = dir.path().join("output.txt");
-
-        let input = WriteFileInput {
-            path: path.clone(),
-            content: "Test content".to_string(),
-            create_parents: Some(false),
-        };
-
-        let result = ToolDispatcher::<CompileTimeWriteFile>::dispatch(input).unwrap();
-
-        assert_eq!(result.path, path);
-        assert_eq!(result.bytes_written, 12);
-
-        let read_content = fs::read_to_string(&path).unwrap();
-        assert_eq!(read_content, "Test content");
-    }
-
-    #[test]
-    fn test_compile_time_bash() {
-        let input = BashInput {
-            command: "echo".to_string(),
-            args: Some(vec!["-n".to_string(), "Hello".to_string()]),
-            working_dir: None,
-            timeout_secs: Some(5),
-        };
-
-        let result = ToolDispatcher::<CompileTimeBash>::dispatch(input).unwrap();
-
-        assert_eq!(result.stdout, "Hello");
-        assert_eq!(result.exit_code, 0);
-    }
-
-    #[test]
-    fn test_type_safety_compile_time() {
-        // This test verifies compile-time type checking
-        // The code below type-checks correctly
-
-        let input = ReadFileInput {
-            path: PathBuf::from("/etc/hosts"),
-            start_line: None,
-            end_line: None,
-        };
-
-        // Correct return type
-        let result: Result<rustycode_tools::ReadFileOutput, rustycode_tools::ReadFileError> =
-            ToolDispatcher::<CompileTimeReadFile>::dispatch(input);
-
-        assert!(result.is_ok() || result.is_err());
-    }
-
-    #[test]
-    fn test_tool_permissions() {
-        // Verify permission levels are correctly defined
-        assert_eq!(
-            CompileTimeReadFile::METADATA.permission,
-            CompileTimeToolPermission::Read
-        );
-        assert_eq!(
-            CompileTimeWriteFile::METADATA.permission,
-            CompileTimeToolPermission::Write
-        );
-        assert_eq!(
-            CompileTimeBash::METADATA.permission,
-            CompileTimeToolPermission::Execute
-        );
     }
 }
 

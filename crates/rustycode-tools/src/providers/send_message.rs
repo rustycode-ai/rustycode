@@ -20,7 +20,7 @@ pub struct SendMessageParams {
 rustycode_tools_api::define_tool! {
     pub struct SendMessageTool;
 
-    name: "send_message",
+    name: "SendMessage",
     description: r#"Send a message to another agent.
 
 ```json
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn test_send_message_metadata() {
         let tool = SendMessageTool;
-        assert_eq!(tool.name(), "send_message");
+        assert_eq!(tool.name(), "SendMessage");
         assert_eq!(tool.permission(), ToolPermission::None);
     }
 

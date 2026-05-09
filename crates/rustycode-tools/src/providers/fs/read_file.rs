@@ -209,38 +209,29 @@ pub struct ReadFileParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pages: Option<String>,
 
-    // Hidden from schema — kept for backward compatibility and RustyCode-specific features
-    /// First line to return, 1-indexed inclusive
+    /// First line to return, 1-indexed inclusive. Use instead of offset for precise line ranges.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub start_line: Option<usize>,
-    /// Last line to return, 1-indexed inclusive
+    /// Last line to return, 1-indexed inclusive. Use with start_line to read a specific range.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub end_line: Option<usize>,
-    /// Regex pattern to filter matching lines
+    /// Regex pattern to filter matching lines (grep-like filtering within the file)
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub pattern: Option<String>,
-    /// Case-insensitive pattern matching
+    /// Case-insensitive pattern matching when using the pattern parameter
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub case_insensitive: Option<bool>,
-    /// Maximum number of pattern matches to return
+    /// Maximum number of pattern matches to return (default: 100)
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub max_matches: Option<usize>,
-    /// Lines to show before/after each pattern match
+    /// Lines of context to show before/after each pattern match
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub context_lines: Option<usize>,
-    /// Return file statistics instead of content
+    /// Return file statistics (line count, comment ratio, complexity) instead of content
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub stats: Option<bool>,
-    /// Read binary files as base64 instead of blocking them
+    /// Force reading binary files as base64 instead of blocking them
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(skip)]
     pub binary: Option<bool>,
 }
 

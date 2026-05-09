@@ -51,9 +51,9 @@ mod tests {
         let executor = build_lsp_tool_executor(PathBuf::from("."));
         let names: Vec<String> = executor.list().into_iter().map(|tool| tool.name).collect();
 
-        assert!(names.contains(&"lsp_hover".to_string()));
-        assert!(names.contains(&"lsp_definition".to_string()));
-        assert!(names.contains(&"lsp_completion".to_string()));
-        assert!(names.contains(&"lsp_diagnostics".to_string()));
+        assert!(names.contains(&"LspHover".to_string()));
+        assert!(names.contains(&"LspDefinition".to_string()));
+        assert!(names.contains(&"LspCompletion".to_string()));
+        assert!(names.contains(&"LspDiagnostics".to_string()));
     }
 }

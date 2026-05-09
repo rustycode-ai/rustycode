@@ -21,7 +21,7 @@ pub fn dispatch_agent_action(
             serde_json::json!({"command": command, "cwd": cwd.unwrap_or_else(|| ".".to_string())}),
         ),
         AgentAction::ListFiles { path } => {
-            ("list_dir".to_string(), serde_json::json!({"path": path}))
+            ("ListDir".to_string(), serde_json::json!({"path": path}))
         }
         AgentAction::Complete { message } => return format!("Task completed: {}", message),
     };

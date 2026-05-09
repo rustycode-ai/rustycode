@@ -286,7 +286,7 @@ mod lib_tests {
     fn test_mcp_error_serialize() {
         let err = McpError::ToolNotFound("Bash".into());
         let json = serde_json::to_value(&err).unwrap();
-        assert_eq!(json, serde_json::json!("Tool not found: bash"));
+        assert_eq!(json, serde_json::json!("Tool not found: Bash"));
     }
 
     #[test]
@@ -310,7 +310,7 @@ mod lib_tests {
         );
         assert_eq!(
             McpError::ToolNotFound("Bash".into()).to_string(),
-            "Tool not found: bash"
+            "Tool not found: Bash"
         );
         assert_eq!(
             McpError::ResourceNotFound("file://x".into()).to_string(),

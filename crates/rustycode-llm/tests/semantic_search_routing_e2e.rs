@@ -82,7 +82,7 @@ fn test_end_to_end_semantic_routing() {
         .collect();
 
     assert!(
-        tool_strings.contains(&"semantic_search".to_string()),
+        tool_strings.contains(&"SemanticSearch".to_string()),
         "semantic_search should be sent for 'how is authentication implemented' query. Got: {:?}",
         tool_strings
     );
@@ -184,14 +184,14 @@ fn test_full_pipeline_semantic() {
     let available_tools = vec![
         "Grep".to_string(),
         "Glob".to_string(),
-        "semantic_search".to_string(),
+        "SemanticSearch".to_string(),
         "Read".to_string(),
     ];
 
     let filtered = ToolSelectionState::apply_auto_routing(&available_tools, query);
     assert_eq!(
         filtered,
-        vec!["semantic_search".to_string()],
+        vec!["SemanticSearch".to_string()],
         "Should filter to only semantic_search for semantic queries"
     );
 }

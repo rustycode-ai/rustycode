@@ -578,7 +578,7 @@ mod tests {
             ),
         };
         let json = serde_json::to_string(&tool).unwrap();
-        assert!(json.contains("\"name\":\"read_file\""));
+        assert!(json.contains("\"name\":\"Read\""));
         assert!(!json.contains("\"function\":{")); // flat, not nested
     }
 
