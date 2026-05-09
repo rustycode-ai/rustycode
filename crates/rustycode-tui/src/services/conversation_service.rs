@@ -283,7 +283,7 @@ Unused Memories (candidates for pruning):
     }
 
     /// Build the system prompt with caching using PromptOrchestrator
-    pub fn build_system_prompt(
+    pub async fn build_system_prompt(
         &mut self,
         _current_model: &str,
         cwd: &Path,
@@ -324,14 +324,16 @@ Unused Memories (candidates for pruning):
 
             // For now, we pass the mode as string and query as empty (since this is
             // the system prompt base), but the orchestration logic is now centralized.
-            let prompt = orchestrator.build_system_prompt(
-                &format!("{:?}", self.ai_mode),
-                task_query,
-                workspace_context,
-                false,
-                false, // TUI doesn't use websocket
-                Some(&config.task_routing),
-            )?;
+            let prompt = orchestrator
+                .build_system_prompt(
+                    &format!("{:?}", self.ai_mode),
+                    task_query,
+                    workspace_context,
+                    false,
+                    false, // TUI doesn't use websocket
+                    Some(&config.task_routing),
+                )
+                .await?;
 
             // Store with cache key marker
             self.cached_system_prompt = format!("{}\n{}", prompt, cache_key);
@@ -1540,8 +1542,8 @@ mod tests {
         assert!(instruction.contains("YOLO (Fully Autonomous)"));
     }
 
-    #[test]
-    fn test_build_system_prompt_caching() {
+    #[tokio::test]
+    async fn test_build_system_prompt_caching() {
         let config = ConversationConfig::default();
         let tool_registry = rustycode_tools::default_registry();
         let mut service = ConversationService::new(config, Arc::new(tool_registry));
@@ -1553,12 +1555,14 @@ mod tests {
         // First call should build the prompt
         let prompt1 = service
             .build_system_prompt("claude-sonnet", &cwd, workspace_context, &memory_entries)
+            .await
             .expect("Failed to build system prompt");
         assert!(!prompt1.is_empty());
 
         // Second call with same parameters should use cache
         let prompt2 = service
             .build_system_prompt("claude-sonnet", &cwd, workspace_context, &memory_entries)
+            .await
             .expect("Failed to build system prompt (cached)");
         assert_eq!(prompt1, prompt2);
 
@@ -1566,6 +1570,7 @@ mod tests {
         service.set_ai_mode(AiMode::Yolo);
         let prompt3 = service
             .build_system_prompt("claude-sonnet", &cwd, workspace_context, &memory_entries)
+            .await
             .expect("Failed to build system prompt (yolo mode)");
         // Mode change triggers cache rebuild — verify prompt is non-empty
         // (The prompt text may not differ between modes if PromptOrchestrator

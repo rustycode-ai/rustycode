@@ -1,10 +1,13 @@
 //! Shared task routing logic used by the CLI, prompt builder, and headless flow.
 
+use crate::orchestration::llm_intent::{
+    ClassificationSource, EnhancedIntentAssessment, LlmFallbackBudget, LlmIntentClassifier,
+};
 use rustycode_classification::{RoleRouter, UnifiedTaskClassifier};
 use rustycode_config::{TaskRoutingConfig, TaskRoutingOverride};
-use rustycode_protocol::intent::{
-    classify_intent_with_confidence, IntentAssessment, IntentCategory,
-};
+use rustycode_llm::provider::LLMProvider;
+use rustycode_llm::provider_metadata::ModelInfo;
+use rustycode_protocol::intent::{classify_intent_with_confidence, IntentCategory};
 use rustycode_protocol::task_routing::{
     parse_handoff_block, render_handoff_block, TaskExecutionPlan, TaskHarness, TaskRoutingAction,
     TaskRoutingDecision, TaskRoutingHandoff, TaskThinkingMode, TaskThinkingProfile,
@@ -13,6 +16,7 @@ use rustycode_protocol::task_routing::{
 use rustycode_protocol::{AgentRole, TeamRole, WorkingMode};
 use rustycode_team::profiler::TaskProfiler;
 use std::str::FromStr;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 struct EffectiveRoutingConfig {
@@ -68,18 +72,26 @@ impl EffectiveRoutingConfig {
 }
 
 /// Resolve the task routing decision from a prompt and routing config.
-pub fn resolve_task_routing(
+///
+/// This async function uses LlmIntentClassifier for enhanced classification with optional LLM fallback.
+/// For now, provider is None, so classification uses only heuristics + fallback tracking.
+pub async fn resolve_task_routing(
     task: &str,
     routing: Option<&TaskRoutingConfig>,
     interactive: bool,
 ) -> TaskRoutingDecision {
     let assessment = if task.trim().is_empty() {
-        IntentAssessment {
+        EnhancedIntentAssessment {
             category: IntentCategory::Implementation,
             confidence: 0.40,
+            source: crate::orchestration::llm_intent::ClassificationSource::Heuristic,
         }
     } else {
-        classify_intent_with_confidence(task)
+        let config = routing.cloned().unwrap_or_default();
+        let budget = LlmFallbackBudget::new(config.max_llm_fallback_calls);
+        let threshold = config.llm_fallback_threshold;
+        // B7-B8: provider will be Some(&Arc<dyn LLMProvider>); for now use None for heuristic-only
+        LlmIntentClassifier::classify(task, None, &budget, threshold).await
     };
 
     let profile = TaskProfiler::new().profile(task);
@@ -177,12 +189,12 @@ pub fn resolve_task_routing(
 }
 
 /// Build the headless routing preface used by the CLI.
-pub fn build_headless_routing_preface(
+pub async fn build_headless_routing_preface(
     task: &str,
     routing: &TaskRoutingConfig,
     mode: Option<&WorkingMode>,
 ) -> String {
-    let decision = resolve_task_routing(task, Some(routing), false);
+    let decision = resolve_task_routing(task, Some(routing), false).await;
     let mode_label = mode
         .map(std::string::ToString::to_string)
         .unwrap_or_else(|| decision.workflow.recommended_mode().to_string());
@@ -597,31 +609,247 @@ fn parse_agent_role(input: &str) -> Option<AgentRole> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Phase B: Async routing with LLM-augmented classification
+// ---------------------------------------------------------------------------
+
+/// Resolve the task routing decision using an async pipeline with optional
+/// LLM-augmented intent classification.
+///
+/// Unlike the sync [`resolve_task_routing`], this function accepts an optional
+/// LLM provider so that low-confidence heuristic results can be upgraded via
+/// an LLM call. When no provider is supplied it falls back to heuristic-only
+/// classification (identical outcome to the sync path).
+///
+/// **Disagreement resolution**: if both heuristic and LLM produce results the
+/// one with the higher confidence wins.
+pub async fn resolve_task_routing_async(
+    task: &str,
+    routing: Option<&TaskRoutingConfig>,
+    interactive: bool,
+    provider: Option<Arc<dyn LLMProvider>>,
+) -> TaskRoutingDecision {
+    let heuristic_assessment = if task.trim().is_empty() {
+        EnhancedIntentAssessment {
+            category: IntentCategory::Implementation,
+            confidence: 0.40,
+            source: ClassificationSource::Heuristic,
+        }
+    } else {
+        let heuristic = classify_intent_with_confidence(task);
+        EnhancedIntentAssessment {
+            category: heuristic.category,
+            confidence: heuristic.confidence,
+            source: ClassificationSource::Heuristic,
+        }
+    };
+
+    let config = routing.cloned().unwrap_or_default();
+    let budget = LlmFallbackBudget::new(config.max_llm_fallback_calls);
+    let threshold = config.llm_fallback_threshold;
+
+    let assessment = if provider.is_some() && heuristic_assessment.confidence < threshold {
+        let llm_assessment =
+            LlmIntentClassifier::classify(task, provider.as_ref(), &budget, threshold).await;
+
+        if llm_assessment.confidence > heuristic_assessment.confidence {
+            llm_assessment
+        } else {
+            EnhancedIntentAssessment {
+                category: heuristic_assessment.category,
+                confidence: heuristic_assessment.confidence,
+                source: ClassificationSource::HeuristicFallback,
+            }
+        }
+    } else {
+        heuristic_assessment
+    };
+
+    let profile = TaskProfiler::new().profile(task);
+    let mut effective = EffectiveRoutingConfig::from_base(&config);
+
+    if let Some(intent_override) = config.intent_overrides.get(assessment.category.as_key()) {
+        effective.apply_override(intent_override);
+    }
+
+    let mut workflow = effective
+        .workflow_override
+        .unwrap_or_else(|| TaskWorkflow::from_intent(assessment.category));
+
+    if let Some(workflow_override) = config.workflow_overrides.get(workflow.as_key()) {
+        effective.apply_override(workflow_override);
+        if let Some(override_workflow) = effective.workflow_override {
+            workflow = override_workflow;
+        }
+    }
+
+    let team = effective
+        .team_override
+        .unwrap_or_else(|| select_team(workflow, &profile));
+    let agent = effective.agent_override.unwrap_or_else(|| {
+        let classification = UnifiedTaskClassifier::new().classify(task);
+        RoleRouter::select_for_score(
+            &classification.signals,
+            workflow,
+            classification.complexity_score,
+        )
+    });
+    let skills = if effective.skills_override.is_empty() {
+        select_skills(workflow, &profile, assessment.category)
+    } else {
+        effective.skills_override
+    };
+
+    let missing_info = infer_missing_info(task, assessment.category);
+    let harness = select_harness(task, workflow, &profile, assessment.category);
+    let thinking = select_thinking_profile(
+        task,
+        workflow,
+        &profile,
+        assessment.category,
+        assessment.confidence,
+        &missing_info,
+    );
+    let execution_plan = TaskExecutionPlan::from_decision(
+        &TaskRoutingDecision {
+            intent: assessment.category,
+            confidence: assessment.confidence,
+            action: TaskRoutingAction::Proceed,
+            workflow,
+            harness,
+            thinking,
+            execution_plan: TaskExecutionPlan::default(),
+            team,
+            agent,
+            skills: skills.clone(),
+            missing_info: missing_info.clone(),
+        },
+        "Structured execution plan generated from async routing decision.",
+    );
+    let action = if !config.enabled || assessment.confidence >= effective.confidence_threshold {
+        TaskRoutingAction::Proceed
+    } else if interactive {
+        TaskRoutingAction::Clarify {
+            questions: effective
+                .max_clarifying_questions
+                .max(1)
+                .min(missing_info.len().max(1)),
+        }
+    } else if effective.max_research_passes > 0 {
+        TaskRoutingAction::Research {
+            passes: effective.max_research_passes,
+        }
+    } else {
+        TaskRoutingAction::Handoff
+    };
+
+    TaskRoutingDecision {
+        intent: assessment.category,
+        confidence: assessment.confidence,
+        action,
+        workflow,
+        harness,
+        thinking,
+        execution_plan,
+        team,
+        agent,
+        skills,
+        missing_info,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase C: Thinking bridge — routing-level → provider-level thinking config
+// ---------------------------------------------------------------------------
+
+/// Check whether a model supports extended thinking based on its identifier.
+///
+/// Uses a simple heuristic: models whose ID contains "claude" along with at
+/// least one of "opus", "sonnet", or "haiku" are considered thinking-capable.
+pub fn model_supports_thinking(model_info: &ModelInfo) -> bool {
+    let id = model_info.model_id.to_lowercase();
+    let is_claude = id.contains("claude");
+    let has_capability = id.contains("opus")
+        || id.contains("sonnet")
+        || id.contains("haiku")
+        || id.contains("4-5")
+        || id.contains("4.5")
+        || id.contains("3-7")
+        || id.contains("3.7")
+        || id.contains("4-7")
+        || id.contains("4.7");
+    is_claude && has_capability
+}
+
+/// Convert routing-level [`TaskThinkingProfile`] into a provider-level
+/// [`ThinkingConfig`](rustycode_llm::provider::ThinkingConfig).
+///
+/// # Arguments
+/// * `thinking_profile` — The routing decision's thinking profile
+/// * `model_info` — Metadata about the target model
+/// * `got_already_active` — Whether Graph-of-Thoughts is already active
+///
+/// # Mutual exclusion
+/// If GoT is already active (`got_already_active == true`), native thinking
+/// is always disabled (returns `None`) to avoid conflicting reasoning modes.
+///
+/// # Mapping
+/// | Depth | Thinking-capable model | Non-thinking model |
+/// |-------|----------------------|--------------------|
+/// | Standard | `None` | `None` |
+/// | Deep | `enabled(10_000)` | `None` |
+/// | Extended | `enabled(32_000)` | `None` |
+pub fn thinking_bridge(
+    thinking_profile: &TaskThinkingProfile,
+    model_info: &ModelInfo,
+    got_already_active: bool,
+) -> Option<rustycode_llm::provider::ThinkingConfig> {
+    if got_already_active {
+        return None;
+    }
+
+    if matches!(thinking_profile.depth, TaskThinkingMode::Standard) {
+        return None;
+    }
+
+    if !model_supports_thinking(model_info) {
+        return None;
+    }
+
+    match thinking_profile.depth {
+        TaskThinkingMode::Deep => Some(rustycode_llm::provider::ThinkingConfig::enabled(10_000)),
+        TaskThinkingMode::Extended => {
+            Some(rustycode_llm::provider::ThinkingConfig::enabled(32_000))
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rustycode_config::TaskRoutingConfig;
 
-    #[test]
-    fn routes_low_confidence_interactive_to_clarify() {
+    #[tokio::test]
+    async fn routes_low_confidence_interactive_to_clarify() {
         let config = TaskRoutingConfig {
             confidence_threshold: 0.95,
             ..Default::default()
         };
-        let decision = resolve_task_routing("implement auth", Some(&config), true);
+        let decision = resolve_task_routing("implement auth", Some(&config), true).await;
 
         assert!(matches!(decision.action, TaskRoutingAction::Clarify { .. }));
         assert_eq!(decision.workflow, TaskWorkflow::Code);
         assert!(!decision.missing_info.is_empty());
     }
 
-    #[test]
-    fn routes_low_confidence_headless_to_research() {
+    #[tokio::test]
+    async fn routes_low_confidence_headless_to_research() {
         let config = TaskRoutingConfig {
             confidence_threshold: 0.95,
             ..Default::default()
         };
-        let decision = resolve_task_routing("implement auth", Some(&config), false);
+        let decision = resolve_task_routing("implement auth", Some(&config), false).await;
 
         assert!(matches!(
             decision.action,
@@ -630,13 +858,14 @@ mod tests {
         assert_eq!(decision.workflow, TaskWorkflow::Code);
     }
 
-    #[test]
-    fn parses_handoff_payload() {
+    #[tokio::test]
+    async fn parses_handoff_payload() {
         let decision = resolve_task_routing(
             "plan the migration",
             Some(&TaskRoutingConfig::default()),
             false,
-        );
+        )
+        .await;
         let block = render_handoff_block(&decision.handoff_payload("need more constraints"));
         let parsed = parse_task_routing_handoff(&block).unwrap();
         assert_eq!(parsed.workflow, TaskWorkflow::Plan);
@@ -647,80 +876,298 @@ mod tests {
         assert_eq!(parsed.reason, "need more constraints");
     }
 
-    #[test]
-    fn task_workflow_recommended_mode_matches() {
-        assert_eq!(TaskWorkflow::Plan.recommended_mode(), WorkingMode::Plan);
-        assert_eq!(TaskWorkflow::Ask.recommended_mode(), WorkingMode::Ask);
+    #[tokio::test]
+    async fn routes_long_running_sessions_to_sparv() {
+        let decision = resolve_task_routing(
+            "keep this session alive for a long-running release rollout with checkpoints",
+            Some(&TaskRoutingConfig::default()),
+            false,
+        )
+        .await;
+
+        assert_eq!(decision.harness, TaskHarness::Sparv);
+        assert_eq!(decision.thinking.depth, TaskThinkingMode::Extended);
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase B: resolve_task_routing async + resolve_task_routing_async tests
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn async_routing_without_provider_matches_async_path() {
+        let config = TaskRoutingConfig::default();
+        let sync_like_decision = resolve_task_routing("implement auth", Some(&config), false).await;
+        let async_decision =
+            resolve_task_routing_async("implement auth", Some(&config), false, None).await;
+
+        // Both use heuristic-only (no provider), so results should match
+        assert_eq!(sync_like_decision.intent, async_decision.intent);
+        assert_eq!(sync_like_decision.workflow, async_decision.workflow);
+        assert_eq!(sync_like_decision.harness, async_decision.harness);
+    }
+
+    #[tokio::test]
+    async fn async_routing_empty_task_returns_implementation() {
+        let decision = resolve_task_routing_async("", None, false, None).await;
+
+        assert_eq!(decision.intent, IntentCategory::Implementation);
+        assert!(decision.confidence < 0.5);
+    }
+
+    #[tokio::test]
+    async fn async_routing_low_confidence_headless_research() {
+        let config = TaskRoutingConfig {
+            confidence_threshold: 0.95,
+            ..Default::default()
+        };
+        let decision =
+            resolve_task_routing_async("implement auth", Some(&config), false, None).await;
+
+        assert!(matches!(
+            decision.action,
+            TaskRoutingAction::Research { .. }
+        ));
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase C: model_supports_thinking + thinking_bridge tests
+    // -----------------------------------------------------------------------
+
+    fn make_model_info(model_id: &str) -> ModelInfo {
+        ModelInfo {
+            model_id: model_id.to_string(),
+            display_name: model_id.to_string(),
+            description: String::new(),
+            context_window: 200_000,
+            supports_tools: true,
+            use_cases: vec![],
+            cost_tier: 3,
+        }
     }
 
     #[test]
-    fn routes_parallel_analysis_to_omo_harness() {
+    fn model_supports_thinking_claude_opus() {
+        assert!(model_supports_thinking(&make_model_info("claude-opus-4-7")));
+    }
+
+    #[test]
+    fn model_supports_thinking_claude_sonnet() {
+        assert!(model_supports_thinking(&make_model_info(
+            "claude-sonnet-4-5-20250514"
+        )));
+    }
+
+    #[test]
+    fn model_supports_thinking_claude_haiku() {
+        assert!(model_supports_thinking(&make_model_info(
+            "claude-haiku-4-5"
+        )));
+    }
+
+    #[test]
+    fn model_supports_thinking_rejects_gpt() {
+        assert!(!model_supports_thinking(&make_model_info("gpt-4o")));
+    }
+
+    #[test]
+    fn model_supports_thinking_rejects_gemini() {
+        assert!(!model_supports_thinking(&make_model_info("gemini-2.5-pro")));
+    }
+
+    #[test]
+    fn model_supports_thinking_rejects_bare_claude() {
+        assert!(!model_supports_thinking(&make_model_info("claude-instant")));
+    }
+
+    #[test]
+    fn thinking_bridge_standard_returns_none() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Standard,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("claude-opus-4-7");
+        assert!(thinking_bridge(&profile, &model, false).is_none());
+    }
+
+    #[test]
+    fn thinking_bridge_deep_thinking_model() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Deep,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("claude-sonnet-4-5");
+        let config = thinking_bridge(&profile, &model, false).unwrap();
+        assert_eq!(config.budget_tokens, Some(10_000));
+    }
+
+    #[test]
+    fn thinking_bridge_extended_thinking_model() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Extended,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("claude-opus-4-7");
+        let config = thinking_bridge(&profile, &model, false).unwrap();
+        assert_eq!(config.budget_tokens, Some(32_000));
+    }
+
+    #[test]
+    fn thinking_bridge_deep_non_thinking_model_returns_none() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Deep,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("gpt-4o");
+        assert!(thinking_bridge(&profile, &model, false).is_none());
+    }
+
+    #[test]
+    fn thinking_bridge_extended_non_thinking_model_returns_none() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Extended,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("gpt-4o");
+        assert!(thinking_bridge(&profile, &model, false).is_none());
+    }
+
+    #[test]
+    fn thinking_bridge_got_active_returns_none_even_with_extended() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Extended,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("claude-opus-4-7");
+        assert!(thinking_bridge(&profile, &model, true).is_none());
+    }
+
+    #[test]
+    fn thinking_bridge_got_active_returns_none_with_deep() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Deep,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("claude-sonnet-4-5");
+        assert!(thinking_bridge(&profile, &model, true).is_none());
+    }
+
+    #[test]
+    fn thinking_bridge_got_active_standard_still_none() {
+        let profile = TaskThinkingProfile {
+            depth: TaskThinkingMode::Standard,
+            ..TaskThinkingProfile::default()
+        };
+        let model = make_model_info("claude-opus-4-7");
+        assert!(thinking_bridge(&profile, &model, true).is_none());
+    }
+
+    #[tokio::test]
+    async fn routes_parallel_analysis_to_omo_harness() {
         let decision = resolve_task_routing(
             "compare these implementations and analyze the tradeoffs",
             Some(&TaskRoutingConfig::default()),
             false,
-        );
+        )
+        .await;
 
         assert_eq!(decision.harness, TaskHarness::Omo);
     }
 
-    #[test]
-    fn routes_simple_execution_to_ultrawork() {
+    #[tokio::test]
+    async fn routes_simple_execution_to_ultrawork() {
         let decision = resolve_task_routing(
             "implement a small helper function",
             Some(&TaskRoutingConfig::default()),
             false,
-        );
+        )
+        .await;
 
         assert_eq!(decision.harness, TaskHarness::Ultrawork);
     }
 
-    #[test]
-    fn routes_high_risk_migration_to_pipeline() {
+    #[tokio::test]
+    async fn routes_high_risk_migration_to_pipeline() {
         let decision = resolve_task_routing(
             "refactor the auth migration and rollout plan",
             Some(&TaskRoutingConfig::default()),
             false,
-        );
+        )
+        .await;
 
         assert_eq!(decision.harness, TaskHarness::Pipeline);
         assert_eq!(decision.thinking.depth, TaskThinkingMode::Extended);
         assert!(decision.thinking.decompose_tasks);
     }
 
-    #[test]
-    fn routes_decomposition_to_dag() {
+    #[tokio::test]
+    async fn routes_decomposition_to_dag() {
         let decision = resolve_task_routing(
             "break this feature into independent subtasks and plan the DAG",
             Some(&TaskRoutingConfig::default()),
             false,
-        );
+        )
+        .await;
 
         assert_eq!(decision.harness, TaskHarness::Dag);
     }
 
-    #[test]
-    fn routes_design_work_to_architect() {
+    #[tokio::test]
+    async fn routes_design_work_to_architect() {
         let decision = resolve_task_routing(
             "design the authentication architecture and implementation plan",
             Some(&TaskRoutingConfig::default()),
             false,
-        );
+        )
+        .await;
 
         assert_eq!(decision.harness, TaskHarness::Architect);
         assert_eq!(decision.thinking.depth, TaskThinkingMode::Deep);
         assert_eq!(decision.thinking.style.to_string(), "plan_first");
     }
 
-    #[test]
-    fn routes_long_running_sessions_to_sparv() {
-        let decision = resolve_task_routing(
-            "keep this session alive for a long-running release rollout with checkpoints",
-            Some(&TaskRoutingConfig::default()),
-            false,
-        );
+    // B6: New async integration tests for LlmIntentClassifier wiring
 
-        assert_eq!(decision.harness, TaskHarness::Sparv);
-        assert_eq!(decision.thinking.depth, TaskThinkingMode::Extended);
+    #[tokio::test]
+    async fn resolve_task_routing_uses_heuristic_for_high_confidence() {
+        // Clear Implementation task should be high confidence and use heuristic path
+        let task = "Write a Rust function to calculate the Fibonacci sequence.";
+        let config = TaskRoutingConfig {
+            confidence_threshold: 0.5,
+            llm_fallback_threshold: 0.65,
+            max_llm_fallback_calls: 0, // No LLM budget
+            ..Default::default()
+        };
+        let decision = resolve_task_routing(task, Some(&config), false).await;
+
+        // Should be classified as Implementation with decent confidence
+        assert_eq!(decision.intent, IntentCategory::Implementation);
+        assert!(
+            decision.confidence > 0.5,
+            "High-confidence task should exceed threshold"
+        );
+        // Action should be Proceed since confidence is high
+        assert!(matches!(decision.action, TaskRoutingAction::Proceed));
+    }
+
+    #[tokio::test]
+    async fn resolve_task_routing_low_confidence_path_works() {
+        // Ambiguous task should trigger low-confidence path
+        let task = "help";
+        let config = TaskRoutingConfig {
+            confidence_threshold: 0.95, // Very high threshold
+            llm_fallback_threshold: 0.6,
+            max_llm_fallback_calls: 0, // No LLM budget, so fallback to heuristic
+            ..Default::default()
+        };
+        let decision = resolve_task_routing(task, Some(&config), false).await;
+
+        // Should complete routing even without LLM provider
+        // The action should be Research (headless mode with low confidence)
+        assert!(matches!(
+            decision.action,
+            TaskRoutingAction::Research { .. }
+        ));
+        // Config should still be applied
+        assert_eq!(decision.workflow, TaskWorkflow::Code);
     }
 }

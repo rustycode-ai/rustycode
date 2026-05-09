@@ -26,7 +26,7 @@ impl PromptOrchestrator {
     }
 
     /// Build the full system prompt for the given mode and context.
-    pub fn build_system_prompt(
+    pub async fn build_system_prompt(
         &self,
         mode: &str,
         query: &str,
@@ -36,7 +36,7 @@ impl PromptOrchestrator {
         routing: Option<&TaskRoutingConfig>,
     ) -> Result<String> {
         let routing = routing.cloned().unwrap_or_default();
-        let decision = resolve_task_routing(query, Some(&routing), !is_headless);
+        let decision = resolve_task_routing(query, Some(&routing), !is_headless).await;
 
         // 2. Base Coding Assistant Prompt
         let base_context = context! {
@@ -146,8 +146,8 @@ impl PromptOrchestrator {
 mod tests {
     use super::*;
 
-    #[test]
-    fn interactive_prompt_includes_routing_guidance() {
+    #[tokio::test]
+    async fn interactive_prompt_includes_routing_guidance() {
         let orchestrator = PromptOrchestrator::new();
         let prompt = orchestrator
             .build_system_prompt(
@@ -158,6 +158,7 @@ mod tests {
                 false,
                 Some(&TaskRoutingConfig::default()),
             )
+            .await
             .expect("prompt should render");
 
         assert!(prompt.contains("Task Routing"));
@@ -168,8 +169,8 @@ mod tests {
         assert!(prompt.contains("Intent Guidance"));
     }
 
-    #[test]
-    fn headless_prompt_includes_handoff_guidance() {
+    #[tokio::test]
+    async fn headless_prompt_includes_handoff_guidance() {
         let orchestrator = PromptOrchestrator::new();
         let prompt = orchestrator
             .build_system_prompt(
@@ -180,6 +181,7 @@ mod tests {
                 false,
                 Some(&TaskRoutingConfig::default()),
             )
+            .await
             .expect("prompt should render");
 
         assert!(prompt.contains("ROUTING DISCIPLINE"));
