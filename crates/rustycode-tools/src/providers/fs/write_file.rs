@@ -188,13 +188,13 @@ rustycode_tools_api::define_tool! {
 
         crate::check_sandbox_path(&path, ctx)?;
 
-        if super::fs::is_blocked_extension(&path) {
+        if super::is_blocked_extension(&path) {
             return Err(anyhow::anyhow!(
                 "File extension is blocked for writing: {}",
                 path.extension().unwrap_or_default().to_string_lossy()
             ));
         }
-        if super::fs::is_blocked_filename(&path) {
+        if super::is_blocked_filename(&path) {
             return Err(anyhow::anyhow!(
                 "File is blocked for writing: {}",
                 path.file_name().unwrap_or_default().to_string_lossy()
@@ -345,7 +345,7 @@ rustycode_tools_api::define_tool! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::providers::list_dir::ListDirTool;
+    use crate::providers::fs::list_dir::ListDirTool;
     use crate::{Tool, ToolContext};
     use std::os::unix::fs::symlink as symlink_file;
     use tempfile::tempdir;

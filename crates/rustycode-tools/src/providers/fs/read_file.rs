@@ -258,13 +258,13 @@ rustycode_tools_api::define_tool! {
         let path = validate_read_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
         crate::check_sandbox_path(&path, ctx)?;
 
-        if super::fs::is_blocked_extension(&path) {
+        if super::is_blocked_extension(&path) {
             return Ok(ToolOutput::text(format!(
                 "[Blocked] File extension is not allowed for security reasons: {}",
                 path.extension().unwrap_or_default().to_string_lossy()
             )));
         }
-        if super::fs::is_blocked_filename(&path) {
+        if super::is_blocked_filename(&path) {
             return Ok(ToolOutput::text(format!(
                 "[Blocked] File is not allowed for security reasons: {}",
                 path.file_name().unwrap_or_default().to_string_lossy()
@@ -360,7 +360,7 @@ rustycode_tools_api::define_tool! {
             }
 
             let total_bytes = bytes.len();
-            let preview = truncate_bytes_to_boundary(&bytes, super::fs::WEB_FETCH_MAX_CHARS);
+            let preview = truncate_bytes_to_boundary(&bytes, super::super::web::content::WEB_FETCH_MAX_CHARS);
             let encoded = STANDARD.encode(preview);
             return Ok(ToolOutput::with_structured(
                 encoded,

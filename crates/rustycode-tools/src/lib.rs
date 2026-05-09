@@ -88,8 +88,9 @@
 // import them as `crate::Tool`, `crate::ToolContext`, etc.
 use rustycode_protocol::{AgentRole, ToolCall, ToolResult};
 pub use rustycode_tools_api::{
-    CancellationToken, FileReadState, MessageSender, Tool, ToolContext, ToolGate, ToolInfo,
-    ToolOutput, ToolPermission, ToolProfile, ToolRegistry, ToolSelector, ToolTag,
+    CancellationToken, FileReadState, MessageSender, PlatformEnv, ProviderCaps, RuntimeEnv, Tool,
+    ToolContext, ToolFilter, ToolGate, ToolInfo, ToolOutput, ToolPermission, ToolProfile,
+    ToolRegistry, ToolSelector, ToolTag,
 };
 
 // Modules
@@ -432,19 +433,30 @@ impl rustycode_tool_integration::tool_executor::ToolExecutorApi for ToolExecutor
 /// Includes all built-in tools except those requiring runtime state (todo, semantic search, agent).
 /// Stateful tools must be registered separately by the caller.
 pub fn default_registry() -> ToolRegistry {
-    use crate::providers::apply_patch::ApplyPatchTool;
+    default_registry_filtered(&ToolFilter::full(
+        std::env::current_dir().unwrap_or_default(),
+    ))
+}
+
+/// Create a tool registry filtered by platform, provider, and runtime environment.
+///
+/// Tools are registered conditionally based on what the environment supports.
+/// Provider caps are applied at registration time; for mid-session provider changes,
+/// use `ToolRegistry::list_for_filter()` to re-filter the tool list per request.
+pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     use crate::providers::brief::BriefTool;
-    use crate::providers::browser_fetch::BrowserFetchTool;
     use crate::providers::codesearch::CodeSearchTool;
-    use crate::providers::edit::EditFile;
+    use crate::providers::fs::apply_patch::ApplyPatchTool;
+    use crate::providers::fs::edit::EditFile;
+    use crate::providers::fs::multiedit::MultiEditTool;
     use crate::providers::lsp::*;
-    use crate::providers::multiedit::MultiEditTool;
     use crate::providers::notebook::NotebookEditTool;
     use crate::providers::send_message::SendMessageTool;
     use crate::providers::task_output::{TaskOutputTool, TaskStopTool};
     use crate::providers::tool_search::ToolSearchTool;
-    use crate::providers::web_fetch_tool::WebFetchTool;
-    use crate::providers::web_search::WebSearchTool;
+    use crate::providers::web::browser::BrowserFetchTool;
+    use crate::providers::web::fetch::WebFetchTool;
+    use crate::providers::web::search::WebSearchTool;
     use crate::providers::{
         BashTool, CmdTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool,
         GlobTool, GrepTool, InspectTool, ListDirTool, PowerShellTool, QuestionTool, ReadFileTool,
@@ -453,76 +465,181 @@ pub fn default_registry() -> ToolRegistry {
 
     let mut reg = ToolRegistry::new();
 
-    // Core file system tools
+    // If the provider doesn't support tools at all, return empty registry.
+    if !filter.should_register_tools() {
+        return reg;
+    }
+
+    // Core file system tools — always registered.
     reg.register(ReadFileTool);
     reg.register(WriteFileTool);
     reg.register(ListDirTool);
     reg.register(EditFile);
 
-    // Search & exploration
+    // Search & exploration — always registered for non-local providers.
     reg.register(GrepTool);
     reg.register(GlobTool);
     reg.register(FindTool);
-    reg.register(InspectTool);
-    reg.register(CodeSearchTool);
+    if !filter.provider_caps.is_local {
+        reg.register(InspectTool);
+        reg.register(CodeSearchTool);
+    }
     reg.register(ApplyPatchTool);
 
-    // Command execution — register platform-appropriate shells
+    // Command execution — register platform-appropriate shells.
     reg.register(BashTool);
-    if crate::providers::powershell::find_pwsh().is_some() {
+    if filter.should_register_pwsh() {
         reg.register(PowerShellTool);
     }
-    if crate::providers::cmd::find_cmd().is_some() {
+    if filter.should_register_cmd() {
         reg.register(CmdTool);
     }
 
-    // Git tools
-    reg.register(GitStatusTool);
-    reg.register(GitDiffTool);
-    reg.register(GitLogTool);
-    reg.register(GitCommitTool);
+    // Git tools — only if in a git repo.
+    if filter.should_register_git() {
+        reg.register(GitStatusTool);
+        reg.register(GitDiffTool);
+        reg.register(GitLogTool);
+        reg.register(GitCommitTool);
+    }
 
-    // LSP (Language Server Protocol) tools - code intelligence
-    reg.register(LspDiagnosticsTool);
-    reg.register(LspHoverTool);
-    reg.register(LspDefinitionTool);
-    reg.register(LspCompletionTool);
-    reg.register(LspDocumentSymbolsTool);
-    reg.register(LspReferencesTool);
-    reg.register(LspFullDiagnosticsTool);
-    reg.register(LspCodeActionsTool);
-    reg.register(LspRenameTool);
-    reg.register(LspFormattingTool);
-    reg.register(LspGetSymbolsOverviewTool);
-    reg.register(LspFindSymbolTool);
-    reg.register(LspReplaceSymbolBodyTool);
-    reg.register(LspInsertBeforeSymbolTool);
-    reg.register(LspInsertAfterSymbolTool);
-    reg.register(LspSafeDeleteSymbolTool);
-    reg.register(LspRenameSymbolTool);
-    reg.register(LspAnalyzeSymbolTool);
-    reg.register(LspExtractSymbolTool);
-    reg.register(LspInlineSymbolTool);
-    reg.register(LspWorkspaceSymbolsTool);
+    // LSP tools — only if LSP is available and provider handles complex schemas.
+    if filter.should_register_lsp() {
+        reg.register(LspDiagnosticsTool);
+        reg.register(LspHoverTool);
+        reg.register(LspDefinitionTool);
+        reg.register(LspCompletionTool);
+        reg.register(LspDocumentSymbolsTool);
+        reg.register(LspReferencesTool);
+        reg.register(LspFullDiagnosticsTool);
+        reg.register(LspCodeActionsTool);
+        reg.register(LspRenameTool);
+        reg.register(LspFormattingTool);
+        reg.register(LspGetSymbolsOverviewTool);
+        reg.register(LspFindSymbolTool);
+        reg.register(LspReplaceSymbolBodyTool);
+        reg.register(LspInsertBeforeSymbolTool);
+        reg.register(LspInsertAfterSymbolTool);
+        reg.register(LspSafeDeleteSymbolTool);
+        reg.register(LspRenameSymbolTool);
+        reg.register(LspAnalyzeSymbolTool);
+        reg.register(LspExtractSymbolTool);
+        reg.register(LspInlineSymbolTool);
+        reg.register(LspWorkspaceSymbolsTool);
+    }
 
-    // Web & search
+    // Web & search — skip browser_fetch for local providers (complex schema).
     reg.register(WebFetchTool);
-    reg.register(BrowserFetchTool);
+    if filter.should_register_complex_tools() {
+        reg.register(BrowserFetchTool);
+    }
     reg.register(WebSearchTool);
 
-    // Edit tools
-    reg.register(MultiEditTool);
-    reg.register(NotebookEditTool);
+    // Complex edit tools — skip for local providers (large schemas).
+    if filter.should_register_complex_tools() {
+        reg.register(MultiEditTool);
+    }
+    if filter.should_register_python() {
+        reg.register(NotebookEditTool);
+    }
 
-    // Task management & communication
+    // Task management & communication.
     reg.register(BriefTool);
     reg.register(SendMessageTool);
     reg.register(TaskOutputTool);
     reg.register(TaskStopTool);
     reg.register(ToolSearchTool);
 
-    // Interactive tools
+    // Interactive tools — always registered.
     reg.register(QuestionTool);
 
     reg
+}
+
+#[cfg(test)]
+mod filtered_registry_tests {
+    use super::*;
+
+    fn tool_names(registry: &ToolRegistry) -> Vec<String> {
+        registry.list().iter().map(|t| t.name.clone()).collect()
+    }
+
+    #[test]
+    fn no_tools_provider_returns_empty_registry() {
+        let filter = ToolFilter {
+            platform: PlatformEnv::default(),
+            provider_caps: ProviderCaps::no_tools(),
+            runtime: RuntimeEnv::full(std::env::current_dir().unwrap()),
+        };
+        let reg = default_registry_filtered(&filter);
+        assert!(reg.list().is_empty());
+    }
+
+    #[test]
+    fn local_provider_skips_complex_tools() {
+        let filter = ToolFilter {
+            platform: PlatformEnv::default(),
+            provider_caps: ProviderCaps::local(),
+            runtime: RuntimeEnv::full(std::env::current_dir().unwrap()),
+        };
+        let reg = default_registry_filtered(&filter);
+        let names = tool_names(&reg);
+
+        // Core tools still present
+        assert!(names.contains(&"read_file".to_string()));
+        assert!(names.contains(&"bash".to_string()));
+        assert!(names.contains(&"grep".to_string()));
+
+        // Complex-schema tools skipped
+        assert!(!names.iter().any(|n| n.starts_with("lsp_")));
+        assert!(!names.contains(&"multiedit".to_string()));
+        assert!(!names.contains(&"browser_fetch".to_string()));
+    }
+
+    #[test]
+    fn no_git_repo_skips_git_tools() {
+        let mut runtime = RuntimeEnv::full(std::env::current_dir().unwrap());
+        runtime.has_git_repo = false;
+        let filter = ToolFilter {
+            platform: PlatformEnv::default(),
+            provider_caps: ProviderCaps::full(),
+            runtime,
+        };
+        let reg = default_registry_filtered(&filter);
+        let names = tool_names(&reg);
+
+        assert!(!names.contains(&"git_status".to_string()));
+        assert!(!names.contains(&"git_diff".to_string()));
+        assert!(!names.contains(&"git_log".to_string()));
+        assert!(!names.contains(&"git_commit".to_string()));
+    }
+
+    #[test]
+    fn full_filter_registers_all_core_tools() {
+        let filter = ToolFilter::full(std::env::current_dir().unwrap());
+        let reg = default_registry_filtered(&filter);
+        let names = tool_names(&reg);
+
+        assert!(names.contains(&"read_file".to_string()));
+        assert!(names.contains(&"write_file".to_string()));
+        assert!(names.contains(&"edit_file".to_string()));
+        assert!(names.contains(&"bash".to_string()));
+        assert!(names.contains(&"grep".to_string()));
+        assert!(names.contains(&"glob".to_string()));
+    }
+
+    #[test]
+    fn lsp_tools_require_lsp_running() {
+        let mut runtime = RuntimeEnv::full(std::env::current_dir().unwrap());
+        runtime.has_lsp_running = false;
+        let filter = ToolFilter {
+            platform: PlatformEnv::default(),
+            provider_caps: ProviderCaps::full(),
+            runtime,
+        };
+        let reg = default_registry_filtered(&filter);
+        let names = tool_names(&reg);
+
+        assert!(!names.iter().any(|n| n.starts_with("lsp_")));
+    }
 }

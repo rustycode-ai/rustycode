@@ -1,15 +1,34 @@
 //! Shared filesystem utilities used across multiple tool providers.
 //!
-//! `WebFetchTool` imports `WEB_FETCH_MAX_CHARS`, `is_html_content`,
-//! `html_to_simple_markdown`, and `truncate_to_char_boundary` from here.
 //! `ReadFileTool` and `WriteFileTool` import `is_blocked_extension` and
 //! `is_blocked_filename` from here.
+//! Web content utilities (`WEB_FETCH_MAX_CHARS`, `is_html_content`,
+//! `html_to_simple_markdown`, `truncate_to_char_boundary`) have been
+//! moved to `crate::providers::web::content`.
+
+pub mod apply_patch;
+pub mod edit;
+pub mod list_dir;
+pub mod multiedit;
+pub mod read_file;
+pub mod write_file;
+
+// Re-exports for backward-compatible access
+#[allow(ambiguous_glob_reexports)]
+pub use apply_patch::*;
+#[allow(ambiguous_glob_reexports)]
+pub use edit::*;
+#[allow(ambiguous_glob_reexports)]
+pub use list_dir::*;
+#[allow(ambiguous_glob_reexports)]
+pub use multiedit::*;
+#[allow(ambiguous_glob_reexports)]
+pub use read_file::*;
+#[allow(ambiguous_glob_reexports)]
+pub use write_file::*;
 
 use crate::security::{validation::BLOCKED_FILENAMES, BLOCKED_EXTENSIONS};
 use std::path::Path;
-
-/// Maximum number of characters returned by `WebFetchTool` content
-pub(super) const WEB_FETCH_MAX_CHARS: usize = 50_000;
 
 /// Check if a file extension is blocked for security reasons
 pub(crate) fn is_blocked_extension(path: &Path) -> bool {
@@ -31,58 +50,9 @@ pub(crate) fn is_blocked_filename(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// Check if content appears to be HTML
-pub(super) fn is_html_content(content: &str) -> bool {
-    let trimmed = content.trim().to_lowercase();
-    trimmed.starts_with("<!doctype")
-        || trimmed.starts_with("<html")
-        || (trimmed.starts_with('<') && trimmed.contains("xmlns="))
-}
-
-/// Convert HTML to markdown using a proper HTML parser.
-pub(super) fn html_to_simple_markdown(html: &str) -> String {
-    html2md::parse_html(html).trim().to_string()
-}
-
-pub(super) fn truncate_to_char_boundary(content: &str, max_chars: usize) -> &str {
-    if content.len() <= max_chars {
-        return content;
-    }
-    let mut end = max_chars;
-    while end > 0 && !content.is_char_boundary(end) {
-        end -= 1;
-    }
-    &content[..end]
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn truncate_to_char_boundary_keeps_utf8_valid() {
-        let content = "é".repeat(10) + "abc";
-        let truncated = truncate_to_char_boundary(&content, 3);
-        assert!(truncated.is_char_boundary(truncated.len()));
-        assert!(std::str::from_utf8(truncated.as_bytes()).is_ok());
-    }
-
-    #[test]
-    fn test_truncate_to_char_boundary_ascii() {
-        let content = "hello world";
-        assert_eq!(truncate_to_char_boundary(content, 5), "hello");
-    }
-
-    #[test]
-    fn test_truncate_to_char_boundary_within_bounds() {
-        let content = "hello";
-        assert_eq!(truncate_to_char_boundary(content, 100), "hello");
-    }
-
-    #[test]
-    fn test_truncate_to_char_boundary_empty() {
-        assert_eq!(truncate_to_char_boundary("", 10), "");
-    }
 
     // ── is_blocked_extension tests ─────────────
 
@@ -129,27 +99,5 @@ mod tests {
     fn test_is_blocked_filename_nested_path() {
         assert!(is_blocked_filename(Path::new("/home/user/.ssh/id_rsa")));
         assert!(!is_blocked_filename(Path::new("/home/user/src/main.rs")));
-    }
-
-    #[test]
-    fn test_is_html_content() {
-        assert!(is_html_content("<!DOCTYPE html><html></html>"));
-        assert!(is_html_content("<html><body></body></html>"));
-        assert!(is_html_content(
-            "<html xmlns=\"http://www.w3.org/1999/xhtml\">"
-        ));
-        assert!(!is_html_content("Just plain text"));
-        assert!(!is_html_content("{\"key\": \"value\"}"));
-        assert!(is_html_content("<!doctype html><html lang=\"en\">"));
-        assert!(is_html_content(
-            "<html>\n<head><title>Test</title></head>\n<body></body>\n</html>"
-        ));
-    }
-
-    #[test]
-    fn test_html_to_markdown() {
-        let html = "<h1>Hello</h1><p>World</p>";
-        let markdown = html_to_simple_markdown(html);
-        assert!(markdown.contains("Hello") || !markdown.is_empty());
     }
 }

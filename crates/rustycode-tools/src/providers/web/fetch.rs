@@ -6,7 +6,7 @@ use anyhow::anyhow;
 use schemars::JsonSchema;
 use serde_json::json;
 
-use super::fs::{
+use super::content::{
     html_to_simple_markdown, is_html_content, truncate_to_char_boundary, WEB_FETCH_MAX_CHARS,
 };
 
@@ -385,45 +385,47 @@ mod tests {
 
     #[test]
     fn test_is_html_content_doctype() {
-        assert!(super::super::fs::is_html_content(
+        assert!(super::super::content::is_html_content(
             "<!DOCTYPE html><html><body>Test</body></html>"
         ));
     }
 
     #[test]
     fn test_is_html_content_html_tag() {
-        assert!(super::super::fs::is_html_content(
+        assert!(super::super::content::is_html_content(
             "<html><head><title>Test</title></head><body>Content</body></html>"
         ));
     }
 
     #[test]
     fn test_is_html_content_xmlns() {
-        assert!(super::super::fs::is_html_content(
+        assert!(super::super::content::is_html_content(
             "<div xmlns='http://www.w3.org/1999/xhtml'>Content</div>"
         ));
     }
 
     #[test]
     fn test_is_html_content_false_plain_text() {
-        assert!(!super::super::fs::is_html_content("Just plain text"));
+        assert!(!super::super::content::is_html_content("Just plain text"));
     }
 
     #[test]
     fn test_is_html_content_false_json() {
-        assert!(!super::super::fs::is_html_content("{\"key\": \"value\"}"));
+        assert!(!super::super::content::is_html_content(
+            "{\"key\": \"value\"}"
+        ));
     }
 
     #[test]
     fn test_is_html_content_case_insensitive() {
-        assert!(super::super::fs::is_html_content(
+        assert!(super::super::content::is_html_content(
             "<!DOCTYPE HTML>\n<HTML><BODY>Test</BODY></HTML>"
         ));
     }
 
     #[test]
     fn test_is_html_content_with_whitespace() {
-        assert!(super::super::fs::is_html_content(
+        assert!(super::super::content::is_html_content(
             "  \n  <!DOCTYPE html>\n  <html>Test</html>  \n"
         ));
     }
@@ -431,7 +433,7 @@ mod tests {
     #[test]
     fn test_html_to_simple_markdown_basic() {
         let html = "<html><body><h1>Title</h1><p>Paragraph</p></body></html>";
-        let markdown = super::super::fs::html_to_simple_markdown(html);
+        let markdown = super::super::content::html_to_simple_markdown(html);
         assert!(!markdown.is_empty());
         assert!(markdown.contains("Title") || markdown.contains("Paragraph"));
     }
@@ -439,14 +441,14 @@ mod tests {
     #[test]
     fn test_html_to_simple_markdown_trims_whitespace() {
         let html = "  \n  <html><body>Content</body></html>  \n  ";
-        let markdown = super::super::fs::html_to_simple_markdown(html);
+        let markdown = super::super::content::html_to_simple_markdown(html);
         assert_eq!(markdown, markdown.trim());
     }
 
     #[test]
     fn test_html_to_simple_markdown_handles_empty() {
         let html = "";
-        let markdown = super::super::fs::html_to_simple_markdown(html);
+        let markdown = super::super::content::html_to_simple_markdown(html);
         assert!(markdown.is_empty());
     }
 
