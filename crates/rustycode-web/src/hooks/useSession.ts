@@ -22,8 +22,16 @@ export function useSessionProvider() {
   }, []);
 
   const handleConnectionChange = useCallback((status: ConnectionStatus) => {
-    setConnectionStatus(status);
-  }, []);
+    setConnectionStatus((prevStatus) => {
+      // Only clear pending when transitioning *away* from connected — the
+      // in-flight request is effectively dead. Do NOT clear on the initial
+      // "connecting" state, which would break the stop button for normal sends.
+      if (prevStatus === "connected" && status !== "connected") {
+        dispatch({ type: "SET_PENDING", pending: false });
+      }
+      return status;
+    });
+  }, [dispatch]);
 
   const { sendInput, sendAbort, sendToolApproval, sendPlanApproval, getSessionToken } = useWebSocket({
     url: WS_URL,

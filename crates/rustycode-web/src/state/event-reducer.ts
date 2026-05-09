@@ -155,28 +155,40 @@ function appendThinkingPart(session: FrontendSession, chunk: string): FrontendSe
   return { ...session, messages };
 }
 
-/** Create a pending ToolCallPart. */
+/** Create a pending ToolCallPart. If no assistant message exists, create one. */
 function startToolCall(
   session: FrontendSession,
   toolId: string,
   toolName: string
 ): FrontendSession {
-  const messages = updateLastAssistant(session, (msg) => {
-    const part: MessagePart = {
-      type: "tool_call",
-      id: toolId,
-      name: toolName,
-      status: "pending",
-      startedAt: Date.now(),
+  const part: MessagePart = {
+    type: "tool_call",
+    id: toolId,
+    name: toolName,
+    status: "pending",
+    startedAt: Date.now(),
+  };
+
+  // Ensure an assistant message exists before updating
+  let s = session;
+  const last = s.messages[s.messages.length - 1];
+  if (!last || last.kind !== "Assistant") {
+    s = {
+      ...s,
+      messages: [
+        ...s.messages,
+        { kind: "Assistant" as const, content: "", parts: [], id: `assistant-${Date.now()}` },
+      ],
     };
+  }
+
+  const messages = updateLastAssistant(s, (msg) => {
     return { ...msg, parts: [...msg.parts, part] };
   });
-  // If no assistant message exists, don't increment count
-  if (messages === session.messages) return session;
   return {
-    ...session,
+    ...s,
     messages,
-    tool_iteration_count: session.tool_iteration_count + 1,
+    tool_iteration_count: s.tool_iteration_count + 1,
   };
 }
 
