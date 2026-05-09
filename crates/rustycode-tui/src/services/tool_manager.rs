@@ -66,9 +66,13 @@ impl ToolManager {
 
         // Semantic search tool (conditional feature)
         #[cfg(feature = "vector-memory")]
-        tool_registry.register(SemanticSearchTool::new(
-            &std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
-        ));
+        {
+            rustycode_tools::indexing::semantic_search_state::set_search_root(
+                "default-session",
+                cwd.to_path_buf(),
+            );
+            tool_registry.register(SemanticSearchTool);
+        }
 
         // Agent tool - functional sub-agent backed by AgentSession.
         // Build full tool definitions (name + description + input_schema) for sub-agent.

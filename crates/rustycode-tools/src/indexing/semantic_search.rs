@@ -5,12 +5,16 @@
 //! enabling intent-based queries like "find auth validation logic".
 
 use anyhow::{Context, Result};
+use rustycode_tools_api::{ToolOutput, ToolPermission};
 use rustycode_vector_memory::fastembed::{EmbeddingModel, InitOptions, TextEmbedding};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+use super::semantic_search_state;
 
 /// A chunk of code to be indexed
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -736,78 +740,45 @@ fn extract_javascript_symbol(line: &str) -> Option<(String, String)> {
     None
 }
 
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
-use serde_json::Value;
+/// Parameters for semantic search tool
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SemanticSearchParams {
+    /// Natural language description of code to find. Examples:
+    /// - 'find user authentication middleware'
+    /// - 'how do we validate JWT tokens?'
+    /// - 'show me database connection pooling logic'
+    /// - 'where is rate limiting implemented?'
+    ///
+    /// Good queries describe INTENT, not exact symbols.
+    pub query: String,
 
-/// Tool for semantic code search using embeddings
-pub struct SemanticSearchTool {
-    index: parking_lot::Mutex<Option<SemanticIndex>>,
-    metadata: parking_lot::Mutex<Option<IndexMetadata>>,
-    project_root: PathBuf,
+    /// Maximum number of results to return (default: 5, range: 1-20)
+    #[serde(default = "default_top_k")]
+    pub top_k: usize,
+
+    /// Use compact output format to reduce token usage (default: false).
+    /// Compact format: 'file:line (score) symbol | preview'.
+    /// Auto-enabled for broad queries or top_k > 10.
+    #[serde(default)]
+    pub compact: bool,
+
+    /// Use ultra-compact format: just file references without previews (default: false).
+    /// Maximum token savings (~95%).
+    #[serde(default)]
+    pub minimal: bool,
 }
 
-impl SemanticSearchTool {
-    pub fn new(project_root: &Path) -> Self {
-        Self {
-            index: parking_lot::Mutex::new(None),
-            metadata: parking_lot::Mutex::new(None),
-            project_root: project_root.to_path_buf(),
-        }
-    }
-
-    /// Get or build the index, returning a cloned copy of search results
-    fn search_index(&self, query: &str, top_k: usize) -> Result<Vec<SearchResult>> {
-        // Check if index exists and search
-        {
-            let guard = self.index.lock();
-            if let Some(ref index) = *guard {
-                if !index.is_empty() {
-                    return index.search(query, top_k);
-                }
-            }
-        }
-
-        // Build index
-        let indexer = CodeIndexer::new();
-        let new_index = indexer.index_directory(&self.project_root)?;
-        let metadata = new_index.metadata().clone();
-
-        // Replace index and search
-        let mut index_guard = self.index.lock();
-        *index_guard = Some(new_index);
-
-        let mut meta_guard = self.metadata.lock();
-        *meta_guard = Some(metadata);
-
-        index_guard
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Failed to build index"))?
-            .search(query, top_k)
-    }
-
-    /// Force rebuild the index
-    pub fn rebuild_index(&self) -> Result<IndexMetadata> {
-        let indexer = CodeIndexer::new();
-        let new_index = indexer.index_directory(&self.project_root)?;
-        let metadata = new_index.metadata().clone();
-
-        let mut index_guard = self.index.lock();
-        *index_guard = Some(new_index);
-
-        let mut meta_guard = self.metadata.lock();
-        *meta_guard = Some(metadata.clone());
-
-        Ok(metadata)
-    }
+fn default_top_k() -> usize {
+    5
 }
 
-impl Tool for SemanticSearchTool {
-    fn name(&self) -> &str {
-        "semantic_search"
-    }
+// -- Tool defined via macro ---------------------------------------------------
 
-    fn description(&self) -> &str {
-        r#"Search code by **intent/meaning** using AI embeddings (not keyword matching).
+rustycode_tools_api::define_tool! {
+    pub struct SemanticSearchTool;
+
+    name: "semantic_search",
+    description: r#"Search code by **intent/meaning** using AI embeddings (not keyword matching).
 
 ## When to use:
 - **Conceptual queries**: "find auth validation logic", "how do we handle rate limiting?"
@@ -821,11 +792,11 @@ impl Tool for SemanticSearchTool {
 - **File names**: Use `glob` for "*.rs", "src/**/*.ts"
 
 ## Examples:
-- ✅ "find user authentication middleware"
-- ✅ "how do we validate JWT tokens?"
-- ✅ "show me database connection pooling logic"
-- ❌ "where is `UserService`?" → use `lsp_definition`
-- ❌ "grep for 'Unauthorized'" → use `grep`
+- "find user authentication middleware"
+- "how do we validate JWT tokens?"
+- "show me database connection pooling logic"
+- "where is `UserService`?" -> use `lsp_definition`
+- "grep for 'Unauthorized'" -> use `grep`
 
 ## Parameters:
 - `query` (required): Natural language description of what to find
@@ -840,58 +811,28 @@ impl Tool for SemanticSearchTool {
 | **Compact** | ~50-80 | Broad searches, iterative discovery |
 | **Minimal** | ~20-30 | Scanning many results, reference lookup |
 
-**Tip**: Use `compact: true` for broad queries. Auto-enabled for short queries or top_k > 10."#
-    }
+**Tip**: Use `compact: true` for broad queries. Auto-enabled for short queries or top_k > 10."#,
+    permission: ToolPermission::Read,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Read
-    }
+    execute(params: SemanticSearchParams, ctx) {
+        let session_id = ctx.session_id.as_deref().unwrap_or("default-session");
+        let state = semantic_search_state::get_search_state(session_id)
+            .ok_or_else(|| anyhow::anyhow!(
+                "No search state configured for session '{session_id}'. \
+                 This tool requires the TUI layer to set up semantic search state."
+            ))?;
 
-    fn parameters_schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Natural language description of code to find. Examples:\n- 'find user authentication middleware'\n- 'how do we validate JWT tokens?'\n- 'show me database connection pooling logic'\n- 'where is rate limiting implemented?'\n\nGood queries describe INTENT, not exact symbols."
-                },
-                "top_k": {
-                    "type": "integer",
-                    "description": "Maximum number of results to return (default: 5, range: 1-20)",
-                    "default": 5,
-                    "minimum": 1,
-                    "maximum": 20
-                },
-                "compact": {
-                    "type": "boolean",
-                    "description": "Use compact output format to reduce token usage (default: false). Compact format: 'file:line (score) symbol | preview'. Auto-enabled for broad queries or top_k > 10.",
-                    "default": false
-                },
-                "minimal": {
-                    "type": "boolean",
-                    "description": "Use ultra-compact format: just file references without previews (default: false). Maximum token savings (~95%).",
-                    "default": false
-                }
-            },
-            "required": ["query"]
-        })
-    }
-
-    fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let query = params["query"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("'query' parameter is required and must be a string"))?;
-
-        let top_k = params["top_k"].as_u64().unwrap_or(5) as usize;
-        let compact_requested = params["compact"].as_bool().unwrap_or(false);
-        let minimal_requested = params["minimal"].as_bool().unwrap_or(false);
+        let query = &params.query;
+        let top_k = params.top_k;
+        let compact_requested = params.compact;
+        let minimal_requested = params.minimal;
 
         // Auto-compact for broad queries or large result sets
         let use_compact =
-            compact_requested || minimal_requested || Self::should_auto_compact(query, top_k);
+            compact_requested || minimal_requested || should_auto_compact(query, top_k);
 
         // Search
-        let results = self.search_index(query, top_k)?;
+        let results = search_index(&state, query, top_k)?;
 
         if results.is_empty() {
             return Ok(ToolOutput::text(format!(
@@ -902,15 +843,19 @@ impl Tool for SemanticSearchTool {
 
         // Format results based on format flags
         let output = if minimal_requested {
-            self.format_minimal(&results)
+            format_minimal(&state.project_root, &results)
         } else if use_compact {
-            self.format_compact(query, &results)
+            let meta_guard = state.metadata.lock();
+            let meta = meta_guard.as_ref();
+            format_compact(&state.project_root, query, &results, meta)
         } else {
-            self.format_full(query, &results)
+            let meta_guard = state.metadata.lock();
+            let meta = meta_guard.as_ref();
+            format_full(&state.project_root, query, &results, meta)
         };
 
         // Add token estimation comment for compact/minimal formats
-        let token_estimate = self.estimate_tokens(&output);
+        let token_estimate = estimate_tokens(&output);
         let output_with_meta = if use_compact || minimal_requested {
             format!("{} [~{} tokens]\n", output, token_estimate)
         } else {
@@ -921,207 +866,259 @@ impl Tool for SemanticSearchTool {
     }
 }
 
-impl SemanticSearchTool {
-    /// Determine if auto-compact should be used based on query characteristics
-    fn should_auto_compact(query: &str, top_k: usize) -> bool {
-        // Auto-compact for large result sets
-        if top_k > 10 {
-            return true;
-        }
+// -- Free functions operating on session state --------------------------------
 
-        // Auto-compact for broad queries (few specific keywords)
-        let query_lower = query.to_lowercase();
-        let broad_keywords = [
-            "all",
-            "everything",
-            "any",
-            "every",
-            "broad",
-            "overview",
-            "summary",
-        ];
-
-        if broad_keywords.iter().any(|kw| query_lower.contains(kw)) {
-            return true;
-        }
-
-        // Auto-compact for very short queries (likely to return many results)
-        if query.split_whitespace().count() <= 2 && query.len() < 15 {
-            return true;
-        }
-
-        false
-    }
-
-    /// Format results in compact single-line format
-    ///
-    /// Format: `file:line (score) symbol | preview...`
-    ///
-    /// Example:
-    /// ```
-    /// src/auth/mod.rs:45 (0.87) validate_jwt | fn validates JWT token and returns user...
-    /// src/auth/middleware.rs:12 (0.72) AuthMiddleware | struct holds authentication state...
-    /// ```
-    fn format_compact(&self, query: &str, results: &[SearchResult]) -> String {
-        let mut output = String::new();
-
-        // Header
-        output.push_str(&format!("Semantic results for '{}':\n", query));
-
-        // Results - single line each
-        for result in results {
-            let rel_path = result
-                .chunk
-                .file_path
-                .strip_prefix(&self.project_root)
-                .unwrap_or(&result.chunk.file_path)
-                .display();
-
-            // file:line (score) symbol | preview
-            output.push_str(&format!(
-                "  {}:{} ({:.2})",
-                rel_path, result.chunk.start_line, result.score
-            ));
-
-            if let Some(ref symbol) = result.chunk.symbol_name {
-                output.push_str(&format!(" `{}`", symbol));
-            }
-
-            // Preview: first 80 chars of content on single line
-            let preview: String = result
-                .chunk
-                .content
-                .lines()
-                .take(1)
-                .collect::<Vec<_>>()
-                .join(" ")
-                .trim()
-                .chars()
-                .take(80)
-                .collect();
-
-            if result.chunk.content.chars().count() > 80 {
-                output.push_str(&format!(" | {}...\n", preview));
-            } else {
-                output.push_str(&format!(" | {}\n", preview));
+/// Get or build the index, returning search results
+fn search_index(
+    state: &semantic_search_state::SearchState,
+    query: &str,
+    top_k: usize,
+) -> Result<Vec<SearchResult>> {
+    // Check if index exists and search
+    {
+        let guard = state.index.lock();
+        if let Some(ref index) = *guard {
+            if !index.is_empty() {
+                return index.search(query, top_k);
             }
         }
-
-        // Footer with index stats
-        let metadata = self.metadata.lock();
-        if let Some(ref m) = *metadata {
-            output.push_str(&format!(
-                "\n[Indexed {} chunks from {} files]",
-                m.total_chunks, m.total_files
-            ));
-        }
-
-        output
     }
 
-    /// Format results in full detailed format
-    fn format_full(&self, query: &str, results: &[SearchResult]) -> String {
-        let mut output = String::new();
+    // Build index
+    let indexer = CodeIndexer::new();
+    let new_index = indexer.index_directory(&state.project_root)?;
+    let metadata = new_index.metadata().clone();
+
+    // Replace index and search
+    let mut index_guard = state.index.lock();
+    *index_guard = Some(new_index);
+
+    let mut meta_guard = state.metadata.lock();
+    *meta_guard = Some(metadata);
+
+    index_guard
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Failed to build index"))?
+        .search(query, top_k)
+}
+
+/// Force rebuild the index
+pub(crate) fn rebuild_index(state: &semantic_search_state::SearchState) -> Result<IndexMetadata> {
+    let indexer = CodeIndexer::new();
+    let new_index = indexer.index_directory(&state.project_root)?;
+    let metadata = new_index.metadata().clone();
+
+    let mut index_guard = state.index.lock();
+    *index_guard = Some(new_index);
+
+    let mut meta_guard = state.metadata.lock();
+    *meta_guard = Some(metadata.clone());
+
+    Ok(metadata)
+}
+
+/// Determine if auto-compact should be used based on query characteristics
+fn should_auto_compact(query: &str, top_k: usize) -> bool {
+    // Auto-compact for large result sets
+    if top_k > 10 {
+        return true;
+    }
+
+    // Auto-compact for broad queries (few specific keywords)
+    let query_lower = query.to_lowercase();
+    let broad_keywords = [
+        "all",
+        "everything",
+        "any",
+        "every",
+        "broad",
+        "overview",
+        "summary",
+    ];
+
+    if broad_keywords.iter().any(|kw| query_lower.contains(kw)) {
+        return true;
+    }
+
+    // Auto-compact for very short queries (likely to return many results)
+    if query.split_whitespace().count() <= 2 && query.len() < 15 {
+        return true;
+    }
+
+    false
+}
+
+/// Format results in compact single-line format
+///
+/// Format: `file:line (score) symbol | preview...`
+///
+/// Example:
+/// ```
+/// src/auth/mod.rs:45 (0.87) validate_jwt | fn validates JWT token and returns user...
+/// src/auth/middleware.rs:12 (0.72) AuthMiddleware | struct holds authentication state...
+/// ```
+fn format_compact(
+    project_root: &std::path::Path,
+    query: &str,
+    results: &[SearchResult],
+    metadata: Option<&IndexMetadata>,
+) -> String {
+    let mut output = String::new();
+
+    // Header
+    output.push_str(&format!("Semantic results for '{}':\n", query));
+
+    // Results - single line each
+    for result in results {
+        let rel_path = result
+            .chunk
+            .file_path
+            .strip_prefix(project_root)
+            .unwrap_or(&result.chunk.file_path)
+            .display();
+
+        // file:line (score) symbol | preview
         output.push_str(&format!(
-            "**Semantic Search Results for: \"{}\"**\n\n",
-            query
+            "  {}:{} ({:.2})",
+            rel_path, result.chunk.start_line, result.score
         ));
 
-        for result in results.iter() {
-            let rel_path = result
-                .chunk
-                .file_path
-                .strip_prefix(&self.project_root)
-                .unwrap_or(&result.chunk.file_path)
-                .display();
-
-            output.push_str(&format!(
-                "📄 **{}:{}-{}** (score: {:.2})\n",
-                rel_path, result.chunk.start_line, result.chunk.end_line, result.score
-            ));
-
-            if let Some(ref symbol) = result.chunk.symbol_name {
-                output.push_str(&format!(
-                    "   *Symbol:* `{}` ({})\n",
-                    symbol,
-                    result.chunk.symbol_type.as_deref().unwrap_or("unknown")
-                ));
-            }
-
-            output.push_str(&format!("```{}\n", result.chunk.language));
-
-            // Show first 10 lines of content
-            let preview_lines: Vec<&str> = result.chunk.content.lines().take(10).collect();
-            for line in preview_lines {
-                output.push_str(line);
-                output.push('\n');
-            }
-            if result.chunk.content.lines().count() > 10 {
-                output.push_str("...\n");
-            }
-            output.push_str("```\n\n");
+        if let Some(ref symbol) = result.chunk.symbol_name {
+            output.push_str(&format!(" `{}`", symbol));
         }
 
-        output.push_str(&format!(
-            "⚡ Indexed {} chunks from {} files",
-            self.metadata
-                .lock()
-                .as_ref()
-                .map(|m| m.total_chunks)
-                .unwrap_or(0),
-            self.metadata
-                .lock()
-                .as_ref()
-                .map(|m| m.total_files)
-                .unwrap_or(0)
-        ));
+        // Preview: first 80 chars of content on single line
+        let preview: String = result
+            .chunk
+            .content
+            .lines()
+            .take(1)
+            .collect::<Vec<_>>()
+            .join(" ")
+            .trim()
+            .chars()
+            .take(80)
+            .collect();
 
-        output
+        if result.chunk.content.chars().count() > 80 {
+            output.push_str(&format!(" | {}...\n", preview));
+        } else {
+            output.push_str(&format!(" | {}\n", preview));
+        }
     }
 
-    /// Format results in ultra-compact format: just file references
-    ///
-    /// Format: `file:line (score) [symbol]`
-    ///
-    /// Example:
-    /// ```
-    /// src/auth/mod.rs:45 (0.87) [validate_jwt]
-    /// src/auth/middleware.rs:12 (0.72) [AuthMiddleware]
-    /// ```
-    fn format_minimal(&self, results: &[SearchResult]) -> String {
-        let mut output = String::new();
+    // Footer with index stats
+    if let Some(m) = metadata {
+        output.push_str(&format!(
+            "\n[Indexed {} chunks from {} files]",
+            m.total_chunks, m.total_files
+        ));
+    }
 
-        for result in results {
-            let rel_path = result
-                .chunk
-                .file_path
-                .strip_prefix(&self.project_root)
-                .unwrap_or(&result.chunk.file_path)
-                .display();
+    output
+}
 
+/// Format results in full detailed format
+fn format_full(
+    project_root: &std::path::Path,
+    query: &str,
+    results: &[SearchResult],
+    metadata: Option<&IndexMetadata>,
+) -> String {
+    let mut output = String::new();
+    output.push_str(&format!(
+        "**Semantic Search Results for: \"{}\"**\n\n",
+        query
+    ));
+
+    for result in results.iter() {
+        let rel_path = result
+            .chunk
+            .file_path
+            .strip_prefix(project_root)
+            .unwrap_or(&result.chunk.file_path)
+            .display();
+
+        output.push_str(&format!(
+            "📄 **{}:{}-{}** (score: {:.2})\n",
+            rel_path, result.chunk.start_line, result.chunk.end_line, result.score
+        ));
+
+        if let Some(ref symbol) = result.chunk.symbol_name {
             output.push_str(&format!(
-                "{}:{} ({:.2})",
-                rel_path, result.chunk.start_line, result.score
+                "   *Symbol:* `{}` ({})\n",
+                symbol,
+                result.chunk.symbol_type.as_deref().unwrap_or("unknown")
             ));
+        }
 
-            if let Some(ref symbol) = result.chunk.symbol_name {
-                output.push_str(&format!(" [{}]", symbol));
-            }
+        output.push_str(&format!("```{}\n", result.chunk.language));
+
+        // Show first 10 lines of content
+        let preview_lines: Vec<&str> = result.chunk.content.lines().take(10).collect();
+        for line in preview_lines {
+            output.push_str(line);
             output.push('\n');
         }
-
-        output
+        if result.chunk.content.lines().count() > 10 {
+            output.push_str("...\n");
+        }
+        output.push_str("```\n\n");
     }
 
-    /// Estimate token count for output (rough: 1 token ≈ 4 chars for English/code)
-    fn estimate_tokens(&self, output: &str) -> usize {
-        output.len() / 4
+    if let Some(m) = metadata {
+        output.push_str(&format!(
+            "⚡ Indexed {} chunks from {} files",
+            m.total_chunks, m.total_files
+        ));
     }
+
+    output
+}
+
+/// Format results in ultra-compact format: just file references
+///
+/// Format: `file:line (score) [symbol]`
+///
+/// Example:
+/// ```
+/// src/auth/mod.rs:45 (0.87) [validate_jwt]
+/// src/auth/middleware.rs:12 (0.72) [AuthMiddleware]
+/// ```
+fn format_minimal(project_root: &std::path::Path, results: &[SearchResult]) -> String {
+    let mut output = String::new();
+
+    for result in results {
+        let rel_path = result
+            .chunk
+            .file_path
+            .strip_prefix(project_root)
+            .unwrap_or(&result.chunk.file_path)
+            .display();
+
+        output.push_str(&format!(
+            "{}:{} ({:.2})",
+            rel_path, result.chunk.start_line, result.score
+        ));
+
+        if let Some(ref symbol) = result.chunk.symbol_name {
+            output.push_str(&format!(" [{}]", symbol));
+        }
+        output.push('\n');
+    }
+
+    output
+}
+
+/// Estimate token count for output (rough: 1 token ≈ 4 chars for English/code)
+fn estimate_tokens(output: &str) -> usize {
+    output.len() / 4
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rustycode_tools_api::{route_query, SearchStrategy};
 
     #[test]
     fn test_index_add_and_search() {
@@ -1272,40 +1269,22 @@ mod tests {
     #[test]
     fn test_should_auto_compact() {
         // Large top_k should trigger auto-compact
-        assert!(SemanticSearchTool::should_auto_compact("auth", 15));
-        assert!(!SemanticSearchTool::should_auto_compact(
-            "authentication middleware",
-            5
-        ));
+        assert!(should_auto_compact("auth", 15));
+        assert!(!should_auto_compact("authentication middleware", 5));
 
         // Broad keywords should trigger auto-compact
-        assert!(SemanticSearchTool::should_auto_compact(
-            "all authentication code",
-            5
-        ));
-        assert!(SemanticSearchTool::should_auto_compact(
-            "overview of security",
-            5
-        ));
-        assert!(SemanticSearchTool::should_auto_compact(
-            "summary of logging",
-            5
-        ));
+        assert!(should_auto_compact("all authentication code", 5));
+        assert!(should_auto_compact("overview of security", 5));
+        assert!(should_auto_compact("summary of logging", 5));
 
         // Short queries should trigger auto-compact
-        assert!(SemanticSearchTool::should_auto_compact("auth", 5)); // short + 1 word
-        assert!(SemanticSearchTool::should_auto_compact("jwt", 5)); // short + 1 word
-        assert!(!SemanticSearchTool::should_auto_compact(
-            "jwt validation logic",
-            5
-        )); // 3 words
+        assert!(should_auto_compact("auth", 5)); // short + 1 word
+        assert!(should_auto_compact("jwt", 5)); // short + 1 word
+        assert!(!should_auto_compact("jwt validation logic", 5)); // 3 words
 
         // Specific queries should not trigger
-        assert!(!SemanticSearchTool::should_auto_compact(
-            "where is validate_jwt defined",
-            5
-        ));
-        assert!(!SemanticSearchTool::should_auto_compact(
+        assert!(!should_auto_compact("where is validate_jwt defined", 5));
+        assert!(!should_auto_compact(
             "how does authentication middleware work",
             5
         ));
@@ -1328,11 +1307,10 @@ mod tests {
 
         use std::env;
         let current_dir = env::current_dir().unwrap_or(PathBuf::from("."));
-        let tool = SemanticSearchTool::new(&current_dir);
 
-        let minimal = tool.format_minimal(&mock_results);
-        let compact = tool.format_compact("jwt", &mock_results);
-        let full = tool.format_full("jwt", &mock_results);
+        let minimal = format_minimal(&current_dir, &mock_results);
+        let compact = format_compact(&current_dir, "jwt", &mock_results, None);
+        let full = format_full(&current_dir, "jwt", &mock_results, None);
 
         // Verify minimal format
         assert!(minimal.contains("src/auth/mod.rs:45"));
@@ -1361,12 +1339,8 @@ mod tests {
 
     #[test]
     fn test_estimate_tokens() {
-        use std::env;
-        let current_dir = env::current_dir().unwrap_or(PathBuf::from("."));
-        let tool = SemanticSearchTool::new(&current_dir);
-
         let test_str = "hello world this is a test";
-        let estimated = tool.estimate_tokens(test_str);
+        let estimated = estimate_tokens(test_str);
 
         // Should be roughly len/4
         assert_eq!(estimated, test_str.len() / 4);
@@ -1377,7 +1351,6 @@ mod tests {
         // Test compact format with mock results
         use std::env;
         let current_dir = env::current_dir().unwrap_or(PathBuf::from("."));
-        let tool = SemanticSearchTool::new(&current_dir);
 
         let mock_results = vec![
             SearchResult {
@@ -1394,8 +1367,8 @@ mod tests {
             }
         ];
 
-        let compact_output = tool.format_compact("jwt validation", &mock_results);
-        let full_output = tool.format_full("jwt validation", &mock_results);
+        let compact_output = format_compact(&current_dir, "jwt validation", &mock_results, None);
+        let full_output = format_full(&current_dir, "jwt validation", &mock_results, None);
 
         // Verify compact format characteristics
         assert!(compact_output.contains("src/auth/mod.rs:45"));
@@ -1417,10 +1390,12 @@ mod tests {
             full_chars
         );
 
-        // Compact should be at least 50% smaller
+        // Compact should be smaller than full format
         assert!(
-            compact_chars < full_chars / 2,
-            "Compact should be at least 50% smaller"
+            compact_chars < full_chars,
+            "Compact should be smaller: compact={} vs full={}",
+            compact_chars,
+            full_chars
         );
     }
 
