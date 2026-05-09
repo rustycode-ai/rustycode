@@ -27,7 +27,6 @@ Requires: file_path
 Returns: Hierarchical list of symbols with their types and locations",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],
-    defer_loading: true,
 
     execute(params: LspDocumentSymbolsParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

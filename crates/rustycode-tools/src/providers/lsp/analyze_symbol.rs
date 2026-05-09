@@ -21,7 +21,6 @@ rustycode_tools_api::define_tool! {
     description: "Analyze a symbol to get its references, implementations, call hierarchy, and complexity metrics. Use when: you need a comprehensive understanding of a symbol's role in the codebase, you're planning a refactor, or you need to understand inheritance/implementation chains. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore, ToolTag::Refactor],
-    defer_loading: true,
 
     execute(params: LspAnalyzeSymbolParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

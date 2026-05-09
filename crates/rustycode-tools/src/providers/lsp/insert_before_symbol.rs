@@ -22,7 +22,6 @@ rustycode_tools_api::define_tool! {
     description: "Insert text before a symbol (at the beginning of its range)",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspInsertBeforeSymbolParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

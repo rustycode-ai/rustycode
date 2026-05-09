@@ -36,7 +36,6 @@ Optional: range (line, character, end_line, end_character) for range formatting
 Returns: Text edits to apply for formatting",
     permission: ToolPermission::Read,
     tags: [ToolTag::Refactor],
-    defer_loading: true,
 
     execute(params: LspFormattingParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

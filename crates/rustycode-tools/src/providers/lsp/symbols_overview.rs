@@ -26,7 +26,6 @@ rustycode_tools_api::define_tool! {
     description: "Get a compact overview of symbols in a file grouped by kind",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspGetSymbolsOverviewParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

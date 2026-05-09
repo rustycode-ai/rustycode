@@ -24,7 +24,6 @@ rustycode_tools_api::define_tool! {
     description: "Check which language servers are available and their status. Use this to verify code intelligence capabilities before using other LSP tools.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore, ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspDiagnosticsParams, ctx) {
         let servers = params.servers;

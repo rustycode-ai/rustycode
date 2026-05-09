@@ -22,7 +22,6 @@ rustycode_tools_api::define_tool! {
     description: "Insert text after a symbol (after the end of its range)",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspInsertAfterSymbolParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

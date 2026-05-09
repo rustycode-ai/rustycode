@@ -34,7 +34,6 @@ Optional: end_line, end_character (for range, defaults to position)
 Returns: List of code actions with titles and kinds",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],
-    defer_loading: true,
 
     execute(params: LspCodeActionsParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

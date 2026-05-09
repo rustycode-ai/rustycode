@@ -25,7 +25,6 @@ rustycode_tools_api::define_tool! {
     description: "Get code completions (suggestions) at a specific position. Use this to see what functions, variables, or keywords are available while typing. Requires file_path, line, and character position.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspCompletionParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

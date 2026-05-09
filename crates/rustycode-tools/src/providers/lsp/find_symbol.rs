@@ -23,7 +23,6 @@ rustycode_tools_api::define_tool! {
     description: "Search for symbols (functions, structs, enums, traits, modules) by qualified name path. FASTER and MORE PRECISE than grep for finding definitions — use this instead of grep when you know a symbol name. Returns symbol kind, file path, and location. Examples: 'main', 'Session::new', 'hash_map::Entry'. Requires: query (symbol name or path), language.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Explore, ToolTag::Debug],
-    defer_loading: true,
 
     execute(params: LspFindSymbolParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

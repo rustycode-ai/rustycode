@@ -21,7 +21,6 @@ rustycode_tools_api::define_tool! {
     description: "Safely delete a symbol after checking for references",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspSafeDeleteSymbolParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

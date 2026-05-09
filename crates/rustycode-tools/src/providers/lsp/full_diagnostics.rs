@@ -21,7 +21,6 @@ rustycode_tools_api::define_tool! {
     description: "Get diagnostics (errors, warnings, hints) for a file WITHOUT running a build. PREFER THIS OVER cargo check for quick feedback on recent edits — faster and shows inline error locations. Use when: you just edited a file and want to check for errors, you need to verify types/signatures match. Requires: file_path.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore, ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspFullDiagnosticsParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

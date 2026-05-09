@@ -53,7 +53,6 @@ The tool searches using multiple FREE sources:
 No API key required for basic functionality!"#,
     permission: ToolPermission::Network,
     tags: [ToolTag::Explore],
-    defer_loading: true,
 
     execute(params: WebSearchParams, _ctx) {
         let query = &params.query;

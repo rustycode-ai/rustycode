@@ -22,7 +22,6 @@ rustycode_tools_api::define_tool! {
     description: "Replace a symbol's body with new content",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: LspReplaceSymbolBodyParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

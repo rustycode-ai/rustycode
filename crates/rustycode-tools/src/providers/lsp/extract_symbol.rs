@@ -22,7 +22,6 @@ rustycode_tools_api::define_tool! {
     description: "Extract a symbol definition to a new file or module",
     permission: ToolPermission::Write,
     tags: [ToolTag::Refactor],
-    defer_loading: true,
 
     execute(params: LspExtractSymbolParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

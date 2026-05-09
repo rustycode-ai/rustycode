@@ -23,7 +23,6 @@ rustycode_tools_api::define_tool! {
     description: "Find ALL references (usages) of a symbol across the codebase. PREFER THIS OVER GREP for finding usages — it understands scope, imports, and renames. Use when: you need to refactor and want to know all call sites, you want to understand how a function/type is used, you're checking impact of a change. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],
-    defer_loading: true,
 
     execute(params: LspReferencesParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

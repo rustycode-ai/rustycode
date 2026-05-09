@@ -90,7 +90,6 @@ Summary of changes made to each file.
 "#,
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],
-    defer_loading: true,
 
     execute(params: MultiEditParams, ctx) {
         let edits_value = &params.edits;

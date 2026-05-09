@@ -23,7 +23,6 @@ rustycode_tools_api::define_tool! {
     description: "Get type information, documentation, and signature at a specific position. Use when: you need to know the type of a variable, the signature of a function, or the docs for a method. Faster than reading the whole file. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],
-    defer_loading: true,
 
     execute(params: LspHoverParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

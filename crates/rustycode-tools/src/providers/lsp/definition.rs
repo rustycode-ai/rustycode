@@ -23,7 +23,6 @@ rustycode_tools_api::define_tool! {
     description: "Jump to the definition of a function, variable, type, or import at a specific position. PREFER THIS OVER GREP for navigation — gives the exact definition location. Use when: you see a symbol used in code and want to find where it's defined, you need to trace an import to its source. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],
-    defer_loading: true,
 
     execute(params: LspDefinitionParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;

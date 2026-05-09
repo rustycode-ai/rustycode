@@ -30,7 +30,6 @@ Requires: file_path, line, character, new_name
 Returns: Workspace edit with all changes to apply",
     permission: ToolPermission::Write,
     tags: [ToolTag::Refactor],
-    defer_loading: true,
 
     execute(params: LspRenameParams, ctx) {
         let file_path = resolve_file_path_from_str(ctx, &params.relative_path)?;
