@@ -70,6 +70,10 @@ pub const REASONING_DECOMPOSE: &str = "ReasoningDecompose";
 pub const REASONING_VALIDATE: &str = "ReasoningValidate";
 pub const REASONING_INTEGRATE: &str = "ReasoningIntegrate";
 
+// ── Interactive question tool ───────────────────────────────────────────────
+
+pub const ASK_USER_QUESTION: &str = "AskUserQuestion";
+
 // ── MCP resource tools ─────────────────────────────────────────────────────
 
 pub const READ_MCP_RESOURCE: &str = "ReadMcpResource";
@@ -125,8 +129,6 @@ pub const TEXT_EDITOR_LEGACY: &str = "text_editor_20250124";
 
 // ── Database / HTTP tools ──────────────────────────────────────────────────
 
-pub const DATABASE_QUERY: &str = "DatabaseQuery";
-pub const DATABASE_TRANSACTION: &str = "DatabaseTransaction";
 pub const HTTP_GET: &str = "HttpGet";
 pub const HTTP_POST: &str = "HttpPost";
 pub const HTTP_PUT: &str = "HttpPut";
@@ -160,6 +162,21 @@ pub const WORKTREE_EXIT: &str = "WorktreeExit";
 
 pub const TEAM_CREATE: &str = "TeamCreate";
 pub const TEAM_DELETE: &str = "TeamDelete";
+
+// ── Coverage / database tools ───────────────────────────────────────────
+
+pub const COVERAGE: &str = "coverage";
+pub const DATABASE_SCHEMA: &str = "database_schema";
+
+// ── Multi-edit tool (snake_case alias) ──────────────────────────────────
+
+pub const MULTI_EDIT_ALIAS: &str = "multi_edit";
+
+// ── Task / batch tools (lowercase LLM-facing names) ────────────────────
+
+pub const TASK: &str = "task";
+pub const BATCH: &str = "batch";
+pub const CREATE_PLAN: &str = "create_plan";
 
 // ── Search / indexing tools ───────────────────────────────────────────────
 

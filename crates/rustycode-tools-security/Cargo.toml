@@ -21,6 +21,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync"] }
 tracing.workspace = true
+rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-sandbox = { path = "../rustycode-sandbox" }
 

@@ -526,7 +526,7 @@ mod tests {
     fn test_bash_allowed_commands() {
         let commands = allowed_commands(ShellType::Bash);
         assert!(commands.contains(&"ls"));
-        assert!(commands.contains(&"Grep"));
+        assert!(commands.contains(&"grep"));
         assert!(commands.contains(&"cargo"));
         assert!(commands.contains(&"git"));
     }

@@ -643,7 +643,7 @@ mod tests {
     }
 
     #[test]
-    fn read_file_blocks_symlink_to_directory_inside_workspace() {
+    fn read_file_resolves_symlink_to_directory_inside_workspace() {
         let workspace = tempdir().expect("workspace tempdir");
         let test_dir = workspace.path().join("testdir");
         fs::create_dir(&test_dir).expect("create test dir");
@@ -661,13 +661,13 @@ mod tests {
         #[cfg(unix)]
         {
             let res = tool.execute(serde_json::json!({ "path": "symlinkdir/test.txt" }), &ctx);
-            match res {
-                Ok(_) => panic!("Expected error for symlink path, but got Ok"),
-                Err(e) => {
-                    let msg = e.to_string();
-                    assert!(msg.contains("symbolic link"), "Unexpected error: {}", msg);
-                }
-            }
+            assert!(
+                res.is_ok(),
+                "Valid symlink inside workspace should resolve: {:?}",
+                res
+            );
+            let output = res.unwrap();
+            assert!(output.text.contains("hello world"));
         }
 
         #[cfg(not(unix))]
@@ -688,10 +688,14 @@ mod tests {
         let ctx = ToolContext::new(workspace.path());
         let res = tool.execute(serde_json::json!({ "path": "symlink.txt" }), &ctx);
         match res {
-            Ok(_) => panic!("Expected error for symlink path, but got Ok"),
+            Ok(_) => panic!("Expected error for symlink pointing outside workspace, but got Ok"),
             Err(e) => {
                 let msg = e.to_string();
-                assert!(msg.contains("symbolic link"), "Unexpected error: {}", msg);
+                assert!(
+                    msg.contains("outside workspace"),
+                    "Expected 'outside workspace' error, got: {}",
+                    msg
+                );
             }
         }
     }

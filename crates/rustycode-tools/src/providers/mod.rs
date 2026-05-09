@@ -3,6 +3,7 @@
 // Each file implements one or more Tool trait providers. These are the
 // concrete tool implementations that get registered into ToolRegistry.
 
+pub mod ask_user_question;
 pub mod bash;
 pub mod brief;
 pub mod builtin;
@@ -40,6 +41,8 @@ pub mod validate_requirements;
 pub mod web;
 
 // Re-exports for backward-compatible access via `rustycode_tools::TypeName`
+#[allow(ambiguous_glob_reexports)]
+pub use ask_user_question::*;
 #[allow(ambiguous_glob_reexports)]
 pub use bash::*;
 #[allow(ambiguous_glob_reexports)]

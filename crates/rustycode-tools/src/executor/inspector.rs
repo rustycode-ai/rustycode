@@ -381,8 +381,6 @@ impl PermissionInspector {
                 "DockerRun",
                 "DockerBuild",
                 "DockerStop",
-                "DatabaseQuery",
-                "DatabaseTransaction",
                 "HttpPost",
                 "HttpPut",
                 "HttpDelete",

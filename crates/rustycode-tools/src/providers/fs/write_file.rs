@@ -406,7 +406,7 @@ mod tests {
     }
 
     #[test]
-    fn list_dir_blocks_symlink() {
+    fn list_dir_blocks_symlink_outside_workspace() {
         let workspace = tempdir().expect("workspace tempdir");
         let outside = tempdir().expect("outside tempdir");
 
@@ -422,10 +422,16 @@ mod tests {
         {
             let res = tool.execute(serde_json::json!({ "path": "symlinkdir" }), &ctx);
             match res {
-                Ok(_) => panic!("Expected error for symlink path, but got Ok"),
+                Ok(_) => {
+                    panic!("Expected error for symlink pointing outside workspace, but got Ok")
+                }
                 Err(e) => {
                     let msg = e.to_string();
-                    assert!(msg.contains("symbolic link"), "Unexpected error: {}", msg);
+                    assert!(
+                        msg.contains("outside workspace"),
+                        "Expected 'outside workspace' error, got: {}",
+                        msg
+                    );
                 }
             }
         }

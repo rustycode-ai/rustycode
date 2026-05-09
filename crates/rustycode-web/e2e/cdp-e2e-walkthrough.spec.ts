@@ -8,10 +8,37 @@ const BASE_URL = "http://localhost:3000";
 let seq = 0;
 function resetSeq() { seq = 0; }
 
+function makeEvent(eventType: string, data: Record<string, unknown>): string {
+  return JSON.stringify({
+    v: 2,
+    type: "event",
+    id: `evt-${++seq}`,
+    payload: { seq, type: eventType, data },
+  });
+}
+
+function makeEnvelope(type: string, payload: Record<string, unknown>): string {
+  return JSON.stringify({ v: 2, type, id: `env-${++seq}`, payload });
+}
+
+function sessionCreated(token = "test-token"): string {
+  return makeEnvelope("session_created", {
+    session_token: token,
+    capabilities: { heartbeat_interval_secs: 30 },
+  });
+}
+
+interface MockWs {
+  server: WebSocketRoute;
+  clientMessages: string[];
+}
+
 async function connectPage(page: Page): Promise<MockWs> {
   const clientMessages: string[] = [];
+  let capturedServer!: WebSocketRoute;
 
   await page.routeWebSocket("**/ws", (ws) => {
+    capturedServer = ws;
     ws.onMessage((data) => { clientMessages.push(data.toString()); });
     ws.send(sessionCreated());
   });
@@ -25,7 +52,7 @@ async function connectPage(page: Page): Promise<MockWs> {
     document.querySelectorAll(".toast").forEach((t) => t.remove());
   });
 
-  return { clientMessages };
+  return { server: capturedServer, clientMessages };
 }
 
 async function sendUserMessage(page: Page, text: string) {
@@ -46,6 +73,36 @@ async function completeResponse(page: Page, ws: WebSocketRoute, text?: string) {
   if (text) ws.send(makeEvent("text_delta", { content: text }));
   ws.send(makeEvent("done", {}));
   await page.waitForTimeout(300);
+}
+
+// ── Page mock setup ────────────────────────────────────────────────
+
+async function setupMockRoutes(page: Page) {
+  await page.route("**/api/providers", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        current: { provider: "mock", model: "mock-model" },
+        providers: [
+          {
+            name: "mock",
+            display_name: "Mock Provider",
+            models: ["mock-model"],
+            default_model: "mock-model",
+            available: true,
+          },
+        ],
+      }),
+    })
+  );
+  await page.route("**/api/sessions", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    })
+  );
 }
 
 // ── US-001: App Load, Layout, Navigation ──────────────────────────

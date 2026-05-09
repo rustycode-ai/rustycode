@@ -185,7 +185,6 @@ pub mod recipes;
 pub mod security_patterns;
 pub mod skills;
 pub mod slash_commands;
-pub mod smart_approve;
 pub mod streaming;
 pub mod structured_output;
 pub mod subprocess;
@@ -464,9 +463,8 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     use crate::providers::web::fetch::WebFetchTool;
     use crate::providers::web::search::WebSearchTool;
     use crate::providers::{
-        BashTool, CmdTool, FindTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool,
-        GlobTool, GrepTool, InspectTool, ListDirTool, PowerShellTool, QuestionTool, ReadFileTool,
-        WriteFileTool,
+        BashTool, CmdTool, FindTool, GlobTool, GrepTool, InspectTool, ListDirTool, PowerShellTool,
+        QuestionTool, ReadFileTool, WriteFileTool,
     };
 
     let mut reg = ToolRegistry::new();
@@ -499,14 +497,6 @@ pub fn default_registry_filtered(filter: &ToolFilter) -> ToolRegistry {
     }
     if filter.should_register_cmd() {
         reg.register(CmdTool);
-    }
-
-    // Git tools — only if in a git repo.
-    if filter.should_register_git() {
-        reg.register(GitStatusTool);
-        reg.register(GitDiffTool);
-        reg.register(GitLogTool);
-        reg.register(GitCommitTool);
     }
 
     // LSP tools — only if LSP is available and provider handles complex schemas.

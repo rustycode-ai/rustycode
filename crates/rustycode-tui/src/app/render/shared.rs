@@ -1,6 +1,7 @@
 //! Shared rendering helpers used by multiple renderer backends.
 
 use ratatui::layout::Rect;
+use rustycode_protocol::tool_names as tn;
 use unicode_width::UnicodeWidthStr;
 
 // LINE ESTIMATION
@@ -193,18 +194,24 @@ pub fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
 /// (e.g., "thread_reader" won't match "read").
 pub fn tool_kind_icon(name: &str) -> &'static str {
     match name {
-        "Read" | "View" => "R",
-        "Write" | "Create" => "W",
-        "Edit" | "MultiEdit" | "ApplyPatch" => "E",
+        tn::READ | "View" => "R",
+        tn::WRITE | "Create" => "W",
+        tn::EDIT | tn::MULTI_EDIT | tn::APPLY_PATCH => "E",
         "Delete" | "Remove" => "D",
-        "Grep" | "Search" => "G",
-        "Glob" | "ListDir" => "F",
-        "Bash" => "$",
-        "WebFetch" | "WebSearch" => "~",
-        "NotebookEdit" => "N",
-        "AskUserQuestion" => "?",
-        "TodoRead" | "TodoWrite" => "T",
+        tn::GREP | "Search" => "G",
+        tn::GLOB | tn::LIST_DIR => "F",
+        tn::BASH => "$",
+        tn::WEB_FETCH | tn::WEB_SEARCH => "~",
+        tn::NOTEBOOK_EDIT => "N",
+        tn::ASK_USER_QUESTION => "?",
+        tn::TODO_READ | tn::TODO_WRITE => "T",
         "Agent" => "A",
+        tn::GIT_STATUS
+        | tn::GIT_DIFF
+        | tn::GIT_LOG
+        | tn::GIT_COMMIT
+        | tn::GIT_PUSH
+        | tn::GIT_RESET => "G",
         _ => icon_from_name_segments(name),
     }
 }

@@ -103,6 +103,7 @@ fn normalize_tool_name(name: &str) -> &str {
         "WebFetch" | "web_fetch" | "fetch" => "WebFetch",
         "LSP" | "lsp" => "lsp",
         "ApplyPatch" | "patch" => "ApplyPatch",
+        "AskUserQuestion" | "ask_user_question" | "ask_user" => "AskUserQuestion",
         _ => name,
     }
 }

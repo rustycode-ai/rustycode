@@ -8,6 +8,8 @@
 
 use std::collections::HashSet;
 
+use rustycode_protocol::tool_names as tn;
+
 /// Classification of a tool operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
@@ -48,53 +50,52 @@ impl SmartApprove {
     pub fn new() -> Self {
         Self {
             read_only_tools: HashSet::from([
-                "Read",
-                "ListDir",
-                "Grep",
-                "Glob",
-                "Find",
-                "Inspect",
-                "GitStatus",
-                "GitDiff",
-                "GitLog",
-                "LspDiagnostics",
-                "LspHover",
-                "LspDefinition",
-                "LspCompletion",
-                "LspDocumentSymbols",
-                "LspReferences",
-                "LspFullDiagnostics",
-                "LspCodeActions",
-                "LspFormatting",
-                "WebFetch",
-                "WebSearch",
-                "SemanticSearch",
-                "Codesearch",
-                "coverage",
-                "ListPlans",
-                "LoadPlan",
-                "DockerImages",
-                "DockerPs",
-                "DockerInspect",
-                "DockerLogs",
-                "database_schema",
-                "DatabaseQuery",
-                "TodoRead",
+                tn::READ,
+                tn::LIST_DIR,
+                tn::GREP,
+                tn::GLOB,
+                tn::FIND,
+                tn::INSPECT,
+                tn::GIT_STATUS,
+                tn::GIT_DIFF,
+                tn::GIT_LOG,
+                tn::LSP_DIAGNOSTICS,
+                tn::LSP_HOVER,
+                tn::LSP_DEFINITION,
+                tn::LSP_COMPLETION,
+                tn::LSP_DOCUMENT_SYMBOLS,
+                tn::LSP_REFERENCES,
+                tn::LSP_FULL_DIAGNOSTICS,
+                tn::LSP_CODE_ACTIONS,
+                tn::LSP_FORMATTING,
+                tn::WEB_FETCH,
+                tn::WEB_SEARCH,
+                tn::SEMANTIC_SEARCH,
+                tn::CODESEARCH,
+                tn::COVERAGE,
+                tn::LIST_PLANS,
+                tn::LOAD_PLAN,
+                tn::DOCKER_IMAGES,
+                tn::DOCKER_PS,
+                tn::DOCKER_INSPECT,
+                tn::DOCKER_LOGS,
+                tn::DATABASE_SCHEMA,
+                tn::TODO_READ,
             ]),
             write_tools: HashSet::from([
-                "Write",
-                "Edit",
-                "text_editor_20250728",
-                "text_editor_20250124",
-                "ApplyPatch",
-                "multi_edit",
-                "GitCommit",
-                "LspRename",
-                "SavePlan",
-                "create_plan",
-                "ApprovePlan",
-                "TodoWrite",
-                "TodoUpdate",
+                tn::WRITE,
+                tn::EDIT,
+                tn::TEXT_EDITOR_NEWEST,
+                tn::TEXT_EDITOR_LEGACY,
+                tn::APPLY_PATCH,
+                tn::MULTI_EDIT_ALIAS,
+                tn::GIT_COMMIT,
+                tn::LSP_RENAME,
+                tn::SAVE_PLAN,
+                tn::CREATE_PLAN,
+                tn::APPROVE_PLAN,
+                tn::TODO_WRITE,
+                tn::TODO_UPDATE,
             ]),
             destructive_bash_commands: &[
                 "rm ",
@@ -203,35 +204,30 @@ impl SmartApprove {
         }
 
         // Bash needs special handling — inspect the command
-        if name == "Bash" {
+        if name == tn::BASH {
             return self.classify_bash_command(args.unwrap_or(""));
         }
 
         // Docker tools — run/build are write-tier
-        if name == "DockerRun" || name == "DockerBuild" {
+        if name == tn::DOCKER_RUN || name == tn::DOCKER_BUILD {
             return OperationClass::Write;
         }
 
-        // Database mutations
-        if name == "DatabaseTransaction" {
-            return OperationClass::Destructive;
-        }
-
         // Task tool — spawns sub-agents, treat as write
-        if name == "task" {
+        if name == tn::TASK {
             return OperationClass::Write;
         }
 
         // HTTP methods
-        if name == "HttpPost" || name == "HttpPut" || name == "HttpDelete" {
+        if name == tn::HTTP_POST || name == tn::HTTP_PUT || name == tn::HTTP_DELETE {
             return OperationClass::Write;
         }
-        if name == "HttpGet" {
+        if name == tn::HTTP_GET {
             return OperationClass::ReadOnly;
         }
 
         // Batch tool — depends on contents, treat as unknown
-        if name == "batch" {
+        if name == tn::BATCH {
             return OperationClass::Unknown;
         }
 
@@ -393,14 +389,6 @@ mod tests {
     fn test_docker_inspect_is_readonly() {
         assert_eq!(
             classifier().classify("DockerInspect", None),
-            OperationClass::ReadOnly
-        );
-    }
-
-    #[test]
-    fn test_database_query_is_readonly() {
-        assert_eq!(
-            classifier().classify("DatabaseQuery", None),
             OperationClass::ReadOnly
         );
     }
@@ -638,14 +626,6 @@ mod tests {
     }
 
     // ── Special tools ────────────────────────────────────────────────────
-
-    #[test]
-    fn test_database_transaction_is_destructive() {
-        assert_eq!(
-            classifier().classify("DatabaseTransaction", None),
-            OperationClass::Destructive
-        );
-    }
 
     #[test]
     fn test_task_tool_is_write() {

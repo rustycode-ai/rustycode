@@ -251,8 +251,6 @@ impl ToolApprovalMode {
                 | tn::DOCKER_STOP
                 | tn::APPLY_PATCH
                 | tn::MULTI_EDIT
-                | tn::DATABASE_QUERY
-                | tn::DATABASE_TRANSACTION
                 | tn::HTTP_POST
                 | tn::HTTP_PUT
                 | tn::HTTP_DELETE

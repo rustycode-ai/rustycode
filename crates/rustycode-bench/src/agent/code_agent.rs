@@ -9,6 +9,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use rustycode_llm::provider::{ContentBlock, MessageContent, MessageRole};
 use rustycode_protocol::intent::classify_intent;
+use rustycode_protocol::tool_names as tn;
 use rustycode_tools::{ToolContext, ToolRegistry};
 use serde_json::Value;
 
@@ -140,13 +141,17 @@ impl CodeAgent {
     /// Normalize tool name from various LLM naming conventions.
     fn normalize_tool_name(name: &str) -> &str {
         match name {
-            "Edit" | "edit" => "Edit",
-            "Read" | "read" => "Read",
-            "Write" | "Create" => "Write",
-            "Bash" | "bash" | "Shell" | "shell" => "Bash",
-            "Grep" | "Search" => "Grep",
-            "Glob" | "Find" | "ListFiles" => "Glob",
-            "ListDir" | "ls" => "ListDir",
+            tn::EDIT | "edit" | "edit_file" => tn::EDIT,
+            tn::READ | "read" | "read_file" => tn::READ,
+            tn::WRITE | "Create" | "write" | "write_file" => tn::WRITE,
+            tn::BASH | "bash" | "Shell" | "shell" => tn::BASH,
+            tn::GREP | "Search" | "grep" => tn::GREP,
+            tn::GLOB | "Find" | "ListFiles" | "glob" => tn::GLOB,
+            tn::LIST_DIR | "ls" | "list_dir" => tn::LIST_DIR,
+            tn::APPLY_PATCH | "apply_patch" => tn::APPLY_PATCH,
+            tn::GIT_STATUS | "git_status" => tn::GIT_STATUS,
+            tn::GIT_DIFF | "git_diff" => tn::GIT_DIFF,
+            tn::GIT_LOG | "git_log" => tn::GIT_LOG,
             other => other,
         }
     }
@@ -758,7 +763,7 @@ impl BenchAgent for CodeAgent {
                 let tool_use = &tool_uses[i];
 
                 // Repetition detection for bash commands.
-                if tool_use.name == "Bash" {
+                if tool_use.name == tn::BASH {
                     let normalized = tool_use
                         .input
                         .get("command")
@@ -1106,14 +1111,14 @@ mod tests {
 
     #[test]
     fn normalize_tool_name_maps_common_aliases() {
-        assert_eq!(CodeAgent::normalize_tool_name("Edit"), "Edit");
-        assert_eq!(CodeAgent::normalize_tool_name("Read"), "Read");
-        assert_eq!(CodeAgent::normalize_tool_name("Write"), "Write");
-        assert_eq!(CodeAgent::normalize_tool_name("Bash"), "Bash");
-        assert_eq!(CodeAgent::normalize_tool_name("Grep"), "Grep");
-        assert_eq!(CodeAgent::normalize_tool_name("Glob"), "Glob");
-        assert_eq!(CodeAgent::normalize_tool_name("Bash"), "Bash");
-        assert_eq!(CodeAgent::normalize_tool_name("Edit"), "Edit");
+        assert_eq!(CodeAgent::normalize_tool_name(tn::EDIT), tn::EDIT);
+        assert_eq!(CodeAgent::normalize_tool_name(tn::READ), tn::READ);
+        assert_eq!(CodeAgent::normalize_tool_name(tn::WRITE), tn::WRITE);
+        assert_eq!(CodeAgent::normalize_tool_name(tn::BASH), tn::BASH);
+        assert_eq!(CodeAgent::normalize_tool_name(tn::GREP), tn::GREP);
+        assert_eq!(CodeAgent::normalize_tool_name(tn::GLOB), tn::GLOB);
+        assert_eq!(CodeAgent::normalize_tool_name(tn::BASH), tn::BASH);
+        assert_eq!(CodeAgent::normalize_tool_name(tn::EDIT), tn::EDIT);
         assert_eq!(CodeAgent::normalize_tool_name("unknown"), "unknown");
     }
 }
