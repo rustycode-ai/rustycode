@@ -953,7 +953,7 @@ fn should_auto_compact(query: &str, top_k: usize) -> bool {
 /// Format: `file:line (score) symbol | preview...`
 ///
 /// Example:
-/// ```
+/// ```text
 /// src/auth/mod.rs:45 (0.87) validate_jwt | fn validates JWT token and returns user...
 /// src/auth/middleware.rs:12 (0.72) AuthMiddleware | struct holds authentication state...
 /// ```
@@ -1081,7 +1081,7 @@ fn format_full(
 /// Format: `file:line (score) [symbol]`
 ///
 /// Example:
-/// ```
+/// ```text
 /// src/auth/mod.rs:45 (0.87) [validate_jwt]
 /// src/auth/middleware.rs:12 (0.72) [AuthMiddleware]
 /// ```

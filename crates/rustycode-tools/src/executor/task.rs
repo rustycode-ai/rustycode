@@ -18,11 +18,10 @@
 //! - **Timeout**: 5min total per sub-agent task
 
 use super::task_state;
-use crate::{Tool, ToolContext, ToolOutput, ToolPermission};
+use crate::{ToolOutput, ToolPermission};
 use anyhow::Result;
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::Value;
 use std::path::Path;
 
 /// Maximum number of tool-use turns a sub-agent can take
@@ -50,46 +49,17 @@ pub struct TaskParams {
     pub prompt: String,
 }
 
-/// Zero-sized TaskTool using session-keyed global state.
-#[derive(Debug, Clone, Copy)]
-pub struct TaskTool;
+rustycode_tools_api::define_tool! {
+    pub struct TaskTool;
 
-impl Tool for TaskTool {
-    fn name(&self) -> &'static str {
-        "task"
-    }
-
-    fn description(&self) -> &'static str {
-        r#"Launch a focused sub-agent to handle a specific task autonomously.
+    name: "task",
+    description: r#"Launch a focused sub-agent to handle a specific task autonomously.
 The sub-agent has access to all tools (read_file, write_file, bash, etc.)
 and runs independently until completion. Use this for delegating focused work
-like implementing a feature, fixing a bug, or analyzing code."#
-    }
+like implementing a feature, fixing a bug, or analyzing code."#,
+    permission: ToolPermission::Execute,
 
-    fn permission(&self) -> ToolPermission {
-        ToolPermission::Execute
-    }
-
-    fn parameters_schema(&self) -> Value {
-        serde_json::json!({
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "description": "Short description of the task (used for logging)"
-                },
-                "prompt": {
-                    "type": "string",
-                    "description": "Detailed instructions for the sub-agent. Be specific about what to do, which files to modify, and what the expected outcome is."
-                }
-            },
-            "required": ["prompt"]
-        })
-    }
-
-    fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
-        let params: TaskParams = serde_json::from_value(params)?;
-
+    execute(params: TaskParams, ctx) {
         let description = params
             .description
             .unwrap_or_else(|| "unnamed task".to_string());
@@ -150,6 +120,7 @@ like implementing a feature, fixing a bug, or analyzing code."#
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Tool, ToolContext};
     use std::path::PathBuf;
     use std::sync::Arc;
 

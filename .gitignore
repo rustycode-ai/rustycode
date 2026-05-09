@@ -48,6 +48,8 @@ venv/
 .rustycode_command_history
 
 # Logs
+*.rtk-eval.json
+logs/
 *.log
 *.jsonl
 clippy_output.txt
