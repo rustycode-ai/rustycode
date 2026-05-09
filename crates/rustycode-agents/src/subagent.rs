@@ -368,63 +368,22 @@ impl SubagentRegistry {
         Ok(loaded)
     }
 
-    /// Create a default registry with built-in subagents
+    /// Create a default registry populated from embedded agent definitions.
     pub fn with_defaults() -> Self {
         let mut registry = Self::new();
 
-        // Coder subagent
-        registry
-            .register(Subagent::new(
-                SubagentConfig::new(
-                    "coder".to_string(),
-                    "Coder".to_string(),
-                    "Expert at writing and refactoring code".to_string(),
-                )
-                .with_system_prompt(
-                    "You are an expert software engineer specializing in writing clean, \
-                idiomatic, well-documented code. You follow best practices for the \
-                language you're working in and always consider edge cases and error handling."
-                        .to_string(),
-                )
-                .with_model("claude-sonnet-4-6".to_string()),
-            ))
-            .unwrap_or_else(|e| tracing::warn!("Failed to register coder subagent: {}", e));
-
-        // Debugger subagent
-        registry
-            .register(Subagent::new(
-                SubagentConfig::new(
-                    "debugger".to_string(),
-                    "Debugger".to_string(),
-                    "Expert at diagnosing and fixing bugs".to_string(),
-                )
-                .with_system_prompt(
-                    "You are an expert debugger. You systematically analyze problems, \
-                identify root causes, and propose fixes. You always verify that fixes \
-                address the actual problem, not just symptoms."
-                        .to_string(),
-                )
-                .with_model("claude-sonnet-4-6".to_string()),
-            ))
-            .unwrap_or_else(|e| tracing::warn!("Failed to register debugger subagent: {}", e));
-
-        // Reviewer subagent
-        registry
-            .register(Subagent::new(
-                SubagentConfig::new(
-                    "reviewer".to_string(),
-                    "Reviewer".to_string(),
-                    "Expert at reviewing code for quality and issues".to_string(),
-                )
-                .with_system_prompt(
-                    "You are an expert code reviewer. You identify potential bugs, \
-                security issues, performance problems, and maintainability concerns. \
-                You provide constructive feedback with specific suggestions for improvement."
-                        .to_string(),
-                )
-                .with_model("claude-opus-4-6".to_string()), // Use Opus for more thorough reviews
-            ))
-            .unwrap_or_else(|e| tracing::warn!("Failed to register reviewer subagent: {}", e));
+        for (name, markdown) in crate::embedded_agents() {
+            match SubagentConfig::from_markdown(markdown) {
+                Ok(config) => {
+                    if let Err(e) = registry.register(Subagent::new(config)) {
+                        tracing::warn!("Failed to register embedded agent '{name}': {e}");
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to parse embedded agent '{name}': {e}");
+                }
+            }
+        }
 
         registry
     }
@@ -500,65 +459,40 @@ Your job is to help with testing.
     #[test]
     fn test_default_registry() {
         let registry = SubagentRegistry::with_defaults();
-        assert!(registry.get("coder").is_some());
+        assert!(registry.get("architect").is_some());
         assert!(registry.get("debugger").is_some());
-        assert!(registry.get("reviewer").is_some());
+        assert!(registry.get("executor").is_some());
+        assert!(registry.get("code-reviewer").is_some());
+        assert!(registry.get("explorer").is_some());
+        assert!(registry.get("verifier").is_some());
     }
 
     #[test]
-    fn test_with_defaults_populates_exactly_three_subagents() {
+    fn test_with_defaults_populates_embedded_agents() {
         let registry = SubagentRegistry::with_defaults();
 
-        // Verify all three built-in subagents are present
-        let coder = registry
-            .get("coder")
-            .expect("coder subagent should be registered");
-        assert_eq!(coder.name(), "Coder");
-        assert!(
-            coder.config().system_prompt.contains("software engineer"),
-            "coder should have its system prompt"
-        );
-        assert_eq!(coder.config().model, "claude-sonnet-4-6");
+        let expected = vec![
+            "architect",
+            "code-reviewer",
+            "debugger",
+            "executor",
+            "explorer",
+            "verifier",
+        ];
+        for id in &expected {
+            assert!(
+                registry.get(id).is_some(),
+                "embedded agent '{id}' should be registered"
+            );
+        }
 
-        let debugger = registry
-            .get("debugger")
-            .expect("debugger subagent should be registered");
-        assert_eq!(debugger.name(), "Debugger");
-        assert!(
-            debugger.config().system_prompt.contains("debugger"),
-            "debugger should have its system prompt"
-        );
-
-        let reviewer = registry
-            .get("reviewer")
-            .expect("reviewer subagent should be registered");
-        assert_eq!(reviewer.name(), "Reviewer");
-        assert!(
-            reviewer.config().system_prompt.contains("code reviewer"),
-            "reviewer should have its system prompt"
-        );
-
-        // Verify exactly three subagents
         let ids = registry.list_ids();
         assert_eq!(
             ids.len(),
-            3,
-            "with_defaults should register exactly 3 subagents, got: {:?}",
+            expected.len(),
+            "with_defaults should register {} agents, got {:?}",
+            expected.len(),
             ids
-        );
-
-        // Verify no unknown subagents
-        assert!(
-            ids.contains(&"coder".to_string()),
-            "ids should contain coder"
-        );
-        assert!(
-            ids.contains(&"debugger".to_string()),
-            "ids should contain debugger"
-        );
-        assert!(
-            ids.contains(&"reviewer".to_string()),
-            "ids should contain reviewer"
         );
     }
 
