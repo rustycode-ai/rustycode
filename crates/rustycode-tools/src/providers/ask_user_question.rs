@@ -3,6 +3,7 @@ use anyhow::{anyhow, Result};
 use schemars::JsonSchema;
 use serde_json::json;
 use std::env;
+use std::io::IsTerminal;
 
 const MAX_QUESTIONS: usize = 4;
 const MAX_OPTIONS: usize = 4;
@@ -79,13 +80,23 @@ Usage notes:
             .and_then(|v| v.parse::<bool>().ok())
             .unwrap_or(false);
 
-        let answers = if let Some(ans) = provided_answers {
-            ans
-        } else if is_auto_mode {
+        // When stdin is not a terminal (e.g., TUI has captured it, or piped
+        // input), attempting to read from it would deadlock. The TUI sets
+        // RUSTYCODE_TUI=1 to signal this. Fall back to auto-answer with a
+        // note so the LLM knows it should re-ask later if the answer matters.
+        let stdin_is_tty = std::io::stdin().is_terminal();
+        let in_tui = std::env::var("RUSTYCODE_TUI").is_ok();
+        let non_interactive = !stdin_is_tty || in_tui;
+
+        let answers = if let Some(ref ans) = provided_answers {
+            ans.clone()
+        } else if is_auto_mode || non_interactive {
             auto_answer(&questions)?
         } else {
             prompt_questions(&questions)?
         };
+
+        let auto_selected = provided_answers.is_none() && (is_auto_mode || non_interactive);
 
         let mut parts = Vec::new();
         for q in &questions {
@@ -95,10 +106,20 @@ Usage notes:
 
         let answers_text = parts.join(", ");
 
-        let output = format!(
-            "User has answered your questions: {}. You can now continue with the user's answers in mind.",
-            answers_text
-        );
+        let output = if auto_selected {
+            format!(
+                "Auto-selected answers (non-interactive mode): {}. \
+                 These are defaults, not user choices. \
+                 If the specific choice matters, proceed with the recommended option \
+                 and note this in your response.",
+                answers_text
+            )
+        } else {
+            format!(
+                "User has answered your questions: {}. You can now continue with the user's answers in mind.",
+                answers_text
+            )
+        };
 
         let metadata = json!({
             "questions": questions.iter().map(|q| json!({
@@ -236,6 +257,7 @@ fn prompt_questions(questions: &[Question]) -> Result<std::collections::HashMap<
     Ok(answers)
 }
 
+#[must_use]
 fn parse_single_selection(input: &str, options: &[QuestionOption]) -> String {
     if let Ok(num) = input.parse::<usize>() {
         if num > 0 && num <= options.len() {
@@ -252,6 +274,7 @@ fn parse_single_selection(input: &str, options: &[QuestionOption]) -> String {
     input.to_string()
 }
 
+#[must_use]
 fn parse_multi_selection(input: &str, options: &[QuestionOption]) -> String {
     let mut selected = Vec::new();
 
@@ -288,6 +311,23 @@ mod tests {
     use super::*;
     use crate::Tool;
     use crate::ToolContext;
+
+    static AUTO_MODE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
+    fn with_auto_mode<F, R>(f: F) -> R
+    where
+        F: FnOnce() -> R,
+    {
+        let _lock = AUTO_MODE_LOCK.lock();
+        let previous = std::env::var("RUSTYCODE_AUTO_MODE").ok();
+        std::env::set_var("RUSTYCODE_AUTO_MODE", "true");
+        let result = f();
+        match previous {
+            Some(v) => std::env::set_var("RUSTYCODE_AUTO_MODE", v),
+            None => std::env::remove_var("RUSTYCODE_AUTO_MODE"),
+        }
+        result
+    }
 
     #[test]
     fn tool_metadata() {
@@ -479,31 +519,29 @@ mod tests {
 
     #[test]
     fn execute_auto_mode() {
-        let tool = AskUserQuestionTool;
-        let ctx = ToolContext::new("/tmp");
+        with_auto_mode(|| {
+            let tool = AskUserQuestionTool;
+            let ctx = ToolContext::new("/tmp");
 
-        env::set_var("RUSTYCODE_AUTO_MODE", "true");
+            let result = tool.execute(
+                json!({
+                    "questions": [{
+                        "question": "Which ORM?",
+                        "header": "ORM",
+                        "options": [
+                            {"label": "Diesel (Recommended)", "description": "Type-safe ORM"},
+                            {"label": "SQLx", "description": "Async SQL"}
+                        ]
+                    }]
+                }),
+                &ctx,
+            );
 
-        let result = tool.execute(
-            json!({
-                "questions": [{
-                    "question": "Which ORM?",
-                    "header": "ORM",
-                    "options": [
-                        {"label": "Diesel (Recommended)", "description": "Type-safe ORM"},
-                        {"label": "SQLx", "description": "Async SQL"}
-                    ]
-                }]
-            }),
-            &ctx,
-        );
-
-        assert!(result.is_ok());
-        let output = result.unwrap();
-        assert!(output.text.contains("Diesel (Recommended)"));
-        assert!(output.text.contains("User has answered your questions"));
-
-        env::remove_var("RUSTYCODE_AUTO_MODE");
+            assert!(result.is_ok());
+            let output = result.unwrap();
+            assert!(output.text.contains("Diesel (Recommended)"));
+            assert!(output.text.contains("Auto-selected answers"));
+        })
     }
 
     #[test]
@@ -533,23 +571,21 @@ mod tests {
 
     #[test]
     fn execute_rejects_empty_questions() {
-        let tool = AskUserQuestionTool;
-        let ctx = ToolContext::new("/tmp");
+        with_auto_mode(|| {
+            let tool = AskUserQuestionTool;
+            let ctx = ToolContext::new("/tmp");
 
-        env::set_var("RUSTYCODE_AUTO_MODE", "true");
+            let result = tool.execute(
+                json!({
+                    "questions": []
+                }),
+                &ctx,
+            );
 
-        let result = tool.execute(
-            json!({
-                "questions": []
-            }),
-            &ctx,
-        );
-
-        assert!(result.is_err());
-        let err = result.unwrap_err();
-        assert!(err.to_string().contains("1-4 questions"));
-
-        env::remove_var("RUSTYCODE_AUTO_MODE");
+            assert!(result.is_err());
+            let err = result.unwrap_err();
+            assert!(err.to_string().contains("1-4 questions"));
+        })
     }
 
     #[test]

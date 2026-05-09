@@ -132,6 +132,11 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
         return Ok(());
     }
 
+    // Mark that we're running inside the TUI so tools that need interactive
+    // input (stdin reads) can detect non-interactive context and auto-answer
+    // instead of deadlocking the event loop.
+    std::env::set_var("RUSTYCODE_TUI", "1");
+
     if let Err(e) = init() {
         tracing::error!("Failed to initialize logging: {}", e);
     } else {

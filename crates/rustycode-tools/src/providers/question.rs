@@ -64,7 +64,8 @@ Use this tool when you need to:
         // auto-answer with a note so the LLM knows it should re-ask later
         // if the answer matters.
         let stdin_is_tty = io::stdin().is_terminal();
-        let use_auto = is_auto_mode || !stdin_is_tty;
+        let in_tui = env::var("RUSTYCODE_TUI").is_ok();
+        let use_auto = is_auto_mode || !stdin_is_tty || in_tui;
 
         let response = if use_auto {
             if let Some(def) = &default {
@@ -83,7 +84,7 @@ Use this tool when you need to:
             prompt_user(&question, options.as_deref(), default.as_deref(), multiple)?
         };
 
-        let auto_selected = !is_auto_mode && !stdin_is_tty;
+        let auto_selected = !is_auto_mode && (!stdin_is_tty || in_tui);
 
         let output = if auto_selected {
             format!(
@@ -220,10 +221,13 @@ mod tests {
     use crate::Tool;
     use crate::ToolContext;
 
+    static AUTO_MODE_LOCK: parking_lot::Mutex<()> = parking_lot::Mutex::new(());
+
     fn with_auto_mode<F, R>(f: F) -> R
     where
         F: FnOnce() -> R,
     {
+        let _lock = AUTO_MODE_LOCK.lock();
         let previous = env::var("RUSTYCODE_AUTO_MODE").ok();
         env::set_var("RUSTYCODE_AUTO_MODE", "true");
         let result = f();
