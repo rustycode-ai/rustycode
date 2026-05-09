@@ -290,7 +290,7 @@ impl CohereProvider {
                     cost_tier: 3,
                 },
             ],
-                    model_behavior_profiles: HashMap::new(),
+            model_behavior_profiles: HashMap::new(),
         }
     }
 

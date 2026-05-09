@@ -400,7 +400,7 @@ impl BedrockProvider {
                 use_cases: vec!["General assistance".to_string(), "Coding".to_string()],
                 cost_tier: 3,
             }],
-                    model_behavior_profiles: HashMap::new(),
+            model_behavior_profiles: HashMap::new(),
         }
     }
 

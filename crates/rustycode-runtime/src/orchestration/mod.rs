@@ -11,7 +11,9 @@ pub mod llm_intent;
 pub mod prompt;
 pub mod routing;
 
-pub use llm_intent::{ClassificationSource, EnhancedIntentAssessment, LlmFallbackBudget, LlmIntentClassifier};
+pub use llm_intent::{
+    ClassificationSource, EnhancedIntentAssessment, LlmFallbackBudget, LlmIntentClassifier,
+};
 pub use prompt::PromptOrchestrator;
 pub use routing::{
     build_headless_routing_preface, parse_task_routing_handoff, resolve_task_routing,

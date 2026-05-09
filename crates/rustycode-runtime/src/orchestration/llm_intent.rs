@@ -6,7 +6,9 @@
 //! - Tracks classification source and budget constraints
 
 use rustycode_llm::provider::{ChatMessage, CompletionRequest, LLMProvider};
-use rustycode_protocol::intent::{classify_intent_with_confidence, IntentAssessment, IntentCategory};
+use rustycode_protocol::intent::{
+    classify_intent_with_confidence, IntentAssessment, IntentCategory,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -81,7 +83,7 @@ impl LlmFallbackBudget {
     }
 
     /// Reset the counter (useful for testing).
-    #[cfg(test)]
+    #[allow(dead_code)]
     fn reset(&self) {
         self.call_count.store(0, Ordering::SeqCst);
     }
@@ -150,7 +152,10 @@ impl LlmIntentClassifier {
     }
 
     /// Call the LLM to reclassify intent (bounded, one attempt only).
-    async fn llm_classify(task: &str, provider: &Arc<dyn LLMProvider>) -> Result<IntentAssessment, String> {
+    async fn llm_classify(
+        task: &str,
+        provider: &Arc<dyn LLMProvider>,
+    ) -> Result<IntentAssessment, String> {
         let system_prompt = r#"You are an intent classifier. Classify the user's task into one of these categories with a confidence score.
 
 Categories:
@@ -189,7 +194,7 @@ Respond with JSON:
     fn parse_llm_response(content: &str) -> Result<IntentAssessment, String> {
         // Try to extract JSON from the response
         let json_str = if content.contains('{') {
-            &content[content.find('{').unwrap()..content.rfind('}').unwrap_or(content.len()) + 1]
+            &content[content.find('{').unwrap()..=content.rfind('}').unwrap_or(content.len() - 1)]
         } else {
             content
         };

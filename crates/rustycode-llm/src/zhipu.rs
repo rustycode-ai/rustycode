@@ -218,7 +218,7 @@ impl ZhipuProvider {
                     cost_tier: 1,
                 },
             ],
-                    model_behavior_profiles: HashMap::new(),
+            model_behavior_profiles: HashMap::new(),
         }
     }
 }

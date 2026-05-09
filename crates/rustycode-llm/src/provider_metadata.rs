@@ -529,9 +529,7 @@ impl ProviderMetadata {
                 prompt.push_str("\n\nPrefer concise bullet points for your responses.");
             }
             OutputStructure::CodeFocused => {
-                prompt.push_str(
-                    "\n\nFocus on code blocks and technical output. Minimize prose.",
-                );
+                prompt.push_str("\n\nFocus on code blocks and technical output. Minimize prose.");
             }
             OutputStructure::Freeform => {}
             #[allow(unreachable_patterns)]
@@ -573,7 +571,8 @@ impl ModelBehaviorRegistry {
     }
 
     pub fn register(&mut self, metadata: ProviderMetadata) {
-        self.providers.insert(metadata.provider_id.clone(), metadata);
+        self.providers
+            .insert(metadata.provider_id.clone(), metadata);
     }
 
     pub fn get(&self, provider_id: &str) -> Option<&ProviderMetadata> {
@@ -596,7 +595,7 @@ impl ModelBehaviorRegistry {
 pub struct ToolSchema {
     pub name: String,
     pub description: String,
-    pub parameters: String,
+    pub parameters: serde_json::Value,
 }
 
 /// Get metadata for a provider by ID
@@ -648,7 +647,12 @@ mod tests {
         let tools = vec![ToolSchema {
             name: "search".to_string(),
             description: "Search the web".to_string(),
-            parameters: "{query: string}".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"}
+                }
+            }),
         }];
 
         let tool_defs = meta.generate_tool_definitions(&tools);
@@ -807,8 +811,14 @@ mod tests {
     fn resolve_model_profile_empty_profiles_returns_provider_default() {
         let meta = test_metadata_empty_profiles();
         let profile = meta.resolve_model_profile("any-model").unwrap();
-        assert_eq!(profile.output_structure_preference, OutputStructure::StructuredXml);
-        assert_eq!(profile.special_instructions, vec!["Provider instruction".to_string()]);
+        assert_eq!(
+            profile.output_structure_preference,
+            OutputStructure::StructuredXml
+        );
+        assert_eq!(
+            profile.special_instructions,
+            vec!["Provider instruction".to_string()]
+        );
     }
 
     #[test]
@@ -826,8 +836,14 @@ mod tests {
 
         let resolved = meta.resolve_model_profile("claude-opus-4-7").unwrap();
         assert_eq!(resolved.tool_usage_posture, ToolUsagePosture::Aggressive);
-        assert_eq!(resolved.output_structure_preference, OutputStructure::CodeFocused);
-        assert_eq!(resolved.reasoning_guidance_style, ReasoningGuidance::ChainOfThought);
+        assert_eq!(
+            resolved.output_structure_preference,
+            OutputStructure::CodeFocused
+        );
+        assert_eq!(
+            resolved.reasoning_guidance_style,
+            ReasoningGuidance::ChainOfThought
+        );
         assert!(!resolved.parallel_tool_calls);
     }
 
@@ -1029,6 +1045,9 @@ mod tests {
         let meta = crate::anthropic::AnthropicProvider::metadata();
         let prompt1 = meta.generate_system_prompt("Hello");
         let prompt2 = meta.generate_system_prompt("Hello");
-        assert_eq!(prompt1, prompt2, "generate_system_prompt must remain stable");
+        assert_eq!(
+            prompt1, prompt2,
+            "generate_system_prompt must remain stable"
+        );
     }
 }
