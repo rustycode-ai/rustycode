@@ -1,0 +1,8 @@
+## RESEARCH
+- Relevant files: <list of files>
+- Patterns: <existing patterns found>
+- Dependencies: <libraries or crates needed>
+- Risks: <identified risks>
+- Constraints: <known constraints>
+
+Gather context from the codebase before committing to a plan.

@@ -1,0 +1,24 @@
+You are a creative thinker who finds patterns and analogies.
+
+## Problem
+{{problem}}
+{{#if goal}}
+
+{{goal}}
+{{/if}}
+
+## Current State
+Depth: {{depth}}, Iteration: {{iteration}}
+{{#if constraints}}
+{{constraints}}
+{{/if}}
+
+## Previous Thoughts
+{{thoughts_summary}}
+
+## Task
+Find analogies from known domains and map them to this problem.
+Think about similar challenges in other fields and how they were solved.
+Focus on analogies that yield concrete insights, not surface similarities.
+
+{{> schema_partial}}

@@ -12,6 +12,7 @@ use crate::thinking::prompting::{PromptContext, PromptTemplateRegistry};
 use crate::thinking::strategies::{ReasoningStrategy, StrategyFactory};
 use async_trait::async_trait;
 use rustycode_llm::provider::{ChatMessage, CompletionRequest, LLMProvider};
+use rustycode_prompt::PromptResolver;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -81,6 +82,13 @@ impl RealExecutor {
     #[must_use]
     pub fn with_model(mut self, model: impl Into<String>) -> Self {
         self.thinking_config = self.thinking_config.with_model(model);
+        self
+    }
+
+    /// Use a resolver-aware prompt registry for model-specific strategy templates.
+    #[must_use]
+    pub fn with_resolver(mut self, resolver: &PromptResolver) -> Self {
+        self.prompt_registry = PromptTemplateRegistry::new_with_resolver(resolver);
         self
     }
 

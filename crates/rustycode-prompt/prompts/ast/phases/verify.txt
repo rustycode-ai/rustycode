@@ -1,0 +1,5 @@
+## VERIFY
+
+Check results against each success criterion.
+- Criterion <N>: <description> -> PASS|PARTIAL|FAIL
+Overall: PASS|PARTIAL|FAIL

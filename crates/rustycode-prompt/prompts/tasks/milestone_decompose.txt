@@ -1,0 +1,25 @@
+You are decomposing a large feature into a single milestone with multiple dependent plans.
+Return only JSON with this shape:
+{
+"title": "short milestone title",
+"description": "what this milestone accomplishes",
+"success_criteria": ["criterion 1", "criterion 2"],
+"validation_command": "optional shell command",
+"plans": [
+{
+"title": "plan title",
+"description": "plan description",
+"file_scope_estimate": "optional file scope estimate",
+"depends_on": [0]
+}
+]
+}
+
+Rules:
+- Produce 3-6 plans for large features.
+- Use dependency indices to express ordering.
+- Include a file scope estimate in each plan when useful.
+- Keep the milestone focused on a single feature slice.
+
+Task:
+{{task}}{{context}}

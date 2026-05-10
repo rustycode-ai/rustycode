@@ -21,7 +21,8 @@ use crate::supervisor::{RuleBasedSupervisor, SupervisionDirective, Supervisor, T
 use crate::verification_gates::VerificationGateRegistry;
 use chrono::Utc;
 use rustycode_prompt::environment::EnvironmentContext;
-use rustycode_prompt::layered::PromptBuilder;
+use rustycode_prompt::layered::{ModelProvider, PromptBuilder};
+use rustycode_prompt::PromptResolver;
 use rustycode_protocol::{
     CommandPlan, ConvoyPlan, ConvoyRisk, ExecutionPhase, Message, PhaseSkipConfig, PlanApproval,
 };
@@ -310,6 +311,22 @@ impl OrchestrationPipeline {
             }
         }
         self
+    }
+
+    /// Build a [`PromptResolver`] for the given model ID.
+    ///
+    /// The resolver applies the prompt layering chain:
+    /// user override → model-specific file → generic embedded → const default.
+    /// It can be passed to `RealExecutor::with_resolver()`,
+    /// `PromptTemplateRegistry::new_with_resolver()`, and other resolved methods.
+    pub fn resolver_for_model(model_id: &str) -> PromptResolver {
+        let model = ModelProvider::from_model_id(model_id);
+        let user_dir = dirs::home_dir().map(|h| h.join(".rustycode/prompts"));
+        let mut resolver = PromptResolver::new(model);
+        if let Some(dir) = user_dir {
+            resolver = resolver.with_user_dir(dir);
+        }
+        resolver
     }
 
     pub fn workspace(&self) -> Arc<SharedWorkspace> {

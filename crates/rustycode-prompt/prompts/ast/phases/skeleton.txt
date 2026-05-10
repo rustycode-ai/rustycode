@@ -1,0 +1,5 @@
+## SKELETON{{bedd_section}}
+
+Define milestones with dependency ordering.
+For each milestone:
+- M<N>: <description> -> depends_on: [<milestone ids>]

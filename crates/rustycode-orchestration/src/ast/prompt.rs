@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::types::{AstPhase, ComplexityLevel};
+use rustycode_prompt::PromptResolver;
 
 // Constants
 
@@ -52,6 +53,11 @@ After the SKELETON phase is complete, you MUST begin writing files and executing
 
 Output each phase clearly using markdown headers.
 ";
+
+/// Resolve the AST system prompt through the layering chain.
+pub fn resolve_system_prompt(resolver: &PromptResolver) -> String {
+    resolver.resolve("ast", "system", AST_SYSTEM_PROMPT)
+}
 
 /// Canonical phase ordering used for parsing and validation.
 ///
@@ -334,6 +340,58 @@ pub fn build_phase_prompt(phase: AstPhase, complexity: ComplexityLevel, context:
     };
 
     format!("{phase_instruction}{context_section}")
+}
+
+/// Build a phase prompt using the prompt resolver for the template content.
+///
+/// Falls back to the hardcoded `build_phase_prompt` output when no override
+/// is found in the resolver chain.
+pub fn build_phase_prompt_resolved(
+    phase: AstPhase,
+    complexity: ComplexityLevel,
+    context: &str,
+    resolver: &PromptResolver,
+) -> String {
+    let name = match phase {
+        AstPhase::Classify => "classify",
+        AstPhase::Research => "research",
+        AstPhase::Skeleton => "skeleton",
+        AstPhase::Expand => "expand",
+        AstPhase::Execute => "execute",
+        AstPhase::Verify => "verify",
+        AstPhase::Complete | AstPhase::Failed => return String::new(),
+    };
+
+    let vars = serde_json::json!({
+        "complexity": match complexity {
+            ComplexityLevel::Trivial => "TRIVIAL",
+            ComplexityLevel::Moderate => "MODERATE",
+            ComplexityLevel::Complex => "COMPLEX",
+        },
+        "bedd_section": if complexity == ComplexityLevel::Complex {
+            "\n\nFor complex tasks, include proposal selection:\n### Proposals\n1. id: P1\n   approach: <description>\n   tradeoffs: <trade-offs>\n\n### Evaluation\n- P1: feasibility=N risk=N alignment=N effort=N -> score=N\n\n### Decision\n- selected: P1\n- reason: <why>"
+        } else {
+            ""
+        },
+    });
+
+    let template = resolver.resolve("ast/phases", name, "");
+    let prompt = if template.is_empty() {
+        build_phase_prompt(phase, complexity, context)
+    } else {
+        match resolver.render("ast/phases", name, "", &vars) {
+            Ok(rendered) => {
+                let context_section = if context.is_empty() {
+                    String::new()
+                } else {
+                    format!("\n\nContext from previous phases:\n{context}")
+                };
+                format!("{rendered}{context_section}")
+            }
+            Err(_) => build_phase_prompt(phase, complexity, context),
+        }
+    };
+    prompt
 }
 
 // Token estimation

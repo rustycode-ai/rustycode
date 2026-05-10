@@ -1,0 +1,4 @@
+Output as JSON with this exact structure:
+{"thoughts": [{"kind": "<one of: Analysis|Hypothesis|Evidence|Synthesis|Resolution>", "content": "...", "confidence": 0.8, "reasoning": "..."}]}
+
+Do NOT repeat points from previous thoughts. Each thought must advance toward the solution.

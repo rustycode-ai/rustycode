@@ -3,6 +3,7 @@
 use super::{PromptContext, PromptTemplate};
 use crate::thinking::core::error::{Error, Result};
 use handlebars::Handlebars;
+use rustycode_prompt::PromptResolver;
 use serde_json::json;
 
 /// Registry and factory for prompt templates
@@ -42,6 +43,34 @@ impl PromptTemplateRegistry {
         Self { hb }
     }
 
+    /// Create a registry that resolves strategy templates through the prompt layering chain.
+    ///
+    /// Falls back to the compile-time const templates when no override exists.
+    #[allow(clippy::expect_used)]
+    #[must_use]
+    pub fn new_with_resolver(resolver: &PromptResolver) -> Self {
+        let mut hb = Handlebars::new();
+
+        let schema = resolver.resolve("strategies", "_schema_partial", Self::json_schema_partial());
+        hb.register_template_string("json_schema", &schema)
+            .expect("failed to register resolved schema partial");
+
+        for (name, fallback) in [
+            ("sequential", Self::sequential_template()),
+            ("dialectic", Self::dialectic_template()),
+            ("parallel", Self::parallel_template()),
+            ("analogical", Self::analogical_template()),
+            ("abductive", Self::abductive_template()),
+            ("implementation", Self::implementation_template()),
+        ] {
+            let template = resolver.resolve("strategies", name, fallback);
+            hb.register_template_string(name, &template)
+                .unwrap_or_else(|e| panic!("failed to register resolved template '{name}': {e}"));
+        }
+
+        Self { hb }
+    }
+
     /// Register a custom template at runtime.
     ///
     pub fn register_template(&mut self, name: &str, template: &str) -> Result<()> {
@@ -70,7 +99,9 @@ impl PromptTemplateRegistry {
 
     const fn json_schema_partial() -> &'static str {
         r#"Output as JSON with this exact structure:
-{"thoughts": [{"kind": "Analysis", "content": "...", "confidence": 0.8, "reasoning": "..."}]}"#
+{"thoughts": [{"kind": "<one of: Analysis|Hypothesis|Evidence|Synthesis|Resolution>", "content": "...", "confidence": 0.8, "reasoning": "..."}]}
+
+Do NOT repeat points from previous thoughts. Each thought must advance toward the solution."#
     }
 
     const fn sequential_template() -> &'static str {
@@ -95,7 +126,8 @@ Depth: {{depth}}, Iteration: {{iteration}}
 
 ## Task
 Provide the next step in solving this problem. Be concrete, actionable, and specific.
-Focus on moving toward a solution incrementally.
+Focus on moving toward a solution incrementally. Stop when a clear resolution is reached.
+Do not re-analyze settled points from previous thoughts.
 
 {{> json_schema}}
 "
@@ -124,6 +156,7 @@ Depth: {{depth}}, Iteration: {{iteration}}
 ## Task
 Provide either a thesis (main position), antithesis (opposing view), or synthesis (reconciliation).
 Alternate between these perspectives to explore the problem from multiple angles.
+After 2-3 rounds of thesis/antithesis, produce a synthesis. Do not restate positions already covered.
 
 {{> json_schema}}
 "
@@ -152,6 +185,7 @@ Depth: {{depth}}, Iteration: {{iteration}}
 ## Task
 Provide 2-3 independent analyses or perspectives on this problem.
 Each should explore a different aspect without relying on the others.
+Do not overlap perspectives — each analysis must cover distinct ground.
 
 {{> json_schema}}
 "
@@ -180,6 +214,7 @@ Depth: {{depth}}, Iteration: {{iteration}}
 ## Task
 Find analogies from known domains and map them to this problem.
 Think about similar challenges in other fields and how they were solved.
+Focus on analogies that yield concrete insights, not surface similarities.
 
 {{> json_schema}}
 "
@@ -206,8 +241,8 @@ Depth: {{depth}}, Iteration: {{iteration}}
 {{thoughts_summary}}
 
 ## Task
-Generate hypotheses that would explain key observations about this problem.
-Evaluate which hypothesis is most likely and why.
+Generate 2-4 hypotheses that would explain key observations about this problem.
+Evaluate which hypothesis is most likely and why. Eliminate hypotheses that contradict known facts.
 
         {{> json_schema}}
 "

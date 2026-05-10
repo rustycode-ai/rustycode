@@ -1,0 +1,4 @@
+## EXECUTE
+
+Execute each step. Report results inline.
+1. <step description> -> <result>

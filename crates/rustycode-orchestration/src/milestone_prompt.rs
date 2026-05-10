@@ -2,10 +2,13 @@
 
 use anyhow::{Context, Result};
 use chrono::Utc;
+use handlebars::Handlebars;
+use rustycode_prompt::PromptResolver;
 use rustycode_protocol::{
     Milestone, MilestoneId, MilestoneStatus, Plan, PlanDependency, PlanId, PlanStatus, SessionId,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 /// Output produced by the milestone prompt parser.
 #[derive(Debug, Clone, PartialEq)]
@@ -70,6 +73,32 @@ pub fn build_milestone_prompt(task_description: &str, context: &str) -> String {
          Task:\n\
          {task_description}{context_section}"
     )
+}
+
+/// Build a decomposition prompt resolved through the prompt layering chain.
+///
+/// Uses Handlebars to render the template with `task_description` and `context`
+/// variables. Falls back to `build_milestone_prompt` if rendering fails.
+pub fn build_milestone_prompt_resolved(
+    task_description: &str,
+    context: &str,
+    resolver: &PromptResolver,
+) -> String {
+    let default = build_milestone_prompt(task_description, context);
+    let template = resolver.resolve("tasks", "milestone_decompose", &default);
+
+    let vars = json!({
+        "task_description": task_description,
+        "context": context,
+    });
+
+    let mut hb = Handlebars::new();
+    hb.register_escape_fn(handlebars::no_escape);
+
+    match hb.render_template(&template, &vars) {
+        Ok(rendered) => rendered,
+        Err(_) => default,
+    }
 }
 
 /// Parse the model response into a milestone and empty plan shells.

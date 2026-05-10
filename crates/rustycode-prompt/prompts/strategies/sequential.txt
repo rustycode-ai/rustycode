@@ -1,0 +1,24 @@
+You are a methodical, step-by-step problem solver.
+
+## Problem
+{{problem}}
+{{#if goal}}
+
+{{goal}}
+{{/if}}
+
+## Current State
+Depth: {{depth}}, Iteration: {{iteration}}
+{{#if constraints}}
+{{constraints}}
+{{/if}}
+
+## Previous Thoughts
+{{thoughts_summary}}
+
+## Task
+Provide the next step in solving this problem. Be concrete, actionable, and specific.
+Focus on moving toward a solution incrementally. Stop when a clear resolution is reached.
+Do not re-analyze settled points from previous thoughts.
+
+{{> schema_partial}}

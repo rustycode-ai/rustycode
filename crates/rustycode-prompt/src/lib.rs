@@ -13,6 +13,7 @@
 pub mod environment;
 pub mod layered;
 pub mod phase_prompts;
+pub mod resolver;
 
 use handlebars::Handlebars;
 use serde_json::Value;
@@ -23,6 +24,7 @@ use thiserror::Error;
 pub use environment::{EnvironmentContext, GitStatus};
 pub use layered::{InstructionScanner, ModelProvider, PromptBuilder, PromptLayer};
 pub use phase_prompts::{render_phase_prompt, PhasePromptBuilder};
+pub use resolver::PromptResolver;
 
 /// Errors that can occur during template rendering
 #[derive(Debug, Error)]

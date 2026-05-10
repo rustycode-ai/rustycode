@@ -242,6 +242,8 @@ impl GeminiProvider {
     fn convert_messages(messages: &[ChatMessage]) -> Vec<GeminiContent> {
         use rustycode_protocol::message::{ContentBlock, MessageContent};
         let mut contents = Vec::new();
+        let mut tool_use_id_to_function_name: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
 
         for msg in messages {
             let role = match msg.role {
@@ -275,8 +277,11 @@ impl GeminiProvider {
                                     });
                                 }
                             }
-                            ContentBlock::ToolUse { name, input, .. } => {
+                            ContentBlock::ToolUse {
+                                id, name, input, ..
+                            } => {
                                 if matches!(msg.role, MessageRole::Assistant) {
+                                    tool_use_id_to_function_name.insert(id.clone(), name.clone());
                                     parts.push(GeminiPart {
                                         text: None,
                                         function_call: Some(GeminiFunctionCall {
@@ -292,12 +297,16 @@ impl GeminiProvider {
                                 content: result_text,
                                 ..
                             } => {
+                                let function_name = tool_use_id_to_function_name
+                                    .get(tool_use_id)
+                                    .cloned()
+                                    .unwrap_or_else(|| tool_use_id.clone());
                                 let response_value = serde_json::json!({"result": result_text});
                                 parts.push(GeminiPart {
                                     text: None,
                                     function_call: None,
                                     function_response: Some(GeminiFunctionResponse {
-                                        name: tool_use_id.clone(),
+                                        name: function_name,
                                         response: response_value,
                                     }),
                                 });
@@ -342,10 +351,17 @@ impl GeminiProvider {
                     .get("description")
                     .and_then(|v| v.as_str())
                     .map(String::from);
-                let parameters = tool
+                let mut parameters = tool
                     .get("input_schema")
                     .or_else(|| tool.get("parameters"))
                     .cloned();
+                if let Some(ref mut params) = parameters {
+                    if params.get("type").and_then(|v| v.as_str()) != Some("object") {
+                        params
+                            .as_object_mut()
+                            .map(|m| m.insert("type".into(), serde_json::json!("object")));
+                    }
+                }
                 GeminiFunctionDecl {
                     name: name.to_string(),
                     description,

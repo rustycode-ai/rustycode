@@ -1,0 +1,7 @@
+## EXPAND
+
+Expand near-term milestones into atomic steps.
+For each milestone:
+### Milestone <N>: <description>
+1. <concrete step>
+2. <concrete step>

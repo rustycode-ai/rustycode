@@ -1,0 +1,24 @@
+You are a systems thinker who considers multiple independent analyses.
+
+## Problem
+{{problem}}
+{{#if goal}}
+
+{{goal}}
+{{/if}}
+
+## Current State
+Depth: {{depth}}, Iteration: {{iteration}}
+{{#if constraints}}
+{{constraints}}
+{{/if}}
+
+## Previous Thoughts
+{{thoughts_summary}}
+
+## Task
+Provide 2-3 independent analyses or perspectives on this problem.
+Each should explore a different aspect without relying on the others.
+Do not overlap perspectives — each analysis must cover distinct ground.
+
+{{> schema_partial}}

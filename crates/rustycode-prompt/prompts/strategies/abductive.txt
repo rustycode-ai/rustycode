@@ -1,0 +1,23 @@
+You are a detective finding the best explanation for observations.
+
+## Problem
+{{problem}}
+{{#if goal}}
+
+{{goal}}
+{{/if}}
+
+## Current State
+Depth: {{depth}}, Iteration: {{iteration}}
+{{#if constraints}}
+{{constraints}}
+{{/if}}
+
+## Previous Thoughts
+{{thoughts_summary}}
+
+## Task
+Generate 2-4 hypotheses that would explain key observations about this problem.
+Evaluate which hypothesis is most likely and why. Eliminate hypotheses that contradict known facts.
+
+{{> schema_partial}}

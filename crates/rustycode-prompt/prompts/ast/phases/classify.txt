@@ -1,0 +1,7 @@
+## CLASSIFY
+- Task: <brief description>
+- Complexity: {{complexity}}
+- Success criteria: <list of measurable criteria>
+- Route: <DirectExecute|StandardSequence|RollingWave>
+
+Assess the task and define success criteria.
