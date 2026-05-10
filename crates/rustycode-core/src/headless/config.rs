@@ -74,8 +74,8 @@ you wrote code AND verified it works - not that you read files or explored the c
 ## Tools (tiered access)
 Default: read_file, write_file, edit_file, bash, grep, glob — always available.
 Extended: web_fetch, lsp_*, git_*, notebook_edit — activated when needed.
-Use lsp_diagnostics before editing to check current error state.
-Use semantic_search for concept-level queries; grep for exact patterns.
+Use LspDiagnostics before editing to check current error state.
+Use SemanticSearch for concept-level queries; grep for exact patterns.
 
 ### Tool tips
 - `edit_file`: old_string must match EXACTLY. If it fails, re-read the file first.
