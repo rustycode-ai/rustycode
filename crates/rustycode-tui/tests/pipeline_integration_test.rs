@@ -102,19 +102,6 @@ fn hard_block_strategy() -> FailureStrategy {
     }
 }
 
-#[allow(dead_code)]
-fn make_artifact(id: &str, type_tag: &str, source_phase: &str) -> Artifact {
-    Artifact {
-        id: id.to_string(),
-        type_tag: type_tag.to_string(),
-        source_phase: source_phase.to_string(),
-        created_at: Utc::now(),
-        payload: ArtifactPayload::Json(json!({})),
-        metadata: HashMap::new(),
-        retention_days: 30,
-    }
-}
-
 // Tests
 
 #[tokio::test]

@@ -42,15 +42,6 @@ use std::env;
 use std::fs;
 use std::path::PathBuf;
 
-/// Real-world scenario test case
-#[allow(dead_code)]
-struct ScenarioTest {
-    name: String,
-    prompt: String,
-    verification: Box<dyn Fn(&std::path::Path) -> Result<(), String>>,
-    min_files: usize,
-}
-
 #[tokio::test]
 #[cfg_attr(
     not(feature = "live-api-tests"),

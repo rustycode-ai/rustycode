@@ -73,11 +73,6 @@
 
 use rustycode_tui::{DiffRenderer, MarkdownRenderer, SyntaxHighlighter};
 
-#[allow(dead_code)]
-fn create_highlighter() -> SyntaxHighlighter {
-    SyntaxHighlighter::new_with_theme("base16-ocean.dark")
-}
-
 #[test]
 fn test_syntax_highlighting_rust() {
     let highlighter = SyntaxHighlighter::new_with_theme("base16-ocean.dark");

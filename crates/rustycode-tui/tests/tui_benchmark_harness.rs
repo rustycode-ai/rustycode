@@ -1067,15 +1067,6 @@ async fn run_benchmark_suite(
     Ok(())
 }
 
-/// Select tasks by category.
-#[allow(dead_code)]
-fn tasks_by_category(category: TaskCategory) -> Vec<BenchTask> {
-    get_all_bench_tasks()
-        .into_iter()
-        .filter(|t| t.category == category)
-        .collect()
-}
-
 /// Select tasks by index range (1-based, inclusive).
 fn tasks_by_indices(start: usize, end: usize) -> Vec<BenchTask> {
     get_all_bench_tasks()
