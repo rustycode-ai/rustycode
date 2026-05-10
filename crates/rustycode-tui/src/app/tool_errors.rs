@@ -51,8 +51,8 @@ impl ToolErrorType {
     pub fn recovery_suggestions(&self) -> Vec<String> {
         match self {
             ToolErrorType::FileNotFound => vec![
-                "Use 'glob' or 'grep' to search for the correct file path".to_string(),
-                "Use 'list_dir' to see available files in the directory".to_string(),
+                "Use 'Glob' or 'Grep' to search for the correct file path".to_string(),
+                "Use 'ListDir' to see available files in the directory".to_string(),
                 "Check for typos in the file path".to_string(),
             ],
             ToolErrorType::PermissionDenied => vec![
@@ -223,9 +223,9 @@ pub fn format_file_not_found_error(path: &str) -> String {
     format!(
         "File not found: '{}'\n\n\
          Suggestions:\n\
-         1. Use 'glob' to search for files: glob '**/*{}*'\n\
-         2. Use 'grep' to search content: grep '<pattern>' **/*\n\
-         3. Use 'list_dir' to see files in the current directory\n\
+         1. Use 'Glob' to search for files: Glob '**/*{}*'\n\
+         2. Use 'Grep' to search content: Grep '<pattern>' **/*\n\
+         3. Use 'ListDir' to see files in the current directory\n\
          4. Check the file path for typos",
         path,
         if let Some(file_name) = path.rsplit('/').next() {

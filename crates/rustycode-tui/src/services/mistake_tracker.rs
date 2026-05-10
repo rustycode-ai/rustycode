@@ -201,7 +201,7 @@ impl MistakeTracker {
                 description: "The file doesn't exist at that path. Let me search for it."
                     .to_string(),
                 example: format!(
-                    "Use 'glob' or 'grep' to find the correct file path for: {}",
+                    "Use 'Glob' or 'Grep' to find the correct file path for: {}",
                     last_mistake.operation
                 ),
             }),
@@ -212,9 +212,9 @@ impl MistakeTracker {
 
     fn get_alternative_example(&self, operation: &str, mistake_type: &MistakeType) -> String {
         match (operation, mistake_type) {
-            ("Bash", _) => "Instead of bash, try using the specific tool (read_file, write_file, etc.) directly".to_string(),
+            ("Bash", _) => "Instead of Bash, try using the specific tool (Read, Write, etc.) directly".to_string(),
             ("Edit", _) => "Use apply_patch for multi-hunk changes, or read the file first to see its exact content".to_string(),
-            (_, MistakeType::FileNotFoundError) => "Use 'glob' or 'list_dir' to find the correct file path first".to_string(),
+            (_, MistakeType::FileNotFoundError) => "Use 'Glob' or 'ListDir' to find the correct file path first".to_string(),
             _ => "Let me try a different approach to solve this problem".to_string(),
         }
     }
