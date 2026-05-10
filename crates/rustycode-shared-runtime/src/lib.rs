@@ -121,7 +121,7 @@ mod tests {
             worker_count > 0,
             "runtime should have at least one worker thread"
         );
-        assert_eq!(worker_count, num_cpus::get());
+        assert_eq!(worker_count, num_cpus::get().min(4));
     }
 
     #[test]

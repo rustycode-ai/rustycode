@@ -46,7 +46,7 @@ rustycode-storage = { path = "../rustycode-storage" }
 rustycode-tool-integration = { path = "../rustycode-tool-integration" }
 rustycode-sandbox = { workspace = true }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
-reqwest = { workspace = true, features = ["blocking"] }
+reqwest = { workspace = true }
 lru.workspace = true
 parking_lot.workspace = true
 uuid.workspace = true
