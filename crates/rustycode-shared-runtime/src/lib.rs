@@ -19,7 +19,7 @@ use tokio::runtime::Runtime;
 /// Avoids creating many short-lived runtimes that caused allocator/TLS growth.
 pub static SHARED_RUNTIME: std::sync::LazyLock<Runtime> = std::sync::LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(num_cpus::get())
+        .worker_threads(num_cpus::get().min(4))
         .thread_name_fn(|| {
             static ATOMIC_ID: std::sync::atomic::AtomicUsize =
                 std::sync::atomic::AtomicUsize::new(0);

@@ -85,46 +85,47 @@ fn search_with_exa(
     _source: &str,
     api_key: &str,
 ) -> Result<String> {
-    use reqwest::blocking::Client;
-
-    // Build Exa API request
-    let client = Client::new();
     let mut search_query = query.to_string();
-
-    // Add language filter if specified
     if let Some(lang) = language {
         search_query = format!("{search_query} language:{lang}");
     }
 
-    let request_body = json!({
-        "query": search_query,
-        "numResults": max_results,
-        "useAutoprompt": true,
-        "type": "keyword",
-        "category": "code"
-    });
+    let query_owned = search_query;
+    let api_key_owned = api_key.to_string();
+    let (response_json, status) = rustycode_shared_runtime::block_on_shared(async {
+        let body = json!({
+            "query": query_owned,
+            "numResults": max_results,
+            "useAutoprompt": true,
+            "type": "keyword",
+            "category": "code"
+        });
+        let client =
+            crate::providers::web::client::build_client(std::time::Duration::from_secs(15))?;
+        let resp = client
+            .post("https://api.exa.ai/search")
+            .header("x-api-key", &api_key_owned)
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Failed to call Exa API: {e}"))?;
+        let status = resp.status().as_u16();
+        let json: Value = resp
+            .json()
+            .await
+            .map_err(|e| anyhow!("Failed to parse Exa API response: {e}"))?;
+        anyhow::Ok((json, status))
+    })?;
 
-    let response = client
-        .post("https://api.exa.ai/search")
-        .header("Content-Type", "application/json")
-        .header("x-api-key", api_key)
-        .json(&request_body)
-        .send()
-        .map_err(|e| anyhow!("Failed to call Exa API: {e}"))?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_text = response
-            .text()
-            .unwrap_or_else(|_| "Unable to read error".to_string());
+    if !(200..300).contains(&status) {
+        let error_text = response_json
+            .get("message")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown error");
         return Err(anyhow!(
             "Exa API request failed with status {status}: {error_text}"
         ));
     }
-
-    let response_json: Value = response
-        .json()
-        .map_err(|e| anyhow!("Failed to parse Exa API response: {e}"))?;
 
     let results = response_json
         .get("results")
