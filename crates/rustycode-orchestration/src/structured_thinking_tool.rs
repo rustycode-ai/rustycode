@@ -10,6 +10,7 @@ use anyhow::Result;
 use serde_json::json;
 
 use crate::ast::{AstConfig, AstExecutionResult, AstPipeline, ToolHarness};
+use rustycode_prompt::PromptResolver;
 
 pub struct StructuredThinkingToolSchema;
 
@@ -69,6 +70,25 @@ impl StructuredThinkingToolSchema {
                                 "validation_points": {
                                     "type": "array",
                                     "items": { "type": "string" }
+                                },
+                                "approach": {
+                                    "type": "string",
+                                    "enum": [
+                                        "brute_force",
+                                        "divide_and_conquer",
+                                        "greedy",
+                                        "dynamic_programming",
+                                        "backtracking",
+                                        "bfs_dfs",
+                                        "sliding_window",
+                                        "two_pointers",
+                                        "binary_search",
+                                        "topological_sort",
+                                        "mathematical",
+                                        "simulation",
+                                        "research_needed"
+                                    ],
+                                    "description": "The algorithmic approach or strategy being applied. Use 'research_needed' when confidence is low and more information is required."
                                 }
                             }
                         }
@@ -83,17 +103,35 @@ impl StructuredThinkingToolSchema {
     #[allow(clippy::missing_const_for_fn)]
     pub fn system_prompt_guidance() -> &'static str {
         r"When asked to solve complex problems, use the structured_thinking tool to break down your reasoning. For each thought:
-1. Be specific about algorithms, approaches, or decisions
-2. Explain rationale and trade-offs
-3. Rate your confidence (0-100) in this thought
-4. Reference previous thoughts if building on them
-5. Call the tool multiple times until you're confident
+1. Be specific — name the algorithm, approach, or pattern (not 'an algorithm' but 'BFS with early termination')
+2. Use the 'approach' field in metadata to classify your strategy from: brute_force, divide_and_conquer, greedy, dynamic_programming, backtracking, bfs_dfs, sliding_window, two_pointers, binary_search, topological_sort, mathematical, simulation
+3. Explain rationale and trade-offs
+4. Rate your confidence (0-100) in this thought
+5. Reference previous thoughts if building on them
+6. Call the tool until you reach confidence >= 85 on a resolution, up to 8 calls max
+
+Do not repeat analysis from previous thoughts. Each call must advance the reasoning.
+
+If confidence drops below 60 at any phase:
+- Use 'research_needed' as the approach
+- Use Grep/Read tools to investigate the codebase before continuing
+- Use WebFetch if the problem requires external knowledge
+- Resume structured thinking after gathering evidence
 
 If the tool response contains a `loop_warning`, you may be going in circles. Use the `ask_user` tool to request clarification — this is better than repeating the same analysis.
 
 To ask for help, call the `ask_user` tool with your specific question, what you've considered, and how urgent it is (low/medium/high).
 
-Example: For maze exploration, phase 1: analyze algorithm choice (confidence 85), phase 2: plan validation (confidence 75), phase 3: implement details (confidence 90)."
+Example: For maze exploration, phase 1: analyze algorithm choice with approach=bfs_dfs (confidence 85), phase 2: plan validation (confidence 75), phase 3: implement details (confidence 90)."
+    }
+
+    /// Resolve guidance through the prompt layering chain.
+    pub fn system_prompt_guidance_resolved(resolver: &PromptResolver) -> String {
+        resolver.resolve(
+            "tools",
+            "structured_thinking",
+            Self::system_prompt_guidance(),
+        )
     }
 }
 

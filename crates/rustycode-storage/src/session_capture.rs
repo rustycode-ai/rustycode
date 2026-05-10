@@ -40,7 +40,7 @@
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use rustycode_protocol::SessionId;
+use rustycode_protocol::{tool_names as tn, SessionId};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::Path;
@@ -468,7 +468,7 @@ impl SessionCapture {
             steps.push("Consider breaking down future tasks into smaller chunks".to_string());
         }
 
-        if self.tools_used.contains("Bash") {
+        if self.tools_used.contains(tn::BASH) {
             steps.push("Verify any shell commands executed during session".to_string());
         }
 

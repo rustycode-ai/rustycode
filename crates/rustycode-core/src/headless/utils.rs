@@ -1,4 +1,5 @@
 use rustycode_llm::provider::{ChatMessage, MessageRole};
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::{ContentBlock, MessageContent};
 
 /// Remove hallucinated tool-use markers from assistant text.
@@ -329,7 +330,7 @@ fn extract_context_summary(messages: &[ChatMessage], turn_ranges: &[(usize, usiz
                 }
                 MessageContent::Simple(text) => {
                     // Check assistant text for tool calls embedded as text
-                    if text.contains("Write") || text.contains("Edit") {
+                    if text.contains(tn::WRITE) || text.contains(tn::EDIT) {
                         let lower = text.to_lowercase();
                         if lower.contains("success") || lower.contains("wrote") {
                             let info: String = text.chars().take(150).collect();

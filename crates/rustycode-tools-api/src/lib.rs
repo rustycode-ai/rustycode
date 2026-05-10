@@ -596,7 +596,7 @@ pub trait ToolMetadataProvider: Send + Sync {
     fn list_immediate_tools(&self) -> Vec<ToolInfo> {
         self.list_tools()
             .into_iter()
-            .filter(|t| t.name == "ToolSearch" || t.defer_loading != Some(true))
+            .filter(|t| t.name == tool_names::TOOL_SEARCH || t.defer_loading != Some(true))
             .collect()
     }
 }
@@ -661,7 +661,7 @@ impl ToolRegistry {
         let mut infos: Vec<ToolInfo> = self
             .tools
             .values()
-            .filter(|t| t.name() == "ToolSearch" || t.defer_loading() != Some(true))
+            .filter(|t| t.name() == tool_names::TOOL_SEARCH || t.defer_loading() != Some(true))
             .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
         infos.sort_by(|a, b| a.name.cmp(&b.name));
@@ -674,7 +674,7 @@ impl ToolRegistry {
         let mut infos: Vec<ToolInfo> = self
             .tools
             .values()
-            .filter(|t| t.name() != "ToolSearch" && t.defer_loading() == Some(true))
+            .filter(|t| t.name() != tool_names::TOOL_SEARCH && t.defer_loading() == Some(true))
             .map(|t| {
                 let first_line = t.description().lines().next().unwrap_or("");
                 let mut info = ToolInfo::from_tool(t.as_ref());

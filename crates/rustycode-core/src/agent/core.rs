@@ -6,6 +6,7 @@
 use anyhow::Result;
 use futures::StreamExt;
 use rustycode_llm::provider::{ChatMessage, CompletionRequest, LLMProvider, MessageRole};
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::{ContentBlock, MessageContent, ToolCall};
 use rustycode_tools::{ToolContext, ToolRegistry};
 use std::path::{Path, PathBuf};
@@ -212,12 +213,12 @@ fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
 /// Normalize tool names from different providers to our canonical names.
 fn normalize_tool_name(name: &str) -> &str {
     match name {
-        "Edit" => "Edit",
-        "Read" => "Read",
-        "Write" | "Create" => "Write",
-        "Bash" | "Shell" => "Bash",
-        "Grep" | "Search" => "Grep",
-        "Glob" | "Find" => "Glob",
+        tn::EDIT => tn::EDIT,
+        tn::READ => tn::READ,
+        tn::WRITE | "Create" => tn::WRITE,
+        tn::BASH | "Shell" => tn::BASH,
+        tn::GREP | "Search" => tn::GREP,
+        tn::GLOB | "Find" => tn::GLOB,
         _ => name,
     }
 }

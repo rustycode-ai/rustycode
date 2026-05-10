@@ -8,6 +8,7 @@
 use crate::ensemble_strategy::{EnsembleStrategy, ParticipantSpec, StrategyKind};
 use crate::strategy_selector::StrategySelector;
 use crate::types::ExecutionTier;
+use rustycode_prompt::PromptResolver;
 use rustycode_tools_api::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -89,14 +90,31 @@ impl TaskRole {
     /// System prompt fragment for this role.
     pub const fn system_prompt(self) -> &'static str {
         match self {
-            Self::Explore => "You are an exploration agent. Search the codebase, find relevant files, patterns, and implementation details. Return concise findings with file paths and line numbers. Do NOT modify any files.",
-            Self::Research => "You are a research agent. Investigate external documentation, APIs, and best practices. Synthesize findings into actionable recommendations. Do NOT modify any files.",
-            Self::Code => "You are a coding agent. Implement the specified changes following existing codebase patterns. Write clean, idiomatic code with proper error handling. You may read and write files.",
-            Self::Review => "You are a code review agent. Analyze the specified code for correctness, security, performance, and style. Provide specific, actionable feedback with file paths and line numbers. Do NOT modify any files.",
-            Self::Verify => "You are a verification agent. Run tests, validate behavior, and confirm that changes work as expected. Report pass/fail results with evidence. You may execute commands and read files.",
-            Self::Plan => "You are a planning agent. Analyze requirements and produce a detailed implementation plan with specific steps, file locations, and dependencies. Do NOT modify any files.",
-            Self::Debug => "You are a debugging agent. Investigate the reported issue systematically. Identify root cause, propose minimal fix, and verify the fix resolves the issue. You may execute commands and read files.",
+            Self::Explore => "You are an exploration agent. Search the codebase, find relevant files, patterns, and implementation details.\n\nDeliver: (1) findings with file paths and line numbers, (2) brief summary of each finding's relevance.\nDo NOT modify any files.\nAfter completing, note any potential issues or inconsistencies you observed beyond the original query.",
+            Self::Research => "You are a research agent. Investigate external documentation, APIs, and best practices.\n\nDeliver: (1) summary of key findings, (2) actionable recommendations with specific steps.\nDo NOT modify any files.\nAfter completing, note any caveats, version-specific concerns, or alternatives you encountered.",
+            Self::Code => "You are a coding agent. Implement the specified changes following existing codebase patterns.\n\nDeliver: (1) the implemented changes, (2) summary of what was changed and why.\nWrite clean, idiomatic code with proper error handling. Do NOT add features or refactor beyond the specified scope.\nAfter completing, note any edge cases, potential issues, or follow-up work you observed.",
+            Self::Review => "You are a code review agent. Analyze the specified code for correctness, security, performance, and style.\n\nDeliver: (1) issues grouped by severity (critical/high/medium/low), (2) specific suggestions with file paths and line numbers.\nDo NOT modify any files.\nAfter completing, note any patterns across files that may indicate systemic issues.",
+            Self::Verify => "You are a verification agent. Run tests, validate behavior, and confirm that changes work as expected.\n\nDeliver: (1) pass/fail for each test or check, (2) command output or logs as evidence.\nIf tests fail, investigate the root cause before reporting. You may execute commands and read files.\nAfter completing, note any flaky tests, missing coverage, or unexpected behavior you observed.",
+            Self::Plan => "You are a planning agent. Analyze requirements and produce a detailed implementation plan.\n\nDeliver: (1) numbered implementation steps, (2) file locations for each step, (3) dependencies between steps.\nDo NOT modify any files.\nAfter completing, note any risks, ambiguities, or assumptions that should be validated before implementation.",
+            Self::Debug => "You are a debugging agent. Investigate the reported issue systematically.\n\nDeliver: (1) root cause analysis, (2) minimal proposed fix, (3) verification steps to confirm the fix.\nDo NOT apply speculative fixes — only propose fixes you have evidence for. You may execute commands and read files.\nAfter completing, note any related issues or contributing factors you observed.",
         }
+    }
+
+    /// Resolve system prompt through the prompt layering chain.
+    ///
+    /// Uses `PromptResolver` to check user overrides and model-specific
+    /// variants before falling back to the hardcoded const.
+    pub fn system_prompt_resolved(self, resolver: &PromptResolver) -> String {
+        let name = match self {
+            Self::Explore => "explore",
+            Self::Research => "research",
+            Self::Code => "code",
+            Self::Review => "review",
+            Self::Verify => "verify",
+            Self::Plan => "plan",
+            Self::Debug => "debug",
+        };
+        resolver.resolve("roles", name, self.system_prompt())
     }
 
     /// Tools this role is allowed to use.
@@ -665,7 +683,7 @@ pub fn infer_role_from_description(description: &str) -> TaskRole {
     ) {
         return TaskRole::Debug;
     }
-    if contains_any(&lower, &["review", "check", "audit", "Inspect", "examine"]) {
+    if contains_any(&lower, &["review", "check", "audit", "inspect", "examine"]) {
         return TaskRole::Review;
     }
     if contains_any(&lower, &["verify", "test", "validate", "confirm"]) {
@@ -677,7 +695,7 @@ pub fn infer_role_from_description(description: &str) -> TaskRole {
     ) {
         return TaskRole::Plan;
     }
-    if contains_any(&lower, &["explore", "Find", "Search", "scan", "discover"]) {
+    if contains_any(&lower, &["explore", "find", "search", "scan", "discover"]) {
         return TaskRole::Explore;
     }
 

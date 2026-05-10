@@ -1,4 +1,5 @@
 use rustycode_llm::provider::{ChatMessage, MessageRole};
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::{ContentBlock, MessageContent};
 
 /// Remove hallucinated tool-use markers from assistant text.
@@ -289,13 +290,13 @@ fn extract_context_summary(messages: &[ChatMessage], turn_ranges: &[(usize, usiz
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("");
                                 match name.as_str() {
-                                    "Write" | "text_editor_20250728" if !path.is_empty() => {
+                                    tn::WRITE | tn::TEXT_EDITOR_NEWEST if !path.is_empty() => {
                                         let entry = path.to_string();
                                         if !files_written.contains(&entry) {
                                             files_written.push(entry);
                                         }
                                     }
-                                    "Edit" | "ApplyPatch" if !path.is_empty() => {
+                                    tn::EDIT | tn::APPLY_PATCH if !path.is_empty() => {
                                         let entry = path.to_string();
                                         if !files_edited.contains(&entry) {
                                             files_edited.push(entry);
@@ -329,7 +330,7 @@ fn extract_context_summary(messages: &[ChatMessage], turn_ranges: &[(usize, usiz
                 }
                 MessageContent::Simple(text) => {
                     // Check assistant text for tool calls embedded as text
-                    if text.contains("Write") || text.contains("Edit") {
+                    if text.contains(tn::WRITE) || text.contains(tn::EDIT) {
                         let lower = text.to_lowercase();
                         if lower.contains("success") || lower.contains("wrote") {
                             let info: String = text.chars().take(150).collect();

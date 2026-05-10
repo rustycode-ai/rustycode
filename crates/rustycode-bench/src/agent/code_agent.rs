@@ -167,7 +167,7 @@ impl CodeAgent {
             }
         } else if tool_use.input.get("command").is_some() {
             // Fallback: unknown tool with "command" field → bash
-            if let Some(bash) = registry.get("Bash") {
+            if let Some(bash) = registry.get(tn::BASH) {
                 match bash.execute(tool_use.input.clone(), ctx) {
                     Ok(output) => output.text,
                     Err(e) => format!("ERROR: {e}"),
@@ -652,13 +652,13 @@ impl BenchAgent for CodeAgent {
                 ));
                 for (i, tu) in tool_uses.iter().enumerate() {
                     let input_preview = match tu.name.as_str() {
-                        "Bash" => tu
+                        tn::BASH => tu
                             .input
                             .get("command")
                             .and_then(|v| v.as_str())
                             .map(|s| truncate(s, 500))
                             .unwrap_or_default(),
-                        "Write" | "Read" | "Edit" => {
+                        tn::WRITE | tn::READ | tn::EDIT => {
                             let p = tu
                                 .input
                                 .get("path")

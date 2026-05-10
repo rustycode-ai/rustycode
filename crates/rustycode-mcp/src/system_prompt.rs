@@ -170,10 +170,10 @@ impl McpPromptGenerator {
             || desc.contains("remove")
         {
             Some("Use when you need to delete or remove something".to_string())
-        } else if rustycode_protocol::tool_names::has_segment(&name, &["list", "Search", "Find"])
+        } else if rustycode_protocol::tool_names::has_segment(&name, &["list", "search", "find"])
             || desc.contains("list")
-            || desc.contains("Search")
-            || desc.contains("Find")
+            || desc.contains("search")
+            || desc.contains("find")
         {
             Some("Use when you need to find or list items".to_string())
         } else if rustycode_protocol::tool_names::has_segment(&name, &["execute", "run", "call"])

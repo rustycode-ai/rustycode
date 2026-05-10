@@ -1,3 +1,4 @@
+use crate::tool_names as tn;
 use crate::tool_selection::UsageTracker;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -15,7 +16,7 @@ pub enum ToolTier {
 
 #[must_use]
 pub fn default_tool_set() -> HashSet<&'static str> {
-    ["Read", "Edit", "Write", "Bash", "Grep", "Glob"]
+    [tn::READ, tn::EDIT, tn::WRITE, tn::BASH, tn::GREP, tn::GLOB]
         .into_iter()
         .collect()
 }
@@ -23,26 +24,26 @@ pub fn default_tool_set() -> HashSet<&'static str> {
 #[must_use]
 pub fn extended_tool_set() -> HashSet<&'static str> {
     [
-        "WebFetch",
-        "NotebookEdit",
-        "LspDiagnostics",
-        "LspHover",
-        "LspDefinition",
-        "LspReferences",
-        "LspCompletion",
-        "LspImplementation",
-        "LspIncomingCalls",
-        "LspOutgoingCalls",
-        "LspDocumentSymbols",
-        "TodoWrite",
-        "TodoUpdate",
-        "TodoRead",
-        "MemorySearch",
-        "MemoryList",
-        "ListDir",
-        "GitStatus",
-        "GitDiff",
-        "GitLog",
+        tn::WEB_FETCH,
+        tn::NOTEBOOK_EDIT,
+        tn::LSP_DIAGNOSTICS,
+        tn::LSP_HOVER,
+        tn::LSP_DEFINITION,
+        tn::LSP_REFERENCES,
+        tn::LSP_COMPLETION,
+        tn::LSP_IMPLEMENTATION,
+        tn::LSP_INCOMING_CALLS,
+        tn::LSP_OUTGOING_CALLS,
+        tn::LSP_DOCUMENT_SYMBOLS,
+        tn::TODO_WRITE,
+        tn::TODO_UPDATE,
+        tn::TODO_READ,
+        tn::MEMORY_SEARCH,
+        tn::MEMORY_LIST,
+        tn::LIST_DIR,
+        tn::GIT_STATUS,
+        tn::GIT_DIFF,
+        tn::GIT_LOG,
     ]
     .into_iter()
     .collect()

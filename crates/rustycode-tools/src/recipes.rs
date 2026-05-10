@@ -46,6 +46,7 @@
 //! - `~/.rustycode/recipes/` (global recipes)
 //! - Directories listed in `RUSTYCODE_RECIPE_PATH` env var
 
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -440,10 +441,10 @@ impl RecipeRegistry {
     pub fn resolve_tools(&self, recipe: &Recipe) -> Vec<String> {
         if recipe.tools.is_empty() {
             vec![
-                "Read".to_string(),
-                "Grep".to_string(),
-                "Glob".to_string(),
-                "ListDir".to_string(),
+                tn::READ.to_string(),
+                tn::GREP.to_string(),
+                tn::GLOB.to_string(),
+                tn::LIST_DIR.to_string(),
             ]
         } else {
             recipe.tools.clone()
