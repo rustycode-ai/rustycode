@@ -151,7 +151,11 @@ struct GeminiCandidate {
 
 #[derive(Deserialize)]
 struct GeminiUsageMetadata {
+    prompt_token_count: Option<usize>,
+    candidates_token_count: Option<usize>,
     total_token_count: usize,
+    #[serde(default)]
+    cached_content_token_count: Option<usize>,
 }
 
 /// Google Gemini LLM provider
@@ -712,12 +716,29 @@ impl GeminiProvider {
         };
 
         let usage = resp.usage_metadata.map(|u| {
-            let total = u.total_token_count.try_into().unwrap_or(u32::MAX);
+            let input_tokens: u32 = u
+                .prompt_token_count
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(0);
+            let output_tokens: u32 = u
+                .candidates_token_count
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or_else(|| {
+                    u.total_token_count
+                        .saturating_sub(u.prompt_token_count.unwrap_or(0))
+                        .try_into()
+                        .unwrap_or(u32::MAX)
+                });
+            let cached_tokens: u32 = u
+                .cached_content_token_count
+                .and_then(|v| v.try_into().ok())
+                .unwrap_or(0);
+            let total_tokens: u32 = u.total_token_count.try_into().unwrap_or(u32::MAX);
             crate::provider::Usage {
-                input_tokens: 0,
-                output_tokens: total,
-                total_tokens: total,
-                cache_read_input_tokens: 0,
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                cache_read_input_tokens: cached_tokens,
                 cache_creation_input_tokens: 0,
                 reasoning_tokens: None,
             }
@@ -1136,6 +1157,30 @@ mod tests {
             Some("The answer is 42".to_string())
         );
         assert_eq!(response.usage_metadata.unwrap().total_token_count, 100);
+    }
+
+    #[test]
+    fn test_gemini_usage_metadata_detailed() {
+        let json = r#"{
+            "candidates": [
+                {
+                    "content": {"parts": [{"text": "Hello"}]},
+                    "finish_reason": "STOP"
+                }
+            ],
+            "usage_metadata": {
+                "prompt_token_count": 50,
+                "candidates_token_count": 30,
+                "total_token_count": 80,
+                "cached_content_token_count": 10
+            }
+        }"#;
+        let response: GeminiResponse = serde_json::from_str(json).unwrap();
+        let usage = response.usage_metadata.unwrap();
+        assert_eq!(usage.prompt_token_count, Some(50));
+        assert_eq!(usage.candidates_token_count, Some(30));
+        assert_eq!(usage.total_token_count, 80);
+        assert_eq!(usage.cached_content_token_count, Some(10));
     }
 
     #[test]
