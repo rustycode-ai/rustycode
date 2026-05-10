@@ -103,11 +103,6 @@ static JSON_TOOL_CALL_START_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock
     Regex::new(r#"\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"arguments"\s*:\s*\{"#).unwrap()
 });
 
-/// Pattern for JSON tool call array: `[{"name": "...", "arguments": {...}}]`
-#[allow(dead_code)] // Kept for future use
-static JSON_ARRAY_RE: std::sync::LazyLock<Regex> =
-    std::sync::LazyLock::new(|| Regex::new(r"(?s)\[\s*\{[^]]*\]\s*").unwrap());
-
 /// Pattern for XML-style tool call: `<tool_call name="..." arguments='...'/>`
 /// Handles both single and double-quoted attributes with inner JSON
 static XML_TOOL_CALL_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {

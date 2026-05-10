@@ -359,14 +359,6 @@ pub(crate) mod tests_common {
         let ctx = ToolContext::new(temp_dir.path()).with_structured_output(true);
         (ctx, temp_dir)
     }
-
-    // Helper to create a test file
-    #[allow(dead_code)]
-    pub fn create_test_file(dir: &Path, name: &str, content: &str) -> PathBuf {
-        let path = dir.join(name);
-        fs::write(&path, content).unwrap();
-        path
-    }
 }
 
 #[cfg(test)]

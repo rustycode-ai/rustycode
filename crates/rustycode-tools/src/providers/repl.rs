@@ -15,14 +15,8 @@ pub struct REPLParams {
     research_session_id_legacy: Option<String>,
     /// The code to execute (required for action=execute)
     code: Option<String>,
-    /// Optional label for the execution
-    #[allow(dead_code)]
-    execution_label: Option<String>,
     /// Execution timeout in milliseconds (default: 300000)
     execution_timeout: Option<u64>,
-    /// Project directory for file operations
-    #[allow(dead_code)]
-    project_dir: Option<String>,
 }
 
 rustycode_tools_api::define_tool! {

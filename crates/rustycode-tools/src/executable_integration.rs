@@ -137,7 +137,7 @@ struct ToolWrapper {
 }
 
 impl ToolWrapper {
-    fn into_executable(self, context: Arc<ToolContext>) -> ExecutableUnit {
+    fn into_executable(self, _context: Arc<ToolContext>) -> ExecutableUnit {
         let name = self.info.name.clone();
         let description = self.info.description.clone();
         let schema_json = self.info.parameters_schema.clone();
@@ -160,10 +160,7 @@ impl ToolWrapper {
             },
             // Use a no-op callable; the caller should replace the handler
             // with a real NativeToolCallable when an Arc<dyn Tool> is available.
-            handler: Arc::new(InfoOnlyCallable {
-                info: self.info,
-                context,
-            }),
+            handler: Arc::new(InfoOnlyCallable { info: self.info }),
             source: UnitSource::NativeTool {
                 path: "native".to_string(),
             },
@@ -183,8 +180,6 @@ impl ToolWrapper {
 /// when you have the actual tool instance.
 struct InfoOnlyCallable {
     info: ToolInfo,
-    #[allow(dead_code)]
-    context: Arc<ToolContext>,
 }
 
 #[async_trait]
@@ -319,7 +314,6 @@ mod tests {
                 max_result_size_chars: None,
                 is_destructive_default: false,
             },
-            context: make_context(),
         };
 
         let input = ExecutionInput {

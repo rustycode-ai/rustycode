@@ -19,9 +19,6 @@ pub struct SymbolPath {
     components: Vec<String>,
     /// Whether the pattern began with "/" (absolute match from root only)
     absolute: bool,
-    /// Optional overload index: 0-based, from "name[N]" syntax
-    #[allow(dead_code)]
-    overload_idx: Option<usize>,
     /// If true, the last component matches by substring instead of exact match
     substring_matching: bool,
 }
@@ -48,32 +45,26 @@ impl SymbolPath {
         let pattern = pattern.trim_start_matches('/');
 
         let mut components = Vec::new();
-        let mut overload_idx = None;
 
         for component in pattern.split('/') {
             if component.is_empty() {
                 continue;
             }
 
-            // Parse overload index from "name[N]" syntax
-            if let Some(bracket_pos) = component.find('[') {
-                let name = component[..bracket_pos].to_string();
-                let idx_str = component[bracket_pos + 1..].trim_end_matches(']');
-                if let Ok(idx) = idx_str.parse::<usize>() {
-                    overload_idx = Some(idx);
-                    components.push(name);
-                } else {
-                    components.push(component.to_string());
-                }
+            // Strip overload index suffix from "name[N]" syntax
+            // (kept for compatibility but not stored)
+            let component = if let Some(bracket_pos) = component.find('[') {
+                &component[..bracket_pos]
             } else {
-                components.push(component.to_string());
-            }
+                component
+            };
+
+            components.push(component.to_string());
         }
 
         Self {
             components,
             absolute,
-            overload_idx,
             substring_matching: false,
         }
     }
