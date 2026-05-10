@@ -190,15 +190,25 @@ impl TaskDispatcher {
         let fork_specs: Vec<ForkSpec> = specs.iter().map(task_spec_to_fork_spec).collect();
         let fj_result = self.fork_join.execute_forks(&snapshot, &fork_specs).await;
 
+        let fork_results = fj_result.fork_results;
         let mut results = Vec::with_capacity(specs.len());
-        for (spec, fr) in specs.iter().zip(fj_result.fork_results.into_iter()) {
-            results.push(TaskResult {
-                task_id: spec.task_id.clone(),
-                success: fr.success,
-                output: fr.output,
-                cost_usd: fr.cost_usd,
-                duration_ms: fr.duration_ms,
-            });
+        for (i, spec) in specs.iter().enumerate() {
+            if i < fork_results.len() {
+                let fr = &fork_results[i];
+                results.push(TaskResult {
+                    task_id: spec.task_id.clone(),
+                    success: fr.success,
+                    output: fr.output.clone(),
+                    cost_usd: fr.cost_usd,
+                    duration_ms: fr.duration_ms,
+                });
+            } else {
+                results.push(TaskResult::failure(
+                    &spec.task_id,
+                    "fork result missing: executor returned fewer results than specs",
+                    0,
+                ));
+            }
         }
 
         results
@@ -275,7 +285,13 @@ impl TaskDispatcher {
 
         match agent_result {
             Ok(result) => {
-                let success = !result.final_text.is_empty();
+                // Success is based on stopped_reason, not text: tool-only agents
+                // produce empty final_text but still complete successfully.
+                let success = !matches!(
+                    result.stopped_reason,
+                    rustycode_agent_runtime::StoppedReason::MaxTurnsReached
+                        | rustycode_agent_runtime::StoppedReason::TimeoutExceeded
+                );
                 self.bus
                     .publish(OrchestrationEvent::TaskDelegationCompleted {
                         task_id: spec.task_id.clone(),

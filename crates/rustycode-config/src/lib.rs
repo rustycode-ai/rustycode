@@ -661,9 +661,6 @@ impl Config {
         let config: Self =
             serde_json::from_value(config_value).map_err(ConfigError::DeserializeError)?;
 
-        // Apply shell_environment_policy.set values to process env
-        config.shell_environment_policy.apply_to_env();
-
         // Validate critical values
         if let Some(timeout) = config.timeout_seconds {
             if timeout == 0 {
@@ -679,6 +676,27 @@ impl Config {
                 ));
             }
         }
+        if let Some(temperature) = config.temperature {
+            if temperature.is_nan() {
+                return Err(ConfigError::ValidationError(
+                    "temperature must not be NaN".into(),
+                ));
+            }
+            if temperature.is_infinite() {
+                return Err(ConfigError::ValidationError(
+                    "temperature must be finite".into(),
+                ));
+            }
+            if temperature < 0.0 {
+                return Err(ConfigError::ValidationError(
+                    "temperature must be non-negative".into(),
+                ));
+            }
+        }
+
+        // Apply shell_environment_policy.set values to process env
+        // (after validation so we don't mutate env on invalid configs)
+        config.shell_environment_policy.apply_to_env();
 
         ensure_dir(&config.data_dir)?;
         ensure_dir(&config.skills_dir)?;
@@ -705,9 +723,9 @@ impl Config {
 
         let tmp_path = path.with_extension("json.tmp");
         std::fs::write(&tmp_path, &json)
-            .map_err(|e| ConfigError::FileReadError(path_buf.clone(), e.to_string()))?;
+            .map_err(|e| ConfigError::FileWriteError(path_buf.clone(), e.to_string()))?;
         std::fs::rename(&tmp_path, path)
-            .map_err(|e| ConfigError::FileReadError(path_buf, e.to_string()))?;
+            .map_err(|e| ConfigError::FileWriteError(path_buf, e.to_string()))?;
 
         Ok(())
     }
@@ -817,6 +835,9 @@ fn ensure_gitignore(project_dir: &Path) {
 pub enum ConfigError {
     #[error("Failed to read configuration file {0}: {1}")]
     FileReadError(PathBuf, String),
+
+    #[error("Failed to write configuration file {0}: {1}")]
+    FileWriteError(PathBuf, String),
 
     #[error("Failed to parse configuration file {0}: {1}")]
     ParseError(PathBuf, String),

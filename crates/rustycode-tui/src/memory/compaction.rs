@@ -307,8 +307,16 @@ impl CompactionPreview {
 
     /// Format as display text
     pub fn format(&self) -> String {
-        let pct = (self.current_tokens as f64 / self.max_tokens as f64) * 100.0;
-        let new_pct = (self.new_token_count as f64 / self.max_tokens as f64) * 100.0;
+        let pct = if self.max_tokens == 0 {
+            0.0
+        } else {
+            (self.current_tokens as f64 / self.max_tokens as f64) * 100.0
+        };
+        let new_pct = if self.max_tokens == 0 {
+            0.0
+        } else {
+            (self.new_token_count as f64 / self.max_tokens as f64) * 100.0
+        };
         let prune_line = if self.tool_outputs_pruned > 0 {
             format!(
                 "\n  Prune {} old tool outputs (saves ~{})",
@@ -570,7 +578,7 @@ pub fn compact_context(messages: Vec<Message>, strategy: CompactionStrategy) -> 
         let (infra, conversation): (Vec<&Message>, Vec<&Message>) =
             old.iter().partition(|m| is_infra_message(m));
 
-        result.extend(infra.into_iter().cloned());
+        result.extend(infra.into_iter().rev().cloned());
 
         // 3. Structured summary of conversation-only messages
         if !conversation.is_empty() {

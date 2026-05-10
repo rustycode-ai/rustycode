@@ -245,6 +245,26 @@ impl AgentSession {
 
 // Internal loop
 
+/// RAII guard that dispatches SessionEnd on drop if not already fired.
+struct SessionEndGuard<'a> {
+    hooks: &'a ExpandedHookDispatcher,
+    model: &'a str,
+    message_count: usize,
+    fired: bool,
+}
+
+impl Drop for SessionEndGuard<'_> {
+    fn drop(&mut self) {
+        if !self.fired {
+            let _ = self.hooks.dispatch(&LifecycleEvent::new(
+                LifecycleHook::SessionEnd,
+                self.model,
+                serde_json::json!({ "total_turns": self.message_count / 2 }),
+            ));
+        }
+    }
+}
+
 #[allow(clippy::too_many_lines)]
 async fn run_loop(
     provider: &dyn LLMProvider,
@@ -263,12 +283,30 @@ async fn run_loop(
 ) -> Result<AgentResult> {
     const MAX_RETRIES: usize = 3;
 
+    let max_turns = if config.max_turns == 0 {
+        1
+    } else {
+        config.max_turns
+    };
+    let timeout_secs = if config.timeout_secs == 0 {
+        u64::MAX
+    } else {
+        config.timeout_secs
+    };
+
     // Dispatch SessionStart hook
     let _ = hooks.dispatch(&LifecycleEvent::new(
         LifecycleHook::SessionStart,
         model,
         serde_json::json!({ "task_count": messages.len() }),
     ));
+
+    let mut session_end_guard = SessionEndGuard {
+        hooks,
+        model,
+        message_count: messages.len(),
+        fired: false,
+    };
 
     let mut messages = messages;
 
@@ -282,8 +320,8 @@ async fn run_loop(
     let start = std::time::Instant::now();
     let chunk_timeout = Duration::from_mins(2);
 
-    for turn in 0..config.max_turns {
-        if start.elapsed().as_secs() > config.timeout_secs {
+    for turn in 0..max_turns {
+        if start.elapsed().as_secs() > timeout_secs {
             tracing::info!("Agent timed out after {}s", start.elapsed().as_secs());
             stopped_reason = StoppedReason::TimeoutExceeded;
             break;
@@ -349,7 +387,7 @@ async fn run_loop(
         total_cache_creation_tokens += state.total_cache_creation_tokens;
 
         // Handle max_tokens: inject continuation
-        if state.stop_reason.as_deref() == Some("max_tokens") && turn + 1 < config.max_turns {
+        if state.stop_reason.as_deref() == Some("max_tokens") && turn + 1 < max_turns {
             tracing::info!("Model hit max_tokens, injecting continuation message");
             if !state.assistant_text.is_empty() {
                 messages.push(ChatMessage {
@@ -526,7 +564,8 @@ async fn run_loop(
         total_cache_creation_tokens,
     };
 
-    // Dispatch SessionEnd hook
+    // Dispatch SessionEnd hook (guard will also dispatch on drop if we error before here)
+    session_end_guard.fired = true;
     let _ = hooks.dispatch(&LifecycleEvent::new(
         LifecycleHook::SessionEnd,
         model,
@@ -605,6 +644,27 @@ fn inject_turn_context(messages: &mut Vec<ChatMessage>, intel: &dyn CodeIntellig
 
     if !parts.is_empty() {
         let context_msg = format!("[Code context]\n{}", parts.join("\n"));
+        // If last message is already User (e.g., tool results), merge to avoid
+        // consecutive User messages which the Anthropic API rejects.
+        if let Some(last) = messages.last_mut() {
+            if last.role == MessageRole::User {
+                match &mut last.content {
+                    MessageContent::Simple(existing) => {
+                        *existing = format!("{existing}\n\n{context_msg}");
+                    }
+                    MessageContent::Blocks(blocks) => {
+                        blocks.push(ContentBlock::text(&context_msg));
+                    }
+                    _ => {
+                        messages.push(ChatMessage {
+                            role: MessageRole::User,
+                            content: MessageContent::Simple(context_msg),
+                        });
+                    }
+                }
+                return;
+            }
+        }
         messages.push(ChatMessage {
             role: MessageRole::User,
             content: MessageContent::Simple(context_msg),
@@ -827,6 +887,20 @@ fn classify_error(err: &str) -> ErrorClass {
 
 /// Trim conversation history when context length is exceeded.
 /// Keeps the first message + a notice + the most recent N messages.
+fn extract_user_task(messages: &[ChatMessage]) -> Option<String> {
+    messages
+        .iter()
+        .find(|m| m.role == MessageRole::User)
+        .and_then(|m| match &m.content {
+            MessageContent::Simple(t) => Some(t.clone()),
+            MessageContent::Blocks(blocks) => blocks.iter().find_map(|b| match b {
+                ContentBlock::Text { text, .. } => Some(text.clone()),
+                _ => None,
+            }),
+            _ => None,
+        })
+}
+
 fn trim_context(messages: &mut Vec<ChatMessage>) -> bool {
     const MIN_MESSAGES: usize = 8;
     const KEEP_RECENT: usize = 6;
@@ -837,13 +911,24 @@ fn trim_context(messages: &mut Vec<ChatMessage>) -> bool {
 
     let total = messages.len();
     let trim_from = total - KEEP_RECENT;
+
+    let original_task = extract_user_task(messages);
+
     let mut trimmed = Vec::with_capacity(KEEP_RECENT + 2);
     trimmed.push(messages[0].clone());
+
+    let trim_notice = match original_task {
+        Some(ref task) if !task.is_empty() => {
+            let task_preview: String = task.chars().take(300).collect();
+            format!(
+                "[Context trimmed due to length. Original task: {task_preview}\nContinue from current state.]"
+            )
+        }
+        _ => "[Context trimmed due to length. Continue from current state.]".to_string(),
+    };
     trimmed.push(ChatMessage {
         role: MessageRole::User,
-        content: MessageContent::Simple(
-            "[Context trimmed due to length. Continue from current state.]".to_string(),
-        ),
+        content: MessageContent::Simple(trim_notice),
     });
     for msg in messages.iter().skip(trim_from) {
         trimmed.push(msg.clone());
@@ -1017,6 +1102,9 @@ mod tests {
         assert_eq!(msgs.len(), 8);
         assert!(matches!(&msgs[0].content, MessageContent::Simple(s) if s == "msg 0"));
         assert!(matches!(&msgs[1].content, MessageContent::Simple(s) if s.contains("trimmed")));
+        assert!(
+            matches!(&msgs[1].content, MessageContent::Simple(s) if s.contains("Original task"))
+        );
         // Last 6 should be messages 14..20
         assert!(matches!(&msgs[2].content, MessageContent::Simple(s) if s == "msg 14"));
         assert!(matches!(&msgs[7].content, MessageContent::Simple(s) if s == "msg 19"));

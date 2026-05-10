@@ -178,6 +178,17 @@ impl SubstitutionEngine {
                 .join("rustycode")
         });
 
+        // Ensure the allowed base directory exists before canonicalizing
+        // (canonicalize fails if the path doesn't exist on disk)
+        if !allowed_base.exists() {
+            if let Err(e) = std::fs::create_dir_all(&allowed_base) {
+                return Err(SubstitutionError::SecurityError(format!(
+                    "Cannot create allowed base directory '{}': {e}",
+                    allowed_base.display()
+                )));
+            }
+        }
+
         // Canonicalize both paths to resolve symlinks and prevent TOCTOU attacks
         let canonical_path = std::fs::canonicalize(&expanded)
             .map_err(|e| SubstitutionError::FileReadError(expanded.clone(), e.to_string()))?;
@@ -235,19 +246,27 @@ impl SubstitutionEngine {
     /// resolved at config load time.
     #[allow(clippy::unused_self)]
     pub fn expand_env_vars(&self, input: &str) -> String {
-        let mut result = String::with_capacity(input.len());
-        let chars = input.as_bytes();
+        let chars: Vec<char> = input.chars().collect();
         let len = chars.len();
+        let mut result = String::with_capacity(input.len());
         let mut i = 0;
 
         while i < len {
-            if i + 1 < len && chars[i] == b'$' && chars[i + 1] == b'{' {
+            if i + 1 < len && chars[i] == '$' && chars[i + 1] == '{' {
                 let start = i + 2;
-                if let Some(end) = chars[start..].iter().position(|&c| c == b'}') {
-                    let var_part = &input[start..start + end];
-                    let (var_name, default) = var_part.find(":-").map_or((var_part, None), |pos| {
-                        (&var_part[..pos], Some(&var_part[pos + 2..]))
-                    });
+                let mut end_opt = None;
+                for j in start..len {
+                    if chars[j] == '}' {
+                        end_opt = Some(j);
+                        break;
+                    }
+                }
+                if let Some(end) = end_opt {
+                    let var_part: String = chars[start..end].iter().collect();
+                    let (var_name, default) =
+                        var_part.find(":-").map_or((&var_part[..], None), |pos| {
+                            (&var_part[..pos], Some(&var_part[pos + 2..]))
+                        });
 
                     let value = std::env::var(var_name)
                         .ok()
@@ -255,11 +274,11 @@ impl SubstitutionEngine {
                         .unwrap_or_default();
 
                     result.push_str(&value);
-                    i = start + end + 1;
+                    i = end + 1;
                     continue;
                 }
             }
-            result.push(chars[i] as char);
+            result.push(chars[i]);
             i += 1;
         }
 

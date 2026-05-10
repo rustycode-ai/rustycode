@@ -123,6 +123,14 @@ fn deep_merge(base: serde_json::Value, override_: serde_json::Value) -> serde_js
                             serde_json::Value::Object(override_obj)
                         }
                     }
+                    (
+                        Some(serde_json::Value::Array(base_arr)),
+                        serde_json::Value::Array(override_arr),
+                    ) => {
+                        let mut merged = base_arr.clone();
+                        merged.extend(override_arr.clone());
+                        serde_json::Value::Array(merged)
+                    }
                     (_, override_val) => override_val,
                 };
 
@@ -165,7 +173,7 @@ impl ConfigLoader {
                         && !err_str.contains("not found")
                         && !err_str.contains("does not exist")
                     {
-                        tracing::debug!(
+                        tracing::warn!(
                             "Config file {} skipped due to error: {}",
                             config_path.display(),
                             e

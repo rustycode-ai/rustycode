@@ -130,9 +130,21 @@ impl<'a> StreamingCallbacks for CoreStreamCallbacks<'a> {
         *self.total_output_tokens = self.total_output_tokens.saturating_add(output_tokens);
     }
 
+    fn on_cache_usage(&mut self, cache_read: u64, cache_creation: u64) {
+        *self.total_cache_read_tokens = self.total_cache_read_tokens.saturating_add(cache_read);
+        *self.total_cache_creation_tokens = self
+            .total_cache_creation_tokens
+            .saturating_add(cache_creation);
+    }
+
     fn on_error(&mut self, error_type: &str, message: &str) {
         tracing::error!("Stream error: {} - {}", error_type, message);
     }
+}
+
+struct ToolExecOutput {
+    output: String,
+    success: bool,
 }
 
 /// Execute a tool via the shared registry.
@@ -141,11 +153,16 @@ fn execute_tool(
     tool_name: &str,
     tool_json: &str,
     tool_registry: &ToolRegistry,
-) -> String {
+) -> ToolExecOutput {
     let resolved_name = normalize_tool_name(tool_name);
     let args: serde_json::Value = match serde_json::from_str(tool_json) {
         Ok(v) => v,
-        Err(e) => return format!("Error: Failed to parse tool arguments: {}", e),
+        Err(e) => {
+            return ToolExecOutput {
+                output: format!("Error: Failed to parse tool arguments: {}", e),
+                success: false,
+            }
+        }
     };
 
     let call = ToolCall {
@@ -158,11 +175,17 @@ fn execute_tool(
     let result = tool_registry.execute(&call, &ctx);
 
     if result.success {
-        result.output
+        ToolExecOutput {
+            output: result.output,
+            success: true,
+        }
     } else {
-        result
-            .error
-            .unwrap_or_else(|| "Error executing tool".to_string())
+        ToolExecOutput {
+            output: result
+                .error
+                .unwrap_or_else(|| "Error executing tool".to_string()),
+            success: false,
+        }
     }
 }
 
@@ -258,6 +281,8 @@ pub async fn run(
     let initial_retry_delay_ms: u64 = 1000;
 
     for turn in 0..config.max_turns {
+        final_text.clear();
+
         if start_time.elapsed().as_secs() > config.timeout_secs {
             info!(
                 "Agent stopped by wall-clock timeout: {}s > {}s",
@@ -405,6 +430,14 @@ pub async fn run(
         // Handle max_tokens: inject continuation
         if stop_reason.as_deref() == Some("max_tokens") && turn < config.max_turns - 1 {
             info!("Model hit max_tokens, injecting continuation message");
+
+            if !completed_tools.is_empty() {
+                tracing::warn!(
+                    tool_count = completed_tools.len(),
+                    "Tools dropped due to max_tokens truncation"
+                );
+            }
+
             if !assistant_text.is_empty() {
                 messages.push(ChatMessage {
                     role: MessageRole::Assistant,
@@ -457,10 +490,11 @@ pub async fn run(
             events.on_tool_call(&tool.name, &input);
 
             // Execute tool
-            let raw_output = execute_tool(&cwd, &tool.name, &tool.input_json, tool_registry);
-            let truncated = truncate_tool_output(&raw_output, config.max_tool_result_bytes);
+            let exec_result = execute_tool(&cwd, &tool.name, &tool.input_json, tool_registry);
+            let truncated = truncate_tool_output(&exec_result.output, config.max_tool_result_bytes);
 
-            let is_error = truncated.starts_with("Error ")
+            let is_error = !exec_result.success
+                || truncated.starts_with("Error ")
                 || truncated.starts_with("ERROR: ")
                 || truncated.starts_with("error: ")
                 || (truncated.contains("[exit code:") && !truncated.contains("[exit code: 0]"))

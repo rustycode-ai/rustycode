@@ -351,9 +351,45 @@ pub fn load_provider_type_from_config() -> Result<String> {
     Ok(provider_type)
 }
 
+/// Scan all providers in the file config to find which one lists the given model.
+fn find_provider_for_model_in_config(
+    model: &str,
+    providers: &rustycode_config::ProvidersConfig,
+) -> Option<String> {
+    let candidates: [(&str, &Option<rustycode_config::ProviderConfig>); 5] = [
+        ("anthropic", &providers.anthropic),
+        ("openai", &providers.openai),
+        ("gemini", &providers.gemini),
+        ("openrouter", &providers.openrouter),
+        ("nvidia", &providers.nvidia),
+    ];
+
+    for (provider_id, config) in &candidates {
+        if let Some(cfg) = config {
+            if let Some(models) = &cfg.models {
+                if models.iter().any(|m| m == model) {
+                    return Some((*provider_id).to_string());
+                }
+            }
+        }
+    }
+
+    for (provider_id, value) in &providers.custom {
+        if let Some(models) = value.get("models").and_then(|v| v.as_array()) {
+            if models.iter().any(|m| m.as_str() == Some(model)) {
+                return Some(provider_id.clone());
+            }
+        }
+    }
+
+    None
+}
+
 /// Load provider config from config file (~/.rustycode/config.json), with env var overrides.
 ///
-/// Priority: environment variable > config file > default
+/// Priority: environment variable > config file > default.
+/// When the model is overridden (via env var), auto-detect the provider by scanning
+/// each provider's `models` list for a match.
 pub fn load_provider_config_from_env() -> Result<(String, String, ProviderConfig)> {
     let file_config = load_file_config();
 
@@ -368,6 +404,22 @@ pub fn load_provider_config_from_env() -> Result<(String, String, ProviderConfig
         .filter(|s| !s.trim().is_empty())
         .or_else(|| file_config.as_ref().map(|c| c.model.clone()))
         .unwrap_or_else(|| default_model_for_provider(&provider_type));
+
+    // When the model differs from the configured default, auto-detect provider
+    // by scanning each provider's model list.
+    let model_overridden = std::env::var("RUSTYCODE_MODEL_OVERRIDE")
+        .ok()
+        .as_ref()
+        .is_some_and(|s| !s.trim().is_empty());
+    let provider_type = if model_overridden {
+        if let Some(ref fc) = file_config {
+            find_provider_for_model_in_config(&model, &fc.providers).unwrap_or(provider_type)
+        } else {
+            provider_type
+        }
+    } else {
+        provider_type
+    };
 
     let api_key = resolve_api_key(&provider_type, file_config.as_ref());
     let base_url = resolve_base_url(&provider_type, file_config.as_ref());
@@ -551,6 +603,53 @@ mod config_file_tests {
         );
         let key = api_key.unwrap().expose_secret().to_string();
         assert_eq!(key, "sk-test-fake-key-for-testing-123456");
+    }
+
+    #[test]
+    fn test_find_provider_for_model_in_config() {
+        let providers = rustycode_config::ProvidersConfig {
+            openai: Some(rustycode_config::ProviderConfig {
+                api_key: Some("sk-test".to_string()),
+                base_url: Some("https://custom.example.com/v1".to_string()),
+                models: Some(vec!["glm-5.1".to_string(), "glm-4.7".to_string()]),
+                headers: None,
+            }),
+            gemini: Some(rustycode_config::ProviderConfig {
+                api_key: Some("test-key".to_string()),
+                base_url: None,
+                models: Some(vec!["gemini-2.5-flash".to_string()]),
+                headers: None,
+            }),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            find_provider_for_model_in_config("glm-5.1", &providers),
+            Some("openai".to_string())
+        );
+        assert_eq!(
+            find_provider_for_model_in_config("gemini-2.5-flash", &providers),
+            Some("gemini".to_string())
+        );
+        assert_eq!(
+            find_provider_for_model_in_config("unknown-model", &providers),
+            None
+        );
+    }
+
+    #[test]
+    fn test_load_provider_auto_detects_from_model_override() {
+        // Set model override to a model in the openai provider's list
+        std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", "glm-5.1");
+        let result = load_provider_config_from_env();
+        if let Ok((provider_type, model, config)) = result {
+            assert_eq!(model, "glm-5.1");
+            // Should detect openai provider since glm-5.1 is in its models list
+            assert_eq!(provider_type, "openai");
+            assert!(config.api_key.is_some());
+            assert!(config.base_url.is_some());
+        }
+        std::env::remove_var("RUSTYCODE_MODEL_OVERRIDE");
     }
 
     #[test]

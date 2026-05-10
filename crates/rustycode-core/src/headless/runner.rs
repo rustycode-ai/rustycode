@@ -57,24 +57,27 @@ pub async fn run_headless_task_core(
     prior_messages: Option<Vec<ChatMessage>>,
     system_prompt_override: Option<&str>,
 ) -> Result<HeadlessTaskResult> {
-    let dir_listing = std::fs::read_dir(cwd)
-        .ok()
-        .map(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .map(|e| {
+    let dir_listing = if let Ok(mut entries) = tokio::fs::read_dir(cwd).await {
+        let mut names = Vec::new();
+        loop {
+            match entries.next_entry().await {
+                Ok(Some(e)) => {
                     let name = e.file_name().to_string_lossy().to_string();
-                    let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+                    let is_dir = e.file_type().await.map(|t| t.is_dir()).unwrap_or(false);
                     if is_dir {
-                        format!("{}/", name)
+                        names.push(format!("{}/", name));
                     } else {
-                        name
+                        names.push(name);
                     }
-                })
-                .collect::<Vec<_>>()
-                .join("\n")
-        })
-        .unwrap_or_else(|| "(could not read directory)".to_string());
+                }
+                Ok(None) => break,
+                Err(_) => break,
+            }
+        }
+        names.join("\n")
+    } else {
+        String::from("(could not read directory)")
+    };
 
     let task_with_context = format!(
         "Working directory: {} (contains {} files/dirs)\n\n{}\n\n---\n\n\

@@ -130,6 +130,19 @@ impl super::AnthropicProvider {
             parallel_tool_calls: request.parallel_tool_calls,
         };
 
+        // HTTP trace: dump stream request body for debugging
+        let trace_dir = std::env::var("RTK_HTTP_TRACE_DIR").unwrap_or_default();
+        if !trace_dir.is_empty() {
+            let _ = std::fs::create_dir_all(&trace_dir);
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            if let Ok(body) = serde_json::to_string_pretty(&anthropic_request) {
+                let _ = std::fs::write(format!("{trace_dir}/{ts}_stream_req.json"), &body);
+            }
+        }
+
         // Build the request, adding beta headers for advisor and skills
         let mut request_builder = self.client.post(&url).json(&anthropic_request);
 
@@ -147,6 +160,13 @@ impl super::AnthropicProvider {
             .send()
             .await
             .map_err(|e| ProviderError::Network(format!("failed to send request: {}", e)))?;
+
+        tracing::info!(
+            "[http-trace] Stream response: status={} content-type={:?} url={}",
+            response.status(),
+            response.headers().get("content-type"),
+            url
+        );
 
         if !response.status().is_success() {
             let status = response.status();

@@ -95,6 +95,7 @@ pub struct Runtime {
     pub session_manager: Option<SessionManager>,
     pub tool_cache: Arc<Mutex<ToolResultCache>>,
     pub skill_manager: Arc<Mutex<Option<SkillManager>>>,
+    active_session_id: Mutex<Option<SessionId>>,
 }
 
 impl Runtime {
@@ -188,6 +189,7 @@ impl Runtime {
             session_manager,
             tool_cache,
             skill_manager: Arc::new(Mutex::new(skill_manager)),
+            active_session_id: Mutex::new(None),
         })
     }
 
@@ -514,6 +516,9 @@ impl Runtime {
         let context_plan = ContextPlan::default();
 
         let session = Session::builder().task(task.to_string()).build();
+        if let Ok(mut guard) = self.active_session_id.lock() {
+            *guard = Some(session.id.clone());
+        }
         self.storage.insert_session(&session)?;
 
         self.publish_session_started(
@@ -713,13 +718,17 @@ impl Runtime {
             }
         }
 
-        // Publish session completed event
-        self.publish_session_completed(
-            SessionId::new(),
-            String::new(),
-            "completed".to_string(),
-            "Runtime shutdown".to_string(),
-        );
+        // Publish session completed event (only if a session was started)
+        if let Ok(guard) = self.active_session_id.lock() {
+            if let Some(ref session_id) = *guard {
+                self.publish_session_completed(
+                    session_id.clone(),
+                    String::new(),
+                    "completed".to_string(),
+                    "Runtime shutdown".to_string(),
+                );
+            }
+        }
 
         info!("Runtime shutdown complete");
     }
@@ -958,6 +967,7 @@ impl Runtime {
             session_manager: Some(SessionManager::new(sessions_dir)),
             tool_cache,
             skill_manager: Arc::new(Mutex::new(None)),
+            active_session_id: Mutex::new(None),
         })
     }
 
@@ -969,6 +979,8 @@ impl Runtime {
         task: &str,
         model: &str,
         provider: &str,
+        input_tokens: u64,
+        output_tokens: u64,
     ) -> Result<()> {
         // Initialize conversation history manager
         let history = ConversationHistory::default_dir()
@@ -1004,7 +1016,7 @@ impl Runtime {
             provider: provider.to_string(),
             messages: saved_messages,
             tags,
-            total_tokens: 0,
+            total_tokens: input_tokens.saturating_add(output_tokens),
             total_cost_cents: 0,
             workspace_path: std::env::current_dir()
                 .ok()

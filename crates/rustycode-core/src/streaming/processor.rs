@@ -35,6 +35,11 @@ pub trait StreamingCallbacks {
     /// Called on token usage report
     fn on_token_usage(&mut self, input_tokens: u64, output_tokens: u64);
 
+    /// Called on cache token accounting (prompt caching)
+    fn on_cache_usage(&mut self, cache_read: u64, cache_creation: u64) {
+        let _ = (cache_read, cache_creation);
+    }
+
     /// Called on error event
     fn on_error(&mut self, error_type: &str, message: &str);
 }
@@ -95,8 +100,11 @@ impl StreamEventProcessor {
                 callbacks.on_token_usage(input_tokens, output_tokens);
             }
 
-            StreamEvent::CacheUsage { .. } => {
-                // Cost accounting only; no callback needed
+            StreamEvent::CacheUsage {
+                cache_read_tokens,
+                cache_creation_tokens,
+            } => {
+                callbacks.on_cache_usage(cache_read_tokens, cache_creation_tokens);
             }
 
             // Ignore tool execution lifecycle events in this processor
