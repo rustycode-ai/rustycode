@@ -184,19 +184,22 @@ async fn download_and_replace(release: &ReleaseInfo, exe_path: &Path) -> Result<
     let new_binary =
         find_file_recursive(tmp_dir.path(), binary_name).context("binary not found in archive")?;
 
-    // Replace: rename old, copy new, remove old
-    let old_path = exe_path.with_extension("old");
-    fs::rename(exe_path, &old_path).context("failed to rename current binary")?;
-    fs::copy(&new_binary, exe_path).context("failed to copy new binary")?;
+    // Copy new binary to a temp file next to the exe_path, then atomically rename.
+    // std::fs::rename is atomic on Unix and avoids the window where the binary
+    // is missing during the swap (which would break the install on crash).
+    let staging_path = exe_path.with_extension("new");
+    fs::copy(&new_binary, &staging_path).context("failed to copy new binary to staging")?;
 
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(exe_path, fs::Permissions::from_mode(0o755))
+        fs::set_permissions(&staging_path, fs::Permissions::from_mode(0o755))
             .context("failed to set executable permissions")?;
     }
 
-    let _ = fs::remove_file(&old_path);
+    // Atomic replace: on Unix, rename() is atomic; on Windows it replaces the target.
+    fs::rename(&staging_path, exe_path).context("failed to replace binary with new version")?;
+
     Ok(())
 }
 

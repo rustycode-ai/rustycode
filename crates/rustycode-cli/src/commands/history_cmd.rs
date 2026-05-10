@@ -126,15 +126,15 @@ pub fn execute(cmd: HistoryCommand) -> Result<()> {
 /// Print a conversation summary line
 fn print_conversation_summary(conv: &rustycode_storage::conversation_history::ConversationSummary) {
     let timestamp = format_timestamp(conv.updated_at);
-    let id_short = if conv.id.len() > 8 {
-        &conv.id[..8]
+    let id_display = if conv.id.chars().count() > 8 {
+        conv.id.chars().take(8).collect::<String>()
     } else {
-        &conv.id
+        conv.id.clone()
     };
 
     println!(
         "  {} | {} | {} msgs | {}",
-        id_short, conv.title, conv.message_count, timestamp
+        id_display, conv.title, conv.message_count, timestamp
     );
 
     if !conv.tags.is_empty() {

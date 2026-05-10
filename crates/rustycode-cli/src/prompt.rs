@@ -357,7 +357,13 @@ impl<T: Clone> Prompt for Select<T> {
     }
 
     fn prompt_with_config(self, config: &PromptConfig) -> io::Result<Self::Output> {
-        // If global yes is enabled, return default without prompting
+        if self.options.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cannot prompt with empty options list",
+            ));
+        }
+
         if config.global_yes_enabled() {
             let index = self.default_index.unwrap_or(0);
             return Ok(self.options[index].1.clone());

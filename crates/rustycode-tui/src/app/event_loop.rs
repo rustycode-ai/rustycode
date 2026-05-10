@@ -2293,21 +2293,10 @@ impl TUI {
     }
 }
 
+#[cfg(test)]
 impl Default for TUI {
     fn default() -> Self {
-        #[cfg(test)]
-        {
-            // Use the lightweight test constructor when running tests to avoid
-            // terminal/IO dependencies in `Default::default()` during test runs.
-            Self::new_for_test()
-        }
-
-        #[cfg(not(test))]
-        {
-            let (tx, _) = tokio::sync::broadcast::channel(1);
-            Self::new(PathBuf::from("."), AiMode::default(), false, tx.subscribe())
-                .expect("Failed to create TUI")
-        }
+        Self::new_for_test()
     }
 }
 

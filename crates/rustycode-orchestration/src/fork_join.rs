@@ -350,10 +350,16 @@ impl ForkJoinExecutor {
                 });
 
             join_set.spawn(async move {
-                let _permit = permit.acquire().await.unwrap_or_else(|e| {
-                    tracing::error!("semaphore closed: {e}");
-                    panic!("semaphore closed unexpectedly")
-                });
+                let _permit = match permit.acquire().await {
+                    Ok(p) => p,
+                    Err(e) => {
+                        tracing::error!("semaphore closed for fork {fork_id}: {e}");
+                        return (
+                            ForkResult::failure(&fork_id, format!("semaphore closed: {e}"), 0),
+                            bus,
+                        );
+                    }
+                };
 
                 let fork_start = std::time::Instant::now();
 

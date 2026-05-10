@@ -188,7 +188,7 @@ pub fn info_log(message: &str) {
 
 fn write_log(level: Level, message: &str) {
     if let Some(writer_guard) = LOG_WRITER.get() {
-        let mut writer_opt = writer_guard.lock().expect("log writer mutex poisoned");
+        let mut writer_opt = writer_guard.lock().unwrap_or_else(|e| e.into_inner());
 
         if let Some(writer) = writer_opt.as_mut() {
             let level_str = match level {

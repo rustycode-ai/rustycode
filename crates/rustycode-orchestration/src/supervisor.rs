@@ -328,7 +328,12 @@ impl Supervisor for RuleBasedSupervisor {
             };
         }
 
-        SupervisionDirective::Continue
+        let directive = SupervisionDirective::Continue;
+
+        // Reset dedup state so the same directive type can fire in the next cycle.
+        self.last_directive_kind = None;
+
+        directive
     }
 
     fn consecutive_failure_count(&self) -> u8 {

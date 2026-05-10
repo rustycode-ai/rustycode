@@ -362,12 +362,7 @@ pub struct TaskSpec {
 
 impl TaskSpec {
     pub fn new(prompt: impl Into<String>, role: TaskRole) -> Self {
-        let task_id = format!(
-            "task-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(0, |d| d.as_millis())
-        );
+        let task_id = format!("task-{}", uuid::Uuid::new_v4());
         Self {
             task_id,
             prompt: prompt.into(),

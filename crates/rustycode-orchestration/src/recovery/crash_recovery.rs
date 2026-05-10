@@ -95,7 +95,13 @@ impl CrashLock {
         }
 
         let temp_path = lock_path.with_extension("tmp");
-        std::fs::write(&temp_path, content).context("Failed to write temp lock file")?;
+        let mut temp_file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+            .context("Failed to create temp lock file exclusively")?;
+        std::io::Write::write_all(&mut temp_file, content.as_bytes())
+            .context("Failed to write temp lock file")?;
         std::fs::rename(&temp_path, &lock_path).context("Failed to rename lock file")?;
 
         tracing::info!("Lock file written: {:?}", lock_path);

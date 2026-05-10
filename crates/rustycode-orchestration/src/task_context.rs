@@ -215,8 +215,8 @@ impl TaskContext {
         self.execution_phase = self.phase_skip.starting_phase();
     }
 
-    pub const fn escalate(&mut self) {
-        self.current_tier = self.current_tier.saturating_add(1);
+    pub fn escalate(&mut self) {
+        self.current_tier = self.current_tier.saturating_add(1).min(5);
         self.attempt_count = 0;
     }
 }

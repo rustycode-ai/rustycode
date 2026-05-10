@@ -250,6 +250,40 @@ enum Command {
 }
 
 fn main() -> Result<()> {
+    // Parse CLI args and apply env overrides BEFORE building the tokio runtime.
+    // std::env::set_var is undefined behaviour if called after runtime creation
+    // in a multi-threaded context, so all set_var calls must happen here.
+    let cli = Cli::parse();
+
+    if let Some(ref model) = cli.model {
+        std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", model);
+    }
+
+    if let Some(ref effort) = cli.effort {
+        if rustycode_llm::provider::EffortLevel::try_from(effort.as_str()).is_err() {
+            eprintln!(
+                "error: invalid effort level '{}'. Valid values: low, medium, high, xhigh, max",
+                effort
+            );
+            std::process::exit(1);
+        }
+        std::env::set_var("RUSTYCODE_EFFORT_OVERRIDE", effort);
+    }
+
+    if let Some(Command::Tui {
+        model: Some(ref m), ..
+    }) = &cli.command
+    {
+        std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", m);
+    }
+    if let Some(Command::Tui {
+        provider: Some(ref p),
+        ..
+    }) = &cli.command
+    {
+        std::env::set_var("RUSTYCODE_PROVIDER", p);
+    }
+
     // Build tokio runtime with optimized configuration for CPU-bound workloads
     // Uses number of CPU cores for maximum parallelism in tool execution
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -263,7 +297,7 @@ fn main() -> Result<()> {
         .enable_all()
         .build()
         .map_err(|e| anyhow::anyhow!("failed to build tokio runtime: {}", e))?;
-    rt.block_on(async_main())
+    rt.block_on(async_main(cli))
 }
 
 fn resolve_config_key(key: &str) -> String {
@@ -340,14 +374,12 @@ fn config_value_to_string(value: &serde_json::Value) -> String {
     }
 }
 
-async fn async_main() -> Result<()> {
+async fn async_main(cli: Cli) -> Result<()> {
     // Redirect tracing output to log file instead of stderr to avoid screen pollution
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
     let log_dir = PathBuf::from(home).join(".rustycode");
     let log_path = log_dir.join("debug.log");
     let _ = std::fs::create_dir_all(&log_dir);
-
-    let cli = Cli::parse();
 
     // Try to open log file; fall back to stderr if unavailable (non-fatal)
     let log_file = std::fs::OpenOptions::new()
@@ -425,22 +457,6 @@ async fn async_main() -> Result<()> {
 
     let cwd = std::env::current_dir()?;
 
-    // Apply model override via env var (read by LLM provider config loader)
-    if let Some(ref model) = cli.model {
-        std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", model);
-    }
-
-    if let Some(ref effort) = cli.effort {
-        if rustycode_llm::provider::EffortLevel::try_from(effort.as_str()).is_err() {
-            eprintln!(
-                "error: invalid effort level '{}'. Valid values: low, medium, high, xhigh, max",
-                effort
-            );
-            std::process::exit(1);
-        }
-        std::env::set_var("RUSTYCODE_EFFORT_OVERRIDE", effort);
-    }
-
     // Configure colored output
     match cli.color.as_str() {
         "always" => colored::control::set_override(true),
@@ -467,8 +483,8 @@ async fn async_main() -> Result<()> {
     if let Command::Tui {
         reconfigure,
         resume,
-        model,
-        provider,
+        model: _,
+        provider: _,
         workspace,
     } = command
     {
@@ -476,12 +492,6 @@ async fn async_main() -> Result<()> {
             .map(|p| p.canonicalize().context("--workspace path does not exist"))
             .transpose()?
             .unwrap_or(cwd);
-        if let Some(ref m) = model {
-            std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", m);
-        }
-        if let Some(ref p) = provider {
-            std::env::set_var("RUSTYCODE_PROVIDER", p);
-        }
         return std::thread::spawn(move || {
             rustycode_tui::run(cwd, reconfigure, resume).map_err(|e| {
                 anyhow::anyhow!(
