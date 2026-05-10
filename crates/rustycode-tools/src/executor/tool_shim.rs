@@ -211,13 +211,19 @@ impl ToolCallExtractor {
             if calls.len() >= config.max_calls {
                 break;
             }
-            let name = cap[1].to_string();
+            let name = match cap.get(1) {
+                Some(m) => m.as_str().to_string(),
+                None => continue,
+            };
             if config.validate_names && !Self::is_known_tool(&name, config) {
                 continue;
             }
             // `cap[0]` is the full match including the opening `{` of arguments.
             // We need the arguments object starting at the `{` after `"arguments":`.
-            let match_start = cap.get(0).unwrap().start();
+            let match_start = match cap.get(0) {
+                Some(m) => m.start(),
+                None => continue,
+            };
             let full_outer_start = match text[match_start..].find('{') {
                 Some(offset) => match_start + offset,
                 None => continue,

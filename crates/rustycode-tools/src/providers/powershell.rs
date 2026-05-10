@@ -1049,34 +1049,43 @@ impl ToolStreaming for PowerShellTool {
         let cwd_for_evict = ctx.cwd.clone();
 
         // Spawn blocking task for streaming execution
+        let sender_clone = sender.clone();
+        let sender_panic = sender.clone();
         let _ = thread::spawn(move || {
-            let s = session
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let alive = s
-                .child
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .is_some();
-            if !alive {
-                drop(s);
-                drop(session);
-                PS_SESSION_REGISTRY.remove(&cwd_for_evict);
-                let fresh = match PS_SESSION_REGISTRY.get_or_create(cwd_for_evict) {
-                    Ok(f) => f,
-                    Err(e) => {
-                        let _ = sender.send(StreamChunk::new(format!("Error: {e}\n")));
-                        let _ = sender.send(StreamChunk::done());
-                        return;
-                    }
-                };
-                let s = fresh
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let s = session
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                let _ = s.execute_stream(&command, timeout_secs, sender);
-                return;
+                let alive = s
+                    .child
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .is_some();
+                if !alive {
+                    drop(s);
+                    drop(session);
+                    PS_SESSION_REGISTRY.remove(&cwd_for_evict);
+                    let fresh = match PS_SESSION_REGISTRY.get_or_create(cwd_for_evict) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            let _ = sender_clone.send(StreamChunk::new(format!("Error: {e}\n")));
+                            let _ = sender_clone.send(StreamChunk::done());
+                            return;
+                        }
+                    };
+                    let s = fresh
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let _ = s.execute_stream(&command, timeout_secs, sender_clone);
+                    return;
+                }
+                let _ = s.execute_stream(&command, timeout_secs, sender_clone);
+            }));
+            if let Err(payload) = result {
+                let msg = format!("Panic in streaming thread: {:?}", payload);
+                let _ = sender_panic.send(StreamChunk::error(&msg));
+                let _ = sender_panic.send(StreamChunk::done());
             }
-            let _ = s.execute_stream(&command, timeout_secs, sender);
         });
 
         Ok(receiver)

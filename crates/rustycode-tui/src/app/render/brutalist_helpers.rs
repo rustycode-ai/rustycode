@@ -98,7 +98,7 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("Bash")
+        if name.contains("bash")
             || name.contains("exec")
             || name.contains("shell")
             || name.contains("run")
@@ -125,7 +125,7 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("Grep") || name.contains("Search") {
+        if name.contains("grep") || name.contains("search") {
             if let Some(pattern) = json
                 .get("pattern")
                 .or(json.get("query"))
@@ -147,7 +147,7 @@ pub fn extract_tool_key_param(
             }
         }
 
-        if name.contains("Glob") || name.contains("Find") || name.contains("list") {
+        if name.contains("glob") || name.contains("find") || name.contains("list") {
             if let Some(pattern) = json
                 .get("pattern")
                 .or(json.get("Glob"))

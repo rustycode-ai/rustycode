@@ -623,7 +623,7 @@ mod tests {
         };
         let when = generator.generate_when_to_use(&tool);
         assert!(when.is_some());
-        assert!(when.unwrap().to_lowercase().contains("Find"));
+        assert!(when.unwrap().to_lowercase().contains("find"));
     }
 
     #[test]

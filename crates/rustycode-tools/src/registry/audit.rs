@@ -340,51 +340,41 @@ impl ToolAuditLogger {
 
     /// Get a session summary.
     pub fn session_summary(&self) -> SessionSummary {
-        let guard = self.inner.lock().ok();
+        let guard = self.inner.lock().unwrap_or_else(|e| {
+            tracing::warn!("Audit mutex poisoned, recovering: {e}");
+            e.into_inner()
+        });
 
-        match guard {
-            Some(guard) => {
-                let total_calls: u64 = guard.stats.values().map(|s| s.call_count).sum();
-                let total_duration: u64 = guard.stats.values().map(|s| s.total_duration_ms).sum();
-                let total_success: u64 = guard.stats.values().map(|s| s.success_count).sum();
+        let total_calls: u64 = guard.stats.values().map(|s| s.call_count).sum();
+        let total_duration: u64 = guard.stats.values().map(|s| s.total_duration_ms).sum();
+        let total_success: u64 = guard.stats.values().map(|s| s.success_count).sum();
 
-                let mut by_freq: Vec<(String, u64)> = guard
-                    .stats
-                    .values()
-                    .map(|s| (s.tool_name.clone(), s.call_count))
-                    .collect();
-                by_freq.sort_by_key(|a| std::cmp::Reverse(a.1));
+        let mut by_freq: Vec<(String, u64)> = guard
+            .stats
+            .values()
+            .map(|s| (s.tool_name.clone(), s.call_count))
+            .collect();
+        by_freq.sort_by_key(|a| std::cmp::Reverse(a.1));
 
-                let mut by_dur: Vec<(String, u64)> = guard
-                    .stats
-                    .values()
-                    .map(|s| (s.tool_name.clone(), s.total_duration_ms))
-                    .collect();
-                by_dur.sort_by_key(|a| std::cmp::Reverse(a.1));
+        let mut by_dur: Vec<(String, u64)> = guard
+            .stats
+            .values()
+            .map(|s| (s.tool_name.clone(), s.total_duration_ms))
+            .collect();
+        by_dur.sort_by_key(|a| std::cmp::Reverse(a.1));
 
-                SessionSummary {
-                    total_calls,
-                    distinct_tools: guard.stats.len(),
-                    total_duration_ms: total_duration,
-                    overall_success_rate: if total_calls > 0 {
-                        total_success as f64 / total_calls as f64
-                    } else {
-                        0.0
-                    },
-                    tool_stats: guard.stats.values().cloned().collect(),
-                    tools_by_frequency: by_freq,
-                    tools_by_duration: by_dur,
-                }
-            }
-            None => SessionSummary {
-                total_calls: 0,
-                distinct_tools: 0,
-                total_duration_ms: 0,
-                overall_success_rate: 0.0,
-                tool_stats: Vec::new(),
-                tools_by_frequency: Vec::new(),
-                tools_by_duration: Vec::new(),
+        SessionSummary {
+            total_calls,
+            distinct_tools: guard.stats.len(),
+            total_duration_ms: total_duration,
+            overall_success_rate: if total_calls > 0 {
+                total_success as f64 / total_calls as f64
+            } else {
+                0.0
             },
+            tool_stats: guard.stats.values().cloned().collect(),
+            tools_by_frequency: by_freq,
+            tools_by_duration: by_dur,
         }
     }
 

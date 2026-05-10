@@ -74,6 +74,17 @@ impl SharedWorkspace {
     pub async fn snapshot(&self) -> HashMap<String, WorkspaceEntry> {
         self.entries.lock().await.clone()
     }
+
+    /// Perform a compound operation atomically under a single lock acquisition.
+    /// Use this for TOCTOU-safe patterns like `contains()` + `read()` or
+    /// `write()` + `snapshot()`.
+    pub async fn with_lock<F, T>(&self, f: F) -> T
+    where
+        F: FnOnce(&mut HashMap<String, WorkspaceEntry>) -> T,
+    {
+        let mut guard = self.entries.lock().await;
+        f(&mut guard)
+    }
 }
 
 #[cfg(test)]

@@ -85,8 +85,12 @@ fn cleanup_clients_if_needed(map: &mut HashMap<String, LspClient>) {
             // Gracefully shutdown the LSP client before removing it from the map
             if let Some(mut client) = map.remove(&first_key) {
                 // Best-effort synchronous shutdown using existing helper
-                let _ = run_async_result(async { client.shutdown().await });
-                let _ = run_async_result(async { client.exit().await });
+                if let Err(e) = run_async_result(async { client.shutdown().await }) {
+                    tracing::warn!(key = %first_key, error = %e, "LSP shutdown failed during cleanup");
+                }
+                if let Err(e) = run_async_result(async { client.exit().await }) {
+                    tracing::warn!(key = %first_key, error = %e, "LSP exit failed during cleanup");
+                }
             }
         }
     }
@@ -112,8 +116,12 @@ pub fn shutdown_client(key: &str) -> bool {
     let mut map = clients().lock().unwrap_or_else(|e| e.into_inner());
     if let Some(mut client) = map.remove(key) {
         tracing::debug!(key = %key, "shutting down LSP client");
-        let _ = run_async_result(async { client.shutdown().await });
-        let _ = run_async_result(async { client.exit().await });
+        if let Err(e) = run_async_result(async { client.shutdown().await }) {
+            tracing::warn!(key = %key, error = %e, "LSP shutdown failed");
+        }
+        if let Err(e) = run_async_result(async { client.exit().await }) {
+            tracing::warn!(key = %key, error = %e, "LSP exit failed");
+        }
         true
     } else {
         tracing::warn!(key = %key, "no LSP client found for shutdown");
@@ -127,8 +135,12 @@ pub fn shutdown_all_clients() {
     for key in keys {
         if let Some(mut client) = map.remove(&key) {
             tracing::debug!(key = %key, "shutting down LSP client");
-            let _ = run_async_result(async { client.shutdown().await });
-            let _ = run_async_result(async { client.exit().await });
+            if let Err(e) = run_async_result(async { client.shutdown().await }) {
+                tracing::warn!(key = %key, error = %e, "LSP shutdown failed during bulk shutdown");
+            }
+            if let Err(e) = run_async_result(async { client.exit().await }) {
+                tracing::warn!(key = %key, error = %e, "LSP exit failed during bulk shutdown");
+            }
         }
     }
 }
