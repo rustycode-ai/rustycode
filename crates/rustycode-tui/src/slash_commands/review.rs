@@ -220,8 +220,7 @@ mod tests {
     #[test]
     fn test_handle_review_command_not_a_repo() {
         // Test with non-git directory
-        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
-        let result = rt.block_on(async {
+        let result = rustycode_shared_runtime::block_on_shared(async {
             handle_review_command(Some(PathBuf::from("/tmp/nonexistent"))).await
         });
 

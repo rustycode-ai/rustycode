@@ -511,14 +511,7 @@ impl TUI {
         // Load skills asynchronously in background
         let skill_manager_clone = skill_manager.clone();
         std::thread::spawn(move || {
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    tracing::error!("Failed to create tokio runtime for skill loading: {}", e);
-                    return;
-                }
-            };
-            rt.block_on(async {
+            rustycode_shared_runtime::block_on_shared(async {
                 let load_result = {
                     #[allow(clippy::await_holding_lock)]
                     let mut manager = skill_manager_clone
@@ -1700,23 +1693,18 @@ impl TUI {
             let proxies = mcp_proxies.clone();
             // Spawn a small tokio runtime for async cleanup since we're in sync context.
             let _ = std::thread::spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build();
-                if let Ok(rt) = rt {
-                    rt.block_on(async move {
-                        let snapshot: Vec<rustycode_mcp::proxy::ToolProxy> = {
-                            let proxies = proxies.read().await;
-                            proxies.values().cloned().collect()
-                        };
+                rustycode_shared_runtime::block_on_shared(async move {
+                    let snapshot: Vec<rustycode_mcp::proxy::ToolProxy> = {
+                        let proxies = proxies.read().await;
+                        proxies.values().cloned().collect()
+                    };
 
-                        for proxy in snapshot {
-                            if let Err(e) = proxy.disconnect().await {
-                                tracing::warn!("Error disconnecting MCP proxy: {}", e);
-                            }
+                    for proxy in snapshot {
+                        if let Err(e) = proxy.disconnect().await {
+                            tracing::warn!("Error disconnecting MCP proxy: {}", e);
                         }
-                    });
-                }
+                    }
+                });
             })
             .join();
         }

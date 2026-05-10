@@ -84,15 +84,10 @@ pub fn handle_review_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
     let tx = ctx.command_tx;
     // Spawn thread with its own runtime for review
     std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for review: {}", e);
-                return;
-            }
-        };
         let analyzer = crate::slash_commands::review::CodeReviewAnalyzer::new();
-        let result = rt.block_on(analyzer.analyze_path(std::path::Path::new(&path)));
+        let result = rustycode_shared_runtime::block_on_shared(
+            analyzer.analyze_path(std::path::Path::new(&path)),
+        );
 
         match result {
             Ok(output) => {

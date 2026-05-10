@@ -793,12 +793,8 @@ impl MarketplaceBrowser {
     }
 
     fn reload_registry(&mut self, config: RegistryConfig) {
-        let runtime = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(_) => return,
-        };
-
-        match runtime.block_on(fetch_marketplace_index_with_config(config)) {
+        match rustycode_shared_runtime::block_on_shared(fetch_marketplace_index_with_config(config))
+        {
             Ok(items) => {
                 self.registry = RegistryManager::new(items);
                 self.reset_selection();

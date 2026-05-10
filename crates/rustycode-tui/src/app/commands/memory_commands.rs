@@ -53,13 +53,6 @@ pub fn handle_memory_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
         // Spawn thread with its own runtime for memory commands
         let tx = ctx.command_tx;
         std::thread::spawn(move || {
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    tracing::error!("Failed to create runtime for memory command: {}", e);
-                    return;
-                }
-            };
             let result = match subcommand.as_str() {
                 "save" => {
                     if parts_clone.len() < 3 {
@@ -67,11 +60,13 @@ pub fn handle_memory_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
                     } else {
                         let key = parts_clone[1].clone();
                         let value = parts_clone[2..].join(" ");
-                        crate::slash_commands::memory::into_anyhow_result(rt.block_on(
-                            crate::slash_commands::memory::handle_memory_save_command(
-                                &cwd, key, value,
+                        crate::slash_commands::memory::into_anyhow_result(
+                            rustycode_shared_runtime::block_on_shared(
+                                crate::slash_commands::memory::handle_memory_save_command(
+                                    &cwd, key, value,
+                                ),
                             ),
-                        ))
+                        )
                     }
                 }
                 "recall" => {
@@ -79,9 +74,11 @@ pub fn handle_memory_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
                         Ok("❌ Usage: /memory recall <key>".to_string())
                     } else {
                         let key = parts_clone[1].clone();
-                        crate::slash_commands::memory::into_anyhow_result(rt.block_on(
-                            crate::slash_commands::memory::handle_recall_command(&cwd, key),
-                        ))
+                        crate::slash_commands::memory::into_anyhow_result(
+                            rustycode_shared_runtime::block_on_shared(
+                                crate::slash_commands::memory::handle_recall_command(&cwd, key),
+                            ),
+                        )
                     }
                 }
                 "Search" => {
@@ -89,24 +86,30 @@ pub fn handle_memory_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<
                         Ok("❌ Usage: /memory search <query>".to_string())
                     } else {
                         let query = parts_clone[1..].join(" ");
-                        rt.block_on(crate::slash_commands::memory::handle_search_command(
-                            &cwd, query,
-                        ))
+                        rustycode_shared_runtime::block_on_shared(
+                            crate::slash_commands::memory::handle_search_command(&cwd, query),
+                        )
                     }
                 }
-                "list" => rt.block_on(crate::slash_commands::memory::handle_list_command(&cwd)),
+                "list" => rustycode_shared_runtime::block_on_shared(
+                    crate::slash_commands::memory::handle_list_command(&cwd),
+                ),
                 "delete" => {
                     if parts_clone.len() < 2 {
                         Ok("❌ Usage: /memory delete <key>".to_string())
                     } else {
                         let key = parts_clone[1].clone();
-                        crate::slash_commands::memory::into_anyhow_result(rt.block_on(
-                            crate::slash_commands::memory::handle_delete_command(&cwd, key),
-                        ))
+                        crate::slash_commands::memory::into_anyhow_result(
+                            rustycode_shared_runtime::block_on_shared(
+                                crate::slash_commands::memory::handle_delete_command(&cwd, key),
+                            ),
+                        )
                     }
                 }
                 "clear" => crate::slash_commands::memory::into_anyhow_result(
-                    rt.block_on(crate::slash_commands::memory::handle_clear_command(&cwd)),
+                    rustycode_shared_runtime::block_on_shared(
+                        crate::slash_commands::memory::handle_clear_command(&cwd),
+                    ),
                 ),
                 _ => Ok(format!(
                     "❌ Unknown memory subcommand: {}\n\

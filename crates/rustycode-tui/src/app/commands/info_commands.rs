@@ -263,15 +263,9 @@ pub fn handle_marketplace_command(
 
     let tx = ctx.command_tx;
     std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for marketplace: {}", e);
-                return;
-            }
-        };
-        let result = rt
-            .block_on(crate::slash_commands::marketplace::handle_marketplace_command(&input_clone));
+        let result = rustycode_shared_runtime::block_on_shared(
+            crate::slash_commands::marketplace::handle_marketplace_command(&input_clone),
+        );
 
         match result {
             Ok(Some(output)) => {
@@ -330,14 +324,9 @@ pub fn handle_mcp_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<Com
 
     // Spawn thread with its own runtime for MCP commands
     std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for MCP: {}", e);
-                return;
-            }
-        };
-        let result = rt.block_on(crate::slash_commands::mcp::handle_mcp_command(&input_clone));
+        let result = rustycode_shared_runtime::block_on_shared(
+            crate::slash_commands::mcp::handle_mcp_command(&input_clone),
+        );
         match result {
             Ok(Some(output)) => {
                 let _ = tx.send(crate::app::async_::SlashCommandResult::Success(output));
@@ -376,14 +365,9 @@ pub fn handle_lsp_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<Com
     let tx = ctx.command_tx;
 
     std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for LSP: {}", e);
-                return;
-            }
-        };
-        let result = rt.block_on(crate::slash_commands::lsp::handle_lsp_command(&input_clone));
+        let result = rustycode_shared_runtime::block_on_shared(
+            crate::slash_commands::lsp::handle_lsp_command(&input_clone),
+        );
         match result {
             Ok(Some(output)) => {
                 let _ = tx.send(crate::app::async_::SlashCommandResult::Success(output));

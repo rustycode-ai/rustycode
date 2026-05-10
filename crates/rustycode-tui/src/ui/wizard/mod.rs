@@ -391,14 +391,7 @@ impl FirstRunWizard {
         std::thread::spawn(move || {
             use rustycode_auth::GitHubCopilotAuth;
 
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    tracing::error!("Failed to create runtime for auth flow: {}", e);
-                    return;
-                }
-            };
-            rt.block_on(async {
+            rustycode_shared_runtime::block_on_shared(async {
                 let auth = GitHubCopilotAuth::new();
 
                 // Step 1: Request device code

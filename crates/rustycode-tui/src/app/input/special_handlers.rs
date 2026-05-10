@@ -622,16 +622,9 @@ impl TUI {
                 };
                 let item = item.clone();
                 std::thread::spawn(move || {
-                    let rt = match tokio::runtime::Runtime::new() {
-                        Ok(rt) => rt,
-                        Err(e) => {
-                            let _ = command_tx.send(crate::app::async_::SlashCommandResult::Error(
-                                format!("Failed to create runtime: {}", e),
-                            ));
-                            return;
-                        }
-                    };
-                    let result = rt.block_on(crate::marketplace::installer::install_item(&item));
+                    let result = rustycode_shared_runtime::block_on_shared(
+                        crate::marketplace::installer::install_item(&item),
+                    );
                     match result {
                         Ok(_) => {
                             let _ =
@@ -654,16 +647,9 @@ impl TUI {
                 };
                 let item = item.clone();
                 std::thread::spawn(move || {
-                    let rt = match tokio::runtime::Runtime::new() {
-                        Ok(rt) => rt,
-                        Err(e) => {
-                            let _ = command_tx.send(crate::app::async_::SlashCommandResult::Error(
-                                format!("Failed to create runtime: {}", e),
-                            ));
-                            return;
-                        }
-                    };
-                    let result = rt.block_on(crate::marketplace::installer::uninstall_item(&item));
+                    let result = rustycode_shared_runtime::block_on_shared(
+                        crate::marketplace::installer::uninstall_item(&item),
+                    );
                     match result {
                         Ok(_) => {
                             let _ =
@@ -686,19 +672,12 @@ impl TUI {
                 };
                 let item = item.clone();
                 std::thread::spawn(move || {
-                    let rt = match tokio::runtime::Runtime::new() {
-                        Ok(rt) => rt,
-                        Err(e) => {
-                            let _ = command_tx.send(crate::app::async_::SlashCommandResult::Error(
-                                format!("Failed to create runtime: {}", e),
-                            ));
-                            return;
-                        }
-                    };
-                    let result = rt.block_on(crate::marketplace::updates::update_item(
-                        std::slice::from_ref(&item),
-                        &item.id,
-                    ));
+                    let result = rustycode_shared_runtime::block_on_shared(
+                        crate::marketplace::updates::update_item(
+                            std::slice::from_ref(&item),
+                            &item.id,
+                        ),
+                    );
                     match result {
                         Ok(true) => {
                             let _ =

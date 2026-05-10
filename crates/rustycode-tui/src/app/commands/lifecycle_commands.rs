@@ -96,17 +96,9 @@ pub fn handle_save_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<Co
 
     let tx = ctx.command_tx;
     std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for save command: {}", e);
-                return;
-            }
-        };
-        let result = rt.block_on(crate::slash_commands::save::handle_save_command(
-            name,
-            &serialized,
-        ));
+        let result = rustycode_shared_runtime::block_on_shared(
+            crate::slash_commands::save::handle_save_command(name, &serialized),
+        );
 
         match result {
             Ok(output) => {

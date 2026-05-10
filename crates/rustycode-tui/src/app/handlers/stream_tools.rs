@@ -50,19 +50,12 @@ fn spawn_hook(
     ctx: serde_json::Value,
 ) {
     std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for hook execution: {}", e);
-                return;
-            }
-        };
         let hm = rustycode_tools::hooks::HookManager::new(
             hooks_dir,
             rustycode_tools::hooks::HookProfile::Standard,
             String::new(),
         );
-        if let Err(e) = rt.block_on(hm.execute(trigger, ctx)) {
+        if let Err(e) = rustycode_shared_runtime::block_on_shared(hm.execute(trigger, ctx)) {
             tracing::warn!("{:?} hook execution failed: {}", trigger, e);
         }
     });

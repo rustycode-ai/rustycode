@@ -326,15 +326,7 @@ impl ServiceManager {
         // Spawn persistent orchestration event forwarding thread (single instance)
         let mut rx = bus.subscribe();
         thread::spawn(move || {
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    tracing::error!("Failed to create runtime for forwarding thread: {}", e);
-                    return;
-                }
-            };
-
-            rt.block_on(async {
+            rustycode_shared_runtime::block_on_shared(async {
                 let mut adapter =
                     crate::app::streaming::adapter::StreamEventAdapter::new(stream_tx);
                 loop {
@@ -569,21 +561,7 @@ impl ServiceManager {
 
         thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                let rt = match tokio::runtime::Runtime::new() {
-                    Ok(rt) => rt,
-                    Err(e) => {
-                        send_chunk(
-                            &stream_tx,
-                            StreamChunk::Error(StreamError::RuntimeError {
-                                message: e.to_string(),
-                            }),
-                        );
-                        send_chunk(&stream_tx, StreamChunk::Done);
-                        return;
-                    }
-                };
-
-                let result = rt.block_on(async {
+                let result = rustycode_shared_runtime::block_on_shared(async {
                     let config = crate::app::streaming::StreamConfig::new(
                         &ctx.content,
                         &ctx.cwd,

@@ -322,14 +322,9 @@ pub fn handle_quit_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<C
 pub fn handle_copilot_login(_parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
     let tx = ctx.command_tx;
     std::thread::spawn(move || {
-        let rt = match tokio::runtime::Runtime::new() {
-            Ok(rt) => rt,
-            Err(e) => {
-                tracing::error!("Failed to create runtime for copilot login: {}", e);
-                return;
-            }
-        };
-        let result = rt.block_on(crate::slash_commands::copilot::handle_copilot_login_command());
+        let result = rustycode_shared_runtime::block_on_shared(
+            crate::slash_commands::copilot::handle_copilot_login_command(),
+        );
 
         match result {
             Ok(output) => {

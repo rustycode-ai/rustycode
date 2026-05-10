@@ -508,64 +508,52 @@ impl AgentManager {
         let cancelled_flag_final = cancelled_flag.clone();
         let result = std::thread::spawn(move || {
             // Create runtime with timeout
-            let rt = tokio::runtime::Runtime::new()
-                .map_err(|e| anyhow::anyhow!("Failed to create runtime: {}", e));
+            // Set up timeout
+            let timeout_duration = Duration::from_secs(timeout_secs);
+            let agents_ref = agents_clone.clone();
+            let id_copy = id;
 
-            match rt {
-                Ok(runtime) => {
-                    // Set up timeout
-                    let timeout_duration = Duration::from_secs(timeout_secs);
-                    let agents_ref = agents_clone.clone();
-                    let id_copy = id;
+            // Spawn timeout monitor (clone cancelled_flag for this closure)
+            let cancel_monitor = cancelled_flag.clone();
+            let monitor_handle = std::thread::spawn(move || {
+                let start = Instant::now();
+                loop {
+                    std::thread::sleep(Duration::from_secs(1));
 
-                    // Spawn timeout monitor (clone cancelled_flag for this closure)
-                    let cancel_monitor = cancelled_flag.clone();
-                    let monitor_handle = std::thread::spawn(move || {
-                        let start = Instant::now();
-                        loop {
-                            std::thread::sleep(Duration::from_secs(1));
+                    // Check cancellation
+                    if cancel_monitor.load(Ordering::Relaxed) {
+                        tracing::info!("Agent {} cancelled by user", id_copy);
+                        return;
+                    }
 
-                            // Check cancellation
-                            if cancel_monitor.load(Ordering::Relaxed) {
-                                tracing::info!("Agent {} cancelled by user", id_copy);
-                                return;
-                            }
+                    // Check timeout
+                    if start.elapsed() >= timeout_duration {
+                        tracing::warn!("Agent {} timed out after {}s", id_copy, timeout_secs);
+                        return;
+                    }
 
-                            // Check timeout
-                            if start.elapsed() >= timeout_duration {
-                                tracing::warn!(
-                                    "Agent {} timed out after {}s",
-                                    id_copy,
-                                    timeout_secs
-                                );
-                                return;
-                            }
-
-                            // Check if agent is still running
-                            let agents = agents_ref.lock().unwrap_or_else(|e| e.into_inner());
-                            if let Some(agent) = agents.get(&id_copy) {
-                                if agent.status != AgentStatus::Running {
-                                    break;
-                                }
-                            } else {
-                                break; // Agent was removed
-                            }
+                    // Check if agent is still running
+                    let agents = agents_ref.lock().unwrap_or_else(|e| e.into_inner());
+                    if let Some(agent) = agents.get(&id_copy) {
+                        if agent.status != AgentStatus::Running {
+                            break;
                         }
-                    });
-
-                    // Run the agent
-                    let result = runtime.block_on(async {
-                        let orchestrator = MultiAgentOrchestrator::from_config(config)?;
-                        orchestrator.analyze().await
-                    });
-
-                    // Join monitor thread (ignore errors if it's already done)
-                    let _ = monitor_handle.join();
-
-                    result
+                    } else {
+                        break; // Agent was removed
+                    }
                 }
-                Err(e) => Err(e),
-            }
+            });
+
+            // Run the agent
+            let result = rustycode_shared_runtime::block_on_shared(async {
+                let orchestrator = MultiAgentOrchestrator::from_config(config)?;
+                orchestrator.analyze().await
+            });
+
+            // Join monitor thread (ignore errors if it's already done)
+            let _ = monitor_handle.join();
+
+            result
         })
         .join();
 
