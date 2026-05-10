@@ -511,11 +511,46 @@ fn summarize_messages_structured(messages: &[&Message]) -> Message {
     Message::new(MessageRole::System, sections.join("\n"))
 }
 
+// ── Infra-Message Classification ─────────────────────────────────────────────
+
+/// Tools whose call + output should be treated as infrastructure (preserved intact
+/// through compaction rather than summarized).
+const INFRA_TOOLS: &[&str] = &["skill"];
+
+/// Classify a message as "infrastructure" — system prompts, skill tool calls,
+/// and other non-conversation content that must be preserved through compaction
+/// rather than summarized.
+///
+/// Infrastructure messages include:
+/// - System messages (system prompts, compaction summaries from prior runs)
+/// - Assistant messages that contain ONLY skill tool calls (no user-facing text)
+/// - Messages where skill tool outputs are the primary content
+fn is_infra_message(m: &Message) -> bool {
+    if matches!(m.role, MessageRole::System) {
+        return true;
+    }
+
+    if matches!(m.role, MessageRole::Assistant) {
+        if let Some(ref tools) = m.tool_executions {
+            let has_infra = tools.iter().any(|t| INFRA_TOOLS.contains(&t.name.as_str()));
+            if has_infra && m.content.trim().len() < 50 {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
 // ── Tier 3: Full Compact ─────────────────────────────────────────────────────
 
 /// Compact messages to reduce token count.
 ///
-/// Pipeline: prune tool outputs → structured summary → drop old messages.
+/// Pipeline: extract infra → prune tool outputs → structured summary → re-inject infra → drop old messages.
+///
+/// Infrastructure messages (system prompts, skill tool calls) are extracted before
+/// summarization so they survive compaction intact. Only conversation messages
+/// (user questions, assistant responses, regular tool calls) are summarized.
 pub fn compact_context(messages: Vec<Message>, strategy: CompactionStrategy) -> Vec<Message> {
     let keep_count = strategy.keep_count();
 
@@ -528,16 +563,23 @@ pub fn compact_context(messages: Vec<Message>, strategy: CompactionStrategy) -> 
     // 1. Keep last N messages intact
     let recent: Vec<_> = messages.iter().rev().take(keep_count).cloned().collect();
 
-    // 2. Get older messages
+    // 2. Get older messages and separate infra from conversation
     let old: Vec<&Message> = messages.iter().rev().skip(keep_count).collect();
 
-    // 3. Structured summary of older messages
     if !old.is_empty() {
-        let summary = summarize_messages_structured(&old);
-        result.push(summary);
+        let (infra, conversation): (Vec<&Message>, Vec<&Message>) =
+            old.iter().partition(|m| is_infra_message(m));
 
-        // 4. Preserve error messages
-        let errors: Vec<Message> = old
+        result.extend(infra.into_iter().cloned());
+
+        // 3. Structured summary of conversation-only messages
+        if !conversation.is_empty() {
+            let summary = summarize_messages_structured(&conversation);
+            result.push(summary);
+        }
+
+        // 4. Preserve error messages from the conversation set
+        let errors: Vec<Message> = conversation
             .iter()
             .filter(|m| m.content.to_lowercase().contains("error"))
             .map(|m| (*m).clone())

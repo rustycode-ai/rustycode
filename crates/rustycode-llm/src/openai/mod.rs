@@ -505,8 +505,15 @@ impl OpenAiProvider {
         if model.starts_with("gpt-5") {
             return true;
         }
-        // GLM-5.x reasoning models (z.ai)
-        model.starts_with("glm-5")
+        // GLM reasoning models (z.ai): 4.5, 4.6, 4.7, 5.x all do chain-of-thought
+        if model.starts_with("glm-5")
+            || model.starts_with("glm-4.5")
+            || model.starts_with("glm-4.6")
+            || model.starts_with("glm-4.7")
+        {
+            return true;
+        }
+        false
     }
 
     /// Convert protocol ChatMessages to OpenAI messages, handling structured content blocks.
@@ -738,8 +745,12 @@ impl OpenAiProvider {
                     Some(serde_json::json!({"type": "enabled"}))
                 }
             },
-            None if model.starts_with("glm-5") => {
-                // Default for GLM-5.x: adaptive thinking (model decides)
+            None if model.starts_with("glm-5")
+                || model.starts_with("glm-4.5")
+                || model.starts_with("glm-4.6")
+                || model.starts_with("glm-4.7") =>
+            {
+                // Default for GLM reasoning models: adaptive thinking (model decides)
                 Some(serde_json::json!({"type": "enabled"}))
             }
             None => None,

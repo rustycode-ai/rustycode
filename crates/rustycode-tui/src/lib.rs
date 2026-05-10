@@ -132,6 +132,24 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
         return Ok(());
     }
 
+    // Apply shell_environment_policy.set from config before anything else
+    // so that API keys and base URLs are available for provider initialization.
+    match rustycode_config::Config::load(&cwd) {
+        Ok(cfg) => {
+            let set_count = cfg.shell_environment_policy.set.len();
+            if set_count > 0 {
+                eprintln!(
+                    "[rtk] Applied {} env vars from shell_environment_policy.set",
+                    set_count
+                );
+            }
+            cfg.shell_environment_policy.apply_to_env();
+        }
+        Err(e) => {
+            eprintln!("[rtk] Warning: Failed to load config: {}", e);
+        }
+    }
+
     // Mark that we're running inside the TUI so tools that need interactive
     // input (stdin reads) can detect non-interactive context and auto-answer
     // instead of deadlocking the event loop.

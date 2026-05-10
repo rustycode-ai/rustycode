@@ -302,7 +302,11 @@ impl LLMProvider for ZhipuProvider {
                 content: msg.content.to_text(),
             });
         }
-        let thinking = if request.model.starts_with("glm-5") {
+        let thinking = if request.model.starts_with("glm-5")
+            || request.model.starts_with("glm-4.5")
+            || request.model.starts_with("glm-4.6")
+            || request.model.starts_with("glm-4.7")
+        {
             Some(serde_json::json!({"type": "enabled"}))
         } else {
             None
@@ -416,7 +420,11 @@ impl LLMProvider for ZhipuProvider {
                 content: msg.content.to_text(),
             });
         }
-        let thinking = if request.model.starts_with("glm-5") {
+        let thinking = if request.model.starts_with("glm-5")
+            || request.model.starts_with("glm-4.5")
+            || request.model.starts_with("glm-4.6")
+            || request.model.starts_with("glm-4.7")
+        {
             Some(serde_json::json!({"type": "enabled"}))
         } else {
             None

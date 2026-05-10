@@ -27,4 +27,6 @@ pub use intelligence::{
     SymbolRef,
 };
 pub use rustycode_protocol::stream_event::ApprovalDecision;
-pub use session::{AgentConfig, AgentEvents, AgentResult, AgentSession, StoppedReason};
+pub use session::{
+    recommended_max_tokens, AgentConfig, AgentEvents, AgentResult, AgentSession, StoppedReason,
+};

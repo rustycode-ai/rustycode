@@ -33,6 +33,7 @@ pub async fn run_headless_task(
         1,
         tool_registry,
         None,
+        None,
     )
     .await?
     .final_text)
@@ -54,6 +55,7 @@ pub async fn run_headless_task_core(
     iteration: usize,
     tool_registry: &ToolRegistry,
     prior_messages: Option<Vec<ChatMessage>>,
+    system_prompt_override: Option<&str>,
 ) -> Result<HeadlessTaskResult> {
     let dir_listing = std::fs::read_dir(cwd)
         .ok()
@@ -152,15 +154,18 @@ pub async fn run_headless_task_core(
     let config = rustycode_agent_runtime::AgentConfig::from_env();
     let mut events = crate::headless::events::HeadlessAgentBridge::new();
     let mut session = rustycode_agent_runtime::AgentSession::new(config, cwd.to_path_buf());
+    let system_prompt = if let Some(override_prompt) = system_prompt_override {
+        override_prompt.to_string()
+    } else if iteration > 1 {
+        RETRY_SYSTEM_PROMPT.to_string()
+    } else {
+        HEADLESS_SYSTEM_PROMPT.to_string()
+    };
     let result = session
         .run(
             provider,
             model,
-            if iteration > 1 {
-                RETRY_SYSTEM_PROMPT
-            } else {
-                HEADLESS_SYSTEM_PROMPT
-            },
+            &system_prompt,
             messages,
             tools_schema,
             tool_registry,

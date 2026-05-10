@@ -38,6 +38,9 @@ pub struct AgentConfig {
     pub temperature: f32,
     /// Effort level for LLM requests (default: None, letting the provider decide).
     pub effort: Option<EffortLevel>,
+    /// Maximum output tokens for LLM requests (default: 32768).
+    /// Should be set per-model based on provider capabilities.
+    pub max_output_tokens: u32,
 }
 
 impl Default for AgentConfig {
@@ -48,6 +51,7 @@ impl Default for AgentConfig {
             max_tool_result_bytes: 8_000,
             temperature: 0.2,
             effort: None,
+            max_output_tokens: 32_768,
         }
     }
 }
@@ -62,11 +66,31 @@ impl AgentConfig {
             .ok()
             .filter(|s| !s.trim().is_empty())
             .and_then(|s| s.parse::<EffortLevel>().ok());
+        let max_output_tokens = std::env::var("RUSTYCODE_MAX_OUTPUT_TOKENS")
+            .ok()
+            .and_then(|v| v.parse::<u32>().ok())
+            .unwrap_or(32_768);
         Self {
             timeout_secs,
             effort,
+            max_output_tokens,
             ..Default::default()
         }
+    }
+
+    pub fn with_max_output_tokens(mut self, tokens: u32) -> Self {
+        self.max_output_tokens = tokens;
+        self
+    }
+}
+
+/// Returns recommended max_output_tokens for a given model.
+/// GLM reasoning models need higher budgets because reasoning tokens share the same pool.
+pub fn recommended_max_tokens(model: &str) -> u32 {
+    if model.starts_with("glm-5") || model.starts_with("glm-4") {
+        65_536
+    } else {
+        32_768
     }
 }
 
@@ -294,7 +318,7 @@ async fn run_loop(
 
         let mut request = CompletionRequest::new(model.to_string(), messages.clone())
             .with_streaming(true)
-            .with_max_tokens(32_768)
+            .with_max_tokens(config.max_output_tokens)
             .with_temperature(config.temperature)
             .with_system_prompt(system.to_string())
             .with_tools(active_tools_schema)
@@ -729,7 +753,7 @@ fn rebuild_request(
 ) -> CompletionRequest {
     let mut request = CompletionRequest::new(original.model.clone(), messages.to_vec())
         .with_streaming(streaming)
-        .with_max_tokens(32_768)
+        .with_max_tokens(original.max_tokens.unwrap_or(32_768))
         .with_temperature(original.temperature.unwrap_or(0.2))
         .with_system_prompt(original.system_prompt.clone().unwrap_or_default())
         .with_tools(original.tools.clone().unwrap_or_default())

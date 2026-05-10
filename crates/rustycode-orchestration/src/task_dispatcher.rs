@@ -336,6 +336,7 @@ fn task_spec_to_agent_config(spec: &TaskSpec) -> rustycode_agent_runtime::AgentC
         max_tool_result_bytes: 8_000,
         temperature: 0.2,
         effort: None,
+        max_output_tokens: 32_768,
     }
 }
 

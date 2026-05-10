@@ -206,11 +206,17 @@ impl ConfigLoader {
             .await
             .map_err(|e| format!("Failed to read config file {}: {}", path.display(), e))?;
 
-        // Parse as JSON/JSONC (TOML support removed)
-        let parsed = self
-            .jsonc_parser
-            .parse_str(&content)
-            .map_err(|e| format!("Failed to parse JSONC: {e}"))?;
+        // Parse as JSON/JSONC or TOML depending on extension
+        let parsed = if path.extension().is_some_and(|ext| ext == "toml") {
+            let toml_value: toml::Value = toml::from_str(&content)
+                .map_err(|e| format!("Failed to parse TOML {}: {}", path.display(), e))?;
+            serde_json::to_value(toml_value)
+                .map_err(|e| format!("Failed to convert TOML to JSON: {e}"))?
+        } else {
+            self.jsonc_parser
+                .parse_str(&content)
+                .map_err(|e| format!("Failed to parse JSONC: {e}"))?
+        };
 
         let final_value = apply_subs_to_value(&mut self.substitution_engine, parsed)
             .map_err(|e| format!("Failed to apply substitutions: {e}"))?;
@@ -236,11 +242,18 @@ impl ConfigLoader {
         let content = std::fs::read_to_string(path)
             .map_err(|e| format!("Failed to read config file {}: {}", path.display(), e))?;
 
-        // Parse as JSON/JSONC (TOML support removed)
-        let parsed = self
-            .jsonc_parser
-            .parse_str(&content)
-            .map_err(|e| format!("Failed to parse JSONC: {e}"))?;
+        let parsed = if path.extension().is_some_and(|ext| ext == "toml") {
+            // Parse as TOML
+            let toml_value: toml::Value = toml::from_str(&content)
+                .map_err(|e| format!("Failed to parse TOML {}: {}", path.display(), e))?;
+            serde_json::to_value(toml_value)
+                .map_err(|e| format!("Failed to convert TOML to JSON: {e}"))?
+        } else {
+            // Parse as JSON/JSONC
+            self.jsonc_parser
+                .parse_str(&content)
+                .map_err(|e| format!("Failed to parse JSONC: {e}"))?
+        };
 
         let final_value = apply_subs_to_value(&mut self.substitution_engine, parsed)
             .map_err(|e| format!("Failed to apply substitutions: {e}"))?;
@@ -257,12 +270,14 @@ impl ConfigLoader {
         // This should be checked before XDG to maintain compatibility with existing installations
         if let Ok(home) = std::env::var("HOME") {
             let legacy_dir = PathBuf::from(home).join(".rustycode");
+            paths.push(legacy_dir.join("config.toml"));
             paths.push(legacy_dir.join("config.json"));
             paths.push(legacy_dir.join("config.jsonc"));
         }
 
         // Global config (use XDG config dir)
         if let Some(cfg) = dirs::config_dir() {
+            paths.push(cfg.join("rustycode").join("config.toml"));
             paths.push(cfg.join("rustycode").join("config.json"));
             paths.push(cfg.join("rustycode").join("config.jsonc"));
         }
@@ -274,13 +289,15 @@ impl ConfigLoader {
             if depth >= 20 {
                 break;
             }
+            paths.push(parent.join(".rustycode-workspace").join("config.toml"));
             paths.push(parent.join(".rustycode-workspace").join("config.json"));
             paths.push(parent.join(".rustycode-workspace").join("config.jsonc"));
             current = parent.to_path_buf();
             depth += 1;
         }
 
-        // Project config: directory-based configs (JSON/JSONC only, TOML support removed)
+        // Project config: directory-based configs
+        paths.push(project_dir.join(".rustycode").join("config.toml"));
         paths.push(project_dir.join(".rustycode").join("config.json"));
         paths.push(project_dir.join(".rustycode").join("config.jsonc"));
 

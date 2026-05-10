@@ -26,6 +26,8 @@ pub struct AgentConfig {
     pub max_tool_result_bytes: usize,
     /// Temperature for LLM calls.
     pub temperature: f32,
+    /// Maximum output tokens for LLM requests (default: 32768).
+    pub max_output_tokens: u32,
 }
 
 impl Default for AgentConfig {
@@ -35,6 +37,7 @@ impl Default for AgentConfig {
             timeout_secs: 900,
             max_tool_result_bytes: 8000,
             temperature: 0.2,
+            max_output_tokens: 32_768,
         }
     }
 }
@@ -271,7 +274,7 @@ pub async fn run(
 
         let request = CompletionRequest::new(model.to_string(), messages.clone())
             .with_streaming(true)
-            .with_max_tokens(32768)
+            .with_max_tokens(config.max_output_tokens)
             .with_temperature(config.temperature)
             .with_system_prompt(system_prompt.to_string())
             .with_tools(tools_schema.to_vec())

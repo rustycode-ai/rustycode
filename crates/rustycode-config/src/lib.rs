@@ -87,6 +87,10 @@ pub struct Config {
     #[serde(default)]
     pub task_routing: TaskRoutingConfig,
 
+    // Shell environment policy
+    #[serde(default)]
+    pub shell_environment_policy: ShellEnvironmentPolicy,
+
     // Directory configuration
     #[serde(default = "default_data_dir")]
     pub data_dir: PathBuf,
@@ -167,6 +171,26 @@ pub struct ProviderConfig {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub headers: Option<std::collections::HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ShellEnvironmentPolicy {
+    #[serde(default)]
+    pub inherit: Option<String>,
+    #[serde(default)]
+    pub set: std::collections::HashMap<String, String>,
+}
+
+impl ShellEnvironmentPolicy {
+    /// Apply `set` values to the process environment.
+    /// Only sets keys that are not already present (does not override).
+    pub fn apply_to_env(&self) {
+        for (key, value) in &self.set {
+            if std::env::var(key).is_err() {
+                std::env::set_var(key, value);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -611,6 +635,7 @@ impl Default for Config {
             advanced: AdvancedConfig::default(),
             model_routing: ModelRoutingConfig::default(),
             task_routing: TaskRoutingConfig::default(),
+            shell_environment_policy: ShellEnvironmentPolicy::default(),
             data_dir: default_data_dir(),
             lsp_servers: Vec::new(),
             memory_dir: default_memory_dir(),
@@ -635,6 +660,9 @@ impl Config {
         // Deserialize the merged config
         let config: Self =
             serde_json::from_value(config_value).map_err(ConfigError::DeserializeError)?;
+
+        // Apply shell_environment_policy.set values to process env
+        config.shell_environment_policy.apply_to_env();
 
         // Validate critical values
         if let Some(timeout) = config.timeout_seconds {

@@ -56,6 +56,7 @@ pub struct RunReport {
     pub lsp_servers: Vec<LspServerStatus>,
     pub memory: Vec<MemoryEntry>,
     pub skills: Vec<Skill>,
+    pub active_skills: Vec<Skill>,
     pub recent_tasks: Vec<String>,
     pub code_excerpts: Vec<CodeExcerpt>,
     pub context_plan: ContextPlan,
@@ -467,6 +468,14 @@ impl Runtime {
             })
             .collect();
         let memory = Vec::new();
+
+        // Activate skills for this task context
+        if let Ok(mut guard) = self.skill_manager.lock() {
+            if let Some(mgr) = guard.as_mut() {
+                mgr.activate_for_context(task);
+            }
+        }
+
         let skills: Vec<Skill> = self
             .skill_manager
             .lock()
@@ -482,6 +491,24 @@ impl Runtime {
                     .unwrap_or_default()
             })
             .unwrap_or_default();
+
+        // Collect active skills for the report
+        let active_skills: Vec<Skill> = self
+            .skill_manager
+            .lock()
+            .map(|guard| {
+                guard
+                    .as_ref()
+                    .map(|mgr| {
+                        mgr.active_definitions()
+                            .iter()
+                            .map(|def| Skill::from((*def).clone()))
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
+
         let recent_tasks = Vec::new();
         let code_excerpts = Vec::new();
         let context_plan = ContextPlan::default();
@@ -501,6 +528,7 @@ impl Runtime {
             lsp_servers,
             memory,
             skills,
+            active_skills,
             recent_tasks,
             code_excerpts,
             context_plan,
@@ -547,6 +575,9 @@ impl Runtime {
             })
             .collect();
 
+        // Build system prompt augmented with auto-activated skills
+        let system_prompt = self.build_skill_augmented_prompt(task, Some(cwd));
+
         crate::headless::run_headless_task_core(
             provider,
             model,
@@ -556,6 +587,7 @@ impl Runtime {
             iteration,
             &self.tools,
             None,
+            Some(&system_prompt),
         )
         .await
     }
@@ -598,6 +630,7 @@ impl Runtime {
             iteration,
             &self.tools,
             prior_messages,
+            None,
         )
         .await
     }
@@ -990,6 +1023,55 @@ impl Runtime {
         );
 
         Ok(())
+    }
+
+    /// Build a system prompt augmented with active skill guidance.
+    fn build_skill_augmented_prompt(&self, task: &str, cwd: Option<&Path>) -> String {
+        use crate::headless::config::HEADLESS_SYSTEM_PROMPT;
+
+        let Ok(mut guard) = self.skill_manager.lock() else {
+            return HEADLESS_SYSTEM_PROMPT.to_string();
+        };
+        let Some(mgr) = guard.as_mut() else {
+            return HEADLESS_SYSTEM_PROMPT.to_string();
+        };
+
+        // Context-based activation
+        mgr.activate_for_context(task);
+
+        // Path-based activation: scan top-level cwd entries
+        if let Some(cwd) = cwd {
+            if let Ok(entries) = std::fs::read_dir(cwd) {
+                let names: Vec<String> = entries
+                    .flatten()
+                    .filter_map(|e| e.file_name().into_string().ok())
+                    .collect();
+                let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+                mgr.activate_for_paths(&refs);
+            }
+        }
+
+        // Build skill section from active definitions
+        let active = mgr.active_definitions();
+        if active.is_empty() {
+            return HEADLESS_SYSTEM_PROMPT.to_string();
+        }
+
+        let skill_guidance = active
+            .iter()
+            .map(|def| {
+                format!(
+                    "### {}\n{}\n\nWhen to use: {}",
+                    def.name, def.description, def.when_to_use
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        format!(
+            "{}\n\n# Active Skills\n\nThe following skills are relevant to this task:\n\n{}",
+            HEADLESS_SYSTEM_PROMPT, skill_guidance
+        )
     }
 }
 
