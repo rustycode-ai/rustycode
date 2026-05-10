@@ -87,7 +87,6 @@ pub struct AgentResult {
 }
 
 /// Stream-accumulation state.
-#[allow(dead_code)]
 struct CoreStreamCallbacks<'a> {
     assistant_text: &'a mut String,
     completed_tools: &'a mut Vec<CompletedTool>,

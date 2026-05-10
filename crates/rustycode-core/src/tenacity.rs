@@ -44,28 +44,6 @@ const RETRY_PROMPTS: &[&str] = &[
      Your VERY FIRST action must be write_file, edit_file, or bash with a modifying command.\n\nOriginal task:",
 ];
 
-/// Retry prompts for when changes were made but verification/progress wasn't sufficient.
-#[allow(dead_code)] // kept for future retry-with-changes logic
-const RETRY_PROMPTS_WITH_CHANGES: &[&str] = &[
-    "The previous attempt made file changes but they may not be sufficient. \
-     The working directory already contains your changes. \
-     IMPORTANT: Do NOT undo or redo what already works. Instead: \
-     1. Check what you changed (git diff or read files) \
-     2. Identify what's still missing or broken \
-     3. Fix ONLY the remaining issues \
-     4. Run verification to confirm everything works \
-     Your first action should be to CHECK the current state, not to start over.\n\nOriginal task:",
-    "Two previous attempts made changes but verification still fails. \
-     Do NOT start over — build on what exists. \
-     Focus on the SPECIFIC failure: read error messages carefully and fix only what's broken. \
-     If a test fails, read the test output and fix the exact error. \
-     If a build fails, read the compiler error and fix the exact issue.\n\nOriginal task:",
-    "FINAL attempt. Previous changes exist but verification keeps failing. \
-     Try a completely different approach to the remaining issue. \
-     If your current strategy isn't working, step back and think about what's fundamentally wrong. \
-     Sometimes the fix is simpler than you think — re-read the task requirements carefully.\n\nOriginal task:",
-];
-
 /// Maximum number of tenacity iterations.
 pub const MAX_ITERATIONS: usize = 4;
 
