@@ -176,6 +176,13 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
             cache_read_tokens,
             cache_creation_tokens,
         ),
+        StreamChunk::CacheUsage {
+            cache_read_tokens,
+            cache_creation_tokens,
+        } => {
+            tui.token_budget.session_cache_read_tokens += cache_read_tokens;
+            tui.token_budget.session_cache_creation_tokens += cache_creation_tokens;
+        }
         StreamChunk::ExecutionTrace(trace) => handle_execution_trace_chunk(tui, trace),
         StreamChunk::SystemMessage(msg) => handle_system_message_chunk(tui, msg),
         StreamChunk::MilestoneProgress {

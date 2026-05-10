@@ -278,6 +278,11 @@ pub enum StreamChunk {
         cache_read_tokens: usize,
         cache_creation_tokens: usize,
     },
+    /// Cache token accounting (prompt caching savings)
+    CacheUsage {
+        cache_read_tokens: usize,
+        cache_creation_tokens: usize,
+    },
     /// Streaming completed successfully
     Done,
     /// Streaming stopped with a non-normal stop reason (e.g., content_filter, SAFETY)

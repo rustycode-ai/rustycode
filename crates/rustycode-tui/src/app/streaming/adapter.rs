@@ -295,6 +295,15 @@ impl AgentEvents for StreamEventAdapter {
                     cache_creation_tokens: 0,
                 });
             }
+            StreamEvent::CacheUsage {
+                cache_read_tokens,
+                cache_creation_tokens,
+            } => {
+                self.emit(StreamChunk::CacheUsage {
+                    cache_read_tokens: cache_read_tokens as usize,
+                    cache_creation_tokens: cache_creation_tokens as usize,
+                });
+            }
             StreamEvent::TurnStarted { turn } => {
                 self.emit(StreamChunk::SystemMessage(format!("Turn {turn} started")));
             }

@@ -78,8 +78,19 @@ pub fn handle_stream_event(
                 tracing::debug!("Channel closed while sending TokenUsage");
             }
         }
-        StreamEvent::CacheUsage { .. } => {
-            // Cost accounting only; no TUI action needed
+        StreamEvent::CacheUsage {
+            cache_read_tokens,
+            cache_creation_tokens,
+        } => {
+            if stream_tx
+                .send(StreamChunk::CacheUsage {
+                    cache_read_tokens: cache_read_tokens as usize,
+                    cache_creation_tokens: cache_creation_tokens as usize,
+                })
+                .is_err()
+            {
+                tracing::debug!("Channel closed while sending CacheUsage");
+            }
         }
         StreamEvent::Done => {
             *in_tool_use = false;
