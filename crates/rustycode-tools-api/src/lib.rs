@@ -677,9 +677,10 @@ impl ToolRegistry {
             .filter(|t| t.name() != tool_names::TOOL_SEARCH && t.defer_loading() == Some(true))
             .map(|t| {
                 let first_line = t.description().lines().next().unwrap_or("");
+                let tool_search = tool_names::TOOL_SEARCH;
                 let mut info = ToolInfo::from_tool(t.as_ref());
                 info.description = format!(
-                    "{first_line}\n\n(Deferred tool — call tool_search with name \"{}\" to load full schema.)",
+                    "{first_line}\n\n(Deferred tool — call {tool_search} with name \"{}\" to load full schema.)",
                     t.name()
                 );
                 info.parameters_schema = serde_json::json!({

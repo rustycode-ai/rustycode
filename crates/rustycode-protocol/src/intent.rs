@@ -197,6 +197,7 @@ const INVESTIGATION_KEYWORDS: &[&str] = &[
     "Find",
     "Search",
     "where is",
+    "find",
     "locate",
     "list all",
     "show me",

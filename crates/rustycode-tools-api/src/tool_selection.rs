@@ -158,7 +158,7 @@ impl ToolProfile {
                 "Active profile: Implement — writes enabled. Use bash for builds/tests only."
             }
             Self::Debug => {
-                "Active profile: Debug — diagnose before editing. Prefer lsp_diagnostics."
+                "Active profile: Debug — diagnose before editing. Prefer LspDiagnostics."
             }
             Self::Ops => "Active profile: Ops — prefer bash and git_* tools.",
             Self::Refactor => {

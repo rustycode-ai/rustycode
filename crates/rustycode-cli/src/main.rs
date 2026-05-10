@@ -834,9 +834,19 @@ async fn async_main() -> Result<()> {
             let provider = create_provider_with_config(&provider_type, &model_name, v2_config)
                 .context("Failed to create LLM provider")?;
 
+            let tool_registry = std::sync::Arc::new(rustycode_tools::default_registry_filtered(
+                &rustycode_tools::ToolFilter::full(
+                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/tmp")),
+                ),
+            ));
+
             let config = OrchestrationConfig::default();
-            let mut pipeline =
-                OrchestrationPipeline::with_provider_and_model(config, provider, &model_name);
+            let mut pipeline = OrchestrationPipeline::with_provider_model_and_tools(
+                config,
+                provider,
+                &model_name,
+                tool_registry,
+            );
 
             // Parse JSON schema if provided
             if let Some(schema_input) = json_schema {
