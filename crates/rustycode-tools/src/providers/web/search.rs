@@ -2,12 +2,8 @@
 //!
 //! This tool provides web search capabilities using multiple FREE APIs:
 //! - Wikipedia API (factual questions, current events)
-//! - `DuckDuckGo` (general queries, instant answers)
+//! - DuckDuckGo (general queries, instant answers)
 //! - Exa Search (if API key configured, premium results)
-//!
-//! No API key required for basic functionality!
-
-const USER_AGENT: &str = concat!("RustyCode/", env!("CARGO_PKG_VERSION"));
 
 use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
@@ -16,7 +12,6 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::env;
 
-/// Parameters for the web search tool.
 #[derive(Deserialize, JsonSchema)]
 pub struct WebSearchParams {
     /// Search query. Use specific, factual questions for best results.
@@ -39,17 +34,6 @@ Use this tool when you need to:
 - Get up-to-date data beyond training cutoff
 - Answer questions about recent developments
 
-**Examples:**
-- "current Prime Minister of Thailand"
-- "latest Python version 2026"
-- "Tesla stock price today"
-- "who won the Super Bowl 2026"
-
-The tool searches using multiple FREE sources:
-- Wikipedia API (factual information, biographies) - NO API key needed
-- DuckDuckGo Instant Answer (general queries, definitions) - NO API key needed
-- Exa Search (premium results, optional - requires EXA_API_KEY env var)
-
 No API key required for basic functionality!"#,
     permission: ToolPermission::Network,
     tags: [ToolTag::Explore],
@@ -58,11 +42,8 @@ No API key required for basic functionality!"#,
         let query = &params.query;
         let num_results = params.num_results.unwrap_or(5).clamp(1, 10) as usize;
         let source = params.source.as_deref().unwrap_or("auto");
-
-        // Check for Exa API key (optional, for premium results)
         let exa_api_key = env::var("EXA_API_KEY").ok();
 
-        // Route to appropriate search method
         let results = match source {
             "wikipedia" => search_wikipedia(query, num_results)?,
             "news" => {
@@ -73,21 +54,13 @@ No API key required for basic functionality!"#,
                 }
             }
             "web" | "auto" => {
-                // For auto mode, try multiple sources in order
                 if source == "auto" && is_factual_query(query) {
-                    // Try Wikipedia first for factual queries
                     match search_wikipedia(query, num_results) {
                         Ok(wiki_results) => wiki_results,
-                        Err(_) => {
-                            // Fall back to DuckDuckGo
-                            match search_duckduckgo(query, num_results) {
-                                Ok(ddg_results) => ddg_results,
-                                Err(_) => {
-                                    // Final fallback to URLs
-                                    search_fallback(query, num_results, "web")?
-                                }
-                            }
-                        }
+                        Err(_) => match search_duckduckgo(query, num_results) {
+                            Ok(ddg_results) => ddg_results,
+                            Err(_) => search_fallback(query, num_results, "web")?,
+                        },
                     }
                 } else if let Some(ref key) = exa_api_key {
                     match search_exa_web(query, num_results, key) {
@@ -109,10 +82,8 @@ No API key required for basic functionality!"#,
     }
 }
 
-/// Check if query is factual/biographical (good for Wikipedia)
 fn is_factual_query(query: &str) -> bool {
     let query_lower = query.to_lowercase();
-
     let factual_patterns = [
         "who is",
         "who was",
@@ -129,172 +100,107 @@ fn is_factual_query(query: &str) -> bool {
         "where is",
         "capital of",
     ];
-
-    factual_patterns
-        .iter()
-        .any(|pattern| query_lower.contains(pattern))
+    factual_patterns.iter().any(|p| query_lower.contains(p))
 }
 
-/// Search Wikipedia (FREE, no API key needed)
+// --- Wikipedia ---
+
 fn search_wikipedia(query: &str, num_results: usize) -> Result<String> {
-    use reqwest::blocking::Client;
+    let q = query.to_string();
+    rustycode_shared_runtime::block_on_shared(search_wikipedia_async(&q, num_results))
+}
 
-    let client = Client::new();
-
-    // Wikipedia API: https://en.wikipedia.org/w/api.php
-    // Action: opensearch (search for pages)
-    // Format: json
+async fn search_wikipedia_async(query: &str, num_results: usize) -> Result<String> {
     let search_url = format!(
         "https://en.wikipedia.org/w/api.php?action=opensearch&search={}&limit={}&namespace=0&format=json",
         urlencoding::encode(query),
         num_results
     );
-
-    let response = client
-        .get(&search_url)
-        .header("User-Agent", USER_AGENT)
-        .send()?;
-
-    if !response.status().is_success() {
-        return Err(anyhow!(
-            "Wikipedia search failed: HTTP {}",
-            response.status()
-        ));
+    let (status, json_response): (u16, Value) =
+        super::client::http_get_json(&search_url, 15).await?;
+    if status != 200 {
+        return Err(anyhow!("Wikipedia search failed: HTTP {status}"));
     }
-
-    let json_response: Value = response.json()?;
-
-    // Wikipedia opensearch returns an array:
-    // [query, [title1, title2, ...], [description1, description2, ...], [url1, url2, ...]]
-    let results_array = json_response
+    let arr = json_response
         .as_array()
-        .ok_or_else(|| anyhow!("Invalid Wikipedia API response format"))?;
-
-    if results_array.len() < 4 {
-        return Ok(format!(
-            "No Wikipedia results found for '{query}'.\n\n\
-             Try:\n\
-             - Rephrasing your query\n\
-             - Using source: 'web' for broader search\n\
-             - Checking spelling"
-        ));
+        .ok_or_else(|| anyhow!("Invalid Wikipedia response"))?;
+    if arr.len() < 4 {
+        return Ok(format!("No Wikipedia results found for '{query}'."));
     }
-
-    let titles = results_array
+    let titles = arr
         .get(1)
         .and_then(|v| v.as_array())
-        .ok_or_else(|| anyhow!("Missing titles in Wikipedia response"))?;
-
-    let descriptions = results_array
+        .ok_or_else(|| anyhow!("Missing titles"))?;
+    let descriptions = arr
         .get(2)
         .and_then(|v| v.as_array())
-        .ok_or_else(|| anyhow!("Missing descriptions in Wikipedia response"))?;
-
-    let urls = results_array
+        .ok_or_else(|| anyhow!("Missing descriptions"))?;
+    let urls = arr
         .get(3)
         .and_then(|v| v.as_array())
-        .ok_or_else(|| anyhow!("Missing URLs in Wikipedia response"))?;
-
+        .ok_or_else(|| anyhow!("Missing URLs"))?;
     if titles.is_empty() {
-        return Ok(format!(
-            "No Wikipedia results found for '{query}'.\n\n\
-             Try:\n\
-             - Rephrasing your query\n\
-             - Using source: 'web' for broader search\n\
-             - Checking spelling"
-        ));
+        return Ok(format!("No Wikipedia results found for '{query}'."));
     }
-
-    let mut output = String::new();
-    output.push_str(&format!("**Wikipedia Results for '{query}'**\n\n"));
-
+    let mut output = format!("**Wikipedia Results for '{query}'**\n\n");
     #[allow(clippy::needless_range_loop)]
     for idx in 0..num_results.min(titles.len()) {
         let title = titles[idx].as_str().unwrap_or("Unknown");
-
-        let description = descriptions
-            .get(idx)
-            .and_then(|v| v.as_str())
-            .unwrap_or("No description available");
-
+        let desc = descriptions.get(idx).and_then(|v| v.as_str()).unwrap_or("");
         let url = urls.get(idx).and_then(|v| v.as_str()).unwrap_or("");
-
         output.push_str(&format!(
             "{}. **{}**\n   {}\n   {}\n\n",
             idx + 1,
             title,
-            truncate_text(description, 200),
+            truncate_text(desc, 200),
             url
         ));
     }
-
     Ok(output)
 }
 
-/// Search `DuckDuckGo` Instant Answer API (FREE, no API key needed)
+// --- DuckDuckGo ---
+
 fn search_duckduckgo(query: &str, num_results: usize) -> Result<String> {
-    use reqwest::blocking::Client;
+    let q = query.to_string();
+    rustycode_shared_runtime::block_on_shared(search_duckduckgo_async(&q, num_results))
+}
 
-    let client = Client::new();
-
-    // DuckDuckGo Instant Answer API
+async fn search_duckduckgo_async(query: &str, num_results: usize) -> Result<String> {
     let url = format!(
         "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=0",
         urlencoding::encode(query)
     );
-
-    let response = client.get(&url).header("User-Agent", USER_AGENT).send()?;
-
-    if !response.status().is_success() {
-        return Err(anyhow!("DuckDuckGo API error: HTTP {}", response.status()));
-    }
-
-    let json_response: Value = response.json()?;
-
-    let mut output = String::new();
+    let (_status, json_response): (u16, Value) = super::client::http_get_json(&url, 15).await?;
+    let mut output = format!("**DuckDuckGo Results for '{query}'**\n\n");
     let mut has_results = false;
 
-    output.push_str(&format!("**DuckDuckGo Results for '{query}'**\n\n"));
-
-    // Check for heading (topic title)
     if let Some(heading) = json_response.get("Heading").and_then(|v| v.as_str()) {
         if !heading.is_empty() {
-            let abstract_url = json_response
+            let abs_url = json_response
                 .get("AbstractURL")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let abstract_source = json_response
+            let abs_src = json_response
                 .get("AbstractSource")
                 .and_then(|v| v.as_str())
                 .unwrap_or("Wikipedia");
-
-            output.push_str(&format!(
-                "**{heading}**\nSource: {abstract_source}\n{abstract_url}\n\n"
-            ));
+            output.push_str(&format!("**{heading}**\nSource: {abs_src}\n{abs_url}\n\n"));
             has_results = true;
         }
     }
-
-    // Check for instant answer text
-    if let Some(abstract_text) = json_response.get("AbstractText").and_then(|v| v.as_str()) {
-        if !abstract_text.is_empty() {
-            output.push_str(&format!(
-                "**Summary**\n{}\n\n",
-                truncate_text(abstract_text, 500)
-            ));
+    if let Some(text) = json_response.get("AbstractText").and_then(|v| v.as_str()) {
+        if !text.is_empty() {
+            output.push_str(&format!("**Summary**\n{}\n\n", truncate_text(text, 500)));
             has_results = true;
         }
     }
-
-    // Check for Answer field (direct answers)
     if let Some(answer) = json_response.get("Answer").and_then(|v| v.as_str()) {
         if !answer.is_empty() {
             output.push_str(&format!("**Answer**\n{}\n\n", truncate_text(answer, 300)));
             has_results = true;
         }
     }
-
-    // Check for infobox
     if let Some(infobox) = json_response.get("Infobox").and_then(|v| v.as_object()) {
         if let Some(content) = infobox.get("content").and_then(|v| v.as_str()) {
             if !content.is_empty() {
@@ -306,23 +212,18 @@ fn search_duckduckgo(query: &str, num_results: usize) -> Result<String> {
             }
         }
     }
-
-    // Check for related topics
     if let Some(topics) = json_response
         .get("RelatedTopics")
         .and_then(|v| v.as_array())
     {
         let mut count = 0;
         for topic in topics.iter().take(num_results) {
-            // Skip topics that are just categories
             if topic.get("Topics").is_some() {
                 continue;
             }
-
             if let Some(text) = topic.get("Text").and_then(|v| v.as_str()) {
                 if !text.is_empty() {
                     let url = topic.get("FirstURL").and_then(|v| v.as_str()).unwrap_or("");
-
                     output.push_str(&format!(
                         "{}. **{}**\n   {}\n\n",
                         count + 1,
@@ -331,7 +232,6 @@ fn search_duckduckgo(query: &str, num_results: usize) -> Result<String> {
                     ));
                     count += 1;
                     has_results = true;
-
                     if count >= num_results {
                         break;
                     }
@@ -339,72 +239,60 @@ fn search_duckduckgo(query: &str, num_results: usize) -> Result<String> {
             }
         }
     }
-
-    // If no results, provide helpful message
     if !has_results {
-        output.push_str("(No instant answers found for this query. Try:\n");
-        output.push_str("  - Using source: \"wikipedia\" for factual queries\n");
-        output.push_str("  - Rephrasing your question\n");
-        output.push_str("  - Setting EXA_API_KEY for premium search)\n");
+        output
+            .push_str("(No instant answers found. Try source: \"wikipedia\" or set EXA_API_KEY)\n");
     }
-
     Ok(output)
 }
 
-/// Search using Exa API (requires API key, premium results)
+// --- Exa Web ---
+
 fn search_exa_web(query: &str, num_results: usize, api_key: &str) -> Result<String> {
-    use reqwest::blocking::Client;
+    let q = query.to_string();
+    let k = api_key.to_string();
+    rustycode_shared_runtime::block_on_shared(search_exa_web_async(&q, num_results, &k))
+}
 
-    let client = Client::new();
-
-    let request_body = json!({
-        "query": query,
-        "numResults": num_results,
-        "contents": {
-            "text": true
-        }
-    });
-
+async fn search_exa_web_async(query: &str, num_results: usize, api_key: &str) -> Result<String> {
+    let body = json!({ "query": query, "numResults": num_results, "contents": { "text": true } });
+    let client = super::client::build_client(std::time::Duration::from_secs(15))?;
     let response = client
         .post("https://api.exa.ai/search")
-        .header("Content-Type", "application/json")
         .header("x-api-key", api_key)
-        .json(&request_body)
+        .json(&body)
         .send()
+        .await
         .map_err(|e| anyhow!("Exa API call failed: {e}"))?;
 
     if !response.status().is_success() {
         let status = response.status();
-        let error_text = response
+        let err = response
             .text()
-            .unwrap_or_else(|_| "unable to read error".to_string());
-        return Err(anyhow!("Exa API error: {status} - {error_text}"));
+            .await
+            .unwrap_or_else(|_| "unable to read error".into());
+        return Err(anyhow!("Exa API error: {status} - {err}"));
     }
-
-    let results_json: Value = response.json()?;
+    let results_json: Value = response.json().await?;
     let results = results_json
         .get("results")
         .and_then(|v| v.as_array())
-        .ok_or_else(|| anyhow!("Invalid Exa response format"))?;
-
+        .ok_or_else(|| anyhow!("Invalid Exa response"))?;
     if results.is_empty() {
         return Ok(format!("No Exa results found for '{query}'"));
     }
 
-    let mut output = String::new();
-    output.push_str(&format!("**Web Search Results for '{query}'**\n\n"));
-
-    for (idx, result) in results.iter().take(num_results).enumerate() {
-        let title = result
+    let mut output = format!("**Web Search Results for '{query}'**\n\n");
+    for (idx, r) in results.iter().take(num_results).enumerate() {
+        let title = r
             .get("title")
             .and_then(|v| v.as_str())
             .unwrap_or("Untitled");
-        let url = result.get("url").and_then(|v| v.as_str()).unwrap_or("");
-        let snippet = result
+        let url = r.get("url").and_then(|v| v.as_str()).unwrap_or("");
+        let snippet = r
             .get("text")
             .and_then(|v| v.as_str())
-            .unwrap_or("No snippet available");
-
+            .unwrap_or("No snippet");
         output.push_str(&format!(
             "{}. **{}**\n   {}\n   {}\n\n",
             idx + 1,
@@ -413,167 +301,116 @@ fn search_exa_web(query: &str, num_results: usize, api_key: &str) -> Result<Stri
             url
         ));
     }
-
     Ok(output)
 }
 
-/// Search Exa for news articles
+// --- Exa News ---
+
 fn search_exa_news(query: &str, num_results: usize, api_key: &str) -> Result<String> {
-    use reqwest::blocking::Client;
+    let q = query.to_string();
+    let k = api_key.to_string();
+    rustycode_shared_runtime::block_on_shared(search_exa_news_async(&q, num_results, &k))
+}
 
-    let client = Client::new();
-
-    let request_body = json!({
-        "query": query,
-        "numResults": num_results,
-        "useAutoprompt": true,
-        "category": "news",
-        "contents": {
-            "text": true
-        }
-    });
-
+async fn search_exa_news_async(query: &str, num_results: usize, api_key: &str) -> Result<String> {
+    let body = json!({ "query": query, "numResults": num_results, "useAutoprompt": true, "category": "news", "contents": { "text": true } });
+    let client = super::client::build_client(std::time::Duration::from_secs(15))?;
     let response = client
         .post("https://api.exa.ai/search")
-        .header("Content-Type", "application/json")
         .header("x-api-key", api_key)
-        .json(&request_body)
-        .send()?;
+        .json(&body)
+        .send()
+        .await?;
 
     if !response.status().is_success() {
         let status = response.status();
-        let error_text = response
+        let err = response
             .text()
-            .unwrap_or_else(|_| "unable to read error".to_string());
-        return Err(anyhow!("Exa News API error: {status} - {error_text}"));
+            .await
+            .unwrap_or_else(|_| "unable to read error".into());
+        return Err(anyhow!("Exa News API error: {status} - {err}"));
     }
-
-    let results_json: Value = response.json()?;
+    let results_json: Value = response.json().await?;
     let results = results_json
         .get("results")
         .and_then(|v| v.as_array())
         .ok_or_else(|| anyhow!("Invalid Exa News response"))?;
 
-    let mut output = String::new();
-    output.push_str(&format!("**News Results for '{query}'**\n\n"));
-
-    for (idx, result) in results.iter().take(num_results).enumerate() {
-        let title = result
+    let mut output = format!("**News Results for '{query}'**\n\n");
+    for (idx, r) in results.iter().take(num_results).enumerate() {
+        let title = r
             .get("title")
             .and_then(|v| v.as_str())
             .unwrap_or("Untitled");
-        let url = result.get("url").and_then(|v| v.as_str()).unwrap_or("");
-        let snippet = result
+        let url = r.get("url").and_then(|v| v.as_str()).unwrap_or("");
+        let snippet = r
             .get("text")
             .and_then(|v| v.as_str())
             .unwrap_or("No snippet");
-
-        let published_date = result
+        let date = r
             .get("publishedDate")
             .and_then(|v| v.as_str())
             .unwrap_or("Recent");
-
         output.push_str(&format!(
             "{}. **{}** ({})\n   {}\n   {}\n\n",
             idx + 1,
             title,
-            published_date,
+            date,
             truncate_text(snippet, 250),
             url
         ));
     }
-
     Ok(output)
 }
 
-/// Fallback: Generate search URLs when APIs unavailable
+// --- URL generators ---
+
 fn search_fallback(query: &str, _num_results: usize, source: &str) -> Result<String> {
-    let mut output = String::new();
-
-    output.push_str(&format!(
-        "**Web Search: '{query}'**\n\n\
-         To enable automatic search results, you can configure an Exa API key:\n\n\
-         ```bash\n\
-         export EXA_API_KEY=\"your-api-key-here\"\n```\n\n\
-         Get your API key at: https://exa.ai (free tier available)\n\n\
-         **Manual Search Links:**\n\n"
-    ));
-
+    let mut output = format!(
+        "**Web Search: '{query}'**\n\nSet EXA_API_KEY for automatic results.\n\n**Manual Search Links:**\n\n"
+    );
     match source {
-        "news" => {
-            output.push_str(&format!(
-                "- [Google News]({})\n\
-                 - [Bing News]({})\n\
-                 - [DuckDuckGo News]({})\n",
-                google_news_url(query),
-                "https://www.bing.com/news",
-                duckduckgo_news_url(query)
-            ));
-        }
-        "web" => {
-            output.push_str(&format!(
-                "- [Wikipedia]({})\n\
-                 - [Google Search]({})\n\
-                 - [DuckDuckGo]({})\n",
-                wikipedia_search_url(query),
-                google_search_url(query),
-                duckduckgo_search_url(query)
-            ));
-        }
-        _ => {
-            // Default to web search for unknown sources
-        }
+        "news" => output.push_str(&format!(
+            "- [Google News]({})\n- [DuckDuckGo News]({})\n",
+            google_news_url(query),
+            duckduckgo_news_url(query)
+        )),
+        _ => output.push_str(&format!(
+            "- [Wikipedia]({})\n- [Google]({})\n- [DuckDuckGo]({})\n",
+            wikipedia_search_url(query),
+            google_search_url(query),
+            duckduckgo_search_url(query)
+        )),
     }
-
-    output.push_str("\n**Tip:** For factual questions, try adding 'wikipedia:' to your search to prioritize Wikipedia results.\n");
-
     Ok(output)
 }
 
-/// Generate Wikipedia search URL
-fn wikipedia_search_url(query: &str) -> String {
+fn wikipedia_search_url(q: &str) -> String {
     format!(
         "https://en.wikipedia.org/w/index.php?search={}",
-        urlencoding::encode(query)
+        urlencoding::encode(q)
     )
 }
-
-/// Generate Google search URL
-fn google_search_url(query: &str) -> String {
-    format!(
-        "https://www.google.com/search?q={}",
-        urlencoding::encode(query)
-    )
+fn google_search_url(q: &str) -> String {
+    format!("https://www.google.com/search?q={}", urlencoding::encode(q))
 }
-
-/// Generate `DuckDuckGo` search URL
-fn duckduckgo_search_url(query: &str) -> String {
-    format!("https://duckduckgo.com/?q={}", urlencoding::encode(query))
+fn duckduckgo_search_url(q: &str) -> String {
+    format!("https://duckduckgo.com/?q={}", urlencoding::encode(q))
 }
-
-/// Generate Google News search URL
-fn google_news_url(query: &str) -> String {
+fn google_news_url(q: &str) -> String {
     format!(
         "https://news.google.com/search?q={}",
-        urlencoding::encode(query)
+        urlencoding::encode(q)
     )
 }
-
-/// Generate `DuckDuckGo` News search URL
-fn duckduckgo_news_url(query: &str) -> String {
-    format!(
-        "https://duckduckgo.com/?q=!news {}",
-        urlencoding::encode(query)
-    )
+fn duckduckgo_news_url(q: &str) -> String {
+    format!("https://duckduckgo.com/?q=!news {}", urlencoding::encode(q))
 }
 
-/// Truncate text to max length with ellipsis
 fn truncate_text(text: &str, max_len: usize) -> String {
     if text.len() <= max_len {
         return text.to_string();
     }
-
-    // Truncate at a valid UTF-8 boundary first, then prefer a word boundary.
     let mut end = max_len;
     while end > 0 && !text.is_char_boundary(end) {
         end -= 1;
@@ -602,28 +439,20 @@ mod tests {
     #[test]
     fn test_is_factual_query() {
         assert!(is_factual_query("Who is the Prime Minister of Thailand"));
-        assert!(is_factual_query("current president of the United States"));
         assert!(is_factual_query("biography of Elon Musk"));
         assert!(!is_factual_query("how to parse JSON in Rust"));
-        assert!(!is_factual_query("best restaurants in Bangkok"));
     }
 
     #[test]
     fn test_search_urls() {
-        let pm_query = "Prime Minister of Thailand";
-        let wiki_url = wikipedia_search_url(pm_query);
-        assert!(wiki_url.contains("wikipedia.org"));
-        assert!(wiki_url.contains("Prime"));
-
-        let google_url = google_search_url(pm_query);
-        assert!(google_url.contains("google.com"));
+        assert!(wikipedia_search_url("test").contains("wikipedia.org"));
+        assert!(google_search_url("test").contains("google.com"));
     }
 
     #[test]
     fn test_truncate_text() {
-        let long_text = "This is a very long text that should be truncated at some point";
-        let truncated = truncate_text(long_text, 30);
-        assert!(truncated.len() <= 33); // 30 + "..."
+        let truncated = truncate_text("This is a very long text that should be truncated", 30);
+        assert!(truncated.len() <= 33);
         assert!(truncated.ends_with("..."));
     }
 

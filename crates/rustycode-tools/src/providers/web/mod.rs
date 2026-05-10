@@ -1,4 +1,5 @@
 pub mod browser;
+pub mod client;
 pub mod content;
 pub mod fetch;
 pub mod search;
