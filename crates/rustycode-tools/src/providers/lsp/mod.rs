@@ -350,7 +350,6 @@ pub(crate) fn get_lsp_config_for_project(cwd: &Path) -> Option<LspConfig> {
 #[cfg(test)]
 pub(crate) mod tests_common {
     use super::*;
-    use std::fs;
     use tempfile::TempDir;
 
     // Helper to create a test context

@@ -113,7 +113,7 @@ impl RolloutEvent {
 ///
 /// Uses an async writer via an mpsc channel so the caller never blocks
 /// on disk I/O.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RolloutRecorder {
     sender: mpsc::Sender<RolloutEvent>,
     session_id: String,
@@ -164,6 +164,22 @@ impl RolloutRecorder {
         }
     }
 
+    /// Shut down the background writer, flushing any buffered events.
+    pub async fn shutdown(&mut self) {
+        if !self.enabled {
+            return;
+        }
+        drop(std::mem::replace(&mut self.sender, mpsc::channel(1).0));
+    }
+}
+
+impl Drop for RolloutRecorder {
+    fn drop(&mut self) {
+        drop(std::mem::replace(&mut self.sender, mpsc::channel(1).0));
+    }
+}
+
+impl RolloutRecorder {
     /// Record an event. Returns immediately; actual I/O is async.
     /// Logs a warning if the channel is full and the event is dropped.
     pub fn record(&self, event: RolloutEvent) {

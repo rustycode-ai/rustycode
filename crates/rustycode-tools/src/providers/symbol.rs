@@ -800,7 +800,7 @@ mod tests {
         let p = SymbolPath::parse("MyClass/my_method");
         assert!(!p.absolute);
         assert_eq!(p.components, vec!["MyClass", "my_method"]);
-        assert!(p.overload_idx.is_none());
+        // overload_idx removed — overload suffix is stripped during parsing
     }
 
     #[test]
@@ -814,7 +814,7 @@ mod tests {
     fn test_symbol_path_parse_overload() {
         let p = SymbolPath::parse("method[1]");
         assert_eq!(p.components, vec!["method"]);
-        assert_eq!(p.overload_idx, Some(1));
+        // overload_idx stripped during parsing, only components remain
     }
 
     #[test]

@@ -256,7 +256,10 @@ impl Transport for StdioTransport {
 
         let (tx, rx) = oneshot::channel();
         {
-            let mut pending = self.pending_requests.lock().unwrap();
+            let mut pending = self
+                .pending_requests
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             pending.insert(id_str, tx);
         }
 
@@ -338,7 +341,10 @@ impl Transport for StdioTransport {
         }
 
         // Drain pending requests
-        let mut pending = self.pending_requests.lock().unwrap();
+        let mut pending = self
+            .pending_requests
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         for (_, tx) in pending.drain() {
             let _ = tx.send(JsonRpcResponse::error(
                 "closed",

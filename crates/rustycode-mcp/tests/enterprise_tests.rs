@@ -44,6 +44,7 @@ async fn test_connection_pool_acquire_release() {
     assert_eq!(stats.total, 1);
     assert_eq!(stats.active, 0);
     assert_eq!(stats.idle, 1);
+    drop(pool);
 }
 
 #[cfg_attr(
@@ -70,6 +71,7 @@ async fn test_connection_pool_cleanup() {
 
     let stats = pool.stats().await;
     assert_eq!(stats.total, 0);
+    drop(pool);
 }
 
 #[cfg_attr(

@@ -1,3 +1,4 @@
+#![allow(unsafe_code)]
 #![allow(
     clippy::cast_lossless,
     clippy::cast_possible_wrap,
