@@ -43,7 +43,7 @@ Until WebSocket support is implemented, the RustyCode web frontend uses HTTP POS
 ```json
 {
   "call_id": "web-1234567890",
-  "name": "bash",
+  "name": "Bash",
   "arguments": { "command": "ls -la" }
 }
 ```
@@ -524,7 +524,7 @@ Content-Type: application/json
 
 {
   "call_id": "web-123456",
-  "name": "bash",
+  "name": "Bash",
   "arguments": { "command": "ls -la" }
 }
 ```

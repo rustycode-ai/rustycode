@@ -5,6 +5,7 @@
 //! context trimming (compaction).
 
 use crate::provider::{ChatMessage, MessageRole};
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::{ContentBlock, MessageContent};
 
 /// Extract a structured summary from message turns that are about to be dropped.
@@ -39,13 +40,13 @@ pub fn extract_context_summary(
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("");
                                 match name.as_str() {
-                                    "Write" | "text_editor_20250728" if !path.is_empty() => {
+                                    tn::WRITE | tn::TEXT_EDITOR_NEWEST if !path.is_empty() => {
                                         let entry = path.to_string();
                                         if !files_written.contains(&entry) {
                                             files_written.push(entry);
                                         }
                                     }
-                                    "Edit" | "ApplyPatch" if !path.is_empty() => {
+                                    tn::EDIT | tn::APPLY_PATCH if !path.is_empty() => {
                                         let entry = path.to_string();
                                         if !files_edited.contains(&entry) {
                                             files_edited.push(entry);

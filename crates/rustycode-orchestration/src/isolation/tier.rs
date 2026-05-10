@@ -5,6 +5,7 @@
 //! boundaries and enforcement mechanisms.
 
 use crate::types::ExecutionTier;
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -159,8 +160,10 @@ impl ToolPolicy {
 /// Classify a tool name into its capability level.
 pub fn classify_tool(tool_name: &str) -> ToolCapability {
     match tool_name {
-        "read" | "Read" | "Grep" | "Glob" | "ls" | "Find" | "Head" | "cat" => ToolCapability::Read,
-        "write" | "Write" | "edit" | "Edit" | "NotebookEdit" => ToolCapability::Write,
+        "read" | tn::READ | tn::GREP | tn::GLOB | "ls" | tn::FIND | "Head" | "cat" => {
+            ToolCapability::Read
+        }
+        "write" | tn::WRITE | "edit" | tn::EDIT | tn::NOTEBOOK_EDIT => ToolCapability::Write,
         _ => ToolCapability::Exec,
     }
 }

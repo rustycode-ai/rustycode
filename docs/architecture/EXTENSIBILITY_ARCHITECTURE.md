@@ -201,7 +201,7 @@ A tool is a **schema-defined function** that:
 
 ```json
 {
-  "name": "read_file",
+  "name": "Read",
   "description": "Read a file from the local filesystem",
   "input_schema": {
     "type": "object",

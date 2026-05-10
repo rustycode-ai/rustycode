@@ -6,6 +6,7 @@
 //! - Conversation patterns (agreed upon actions, next steps)
 
 use crate::app::tasks::{create_task, create_todo, WorkspaceTasks};
+use rustycode_protocol::tool_names as tn;
 
 /// Extract actionable items from text and add them to workspace tasks
 pub fn extract_action_items(text: &str, tasks: &mut WorkspaceTasks) {
@@ -317,7 +318,7 @@ pub fn extract_todos_from_tool_result(tool_name: &str, output: &str) -> Vec<Stri
                 }
             }
         }
-        "Read" | "read" => {
+        tn::READ | "read" => {
             // Extract TODO/FIXME from file contents
             for line in output.lines() {
                 let trimmed = line.trim();

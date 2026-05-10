@@ -46,8 +46,6 @@ struct NativeSession {
 pub struct ITerm2NativeConnector {
     /// iTerm2 application handle (lazily initialized)
     app: RwLock<Option<iterm2_client::App<tokio::net::UnixStream>>>,
-    /// Tokio runtime for async operations (lazy, created on first use)
-    rt: Mutex<Option<tokio::runtime::Runtime>>,
     /// Track created sessions
     sessions: Mutex<Vec<NativeSession>>,
 }
@@ -62,32 +60,30 @@ impl ITerm2NativeConnector {
     pub const fn new() -> Self {
         Self {
             app: RwLock::new(None),
-            rt: Mutex::new(None),
             sessions: Mutex::new(Vec::new()),
         }
     }
 
-    /// Get or create the tokio runtime, storing it for reuse
-    fn get_runtime(&self) -> ConnectorResult<tokio::runtime::Runtime> {
-        // Check if we have a runtime stored
-        let rt_guard = self
-            .rt
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-
-        if rt_guard.as_ref().is_some() {
-            // Can't clone Runtime, so we just create a new one each time
-            // The stored option is kept for potential future optimization
-            drop(rt_guard);
+    /// Run an async future safely regardless of the calling context.
+    ///
+    /// If already inside a tokio runtime, uses `block_in_place` to avoid
+    /// panicking on multi-threaded runtimes. Otherwise creates a fresh
+    /// `current_thread` runtime.
+    fn run_async<F, T>(&self, future: F) -> ConnectorResult<T>
+    where
+        F: std::future::Future<Output = ConnectorResult<T>>,
+    {
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            tokio::task::block_in_place(|| handle.block_on(future))
+        } else {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .map_err(|e| {
+                    ConnectorError::SessionCreateFailed(format!("Failed to create runtime: {e}"))
+                })?;
+            rt.block_on(future)
         }
-
-        // Create a new runtime
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| {
-                ConnectorError::SessionCreateFailed(format!("Failed to create runtime: {e}"))
-            })
     }
 
     /// Connect to iTerm2 Unix socket API
@@ -101,9 +97,7 @@ impl ITerm2NativeConnector {
             return Ok(()); // Already connected
         }
 
-        let rt = self.get_runtime()?;
-
-        let app = rt.block_on(async {
+        let app = self.run_async(async {
             let conn = iterm2_client::Connection::connect("rustycode")
                 .await
                 .map_err(|e| {
@@ -349,8 +343,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         };
 
         // Use raw RPC call since we need to find the session first
-        let rt = self.get_runtime()?;
-        let _split_result = rt.block_on(async {
+        let _split_result = self.run_async(async {
             let app_guard = self
                 .app
                 .read()
@@ -416,8 +409,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         };
 
         // Send text via native API
-        let rt = self.get_runtime()?;
-        rt.block_on(async {
+        self.run_async(async {
             let app_guard = self
                 .app
                 .read()
@@ -469,8 +461,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         }?;
 
         // Capture output via native API
-        let rt = self.get_runtime()?;
-        rt.block_on(async {
+        self.run_async(async {
             let app_guard = self
                 .app
                 .read()
@@ -527,8 +518,7 @@ impl TerminalConnector for ITerm2NativeConnector {
         };
 
         // Set title via native API
-        let rt = self.get_runtime()?;
-        rt.block_on(async {
+        self.run_async(async {
             let app_guard = self
                 .app
                 .read()

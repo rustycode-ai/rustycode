@@ -21,6 +21,7 @@ use crate::hooks::HookManager;
 use crate::{Tool, ToolContext, ToolOutput};
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -220,7 +221,7 @@ impl ExecutionMiddleware {
 
         if state.plan_mode == PlanModeState::Planning {
             // In plan mode, only allow read-only tools
-            let allowed = ["Glob", "Grep", "Search", "read", "lsp", "WebFetch"];
+            let allowed = [tn::GLOB, tn::GREP, "Search", "read", "lsp", tn::WEB_FETCH];
             if !allowed.contains(&tool_name) {
                 anyhow::bail!(
                     "tool '{tool_name}' not allowed in plan mode. Use read-only tools: {allowed:?}"

@@ -710,7 +710,7 @@ impl BenchAgent for CodeAgent {
             // Track edit/write operations for early-stop detection.
             let edited_files: Vec<String> = tool_uses
                 .iter()
-                .filter(|t| t.name == "Write" || t.name == "Edit")
+                .filter(|t| t.name == tn::WRITE || t.name == tn::EDIT)
                 .filter_map(|t| {
                     t.input
                         .get("path")

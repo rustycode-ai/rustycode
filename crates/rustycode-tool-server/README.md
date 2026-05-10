@@ -37,7 +37,7 @@ Execute a tool via HTTP and get the result:
 curl -X POST http://127.0.0.1:3000/call \
   -H "Content-Type: application/json" \
   -d '{
-    "tool": "bash",
+    "tool": "Bash",
     "args": {"command": "ls -la"}
   }'
 ```
@@ -46,7 +46,7 @@ Response:
 ```json
 {
   "call_id": "call-123",
-  "tool": "bash",
+  "tool": "Bash",
   "status": "success",
   "result": "..."
 }
@@ -60,7 +60,7 @@ Connect for bidirectional tool communication:
 const ws = new WebSocket('ws://127.0.0.1:3000/ws');
 ws.onopen = () => {
   ws.send(JSON.stringify({
-    tool: 'bash',
+    tool: 'Bash',
     args: { command: 'echo hello' }
   }));
 };

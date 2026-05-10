@@ -714,7 +714,7 @@ async fn main() -> Result<()> {
         .with_profile(profile);
 
     let tools = selector.select_tools();
-    // ["read_file", "grep", "list_dir", "lsp_hover", ...]
+    // ["Read", "Grep", "ListDir", "LspHover", ...]
 
     // 3. Call LLM with tools
     let provider = AnthropicProvider::new()?;

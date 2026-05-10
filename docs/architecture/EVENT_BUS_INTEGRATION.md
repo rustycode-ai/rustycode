@@ -150,7 +150,7 @@ SessionStartedEvent::new(
 ```rust
 ToolExecutedEvent::new(
     session_id,
-    "read_file".to_string(),
+    "Read".to_string(),
     json!({ "path": "/path/to/file" }),
     true,  // success
     "File contents".to_string(),
@@ -437,7 +437,7 @@ Events should include sufficient context:
 ```rust
 ToolExecutedEvent::new(
     session_id,           // Correlation
-    "read_file".to_string(), // Action
+    "Read".to_string(), // Action
     json!({ "path": "/file" }), // Context
     true,                 // Result
     "content".to_string(), // Output

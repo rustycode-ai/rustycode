@@ -31,6 +31,7 @@
 //! ```
 
 use regex::Regex;
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -312,21 +313,21 @@ impl ToolCallExtractor {
             config.known_tools.clone()
         } else {
             vec![
-                "Bash".to_string(),
-                "Read".to_string(),
-                "Write".to_string(),
-                "Edit".to_string(),
-                "ListDir".to_string(),
-                "Glob".to_string(),
-                "Grep".to_string(),
-                "GitStatus".to_string(),
-                "GitDiff".to_string(),
-                "GitLog".to_string(),
-                "GitCommit".to_string(),
-                "WebFetch".to_string(),
-                "WebSearch".to_string(),
+                tn::BASH.to_string(),
+                tn::READ.to_string(),
+                tn::WRITE.to_string(),
+                tn::EDIT.to_string(),
+                tn::LIST_DIR.to_string(),
+                tn::GLOB.to_string(),
+                tn::GREP.to_string(),
+                tn::GIT_STATUS.to_string(),
+                tn::GIT_DIFF.to_string(),
+                tn::GIT_LOG.to_string(),
+                tn::GIT_COMMIT.to_string(),
+                tn::WEB_FETCH.to_string(),
+                tn::WEB_SEARCH.to_string(),
                 "run_tests".to_string(),
-                "multi_edit".to_string(),
+                tn::MULTI_EDIT_ALIAS.to_string(),
             ]
         };
 

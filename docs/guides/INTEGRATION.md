@@ -32,7 +32,7 @@ let executor = ToolExecutor::new(PathBuf::from("/workspace"));
 // Execute a tool call
 let call = ToolCall {
     call_id: "1".to_string(),
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({
         "path": "src/lib.rs"
     }),
@@ -206,7 +206,7 @@ registry.register(WriteFileTool);
 registry.register(MyCustomTool);
 
 // Use registry
-let tool = registry.get("read_file").unwrap();
+let tool = registry.get("Read").unwrap();
 ```
 
 ### Conditional Registration
@@ -242,10 +242,10 @@ use rustycode_tools::ToolPermission;
 // Permission hierarchy (lowest to highest)
 // None < Read < Write < Execute < Network
 
-// Read tools: read_file, list_dir, grep, glob, git_status, etc.
-// Write tools: write_file, git_commit
-// Execute tools: bash
-// Network tools: web_fetch
+// Read tools: Read, ListDir, Grep, Glob, GitStatus, etc.
+// Write tools: Write, GitCommit
+// Execute tools: Bash
+// Network tools: WebFetch
 ```
 
 ### Declaring Tool Permissions
@@ -272,16 +272,16 @@ use rustycode_protocol::SessionMode;
 use rustycode_tools::{check_tool_permission, get_allowed_tools};
 
 // Check if tool is allowed in current mode
-let allowed = check_tool_permission("bash", SessionMode::Planning);
-assert!(!allowed); // bash not allowed in planning mode
+let allowed = check_tool_permission("Bash", SessionMode::Planning);
+assert!(!allowed); // Bash not allowed in planning mode
 
-let allowed = check_tool_permission("bash", SessionMode::Executing);
-assert!(allowed); // bash allowed in executing mode
+let allowed = check_tool_permission("Bash", SessionMode::Executing);
+assert!(allowed); // Bash allowed in executing mode
 
 // Get all allowed tools for a mode
 let planning_tools = get_allowed_tools(SessionMode::Planning);
 println!("Planning tools: {:?}", planning_tools);
-// ["read_file", "list_dir", "grep", "glob", ...]
+// ["Read", "ListDir", "Grep", "Glob", ...]
 ```
 
 ### Custom Permission Checks
@@ -436,7 +436,7 @@ let (_id, mut rx) = bus.subscribe("tool.*").await?;
 // Execute tool (publishes event)
 let call = ToolCall {
     call_id: "1".to_string(),
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({
         "path": "src/lib.rs"
     }),
@@ -459,13 +459,13 @@ if let Some(tool_event) = event.downcast_ref::<ToolExecutedEvent>() {
 
 ```rust
 // Subscribe only to bash events
-let (_id, mut rx) = bus.subscribe("tool.bash").await?;
+let (_id, mut rx) = bus.subscribe("tool.Bash").await?;
 
 // Subscribe only to successful executions
 let (_id, mut rx) = bus.subscribe("tool.*.success").await?;
 
 // Subscribe to specific tool
-let (_id, mut rx) = bus.subscribe("tool.read_file").await?;
+let (_id, mut rx) = bus.subscribe("tool.Read").await?;
 ```
 
 ### Custom Event Handling
@@ -632,10 +632,10 @@ let truncated = truncate_items(items, LIST_MAX_ITEMS, "results");
 ```rust
 // Apply reasonable timeouts
 let call = ToolCall {
-    name: "bash".to_string(),
-    arguments: json!({
-        "command": "cargo test",
-        "timeout_secs": 60  // Reasonable timeout
+        name: "Bash".to_string(),
+        arguments: json!({
+            "command": "cargo test",
+            "timeout_secs": 60  // Reasonable timeout
     }),
 };
 ```
@@ -645,10 +645,10 @@ let call = ToolCall {
 ```rust
 // No timeout - could hang forever
 let call = ToolCall {
-    name: "bash".to_string(),
-    arguments: json!({
-        "command": "cargo test"
-        // No timeout!
+        name: "Bash".to_string(),
+        arguments: json!({
+            "command": "cargo test"
+            // No timeout!
     }),
 };
 ```
@@ -803,7 +803,7 @@ impl Tool for CompositeTool {
         // Use glob to find files
         let glob_call = ToolCall {
             call_id: "1".to_string(),
-            name: "glob".to_string(),
+            name: "Glob".to_string(),
             arguments: json!({
                 "pattern": params["pattern"]
             }),
@@ -870,7 +870,7 @@ let total = files.len();
 for (i, file) in files.iter().enumerate() {
     let call = ToolCall {
         call_id: format!("{}-{}", i, file),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({
             "path": file
         }),
@@ -894,12 +894,12 @@ If you're migrating from an older tool system:
 
 ```rust
 // Old way
-let result = execute_tool("read_file", &["path", "file.txt"]);
+let result = execute_tool("Read", &["path", "file.txt"]);
 
 // New way
 let call = ToolCall {
     call_id: "1".to_string(),
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({
         "path": "file.txt"
     }),
@@ -970,8 +970,8 @@ let ctx = ToolContext::new("/workspace")
 ```rust
 // Only read-only tools are cached
 // Check is_cacheable_tool() function
-// Read tools: read_file, list_dir, grep, glob, etc.
-// Write/Execute tools are NOT cached: write_file, bash
+// Read tools: Read, ListDir, Grep, Glob, etc.
+// Write/Execute tools are NOT cached: Write, Bash
 ```
 
 ### Rate Limit Errors

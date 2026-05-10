@@ -315,7 +315,7 @@ match executor.execute_from_value(&call) {
 ### 2. Handle Timeouts
 ```rust
 let call = json!({
-    "name": "bash",
+    "name": "Bash",
     "arguments": {
         "command": "long_running_command",
         "timeout_secs": 30  // Always set timeout

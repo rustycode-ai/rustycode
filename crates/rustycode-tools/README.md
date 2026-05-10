@@ -10,7 +10,7 @@ This crate provides the complete tool layer that RustyCode agents use to interac
 
 ## Current Architecture
 
-The crate has **104 source files** and **~66K lines of code**, organized into five sub-module directories and ~50 root-level modules.
+The crate has **104 source files** and **~66K lines of code**, organized into five sub-module directories and ~49 root-level modules.
 
 ### Sub-module directories
 
@@ -28,7 +28,7 @@ These modules have not yet been moved into sub-directories. They cover a wide ra
 
 - **Core utilities**: `truncation`, `compaction`, `line_endings`, `json_repair`, `yaml_format`, `text_summary`
 - **Code intelligence**: `edit_format`, `code_review`, `diagnostics`, `token_counter`
-- **Security and safety**: `security_patterns`, `egress_detector`, `doom_loop`, `smart_approve`, `directory_trust`
+- **Security and safety**: `security_patterns`, `egress_detector`, `doom_loop`, `directory_trust`
 - **Lifecycle and hooks**: `hooks`, `lifecycle`, `streaming`, `markdown_stream`, `log_rotation`
 - **File management**: `file_snapshot`, `file_formatter`, `file_reference`, `workspace_checkpoint`, `checkpoint`
 - **Agent support**: `plan_management`, `plan_templates`, `recipes`, `task_retry`, `observation_layer`
@@ -89,7 +89,7 @@ let catalog = ToolCatalog::Bash(BashInput {
 
 // Case-insensitive lookup
 assert!(ToolCatalog::contains("Bash"));
-assert!(ToolCatalog::contains("bash"));
+assert!(ToolCatalog::contains("Bash"));
 ```
 
 ### Security
@@ -151,9 +151,9 @@ assert_eq!(calls[0].name, "Bash");
 |----------|-------|
 | File I/O | `Read`, `Write`, `Edit`, `MultiEdit`, `apply_patch`, `text_editor_*`, `search_replace` |
 | Shell | `Bash` (with timeout, streaming, error detection) |
-| Search | `Grep`, `Glob`, `codesearch`, `web_search`, `WebFetch` |
-| Version control | `git_status`, `git_diff`, `git_log`, `git_commit` |
-| LSP | `lsp_diagnostics`, `lsp_hover`, `lsp_definitions`, `lsp_references`, `lsp_completion`, `lsp_document_symbols` |
+| Search | `Grep`, `Glob`, `codesearch`, `WebSearch`, `WebFetch` |
+| Version control | `GitStatus`, `GitDiff`, `GitLog`, `GitCommit` |
+| LSP | `LspDiagnostics`, `LspHover`, `LspDefinition`, `LspReferences`, `LspCompletion`, `LspDocumentSymbols` |
 | Docker | `docker_build`, `docker_run`, `docker_ps`, `docker_stop`, `docker_logs`, `docker_inspect`, `docker_images` |
 | Database | `database_query`, `database_schema`, `database_transaction` |
 | Code intelligence | `symbol`, `question` |
@@ -213,7 +213,7 @@ This crate is documented as a **god object** in the architecture review. It has 
 
 4. **Massive allow block** -- The crate root carries ~70 clippy lint suppressions, a clear indicator that the codebase needs structural cleanup.
 
-5. **Duplicate modules** -- `smart_approve` exists both as a root module and inside `security/approve`, with nearly identical types. `security_patterns` (root) duplicates `security::patterns`.
+5. **Duplicate modules** -- ~~`smart_approve` exists both as a root module and inside `security/approve`, with nearly identical types.~~ **Resolved**: `smart_approve` root module deleted; canonical implementation lives in `rustycode-tools-security/src/approve.rs` using `rustycode_protocol::tool_names` constants. `security_patterns` (root) duplicates `security::patterns`.
 
 6. **LSP provider at 115K LOC** -- The `providers/lsp.rs` file alone is the largest in the crate and should be split into per-operation modules.
 
@@ -237,7 +237,7 @@ rustycode-tools/           (slimmed)   -- executor dispatch, providers, middlewa
 
 2. **Extract `rustycode-tools-indexing`** -- Move `indexing/` (repo map, code index, semantic search) to its own crate. Tree-sitter dependencies (5 grammars) only need to be compiled when indexing is used.
 
-3. **Merge duplicate modules** -- Consolidate `smart_approve` (root) into `security/approve`, and `security_patterns` (root) into `security/patterns`.
+3. **Merge duplicate modules** -- ~~Consolidate `smart_approve` (root) into `security/approve`~~ **Done**: deleted `smart_approve` root module; `rustycode-tools-security/src/approve.rs` is the canonical implementation. Consolidate `security_patterns` (root) into `security/patterns`.
 
 4. **Split large providers** -- Break `lsp.rs` into `lsp_diagnostics.rs`, `lsp_hover.rs`, `lsp_definitions.rs`, etc. Break `bash.rs` into `bash_core.rs`, `bash_validation.rs`, `bash_streaming.rs`.
 
@@ -427,7 +427,7 @@ Applied patch to <N> files
 (<N> files found)
 ```
 
-#### list_dir
+#### ListDir
 ```
 **<path>** (<N> items[, recursive (depth=<D>)])
 
@@ -436,20 +436,20 @@ Applied patch to <N> files
 ...
 ```
 
-#### git_status
+#### GitStatus
 ```
 <raw git status --short output>
 <branch info>
 <N> changed files, <A> additions, <D> deletions
 ```
 
-#### git_diff
+#### GitDiff
 ```
 <raw git diff output>
 ```
 Structured metadata includes `files_changed`, `total_additions`, `total_deletions`.
 
-#### git_log
+#### GitLog
 ```
 <hash> <message>
 <hash> <message>
@@ -463,7 +463,7 @@ Structured metadata includes `files_changed`, `total_additions`, `total_deletion
 ```
 - Empty result: `No results found`
 
-#### web_search
+#### WebSearch
 ```
 [<index>] <title>
 <url>
@@ -474,7 +474,7 @@ Structured metadata includes `files_changed`, `total_additions`, `total_deletion
 [<index+1>] ...
 ```
 
-#### web_fetch
+#### WebFetch
 ```
 <extracted text content from URL>
 ```

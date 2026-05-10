@@ -38,7 +38,7 @@ Error: No such file or directory (os error 2)
 1. **Verify the file exists:**
 ```rust
 let call = ToolCall {
-    name: "list_dir".to_string(),
+    name: "ListDir".to_string(),
     arguments: json!({
         "path": ".",
         "recursive": false
@@ -53,7 +53,7 @@ println!("Available files: {}", result.output);
 ```rust
 // Use relative paths from workspace root
 let call = ToolCall {
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({"path": "src/main.rs"}),  // Good
     // NOT: "/absolute/path/to/src/main.rs" or "../parent/file.rs"
     ..Default::default()
@@ -92,7 +92,7 @@ Binary files are not supported for text operations.
 2. **Check file type first:**
 ```rust
 let call = ToolCall {
-    name: "list_dir".to_string(),
+    name: "ListDir".to_string(),
     arguments: json!({
         "path": ".",
         "recursive": false
@@ -102,7 +102,7 @@ let call = ToolCall {
 
 // Filter to text files only
 let call = ToolCall {
-    name: "list_dir".to_string(),
+    name: "ListDir".to_string(),
     arguments: json!({
         "path": ".",
         "filter": ".rs"  // Only Rust files
@@ -131,7 +131,7 @@ let call = ToolCall {
 1. **Read specific line ranges:**
 ```rust
 let call = ToolCall {
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({
         "path": "large_file.rs",
         "start_line": 1,
@@ -149,7 +149,7 @@ fn read_in_chunks(executor: &ToolExecutor, path: &str, chunk_size: usize) {
         let end = start + chunk_size - 1;
 
         let call = ToolCall {
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             arguments: json!({
                 "path": path,
                 "start_line": start,
@@ -191,7 +191,7 @@ Error: Permission denied
 1. **Check file permissions:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "ls -la /path/to/file"
     }),
@@ -203,7 +203,7 @@ let call = ToolCall {
 ```rust
 // Ensure workspace directory is writable
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "test -w /path/to/workspace && echo 'Writable' || echo 'Not writable'"
     }),
@@ -239,7 +239,7 @@ fn validate_regex(pattern: &str) -> Result<(), regex::Error> {
 2. **Use raw strings for patterns:**
 ```rust
 let call = ToolCall {
-    name: "grep".to_string(),
+    name: "Grep".to_string(),
     arguments: json!({
         "pattern": r"async\s+fn",  // Raw string - good
         // NOT: "async\\s+fn"      // Escaped - error-prone
@@ -289,7 +289,7 @@ assert!(re.is_match("test string"));
 2. **Limit matches per file:**
 ```rust
 let call = ToolCall {
-    name: "grep".to_string(),
+    name: "Grep".to_string(),
     arguments: json!({
         "pattern": r"TODO|FIXME",
         "path": "src",
@@ -324,7 +324,7 @@ let call = ToolCall {
 ```rust
 // Test pattern manually
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "find . -name '*.rs' | head -20"
     }),
@@ -347,7 +347,7 @@ let call = ToolCall {
 3. **List directory contents first:**
 ```rust
 let call = ToolCall {
-    name: "list_dir".to_string(),
+    name: "ListDir".to_string(),
     arguments: json!({
         "path": "src",
         "recursive": true
@@ -376,7 +376,7 @@ Error: Command timed out after 30 seconds
 1. **Increase timeout:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "cargo build --release",
         "timeout_secs": 300  // 5 minutes
@@ -391,7 +391,7 @@ let mut timeout = 30;
 
 loop {
     let call = ToolCall {
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         arguments: json!({
             "command": "cargo build",
             "timeout_secs": timeout
@@ -425,7 +425,7 @@ loop {
 ```rust
 // Test with simpler command first
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "echo 'test'",
         "timeout_secs": 5
@@ -451,7 +451,7 @@ Error: command not found: cargo
 1. **Check PATH:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "echo $PATH"
     }),
@@ -462,7 +462,7 @@ let call = ToolCall {
 2. **Use absolute paths:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "/usr/bin/cargo test"  // Absolute path
     }),
@@ -473,7 +473,7 @@ let call = ToolCall {
 3. **Verify tool installation:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "which cargo && cargo --version"
     }),
@@ -492,7 +492,7 @@ let call = ToolCall {
 1. **Monitor memory usage:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "/usr/bin/time -v cargo build 2>&1 | grep 'Maximum resident'"
     }),
@@ -503,7 +503,7 @@ let call = ToolCall {
 2. **Limit memory with ulimit:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "ulimit -v 4194304 && cargo build"  // 4GB limit
     }),
@@ -535,7 +535,7 @@ let call = ToolCall {
 1. **Verify URL:**
 ```rust
 let call = ToolCall {
-    name: "web_fetch".to_string(),
+    name: "WebFetch".to_string(),
     arguments: json!({
         "url": "https://example.com/api/data"
     }),
@@ -554,7 +554,7 @@ if let Some(metadata) = result.structured {
 2. **Test URL manually:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "curl -I https://example.com"
     }),
@@ -598,7 +598,7 @@ if let Some(metadata) = result.structured {
 ```rust
 // Fetch first part
 let call1 = ToolCall {
-    name: "web_fetch".to_string(),
+    name: "WebFetch".to_string(),
     arguments: json!({
         "url": "https://example.com/large-data.json"
     }),
@@ -607,7 +607,7 @@ let call1 = ToolCall {
 
 // For full content, consider using curl with output to file
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "curl -o /tmp/data.json https://example.com/large-data.json"
     }),
@@ -635,7 +635,7 @@ Error: fatal: not a git repository
 1. **Initialize git repository:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "git init"
     }),
@@ -646,7 +646,7 @@ let call = ToolCall {
 2. **Check if directory is git repo:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "git status"
     }),
@@ -670,7 +670,7 @@ Error: nothing to commit, working tree clean
 1. **Check git status first:**
 ```rust
 let call = ToolCall {
-    name: "git_status".to_string(),
+    name: "GitStatus".to_string(),
     arguments: json!({}),
     ..Default::default()
 };
@@ -683,7 +683,7 @@ if let Some(metadata) = result.structured {
     if staged == 0 {
         // Stage files first
         let add_call = ToolCall {
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             arguments: json!({
                 "command": "git add ."
             }),
@@ -788,7 +788,7 @@ Error: Permission denied
 ```rust
 use rustycode_tools::get_tool_permission;
 
-let perm = get_tool_permission("bash");
+let perm = get_tool_permission("Bash");
 // Returns: Some(ToolPermission::Execute)
 ```
 
@@ -830,7 +830,7 @@ let result = executor.execute_cached_with_session(&call, None).await;
 ```rust
 use rustycode_tools::is_cacheable_tool;
 
-if is_cacheable_tool("read_file") {
+if is_cacheable_tool("Read") {
     // Tool supports caching
 }
 ```
@@ -890,7 +890,7 @@ Error: LSP client not available
 1. **Check if LSP is running:**
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "ps aux | grep rust-analyzer"
     }),
@@ -902,7 +902,7 @@ let call = ToolCall {
 ```rust
 // Start rust-analyzer or appropriate language server
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "rust-analyzer"
     }),

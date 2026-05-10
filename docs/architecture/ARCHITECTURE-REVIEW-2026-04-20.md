@@ -351,7 +351,7 @@ pub trait Recovery {
 **Fix #2: Plan Mode Tool Allowlist**
 ```rust
 const INSPECTION_TOOLS: &[&str] = &[
-    "read", "grep", "find_symbol", "get_symbols_overview",
+    "read", "Grep", "find_symbol", "get_symbols_overview",
 ];
 
 fn validate_plan_step(step: &ExecutionStep) -> Result<()> {

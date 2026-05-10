@@ -2,6 +2,7 @@
 
 use crate::app::TUI;
 use crate::tool_approval::risk;
+use rustycode_protocol::tool_names as tn;
 
 pub(super) fn handle_approval_request_chunk(
     tui: &mut TUI,
@@ -46,7 +47,7 @@ pub(super) fn handle_approval_request_chunk(
             Err(_reason) => {
                 // Allow write_file for doc extensions even in plan mode
                 const DOC_EXTENSIONS: &[&str] = &[".md", ".txt", ".rst", ".adoc", ".doc", ".docx"];
-                if tool_name == "Write" {
+                if tool_name == tn::WRITE {
                     if let Some(path) = diff.as_ref().and_then(|d| {
                         // Try to extract path from diff string like "write_file: path=..."
                         d.split("path=")

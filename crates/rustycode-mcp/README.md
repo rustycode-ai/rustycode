@@ -28,10 +28,10 @@ Implements the Model Context Protocol, enabling Claude and other clients to acce
 ## MCP Tools
 
 Exposes RustyCode tools as MCP tools:
-- `bash` — Execute commands
+- `Bash` — Execute commands
 - `git` — Git operations
 - `file_read` / `file_write` — File operations
-- `lsp_diagnostics`, `lsp_hover`, `lsp_definition`, `lsp_completion` — Language intelligence
+- `LspDiagnostics`, `LspHover`, `LspDefinition`, `LspCompletion` — Language intelligence
 - All tools from `rustycode-tools`
 
 ## Public API
@@ -52,7 +52,7 @@ server.listen("localhost:3000").await?;
 // Clients can now:
 // 1. Request file contents: resource.read("file://src/main.rs")
 // 2. Search codebase: tool.call("search_code", { "query": "async fn" })
-// 3. Execute tools: tool.call("bash", { "command": "cargo test" })
+// 3. Execute tools: tool.call("Bash", { "command": "cargo test" })
 ```
 
 ## Terminal MCP launcher

@@ -20,7 +20,7 @@ Provides trait definitions for tools without implementation details. This separa
 
 ```rust
 pub trait Tool: Send + Sync {
-    /// Tool name (e.g., "bash", "git", "file_read")
+    /// Tool name (e.g., "Bash", "git", "file_read")
     fn name(&self) -> &str;
     
     /// Human-readable description

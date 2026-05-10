@@ -15,6 +15,7 @@
 
 use crate::edit_format::{self, EditFormat};
 use crate::{ToolRegistry, ToolTag};
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -567,7 +568,7 @@ impl ToolSelector {
             let primary = format.primary_tool().to_string();
             if !available.contains(&primary) {
                 // Remove generic "edit" and replace with model-specific tool
-                available.retain(|t| t != "edit");
+                available.retain(|t| t != tn::EDIT);
                 available.push(primary);
             }
 

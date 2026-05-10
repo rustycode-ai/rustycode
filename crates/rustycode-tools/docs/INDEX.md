@@ -47,7 +47,7 @@ let executor = ToolExecutor::new(std::path::PathBuf::from("/project"));
 
 let call = ToolCall {
     call_id: "1".to_string(),
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({"path": "src/main.rs"}),
 };
 

@@ -34,7 +34,7 @@ This document describes the recent enhancements made to rustycode tools, includi
 
 **Added:** `filter` parameter
 
-The `list_dir` tool now supports filtering entries by type or extension.
+The `ListDir` tool now supports filtering entries by type or extension.
 
 **Parameters:**
 - `filter: "file"` - Only show files
@@ -46,7 +46,7 @@ The `list_dir` tool now supports filtering entries by type or extension.
 **Usage Example:**
 ```json
 {
-  "tool": "list_dir",
+  "tool": "ListDir",
   "parameters": {
     "path": "src",
     "recursive": true,
@@ -74,7 +74,7 @@ The `list_dir` tool now supports filtering entries by type or extension.
 
 **Added:** `lines` field to metadata
 
-The `write_file` tool now tracks the number of lines written in addition to bytes.
+The `Write` tool now tracks the number of lines written in addition to bytes.
 
 **Metadata Fields:**
 - `bytes` - Number of bytes written
@@ -83,7 +83,7 @@ The `write_file` tool now tracks the number of lines written in addition to byte
 **Usage Example:**
 ```json
 {
-  "tool": "write_file",
+  "tool": "Write",
   "parameters": {
     "path": "src/new_file.rs",
     "content": "fn main() {\n    println!(\"Hello\");\n}"
@@ -109,7 +109,7 @@ The `write_file` tool now tracks the number of lines written in addition to byte
 
 **Added:** Comprehensive binary file detection with 70+ extensions
 
-The `read_file` tool now detects and blocks binary files with helpful recovery hints.
+The `Read` tool now detects and blocks binary files with helpful recovery hints.
 
 **Detected Extensions:**
 
@@ -144,7 +144,7 @@ Recovery: Use an image viewer or tool to extract metadata (e.g., `file` command)
 
 **Added:** Timing metrics for HTTP requests
 
-The `web_fetch` tool now tracks detailed timing information.
+The `WebFetch` tool now tracks detailed timing information.
 
 **New Metadata Fields:**
 - `time_to_first_byte_ms` - Time until first byte received
@@ -153,7 +153,7 @@ The `web_fetch` tool now tracks detailed timing information.
 **Usage Example:**
 ```json
 {
-  "tool": "web_fetch",
+  "tool": "WebFetch",
   "parameters": {
     "url": "https://example.com"
   }
@@ -223,7 +223,7 @@ Recovery: Use binary analysis tools (e.g., `strings`, `objdump`, `nm`)
 
 **Added:** HTTP status code and response headers
 
-The `web_fetch` tool now returns full HTTP response metadata.
+The `WebFetch` tool now returns full HTTP response metadata.
 
 **New Metadata Fields:**
 - `status_code` - HTTP status code (200, 404, etc.)
@@ -232,7 +232,7 @@ The `web_fetch` tool now returns full HTTP response metadata.
 **Usage Example:**
 ```json
 {
-  "tool": "web_fetch",
+  "tool": "WebFetch",
   "parameters": {
     "url": "https://api.example.com/data"
   }
@@ -270,7 +270,7 @@ The `web_fetch` tool now returns full HTTP response metadata.
 
 **Changed:** MD5 replaced with SHA-256
 
-The `read_file` tool now uses SHA-256 for content hashing instead of MD5.
+The `Read` tool now uses SHA-256 for content hashing instead of MD5.
 
 **Metadata Field:**
 - `content_hash` - SHA-256 hash of file content
@@ -321,12 +321,12 @@ pub fn unique_tools(&self) -> usize
 **Usage Example:**
 ```rust
 let tracker = UsageTracker::new();
-tracker.record_use("read_file");
-tracker.record_use("grep");
-tracker.record_use("read_file");
+tracker.record_use("Read");
+tracker.record_use("Grep");
+tracker.record_use("Read");
 
 let stats = tracker.get_statistics();
-// Returns: [("read_file", 2, Some(1678900000)), ("grep", 1, Some(1678900005))]
+// Returns: [("Read", 2, Some(1678900000)), ("Grep", 1, Some(1678900005))]
 
 let total = tracker.total_uses();  // 3
 let unique = tracker.unique_tools();  // 2
@@ -344,7 +344,7 @@ let unique = tracker.unique_tools();  // 2
 
 **Added:** File-level match statistics
 
-The `grep` tool now provides detailed match analysis.
+The `Grep` tool now provides detailed match analysis.
 
 **New Metadata Fields:**
 - `files_with_matches` - Count of files containing matches
@@ -378,7 +378,7 @@ The `grep` tool now provides detailed match analysis.
 
 **Added:** Comprehensive execution timing
 
-The `bash` tool now tracks detailed timing information.
+The `Bash` tool now tracks detailed timing information.
 
 **New Metadata Fields:**
 - `execution_time_ms` - Execution time in milliseconds
@@ -424,7 +424,7 @@ The `bash` tool now tracks detailed timing information.
 
 **Added:** Extension breakdown
 
-The `glob` tool now provides file extension statistics.
+The `Glob` tool now provides file extension statistics.
 
 **New Metadata Field:**
 - `extensions` - Array of extension counts
@@ -515,7 +515,7 @@ if let Some(metadata) = result.structured {
 let tracker = UsageTracker::new();
 
 // Record uses
-tracker.record_use("read_file");
+tracker.record_use("Read");
 
 // Get statistics
 let stats = tracker.get_statistics();

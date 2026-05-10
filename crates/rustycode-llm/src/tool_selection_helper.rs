@@ -4,6 +4,7 @@
 //! across all LLM providers (Anthropic, OpenAI, Gemini, etc.)
 
 use crate::provider::{ChatMessage, MessageRole};
+use rustycode_protocol::tool_names as tn;
 #[cfg(feature = "vector-memory")]
 use rustycode_tools_api::{route_query, SearchStrategy};
 use rustycode_tools_api::{ToolInfo, ToolMetadataProvider, ToolRegistry};
@@ -76,39 +77,39 @@ impl ToolSelectionState {
         match strategy {
             SearchStrategy::Lsp => tools
                 .iter()
-                .filter(|t| t.starts_with("lsp_") || *t == "Read")
+                .filter(|t| t.starts_with("lsp_") || *t == tn::READ)
                 .cloned()
                 .collect(),
             SearchStrategy::Grep => {
-                if tools.contains(&"Grep".to_string()) {
-                    vec!["Grep".to_string()]
+                if tools.contains(&tn::GREP.to_string()) {
+                    vec![tn::GREP.to_string()]
                 } else {
                     tools.to_vec()
                 }
             }
             SearchStrategy::Glob => {
-                if tools.contains(&"Glob".to_string()) {
-                    vec!["Glob".to_string()]
+                if tools.contains(&tn::GLOB.to_string()) {
+                    vec![tn::GLOB.to_string()]
                 } else {
                     tools.to_vec()
                 }
             }
             SearchStrategy::Semantic => {
-                if tools.contains(&"SemanticSearch".to_string()) {
-                    vec!["SemanticSearch".to_string()]
-                } else if tools.contains(&"Grep".to_string()) {
-                    vec!["Grep".to_string()]
+                if tools.contains(&tn::SEMANTIC_SEARCH.to_string()) {
+                    vec![tn::SEMANTIC_SEARCH.to_string()]
+                } else if tools.contains(&tn::GREP.to_string()) {
+                    vec![tn::GREP.to_string()]
                 } else {
                     tools.to_vec()
                 }
             }
             SearchStrategy::GrepThenSemantic => {
                 let mut filtered = Vec::new();
-                if tools.contains(&"Grep".to_string()) {
-                    filtered.push("Grep".to_string());
+                if tools.contains(&tn::GREP.to_string()) {
+                    filtered.push(tn::GREP.to_string());
                 }
-                if tools.contains(&"SemanticSearch".to_string()) {
-                    filtered.push("SemanticSearch".to_string());
+                if tools.contains(&tn::SEMANTIC_SEARCH.to_string()) {
+                    filtered.push(tn::SEMANTIC_SEARCH.to_string());
                 }
                 if filtered.is_empty() {
                     tools.to_vec()

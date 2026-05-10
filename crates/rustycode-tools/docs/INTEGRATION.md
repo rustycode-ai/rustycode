@@ -818,7 +818,7 @@ async fn main() -> anyhow::Result<()> {
     // Execute tools - events will be published automatically
     let call = rustycode_protocol::ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: serde_json::json!({"path": "Cargo.toml"}),
     };
 
@@ -989,13 +989,13 @@ impl SecureExecutor {
     fn is_safe_tool(&self, tool_name: &str) -> bool {
         // Whitelist of allowed tools
         matches!(tool_name,
-            "read_file" | "list_dir" | "grep" | "glob" | "git_status"
+            "Read" | "ListDir" | "Grep" | "Glob" | "GitStatus"
         )
     }
 
     fn validate_arguments(&self, tool_name: &str, args: &serde_json::Value) -> anyhow::Result<()> {
         match tool_name {
-            "read_file" => {
+            "Read" => {
                 if let Some(path) = args.get("path") {
                     let path_str = path.as_str().ok_or_else(|| anyhow::anyhow!("Invalid path"))?;
                     if path_str.contains("..") {
@@ -1030,7 +1030,7 @@ mod integration_tests {
 
         let call = ToolCall {
             call_id: "1".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             arguments: json!({"path": "Cargo.toml"}),
         };
 
@@ -1054,7 +1054,7 @@ mod integration_tests {
 
         let call = ToolCall {
             call_id: "1".to_string(),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             arguments: json!({"path": "Cargo.toml"}),
         };
 

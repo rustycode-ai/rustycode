@@ -1,5 +1,6 @@
 use crate::headless::hints;
 use rustycode_protocol::agent_protocol::AgentAction;
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::ToolCall;
 use rustycode_tools::{ToolContext, ToolRegistry};
 use serde_json;
@@ -13,15 +14,15 @@ pub fn dispatch_agent_action(
 ) -> String {
     let (name, args) = match action {
         AgentAction::EditFile { path, content } => (
-            "Edit".to_string(),
+            tn::EDIT.to_string(),
             serde_json::json!({"path": path, "content": content}),
         ),
         AgentAction::Bash { command, cwd } => (
-            "Bash".to_string(),
+            tn::BASH.to_string(),
             serde_json::json!({"command": command, "cwd": cwd.unwrap_or_else(|| ".".to_string())}),
         ),
         AgentAction::ListFiles { path } => {
-            ("ListDir".to_string(), serde_json::json!({"path": path}))
+            (tn::LIST_DIR.to_string(), serde_json::json!({"path": path}))
         }
         AgentAction::Complete { message } => return format!("Task completed: {}", message),
     };
@@ -45,7 +46,7 @@ pub fn dispatch_agent_action(
 }
 
 pub fn summarize_tool_args(name: &str, partial_json: &str) -> String {
-    if name == "Bash" {
+    if name == tn::BASH {
         if let Ok(args) = serde_json::from_str::<serde_json::Value>(partial_json) {
             if let Some(cmd) = args.get("command").and_then(|v| v.as_str()) {
                 let cmd = cmd.trim();
@@ -108,7 +109,7 @@ pub fn execute_headless_tool(
     };
 
     // Bash-specific hints that improve agent behavior in headless mode.
-    if tool_name == "Bash" {
+    if tool_name == tn::BASH {
         if let Some(command) = args.get("command").and_then(|v| v.as_str()) {
             let cmd_lower = command.to_lowercase();
             let out_lower = output.to_lowercase();
@@ -406,7 +407,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "Edit" {
+    if tool_name == tn::EDIT {
         let out_lower = output.to_lowercase();
         if out_lower.contains("not found")
             || out_lower.contains("no match")
@@ -428,7 +429,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "Write" {
+    if tool_name == tn::WRITE {
         let out_lower = output.to_lowercase();
         if !out_lower.contains("error")
             && !out_lower.contains("failed")
@@ -451,7 +452,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "Grep" {
+    if tool_name == tn::GREP {
         let no_results = output.contains("no matches")
             || output.contains("No files found")
             || output.contains("0 matches")
@@ -471,7 +472,7 @@ pub fn execute_headless_tool(
         }
     }
 
-    if tool_name == "Read" {
+    if tool_name == tn::READ {
         let line_count = output.lines().count();
         let has_offset = args.get("offset").and_then(|v| v.as_u64()).unwrap_or(0) > 0;
         let has_limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(0) > 0;
@@ -503,7 +504,7 @@ pub fn enrich_tool_output_with_args(tool_name: &str, tool_json: &str, output: &s
 
     let mut output = output.to_string();
 
-    if tool_name == "Bash" {
+    if tool_name == tn::BASH {
         if let Some(command) = args.get("command").and_then(|v| v.as_str()) {
             let cmd_lower = command.to_lowercase();
             let out_lower = output.to_lowercase();
@@ -560,7 +561,7 @@ pub fn enrich_tool_output_with_args(tool_name: &str, tool_json: &str, output: &s
         }
     }
 
-    if tool_name == "Edit" {
+    if tool_name == tn::EDIT {
         let out_lower = output.to_lowercase();
         if out_lower.contains("not found") || out_lower.contains("no match") {
             let file_path = args
@@ -575,7 +576,7 @@ pub fn enrich_tool_output_with_args(tool_name: &str, tool_json: &str, output: &s
         }
     }
 
-    let hint_cmd = if tool_name == "Bash" {
+    let hint_cmd = if tool_name == tn::BASH {
         args.get("command")
             .and_then(|c| c.as_str())
             .unwrap_or("")

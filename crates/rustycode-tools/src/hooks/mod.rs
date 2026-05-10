@@ -661,19 +661,26 @@ impl HookManager {
 
     /// Synchronous wrapper for `execute` — uses tokio runtime if available.
     /// Falls back to returning no-block if no runtime is active (e.g. tests).
+    ///
+    /// Uses `block_in_place` to avoid panicking when called from within a
+    /// multi-threaded tokio runtime (e.g. the streaming tool-execution pipeline).
     pub fn execute_blocking(
         &self,
         trigger: HookTrigger,
         context: serde_json::Value,
     ) -> HookExecutionResult {
         match tokio::runtime::Handle::try_current() {
-            Ok(handle) => match handle.block_on(self.execute(trigger, context)) {
-                Ok(result) => result,
-                Err(e) => {
-                    tracing::error!("Hook execution error: {e}");
-                    HookExecutionResult::default()
+            Ok(handle) => {
+                let result =
+                    tokio::task::block_in_place(|| handle.block_on(self.execute(trigger, context)));
+                match result {
+                    Ok(result) => result,
+                    Err(e) => {
+                        tracing::error!("Hook execution error: {e}");
+                        HookExecutionResult::default()
+                    }
                 }
-            },
+            }
             Err(_) => {
                 // No tokio runtime — skip hooks gracefully
                 tracing::debug!("No tokio runtime, skipping {trigger} hooks");
@@ -683,6 +690,9 @@ impl HookManager {
     }
 
     /// Synchronous wrapper for `pre_tool_use`.
+    ///
+    /// Uses `block_in_place` to avoid panicking when called from within a
+    /// multi-threaded tokio runtime (e.g. the streaming tool-execution pipeline).
     pub fn pre_tool_use_blocking(
         &self,
         tool_name: &str,
@@ -690,18 +700,26 @@ impl HookManager {
         cwd: &Path,
     ) -> protocol::PreToolUseResult {
         match tokio::runtime::Handle::try_current() {
-            Ok(handle) => match handle.block_on(self.pre_tool_use(tool_name, tool_input, cwd)) {
-                Ok(result) => result,
-                Err(e) => {
-                    tracing::error!("PreToolUse hook error: {e}");
-                    protocol::PreToolUseResult::default()
+            Ok(handle) => {
+                let result = tokio::task::block_in_place(|| {
+                    handle.block_on(self.pre_tool_use(tool_name, tool_input, cwd))
+                });
+                match result {
+                    Ok(result) => result,
+                    Err(e) => {
+                        tracing::error!("PreToolUse hook error: {e}");
+                        protocol::PreToolUseResult::default()
+                    }
                 }
-            },
+            }
             Err(_) => protocol::PreToolUseResult::default(),
         }
     }
 
     /// Synchronous wrapper for `post_tool_use`.
+    ///
+    /// Uses `block_in_place` to avoid panicking when called from within a
+    /// multi-threaded tokio runtime (e.g. the streaming tool-execution pipeline).
     pub fn post_tool_use_blocking(
         &self,
         tool_name: &str,
@@ -711,8 +729,10 @@ impl HookManager {
     ) -> protocol::PostToolUseResult {
         match tokio::runtime::Handle::try_current() {
             Ok(handle) => {
-                match handle.block_on(self.post_tool_use(tool_name, tool_input, tool_response, cwd))
-                {
+                let result = tokio::task::block_in_place(|| {
+                    handle.block_on(self.post_tool_use(tool_name, tool_input, tool_response, cwd))
+                });
+                match result {
                     Ok(result) => result,
                     Err(e) => {
                         tracing::error!("PostToolUse hook error: {e}");

@@ -4,13 +4,14 @@
 //! preventing accidental destructive operations during the planning phase.
 
 use anyhow::{anyhow, Result};
+use rustycode_protocol::tool_names as tn;
 
 /// Tools allowed in plan mode (inspection only, no destructive ops)
 const INSPECTION_TOOLS: &[&str] = &[
     // File reading
     "read",
     // Code search
-    "Grep",
+    tn::GREP,
     "search_for_pattern",
     // Symbol inspection
     "find_symbol",
@@ -22,14 +23,14 @@ const INSPECTION_TOOLS: &[&str] = &[
     "findReferences",
     "documentSymbol",
     // Listing
-    "ListDir",
+    tn::LIST_DIR,
     "find_file",
-    "Glob",
+    tn::GLOB,
 ];
 
 /// Tools explicitly forbidden in plan mode
 const DESTRUCTIVE_TOOLS: &[&str] = &[
-    "Bash",   // Shell commands
+    tn::BASH, // Shell commands
     "write",  // File writes
     "edit",   // File edits
     "delete", // File deletion

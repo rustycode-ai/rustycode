@@ -6,6 +6,7 @@ use crate::{
     ExecutionMode, UnitCapabilities, UnitSource,
 };
 use async_trait::async_trait;
+use rustycode_protocol::tool_names as tn;
 
 /// Wraps native tools from `rustycode-tools` as `ExecutableUnit`s
 pub struct NativeToolLoader {
@@ -53,7 +54,7 @@ impl NativeToolLoader {
     /// and are included in tool definitions sent to the provider.
     fn get_examples(name: &str) -> Vec<ExecutionExample> {
         match name {
-            "Bash" => vec![
+            tn::BASH => vec![
                 ExecutionExample {
                     scenario: "List files in a directory".to_string(),
                     input: serde_json::json!({
@@ -89,7 +90,7 @@ impl NativeToolLoader {
                     ),
                 },
             ],
-            "read" | "Read" => vec![ExecutionExample {
+            "read" | tn::READ => vec![ExecutionExample {
                 scenario: "Read a source file".to_string(),
                 input: serde_json::json!({
                     "file_path": "/src/main.rs"
@@ -103,7 +104,7 @@ impl NativeToolLoader {
                 },
                 explanation: Some("Read the full contents of a file.".to_string()),
             }],
-            "edit" | "Edit" => vec![ExecutionExample {
+            "edit" | tn::EDIT => vec![ExecutionExample {
                 scenario: "Replace a function body".to_string(),
                 input: serde_json::json!({
                     "file_path": "/src/main.rs",
@@ -122,7 +123,7 @@ impl NativeToolLoader {
                     "Replace an exact string match in a file with a new string.".to_string(),
                 ),
             }],
-            "write" | "Write" => vec![ExecutionExample {
+            "write" | tn::WRITE => vec![ExecutionExample {
                 scenario: "Create a new file".to_string(),
                 input: serde_json::json!({
                     "file_path": "/src/config.toml",
@@ -139,7 +140,7 @@ impl NativeToolLoader {
                     "Write content to a file, creating or overwriting it.".to_string(),
                 ),
             }],
-            "Glob" => vec![ExecutionExample {
+            tn::GLOB => vec![ExecutionExample {
                 scenario: "Find Rust source files".to_string(),
                 input: serde_json::json!({
                     "pattern": "**/*.rs",
@@ -156,7 +157,7 @@ impl NativeToolLoader {
                     "Find files matching a glob pattern under a directory.".to_string(),
                 ),
             }],
-            "Grep" => vec![ExecutionExample {
+            tn::GREP => vec![ExecutionExample {
                 scenario: "Search for a string in source files".to_string(),
                 input: serde_json::json!({
                     "pattern": "fn main",

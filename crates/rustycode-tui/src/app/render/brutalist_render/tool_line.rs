@@ -1,5 +1,7 @@
 impl BrutalistRenderer<'_> {
     fn render_tool_line<'b>(&self, tool: &'b ToolExecution, colors: &ThemeColors) -> Line<'b> {
+        use rustycode_protocol::tool_names as tn;
+        
         let (icon, color) = match tool.status {
             ToolStatus::Running => {
                 let frames = ["◐", "◑", "◒", "◓"];
@@ -30,11 +32,11 @@ impl BrutalistRenderer<'_> {
         }
 
         let display_name = match tool.name.as_str() {
-            "Read" => "read",
-            "Write" => "write",
-            "Edit" | "ApplyPatch" => "edit",
-            "execute_command" | "Bash" => "sh",
-            "ListDir" | "list_files" => "ls",
+            tn::READ => "read",
+            tn::WRITE => "write",
+            tn::EDIT | tn::APPLY_PATCH => "edit",
+            "execute_command" | tn::BASH => "sh",
+            tn::LIST_DIR | "list_files" => "ls",
             n => n,
         };
         spans.push(Span::styled(

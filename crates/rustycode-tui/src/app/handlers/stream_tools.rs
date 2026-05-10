@@ -6,6 +6,7 @@
 use crate::app::TUI;
 use crate::ui::message::{ToolExecution, ToolStatus};
 use chrono;
+use rustycode_protocol::tool_names as tn;
 use tracing;
 
 use super::helpers::build_tool_summary_arg;
@@ -94,7 +95,7 @@ pub(super) fn handle_tool_start_chunk(
         Ok(()) => false,
         Err(reason) => {
             const DOC_EXTENSIONS: &[&str] = &[".md", ".txt", ".rst", ".adoc", ".doc", ".docx"];
-            if tool_name == "Write" {
+            if tool_name == tn::WRITE {
                 if let Some(path) = input_json
                     .as_ref()
                     .and_then(|v| v.get("path"))

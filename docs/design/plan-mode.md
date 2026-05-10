@@ -380,10 +380,10 @@ impl<'a> ExecutionSession<'a> {
 
 fn is_read_only_tool(tool: &ToolCall) -> bool {
     matches!(tool.name.as_str(),
-        "read" | "glob" | "grep" |
-        "git_status" | "git_log" | "git_diff" |
-        "lsp_hover" | "lsp_definition" | "lsp_references" |
-        "task_create" | "task_update" | "task_list" | "task_get"
+        "Read" | "Glob" | "Grep" |
+        "GitStatus" | "GitLog" | "GitDiff" |
+        "LspHover" | "LspDefinition" | "LspReferences" |
+        "TaskCreate" | "TaskUpdate" | "TaskList" | "TaskGet"
     )
 }
 ```
@@ -971,7 +971,7 @@ fn planning_mode_blocks_write_operations() {
     let mut plan_session = runtime.start_planning(&cwd(), "test task").unwrap();
 
     let write_tool = ToolCall {
-        name: "write".to_string(),
+        name: "Write".to_string(),
         arguments: vec![],
     };
 

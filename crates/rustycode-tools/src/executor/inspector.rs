@@ -27,6 +27,7 @@
 //! }
 //! ```
 
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
@@ -492,7 +493,7 @@ impl ToolInspector for SecurityInspector {
         _ctx: &ToolContext,
     ) -> InspectionResult {
         // Only inspect bash commands
-        if call.name != "Bash" {
+        if call.name != tn::BASH {
             return InspectionResult {
                 request_id: call.id.clone(),
                 action: InspectionAction::Allow,
@@ -1005,7 +1006,7 @@ impl ToolInspector for OsvInspector {
         _ctx: &ToolContext,
     ) -> InspectionResult {
         // Only inspect bash commands
-        if call.name != "Bash" {
+        if call.name != tn::BASH {
             return InspectionResult {
                 request_id: call.id.clone(),
                 action: InspectionAction::Allow,
@@ -1151,7 +1152,7 @@ impl ToolInspector for EgressInspector {
         _history: &[ToolCallInfo],
         _ctx: &ToolContext,
     ) -> InspectionResult {
-        if !is_shell_tool(&call.name) && call.name != "WebFetch" {
+        if !is_shell_tool(&call.name) && call.name != tn::WEB_FETCH {
             return InspectionResult {
                 request_id: call.id.clone(),
                 action: InspectionAction::Allow,

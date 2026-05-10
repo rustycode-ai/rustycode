@@ -40,13 +40,13 @@ Tools are categorized into four permission levels:
 
 **Tools with Read Permission**:
 - `Read` - Read file contents
-- `list_dir` - List directory contents
+- `ListDir` - List directory contents
 - `Grep` - Search file contents with regex
 - `Glob` - Find files by pattern
-- `git_status` - Show git repository status
-- `git_diff` - Show git diffs
-- `git_log` - Show git commit history
-- `lsp_diagnostics` - Show LSP server status
+- `GitStatus` - Show git repository status
+- `GitDiff` - Show git diffs
+- `GitLog` - Show git commit history
+- `LspDiagnostics` - Show LSP server status
 
 ### 2. Write
 
@@ -62,7 +62,7 @@ Tools are categorized into four permission levels:
 - `Write` - Write or overwrite files
 - `Edit` - Edit existing files with search/replace
 - `MultiEdit` - Apply multiple edits in one operation
-- `git_commit` - Create git commits (modifies .git directory)
+- `GitCommit` - Create git commits (modifies .git directory)
 
 ### 3. Execute
 
@@ -108,7 +108,7 @@ Tools are categorized into four permission levels:
 **Blocked Tools**:
 - `Write`
 - `Edit`
-- `git_commit`
+- `GitCommit`
 - `Bash`
 - Any future Dangerous tools
 
@@ -130,15 +130,15 @@ Tools are categorized into four permission levels:
 | Tool Name | Permission | Planning Mode | Executing Mode | Category | Risk Level |
 |-----------|------------|---------------|----------------|----------|------------|
 | `Read` | Read | ✅ Allowed | ✅ Allowed | Filesystem | None |
-| `list_dir` | Read | ✅ Allowed | ✅ Allowed | Filesystem | None |
+| `ListDir` | Read | ✅ Allowed | ✅ Allowed | Filesystem | None |
 | `Grep` | Read | ✅ Allowed | ✅ Allowed | Search | None |
 | `Glob` | Read | ✅ Allowed | ✅ Allowed | Search | None |
-| `git_status` | Read | ✅ Allowed | ✅ Allowed | Git | None |
-| `git_diff` | Read | ✅ Allowed | ✅ Allowed | Git | None |
-| `git_log` | Read | ✅ Allowed | ✅ Allowed | Git | None |
-| `lsp_diagnostics` | Read | ✅ Allowed | ✅ Allowed | LSP | None |
+| `GitStatus` | Read | ✅ Allowed | ✅ Allowed | Git | None |
+| `GitDiff` | Read | ✅ Allowed | ✅ Allowed | Git | None |
+| `GitLog` | Read | ✅ Allowed | ✅ Allowed | Git | None |
+| `LspDiagnostics` | Read | ✅ Allowed | ✅ Allowed | LSP | None |
 | `Write` | Write | ❌ Blocked | ✅ Allowed | Filesystem | Medium |
-| `git_commit` | Write | ❌ Blocked | ✅ Allowed | Git | Medium |
+| `GitCommit` | Write | ❌ Blocked | ✅ Allowed | Git | Medium |
 | `Bash` | Execute | ❌ Blocked | ✅ Allowed | Shell | High |
 | `dangerous_tool` | Dangerous | ❌ Blocked | ❌ Blocked | Destructive | Critical |
 
@@ -492,13 +492,13 @@ mod tests {
     fn test_read_tools_allowed_in_planning_mode() {
         assert!(check_tool_permission("Read", SessionMode::Planning));
         assert!(check_tool_permission("Grep", SessionMode::Planning));
-        assert!(check_tool_permission("list_dir", SessionMode::Planning));
+        assert!(check_tool_permission("ListDir", SessionMode::Planning));
     }
 
     #[test]
     fn test_write_tools_blocked_in_planning_mode() {
         assert!(!check_tool_permission("Write", SessionMode::Planning));
-        assert!(!check_tool_permission("git_commit", SessionMode::Planning));
+        assert!(!check_tool_permission("GitCommit", SessionMode::Planning));
     }
 
     #[test]
@@ -604,7 +604,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 - **Planning Mode**: ❌ Blocked
 - **Executing Mode**: ✅ Allowed
 
-#### list_dir
+#### ListDir
 - **Permission**: Read
 - **Description**: List directory entries relative to current workspace
 - **Parameters**:
@@ -633,14 +633,14 @@ cargo test test_read_tools_allowed_in_planning_mode
 
 ### Git Tools
 
-#### git_status
+#### GitStatus
 - **Permission**: Read
 - **Description**: Show git status for current workspace
 - **Parameters**: None
 - **Planning Mode**: ✅ Allowed
 - **Executing Mode**: ✅ Allowed
 
-#### git_diff
+#### GitDiff
 - **Permission**: Read
 - **Description**: Show git diff, optionally staged and/or for a specific path
 - **Parameters**:
@@ -649,7 +649,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 - **Planning Mode**: ✅ Allowed
 - **Executing Mode**: ✅ Allowed
 
-#### git_log
+#### GitLog
 - **Permission**: Read
 - **Description**: Show recent git commits
 - **Parameters**:
@@ -657,7 +657,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 - **Planning Mode**: ✅ Allowed
 - **Executing Mode**: ✅ Allowed
 
-#### git_commit
+#### GitCommit
 - **Permission**: Write
 - **Description**: Stage files and create a git commit with provided message
 - **Parameters**:
@@ -680,7 +680,7 @@ cargo test test_read_tools_allowed_in_planning_mode
 
 ### LSP Tools
 
-#### lsp_diagnostics
+#### LspDiagnostics
 - **Permission**: Read
 - **Description**: Report which configured language servers are installed
 - **Parameters**:

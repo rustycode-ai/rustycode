@@ -6133,6 +6133,7 @@ dependencies = [
  "async-trait",
  "criterion",
  "futures",
+ "rustycode-protocol",
  "serde",
  "serde_json",
  "tempfile",

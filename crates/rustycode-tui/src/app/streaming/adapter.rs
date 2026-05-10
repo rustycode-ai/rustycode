@@ -4,6 +4,7 @@ use rustycode_agent_runtime::{AgentEvents, AgentResult, ApprovalDecision};
 use rustycode_core::streaming::ToolCall;
 use rustycode_orchestration::bus::OrchestrationEvent;
 use rustycode_protocol::stream_event::StreamEvent;
+use rustycode_protocol::tool_names as tn;
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, SyncSender};
 use std::time::Duration;
@@ -321,7 +322,7 @@ impl AgentEvents for StreamEventAdapter {
             .unwrap_or_default();
 
         // Extract the actual command for bash tools (not the key=value diff)
-        let bash_command = if tool_name == "Bash" {
+        let bash_command = if tool_name == tn::BASH {
             input
                 .as_object()
                 .and_then(|obj| obj.get("command"))
@@ -338,7 +339,7 @@ impl AgentEvents for StreamEventAdapter {
 
         // Classify risk for logging
         let tool_type = crate::tool_approval::risk::classify_tool_type(tool_name);
-        let risk_command = if tool_name == "Bash" {
+        let risk_command = if tool_name == tn::BASH {
             bash_command.to_string()
         } else {
             input.to_string()
@@ -349,7 +350,7 @@ impl AgentEvents for StreamEventAdapter {
             tool_name,
             risk,
             tool_type,
-            if tool_name == "Bash" {
+            if tool_name == tn::BASH {
                 bash_command
             } else {
                 &diff
@@ -358,7 +359,7 @@ impl AgentEvents for StreamEventAdapter {
 
         // For bash tools, send the raw command (not key=value) so the TUI's
         // SmartApprove can properly classify read-only vs dangerous commands.
-        let display_diff = if tool_name == "Bash" && !bash_command.is_empty() {
+        let display_diff = if tool_name == tn::BASH && !bash_command.is_empty() {
             Some(bash_command.to_string())
         } else {
             Some(diff)

@@ -18,7 +18,7 @@ Every tool output includes these base fields:
 
 ```json
 {
-  "tool_name": "string",           // Tool identifier (e.g., "bash", "read_file")
+  "tool_name": "string",           // Tool identifier (e.g., "Bash", "Read")
   "success": boolean,               // true if operation succeeded
   "execution_time_ms": number,      // Execution duration in milliseconds
   "error": string | null,           // Error message if failed

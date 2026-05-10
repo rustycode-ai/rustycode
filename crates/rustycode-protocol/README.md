@@ -76,7 +76,7 @@ let msg = Message {
 
 // Create a tool call and result
 let call = ToolCall {
-    tool_name: "bash".to_string(),
+    tool_name: "Bash".to_string(),
     arguments: serde_json::json!({ "command": "ls" }),
 };
 

@@ -14,6 +14,7 @@ use rustycode_guard::codec::{HookInput, HookResult};
 use rustycode_guard::pre_tool;
 use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_orchestration::plan_mode::PlanMode;
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::ToolCall;
 use rustycode_tools::ToolExecutor;
 
@@ -31,12 +32,12 @@ pub fn execute_tool(
 ) -> String {
     // Normalize tool names from different providers to our canonical names
     let tool_name = match tool_name {
-        "Edit" => "Edit",
-        "Read" => "Read",
-        "Write" | "Create" => "Write",
-        "Bash" | "Shell" => "Bash",
-        "Grep" | "Search" => "Grep",
-        "Glob" | "Find" => "Glob",
+        tn::EDIT => tn::EDIT,
+        tn::READ => tn::READ,
+        tn::WRITE | "Create" => tn::WRITE,
+        tn::BASH | "Shell" => tn::BASH,
+        tn::GREP | "Search" => tn::GREP,
+        tn::GLOB | "Find" => tn::GLOB,
         other => other,
     };
 
@@ -150,7 +151,7 @@ pub fn execute_tool(
         .map(|s| s.to_string());
 
     // Check file read cache for read_file tool
-    if tool_name == "Read" {
+    if tool_name == tn::READ {
         if let Some(ref path_value) = path_str {
             let file_path = cwd.join(path_value);
             if let Some(cache) = file_read_cache {
@@ -243,7 +244,7 @@ pub fn execute_tool(
         tracing::info!("Tool executed successfully");
 
         // Record successful file reads in cache
-        if tool_name == "Read" {
+        if tool_name == tn::READ {
             if let Some(ref path_value) = path_str {
                 let file_path = cwd.join(path_value);
                 if let Some(cache) = file_read_cache {

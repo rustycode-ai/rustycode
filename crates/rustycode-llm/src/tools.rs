@@ -3,6 +3,7 @@
 //! This module defines common tools that can be exposed to LLMs (Claude, GPT, etc.)
 //! to enable them to execute actions like running commands, reading files, etc.
 
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -85,7 +86,7 @@ impl ToolDefinition {
 /// Bash/command execution tool
 fn bash_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "Bash",
+        tn::BASH,
         "Executes a given bash command and returns its output. \
          The working directory persists between commands, but shell state does not. \
          The shell environment is initialized from the user's profile (bash or zsh). \
@@ -137,7 +138,7 @@ fn bash_tool() -> ToolDefinition {
 /// File reading tool
 fn read_file_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "Read",
+        tn::READ,
         "Reads a file from the local filesystem. You can access any file directly by using this tool. \
          The file_path parameter must be an absolute path, not a relative path. \
          By default, it reads up to 2000 lines starting from the beginning of the file. \
@@ -181,7 +182,7 @@ fn read_file_tool() -> ToolDefinition {
 /// File writing tool
 fn write_file_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "Write",
+        tn::WRITE,
         "Write content to a file. Creates the file if it doesn't exist, overwrites if it does. \
          Prefer the edit tool for modifying existing files — it only sends the diff. \
          Only use this tool to create new files or for complete rewrites. \
@@ -212,7 +213,7 @@ fn write_file_tool() -> ToolDefinition {
 /// Web fetch tool
 fn web_fetch_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "WebFetch",
+        tn::WEB_FETCH,
         "Fetches content from a URL and converts it to markdown for analysis. \
          Takes a URL and an optional prompt describing what to extract. \
          HTTP URLs are automatically upgraded to HTTPS. \
@@ -249,7 +250,7 @@ fn web_fetch_tool() -> ToolDefinition {
 /// File editing tool — performs exact string replacement in files
 fn edit_file_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "Edit",
+        tn::EDIT,
         "Performs exact string replacements in files. \
          You MUST read the file first before editing it. \
          The edit will FAIL if old_string is not unique in the file — \
@@ -290,7 +291,7 @@ fn edit_file_tool() -> ToolDefinition {
 /// Content search tool — search file contents with regex
 fn grep_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "Grep",
+        tn::GREP,
         "Search file contents using regex patterns (built on ripgrep). \
          ALWAYS use this tool instead of running grep/rg as a bash command. \
          Supports full regex syntax (e.g., \"log.*Error\", \"function\\s+\\w+\"). \
@@ -371,7 +372,7 @@ fn grep_tool() -> ToolDefinition {
 /// File pattern matching tool — find files by name patterns
 fn glob_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "Glob",
+        tn::GLOB,
         "Find files matching glob patterns. Fast file pattern matching that works with any codebase size. \
          Returns matching file paths sorted by modification time. \
          Use this when you need to find files by name patterns. \
@@ -400,7 +401,7 @@ fn glob_tool() -> ToolDefinition {
 /// Web search tool (server-side - executed by Anthropic)
 fn web_search_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "WebSearch",
+        tn::WEB_SEARCH,
         "Search the web and use the results to inform responses. \
          Provides up-to-date information for current events and recent data. \
          Returns search result information formatted as search result blocks, including links as markdown hyperlinks. \
@@ -446,7 +447,7 @@ fn web_search_tool() -> ToolDefinition {
 /// Tool search tool (server-side - executed by Anthropic)
 fn tool_search_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "ToolSearch",
+        tn::TOOL_SEARCH,
         "Search for available tools by name, description, or functionality. Use this when you need to discover a smaller, relevant subset of tools instead of loading every available tool definition into context.",
         json!({
             "type": "object",
@@ -476,7 +477,7 @@ fn code_execution_tool() -> ToolDefinition {
 /// LSP diagnostics tool
 fn lsp_diagnostics_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspDiagnostics",
+        tn::LSP_DIAGNOSTICS,
         "Get diagnostics (errors, warnings, hints) for a source file using the Language Server Protocol. Use this when user asks about errors, warnings, code quality, or 'check this file'. Requires an LSP server like rust-analyzer to be installed.",
         json!({
             "type": "object",
@@ -498,7 +499,7 @@ fn lsp_diagnostics_tool() -> ToolDefinition {
 /// LSP hover tool
 fn lsp_hover_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspHover",
+        tn::LSP_HOVER,
         "Get hover information (type signature, documentation) for a symbol at a specific position. Use this when user asks 'what is this', 'what type is', 'how does this work', or 'show me documentation for'.",
         json!({
             "type": "object",
@@ -527,7 +528,7 @@ fn lsp_hover_tool() -> ToolDefinition {
 /// LSP go to definition tool
 fn lsp_definition_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspDefinition",
+        tn::LSP_DEFINITION,
         "Find the definition of a symbol at a specific position. Use this when user asks 'where is this defined', 'find the definition', 'go to definition', or 'show me where this comes from'.",
         json!({
             "type": "object",
@@ -556,7 +557,7 @@ fn lsp_definition_tool() -> ToolDefinition {
 /// LSP completion tool
 fn lsp_completion_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspCompletion",
+        tn::LSP_COMPLETION,
         "Get code completions at a specific position. Use this when user asks for completions, autocomplete, 'what can I use here', or 'show me available methods/functions'.",
         json!({
             "type": "object",
@@ -585,7 +586,7 @@ fn lsp_completion_tool() -> ToolDefinition {
 /// LSP find references tool
 fn lsp_references_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspReferences",
+        tn::LSP_REFERENCES,
         "Find all references to a symbol at a specific position across the workspace. \
          Use this when user asks 'where is this used', 'find all usages', or 'show me references to'.",
         json!({
@@ -614,7 +615,7 @@ fn lsp_references_tool() -> ToolDefinition {
 /// LSP document symbols tool
 fn lsp_document_symbols_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspDocumentSymbols",
+        tn::LSP_DOCUMENT_SYMBOLS,
         "Get all symbols (functions, classes, variables) in a document. \
          Use this to quickly understand the structure of a file.",
         json!({
@@ -634,7 +635,7 @@ fn lsp_document_symbols_tool() -> ToolDefinition {
 /// LSP go to implementation tool
 fn lsp_implementation_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspImplementation",
+        tn::LSP_IMPLEMENTATION,
         "Find implementations of an interface or abstract method at a specific position. \
          Use this when user asks 'what implements this', 'find implementors', or 'show me implementations'.",
         json!({
@@ -663,7 +664,7 @@ fn lsp_implementation_tool() -> ToolDefinition {
 /// LSP call hierarchy tool — incoming calls
 fn lsp_incoming_calls_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspIncomingCalls",
+        tn::LSP_INCOMING_CALLS,
         "Find all functions/methods that call the function at a specific position. \
          Use this to understand what code depends on a function.",
         json!({
@@ -693,7 +694,7 @@ fn lsp_incoming_calls_tool() -> ToolDefinition {
 /// LSP call hierarchy tool — outgoing calls
 fn lsp_outgoing_calls_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspOutgoingCalls",
+        tn::LSP_OUTGOING_CALLS,
         "Find all functions/methods called by the function at a specific position. \
          Use this to understand what a function depends on.",
         json!({
@@ -723,7 +724,7 @@ fn lsp_outgoing_calls_tool() -> ToolDefinition {
 /// LSP full diagnostics tool
 fn lsp_full_diagnostics_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspFullDiagnostics",
+        tn::LSP_FULL_DIAGNOSTICS,
         "Get comprehensive diagnostics (errors, warnings, hints) with full context for a file. More detailed than lsp_diagnostics. Use this when you need complete error information including related diagnostics.",
         json!({
             "type": "object",
@@ -743,7 +744,7 @@ fn lsp_full_diagnostics_tool() -> ToolDefinition {
 /// LSP code actions tool
 fn lsp_code_actions_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspCodeActions",
+        tn::LSP_CODE_ACTIONS,
         "Get available code actions (quick fixes, refactorings, source actions) for a range. Use this to find automated fixes for diagnostics or to apply refactorings.",
         json!({
             "type": "object",
@@ -779,7 +780,7 @@ fn lsp_code_actions_tool() -> ToolDefinition {
 /// LSP rename tool
 fn lsp_rename_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspRename",
+        tn::LSP_RENAME,
         "Rename a symbol at a position across all references in the workspace. Use this to safely rename variables, functions, types, etc.",
         json!({
             "type": "object",
@@ -811,7 +812,7 @@ fn lsp_rename_tool() -> ToolDefinition {
 /// LSP formatting tool
 fn lsp_formatting_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspFormatting",
+        tn::LSP_FORMATTING,
         "Format a file or range using the language server's formatter. Use this to auto-format code according to project style.",
         json!({
             "type": "object",
@@ -848,7 +849,7 @@ fn lsp_formatting_tool() -> ToolDefinition {
 /// Get symbols overview tool
 fn lsp_get_symbols_overview_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspGetSymbolsOverview",
+        tn::LSP_GET_SYMBOLS_OVERVIEW,
         "Get a compact hierarchical overview of symbols in a file grouped by kind (functions, structs, impls, etc.). Use this to quickly understand a file's structure without reading the entire content.",
         json!({
             "type": "object",
@@ -873,7 +874,7 @@ fn lsp_get_symbols_overview_tool() -> ToolDefinition {
 /// Find symbol tool
 fn lsp_find_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspFindSymbol",
+        tn::LSP_FIND_SYMBOL,
         "Find symbols by name path pattern in a file. Use this to locate specific functions, structs, or methods. Supports qualified names like 'MyClass/my_method'.",
         json!({
             "type": "object",
@@ -902,7 +903,7 @@ fn lsp_find_symbol_tool() -> ToolDefinition {
 /// Replace symbol body tool
 fn lsp_replace_symbol_body_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspReplaceSymbolBody",
+        tn::LSP_REPLACE_SYMBOL_BODY,
         "Replace a symbol's entire body with new content. Use this to rewrite a function, method, or other definition. The symbol is identified by name path.",
         json!({
             "type": "object",
@@ -930,7 +931,7 @@ fn lsp_replace_symbol_body_tool() -> ToolDefinition {
 /// Insert before symbol tool
 fn lsp_insert_before_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspInsertBeforeSymbol",
+        tn::LSP_INSERT_BEFORE_SYMBOL,
         "Insert text before a symbol's definition. Use this to add new items (functions, imports, fields) above an existing symbol.",
         json!({
             "type": "object",
@@ -956,7 +957,7 @@ fn lsp_insert_before_symbol_tool() -> ToolDefinition {
 /// Insert after symbol tool
 fn lsp_insert_after_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspInsertAfterSymbol",
+        tn::LSP_INSERT_AFTER_SYMBOL,
         "Insert text after a symbol's definition. Use this to add new items after an existing symbol.",
         json!({
             "type": "object",
@@ -982,7 +983,7 @@ fn lsp_insert_after_symbol_tool() -> ToolDefinition {
 /// Safe delete symbol tool
 fn lsp_safe_delete_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspSafeDeleteSymbol",
+        tn::LSP_SAFE_DELETE_SYMBOL,
         "Safely delete a symbol after checking for references. Will report if the symbol is still used elsewhere. Use this instead of text-based deletion to avoid breaking references.",
         json!({
             "type": "object",
@@ -1006,7 +1007,7 @@ fn lsp_safe_delete_symbol_tool() -> ToolDefinition {
 /// Rename symbol (by name path) tool
 fn lsp_rename_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspRenameSymbol",
+        tn::LSP_RENAME_SYMBOL,
         "Rename a symbol across the codebase by name path. Use this when you know the symbol name but not its exact position.",
         json!({
             "type": "object",
@@ -1034,7 +1035,7 @@ fn lsp_rename_symbol_tool() -> ToolDefinition {
 /// Analyze symbol tool
 fn lsp_analyze_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspAnalyzeSymbol",
+        tn::LSP_ANALYZE_SYMBOL,
         "Analyze a symbol to get its references, implementations, and complexity metrics. Use this for deep code understanding before refactoring.",
         json!({
             "type": "object",
@@ -1060,7 +1061,7 @@ fn lsp_analyze_symbol_tool() -> ToolDefinition {
 /// Extract symbol tool
 fn lsp_extract_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspExtractSymbol",
+        tn::LSP_EXTRACT_SYMBOL,
         "Extract a symbol definition to a new file or module. Use this to refactor code by moving functions, structs, or traits to their own files.",
         json!({
             "type": "object",
@@ -1086,7 +1087,7 @@ fn lsp_extract_symbol_tool() -> ToolDefinition {
 /// Inline symbol tool
 fn lsp_inline_symbol_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "LspInlineSymbol",
+        tn::LSP_INLINE_SYMBOL,
         "Inline a symbol definition at all its usage sites. Use this to remove unnecessary abstraction by replacing calls with the actual implementation.",
         json!({
             "type": "object",
@@ -1108,7 +1109,7 @@ fn lsp_inline_symbol_tool() -> ToolDefinition {
 /// Notebook editing tool — replace, insert, or delete cells in Jupyter notebooks
 fn notebook_edit_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "NotebookEdit",
+        tn::NOTEBOOK_EDIT,
         "Completely replaces the contents of a specific cell in a Jupyter notebook (.ipynb file) with new source. \
          Jupyter notebooks are interactive documents that combine code, text, and visualizations, \
          commonly used for data analysis and scientific computing. \
@@ -1153,7 +1154,7 @@ fn notebook_edit_tool() -> ToolDefinition {
 /// Todo list management tool for tracking session tasks
 fn todo_write_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "TodoWrite",
+        tn::TODO_WRITE,
         "Create and manage a structured task list for tracking progress on complex work. \
          Each call replaces the entire list. Use this tool proactively to organize multi-step work, \
          demonstrate thoroughness, and help the user understand progress.\n\n\
@@ -1239,7 +1240,7 @@ fn todo_write_tool() -> ToolDefinition {
 /// Update a single todo item by ID
 fn todo_update_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "TodoUpdate",
+        tn::TODO_UPDATE,
         "Update a single todo item by ID. Use this to mark a task in_progress, completed, or cancelled \
          without rewriting the full list. At least one of status, title, or activeForm must be provided. \
          Prefer this over todo_write when you only need to change one item's status.",
@@ -1276,7 +1277,7 @@ fn todo_update_tool() -> ToolDefinition {
 /// Read the current todo list
 fn todo_read_tool() -> ToolDefinition {
     ToolDefinition::new(
-        "TodoRead",
+        tn::TODO_READ,
         "Read the current todo list. Returns all items with their IDs, titles, statuses, and active forms. \
          Use this before calling todo_write or todo_update to understand the current state.",
         json!({

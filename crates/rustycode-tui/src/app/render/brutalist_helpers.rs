@@ -2,6 +2,7 @@
 //!
 //! Utility functions for formatting and display in the brutalist TUI.
 
+use rustycode_protocol::tool_names as tn;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// Max display width for tool parameter shortening.
@@ -312,14 +313,14 @@ pub fn find_byte(bytes: &[u8], byte: u8) -> Option<usize> {
 /// (split on `_`, `-`, `:`) with case-sensitive comparison.
 pub fn tool_type_icon(name: &str) -> &'static str {
     match name {
-        "Read" | "View" => "◎",
-        "Write" | "Create" => "✎",
-        "Edit" | "MultiEdit" | "ApplyPatch" => "✎",
-        "Bash" => "▸",
-        "Grep" | "Search" | "WebSearch" => "⌕",
-        "Glob" | "ListDir" => "⋮",
-        "WebFetch" => "◉",
-        "NotebookEdit" => "◎",
+        tn::READ | "View" => "◎",
+        tn::WRITE | "Create" => "✎",
+        tn::EDIT | tn::MULTI_EDIT | tn::APPLY_PATCH => "✎",
+        tn::BASH => "▸",
+        tn::GREP | "Search" | tn::WEB_SEARCH => "⌕",
+        tn::GLOB | tn::LIST_DIR => "⋮",
+        tn::WEB_FETCH => "◉",
+        tn::NOTEBOOK_EDIT => "◎",
         _ => icon_type_from_segments(name),
     }
 }

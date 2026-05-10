@@ -14,6 +14,7 @@
 //! - **All**: All tools available
 
 use crate::edit_format::{self, EditFormat};
+use crate::tool_names as tn;
 use crate::tool_selection::{ToolProfile, UsageTracker};
 use crate::ToolRegistry;
 use std::collections::HashSet;
@@ -277,7 +278,7 @@ impl ToolSelector {
 
             let primary = format.primary_tool().to_string();
             if !available.contains(&primary) {
-                available.retain(|t| t != "edit");
+                available.retain(|t| t != tn::EDIT);
                 available.push(primary);
             }
 

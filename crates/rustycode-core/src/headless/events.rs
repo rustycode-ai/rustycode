@@ -1,5 +1,6 @@
 use rustycode_agent_runtime::{AgentEvents, AgentResult};
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
+use rustycode_protocol::tool_names as tn;
 
 #[derive(Default)]
 pub struct HeadlessAgentBridge;
@@ -22,7 +23,7 @@ impl AgentEvents for HeadlessAgentBridge {
         use rustycode_tools_security::approve::SmartApprove;
 
         let sa = SmartApprove::new();
-        let command = if tool_name == "Bash" {
+        let command = if tool_name == tn::BASH {
             input
                 .as_object()
                 .and_then(|obj| obj.get("command"))

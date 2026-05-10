@@ -42,7 +42,7 @@ async fn main() -> anyhow::Result<()> {
     // Execute a tool call
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "Cargo.toml"}),
     };
 
@@ -137,7 +137,7 @@ fn read_file_example() -> anyhow::Result<()> {
     // Read entire file
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "src/main.rs"}),
     };
     let result = executor.execute(&call);
@@ -145,7 +145,7 @@ fn read_file_example() -> anyhow::Result<()> {
     // Read specific line range (lines 10-20)
     let call = ToolCall {
         call_id: "2".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({
             "path": "src/main.rs",
             "start_line": 10,
@@ -170,7 +170,7 @@ fn write_file_example() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "write_file".to_string(),
+        name: "Write".to_string(),
         arguments: json!({
             "path": "src/new_file.rs",
             "content": "fn main() {\n    println!(\"Hello, world!\");\n}\n"
@@ -204,7 +204,7 @@ fn list_dir_example() -> anyhow::Result<()> {
     // List all files recursively
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "list_dir".to_string(),
+        name: "ListDir".to_string(),
         arguments: json!({
             "path": "src",
             "recursive": true,
@@ -215,7 +215,7 @@ fn list_dir_example() -> anyhow::Result<()> {
     // List only Rust files
     let call = ToolCall {
         call_id: "2".to_string(),
-        name: "list_dir".to_string(),
+        name: "ListDir".to_string(),
         arguments: json!({
             "path": "src",
             "recursive": true,
@@ -226,7 +226,7 @@ fn list_dir_example() -> anyhow::Result<()> {
     // List only directories
     let call = ToolCall {
         call_id: "3".to_string(),
-        name: "list_dir".to_string(),
+        name: "ListDir".to_string(),
         arguments: json!({
             "path": ".",
             "recursive": false,
@@ -251,7 +251,7 @@ fn batch_process_files() -> anyhow::Result<()> {
     // First, list all Rust files
     let list_call = ToolCall {
         call_id: "1".to_string(),
-        name: "glob".to_string(),
+        name: "Glob".to_string(),
         arguments: json!({"pattern": "**/*.rs"}),
     };
 
@@ -271,7 +271,7 @@ fn batch_process_files() -> anyhow::Result<()> {
     for (i, file) in files.iter().enumerate() {
         let call = ToolCall {
             call_id: format!("read-{}", i),
-            name: "read_file".to_string(),
+            name: "Read".to_string(),
             arguments: json!({"path": file}),
         };
 
@@ -309,7 +309,7 @@ fn grep_example() -> anyhow::Result<()> {
     // Simple pattern search
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "grep".to_string(),
+        name: "Grep".to_string(),
         arguments: json!({
             "pattern": r"async\s+fn",
             "path": "src"
@@ -340,7 +340,7 @@ fn grep_with_context() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "grep".to_string(),
+        name: "Grep".to_string(),
         arguments: json!({
             "pattern": r"TODO|FIXME",
             "path": "src",
@@ -368,7 +368,7 @@ fn grep_limited() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "grep".to_string(),
+        name: "Grep".to_string(),
         arguments: json!({
             "pattern": r"println!",
             "path": "src",
@@ -396,7 +396,7 @@ fn glob_example() -> anyhow::Result<()> {
     // Find all Rust files
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "glob".to_string(),
+        name: "Glob".to_string(),
         arguments: json!({"pattern": "**/*.rs"}),
     };
 
@@ -434,7 +434,7 @@ fn bash_example() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         arguments: json!({
             "command": "cargo test",
             "timeout_secs": 60
@@ -469,7 +469,7 @@ fn bash_with_cwd() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         arguments: json!({
             "command": "npm install",
             "cwd": "frontend",
@@ -497,7 +497,7 @@ fn adaptive_timeout() -> anyhow::Result<()> {
     loop {
         let call = ToolCall {
             call_id: "1".to_string(),
-            name: "bash".to_string(),
+            name: "Bash".to_string(),
             arguments: json!({
                 "command": "cargo build",
                 "timeout_secs": timeout
@@ -552,7 +552,7 @@ fn web_fetch_example() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "web_fetch".to_string(),
+        name: "WebFetch".to_string(),
         arguments: json!({
             "url": "https://example.com/docs",
             "convert_markdown": true
@@ -597,7 +597,7 @@ fn web_fetch_with_retry() -> anyhow::Result<()> {
     for url in urls {
         let call = ToolCall {
             call_id: "fetch".to_string(),
-            name: "web_fetch".to_string(),
+            name: "WebFetch".to_string(),
             arguments: json!({"url": url}),
         };
 
@@ -635,7 +635,7 @@ fn git_status_example() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "git_status".to_string(),
+        name: "GitStatus".to_string(),
         arguments: serde_json::json!({}),
     };
 
@@ -665,7 +665,7 @@ fn git_diff_example() -> anyhow::Result<()> {
     // Diff specific file
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "git_diff".to_string(),
+        name: "GitDiff".to_string(),
         arguments: json!({
             "path_spec": "src/main.rs",
             "color_words": true
@@ -698,7 +698,7 @@ fn git_commit_example() -> anyhow::Result<()> {
     // First, check status
     let status_call = ToolCall {
         call_id: "1".to_string(),
-        name: "git_status".to_string(),
+        name: "GitStatus".to_string(),
         arguments: json!({}),
     };
 
@@ -711,7 +711,7 @@ fn git_commit_example() -> anyhow::Result<()> {
         if staged > 0 {
             let commit_call = ToolCall {
                 call_id: "2".to_string(),
-                name: "git_commit".to_string(),
+                name: "GitCommit".to_string(),
                 arguments: json!({
                     "message": "feat: Add new feature"
                 }),
@@ -745,7 +745,7 @@ fn git_log_analysis() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "git_log".to_string(),
+        name: "GitLog".to_string(),
         arguments: json!({
             "limit": 20
         }),
@@ -780,7 +780,7 @@ fn lsp_diagnostics_example() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "lsp_diagnostics".to_string(),
+        name: "LspDiagnostics".to_string(),
         arguments: serde_json::json!({}),
     };
 
@@ -808,7 +808,7 @@ fn lsp_hover_example() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "lsp_hover".to_string(),
+        name: "LspHover".to_string(),
         arguments: json!({
             "file": "src/main.rs",
             "line": 42,
@@ -854,7 +854,7 @@ async fn main() -> anyhow::Result<()> {
     // First call - executes and caches result
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "Cargo.toml"}),
     };
 
@@ -889,7 +889,7 @@ async fn main() -> anyhow::Result<()> {
     // Read file
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "src/main.rs"}),
     };
 
@@ -1114,7 +1114,7 @@ fn comprehensive_error_handling() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": "nonexistent.txt"}),
     };
 
@@ -1160,7 +1160,7 @@ fn retry_with_backoff() -> anyhow::Result<()> {
 
     let call = ToolCall {
         call_id: "1".to_string(),
-        name: "bash".to_string(),
+        name: "Bash".to_string(),
         arguments: json!({
             "command": "curl https://api.example.com/data",
             "timeout_secs": 10
@@ -1230,7 +1230,7 @@ fn parallel_file_processing() -> anyhow::Result<()> {
             thread::spawn(move || {
                 let call = ToolCall {
                     call_id: "1".to_string(),
-                    name: "read_file".to_string(),
+                    name: "Read".to_string(),
                     arguments: json!({"path": file}),
                 };
 
@@ -1279,7 +1279,7 @@ async fn batch_with_cache() -> anyhow::Result<()> {
             async move {
                 let call = rustycode_protocol::ToolCall {
                     call_id: "1".to_string(),
-                    name: "read_file".to_string(),
+                    name: "Read".to_string(),
                     arguments: serde_json::json!({"path": file}),
                 };
 

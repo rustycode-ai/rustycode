@@ -48,7 +48,9 @@ where
     F: std::future::Future<Output = T>,
 {
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
-        Ok(handle.block_on(future))
+        // Use block_in_place to avoid panicking when called from within a
+        // multi-threaded tokio runtime (e.g. during orchestration).
+        Ok(tokio::task::block_in_place(|| handle.block_on(future)))
     } else {
         let runtime = tokio::runtime::Runtime::new().map_err(|e| format!("runtime error: {e}"))?;
         Ok(runtime.block_on(future))

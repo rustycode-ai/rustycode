@@ -9,6 +9,7 @@
 
 use lru::LruCache;
 use parking_lot::RwLock;
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -293,7 +294,7 @@ impl ToolCache {
 
         if let Some(obj) = arguments.as_object() {
             // For grep/glob, handle specially to avoid duplicates
-            if tool_name == "Grep" || tool_name == "Glob" {
+            if tool_name == tn::GREP || tool_name == tn::GLOB {
                 // Extract pattern directory
                 if let Some(pattern) = obj.get("pattern").and_then(|v| v.as_str()) {
                     if let Some(parent) = PathBuf::from(pattern).parent() {

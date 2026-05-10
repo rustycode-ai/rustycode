@@ -32,7 +32,7 @@ for tool in registry.list_tools() {
 }
 
 // Get specific tool metadata
-if let Some(tool) = registry.get_tool("bash") {
+if let Some(tool) = registry.get_tool("Bash") {
     println!("Tool: {}", tool.name);
     println!("Signature: {}", tool.signature);
     println!("Required: {:?}", tool.required_permissions);
@@ -41,7 +41,7 @@ if let Some(tool) = registry.get_tool("bash") {
 
 ## Discovery Mechanisms
 
-1. **Built-in Tools** — Hardcoded tools (bash, git, file_operations)
+1. **Built-in Tools** — Hardcoded tools (Bash, git, file_operations)
 2. **Plugin-Based** — Tools defined in plugin manifests
 3. **Skill Frontmatter** — Tools defined in YAML skill files
 4. **Custom Sources** — Custom MetadataProvider implementations
@@ -49,7 +49,7 @@ if let Some(tool) = registry.get_tool("bash") {
 ## Tool Metadata
 
 Each tool entry includes:
-- **Name** — Tool identifier (e.g., "bash", "git")
+- **Name** — Tool identifier (e.g., "Bash", "git")
 - **Description** — Human-readable description
 - **Signature** — Function signature or parameter schema
 - **Categories** — Tool classification (file, git, code, etc.)

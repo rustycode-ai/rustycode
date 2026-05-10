@@ -14,6 +14,7 @@
 //! | L3    | Autonomous        | Execute, notify after           |
 //! | L4    | Fully Autonomous  | No notification (CI/CD)         |
 
+use rustycode_protocol::tool_names as tn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -76,12 +77,12 @@ impl AutonomyLevel {
     #[must_use]
     pub fn is_tool_allowed(&self, tool_name: &str) -> bool {
         let dangerous_tools = [
-            "Bash",
+            tn::BASH,
             "subprocess",
-            "Write",
-            "Edit",
-            "ApplyPatch",
-            "multi_edit",
+            tn::WRITE,
+            tn::EDIT,
+            tn::APPLY_PATCH,
+            tn::MULTI_EDIT_ALIAS,
         ];
 
         match self {
@@ -212,12 +213,28 @@ impl OperationType {
     #[must_use]
     pub fn from_tool(tool_name: &str) -> Self {
         match tool_name {
-            "Read" | "ListDir" | "Grep" | "Glob" | "Find" | "WebFetch" | "WebSearch"
-            | "LspDiagnostics" | "LspHover" | "LspDefinition" | "LspReferences"
-            | "LspDocumentSymbols" | "TodoRead" => Self::Read,
-            "Write" | "Edit" | "text_editor" | "ApplyPatch" | "multi_edit" | "TodoWrite"
-            | "TodoUpdate" | "NotebookEdit" => Self::Write,
-            "Bash" | "subprocess" => Self::Execute,
+            tn::READ
+            | tn::LIST_DIR
+            | tn::GREP
+            | tn::GLOB
+            | tn::FIND
+            | tn::WEB_FETCH
+            | tn::WEB_SEARCH
+            | tn::LSP_DIAGNOSTICS
+            | tn::LSP_HOVER
+            | tn::LSP_DEFINITION
+            | tn::LSP_REFERENCES
+            | tn::LSP_DOCUMENT_SYMBOLS
+            | tn::TODO_READ => Self::Read,
+            tn::WRITE
+            | tn::EDIT
+            | "text_editor"
+            | tn::APPLY_PATCH
+            | tn::MULTI_EDIT_ALIAS
+            | tn::TODO_WRITE
+            | tn::TODO_UPDATE
+            | tn::NOTEBOOK_EDIT => Self::Write,
+            tn::BASH | "subprocess" => Self::Execute,
             _ => Self::Unknown,
         }
     }

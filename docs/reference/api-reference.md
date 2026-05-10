@@ -1077,7 +1077,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### ListDirTool
 
-**Tool Name:** `"list_dir"`
+**Tool Name:** `"ListDir"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1205,7 +1205,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 - `"test_summary"` - Summarize test results
 - `"cargo_build"` - Summarize cargo build output
 - `"lint_summary"` - Summarize lint output
-- `"git_log"` - Compact git log
+- `"GitLog"` - Compact git log
 - `"docker_build"` - Summarize Docker builds
 - `"npm_install"` - Summarize npm installs
 - `"auto"` - Auto-detect appropriate transform
@@ -1234,7 +1234,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### GitStatusTool
 
-**Tool Name:** `"git_status"`
+**Tool Name:** `"GitStatus"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1251,7 +1251,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### GitDiffTool
 
-**Tool Name:** `"git_diff"`
+**Tool Name:** `"GitDiff"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1285,7 +1285,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### GitCommitTool
 
-**Tool Name:** `"git_commit"`
+**Tool Name:** `"GitCommit"`
 
 **Permission:** `ToolPermission::Write`
 
@@ -1314,7 +1314,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### GitLogTool
 
-**Tool Name:** `"git_log"`
+**Tool Name:** `"GitLog"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1344,7 +1344,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### LspDiagnosticsTool
 
-**Tool Name:** `"lsp_diagnostics"`
+**Tool Name:** `"LspDiagnostics"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1363,7 +1363,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### LspHoverTool
 
-**Tool Name:** `"lsp_hover"`
+**Tool Name:** `"LspHover"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1383,7 +1383,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### LspDefinitionTool
 
-**Tool Name:** `"lsp_definition"`
+**Tool Name:** `"LspDefinition"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1391,7 +1391,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### LspCompletionTool
 
-**Tool Name:** `"lsp_completion"`
+**Tool Name:** `"LspCompletion"`
 
 **Permission:** `ToolPermission::Read`
 
@@ -1414,7 +1414,7 @@ Default returns `ToolPermission::None`. Override to specify required permission 
 
 #### WebFetchTool
 
-**Tool Name:** `"web_fetch"`
+**Tool Name:** `"WebFetch"`
 
 **Permission:** `ToolPermission::Network`
 
@@ -1616,16 +1616,16 @@ pub struct CacheMetrics {
 
 Only read-only, idempotent tools are cached:
 - `Read`
-- `list_dir`
+- `ListDir`
 - `Grep`
 - `Glob`
-- `git_status`
-- `git_diff`
-- `git_log`
-- `lsp_diagnostics`
-- `lsp_hover`
-- `lsp_definition`
-- `lsp_completion`
+- `GitStatus`
+- `GitDiff`
+- `GitLog`
+- `LspDiagnostics`
+- `LspHover`
+- `LspDefinition`
+- `LspCompletion`
 - `WebFetch`
 
 ---

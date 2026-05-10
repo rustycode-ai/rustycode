@@ -41,7 +41,7 @@ use serde_json::json;
 // Read a file
 let call = ToolCall {
     call_id: "1".to_string(),
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({"path": "Cargo.toml"}),
 };
 
@@ -59,14 +59,14 @@ if result.success {
 ```rust
 // Read entire file
 let call = ToolCall {
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({"path": "src/main.rs"}),
     ..Default::default()
 };
 
 // Read specific lines (10-20)
 let call = ToolCall {
-    name: "read_file".to_string(),
+    name: "Read".to_string(),
     arguments: json!({
         "path": "src/main.rs",
         "start_line": 10,
@@ -80,7 +80,7 @@ let call = ToolCall {
 
 ```rust
 let call = ToolCall {
-    name: "write_file".to_string(),
+    name: "Write".to_string(),
     arguments: json!({
         "path": "src/new_file.rs",
         "content": "fn main() {\n    println!(\"Hello!\");\n}\n"
@@ -101,7 +101,7 @@ if let Some(metadata) = result.structured {
 ```rust
 // Grep search
 let call = ToolCall {
-    name: "grep".to_string(),
+    name: "Grep".to_string(),
     arguments: json!({
         "pattern": r"async\s+fn",
         "path": "src"
@@ -118,7 +118,7 @@ if let Some(metadata) = result.structured {
 
 // Glob pattern matching
 let call = ToolCall {
-    name: "glob".to_string(),
+    name: "Glob".to_string(),
     arguments: json!({"pattern": "**/*.rs"}),
     ..Default::default()
 };
@@ -128,7 +128,7 @@ let call = ToolCall {
 
 ```rust
 let call = ToolCall {
-    name: "bash".to_string(),
+    name: "Bash".to_string(),
     arguments: json!({
         "command": "cargo test",
         "timeout_secs": 60
@@ -150,7 +150,7 @@ if let Some(metadata) = result.structured {
 ```rust
 // List all files recursively
 let call = ToolCall {
-    name: "list_dir".to_string(),
+    name: "ListDir".to_string(),
     arguments: json!({
         "path": "src",
         "recursive": true
@@ -160,7 +160,7 @@ let call = ToolCall {
 
 // List only Rust files
 let call = ToolCall {
-    name: "list_dir".to_string(),
+    name: "ListDir".to_string(),
     arguments: json!({
         "path": "src",
         "filter": ".rs"
@@ -170,7 +170,7 @@ let call = ToolCall {
 
 // List only directories
 let call = ToolCall {
-    name: "list_dir".to_string(),
+    name: "ListDir".to_string(),
     arguments: json!({
         "path": ".",
         "filter": "dir"
@@ -286,7 +286,7 @@ See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for complete parameter and metadata
 ```rust
 // Find all Rust files
 let glob_call = ToolCall {
-    name: "glob".to_string(),
+    name: "Glob".to_string(),
     arguments: json!({"pattern": "**/*.rs"}),
     ..Default::default()
 };
@@ -296,7 +296,7 @@ let glob_result = executor.execute(&glob_call);
 // Process each file
 for file_path in glob_result.output.lines() {
     let read_call = ToolCall {
-        name: "read_file".to_string(),
+        name: "Read".to_string(),
         arguments: json!({"path": file_path}),
         ..Default::default()
     };
@@ -311,7 +311,7 @@ for file_path in glob_result.output.lines() {
 ```rust
 // Find all occurrences
 let grep_call = ToolCall {
-    name: "grep".to_string(),
+    name: "Grep".to_string(),
     arguments: json!({
         "pattern": "old_function",
         "path": "src"
@@ -330,7 +330,7 @@ let grep_result = executor.execute(&grep_call);
 ```rust
 // Check status
 let status_call = ToolCall {
-    name: "git_status".to_string(),
+    name: "GitStatus".to_string(),
     arguments: json!({}),
     ..Default::default()
 };
@@ -341,7 +341,7 @@ let status_result = executor.execute(&status_call);
 if let Some(metadata) = status_result.structured {
     if metadata["staged"].as_u64().unwrap_or(0) > 0 {
         let commit_call = ToolCall {
-            name: "git_commit".to_string(),
+            name: "GitCommit".to_string(),
             arguments: json!({
                 "message": "feat: Add new feature"
             }),
