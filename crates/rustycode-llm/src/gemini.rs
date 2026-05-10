@@ -391,6 +391,10 @@ impl GeminiProvider {
                     mode: Some("NONE".to_string()),
                     allowed_function_names: None,
                 },
+                "required" => GeminiFunctionCallingConfig {
+                    mode: Some("AUTO".to_string()),
+                    allowed_function_names: None,
+                },
                 _ => return None,
             },
             serde_json::Value::Object(map) => {

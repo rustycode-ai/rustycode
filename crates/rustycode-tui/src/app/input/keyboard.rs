@@ -722,6 +722,10 @@ impl TUI {
         if self.showing_command_palette {
             self.showing_command_palette = false;
             self.command_palette.hide();
+            self.command_palette.state_mut().clear_query();
+            // Clear input to prevent palette search text from leaking into main input
+            self.input_handler.state.clear();
+            self.input_mode = self.input_handler.state.mode;
             self.dirty = true;
             return true;
         }

@@ -68,6 +68,9 @@ pub struct OpenAiMessage {
     /// Name of the tool (for legacy function calling)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// Reasoning content from prior assistant turns (OpenAI reasoning models, z.ai GLM)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,
 }
 
 #[derive(Deserialize)]

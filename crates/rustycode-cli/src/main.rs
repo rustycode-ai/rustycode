@@ -186,6 +186,9 @@ enum Command {
         /// Override the AI model for this session
         #[arg(long, value_name = "MODEL")]
         model: Option<String>,
+        /// Override the LLM provider for this session (e.g., anthropic, openai, gemini, vertex)
+        #[arg(long, value_name = "PROVIDER")]
+        provider: Option<String>,
         /// Override workspace directory (default: current directory)
         #[arg(short, long, value_name = "PATH")]
         workspace: Option<PathBuf>,
@@ -415,6 +418,7 @@ async fn async_main() -> Result<()> {
             reconfigure: false,
             resume: false,
             model: None,
+            provider: None,
             workspace: None,
         }
     };
@@ -464,6 +468,7 @@ async fn async_main() -> Result<()> {
         reconfigure,
         resume,
         model,
+        provider,
         workspace,
     } = command
     {
@@ -471,9 +476,11 @@ async fn async_main() -> Result<()> {
             .map(|p| p.canonicalize().context("--workspace path does not exist"))
             .transpose()?
             .unwrap_or(cwd);
-        // Apply model override via env var (read by LLM provider config loader)
         if let Some(ref m) = model {
             std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", m);
+        }
+        if let Some(ref p) = provider {
+            std::env::set_var("RUSTYCODE_PROVIDER", p);
         }
         return std::thread::spawn(move || {
             rustycode_tui::run(cwd, reconfigure, resume).map_err(|e| {

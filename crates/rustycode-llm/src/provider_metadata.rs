@@ -397,20 +397,17 @@ impl ProviderMetadata {
                 serde_json::json!(functions)
             }
             ToolFormat::GeminiTools => {
-                // Gemini tools format
-                let tool_declarations: Vec<serde_json::Value> = tools
+                let declarations: Vec<serde_json::Value> = tools
                     .iter()
                     .map(|tool| {
                         serde_json::json!({
-                            "functionDeclarations": [{
-                                "name": tool.name,
-                                "description": tool.description,
-                                "parameters": tool.parameters
-                            }]
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.parameters
                         })
                     })
                     .collect();
-                serde_json::json!(tool_declarations)
+                serde_json::json!([{ "functionDeclarations": declarations }])
             }
             ToolFormat::None => serde_json::json!([]),
             #[allow(unreachable_patterns)]

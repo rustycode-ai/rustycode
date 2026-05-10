@@ -431,13 +431,19 @@ impl PolishedRenderer {
                 &tui.workspace_tasks.active_agents,
             );
             let text = dashboard.render();
-            if !text.is_empty() {
-                frame.render_widget(Clear, message_area);
-                let paragraph = ratatui::widgets::Paragraph::new(text)
+            frame.render_widget(Clear, message_area);
+            let paragraph = if text.is_empty() {
+                ratatui::widgets::Paragraph::new(
+                    "No tasks running.\n\nPress Ctrl+T again to close the dashboard.",
+                )
+                .style(ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray))
+                .wrap(ratatui::widgets::Wrap { trim: false })
+            } else {
+                ratatui::widgets::Paragraph::new(text)
                     .style(ratatui::style::Style::default().fg(ratatui::style::Color::White))
-                    .wrap(ratatui::widgets::Wrap { trim: false });
-                frame.render_widget(paragraph, message_area);
-            }
+                    .wrap(ratatui::widgets::Wrap { trim: false })
+            };
+            frame.render_widget(paragraph, message_area);
         }
 
         if tui.awaiting_clarification && tui.clarification_panel.visible {

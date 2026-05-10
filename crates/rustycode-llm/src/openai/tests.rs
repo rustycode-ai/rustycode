@@ -103,6 +103,7 @@ fn test_openai_request_serialization() {
             tool_calls: None,
             tool_call_id: None,
             name: None,
+            reasoning_content: None,
         }],
         temperature: Some(0.5),
         max_tokens: Some(2048),
@@ -169,6 +170,7 @@ fn test_openai_request_reasoning_model() {
             tool_calls: None,
             tool_call_id: None,
             name: None,
+            reasoning_content: None,
         }],
         temperature: None,
         max_tokens: None,
@@ -602,6 +604,7 @@ fn test_openai_message_tool_result_serialization() {
         tool_calls: None,
         tool_call_id: Some("call_abc".to_string()),
         name: None,
+        reasoning_content: None,
     };
     let json = serde_json::to_string(&msg).unwrap();
     assert!(json.contains("\"role\":\"tool\""));
@@ -1467,6 +1470,7 @@ fn test_build_request_body_standard_model_uses_max_tokens() {
             tool_calls: None,
             tool_call_id: None,
             name: None,
+            reasoning_content: None,
         }],
         vec![],
         Some(1024),
@@ -1502,6 +1506,7 @@ fn test_build_request_body_reasoning_model_uses_max_completion_tokens() {
             tool_calls: None,
             tool_call_id: None,
             name: None,
+            reasoning_content: None,
         }],
         vec![],
         Some(8192),
@@ -1660,6 +1665,7 @@ fn test_build_request_body_no_max_tokens_no_temperature() {
             tool_calls: None,
             tool_call_id: None,
             name: None,
+            reasoning_content: None,
         }],
         vec![],
         None,

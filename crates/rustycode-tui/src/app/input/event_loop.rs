@@ -393,7 +393,7 @@ impl TUI {
                     if input_is_empty && !self.is_any_overlay_open() {
                         self.help_state.visible = true;
                         self.help_state.scroll_offset = 0;
-                        self.add_system_message("ℹ️  Help opened - press Esc to close".to_string());
+                        self.toast_manager.info("Press Esc to close");
                         self.dirty = true;
                         return Ok(());
                     }

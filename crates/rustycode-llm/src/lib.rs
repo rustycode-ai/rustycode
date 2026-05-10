@@ -305,7 +305,7 @@ pub fn create_provider_with_config(
             std::sync::Arc::new(OpenAiProvider::new(config, model.to_string())?)
         }
         "anthropic" => std::sync::Arc::new(AnthropicProvider::new(config, model.to_string())?),
-        "gemini" | "google" => std::sync::Arc::new(GeminiProvider::new(config)?),
+        "gemini" | "google" | "vertex" => std::sync::Arc::new(GeminiProvider::new(config)?),
         "ollama" => std::sync::Arc::new(OllamaProvider::new(config)?),
         "azure" | "azure_openai" | "microsoft" => std::sync::Arc::new(AzureProvider::new(config)?),
         "bedrock" | "aws" => std::sync::Arc::new(BedrockProvider::new(config, model.to_string())?),
@@ -519,6 +519,7 @@ fn resolve_builtin_provider_config<'a>(
     match provider_type.to_lowercase().as_str() {
         "anthropic" => providers.anthropic.as_ref(),
         "openai" | "open_ai" => providers.openai.as_ref(),
+        "gemini" | "google" | "vertex" => providers.gemini.as_ref(),
         "openrouter" => providers.openrouter.as_ref(),
         "nvidia" => providers.nvidia.as_ref(),
         _ => None,

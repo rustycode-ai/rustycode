@@ -121,8 +121,11 @@ pub fn render_help(frame: &mut ratatui::Frame, area: ratatui::layout::Rect, stat
         height: dialog_height,
     };
 
-    // Clear the dialog area first
+    // Clear the dialog area first, then fill with opaque background
     frame.render_widget(ratatui::widgets::Clear, dialog_area);
+    let bg_block = ratatui::widgets::Block::default()
+        .style(ratatui::style::Style::default().bg(ratatui::style::Color::Black));
+    frame.render_widget(bg_block, dialog_area);
 
     if filtered.is_empty() {
         let block = ratatui::widgets::Block::default()

@@ -812,6 +812,11 @@ pub fn normalize_stop_reason(reason: Option<&str>) -> Option<String> {
             "STOP" => "end_turn",
             "SAFETY" => "end_turn",
             "RECITATION" => "end_turn",
+            "FUNCTION_CALL" => "tool_use",
+            "BLOCKLIST" => "end_turn",
+            "PROHIBITED_CONTENT" => "end_turn",
+            "SPII" => "end_turn",
+            "MALFORMED_FUNCTION_CALL" => "end_turn",
             // Anthropic — already correct (end_turn, tool_use, max_tokens)
             other => other,
         })

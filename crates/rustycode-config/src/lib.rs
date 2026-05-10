@@ -147,6 +147,7 @@ fn default_skills_dir() -> PathBuf {
 pub struct ProvidersConfig {
     pub anthropic: Option<ProviderConfig>,
     pub openai: Option<ProviderConfig>,
+    pub gemini: Option<ProviderConfig>,
     pub openrouter: Option<ProviderConfig>,
     pub nvidia: Option<ProviderConfig>,
     #[serde(flatten)]

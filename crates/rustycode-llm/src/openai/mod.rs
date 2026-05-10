@@ -69,6 +69,7 @@ impl OpenAiProvider {
                 tool_calls: None,
                 tool_call_id: None,
                 name: None,
+                reasoning_content: None,
             });
         }
         messages.extend(Self::convert_messages(&request.messages));
@@ -533,6 +534,7 @@ impl OpenAiProvider {
                         let mut tool_results: Vec<OpenAiMessage> = Vec::new();
                         let mut other_parts: Vec<OpenAiContentPart> = Vec::new();
                         let mut tool_calls: Vec<OpenAiToolCall> = Vec::new();
+                        let mut reasoning_content: Option<String> = None;
 
                         for block in blocks {
                             match block {
@@ -578,6 +580,7 @@ impl OpenAiProvider {
                                         tool_calls: None,
                                         tool_call_id: Some(tool_use_id.clone()),
                                         name: None,
+                                        reasoning_content: None,
                                     });
                                 }
                                 ContentBlock::ToolUse { id, name, input } => {
@@ -593,14 +596,8 @@ impl OpenAiProvider {
                                     });
                                 }
                                 ContentBlock::Thinking { thinking, .. } => {
-                                    // OpenAI doesn't support thinking blocks natively.
                                     if !thinking.is_empty() {
-                                        other_parts.push(OpenAiContentPart::Text {
-                                            text: format!(
-                                                "[prior-reasoning]\n{}\n[/prior-reasoning]",
-                                                thinking
-                                            ),
-                                        });
+                                        reasoning_content = Some(thinking.clone());
                                     }
                                 }
                                 _ => {} // non-exhaustive
@@ -640,6 +637,7 @@ impl OpenAiProvider {
                                 },
                                 tool_call_id: None,
                                 name: None,
+                                reasoning_content,
                             });
                         }
 
@@ -655,6 +653,7 @@ impl OpenAiProvider {
                             tool_calls: None,
                             tool_call_id: None,
                             name: None,
+                            reasoning_content: None,
                         }]
                     }
                 }
@@ -794,6 +793,7 @@ impl OpenAiProvider {
                 tool_calls: None,
                 tool_call_id: None,
                 name: None,
+                reasoning_content: None,
             });
         }
         messages.extend(Self::convert_messages(&request.messages));
