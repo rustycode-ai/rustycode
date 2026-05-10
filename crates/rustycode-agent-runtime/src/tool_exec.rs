@@ -1,3 +1,4 @@
+use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::ToolCall;
 use rustycode_tools::{ToolContext, ToolRegistry};
 use rustycode_tools_api::MessageSender;
@@ -91,19 +92,19 @@ pub fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
 /// Normalize tool names from different providers to our canonical names.
 fn normalize_tool_name(name: &str) -> &str {
     match name {
-        "Edit" | "edit" | "text_editor_20250728" => "Edit",
-        "Read" | "read" | "view" => "Read",
-        "Write" | "Create" | "create" => "Write",
-        "Bash" | "Shell" | "shell" | "execute" | "run_command" => "Bash",
-        "PowerShell" | "pwsh" => "PowerShell",
-        "Cmd" | "cmd" | "cmd.exe" => "cmd",
-        "Grep" | "Search" => "Grep",
-        "Glob" | "Find" => "Glob",
-        "NotebookEdit" | "notebook_edit" => "NotebookEdit",
-        "WebFetch" | "web_fetch" | "fetch" => "WebFetch",
-        "LSP" | "lsp" => "lsp",
-        "ApplyPatch" | "patch" => "ApplyPatch",
-        "AskUserQuestion" | "ask_user_question" | "ask_user" => "AskUserQuestion",
+        "Edit" | "edit" | "text_editor_20250728" => tn::EDIT,
+        "Read" | "read" | "view" => tn::READ,
+        "Write" | "Create" | "create" => tn::WRITE,
+        "Bash" | "Shell" | "shell" | "execute" | "run_command" => tn::BASH,
+        "PowerShell" | "pwsh" => tn::POWERSHELL,
+        "Cmd" | "cmd" | "cmd.exe" => tn::CMD,
+        "Grep" | "Search" => tn::GREP,
+        "Glob" | "Find" => tn::GLOB,
+        "NotebookEdit" | "notebook_edit" => tn::NOTEBOOK_EDIT,
+        "WebFetch" | "web_fetch" | "fetch" => tn::WEB_FETCH,
+        "LSP" | "lsp" => tn::LSP_DIAGNOSTICS,
+        "ApplyPatch" | "patch" => tn::APPLY_PATCH,
+        "AskUserQuestion" | "ask_user_question" | "ask_user" => tn::ASK_USER_QUESTION,
         _ => name,
     }
 }
@@ -157,7 +158,7 @@ mod tests {
         assert_eq!(normalize_tool_name("NotebookEdit"), "NotebookEdit");
         assert_eq!(normalize_tool_name("WebFetch"), "WebFetch");
         assert_eq!(normalize_tool_name("fetch"), "WebFetch");
-        assert_eq!(normalize_tool_name("LSP"), "lsp");
+        assert_eq!(normalize_tool_name("LSP"), "LspDiagnostics");
         assert_eq!(normalize_tool_name("ApplyPatch"), "ApplyPatch");
         assert_eq!(normalize_tool_name("patch"), "ApplyPatch");
         assert_eq!(normalize_tool_name("ApplyPatch"), "ApplyPatch");

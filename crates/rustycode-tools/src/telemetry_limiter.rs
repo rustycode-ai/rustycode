@@ -1,11 +1,11 @@
 //! Rate-Limited Telemetry Sender
 //!
 //! Prevents telemetry spam by batching and throttling telemetry events.
-//! Events are sent through an unbounded channel and processed at a
-//! configurable rate (default 400ms between sends).
+//! Events are sent through a bounded channel (capacity 1024) and processed
+//! at a configurable rate (default 400ms between sends).
 //!
-//! If the internal queue exceeds `MAX_QUEUE_LEN`, new events are dropped
-//! to prevent unbounded memory growth under sustained load.
+//! If the channel is full, new events are dropped to prevent unbounded
+//! memory growth under sustained load.
 //!
 //! Inspired by goose's `tracing/rate_limiter.rs`.
 //!
@@ -59,21 +59,14 @@ pub enum TelemetryEvent {
     Metric(MetricData),
 }
 
-/// Maximum events queued before new events are dropped.
-/// Prevents unbounded memory growth when events arrive faster than the
-/// rate limiter can process them.
-const MAX_QUEUE_LEN: usize = 1000;
-
 /// Rate-limited telemetry sender.
 ///
 /// Events are queued and processed at a maximum rate, preventing
 /// telemetry from overwhelming the logging system or external services.
 pub struct RateLimitedTelemetry {
-    sender: mpsc::UnboundedSender<TelemetryEvent>,
-    /// Number of events that were dropped due to queue overflow
+    sender: mpsc::Sender<TelemetryEvent>,
+    /// Number of events that were dropped due to channel full
     dropped: Arc<std::sync::atomic::AtomicU64>,
-    /// Current queue depth (approximate, used for backpressure)
-    queue_depth: Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl RateLimitedTelemetry {
@@ -83,20 +76,17 @@ impl RateLimitedTelemetry {
     /// events. Events arriving faster than this rate are still queued but
     /// processed with the specified delay between them.
     pub fn new(rate_limit_ms: u64) -> Self {
-        let (sender, receiver) = mpsc::unbounded_channel::<TelemetryEvent>();
+        let (sender, receiver) = mpsc::channel::<TelemetryEvent>(1024);
         let dropped = Arc::new(std::sync::atomic::AtomicU64::new(0));
-        let queue_depth = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
         let dropped_clone = dropped.clone();
-        let queue_depth_clone = queue_depth.clone();
         tokio::spawn(async move {
-            Self::process_events(receiver, rate_limit_ms, dropped_clone, queue_depth_clone).await;
+            Self::process_events(receiver, rate_limit_ms, dropped_clone).await;
         });
 
         Self {
             sender,
             dropped,
-            queue_depth,
         }
     }
 
@@ -115,19 +105,18 @@ impl RateLimitedTelemetry {
         self.send_event(TelemetryEvent::Metric(metric))
     }
 
-    fn send_event(
-        &self,
-        event: TelemetryEvent,
-    ) -> Result<(), mpsc::error::SendError<TelemetryEvent>> {
-        let depth = self.queue_depth.load(std::sync::atomic::Ordering::Relaxed);
-        if depth >= MAX_QUEUE_LEN {
-            self.dropped
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            return Ok(()); // Drop the event to prevent OOM
+    fn send_event(&self, event: TelemetryEvent) -> Result<(), mpsc::error::SendError<TelemetryEvent>> {
+        match self.sender.try_send(event) {
+            Ok(()) => Ok(()),
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                self.dropped
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Ok(())
+            }
+            Err(mpsc::error::TrySendError::Closed(e)) => {
+                Err(mpsc::error::SendError(e))
+            }
         }
-        self.queue_depth
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        self.sender.send(event)
     }
 
     /// Get the number of events that were rate-limited (queued during throttle).
@@ -141,10 +130,9 @@ impl RateLimitedTelemetry {
     }
 
     async fn process_events(
-        mut receiver: mpsc::UnboundedReceiver<TelemetryEvent>,
+        mut receiver: mpsc::Receiver<TelemetryEvent>,
         rate_limit_ms: u64,
         dropped: Arc<std::sync::atomic::AtomicU64>,
-        queue_depth: Arc<std::sync::atomic::AtomicUsize>,
     ) {
         let rate_limit_duration = Duration::from_millis(rate_limit_ms);
         let mut last_send = Instant::now()
@@ -152,8 +140,6 @@ impl RateLimitedTelemetry {
             .unwrap_or_else(Instant::now);
 
         while let Some(event) = receiver.recv().await {
-            // Decrement queue depth now that we're processing this event
-            queue_depth.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
             let elapsed = last_send.elapsed();
             if elapsed < rate_limit_duration {
                 let sleep_duration = rate_limit_duration - elapsed;

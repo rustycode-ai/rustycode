@@ -97,7 +97,7 @@ impl StallDetector {
             ToolCategory::Code
         } else if READ_ONLY_TOOLS.contains(&lower.as_str()) {
             ToolCategory::Exploration
-        } else if lower == "Bash" || lower == "shell" {
+        } else if lower == "bash" || lower == "shell" {
             ToolCategory::Shell
         } else {
             ToolCategory::Unknown

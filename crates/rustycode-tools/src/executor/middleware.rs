@@ -47,11 +47,11 @@ impl Default for MiddlewareConfig {
             cost_tracking_enabled: true,
             max_session_cost: None,
             checkpoint_tools: vec![
-                "Edit".to_string(),
-                "MultiEdit".to_string(),
-                "ApplyPatch".to_string(),
-                "Write".to_string(),
-                "Bash".to_string(),
+                tn::EDIT.to_string(),
+                tn::MULTI_EDIT.to_string(),
+                tn::APPLY_PATCH.to_string(),
+                tn::WRITE.to_string(),
+                tn::BASH.to_string(),
             ],
         }
     }
@@ -221,7 +221,14 @@ impl ExecutionMiddleware {
 
         if state.plan_mode == PlanModeState::Planning {
             // In plan mode, only allow read-only tools
-            let allowed = [tn::GLOB, tn::GREP, "Search", "read", "lsp", tn::WEB_FETCH];
+            let allowed = [
+                tn::GLOB,
+                tn::GREP,
+                tn::CODESEARCH,
+                tn::READ,
+                tn::LSP_DIAGNOSTICS,
+                tn::WEB_FETCH,
+            ];
             if !allowed.contains(&tool_name) {
                 anyhow::bail!(
                     "tool '{tool_name}' not allowed in plan mode. Use read-only tools: {allowed:?}"
@@ -251,10 +258,10 @@ impl ExecutionMiddleware {
     fn estimate_cost(&self, tool_name: &str, result: Option<&ToolOutput>) -> f64 {
         // Simple cost estimation based on tool type and output size
         let base_cost = match tool_name {
-            "read" => 0.001,
-            "write" | "edit" => 0.002,
-            "Bash" => 0.005,
-            "Grep" | "Glob" => 0.003,
+            tn::READ => 0.001,
+            tn::WRITE | tn::EDIT => 0.002,
+            tn::BASH => 0.005,
+            tn::GREP | tn::GLOB => 0.003,
             _ => 0.001,
         };
 

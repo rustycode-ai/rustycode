@@ -74,12 +74,12 @@ pub enum LspNotification {
 
 /// Response reader for LSP server communication
 pub struct LspResponseReader {
-    response_tx: mpsc::UnboundedSender<LspResponse>,
+    response_tx: mpsc::Sender<LspResponse>,
 }
 
 impl LspResponseReader {
-    pub fn new() -> (Self, mpsc::UnboundedReceiver<LspResponse>) {
-        let (response_tx, response_rx) = mpsc::unbounded_channel();
+    pub fn new() -> (Self, mpsc::Receiver<LspResponse>) {
+        let (response_tx, response_rx) = mpsc::channel(64);
         let reader = Self { response_tx };
         (reader, response_rx)
     }
@@ -140,7 +140,7 @@ impl LspResponseReader {
                                                 debug!(id = id, method = %method, "Parsed request from server");
                                             }
                                         }
-                                        if let Err(e) = tx.send(response) {
+                                        if let Err(e) = tx.send(response).await {
                                             warn!(error = %e, "Failed to send LSP response");
                                             break;
                                         }

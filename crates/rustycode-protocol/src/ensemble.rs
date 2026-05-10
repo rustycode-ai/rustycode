@@ -747,9 +747,9 @@ impl ApproachCategory {
         {
             Self::Configuration
         } else if lower.contains("read")
-            || lower.contains("Grep")
-            || lower.contains("Search")
-            || lower.contains("Find")
+            || lower.contains("grep")
+            || lower.contains("search")
+            || lower.contains("find")
             || lower.contains("investigate")
         {
             Self::Investigation

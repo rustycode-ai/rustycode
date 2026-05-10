@@ -6,7 +6,7 @@ use rustycode_protocol::StreamEvent;
 use tokio::sync::{broadcast, oneshot, RwLock};
 use tracing::{info, warn};
 
-type EventSender = tokio::sync::mpsc::UnboundedSender<StreamEvent>;
+type EventSender = tokio::sync::mpsc::Sender<StreamEvent>;
 
 pub struct EventBridge {
     handle: Arc<RwLock<BusHandle>>,
@@ -99,7 +99,7 @@ impl EventBridge {
                                 for (token, sender) in read_guard.iter() {
                                     if sender.is_closed() {
                                         dead_tokens.push(token.clone());
-                                    } else if let Err(e) = sender.send(stream_event.clone()) {
+                                    } else if let Err(e) = sender.send(stream_event.clone()).await {
                                         warn!(session = %token, "failed to forward event: {e}");
                                         dead_tokens.push(token.clone());
                                     }
@@ -625,7 +625,7 @@ mod tests {
         let bridge = EventBridge::new(bus.clone());
         bridge.start().await;
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, mut rx) = tokio::sync::mpsc::channel(128);
         bridge.register("sess-1", tx).await;
 
         bus.publish(OrchestrationEvent::TextDelta {
@@ -648,7 +648,7 @@ mod tests {
         let bridge = EventBridge::new(bus.clone());
         bridge.start().await;
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, mut rx) = tokio::sync::mpsc::channel(128);
         bridge.register("sess-1", tx).await;
         bridge.unregister("sess-1").await;
 
@@ -667,7 +667,7 @@ mod tests {
         let bridge = EventBridge::new(bus1.clone());
         bridge.start().await;
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let (tx, mut rx) = tokio::sync::mpsc::channel(128);
         bridge.register("sess-1", tx).await;
 
         // Publish on old bus — should arrive

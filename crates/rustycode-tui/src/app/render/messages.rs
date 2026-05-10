@@ -923,7 +923,7 @@ fn extract_tool_detail(tool: &crate::ui::message::ToolExecution) -> Option<Strin
         ));
     }
     // Bash/shell: show the command that was run
-    if lower.contains("Bash") || lower.contains("exec") || lower.contains("shell") {
+    if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
         if let Some(cmd) = tool
             .input_json
             .as_ref()
@@ -940,10 +940,10 @@ fn extract_tool_detail(tool: &crate::ui::message::ToolExecution) -> Option<Strin
         return Some(safe_truncate(summary, 60));
     }
     // Search/grep: show match count
-    if lower.contains("Grep") || lower.contains("Search") {
+    if lower.contains("grep") || lower.contains("search") {
         return Some(safe_truncate(summary, 80));
     }
-    if lower.contains("Glob") || lower.contains("Find") || lower.contains("list") {
+    if lower.contains("glob") || lower.contains("find") || lower.contains("list") {
         // Try to extract path from result_summary first (e.g., "list_directory: /path/to/dir (5 files)")
         if let Some(path) = extract_file_path(&tool.result_summary) {
             if let Some(output) = &tool.detailed_output {

@@ -163,7 +163,7 @@ pub(super) fn build_tool_summary_arg(
     input_json: &serde_json::Value,
 ) -> Option<String> {
     let lower = tool_name.to_lowercase();
-    if lower.contains("Bash") || lower.contains("exec") || lower.contains("shell") {
+    if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
         return input_json.get("command").and_then(|v| v.as_str()).map(|s| {
             if s.len() > TOOL_SUMMARY_MAX_LEN {
                 format!("{}…", &s[..s.floor_char_boundary(TOOL_SUMMARY_TRUNCATE_AT)])
@@ -188,7 +188,7 @@ pub(super) fn build_tool_summary_arg(
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
     }
-    if lower.contains("Grep") || lower.contains("Search") {
+    if lower.contains("grep") || lower.contains("search") {
         return input_json
             .get("pattern")
             .or_else(|| input_json.get("query"))
@@ -204,7 +204,7 @@ pub(super) fn build_tool_summary_arg(
                 )
             });
     }
-    if lower.contains("Glob") || lower.contains("Find") || lower.contains("list") {
+    if lower.contains("glob") || lower.contains("find") || lower.contains("list") {
         return input_json
             .get("pattern")
             .or_else(|| input_json.get("path"))

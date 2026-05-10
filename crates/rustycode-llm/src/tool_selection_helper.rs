@@ -4,6 +4,7 @@
 //! across all LLM providers (Anthropic, OpenAI, Gemini, etc.)
 
 use crate::provider::{ChatMessage, MessageRole};
+#[cfg(feature = "vector-memory")]
 use rustycode_protocol::tool_names as tn;
 #[cfg(feature = "vector-memory")]
 use rustycode_tools_api::{route_query, SearchStrategy};
@@ -222,7 +223,7 @@ pub mod formatters {
             .filter(|s| !s.is_empty())
             .unwrap_or("(no description)");
         format!(
-            "{} [DEFERRED: call tool_search with name=\"{}\" to load full schema]",
+            "{} [DEFERRED: call ToolSearch with name=\"{}\" to load full schema]",
             desc, tool.name
         )
     }

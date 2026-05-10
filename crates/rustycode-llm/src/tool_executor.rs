@@ -215,7 +215,22 @@ impl LLMToolExecutor {
             arguments: tool_call.arguments.clone(),
         };
 
-        let result = self.executor.execute(&tool_call);
+        // Offload blocking tool execution to a dedicated thread so the tokio
+        // runtime stays responsive (e.g. WebFetch uses reqwest::blocking).
+        let executor = self.executor.clone();
+        let tc = tool_call.clone();
+        let call_id_for_error = tc.call_id.clone();
+        let result = tokio::task::spawn_blocking(move || executor.execute(&tc))
+            .await
+            .unwrap_or_else(|e| rustycode_protocol::ToolResult {
+                call_id: call_id_for_error,
+                output: String::new(),
+                error: Some(format!("Tool execution panicked: {e}")),
+                exit_code: None,
+                success: false,
+                data: None,
+                new_cwd: None,
+            });
 
         Ok(ToolExecutionResult {
             tool_name: tool_call.name.clone(),

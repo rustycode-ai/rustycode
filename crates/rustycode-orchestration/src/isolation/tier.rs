@@ -160,10 +160,10 @@ impl ToolPolicy {
 /// Classify a tool name into its capability level.
 pub fn classify_tool(tool_name: &str) -> ToolCapability {
     match tool_name {
-        "read" | tn::READ | tn::GREP | tn::GLOB | "ls" | tn::FIND | "Head" | "cat" => {
+        tn::READ | "read" | tn::GREP | tn::GLOB | tn::LIST_DIR | tn::FIND | "Head" | "cat" => {
             ToolCapability::Read
         }
-        "write" | tn::WRITE | "edit" | tn::EDIT | tn::NOTEBOOK_EDIT => ToolCapability::Write,
+        tn::WRITE | "write" | tn::EDIT | "edit" | tn::NOTEBOOK_EDIT => ToolCapability::Write,
         _ => ToolCapability::Exec,
     }
 }

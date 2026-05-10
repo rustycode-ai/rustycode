@@ -181,10 +181,10 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
         return;
     }
 
-    let (out_tx, mut out_rx) = mpsc::unbounded_channel::<Outbound>();
+    let (out_tx, mut out_rx) = mpsc::channel::<Outbound>(256);
 
     // Register with EventBridge to receive streaming events
-    let (bridge_tx, mut bridge_rx) = mpsc::unbounded_channel::<rustycode_protocol::StreamEvent>();
+    let (bridge_tx, mut bridge_rx) = mpsc::channel::<rustycode_protocol::StreamEvent>(128);
     state.event_bridge.register(&session_token, bridge_tx).await;
 
     let bridge_out_tx = out_tx.clone();
@@ -200,7 +200,9 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                 event_id,
                 event: stream_event,
             };
-            let _ = bridge_out_tx.send(Outbound::Server(ServerMessage::Event(event_payload)));
+            let _ = bridge_out_tx
+                .send(Outbound::Server(ServerMessage::Event(event_payload)))
+                .await;
         }
     });
 
@@ -235,21 +237,21 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
                         .await
                         {
                             warn!("message handling error: {e}");
-                            let _ = out_tx.send(Outbound::Server(ServerMessage::Error(ErrorPayload {
+                            let _ = out_tx.try_send(Outbound::Server(ServerMessage::Error(ErrorPayload {
                                 code: ErrorCode::InternalError,
                                 message: e.to_string(),
                             })));
                         }
                     }
                     Ok(Message::Binary(_)) => {
-                        let _ = out_tx.send(Outbound::Server(ServerMessage::Error(ErrorPayload {
+                        let _ = out_tx.try_send(Outbound::Server(ServerMessage::Error(ErrorPayload {
                             code: ErrorCode::InvalidMessage,
                             message: "binary frames are not supported".to_string(),
                         })));
                     }
                     Ok(Message::Close(_)) => break,
                     Ok(Message::Ping(_data)) => {
-                        let _ = out_tx.send(Outbound::Server(
+                        let _ = out_tx.try_send(Outbound::Server(
                             ServerMessage::HeartbeatAck(HeartbeatAckPayload {
                                 ts: 0,
                                 server_ts: chrono::Utc::now().timestamp_millis(),
@@ -270,7 +272,7 @@ async fn handle_socket(socket: WebSocket, state: AppState) {
         }
     }
 
-    let _ = out_tx.send(Outbound::Close);
+    let _ = out_tx.try_send(Outbound::Close);
     let _ = forward_handle.await;
 
     state.event_bridge.unregister(&session_token).await;
@@ -315,7 +317,7 @@ async fn handle_text_message(
     text: &str,
     state: &AppState,
     session_token: &str,
-    out_tx: &mpsc::UnboundedSender<Outbound>,
+    out_tx: &mpsc::Sender<Outbound>,
 ) -> Result<(), crate::error::WsError> {
     let envelope =
         Envelope::decode(text).map_err(|e| crate::error::WsError::Protocol(e.to_string()))?;
@@ -324,7 +326,7 @@ async fn handle_text_message(
 
     match client_msg {
         ClientMessage::Hello(_) => {
-            let _ = out_tx.send(Outbound::Server(ServerMessage::Error(ErrorPayload {
+            let _ = out_tx.try_send(Outbound::Server(ServerMessage::Error(ErrorPayload {
                 code: ErrorCode::InvalidMessage,
                 message: "hello already received".to_string(),
             })));
@@ -364,7 +366,7 @@ async fn handle_text_message(
                 .await?;
         }
         ClientMessage::Heartbeat(payload) => {
-            let _ = out_tx.send(Outbound::Server(ServerMessage::HeartbeatAck(
+            let _ = out_tx.try_send(Outbound::Server(ServerMessage::HeartbeatAck(
                 HeartbeatAckPayload {
                     ts: payload.ts,
                     server_ts: chrono::Utc::now().timestamp_millis(),

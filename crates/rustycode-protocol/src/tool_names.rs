@@ -182,6 +182,7 @@ pub const CREATE_PLAN: &str = "create_plan";
 
 pub const SEMANTIC_SEARCH: &str = "SemanticSearch";
 pub const TOOL_SEARCH: &str = "ToolSearch";
+pub const STRUCTURED_THINKING: &str = "structured_thinking";
 
 // ── Tool classification ────────────────────────────────────────────────────
 
@@ -218,7 +219,7 @@ pub fn is_search_tool(name: &str) -> bool {
 const WRITE_SEGMENTS: &[&str] = &["write", "edit", "create", "insert", "patch", "replace"];
 const BASH_SEGMENTS: &[&str] = &["bash", "shell", "exec", "run", "cmd"];
 const READ_SEGMENTS: &[&str] = &["read", "view", "cat", "fetch", "get"];
-const SEARCH_SEGMENTS: &[&str] = &["Search", "grep", "Find", "list", "glob"];
+const SEARCH_SEGMENTS: &[&str] = &["search", "grep", "find", "list", "glob"];
 
 pub fn has_segment(name_lower: &str, words: &[&str]) -> bool {
     name_lower

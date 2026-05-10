@@ -389,7 +389,10 @@ impl McpServer {
         {
             let tools = self.tools.read().await;
             if let Some(entry) = tools.get(name) {
-                let result = (entry.handler)(arguments)?;
+                let handler = entry.handler.clone();
+                let result = tokio::task::spawn_blocking(move || handler(arguments))
+                    .await
+                    .map_err(|e| McpError::InternalError(format!("handler panicked: {e}")))??;
                 let mut response = json!({
                     "content": result.content,
                 });
