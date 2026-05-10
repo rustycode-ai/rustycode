@@ -213,6 +213,9 @@ mod tests {
                     passed: true,
                     error: None,
                     duration_secs: 1.5,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cost_usd: 0.0,
                 },
                 TaskResult {
                     task_name: "task-b".to_string(),
@@ -221,9 +224,15 @@ mod tests {
                     passed: false,
                     error: Some("timeout".to_string()),
                     duration_secs: 30.0,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    cost_usd: 0.0,
                 },
             ],
             pass_at_k: std::collections::HashMap::new(),
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            total_cost_usd: 0.0,
         }
     }
 

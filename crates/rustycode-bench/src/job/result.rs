@@ -28,6 +28,15 @@ pub struct BenchmarkResults {
     /// Pass@k metrics by agent name.
     #[serde(default)]
     pub pass_at_k: std::collections::HashMap<String, std::collections::HashMap<usize, f64>>,
+    /// Total input tokens across all trials.
+    #[serde(default)]
+    pub total_input_tokens: u64,
+    /// Total output tokens across all trials.
+    #[serde(default)]
+    pub total_output_tokens: u64,
+    /// Total estimated cost in USD.
+    #[serde(default)]
+    pub total_cost_usd: f64,
 }
 
 /// Aggregated result for a single task.
@@ -44,6 +53,15 @@ pub struct TaskResult {
     pub error: Option<String>,
     /// Duration in seconds.
     pub duration_secs: f64,
+    /// Input tokens consumed.
+    #[serde(default)]
+    pub input_tokens: u64,
+    /// Output tokens generated.
+    #[serde(default)]
+    pub output_tokens: u64,
+    /// Estimated cost in USD.
+    #[serde(default)]
+    pub cost_usd: f64,
 }
 
 impl BenchmarkResults {
@@ -76,10 +94,17 @@ impl BenchmarkResults {
                 passed: t.passed(),
                 error: t.error.clone(),
                 duration_secs: t.duration_secs,
+                input_tokens: t.input_tokens,
+                output_tokens: t.output_tokens,
+                cost_usd: t.cost_usd,
             })
             .collect();
 
         let pass_at_k = crate::verifier::pass_at_k::compute_pass_at_k(trials);
+
+        let total_input_tokens = trials.iter().map(|t| t.input_tokens).sum();
+        let total_output_tokens = trials.iter().map(|t| t.output_tokens).sum();
+        let total_cost_usd = trials.iter().map(|t| t.cost_usd).sum();
 
         Self {
             total,
@@ -91,6 +116,9 @@ impl BenchmarkResults {
             trials: trials.to_vec(),
             task_results,
             pass_at_k,
+            total_input_tokens,
+            total_output_tokens,
+            total_cost_usd,
         }
     }
 
@@ -260,6 +288,9 @@ mod tests {
             passed: true,
             error: None,
             duration_secs: 42.5,
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
         };
         assert_eq!(tr.task_name, "my-task");
         assert!(tr.passed);

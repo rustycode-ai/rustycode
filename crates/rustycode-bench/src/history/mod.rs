@@ -316,6 +316,9 @@ mod tests {
                 passed: reward >= 0.5,
                 error: None,
                 duration_secs: 1.0,
+                input_tokens: 0,
+                output_tokens: 0,
+                cost_usd: 0.0,
             })
             .collect();
         BenchmarkResults {
@@ -328,6 +331,9 @@ mod tests {
             trials: Vec::new(),
             task_results,
             pass_at_k: std::collections::HashMap::new(),
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            total_cost_usd: 0.0,
         }
     }
 
