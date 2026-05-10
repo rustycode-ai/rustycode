@@ -394,7 +394,7 @@ mod tests {
 
         // Read should be allowed
         let tool = TestTool {
-            name: "read".to_string(),
+            name: "Read".to_string(),
         };
         let result = middleware.execute(
             &tool,
@@ -410,7 +410,7 @@ mod tests {
         let middleware = ExecutionMiddleware::new(config);
 
         let tool = TestTool {
-            name: "read".to_string(),
+            name: "Read".to_string(),
         };
         let _ = middleware.execute(
             &tool,

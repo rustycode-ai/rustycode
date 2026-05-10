@@ -564,7 +564,7 @@ mod tests {
     #[test]
     fn test_edit_format_display() {
         assert_eq!(EditFormat::ClaudeNative.to_string(), "claude_native");
-        assert_eq!(EditFormat::SearchReplace.to_string(), "SearchReplace");
+        assert_eq!(EditFormat::SearchReplace.to_string(), "search_replace");
         assert_eq!(EditFormat::WholeFile.to_string(), "whole_file");
     }
 
