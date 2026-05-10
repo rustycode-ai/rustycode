@@ -282,11 +282,10 @@ impl SkillManager {
 
     pub fn active_tool_scope(&self) -> Vec<String> {
         let mut combined = Vec::new();
-        for skill_id in &self.session_skill_ids {
-            if let Some(def) = self.registry.get(skill_id) {
-                let tools = resolve_allowed_tools(def);
-                combined.extend(tools);
-            }
+        // Use active_definitions() which correctly reads from activation.active_skills()
+        for def in self.active_definitions() {
+            let tools = resolve_allowed_tools(def);
+            combined.extend(tools);
         }
         combined.sort();
         combined.dedup();

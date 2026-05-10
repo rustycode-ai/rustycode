@@ -180,7 +180,6 @@ impl ActivationManager {
     }
 
     #[allow(clippy::unused_self)]
-    #[allow(clippy::unused_self)]
     fn score_skill(&self, skill: &SkillDefinition, context_lower: &str) -> f64 {
         let mut score = 0.0;
 
@@ -188,16 +187,20 @@ impl ActivationManager {
             return 0.0;
         }
 
-        if context_lower.contains(&skill.name.to_lowercase()) {
+        // Exact skill name match
+        let skill_name_lower = skill.name.to_lowercase();
+        if context_lower.contains(&skill_name_lower) {
             score += 2.0;
         }
 
+        // Word matching in description (>3 chars)
         for word in skill.description.to_lowercase().split_whitespace() {
             if word.len() > 3 && context_lower.contains(word) {
                 score += 0.3;
             }
         }
 
+        // Word matching in when_to_use (>3 chars)
         if !skill.when_to_use.is_empty() {
             for word in skill.when_to_use.to_lowercase().split_whitespace() {
                 if word.len() > 3 && context_lower.contains(word) {
@@ -206,11 +209,32 @@ impl ActivationManager {
             }
         }
 
+        // Enhanced category matching with word boundary detection
         if !skill.categories.is_empty() {
             for cat in &skill.categories {
-                if context_lower.contains(&cat.to_lowercase()) {
+                let cat_lower = cat.to_lowercase();
+                // Try exact substring match first
+                if context_lower.contains(&cat_lower) {
                     score += 0.5;
+                } else {
+                    // Try word stem matching (e.g., "error" matches "errors", "debug" matches "debugging")
+                    if Self::semantic_match(&cat_lower, context_lower) {
+                        score += 0.4;
+                    }
                 }
+            }
+        }
+
+        // Extract context keywords and check against skill fields
+        let context_words: Vec<&str> = context_lower
+            .split(|c: char| !c.is_alphanumeric() && c != '_')
+            .filter(|w| w.len() > 3)
+            .collect();
+
+        for word in context_words {
+            // Bonus for semantic keyword matches
+            if Self::is_semantic_match_for_skill(&skill_name_lower, word) {
+                score += 0.3;
             }
         }
 
@@ -218,6 +242,57 @@ impl ActivationManager {
         score += quality_bonus;
 
         score
+    }
+
+    fn semantic_match(category: &str, context: &str) -> bool {
+        // Handle common word variations (singular/plural, verb forms)
+        let variations = Self::get_word_variations(category);
+        variations.iter().any(|var| context.contains(var))
+    }
+
+    fn get_word_variations(word: &str) -> Vec<String> {
+        let mut variations = vec![word.to_string()];
+        // Add common singular/plural variations
+        if let Some(stripped) = word.strip_suffix("ing") {
+            variations.push(stripped.to_string());
+        }
+        if word.ends_with('s') && !word.ends_with("ss") {
+            variations.push(word[..word.len() - 1].to_string());
+        } else if !word.ends_with('s') && !word.ends_with("ss") {
+            variations.push(format!("{}s", word));
+        }
+        variations
+    }
+
+    fn is_semantic_match_for_skill(skill_name: &str, word: &str) -> bool {
+        // Map skill domains to their related keywords
+        match skill_name {
+            "debugger" | "debug" => {
+                matches!(
+                    word,
+                    "debug" | "error" | "errors" | "bug" | "bugs" | "fault" | "issue" | "issues"
+                )
+            }
+            "performance" | "perf" => {
+                matches!(
+                    word,
+                    "performance" | "optimiz" | "fast" | "speed" | "slow" | "lag" | "latency"
+                )
+            }
+            "testing" | "test" => {
+                matches!(
+                    word,
+                    "test" | "tests" | "testing" | "verify" | "check" | "assert"
+                )
+            }
+            "code-review" | "review" => {
+                matches!(
+                    word,
+                    "review" | "quality" | "refactor" | "clean" | "improve" | "code"
+                )
+            }
+            _ => false,
+        }
     }
 
     #[allow(clippy::unused_self)]

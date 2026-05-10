@@ -201,7 +201,7 @@ mod tests {
         // tool-1 should still have initial summary, tool-2 should have updated preview
         assert_eq!(
             tool1.unwrap().result_summary,
-            "read_file...",
+            "Read...",
             "tool-1 should have initial summary"
         );
         assert_eq!(

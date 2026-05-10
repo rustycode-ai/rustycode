@@ -179,7 +179,7 @@ mod tests {
         .expect("parses calls wrapper");
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].name, "read");
-        assert_eq!(calls[1].name, "Glob");
+        assert_eq!(calls[1].name, "glob");
     }
 
     #[test]
@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(payloads.len(), 1);
         let calls = parse_tool_calls_payload(&payloads[0]).expect("should parse");
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "Bash");
+        assert_eq!(calls[0].name, "bash");
         assert_eq!(calls[0].arguments["command"], "ls -la");
     }
 
@@ -223,7 +223,7 @@ mod tests {
         assert_eq!(payloads.len(), 1);
         let calls = parse_tool_calls_payload(&payloads[0]).expect("should parse");
         assert_eq!(calls.len(), 1);
-        assert_eq!(calls[0].name, "WebSearch");
+        assert_eq!(calls[0].name, "web_search");
         assert_eq!(calls[0].arguments["query"], "Rust async");
     }
 }

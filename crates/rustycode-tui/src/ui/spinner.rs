@@ -334,11 +334,7 @@ mod tests {
         assert!(loading.label.as_ref().unwrap().contains("Loading file"));
 
         let working = Spinner::working("Read");
-        assert!(working
-            .label
-            .as_ref()
-            .unwrap()
-            .contains("Executing read_file"));
+        assert!(working.label.as_ref().unwrap().contains("Executing Read"));
 
         let completed = Spinner::completed("Done");
         assert_eq!(completed.status, SpinnerStatus::Done);

@@ -166,25 +166,52 @@ impl ToolManager {
             .map(|t| t.name.clone())
             .collect();
 
-        // Known semantic equivalents: MCP tool name → built-in tool it duplicates.
-        // These are common filesystem MCP server tools that overlap with built-in tools.
-        let overlap_map: std::collections::HashMap<&str, &str> = [
-            // @modelcontextprotocol/server-filesystem equivalents
-            ("read_text_file", "Read"),
-            ("Write", "Write"),
-            ("list_directory", "ListDir"),
-            ("list_allowed_directories", "__skip__"), // no built-in equivalent, wastes turns
-            ("search_files", "Grep"),
-            ("get_file_info", "__skip__"),   // no useful equivalent
-            ("create_directory", "Bash"),    // mkdir via bash
-            ("move_file", "Bash"),           // mv via bash
-            ("read_multiple_files", "Read"), // can read files individually
-            // Other common MCP servers
-            ("directory_tree", "ListDir"),
-            ("Read", "Read"), // exact overlap
-        ]
-        .into_iter()
-        .collect();
+        // Per-server MCP tool overlap rules.
+        //
+        // Groups known MCP tool overlaps by the server package they come from,
+        // identified by substring-matching the server command path. This avoids
+        // false positives where different servers expose tools with the same
+        // name but different behavior.
+        //
+        // "__skip__" means the tool wastes LLM turns with no useful built-in
+        // equivalent. Empty `server_match` means the rule applies to any server.
+        struct McpServerOverlap {
+            server_match: &'static str,
+            tools: &'static [(&'static str, &'static str)],
+        }
+        const MCP_SERVER_OVERLAPS: &[McpServerOverlap] = &[
+            // @modelcontextprotocol/server-filesystem
+            McpServerOverlap {
+                server_match: "server-filesystem",
+                tools: &[
+                    ("read_text_file", "Read"),
+                    ("write_file", "Write"),
+                    ("edit_file", "Edit"),
+                    ("create_text_file", "Write"),
+                    ("list_directory", "ListDir"),
+                    ("list_allowed_directories", "__skip__"),
+                    // search_files does filename glob matching → overlaps with Glob
+                    ("search_files", "Glob"),
+                    ("get_file_info", "__skip__"),
+                    ("create_directory", "Bash"),
+                    ("move_file", "Bash"),
+                    ("read_multiple_files", "Read"),
+                    ("directory_tree", "ListDir"),
+                ],
+            },
+            // Catch-all: exact name collisions that apply regardless of server
+            McpServerOverlap {
+                server_match: "",
+                tools: &[
+                    ("read", "Read"),
+                    ("write", "Write"),
+                    ("grep", "Grep"),
+                    ("glob", "Glob"),
+                    ("bash", "Bash"),
+                    ("edit", "Edit"),
+                ],
+            },
+        ];
 
         // Create a shared proxy cache for the session so MCP connections stay
         // alive for the full TUI lifecycle and can be shut down explicitly.
@@ -223,11 +250,20 @@ impl ToolManager {
                 };
                 let proxy_config = ProxyConfig {
                     server_name: server_id.clone(),
-                    command,
+                    command: command.clone(),
                     args: server_config.args.clone(),
                     tool_prefix: None,
                     cache_tools: true,
                 };
+
+                // Build per-server overlap map by matching command against known servers
+                let command_lower = command.to_lowercase();
+                let overlap_map: std::collections::HashMap<String, &str> = MCP_SERVER_OVERLAPS
+                    .iter()
+                    .filter(|o| o.server_match.is_empty() || command_lower.contains(o.server_match))
+                    .flat_map(|o| o.tools.iter())
+                    .map(|(k, v)| (k.to_lowercase(), *v))
+                    .collect();
 
                 match SHARED_RUNTIME.block_on(ToolProxy::with_discovery(proxy_config)) {
                     Ok(proxy) => {
@@ -248,8 +284,8 @@ impl ToolManager {
                         for proxied_tool in proxied_tools {
                             let tool_name = proxied_tool.name.clone();
 
-                            // Skip MCP tools that duplicate built-in functionality
-                            if let Some(equivalent) = overlap_map.get(tool_name.as_str()) {
+                            // Skip MCP tools that duplicate built-in functionality (case-insensitive)
+                            if let Some(equivalent) = overlap_map.get(&tool_name.to_lowercase()) {
                                 if *equivalent == "__skip__" {
                                     tracing::warn!(
                                         "Skipping MCP tool '{}' (no useful equivalent, wastes LLM turns)",

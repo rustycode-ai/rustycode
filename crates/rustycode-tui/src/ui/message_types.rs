@@ -639,7 +639,7 @@ mod tests {
 
         assert_eq!(tool.status, ToolStatus::Failed);
         assert!(tool.end_time.is_some());
-        assert_eq!(tool.result_summary, "bash: Error");
+        assert_eq!(tool.result_summary, "Bash: Error");
     }
 
     #[test]

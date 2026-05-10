@@ -575,13 +575,18 @@ impl GeminiProvider {
         let url = self.endpoint(&request.model);
 
         let response_schema = build_gemini_response_schema(&request.output_config);
+        let mut response_schema_value =
+            response_schema.and_then(|v| v.get("responseSchema").cloned());
+        if let Some(ref mut schema) = response_schema_value {
+            sanitize_gemini_schema(schema);
+        }
         let generation_config = GeminiGenerationConfig {
             temperature: request.temperature.unwrap_or(0.7),
             max_output_tokens: request.max_tokens,
             response_mime_type: response_schema
                 .as_ref()
                 .map(|_| "application/json".to_string()),
-            response_schema: response_schema.and_then(|v| v.get("responseSchema").cloned()),
+            response_schema: response_schema_value,
         };
 
         let system_instruction =
@@ -760,13 +765,18 @@ impl LLMProvider for GeminiProvider {
         let url = self.stream_endpoint(&request.model);
 
         let response_schema = build_gemini_response_schema(&request.output_config);
+        let mut response_schema_value =
+            response_schema.and_then(|v| v.get("responseSchema").cloned());
+        if let Some(ref mut schema) = response_schema_value {
+            sanitize_gemini_schema(schema);
+        }
         let generation_config = GeminiGenerationConfig {
             temperature: request.temperature.unwrap_or(0.7),
             max_output_tokens: request.max_tokens,
             response_mime_type: response_schema
                 .as_ref()
                 .map(|_| "application/json".to_string()),
-            response_schema: response_schema.and_then(|v| v.get("responseSchema").cloned()),
+            response_schema: response_schema_value,
         };
 
         let system_instruction =

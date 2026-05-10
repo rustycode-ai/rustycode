@@ -1,5 +1,7 @@
 //! Exploration stall detector for agent tool execution.
 
+use rustycode_protocol::tool_names as tn;
+
 /// Consecutive read-only turns before triggering the stall nudge.
 pub const STALL_THRESHOLD: usize = 3;
 
@@ -8,29 +10,27 @@ pub const MAX_EXPLORATION_TURNS: usize = 5;
 
 /// Tool names that count as "code" (implementation).
 const CODE_TOOLS: &[&str] = &[
-    "Write",
-    "Edit",
-    "MultiEdit",
-    "ApplyPatch",
+    tn::WRITE,
+    tn::EDIT,
+    tn::MULTI_EDIT,
+    tn::APPLY_PATCH,
     "claude_text_editor",
 ];
 
 /// Tool names that are always read-only (exploration).
 const READ_ONLY_TOOLS: &[&str] = &[
-    "Read",
-    "Grep",
-    "Glob",
-    "Find",
-    "ListDir",
-    "ls",
-    "file",
-    "WebSearch",
-    "WebFetch",
-    "LspDiagnostics",
-    "LspHover",
-    "LspDefinition",
-    "LspReferences",
-    "LspDocumentSymbols",
+    tn::READ,
+    tn::GREP,
+    tn::GLOB,
+    tn::FIND,
+    tn::LIST_DIR,
+    tn::WEB_SEARCH,
+    tn::WEB_FETCH,
+    tn::LSP_DIAGNOSTICS,
+    tn::LSP_HOVER,
+    tn::LSP_DEFINITION,
+    tn::LSP_REFERENCES,
+    tn::LSP_DOCUMENT_SYMBOLS,
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -93,9 +93,12 @@ impl StallDetector {
     /// Classify a tool call by name.
     pub fn classify_tool(tool_name: &str) -> ToolCategory {
         let lower = tool_name.to_lowercase();
-        if CODE_TOOLS.contains(&lower.as_str()) {
+        if CODE_TOOLS.iter().any(|t| t.eq_ignore_ascii_case(&lower)) {
             ToolCategory::Code
-        } else if READ_ONLY_TOOLS.contains(&lower.as_str()) {
+        } else if READ_ONLY_TOOLS
+            .iter()
+            .any(|t| t.eq_ignore_ascii_case(&lower))
+        {
             ToolCategory::Exploration
         } else if lower == "bash" || lower == "shell" {
             ToolCategory::Shell

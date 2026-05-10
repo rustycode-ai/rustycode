@@ -675,7 +675,7 @@ mod tests {
         let search = ToolSearch::new(tools);
 
         let query = ToolSearchQuery {
-            query: "read_.*".to_string(),
+            query: "Re.*".to_string(),
             algorithm: SearchAlgorithm::Regex,
             limit: 10,
         };

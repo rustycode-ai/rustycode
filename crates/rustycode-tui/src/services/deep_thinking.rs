@@ -115,9 +115,9 @@ Complex task detected. Decomposition:
 
 RULES — follow this exact sequence:
 1. Read at most 3 files/sections to understand the problem
-2. IMMEDIATELY write_file or edit_file with your implementation
-3. bash to verify/test the result
-4. If verification fails, fix with edit_file (do NOT re-read everything)
+2. IMMEDIATELY Write or Edit with your implementation
+3. Bash to verify/test the result
+4. If verification fails, fix with Edit (do NOT re-read everything)
 5. If verification passes, STOP — output the result, do NOT rewrite working code
 
 You MUST produce code by your 4th tool call. No exceptions.

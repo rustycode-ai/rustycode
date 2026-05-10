@@ -321,18 +321,19 @@ pub fn tool_type_icon(name: &str) -> &'static str {
         tn::GLOB | tn::LIST_DIR => "⋮",
         tn::WEB_FETCH => "◉",
         tn::NOTEBOOK_EDIT => "◎",
+        tn::GIT_STATUS | tn::GIT_DIFF | tn::GIT_LOG | tn::GIT_COMMIT => "⎇",
         _ => icon_type_from_segments(name),
     }
 }
 
 fn icon_type_from_segments(name: &str) -> &'static str {
     for segment in name.split(['_', '-', ':']) {
-        match segment {
+        match segment.to_lowercase().as_str() {
             "" => continue,
             "read" | "view" | "cat" => return "◎",
             "write" | "edit" | "create" => return "✎",
             "bash" | "shell" | "exec" => return "▸",
-            "Search" | "grep" | "Find" => return "⌕",
+            "search" | "grep" | "find" => return "⌕",
             "glob" | "list" => return "⋮",
             "diff" | "patch" => return "≠",
             "git" => return "⎇",
@@ -506,7 +507,7 @@ mod tests {
         assert_eq!(tool_type_icon("diff"), "≠");
         assert_eq!(tool_type_icon("GitStatus"), "⎇");
         assert_eq!(tool_type_icon("mcp_server"), "◉");
-        assert_eq!(tool_type_icon("ApplyPatch"), "▶");
+        assert_eq!(tool_type_icon("ApplyPatch"), "✎");
         assert_eq!(tool_type_icon("unknown"), "○");
     }
 
