@@ -163,18 +163,29 @@ pub struct GeminiProvider {
 /// Recursively sanitize a JSON Schema value for Gemini's function declaration API.
 ///
 /// Gemini rejects several standard JSON Schema constructs:
-/// - `$schema` keyword (not part of OpenAPI 3.1 schema subset)
+/// - `$schema`, `$defs`, `$ref` — not supported (flat schemas only)
 /// - `type` as an array (e.g., `["string", "null"]`) — must be a single string
-/// - `default: null` — Gemini rejects null defaults
+/// - `default: null` — rejected
+/// - `items: true` — must be a schema object `{}`
 fn sanitize_gemini_schema(value: &mut serde_json::Value) {
     let Some(obj) = value.as_object_mut() else {
         return;
     };
 
-    // Strip $schema — Gemini doesn't accept it
     obj.remove("$schema");
 
-    // Flatten type arrays: ["string", "null"] → "string" (pick first non-null entry)
+    // $defs + $ref are unsupported — remove $defs, resolve $ref to generic schema
+    if obj.remove("$defs").is_some() && obj.contains_key("$ref") {
+        let fallback = serde_json::json!({"type": "object"});
+        *value = fallback;
+        sanitize_gemini_schema(value);
+        return;
+    }
+
+    if obj.remove("$ref").is_some() {
+        obj.insert("type".to_string(), serde_json::json!("object"));
+    }
+
     if let Some(type_val) = obj.get_mut("type") {
         if let Some(arr) = type_val.as_array() {
             let first_non_null = arr
@@ -186,14 +197,18 @@ fn sanitize_gemini_schema(value: &mut serde_json::Value) {
         }
     }
 
-    // Remove null defaults — Gemini rejects them
     if let Some(default) = obj.get("default") {
         if default.is_null() {
             obj.remove("default");
         }
     }
 
-    // Recurse into properties
+    if let Some(items) = obj.get_mut("items") {
+        if items.is_boolean() {
+            *items = serde_json::json!({});
+        }
+    }
+
     if let Some(props) = obj.get_mut("properties") {
         if let Some(props_obj) = props.as_object_mut() {
             for (_key, prop) in props_obj.iter_mut() {
@@ -202,9 +217,16 @@ fn sanitize_gemini_schema(value: &mut serde_json::Value) {
         }
     }
 
-    // Recurse into items
     if let Some(items) = obj.get_mut("items") {
         sanitize_gemini_schema(items);
+    }
+
+    for keyword in &["anyOf", "oneOf", "allOf"] {
+        if let Some(arr) = obj.get_mut(*keyword).and_then(|v| v.as_array_mut()) {
+            for item in arr.iter_mut() {
+                sanitize_gemini_schema(item);
+            }
+        }
     }
 }
 
@@ -540,7 +562,10 @@ impl GeminiProvider {
             .base_url
             .as_deref()
             .unwrap_or("https://generativelanguage.googleapis.com");
-        format!("{}/v1beta/models/{}:streamGenerateContent", base, model)
+        format!(
+            "{}/v1beta/models/{}:streamGenerateContent?alt=sse",
+            base, model
+        )
     }
 
     async fn complete_internal(
@@ -788,7 +813,6 @@ impl LLMProvider for GeminiProvider {
 
         if !response.status().is_success() {
             let status = response.status();
-            // Capture headers before consuming the body to support Retry-After headers
             let headers = response.headers().clone();
             let error_body = response.text().await.ok();
             let error_msg = error_body.unwrap_or_else(|| format!("HTTP {}", status.as_u16()));
@@ -810,7 +834,6 @@ impl LLMProvider for GeminiProvider {
             });
         }
 
-        // Gemini returns SSE-style streaming responses
         let bytes_stream = response.bytes_stream();
         let byte_buffer = crate::sse::SseByteBuffer::new();
 
@@ -824,8 +847,22 @@ impl LLMProvider for GeminiProvider {
                 if line.is_empty() || line == "," {
                     continue;
                 }
-                let line = line.trim_end_matches(',');
-                // Gemini sends newline-delimited JSON objects
+                // Gemini SSE responses are prefixed with "data: " — strip it before parsing JSON
+                let line = if let Some(d) = line.strip_prefix("data: ") {
+                    d.trim()
+                } else {
+                    line.trim_end_matches(',')
+                };
+
+                // [DONE] signals end of stream
+                if line == "[DONE]" {
+                    break;
+                }
+
+                if line.is_empty() {
+                    continue;
+                }
+
                 if let Ok(data) = serde_json::from_str::<serde_json::Value>(line) {
                     if let Some(candidates) = data.get("candidates").and_then(|c| c.as_array()) {
                         if let Some(candidate) = candidates.first() {

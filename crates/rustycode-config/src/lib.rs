@@ -47,7 +47,7 @@ use std::path::{Path, PathBuf};
 // Re-export LspConfig from rustycode-lsp for convenience
 pub use rustycode_protocol::LspConfig;
 
-pub use parser::{api_key_env_name, default_model_for_provider};
+pub use parser::{api_key_env_name, default_model_for_provider, resolve_api_key_from_env};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {

@@ -171,7 +171,7 @@ use anyhow::Result;
 use secrecy::SecretString;
 
 // Use shared config parsing utilities from rustycode-config
-use rustycode_config::{api_key_env_name, default_model_for_provider};
+use rustycode_config::{default_model_for_provider, resolve_api_key_from_env};
 
 pub use advisor::{AdvisorConfig, AdvisorResponse, AdvisorTool};
 pub use anthropic::AnthropicProvider;
@@ -293,9 +293,7 @@ pub fn create_provider_with_config(
         config
     } else {
         ProviderConfig {
-            api_key: std::env::var(api_key_env_name(provider_type))
-                .ok()
-                .map(|s| SecretString::new(s.into())),
+            api_key: resolve_api_key_from_env(provider_type).map(|s| SecretString::new(s.into())),
             ..config
         }
     };
@@ -430,10 +428,8 @@ fn load_file_config() -> Option<FileConfig> {
 }
 
 fn resolve_api_key(provider_type: &str, file_config: Option<&FileConfig>) -> Option<SecretString> {
-    if let Ok(key) = std::env::var(api_key_env_name(provider_type)) {
-        if !key.trim().is_empty() {
-            return Some(SecretString::new(key.into()));
-        }
+    if let Some(key) = resolve_api_key_from_env(provider_type) {
+        return Some(SecretString::new(key.into()));
     }
 
     if matches!(provider_type.to_lowercase().as_str(), "copilot" | "github") {
