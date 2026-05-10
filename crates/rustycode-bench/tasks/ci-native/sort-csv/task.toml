@@ -1,0 +1,13 @@
+version = "1.0"
+
+[metadata]
+difficulty = "easy"
+category = "file-io"
+
+[verifier]
+timeout_sec = 120.0
+
+[agent]
+timeout_sec = 120.0
+
+[environment]

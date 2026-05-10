@@ -1,0 +1,4 @@
+Check out https://example.com and http://test.org for more info.
+Visit https://github.com or https://stackoverflow.com for code.
+Email me at user@example.com not a URL.
+Also check https://www.python.org and http://www.rust-lang.org.
