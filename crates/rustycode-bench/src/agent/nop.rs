@@ -25,4 +25,9 @@ impl BenchAgent for NopAgent {
         tracing::info!("NopAgent: doing nothing");
         Ok(())
     }
+
+    fn token_usage(&self) -> (u64, u64) {
+        // No-op agent never calls an LLM
+        (0, 0)
+    }
 }

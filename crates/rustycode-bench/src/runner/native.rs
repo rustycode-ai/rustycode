@@ -256,6 +256,9 @@ async fn run_native_trial(
             error: None,
             duration_secs: duration,
             trial_dir,
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
         },
         Some(Err(e)) => TrialResult {
             task_name: task.name.clone(),
@@ -265,6 +268,9 @@ async fn run_native_trial(
             error: Some(e.to_string()),
             duration_secs: duration,
             trial_dir,
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
         },
         None => TrialResult {
             task_name: task.name.clone(),
@@ -274,6 +280,9 @@ async fn run_native_trial(
             error: Some("no attempts made".to_string()),
             duration_secs: duration,
             trial_dir,
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
         },
     }
 }

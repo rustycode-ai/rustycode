@@ -62,4 +62,9 @@ impl BenchAgent for OracleAgent {
         tracing::info!("Oracle solution completed (exit {})", result.exit_code);
         Ok(())
     }
+
+    fn token_usage(&self) -> (u64, u64) {
+        // Oracle agent runs a script, no LLM involved
+        (0, 0)
+    }
 }

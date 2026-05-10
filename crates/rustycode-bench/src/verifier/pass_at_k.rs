@@ -101,6 +101,9 @@ mod tests {
             error: None,
             duration_secs: 10.0,
             trial_dir: PathBuf::from("/tmp"),
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
         }
     }
 

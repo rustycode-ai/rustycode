@@ -55,6 +55,10 @@ pub struct CodeAgent {
     provider: Arc<dyn rustycode_llm::LLMProvider>,
     /// Tracks recent bash commands for repetition detection.
     recent_commands: Vec<String>,
+    /// Accumulated input (prompt) tokens from the last run().
+    input_tokens: u64,
+    /// Accumulated output (completion) tokens from the last run().
+    output_tokens: u64,
 }
 
 /// Number of recent bash commands to track for repetition detection.
@@ -67,6 +71,8 @@ impl CodeAgent {
             config,
             provider,
             recent_commands: Vec::new(),
+            input_tokens: 0,
+            output_tokens: 0,
         }
     }
 
@@ -551,6 +557,10 @@ impl BenchAgent for CodeAgent {
         instruction: &str,
         env: &mut dyn BenchEnvironment,
     ) -> anyhow::Result<()> {
+        // Reset token counters for this run
+        self.input_tokens = 0;
+        self.output_tokens = 0;
+
         let cwd = env
             .workspace_path()
             .context("workspace_path required for CodeAgent — use native runner")?;
@@ -613,6 +623,12 @@ impl BenchAgent for CodeAgent {
             );
 
             let response = rustycode_llm::LLMProvider::complete(&*self.provider, request).await?;
+
+            // Accumulate token usage across turns
+            if let Some(usage) = &response.usage {
+                self.input_tokens += u64::from(usage.input_tokens);
+                self.output_tokens += u64::from(usage.output_tokens);
+            }
 
             // Handle max_tokens truncation
             if response.stop_reason.as_deref() == Some("max_tokens")
@@ -841,6 +857,10 @@ impl BenchAgent for CodeAgent {
         self.write_trace(&conversation_trace, &cwd).await;
 
         Ok(())
+    }
+
+    fn token_usage(&self) -> (u64, u64) {
+        (self.input_tokens, self.output_tokens)
     }
 }
 

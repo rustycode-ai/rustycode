@@ -34,4 +34,7 @@ pub trait BenchAgent: Send + Sync {
         instruction: &str,
         env: &mut dyn BenchEnvironment,
     ) -> anyhow::Result<()>;
+
+    /// Return accumulated (input_tokens, output_tokens) from the last run() call.
+    fn token_usage(&self) -> (u64, u64);
 }

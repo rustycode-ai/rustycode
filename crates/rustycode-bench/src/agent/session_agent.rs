@@ -54,4 +54,9 @@ impl BenchAgent for SessionBenchAgent {
         ).await?;
         Ok(())
     }
+
+    fn token_usage(&self) -> (u64, u64) {
+        // SessionBenchAgent does not currently track token usage
+        (0, 0)
+    }
 }

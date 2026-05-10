@@ -186,6 +186,11 @@ impl BenchAgent for RealBenchAgent {
 
         Ok(())
     }
+
+    fn token_usage(&self) -> (u64, u64) {
+        // RealBenchAgent delegates to AgentSession which does not expose usage yet
+        (0, 0)
+    }
 }
 
 // Factory
