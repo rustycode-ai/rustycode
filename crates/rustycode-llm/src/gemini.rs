@@ -574,9 +574,18 @@ impl GeminiProvider {
     ) -> Result<CompletionResponse, ProviderError> {
         let url = self.endpoint(&request.model);
 
+        let wants_structured_output = request
+            .output_config
+            .as_ref()
+            .and_then(|c| c.format.as_ref())
+            .is_some_and(|f| {
+                matches!(f.format_type, crate::provider::OutputFormatType::JsonSchema)
+            });
+
         let response_schema = build_gemini_response_schema(&request.output_config);
-        let mut response_schema_value =
-            response_schema.and_then(|v| v.get("responseSchema").cloned());
+        let mut response_schema_value = response_schema
+            .as_ref()
+            .and_then(|v| v.get("responseSchema").cloned());
         if let Some(ref mut schema) = response_schema_value {
             sanitize_gemini_schema(schema);
         }
@@ -714,6 +723,19 @@ impl GeminiProvider {
             }
         });
 
+        // Extract structured output when output_config.format was JsonSchema
+        let structured_output = if wants_structured_output {
+            match serde_json::from_str::<serde_json::Value>(&content) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    tracing::warn!("Structured output JSON parse failed: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         Ok(CompletionResponse {
             content,
             model: request.model.clone(),
@@ -721,7 +743,7 @@ impl GeminiProvider {
             stop_reason: crate::provider::normalize_stop_reason(candidate.finish_reason.as_deref()),
             citations: None,
             thinking_blocks: None,
-            structured_output: None,
+            structured_output,
         })
     }
 }
@@ -765,8 +787,9 @@ impl LLMProvider for GeminiProvider {
         let url = self.stream_endpoint(&request.model);
 
         let response_schema = build_gemini_response_schema(&request.output_config);
-        let mut response_schema_value =
-            response_schema.and_then(|v| v.get("responseSchema").cloned());
+        let mut response_schema_value = response_schema
+            .as_ref()
+            .and_then(|v| v.get("responseSchema").cloned());
         if let Some(ref mut schema) = response_schema_value {
             sanitize_gemini_schema(schema);
         }

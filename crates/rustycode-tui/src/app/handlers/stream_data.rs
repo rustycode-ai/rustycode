@@ -137,6 +137,7 @@ pub(super) fn handle_token_usage_chunk(
     tui.token_budget.session_cache_read_tokens += cache_read_tokens;
     tui.token_budget.session_cache_creation_tokens += cache_creation_tokens;
     tui.token_budget.last_turn_input_tokens = input_tokens;
+    tui.token_budget.last_turn_output_tokens = output_tokens;
 
     // Update context monitor with real API token counts
     tui.compaction

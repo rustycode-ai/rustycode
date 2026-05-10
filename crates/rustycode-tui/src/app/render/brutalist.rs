@@ -61,10 +61,13 @@ impl TUI {
         };
 
         let mut context_usage = crate::app::context_usage::ContextUsage::new();
+        // Context length estimate = last prompt_tokens + last output_tokens.
+        // prompt_tokens includes full history; output_tokens is the response that
+        // will be appended to the next request's prompt.
         if self.token_budget.last_turn_input_tokens > 0 {
-            context_usage.update(self.token_budget.last_turn_input_tokens, self.token_budget.session_output_tokens);
+            context_usage.update(self.token_budget.last_turn_input_tokens, self.token_budget.last_turn_output_tokens);
         } else {
-            context_usage.update(self.token_budget.session_input_tokens, self.token_budget.session_output_tokens);
+            context_usage.update(self.token_budget.session_input_tokens, 0);
         }
         context_usage.set_limit(self.compaction.context_monitor.max_tokens);
 

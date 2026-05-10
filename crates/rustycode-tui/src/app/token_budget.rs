@@ -5,6 +5,7 @@ pub(crate) struct TokenBudget {
     pub(crate) session_cache_read_tokens: usize,
     pub(crate) session_cache_creation_tokens: usize,
     pub(crate) last_turn_input_tokens: usize,
+    pub(crate) last_turn_output_tokens: usize,
     /// Per-tool and per-model cost breakdowns.
     pub(crate) cost_tracker: rustycode_llm::cost_tracker::CostTracker,
 }
@@ -18,6 +19,7 @@ impl TokenBudget {
             session_cache_read_tokens: 0,
             session_cache_creation_tokens: 0,
             last_turn_input_tokens: 0,
+            last_turn_output_tokens: 0,
             cost_tracker: rustycode_llm::cost_tracker::CostTracker::new(None),
         }
     }
@@ -29,6 +31,7 @@ impl TokenBudget {
         self.session_cache_read_tokens = 0;
         self.session_cache_creation_tokens = 0;
         self.last_turn_input_tokens = 0;
+        self.last_turn_output_tokens = 0;
         self.cost_tracker = rustycode_llm::cost_tracker::CostTracker::new(None);
     }
 
@@ -48,6 +51,7 @@ impl TokenBudget {
             .saturating_add(cache_creation);
         self.session_cost_usd += cost_usd;
         self.last_turn_input_tokens = input;
+        self.last_turn_output_tokens = output;
     }
 
     pub(crate) fn total_tokens(&self) -> usize {
@@ -71,6 +75,7 @@ mod tests {
         assert_eq!(budget.session_cache_read_tokens, 0);
         assert_eq!(budget.session_cache_creation_tokens, 0);
         assert_eq!(budget.last_turn_input_tokens, 0);
+        assert_eq!(budget.last_turn_output_tokens, 0);
     }
 
     #[test]
@@ -93,6 +98,7 @@ mod tests {
         assert_eq!(budget.session_input_tokens, 300);
         assert_eq!(budget.session_output_tokens, 125);
         assert_eq!(budget.last_turn_input_tokens, 200);
+        assert_eq!(budget.last_turn_output_tokens, 75);
     }
 
     #[test]
@@ -117,6 +123,7 @@ mod tests {
         budget.session_cache_read_tokens = 200;
         budget.session_cache_creation_tokens = 50;
         budget.last_turn_input_tokens = 300;
+        budget.last_turn_output_tokens = 150;
 
         budget.reset();
 
@@ -126,5 +133,6 @@ mod tests {
         assert_eq!(budget.session_cache_read_tokens, 0);
         assert_eq!(budget.session_cache_creation_tokens, 0);
         assert_eq!(budget.last_turn_input_tokens, 0);
+        assert_eq!(budget.last_turn_output_tokens, 0);
     }
 }

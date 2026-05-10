@@ -36,7 +36,11 @@ fn main() {
     println!("\n✅ All tests completed!");
 }
 
-#[allow(clippy::too_many_lines)]
+#[allow(
+    clippy::too_many_lines,
+    clippy::expect_used,
+    clippy::unnecessary_debug_formatting
+)]
 fn create_test_skills(dir: &std::path::Path) {
     let skills = vec![
         (
@@ -123,9 +127,10 @@ This is a test skill for {}
         fs::write(skill_dir.join("SKILL.md"), content).expect("Failed to write SKILL.md");
     }
 
-    println!("✓ Created test skills in {:?}\n", dir);
+    println!("✓ Created test skills in {}\n", dir.display());
 }
 
+#[allow(clippy::expect_used)]
 fn test_context_activation(dir: &std::path::Path) {
     println!("📋 TEST 1: Context-Based Activation");
     hr();
@@ -169,6 +174,7 @@ fn test_context_activation(dir: &std::path::Path) {
     }
 }
 
+#[allow(clippy::expect_used, clippy::redundant_closure_for_method_calls)]
 fn test_path_activation(dir: &std::path::Path) {
     println!("\n📋 TEST 2: Path-Based Activation");
     hr();
@@ -204,6 +210,7 @@ fn test_path_activation(dir: &std::path::Path) {
     }
 }
 
+#[allow(clippy::expect_used, clippy::if_not_else)]
 fn test_tool_scope_integration(dir: &std::path::Path) {
     println!("\n📋 TEST 3: Tool Scope Integration");
     hr();
@@ -252,13 +259,14 @@ fn test_tool_scope_integration(dir: &std::path::Path) {
 
     println!("\n  Step 5: Deactivate and verify removal");
     mgr.deactivate_skill("code-reviewer");
-    if !mgr.is_active("code-reviewer") {
-        println!("    ✓ Skill deactivated");
-    } else {
+    if mgr.is_active("code-reviewer") {
         println!("    ✗ Skill still active");
+    } else {
+        println!("    ✓ Skill deactivated");
     }
 }
 
+#[allow(clippy::expect_used)]
 fn test_budget_enforcement(dir: &std::path::Path) {
     println!("\n📋 TEST 4: Budget Enforcement");
     hr();

@@ -158,7 +158,8 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                                 Some(Usage {
                                     input_tokens,
                                     output_tokens,
-                                    total_tokens: input_tokens.saturating_add(output_tokens).saturating_add(reasoning_tokens),
+                                    // completion_tokens already includes reasoning_tokens — don't add them again
+                                    total_tokens: input_tokens.saturating_add(output_tokens),
                                     cache_read_input_tokens: cached_tokens,
                                     cache_creation_input_tokens: 0,
                                     reasoning_tokens: if reasoning_tokens > 0 { Some(reasoning_tokens) } else { None },
@@ -330,13 +331,19 @@ fn extract_tool_call_delta(
     }
 }
 
-/// Extract TokenUsage and TurnCompleted events when a finish_reason is present.
+/// Extract TokenUsage, CacheUsage, and TurnCompleted events when a finish_reason is present.
 fn extract_finish_events(
     data: &serde_json::Value,
     finish_reason: &str,
     events: &mut Vec<Result<StreamEvent, ProviderError>>,
 ) {
     if let Some(usage) = data.get("usage").and_then(parse_usage) {
+        if usage.cache_read_input_tokens > 0 || usage.cache_creation_input_tokens > 0 {
+            events.push(Ok(StreamEvent::CacheUsage {
+                cache_read_tokens: u64::from(usage.cache_read_input_tokens),
+                cache_creation_tokens: u64::from(usage.cache_creation_input_tokens),
+            }));
+        }
         events.push(Ok(StreamEvent::TokenUsage {
             input_tokens: u64::from(usage.input_tokens),
             output_tokens: u64::from(usage.output_tokens),
@@ -381,9 +388,8 @@ fn parse_usage(u: &serde_json::Value) -> Option<Usage> {
     Some(Usage {
         input_tokens,
         output_tokens,
-        total_tokens: input_tokens
-            .saturating_add(output_tokens)
-            .saturating_add(reasoning_tokens),
+        // completion_tokens already includes reasoning_tokens — don't add them again
+        total_tokens: input_tokens.saturating_add(output_tokens),
         cache_read_input_tokens: cached_tokens,
         cache_creation_input_tokens: 0,
         reasoning_tokens: if reasoning_tokens > 0 {
