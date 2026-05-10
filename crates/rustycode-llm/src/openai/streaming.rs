@@ -152,7 +152,7 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                                     input_tokens,
                                     output_tokens,
                                     reasoning_tokens,
-                                    total = input_tokens.saturating_add(output_tokens).saturating_add(reasoning_tokens),
+                                    total = input_tokens.saturating_add(output_tokens),
                                     "Usage breakdown (streaming)"
                                 );
                                 Some(Usage {
@@ -380,9 +380,7 @@ fn parse_usage(u: &serde_json::Value) -> Option<Usage> {
         input_tokens,
         output_tokens,
         reasoning_tokens,
-        total = input_tokens
-            .saturating_add(output_tokens)
-            .saturating_add(reasoning_tokens),
+        total = input_tokens.saturating_add(output_tokens),
         "Usage breakdown"
     );
     Some(Usage {
