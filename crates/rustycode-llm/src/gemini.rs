@@ -160,6 +160,54 @@ pub struct GeminiProvider {
     client: reqwest::Client,
 }
 
+/// Recursively sanitize a JSON Schema value for Gemini's function declaration API.
+///
+/// Gemini rejects several standard JSON Schema constructs:
+/// - `$schema` keyword (not part of OpenAPI 3.1 schema subset)
+/// - `type` as an array (e.g., `["string", "null"]`) — must be a single string
+/// - `default: null` — Gemini rejects null defaults
+fn sanitize_gemini_schema(value: &mut serde_json::Value) {
+    let Some(obj) = value.as_object_mut() else {
+        return;
+    };
+
+    // Strip $schema — Gemini doesn't accept it
+    obj.remove("$schema");
+
+    // Flatten type arrays: ["string", "null"] → "string" (pick first non-null entry)
+    if let Some(type_val) = obj.get_mut("type") {
+        if let Some(arr) = type_val.as_array() {
+            let first_non_null = arr
+                .iter()
+                .find(|v| v.as_str().is_some_and(|s| s != "null"))
+                .cloned()
+                .unwrap_or(serde_json::json!("string"));
+            *type_val = first_non_null;
+        }
+    }
+
+    // Remove null defaults — Gemini rejects them
+    if let Some(default) = obj.get("default") {
+        if default.is_null() {
+            obj.remove("default");
+        }
+    }
+
+    // Recurse into properties
+    if let Some(props) = obj.get_mut("properties") {
+        if let Some(props_obj) = props.as_object_mut() {
+            for (_key, prop) in props_obj.iter_mut() {
+                sanitize_gemini_schema(prop);
+            }
+        }
+    }
+
+    // Recurse into items
+    if let Some(items) = obj.get_mut("items") {
+        sanitize_gemini_schema(items);
+    }
+}
+
 impl GeminiProvider {
     pub fn new(config: ProviderConfig) -> Result<Self> {
         // Validate config using provider metadata
@@ -356,10 +404,12 @@ impl GeminiProvider {
                     .or_else(|| tool.get("parameters"))
                     .cloned();
                 if let Some(ref mut params) = parameters {
+                    sanitize_gemini_schema(params);
+                    // Gemini requires top-level parameters to have type "object"
                     if params.get("type").and_then(|v| v.as_str()) != Some("object") {
-                        params
-                            .as_object_mut()
-                            .map(|m| m.insert("type".into(), serde_json::json!("object")));
+                        if let Some(m) = params.as_object_mut() {
+                            m.insert("type".into(), serde_json::json!("object"));
+                        }
                     }
                 }
                 GeminiFunctionDecl {
@@ -838,6 +888,71 @@ mod tests {
             extra_headers: None,
             retry_config: None,
         }
+    }
+
+    #[test]
+    fn test_sanitize_strips_dollar_schema() {
+        let mut schema = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": {"name": {"type": "string"}}
+        });
+        sanitize_gemini_schema(&mut schema);
+        assert!(schema.get("$schema").is_none());
+    }
+
+    #[test]
+    fn test_sanitize_flattens_type_arrays() {
+        let mut schema = serde_json::json!({
+            "type": "object",
+            "properties": {
+                "name": {"type": ["string", "null"]},
+                "count": {"type": ["integer", "null"]}
+            }
+        });
+        sanitize_gemini_schema(&mut schema);
+        assert_eq!(schema["properties"]["name"]["type"], "string");
+        assert_eq!(schema["properties"]["count"]["type"], "integer");
+    }
+
+    #[test]
+    fn test_sanitize_removes_null_defaults() {
+        let mut schema = serde_json::json!({
+            "type": "object",
+            "properties": {"name": {"type": "string", "default": null}}
+        });
+        sanitize_gemini_schema(&mut schema);
+        assert!(schema["properties"]["name"].get("default").is_none());
+    }
+
+    #[test]
+    fn test_convert_tools_sanitizes_schema() {
+        let tools = vec![serde_json::json!({
+            "name": "TestTool",
+            "description": "A test tool",
+            "input_schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                    "path": {"type": ["string", "null"]},
+                    "verbose": {"type": "boolean", "default": null}
+                }
+            }
+        })];
+        let blocks = GeminiProvider::convert_tools(&tools);
+        let params = blocks[0].function_declarations[0]
+            .parameters
+            .as_ref()
+            .unwrap();
+        assert!(params.get("$schema").is_none(), "should strip $schema");
+        assert_eq!(
+            params["properties"]["path"]["type"], "string",
+            "should flatten type array"
+        );
+        assert!(
+            params["properties"]["verbose"].get("default").is_none(),
+            "should remove null default"
+        );
     }
 
     #[test]
