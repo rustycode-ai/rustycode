@@ -11,7 +11,7 @@ RustyCode is an AI-powered autonomous development framework built in Rust. It pr
 **Install page**: https://rustycode-ai.github.io/
 **License**: MIT
 **Rust Edition**: 2021
-**Current Release**: v0.1.0
+**Current Release**: v0.3.0
 **Minimum Rust Version**: See `Cargo.toml` (MSRV not formally specified; use latest stable)
 
 ## Architecture Status
@@ -329,3 +329,56 @@ Pre-commit hooks (`.pre-commit-config.yaml`):
 - gitleaks — secret detection
 - cargo fmt
 - cargo clippy
+
+## Release Process
+
+### Repository Architecture
+
+| Repo | Purpose | URL |
+|------|---------|-----|
+| `origin` (dev) | Source of truth for all code | `github.com/luengnat/rustycode` |
+| `release` | Public-facing: CI/CD, releases, install page | `github.com/rustycode-ai/rustycode` |
+
+The release repo contains **only** CI/CD workflows (`.github/workflows/ci.yml`, `release.yml`) and release assets. It checks out source code from the dev repo using a PAT (`secrets.PRIVATE_REPO_PAT`). **Never push code or tags directly to the release repo.**
+
+### How to Cut a Release
+
+1. **Commit all changes** to `main` on the dev repo
+2. **Bump version** in root `Cargo.toml`
+3. **Generate changelog** with git-cliff:
+   ```bash
+   git-cliff --tag v0.X.X -o CHANGELOG.md
+   ```
+4. **Commit and tag**:
+   ```bash
+   git add Cargo.toml CHANGELOG.md
+   git commit -m "chore: bump version to 0.X.X"
+   git tag v0.X.X
+   ```
+5. **Push to dev repo**:
+   ```bash
+   git push origin main --tags
+   ```
+6. **Trigger the release workflow** on the release repo:
+   ```bash
+   gh workflow run release.yml --repo rustycode-ai/rustycode \
+     --field ref=v0.X.X --field release_type=stable
+   ```
+7. **Monitor** the build:
+   ```bash
+   gh run list --repo rustycode-ai/rustycode --limit 1
+   ```
+
+### Nightly Builds
+
+Same process but use `release_type=nightly`:
+```bash
+gh workflow run release.yml --repo rustycode-ai/rustycode \
+  --field ref=main --field release_type=nightly
+```
+
+### Do NOT
+
+- Push tags or branches to the `release` remote — it checks out from the dev repo via PAT
+- Run `git push release main` — the histories are intentionally separate
+- Create GitHub releases manually — the workflow handles this
