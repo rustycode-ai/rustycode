@@ -348,23 +348,28 @@ fn cross_provider_thinking_block() {
         other => panic!("Anthropic: expected Blocks, got {:?}", other),
     }
 
-    // OpenAI: thinking blocks are converted to [prior-reasoning] text
+    // OpenAI: thinking goes to reasoning_content, text stays in content
     let o_msgs = OpenAiProvider::convert_messages(&[msg.clone()]);
     assert_eq!(o_msgs.len(), 1);
     assert_eq!(o_msgs[0].role, "assistant");
-    // Content is serialized as a JSON array with 2 parts
+    // Text content is in the content field
     let content_str = o_msgs[0]
         .content
         .as_ref()
         .expect("content should exist")
         .to_string();
     assert!(
-        content_str.contains("[prior-reasoning]"),
-        "expected [prior-reasoning] in OpenAI content"
-    );
-    assert!(
         content_str.contains("Here is my answer."),
         "expected original text in OpenAI content"
+    );
+    // Thinking goes to reasoning_content field
+    let rc = o_msgs[0]
+        .reasoning_content
+        .as_ref()
+        .expect("reasoning_content should be set");
+    assert!(
+        rc.contains("Let me reason about this"),
+        "expected thinking in reasoning_content"
     );
 
     // Ollama: thinking flattened to text

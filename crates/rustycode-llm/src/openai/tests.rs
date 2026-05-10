@@ -933,7 +933,7 @@ fn test_roundtrip_image_block() {
 }
 
 #[test]
-fn test_roundtrip_thinking_block_converted_to_text() {
+fn test_roundtrip_thinking_block_converted_to_reasoning_content() {
     let msgs = vec![ChatMessage {
         role: MessageRole::Assistant,
         content: MessageContent::Blocks(vec![ContentBlock::thinking(
@@ -944,9 +944,13 @@ fn test_roundtrip_thinking_block_converted_to_text() {
     let result = OpenAiProvider::convert_messages(&msgs);
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].role, "assistant");
-    let content = result[0].content.as_ref().unwrap().as_str().unwrap();
-    assert!(content.contains("[prior-reasoning]"));
-    assert!(content.contains("internal reasoning"));
+    // Thinking content goes to reasoning_content field, not inline text
+    assert!(result[0].content.is_none());
+    let rc = result[0]
+        .reasoning_content
+        .as_ref()
+        .expect("reasoning_content should be set");
+    assert_eq!(rc, "internal reasoning");
 }
 
 #[test]
@@ -957,6 +961,37 @@ fn test_roundtrip_empty_thinking_block_skipped() {
     }];
     let result = OpenAiProvider::convert_messages(&msgs);
     assert!(result.is_empty());
+}
+
+#[test]
+fn test_reasoning_content_serialized_in_json() {
+    let msg = types::OpenAiMessage {
+        role: "assistant".to_string(),
+        content: Some(serde_json::Value::String("Hello".to_string())),
+        tool_calls: None,
+        tool_call_id: None,
+        name: None,
+        reasoning_content: Some("step 1: think\nstep 2: reason".to_string()),
+    };
+    let json = serde_json::to_string(&msg).unwrap();
+    assert!(
+        json.contains("\"reasoning_content\":\"step 1: think\\nstep 2: reason\""),
+        "reasoning_content should appear in serialized JSON, got: {json}"
+    );
+    // Verify skip_serializing_if works: None should NOT appear
+    let msg_no_rc = types::OpenAiMessage {
+        role: "assistant".to_string(),
+        content: Some(serde_json::Value::String("Hi".to_string())),
+        tool_calls: None,
+        tool_call_id: None,
+        name: None,
+        reasoning_content: None,
+    };
+    let json_no_rc = serde_json::to_string(&msg_no_rc).unwrap();
+    assert!(
+        !json_no_rc.contains("reasoning_content"),
+        "reasoning_content should be absent when None, got: {json_no_rc}"
+    );
 }
 
 #[test]

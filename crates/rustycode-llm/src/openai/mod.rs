@@ -607,7 +607,10 @@ impl OpenAiProvider {
                         let mut result = Vec::new();
 
                         // Build the main message (with text/images and/or tool_calls)
-                        if !other_parts.is_empty() || !tool_calls.is_empty() {
+                        if !other_parts.is_empty()
+                            || !tool_calls.is_empty()
+                            || reasoning_content.is_some()
+                        {
                             let content_val = if other_parts.is_empty() {
                                 None
                             } else if other_parts.len() == 1 {
