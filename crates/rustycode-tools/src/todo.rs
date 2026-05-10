@@ -1,7 +1,5 @@
 use crate::{ToolOutput, ToolPermission};
 use dashmap::DashMap;
-use rustycode_bus::{EventBus, TodoSnapshot, TodoUpdatedEvent};
-use rustycode_storage::Storage;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use std::sync::{Arc, Mutex};
@@ -52,65 +50,6 @@ pub fn get_or_create_todo_state(session_id: &str) -> TodoState {
 // ============================================================================
 // Helper functions
 // ============================================================================
-
-#[allow(dead_code)]
-const fn to_storage_status(status: TodoStatus) -> rustycode_storage::task_store::TodoStatus {
-    match status {
-        TodoStatus::Pending => rustycode_storage::task_store::TodoStatus::Pending,
-        TodoStatus::InProgress => rustycode_storage::task_store::TodoStatus::InProgress,
-        TodoStatus::Completed => rustycode_storage::task_store::TodoStatus::Completed,
-    }
-}
-
-#[allow(dead_code)]
-fn persist_todos(storage: &Storage, state: &[TodoItem], session_id: &str, project_id: &str) {
-    let storage_todos: Vec<rustycode_storage::task_store::TodoItem> = state
-        .iter()
-        .enumerate()
-        .map(|(i, t)| rustycode_storage::task_store::TodoItem {
-            id: t.id.clone(),
-            session_id: session_id.to_string(),
-            project_id: project_id.to_string(),
-            content: t.title.clone(),
-            status: to_storage_status(t.status),
-            priority: rustycode_storage::task_store::Priority::Medium,
-            position: i as i64,
-            created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-        })
-        .collect();
-
-    if let Err(e) = storage.replace_todos(session_id, &storage_todos) {
-        tracing::warn!("Failed to persist todos to storage: {}", e);
-    }
-}
-
-#[allow(dead_code)]
-fn publish_todo_event(
-    bus: Option<&Arc<EventBus>>,
-    session_id: Option<&str>,
-    todos_snapshot: &[TodoItem],
-) {
-    let Some(bus) = bus else { return };
-    let Some(sid) = session_id else { return };
-    let bus = Arc::clone(bus);
-    let sid = sid.to_string();
-    let snapshots: Vec<TodoSnapshot> = todos_snapshot
-        .iter()
-        .map(|t| TodoSnapshot {
-            id: t.id.clone(),
-            title: t.title.clone(),
-            status: format_status(t.status),
-            active_form: t.active_form.clone(),
-        })
-        .collect();
-    tokio::spawn(async move {
-        let event = TodoUpdatedEvent::new(sid, snapshots);
-        if let Err(e) = bus.publish(event).await {
-            tracing::debug!("Failed to publish todo.updated event: {}", e);
-        }
-    });
-}
 
 fn format_status(status: TodoStatus) -> String {
     match status {
