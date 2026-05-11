@@ -367,18 +367,30 @@ impl OrchestrationPipeline {
         let starting_phase = lifecycle.current_phase();
 
         if starting_phase == ExecutionPhase::Explore {
-            if let Err(e) = lifecycle.enter_plan() {
-                tracing::warn!("Failed to enter plan phase: {e}");
+            match lifecycle.enter_plan() {
+                Ok(()) => {
+                    if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Plan) {
+                        tracing::error!(
+                            task_id = %ctx.task_id,
+                            error = %e,
+                            "Phase transition: execution phase Explore → Plan failed"
+                        );
+                    }
+                    self.bus.publish(OrchestrationEvent::PhaseTransition {
+                        task_id: ctx.task_id.clone(),
+                        from: ExecutionPhase::Explore,
+                        to: ExecutionPhase::Plan,
+                        reason: "context gathered".to_string(),
+                    });
+                }
+                Err(e) => {
+                    tracing::error!(
+                        task_id = %ctx.task_id,
+                        error = %e,
+                        "Phase transition: lifecycle Explore → Plan failed"
+                    );
+                }
             }
-            if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Plan) {
-                tracing::warn!("Failed to transition to Plan phase: {e}");
-            }
-            self.bus.publish(OrchestrationEvent::PhaseTransition {
-                task_id: ctx.task_id.clone(),
-                from: ExecutionPhase::Explore,
-                to: ExecutionPhase::Plan,
-                reason: "context gathered".to_string(),
-            });
         }
 
         let plan = ConvoyPlan {
@@ -403,23 +415,39 @@ impl OrchestrationPipeline {
         };
 
         if let Err(e) = lifecycle.submit_plan(plan) {
-            tracing::warn!("Failed to submit plan: {e}");
+            tracing::error!(
+                task_id = %ctx.task_id,
+                error = %e,
+                "Phase transition: plan submission failed"
+            );
         }
 
         self.emit_plan_lifecycle_events(&ctx);
 
-        if let Err(e) = lifecycle.approve_plan() {
-            tracing::warn!("Failed to approve plan: {e}");
+        match lifecycle.approve_plan() {
+            Ok(()) => {
+                if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Act) {
+                    tracing::error!(
+                        task_id = %ctx.task_id,
+                        error = %e,
+                        "Phase transition: execution phase Plan → Act failed"
+                    );
+                }
+                self.bus.publish(OrchestrationEvent::PhaseTransition {
+                    task_id: ctx.task_id.clone(),
+                    from: ExecutionPhase::Plan,
+                    to: ExecutionPhase::Act,
+                    reason: "plan approved".to_string(),
+                });
+            }
+            Err(e) => {
+                tracing::error!(
+                    task_id = %ctx.task_id,
+                    error = %e,
+                    "Phase transition: plan approval failed"
+                );
+            }
         }
-        if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Act) {
-            tracing::warn!("Failed to transition to Act phase: {e}");
-        }
-        self.bus.publish(OrchestrationEvent::PhaseTransition {
-            task_id: ctx.task_id.clone(),
-            from: ExecutionPhase::Plan,
-            to: ExecutionPhase::Act,
-            reason: "plan approved".to_string(),
-        });
 
         // Execute steps
         if let Err(e) = self.execute_steps(&mut ctx).await {
@@ -479,18 +507,30 @@ impl OrchestrationPipeline {
         let starting_phase = lifecycle.current_phase();
 
         if starting_phase == ExecutionPhase::Explore {
-            if let Err(e) = lifecycle.enter_plan() {
-                tracing::warn!("Failed to enter plan phase: {e}");
+            match lifecycle.enter_plan() {
+                Ok(()) => {
+                    if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Plan) {
+                        tracing::error!(
+                            task_id = %ctx.task_id,
+                            error = %e,
+                            "Phase transition: execution phase Explore → Plan failed"
+                        );
+                    }
+                    self.bus.publish(OrchestrationEvent::PhaseTransition {
+                        task_id: ctx.task_id.clone(),
+                        from: ExecutionPhase::Explore,
+                        to: ExecutionPhase::Plan,
+                        reason: "context gathered".to_string(),
+                    });
+                }
+                Err(e) => {
+                    tracing::error!(
+                        task_id = %ctx.task_id,
+                        error = %e,
+                        "Phase transition: lifecycle Explore → Plan failed"
+                    );
+                }
             }
-            if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Plan) {
-                tracing::warn!("Failed to transition to Plan phase: {e}");
-            }
-            self.bus.publish(OrchestrationEvent::PhaseTransition {
-                task_id: ctx.task_id.clone(),
-                from: ExecutionPhase::Explore,
-                to: ExecutionPhase::Plan,
-                reason: "context gathered".to_string(),
-            });
         }
 
         let plan = ConvoyPlan {
@@ -514,23 +554,39 @@ impl OrchestrationPipeline {
         };
 
         if let Err(e) = lifecycle.submit_plan(plan) {
-            tracing::warn!("Failed to submit plan: {e}");
+            tracing::error!(
+                task_id = %ctx.task_id,
+                error = %e,
+                "Phase transition: plan submission failed"
+            );
         }
 
         self.emit_plan_lifecycle_events(&ctx);
 
-        if let Err(e) = lifecycle.approve_plan() {
-            tracing::warn!("Failed to approve plan: {e}");
+        match lifecycle.approve_plan() {
+            Ok(()) => {
+                if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Act) {
+                    tracing::error!(
+                        task_id = %ctx.task_id,
+                        error = %e,
+                        "Phase transition: execution phase Plan → Act failed"
+                    );
+                }
+                self.bus.publish(OrchestrationEvent::PhaseTransition {
+                    task_id: ctx.task_id.clone(),
+                    from: ExecutionPhase::Plan,
+                    to: ExecutionPhase::Act,
+                    reason: "plan approved".to_string(),
+                });
+            }
+            Err(e) => {
+                tracing::error!(
+                    task_id = %ctx.task_id,
+                    error = %e,
+                    "Phase transition: plan approval failed"
+                );
+            }
         }
-        if let Err(e) = ctx.transition_execution_phase(ExecutionPhase::Act) {
-            tracing::warn!("Failed to transition to Act phase: {e}");
-        }
-        self.bus.publish(OrchestrationEvent::PhaseTransition {
-            task_id: ctx.task_id.clone(),
-            from: ExecutionPhase::Plan,
-            to: ExecutionPhase::Act,
-            reason: "plan approved".to_string(),
-        });
 
         if let Err(e) = self.execute_steps(&mut ctx).await {
             ctx.complete(TaskPhase::Failed);

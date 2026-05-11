@@ -257,22 +257,28 @@ impl InputState {
                 let col = line.floor_char_boundary(self.cursor_col);
                 let text_before = &line[..col];
 
-                let mut start_pos = 0;
-                let mut found_non_ws = false;
+                // Walk backwards: skip trailing whitespace, then skip the word.
+                let mut end = text_before.len();
 
-                for (i, c) in text_before.char_indices() {
+                // Skip whitespace immediately before cursor
+                for (i, c) in text_before.char_indices().rev() {
                     if c.is_whitespace() {
-                        if found_non_ws {
-                            start_pos = i;
-                        }
+                        end = i;
                     } else {
-                        if !found_non_ws {
-                            start_pos = i;
-                        }
-                        found_non_ws = true;
+                        break;
                     }
                 }
 
+                // Skip word characters back to the word boundary
+                for (i, c) in text_before[..end].char_indices().rev() {
+                    if !c.is_whitespace() {
+                        end = i;
+                    } else {
+                        break;
+                    }
+                }
+
+                let start_pos = end;
                 let deleted: String = line[start_pos..col].to_string();
                 line.replace_range(start_pos..col, "");
                 self.cursor_col = start_pos;

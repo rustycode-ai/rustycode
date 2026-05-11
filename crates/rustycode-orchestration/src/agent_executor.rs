@@ -78,7 +78,7 @@ impl AgentEvents for BusAgentEvents {
                 id,
                 name,
                 output,
-                is_error: _,
+                is_error,
             } => {
                 // Prefer the name from the event; fall back to pending_tools lookup
                 let tool_name = if name.is_empty() {
@@ -88,6 +88,14 @@ impl AgentEvents for BusAgentEvents {
                 } else {
                     name
                 };
+                if is_error {
+                    tracing::warn!(
+                        tool_id = %id,
+                        tool_name = %tool_name,
+                        output = %output.chars().take(200).collect::<String>(),
+                        "Tool execution failed"
+                    );
+                }
                 self.bus.publish(OrchestrationEvent::ToolExecutionFinished {
                     task_id: self.task_id.clone(),
                     tool: tool_name,
@@ -105,8 +113,22 @@ impl AgentEvents for BusAgentEvents {
                     output_tokens,
                 });
             }
-            // Other events are ignored for bus
-            StreamEvent::ThinkingDelta { .. } | StreamEvent::Done | _ => {}
+            // Thinking deltas not forwarded in BusAgentEvents —
+            // BridgeEvents handles them for interactive sessions.
+            StreamEvent::ThinkingDelta { .. } => {}
+            StreamEvent::ThinkingBlockCompleted { .. }
+            | StreamEvent::TurnStarted { .. }
+            | StreamEvent::TurnCompleted { .. }
+            | StreamEvent::CacheUsage { .. }
+            | StreamEvent::PlanCreated { .. }
+            | StreamEvent::PlanStepStarted { .. }
+            | StreamEvent::PlanStepCompleted { .. }
+            | StreamEvent::PlanCompleted { .. }
+            | StreamEvent::PlanApprovalRequested { .. }
+            | StreamEvent::Done => {}
+            _ => {
+                tracing::debug!("BusAgentEvents: unhandled stream event dropped");
+            }
         }
     }
 
@@ -223,7 +245,7 @@ impl AgentEvents for BridgeEvents {
                 id,
                 name,
                 output,
-                is_error: _,
+                is_error,
             } => {
                 // Prefer the name from the event; fall back to pending_tools lookup
                 let tool_name = if name.is_empty() {
@@ -233,12 +255,20 @@ impl AgentEvents for BridgeEvents {
                 } else {
                     name
                 };
+                if is_error {
+                    tracing::warn!(
+                        tool_id = %id,
+                        tool_name = %tool_name,
+                        output = %Self::truncate(&output, 200),
+                        "Tool execution failed"
+                    );
+                }
                 self.bus.publish(OrchestrationEvent::ToolCallCompleted {
                     task_id: self.task_id.clone(),
                     step_id: self.step_id.clone(),
                     tool_id: id.clone(),
                     tool_name,
-                    success: true,
+                    success: !is_error,
                     output_preview: Self::truncate(&output, 500),
                 });
                 self.pending_tools.remove(&id);
@@ -263,7 +293,22 @@ impl AgentEvents for BridgeEvents {
                     cache_creation_tokens,
                 });
             }
-            StreamEvent::Done | _ => {}
+            StreamEvent::TurnStarted { turn } => {
+                tracing::debug!(turn, "BridgeEvents: turn started");
+            }
+            StreamEvent::TurnCompleted { stop_reason } => {
+                tracing::debug!(stop_reason = %stop_reason, "BridgeEvents: turn completed");
+            }
+            StreamEvent::ThinkingBlockCompleted { .. }
+            | StreamEvent::PlanCreated { .. }
+            | StreamEvent::PlanStepStarted { .. }
+            | StreamEvent::PlanStepCompleted { .. }
+            | StreamEvent::PlanCompleted { .. }
+            | StreamEvent::PlanApprovalRequested { .. }
+            | StreamEvent::Done => {}
+            _ => {
+                tracing::debug!("BridgeEvents: unhandled stream event dropped");
+            }
         }
     }
 
