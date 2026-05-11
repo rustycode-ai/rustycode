@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 /// Extract the binary name from a shell command (first token, without path)
 pub fn extract_binary_name(command: &str) -> anyhow::Result<String> {
     use shell_words::split;
-    let tokens = split(command).map_err(|_| anyhow::anyhow!("invalid command syntax"))?;
+    let tokens = split(command).map_err(|e| anyhow::anyhow!("invalid command syntax: {e}"))?;
     if tokens.is_empty() {
         return Err(anyhow::anyhow!("empty command"));
     }
@@ -472,8 +472,10 @@ pub fn validate_command_safety(command: &str) -> Result<()> {
 
     let (has_newline, is_heredoc) = check_input_encoding(command)?;
 
-    let tokens = shell_words::split(command).map_err(|_| {
-        anyhow::anyhow!("blocked command with invalid shell syntax (potential obfuscation attempt)")
+    let tokens = shell_words::split(command).map_err(|e| {
+        anyhow::anyhow!(
+            "blocked command with invalid shell syntax: {e} (potential obfuscation attempt)"
+        )
     })?;
 
     check_newline_injection(command, &tokens, has_newline, is_heredoc)?;

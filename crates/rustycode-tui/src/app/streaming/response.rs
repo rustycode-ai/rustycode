@@ -445,7 +445,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         }
     } else if let Ok(prompt_file) = std::env::var("RUSTYCODE_SYSTEM_PROMPT_FILE") {
         if !prompt_file.is_empty() {
-            if let Ok(content) = std::fs::read_to_string(&prompt_file) {
+            if let Ok(content) = tokio::fs::read_to_string(&prompt_file).await {
                 if !content.trim().is_empty() {
                     system_parts.push(content);
                 }
@@ -455,8 +455,8 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
 
     if let Some(cwd_str) = cwd.to_str() {
         let project_prompt = Path::new(cwd_str).join(".rustycode_system_prompt");
-        if project_prompt.exists() {
-            if let Ok(content) = std::fs::read_to_string(&project_prompt) {
+        if tokio::fs::metadata(&project_prompt).await.is_ok() {
+            if let Ok(content) = tokio::fs::read_to_string(&project_prompt).await {
                 if !content.trim().is_empty() {
                     system_parts.push(content);
                 }
@@ -464,8 +464,8 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         }
 
         let agents_md = Path::new(cwd_str).join("AGENTS.md");
-        if agents_md.exists() {
-            if let Ok(content) = std::fs::read_to_string(&agents_md) {
+        if tokio::fs::metadata(&agents_md).await.is_ok() {
+            if let Ok(content) = tokio::fs::read_to_string(&agents_md).await {
                 if !content.trim().is_empty() {
                     system_parts.push(format!("## Project Instructions (AGENTS.md)\n{}", content));
                 }

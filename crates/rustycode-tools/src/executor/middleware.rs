@@ -173,7 +173,7 @@ impl ExecutionMiddleware {
         };
 
         // Phase 5: Post-execution processing
-        self.post_execute_check(&tool_name, &Ok(output.clone()), ctx)?;
+        self.post_execute_check(&tool_name, &output, ctx)?;
 
         Ok(output)
     }
@@ -197,7 +197,7 @@ impl ExecutionMiddleware {
     fn post_execute_check(
         &self,
         tool_name: &str,
-        result: &Result<ToolOutput>,
+        output: &ToolOutput,
         _ctx: &ToolContext,
     ) -> Result<()> {
         // Update state
@@ -207,7 +207,7 @@ impl ExecutionMiddleware {
 
             // Estimate cost (simple approximation)
             if self.config.cost_tracking_enabled {
-                let cost = self.estimate_cost(tool_name, result.as_ref().ok());
+                let cost = self.estimate_cost(tool_name, Some(output));
                 state.session_cost += cost;
             }
         }

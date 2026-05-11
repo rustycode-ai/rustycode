@@ -472,7 +472,7 @@ rustycode_tools_api::define_tool! {
                         }
 
                         result
-                            .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
+                            .map_err(|e| anyhow!("command timed out after {timeout_secs}s: {e}"))?
                             .map_err(|e| anyhow!("command execution failed: {e}"))?
                     })
                 })
@@ -501,7 +501,7 @@ rustycode_tools_api::define_tool! {
                     }
 
                     result
-                        .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
+                        .map_err(|e| anyhow!("command timed out after {timeout_secs}s: {e}"))?
                         .map_err(|e| anyhow!("command execution failed: {e}"))?
                 })
             }?;

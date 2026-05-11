@@ -239,6 +239,7 @@ pub fn execute_tool(
                 let file_path = cwd.join(path_value);
                 if let Some(cache) = file_read_cache {
                     if let Ok(mut cache_guard) = cache.lock() {
+                        // Blocking call acceptable: execute_tool is a sync function.
                         let mtime = std::fs::metadata(&file_path)
                             .and_then(|m| m.modified())
                             .ok()

@@ -365,7 +365,7 @@ rustycode_tools_api::define_tool! {
                     }
 
                     result
-                        .map_err(|_| ToolError::timeout("command", format!("{timeout_secs}s")))?
+                        .map_err(|e| ToolError::timeout("command", format!("{timeout_secs}s: {e}")))?
                         .map_err(|e| ToolError::new(ToolErrorCode::CommandFailed, format!("command execution failed: {e}")))?
                 })
             })
@@ -409,7 +409,7 @@ rustycode_tools_api::define_tool! {
                     }
 
                     result
-                        .map_err(|_| ToolError::timeout("command", format!("{timeout_secs}s")))?
+                        .map_err(|e| ToolError::timeout("command", format!("{timeout_secs}s: {e}")))?
                         .map_err(|e| ToolError::new(ToolErrorCode::CommandFailed, format!("command execution failed: {e}")))?
                 })
         }?;

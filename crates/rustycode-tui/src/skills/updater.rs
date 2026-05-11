@@ -118,7 +118,7 @@ pub async fn update_skill(name: &str) -> Result<UpdateInfo> {
     };
 
     // Update installation metadata
-    update_installation_metadata(name, new_version_str)?;
+    update_installation_metadata(name, new_version_str).await?;
 
     info!("Successfully updated skill '{}'", name);
     Ok(update_info)
@@ -215,7 +215,7 @@ fn get_changes_since(path: &std::path::Path, since: &str) -> Result<Option<Strin
 }
 
 /// Update installation metadata after update
-fn update_installation_metadata(name: &str, new_version: String) -> Result<()> {
+async fn update_installation_metadata(name: &str, new_version: String) -> Result<()> {
     use super::installer::load_installed_skills;
 
     let mut registry = load_installed_skills()?;
@@ -229,7 +229,7 @@ fn update_installation_metadata(name: &str, new_version: String) -> Result<()> {
     // Save updated registry
     let content = serde_json::to_string_pretty(&registry)?;
     let registry_path = super::installer::registry_path()?;
-    std::fs::write(&registry_path, content)?;
+    tokio::fs::write(&registry_path, content).await?;
 
     debug!("Updated installation metadata for '{}'", name);
     Ok(())
@@ -260,7 +260,7 @@ pub async fn rollback_skill(name: &str, commit: &str) -> Result<()> {
 
     // Update installation metadata
     let new_version = get_current_version(&skill_path)?;
-    update_installation_metadata(name, new_version)?;
+    update_installation_metadata(name, new_version).await?;
 
     info!("Successfully rolled back '{}' to {}", name, commit);
     Ok(())
