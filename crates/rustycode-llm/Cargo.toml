@@ -30,7 +30,6 @@ thiserror.workspace = true
 secrecy.workspace = true
 strum = { version = "0.28.0", features = ["derive"] }
 uuid = { workspace = true }
-sha2 = { workspace = true }
 once_cell = { workspace = true }
 rustycode-litert = { path = "../rustycode-litert", optional = true }
 tokio-tungstenite = { version = "0.26", optional = true }
