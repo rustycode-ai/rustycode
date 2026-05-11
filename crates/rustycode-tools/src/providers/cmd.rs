@@ -254,6 +254,7 @@ impl Drop for CmdSession {
                 let _ = writeln!(stdin, "exit");
                 let _ = stdin.flush();
             }
+            let _ = child.kill();
             let _ = child.wait();
         }
     }

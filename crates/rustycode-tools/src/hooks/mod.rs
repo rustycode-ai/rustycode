@@ -405,31 +405,42 @@ impl HookManager {
 
         let timeout = std::time::Duration::from_secs(hook.timeout_secs.max(1));
 
-        let output = tokio::time::timeout(timeout, async {
-            use std::process::Stdio;
-            use tokio::io::AsyncWriteExt;
+        use std::process::Stdio;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-            let mut cmd = Command::new("sh");
-            cmd.arg("-c").arg(&hook.command);
-            for (k, v) in env_vars {
-                cmd.env(k, v);
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c").arg(&hook.command);
+        for (k, v) in env_vars {
+            cmd.env(k, v);
+        }
+
+        let mut child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(input_json.as_bytes()).await?;
+            drop(stdin);
+        }
+
+        let mut stdout_buf = Vec::new();
+        let mut stderr_buf = Vec::new();
+
+        let status = tokio::time::timeout(timeout, async {
+            if let Some(mut stdout) = child.stdout.take() {
+                let _ = stdout.read_to_end(&mut stdout_buf).await;
             }
-
-            let mut child = cmd
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()?;
-
-            if let Some(mut stdin) = child.stdin.take() {
-                stdin.write_all(input_json.as_bytes()).await?;
-                drop(stdin);
+            if let Some(mut stderr) = child.stderr.take() {
+                let _ = stderr.read_to_end(&mut stderr_buf).await;
             }
-
-            child.wait_with_output().await
+            child.wait().await
         })
         .await
         .map_err(|_| {
+            let _ = child.start_kill();
+            let _ = child.try_wait();
             anyhow::anyhow!(
                 "Hook '{}' timed out after {}s",
                 hook.command,
@@ -437,6 +448,12 @@ impl HookManager {
             )
         })?
         .map_err(|e| anyhow::anyhow!("Hook '{}' failed: {e}", hook.command))?;
+
+        let output = std::process::Output {
+            status,
+            stdout: stdout_buf,
+            stderr: stderr_buf,
+        };
 
         let duration_ms = start.elapsed().as_millis();
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -583,39 +600,57 @@ impl HookManager {
         let mut cmd = Command::new(&hook.script);
         cmd.args(&hook.args);
 
-        let output = tokio::time::timeout(
-            std::time::Duration::from_secs(if hook.timeout_secs > 0 {
+        let output = {
+            use std::process::Stdio;
+            use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+            let timeout_duration = std::time::Duration::from_secs(if hook.timeout_secs > 0 {
                 hook.timeout_secs
             } else {
                 30
-            }),
-            async {
-                use std::process::Stdio;
-                use tokio::io::AsyncWriteExt;
+            });
 
-                let mut child = cmd
-                    .stdin(Stdio::piped())
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .spawn()?;
+            let mut child = cmd
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()?;
 
-                if let Some(mut stdin) = child.stdin.take() {
-                    stdin.write_all(input_json.as_bytes()).await?;
-                    drop(stdin);
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(input_json.as_bytes()).await?;
+                drop(stdin);
+            }
+
+            let mut stdout_buf = Vec::new();
+            let mut stderr_buf = Vec::new();
+
+            let status = tokio::time::timeout(timeout_duration, async {
+                if let Some(mut stdout) = child.stdout.take() {
+                    let _ = stdout.read_to_end(&mut stdout_buf).await;
                 }
+                if let Some(mut stderr) = child.stderr.take() {
+                    let _ = stderr.read_to_end(&mut stderr_buf).await;
+                }
+                child.wait().await
+            })
+            .await
+            .map_err(|_| {
+                let _ = child.start_kill();
+                let _ = child.try_wait();
+                anyhow::anyhow!(
+                    "Hook '{}' timed out after {}s",
+                    hook.name,
+                    hook.timeout_secs
+                )
+            })?
+            .map_err(|e| anyhow::anyhow!("Hook '{}' failed to execute: {}", hook.name, e))?;
 
-                child.wait_with_output().await
-            },
-        )
-        .await
-        .map_err(|_| {
-            anyhow::anyhow!(
-                "Hook '{}' timed out after {}s",
-                hook.name,
-                hook.timeout_secs
-            )
-        })?
-        .map_err(|e| anyhow::anyhow!("Hook '{}' failed to execute: {}", hook.name, e))?;
+            std::process::Output {
+                status,
+                stdout: stdout_buf,
+                stderr: stderr_buf,
+            }
+        };
 
         let duration_ms = start.elapsed().as_millis();
         let stdout = String::from_utf8_lossy(&output.stdout);

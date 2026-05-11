@@ -23,7 +23,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tracing::field::{Field, Visit};
 use tracing::{span, Event, Id, Level, Metadata, Subscriber};
 use tracing_subscriber::layer::Context;
@@ -134,25 +134,133 @@ impl SpanTracker {
     }
 }
 
+/// Work items dispatched from synchronous Layer callbacks to the async consumer task.
+enum ObservationWork {
+    NewSpan {
+        span_id: u64,
+        span_data: SpanData,
+    },
+    CloseSpan {
+        span_id: u64,
+    },
+    Record {
+        span_id: u64,
+        metadata: serde_json::Map<String, Value>,
+    },
+}
+
 /// A `tracing_subscriber::Layer` that captures spans/events for observability.
+///
+/// Uses a bounded mpsc channel to dispatch work from synchronous `Layer` trait
+/// callbacks to a single async consumer task, preventing fire-and-forget error
+/// loss and unbounded task spawning.
 #[derive(Clone)]
 pub struct ObservationLayer {
     /// Batch manager for submitting events
     pub batch_manager: Arc<Mutex<dyn BatchManager>>,
     /// Span tracker for correlating spans with observation IDs
     pub span_tracker: Arc<Mutex<SpanTracker>>,
+    tx: mpsc::Sender<ObservationWork>,
 }
 
 impl ObservationLayer {
+    const CHANNEL_CAPACITY: usize = 256;
+
     pub fn new(batch_manager: Arc<Mutex<dyn BatchManager>>) -> Self {
-        Self {
-            batch_manager,
+        let (tx, rx) = mpsc::channel(Self::CHANNEL_CAPACITY);
+        let layer = Self {
+            batch_manager: batch_manager.clone(),
             span_tracker: Arc::new(Mutex::new(SpanTracker::new())),
+            tx,
+        };
+        layer.start_consumer(rx);
+        layer
+    }
+
+    fn start_consumer(&self, mut rx: mpsc::Receiver<ObservationWork>) {
+        let batch_manager = self.batch_manager.clone();
+        let span_tracker = self.span_tracker.clone();
+
+        tokio::spawn(async move {
+            while let Some(work) = rx.recv().await {
+                let core = Core {
+                    batch_manager: batch_manager.clone(),
+                    span_tracker: span_tracker.clone(),
+                };
+                if let Err(e) = core.process(work).await {
+                    tracing::warn!(
+                        error = %e,
+                        "observation layer: failed to process work item"
+                    );
+                }
+            }
+        });
+    }
+
+    /// Send a work item to the consumer task.
+    /// Called from synchronous `Layer` trait methods via `blocking_send`.
+    fn dispatch(&self, work: ObservationWork) {
+        if let Err(e) = self.tx.blocking_send(work) {
+            tracing::warn!(
+                error = %e,
+                "observation layer: failed to dispatch work item (channel closed or full)"
+            );
         }
     }
 
-    /// Handle a new span being created.
     pub async fn handle_span(&self, span_id: u64, span_data: SpanData) {
+        Core {
+            batch_manager: self.batch_manager.clone(),
+            span_tracker: self.span_tracker.clone(),
+        }
+        .handle_span(span_id, span_data)
+        .await;
+    }
+
+    pub async fn handle_span_close(&self, span_id: u64) {
+        Core {
+            batch_manager: self.batch_manager.clone(),
+            span_tracker: self.span_tracker.clone(),
+        }
+        .handle_span_close(span_id)
+        .await;
+    }
+
+    pub async fn handle_record(&self, span_id: u64, metadata: serde_json::Map<String, Value>) {
+        Core {
+            batch_manager: self.batch_manager.clone(),
+            span_tracker: self.span_tracker.clone(),
+        }
+        .handle_record(span_id, metadata)
+        .await;
+    }
+}
+
+struct Core {
+    batch_manager: Arc<Mutex<dyn BatchManager>>,
+    span_tracker: Arc<Mutex<SpanTracker>>,
+}
+
+impl Core {
+    async fn process(
+        &self,
+        work: ObservationWork,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        match work {
+            ObservationWork::NewSpan { span_id, span_data } => {
+                self.handle_span(span_id, span_data).await;
+            }
+            ObservationWork::CloseSpan { span_id } => {
+                self.handle_span_close(span_id).await;
+            }
+            ObservationWork::Record { span_id, metadata } => {
+                self.handle_record(span_id, metadata).await;
+            }
+        }
+        Ok(())
+    }
+
+    async fn handle_span(&self, span_id: u64, span_data: SpanData) {
         let observation_id = span_data.observation_id.clone();
 
         {
@@ -185,8 +293,7 @@ impl ObservationLayer {
         );
     }
 
-    /// Handle a span being closed.
-    pub async fn handle_span_close(&self, span_id: u64) {
+    async fn handle_span_close(&self, span_id: u64) {
         let observation_id = {
             let mut spans = self.span_tracker.lock().await;
             spans.remove_span(span_id)
@@ -207,8 +314,7 @@ impl ObservationLayer {
         }
     }
 
-    /// Ensure a trace ID exists, creating one if needed.
-    pub async fn ensure_trace_id(&self) -> String {
+    async fn ensure_trace_id(&self) -> String {
         let mut spans = self.span_tracker.lock().await;
         if let Some(id) = spans.current_trace_id.clone() {
             return id;
@@ -234,8 +340,7 @@ impl ObservationLayer {
         trace_id
     }
 
-    /// Update the current trace with additional fields.
-    pub async fn update_trace(&self, updates: serde_json::Map<String, Value>) {
+    async fn update_trace(&self, updates: serde_json::Map<String, Value>) {
         let trace_id = self.ensure_trace_id().await;
         let mut body = json!({ "id": trace_id });
         for (k, v) in updates {
@@ -245,8 +350,7 @@ impl ObservationLayer {
         batch.add_event("trace-create", body);
     }
 
-    /// Handle a record (field values) being attached to a span.
-    pub async fn handle_record(&self, span_id: u64, metadata: serde_json::Map<String, Value>) {
+    async fn handle_record(&self, span_id: u64, metadata: serde_json::Map<String, Value>) {
         let trace_fields: Vec<&str> = vec!["trace_input", "trace_output"];
         let has_trace_fields = trace_fields.iter().any(|f| metadata.contains_key(*f));
 
@@ -352,14 +456,12 @@ where
             parent_span_id,
         };
 
-        let layer = self.clone();
-        tokio::spawn(async move { layer.handle_span(span_id, span_data).await });
+        self.dispatch(ObservationWork::NewSpan { span_id, span_data });
     }
 
     fn on_close(&self, id: Id, _ctx: Context<'_, S>) {
         let span_id = id.into_u64();
-        let layer = self.clone();
-        tokio::spawn(async move { layer.handle_span_close(span_id).await });
+        self.dispatch(ObservationWork::CloseSpan { span_id });
     }
 
     fn on_record(&self, span: &Id, values: &span::Record<'_>, _ctx: Context<'_, S>) {
@@ -369,8 +471,7 @@ where
         let metadata = visitor.recorded_fields;
 
         if !metadata.is_empty() {
-            let layer = self.clone();
-            tokio::spawn(async move { layer.handle_record(span_id, metadata).await });
+            self.dispatch(ObservationWork::Record { span_id, metadata });
         }
     }
 
@@ -380,8 +481,7 @@ where
         let metadata = visitor.recorded_fields;
 
         if let Some(span_id) = ctx.lookup_current().map(|span| span.id().into_u64()) {
-            let layer = self.clone();
-            tokio::spawn(async move { layer.handle_record(span_id, metadata).await });
+            self.dispatch(ObservationWork::Record { span_id, metadata });
         }
     }
 }
