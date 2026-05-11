@@ -325,11 +325,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_process_messages_empty_messages_returns_error_without_provider() {
+    async fn test_process_messages_empty_messages_returns_ok_no_provider() {
         let llm = LLMIntegration::new("gpt-4".to_string());
         let messages = vec![];
         let result = llm.process_messages(&messages, None, None).await;
-        assert!(result.is_err());
+        assert!(result.is_ok());
+        assert!(result
+            .unwrap()
+            .content
+            .contains("couldn't find any user messages"));
     }
 
     #[tokio::test]
