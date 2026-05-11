@@ -72,7 +72,7 @@ cargo-version = "2"
 default-members = ["crates/rustycode-cli"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 authors = ["Nat"]
 license = "MIT"

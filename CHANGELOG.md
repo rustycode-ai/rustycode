@@ -2,6 +2,90 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.0] - 2026-05-11
+
+### Features
+
+- **bench**: Add token usage tracking to TrialResult and BenchAgent trait
+- **bench**: Add token/cost fields to BenchmarkResults and TaskResult
+- **tools-api**: Add InputValidator, TokenAccountant, PrivilegeGate traits
+- **bench**: Pre-validate required tool args before execution
+- Add GA4 analytics module + tool schema/annotations refactor
+- Bench multi-provider, task_context module, bus/team tools, production hardening status doc
+- **llm**: Add schema, wire, transport, auth, route modules for provider abstraction
+- **llm**: Add shared ModelCache with dynamic provider model discovery
+- **llm**: Wire ModelCache into Gemini and OpenAI providers
+
+### Bug Fixes
+
+- Resolve 22 bugs across 7 crates from systematic bug audit
+- Resolve 12 bugs across orchestration, CLI, and TUI (wave 2)
+- Resolve pre-existing clippy errors and test compilation issues
+- Resolve 3 confirmed bugs from Oracle verification
+- Resolve 30+ bugs across 10 crates (waves 5-6)
+- Resolve 10 critical/high/medium bugs across 5 crates (wave 7)
+- Replace silent error suppression with proper logging and remove debug artifacts
+- **acp**: Resolve lock-across-await concurrency bugs in prompt handler and LLM integration
+- Resolve 22 clippy warnings across 20 files (round 5)
+- **acp**: Update test to match empty messages behavior
+- Remove unused sha2 imports after crypto centralization
+- Resolve 4 resource leaks — zombie processes, missing Drop, unenforced timeout
+- Replace 15+ scattered len()/4 token heuristics with canonical estimate_tokens()
+- **security**: Reject ALL tools on approval timeout, not just dangerous ones
+- **security**: Harden input validation — LSP Content-Length cap + env injection allowlist
+- **robustness**: Eliminate .expect() panics in signal handlers and runtime creation
+- **concurrency**: Async correctness — cancellation, timeout abort, deadlock elimination
+- **orchestration**: Tool error status, stream handling, phase transitions, input logic
+- **llm**: Repair broken references after type extraction to types/
+- **llm**: Real Sigv4 signing, random route hash, task contracts
+- **leaks**: Eliminate zombie child processes and fire-and-forget spawns
+- **concurrency**: Eliminate TOCTOU races and await_holding_lock
+- **io**: Add file size guards to prevent OOM from unbounded reads
+- **medium**: Preserve error context, use async I/O, remove unnecessary clone
+- **tests**: Enable structured output in git test helper and fix edit assertion
+- **tui**: Version display, Ctrl+W behavior, and tool name assertion
+
+### Refactor
+
+- Remove dead code from todo.rs
+- **tui**: Remove dead code, disabled examples, and unused helpers
+- **tools**: Remove dead code and unused plan template methods
+- **core**: Remove dead code, unused variants, and retry prompts
+- Remove unnecessary lint suppressions and fix pre-existing clippy issues
+- **llm**: Replace map_or with idiomatic is_none_or/is_some_and
+- Apply clippy-driven cleanups across 7 files
+- Session-scoped worktree CWD + tracing instrumentation
+- Remove CLI bench command, relocate headless utils, clean gitignore
+- Consolidate duplicate test_ctx() helpers into shared module
+- Replace verbose empty JSON object pattern with json!({})
+- Deduplicate format_timestamp between CLI and storage
+- Consolidate strip_ansi_escapes into rustycode-protocol
+- Consolidate truncate, normalize_tool_name, and format_duration duplicates
+- **llm**: Add empty types/ module skeleton for provider.rs extraction
+- **llm**: Extract message types to types/message.rs
+- **llm**: Migrate Cohere provider from inline serialization to Route+CohereProtocol
+- **llm**: Migrate Ollama provider from inline serialization to Route abstraction
+- **llm**: Migrate Gemini provider from inline serialization to Route+GeminiProtocol
+- **llm**: Migrate Bedrock provider from inline serialization to Route+BedrockProtocol
+- **llm**: Migrate OpenAI provider from inline serialization to Route+Protocol
+- **runtime**: Migrate String errors to thiserror typed enums
+
+### Documentation
+
+- Add production hardening plan, status, and agent-bench CI workflow
+- Add Plan 2 (Provider Migration) implementation plan
+- Update production hardening status with audit results
+
+### Chores
+
+- **bench**: Add native CI benchmark task definitions
+- Consolidate dependency versions to workspace references
+- Upgrade bollard 0.17→0.21, jsonschema 0.26→0.46, consolidate more deps
+- Add release profile optimizations (59MB → 35MB binary)
+- Upgrade bollard 0.17→0.21 API, add sha2 to protocol, optimize hash formatting
+- Remove unused sha2 dep from orchestration crate
+- Fmt fix for text.rs test assertion
+
 ## [0.3.0] - 2026-05-10
 
 ### Features
@@ -16,6 +100,7 @@ All notable changes to this project will be documented in this file.
 - **tools**: Add AskUserQuestion tool with structured multiple-choice schema
 - **prompt**: Unify prompt layering with PromptResolver across orchestration
 - **llm**: Add gemini provider routing, --provider CLI flag, and fix function calling
+- Skill activation for headless runtime, config loader, compaction improvements
 
 ### Bug Fixes
 
@@ -45,6 +130,8 @@ All notable changes to this project will be documented in this file.
 - **skill**: Fix all 4 critical skill activation bugs
 - **llm,tui**: Fix token double-counting, Gemini structured output, cache usage events, context meter accuracy
 - **tui**: Wire CacheUsage events through to token budget for prompt cache tracking
+- **llm**: Correct token total in streaming usage logs
+- **llm**: Parse Gemini per-field token counts instead of total only
 
 ### Performance
 
@@ -88,6 +175,7 @@ All notable changes to this project will be documented in this file.
 - Remove incomplete refactoring artifacts (fs/, lsp/ dirs)
 - Misc code quality improvements from session
 - Bump version to 0.3.0
+- Add release process docs to CLAUDE.md, generate v0.3.0 changelog
 
 ## [0.1.2] - 2026-05-08
 
