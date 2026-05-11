@@ -253,6 +253,7 @@ impl StepOrchestrator {
     }
 
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip(self, ctx), fields(step_id = %step.id))]
     pub async fn execute_step(&self, step: &Step, ctx: &mut TaskContext) -> Result<StepResult> {
         let budget_pressure = if ctx.budget_limit > 0.0 {
             ctx.cost_used / ctx.budget_limit

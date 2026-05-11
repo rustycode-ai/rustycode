@@ -241,6 +241,7 @@ impl TaskDispatcher {
     /// The caller must supply the concrete `LLMProvider`, model name,
     /// `ToolRegistry`, and `AgentEvents` sink — `TaskDispatcher` owns the
     /// orchestration logic but not the infrastructure wiring.
+    #[tracing::instrument(skip(self, provider, tool_registry, events), fields(task_id = %spec.task_id, model = %model))]
     pub async fn execute_via_session(
         &self,
         spec: &TaskSpec,

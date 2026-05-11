@@ -308,6 +308,7 @@ impl ForkJoinExecutor {
         clippy::option_if_let_else,
         clippy::single_match_else
     )]
+    #[tracing::instrument(skip(self, snapshot, specs), fields(fork_count = specs.len()))]
     pub async fn execute_forks(
         &self,
         snapshot: &ContextSnapshot,

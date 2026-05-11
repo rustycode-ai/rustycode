@@ -6,8 +6,8 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 use rustycode_tools_api::{
-    clear_session_original_cwd, define_tool, in_worktree_session, session_original_cwd,
-    set_session_original_cwd,
+    clear_session_original_cwd_for, define_tool, in_worktree_session_for, session_original_cwd_for,
+    set_session_original_cwd_for,
 };
 
 // --- Params structs ---
@@ -194,7 +194,7 @@ define_tool! {
     permission: ToolPermission::Execute,
 
     execute(params: EnterWorktreeParams, ctx) {
-        if in_worktree_session() {
+        if in_worktree_session_for(ctx.session_id.as_deref()) {
             return Err(anyhow!(
                 "Already in a worktree session. Exit the current worktree with worktree_exit first."
             ));
@@ -233,7 +233,7 @@ define_tool! {
                 ));
             }
 
-            set_session_original_cwd(original_cwd);
+            set_session_original_cwd_for(ctx.session_id.as_deref(), original_cwd);
             Ok(ToolOutput::with_cwd_change(
                 format!("Entered existing worktree at {}", path.display()),
                 canonical,
@@ -260,7 +260,7 @@ define_tool! {
                 return Err(anyhow!("Failed to create worktree: {}", stderr.trim()));
             }
 
-            set_session_original_cwd(original_cwd);
+            set_session_original_cwd_for(ctx.session_id.as_deref(), original_cwd);
             Ok(ToolOutput::with_cwd_change(
                 format!(
                     "Created and entered worktree '{}' at {}",
@@ -281,7 +281,7 @@ define_tool! {
     permission: ToolPermission::Execute,
 
     execute(params: ExitWorktreeParams, ctx) {
-        let original_cwd = session_original_cwd()
+        let original_cwd = session_original_cwd_for(ctx.session_id.as_deref())
             .ok_or_else(|| anyhow!("Not in a worktree session. Use worktree_enter first."))?;
 
         if params.action == "remove" {
@@ -327,7 +327,7 @@ define_tool! {
             }
         }
 
-        clear_session_original_cwd();
+        clear_session_original_cwd_for(ctx.session_id.as_deref());
 
         Ok(ToolOutput::with_cwd_change(
             format!(
@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn enter_rejects_if_already_in_session() {
         let _lock = TEST_LOCK.lock().unwrap();
-        set_session_original_cwd(PathBuf::from("/tmp/test-project"));
+        set_session_original_cwd_for(None, PathBuf::from("/tmp/test-project"));
 
         let tool = EnterWorktreeTool;
         let ctx = ToolContext::new("/tmp/test-project");
@@ -366,13 +366,13 @@ mod tests {
             .to_string()
             .contains("Already in a worktree session"));
 
-        clear_session_original_cwd();
+        clear_session_original_cwd_for(None);
     }
 
     #[test]
     fn exit_rejects_if_not_in_session() {
         let _lock = TEST_LOCK.lock().unwrap();
-        clear_session_original_cwd();
+        clear_session_original_cwd_for(None);
 
         let tool = ExitWorktreeTool;
         let ctx = ToolContext::new("/tmp/test-project");
@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn enter_rejects_nonexistent_path() {
         let _lock = TEST_LOCK.lock().unwrap();
-        clear_session_original_cwd();
+        clear_session_original_cwd_for(None);
 
         let tool = EnterWorktreeTool;
         let ctx = ToolContext::new("/tmp");

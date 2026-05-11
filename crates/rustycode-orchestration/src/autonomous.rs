@@ -135,6 +135,7 @@ impl AutonomousService {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, task), fields(task_id = %task_id))]
     pub async fn execute(&mut self, task_id: String, task: String) -> Result<TaskResult> {
         self.state = ServiceState::Executing;
 
@@ -169,6 +170,7 @@ impl AutonomousService {
         result
     }
 
+    #[tracing::instrument(skip(self, storage), fields(milestone_id = %milestone_id))]
     pub async fn execute_milestone(
         &mut self,
         storage: &Storage,
