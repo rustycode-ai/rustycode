@@ -61,6 +61,7 @@ impl Composer {
         self
     }
 
+    #[tracing::instrument(skip(self, ctx), fields(task_id = %ctx.task_id))]
     pub async fn compose_new_score(&self, ctx: &mut TaskContext) -> Result<Vec<Step>> {
         tracing::info!(task_id = %ctx.task_id, "Composer starting deep re-composition");
 

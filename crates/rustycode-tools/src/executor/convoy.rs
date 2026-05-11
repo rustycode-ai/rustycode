@@ -18,11 +18,13 @@ impl ConvoyDispatcher {
     }
 
     /// Check if a tool call is allowed for the given role
+    #[tracing::instrument(skip(self), fields(tool = %tool_name))]
     pub fn check_allowed(&self, role: AgentRole, tool_name: &str) -> Result<(), ToolBlockedReason> {
         self.gate.check_access(role, tool_name)
     }
 
     /// Wrap a tool execution with permission checking
+    #[tracing::instrument(skip(self, execute_fn), fields(tool = %call.name))]
     pub fn execute_guarded<F>(&self, role: AgentRole, call: &ToolCall, execute_fn: F) -> ToolResult
     where
         F: FnOnce(&ToolCall) -> ToolResult,

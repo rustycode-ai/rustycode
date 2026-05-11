@@ -187,6 +187,7 @@ impl ToolCache {
     ///
     /// Uses `LruCache::get()` (write lock) to promote the entry to most-recently-used,
     /// ensuring correct LRU eviction behavior.
+    #[tracing::instrument(skip(self))]
     pub async fn get(&self, key: &CacheKey) -> Option<CachedToolResult> {
         let mut entries = self.entries.write();
         let entry = entries.get(key)?;
@@ -216,6 +217,7 @@ impl ToolCache {
     }
 
     /// Store a result in the cache
+    #[tracing::instrument(skip(self))]
     pub async fn put(
         &self,
         key: CacheKey,
@@ -327,6 +329,7 @@ impl ToolCache {
     }
 
     /// Invalidate all cache entries
+    #[tracing::instrument(skip(self))]
     pub async fn clear(&self) {
         let mut entries = self.entries.write();
         entries.clear();

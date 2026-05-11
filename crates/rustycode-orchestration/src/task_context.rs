@@ -1,8 +1,10 @@
+use crate::execution_limits::{ExecutionLimitError, ExecutionLimits, ExecutionLimitsConfig};
 use crate::execution_trace::ExecutionTrace;
 use crate::shared_workspace::SharedWorkspace;
 use chrono::{DateTime, Utc};
 use rustycode_protocol::agent_protocol::AgentRole;
 use rustycode_protocol::{ExecutionPhase, Message, PhaseSkipConfig, PhaseTransitionError};
+use rustycode_tools::doom_loop::DoomLoopDetector;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::Arc;
@@ -124,6 +126,10 @@ pub struct TaskContext {
     pub reasoning_graph: Option<crate::thinking::ReasoningGraph>,
     #[serde(default)]
     pub conversation_history: Vec<Message>,
+    #[serde(skip)]
+    pub execution_limits: Option<ExecutionLimits>,
+    #[serde(skip)]
+    pub doom_loop_detector: Option<DoomLoopDetector>,
 }
 
 impl TaskContext {
@@ -148,6 +154,8 @@ impl TaskContext {
             workspace: None,
             reasoning_graph: None,
             conversation_history: Vec::new(),
+            execution_limits: None,
+            doom_loop_detector: None,
         }
     }
 
@@ -218,5 +226,276 @@ impl TaskContext {
     pub fn escalate(&mut self) {
         self.current_tier = self.current_tier.saturating_add(1).min(5);
         self.attempt_count = 0;
+    }
+
+    /// Initialize execution limits from a config.
+    pub fn init_execution_limits(&mut self, config: ExecutionLimitsConfig) {
+        self.execution_limits = Some(ExecutionLimits::new(config));
+    }
+
+    /// Check whether a tool call is within budget.
+    /// Returns `Ok(())` if no limits are configured (limits disabled).
+    pub fn check_tool_limit(&mut self) -> Result<(), ExecutionLimitError> {
+        if let Some(ref mut limits) = self.execution_limits {
+            return limits.check_all_before_tool();
+        }
+        Ok(())
+    }
+
+    /// Check whether a model call is within budget.
+    pub fn check_model_limit(&mut self) -> Result<(), ExecutionLimitError> {
+        if let Some(ref mut limits) = self.execution_limits {
+            return limits.check_all_before_model();
+        }
+        Ok(())
+    }
+
+    /// Record token consumption against the budget.
+    pub fn check_token_limit(&mut self, tokens: u32) -> Result<(), ExecutionLimitError> {
+        if let Some(ref mut limits) = self.execution_limits {
+            return limits.check_tokens(tokens);
+        }
+        Ok(())
+    }
+
+    /// Check whether execution time has exceeded the wall-clock limit.
+    pub fn check_time_limit(&self) -> Result<(), ExecutionLimitError> {
+        if let Some(ref limits) = self.execution_limits {
+            return limits.check_time();
+        }
+        Ok(())
+    }
+
+    /// Whether any execution limit is at or above its warning threshold.
+    pub fn has_limit_warnings(&self) -> bool {
+        self.execution_limits
+            .as_ref()
+            .is_some_and(|l| l.has_warnings())
+    }
+
+    /// Get a snapshot of current execution limit usage, if configured.
+    pub fn execution_snapshot(&self) -> Option<crate::execution_limits::ExecutionSnapshot> {
+        self.execution_limits.as_ref().map(|l| l.snapshot())
+    }
+
+    /// Enable doom loop detection for this task.
+    pub fn enable_doom_loop_detection(&mut self) {
+        self.doom_loop_detector = Some(DoomLoopDetector::new());
+    }
+
+    /// Record a tool call with the doom loop detector and enforce abort.
+    /// Returns `Ok(())` if clean or warning, `Err` if abort threshold reached.
+    pub fn check_doom_loop(
+        &mut self,
+        tool_name: &str,
+        args: &str,
+    ) -> Result<(), ExecutionLimitError> {
+        if let Some(ref mut detector) = self.doom_loop_detector {
+            let status = detector.record(tool_name, args);
+            match status {
+                rustycode_tools::doom_loop::DoomLoopStatus::Abort {
+                    tool_name,
+                    repeat_count,
+                    ..
+                } => {
+                    return Err(ExecutionLimitError::DoomLoop {
+                        tool_name,
+                        repeat_count,
+                    });
+                }
+                rustycode_tools::doom_loop::DoomLoopStatus::Warning { .. } => {
+                    // Log but allow — the caller can check separately
+                }
+                rustycode_tools::doom_loop::DoomLoopStatus::Clean => {}
+                // non-exhaustive: future variants are treated as clean
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Combined pre-tool-call guard: checks execution limits AND doom loop.
+    pub fn check_before_tool_call(
+        &mut self,
+        tool_name: &str,
+        args: &str,
+    ) -> Result<(), ExecutionLimitError> {
+        self.check_tool_limit()?;
+        self.check_doom_loop(tool_name, args)?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod execution_limit_tests {
+    use super::*;
+    use crate::autonomy::AutonomyLevel;
+
+    fn ctx_with_limits(level: AutonomyLevel) -> TaskContext {
+        let mut ctx = TaskContext::new("test-task".into(), "do thing".into());
+        ctx.init_execution_limits(ExecutionLimitsConfig::for_autonomy(level));
+        ctx
+    }
+
+    // --- Limit initialization ---
+
+    #[test]
+    fn no_limits_by_default() {
+        let mut ctx = TaskContext::new("t".into(), "req".into());
+        // Without init, all checks should pass
+        assert!(ctx.check_tool_limit().is_ok());
+        assert!(ctx.check_model_limit().is_ok());
+        assert!(ctx.check_token_limit(999_999).is_ok());
+        assert!(ctx.check_time_limit().is_ok());
+    }
+
+    #[test]
+    fn init_limits_enforces_tool_cap() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L1);
+        // L1: 10 tool calls
+        for _ in 0..10 {
+            assert!(ctx.check_tool_limit().is_ok());
+        }
+        assert!(ctx.check_tool_limit().is_err());
+    }
+
+    #[test]
+    fn init_limits_enforces_model_cap() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L1);
+        // L1: 15 model calls
+        for _ in 0..15 {
+            assert!(ctx.check_model_limit().is_ok());
+        }
+        assert!(ctx.check_model_limit().is_err());
+    }
+
+    #[test]
+    fn init_limits_enforces_token_cap() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L1);
+        // L1: 50K tokens
+        assert!(ctx.check_token_limit(50_000).is_ok());
+        assert!(ctx.check_token_limit(1).is_err());
+    }
+
+    // --- Doom loop integration ---
+
+    #[test]
+    fn doom_loop_clean_when_disabled() {
+        let mut ctx = TaskContext::new("t".into(), "req".into());
+        // No detector → always clean
+        for _ in 0..20 {
+            assert!(ctx.check_doom_loop("Read", r#"{"path":"/foo"}"#).is_ok());
+        }
+    }
+
+    #[test]
+    fn doom_loop_allows_diverse_calls() {
+        let mut ctx = TaskContext::new("t".into(), "req".into());
+        ctx.enable_doom_loop_detection();
+        for i in 0..20 {
+            let args = format!(r#"{{"path": "/foo/{i}"}}"#);
+            assert!(ctx.check_doom_loop("Read", &args).is_ok());
+        }
+    }
+
+    #[test]
+    fn doom_loop_blocks_repeated_calls() {
+        let mut ctx = TaskContext::new("t".into(), "req".into());
+        ctx.enable_doom_loop_detection();
+        let args = r#"{"path": "/same/file"}"#;
+        // Calls 1-4: clean or warning (under abort threshold of 5)
+        for _ in 0..4 {
+            assert!(ctx.check_doom_loop("Read", args).is_ok());
+        }
+        // 5th call: abort threshold (count = 4 in history + 1 current = 5)
+        let result = ctx.check_doom_loop("Read", args);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.to_string().contains("doom loop"),
+            "should mention doom loop: {err}"
+        );
+        assert!(
+            err.to_string().contains("Read"),
+            "should name the tool: {err}"
+        );
+    }
+
+    // --- Combined check_before_tool_call ---
+
+    #[test]
+    fn combined_check_limits_and_doom_loop() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L2);
+        ctx.enable_doom_loop_detection();
+        // L2: 25 tool calls, should pass diverse calls
+        for i in 0..25 {
+            let args = format!(r#"{{"path": "/foo/{i}"}}"#);
+            assert!(ctx.check_before_tool_call("Read", &args).is_ok());
+        }
+        // 26th diverse call should fail on tool limit, not doom loop
+        let result = ctx.check_before_tool_call("Read", r#"{"path": "/other"}"#);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("tool_calls"));
+    }
+
+    #[test]
+    fn combined_check_doom_loop_blocks_before_limit() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L4);
+        ctx.enable_doom_loop_detection();
+        let args = r#"{"path": "/stuck"}"#;
+        // L4 allows 100 tool calls, but doom loop aborts at 5th repeat
+        for _ in 0..4 {
+            assert!(ctx.check_before_tool_call("Read", args).is_ok());
+        }
+        let result = ctx.check_before_tool_call("Read", args);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("doom loop"));
+    }
+
+    // --- Warning detection ---
+
+    #[test]
+    fn warning_at_80_percent() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L2);
+        // L2: 25 tool calls, warn at 80% = 20
+        assert!(!ctx.has_limit_warnings());
+        for _ in 0..20 {
+            ctx.check_tool_limit().ok();
+        }
+        assert!(ctx.has_limit_warnings());
+    }
+
+    // --- Snapshot ---
+
+    #[test]
+    fn snapshot_none_without_limits() {
+        let ctx = TaskContext::new("t".into(), "req".into());
+        assert!(ctx.execution_snapshot().is_none());
+    }
+
+    #[test]
+    fn snapshot_tracks_usage() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L2);
+        ctx.check_tool_limit().ok();
+        ctx.check_model_limit().ok();
+        ctx.check_token_limit(1000).ok();
+
+        let snap = ctx.execution_snapshot().unwrap();
+        assert_eq!(snap.tool_calls, 1);
+        assert_eq!(snap.model_calls, 1);
+        assert_eq!(snap.tokens, 1000);
+        assert_eq!(snap.tool_call_limit, 25);
+    }
+
+    // --- L0 blocks everything ---
+
+    #[test]
+    fn l0_blocks_immediately() {
+        let mut ctx = ctx_with_limits(AutonomyLevel::L0);
+        assert!(ctx.check_tool_limit().is_err());
+        assert!(ctx.check_model_limit().is_err());
+        assert!(ctx.check_token_limit(1).is_err());
+        assert!(ctx.check_time_limit().is_err());
     }
 }

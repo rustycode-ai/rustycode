@@ -155,6 +155,10 @@ enum Commands {
         #[arg(long, default_value = "anthropic")]
         provider: String,
 
+        /// Agent to use: code, real, oracle, nop
+        #[arg(long, default_value = "code")]
+        agent: String,
+
         /// Max tool-use turns per instance
         #[arg(long, default_value_t = 30)]
         max_turns: usize,
@@ -358,6 +362,7 @@ async fn main() -> Result<()> {
             output,
             model,
             provider,
+            agent,
             max_turns,
             max_tokens,
             timeout,
@@ -378,6 +383,7 @@ async fn main() -> Result<()> {
                 model_name: model.clone(),
                 instance_ids: ids,
                 work_dir,
+                agent_name: agent,
                 agent_config: CodeAgentConfig {
                     model,
                     provider,

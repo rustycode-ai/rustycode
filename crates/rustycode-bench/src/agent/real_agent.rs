@@ -17,8 +17,7 @@ use rustycode_llm::provider::{ChatMessage, MessageContent, MessageRole};
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 use rustycode_tools_api::build_canonical_tool_schemas;
 use rustycode_tools_api::tiers::ToolTier;
-use rustycode_tools_api::ToolPermission;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::agent::tools::build_bench_registry;
 use crate::agent::BenchAgent;
@@ -131,6 +130,8 @@ impl BenchAgent for RealBenchAgent {
             timeout_secs: self.timeout_secs,
             max_tool_result_bytes: 32_000,
             temperature: 0.2,
+            effort: None,
+            max_output_tokens: 32_768,
         };
         let mut session = AgentSession::new(config, cwd).with_tier(ToolTier::Full);
 
@@ -233,8 +234,27 @@ fn create_provider(provider: &str, model: &str) -> Result<Arc<dyn rustycode_llm:
             let p = rustycode_llm::GeminiProvider::new(config)?;
             Ok(Arc::new(p) as Arc<dyn rustycode_llm::LLMProvider>)
         }
+        "zhipu" | "glm" => {
+            // GLM models run via OpenAI-compatible endpoint (e.g. z.ai)
+            let api_key = std::env::var("OPENAI_API_KEY").context("OPENAI_API_KEY not set")?;
+            let base_url = std::env::var("OPENAI_BASE_URL")
+                .ok()
+                .or_else(|| std::env::var("ZHIPU_BASE_URL").ok())
+                .unwrap_or_else(|| "https://open.bigmodel.cn/api/paas/v4".to_string());
+            let config = rustycode_llm::ProviderConfig {
+                api_key: Some(secrecy::SecretString::new(api_key.into())),
+                base_url: Some(base_url),
+                timeout_seconds: Some(120),
+                extra_headers: None,
+                retry_config: None,
+            };
+            let p = rustycode_llm::OpenAiProvider::new(config, model.to_string())?;
+            Ok(Arc::new(p) as Arc<dyn rustycode_llm::LLMProvider>)
+        }
         other => {
-            anyhow::bail!("Unsupported provider: '{other}'. Supported: anthropic, openai, gemini")
+            anyhow::bail!(
+                "Unsupported provider: '{other}'. Supported: anthropic, openai, gemini, zhipu"
+            )
         }
     }
 }

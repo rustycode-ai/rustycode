@@ -25,6 +25,7 @@ pub struct BootstrapInfo {
 pub struct OrchestraService;
 
 impl OrchestraService {
+    #[tracing::instrument(skip_all)]
     pub async fn bootstrap_default_if_needed(base_path: &Path) -> Result<Option<BootstrapInfo>> {
         if orchestra_root(base_path).exists() {
             return Ok(None);
@@ -41,6 +42,7 @@ impl OrchestraService {
     }
 
     #[allow(clippy::unused_async)]
+    #[tracing::instrument(fields(path = %project_root.display()))]
     pub async fn init_project(
         project_root: &Path,
         name: &str,
@@ -111,6 +113,7 @@ impl OrchestraService {
         })
     }
 
+    #[tracing::instrument(skip_all, fields(task = %task_description))]
     pub async fn run_quick_task(
         project_root: PathBuf,
         task_description: String,
@@ -145,6 +148,7 @@ impl OrchestraService {
     }
 
     #[allow(clippy::unused_async)]
+    #[tracing::instrument(skip_all)]
     pub async fn run_auto(
         _project_root: PathBuf,
         _budget: f64,

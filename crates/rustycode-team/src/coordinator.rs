@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use tracing::warn;
 
 /// The team coordinator. Manages the execution loop.
+#[derive(Debug)]
 pub struct Coordinator {
     /// Project root for disk operations.
     project_root: PathBuf,

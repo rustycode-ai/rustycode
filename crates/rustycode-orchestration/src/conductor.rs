@@ -67,6 +67,7 @@ impl Conductor {
         self
     }
 
+    #[tracing::instrument(skip(self, ctx), fields(task_id = %ctx.task_id))]
     pub fn handle_error(&self, ctx: &mut TaskContext, signal: &ErrorSignal) -> EscalationDecision {
         // Use the classifier to potentially upgrade the signal's category.
         // The signal comes pre-classified, but the classifier may find a more
@@ -204,6 +205,7 @@ impl Conductor {
     /// Triggers thinking when the error is recoverable (not Fatal) and the task
     /// has meaningful content. Uses the error classifier on the raw context to
     /// avoid triggering for trivial or fatal errors.
+    #[tracing::instrument(skip(self))]
     pub fn try_thinking(&self, task_description: &str, error_context: &str) -> Option<String> {
         if task_description.trim().is_empty() || error_context.trim().is_empty() {
             return None;

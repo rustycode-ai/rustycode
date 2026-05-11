@@ -841,6 +841,7 @@ impl TeamOrchestrator {
     }
 
     /// Execute a task through the full team loop.
+    #[tracing::instrument(skip(self, task))]
     pub async fn execute(&self, task: &str) -> Result<OrchestratorOutcome> {
         info!("TeamOrchestrator starting task: {}", task);
 
@@ -1483,6 +1484,7 @@ impl TeamOrchestrator {
     /// constrains all subsequent Builder work.
     ///
     /// Returns the ArchitectTurn containing the declaration and rationale.
+    #[tracing::instrument(skip(self, task))]
     pub async fn execute_architect(
         &self,
         task: &str,
@@ -1505,6 +1507,7 @@ impl TeamOrchestrator {
     /// Returns Ok(Some(files_changed)) if the Scalpel successfully fixed
     /// the issues and verification passed. Returns Ok(None) if Scalpel
     /// couldn't fix the issues or verification failed.
+    #[tracing::instrument(skip(self))]
     pub async fn execute_scalpel(
         &self,
         errors: &str,

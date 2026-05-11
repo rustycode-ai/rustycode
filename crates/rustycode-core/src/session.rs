@@ -521,6 +521,7 @@ impl SessionState {
     }
 
     /// Add a message to the conversation
+    #[tracing::instrument(skip(self))]
     pub fn add_message(&mut self, content: String, message_type: MessageType) {
         let message = Message {
             role: message_type.as_message_role(),
@@ -549,6 +550,7 @@ impl SessionState {
     }
 
     /// Add tool call blocks to the last AI message
+    #[tracing::instrument(skip(self))]
     pub fn add_tool_calls(&mut self, tool_calls: Vec<ToolCall>) {
         if let Some(msg) = self.conversation.messages.last_mut() {
             if MessageType::from_message_role(&msg.role) == MessageType::AI {
@@ -590,6 +592,7 @@ impl SessionState {
     }
 
     /// Add tool results to the conversation
+    #[tracing::instrument(skip(self))]
     pub fn add_tool_results(&mut self, tool_results: Vec<ProtocolToolResult>) {
         // Convert ToolResult to ContentBlock::ToolResult
         let tool_result_blocks: Vec<ContentBlock> = tool_results
@@ -612,6 +615,7 @@ impl SessionState {
     }
 
     /// Update token usage statistics
+    #[tracing::instrument(skip(self))]
     pub fn update_token_usage(&mut self, input_tokens: usize, output_tokens: usize) {
         self.performance
             .update_token_usage(input_tokens, output_tokens);
@@ -625,6 +629,7 @@ impl SessionState {
 
     /// Check if the session is within its token budget.
     /// Returns `Ok(())` if within budget, or `Err` with remaining tokens info.
+    #[tracing::instrument(skip(self))]
     pub fn check_token_budget(&self) -> Result<(), TokenBudgetStatus> {
         self.token_budget.check(self.performance.tokens_used)
     }

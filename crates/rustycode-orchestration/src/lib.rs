@@ -68,6 +68,7 @@ pub mod editor;
 pub mod ensemble_strategy;
 pub mod error;
 pub mod error_signal;
+pub mod execution_limits;
 pub mod execution_trace;
 pub mod executor;
 pub mod executor_integration;

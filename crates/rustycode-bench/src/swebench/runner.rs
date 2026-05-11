@@ -10,7 +10,7 @@ use anyhow::{Context, Result};
 
 use super::instance::SweBenchInstance;
 use super::prediction::{save_predictions, SweBenchPrediction};
-use crate::agent::{CodeAgent, CodeAgentConfig};
+use crate::agent::{BenchAgent, CodeAgentConfig};
 
 /// Configuration for the SWE-bench runner.
 pub struct SweBenchConfig {
@@ -26,7 +26,9 @@ pub struct SweBenchConfig {
     pub instance_ids: Option<Vec<String>>,
     /// Working directory for cloning repos.
     pub work_dir: PathBuf,
-    /// Agent configuration.
+    /// Agent name: "code", "real", "oracle", "nop".
+    pub agent_name: String,
+    /// Agent configuration (used by CodeAgent).
     pub agent_config: CodeAgentConfig,
     /// Wall-clock timeout per instance in seconds.
     pub timeout_secs: u64,
@@ -89,8 +91,8 @@ pub async fn run_swebench(config: SweBenchConfig) -> Result<Vec<SweBenchPredicti
                 });
             }
             Err(e) => {
-                tracing::warn!("[{}] Failed: {e}", inst.instance_id);
-                println!("  → ERROR: {e}");
+                tracing::warn!("[{}] Failed: {e:#}", inst.instance_id);
+                println!("  → ERROR: {e:#}");
                 predictions.push(SweBenchPrediction {
                     instance_id: inst.instance_id.clone(),
                     model_patch: String::new(),
@@ -213,19 +215,14 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         inst.problem_statement
     );
 
-    // Run the CodeAgent against the cloned repo
-    let provider = &config.agent_config.provider;
-    let agent = CodeAgent::auto(config.agent_config.clone()).with_context(|| {
-        let key_name = match provider.as_str() {
-            "anthropic" | "claude" => "ANTHROPIC_API_KEY",
-            "openai" | "gpt" => "OPENAI_API_KEY",
-            _ => "API_KEY",
-        };
-        format!(
-            "Failed to create {provider} agent — is {key_name} set? \
-             Run: export {key_name}=sk-..."
-        )
-    })?;
+    // Create agent via factory (supports code, real, oracle, nop)
+    let agent = crate::config::create_agent(
+        &config.agent_name,
+        &config.agent_config.model,
+        clone_dir.clone(),
+        Some(&config.agent_config.provider),
+    )
+    .with_context(|| format!("Failed to create '{}' agent", config.agent_name))?;
 
     run_agent_with_timeout(agent, &prompt, &clone_dir, config.timeout_secs).await?;
 
@@ -235,7 +232,7 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
 
 /// Run the agent against a workspace directory with a timeout.
 async fn run_agent_with_timeout(
-    agent: CodeAgent,
+    agent: Box<dyn BenchAgent>,
     prompt: &str,
     workspace: &Path,
     timeout_secs: u64,
@@ -259,19 +256,19 @@ async fn run_agent_with_timeout(
     }
 }
 
-/// Run a CodeAgent against a bare workspace (no BenchEnvironment).
+/// Run a BenchAgent against a bare workspace (no BenchEnvironment).
 ///
 /// Creates a minimal environment wrapper that provides `workspace_path()`.
-async fn run_agent_on_workspace(agent: CodeAgent, prompt: &str, workspace: &Path) -> Result<()> {
+async fn run_agent_on_workspace(
+    mut agent: Box<dyn BenchAgent>,
+    prompt: &str,
+    workspace: &Path,
+) -> Result<()> {
     use crate::environment::native::NativeEnvironment;
 
     let mut env = NativeEnvironment::new(workspace.to_path_buf(), workspace.to_path_buf());
-    let mut agent: Box<dyn crate::agent::BenchAgent> = Box::new(agent);
 
-    // Setup phase (CodeAgent is a no-op for setup)
     agent.setup(&mut env).await?;
-
-    // Run the agent
     agent.run(prompt, &mut env).await?;
 
     Ok(())
@@ -362,6 +359,7 @@ mod tests {
             model_name: "test".to_string(),
             instance_ids: None,
             work_dir: PathBuf::from("/tmp/swe"),
+            agent_name: "code".to_string(),
             agent_config: CodeAgentConfig::default(),
             timeout_secs: 600,
         };

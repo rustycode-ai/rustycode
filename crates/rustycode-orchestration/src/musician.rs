@@ -166,6 +166,7 @@ impl Musician {
         &self.lock_manager
     }
 
+    #[tracing::instrument(skip(self, trace), fields(step = %step.description))]
     pub async fn play_step(&self, step: &Step, trace: &mut ExecutionTrace) -> Result<StepResult> {
         let mut ctx = TaskContext::new(trace.task_id.clone(), step.description.clone());
         self.play_step_with_context(step, &mut ctx).await?;
@@ -186,6 +187,7 @@ impl Musician {
 
     #[allow(clippy::unused_async)]
     #[allow(clippy::too_many_lines)]
+    #[tracing::instrument(skip(self, ctx), fields(step = %step.description))]
     pub async fn play_step_with_context(
         &self,
         step: &Step,

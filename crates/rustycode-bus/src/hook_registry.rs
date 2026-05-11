@@ -53,6 +53,7 @@ impl HookRegistry {
 
     /// Execute pre-publish hooks
     ///
+    #[tracing::instrument(skip(self))]
     pub async fn execute_pre_publish(&self, context: &HookContext) -> Result<()> {
         let hooks = self.pre_publish.read().await;
         for hook in hooks.iter() {
@@ -63,6 +64,7 @@ impl HookRegistry {
 
     /// Execute post-publish hooks
     ///
+    #[tracing::instrument(skip(self))]
     pub async fn execute_post_publish(&self, context: &HookContext) -> Result<()> {
         let hooks = self.post_publish.read().await;
         for hook in hooks.iter() {
@@ -73,6 +75,7 @@ impl HookRegistry {
 
     /// Execute error hooks
     ///
+    #[tracing::instrument(skip(self))]
     pub async fn execute_on_error(&self, context: &HookContext) -> Result<()> {
         let hooks = self.on_error.read().await;
         for hook in hooks.iter() {

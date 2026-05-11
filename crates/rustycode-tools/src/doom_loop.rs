@@ -48,7 +48,7 @@ pub enum DoomLoopStatus {
 }
 
 /// Detects repetitive tool call patterns that indicate an agent is stuck.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DoomLoopDetector {
     history: VecDeque<ToolCallRecord>,
     max_history: usize,
@@ -76,6 +76,7 @@ impl DoomLoopDetector {
 
     /// Record a tool call and check for doom loops.
     /// Returns the current loop status after recording.
+    #[tracing::instrument(skip(self), fields(tool = %tool_name))]
     pub fn record(&mut self, tool_name: &str, args: &str) -> DoomLoopStatus {
         self.prune_old();
 

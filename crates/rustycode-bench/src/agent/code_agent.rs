@@ -118,13 +118,34 @@ impl CodeAgent {
         Ok(Self::new(config, Arc::new(provider)))
     }
 
+    /// Create using the Zhipu (GLM) provider.
+    pub fn with_zhipu(config: CodeAgentConfig) -> anyhow::Result<Self> {
+        let api_key =
+            std::env::var("ZHIPU_API_KEY").map_err(|_| anyhow::anyhow!("ZHIPU_API_KEY not set"))?;
+
+        let provider_config = rustycode_llm::ProviderConfig {
+            api_key: Some(secrecy::SecretString::new(api_key.into())),
+            base_url: std::env::var("ZHIPU_BASE_URL").ok(),
+            timeout_seconds: Some(120),
+            extra_headers: None,
+            retry_config: None,
+        };
+
+        let provider = rustycode_llm::ZhipuProvider::new(provider_config)?;
+
+        Ok(Self::new(config, Arc::new(provider)))
+    }
+
     /// Create auto-detected from the config's provider field.
     pub fn auto(config: CodeAgentConfig) -> anyhow::Result<Self> {
         match config.provider.as_str() {
             "anthropic" | "claude" => Self::with_anthropic(config),
             "openai" | "gpt" => Self::with_openai(config),
+            "zhipu" | "glm" => Self::with_zhipu(config),
             other => {
-                anyhow::bail!("Unsupported provider: '{other}'. Supported: anthropic, openai")
+                anyhow::bail!(
+                    "Unsupported provider: '{other}'. Supported: anthropic, openai, zhipu"
+                )
             }
         }
     }

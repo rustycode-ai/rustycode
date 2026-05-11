@@ -70,6 +70,7 @@ impl AutoToolContext {
     /// This allows tools to call other tools directly without going through
     /// the model. This is useful for tool chaining and automation.
     ///
+    #[tracing::instrument(skip(self), fields(tool = %tool_name))]
     pub fn call_tool(&mut self, tool_name: &str, params: Value) -> Result<ToolOutput> {
         // Check depth limit
         if self.current_depth >= self.config.max_depth {
@@ -112,6 +113,7 @@ impl AutoToolContext {
     }
 
     /// Execute a tool call using a `ToolCall` protocol object
+    #[tracing::instrument(skip(self), fields(tool = %call.name))]
     pub fn execute_tool_call(&mut self, call: &ToolCall) -> ToolResult {
         // Check depth limit
         if self.current_depth >= self.config.max_depth {

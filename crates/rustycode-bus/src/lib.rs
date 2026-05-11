@@ -299,6 +299,7 @@ impl EventBus {
     /// 3. Run `PostPublish` hooks
     /// 4. Update metrics
     ///
+    #[tracing::instrument(skip(self, event), fields(event_type = std::any::type_name::<E>()))]
     pub async fn publish<E>(&self, event: E) -> Result<()>
     where
         E: Event + Clone,
@@ -373,6 +374,7 @@ impl EventBus {
 
     /// Subscribe to events matching a pattern
     ///
+    #[tracing::instrument(skip(self))]
     pub async fn subscribe(
         &self,
         pattern: &str,
@@ -521,6 +523,7 @@ impl EventBus {
 
     /// Unsubscribe from events
     ///
+    #[tracing::instrument(skip(self))]
     pub async fn unsubscribe(&self, id: Uuid) -> Result<()> {
         let mut subscribers = self.subscribers.write().await;
         subscribers

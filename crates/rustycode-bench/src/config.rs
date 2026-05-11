@@ -58,6 +58,9 @@ pub fn resolve_provider_model(model: &str) -> Result<(String, String)> {
         if model.starts_with("gemini") {
             return Ok(("gemini".to_string(), model.to_string()));
         }
+        if model.starts_with("glm") {
+            return Ok(("zhipu".to_string(), model.to_string()));
+        }
         return Ok(("anthropic".to_string(), model.to_string()));
     }
 
