@@ -9,7 +9,7 @@
 use super::cli_args::HistoryCommand;
 use anyhow::Result;
 use rustycode_storage::conversation_history::{
-    ConversationFilter, ConversationHistory, ExportFormat,
+    self, ConversationFilter, ConversationHistory, ExportFormat,
 };
 use std::path::PathBuf;
 
@@ -192,10 +192,7 @@ fn print_conversation_full(conv: &rustycode_storage::conversation_history::Conve
 
 /// Format Unix timestamp as human-readable date
 fn format_timestamp(ts: u64) -> String {
-    match chrono::DateTime::from_timestamp(ts as i64, 0) {
-        Some(dt) => dt.format("%Y-%m-%d %H:%M").to_string(),
-        None => ts.to_string(),
-    }
+    conversation_history::format_timestamp(ts)
 }
 
 /// Parse timestamp string (RFC3339 or Unix timestamp)

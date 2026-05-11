@@ -338,7 +338,7 @@ pub fn now_timestamp() -> u64 {
 }
 
 /// Format a Unix timestamp as a human-readable date string
-fn format_timestamp(ts: u64) -> String {
+pub fn format_timestamp(ts: u64) -> String {
     match chrono::DateTime::from_timestamp(ts as i64, 0) {
         Some(dt) => dt.format("%Y-%m-%d %H:%M").to_string(),
         None => ts.to_string(),
