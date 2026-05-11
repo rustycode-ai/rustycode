@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 
 use crate::schema::normalizer::WireFormat;
 use crate::schema::tool_schema::ToolSchema;
+use crate::types::config::OutputFormatType;
 use crate::types::request::CompletionRequest;
 use crate::types::response::CompletionResponse;
 use crate::types::streaming::StreamEvent;
@@ -57,10 +58,30 @@ impl Protocol for GeminiProtocol {
             }
         });
 
-        let generation_config = json!({
+        // Build generation config with optional structured output support
+        let mut generation_config = json!({
             "temperature": request.temperature.unwrap_or(0.7),
             "maxOutputTokens": request.max_tokens,
         });
+
+        if let Some(output_config) = &request.output_config {
+            if let Some(format) = &output_config.format {
+                if matches!(format.format_type, OutputFormatType::JsonSchema) {
+                    let schema = format.json_schema.clone().unwrap_or(Value::Null);
+                    // Sanitize schema for Gemini compatibility
+                    let mut sanitized = schema;
+                    sanitize_schema_recursive(&mut sanitized);
+                    generation_config
+                        .as_object_mut()
+                        .expect("generation_config is an object")
+                        .insert("responseMimeType".to_string(), json!("application/json"));
+                    generation_config
+                        .as_object_mut()
+                        .expect("generation_config is an object")
+                        .insert("responseSchema".to_string(), sanitized);
+                }
+            }
+        }
 
         let body = json!({
             "contents": contents,
