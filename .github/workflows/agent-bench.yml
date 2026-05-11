@@ -1,0 +1,62 @@
+name: Agent Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: "Dataset name or path"
+        default: "ci-native"
+      agent:
+        description: "Agent type (oracle, code)"
+        default: "oracle"
+      model:
+        description: "Model for code agent"
+        default: "claude-sonnet-4-6"
+      timeout:
+        description: "Per-trial timeout (seconds)"
+        default: "120"
+  schedule:
+    - cron: "0 6 * * 1" # Weekly Monday 6am UTC
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Run Agent Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: agent-bench
+
+      - name: Build CLI
+        run: cargo build -p rustycode-cli --release --locked
+
+      - name: Run benchmark
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ./target/release/rustycode bench run \
+            --dataset ${{ github.event.inputs.dataset || 'ci-native' }} \
+            --agent ${{ github.event.inputs.agent || 'oracle' }} \
+            --model ${{ github.event.inputs.model || 'claude-sonnet-4-6' }} \
+            --env native \
+            --timeout ${{ github.event.inputs.timeout || '120' }} \
+            --output json
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: bench-results.json
+          retention-days: 90
