@@ -937,7 +937,7 @@ mod tests {
         let config = WorktreeConfig::default();
         let result = WorktreeManager::new(PathBuf::from("/nonexistent/path/xyz"), config);
         match result {
-            Err(msg) => assert!(msg.contains("does not exist")),
+            Err(msg) => assert!(msg.to_string().contains("does not exist")),
             Ok(_) => panic!("Expected error for nonexistent path"),
         }
     }

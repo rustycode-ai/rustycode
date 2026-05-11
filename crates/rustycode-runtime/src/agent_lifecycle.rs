@@ -1236,7 +1236,7 @@ mod tests {
         let manager = AgentLifecycleManager::new(LifecycleConfig::default());
         let result = manager.agent("nonexistent").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not found"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     // --- Manager: max agents per role ---
@@ -1264,7 +1264,7 @@ mod tests {
             .create_agent("a3".to_string(), AgentRole::Reviewer, vec![])
             .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("maximum agents"));
+        assert!(result.unwrap_err().to_string().contains("maximum agents"));
 
         // Different role should still work
         let a4 = manager
@@ -1290,7 +1290,10 @@ mod tests {
         // Agent is in Creating state, cannot go directly to Ready
         let result = manager.transition_state(&agent_id, AgentState::Ready).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("cannot transition"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("cannot transition"));
     }
 
     // --- Manager: get_all_agents ---

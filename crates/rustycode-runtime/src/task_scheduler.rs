@@ -192,7 +192,7 @@ impl TaskScheduler {
     }
 
     /// Submit a new task for scheduling
-    pub async fn submit_task(&self, mut task: ScheduledTask) -> Result<String, String> {
+    pub async fn submit_task(&self, mut task: ScheduledTask) -> Result<String, RuntimeError> {
         // Generate task ID if not provided
         if task.id.is_empty() {
             let mut counter = self.task_counter.write().await;
@@ -204,7 +204,7 @@ impl TaskScheduler {
         {
             let queue = self.task_queue.read().await;
             if queue.len() >= self.config.queue_size_limit {
-                return Err("Task queue is full".to_string());
+                return Err(TaskError::Custom("Task queue is full".to_string()).into());
             }
         }
 
@@ -262,7 +262,7 @@ impl TaskScheduler {
     }
 
     /// Schedule next task(s)
-    pub async fn schedule_tasks(&self) -> Result<Vec<SchedulingDecision>, String> {
+    pub async fn schedule_tasks(&self) -> Result<Vec<SchedulingDecision>, RuntimeError> {
         let mut decisions = Vec::new();
 
         // Check current workload
@@ -306,7 +306,7 @@ impl TaskScheduler {
     async fn schedule_single_task(
         &self,
         mut task: ScheduledTask,
-    ) -> Result<Option<SchedulingDecision>, String> {
+    ) -> Result<Option<SchedulingDecision>, RuntimeError> {
         // Check if dependencies are satisfied
         let completed_ids = {
             let completed = self.completed_tasks.read().await;
@@ -372,7 +372,7 @@ impl TaskScheduler {
     async fn select_agent_for_task(
         &self,
         task: &ScheduledTask,
-    ) -> Result<Option<AgentRole>, String> {
+    ) -> Result<Option<AgentRole>, RuntimeError> {
         // If task requires specific agents, use them
         if !task.required_agents.is_empty() {
             // Check which required agents are available
@@ -477,7 +477,11 @@ impl TaskScheduler {
     }
 
     /// Complete a task
-    pub async fn complete_task(&self, task_id: &str, result: TaskResult) -> Result<(), String> {
+    pub async fn complete_task(
+        &self,
+        task_id: &str,
+        result: TaskResult,
+    ) -> Result<(), RuntimeError> {
         let mut active = self.active_tasks.write().await;
 
         if let Some(mut task) = active.remove(task_id) {
@@ -504,7 +508,7 @@ impl TaskScheduler {
 
             Ok(())
         } else {
-            Err(format!("Task {} not found in active tasks", task_id))
+            Err(TaskError::NotFound(task_id.to_string()).into())
         }
     }
 
@@ -565,7 +569,7 @@ impl TaskScheduler {
     }
 
     /// Rebalance workload across agents
-    pub async fn rebalance_workload(&self) -> Result<usize, String> {
+    pub async fn rebalance_workload(&self) -> Result<usize, RuntimeError> {
         let mut rebalanced = 0;
         let workload = self.agent_workload.read().await;
 

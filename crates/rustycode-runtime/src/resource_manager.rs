@@ -411,9 +411,9 @@ impl ResourceManager {
         // Remove from active allocations
         let request = {
             let mut active = self.active_allocations.write().await;
-            active
-                .remove(request_id)
-                .ok_or_else(|| ResourceError::ReservationNotFound(request_id.to_string()).into())?
+            active.remove(request_id).ok_or_else(|| -> RuntimeError {
+                ResourceError::ReservationNotFound(request_id.to_string()).into()
+            })?
         };
 
         // Release resources back to pools
@@ -828,14 +828,14 @@ mod tests {
         };
 
         assert!(pool.has_capacity(50.0));
-        assert_eq!(pool.reserve(50.0), Ok(()));
+        assert!(pool.reserve(50.0).is_ok());
         assert_eq!(pool.available, 50.0);
 
-        assert_eq!(pool.allocate(50.0), Ok(()));
+        assert!(pool.allocate(50.0).is_ok());
         assert_eq!(pool.allocated, 50.0);
         assert_eq!(pool.utilization_percent, 50.0);
 
-        assert_eq!(pool.release(25.0), Ok(()));
+        assert!(pool.release(25.0).is_ok());
         assert_eq!(pool.allocated, 25.0);
     }
 
@@ -851,10 +851,12 @@ mod tests {
             last_updated: Utc::now(),
         };
 
-        assert_eq!(
-            pool.reserve(150.0),
-            Err("Insufficient capacity: requested 150, available 100".to_string())
-        );
+        let result = pool.reserve(150.0);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("insufficient capacity"));
     }
 
     #[tokio::test]
@@ -991,7 +993,8 @@ mod tests {
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
-            .contains("Cannot release more than allocated"));
+            .to_string()
+            .contains("cannot release more than allocated"));
     }
 
     #[test]
@@ -1010,7 +1013,8 @@ mod tests {
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
-            .contains("Cannot allocate more than reserved"));
+            .to_string()
+            .contains("cannot allocate more than reserved"));
     }
 
     #[test]
@@ -1089,7 +1093,7 @@ mod tests {
 
         let result = manager.release_resources("nonexistent").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not found"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[tokio::test]

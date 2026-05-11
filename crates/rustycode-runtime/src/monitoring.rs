@@ -9,6 +9,7 @@
 //! - Custom metric definitions
 //! - Real-time monitoring streams
 
+use crate::error::MonitoringError;
 use crate::multi_agent::AgentRole;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -256,11 +257,16 @@ impl MonitoringSystem {
     }
 
     /// Register a metric definition
-    pub async fn register_metric(&self, definition: MetricDefinition) -> Result<(), String> {
+    pub async fn register_metric(
+        &self,
+        definition: MetricDefinition,
+    ) -> Result<(), MonitoringError> {
         let mut definitions = self.metric_definitions.write().await;
 
         if definitions.contains_key(&definition.name) {
-            return Err(format!("Metric {} already registered", definition.name));
+            return Err(MonitoringError::MetricAlreadyRegistered(
+                definition.name.clone(),
+            ));
         }
 
         definitions.insert(definition.name.clone(), definition);
@@ -273,12 +279,12 @@ impl MonitoringSystem {
         metric_name: &str,
         value: f64,
         labels: HashMap<String, String>,
-    ) -> Result<(), String> {
+    ) -> Result<(), MonitoringError> {
         // Get metric definition
         let definitions = self.metric_definitions.read().await;
-        let definition = definitions
-            .get(metric_name)
-            .ok_or_else(|| format!("Metric {} not registered", metric_name))?;
+        let definition = definitions.get(metric_name).ok_or_else(|| {
+            MonitoringError::Custom(format!("Metric {} not registered", metric_name))
+        })?;
 
         // Create data point
         let data_point = MetricDataPoint {
@@ -352,7 +358,7 @@ impl MonitoringSystem {
         aggregation: MetricAggregation,
         start: DateTime<Utc>,
         end: DateTime<Utc>,
-    ) -> Result<f64, String> {
+    ) -> Result<f64, MonitoringError> {
         let metrics = self.metrics.read().await;
 
         // Find matching time series
@@ -364,7 +370,10 @@ impl MonitoringSystem {
             .collect();
 
         if matching_series.is_empty() {
-            return Err(format!("No data found for metric {}", metric_name));
+            return Err(MonitoringError::NoData(format!(
+                "No data found for metric {}",
+                metric_name
+            )));
         }
 
         // Collect all data points
@@ -376,7 +385,9 @@ impl MonitoringSystem {
         }
 
         if values.is_empty() {
-            return Err("No data points in time range".to_string());
+            return Err(MonitoringError::NoData(
+                "No data points in time range".to_string(),
+            ));
         }
 
         // Apply aggregation
@@ -459,7 +470,7 @@ impl MonitoringSystem {
     }
 
     /// Create alert definition
-    pub async fn create_alert(&self, alert: AlertDefinition) -> Result<(), String> {
+    pub async fn create_alert(&self, alert: AlertDefinition) -> Result<(), MonitoringError> {
         let mut alerts = self.alerts.write().await;
 
         alerts.insert(alert.id.clone(), alert);
@@ -467,7 +478,7 @@ impl MonitoringSystem {
     }
 
     /// Evaluate alerts
-    pub async fn evaluate_alerts(&self) -> Result<Vec<AlertEvent>, String> {
+    pub async fn evaluate_alerts(&self) -> Result<Vec<AlertEvent>, MonitoringError> {
         if !self.config.enable_alerts {
             return Ok(Vec::new());
         }
@@ -557,7 +568,7 @@ impl MonitoringSystem {
     }
 
     /// Acknowledge alert
-    pub async fn acknowledge_alert(&self, alert_id: &str) -> Result<(), String> {
+    pub async fn acknowledge_alert(&self, alert_id: &str) -> Result<(), MonitoringError> {
         let mut active_alerts = self.active_alerts.write().await;
 
         for alert in active_alerts.values_mut() {
@@ -568,11 +579,11 @@ impl MonitoringSystem {
             }
         }
 
-        Err(format!("Alert {} not found", alert_id))
+        Err(MonitoringError::AlertNotFound(alert_id.to_string()))
     }
 
     /// Resolve alert
-    pub async fn resolve_alert(&self, alert_id: &str) -> Result<(), String> {
+    pub async fn resolve_alert(&self, alert_id: &str) -> Result<(), MonitoringError> {
         let mut active_alerts = self.active_alerts.write().await;
 
         // Find the alert by event.id
@@ -596,7 +607,7 @@ impl MonitoringSystem {
 
             Ok(())
         } else {
-            Err(format!("Alert {} not found", alert_id))
+            Err(MonitoringError::AlertNotFound(alert_id.to_string()))
         }
     }
 
@@ -639,7 +650,7 @@ impl MonitoringSystem {
     }
 
     /// Cleanup old data
-    pub async fn cleanup_old_data(&self) -> Result<usize, String> {
+    pub async fn cleanup_old_data(&self) -> Result<usize, MonitoringError> {
         let cutoff = Utc::now() - Duration::hours(self.config.data_retention_hours as i64);
         let mut cleaned = 0;
 
@@ -1116,7 +1127,10 @@ mod tests {
             .unwrap();
         let result = monitoring.register_metric(definition).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("already registered"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("already registered"));
     }
 
     #[tokio::test]
@@ -1127,7 +1141,7 @@ mod tests {
             .record_metric("nonexistent", 42.0, HashMap::new())
             .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not registered"));
+        assert!(result.unwrap_err().to_string().contains("not registered"));
     }
 
     #[tokio::test]
@@ -1706,7 +1720,7 @@ mod tests {
         let monitoring = MonitoringSystem::new(MonitoringConfig::default());
         let result = monitoring.acknowledge_alert("ghost_alert").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not found"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[tokio::test]
@@ -1714,7 +1728,7 @@ mod tests {
         let monitoring = MonitoringSystem::new(MonitoringConfig::default());
         let result = monitoring.resolve_alert("ghost_alert").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not found"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[tokio::test]

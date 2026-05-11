@@ -9,6 +9,7 @@
 //! - Dynamic service updates
 //! - Service dependency resolution
 
+use crate::error::ServiceDiscoveryError;
 use crate::multi_agent::AgentRole;
 use chrono::{DateTime, Utc};
 use rand::RngExt;
@@ -164,7 +165,7 @@ impl ServiceDiscovery {
     pub async fn register_service(
         &self,
         registration: ServiceRegistration,
-    ) -> Result<String, String> {
+    ) -> Result<String, ServiceDiscoveryError> {
         // Generate instance ID
         let mut counter = self.instance_counter.write().await;
         *counter += 1;
@@ -209,7 +210,7 @@ impl ServiceDiscovery {
     }
 
     /// Deregister a service
-    pub async fn deregister_service(&self, instance_id: &str) -> Result<(), String> {
+    pub async fn deregister_service(&self, instance_id: &str) -> Result<(), ServiceDiscoveryError> {
         let removed_instance = {
             let mut services = self.services.write().await;
 
@@ -229,12 +230,14 @@ impl ServiceDiscovery {
             self.remove_from_index(&instance).await;
             Ok(())
         } else {
-            Err(format!("Service instance {} not found", instance_id))
+            Err(ServiceDiscoveryError::InstanceNotFound(
+                instance_id.to_string(),
+            ))
         }
     }
 
     /// Send heartbeat
-    pub async fn send_heartbeat(&self, instance_id: &str) -> Result<(), String> {
+    pub async fn send_heartbeat(&self, instance_id: &str) -> Result<(), ServiceDiscoveryError> {
         let mut services = self.services.write().await;
 
         for registry in services.values_mut() {
@@ -250,7 +253,9 @@ impl ServiceDiscovery {
             }
         }
 
-        Err(format!("Service instance {} not found", instance_id))
+        Err(ServiceDiscoveryError::InstanceNotFound(
+            instance_id.to_string(),
+        ))
     }
 
     /// Discover services
@@ -388,7 +393,7 @@ impl ServiceDiscovery {
         &self,
         instance_id: &str,
         updates: ServiceInstanceUpdate,
-    ) -> Result<(), String> {
+    ) -> Result<(), ServiceDiscoveryError> {
         let mut services = self.services.write().await;
 
         for registry in services.values_mut() {
@@ -415,7 +420,9 @@ impl ServiceDiscovery {
             }
         }
 
-        Err(format!("Service instance {} not found", instance_id))
+        Err(ServiceDiscoveryError::InstanceNotFound(
+            instance_id.to_string(),
+        ))
     }
 
     /// Get all services
@@ -464,7 +471,7 @@ impl ServiceDiscovery {
     }
 
     /// Clean up stale instances
-    pub async fn cleanup_stale_instances(&self) -> Result<usize, String> {
+    pub async fn cleanup_stale_instances(&self) -> Result<usize, ServiceDiscoveryError> {
         if !self.config.enable_auto_cleanup {
             return Ok(0);
         }
@@ -835,7 +842,7 @@ mod tests {
         let discovery = ServiceDiscovery::new(ServiceDiscoveryConfig::default());
         let result = discovery.deregister_service("nonexistent").await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("not found"));
+        assert!(result.unwrap_err().to_string().contains("not found"));
     }
 
     #[tokio::test]

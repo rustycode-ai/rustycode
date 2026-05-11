@@ -205,17 +205,17 @@ Respond with JSON:
             content
         };
 
-        let parsed: serde_json::Value =
-            serde_json::from_str(json_str).map_err(|e| format!("JSON parse failed: {}", e))?;
+        let parsed: serde_json::Value = serde_json::from_str(json_str)
+            .map_err(|e| IntentError::UnknownCategory(format!("JSON parse failed: {}", e)))?;
 
         let category_str = parsed
             .get("category")
             .and_then(|v| v.as_str())
-            .ok_or("missing category")?;
+            .ok_or_else(|| IntentError::UnknownCategory("missing category".to_string()))?;
         let confidence = parsed
             .get("confidence")
             .and_then(|v| v.as_f64())
-            .ok_or("missing confidence")?;
+            .ok_or_else(|| IntentError::UnknownCategory("missing confidence".to_string()))?;
 
         let category = match category_str {
             "Implementation" => IntentCategory::Implementation,
@@ -226,7 +226,7 @@ Respond with JSON:
             "Testing" => IntentCategory::Testing,
             "Analytical" => IntentCategory::Analytical,
             "Diagnostic" => IntentCategory::Diagnostic,
-            _ => return Err(format!("unknown category: {}", category_str)),
+            _ => return Err(IntentError::UnknownCategory(category_str.to_string())),
         };
 
         Ok(IntentAssessment {

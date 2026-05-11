@@ -329,7 +329,7 @@ impl ParallelWorktreeExecutor {
                     details.push(TaskMergeDetail {
                         task_id: result.task_id.clone(),
                         merged: false,
-                        conflict_description: Some(merge_err.clone()),
+                        conflict_description: Some(merge_err.to_string()),
                     });
                 }
             }
@@ -455,7 +455,7 @@ impl ParallelWorktreeExecutor {
 
         let (status, error) = match agent_result {
             Ok(()) => (TaskExecutionStatus::Completed, None),
-            Err(e) => (TaskExecutionStatus::Failed, Some(e)),
+            Err(e) => (TaskExecutionStatus::Failed, Some(e.to_string())),
         };
 
         TaskResult {
@@ -985,7 +985,7 @@ mod tests {
         let executor =
             ParallelWorktreeExecutor::new(PathBuf::from("/nonexistent/path"), test_config());
         assert!(executor.is_err());
-        assert!(executor.unwrap_err().contains("does not exist"));
+        assert!(executor.unwrap_err().to_string().contains("does not exist"));
     }
 
     // -----------------------------------------------------------------------

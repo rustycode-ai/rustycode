@@ -9,6 +9,7 @@
 //! - Event persistence
 //! - Reactive agent behaviors
 
+use crate::error::EventError;
 use crate::multi_agent::AgentRole;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -354,7 +355,7 @@ impl EventSystem {
     }
 
     /// Publish an event
-    pub async fn publish(&self, mut event: Event) -> Result<(), String> {
+    pub async fn publish(&self, mut event: Event) -> Result<(), EventError> {
         // Generate event ID if not provided
         if event.id.is_empty() {
             let mut counter = self.event_counter.write().await;
@@ -394,7 +395,7 @@ impl EventSystem {
                 }
                 Ok(())
             }
-            Err(e) => Err(format!("Failed to publish event: {}", e)),
+            Err(e) => Err(EventError::PublishFailed(e.to_string())),
         }
     }
 
@@ -403,7 +404,7 @@ impl EventSystem {
         &self,
         subscriber_id: String,
         filter: EventFilter,
-    ) -> Result<String, String> {
+    ) -> Result<String, EventError> {
         // Generate subscription ID
         let mut counter = self.subscription_counter.write().await;
         *counter += 1;
@@ -437,7 +438,7 @@ impl EventSystem {
     }
 
     /// Unsubscribe from events
-    pub async fn unsubscribe(&self, subscription_id: &str) -> Result<(), String> {
+    pub async fn unsubscribe(&self, subscription_id: &str) -> Result<(), EventError> {
         let mut subscriptions = self.subscriptions.write().await;
 
         if subscriptions.remove(subscription_id).is_some() {
@@ -447,7 +448,9 @@ impl EventSystem {
             stats.last_updated = Utc::now();
             Ok(())
         } else {
-            Err(format!("Subscription {} not found", subscription_id))
+            Err(EventError::SubscriptionNotFound(
+                subscription_id.to_string(),
+            ))
         }
     }
 
@@ -608,7 +611,7 @@ impl EventSystem {
     }
 
     /// Retry dead letter events
-    pub async fn retry_dead_letter(&self, subscription_id: &str) -> Result<usize, String> {
+    pub async fn retry_dead_letter(&self, subscription_id: &str) -> Result<usize, EventError> {
         let queue = self.dead_letter_queue.read().await;
         let events_to_retry: Vec<_> = queue
             .iter()
@@ -639,7 +642,7 @@ impl EventSystem {
         &self,
         subscription_id: &str,
         mut handler: F,
-    ) -> Result<(), String>
+    ) -> Result<(), EventError>
     where
         F: FnMut(Event) -> Result<(), String>,
     {
