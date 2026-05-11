@@ -24,7 +24,6 @@ pub mod heuristics;
 pub mod hints;
 pub mod runner;
 pub mod types;
-pub mod utils;
 
 pub(crate) use self::callbacks::HeadlessStreamCallbacks;
 pub(crate) use self::config::*;
@@ -38,7 +37,7 @@ pub(crate) use self::heuristics::{
 };
 pub use self::runner::{run_headless_task, run_headless_task_core};
 pub use self::types::HeadlessTaskResult;
-pub use self::utils::{clean_assistant_text, prune_messages};
+pub use rustycode_agent_runtime::{clean_assistant_text, prune_messages};
 use rustycode_tools::ToolRegistry;
 
 #[cfg(test)]

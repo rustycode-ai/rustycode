@@ -79,7 +79,8 @@ impl CodeAgent {
     /// Create using the default Anthropic provider.
     pub fn with_anthropic(config: CodeAgentConfig) -> anyhow::Result<Self> {
         let api_key = std::env::var("ANTHROPIC_API_KEY")
-            .map_err(|_| anyhow::anyhow!("ANTHROPIC_API_KEY not set"))?;
+            .or_else(|_| std::env::var("ANTHROPIC_AUTH_TOKEN"))
+            .map_err(|_| anyhow::anyhow!("ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN not set"))?;
 
         let provider_config = rustycode_llm::ProviderConfig {
             api_key: Some(secrecy::SecretString::new(api_key.into())),

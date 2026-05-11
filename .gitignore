@@ -173,6 +173,7 @@ t-tier4/
 
 # Benchmark baselines
 benches/report/
+swebench-work/
 criterion/
 
 # Credentials

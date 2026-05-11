@@ -175,8 +175,8 @@ enum Commands {
         #[arg(long, default_value = "json")]
         format: String,
 
-        /// Working directory for cloned repos
-        #[arg(long, default_value = "swebench-work")]
+        /// Working directory for cloned repos (default: /tmp/swebench-work)
+        #[arg(long, default_value = "/tmp/swebench-work")]
         work_dir: PathBuf,
     },
 
@@ -202,8 +202,8 @@ enum Commands {
         #[arg(long, default_value_t = 50)]
         max_pass_to_pass: usize,
 
-        /// Working directory containing cloned repos
-        #[arg(long, default_value = "swebench-work")]
+        /// Working directory containing cloned repos (default: /tmp/swebench-work)
+        #[arg(long, default_value = "/tmp/swebench-work")]
         work_dir: PathBuf,
 
         /// Output path for evaluation results JSON

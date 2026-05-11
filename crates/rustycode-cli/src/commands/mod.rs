@@ -2,7 +2,6 @@
 
 pub mod agent_cmd;
 pub mod ast_cmd;
-pub mod bench_cmd;
 pub mod cli_args;
 pub mod harness_cmd;
 pub mod history_cmd;

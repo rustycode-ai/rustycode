@@ -13,8 +13,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tracing::info;
 
-use crate::headless::utils::prune_messages;
 use crate::streaming::{StreamEventProcessor, StreamingCallbacks, ToolAccumulator};
+use rustycode_agent_runtime::prune_messages;
 
 /// Hard limits for the agent loop. No heuristics — just caps.
 pub struct AgentConfig {

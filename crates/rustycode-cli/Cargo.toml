@@ -33,7 +33,6 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 chrono.workspace = true
 num_cpus.workspace = true
-rustycode-bench = { path = "../rustycode-bench" }
 rustycode-bus = { path = "../rustycode-bus" }
 rustycode-config = { path = "../rustycode-config" }
 rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }

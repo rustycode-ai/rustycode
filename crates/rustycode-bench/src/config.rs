@@ -61,14 +61,17 @@ pub fn resolve_provider_model(model: &str) -> Result<(String, String)> {
         return Ok(("anthropic".to_string(), model.to_string()));
     }
 
-    if std::env::var("ANTHROPIC_API_KEY").is_ok() {
+    if std::env::var("ANTHROPIC_API_KEY")
+        .or_else(|_| std::env::var("ANTHROPIC_AUTH_TOKEN"))
+        .is_ok()
+    {
         Ok(("anthropic".to_string(), "claude-sonnet-4-6".to_string()))
     } else if std::env::var("OPENAI_API_KEY").is_ok() {
         Ok(("openai".to_string(), "gpt-4o".to_string()))
     } else if std::env::var("GOOGLE_API_KEY").is_ok() {
         Ok(("gemini".to_string(), "gemini-2.5-pro".to_string()))
     } else {
-        bail!("No API key found. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY")
+        bail!("No API key found. Set ANTHROPIC_API_KEY (or ANTHROPIC_AUTH_TOKEN), OPENAI_API_KEY, or GOOGLE_API_KEY")
     }
 }
 

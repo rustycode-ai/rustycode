@@ -225,11 +225,6 @@ enum Command {
         dry_run: bool,
     },
 
-    /// Benchmark runner for agent evaluation (Terminal Bench compatible).
-    Bench {
-        #[command(subcommand)]
-        command: BenchCommand,
-    },
     /// AST (Adaptive Structured Thinking) pipeline commands.
     Ast {
         #[command(subcommand)]
@@ -1118,9 +1113,6 @@ async fn async_main(cli: Cli) -> Result<()> {
         Command::Learnings { command } => {
             execute_learnings_command(&cwd, command, &cli.format)?;
         }
-        Command::Bench { command } => {
-            commands::bench_cmd::execute(command).await?;
-        }
         Command::Ast { command } => commands::ast_cmd::execute(&cwd, command).await?,
         Command::Update {
             check,
@@ -1297,7 +1289,6 @@ fn suggest_similar_subcommand(task: &str) -> Option<String> {
         "learnings",
         "tui",
         "serve",
-        "bench",
         "ast",
     ];
 
