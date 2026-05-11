@@ -48,7 +48,10 @@ impl PolishedRenderer {
                         .fg(Color::Cyan)
                         .add_modifier(ratatui::style::Modifier::BOLD),
                 ),
-                ratatui::text::Span::styled(" v0.1", Style::default().fg(Color::DarkGray)),
+                ratatui::text::Span::styled(
+                    format!(" v{}", env!("CARGO_PKG_VERSION")),
+                    Style::default().fg(Color::DarkGray),
+                ),
             ]));
             lines.push(Line::raw(""));
 

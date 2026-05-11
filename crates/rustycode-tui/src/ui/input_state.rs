@@ -257,21 +257,21 @@ impl InputState {
                 let col = line.floor_char_boundary(self.cursor_col);
                 let text_before = &line[..col];
 
-                // Walk backwards: skip trailing whitespace, then skip the word.
+                // Walk backwards: skip the word, then skip preceding whitespace.
                 let mut end = text_before.len();
 
-                // Skip whitespace immediately before cursor
+                // Skip word characters back to the word boundary
                 for (i, c) in text_before.char_indices().rev() {
-                    if c.is_whitespace() {
+                    if !c.is_whitespace() {
                         end = i;
                     } else {
                         break;
                     }
                 }
 
-                // Skip word characters back to the word boundary
+                // Skip whitespace before the word
                 for (i, c) in text_before[..end].char_indices().rev() {
-                    if !c.is_whitespace() {
+                    if c.is_whitespace() {
                         end = i;
                     } else {
                         break;

@@ -86,7 +86,7 @@ Some text after"#;
     let payloads = auto_tool_parser::extract_tool_payloads(response);
     assert_eq!(payloads.len(), 1, "Should extract inline tool JSON");
     assert!(
-        payloads[0].contains("\"name\":\"bash\""),
+        payloads[0].contains("\"name\":\"Bash\""),
         "Should contain tool name"
     );
 }
