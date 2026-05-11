@@ -134,16 +134,6 @@ impl LLMIntegration {
         use rustycode_llm::provider::{ChatMessage, CompletionRequest, MessageRole};
         use rustycode_protocol::MessageContent;
 
-        let provider_guard = self.provider.lock().await;
-
-        let provider = match provider_guard.as_ref() {
-            Some(p) => p,
-            None => {
-                return Err(anyhow::anyhow!("LLM provider not initialized"));
-            }
-        };
-
-        // Convert ACP messages to LLM messages
         let llm_messages: Vec<ChatMessage> = messages
             .iter()
             .filter_map(|m| match m {
@@ -245,8 +235,24 @@ impl LLMIntegration {
         let mut request = CompletionRequest::new(self.default_model.clone(), llm_messages);
         request.tools = tools;
 
-        // Get completion from provider
-        let response = provider.complete(request).await?;
+        // Clone the provider Arc so we can drop the guard before the network call.
+        let provider_arc = {
+            let guard = self.provider.lock().await;
+            match guard.as_ref() {
+                Some(_provider) => Arc::clone(&self.provider),
+                None => {
+                    return Err(anyhow::anyhow!("LLM provider not initialized"));
+                }
+            }
+        };
+
+        let response = {
+            let guard = provider_arc.lock().await;
+            let provider = guard
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("LLM provider not initialized"))?;
+            provider.complete(request).await?
+        };
 
         Ok(response)
     }

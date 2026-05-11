@@ -115,8 +115,10 @@ impl PromptHandler {
             };
 
             let response = if llm_available {
-                // Use real LLM
-                let llm_guard = self.llm.lock().await;
+                // Use real LLM — clone the Arc so the outer lock is not held
+                // during the potentially long-running LLM API call.
+                let llm_arc = Arc::clone(&self.llm);
+                let llm_guard = llm_arc.lock().await;
                 llm_guard
                     .process_messages(&conversation, tool_definitions, None)
                     .await?
@@ -181,7 +183,8 @@ impl PromptHandler {
                     }
 
                     let result = {
-                        let executor = self.tool_executor.lock().await;
+                        let executor_arc = Arc::clone(&self.tool_executor);
+                        let executor = executor_arc.lock().await;
                         executor.execute_tool(&tc.name, tc.arguments).await?
                     };
 
@@ -323,10 +326,15 @@ impl PromptHandler {
 
     /// Check if handler is ready (LLM and tools available)
     pub async fn is_ready(&self) -> bool {
-        let llm_guard = self.llm.lock().await;
+        let llm_ready = {
+            let llm_guard = self.llm.lock().await;
+            llm_guard.is_available().await
+        };
+        if !llm_ready {
+            return false;
+        }
         let tools_guard = self.tool_executor.lock().await;
-
-        llm_guard.is_available().await && tools_guard.is_available().await
+        tools_guard.is_available().await
     }
 }
 
