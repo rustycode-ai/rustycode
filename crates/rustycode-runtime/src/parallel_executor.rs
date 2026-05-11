@@ -644,6 +644,18 @@ impl ParallelWorktreeExecutor {
                         .map_err(|e| format!("git checkout failed: {}", e))?;
 
                     if !checkout_output.status.success() {
+                        let branch_cleanup = Command::new("git")
+                            .arg("branch")
+                            .arg("-D")
+                            .arg(&temp_branch)
+                            .current_dir(&self.repo_path)
+                            .output();
+                        if let Err(e) = branch_cleanup {
+                            warn!(
+                                "Failed to clean up temp branch after checkout failure: {}",
+                                e
+                            );
+                        }
                         return Err(format!(
                             "checkout back to '{}' failed: {}",
                             current_branch,

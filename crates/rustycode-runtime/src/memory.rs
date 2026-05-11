@@ -36,6 +36,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::warn;
 
 /// Memory entry with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -249,9 +250,12 @@ impl MemoryManager {
 
                 // Promote to working memory
                 let mut working = self.working.write().await;
-                self.evict_if_needed(&mut working, MemoryLevel::Working)
+                if let Err(e) = self
+                    .evict_if_needed(&mut working, MemoryLevel::Working)
                     .await
-                    .ok();
+                {
+                    warn!("Working memory eviction failed: {}", e);
+                }
                 working.insert(key.to_string(), entry.clone());
 
                 return Some(entry);
@@ -271,9 +275,12 @@ impl MemoryManager {
 
                 // Promote to short-term memory
                 let mut short_term = self.short_term.write().await;
-                self.evict_if_needed(&mut short_term, MemoryLevel::ShortTerm)
+                if let Err(e) = self
+                    .evict_if_needed(&mut short_term, MemoryLevel::ShortTerm)
                     .await
-                    .ok();
+                {
+                    warn!("Short-term memory eviction failed: {}", e);
+                }
                 short_term.insert(key.to_string(), entry.clone());
 
                 return Some(entry);

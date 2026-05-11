@@ -403,14 +403,22 @@ fn parse_declaration_lenient(value: &serde_json::Value) -> StructuralDeclaration
         .and_then(|v| v.as_array())
         .map(|arr| {
             arr.iter()
-                .filter_map(|i| serde_json::from_value(i.clone()).ok())
+                .filter_map(|i| {
+                    serde_json::from_value(i.clone())
+                        .inspect_err(|e| tracing::warn!("Failed to parse declaration field: {e}"))
+                        .ok()
+                })
                 .collect()
         })
         .unwrap_or_default();
 
     let dependencies = decl_value
         .get("dependencies")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| {
+            serde_json::from_value(v.clone())
+                .inspect_err(|e| tracing::warn!("Failed to parse declaration field: {e}"))
+                .ok()
+        })
         .unwrap_or_default();
 
     StructuralDeclaration {
@@ -429,7 +437,11 @@ fn parse_module_declaration(value: &serde_json::Value) -> Option<ModuleDeclarati
 
     let action = value
         .get("action")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| {
+            serde_json::from_value(v.clone())
+                .inspect_err(|e| tracing::warn!("Failed to parse declaration field: {e}"))
+                .ok()
+        })
         .unwrap_or(ModuleAction::Create);
 
     Some(ModuleDeclaration {
@@ -630,8 +642,13 @@ pub mod local_capabilities {
 
     /// Quick syntax check for a Rust file.
     pub fn check_syntax(file_path: &Path) -> Result<(), String> {
+        #[cfg(target_family = "unix")]
+        let null_path = "/dev/null";
+        #[cfg(target_family = "windows")]
+        let null_path = "NUL";
+
         match std::process::Command::new("rustc")
-            .args(["--edition", "2021", "--emit=metadata", "-o", "/dev/null"])
+            .args(["--edition", "2021", "--emit=metadata", "-o", null_path])
             .arg(file_path)
             .output()
         {

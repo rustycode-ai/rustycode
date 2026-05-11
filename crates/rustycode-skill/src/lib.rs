@@ -424,6 +424,10 @@ impl ProgressiveLoader {
             self.content_cache_order.drain(0..keys.len());
         }
 
+        if let Some(pos) = self.content_cache_order.iter().position(|k| k == name) {
+            self.content_cache_order.remove(pos);
+        }
+
         self.content_cache_order.push(name.to_string());
         self.content_cache.insert(name.to_string(), content.clone());
         Ok(Some(content))

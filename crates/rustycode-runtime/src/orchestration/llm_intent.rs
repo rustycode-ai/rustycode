@@ -64,17 +64,20 @@ impl LlmFallbackBudget {
     /// Check if a call is allowed and increment the counter if so.
     /// Returns true if the call is allowed, false if budget is exhausted.
     pub fn try_use(&self) -> bool {
-        let current = self.call_count.load(Ordering::SeqCst);
-        if current >= self.max_calls {
-            return false;
+        loop {
+            let current = self.call_count.load(Ordering::SeqCst);
+            if current >= self.max_calls {
+                return false;
+            }
+            if self
+                .call_count
+                .compare_exchange(current, current + 1, Ordering::SeqCst, Ordering::SeqCst)
+                .is_ok()
+            {
+                return true;
+            }
+            // CAS failed due to concurrent update; retry
         }
-        let _ = self.call_count.compare_exchange(
-            current,
-            current + 1,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        );
-        self.call_count.load(Ordering::SeqCst) <= self.max_calls
     }
 
     /// Get the current call count.
@@ -193,8 +196,8 @@ Respond with JSON:
     /// Parse LLM's JSON response into category and confidence.
     fn parse_llm_response(content: &str) -> Result<IntentAssessment, String> {
         // Try to extract JSON from the response
-        let json_str = if content.contains('{') {
-            &content[content.find('{').unwrap()..=content.rfind('}').unwrap_or(content.len() - 1)]
+        let json_str = if let (Some(start), Some(end)) = (content.find('{'), content.rfind('}')) {
+            &content[start..=end]
         } else {
             content
         };

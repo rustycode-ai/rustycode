@@ -1381,7 +1381,7 @@ impl TeamOrchestrator {
                 // Emit tests failed event (triggers TestDebugger)
                 let _actions = self.emit_and_dispatch(TeamEvent::TestsFailed {
                     failed_tests: failed_names.clone(),
-                    total_failed: failed as u32,
+                    total_failed: failed.min(u32::MAX as usize) as u32,
                     error_output: format!("{} tests failed", failed),
                 });
                 debug!(
@@ -1850,7 +1850,7 @@ impl TeamOrchestrator {
             self.emit(TeamEvent::ToolLoopIteration {
                 role: role_name.clone(),
                 iteration: iteration + 1,
-                tool_count: tool_calls.len() as u32,
+                tool_count: tool_calls.len().min(u32::MAX as usize) as u32,
             });
             messages.push(ChatMessage::assistant(content));
 

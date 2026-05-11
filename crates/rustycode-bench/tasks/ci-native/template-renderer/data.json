@@ -1,0 +1,13 @@
+{
+  "user": {
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "address": "123 Main St"
+  },
+  "order": {
+    "id": "42",
+    "item": "Widget Pro",
+    "price": "99.95"
+  },
+  "company": "Acme Corp"
+}

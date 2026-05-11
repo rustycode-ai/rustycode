@@ -139,7 +139,7 @@ impl ProjectProfiler {
             || Self::has_file(root, "requirements.txt")
             || Self::has_file(root, "setup.py")
         {
-            let framework = Self::detect_python_framework(config_files);
+            let framework = Self::detect_python_framework(root, config_files);
             return (
                 "Python".into(),
                 framework,
@@ -257,11 +257,11 @@ impl ProjectProfiler {
 
     // -- Python specifics --------------------------------------------------
 
-    fn detect_python_framework(config_files: &[String]) -> Option<String> {
+    fn detect_python_framework(root: &Path, config_files: &[String]) -> Option<String> {
         let pyproject = config_files
             .iter()
             .find(|f| *f == "pyproject.toml")
-            .and_then(|_| fs::read_to_string("pyproject.toml").ok())
+            .and_then(|_| fs::read_to_string(root.join("pyproject.toml")).ok())
             .unwrap_or_default();
 
         if pyproject.contains("django") {

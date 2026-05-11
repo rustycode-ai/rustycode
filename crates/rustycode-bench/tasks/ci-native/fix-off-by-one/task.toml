@@ -1,0 +1,4 @@
+[task]
+name = "fix-off-by-one"
+description = "Fix an off-by-one bug in a binary search implementation"
+difficulty = 1

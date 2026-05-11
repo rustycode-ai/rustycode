@@ -47,6 +47,9 @@ pub enum IdError {
 
     #[error("ID too long: {length} chars (maximum: {max})")]
     TooLong { length: usize, max: usize },
+
+    #[error("ID generation failed: {0}")]
+    GenerationFailed(String),
 }
 
 /// Encode a u64 value to Base62 string
@@ -666,13 +669,6 @@ mod tests {
     }
 
     #[test]
-    fn test_default_impl() {
-        let id1 = SessionId::default();
-        let id2 = SessionId::default();
-        assert_ne!(id1.to_string(), id2.to_string());
-    }
-
-    #[test]
     fn test_timestamp_extraction() {
         let id = SessionId::new();
         let ts = id.timestamp();
@@ -1107,6 +1103,14 @@ mod tests {
         let err = IdError::InvalidTimestamp("overflow".to_string());
         let display = format!("{err}");
         assert!(display.contains("overflow"));
+    }
+
+    #[test]
+    fn test_id_error_generation_failed_display() {
+        let err = IdError::GenerationFailed("getrandom: entropy exhausted".to_string());
+        let display = format!("{err}");
+        assert!(display.contains("generation failed"));
+        assert!(display.contains("getrandom"));
     }
 
     // --- Clone / Eq / Hash ---

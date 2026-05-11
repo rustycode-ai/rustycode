@@ -1,0 +1,17 @@
+Dear {{user.name}},
+
+Thank you for your order #{{order.id}}!
+
+Order details:
+  Item: {{order.item}}
+  Price: ${{order.price}}
+  Shipping to: {{user.address}}
+
+We will send a tracking number to {{user.email}} once shipped.
+
+Your tracking number is: {{tracking_number}}
+
+Best regards,
+The {{company}} team
+
+From: {{user.name}}

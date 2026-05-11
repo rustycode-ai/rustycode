@@ -1,0 +1,4 @@
+[task]
+name = "json-filter"
+description = "Filter and transform a JSON array of users"
+difficulty = 1

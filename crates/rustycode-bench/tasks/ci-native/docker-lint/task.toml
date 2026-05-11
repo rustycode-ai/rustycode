@@ -1,0 +1,4 @@
+[task]
+name = "docker-lint"
+description = "Fix errors in a TOML configuration file"
+difficulty = 1

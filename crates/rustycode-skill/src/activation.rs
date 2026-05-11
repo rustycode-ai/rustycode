@@ -60,9 +60,15 @@ impl ActivationManager {
         }
 
         recommendations.sort_by(|a, b| {
-            b.score
-                .partial_cmp(&a.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
+            b.score.partial_cmp(&a.score).unwrap_or_else(|| {
+                if a.score.is_nan() && !b.score.is_nan() {
+                    std::cmp::Ordering::Greater
+                } else if !a.score.is_nan() && b.score.is_nan() {
+                    std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Equal
+                }
+            })
         });
         recommendations
     }

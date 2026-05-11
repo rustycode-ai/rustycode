@@ -1,0 +1,9 @@
+[
+  {"name": "Alice", "age": 35, "email": "alice@example.com", "active": true},
+  {"name": "Bob", "age": 28, "email": "bob@example.com", "active": false},
+  {"name": "Charlie", "age": 31, "email": "charlie@example.com", "active": true},
+  {"name": "Diana", "age": 24, "email": "diana@example.com", "active": true},
+  {"name": "Eve", "age": 38, "email": "eve@example.com", "active": true},
+  {"name": "Frank", "age": 45, "email": "frank@example.com", "active": false},
+  {"name": "Grace", "age": 30, "email": "grace@example.com", "active": true}
+]

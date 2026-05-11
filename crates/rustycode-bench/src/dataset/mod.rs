@@ -28,6 +28,12 @@ impl DatasetRegistry {
     pub fn new() -> Self {
         let mut search_paths = Vec::new();
 
+        // Built-in tasks (crates/rustycode-bench/tasks/)
+        let builtin = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tasks");
+        if builtin.exists() {
+            search_paths.push(builtin);
+        }
+
         // Harbor cache directory
         if let Ok(home) = std::env::var("HOME") {
             let harbor_cache = PathBuf::from(home).join(HARBOR_CACHE_DIR);

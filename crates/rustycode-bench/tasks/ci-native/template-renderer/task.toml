@@ -1,0 +1,4 @@
+[task]
+name = "template-renderer"
+description = "Write a Python template renderer that replaces placeholders with JSON data"
+difficulty = 2

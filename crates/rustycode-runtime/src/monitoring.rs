@@ -397,7 +397,7 @@ impl MonitoringSystem {
                     return Ok(0.0);
                 }
                 let mut sorted = values;
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                sorted.sort_by(|a, b| a.total_cmp(b));
                 let max_idx = sorted.len() - 1;
                 let index = (p * max_idx as f64).round() as usize;
                 Ok(sorted[index.min(max_idx)])

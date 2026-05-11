@@ -274,10 +274,10 @@ impl Coordinator {
 
         // Process judge results
         if let Some(judge) = input.judge_results {
-            let current_passed = judge.tests.passed as i32;
+            let current_passed = judge.tests.passed.min(i32::MAX as usize) as i32;
             let tests_delta = match self.state.last_tests_passed {
-                Some(prev) => current_passed - prev as i32,
-                None => 0, // No baseline yet — first verification
+                Some(prev) => current_passed - (prev.min(i32::MAX as usize) as i32),
+                None => 0,
             };
             self.state.last_tests_passed = Some(judge.tests.passed);
             self.state.progress_delta.push(tests_delta);

@@ -98,6 +98,7 @@ impl NativeEnvironment {
 
         // Write rewritten script to workspace
         let tmp_script = self.workspace.join(".native_run.sh");
+        let _ = std::fs::write("/tmp/rtk-debug-adapted.sh", &rewritten);
         std::fs::write(&tmp_script, rewritten)?;
 
         let result = self
@@ -423,6 +424,26 @@ impl BenchEnvironment for NativeEnvironment {
                 &["_jobs"],
                 Some(&self.workspace),
             )?;
+
+            // Flatten task root files to workspace root (mirrors Docker COPY . /app/)
+            // verify.sh and solve.sh expect source files at the workspace root.
+            if let Ok(entries) = std::fs::read_dir(&self.task_dir) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if entry.path().is_dir()
+                        || name_str == "task.toml"
+                        || name_str == "instruction.md"
+                    {
+                        continue;
+                    }
+                    let src_path = entry.path();
+                    let dest_path = self.workspace.join(&*name);
+                    if !dest_path.exists() {
+                        copy_file_with_rewrite(&src_path, &dest_path, &self.workspace)?;
+                    }
+                }
+            }
         }
 
         // Copy environment source if it exists (e.g. src/ directory)
