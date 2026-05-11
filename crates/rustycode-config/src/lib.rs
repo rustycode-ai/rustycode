@@ -181,15 +181,52 @@ pub struct ShellEnvironmentPolicy {
     pub set: std::collections::HashMap<String, String>,
 }
 
+/// Environment variable prefixes that are safe to set from config files.
+/// Only variables matching these prefixes will be applied — all others are blocked
+/// to prevent privilege escalation (e.g., PATH, LD_PRELOAD, DYLD_INSERT_LIBRARIES).
+const ALLOWED_ENV_PREFIXES: &[&str] = &[
+    "RUSTYCODE_",
+    "RUST_",
+    "CARGO_",
+    "PYTHONPATH",
+    "NODE_PATH",
+    "GOPATH",
+    "JAVA_HOME",
+    "EDITOR",
+    "VISUAL",
+    "PAGER",
+    "LANG",
+    "LC_",
+    "TZ",
+    "TEMP",
+    "TMP",
+    "TMPDIR",
+];
+
 impl ShellEnvironmentPolicy {
     /// Apply `set` values to the process environment.
     /// Only sets keys that are not already present (does not override).
+    /// Only allowlisted environment variable prefixes are permitted.
     pub fn apply_to_env(&self) {
         for (key, value) in &self.set {
             if std::env::var(key).is_err() {
-                std::env::set_var(key, value);
+                if Self::is_allowed_env_key(key) {
+                    std::env::set_var(key, value);
+                } else {
+                    tracing::warn!(
+                        "Blocked environment variable '{}' from config — not in allowlist",
+                        key
+                    );
+                }
             }
         }
+    }
+
+    /// Check whether an environment variable key matches a known-safe prefix.
+    fn is_allowed_env_key(key: &str) -> bool {
+        ALLOWED_ENV_PREFIXES
+            .iter()
+            .any(|prefix| key.starts_with(prefix))
     }
 }
 

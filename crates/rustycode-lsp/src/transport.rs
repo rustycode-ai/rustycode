@@ -72,6 +72,11 @@ pub enum LspNotification {
     Unknown(String, JsonValue),
 }
 
+/// Maximum allowed Content-Length for a single LSP message (100 MB).
+///
+/// Prevents OOM from malicious or broken LSP servers sending absurdly large headers.
+const MAX_CONTENT_LENGTH: usize = 100 * 1024 * 1024;
+
 /// Response reader for LSP server communication
 pub struct LspResponseReader {
     response_tx: mpsc::Sender<LspResponse>,
@@ -107,7 +112,15 @@ impl LspResponseReader {
                         } else if let Some(len_str) = line.strip_prefix("Content-Length:") {
                             let len_str = len_str.trim();
                             if let Ok(len) = len_str.parse::<usize>() {
-                                content_length = Some(len);
+                                if len <= MAX_CONTENT_LENGTH {
+                                    content_length = Some(len);
+                                } else {
+                                    warn!(
+                                        len,
+                                        max = MAX_CONTENT_LENGTH,
+                                        "LSP Content-Length exceeds limit, skipping message"
+                                    );
+                                }
                             }
                         }
                     }
