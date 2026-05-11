@@ -18,6 +18,7 @@ pub mod bedrock;
 pub mod cohere;
 pub mod gemini;
 pub mod litert;
+pub mod ollama_chat;
 pub mod openai_chat;
 pub mod openai_responses;
 

@@ -1,31 +1,38 @@
+//! Ollama LLM provider implementation.
+//!
+//! Uses the Route abstraction (Protocol + Transport + Auth) for `/api/chat`
+//! requests, with a direct HTTP client for local-only API calls
+//! (`/api/tags` for model listing, availability checks).
+
+use anyhow::Result;
+use async_trait::async_trait;
+use futures::{Stream, StreamExt};
+use serde::Deserialize;
+#[cfg(test)]
+use serde::Serialize;
+use std::collections::HashMap;
+use std::pin::Pin;
+
+use crate::auth::NoAuth;
 use crate::provider::{
     CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
-    Usage,
 };
 use crate::provider_metadata::{
     ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
-use anyhow::Result;
-use async_trait::async_trait;
-use futures::{Stream, StreamExt};
-use reqwest::Client;
-use rustycode_protocol::stream_event::StreamEvent;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::pin::Pin;
+use crate::route::Route;
+use crate::transport::{HttpSseTransport, HttpTransport};
+use crate::wire::ollama_chat::OllamaChatProtocol;
 
-/// Ollama-specific request structure
-#[derive(Debug, Clone, Serialize)]
-struct OllamaRequest {
-    model: String,
-    messages: Vec<OllamaMessage>,
-    stream: bool,
-    options: Option<OllamaOptions>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<serde_json::Value>>,
-}
+/// Default Ollama server endpoint.
+const DEFAULT_OLLAMA_ENDPOINT: &str = "http://localhost:11434";
 
+/// Ollama-specific message structure for cross-provider tests.
+///
+/// Ollama uses a flat message format with a separate `images` array for
+/// vision support, rather than the content-block arrays used by OpenAI/Anthropic.
+#[cfg(test)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct OllamaMessage {
     pub(crate) role: String,
@@ -35,82 +42,11 @@ pub(crate) struct OllamaMessage {
     pub(crate) images: Option<Vec<String>>,
 }
 
-/// Ollama generation options.
+/// OllamaProvider handles local LLM inference via Ollama.
 ///
-/// Maps to the `options` field in the `/api/chat` request.
-/// See: <https://github.com/ollama/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values>
-#[derive(Debug, Clone, Serialize)]
-struct OllamaOptions {
-    temperature: f32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    num_predict: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    top_p: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    top_k: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    num_ctx: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    stop: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    seed: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    repeat_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    presence_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    frequency_penalty: Option<f32>,
-    /// How long to keep the model loaded in memory (e.g. "5m", "30m", "24h")
-    #[serde(skip_serializing_if = "Option::is_none")]
-    keep_alive: Option<String>,
-}
-
-/// Ollama-specific response structure
-#[derive(Debug, Deserialize)]
-struct OllamaResponse {
-    message: OllamaMessageContent,
-    model: String,
-    done: bool,
-    #[serde(default)]
-    prompt_eval_count: Option<u32>,
-    #[serde(default)]
-    eval_count: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct OllamaMessageContent {
-    role: String,
-    content: String,
-    #[serde(default)]
-    tool_calls: Option<Vec<OllamaToolCall>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct OllamaToolCall {
-    function: OllamaToolCallFunction,
-}
-
-#[derive(Debug, Deserialize)]
-struct OllamaToolCallFunction {
-    name: String,
-    arguments: serde_json::Value,
-}
-
-/// Ollama-specific streaming response structure
-#[derive(Debug, Deserialize)]
-struct OllamaStreamResponse {
-    message: Option<OllamaMessageContent>,
-    #[allow(dead_code)]
-    model: String,
-    done: bool,
-    #[serde(default)]
-    prompt_eval_count: Option<u32>,
-    #[serde(default)]
-    eval_count: Option<u32>,
-}
-
-/// OllamaProvider handles local LLM inference via Ollama
+/// Uses the Route abstraction for `/api/chat` requests (both streaming and
+/// non-streaming) and a direct HTTP client for local-only endpoints like
+/// `/api/tags` (model listing) and availability checks.
 ///
 /// # Example
 ///
@@ -125,116 +61,62 @@ struct OllamaStreamResponse {
 /// ```
 pub struct OllamaProvider {
     config: ProviderConfig,
-    client: Client,
+    route: Route,
+    client: reqwest::Client,
+    base_url: String,
 }
 
 impl OllamaProvider {
-    fn build_chat_messages(
-        request: CompletionRequest,
-    ) -> Result<
-        (
-            String,
-            Vec<OllamaMessage>,
-            OllamaOptions,
-            Option<Vec<serde_json::Value>>,
-        ),
-        ProviderError,
-    > {
-        let options = Self::build_options(&request);
-        let model = request.model.clone();
-        let tools = request.tools.clone();
-        let mut messages = Self::convert_messages(request.messages);
-        if let Some(system_prompt) = request.system_prompt {
-            messages.insert(
-                0,
-                OllamaMessage {
-                    role: "system".to_string(),
-                    content: system_prompt,
-                    images: None,
-                },
-            );
-        }
-
-        if messages.is_empty() {
-            return Err(ProviderError::Api(
-                "No valid messages to send to Ollama after filtering tool messages".to_string(),
-            ));
-        }
-
-        Ok((model, messages, options, tools))
-    }
-
-    async fn send_chat_request(
-        &self,
-        url: &str,
-        request: &OllamaRequest,
-    ) -> Result<reqwest::Response, ProviderError> {
-        let response = self
-            .client
-            .post(url)
-            .json(request)
-            .send()
-            .await
-            .map_err(|e| {
-                ProviderError::Network(format!(
-                    "Failed to call Ollama API at {}. Is Ollama running? Error: {}",
-                    url, e
-                ))
-            })?;
-
-        Self::validate_chat_response(response).await
-    }
-
-    async fn validate_chat_response(
-        response: reqwest::Response,
-    ) -> Result<reqwest::Response, ProviderError> {
-        if response.status().is_success() {
-            return Ok(response);
-        }
-
-        let status = response.status();
-        let error_body = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Unable to read error body".to_string());
-
-        Err(match status.as_u16() {
-            404 => ProviderError::InvalidModel(format!(
-                "model not found. {}. Run 'ollama list' to see available models, or 'ollama pull <model>' to download",
-                error_body
-            )),
-            502..=504 => ProviderError::Network(format!(
-                "Ollama service unavailable ({}). Ensure Ollama is running: 'ollama serve'",
-                error_body
-            )),
-            _ => ProviderError::Api(format!("Ollama API error: {} - {}", status, error_body)),
-        })
-    }
-
     pub fn new(config: ProviderConfig) -> Result<Self, ProviderError> {
-        // Validate config using provider metadata
         Self::metadata().validate_config(&config)?;
 
+        let base_url = config
+            .base_url
+            .clone()
+            .unwrap_or_else(|| DEFAULT_OLLAMA_ENDPOINT.to_string());
+
         let timeout_secs = config.timeout_seconds.unwrap_or(300);
+
+        let route = Route::new(
+            format!("{}/api/chat", base_url),
+            Box::new(OllamaChatProtocol),
+            Box::new(crate::transport::fallback::TransportFallback::new(
+                Box::new(
+                    HttpTransport::new(timeout_secs)
+                        .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+                ),
+                Box::new(
+                    HttpSseTransport::new(timeout_secs)
+                        .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+                ),
+            )),
+            Box::new(NoAuth),
+        )
+        .with_name("ollama-chat");
+
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(timeout_secs))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+
         Ok(Self {
             config,
-            client: Client::builder()
-                .timeout(std::time::Duration::from_secs(timeout_secs))
-                .connect_timeout(std::time::Duration::from_secs(10))
-                .build()
-                .unwrap_or_else(|_| Client::new()),
+            route,
+            client,
+            base_url,
         })
     }
 
     pub fn with_default_endpoint() -> Result<Self, ProviderError> {
         let config = ProviderConfig {
-            base_url: Some("http://localhost:11434".to_string()),
+            base_url: Some(DEFAULT_OLLAMA_ENDPOINT.to_string()),
             ..Default::default()
         };
         Self::new(config)
     }
 
-    /// Get metadata for this provider
+    /// Get metadata for this provider.
     pub fn metadata() -> ProviderMetadata {
         ProviderMetadata {
             provider_id: "ollama".to_string(),
@@ -247,8 +129,8 @@ impl OllamaProvider {
                     label: "Base URL".to_string(),
                     description: "Ollama server endpoint".to_string(),
                     field_type: ConfigFieldType::URL,
-                    placeholder: Some("http://localhost:11434".to_string()),
-                    default: Some("http://localhost:11434".to_string()),
+                    placeholder: Some(DEFAULT_OLLAMA_ENDPOINT.to_string()),
+                    default: Some(DEFAULT_OLLAMA_ENDPOINT.to_string()),
                     validation_pattern: None,
                     validation_error: None,
                     sensitive: false,
@@ -284,33 +166,32 @@ impl OllamaProvider {
         }
     }
 
-    fn base_url(&self) -> String {
-        self.config
-            .base_url
-            .clone()
-            .unwrap_or_else(|| "http://localhost:11434".to_string())
+    fn base_url(&self) -> &str {
+        &self.base_url
     }
 
     /// Convert ChatMessages into OllamaMessages, handling vision content blocks
     /// and filtering out tool messages (Ollama has no native tool calling).
+    #[cfg(test)]
     pub(crate) fn convert_messages(
         messages: Vec<crate::provider::ChatMessage>,
     ) -> Vec<OllamaMessage> {
+        use crate::provider::MessageRole;
         use rustycode_protocol::MessageContent;
 
         messages
             .into_iter()
             .filter_map(|msg| {
                 // Skip tool messages - Ollama doesn't support them
-                if matches!(msg.role, crate::provider::MessageRole::Tool(_)) {
+                if matches!(msg.role, MessageRole::Tool(_)) {
                     return None;
                 }
 
                 let ollama_role = match &msg.role {
-                    crate::provider::MessageRole::User => "user",
-                    crate::provider::MessageRole::Assistant => "assistant",
-                    crate::provider::MessageRole::System => "system",
-                    crate::provider::MessageRole::Tool(_) => unreachable!(), // handled above
+                    MessageRole::User => "user",
+                    MessageRole::Assistant => "assistant",
+                    MessageRole::System => "system",
+                    MessageRole::Tool(_) => unreachable!(), // handled above
                 }
                 .to_string();
 
@@ -370,23 +251,6 @@ impl OllamaProvider {
             })
             .collect()
     }
-
-    /// Build OllamaOptions from a CompletionRequest
-    fn build_options(request: &CompletionRequest) -> OllamaOptions {
-        OllamaOptions {
-            temperature: request.temperature.unwrap_or(0.7),
-            num_predict: request.max_tokens,
-            top_p: None,
-            top_k: None,
-            num_ctx: None,
-            stop: None,
-            seed: None,
-            repeat_penalty: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            keep_alive: None,
-        }
-    }
 }
 
 #[async_trait]
@@ -442,185 +306,41 @@ impl LLMProvider for OllamaProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let url = format!("{}/api/chat", self.base_url());
-        let (model, messages, options, tools) = Self::build_chat_messages(request)?;
-
-        let ollama_request = OllamaRequest {
-            model,
-            messages,
-            stream: false,
-            options: Some(options),
-            tools,
-        };
-        let response = self.send_chat_request(&url, &ollama_request).await?;
-
-        let ollama_response: OllamaResponse = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("Failed to parse response: {}", e))
-        })?;
-
-        // Build content, including tool calls if present
-        let content = if let Some(tool_calls) = &ollama_response.message.tool_calls {
-            let tc_json: Vec<serde_json::Value> = tool_calls
-                .iter()
-                .map(|tc| {
-                    serde_json::json!({
-                        "id": format!("call_{}", tc.function.name),
-                        "type": "function",
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": serde_json::to_string(&tc.function.arguments).unwrap_or_default(),
-                        }
-                    })
-                })
-                .collect();
-            let text = &ollama_response.message.content;
-            if text.is_empty() {
-                serde_json::to_string(&tc_json).unwrap_or_default()
-            } else {
-                format!(
-                    "{text}\n[TOOL_CALLS:{}]",
-                    serde_json::to_string(&tc_json).unwrap_or_default()
-                )
-            }
-        } else {
-            ollama_response.message.content
-        };
-
-        Ok(CompletionResponse {
-            content,
-            model: ollama_response.model,
-            usage: Usage {
-                input_tokens: ollama_response.prompt_eval_count.unwrap_or(0),
-                output_tokens: ollama_response.eval_count.unwrap_or(0),
-                total_tokens: ollama_response
-                    .prompt_eval_count
-                    .unwrap_or(0)
-                    .saturating_add(ollama_response.eval_count.unwrap_or(0)),
-                cache_read_input_tokens: 0,
-                cache_creation_input_tokens: 0,
-                reasoning_tokens: None,
-            }
-            .into(),
-            stop_reason: if ollama_response.done {
-                Some("end_turn".to_string())
-            } else {
-                None
-            },
-            citations: None,
-            thinking_blocks: None,
-            structured_output: None,
-        })
+        self.route
+            .execute(&request, None)
+            .await
+            .map_err(|e| {
+                let msg = e.to_string();
+                // Provide actionable error messages for common Ollama issues
+                if msg.contains("404") {
+                    ProviderError::InvalidModel(format!(
+                        "model not found. {}. Run 'ollama list' to see available models, or 'ollama pull <model>' to download",
+                        msg
+                    ))
+                } else if msg.contains("502") || msg.contains("503") || msg.contains("504") {
+                    ProviderError::Network(format!(
+                        "Ollama service unavailable. {}. Ensure Ollama is running: 'ollama serve'",
+                        msg
+                    ))
+                } else {
+                    ProviderError::Api(msg)
+                }
+            })
     }
 
     async fn complete_stream(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let url = format!("{}/api/chat", self.base_url());
-        let (model, messages, options, tools) = Self::build_chat_messages(request)?;
+        let stream = self
+            .route
+            .execute_stream(&request, None)
+            .await
+            .map_err(|e| ProviderError::api(e.to_string()))?;
 
-        let ollama_request = OllamaRequest {
-            model,
-            messages,
-            stream: true,
-            options: Some(options),
-            tools,
-        };
-        let response = self.send_chat_request(&url, &ollama_request).await?;
+        let chunk_stream = stream.map(|res| res.map_err(|e| ProviderError::api(e.to_string())));
 
-        let bytes_stream = response.bytes_stream();
-
-        let accumulated_content = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
-        let prompt_eval_count = std::sync::Arc::new(std::sync::Mutex::new(Option::<u32>::None));
-        let eval_count = std::sync::Arc::new(std::sync::Mutex::new(Option::<u32>::None));
-        let done_sent = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-
-        let byte_buffer = crate::sse::SseByteBuffer::new();
-
-        let stream = bytes_stream.flat_map(move |chunk_result| {
-            let accumulated_content = accumulated_content.clone();
-            let prompt_eval_count = prompt_eval_count.clone();
-            let eval_count = eval_count.clone();
-            let done_sent = done_sent.clone();
-            let byte_buffer = byte_buffer.clone();
-
-            let chunk = match chunk_result {
-                Ok(c) => c,
-                Err(e) => {
-                    return futures::stream::iter(vec![Err(ProviderError::Network(format!(
-                        "Stream error: {}",
-                        e
-                    )))]);
-                }
-            };
-            let lines = byte_buffer.feed_chunk(&chunk);
-            let mut events = Vec::new();
-
-            for line in &lines {
-                if line.is_empty() {
-                    continue;
-                }
-                if let Ok(data) = serde_json::from_str::<OllamaStreamResponse>(line) {
-                    if let Some(prompt_tokens) = data.prompt_eval_count {
-                        *prompt_eval_count.lock().unwrap_or_else(|e| e.into_inner()) =
-                            Some(prompt_tokens);
-                    }
-                    if let Some(output_tokens) = data.eval_count {
-                        *eval_count.lock().unwrap_or_else(|e| e.into_inner()) = Some(output_tokens);
-                    }
-
-                    let mut content_buffer = accumulated_content
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner());
-                    if let Some(message) = data.message {
-                        if !message.content.is_empty() {
-                            content_buffer.push_str(&message.content);
-                            events.push(Ok(StreamEvent::TextDelta {
-                                content: message.content,
-                            }));
-                        }
-                    }
-
-                    if data.done && !done_sent.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                        let _final_content = std::mem::take(&mut *content_buffer);
-                        drop(content_buffer);
-
-                        let usage = {
-                            let prompt =
-                                *prompt_eval_count.lock().unwrap_or_else(|e| e.into_inner());
-                            let output = *eval_count.lock().unwrap_or_else(|e| e.into_inner());
-                            if let (Some(input_tokens), Some(output_tokens)) = (prompt, output) {
-                                Some(Usage {
-                                    input_tokens,
-                                    output_tokens,
-                                    total_tokens: input_tokens.saturating_add(output_tokens),
-                                    cache_read_input_tokens: 0,
-                                    cache_creation_input_tokens: 0,
-                                    reasoning_tokens: None,
-                                })
-                            } else {
-                                None
-                            }
-                        };
-
-                        if let Some(usage) = usage {
-                            events.push(Ok(StreamEvent::TokenUsage {
-                                input_tokens: u64::from(usage.input_tokens),
-                                output_tokens: u64::from(usage.output_tokens),
-                            }));
-                        }
-                        events.push(Ok(StreamEvent::TurnCompleted {
-                            stop_reason: "end_turn".to_string(),
-                        }));
-                        events.push(Ok(StreamEvent::Done));
-                    }
-                }
-            }
-
-            futures::stream::iter(events)
-        });
-
-        Ok(Box::pin(stream))
+        Ok(Box::pin(chunk_stream))
     }
 
     fn config(&self) -> Option<&ProviderConfig> {
@@ -644,14 +364,14 @@ mod tests {
         let provider = OllamaProvider::with_default_endpoint().unwrap();
         assert_eq!(
             provider.config.base_url.as_ref().unwrap(),
-            "http://localhost:11434"
+            DEFAULT_OLLAMA_ENDPOINT
         );
     }
 
     #[test]
     fn test_ollama_base_url() {
         let provider = OllamaProvider::with_default_endpoint().unwrap();
-        assert_eq!(provider.base_url(), "http://localhost:11434");
+        assert_eq!(provider.base_url(), DEFAULT_OLLAMA_ENDPOINT);
     }
 
     #[test]
@@ -699,35 +419,24 @@ mod tests {
 
     #[test]
     fn test_ollama_request_serialization() {
-        let request = OllamaRequest {
-            model: "llama3.2".to_string(),
-            messages: vec![OllamaMessage {
-                role: "user".to_string(),
-                content: "What is Rust?".to_string(),
-                images: None,
-            }],
-            stream: false,
-            options: Some(OllamaOptions {
-                temperature: 0.7,
-                num_predict: Some(1024),
-                top_p: None,
-                top_k: None,
-                num_ctx: None,
-                stop: None,
-                seed: None,
-                repeat_penalty: None,
-                presence_penalty: None,
-                frequency_penalty: None,
-                keep_alive: None,
-            }),
-            tools: None,
-        };
+        let request = serde_json::json!({
+            "model": "llama3.2",
+            "messages": vec![serde_json::json!({
+                "role": "user",
+                "content": "What is Rust?",
+            })],
+            "stream": false,
+            "options": {
+                "temperature": 0.7,
+                "num_predict": 1024,
+            },
+        });
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("\"model\":\"llama3.2\""));
         assert!(json.contains("\"stream\":false"));
         assert!(json.contains("\"temperature\":0.7"));
         assert!(json.contains("\"num_predict\":1024"));
-        // images should be absent (skip_serializing_if)
+        // images should be absent when not set
         assert!(!json.contains("\"images\""));
     }
 
@@ -740,15 +449,15 @@ mod tests {
             "prompt_eval_count": 15,
             "eval_count": 20
         }"#;
-        let response: OllamaResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(response.model, "llama3.2");
-        assert!(response.done);
+        let response: serde_json::Value = serde_json::from_str(json).unwrap();
+        assert_eq!(response["model"], "llama3.2");
+        assert_eq!(response["done"], true);
         assert_eq!(
-            response.message.content,
+            response["message"]["content"],
             "Rust is a systems programming language."
         );
-        assert_eq!(response.prompt_eval_count, Some(15));
-        assert_eq!(response.eval_count, Some(20));
+        assert_eq!(response["prompt_eval_count"], 15);
+        assert_eq!(response["eval_count"], 20);
     }
 
     #[test]
@@ -758,21 +467,9 @@ mod tests {
             "model": "llama3.2",
             "done": true
         }"#;
-        let response: OllamaResponse = serde_json::from_str(json).unwrap();
-        assert_eq!(response.prompt_eval_count, None);
-        assert_eq!(response.eval_count, None);
-    }
-
-    #[test]
-    fn test_ollama_stream_response_deserialization() {
-        let json = r#"{
-            "message": {"role": "assistant", "content": "Hello"},
-            "model": "llama3.2",
-            "done": false
-        }"#;
-        let response: OllamaStreamResponse = serde_json::from_str(json).unwrap();
-        assert!(!response.done);
-        assert!(response.message.is_some());
+        let response: serde_json::Value = serde_json::from_str(json).unwrap();
+        assert!(response.get("prompt_eval_count").is_none());
+        assert!(response.get("eval_count").is_none());
     }
 
     #[test]
@@ -780,7 +477,7 @@ mod tests {
         // Verify 404 errors include actionable guidance
         let config = ProviderConfig::default();
         let _provider = OllamaProvider::new(config).unwrap();
-        // The error message is constructed inline in the match arm;
+        // The error message is constructed inline in the complete() match arm;
         // we verify the pattern by checking the metadata recommends running 'ollama list'
         let meta = OllamaProvider::metadata();
         assert_eq!(meta.provider_id, "ollama");
@@ -800,55 +497,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ollama_options_all_fields() {
-        let opts = OllamaOptions {
-            temperature: 0.5,
-            num_predict: Some(2048),
-            top_p: Some(0.9),
-            top_k: Some(40),
-            num_ctx: Some(4096),
-            stop: Some(vec!["\n".to_string()]),
-            seed: Some(42),
-            repeat_penalty: Some(1.1),
-            presence_penalty: Some(0.1),
-            frequency_penalty: Some(0.2),
-            keep_alive: Some("5m".to_string()),
-        };
-        let json = serde_json::to_string(&opts).unwrap();
-        assert!(json.contains("\"top_p\":0.9"));
-        assert!(json.contains("\"top_k\":40"));
-        assert!(json.contains("\"num_ctx\":4096"));
-        assert!(json.contains("\"stop\":[\"\\n\"]"));
-        assert!(json.contains("\"seed\":42"));
-        assert!(json.contains("\"repeat_penalty\":1.1"));
-        assert!(json.contains("\"keep_alive\":\"5m\""));
-    }
-
-    #[test]
-    fn test_ollama_options_minimal_fields() {
-        // Only required fields — rest should be absent from JSON
-        let opts = OllamaOptions {
-            temperature: 0.7,
-            num_predict: None,
-            top_p: None,
-            top_k: None,
-            num_ctx: None,
-            stop: None,
-            seed: None,
-            repeat_penalty: None,
-            presence_penalty: None,
-            frequency_penalty: None,
-            keep_alive: None,
-        };
-        let json = serde_json::to_string(&opts).unwrap();
-        assert!(json.contains("\"temperature\":0.7"));
-        assert!(!json.contains("top_p"));
-        assert!(!json.contains("top_k"));
-        assert!(!json.contains("num_ctx"));
-        assert!(!json.contains("keep_alive"));
-    }
-
-    #[test]
     fn test_ollama_timeout_uses_config() {
         let config = ProviderConfig {
             timeout_seconds: Some(600),
@@ -859,7 +507,7 @@ mod tests {
         assert_eq!(provider.name(), "ollama");
     }
 
-    // ── Protocol-level message roundtrip tests ────────────────────────────────
+    // -- Protocol-level message roundtrip tests --
 
     use crate::provider::{ChatMessage, MessageRole};
     use rustycode_protocol::{ContentBlock, ImageSource, MessageContent};
@@ -972,7 +620,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_image_url_source_not_extracted() {
-        // Only base64 images are extracted; URL sources go to images but with source data
+        // Only base64 images are extracted; URL sources do not go to images array
         let msgs = vec![ChatMessage {
             role: MessageRole::User,
             content: MessageContent::Blocks(vec![ContentBlock::image(ImageSource::url(
@@ -1109,5 +757,97 @@ mod tests {
         assert_eq!(messages[0].content, "You are a helpful assistant.");
         assert_eq!(messages[1].role, "user", "Second message should be user");
         assert_eq!(messages[1].content, "hello");
+    }
+
+    // -- Wire protocol serialization tests --
+
+    use crate::wire::Protocol;
+
+    #[test]
+    fn test_wire_protocol_serialize_body() {
+        let request = CompletionRequest::new("llama3.2", vec![ChatMessage::user("Hello")])
+            .with_temperature(0.5)
+            .with_max_tokens(1024);
+
+        let protocol = crate::wire::ollama_chat::OllamaChatProtocol;
+        let body = protocol.serialize_body(&request, None).unwrap();
+
+        assert_eq!(body["model"], "llama3.2");
+        assert_eq!(body["stream"], false);
+        assert_eq!(body["options"]["temperature"], 0.5);
+        assert_eq!(body["options"]["num_predict"], 1024);
+    }
+
+    #[test]
+    fn test_wire_protocol_parse_response() {
+        let body = serde_json::json!({
+            "message": {"role": "assistant", "content": "Hello from Ollama!"},
+            "model": "llama3.2",
+            "done": true,
+            "prompt_eval_count": 10,
+            "eval_count": 5
+        });
+
+        let protocol = crate::wire::ollama_chat::OllamaChatProtocol;
+        let response = protocol.parse_response(&body).unwrap();
+
+        assert_eq!(response.model, "llama3.2");
+        assert_eq!(response.content, "Hello from Ollama!");
+        assert_eq!(response.stop_reason, Some("end_turn".to_string()));
+        let usage = response.usage.unwrap();
+        assert_eq!(usage.input_tokens, 10);
+        assert_eq!(usage.output_tokens, 5);
+        assert_eq!(usage.total_tokens, 15);
+    }
+
+    #[test]
+    fn test_wire_protocol_parse_response_with_tool_calls() {
+        let body = serde_json::json!({
+            "message": {
+                "role": "assistant",
+                "content": "Let me read that file.",
+                "tool_calls": [{
+                    "function": {
+                        "name": "Read",
+                        "arguments": {"path": "src/main.rs"}
+                    }
+                }]
+            },
+            "model": "llama3.2",
+            "done": true
+        });
+
+        let protocol = crate::wire::ollama_chat::OllamaChatProtocol;
+        let response = protocol.parse_response(&body).unwrap();
+
+        assert!(response.content.contains("Let me read that file."));
+        assert!(response.content.contains("[TOOL_CALLS:"));
+        assert!(response.content.contains("Read"));
+    }
+
+    #[test]
+    fn test_wire_protocol_parse_ndjson_stream_event() {
+        let protocol = crate::wire::ollama_chat::OllamaChatProtocol;
+
+        // Content delta
+        let line =
+            r#"{"message":{"role":"assistant","content":"Hello"},"model":"llama3.2","done":false}"#;
+        let event = protocol.parse_sse_event(line).unwrap();
+        match event {
+            Some(rustycode_protocol::stream_event::StreamEvent::TextDelta { content }) => {
+                assert_eq!(content, "Hello");
+            }
+            other => panic!("Expected TextDelta, got {:?}", other),
+        }
+
+        // Done event
+        let done_line = r#"{"message":{"role":"assistant","content":""},"model":"llama3.2","done":true,"prompt_eval_count":10,"eval_count":5}"#;
+        let event = protocol.parse_sse_event(done_line).unwrap();
+        match event {
+            Some(rustycode_protocol::stream_event::StreamEvent::TurnCompleted { stop_reason }) => {
+                assert_eq!(stop_reason, "end_turn");
+            }
+            other => panic!("Expected TurnCompleted, got {:?}", other),
+        }
     }
 }
