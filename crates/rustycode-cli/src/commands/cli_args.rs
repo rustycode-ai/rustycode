@@ -478,6 +478,7 @@ pub enum HarnessCommand {
 /// Benchmark runner commands for agent evaluation.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
+#[allow(clippy::large_enum_variant)]
 pub enum BenchCommand {
     /// Run benchmark tasks against an agent.
     #[command(about = "Run benchmark tasks against an agent")]
@@ -524,6 +525,9 @@ pub enum BenchCommand {
         /// Execution environment: native or docker (default: native)
         #[arg(long, default_value = "native")]
         env: String,
+        /// Output format: json, csv, markdown (default: pretty terminal output)
+        #[arg(long)]
+        output: Option<String>,
     },
     /// Show results from a completed or interrupted benchmark run.
     #[command(about = "Show results from a benchmark run")]

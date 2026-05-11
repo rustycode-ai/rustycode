@@ -1,5 +1,4 @@
 //! Search functionality for messages and providers
-#![allow(dead_code)]
 
 /// Search state for message search
 #[derive(Clone, Debug, PartialEq, Default)]

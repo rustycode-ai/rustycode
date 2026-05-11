@@ -1,7 +1,5 @@
 //! Status bar and status indicators for RustyCode TUI
 
-#![allow(dead_code)]
-
 use ratatui::style::{Color, Style};
 use ratatui::widgets::Block;
 use ratatui::widgets::Borders;

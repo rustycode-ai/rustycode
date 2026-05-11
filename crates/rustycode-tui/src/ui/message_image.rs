@@ -3,8 +3,6 @@
 //! This module provides rendering for image attachments with ASCII previews
 //! and support for multiple images in a grid layout.
 
-#![allow(dead_code)]
-
 use super::message_types::ImageAttachment;
 use anyhow::Result as anyhowResult;
 use ratatui::{

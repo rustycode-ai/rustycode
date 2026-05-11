@@ -1,7 +1,5 @@
 //! Shared Fuzzy Matching Module
 
-#![allow(dead_code)]
-
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},

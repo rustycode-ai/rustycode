@@ -22,6 +22,7 @@ pub async fn execute(cmd: BenchCommand) -> Result<()> {
             max_tokens,
             timeout,
             env,
+            output,
         } => {
             run_bench(
                 dataset,
@@ -38,6 +39,7 @@ pub async fn execute(cmd: BenchCommand) -> Result<()> {
                 max_tokens,
                 timeout,
                 env,
+                output,
             )
             .await
         }
@@ -62,6 +64,7 @@ async fn run_bench(
     max_tokens: u32,
     timeout: u64,
     env: String,
+    _output: Option<String>,
 ) -> Result<()> {
     // Resolve dataset directory
     let dataset_dir = if let Some(p) = path {
@@ -101,6 +104,7 @@ async fn run_bench(
                 max_turns,
                 max_tokens,
                 timeout,
+                _output.as_deref(),
             )
             .await
         }

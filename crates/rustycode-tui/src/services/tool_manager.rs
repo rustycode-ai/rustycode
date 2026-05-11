@@ -3,7 +3,6 @@
 //! Extracted from the TUI god object to encapsulate tool registration logic
 //! (built-in tools, skill tools, agent/delegation tools) and MCP server
 //! discovery/loading. Owns the session-long MCP proxy cache.
-#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::path::Path;

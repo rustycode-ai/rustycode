@@ -1,7 +1,5 @@
 //! Progress tracking for long-running operations
 
-#![allow(dead_code)]
-
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;

@@ -1,7 +1,5 @@
 //! Conversation service for RustyCode.
 
-#![allow(dead_code)]
-
 use crate::services::agent_mode::{AgentMode, AiMode};
 use anyhow::Result;
 use rustycode_config::Config;

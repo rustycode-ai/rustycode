@@ -1,7 +1,5 @@
 //! Skill Palette Component
 
-#![allow(dead_code)]
-
 use crate::skills::{fuzzy_match, Skill};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{

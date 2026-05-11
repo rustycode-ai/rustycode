@@ -1,5 +1,4 @@
 //! Clipboard image detection and processing for TUI
-#![allow(dead_code)]
 
 use anyhow::{Context, Result};
 use image::{GenericImageView, ImageFormat};

@@ -1,5 +1,4 @@
 //! Provider management for LLM providers
-#![allow(dead_code)]
 
 use crate::ui::model_selector::ModelInfo as SelectorModelInfo;
 

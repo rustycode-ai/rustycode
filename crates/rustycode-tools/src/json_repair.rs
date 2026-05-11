@@ -193,6 +193,33 @@ fn fix_trailing_commas(input: &str) -> String {
 /// let result2 = fix_unclosed_brackets(input2);
 /// assert_eq!(result2, r#"{"items": [1, 2]}"#);
 /// ```
+/// Returns `true` if the byte at `byte_index` in `input` is inside a JSON
+/// double-quoted string value, accounting for `\"` escape sequences.
+///
+/// This is the shared helper used by all three string-aware fixes.
+fn is_inside_json_string(input: &str, byte_index: usize) -> bool {
+    let mut in_string = false;
+    let mut i = 0;
+    let bytes = input.as_bytes();
+    while i < byte_index {
+        let b = bytes[i];
+        if in_string {
+            if b == b'\\' {
+                // Skip escaped character (e.g. \", \\, \n, etc.)
+                i += 2;
+                continue;
+            }
+            if b == b'"' {
+                in_string = false;
+            }
+        } else if b == b'"' {
+            in_string = true;
+        }
+        i += 1;
+    }
+    in_string
+}
+
 fn fix_unclosed_brackets(input: &str) -> String {
     // Don't modify valid JSON
     if serde_json::from_str::<Value>(input).is_ok() {
@@ -202,8 +229,11 @@ fn fix_unclosed_brackets(input: &str) -> String {
     let mut open_braces = 0i32;
     let mut open_brackets = 0i32;
 
-    // Count bracket depth
-    for ch in input.chars() {
+    // Count bracket depth, but only outside JSON string values
+    for (byte_idx, ch) in input.char_indices() {
+        if is_inside_json_string(input, byte_idx) {
+            continue;
+        }
         match ch {
             '{' => open_braces += 1,
             '}' => open_braces -= 1,
@@ -247,14 +277,12 @@ fn fix_single_quotes(input: &str) -> String {
         return input.to_string();
     }
 
-    let mut result = String::new();
-    let chars: std::str::Chars = input.chars();
-    let mut prev_char = None;
+    let mut result = String::with_capacity(input.len());
+    let mut prev_char: Option<char> = None;
 
-    for ch in chars {
+    for (byte_idx, ch) in input.char_indices() {
         match ch {
-            '\'' if prev_char != Some('\\') => {
-                // Replace single quote with double quote (unless escaped)
+            '\'' if prev_char != Some('\\') && !is_inside_json_string(input, byte_idx) => {
                 result.push('"');
             }
             _ => {
@@ -326,16 +354,42 @@ fn fix_boolean_null(input: &str) -> String {
         return input.to_string();
     }
 
+    let replacements: &[(&str, &str)] = &[("True", "true"), ("False", "false"), ("None", "null")];
+
     let mut result = input.to_string();
 
-    // Use word boundaries to avoid replacing inside strings
-    let true_re = regex::Regex::new(r"\bTrue\b").unwrap();
-    let false_re = regex::Regex::new(r"\bFalse\b").unwrap();
-    let none_re = regex::Regex::new(r"\bNone\b").unwrap();
+    for (from, to) in replacements {
+        let mut new_result = String::with_capacity(result.len());
+        let mut last_end = 0;
 
-    result = true_re.replace_all(&result, "true").to_string();
-    result = false_re.replace_all(&result, "false").to_string();
-    result = none_re.replace_all(&result, "null").to_string();
+        while let Some(idx) = result[last_end..].find(from) {
+            let abs_idx = last_end + idx;
+            let after_kw = abs_idx + from.len();
+
+            let word_boundary_before = abs_idx == 0
+                || !result.as_bytes()[abs_idx - 1].is_ascii_alphanumeric()
+                    && result.as_bytes()[abs_idx - 1] != b'_';
+            let word_boundary_after = after_kw >= result.len()
+                || !result.as_bytes()[after_kw].is_ascii_alphanumeric()
+                    && result.as_bytes()[after_kw] != b'_';
+
+            if !is_inside_json_string(&result, abs_idx)
+                && word_boundary_before
+                && word_boundary_after
+            {
+                new_result.push_str(&result[last_end..abs_idx]);
+                new_result.push_str(to);
+                last_end = after_kw;
+            } else {
+                new_result.push_str(&result[last_end..=abs_idx]);
+                last_end = abs_idx + 1;
+            }
+        }
+        if last_end > 0 {
+            new_result.push_str(&result[last_end..]);
+            result = new_result;
+        }
+    }
 
     result
 }
@@ -924,5 +978,94 @@ mod tests {
         let value = json!({"text": "Hello\\\\nWorld"});
         let unescaped = unescape_json_values(&value);
         assert_eq!(unescaped, json!({"text": "Hello\nWorld"}));
+    }
+
+    // ── String-State Tracking Regression Tests ────────────────────────────────
+
+    #[test]
+    fn test_brackets_inside_strings_not_counted() {
+        let input = r#"{"text": "some { brackets [ here"}"#;
+        let result = fix_unclosed_brackets(input);
+        assert_eq!(result, input, "should not add spurious closing brackets");
+    }
+
+    #[test]
+    fn test_brackets_inside_strings_with_unclosed_outer() {
+        let input = r#"{"text": "some { brackets [ here", "nested": {"a": 1"#;
+        let result = fix_unclosed_brackets(input);
+        assert_eq!(
+            result,
+            r#"{"text": "some { brackets [ here", "nested": {"a": 1}}"#
+        );
+    }
+
+    #[test]
+    fn test_brackets_escaped_quote_in_string() {
+        let input = r#"{"text": "quote\" inside { bracket"}"#;
+        let result = fix_unclosed_brackets(input);
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_boolean_null_not_replaced_inside_strings() {
+        let input = r#"{"title": "This is True", "flag": True}"#;
+        let result = fix_boolean_null(input);
+        assert_eq!(result, r#"{"title": "This is True", "flag": true}"#);
+    }
+
+    #[test]
+    fn test_boolean_false_and_none_inside_strings_preserved() {
+        let input = r#"{"a": "False alarm", "b": False, "c": "None of the above", "d": None}"#;
+        let result = fix_boolean_null(input);
+        assert_eq!(
+            result,
+            r#"{"a": "False alarm", "b": false, "c": "None of the above", "d": null}"#
+        );
+    }
+
+    #[test]
+    fn test_boolean_inside_string_with_escaped_quotes() {
+        let input = r#"{"t": "say \"True\" loudly", "flag": True}"#;
+        let result = fix_boolean_null(input);
+        assert_eq!(result, r#"{"t": "say \"True\" loudly", "flag": true}"#);
+    }
+
+    #[test]
+    fn test_single_quotes_inside_double_quoted_strings_preserved() {
+        let input = r#"{"text": "it's working"}"#;
+        let result = fix_single_quotes(input);
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_single_quotes_replaced_only_outside_strings() {
+        let input = r#"{'key': "it's fine"}"#;
+        let result = fix_single_quotes(input);
+        assert_eq!(result, r#"{"key": "it's fine"}"#);
+    }
+
+    #[test]
+    fn test_apostrophe_with_escaped_quotes() {
+        let input = r#"{"text": "it's \"quoted\" here"}"#;
+        let result = fix_single_quotes(input);
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_repair_pipeline_brackets_in_string() {
+        let input = r#"{"text": "{ [ brackets ]"}"#;
+        assert_eq!(repair_json(input), input);
+    }
+
+    #[test]
+    fn test_repair_pipeline_boolean_in_string() {
+        let input = r#"{"title": "True story"}"#;
+        assert_eq!(repair_json(input), input);
+    }
+
+    #[test]
+    fn test_repair_pipeline_apostrophe_in_string() {
+        let input = r#"{"msg": "it's fine"}"#;
+        assert_eq!(repair_json(input), input);
     }
 }

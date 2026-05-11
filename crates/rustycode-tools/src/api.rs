@@ -1,7 +1,5 @@
 //! API interaction tools for `RustyCode`
 
-#![allow(dead_code)]
-
 use crate::{ToolOutput, ToolPermission};
 use schemars::JsonSchema;
 use serde::Deserialize;

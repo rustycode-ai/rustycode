@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 //! Provider management helpers for the TUI
 //!
 //! Extracted from the TUI god object. Handles API key validation,

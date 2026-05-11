@@ -6,8 +6,6 @@
 //! remain on the TUI struct. The TUI calls `find_most_recent_session()` to get
 //! data, then applies it to its own fields.
 
-#![allow(dead_code)]
-
 use crate::app::session_recovery_integration::SessionRecoveryManager;
 use crate::ui::message::Message;
 use anyhow::Result;

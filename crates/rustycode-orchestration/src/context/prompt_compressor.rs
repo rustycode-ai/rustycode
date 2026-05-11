@@ -249,16 +249,14 @@ fn remove_markdown_comments(content: &str) -> String {
 
     while let Some(ch) = chars.next() {
         if in_comment {
-            if ch == '>' && chars.peek() == Some(&'-') {
+            if ch == '-' && chars.peek() == Some(&'-') {
                 // Check for -->
                 let mut iter = chars.clone();
-                iter.next();
-                if iter.next() == Some('-') && iter.next() == Some('>') {
+                iter.next(); // consume second -
+                if iter.next() == Some('>') {
                     in_comment = false;
-                    chars.next(); // consume -
-                    chars.next(); // consume -
-                    #[allow(clippy::needless_continue)]
-                    continue;
+                    chars.next(); // consume second -
+                    chars.next(); // consume >
                 }
             }
         } else {

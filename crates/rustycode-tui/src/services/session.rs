@@ -1,5 +1,4 @@
 //! Session management for the TUI
-#![allow(dead_code)]
 
 use std::path::PathBuf;
 

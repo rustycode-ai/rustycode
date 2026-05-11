@@ -1,7 +1,5 @@
 //! Memory relevance scoring for automatic injection
 
-#![allow(dead_code)]
-
 use crate::memory::memory_auto::AutoMemory;
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};

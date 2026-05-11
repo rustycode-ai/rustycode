@@ -1,7 +1,5 @@
 //! Animated spinner component for async operations
 
-#![allow(dead_code)]
-
 use super::animator::AnimationFrame;
 use crate::theme::ThemeColors;
 use ratatui::style::{Color, Style};
