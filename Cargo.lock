@@ -6013,7 +6013,6 @@ dependencies = [
  "regex",
  "reqwest 0.13.3",
  "rustycode-agent-runtime",
- "rustycode-bench",
  "rustycode-bus",
  "rustycode-config",
  "rustycode-core",
@@ -6760,6 +6759,8 @@ dependencies = [
  "schemars 1.2.1",
  "serde",
  "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
  "tracing",
  "which 8.0.2",
 ]

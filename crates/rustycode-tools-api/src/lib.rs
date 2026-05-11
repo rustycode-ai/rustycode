@@ -91,20 +91,26 @@ use std::sync::Mutex;
 
 pub mod edit_format;
 pub mod file_read_state;
+pub mod privilege;
 pub mod search_strategy;
 pub mod tiers;
+pub mod token_accountant;
 pub mod tool_names;
 pub mod tool_selection;
 pub mod tool_selector;
+pub mod validation;
 pub mod worktree_session;
 
 pub use edit_format::*;
 pub use file_read_state::*;
+pub use privilege::*;
 pub use search_strategy::*;
 pub use tiers::*;
+pub use token_accountant::*;
 pub use tool_names::*;
 pub use tool_selection::*;
 pub use tool_selector::*;
+pub use validation::*;
 pub use worktree_session::*;
 
 /// A single recorded tool invocation for audit purposes.

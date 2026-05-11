@@ -299,15 +299,23 @@ impl OrchestrationPipeline {
         model_id: &str,
         strategy: Option<&crate::types::ReasoningStrategy>,
     ) -> &mut Self {
-        if let Ok(env) = EnvironmentContext::gather().await {
-            if let Ok(prompt) = PromptBuilder::new().build(model_id, None, &env).await {
-                let mut prompt = prompt;
-                if let Some(s) = strategy {
-                    let hint = crate::strategy_selector::strategy_hint(s);
-                    prompt.push_str("\n\n## Active Strategy\n\n");
-                    prompt.push_str(hint);
+        match EnvironmentContext::gather().await {
+            Ok(env) => {
+                if let Ok(prompt) = PromptBuilder::new().build(model_id, None, &env).await {
+                    let mut prompt = prompt;
+                    if let Some(s) = strategy {
+                        let hint = crate::strategy_selector::strategy_hint(s);
+                        prompt.push_str("\n\n## Active Strategy\n\n");
+                        prompt.push_str(hint);
+                    }
+                    self.system_prompt = Some(prompt);
                 }
-                self.system_prompt = Some(prompt);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Failed to gather environment context for prompt layering: {}",
+                    e
+                );
             }
         }
         self

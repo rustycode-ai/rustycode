@@ -328,7 +328,15 @@ fn validate_edit(edit_value: &Value, ctx: &ToolContext) -> Result<ValidatedEdit>
     // Store content for create operations
     let content = match operation {
         "create" => {
-            let content_str = edit_value.get("content").and_then(|v| v.as_str()).unwrap();
+            let content_str = edit_value
+                .get("content")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| {
+                    anyhow!(
+                        "'content' field missing or not a string for create operation on {}",
+                        validated_path.display()
+                    )
+                })?;
             Some(content_str.to_string())
         }
         _ => None,

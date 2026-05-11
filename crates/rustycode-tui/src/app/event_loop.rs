@@ -972,11 +972,11 @@ impl TUI {
             match rustycode_storage::Storage::open(&db_path) {
                 Ok(s) => {
                     tracing::debug!("Opened storage at {}", db_path.display());
-                    self.storage = Some(std::sync::Arc::new(s));
+                    let storage_arc = std::sync::Arc::new(s);
+                    self.storage = Some(storage_arc.clone());
 
                     let cwd = self.services.cwd();
-                    let storage = self.storage.as_ref().unwrap();
-                    let reloaded = load_tasks_from_storage(storage.as_ref(), cwd);
+                    let reloaded = load_tasks_from_storage(storage_arc.as_ref(), cwd);
                     let had_json_data = !self.workspace_tasks.tasks.is_empty()
                         || !self.workspace_tasks.todos.is_empty();
                     if !reloaded.tasks.is_empty() || !reloaded.todos.is_empty() || !had_json_data {

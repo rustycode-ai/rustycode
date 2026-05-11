@@ -958,22 +958,40 @@ impl LLMProvider for OpenAiProvider {
         match request.api_mode {
             Some(ApiMode::Responses) => return self.complete_responses(request).await,
             Some(ApiMode::Auto) => {
-                let cached = self.responses_api_supported.lock().ok().and_then(|g| *g);
+                let cached = {
+                    let guard = self.responses_api_supported.lock().unwrap_or_else(|e| {
+                        tracing::warn!("responses_api_supported mutex poisoned, recovering: {}", e);
+                        e.into_inner()
+                    });
+                    *guard
+                };
                 if cached != Some(false) {
                     match self.complete_responses(request.clone()).await {
                         Ok(resp) => {
-                            if let Ok(mut g) = self.responses_api_supported.lock() {
-                                *g = Some(true);
-                            }
+                            let mut guard =
+                                self.responses_api_supported.lock().unwrap_or_else(|e| {
+                                    tracing::warn!(
+                                        "responses_api_supported mutex poisoned, recovering: {}",
+                                        e
+                                    );
+                                    e.into_inner()
+                                });
+                            *guard = Some(true);
                             return Ok(resp);
                         }
                         Err(ref e) if Self::is_responses_unsupported_error(e) => {
                             tracing::info!(
                                 "Responses API unavailable, falling back to Chat Completions"
                             );
-                            if let Ok(mut g) = self.responses_api_supported.lock() {
-                                *g = Some(false);
-                            }
+                            let mut guard =
+                                self.responses_api_supported.lock().unwrap_or_else(|e| {
+                                    tracing::warn!(
+                                        "responses_api_supported mutex poisoned, recovering: {}",
+                                        e
+                                    );
+                                    e.into_inner()
+                                });
+                            *guard = Some(false);
                             // Fall through to Chat Completions below
                         }
                         Err(e) => return Err(e),
@@ -1015,13 +1033,25 @@ impl LLMProvider for OpenAiProvider {
         match request.api_mode {
             Some(ApiMode::Responses) => return self.complete_responses_stream(request).await,
             Some(ApiMode::Auto) => {
-                let cached = self.responses_api_supported.lock().ok().and_then(|g| *g);
+                let cached = {
+                    let guard = self.responses_api_supported.lock().unwrap_or_else(|e| {
+                        tracing::warn!("responses_api_supported mutex poisoned, recovering: {}", e);
+                        e.into_inner()
+                    });
+                    *guard
+                };
                 if cached != Some(false) {
                     match self.complete_responses_stream(request.clone()).await {
                         Ok(stream) => {
-                            if let Ok(mut g) = self.responses_api_supported.lock() {
-                                *g = Some(true);
-                            }
+                            let mut guard =
+                                self.responses_api_supported.lock().unwrap_or_else(|e| {
+                                    tracing::warn!(
+                                        "responses_api_supported mutex poisoned, recovering: {}",
+                                        e
+                                    );
+                                    e.into_inner()
+                                });
+                            *guard = Some(true);
                             return Ok(stream);
                         }
                         Err(ref e) if Self::is_responses_unsupported_error(e) => {
@@ -1029,9 +1059,15 @@ impl LLMProvider for OpenAiProvider {
                                 "Responses API streaming unavailable, falling back to Chat \
                                  Completions"
                             );
-                            if let Ok(mut g) = self.responses_api_supported.lock() {
-                                *g = Some(false);
-                            }
+                            let mut guard =
+                                self.responses_api_supported.lock().unwrap_or_else(|e| {
+                                    tracing::warn!(
+                                        "responses_api_supported mutex poisoned, recovering: {}",
+                                        e
+                                    );
+                                    e.into_inner()
+                                });
+                            *guard = Some(false);
                             // Fall through to Chat Completions below
                         }
                         Err(e) => return Err(e),

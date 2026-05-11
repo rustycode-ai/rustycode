@@ -57,27 +57,29 @@ impl SessionCaptureManager {
         let capture = SessionCapture::new(session_id.clone(), task);
         let id_str = session_id.to_string();
 
-        if let Ok(mut captures) = self.active_captures.lock() {
-            captures.insert(id_str, capture);
-            self.sessions_captured.fetch_add(1, Ordering::Relaxed);
-            if let Ok(mut metrics) = self.metrics.lock() {
-                metrics.record_session_captured();
-            }
-            tracing::debug!("Started session capture for {}", session_id);
-        } else {
-            tracing::warn!("Failed to lock active_captures for session {}", session_id);
+        let mut captures = self.active_captures.lock().unwrap_or_else(|e| {
+            tracing::warn!("active_captures mutex poisoned, recovering: {}", e);
+            e.into_inner()
+        });
+        captures.insert(id_str, capture);
+        self.sessions_captured.fetch_add(1, Ordering::Relaxed);
+        if let Ok(mut metrics) = self.metrics.lock() {
+            metrics.record_session_captured();
         }
+        tracing::debug!("Started session capture for {}", session_id);
     }
 
     /// Capture an interaction event for a session
     pub fn capture_event(&self, session_id: &str, event: InteractionEvent) {
-        if let Ok(mut captures) = self.active_captures.lock() {
-            if let Some(capture) = captures.get_mut(session_id) {
-                capture.capture_interaction(event);
-                self.events_captured.fetch_add(1, Ordering::Relaxed);
-                if let Ok(mut metrics) = self.metrics.lock() {
-                    metrics.record_event_captured();
-                }
+        let mut captures = self.active_captures.lock().unwrap_or_else(|e| {
+            tracing::warn!("active_captures mutex poisoned, recovering: {}", e);
+            e.into_inner()
+        });
+        if let Some(capture) = captures.get_mut(session_id) {
+            capture.capture_interaction(event);
+            self.events_captured.fetch_add(1, Ordering::Relaxed);
+            if let Ok(mut metrics) = self.metrics.lock() {
+                metrics.record_event_captured();
             }
         }
     }
@@ -88,55 +90,59 @@ impl SessionCaptureManager {
         session_id: &str,
         outcome: crate::session_capture::SessionOutcome,
     ) {
-        if let Ok(mut captures) = self.active_captures.lock() {
-            if let Some(mut capture) = captures.remove(session_id) {
-                // Force outcome by capturing a synthetic event if needed
-                let summary = match capture.finalize_session() {
-                    Ok(s) => s,
-                    Err(e) => {
-                        tracing::warn!("Failed to finalize session {}: {}", session_id, e);
-                        return;
-                    }
-                };
-                let summary_with_outcome = SessionSummary { outcome, ..summary };
-
-                // Store summary (cap at 1000 to prevent unbounded growth)
-                if let Ok(mut summaries) = self.completed_summaries.lock() {
-                    if summaries.len() >= 1000 {
-                        summaries.drain(0..100);
-                    }
-                    summaries.push(summary_with_outcome.clone());
+        let mut captures = self.active_captures.lock().unwrap_or_else(|e| {
+            tracing::warn!("active_captures mutex poisoned, recovering: {}", e);
+            e.into_inner()
+        });
+        if let Some(mut capture) = captures.remove(session_id) {
+            // Force outcome by capturing a synthetic event if needed
+            let summary = match capture.finalize_session() {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::warn!("Failed to finalize session {}: {}", session_id, e);
+                    return;
                 }
+            };
+            let summary_with_outcome = SessionSummary { outcome, ..summary };
 
-                // Store to disk if storage directory is configured
-                if let Some(ref dir) = self.storage_dir {
-                    if let Err(e) = SessionCapture::store_summary(&summary_with_outcome, dir) {
-                        tracing::warn!("Failed to store session summary: {}", e);
-                    }
-                }
-
-                // Extract learnings (cap at 500 to prevent unbounded growth)
-                for learning in &summary_with_outcome.learnings {
-                    if let Ok(mut learnings) = self.learnings.lock() {
-                        if learnings.len() >= 500 {
-                            learnings.drain(0..50);
-                        }
-                        learnings.push(learning.clone());
-                    }
-                }
-
-                // Update metrics
-                self.summaries_generated.fetch_add(1, Ordering::Relaxed);
-                if let Ok(mut metrics) = self.metrics.lock() {
-                    metrics.record_summary_generated();
-                }
-
-                tracing::info!(
-                    "Finalized session capture for {} with outcome {}",
-                    session_id,
-                    outcome
-                );
+            // Store summary (cap at 1000 to prevent unbounded growth)
+            let mut summaries = self.completed_summaries.lock().unwrap_or_else(|e| {
+                tracing::warn!("completed_summaries mutex poisoned, recovering: {}", e);
+                e.into_inner()
+            });
+            if summaries.len() >= 1000 {
+                summaries.drain(0..100);
             }
+            summaries.push(summary_with_outcome.clone());
+
+            // Store to disk if storage directory is configured
+            if let Some(ref dir) = self.storage_dir {
+                if let Err(e) = SessionCapture::store_summary(&summary_with_outcome, dir) {
+                    tracing::warn!("Failed to store session summary: {}", e);
+                }
+            }
+
+            // Extract learnings (cap at 500 to prevent unbounded growth)
+            for learning in &summary_with_outcome.learnings {
+                if let Ok(mut learnings) = self.learnings.lock() {
+                    if learnings.len() >= 500 {
+                        learnings.drain(0..50);
+                    }
+                    learnings.push(learning.clone());
+                }
+            }
+
+            // Update metrics
+            self.summaries_generated.fetch_add(1, Ordering::Relaxed);
+            if let Ok(mut metrics) = self.metrics.lock() {
+                metrics.record_summary_generated();
+            }
+
+            tracing::info!(
+                "Finalized session capture for {} with outcome {}",
+                session_id,
+                outcome
+            );
         }
     }
 
