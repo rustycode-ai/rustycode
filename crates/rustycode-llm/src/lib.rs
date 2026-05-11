@@ -160,6 +160,7 @@ pub mod tool_annotations;
 pub mod tool_executor;
 pub mod tool_selection_helper;
 pub mod tools;
+pub mod types;
 pub mod usage_estimator;
 pub mod utils;
 pub mod zhipu;
