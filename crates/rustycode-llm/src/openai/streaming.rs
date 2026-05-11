@@ -197,6 +197,7 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
 }
 
 /// Parse SSE-formatted lines into StreamEvent results for the runtime stream path.
+#[allow(dead_code)] // Utility for Route-based streaming; kept for testing and direct use
 pub fn parse_sse_lines_stream_events(lines: &str) -> Vec<Result<StreamEvent, ProviderError>> {
     let mut events = Vec::new();
     let mut tool_ids_by_index: HashMap<usize, String> = HashMap::new();
@@ -229,6 +230,7 @@ pub fn parse_sse_lines_stream_events(lines: &str) -> Vec<Result<StreamEvent, Pro
 }
 
 /// Route a parsed JSON data payload: choices -> delta/finish, or top-level error.
+#[allow(dead_code)]
 fn dispatch_data_payload(
     data: &serde_json::Value,
     events: &mut Vec<Result<StreamEvent, ProviderError>>,
@@ -249,6 +251,7 @@ fn dispatch_data_payload(
 }
 
 /// Extract TextDelta, ThinkingDelta, ToolCallStarted, and ToolInputDelta from a delta object.
+#[allow(dead_code)]
 fn extract_delta_events(
     delta: &serde_json::Value,
     events: &mut Vec<Result<StreamEvent, ProviderError>>,
@@ -287,6 +290,7 @@ fn extract_delta_events(
 }
 
 /// Handle a single tool call delta entry within the tool_calls array.
+#[allow(dead_code)]
 fn extract_tool_call_delta(
     tc_delta: &serde_json::Value,
     events: &mut Vec<Result<StreamEvent, ProviderError>>,
@@ -332,6 +336,7 @@ fn extract_tool_call_delta(
 }
 
 /// Extract TokenUsage, CacheUsage, and TurnCompleted events when a finish_reason is present.
+#[allow(dead_code)]
 fn extract_finish_events(
     data: &serde_json::Value,
     finish_reason: &str,
@@ -356,6 +361,7 @@ fn extract_finish_events(
 }
 
 /// Parse a usage JSON object into a [`Usage`] struct, logging cache hit percentage.
+#[allow(dead_code)]
 fn parse_usage(u: &serde_json::Value) -> Option<Usage> {
     let input_tokens = u.get("prompt_tokens")?.as_u64()? as u32;
     let output_tokens = u.get("completion_tokens")?.as_u64()? as u32;
@@ -399,6 +405,7 @@ fn parse_usage(u: &serde_json::Value) -> Option<Usage> {
 }
 
 /// Extract an error from a JSON value that has a top-level "error" object.
+#[allow(dead_code)]
 fn extract_stream_error(data: &serde_json::Value) -> Option<Result<StreamEvent, ProviderError>> {
     let error = data.get("error")?;
     Some(Err(crate::openai_compatible::map_stream_error(

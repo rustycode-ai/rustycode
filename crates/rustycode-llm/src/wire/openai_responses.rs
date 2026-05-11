@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use serde_json::{json, Value};
+use std::sync::Arc;
 
 use crate::schema::normalizer::WireFormat;
 use crate::schema::tool_schema::ToolSchema;
@@ -16,7 +17,14 @@ use crate::openai_compatible::{
     ResponsesSseState,
 };
 
-pub struct OpenAIResponsesProtocol;
+/// Stateful protocol for the OpenAI Responses API.
+///
+/// Tracks `response_id` across requests so that `previous_response_id` is
+/// automatically included, enabling server-side conversation state.
+pub struct OpenAIResponsesProtocol {
+    /// Tracks the last response ID for server-side conversation state.
+    pub last_response_id: Arc<std::sync::Mutex<Option<String>>>,
+}
 
 impl Protocol for OpenAIResponsesProtocol {
     fn format(&self) -> WireFormat {
@@ -24,7 +32,14 @@ impl Protocol for OpenAIResponsesProtocol {
     }
 
     fn clone_box(&self) -> Box<dyn Protocol> {
-        Box::new(Self)
+        Box::new(Self {
+            last_response_id: self.last_response_id.clone(),
+        })
+    }
+
+    fn clone_with_fresh_state(&self) -> Box<dyn Protocol> {
+        // Share the same response ID tracker across stream clones
+        self.clone_box()
     }
 
     fn serialize_body(
@@ -74,6 +89,13 @@ impl Protocol for OpenAIResponsesProtocol {
             None
         };
 
+        // Read the previous response ID for server-side conversation state
+        let prev_id = self
+            .last_response_id
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone());
+
         let body = ResponsesApiRequest {
             model: request.model.clone(),
             input,
@@ -83,7 +105,7 @@ impl Protocol for OpenAIResponsesProtocol {
             top_p: None,
             max_output_tokens: request.max_tokens,
             stream: Some(request.stream),
-            previous_response_id: None, // Handle state at higher level if needed
+            previous_response_id: prev_id,
             tool_choice: request.tool_choice.clone(),
             parallel_tool_calls: request.parallel_tool_calls,
             reasoning,
@@ -97,6 +119,12 @@ impl Protocol for OpenAIResponsesProtocol {
 
     fn parse_response(&self, body: &Value) -> Result<CompletionResponse> {
         let resp: ResponsesApiResponse = serde_json::from_value(body.clone())?;
+
+        // Store the response ID for the next request in the conversation
+        if let Ok(mut guard) = self.last_response_id.lock() {
+            *guard = Some(resp.id.clone());
+        }
+
         crate::openai_compatible::build_responses_completion_response(&resp)
             .map_err(|e| anyhow::anyhow!(e))
     }

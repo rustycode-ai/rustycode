@@ -88,7 +88,9 @@ impl OpenRouterProvider {
 
         let responses_route = Route::new(
             format!("{}/responses", endpoint),
-            Box::new(OpenAIResponsesProtocol),
+            Box::new(OpenAIResponsesProtocol {
+                last_response_id: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            }),
             Box::new(
                 HttpTransport::new(120).map_err(|e| ProviderError::Configuration(e.to_string()))?,
             ),

@@ -1,7 +1,7 @@
 //! Wire format serialization protocols.
 //!
-//! Each protocol handles one wire format: converting CompletionRequest → JSON body
-//! and parsing JSON responses back into CompletionResponse. No HTTP, no auth —
+//! Each protocol handles one wire format: converting CompletionRequest -> JSON body
+//! and parsing JSON responses back into CompletionResponse. No HTTP, no auth --
 //! pure serialization logic.
 
 use anyhow::Result;
@@ -25,7 +25,7 @@ pub mod openai_responses;
 /// Wire format serialization protocol.
 ///
 /// Each wire format has ONE implementation shared by all providers using that format.
-/// Pure serialization — no HTTP, no auth, no network.
+/// Pure serialization -- no HTTP, no auth, no network.
 pub trait Protocol: Send + Sync {
     /// The wire format this protocol handles.
     fn format(&self) -> WireFormat;
@@ -69,7 +69,9 @@ pub fn get_protocol(format: WireFormat) -> Box<dyn Protocol> {
             state: std::sync::Arc::new(std::sync::Mutex::new(Default::default())),
         }),
         WireFormat::OpenAIChat => Box::new(openai_chat::OpenAIChatProtocol),
-        WireFormat::OpenAIResponses => Box::new(openai_responses::OpenAIResponsesProtocol),
+        WireFormat::OpenAIResponses => Box::new(openai_responses::OpenAIResponsesProtocol {
+            last_response_id: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        }),
         WireFormat::Gemini => Box::new(gemini::GeminiProtocol),
         WireFormat::Bedrock => Box::new(bedrock::BedrockProtocol),
         WireFormat::Cohere => Box::new(cohere::CohereProtocol),

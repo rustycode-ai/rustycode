@@ -3,6 +3,10 @@
 //! Supports both Chat Completions API and Responses API, with automatic
 //! fallback from Responses to Chat Completions when the endpoint doesn't
 //! support it.
+//!
+//! Uses the Route+Protocol architecture: `chat_route` delegates to
+//! `OpenAIChatProtocol` and `responses_route` delegates to
+//! `OpenAIResponsesProtocol`.
 
 pub(crate) mod responses;
 pub(crate) mod streaming;
@@ -11,40 +15,43 @@ pub(crate) mod types;
 #[cfg(test)]
 mod tests;
 
+use crate::auth::AuthMethod;
 use crate::provider::{
     ApiMode, ChatMessage, CompletionRequest, CompletionResponse, LLMProvider, MessageRole,
-    ProviderConfig, ProviderError, StreamChunk, ThinkingBlock, Usage,
+    ProviderConfig, ProviderError, StreamChunk,
 };
 use crate::provider_metadata::{
     ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
-use rustycode_tools_api::{Tool, ToolProfile, ToolRegistry, ToolSelector};
+use crate::route::Route;
+use crate::schema::tool_schema::ToolSchema;
+use rustycode_tools_api::{ToolMetadataProvider, ToolProfile, ToolRegistry, ToolSelector};
 
-use crate::{build_request, get_api_key, shared_client};
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
-use secrecy::ExposeSecret;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
 
 // Re-export internal types for use within this module's methods and tests.
 use types::{
-    OpenAiContentPart, OpenAiFunction, OpenAiImageUrl, OpenAiMessage, OpenAiRequest,
-    OpenAiResponse, OpenAiToolCall,
+    OpenAiContentPart, OpenAiFunction, OpenAiImageUrl, OpenAiMessage, OpenAiRequest, OpenAiToolCall,
 };
 
 /// OpenAI LLM provider (also supports OpenAI-compatible APIs)
 pub struct OpenAiProvider {
     pub(crate) config: ProviderConfig,
-    pub(crate) client: reqwest::Client,
+    pub(crate) chat_route: Route,
+    pub(crate) responses_route: Route,
     #[allow(dead_code)] // Kept for future use
     pub(crate) default_model: String,
     pub(crate) tool_registry: Arc<ToolRegistry>,
     pub(crate) tool_selector: ToolSelector,
     /// Last Responses API response ID for server-side conversation state.
+    /// Shared with `OpenAIResponsesProtocol` via Arc for automatic injection.
+    /// Also read directly by the WebSocket streaming path (feature-gated).
+    #[allow(dead_code)] // Read by WS path (feature-gated) and shared with protocol
     pub(crate) last_response_id: Arc<std::sync::Mutex<Option<String>>>,
     /// Cached Responses API capability: None=unknown, Some(true)=supported, Some(false)=not supported.
     pub(crate) responses_api_supported: Arc<std::sync::Mutex<Option<bool>>>,
@@ -56,202 +63,23 @@ impl OpenAiProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let api_key = get_api_key!(self, "OPENAI_API_KEY")?;
-
-        let url = format!("{}/chat/completions", self.endpoint());
-
-        // Build messages array
-        let mut messages = Vec::new();
-        if let Some(system_prompt) = &request.system_prompt {
-            messages.push(OpenAiMessage {
-                role: "system".to_string(),
-                content: Some(serde_json::Value::String(system_prompt.clone())),
-                tool_calls: None,
-                tool_call_id: None,
-                name: None,
-                reasoning_content: None,
-            });
-        }
-        messages.extend(Self::convert_messages(&request.messages));
-
         // Use intelligent tool selection if tools not explicitly provided
         let tools = match request.tools {
-            Some(tools) => {
-                let normalized = crate::tools::normalize_tools_for_openai(&tools);
-                // Chat Completions: no strict mode, no sanitization
-                // (OpenAI accepts schemas as-is; sanitization is only for
-                // providers that don't support strict mode like Zhipu/GLM)
-                normalized
-            }
+            Some(_) => None, // Already provided in request.tools
             None => {
                 // Auto-select tools based on user prompt
                 self.select_tools_for_prompt(&request.messages)
-                    .unwrap_or_default()
             }
         };
 
-        let body = self.build_request_body(
-            request.model.clone(),
-            messages,
-            tools,
-            request.max_tokens,
-            request.temperature,
-            request
-                .output_config
-                .as_ref()
-                .and_then(|c| c.effort.as_ref()),
-            Some(false),
-            request.output_config.as_ref(),
-            request.tool_choice.clone(),
-            request.parallel_tool_calls,
-            request.session_id.as_ref(),
-            request.thinking.as_ref(),
-        );
-
-        // HTTP trace dump for debugging (before send so we capture body even if send hangs)
-        let http_trace_dir = std::env::var("RTK_HTTP_TRACE_DIR")
-            .unwrap_or_else(|_| "/tmp/rtk-http-trace".to_string());
-        if let Err(e) = std::fs::create_dir_all(&http_trace_dir) {
-            tracing::debug!(
-                "Failed to create HTTP trace dir {:?}: {}",
-                http_trace_dir,
-                e
-            );
-        }
-        let trace_seq = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis();
-        if let Ok(req_body) = serde_json::to_string_pretty(&body) {
-            let trace_path = format!("{http_trace_dir}/{trace_seq}_req.json");
-            if let Err(e) = std::fs::write(&trace_path, &req_body) {
-                tracing::debug!("Failed to write HTTP trace to {:?}: {}", trace_path, e);
-            }
-            tracing::info!(
-                "[openai-trace] Request dumped to {trace_path} ({} bytes)",
-                req_body.len()
-            );
-        }
-
-        // Build request with per-request headers
-        let req = build_request!(
-            self.client.post(&url),
-            headers = [
-                ("Authorization", format!("Bearer {}", api_key)),
-                ("Content-Type", "application/json"),
-            ],
-            extra_headers = &self.config.extra_headers
-        );
-
-        tracing::info!("[openai] Sending request to {url}...");
-        let response = req
-            .json(&body)
-            .send()
+        // Execute via Route
+        let response = self
+            .chat_route
+            .execute(&request, tools.as_deref())
             .await
-            .map_err(|e| ProviderError::network(format!("failed to send request: {}", e)))?;
-        tracing::info!("[openai] Response status: {}", response.status());
+            .map_err(|e| ProviderError::Network(format!("route execution failed: {}", e)))?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let headers = response.headers().clone();
-            let text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(crate::openai_compatible::map_http_error(
-                status,
-                text,
-                &headers,
-                "OpenAI",
-                "OPENAI_API_KEY",
-            ));
-        }
-
-        let resp_text = response
-            .text()
-            .await
-            .map_err(|e| ProviderError::network(format!("failed to read response body: {}", e)))?;
-        let resp_trace_path = format!("{http_trace_dir}/{trace_seq}_resp.json");
-        if std::fs::write(&resp_trace_path, &resp_text).is_ok() {
-            tracing::info!("[openai-trace] Response dumped to {resp_trace_path}");
-        }
-        let resp: OpenAiResponse = serde_json::from_str(&resp_text).map_err(|e| {
-            ProviderError::Serialization(format!("failed to parse response: {}", e))
-        })?;
-
-        let choice = resp
-            .choices
-            .into_iter()
-            .next()
-            .ok_or_else(|| ProviderError::api("no choices in response"))?;
-
-        // Build content string, appending tool calls if present
-        let mut content = choice.message.content.unwrap_or_default();
-
-        if let Some(tool_calls) = &choice.message.tool_calls {
-            if !tool_calls.is_empty() {
-                let tool_calls_json: Vec<serde_json::Value> = tool_calls
-                    .iter()
-                    .map(|tc| {
-                        serde_json::json!({
-                            "id": tc.id,
-                            "type": tc.r#type,
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
-                            }
-                        })
-                    })
-                    .collect();
-                let formatted = serde_json::to_string_pretty(&tool_calls_json)
-                    .unwrap_or_else(|_| "[]".to_string());
-                if !content.is_empty() {
-                    content.push('\n');
-                }
-                content.push_str(&format!("```tool\n{}\n```", formatted));
-            }
-        }
-
-        let usage = resp.usage.map(|u| {
-            let cached = u
-                .prompt_tokens_details
-                .as_ref()
-                .map_or(0, |d| d.cached_tokens);
-            if cached > 0 {
-                let hit_pct = (cached * 100).checked_div(u.prompt_tokens).unwrap_or(0);
-                tracing::info!(
-                    "Cache: {hit_pct}% hit ({cached}/{} prompt tokens), total={}",
-                    u.prompt_tokens,
-                    u.total_tokens
-                );
-            }
-            Usage {
-                input_tokens: u.prompt_tokens,
-                output_tokens: u.completion_tokens,
-                total_tokens: u.total_tokens,
-                cache_read_input_tokens: cached,
-                cache_creation_input_tokens: 0,
-                reasoning_tokens: None,
-            }
-        });
-
-        Ok(CompletionResponse {
-            content,
-            model: resp.model,
-            usage,
-            stop_reason: crate::provider::normalize_stop_reason(choice.finish_reason.as_deref()),
-            citations: None,
-            thinking_blocks: choice.message.reasoning_content.map(|rc| {
-                vec![ThinkingBlock {
-                    block_type: "thinking".to_string(),
-                    thinking: rc,
-                    signature: String::new(),
-                    data: String::new(),
-                    display: None,
-                }]
-            }),
-            structured_output: None,
-        })
+        Ok(response)
     }
 
     pub fn new(config: ProviderConfig, default_model: String) -> Result<Self, ProviderError> {
@@ -266,30 +94,7 @@ impl OpenAiProvider {
             Self::new_without_validation(config, default_model)
         } else {
             Self::metadata().validate_config(&config)?;
-            let client = if let Some(timeout_secs) = config.timeout_seconds {
-                reqwest::Client::builder()
-                    .timeout(Duration::from_secs(timeout_secs))
-                    .connect_timeout(Duration::from_secs(10))
-                    .pool_idle_timeout(Duration::from_secs(90))
-                    .tcp_keepalive(Duration::from_mins(1))
-                    .build()
-                    .map_err(|e| {
-                        ProviderError::Configuration(format!("Failed to create HTTP client: {}", e))
-                    })?
-            } else {
-                shared_client!()
-            };
-            let tool_registry = Arc::new(ToolRegistry::new());
-            let tool_selector = ToolSelector::new();
-            Ok(Self {
-                config,
-                client,
-                default_model,
-                tool_registry,
-                tool_selector,
-                last_response_id: Arc::new(std::sync::Mutex::new(None)),
-                responses_api_supported: Arc::new(std::sync::Mutex::new(None)),
-            })
+            Self::build(config, default_model)
         }
     }
 
@@ -299,37 +104,103 @@ impl OpenAiProvider {
         default_model: String,
     ) -> Result<Self, ProviderError> {
         // Skip validation - trust the provided config
-        let client = if let Some(timeout_secs) = config.timeout_seconds {
-            reqwest::Client::builder()
-                .timeout(Duration::from_secs(timeout_secs))
-                .connect_timeout(Duration::from_secs(10))
-                .pool_idle_timeout(Duration::from_secs(90))
-                .tcp_keepalive(Duration::from_mins(1))
-                .build()
-                .map_err(|e| {
-                    ProviderError::Configuration(format!("Failed to create HTTP client: {}", e))
-                })?
-        } else {
-            shared_client!()
-        };
+        Self::build(config, default_model)
+    }
 
-        // Initialize tool registry and selector
+    /// Shared constructor that builds routes and initializes all fields.
+    fn build(config: ProviderConfig, default_model: String) -> Result<Self, ProviderError> {
         let tool_registry = Arc::new(ToolRegistry::new());
         let tool_selector = ToolSelector::new();
 
+        let timeout_secs = config.timeout_seconds.unwrap_or(120);
+
+        let base_endpoint = {
+            let base = config
+                .base_url
+                .as_deref()
+                .unwrap_or("https://api.openai.com/v1");
+            base.trim_end_matches('/').to_string()
+        };
+
+        let api_key = config
+            .api_key
+            .clone()
+            .unwrap_or_else(|| secrecy::SecretString::new("".into()));
+
+        let extra_headers: Vec<(String, String)> = config
+            .extra_headers
+            .as_ref()
+            .map(|h| h.iter().map(|(k, v)| (k.clone(), v.clone())).collect())
+            .unwrap_or_default();
+
+        let auth = Box::new(crate::auth::BearerAuth::new(api_key));
+
+        // Shared state for Responses API response ID tracking
+        let last_response_id = Arc::new(std::sync::Mutex::new(None));
+        let responses_api_supported = Arc::new(std::sync::Mutex::new(None));
+
+        // Chat Completions route: POST {base}/chat/completions
+        let chat_route = Route::builder()
+            .endpoint(format!("{}/chat/completions", base_endpoint))
+            .protocol(Box::new(crate::wire::openai_chat::OpenAIChatProtocol))
+            .transport(Box::new(
+                crate::transport::fallback::TransportFallback::new(
+                    Box::new(
+                        crate::transport::HttpTransport::new(timeout_secs)
+                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+                    ),
+                    Box::new(
+                        crate::transport::HttpSseTransport::new(timeout_secs)
+                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+                    ),
+                ),
+            ))
+            .auth(auth.clone_box())
+            .extra_headers(extra_headers.clone())
+            .name("openai-chat")
+            .build();
+
+        // Responses API route: POST {base}/responses
+        // The protocol shares the last_response_id Arc so it automatically
+        // injects previous_response_id and stores new response IDs.
+        let responses_route = Route::builder()
+            .endpoint(format!("{}/responses", base_endpoint))
+            .protocol(Box::new(
+                crate::wire::openai_responses::OpenAIResponsesProtocol {
+                    last_response_id: last_response_id.clone(),
+                },
+            ))
+            .transport(Box::new(
+                crate::transport::fallback::TransportFallback::new(
+                    Box::new(
+                        crate::transport::HttpTransport::new(timeout_secs)
+                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+                    ),
+                    Box::new(
+                        crate::transport::HttpSseTransport::new(timeout_secs)
+                            .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+                    ),
+                ),
+            ))
+            .auth(auth)
+            .extra_headers(extra_headers)
+            .name("openai-responses")
+            .build();
+
         Ok(Self {
             config,
-            client,
+            chat_route,
+            responses_route,
             default_model,
             tool_registry,
             tool_selector,
-            last_response_id: Arc::new(std::sync::Mutex::new(None)),
-            responses_api_supported: Arc::new(std::sync::Mutex::new(None)),
+            last_response_id,
+            responses_api_supported,
         })
     }
 
     /// Detect the user's intent from their latest message and select appropriate tools
-    fn select_tools_for_prompt(&self, messages: &[ChatMessage]) -> Option<Vec<serde_json::Value>> {
+    fn select_tools_for_prompt(&self, messages: &[ChatMessage]) -> Option<Vec<ToolSchema>> {
         // Find the last user message to detect intent
         let user_prompt = messages
             .iter()
@@ -356,28 +227,15 @@ impl OpenAiProvider {
     }
 
     /// Format tool definitions for OpenAI function calling API
-    fn format_tools_for_openai(&self, tool_names: &[String]) -> Vec<serde_json::Value> {
+    fn format_tools_for_openai(&self, tool_names: &[String]) -> Vec<ToolSchema> {
         tool_names
             .iter()
             .filter_map(|name| {
                 self.tool_registry
-                    .get(name)
-                    .map(|tool| self.tool_to_openai_format(tool))
+                    .tool_info(name)
+                    .map(|info| ToolSchema::from(&info))
             })
             .collect()
-    }
-
-    /// Convert a tool to OpenAI's function format
-    fn tool_to_openai_format(&self, tool: &dyn Tool) -> serde_json::Value {
-        let schema = tool.parameters_schema();
-        serde_json::json!({
-            "type": "function",
-            "function": {
-                "name": tool.name(),
-                "description": tool.description(),
-                "parameters": schema
-            }
-        })
     }
 
     /// Get metadata for this provider
@@ -427,7 +285,7 @@ impl OpenAiProvider {
                     preferred_prompt_length: PromptLength::Medium,
                     special_instructions: vec![
                         "Use explicit behavioral contracts for complex tasks.".to_string(),
-                        "Adapt detail level to reasoning effort — direct for low, thorough for high.".to_string(),
+                        "Adapt detail level to reasoning effort -- direct for low, thorough for high.".to_string(),
                     ],
                 },
                 tool_format: ToolFormat::OpenAIFunctionCalling,
@@ -530,6 +388,7 @@ impl OpenAiProvider {
     /// - System/user/assistant: `{role, content}` where content is a string or array of parts
     /// - Tool results: `{role: "tool", content: string, tool_call_id: string}`
     /// - Assistant with tool calls: `{role: "assistant", content, tool_calls: [...]}`
+    #[allow(dead_code)] // Used by tests and wire protocol
     pub(crate) fn convert_messages(messages: &[ChatMessage]) -> Vec<OpenAiMessage> {
         use rustycode_protocol::{ContentBlock, MessageContent};
 
@@ -545,7 +404,7 @@ impl OpenAiProvider {
 
                 match &msg.content {
                     MessageContent::Blocks(blocks) => {
-                        // Check if this contains tool results — each needs its own message
+                        // Check if this contains tool results -- each needs its own message
                         let mut tool_results: Vec<OpenAiMessage> = Vec::new();
                         let mut other_parts: Vec<OpenAiContentPart> = Vec::new();
                         let mut tool_calls: Vec<OpenAiToolCall> = Vec::new();
@@ -583,7 +442,7 @@ impl OpenAiProvider {
                                     is_error,
                                 } => {
                                     // Tool results must be separate messages with role="tool"
-                                    // OpenAI has no is_error field — prefix error content explicitly
+                                    // OpenAI has no is_error field -- prefix error content explicitly
                                     let display_content = if *is_error {
                                         format!("Error: {content}")
                                     } else {
@@ -682,6 +541,7 @@ impl OpenAiProvider {
     /// - Reasoning models (o-series, GPT-5.x, GLM-5.x): use `max_completion_tokens` instead of
     ///   deprecated `max_tokens`, and include `reasoning_effort` if provided.
     /// - Standard models: use `max_tokens`.
+    #[allow(dead_code)] // Used by tests and wire protocol
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn build_request_body(
         &self,
@@ -786,131 +646,32 @@ impl OpenAiProvider {
         }
     }
 
-    /// Stream using the Chat Completions API.
+    /// Stream using the Chat Completions API via Route.
     async fn complete_stream_internal(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self
-            .config
-            .api_key
-            .as_ref()
-            .ok_or_else(|| {
-                ProviderError::auth(
-                    "OpenAI API key is required. Set api_key in config or OPENAI_API_KEY env var",
-                )
-            })?
-            .expose_secret();
-
-        let url = format!("{}/chat/completions", self.endpoint());
-
-        // Build messages array
-        let mut messages = Vec::new();
-        if let Some(system_prompt) = &request.system_prompt {
-            messages.push(OpenAiMessage {
-                role: "system".to_string(),
-                content: Some(serde_json::Value::String(system_prompt.clone())),
-                tool_calls: None,
-                tool_call_id: None,
-                name: None,
-                reasoning_content: None,
-            });
-        }
-        messages.extend(Self::convert_messages(&request.messages));
-
         // Use intelligent tool selection if tools not explicitly provided
         let tools = match request.tools {
-            Some(tools) => {
-                let mut normalized = crate::tools::normalize_tools_for_openai(&tools);
-                // Responses API: enable strict mode so OpenAI normalizes schemas
-                // (adds additionalProperties: false, marks all fields required)
-                for tool in &mut normalized {
-                    if let Some(func) = tool.get_mut("function") {
-                        func.as_object_mut()
-                            .map(|obj| obj.insert("strict".to_string(), serde_json::json!(true)));
-                    }
-                }
-                normalized
-            }
+            Some(_) => None, // Already provided in request.tools
             None => {
                 // Auto-select tools based on user prompt
                 self.select_tools_for_prompt(&request.messages)
-                    .unwrap_or_default()
             }
         };
 
-        let body = self.build_request_body(
-            request.model.clone(),
-            messages,
-            tools,
-            request.max_tokens,
-            request.temperature,
-            request
-                .output_config
-                .as_ref()
-                .and_then(|c| c.effort.as_ref()),
-            Some(true),
-            request.output_config.as_ref(),
-            request.tool_choice.clone(),
-            request.parallel_tool_calls,
-            request.session_id.as_ref(),
-            request.thinking.as_ref(),
-        );
-
-        // Build request with per-request headers
-        let req = build_request!(
-            self.client.post(&url),
-            headers = [
-                ("Authorization", format!("Bearer {}", api_key)),
-                ("Content-Type", "application/json"),
-            ],
-            extra_headers = &self.config.extra_headers
-        );
-
-        let response = req
-            .json(&body)
-            .send()
+        // Execute via Route
+        let stream = self
+            .chat_route
+            .execute_stream(&request, tools.as_deref())
             .await
-            .map_err(|e| ProviderError::network(format!("failed to send request: {}", e)))?;
+            .map_err(|e| ProviderError::Network(format!("route stream failed: {}", e)))?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let headers = response.headers().clone();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(crate::openai_compatible::map_http_error(
-                status,
-                error_text,
-                &headers,
-                "OpenAI",
-                "OPENAI_API_KEY",
-            ));
-        }
+        // Map anyhow::Error to ProviderError
+        let mapped_stream =
+            stream.map(|res| res.map_err(|e| ProviderError::Network(e.to_string())));
 
-        // Convert bytes stream to SSE stream
-        let bytes_stream = response.bytes_stream();
-
-        // Parse SSE events from byte stream using the shared SseByteBuffer + parse_sse_lines helper
-        let line_buffer = crate::sse::SseByteBuffer::new();
-        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
-            let chunk = match chunk_result {
-                Ok(c) => c,
-                Err(e) => {
-                    return futures::stream::iter(vec![Err(ProviderError::Network(e.to_string()))])
-                }
-            };
-
-            let lines = line_buffer.feed_chunk(&chunk);
-            let complete_lines = lines.join("\n");
-
-            let events = streaming::parse_sse_lines_stream_events(&complete_lines);
-
-            futures::stream::iter(events)
-        });
-
-        Ok(Box::pin(sse_stream))
+        Ok(Box::pin(mapped_stream))
     }
 }
 
