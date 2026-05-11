@@ -15,46 +15,84 @@ on:
       event_type:
         description: 'What to trigger'
         type: choice
-        options: [auto, trigger-ci, trigger-nightly, trigger-release]
+        options: [auto, ci, nightly, release]
         default: auto
 
 jobs:
-  trigger:
-    if: github.repository == 'luengnat/rustycode'
+  trigger-ci:
+    if: |
+      github.repository == 'luengnat/rustycode' && (
+        (github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && (
+          github.event.inputs.event_type == 'ci' ||
+          (github.event.inputs.event_type == 'auto' && !startsWith(github.event.inputs.ref, 'v'))
+        ))
+      )
     runs-on: ubuntu-latest
     steps:
-      - name: Determine event type and ref
+      - name: Determine ref
         id: config
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            if [[ "${{ github.ref_name }}" == v* ]]; then
-              echo "event_type=trigger-release" >> "$GITHUB_OUTPUT"
-              echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-            else
-              echo "event_type=trigger-ci" >> "$GITHUB_OUTPUT"
-              echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-            fi
-          elif [ "${{ github.event_name }}" = "schedule" ]; then
-            echo "event_type=trigger-nightly" >> "$GITHUB_OUTPUT"
-            echo "ref=main" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            REF="${{ github.event.inputs.ref }}"
-            EVENT="${{ github.event.inputs.event_type }}"
-            if [ "$EVENT" = "auto" ]; then
-              if [[ "$REF" == v* ]]; then EVENT="trigger-release"
-              else EVENT="trigger-nightly"
-              fi
-            fi
-            echo "event_type=${EVENT}" >> "$GITHUB_OUTPUT"
-            echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.inputs.ref }}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Trigger on rustycode-ai/rustycode
+      - name: Trigger CI on release repo
         env:
           GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
         run: |
-          echo "Triggering ${{ steps.config.outputs.event_type }} for ref: ${{ steps.config.outputs.ref }}"
+          echo "Triggering CI for ref: ${{ steps.config.outputs.ref }}"
           gh api repos/rustycode-ai/rustycode/dispatches \
             -X POST \
-            -f event_type=${{ steps.config.outputs.event_type }} \
+            -f event_type=trigger-ci \
             -f "client_payload[ref]=${{ steps.config.outputs.ref }}"
+
+  trigger-release:
+    if: |
+      github.repository == 'luengnat/rustycode' && (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && (
+          github.event.inputs.event_type == 'release' ||
+          (github.event.inputs.event_type == 'auto' && startsWith(github.event.inputs.ref, 'v'))
+        ))
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine ref
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "ref=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=${{ github.event.inputs.ref }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger release on release repo
+        env:
+          GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          echo "Triggering stable release for ref: ${{ steps.config.outputs.ref }}"
+          gh api repos/rustycode-ai/rustycode/actions/workflows/release.yml/dispatches \
+            -X POST \
+            -f "ref=${{ steps.config.outputs.ref }}" \
+            -f "release_type=stable"
+
+  trigger-nightly:
+    if: |
+      github.repository == 'luengnat/rustycode' && (
+        github.event_name == 'schedule' ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.event_type == 'nightly')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger nightly on release repo
+        env:
+          GH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+        run: |
+          echo "Triggering nightly release for main"
+          gh api repos/rustycode-ai/rustycode/actions/workflows/release.yml/dispatches \
+            -X POST \
+            -f "ref=main" \
+            -f "release_type=nightly"
