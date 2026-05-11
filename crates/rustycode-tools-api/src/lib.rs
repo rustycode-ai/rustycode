@@ -95,6 +95,7 @@ pub mod privilege;
 pub mod search_strategy;
 pub mod tiers;
 pub mod token_accountant;
+pub mod tool_error;
 pub mod tool_names;
 pub mod tool_selection;
 pub mod tool_selector;

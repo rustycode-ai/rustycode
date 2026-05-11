@@ -136,8 +136,12 @@ where
             unreachable!()
         }
         RecoveryStrategy::UseDefault { default_response } => {
-            let _ = operation().await;
-            tracing::warn!("Using default response due to error");
+            let result = operation().await;
+            if let Err(e) = &result {
+                tracing::warn!("Using default response due to error: {e}");
+            } else {
+                tracing::warn!("Using default response (operation unexpectedly succeeded)");
+            }
             serde_json::from_str(default_response).map_err(|e| {
                 anyhow::anyhow!("UseDefault: failed to parse default_response as T: {e}")
             })

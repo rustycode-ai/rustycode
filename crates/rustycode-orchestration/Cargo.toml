@@ -23,11 +23,11 @@ fs2 = "0.4"
 futures.workspace = true
 parking_lot.workspace = true
 handlebars.workspace = true
-jsonschema = "0.26"
+jsonschema.workspace = true
 once_cell.workspace = true
 rand.workspace = true
-regex = "1"
-rusqlite = { version = "0.39", features = ["bundled", "chrono"] }
+regex.workspace = true
+rusqlite.workspace = true
 rustycode-llm = { path = "../rustycode-llm" }
 rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-agent-runtime = { path = "../rustycode-agent-runtime" }
@@ -41,7 +41,7 @@ rustycode-prompt = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
-sha2 = "0.10"
+sha2.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "macros", "fs"] }
 tracing.workspace = true

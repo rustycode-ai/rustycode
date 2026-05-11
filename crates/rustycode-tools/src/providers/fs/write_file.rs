@@ -2,6 +2,7 @@ use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate
 use crate::{ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use rustycode_tools_api::tool_error::{ToolError, ToolErrorCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -146,23 +147,23 @@ rustycode_tools_api::define_tool! {
         crate::check_permission(ToolPermission::Write, ctx)?;
 
         let path_str = params.file_path.to_str()
-            .ok_or_else(|| anyhow!("path contains invalid UTF-8"))?;
+            .ok_or_else(|| ToolError::new(ToolErrorCode::InvalidInput, "path contains invalid UTF-8"))?;
         let text_content = params.content.as_deref();
         let binary_content = params.content_base64.as_deref();
         let append = params.append.unwrap_or(false);
 
         if text_content.is_some() && binary_content.is_some() {
-            return Err(anyhow!("use either `content` or `content_base64`, not both"));
+            return Err(ToolError::invalid_parameters("write_file", "use either `content` or `content_base64`, not both").into());
         }
         if append && binary_content.is_some() {
-            return Err(anyhow!("append mode is not supported for binary content"));
+            return Err(ToolError::invalid_parameters("write_file", "append mode is not supported for binary content").into());
         }
 
         let binary_bytes = if let Some(encoded) = binary_content {
             Some(
                 STANDARD
                     .decode(encoded)
-                    .map_err(|e| anyhow!("invalid base64 content: {e}"))?,
+                    .map_err(|e| ToolError::new(ToolErrorCode::InvalidInput, format!("invalid base64 content: {e}")))?,
             )
         } else {
             None
@@ -190,16 +191,16 @@ rustycode_tools_api::define_tool! {
         crate::check_sandbox_path(&path, ctx)?;
 
         if super::is_blocked_extension(&path) {
-            return Err(anyhow::anyhow!(
-                "File extension is blocked for writing: {}",
-                path.extension().unwrap_or_default().to_string_lossy()
-            ));
+            return Err(ToolError::file_blocked(
+                path.display(),
+                format!("extension {}", path.extension().unwrap_or_default().to_string_lossy()),
+            ).into());
         }
         if super::is_blocked_filename(&path) {
-            return Err(anyhow::anyhow!(
-                "File is blocked for writing: {}",
-                path.file_name().unwrap_or_default().to_string_lossy()
-            ));
+            return Err(ToolError::file_blocked(
+                path.display(),
+                path.file_name().unwrap_or_default().to_string_lossy(),
+            ).into());
         }
 
         // Second staleness check after resolving path (belt-and-suspenders)

@@ -1,9 +1,10 @@
 use crate::security::{open_file_symlink_safe, validate_read_path, validate_regex_pattern};
 use crate::truncation::{format_with_line_numbers, truncate_lines, READ_MAX_LINES};
 use crate::{ToolOutput, ToolPermission, ToolTag};
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use regex::Regex;
+use rustycode_tools_api::tool_error::{ToolError, ToolErrorCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -249,10 +250,10 @@ rustycode_tools_api::define_tool! {
     execute(params: ReadFileParams, ctx) {
         // Block device/system paths (was validate_input)
         if is_blocked_device_path(&params.file_path) {
-            return Err(anyhow!(
-                "Reading from device/system paths is blocked: {}",
-                params.file_path.display()
-            ));
+            return Err(ToolError::new(
+                ToolErrorCode::PathOutsideWorkspace,
+                format!("Reading from device/system paths is blocked: {}", params.file_path.display()),
+            ).with_suggestion("Use a path within the workspace").into());
         }
 
         if let Some(gate) = &ctx.plan_gate {
@@ -261,7 +262,7 @@ rustycode_tools_api::define_tool! {
         crate::check_permission(ToolPermission::Read, ctx)?;
 
         let path_str = params.file_path.to_str()
-            .ok_or_else(|| anyhow!("path contains invalid UTF-8"))?;
+            .ok_or_else(|| ToolError::new(ToolErrorCode::InvalidInput, "path contains invalid UTF-8"))?;
         let path = validate_read_path(path_str, &ctx.cwd, !ctx.allow_outside_workspace)?;
         crate::check_sandbox_path(&path, ctx)?;
 
@@ -335,12 +336,10 @@ rustycode_tools_api::define_tool! {
                 .with_context(|| format!("failed to read file metadata: {}", path.display()))?
                 .len();
             if file_size > MAX_BINARY_SIZE {
-                return Err(anyhow!(
-                    "binary file too large ({} bytes, max {} bytes): {}",
-                    file_size,
-                    MAX_BINARY_SIZE,
-                    path.display()
-                ));
+                return Err(ToolError::new(
+                    ToolErrorCode::InvalidInput,
+                    format!("binary file too large ({} bytes, max {} bytes): {}", file_size, MAX_BINARY_SIZE, path.display()),
+                ).with_suggestion("Use bash with xxd or hexdump for partial inspection").into());
             }
 
             let mut f = open_file_symlink_safe(&path)?;
@@ -382,17 +381,17 @@ rustycode_tools_api::define_tool! {
                 })));
         }
 
-        let mut file = open_file_symlink_safe(&path).map_err(|e| {
+        let mut file = open_file_symlink_safe(&path).map_err(|e| -> anyhow::Error {
             let msg = format!("{e}");
             if msg.contains("not found") || msg.contains("No such file") {
                 let target = std::path::Path::new(path_str);
                 let suggestions = crate::file_suggest::suggest_similar_files(target, &ctx.cwd, 3);
                 let hint = crate::file_suggest::format_suggestions(&suggestions);
                 if !hint.is_empty() {
-                    return anyhow::anyhow!("File not found: {}{hint}", path.display());
+                    return ToolError::path_not_found(format!("{}{hint}", path.display())).into();
                 }
             }
-            anyhow::anyhow!("Failed to open file: {e}")
+            ToolError::io("Failed to open file", e).into()
         })?;
         use std::io::Read;
 
@@ -439,7 +438,7 @@ rustycode_tools_api::define_tool! {
         // Pattern matching mode
         if let Some(pattern_str) = params.pattern.as_deref() {
             validate_regex_pattern(pattern_str)
-                .map_err(|e| anyhow!("Invalid regex pattern: {e}"))?;
+                .map_err(|e| ToolError::new(ToolErrorCode::InvalidInput, format!("Invalid regex pattern: {e}")).with_suggestion("Check regex syntax and escape special characters"))?;
 
             let case_insensitive = params.case_insensitive.unwrap_or(false);
             let max_matches = params.max_matches.unwrap_or(100);

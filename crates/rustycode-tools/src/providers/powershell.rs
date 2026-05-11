@@ -746,13 +746,13 @@ impl PSRateLimiter {
 
     fn try_acquire(&self) -> Result<PSPermit<'_>> {
         loop {
-            let current = self.active.load(Ordering::Relaxed);
+            let current = self.active.load(Ordering::Acquire);
             if current >= self.max_concurrent {
                 return Err(anyhow!("rate limit exceeded"));
             }
             if self
                 .active
-                .compare_exchange(current, current + 1, Ordering::Relaxed, Ordering::Relaxed)
+                .compare_exchange(current, current + 1, Ordering::AcqRel, Ordering::Acquire)
                 .is_ok()
             {
                 return Ok(PSPermit { limiter: self });
@@ -761,7 +761,7 @@ impl PSRateLimiter {
     }
 
     fn active_count(&self) -> usize {
-        self.active.load(Ordering::Relaxed)
+        self.active.load(Ordering::Acquire)
     }
 }
 
@@ -771,7 +771,7 @@ struct PSPermit<'a> {
 
 impl Drop for PSPermit<'_> {
     fn drop(&mut self) {
-        self.limiter.active.fetch_sub(1, Ordering::Relaxed);
+        self.limiter.active.fetch_sub(1, Ordering::Release);
     }
 }
 

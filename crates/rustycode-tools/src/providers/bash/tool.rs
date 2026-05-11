@@ -7,6 +7,7 @@ use super::validation::{ensure_path_within_workspace, validate_command_safety};
 use crate::truncation::truncate_bash_output;
 use crate::{ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Result};
+use rustycode_tools_api::tool_error::{ToolError, ToolErrorCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -52,10 +53,10 @@ fn execute_in_docker(
         tracing::warn!(
             "Docker isolation requested but Docker not available, falling back to local execution"
         );
-        return Err(anyhow!(
-            "Docker isolation requested but Docker is not available. \
-             Please install Docker or disable isolation mode."
-        ));
+        return Err(ToolError::new(
+            ToolErrorCode::ResourceUnavailable,
+            "Docker isolation requested but Docker is not available. Please install Docker or disable isolation mode.",
+        ).with_suggestion("Install Docker or remove the docker isolation setting").into());
     }
 
     let config = DockerIsolationConfig::new();
@@ -98,8 +99,8 @@ fn execute_in_docker(
 fn execute_in_os_sandbox(command: &str, ctx: &ToolContext) -> Result<ToolOutput> {
     use rustycode_sandbox::{SandboxManager, SandboxPolicy};
 
-    let manager =
-        SandboxManager::new().map_err(|e| anyhow!("Failed to initialize OS sandbox: {e}"))?;
+    let manager = SandboxManager::new()
+        .map_err(|e| anyhow::Error::from(ToolError::io("Failed to initialize OS sandbox", e)))?;
 
     let policy = SandboxPolicy::from_config(
         ctx.sandbox.allowed_paths.as_deref(),
@@ -111,7 +112,12 @@ fn execute_in_os_sandbox(command: &str, ctx: &ToolContext) -> Result<ToolOutput>
     let sandbox_result = tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(manager.execute(command, &policy))
     })
-    .map_err(|e| anyhow!("OS sandbox execution failed: {e}"))?;
+    .map_err(|e| {
+        anyhow::Error::from(ToolError::new(
+            ToolErrorCode::CommandFailed,
+            format!("OS sandbox execution failed: {e}"),
+        ))
+    })?;
 
     let truncated = truncate_bash_output(
         &sandbox_result.stdout,
@@ -169,7 +175,7 @@ fn try_native_fallback(command: &str, workspace: &Path) -> Option<Result<ToolOut
             Some(
                 native_cat(path)
                     .map(ToolOutput::text)
-                    .map_err(|e| anyhow::anyhow!("native cat failed: {e}")),
+                    .map_err(|e| ToolError::io("native cat", e).into()),
             )
         }
         "ls" if parts.len() == 1 || (parts.len() == 2 && !parts[1].starts_with('-')) => {
@@ -186,7 +192,7 @@ fn try_native_fallback(command: &str, workspace: &Path) -> Option<Result<ToolOut
             Some(
                 native_ls(target)
                     .map(|files| ToolOutput::text(files.join("\n")))
-                    .map_err(|e| anyhow::anyhow!("native ls failed: {e}")),
+                    .map_err(|e| ToolError::io("native ls", e).into()),
             )
         }
         "Grep" => {
@@ -216,7 +222,7 @@ fn try_native_fallback(command: &str, workspace: &Path) -> Option<Result<ToolOut
                     Some(
                         native_grep(grep_path, pat)
                             .map(ToolOutput::text)
-                            .map_err(|e| anyhow::anyhow!("native grep failed: {e}")),
+                            .map_err(|e| ToolError::io("native grep", e).into()),
                     )
                 }
                 _ => None,
@@ -259,12 +265,12 @@ rustycode_tools_api::define_tool! {
         let binary_name = super::validation::extract_binary_name(&command)?;
         let allowed_commands = allowed_commands(shell_type);
         if !allowed_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!("command '{}' is not in allowed list for bash", binary_name);
+            anyhow::bail!(ToolError::command_blocked(&command, format!("'{binary_name}' is not in the allowed list")));
         }
 
         let blocked_commands = blocked_commands(shell_type);
         if blocked_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!("command '{}' is blocked for security reasons", binary_name);
+            anyhow::bail!(ToolError::command_blocked(&command, format!("'{binary_name}' is blocked for security")));
         }
 
         let docker_requested = ctx.sandbox.docker_isolation
@@ -296,11 +302,14 @@ rustycode_tools_api::define_tool! {
         }
 
         let _permit = BASH_RATE_LIMITER.try_acquire().map_err(|()| {
-            anyhow!(
-                "Rate limit exceeded: {} concurrent bash commands already running. Maximum: {}. Please wait for current commands to complete.",
-                BASH_RATE_LIMITER.active_count(),
-                BASH_RATE_LIMITER.max_concurrent
-            )
+            ToolError::new(
+                ToolErrorCode::ResourceUnavailable,
+                format!(
+                    "Rate limit exceeded: {} concurrent bash commands already running. Maximum: {}.",
+                    BASH_RATE_LIMITER.active_count(),
+                    BASH_RATE_LIMITER.max_concurrent
+                ),
+            ).with_suggestion("Wait for current commands to complete")
         })?;
 
         let start_time = Instant::now();
@@ -356,13 +365,13 @@ rustycode_tools_api::define_tool! {
                     }
 
                     result
-                        .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
-                        .map_err(|e| anyhow!("command execution failed: {e}"))?
+                        .map_err(|_| ToolError::timeout("command", format!("{timeout_secs}s")))?
+                        .map_err(|e| ToolError::new(ToolErrorCode::CommandFailed, format!("command execution failed: {e}")))?
                 })
             })
         } else {
             tokio::runtime::Runtime::new()
-                .map_err(|e| anyhow!("failed to create tokio runtime: {e}"))?
+                .map_err(|e| ToolError::internal(format!("failed to create tokio runtime: {e}")))?
                 .block_on(async {
                     let cwd_for_evict = ctx.cwd.clone();
                     let result = tokio::time::timeout(
@@ -400,8 +409,8 @@ rustycode_tools_api::define_tool! {
                     }
 
                     result
-                        .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
-                        .map_err(|e| anyhow!("command execution failed: {e}"))?
+                        .map_err(|_| ToolError::timeout("command", format!("{timeout_secs}s")))?
+                        .map_err(|e| ToolError::new(ToolErrorCode::CommandFailed, format!("command execution failed: {e}")))?
                 })
         }?;
 
@@ -490,12 +499,18 @@ impl crate::streaming::ToolStreaming for BashTool {
         let binary_name = super::validation::extract_binary_name(&command)?;
         let allowed_commands = allowed_commands(shell_type);
         if !allowed_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!("command '{}' is not in allowed list for bash", binary_name);
+            anyhow::bail!(ToolError::command_blocked(
+                &command,
+                format!("'{binary_name}' is not in the allowed list")
+            ));
         }
 
         let blocked_commands = blocked_commands(shell_type);
         if blocked_commands.contains(&binary_name.as_str()) {
-            anyhow::bail!("command '{}' is blocked for security reasons", binary_name);
+            anyhow::bail!(ToolError::command_blocked(
+                &command,
+                format!("'{binary_name}' is blocked for security")
+            ));
         }
 
         let (sender, receiver) = create_stream_channel();

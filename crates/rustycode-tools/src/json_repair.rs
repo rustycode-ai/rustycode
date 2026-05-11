@@ -34,6 +34,14 @@
 //! ```
 
 use serde_json::Value;
+use std::sync::LazyLock;
+
+static TRAILING_COMMA_BRACE: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r",\s*\}").unwrap());
+static TRAILING_COMMA_BRACKET: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r",\s*\]").unwrap());
+static UNQUOTED_KEY: LazyLock<regex::Regex> =
+    LazyLock::new(|| regex::Regex::new(r"([\{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:").unwrap());
 
 /// Repair potentially malformed JSON from LLM output.
 ///
@@ -169,10 +177,8 @@ fn fix_trailing_commas(input: &str) -> String {
 
     // Remove trailing commas before } or ]
     // The regex matches ",\s*}" and ",\s*]" patterns
-    let re1 = regex::Regex::new(r",\s*\}").unwrap();
-    let re2 = regex::Regex::new(r",\s*\]").unwrap();
-    let result = re1.replace_all(input, "}").to_string();
-    re2.replace_all(&result, "]").to_string()
+    let result = TRAILING_COMMA_BRACE.replace_all(input, "}").to_string();
+    TRAILING_COMMA_BRACKET.replace_all(&result, "]").to_string()
 }
 
 /// Fix unclosed brackets and braces by adding the missing closing characters.
@@ -318,21 +324,21 @@ fn fix_unquoted_keys(input: &str) -> String {
 
     // Add quotes around unquoted keys: {key: value} -> {"key": value}
     // Pattern matches: { or , followed by optional whitespace, then an unquoted key, then colon
-    let re = regex::Regex::new(r"([\{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:").unwrap();
-    re.replace_all(input, |caps: &regex::Captures| {
-        // Use the full match to preserve spacing
-        let full_match = caps.get(0).map(|m| m.as_str()).unwrap_or("");
-        let key = &caps[2];
+    UNQUOTED_KEY
+        .replace_all(input, |caps: &regex::Captures| {
+            // Use the full match to preserve spacing
+            let full_match = caps.get(0).map(|m| m.as_str()).unwrap_or("");
+            let key = &caps[2];
 
-        // Preserve the original spacing
-        if full_match.starts_with('{') {
-            format!("{{\"{key}\":")
-        } else {
-            // For comma-separated keys, preserve the original spacing
-            format!(", \"{key}\":")
-        }
-    })
-    .to_string()
+            // Preserve the original spacing
+            if full_match.starts_with('{') {
+                format!("{{\"{key}\":")
+            } else {
+                // For comma-separated keys, preserve the original spacing
+                format!(", \"{key}\":")
+            }
+        })
+        .to_string()
 }
 
 /// Fix Python-style True/False/None to JSON-compatible true/false/null.

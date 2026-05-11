@@ -78,8 +78,8 @@ impl SchemaValidator {
             let error_details: Vec<ValidationErrorDetail> = errors
                 .into_iter()
                 .map(|e| ValidationErrorDetail {
-                    instance_path: e.instance_path.to_string(),
-                    schema_path: e.schema_path.to_string(),
+                    instance_path: e.instance_path().to_string(),
+                    schema_path: e.schema_path().to_string(),
                     message: e.to_string(),
                 })
                 .collect();
@@ -107,8 +107,8 @@ impl SchemaValidator {
             let error_details: Vec<ValidationErrorDetail> = errors
                 .into_iter()
                 .map(|e| ValidationErrorDetail {
-                    instance_path: e.instance_path.to_string(),
-                    schema_path: e.schema_path.to_string(),
+                    instance_path: e.instance_path().to_string(),
+                    schema_path: e.schema_path().to_string(),
                     message: e.to_string(),
                 })
                 .collect();

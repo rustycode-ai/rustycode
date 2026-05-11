@@ -140,6 +140,8 @@ pub fn spawn_command_worker(
                         if let Err(e) = child.kill() {
                             tracing::warn!("Failed to kill timed-out command: {e}");
                         }
+                        // Reap the zombie process
+                        let _ = child.wait();
                         if let Err(e) = tx.send(CommandResult {
                             command,
                             tool_name,

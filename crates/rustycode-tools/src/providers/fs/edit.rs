@@ -9,6 +9,7 @@ use crate::file_formatter;
 use crate::line_endings::{detect_line_ending, generate_diff, normalize_quotes, normalize_to_lf};
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
 use crate::{ToolOutput, ToolPermission, ToolTag};
+use rustycode_tools_api::tool_error::{ToolError, ToolErrorCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -165,7 +166,7 @@ rustycode_tools_api::define_tool! {
         let path_str = params
             .file_path
             .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid path: contains non-UTF-8 characters"))?;
+            .ok_or_else(|| ToolError::new(ToolErrorCode::InvalidInput, "Invalid path: contains non-UTF-8 characters"))?;
 
         // Validate the path is within workspace and safe
         let validated_path = validate_write_path(
@@ -174,7 +175,7 @@ rustycode_tools_api::define_tool! {
             params.new_string.len(),
             !ctx.allow_outside_workspace,
         )
-        .map_err(|e| {
+        .map_err(|e| -> anyhow::Error {
             let mut msg = format!("{e}");
             if msg.contains("not found") || msg.contains("No such file") {
                 let suggestions = suggest_similar_files(&params.file_path, &ctx.cwd);
@@ -189,20 +190,20 @@ rustycode_tools_api::define_tool! {
                     ));
                 }
             }
-            anyhow::anyhow!("{msg}")
+            anyhow::Error::from(ToolError::new(ToolErrorCode::InvalidInput, msg))
         })?;
 
         // Read the current file content using symlink-safe operation
-        let mut file = open_file_symlink_safe(&validated_path).map_err(|e| {
+        let mut file = open_file_symlink_safe(&validated_path).map_err(|e| -> anyhow::Error {
             let msg = format!("{e}");
             if msg.contains("not found") || msg.contains("No such file") {
                 let suggestions = suggest_similar_files(&params.file_path, &ctx.cwd);
                 let hint = crate::file_suggest::format_suggestions(&suggestions);
                 if !hint.is_empty() {
-                    return anyhow::anyhow!("File not found: {}{hint}", params.file_path.display());
+                    return ToolError::path_not_found(format!("{}{hint}", params.file_path.display())).into();
                 }
             }
-            anyhow::anyhow!("Failed to open file: {e}")
+            ToolError::io("Failed to open file", e).into()
         })?;
 
         // Defense-in-depth staleness check (also in validate_input)
@@ -220,13 +221,11 @@ rustycode_tools_api::define_tool! {
 
         let mut content = String::new();
         use std::io::Read;
-        file.read_to_string(&mut content).map_err(|e| {
+        file.read_to_string(&mut content).map_err(|e| -> anyhow::Error {
             if e.kind() == std::io::ErrorKind::InvalidData {
-                anyhow::anyhow!(
-                    "Binary or non-UTF-8 file detected; Edit only supports text files"
-                )
+                ToolError::new(ToolErrorCode::InvalidInput, "Binary or non-UTF-8 file detected; Edit only supports text files").into()
             } else {
-                anyhow::anyhow!("Failed to read file: {e}")
+                ToolError::io("Failed to read file", e).into()
             }
         })?;
 
@@ -240,9 +239,7 @@ rustycode_tools_api::define_tool! {
 
         // Reject empty old_text — it would match everywhere and produce nonsensical results
         if params.old_string.is_empty() {
-            return Err(anyhow::anyhow!(
-                "old_string cannot be empty. Provide the text to search for and replace."
-            ));
+            return Err(ToolError::invalid_parameters("edit", "old_string cannot be empty. Provide the text to search for and replace.").into());
         }
 
         // Try matching strategies in order: exact → line-ending-normalized → quote-normalized → trimmed

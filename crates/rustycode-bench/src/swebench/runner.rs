@@ -190,6 +190,15 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
         format!("\n## Hints\n\n{}\n", inst.hints_text)
     };
 
+    // Build install hint — tells the agent to use the repo's code, not system packages
+    let install_hint = if clone_dir.join("setup.py").exists()
+        || clone_dir.join("pyproject.toml").exists()
+    {
+        "\n5. When testing, ALWAYS use `PYTHONPATH=.. python3 test.py` (or `pip install -e .`) to import from THIS repo, not the system package.\n"
+    } else {
+        ""
+    };
+
     // Build prompt — honest, no tricks, but includes context to reduce exploration turns
     let prompt = format!(
         "Please fix the following issue in this repository.\n\n\
@@ -200,7 +209,7 @@ async fn run_single_instance(inst: &SweBenchInstance, config: &SweBenchConfig) -
          1. Use MULTIPLE tool calls per turn (e.g. read several files at once, or grep + glob together).\n\
          2. Make minimal, targeted changes to fix the issue.\n\
          3. Do NOT add tests — only fix the source code.\n\
-         4. Prefer editing over reading — once you understand the bug, fix it immediately.",
+         4. Prefer editing over reading — once you understand the bug, fix it immediately.{install_hint}",
         inst.problem_statement
     );
 

@@ -20,7 +20,7 @@ thiserror = { workspace = true }
 dirs = { workspace = true }
 shellexpand.workspace = true
 tempfile = { workspace = true }
-jsonschema = { version = "0.26", optional = true }
+jsonschema = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 rustycode-lsp = { path = "../rustycode-lsp" }

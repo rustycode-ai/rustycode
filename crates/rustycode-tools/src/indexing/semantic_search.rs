@@ -89,7 +89,12 @@ impl SemanticIndex {
 
     /// Index a code chunk with embedding
     pub fn add_chunk(&mut self, chunk: CodeChunk) -> Result<()> {
-        let embedding = self.compute_embedding(&chunk.content)?;
+        let embedding = self.compute_embedding(&chunk.content).with_context(|| {
+            format!(
+                "Failed to compute embedding for chunk in {:?}",
+                chunk.file_path
+            )
+        })?;
 
         // Track file -> chunks mapping for incremental updates
         let chunk_idx = self.chunks.len();
@@ -138,6 +143,12 @@ impl SemanticIndex {
             .into_iter()
             .next()
             .unwrap_or_default();
+        if query_embedding.is_empty() {
+            tracing::warn!(
+                "semantic_search: query embedding returned empty vector for query: {:?}",
+                &query[..query.len().min(100)]
+            );
+        }
         drop(embedder); // Release lock before processing
 
         let mut results: Vec<SearchResult> = self
