@@ -1310,7 +1310,7 @@ impl TUI {
     }
 
     /// Run the TUI main loop
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self, resume: bool) -> Result<()> {
         // Install panic hook FIRST - before any terminal operations
         install_panic_hook();
 
@@ -1384,7 +1384,31 @@ impl TUI {
             e
         })?;
 
-        tracing::info!("TUI run() — entering event loop");
+        // Render loading screen immediately
+        let loading_widget = ratatui::widgets::Paragraph::new(" Initializing services... ")
+            .style(ratatui::style::Style::default().fg(ratatui::style::Color::Yellow));
+        terminal.draw(|f| {
+            f.render_widget(loading_widget, f.area());
+        })?;
+
+        let t_init = Instant::now();
+        if let Err(e) = self.init_services() {
+            tracing::warn!(
+                "Service initialization failed (TUI will run in degraded mode): {}",
+                e
+            );
+        }
+        crate::info_log!("[PERF] init_services took {}ms", t_init.elapsed().as_millis());
+
+        if resume {
+            self.resume_most_recent_session();
+        }
+
+        crate::info_log!(
+            "[PERF] total startup took {}ms",
+            t_init.elapsed().as_millis()
+        );
+
 
         // Cleanup happens automatically when _cleanup_guard goes out of scope
 
