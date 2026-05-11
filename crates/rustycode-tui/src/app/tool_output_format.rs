@@ -324,18 +324,10 @@ fn shorten_path(path: &str) -> String {
     }
 }
 
-/// Format a duration in milliseconds for display
+/// Format a duration in milliseconds for display.
+/// Delegates to the shared implementation in `render::shared`.
 pub fn format_duration(ms: u64) -> String {
-    if ms < 1000 {
-        format!("{}ms", ms)
-    } else if ms < 60_000 {
-        format!("{:.1}s", ms as f64 / 1000.0)
-    } else {
-        let secs = ms / 1000;
-        let mins = secs / 60;
-        let remain_secs = secs % 60;
-        format!("{}m {}s", mins, remain_secs)
-    }
+    crate::app::render::shared::format_duration_ms(ms)
 }
 
 #[cfg(test)]

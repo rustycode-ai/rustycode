@@ -289,12 +289,7 @@ fn capture_diff(repo_dir: &Path) -> Result<String> {
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        let truncated: String = s.chars().take(max).collect();
-        format!("{truncated}...")
-    }
+    rustycode_protocol::text::truncate_with_ellipsis(s, max)
 }
 
 /// Build a compact file tree (top-level + one level of subdirs) for prompt context.

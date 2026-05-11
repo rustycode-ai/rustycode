@@ -55,6 +55,8 @@ pub struct CodeAgent {
     provider: Arc<dyn rustycode_llm::LLMProvider>,
     /// Tracks recent bash commands for repetition detection.
     recent_commands: Vec<String>,
+    /// Tracks recent tool call fingerprints (name + sorted args) for loop detection.
+    recent_tool_calls: Vec<String>,
     /// Accumulated input (prompt) tokens from the last run().
     input_tokens: u64,
     /// Accumulated output (completion) tokens from the last run().
@@ -71,6 +73,7 @@ impl CodeAgent {
             config,
             provider,
             recent_commands: Vec::new(),
+            recent_tool_calls: Vec::new(),
             input_tokens: 0,
             output_tokens: 0,
         }
@@ -147,20 +150,27 @@ impl CodeAgent {
 
     /// Normalize tool name from various LLM naming conventions.
     fn normalize_tool_name(name: &str) -> &str {
-        match name {
-            tn::EDIT | "edit" | "edit_file" => tn::EDIT,
-            tn::READ | "read" | "read_file" => tn::READ,
-            tn::WRITE | "Create" | "write" | "write_file" => tn::WRITE,
-            tn::BASH | "bash" | "Shell" | "shell" => tn::BASH,
-            tn::GREP | "Search" | "grep" => tn::GREP,
-            tn::GLOB | "Find" | "ListFiles" | "glob" => tn::GLOB,
-            tn::LIST_DIR | "ls" | "list_dir" => tn::LIST_DIR,
-            tn::APPLY_PATCH | "apply_patch" => tn::APPLY_PATCH,
-            tn::GIT_STATUS | "git_status" => tn::GIT_STATUS,
-            tn::GIT_DIFF | "git_diff" => tn::GIT_DIFF,
-            tn::GIT_LOG | "git_log" => tn::GIT_LOG,
-            other => other,
-        }
+        tn::normalize_tool_name(name)
+    }
+
+    /// Fingerprint a tool call for repetition detection.
+    /// Uses the tool name + sorted argument values to detect identical calls.
+    fn fingerprint_tool_call(name: &str, input: &Value) -> String {
+        let sorted = if let Some(obj) = input.as_object() {
+            let mut pairs: Vec<(String, String)> = obj
+                .iter()
+                .map(|(k, v)| (k.clone(), v.to_string()))
+                .collect();
+            pairs.sort_by(|a, b| a.0.cmp(&b.0));
+            pairs
+                .into_iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(",")
+        } else {
+            input.to_string()
+        };
+        format!("{name}({sorted})")
     }
 
     /// Execute a tool via the registry with real tool implementations.
@@ -509,12 +519,7 @@ struct ToolUse {
 use rustycode_protocol::text::strip_ansi_escapes as strip_ansi;
 
 fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        let truncated: String = s.chars().take(max_len).collect();
-        format!("{truncated}...")
-    }
+    rustycode_protocol::text::truncate_with_ellipsis(s, max_len)
 }
 
 // ── BenchAgent impl ──────────────────────────────────────────────────
@@ -578,6 +583,7 @@ impl BenchAgent for CodeAgent {
         let mut made_edits = false;
         let mut turns_since_edit = 0usize;
         let mut total_edits = 0usize;
+        let mut consecutive_error_turns = 0usize;
         let mut file_edit_counts: std::collections::HashMap<String, usize> =
             std::collections::HashMap::new();
 
@@ -752,6 +758,8 @@ impl BenchAgent for CodeAgent {
 
             // Process results: repetition detection, truncation, error detection.
             let mut tool_result_blocks: Vec<ContentBlock> = Vec::new();
+            let mut error_count_this_turn = 0usize;
+            let total_tools = raw_outputs.len();
             for (i, mut output) in raw_outputs.into_iter().enumerate() {
                 let tool_use = &tool_uses[i];
 
@@ -780,6 +788,26 @@ impl BenchAgent for CodeAgent {
                             self.recent_commands.remove(0);
                         }
                     }
+                }
+
+                // Generic repetition detection for ALL tool types.
+                let fp = Self::fingerprint_tool_call(&tool_use.name, &tool_use.input);
+                let repeat_count = self.recent_tool_calls.iter().filter(|c| *c == &fp).count();
+                if repeat_count >= 2 {
+                    output.push_str(
+                        "\n\nSTOP: You have made this exact same tool call multiple times \
+                         with the same arguments. It keeps failing. Use a DIFFERENT tool, \
+                         different arguments, or respond with your final answer.",
+                    );
+                    tracing::warn!(
+                        "[code] Repeated tool call ({}x): {}",
+                        repeat_count + 1,
+                        truncate(&fp, 120)
+                    );
+                }
+                self.recent_tool_calls.push(fp);
+                if self.recent_tool_calls.len() > 20 {
+                    self.recent_tool_calls.remove(0);
                 }
 
                 conversation_trace.push_str(&format!(
@@ -812,6 +840,7 @@ impl BenchAgent for CodeAgent {
                     || context_output.contains("Permission denied");
 
                 if is_error {
+                    error_count_this_turn += 1;
                     tool_result_blocks
                         .push(ContentBlock::tool_error(&tool_use.id, &context_output));
                 } else {
@@ -825,6 +854,20 @@ impl BenchAgent for CodeAgent {
                 role: MessageRole::User,
                 content: MessageContent::Blocks(tool_result_blocks),
             });
+
+            // Track consecutive error turns — break if all tools fail repeatedly.
+            if error_count_this_turn == total_tools && total_tools > 0 {
+                consecutive_error_turns += 1;
+            } else {
+                consecutive_error_turns = 0;
+            }
+            if consecutive_error_turns >= 3 {
+                tracing::info!(
+                    "[code] Early stop: {} consecutive error-only turns",
+                    consecutive_error_turns
+                );
+                break;
+            }
 
             // Write trace incrementally so it survives timeouts
             self.write_trace(&conversation_trace, &cwd).await;

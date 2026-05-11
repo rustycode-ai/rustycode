@@ -648,11 +648,7 @@ fn format_timestamp_short(ts: u64) -> String {
 
 /// Truncate string to max length with ellipsis
 fn truncate(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
-    }
+    rustycode_protocol::text::truncate_with_ellipsis(s, max_len)
 }
 
 /// Calculate percentage string

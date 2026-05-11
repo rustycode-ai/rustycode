@@ -227,6 +227,48 @@ pub fn has_segment(name_lower: &str, words: &[&str]) -> bool {
         .any(|seg| !seg.is_empty() && words.contains(&seg))
 }
 
+/// Normalize tool names from different providers/aliases to our canonical names.
+///
+/// This is the single source of truth for alias mapping. All crates should
+/// delegate to this function instead of maintaining their own mappings.
+pub fn normalize_tool_name(name: &str) -> &str {
+    match name {
+        // File tools
+        EDIT | "edit" | "edit_file" | TEXT_EDITOR_NEWEST | TEXT_EDITOR_LEGACY => EDIT,
+        READ | "read" | "read_file" | "view" => READ,
+        WRITE | "Create" | "create" | "write" | "write_file" => WRITE,
+        MULTI_EDIT | MULTI_EDIT_ALIAS => MULTI_EDIT,
+        APPLY_PATCH | "apply_patch" | "patch" => APPLY_PATCH,
+        NOTEBOOK_EDIT | "notebook_edit" => NOTEBOOK_EDIT,
+
+        // Shell tools
+        BASH | "bash" | "Shell" | "shell" | "execute" | "run_command" => BASH,
+        POWERSHELL | "pwsh" => POWERSHELL,
+        CMD | "cmd" | "cmd.exe" => CMD,
+
+        // Search tools
+        GREP | "Search" | "grep" => GREP,
+        GLOB | "Find" | "ListFiles" | "glob" => GLOB,
+        LIST_DIR | "ls" | "list_dir" => LIST_DIR,
+
+        // Git tools
+        GIT_STATUS | "git_status" => GIT_STATUS,
+        GIT_DIFF | "git_diff" => GIT_DIFF,
+        GIT_LOG | "git_log" => GIT_LOG,
+
+        // Web tools
+        WEB_FETCH | "web_fetch" | "fetch" => WEB_FETCH,
+
+        // LSP tools
+        "LSP" | "lsp" => LSP_DIAGNOSTICS,
+
+        // Interactive
+        ASK_USER_QUESTION | "ask_user_question" | "ask_user" => ASK_USER_QUESTION,
+
+        _ => name,
+    }
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -294,6 +336,65 @@ mod tests {
         assert!(has_segment("mcp__server__edit", &["edit"]));
         assert!(has_segment("shell-exec", &["exec"]));
         assert!(!has_segment("thread_reader", &["read"]));
+    }
+
+    #[test]
+    fn normalize_file_tools() {
+        assert_eq!(normalize_tool_name("edit"), EDIT);
+        assert_eq!(normalize_tool_name("text_editor_20250728"), EDIT);
+        assert_eq!(normalize_tool_name("view"), READ);
+        assert_eq!(normalize_tool_name("read_file"), READ);
+        assert_eq!(normalize_tool_name("Create"), WRITE);
+        assert_eq!(normalize_tool_name("write_file"), WRITE);
+        assert_eq!(normalize_tool_name("patch"), APPLY_PATCH);
+        assert_eq!(normalize_tool_name("notebook_edit"), NOTEBOOK_EDIT);
+    }
+
+    #[test]
+    fn normalize_shell_tools() {
+        assert_eq!(normalize_tool_name("Shell"), BASH);
+        assert_eq!(normalize_tool_name("shell"), BASH);
+        assert_eq!(normalize_tool_name("execute"), BASH);
+        assert_eq!(normalize_tool_name("pwsh"), POWERSHELL);
+        assert_eq!(normalize_tool_name("cmd.exe"), CMD);
+    }
+
+    #[test]
+    fn normalize_search_tools() {
+        assert_eq!(normalize_tool_name("Search"), GREP);
+        assert_eq!(normalize_tool_name("Find"), GLOB);
+        assert_eq!(normalize_tool_name("ListFiles"), GLOB);
+        assert_eq!(normalize_tool_name("ls"), LIST_DIR);
+    }
+
+    #[test]
+    fn normalize_other_tools() {
+        assert_eq!(normalize_tool_name("LSP"), LSP_DIAGNOSTICS);
+        assert_eq!(normalize_tool_name("fetch"), WEB_FETCH);
+        assert_eq!(normalize_tool_name("ask_user"), ASK_USER_QUESTION);
+        assert_eq!(normalize_tool_name("git_status"), GIT_STATUS);
+        assert_eq!(normalize_tool_name("git_diff"), GIT_DIFF);
+        assert_eq!(normalize_tool_name("git_log"), GIT_LOG);
+    }
+
+    #[test]
+    fn normalize_unknown_passthrough() {
+        assert_eq!(normalize_tool_name("custom_tool"), "custom_tool");
+        assert_eq!(
+            normalize_tool_name("mcp__server__tool"),
+            "mcp__server__tool"
+        );
+    }
+
+    #[test]
+    fn normalize_canonical_identity() {
+        // Canonical names should map to themselves
+        assert_eq!(normalize_tool_name(EDIT), EDIT);
+        assert_eq!(normalize_tool_name(READ), READ);
+        assert_eq!(normalize_tool_name(WRITE), WRITE);
+        assert_eq!(normalize_tool_name(BASH), BASH);
+        assert_eq!(normalize_tool_name(GREP), GREP);
+        assert_eq!(normalize_tool_name(GLOB), GLOB);
     }
 
     #[test]

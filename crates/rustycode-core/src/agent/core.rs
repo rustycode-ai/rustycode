@@ -190,62 +190,12 @@ fn execute_tool(
 
 /// Truncate tool output to fit within budget, preserving error context in the tail.
 fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
-    if output.len() <= max_bytes {
-        return output.to_string();
-    }
-
-    let out_lower = output.to_lowercase();
-    let has_errors = out_lower.contains("error")
-        || out_lower.contains("traceback")
-        || out_lower.contains("failed")
-        || out_lower.contains("segmentation fault")
-        || out_lower.contains("command not found");
-
-    let (head_bytes, tail_bytes) = if has_errors {
-        (max_bytes / 6, max_bytes * 5 / 6)
-    } else {
-        (max_bytes / 4, max_bytes * 3 / 4)
-    };
-
-    let head_end = output
-        .char_indices()
-        .take_while(|(i, _)| *i < head_bytes)
-        .last()
-        .map(|(i, c)| i + c.len_utf8())
-        .unwrap_or(0);
-
-    let tail_start = output
-        .char_indices()
-        .rev()
-        .skip_while(|(i, _)| output.len() - *i > tail_bytes)
-        .last()
-        .map(|(i, _)| i)
-        .unwrap_or(0);
-
-    if tail_start > head_end {
-        let skipped = tail_start - head_end;
-        format!(
-            "{}\n\n[...{} bytes truncated...]\n\n{}",
-            &output[..head_end],
-            skipped,
-            &output[tail_start..]
-        )
-    } else {
-        output.to_string()
-    }
+    rustycode_protocol::text::truncate_tool_output(output, max_bytes)
 }
 
 /// Normalize tool names from different providers to our canonical names.
 fn normalize_tool_name(name: &str) -> &str {
-    match name {
-        tn::EDIT => tn::EDIT,
-        tn::READ => tn::READ,
-        tn::WRITE | "Create" => tn::WRITE,
-        tn::BASH | "Shell" => tn::BASH,
-        tn::GREP | "Search" => tn::GREP,
-        tn::GLOB | "Find" => tn::GLOB,
-        _ => name,
-    }
+    tn::normalize_tool_name(name)
 }
 
 /// The core agent loop.

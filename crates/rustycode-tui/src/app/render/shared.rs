@@ -86,7 +86,7 @@ pub fn format_duration_ms(ms: u64) -> String {
         let secs = ms / 1000;
         let mins = secs / 60;
         let remain_secs = secs % 60;
-        format!("{}m{}s", mins, remain_secs)
+        format!("{}m {}s", mins, remain_secs)
     }
 }
 
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn format_duration_ms_minutes() {
-        assert_eq!(format_duration_ms(90_000), "1m30s");
+        assert_eq!(format_duration_ms(90_000), "1m 30s");
     }
 
     #[test]

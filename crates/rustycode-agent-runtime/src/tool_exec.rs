@@ -46,67 +46,12 @@ pub fn execute_tool(
 
 /// Truncate tool output to fit within budget, preserving pagination info in the tail.
 pub fn truncate_tool_output(output: &str, max_bytes: usize) -> String {
-    if output.len() <= max_bytes {
-        return output.to_string();
-    }
-
-    let out_lower = output.to_lowercase();
-    let has_errors = out_lower.contains("error")
-        || out_lower.contains("traceback")
-        || out_lower.contains("failed")
-        || out_lower.contains("segmentation fault")
-        || out_lower.contains("command not found");
-
-    // When there are errors, preserve more of the tail (error details + pagination).
-    // Otherwise, keep the last quarter for pagination/hint lines.
-    let (head_bytes, tail_bytes) = if has_errors {
-        (max_bytes / 6, max_bytes * 5 / 6)
-    } else {
-        (max_bytes / 4, max_bytes * 3 / 4)
-    };
-
-    let head_end = output
-        .char_indices()
-        .take_while(|(i, _)| *i < head_bytes)
-        .last()
-        .map_or(0, |(i, c)| i + c.len_utf8());
-
-    let tail_start_offset = output.len().saturating_sub(tail_bytes);
-    let tail_start = output
-        .char_indices()
-        .find(|(i, _)| *i >= tail_start_offset)
-        .map_or(output.len(), |(i, _)| i);
-
-    if tail_start > head_end {
-        let skipped = tail_start - head_end;
-        format!(
-            "{}\n\n[...{skipped} bytes truncated...]\n\n{}",
-            &output[..head_end],
-            &output[tail_start..]
-        )
-    } else {
-        output.to_string()
-    }
+    rustycode_protocol::text::truncate_tool_output(output, max_bytes)
 }
 
 /// Normalize tool names from different providers to our canonical names.
 fn normalize_tool_name(name: &str) -> &str {
-    match name {
-        "Edit" | "edit" | "text_editor_20250728" => tn::EDIT,
-        "Read" | "read" | "view" => tn::READ,
-        "Write" | "Create" | "create" => tn::WRITE,
-        "Bash" | "Shell" | "shell" | "execute" | "run_command" => tn::BASH,
-        "PowerShell" | "pwsh" => tn::POWERSHELL,
-        "Cmd" | "cmd" | "cmd.exe" => tn::CMD,
-        "Grep" | "Search" => tn::GREP,
-        "Glob" | "Find" => tn::GLOB,
-        "NotebookEdit" | "notebook_edit" => tn::NOTEBOOK_EDIT,
-        "WebFetch" | "web_fetch" | "fetch" => tn::WEB_FETCH,
-        "LSP" | "lsp" => tn::LSP_DIAGNOSTICS,
-        "ApplyPatch" | "patch" => tn::APPLY_PATCH,
-        "AskUserQuestion" | "ask_user_question" | "ask_user" => tn::ASK_USER_QUESTION,
-        _ => name,
-    }
+    tn::normalize_tool_name(name)
 }
 
 #[cfg(test)]
