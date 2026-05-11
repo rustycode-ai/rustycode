@@ -248,7 +248,11 @@ impl Route {
             async move {
                 match line_result {
                     Ok(line) => {
-                        let res: Result<Option<StreamEvent>> = protocol.parse_sse_event(&line);
+                        let payload = match line.strip_prefix("data: ") {
+                            Some(data) => data,
+                            None => return None,
+                        };
+                        let res: Result<Option<StreamEvent>> = protocol.parse_sse_event(payload);
                         res.transpose()
                     }
                     Err(e) => Some(Err(e)),
