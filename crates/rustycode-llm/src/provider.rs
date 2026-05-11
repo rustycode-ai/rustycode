@@ -1324,7 +1324,7 @@ macro_rules! provider_common {
             self.config
                 .api_key
                 .as_ref()
-                .map_or(false, |k| !k.expose_secret().is_empty())
+                .is_some_and(|k| !k.expose_secret().is_empty())
         }
 
         async fn list_models(&self) -> Result<Vec<String>, $crate::provider::ProviderError> {

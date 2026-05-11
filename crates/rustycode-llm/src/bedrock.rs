@@ -626,7 +626,7 @@ impl LLMProvider for BedrockProvider {
             .config
             .api_key
             .as_ref()
-            .map_or(false, |k| !k.expose_secret().is_empty());
+            .is_some_and(|k| !k.expose_secret().is_empty());
 
         has_credentials || has_api_key
     }

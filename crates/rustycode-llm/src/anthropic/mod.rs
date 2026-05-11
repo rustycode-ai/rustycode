@@ -1077,7 +1077,7 @@ impl LLMProvider for AnthropicProvider {
             .config
             .api_key
             .as_ref()
-            .map_or(true, |k| k.expose_secret().trim().is_empty())
+            .is_none_or(|k| k.expose_secret().trim().is_empty())
         {
             return false;
         }
