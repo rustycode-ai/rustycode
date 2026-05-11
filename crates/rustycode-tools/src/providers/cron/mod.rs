@@ -54,9 +54,5 @@ pub(crate) fn validate_cron(expr: &str) -> Result<()> {
 
 #[cfg(test)]
 pub(crate) mod tests_common {
-    use crate::ToolContext;
-
-    pub fn test_ctx() -> ToolContext {
-        ToolContext::new("/tmp").with_structured_output(true)
-    }
+    pub use crate::test_helpers::test_ctx_with_structured_output as test_ctx;
 }

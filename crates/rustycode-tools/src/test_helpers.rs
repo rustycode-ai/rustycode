@@ -118,6 +118,23 @@ pub fn find_list_command() -> Option<PathBuf> {
     }
 }
 
+/// Create a test ToolContext with /tmp as the working directory.
+///
+/// This is a shared test helper for provider modules that need a basic
+/// ToolContext for testing. Use this instead of creating inline contexts
+/// to ensure consistency across tests.
+pub fn test_ctx() -> crate::ToolContext {
+    crate::ToolContext::new("/tmp")
+}
+
+/// Create a test ToolContext with structured output enabled.
+///
+/// This is a shared test helper for provider modules that need a ToolContext
+/// with structured output enabled (e.g., cron provider tests).
+pub fn test_ctx_with_structured_output() -> crate::ToolContext {
+    crate::ToolContext::new("/tmp").with_structured_output(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

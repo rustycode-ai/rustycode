@@ -50,9 +50,5 @@ pub(crate) fn chrono_now_rfc3339() -> String {
 
 #[cfg(test)]
 pub(crate) mod tests_common {
-    use crate::ToolContext;
-
-    pub fn test_ctx() -> ToolContext {
-        ToolContext::new("/tmp")
-    }
+    pub use crate::test_helpers::test_ctx;
 }
