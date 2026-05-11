@@ -224,7 +224,7 @@ pub mod frontmatter;
 
 // Shared text processing utilities
 pub mod text;
-pub use text::{strip_ansi_escapes, truncate_tool_output, truncate_with_ellipsis};
+pub use text::{estimate_tokens, strip_ansi_escapes, truncate_tool_output, truncate_with_ellipsis};
 
 // Re-exports for frontmatter helpers
 pub use frontmatter::{

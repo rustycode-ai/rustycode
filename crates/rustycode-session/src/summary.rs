@@ -4,6 +4,7 @@
 //! context when compacting sessions.
 
 use crate::session::Session;
+use rustycode_protocol::estimate_tokens;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -144,7 +145,7 @@ impl SummaryGenerator {
             Vec::new()
         };
 
-        let summary_tokens = text.len() / 4; // Rough estimate
+        let summary_tokens = estimate_tokens(&text);
 
         Ok(Summary {
             text,
@@ -252,7 +253,7 @@ impl SummaryGenerator {
     pub fn from_text(text: impl Into<String>, session: &Session) -> Summary {
         let text = text.into();
         let original_tokens = session.estimate_tokens();
-        let summary_tokens = text.len() / 4;
+        let summary_tokens = estimate_tokens(&text);
 
         Summary {
             text,

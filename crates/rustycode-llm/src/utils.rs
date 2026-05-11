@@ -211,9 +211,9 @@ impl Summary {
 
 /// Token count estimator
 ///
-/// Roughly estimates token count for text (approximately 4 characters per token).
+/// Uses the canonical word-based heuristic from rustycode-protocol.
 pub fn estimate_tokens(text: &str) -> usize {
-    text.chars().count() / 4
+    rustycode_protocol::estimate_tokens(text)
 }
 
 /// Chunk text into smaller pieces

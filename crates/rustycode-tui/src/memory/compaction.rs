@@ -346,17 +346,9 @@ impl CompactionPreview {
 
 /// Approximate tokens from a string using word-boundary counting.
 ///
-/// More accurate for code than chars/4: code has many short punctuation tokens
-/// that get merged by char-based heuristics, and long identifiers that get
-/// under-split. Word-based counting matches the approach used in
-/// `rustycode-orchestration`'s AST pipeline.
+/// Delegates to the canonical implementation in `rustycode-protocol`.
 fn estimate_tokens(s: &str) -> usize {
-    let words = s.split_whitespace().count();
-    if words == 0 && !s.is_empty() {
-        1 // punctuation-only content still consumes tokens
-    } else {
-        words
-    }
+    rustycode_protocol::estimate_tokens(s)
 }
 
 // ── Tier 1: Tool Output Pruning ──────────────────────────────────────────────

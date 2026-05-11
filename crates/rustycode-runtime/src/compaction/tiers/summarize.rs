@@ -182,7 +182,10 @@ impl SummarizeTier {
         messages: Vec<Message>,
         llm: &dyn LLMProvider,
     ) -> anyhow::Result<TierResult> {
-        let original_chars: usize = messages.iter().map(|m| m.content.len()).sum();
+        let tokens_before: usize = messages
+            .iter()
+            .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+            .sum();
 
         let split = self.find_summary_split(&messages);
 
@@ -217,12 +220,14 @@ impl SummarizeTier {
         let mut result_messages = vec![summary_message];
         result_messages.extend(preserved);
 
-        let result_chars: usize = result_messages.iter().map(|m| m.content.len()).sum();
-        let chars_removed = original_chars.saturating_sub(result_chars);
+        let tokens_after: usize = result_messages
+            .iter()
+            .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+            .sum();
 
         Ok(TierResult {
             messages: result_messages,
-            tokens_removed: chars_removed / 4,
+            tokens_removed: tokens_before.saturating_sub(tokens_after),
         })
     }
 }

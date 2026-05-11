@@ -356,7 +356,7 @@ mod tests {
             ..Default::default()
         });
 
-        let counter = |m: &Message| m.content.to_text().len() / 4;
+        let counter = |m: &Message| crate::estimate_tokens(&m.content.to_text());
         let result = selector.select(&messages, &counter);
 
         // All messages should be included (well within budget)
@@ -366,22 +366,26 @@ mod tests {
 
     #[test]
     fn test_message_selection_exceeds_budget() {
+        // 100 words in the assistant message
+        let large_text: String = (0..100)
+            .map(|i| format!("word{i}"))
+            .collect::<Vec<_>>()
+            .join(" ");
         let messages = vec![
             make_message("system", "System prompt here", -100),
             make_message("user", "User message", -90),
-            make_message("assistant", &"x".repeat(1000), -80), // Large message
+            make_message("assistant", &large_text, -80),
         ];
 
         let selector = MessageSelector::new(SelectionConfig {
-            token_budget: 50, // Very tight budget
+            token_budget: 50,
             retention_window: 2,
             ..Default::default()
         });
 
-        let counter = |m: &Message| m.content.to_text().len() / 4;
+        let counter = |m: &Message| crate::estimate_tokens(&m.content.to_text());
         let result = selector.select(&messages, &counter);
 
-        // Should select some messages but not all
         assert!(result.excluded_count > 0);
         assert!(result.total_tokens <= 50);
     }
@@ -393,7 +397,9 @@ mod tests {
             make_message("assistant", "Hi", -9),
         ];
 
-        let filtered = filter_messages(&messages, 1000, |m| m.content.to_text().len() / 4);
+        let filtered = filter_messages(&messages, 1000, |m| {
+            crate::estimate_tokens(&m.content.to_text())
+        });
         assert_eq!(filtered.len(), 2);
     }
 
@@ -414,7 +420,7 @@ mod tests {
             ..Default::default()
         });
 
-        let counter = |m: &Message| m.content.to_text().len() / 4;
+        let counter = |m: &Message| crate::estimate_tokens(&m.content.to_text());
         let result = selector.select(&messages, &counter);
 
         // System should be Critical, last 2 should be High, middle 2 should be Normal

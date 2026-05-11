@@ -600,7 +600,7 @@ impl ToolResultCache {
         }
 
         let key = Self::compute_cache_key(tool_name, params);
-        let token_count = content.len() / 4; // Rough estimate
+        let token_count = rustycode_protocol::estimate_tokens(content);
 
         let cached_result = CachedResult {
             content: content.to_string(),
@@ -876,11 +876,13 @@ mod cache_tests {
             ..Default::default()
         });
 
-        let content = "hello world ".repeat(100); // 1200 chars
+        let content = "hello world ".repeat(100); // 200 words
         cache.insert("test", &serde_json::json!({}), &content);
 
         let cached = cache.get("test", &serde_json::json!({})).unwrap();
-        // Token count is roughly len/4
-        assert_eq!(cached.token_count, content.len() / 4);
+        assert_eq!(
+            cached.token_count,
+            rustycode_protocol::estimate_tokens(&content)
+        );
     }
 }

@@ -398,9 +398,9 @@ impl ContextFetcher for StoreFetcher<'_> {
     }
 }
 
-/// Estimate tokens (~4 chars per token).
-const fn estimate_tokens(text: &str) -> usize {
-    (text.len().saturating_add(3)) / 4
+/// Estimate tokens using the canonical word-based heuristic.
+fn estimate_tokens(text: &str) -> usize {
+    rustycode_protocol::estimate_tokens(text)
 }
 
 fn phase_instruction(phase: AstPhase) -> String {

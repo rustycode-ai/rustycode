@@ -7,6 +7,7 @@
 //! - Serialization-friendly structure
 
 use chrono::{DateTime, Utc};
+use rustycode_protocol::estimate_tokens;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -119,21 +120,18 @@ impl Message {
         self.parts
             .iter()
             .map(|part| match part {
-                MessagePart::Text { content } => content.len() / 4,
-                MessagePart::ToolCall { input, .. } => {
-                    // Estimate based on JSON size
-                    input.to_string().len() / 4
-                }
-                MessagePart::ToolResult { content, .. } => content.len() / 4,
-                MessagePart::Reasoning { content } => content.len() / 4,
-                MessagePart::Image { .. } => 85, // ~85 tokens per image
-                MessagePart::File { .. } => 50,  // Approximate for file references
-                MessagePart::Code { code, .. } => code.len() / 4,
+                MessagePart::Text { content } => estimate_tokens(content),
+                MessagePart::ToolCall { input, .. } => estimate_tokens(&input.to_string()),
+                MessagePart::ToolResult { content, .. } => estimate_tokens(content),
+                MessagePart::Reasoning { content } => estimate_tokens(content),
+                MessagePart::Image { .. } => 85,
+                MessagePart::File { .. } => 50,
+                MessagePart::Code { code, .. } => estimate_tokens(code),
                 MessagePart::Diff {
                     old_string,
                     new_string,
                     ..
-                } => (old_string.len() + new_string.len()) / 4,
+                } => estimate_tokens(old_string) + estimate_tokens(new_string),
                 #[allow(unreachable_patterns)]
                 _ => 0,
             })

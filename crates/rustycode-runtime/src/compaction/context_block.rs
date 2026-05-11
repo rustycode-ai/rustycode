@@ -51,7 +51,7 @@ impl ContextZone for StringZone {
     }
 
     fn estimated_tokens(&self) -> usize {
-        self.content.len() / 4
+        rustycode_protocol::estimate_tokens(&self.content)
     }
 
     fn name(&self) -> &str {
@@ -143,12 +143,12 @@ impl SessionContextBlock {
             self.multi_agent.render(),
         );
 
-        self.token_count = rendered.len() / 4;
+        self.token_count = rustycode_protocol::estimate_tokens(&rendered);
         self.cached_render = Some(rendered.clone());
         rendered
     }
 
-    /// Return the cached token estimate (total rendered chars / 4).
+    /// Return the cached token estimate (word-based heuristic).
     ///
     /// Returns 0 if [`render`](Self::render) has not been called yet.
     pub fn token_count(&self) -> usize {

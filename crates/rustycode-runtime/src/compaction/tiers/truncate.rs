@@ -25,10 +25,13 @@ impl TruncateTier {
     pub fn compact(&self, messages: Vec<Message>) -> TierResult {
         // tail_turns == 0 means drop everything.
         if self.tail_turns == 0 {
-            let chars_removed: usize = messages.iter().map(|m| m.content.len()).sum();
+            let tokens_removed: usize = messages
+                .iter()
+                .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+                .sum();
             return TierResult {
                 messages: Vec::new(),
-                tokens_removed: chars_removed / 4,
+                tokens_removed,
             };
         }
 
@@ -84,11 +87,14 @@ impl TruncateTier {
     /// Split `messages` at `keep_from`, returning the tail and estimating
     /// tokens removed from the discarded head.
     fn split_at(&self, messages: Vec<Message>, keep_from: usize) -> TierResult {
-        let chars_removed: usize = messages[..keep_from].iter().map(|m| m.content.len()).sum();
+        let tokens_removed: usize = messages[..keep_from]
+            .iter()
+            .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+            .sum();
         let retained = messages[keep_from..].to_vec();
         TierResult {
             messages: retained,
-            tokens_removed: chars_removed / 4,
+            tokens_removed,
         }
     }
 }
@@ -185,7 +191,6 @@ mod tests {
         assert_eq!(result.messages[1].content.as_text(), long);
         assert_eq!(result.messages[2].content.as_text(), "c");
         assert_eq!(result.messages[3].content.as_text(), "C");
-        // Discarded 2 messages of 40 chars each = 80 chars / 4 = 20 tokens.
         assert!(
             result.tokens_removed > 0,
             "should report tokens removed when turns are discarded"
@@ -262,8 +267,11 @@ mod tests {
     #[test]
     fn tokens_removed_positive() {
         let tier = TruncateTier::new(1);
-        // Create messages with enough content to measure token removal.
-        let long_text = "x".repeat(200);
+        // Each word counts as a token; use multi-word messages to measure removal.
+        let long_text = (0..50)
+            .map(|i| format!("word{i}"))
+            .collect::<Vec<_>>()
+            .join(" ");
         let msgs = vec![
             user_msg("short question"),
             assistant_msg(&long_text),
@@ -274,13 +282,11 @@ mod tests {
         ];
         let result = tier.compact(msgs);
 
-        // Should keep only the last turn (2 messages).
         assert_eq!(result.messages.len(), 2);
         assert!(
             result.tokens_removed > 0,
             "tokens_removed should be positive when messages are discarded"
         );
-        // Rough sanity: at least 100 tokens removed (400+ chars / 4).
         assert!(
             result.tokens_removed >= 100,
             "expected substantial removal, got {}",

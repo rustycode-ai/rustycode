@@ -239,11 +239,12 @@ impl CompactPipeline {
 
 // Free helper functions
 
-/// Rough token estimate: sum of `content.len() / 4` across all messages.
-///
-/// This mirrors the heuristic used throughout the compaction tiers.
+/// Rough token estimate using the canonical word-based heuristic.
 pub fn estimate_tokens(messages: &[Message]) -> usize {
-    messages.iter().map(|m| m.content.len() / 4).sum()
+    messages
+        .iter()
+        .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+        .sum()
 }
 
 /// Emergency trim: keep the last User message and the Assistant message that
@@ -367,20 +368,20 @@ mod tests {
 
     #[test]
     fn estimate_tokens_approximate() {
-        // 100 chars = 25 tokens each, 4 messages = 100 tokens total.
-        let text_100 = "x".repeat(100);
+        // Each message has 10 words = 10 tokens, 4 messages = 40 tokens.
+        let text_10_words = "one two three four five six seven eight nine ten";
         let messages = vec![
-            user_msg(&text_100),
-            assistant_msg(&text_100),
-            user_msg(&text_100),
-            assistant_msg(&text_100),
+            user_msg(text_10_words),
+            assistant_msg(text_10_words),
+            user_msg(text_10_words),
+            assistant_msg(text_10_words),
         ];
 
         let tokens = estimate_tokens(&messages);
 
         assert_eq!(
-            tokens, 100,
-            "4 messages of 100 chars each should estimate 100 tokens (400/4)"
+            tokens, 40,
+            "4 messages of 10 words each should estimate 40 tokens"
         );
     }
 

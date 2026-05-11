@@ -219,21 +219,29 @@ impl HandoffPackage {
         !self.task_description.is_empty() && !self.task_id.is_empty()
     }
 
-    /// Estimate the token count of this package (rough approximation).
-    ///
-    /// Uses 4 characters per token as a rough heuristic.
+    /// Estimate the token count of this package using word-based heuristic.
     pub fn token_estimate(&self) -> u64 {
-        let total_chars = self.task_description.len()
-            + self.task_id.len()
+        let tokens = rustycode_protocol::estimate_tokens(&self.task_description)
+            + rustycode_protocol::estimate_tokens(&self.task_id)
             + self
                 .code_snippets
                 .iter()
-                .map(|s| s.content.len() + s.file_path.len())
+                .map(|s| {
+                    rustycode_protocol::estimate_tokens(&s.content)
+                        + rustycode_protocol::estimate_tokens(&s.file_path)
+                })
                 .sum::<usize>()
-            + self.constraints.iter().map(String::len).sum::<usize>()
-            + self.previous_assessment.as_ref().map_or(0, String::len);
+            + self
+                .constraints
+                .iter()
+                .map(|c| rustycode_protocol::estimate_tokens(c))
+                .sum::<usize>()
+            + self
+                .previous_assessment
+                .as_ref()
+                .map_or(0, |a| rustycode_protocol::estimate_tokens(a));
 
-        (total_chars as u64) / 4
+        tokens as u64
     }
 
     /// Human-readable summary for logging.

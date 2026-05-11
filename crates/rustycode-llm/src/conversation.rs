@@ -111,7 +111,8 @@ impl ConversationManager {
         // Use priority-based selection if enabled
         if let Some(ref selector) = self.selector {
             let messages = std::mem::take(&mut self.conversation.messages);
-            let token_counter = |m: &Message| m.content.as_text().len() / 4 + 1;
+            let token_counter =
+                |m: &Message| rustycode_protocol::estimate_tokens(&m.content.as_text()) + 1;
             let result = selector.select(&messages, &token_counter);
             self.conversation.messages = result.messages;
             return;
@@ -253,11 +254,10 @@ impl ConversationManager {
 
     /// Get estimated token count
     pub fn estimated_tokens(&self) -> usize {
-        // Simple heuristic: ~4 chars per token
         self.conversation
             .messages
             .iter()
-            .map(|m| m.content.as_text().len() / 4 + 1)
+            .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()) + 1)
             .sum()
     }
 
@@ -603,11 +603,11 @@ mod tests {
         // Add enough messages to trigger summarization (>10 messages, >80% tokens)
         for i in 0..12 {
             manager.add_message(Message::user(format!(
-                "User asks about topic {} with some detail",
+                "User asks about topic {} with some additional detail and context for the conversation",
                 i
             )));
             manager.add_message(Message::assistant(format!(
-                "Assistant responds about topic {} with analysis",
+                "Assistant responds about topic {} with detailed analysis and comprehensive explanation",
                 i
             )));
         }
@@ -704,9 +704,12 @@ mod tests {
 
         // Old turns that should get summarized
         for i in 0..8 {
-            manager.add_message(Message::user(format!("Explain concept {}", i)));
+            manager.add_message(Message::user(format!(
+                "Explain concept {} with additional background and context",
+                i
+            )));
             manager.add_message(Message::assistant(format!(
-                "Concept {} is about programming fundamentals with some detail",
+                "Concept {} is about programming fundamentals with some detailed examples and thorough analysis",
                 i
             )));
         }

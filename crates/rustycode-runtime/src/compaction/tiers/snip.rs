@@ -28,6 +28,10 @@ impl SnipTier {
     /// Run the Snip pass over `messages`, returning the transformed list and
     /// an estimated count of tokens removed.
     pub fn compact(&self, messages: Vec<Message>) -> TierResult {
+        let tokens_before: usize = messages
+            .iter()
+            .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+            .sum();
         let mut total_chars_removed: usize = 0;
 
         let transformed: Vec<Message> = messages
@@ -46,9 +50,14 @@ impl SnipTier {
             })
             .collect();
 
+        let tokens_after: usize = transformed
+            .iter()
+            .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+            .sum();
+
         TierResult {
             messages: transformed,
-            tokens_removed: total_chars_removed / 4,
+            tokens_removed: tokens_before.saturating_sub(tokens_after),
         }
     }
 

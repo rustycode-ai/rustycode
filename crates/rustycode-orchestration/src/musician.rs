@@ -306,7 +306,10 @@ impl Musician {
         }
 
         // Estimate token usage and record it against the tier budget.
-        let tokens_used = std::cmp::max(1, (result.output.len() as u64) / 4);
+        let tokens_used = std::cmp::max(
+            1,
+            rustycode_protocol::estimate_tokens(&result.output) as u64,
+        );
         {
             let mut iso = self.isolation.write().await;
             iso.record_usage(ctx.current_tier, tokens_used)

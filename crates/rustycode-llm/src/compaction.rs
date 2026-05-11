@@ -189,48 +189,12 @@ impl Conversation {
             .unwrap_or(0)
     }
 
-    /// Estimate token count of conversation (rough approximation)
-    ///
-    /// This is a fallback when we don't have actual token counts
+    /// Estimate token count of conversation using word-based heuristic.
     pub fn estimate_tokens(&self) -> usize {
-        // Rough estimate: ~4 characters per token
-        let text_length: usize = self
-            .messages
+        self.messages
             .iter()
-            .map(|m| {
-                // Extract content length based on message content type
-                match &m.content {
-                    rustycode_protocol::MessageContent::Simple(s) => s.len(),
-                    rustycode_protocol::MessageContent::Blocks(blocks) => {
-                        // For blocks, count the total content size
-                        blocks
-                            .iter()
-                            .map(|b| match b {
-                                rustycode_protocol::ContentBlock::Text { text, .. } => text.len(),
-                                rustycode_protocol::ContentBlock::Image { .. } => 85, // ~85 tokens per image
-                                rustycode_protocol::ContentBlock::ToolUse { id, name, input } => {
-                                    // Estimate token count for tool use: id + name + JSON input
-                                    id.len() + name.len() + input.to_string().len() / 4
-                                }
-                                rustycode_protocol::ContentBlock::Thinking {
-                                    thinking,
-                                    signature,
-                                } => {
-                                    // Estimate token count for thinking: content + signature
-                                    thinking.len() + signature.len()
-                                }
-                                #[allow(unreachable_patterns)]
-                                _ => 0,
-                            })
-                            .sum()
-                    }
-                    #[allow(unreachable_patterns)]
-                    _ => 0,
-                }
-            })
-            .sum();
-
-        text_length / 4
+            .map(|m| rustycode_protocol::estimate_tokens(&m.content.as_text()))
+            .sum()
     }
 }
 

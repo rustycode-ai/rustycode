@@ -1,5 +1,23 @@
 //! Shared text processing utilities.
 
+/// Approximate token count for a string using word-boundary counting.
+///
+/// More accurate for code than chars/4: code has many short punctuation tokens
+/// that get merged by char-based heuristics, and long identifiers that get
+/// under-split. Word-based counting matches real tokenizer behaviour more
+/// closely across prose, code, and mixed content.
+///
+/// Returns at least 1 for any non-empty string (punctuation-only content still
+/// consumes tokens). Returns 0 for the empty string.
+pub fn estimate_tokens(s: &str) -> usize {
+    let words = s.split_whitespace().count();
+    if words == 0 && !s.is_empty() {
+        1 // punctuation-only content still consumes tokens
+    } else {
+        words
+    }
+}
+
 /// Truncate a string to at most `max_len` characters, appending `"..."` if truncated.
 ///
 /// Character-safe: never splits a multi-byte UTF-8 codepoint.
