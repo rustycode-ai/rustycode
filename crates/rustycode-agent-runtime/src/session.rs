@@ -878,6 +878,8 @@ fn classify_error(err: &str) -> ErrorClass {
     }
 
     if lower.contains("429")
+        || lower.contains("rate limit")
+        || lower.contains("rate_limit")
         || lower.contains("503")
         || lower.contains("502")
         || lower.contains("500")
