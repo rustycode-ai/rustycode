@@ -16,6 +16,7 @@ pub(crate) mod types;
 mod tests;
 
 use crate::auth::AuthMethod;
+use crate::model_cache::ModelCache;
 use crate::provider::{
     ApiMode, ChatMessage, CompletionRequest, CompletionResponse, LLMProvider, MessageRole,
     ProviderConfig, ProviderError, StreamChunk,
@@ -30,6 +31,7 @@ use rustycode_tools_api::{ToolMetadataProvider, ToolProfile, ToolRegistry, ToolS
 
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
+use secrecy::ExposeSecret;
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -55,6 +57,7 @@ pub struct OpenAiProvider {
     pub(crate) last_response_id: Arc<std::sync::Mutex<Option<String>>>,
     /// Cached Responses API capability: None=unknown, Some(true)=supported, Some(false)=not supported.
     pub(crate) responses_api_supported: Arc<std::sync::Mutex<Option<bool>>>,
+    model_cache: ModelCache,
 }
 
 impl OpenAiProvider {
@@ -196,6 +199,7 @@ impl OpenAiProvider {
             tool_selector,
             last_response_id,
             responses_api_supported,
+            model_cache: ModelCache::new(),
         })
     }
 
@@ -685,28 +689,61 @@ impl LLMProvider for OpenAiProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        // Latest OpenAI models as of 2026
-        Ok(vec![
-            // GPT-5 series (latest)
-            "gpt-5.2".to_string(),
-            "gpt-5.1".to_string(),
-            "gpt-5-pro".to_string(),
-            // o-series (reasoning models)
-            "o4-mini".to_string(),
-            "o3".to_string(),
-            "o3-mini".to_string(),
-            "o1".to_string(),
-            "o1-mini".to_string(),
-            // GPT-4.1 series
-            "gpt-4.1".to_string(),
-            "gpt-4.1-mini".to_string(),
-            "gpt-4.1-nano".to_string(),
-            // GPT-4o series (omni models)
-            "gpt-4o".to_string(),
-            "gpt-4o-mini".to_string(),
-            // Legacy models
-            "gpt-4-turbo".to_string(),
-        ])
+        const FALLBACK: &[&str] = &[
+            "gpt-5.2",
+            "gpt-5.1",
+            "gpt-5-pro",
+            "o4-mini",
+            "o3",
+            "o3-mini",
+            "o1",
+            "o1-mini",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4-turbo",
+        ];
+        let endpoint = self
+            .config
+            .base_url
+            .as_deref()
+            .unwrap_or("https://api.openai.com/v1")
+            .trim_end_matches('/');
+        let url = format!("{endpoint}/models");
+        let cache = &self.model_cache;
+        let config = &self.config;
+        cache
+            .fetch_or_fallback(FALLBACK, || async {
+                let client = reqwest::Client::new();
+                let mut req = client.get(&url);
+                if let Some(key) = &config.api_key {
+                    req = req.bearer_auth(key.expose_secret());
+                }
+                let resp = req
+                    .timeout(std::time::Duration::from_secs(10))
+                    .send()
+                    .await
+                    .map_err(|e| ProviderError::Network(e.to_string()))?;
+                let body: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| ProviderError::Api(e.to_string()))?;
+                let models = body
+                    .get("data")
+                    .and_then(|d| d.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|m| {
+                                m.get("id").and_then(|id| id.as_str()).map(String::from)
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                Ok(models)
+            })
+            .await
     }
 
     async fn complete(

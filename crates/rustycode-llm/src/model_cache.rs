@@ -57,11 +57,17 @@ impl ModelCache {
 
         // Try fetching from API
         match fetch_fn().await {
-            Ok(models) => {
-                if !models.is_empty() {
-                    self.store(models.clone());
-                }
+            Ok(models) if !models.is_empty() => {
+                self.store(models.clone());
                 Ok(models)
+            }
+            Ok(_) => {
+                // Empty response — use stale cache or fallback
+                let stale = {
+                    let guard = self.state.lock().unwrap_or_else(|e| e.into_inner());
+                    guard.as_ref().map(|(_, m)| m.clone())
+                };
+                Ok(stale.unwrap_or_else(|| fallback.iter().map(|s| s.to_string()).collect()))
             }
             Err(_) => {
                 // Return stale cache or fallback on failure
@@ -161,5 +167,15 @@ mod tests {
             .unwrap();
         // Stale cache preferred over fallback
         assert_eq!(result, vec!["stale-model"]);
+    }
+
+    #[tokio::test]
+    async fn fetch_or_fallback_returns_fallback_on_empty_response() {
+        let cache = ModelCache::new();
+        let result = cache
+            .fetch_or_fallback(&["fallback-model"], || async { Ok(vec![]) })
+            .await
+            .unwrap();
+        assert_eq!(result, vec!["fallback-model"]);
     }
 }

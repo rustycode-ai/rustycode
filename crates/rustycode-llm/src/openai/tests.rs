@@ -490,10 +490,9 @@ async fn test_list_models_returns_known_models() {
     let models = <OpenAiProvider as LLMProvider>::list_models(&p)
         .await
         .unwrap();
-    assert!(models.iter().any(|m| m == "gpt-5.2"));
-    assert!(models.iter().any(|m| m == "o4-mini"));
-    assert!(models.iter().any(|m| m == "gpt-4o"));
-    assert!(models.iter().any(|m| m == "o3"));
+    // Returns either live API models or fallback list
+    assert!(!models.is_empty());
+    assert!(models.iter().any(|m| m.contains("gpt")));
 }
 
 #[test]
