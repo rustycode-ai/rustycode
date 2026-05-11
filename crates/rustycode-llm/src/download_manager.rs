@@ -145,7 +145,14 @@ impl DownloadManager {
 
     /// Get the progress for a specific download.
     pub fn progress(&self, id: &str) -> Option<DownloadProgress> {
-        self.downloads.lock().ok()?.get(id).cloned()
+        let guard = match self.downloads.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::error!("Download lock poisoned: {}", e);
+                return None;
+            }
+        };
+        guard.get(id).cloned()
     }
 
     /// Get all active downloads.

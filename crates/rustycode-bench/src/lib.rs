@@ -102,6 +102,9 @@ pub use hooks::{Hooks, TrialEvent};
 pub use job::{BenchmarkResults, Job, JobConfig};
 pub use mcp_bridge::{BenchMcpBridge, ToolResult as BenchToolResult};
 pub use registry::RegistryDownloader;
+pub use report::{
+    CsvFormatter, JsonFormatter, MarkdownFormatter, PrettyFormatter, ReportFormatter,
+};
 pub use runner::AgentFactory;
 pub use runner::{DockerRunner, DockerRunnerConfig, NativeRunner, NativeRunnerConfig};
 pub use task::steps::{MultiStepConfig, TaskStep};

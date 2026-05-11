@@ -224,14 +224,22 @@ impl AnthropicProvider {
         // Dump raw request/response to files for debugging
         let http_trace_dir = std::env::var("RTK_HTTP_TRACE_DIR")
             .unwrap_or_else(|_| "/tmp/rtk-http-trace".to_string());
-        let _ = std::fs::create_dir_all(&http_trace_dir);
+        if let Err(e) = std::fs::create_dir_all(&http_trace_dir) {
+            tracing::debug!(
+                "Failed to create HTTP trace dir {:?}: {}",
+                http_trace_dir,
+                e
+            );
+        }
         let trace_seq = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
         if let Ok(body) = serde_json::to_string_pretty(&anthropic_request) {
             let path = format!("{http_trace_dir}/{trace_seq}_req.json");
-            let _ = std::fs::write(&path, &body);
+            if let Err(e) = std::fs::write(&path, &body) {
+                tracing::debug!("Failed to write HTTP trace to {:?}: {}", path, e);
+            }
             tracing::info!("[http-trace] Request written to {path}");
         }
 
@@ -305,7 +313,9 @@ impl AnthropicProvider {
         // Dump raw response
         {
             let path = format!("{http_trace_dir}/{trace_seq}_resp.json");
-            let _ = std::fs::write(&path, &response_text);
+            if let Err(e) = std::fs::write(&path, &response_text) {
+                tracing::debug!("Failed to write HTTP trace to {:?}: {}", path, e);
+            }
             tracing::info!("[http-trace] Response written to {path}");
         }
 

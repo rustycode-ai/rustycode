@@ -68,13 +68,6 @@ impl Verifier for NativeVerifier {
             .context("test script execution failed")?;
 
         tracing::info!("Test script completed (exit {})", result.exit_code);
-        let _ = std::fs::write(
-            "/tmp/rtk-debug-verifier.txt",
-            format!(
-                "exit_code={}\nstdout={}\nstderr={}\n",
-                result.exit_code, result.stdout, result.stderr
-            ),
-        );
 
         // Try reward.json first (dict of scores)
         let json_result = env

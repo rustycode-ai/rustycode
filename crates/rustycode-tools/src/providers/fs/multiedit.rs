@@ -297,6 +297,18 @@ fn validate_edit(edit_value: &Value, ctx: &ToolContext) -> Result<ValidatedEdit>
                 ));
             }
 
+            // Check for non-unique match — silently replacing only the first
+            // occurrence is error-prone. Require unique old_text like edit.rs.
+            let match_count = content.matches(old_text).count();
+            if match_count > 1 {
+                return Err(anyhow!(
+                    "old_text is not unique in file (found {} matches) — \
+                     provide a more specific string to uniquely identify the instance: {}",
+                    match_count,
+                    validated_path.display()
+                ));
+            }
+
             EditOperation::Edit {
                 old_text: old_text.to_string(),
                 new_text: new_text.to_string(),
@@ -438,7 +450,14 @@ fn apply_edit(
 
     // Write atomically: write to a temp file, then rename over the target.
     // This prevents file corruption if the process crashes mid-write.
-    let temp_path = edit.path.with_extension("tmp");
+    let file_name = edit
+        .path
+        .file_name()
+        .unwrap_or_default()
+        .to_str()
+        .unwrap_or("edit");
+    let tmp_name = format!(".{file_name}.rustycode-tmp");
+    let temp_path = edit.path.with_file_name(tmp_name);
     {
         let mut out_file = create_file_symlink_safe(&temp_path)
             .with_context(|| format!("failed to create temp file: {}", temp_path.display()))?;
@@ -607,7 +626,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multiedit_edit_replaces_only_first_occurrence() {
+    fn test_multiedit_edit_rejects_non_unique_old_text() {
         let workspace = tempdir().unwrap();
         let test_file = workspace.path().join("test.txt");
         fs::write(&test_file, "foo bar foo baz foo").unwrap();
@@ -626,10 +645,11 @@ mod tests {
             }),
             &ctx,
         );
-        assert!(result.is_ok());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not unique"));
 
         let content = fs::read_to_string(&test_file).unwrap();
-        assert_eq!(content, "QUX bar foo baz foo");
+        assert_eq!(content, "foo bar foo baz foo", "file should be unchanged");
     }
 
     #[test]

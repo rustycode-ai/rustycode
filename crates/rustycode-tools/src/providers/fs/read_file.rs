@@ -11,6 +11,9 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::Path;
 
+/// Maximum binary file size for read operations (100 MB)
+const MAX_BINARY_SIZE: u64 = 100 * 1024 * 1024;
+
 const BLOCKED_DEVICE_PATHS: &[&str] = &[
     "/dev/",
     "/proc/",
@@ -328,6 +331,18 @@ rustycode_tools_api::define_tool! {
         }
 
         if allow_binary {
+            let file_size = fs::metadata(&path)
+                .with_context(|| format!("failed to read file metadata: {}", path.display()))?
+                .len();
+            if file_size > MAX_BINARY_SIZE {
+                return Err(anyhow!(
+                    "binary file too large ({} bytes, max {} bytes): {}",
+                    file_size,
+                    MAX_BINARY_SIZE,
+                    path.display()
+                ));
+            }
+
             let mut f = open_file_symlink_safe(&path)?;
             let mut bytes = Vec::new();
             use std::io::Read;

@@ -256,6 +256,9 @@ impl CompactionStrategy {
 pub struct CompactionEngine {
     strategy: CompactionStrategy,
     use_summarization: bool,
+    /// Base directory for session data. When set, snapshot paths are deterministic
+    /// regardless of CWD. Falls back to `./sessions` when `None` for backward compat.
+    sessions_dir: Option<std::path::PathBuf>,
 }
 
 impl CompactionEngine {
@@ -263,12 +266,17 @@ impl CompactionEngine {
         Self {
             strategy,
             use_summarization: true,
+            sessions_dir: None,
         }
     }
 
-    /// Enable or disable summarization
     pub const fn with_summarization(mut self, enable: bool) -> Self {
         self.use_summarization = enable;
+        self
+    }
+
+    pub fn with_sessions_dir(mut self, dir: impl Into<std::path::PathBuf>) -> Self {
+        self.sessions_dir = Some(dir.into());
         self
     }
 
@@ -285,7 +293,11 @@ impl CompactionEngine {
         let snapshot = session
             .pre_compact()
             .map_err(|e| CompactionError::SummaryError(e.to_string()))?;
-        let session_dir = std::path::PathBuf::from("./sessions").join(session.id.as_str());
+        let session_dir = self
+            .sessions_dir
+            .as_deref()
+            .unwrap_or_else(|| std::path::Path::new("./sessions"))
+            .join(session.id.as_str());
         snapshot.save_to_disk(&session_dir).map_err(|e| {
             CompactionError::SummaryError(format!(
                 "Failed to save pre-compact snapshot for session {}: {}. \

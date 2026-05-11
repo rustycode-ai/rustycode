@@ -148,7 +148,7 @@ fn execute_in_os_sandbox(command: &str, ctx: &ToolContext) -> Result<ToolOutput>
 }
 
 #[cfg(windows)]
-fn try_native_fallback(command: &str) -> Option<Result<ToolOutput>> {
+fn try_native_fallback(command: &str, workspace: &Path) -> Option<Result<ToolOutput>> {
     use crate::native_tools::{native_cat, native_grep, native_ls};
 
     let trimmed = command.trim();
@@ -161,6 +161,11 @@ fn try_native_fallback(command: &str) -> Option<Result<ToolOutput>> {
     match binary.as_str() {
         "cat" if parts.len() == 2 && !parts[1].starts_with('-') => {
             let path = std::path::Path::new(parts[1]);
+            if let Err(e) =
+                crate::security::cross_platform::validate_path_in_workspace(path, workspace)
+            {
+                return Some(Err(e));
+            }
             Some(
                 native_cat(path)
                     .map(ToolOutput::text)
@@ -173,6 +178,11 @@ fn try_native_fallback(command: &str) -> Option<Result<ToolOutput>> {
             } else {
                 std::path::Path::new(".")
             };
+            if let Err(e) =
+                crate::security::cross_platform::validate_path_in_workspace(target, workspace)
+            {
+                return Some(Err(e));
+            }
             Some(
                 native_ls(target)
                     .map(|files| ToolOutput::text(files.join("\n")))
@@ -196,11 +206,19 @@ fn try_native_fallback(command: &str) -> Option<Result<ToolOutput>> {
             }
 
             match (pattern, target_path) {
-                (Some(pat), Some(path)) => Some(
-                    native_grep(std::path::Path::new(path), pat)
-                        .map(ToolOutput::text)
-                        .map_err(|e| anyhow::anyhow!("native grep failed: {e}")),
-                ),
+                (Some(pat), Some(path)) => {
+                    let grep_path = std::path::Path::new(path);
+                    if let Err(e) = crate::security::cross_platform::validate_path_in_workspace(
+                        grep_path, workspace,
+                    ) {
+                        return Some(Err(e));
+                    }
+                    Some(
+                        native_grep(grep_path, pat)
+                            .map(ToolOutput::text)
+                            .map_err(|e| anyhow::anyhow!("native grep failed: {e}")),
+                    )
+                }
                 _ => None,
             }
         }
@@ -272,7 +290,7 @@ rustycode_tools_api::define_tool! {
 
         #[cfg(windows)]
         {
-            if let Some(native_result) = try_native_fallback(&command) {
+            if let Some(native_result) = try_native_fallback(&command, &ctx.cwd) {
                 return native_result;
             }
         }
@@ -466,6 +484,20 @@ impl crate::streaming::ToolStreaming for BashTool {
         ensure_path_within_workspace(ctx, &cwd)?;
         validate_command_safety(&command)?;
 
+        use crate::security::cross_platform::{allowed_commands, blocked_commands, ShellType};
+
+        let shell_type = ShellType::Bash;
+        let binary_name = super::validation::extract_binary_name(&command)?;
+        let allowed_commands = allowed_commands(shell_type);
+        if !allowed_commands.contains(&binary_name.as_str()) {
+            anyhow::bail!("command '{}' is not in allowed list for bash", binary_name);
+        }
+
+        let blocked_commands = blocked_commands(shell_type);
+        if blocked_commands.contains(&binary_name.as_str()) {
+            anyhow::bail!("command '{}' is blocked for security reasons", binary_name);
+        }
+
         let (sender, receiver) = create_stream_channel();
         let sender_clone = sender.clone();
 
@@ -508,7 +540,7 @@ impl crate::streaming::ToolStreaming for BashTool {
 
             let metadata = json!({
                 "exit_code": exit_code,
-                "command": command,
+                "command": crate::security::validation::sanitize_for_log(&command),
                 "execution_time_ms": execution_time.as_millis(),
                 "timeout": timeout_secs,
                 "streaming": true,

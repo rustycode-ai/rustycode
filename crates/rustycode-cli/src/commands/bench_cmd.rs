@@ -3,6 +3,8 @@
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 
+use rustycode_bench::ReportFormatter;
+
 use super::cli_args::BenchCommand;
 
 pub async fn execute(cmd: BenchCommand) -> Result<()> {
@@ -64,7 +66,7 @@ async fn run_bench(
     max_tokens: u32,
     timeout: u64,
     env: String,
-    _output: Option<String>,
+    output: Option<String>,
 ) -> Result<()> {
     // Resolve dataset directory
     let dataset_dir = if let Some(p) = path {
@@ -104,7 +106,7 @@ async fn run_bench(
                 max_turns,
                 max_tokens,
                 timeout,
-                _output.as_deref(),
+                output.as_deref(),
             )
             .await
         }
@@ -226,6 +228,7 @@ async fn run_native(
     max_turns: usize,
     max_tokens: u32,
     timeout: u64,
+    output_format: Option<&str>,
 ) -> Result<()> {
     let runner_config = rustycode_bench::NativeRunnerConfig {
         agent_name: agent_name.to_string(),
@@ -271,7 +274,29 @@ async fn run_native(
     );
 
     let results = runner.run(tasks, dataset_path, agent_factory).await?;
-    println!("\n{}", results.summary());
+
+    let formatted = match output_format {
+        Some("json") => rustycode_bench::JsonFormatter.format_results(&results),
+        Some("csv") => rustycode_bench::CsvFormatter.format_results(&results),
+        Some("markdown") | Some("md") => {
+            rustycode_bench::MarkdownFormatter.format_results(&results)
+        }
+        Some(other) => {
+            anyhow::bail!("Unknown output format: '{other}'. Use: json, csv, markdown");
+        }
+        None => {
+            println!("\n{}", results.summary());
+            return Ok(());
+        }
+    };
+
+    let ext = match output_format {
+        Some("markdown") | Some("md") => "md",
+        other => other.unwrap_or("txt"),
+    };
+    let out_path = PathBuf::from(format!("bench-results.{ext}"));
+    std::fs::write(&out_path, &formatted)?;
+    println!("Results written to {}", out_path.display());
     Ok(())
 }
 

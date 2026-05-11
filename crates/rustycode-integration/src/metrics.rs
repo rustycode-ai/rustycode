@@ -267,18 +267,18 @@ impl MetricsCollector {
         match &result.result {
             crate::router::ExecutionOutcome::Success(_) => match result.execution_path {
                 crate::router::ExecutionPath::Orchestration => {
+                    let prev_count = metrics.routing_stats.orchestration_routed.saturating_sub(1);
                     metrics.performance_metrics.orchestration_success_rate =
                         (metrics.performance_metrics.orchestration_success_rate
-                            * (metrics.routing_stats.orchestration_routed - 1) as f64
+                            * prev_count as f64
                             + 1.0)
-                            / metrics.routing_stats.orchestration_routed as f64;
+                            / metrics.routing_stats.orchestration_routed.max(1) as f64;
                 }
                 crate::router::ExecutionPath::Legacy => {
+                    let prev_count = metrics.routing_stats.legacy_routed.saturating_sub(1);
                     metrics.performance_metrics.legacy_success_rate =
-                        (metrics.performance_metrics.legacy_success_rate
-                            * (metrics.routing_stats.legacy_routed - 1) as f64
-                            + 1.0)
-                            / metrics.routing_stats.legacy_routed as f64;
+                        (metrics.performance_metrics.legacy_success_rate * prev_count as f64 + 1.0)
+                            / metrics.routing_stats.legacy_routed.max(1) as f64;
                 }
                 _ => {}
             },
@@ -298,10 +298,14 @@ impl MetricsCollector {
 
         // Update execution time averages
         if let Some(metadata) = &result.execution_metadata {
+            let total = metrics.routing_stats.total_tasks_routed.max(1) as f64;
             let perf = &mut metrics.performance_metrics;
-            perf.avg_orchestration_execution_time = metadata.wall_time_secs;
+            perf.avg_orchestration_execution_time =
+                (perf.avg_orchestration_execution_time * (total - 1.0) + metadata.wall_time_secs)
+                    / total;
             if let Some(cost) = metadata.cost_usd {
-                perf.avg_orchestration_cost = cost;
+                perf.avg_orchestration_cost =
+                    (perf.avg_orchestration_cost * (total - 1.0) + cost) / total;
             }
         }
 

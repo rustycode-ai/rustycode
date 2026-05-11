@@ -15,6 +15,9 @@ use walkdir::WalkDir;
 
 use super::glob::{glob_pattern_match, should_skip};
 
+/// Maximum file size for grep reads (10 MB)
+const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
+
 /// Type alias for the regex cache to reduce type complexity
 type RegexCache = Arc<Mutex<lru::LruCache<String, Arc<Regex>>>>;
 
@@ -285,6 +288,19 @@ rustycode_tools_api::define_tool! {
                 if !matches_type(entry.path(), type_name) {
                     continue;
                 }
+            }
+
+            let file_metadata = match fs::metadata(entry.path()) {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            if file_metadata.len() > MAX_FILE_SIZE {
+                tracing::warn!(
+                    path = %entry.path().display(),
+                    size = file_metadata.len(),
+                    "skipping file exceeding grep size limit"
+                );
+                continue;
             }
 
             let Ok(content) = fs::read_to_string(entry.path()) else {

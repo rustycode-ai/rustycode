@@ -111,14 +111,22 @@ impl OpenAiProvider {
         // HTTP trace dump for debugging (before send so we capture body even if send hangs)
         let http_trace_dir = std::env::var("RTK_HTTP_TRACE_DIR")
             .unwrap_or_else(|_| "/tmp/rtk-http-trace".to_string());
-        let _ = std::fs::create_dir_all(&http_trace_dir);
+        if let Err(e) = std::fs::create_dir_all(&http_trace_dir) {
+            tracing::debug!(
+                "Failed to create HTTP trace dir {:?}: {}",
+                http_trace_dir,
+                e
+            );
+        }
         let trace_seq = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
         if let Ok(req_body) = serde_json::to_string_pretty(&body) {
             let trace_path = format!("{http_trace_dir}/{trace_seq}_req.json");
-            let _ = std::fs::write(&trace_path, &req_body);
+            if let Err(e) = std::fs::write(&trace_path, &req_body) {
+                tracing::debug!("Failed to write HTTP trace to {:?}: {}", trace_path, e);
+            }
             tracing::info!(
                 "[openai-trace] Request dumped to {trace_path} ({} bytes)",
                 req_body.len()

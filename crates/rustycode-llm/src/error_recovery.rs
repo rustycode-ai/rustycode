@@ -142,9 +142,16 @@ where
                 anyhow::anyhow!("UseDefault: failed to parse default_response as T: {e}")
             })
         }
-        RecoveryStrategy::FallbackModel { models } => operation()
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed (tried fallback models {:?}): {}", models, e)),
+        RecoveryStrategy::FallbackModel { models } => operation().await.map_err(|e| {
+            // TODO: Implement actual model iteration. The operation closure
+            // currently captures a single model — it needs to accept a model
+            // parameter so each fallback can be attempted in sequence.
+            let _ = models;
+            anyhow::anyhow!(
+                "Failed (fallback models available but not yet implemented): {}",
+                e
+            )
+        }),
         RecoveryStrategy::Fail => operation().await,
     }
 }

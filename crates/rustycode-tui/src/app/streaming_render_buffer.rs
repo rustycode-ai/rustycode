@@ -126,16 +126,13 @@ fn truncate_code_blocks(content: &str) -> String {
             let fence_header = &content[fence_abs..fence_header_end];
 
             let close_abs = code_start + close_offset + 1;
-            let suffix: &str = content
-                .get(close_abs + fence_str.len()..)
-                .unwrap_or_default();
 
             result.push_str(fence_header);
             result.push('\n');
             result.push_str(&truncated);
             result.push_str(&format!(
-                "\n... ({} more lines{})\n{}{}",
-                remaining_lines, file_msg, fence_str, suffix
+                "\n... ({} more lines{})\n{}",
+                remaining_lines, file_msg, fence_str
             ));
 
             pos = close_abs + fence_str.len();

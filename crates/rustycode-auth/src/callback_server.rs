@@ -143,7 +143,9 @@ impl CallbackServer {
              Connection: close\r\n\r\n{body}",
             body.len()
         );
-        let _ = write_half.write_all(response.as_bytes()).await;
+        if let Err(e) = write_half.write_all(response.as_bytes()).await {
+            tracing::warn!("Failed to send callback response to browser: {}", e);
+        }
         let _ = write_half.shutdown().await;
 
         // Check for OAuth error

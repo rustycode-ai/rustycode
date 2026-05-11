@@ -148,9 +148,7 @@ impl NativeRunner {
                             }
                             let _ = std::fs::copy(&trace_src, &trace_dst);
                         }
-                        // TEMP: skip cleanup to debug file-organizer
-                        eprintln!("DEBUG: keeping trial dir {}", entry.path().display());
-                        //let _ = std::fs::remove_dir_all(entry.path());
+                        let _ = std::fs::remove_dir_all(entry.path());
                     }
                 }
             }
