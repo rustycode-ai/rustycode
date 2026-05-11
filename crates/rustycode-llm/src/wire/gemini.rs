@@ -83,23 +83,23 @@ impl Protocol for GeminiProtocol {
             }
         }
 
-        // Only include toolConfig when tools are present — Gemini rejects
+        // Only include tools/toolConfig when tools are present — Gemini rejects
         // "function calling config without function_declarations" (HTTP 400).
-        let tool_config = if tools_blocks.is_some() {
-            tool_config
-        } else {
-            None
-        };
+        // Build JSON map dynamically to omit keys entirely (not send null).
+        let mut body = serde_json::Map::new();
+        body.insert("contents".to_string(), Value::Array(contents));
+        body.insert("generationConfig".to_string(), generation_config);
+        if let Some(si) = system_instruction {
+            body.insert("systemInstruction".to_string(), si);
+        }
+        if let Some(tools) = tools_blocks {
+            body.insert("tools".to_string(), tools);
+            if let Some(tc) = tool_config {
+                body.insert("toolConfig".to_string(), tc);
+            }
+        }
 
-        let body = json!({
-            "contents": contents,
-            "generationConfig": generation_config,
-            "systemInstruction": system_instruction,
-            "tools": tools_blocks,
-            "toolConfig": tool_config,
-        });
-
-        Ok(body)
+        Ok(Value::Object(body))
     }
 
     fn parse_response(&self, body: &Value) -> Result<CompletionResponse> {
