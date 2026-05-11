@@ -33,9 +33,18 @@ impl Protocol for BedrockProtocol {
 
         let messages = self.convert_messages(&request.messages);
 
-        let tool_config = tools.map(|t| {
+        // Use typed ToolSchema if provided, otherwise fall back to raw JSON from request
+        let serialized_tools: Option<Vec<Value>> = match tools {
+            Some(t) if !t.is_empty() => Some(self.serialize_tools(t)),
+            _ => request
+                .tools
+                .as_ref()
+                .map(|raw| self.convert_raw_tools(raw)),
+        };
+
+        let tool_config = serialized_tools.filter(|t| !t.is_empty()).map(|t| {
             json!({
-                "tools": self.serialize_tools(t),
+                "tools": t,
                 "toolChoice": match &request.tool_choice {
                     Some(Value::String(s)) => match s.as_str() {
                         "auto" => json!({"auto": {}}),
@@ -47,15 +56,18 @@ impl Protocol for BedrockProtocol {
             })
         });
 
-        let body = json!({
+        let mut body = json!({
             "messages": messages,
             "system": system,
             "inferenceConfig": {
                 "maxTokens": request.max_tokens.unwrap_or(4096),
                 "temperature": request.temperature.unwrap_or(0.7),
             },
-            "toolConfig": tool_config,
         });
+
+        if let Some(tc) = tool_config {
+            body["toolConfig"] = tc;
+        }
 
         Ok(body)
     }
@@ -209,6 +221,38 @@ impl Protocol for BedrockProtocol {
 }
 
 impl BedrockProtocol {
+    /// Convert raw JSON tool definitions (OpenAI/Anthropic format) to Bedrock toolSpec format.
+    fn convert_raw_tools(&self, tools: &[Value]) -> Vec<Value> {
+        tools
+            .iter()
+            .map(|tool| {
+                let name = tool
+                    .get("name")
+                    .or_else(|| tool.get("function").and_then(|f| f.get("name")))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let description = tool
+                    .get("description")
+                    .or_else(|| tool.get("function").and_then(|f| f.get("description")))
+                    .and_then(|v| v.as_str());
+                let parameters = tool
+                    .get("parameters")
+                    .or_else(|| tool.get("input_schema"))
+                    .cloned()
+                    .unwrap_or(json!({"type": "object", "properties": {}}));
+
+                let mut spec = json!({
+                    "name": name,
+                    "inputSchema": { "json": parameters }
+                });
+                if let Some(desc) = description {
+                    spec["description"] = json!(desc);
+                }
+                json!({ "toolSpec": spec })
+            })
+            .collect()
+    }
+
     fn convert_messages(&self, messages: &[crate::provider::ChatMessage]) -> Vec<Value> {
         use crate::provider::MessageRole;
         use rustycode_protocol::message::{ContentBlock, MessageContent};

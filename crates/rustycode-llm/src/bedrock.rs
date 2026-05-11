@@ -3,331 +3,149 @@
 //! This provider supports AWS Bedrock which offers access to foundation models
 //! from Anthropic, AI21, Meta, Mistral, and more through a single API.
 //!
+//! ## Architecture
+//!
+//! Uses the Route composition pattern:
+//! - **chat_route**: `/model/{model-id}/converse` via `HttpTransport`
+//! - **stream_route**: `/model/{model-id}/converse-stream` via `HttpSseTransport`
+//! - **BedrockProtocol**: handles Converse API serialization
+//! - **Auth**: AWS Sigv4 (default) or x-api-key header (when API key provided)
+//!
 //! ## Configuration
 //!
 //! The provider can be configured with:
 //! - Direct AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION)
-//! - API key via the `api_key` field (for simpler setups)
+//! - API key via the `api_key` field (for simpler setups / proxies)
 //! - Custom endpoint for AWS Bedrock proxies
 //!
 //! ## Supported Models
 //!
-//! - Anthropic Claude (anthropic.claude-3-sonnet, claude-3-haiku, claude-3-opus)
-//! - Meta Llama (meta.llama3-8b-instant, llama3-70b-instruct)
-//! - Mistral AI (mistral.large-2407, mistral.small-2402)
-//! - AI21 Jurassic (ai21.jamba-1-5-large, jamba-instruct)
+//! - Anthropic Claude (claude-4-opus, claude-4-sonnet, claude-4-haiku)
+//! - Meta Llama (llama3-8b, llama3-70b, llama4)
+//! - Mistral AI (mistral-large, mistral-small)
+//! - AI21 Jurassic (jamba-1-5-large)
 
+use crate::auth::{ApiKeyHeaderAuth, AuthMethod, AwsSigv4Auth};
 use crate::provider::{
     CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
 };
 use crate::provider_metadata::{ConfigField, ConfigFieldType, ConfigSchema, ProviderMetadata};
-use crate::retry::{extract_retry_after_ms, retry_with_backoff, RetryConfig};
+use crate::route::Route;
+use crate::transport::{HttpSseTransport, HttpTransport};
+use crate::wire::bedrock::BedrockProtocol;
 
-// Import unified trait from protocol
-
-use anyhow::{Context, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
-use secrecy::ExposeSecret;
-use serde::{Deserialize, Serialize};
+use secrecy::{ExposeSecret, SecretString};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::Duration;
 
-/// Default AWS Bedrock endpoint format
-#[allow(dead_code)] // Kept for future use
-const BEDROCK_ENDPOINT_FORMAT: &str = "https://bedrock-runtime.{}.amazonaws.com";
+/// Default timeout in seconds for Bedrock requests.
+const DEFAULT_TIMEOUT_SECS: u64 = 300;
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BedrockRequest {
-    messages: Vec<BedrockConverseMessage>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    system: Option<Vec<BedrockSystemContent>>,
-    inference_config: BedrockInferenceConfig,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_config: Option<BedrockToolConfig>,
-}
+/// Default AWS region.
+const DEFAULT_REGION: &str = "us-east-1";
 
-#[derive(Serialize)]
-struct BedrockSystemContent {
-    text: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BedrockInferenceConfig {
-    max_tokens: u32,
-    temperature: f32,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BedrockToolConfig {
-    tools: Vec<BedrockTool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<serde_json::Value>,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BedrockTool {
-    tool_spec: BedrockToolSpec,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BedrockToolSpec {
-    name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<String>,
-    input_schema: BedrockInputSchema,
-}
-
-#[derive(Serialize)]
-struct BedrockInputSchema {
-    json: serde_json::Value,
-}
-
-#[derive(Serialize, Clone)]
-struct BedrockConverseMessage {
-    role: String,
-    content: Vec<serde_json::Value>,
-}
-
-#[derive(Deserialize)]
-struct BedrockResponse {
-    output: BedrockOutput,
-    usage: BedrockUsage,
-    #[serde(default)]
-    stop_reason: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct BedrockOutput {
-    message: BedrockResponseMessage,
-}
-
-#[derive(Deserialize)]
-struct BedrockResponseMessage {
-    #[allow(dead_code)]
-    role: String,
-    content: Vec<BedrockResponseContent>,
-}
-
-#[derive(Deserialize)]
-struct BedrockResponseContent {
-    #[serde(rename = "type")]
-    #[allow(dead_code)]
-    content_type: Option<String>,
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    tool_use: Option<BedrockResponseToolUse>,
-}
-
-#[derive(Deserialize)]
-struct BedrockResponseToolUse {
-    tool_use_id: String,
-    name: String,
-    input: serde_json::Value,
-}
-
-#[derive(Deserialize)]
-struct BedrockUsage {
-    #[allow(dead_code)] // Kept for future use
-    input_tokens: usize,
-    #[allow(dead_code)] // Kept for future use
-    output_tokens: usize,
-    total_tokens: usize,
-}
-
-/// Convert protocol ChatMessages to Bedrock Converse API format.
-fn convert_messages(messages: &[crate::provider::ChatMessage]) -> Vec<BedrockConverseMessage> {
-    use crate::provider::MessageRole;
-    use rustycode_protocol::{ContentBlock, MessageContent};
-
-    messages
-        .iter()
-        .flat_map(|msg| {
-            let role = match &msg.role {
-                MessageRole::User | MessageRole::Tool(_) => "user",
-                MessageRole::Assistant => "assistant",
-                MessageRole::System => "user",
-            };
-
-            match &msg.content {
-                MessageContent::Blocks(blocks) => {
-                    let mut parts: Vec<serde_json::Value> = Vec::new();
-                    let mut tool_results: Vec<BedrockConverseMessage> = Vec::new();
-
-                    for block in blocks {
-                        match block {
-                            ContentBlock::Text { text, .. } => {
-                                parts.push(serde_json::json!({ "text": text }));
-                            }
-                            ContentBlock::Image { .. } => {
-                                parts.push(serde_json::json!({ "text": "[Image]" }));
-                            }
-                            ContentBlock::ToolUse { id, name, input } => {
-                                parts.push(serde_json::json!({
-                                    "toolUse": { "toolUseId": id, "name": name, "input": input }
-                                }));
-                            }
-                            ContentBlock::ToolResult { tool_use_id, content, is_error } => {
-                                let status = if *is_error { "error" } else { "success" };
-                                tool_results.push(BedrockConverseMessage {
-                                    role: "user".to_string(),
-                                    content: vec![serde_json::json!({
-                                        "toolResult": {
-                                            "toolUseId": tool_use_id,
-                                            "content": [{ "text": content }],
-                                            "status": status
-                                        }
-                                    })],
-                                });
-                            }
-                            ContentBlock::Thinking { thinking, .. } if !thinking.is_empty() => {
-                                    parts.push(serde_json::json!({
-                                        "text": format!("[prior-reasoning]\n{}\n[/prior-reasoning]", thinking)
-                                    }));
-                            }
-                            _ => {}
-                        }
-                    }
-
-                    let mut result = Vec::new();
-                    if !parts.is_empty() {
-                        result.push(BedrockConverseMessage { role: role.to_string(), content: parts });
-                    }
-                    result.extend(tool_results);
-                    result
-                }
-                _ => {
-                    vec![BedrockConverseMessage {
-                        role: role.to_string(),
-                        content: vec![serde_json::json!({ "text": msg.content.to_text() })],
-                    }]
-                }
-            }
-        })
-        .collect()
-}
-
-/// Convert tool definitions to Bedrock toolSpec format.
-fn convert_tools(tools: &[serde_json::Value]) -> Vec<BedrockTool> {
-    tools
-        .iter()
-        .map(|tool| {
-            let name = tool
-                .get("name")
-                .or_else(|| tool.get("function").and_then(|f| f.get("name")))
-                .and_then(|v| v.as_str())
-                .unwrap_or("unknown");
-            let description = tool
-                .get("description")
-                .or_else(|| tool.get("function").and_then(|f| f.get("description")))
-                .and_then(|v| v.as_str());
-            let parameters = tool
-                .get("parameters")
-                .or_else(|| tool.get("input_schema"))
-                .cloned()
-                .unwrap_or(serde_json::json!({"type": "object", "properties": {}}));
-
-            BedrockTool {
-                tool_spec: BedrockToolSpec {
-                    name: name.to_string(),
-                    description: description.map(|d| d.to_string()),
-                    input_schema: BedrockInputSchema { json: parameters },
-                },
-            }
-        })
-        .collect()
-}
-
-/// Convert tool_choice to Bedrock toolChoice format.
-fn convert_tool_choice(tc: &serde_json::Value) -> serde_json::Value {
-    match tc.as_str() {
-        Some("auto") | Some("AUTO") => serde_json::json!({"auto": {}}),
-        Some("required") | Some("any") => serde_json::json!({"any": {}}),
-        Some(name) => serde_json::json!({"tool": {"name": name}}),
-        None => serde_json::json!({"auto": {}}),
-    }
-}
-
-/// AWS Bedrock LLM provider
+/// AWS Bedrock LLM provider.
+///
+/// Composes two routes from `BedrockProtocol` + transport + auth:
+/// - **chat_route**: non-streaming Converse endpoint
+/// - **stream_route**: streaming Converse endpoint
 pub struct BedrockProvider {
     config: ProviderConfig,
+    chat_route: Route,
+    stream_route: Route,
     region: String,
-    client: reqwest::Client,
-    #[allow(dead_code)] // Kept for future use
-    model: String,
 }
 
 impl BedrockProvider {
+    /// Create a new Bedrock provider with config validation.
     pub fn new(config: ProviderConfig, model: String) -> Result<Self> {
-        // Validate config using provider metadata
         Self::metadata().validate_config(&config)?;
+        Self::build(config, model)
+    }
 
-        // Get AWS region from config or environment
+    /// Create provider without config validation (for custom endpoints/proxies).
+    pub fn new_without_validation(config: ProviderConfig, model: String) -> Result<Self> {
+        Self::build(config, model)
+    }
+
+    fn build(config: ProviderConfig, _model: String) -> Result<Self> {
+        // Resolve region from environment or default
         let region = std::env::var("AWS_REGION")
             .or_else(|_| std::env::var("AWS_DEFAULT_REGION"))
-            .unwrap_or_else(|_| {
-                // Extract region from model name if possible (e.g., "us-east-1")
-                if model.contains('.') {
-                    model
-                        .split('.')
-                        .next_back()
-                        .unwrap_or("us-east-1")
-                        .to_string()
-                } else {
-                    "us-east-1".to_string()
-                }
-            });
+            .unwrap_or_else(|_| DEFAULT_REGION.to_string());
 
-        // Check for AWS credentials or API key
-        let _has_aws_creds = std::env::var("AWS_ACCESS_KEY_ID").is_ok()
-            && std::env::var("AWS_SECRET_ACCESS_KEY").is_ok();
+        let timeout = config.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECS);
+        let base = config
+            .base_url
+            .as_deref()
+            .unwrap_or("")
+            .trim_end_matches('/');
+        let base = if base.is_empty() {
+            format!("https://bedrock-runtime.{}.amazonaws.com", region)
+        } else {
+            base.to_string()
+        };
 
-        // Use API key from config if provided
-        let api_key = config.api_key.as_ref().map(|k| k.expose_secret());
+        // Auth: x-api-key header if API key provided, AWS Sigv4 otherwise
+        let auth: Box<dyn AuthMethod> = if let Some(key) = config.api_key.clone() {
+            Box::new(ApiKeyHeaderAuth::new("x-api-key", key))
+        } else {
+            let access_key = std::env::var("AWS_ACCESS_KEY_ID")
+                .map(|s| SecretString::new(s.into_boxed_str()))
+                .map_err(|_| {
+                    anyhow::anyhow!(
+                        "AWS credentials required. Set AWS_ACCESS_KEY_ID and \
+                         AWS_SECRET_ACCESS_KEY env vars, or provide api_key in config"
+                    )
+                })?;
+            let secret_key = std::env::var("AWS_SECRET_ACCESS_KEY")
+                .map(|s| SecretString::new(s.into_boxed_str()))
+                .map_err(|_| {
+                    anyhow::anyhow!(
+                        "AWS credentials required. Set AWS_ACCESS_KEY_ID and \
+                         AWS_SECRET_ACCESS_KEY env vars, or provide api_key in config"
+                    )
+                })?;
+            Box::new(AwsSigv4Auth::new(
+                access_key,
+                secret_key,
+                region.clone(),
+                "bedrock-runtime".to_string(),
+            ))
+        };
 
-        // Create HTTP client with headers
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
+        // Chat route: non-streaming converse
+        let chat_endpoint = format!("{base}/model/{{model}}/converse");
+        let chat_route = Route::new(
+            chat_endpoint,
+            Box::new(BedrockProtocol),
+            Box::new(HttpTransport::new(timeout)?),
+            auth.clone_box(),
+        )
+        .with_name("bedrock-converse");
 
-        // Add API key header if provided (for custom endpoints/proxies)
-        if let Some(key) = api_key {
-            headers.insert(
-                reqwest::header::HeaderName::from_static("x-api-key"),
-                reqwest::header::HeaderValue::from_str(key).map_err(|e| {
-                    ProviderError::Configuration(format!("invalid API key format: {}", e))
-                })?,
-            );
-        }
-
-        let timeout = config.timeout_seconds.unwrap_or(180);
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .timeout(Duration::from_secs(timeout))
-            .connect_timeout(Duration::from_secs(10))
-            .build()
-            .map_err(|e| {
-                ProviderError::Configuration(format!("failed to build HTTP client: {}", e))
-            })?;
+        // Stream route: streaming converse-stream
+        let stream_endpoint = format!("{base}/model/{{model}}/converse-stream");
+        let stream_route = Route::new(
+            stream_endpoint,
+            Box::new(BedrockProtocol),
+            Box::new(HttpSseTransport::new(timeout)?),
+            auth,
+        )
+        .with_name("bedrock-stream");
 
         Ok(Self {
             config,
+            chat_route,
+            stream_route,
             region,
-            client,
-            model,
         })
     }
 
-    /// Get metadata for this provider
+    /// Get metadata for this provider.
     pub fn metadata() -> ProviderMetadata {
         ProviderMetadata {
             provider_id: "bedrock".to_string(),
@@ -402,210 +220,30 @@ impl BedrockProvider {
         }
     }
 
-    pub fn endpoint(&self) -> String {
-        if let Some(endpoint) = &self.config.base_url {
-            endpoint.clone()
-        } else {
+    /// Build the chat endpoint URL for a given model.
+    pub fn endpoint(&self, model: &str) -> String {
+        let base = self.config.base_url.as_deref().unwrap_or("");
+        let base = if base.is_empty() {
             format!("https://bedrock-runtime.{}.amazonaws.com", self.region)
-        }
+        } else {
+            base.trim_end_matches('/').to_string()
+        };
+        format!("{base}/model/{model}/converse")
     }
 
-    /// Get the AWS region for this provider
+    /// Get the AWS region for this provider.
     pub fn region(&self) -> &str {
         &self.region
     }
 
-    async fn complete_internal(&self, request: &CompletionRequest) -> Result<CompletionResponse> {
-        let url = format!("{}/model/{}/converse", self.endpoint(), request.model);
-
-        let system = request
-            .system_prompt
-            .as_ref()
-            .map(|s| vec![BedrockSystemContent { text: s.clone() }]);
-        let messages = convert_messages(&request.messages);
-        let tool_config = request
-            .tools
-            .as_ref()
-            .map(|tools| {
-                let bt = convert_tools(tools);
-                let tc = request.tool_choice.as_ref().map(convert_tool_choice);
-                BedrockToolConfig {
-                    tools: bt,
-                    tool_choice: tc,
-                }
-            })
-            .filter(|tc| !tc.tools.is_empty());
-
-        let request_body = BedrockRequest {
-            messages,
-            system,
-            inference_config: BedrockInferenceConfig {
-                max_tokens: request.max_tokens.unwrap_or(4096),
-                temperature: request.temperature.unwrap_or(0.7),
-            },
-            tool_config,
-        };
-
-        let response = self
-            .client
-            .post(&url)
-            .json(&request_body)
-            .send()
-            .await
-            .context("request failed")?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
-                "Bedrock API error: {} - {}",
-                status.as_u16(),
-                error_text
-            ));
-        }
-
-        let br: BedrockResponse = response.json().await.context("failed to parse response")?;
-
-        let mut parts: Vec<String> = Vec::new();
-        let mut tc_json: Vec<serde_json::Value> = Vec::new();
-        for c in &br.output.message.content {
-            if let Some(text) = &c.text {
-                if !text.is_empty() {
-                    parts.push(text.clone());
-                }
-            }
-            if let Some(tu) = &c.tool_use {
-                tc_json.push(serde_json::json!({
-                    "id": tu.tool_use_id, "type": "function",
-                    "function": { "name": tu.name, "arguments": serde_json::to_string(&tu.input).unwrap_or_else(|_| "{}".to_string()) }
-                }));
-            }
-        }
-        let mut content = parts.join("\n");
-        if !tc_json.is_empty() {
-            let fmt = serde_json::to_string_pretty(&tc_json).unwrap_or_else(|_| "[]".to_string());
-            if !content.is_empty() {
-                content.push('\n');
-            }
-            content.push_str(&format!("```tool\n{}\n```", fmt));
-        }
-
-        Ok(CompletionResponse {
-            content,
-            model: request.model.clone(),
-            usage: Some(crate::provider::Usage {
-                input_tokens: br.usage.input_tokens as u32,
-                output_tokens: br.usage.output_tokens as u32,
-                total_tokens: br.usage.total_tokens as u32,
-                cache_read_input_tokens: 0,
-                cache_creation_input_tokens: 0,
-                reasoning_tokens: None,
-            }),
-            stop_reason: crate::provider::normalize_stop_reason(br.stop_reason.as_deref()),
-            citations: None,
-            thinking_blocks: None,
-            structured_output: None,
-        })
+    /// Resolve the model-specific chat endpoint by replacing `{model}` placeholder.
+    fn resolve_chat_endpoint(&self, model: &str) -> String {
+        self.chat_route.endpoint.replace("{model}", model)
     }
 
-    #[allow(dead_code)] // Kept for future use
-    async fn complete_v2(
-        &self,
-        request: &CompletionRequest,
-    ) -> Result<CompletionResponse, ProviderError> {
-        let url = format!("{}/model/{}/converse", self.endpoint(), request.model);
-
-        let system = request
-            .system_prompt
-            .as_ref()
-            .map(|s| vec![BedrockSystemContent { text: s.clone() }]);
-        let messages = convert_messages(&request.messages);
-        let tool_config = request
-            .tools
-            .as_ref()
-            .map(|tools| {
-                let bt = convert_tools(tools);
-                let tc = request.tool_choice.as_ref().map(convert_tool_choice);
-                BedrockToolConfig {
-                    tools: bt,
-                    tool_choice: tc,
-                }
-            })
-            .filter(|tc| !tc.tools.is_empty());
-
-        let request_body = BedrockRequest {
-            messages,
-            system,
-            inference_config: BedrockInferenceConfig {
-                max_tokens: request.max_tokens.unwrap_or(4096),
-                temperature: request.temperature.unwrap_or(0.7),
-            },
-            tool_config,
-        };
-
-        let response = self
-            .client
-            .post(&url)
-            .json(&request_body)
-            .send()
-            .await
-            .map_err(|e| ProviderError::Network(format!("request failed: {}", e)))?;
-
-        let headers = response.headers().clone();
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-
-            return Err(match status.as_u16() {
-                401 => ProviderError::Auth(format!(
-                    "Bedrock authentication failed. Check AWS credentials (aws configure). {}",
-                    error_text
-                )),
-                404 => ProviderError::InvalidModel(format!(
-                    "model not found: {}. Check model ID and region in AWS Bedrock console",
-                    request.model
-                )),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(format!(
-                    "Bedrock service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                )),
-                _ => ProviderError::Api(format!("Bedrock API error: {} - {}", status, error_text)),
-            });
-        }
-
-        let bedrock_response: BedrockResponse = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("failed to parse response: {}", e))
-        })?;
-
-        let mut parts: Vec<String> = Vec::new();
-        for c in &bedrock_response.output.message.content {
-            if let Some(text) = &c.text {
-                if !text.is_empty() {
-                    parts.push(text.clone());
-                }
-            }
-        }
-
-        Ok(CompletionResponse {
-            content: parts.join("\n"),
-            model: request.model.clone(),
-            usage: Some(crate::provider::Usage {
-                input_tokens: bedrock_response.usage.input_tokens as u32,
-                output_tokens: bedrock_response.usage.output_tokens as u32,
-                total_tokens: bedrock_response.usage.total_tokens as u32,
-                cache_read_input_tokens: 0,
-                cache_creation_input_tokens: 0,
-                reasoning_tokens: None,
-            }),
-            stop_reason: None,
-            citations: None,
-            thinking_blocks: None,
-            structured_output: None,
-        })
+    /// Resolve the model-specific stream endpoint by replacing `{model}` placeholder.
+    fn resolve_stream_endpoint(&self, model: &str) -> String {
+        self.stream_route.endpoint.replace("{model}", model)
     }
 }
 
@@ -616,7 +254,6 @@ impl LLMProvider for BedrockProvider {
     }
 
     async fn is_available(&self) -> bool {
-        // We'll do a simple check - if we have AWS creds or API key, consider it available
         let has_credentials = std::env::var("AWS_ACCESS_KEY_ID").is_ok()
             && std::env::var("AWS_SECRET_ACCESS_KEY").is_ok();
 
@@ -630,8 +267,6 @@ impl LLMProvider for BedrockProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        // Return a list of commonly available Bedrock models (as of March 2026)
-        // In a real implementation, this would call the Bedrock ListFoundationModels API
         Ok(vec![
             // Claude 4.x series (latest)
             "anthropic.claude-opus-v4:0".to_string(),
@@ -664,178 +299,83 @@ impl LLMProvider for BedrockProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let retry_config = RetryConfig::new()
-            .with_max_attempts(5) // AWS needs more retries
-            .with_base_delay(Duration::from_millis(800))
-            .with_max_delay(Duration::from_secs(45))
-            .with_jitter_factor(0.15);
+        let resolved_endpoint = self.resolve_chat_endpoint(&request.model);
+        let temp_route = Route::new(
+            resolved_endpoint,
+            self.chat_route.protocol.clone_box(),
+            Box::new(
+                HttpTransport::new(self.config.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECS))
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+            ),
+            self.chat_route.auth.clone_box(),
+        );
 
-        // We need to convert between anyhow::Error and ProviderError
-        let result = retry_with_backoff(retry_config, || async {
-            self.complete_internal(&request).await
-        })
-        .await;
-
-        match result {
-            Ok(response) => Ok(response),
-            Err(e) => {
-                let error_msg = e.to_string();
-                // Parse status code from "Bedrock API error: XXX - ..." format
-                let status_code = error_msg
-                    .strip_prefix("Bedrock API error: ")
-                    .and_then(|rest| rest.split(" - ").next())
-                    .and_then(|code| code.parse::<u16>().ok());
-
-                match status_code {
-                    Some(401) | Some(403) => Err(ProviderError::Auth(error_msg)),
-                    Some(404) => Err(ProviderError::InvalidModel(request.model)),
-                    Some(429) => Err(ProviderError::RateLimited { retry_delay: None }),
-                    _ => Err(ProviderError::Api(error_msg)),
-                }
+        let response = temp_route.execute(&request, None).await.map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("HTTP error 401") || msg.contains("HTTP error 403") {
+                ProviderError::Auth(format!(
+                    "Bedrock authentication failed. Check AWS credentials (aws configure). {msg}"
+                ))
+            } else if msg.contains("HTTP error 404") {
+                ProviderError::InvalidModel(request.model.clone())
+            } else if msg.contains("HTTP error 429") {
+                ProviderError::RateLimited { retry_delay: None }
+            } else if msg.contains("HTTP error 502")
+                || msg.contains("HTTP error 503")
+                || msg.contains("HTTP error 504")
+            {
+                ProviderError::Network(format!("Bedrock service temporarily unavailable. {msg}"))
+            } else {
+                ProviderError::Api(msg)
             }
-        }
+        })?;
+
+        Ok(CompletionResponse {
+            model: request.model,
+            ..response
+        })
     }
 
     async fn complete_stream(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let url = format!(
-            "{}/model/{}/converse-stream",
-            self.endpoint(),
-            request.model
+        let resolved_endpoint = self.resolve_stream_endpoint(&request.model);
+        let temp_route = Route::new(
+            resolved_endpoint,
+            self.stream_route.protocol.clone_box(),
+            Box::new(
+                HttpSseTransport::new(self.config.timeout_seconds.unwrap_or(DEFAULT_TIMEOUT_SECS))
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+            ),
+            self.stream_route.auth.clone_box(),
         );
 
-        let system = request
-            .system_prompt
-            .as_ref()
-            .map(|s| vec![BedrockSystemContent { text: s.clone() }]);
-        let messages = convert_messages(&request.messages);
-        let tool_config = request
-            .tools
-            .as_ref()
-            .map(|tools| {
-                let bt = convert_tools(tools);
-                let tc = request.tool_choice.as_ref().map(convert_tool_choice);
-                BedrockToolConfig {
-                    tools: bt,
-                    tool_choice: tc,
-                }
-            })
-            .filter(|tc| !tc.tools.is_empty());
-
-        let request_body = BedrockRequest {
-            messages,
-            system,
-            inference_config: BedrockInferenceConfig {
-                max_tokens: request.max_tokens.unwrap_or(4096),
-                temperature: request.temperature.unwrap_or(0.7),
-            },
-            tool_config,
-        };
-
-        let response = self
-            .client
-            .post(&url)
-            .json(&request_body)
-            .send()
+        let stream = temp_route
+            .execute_stream(&request, None)
             .await
-            .map_err(|e| ProviderError::Network(format!("request failed: {}", e)))?;
-        let headers = response.headers().clone();
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-
-            return Err(match status.as_u16() {
-                401 => ProviderError::Auth(format!(
-                    "Bedrock authentication failed. Check AWS credentials (aws configure). {}",
-                    error_text
-                )),
-                404 => ProviderError::InvalidModel(format!(
-                    "model not found: {}. Check model ID and region in AWS Bedrock console",
-                    request.model
-                )),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(format!(
-                    "Bedrock service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                )),
-                _ => ProviderError::Api(format!("Bedrock API error: {} - {}", status, error_text)),
-            });
-        }
-
-        // Convert bytes stream to SSE stream
-        let bytes_stream = response.bytes_stream();
-        let byte_buffer = crate::sse::SseByteBuffer::new();
-
-        // Parse Bedrock's streaming response format
-        let sse_stream = bytes_stream.map(move |chunk_result| -> StreamChunk {
-            let chunk = chunk_result
-                .map_err(|e| ProviderError::Network(format!("failed to read chunk: {}", e)))?;
-            let lines = byte_buffer.feed_chunk(&chunk);
-
-            let mut current_text = String::new();
-
-            for line in &lines {
-                if line.is_empty() { continue; }
-
-                if line.starts_with("data: ") {
-                    let json_str = line.trim_start_matches("data: ").trim();
-                    if json_str == "[DONE]" { continue; }
-
-                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(json_str) {
-                        // Converse-stream: contentBlockDelta
-                        if let Some(delta) = data.get("contentBlockDelta") {
-                            if let Some(d) = delta.get("delta") {
-                                if let Some(t) = d.get("text").and_then(|v| v.as_str()) {
-                                    current_text.push_str(t);
-                                }
-                                if let Some(ti) = d.get("toolUse").and_then(|v| v.get("input")).and_then(|v| v.as_str()) {
-                                    current_text.push_str(&format!("```tool_delta\n{{\"function\":{{\"arguments\":\"{}\"}}}}\n```", ti));
-                                }
-                            }
-                        }
-                        // contentBlockStart for tool use
-                        if let Some(start) = data.get("contentBlockStart") {
-                            if let Some(s) = start.get("start") {
-                                if let Some(tu) = s.get("toolUse") {
-                                    current_text.push_str(&format!("```tool_start\n{}\n```", tu));
-                                }
-                            }
-                        }
-                        // Legacy format
-                        if let Some(output) = data.get("output") {
-                            if let Some(message) = output.get("message") {
-                                if let Some(content) = message.get("content") {
-                                    if let Some(arr) = content.as_array() {
-                                        for item in arr {
-                                            if let Some(t) = item.get("text").and_then(|v| v.as_str()) {
-                                                current_text.push_str(t);
-                                            }
-                                            if let Some(tu) = item.get("toolUse") {
-                                                current_text.push_str(&format!("```tool\n{}\n```",
-                                                    serde_json::to_string(tu).unwrap_or_default()));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+            .map_err(|e| {
+                let msg = e.to_string();
+                if msg.contains("HTTP error 401") || msg.contains("HTTP error 403") {
+                    ProviderError::Auth(format!(
+                    "Bedrock authentication failed. Check AWS credentials (aws configure). {msg}"
+                ))
+                } else if msg.contains("HTTP error 404") {
+                    ProviderError::InvalidModel(format!(
+                        "model not found: {}. Check model ID and region in AWS Bedrock console",
+                        request.model
+                    ))
+                } else if msg.contains("HTTP error 429") {
+                    ProviderError::RateLimited { retry_delay: None }
+                } else {
+                    ProviderError::Api(msg)
                 }
-            }
+            })?;
 
-            if !current_text.is_empty() {
-                Ok(rustycode_protocol::stream_event::StreamEvent::TextDelta { content: current_text })
-            } else {
-                Ok(rustycode_protocol::stream_event::StreamEvent::TextDelta { content: String::new() })
-            }
-        });
+        // Map Result<StreamEvent> to StreamChunk
+        let chunk_stream = stream.map(|res| res.map_err(|e| ProviderError::Network(e.to_string())));
 
-        Ok(Box::pin(sse_stream))
+        Ok(Box::pin(chunk_stream))
     }
 
     fn config(&self) -> Option<&ProviderConfig> {
@@ -846,7 +386,11 @@ impl LLMProvider for BedrockProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use secrecy::SecretString;
+    use crate::provider::{ChatMessage, MessageRole};
+    use crate::wire::bedrock::BedrockProtocol;
+    use crate::wire::Protocol;
+    use rustycode_protocol::{ContentBlock, MessageContent};
+    use serde_json::json;
 
     fn make_config(api_key: Option<&str>) -> ProviderConfig {
         ProviderConfig {
@@ -863,7 +407,6 @@ mod tests {
         let config = make_config(Some("test-key"));
         let provider =
             BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
-        // Use provider trait to avoid ambiguity with unified trait
         assert_eq!(<BedrockProvider as LLMProvider>::name(&provider), "bedrock");
     }
 
@@ -876,9 +419,12 @@ mod tests {
 
     #[test]
     fn test_creates_without_api_key() {
+        // Without API key, it tries AWS env vars. Those are likely missing in test env,
+        // so this should fail with a clear error.
         let config = make_config(None);
         let provider = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string());
-        assert!(provider.is_ok());
+        // In test env without AWS creds, this should fail
+        assert!(provider.is_err());
     }
 
     #[test]
@@ -890,131 +436,234 @@ mod tests {
 
     #[test]
     fn test_convert_messages_simple() {
-        use crate::provider::{ChatMessage, MessageRole};
-        use rustycode_protocol::MessageContent;
         let msgs = vec![ChatMessage {
             role: MessageRole::User,
             content: MessageContent::simple("hello"),
         }];
-        let converted = convert_messages(&msgs);
-        assert_eq!(converted.len(), 1);
-        assert_eq!(converted[0].role, "user");
-        assert_eq!(converted[0].content[0]["text"], "hello");
+        let protocol = BedrockProtocol;
+        // Serialize a request with these messages to verify conversion
+        let request = CompletionRequest::new("test-model", msgs);
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let messages = body.get("messages").unwrap().as_array().unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["role"], "user");
+        assert_eq!(messages[0]["content"][0]["text"], "hello");
     }
 
     #[test]
     fn test_convert_messages_tool_result() {
-        use crate::provider::{ChatMessage, MessageRole};
-        use rustycode_protocol::{ContentBlock, MessageContent};
         let msgs = vec![ChatMessage {
             role: MessageRole::User,
             content: MessageContent::Blocks(vec![ContentBlock::tool_result("t1", "result text")]),
         }];
-        let c = convert_messages(&msgs);
-        assert_eq!(c.len(), 1);
-        assert_eq!(c[0].role, "user");
-        let tr = &c[0].content[0]["toolResult"];
+        let protocol = BedrockProtocol;
+        let request = CompletionRequest::new("test-model", msgs);
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let messages = body.get("messages").unwrap().as_array().unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["role"], "user");
+        let tr = &messages[0]["content"][0]["toolResult"];
         assert_eq!(tr["toolUseId"], "t1");
         assert_eq!(tr["status"], "success");
     }
 
     #[test]
     fn test_convert_messages_tool_use() {
-        use crate::provider::{ChatMessage, MessageRole};
-        use rustycode_protocol::{ContentBlock, MessageContent};
         let msgs = vec![ChatMessage {
             role: MessageRole::Assistant,
             content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
                 id: "t2".to_string(),
                 name: "Bash".to_string(),
-                input: serde_json::json!({"command": "ls"}),
+                input: json!({"command": "ls"}),
             }]),
         }];
-        let c = convert_messages(&msgs);
-        assert_eq!(c.len(), 1);
-        assert_eq!(c[0].role, "assistant");
-        let tu = &c[0].content[0]["toolUse"];
+        let protocol = BedrockProtocol;
+        let request = CompletionRequest::new("test-model", msgs);
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let messages = body.get("messages").unwrap().as_array().unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["role"], "assistant");
+        let tu = &messages[0]["content"][0]["toolUse"];
         assert_eq!(tu["name"], "Bash");
         assert_eq!(tu["toolUseId"], "t2");
     }
 
     #[test]
-    fn test_convert_tools() {
-        let tools = vec![serde_json::json!({
+    fn test_convert_tools_via_protocol() {
+        let tools = vec![json!({
             "name": "Read", "description": "Read file",
             "input_schema": {"type": "object", "properties": {"path": {"type": "string"}}}
         })];
-        let c = convert_tools(&tools);
-        assert_eq!(c.len(), 1);
-        assert_eq!(c[0].tool_spec.name, "Read");
+        let msgs = vec![ChatMessage {
+            role: MessageRole::User,
+            content: MessageContent::simple("hello"),
+        }];
+        let protocol = BedrockProtocol;
+        let request = CompletionRequest::new("test-model", msgs).with_tools(tools);
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let tool_config = body.get("toolConfig").unwrap();
+        let tools_arr = tool_config.get("tools").unwrap().as_array().unwrap();
+        assert_eq!(tools_arr.len(), 1);
+        assert_eq!(tools_arr[0]["toolSpec"]["name"], "Read");
     }
 
     #[test]
-    fn test_convert_tool_choice() {
+    fn test_convert_tool_choice_via_protocol() {
+        let msgs = vec![ChatMessage {
+            role: MessageRole::User,
+            content: MessageContent::simple("hello"),
+        }];
+        let protocol = BedrockProtocol;
+
+        // auto
+        let req = CompletionRequest::new("test-model", msgs.clone())
+            .with_tool_choice(json!("auto"))
+            .with_tools(vec![json!({"name": "X"})]);
+        let body = protocol.serialize_body(&req, None).unwrap();
+        assert_eq!(body["toolConfig"]["toolChoice"], json!({"auto": {}}));
+
+        // required
+        let req = CompletionRequest::new("test-model", msgs.clone())
+            .with_tool_choice(json!("required"))
+            .with_tools(vec![json!({"name": "X"})]);
+        let body = protocol.serialize_body(&req, None).unwrap();
+        assert_eq!(body["toolConfig"]["toolChoice"], json!({"any": {}}));
+
+        // named tool
+        let req = CompletionRequest::new("test-model", msgs)
+            .with_tool_choice(json!("Bash"))
+            .with_tools(vec![json!({"name": "Bash"})]);
+        let body = protocol.serialize_body(&req, None).unwrap();
         assert_eq!(
-            convert_tool_choice(&serde_json::json!("auto")),
-            serde_json::json!({"auto": {}})
-        );
-        assert_eq!(
-            convert_tool_choice(&serde_json::json!("required")),
-            serde_json::json!({"any": {}})
-        );
-        assert_eq!(
-            convert_tool_choice(&serde_json::json!("Bash")),
-            serde_json::json!({"tool": {"name": "Bash"}})
+            body["toolConfig"]["toolChoice"],
+            json!({"tool": {"name": "Bash"}})
         );
     }
 
     #[test]
     fn test_bedrock_request_serialization() {
-        let req = BedrockRequest {
-            messages: vec![BedrockConverseMessage {
-                role: "user".to_string(),
-                content: vec![serde_json::json!({ "text": "hello" })],
-            }],
-            system: Some(vec![BedrockSystemContent {
-                text: "You are helpful.".to_string(),
-            }]),
-            inference_config: BedrockInferenceConfig {
-                max_tokens: 1024,
-                temperature: 0.5,
-            },
-            tool_config: None,
-        };
-        let json = serde_json::to_string(&req).unwrap();
-        assert!(json.contains("inferenceConfig"));
-        assert!(json.contains("maxTokens"));
-        assert!(!json.contains("toolConfig"));
+        let msgs = vec![ChatMessage {
+            role: MessageRole::User,
+            content: MessageContent::simple("hello"),
+        }];
+        let request = CompletionRequest::new("test-model", msgs)
+            .with_system_prompt("You are helpful.".to_string())
+            .with_max_tokens(1024)
+            .with_temperature(0.5);
+        let protocol = BedrockProtocol;
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let body_str = serde_json::to_string(&body).unwrap();
+        assert!(body_str.contains("inferenceConfig"));
+        assert!(body_str.contains("maxTokens"));
+        assert!(!body_str.contains("toolConfig"));
     }
 
     #[test]
     fn test_bedrock_request_with_tools() {
-        let req = BedrockRequest {
-            messages: vec![BedrockConverseMessage {
-                role: "user".to_string(),
-                content: vec![serde_json::json!({ "text": "hello" })],
-            }],
-            system: None,
-            inference_config: BedrockInferenceConfig {
-                max_tokens: 4096,
-                temperature: 0.7,
-            },
-            tool_config: Some(BedrockToolConfig {
-                tools: vec![BedrockTool {
-                    tool_spec: BedrockToolSpec {
-                        name: "Bash".to_string(),
-                        description: Some("Run command".to_string()),
-                        input_schema: BedrockInputSchema {
-                            json: serde_json::json!({"type": "object"}),
-                        },
-                    },
-                }],
-                tool_choice: Some(serde_json::json!({"auto": {}})),
-            }),
-        };
-        let json = serde_json::to_string(&req).unwrap();
-        assert!(json.contains("toolConfig"));
-        assert!(json.contains("toolSpec"));
-        assert!(json.contains("Bash"));
+        let msgs = vec![ChatMessage {
+            role: MessageRole::User,
+            content: MessageContent::simple("hello"),
+        }];
+        let tools = vec![json!({
+            "name": "Bash",
+            "description": "Run command",
+            "input_schema": {"type": "object"}
+        })];
+        let request = CompletionRequest::new("test-model", msgs)
+            .with_tools(tools)
+            .with_tool_choice(json!("auto"));
+        let protocol = BedrockProtocol;
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let body_str = serde_json::to_string(&body).unwrap();
+        assert!(body_str.contains("toolConfig"));
+        assert!(body_str.contains("toolSpec"));
+        assert!(body_str.contains("Bash"));
+    }
+
+    #[test]
+    fn test_chat_route_has_model_placeholder() {
+        let config = make_config(Some("test-key"));
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        assert!(p.chat_route.endpoint.contains("{model}"));
+        assert!(p.chat_route.endpoint.contains("converse"));
+    }
+
+    #[test]
+    fn test_stream_route_has_model_placeholder() {
+        let config = make_config(Some("test-key"));
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        assert!(p.stream_route.endpoint.contains("{model}"));
+        assert!(p.stream_route.endpoint.contains("converse-stream"));
+    }
+
+    #[test]
+    fn test_resolve_chat_endpoint() {
+        let config = make_config(Some("test-key"));
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        let resolved = p.resolve_chat_endpoint("anthropic.claude-3-5-sonnet-v1:0");
+        assert!(resolved.contains("anthropic.claude-3-5-sonnet-v1:0"));
+        assert!(!resolved.contains("{model}"));
+        assert!(resolved.contains("/converse"));
+    }
+
+    #[test]
+    fn test_resolve_stream_endpoint() {
+        let config = make_config(Some("test-key"));
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        let resolved = p.resolve_stream_endpoint("meta.llama3-70b-instruct-v1:0");
+        assert!(resolved.contains("meta.llama3-70b-instruct-v1:0"));
+        assert!(!resolved.contains("{model}"));
+        assert!(resolved.contains("/converse-stream"));
+    }
+
+    #[test]
+    fn test_route_names() {
+        let config = make_config(Some("test-key"));
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        assert_eq!(p.chat_route.name(), "bedrock-converse");
+        assert_eq!(p.stream_route.name(), "bedrock-stream");
+    }
+
+    #[test]
+    fn test_default_endpoint() {
+        let config = make_config(Some("test-key"));
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        let endpoint = p.endpoint("anthropic.claude-3-5-sonnet-v1:0");
+        assert!(endpoint.starts_with("https://bedrock-runtime."));
+        assert!(endpoint.contains(".amazonaws.com"));
+        assert!(endpoint.contains("anthropic.claude-3-5-sonnet-v1:0"));
+        assert!(endpoint.contains("/converse"));
+    }
+
+    #[test]
+    fn test_custom_endpoint() {
+        let mut config = make_config(Some("test-key"));
+        config.base_url = Some("https://my-bedrock-proxy.example.com".to_string());
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        let endpoint = p.endpoint("test-model");
+        assert!(endpoint.starts_with("https://my-bedrock-proxy.example.com"));
+        assert!(endpoint.contains("test-model"));
+    }
+
+    #[test]
+    fn test_new_without_validation() {
+        let config = make_config(Some("test-key"));
+        let provider = BedrockProvider::new_without_validation(
+            config,
+            "anthropic.claude-3-sonnet".to_string(),
+        )
+        .unwrap();
+        assert_eq!(provider.name(), "bedrock");
+    }
+
+    #[tokio::test]
+    async fn test_list_models_returns_known_models() {
+        let config = make_config(Some("test-key"));
+        let p = BedrockProvider::new(config, "anthropic.claude-3-sonnet".to_string()).unwrap();
+        let models = p.list_models().await.unwrap();
+        assert!(models
+            .iter()
+            .any(|m| m == "anthropic.claude-3-5-sonnet-20241022-v2:0"));
+        assert!(models.iter().any(|m| m == "meta.llama3-70b-instruct-v1:0"));
     }
 }
