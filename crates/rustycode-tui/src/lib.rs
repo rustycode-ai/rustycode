@@ -184,67 +184,14 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
     let mut tui = TUI::new(cwd, initial_mode, reconfigure, event_receiver)?;
     info_log!("[PERF] TUI::new took {}ms", t2.elapsed().as_millis());
 
-    // Spawn heavy service init in background thread so TUI renders immediately.
-    let (init_tx, init_rx) = std::sync::mpsc::channel();
-    let init_cwd = tui.services.cwd().to_path_buf();
-    let init_provider = tui.pipeline_ctx.provider.clone();
-    let init_model = tui.pipeline_ctx.current_model.clone();
-    let init_skill_manager = tui.skill_manager.clone();
-    let init_todo_state = tui.todo_state.clone();
-    let init_storage = tui.storage.clone();
-    let init_event_bus = tui.todo_event_bus.clone();
-
-    std::thread::spawn(move || {
-        let t_bg = std::time::Instant::now();
-        let storage = if init_storage.is_none() {
-            let db_path = rustycode_tools::app_paths::AppPaths::data_dir().join("rustycode.db");
-            match rustycode_storage::Storage::open(&db_path) {
-                Ok(s) => {
-                    tracing::debug!("Opened storage at {}", db_path.display());
-                    Some(std::sync::Arc::new(s))
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to open storage: {} (todos ephemeral)", e);
-                    None
-                }
-            }
-        } else {
-            init_storage.clone()
-        };
-
-        let workspace_tasks = if let Some(ref s) = storage {
-            crate::app::tasks::load_tasks_from_storage(s, &init_cwd)
-        } else {
-            crate::app::tasks::load_tasks()
-        };
-
-        let mut tool_registry = rustycode_tools_api::ToolRegistry::new();
-        let mut init_tool_manager = crate::services::tool_manager::ToolManager::new();
-        init_tool_manager.register_builtin_tools(
-            &mut tool_registry,
-            &init_provider,
-            &init_model,
-            &init_cwd,
-            &init_skill_manager,
-            &init_todo_state,
-            init_storage.clone(),
-            init_event_bus,
+    let t3 = std::time::Instant::now();
+    if let Err(e) = tui.init_services() {
+        tracing::warn!(
+            "Service initialization failed (TUI will run in degraded mode): {}",
+            e
         );
-        init_tool_manager.load_mcp_tools(&mut tool_registry);
-
-        let payload = crate::app::event_loop::InitPayload {
-            storage,
-            workspace_tasks,
-            tool_registry,
-        };
-        tracing::info!(
-            "[PERF] background init took {}ms",
-            t_bg.elapsed().as_millis()
-        );
-        let _ = init_tx.send(payload);
-    });
-
-    tui.init_rx = Some(init_rx);
+    }
+    info_log!("[PERF] init_services took {}ms", t3.elapsed().as_millis());
 
     if resume {
         tui.resume_most_recent_session();

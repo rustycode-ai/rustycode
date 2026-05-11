@@ -46,7 +46,7 @@ impl Protocol for GeminiProtocol {
                 Value::String(s) => match s.as_str() {
                     "auto" => Some(json!({"functionCallingConfig": {"mode": "AUTO"}})),
                     "none" => Some(json!({"functionCallingConfig": {"mode": "NONE"}})),
-                    "required" => Some(json!({"functionCallingConfig": {"mode": "AUTO"}})),
+                    "required" => Some(json!({"functionCallingConfig": {"mode": "ANY"}})),
                     _ => None,
                 },
                 Value::Object(map) => {
@@ -82,6 +82,14 @@ impl Protocol for GeminiProtocol {
                 }
             }
         }
+
+        // Only include toolConfig when tools are present — Gemini rejects
+        // "function calling config without function_declarations" (HTTP 400).
+        let tool_config = if tools_blocks.is_some() {
+            tool_config
+        } else {
+            None
+        };
 
         let body = json!({
             "contents": contents,

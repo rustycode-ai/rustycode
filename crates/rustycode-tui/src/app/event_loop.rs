@@ -103,13 +103,6 @@ fn install_panic_hook() {
     }));
 }
 
-/// Payload sent from the background init thread to the main event loop.
-pub(crate) struct InitPayload {
-    pub(crate) storage: Option<std::sync::Arc<rustycode_storage::Storage>>,
-    pub(crate) workspace_tasks: WorkspaceTasks,
-    pub(crate) tool_registry: rustycode_tools::ToolRegistry,
-}
-
 /// Main TUI application
 ///
 /// Wires together all UI components:
@@ -340,10 +333,6 @@ pub struct TUI {
 
     // Cached API key warning (computed once, not per-frame)
     pub(crate) api_key_warning: String,
-
-    // Async service init
-    pub(crate) services_ready: bool,
-    pub(crate) init_rx: Option<std::sync::mpsc::Receiver<InitPayload>>,
 }
 
 impl TUI {
@@ -744,8 +733,6 @@ impl TUI {
             show_task_dashboard: false,
             // Cached API key warning (computed once)
             api_key_warning: Self::compute_api_key_warning(),
-            services_ready: false,
-            init_rx: None,
         })
     }
 
@@ -973,8 +960,6 @@ impl TUI {
             show_task_dashboard: false,
             // Cached API key warning
             api_key_warning: String::new(),
-            services_ready: true,
-            init_rx: None,
             event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY).1,
             marketplace_browser,
         }
@@ -1055,43 +1040,6 @@ impl TUI {
 
         tracing::info!("Services initialized with {} tools", tool_count);
 
-        Ok(())
-    }
-
-    /// Apply init payload from background thread.
-    pub(crate) fn apply_init_payload(&mut self, payload: InitPayload) -> Result<()> {
-        if let Some(storage) = payload.storage {
-            self.storage = Some(storage);
-        }
-        self.workspace_tasks = payload.workspace_tasks;
-        let mut tool_registry = payload.tool_registry;
-        tool_registry.register(
-            rustycode_orchestration::structured_thinking_tool_impl::StructuredThinkingTool,
-        );
-        if let Some(ref bus) = self.todo_event_bus {
-            let dirty_flag = self.todo_dirty.clone();
-            use rustycode_shared_runtime::SHARED_RUNTIME;
-            let _sub_handle =
-                SHARED_RUNTIME.block_on(bus.subscribe_callback("todo.updated", move |_event| {
-                    dirty_flag.store(true, Ordering::SeqCst);
-                    Ok(())
-                }));
-        }
-        let tool_count = tool_registry.list().len();
-        let config = ConversationConfig::default();
-        self.services
-            .start_conversation(config, tool_registry)
-            .context("failed to start conversation service")?;
-        crate::info_log!(
-            "start_conversation OK, pipeline={}",
-            self.services.has_pipeline()
-        );
-        self.services
-            .start_workspace_loading()
-            .context("failed to start workspace loading")?;
-        self.refresh_mcp_status(true);
-        self.services.set_todo_state(self.todo_state.clone());
-        tracing::info!("Async init complete with {} tools", tool_count);
         Ok(())
     }
 
@@ -1520,42 +1468,6 @@ impl TUI {
                 // User requested shutdown
                 self.running = false;
                 break;
-            }
-
-            // Loading screen while background init completes
-            if !self.services_ready {
-                if let Some(ref rx) = self.init_rx {
-                    match rx.try_recv() {
-                        Ok(payload) => {
-                            self.apply_init_payload(payload)?;
-                            self.services_ready = true;
-                        }
-                        Err(std::sync::mpsc::TryRecvError::Empty) => {
-                            let _ = terminal.draw(|f| {
-                                let area = f.area();
-                                let text = ratatui::text::Span::styled(
-                                    " Initializing services\u{2026} ",
-                                    ratatui::style::Style::default()
-                                        .fg(ratatui::style::Color::Yellow),
-                                );
-                                let paragraph =
-                                    ratatui::widgets::Paragraph::new(ratatui::text::Line::from(text))
-                                        .alignment(ratatui::layout::Alignment::Center);
-                                f.render_widget(paragraph, area);
-                            });
-                            std::thread::sleep(Duration::from_millis(50));
-                            continue;
-                        }
-                        Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                            tracing::warn!("Init thread panicked; falling back to sync init");
-                            self.init_services()?;
-                            self.services_ready = true;
-                        }
-                    }
-                } else {
-                    self.init_services()?;
-                    self.services_ready = true;
-                }
             }
 
             let frame_start = Instant::now();
