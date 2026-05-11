@@ -174,8 +174,43 @@ impl CodeAgent {
     }
 
     /// Execute a tool via the registry with real tool implementations.
+    /// Validates arguments against the tool's schema before execution.
     fn execute_tool(registry: &ToolRegistry, tool_use: &ToolUse, ctx: &ToolContext) -> String {
         let normalized_name = Self::normalize_tool_name(&tool_use.name);
+
+        // Pre-validate required fields from the tool's parameter schema.
+        let tool_info = registry
+            .list()
+            .into_iter()
+            .find(|info| info.name == normalized_name);
+        if let Some(info) = &tool_info {
+            if let Some(schema) = info.parameters_schema.as_object() {
+                if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
+                    let missing: Vec<&str> = required
+                        .iter()
+                        .filter_map(|r| r.as_str())
+                        .filter(|field| tool_use.input.get(*field).is_none_or(|v| v.is_null()))
+                        .collect();
+                    if !missing.is_empty() {
+                        let props = schema
+                            .get("properties")
+                            .and_then(|p| p.as_object())
+                            .map(|p| p.keys().map(|k| k.as_str()).collect::<Vec<_>>().join(", "))
+                            .unwrap_or_default();
+                        return format!(
+                            "ERROR: Tool {} is missing required field(s): {}. \
+                             The tool accepts these properties: {}. \
+                             Your arguments were: {}",
+                            tool_use.name,
+                            missing.join(", "),
+                            props,
+                            serde_json::to_string(&tool_use.input)
+                                .unwrap_or_else(|_| "<invalid>".to_string())
+                        );
+                    }
+                }
+            }
+        }
 
         if let Some(tool) = registry.get(normalized_name) {
             match tool.execute(tool_use.input.clone(), ctx) {
