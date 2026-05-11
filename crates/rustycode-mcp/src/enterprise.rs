@@ -271,7 +271,7 @@ impl RateLimiter {
             .min(bucket.capacity as f64);
         bucket.last_update = now;
 
-        bucket.tokens as usize
+        bucket.tokens.floor() as usize
     }
 
     /// Reset rate limit for a key

@@ -98,7 +98,12 @@ impl NativeEnvironment {
 
         // Write rewritten script to workspace
         let tmp_script = self.workspace.join(".native_run.sh");
-        let _ = std::fs::write("/tmp/rtk-debug-adapted.sh", &rewritten);
+        let script_name = script_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        let debug_path = format!("/tmp/rtk-debug-{}.sh", script_name);
+        let _ = std::fs::write(&debug_path, &rewritten);
         std::fs::write(&tmp_script, rewritten)?;
 
         let result = self

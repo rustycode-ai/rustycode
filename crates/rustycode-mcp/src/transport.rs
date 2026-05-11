@@ -217,10 +217,14 @@ async fn route_stdio_message(
         // Has "method" → request or notification
         if value.get("id").is_some() {
             if let Ok(req) = serde_json::from_value::<JsonRpcRequest>(value) {
-                let _ = inbox.send(IncomingMessage::Request(req)).await;
+                if let Err(e) = inbox.send(IncomingMessage::Request(req)).await {
+                    tracing::warn!("MCP inbox send failed: {}", e);
+                }
             }
         } else if let Ok(notif) = serde_json::from_value::<JsonRpcNotification>(value) {
-            let _ = inbox.send(IncomingMessage::Notification(notif)).await;
+            if let Err(e) = inbox.send(IncomingMessage::Notification(notif)).await {
+                tracing::warn!("MCP inbox send failed: {}", e);
+            }
         }
         return;
     }
@@ -231,7 +235,9 @@ async fn route_stdio_message(
             JsonRpcId::String(s) => s.clone(),
             JsonRpcId::Number(n) => n.to_string(),
             JsonRpcId::Null => {
-                let _ = inbox.send(IncomingMessage::Response(response)).await;
+                if let Err(e) = inbox.send(IncomingMessage::Response(response)).await {
+                    tracing::warn!("MCP inbox send failed: {}", e);
+                }
                 return;
             }
         };
@@ -241,7 +247,9 @@ async fn route_stdio_message(
                 return;
             }
         }
-        let _ = inbox.send(IncomingMessage::Response(response)).await;
+        if let Err(e) = inbox.send(IncomingMessage::Response(response)).await {
+            tracing::warn!("MCP inbox send failed: {}", e);
+        }
     }
 }
 

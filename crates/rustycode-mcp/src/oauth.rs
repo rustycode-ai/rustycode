@@ -525,6 +525,7 @@ impl OAuthManager {
         if let Some(store) = stores.get_mut(server_id) {
             store.access_token = None;
         }
+        drop(stores);
         self.save_tokens()
     }
 

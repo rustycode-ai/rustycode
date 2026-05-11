@@ -666,11 +666,11 @@ impl McpServerManager {
 
                             if should_reconnect {
                                 // Calculate backoff delay (capped at 5 minutes)
+                                // Cap attempts to prevent overflow in powf (2^30 * 300s ≈ 30 years)
+                                let capped_attempts = reconnection_attempts.min(30) as f64;
                                 let backoff_ms = (initial_restart_delay.as_millis() as u64)
                                     .saturating_mul(
-                                        restart_backoff_multiplier
-                                            .powf(reconnection_attempts as f64)
-                                            as u64,
+                                        restart_backoff_multiplier.powf(capped_attempts) as u64,
                                     )
                                     .min(300_000);
                                 let backoff_duration = Duration::from_millis(backoff_ms);

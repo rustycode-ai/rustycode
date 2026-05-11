@@ -480,9 +480,6 @@ impl SessionCapture {
         if self.is_finalized {
             if self.errors_encountered.is_empty() {
                 SessionOutcome::Success
-            } else if self.metrics.tool_calls_count > 0 {
-                // Partial success - some things worked
-                SessionOutcome::Success
             } else {
                 SessionOutcome::Failed
             }

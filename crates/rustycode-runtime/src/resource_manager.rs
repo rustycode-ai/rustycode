@@ -86,7 +86,7 @@ impl ResourcePool {
         }
     }
 
-    /// Release resources back to pool
+    /// Release allocated resources back to pool
     pub fn release(&mut self, amount: f64) -> Result<(), String> {
         if self.allocated >= amount {
             self.allocated -= amount;
@@ -96,6 +96,20 @@ impl ResourcePool {
             Err(format!(
                 "Cannot release more than allocated: requested {}, allocated {}",
                 amount, self.allocated
+            ))
+        }
+    }
+
+    /// Cancel a reservation (release reserved resources back to available)
+    pub fn cancel_reservation(&mut self, amount: f64) -> Result<(), String> {
+        if self.reserved >= amount {
+            self.reserved -= amount;
+            self.calculate_utilization();
+            Ok(())
+        } else {
+            Err(format!(
+                "Cannot cancel more than reserved: requested {}, reserved {}",
+                amount, self.reserved
             ))
         }
     }
@@ -350,11 +364,13 @@ impl ResourceManager {
                 allocated_at: Utc::now(),
             }
         } else {
-            // Release reservations
+            // Release reservations (resources are in reserved, not allocated)
             for resource_type in allocated.keys() {
                 if let Some(pool) = pools.get_mut(resource_type) {
-                    if let Err(e) = pool.release(*allocated.get(resource_type).unwrap_or(&0.0)) {
-                        warn!("Failed to release {:?} resources: {}", resource_type, e);
+                    if let Err(e) =
+                        pool.cancel_reservation(*allocated.get(resource_type).unwrap_or(&0.0))
+                    {
+                        warn!("Failed to cancel {:?} reservation: {}", resource_type, e);
                     }
                 }
             }

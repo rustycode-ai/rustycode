@@ -8,7 +8,7 @@
 //! - `PyPI` packages (`package==1.2.3`)
 //! - Paginated responses from OSV API
 //! - Configurable endpoint via `OSV_ENDPOINT` env var
-//! - Fail-open on API errors (never blocks legitimate installs)
+//! - Fail-closed on API errors (returns `Err`, callers decide handling)
 //!
 //! Ported from goose's `agents/extension_malware_check.rs`.
 
@@ -72,7 +72,8 @@ impl OsvChecker {
     /// Check if a package has any MAL-* advisories.
     ///
     /// Returns `Ok(())` if clean, `Err(OsvError::MaliciousPackage)` if malicious.
-    /// Fails open on network/parse errors (returns `Ok(())`).
+    /// Returns `Err(OsvError::CheckFailed)` on network/parse errors so callers
+    /// must explicitly decide how to handle check failures.
     pub async fn deny_if_malicious(
         &self,
         name: &str,
@@ -95,21 +96,23 @@ impl OsvChecker {
                 page_token: page_token.clone(),
             };
 
-            let resp = match self.client.post(&self.endpoint).json(&body).send().await {
-                Ok(r) => r,
-                Err(e) => {
-                    tracing::error!("OSV request failed for {ecosystem} {name}: {e}; failing open");
-                    return Ok(());
-                }
-            };
+            let resp = self
+                .client
+                .post(&self.endpoint)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| {
+                    tracing::error!("OSV request failed for {ecosystem} {name}: {e}");
+                    OsvError::CheckFailed(format!("OSV request failed for {ecosystem} {name}: {e}"))
+                })?;
 
-            let payload: QueryResponse = match resp.json().await {
-                Ok(p) => p,
-                Err(e) => {
-                    tracing::error!("OSV parse error for {ecosystem} {name}: {e}; failing open");
-                    return Ok(());
-                }
-            };
+            let payload: QueryResponse = resp.json().await.map_err(|e| {
+                tracing::error!("OSV parse error for {ecosystem} {name}: {e}");
+                OsvError::CheckFailed(format!(
+                    "OSV response parse error for {ecosystem} {name}: {e}"
+                ))
+            })?;
 
             malicious.extend(
                 payload

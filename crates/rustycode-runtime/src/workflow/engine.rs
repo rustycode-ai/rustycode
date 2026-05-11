@@ -13,7 +13,7 @@ use crate::workflow::definition::{
 };
 use crate::workflow::{Result, StepResult, WorkflowError, WorkflowResult};
 use std::collections::{HashMap, HashSet};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 
 /// Workflow executor configuration
 #[derive(Debug, Clone)]
@@ -110,9 +110,9 @@ impl WorkflowExecutor {
             state.status = WorkflowStatus::Completed;
         }
 
-        // Calculate duration
+        // Calculate duration (elapsed since start, not absolute timestamp)
         let duration_ms = start_time
-            .duration_since(UNIX_EPOCH)
+            .elapsed()
             .map_err(|e| WorkflowError::Validation(format!("Time error: {}", e)))?
             .as_millis() as u64;
 
@@ -216,7 +216,7 @@ impl WorkflowExecutor {
         }
 
         let duration_ms = step_start
-            .duration_since(UNIX_EPOCH)
+            .elapsed()
             .map_err(|e| WorkflowError::Validation(format!("Time error: {}", e)))?
             .as_millis() as u64;
 
@@ -489,10 +489,12 @@ impl WorkflowExecutor {
                 ));
             }
 
-            // Check break condition
-            if let Some(ref break_cond) = loop_config.break_condition {
-                if break_cond.evaluate(state)? {
-                    break;
+            // Check break condition (skip for Until loops — body must execute at least once)
+            if !matches!(loop_config.loop_type, LoopType::Until) {
+                if let Some(ref break_cond) = loop_config.break_condition {
+                    if break_cond.evaluate(state)? {
+                        break;
+                    }
                 }
             }
 
