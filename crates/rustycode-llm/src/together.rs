@@ -2,59 +2,25 @@
 //!
 //! This provider supports Together AI's API which provides access to
 //! many open-source models like Llama, Mixtral, and more.
-//!
-//! ## Configuration
-//!
-//! The provider requires:
-//! - API key (from Together AI dashboard)
-//! - Model name (e.g., "mistralai/Mixtral-8x7B-Instruct-v0.1")
-//!
-//! ## Environment Variables
-//!
-//! - `TOGETHER_API_KEY` - API key for authentication
-//!
-//! ## Example Configuration
-//!
-//! ```rust
-//! use rustycode_llm::{TogetherProvider, ProviderConfig};
-//! use secrecy::SecretString;
-//!
-//! let config = ProviderConfig {
-//!     api_key: Some(SecretString::new("your-api-key".to_string().into())),
-//!     base_url: None, // Uses default https://api.together.xyz/v1/chat/completions
-//!     timeout_seconds: Some(120),
-//!     extra_headers: None,
-//!     retry_config: None,
-//! };
-//! let provider = TogetherProvider::new(config);
-//! ```
-//!
-//! ## Streaming
-//!
-//! Together AI uses an OpenAI-compatible streaming format (SSE) that
-//! returns text chunks in real-time as they're generated.
 
-use crate::openai_compatible::{
-    build_completion_response, build_request_with_auth, convert_messages_simple, map_http_error,
-    parse_openai_sse_lines, OpenAiCompatibleResponse, OpenAiModelListResponse, SseParseConfig,
-    SseParseState,
-};
-use crate::provider::{
-    build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,
-    ProviderConfig, ProviderError, StreamChunk,
-};
-use crate::provider_metadata::{
-    ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
-    PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
-};
-use crate::sse::SseByteBuffer;
-use crate::{get_api_key, shared_client};
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use secrecy::ExposeSecret;
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::Duration;
+
+use crate::auth::AuthMethod;
+use crate::provider::{
+    CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
+};
+use crate::provider_metadata::{
+    ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
+    PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
+};
+use crate::route::Route;
+use crate::transport::HttpTransport;
+use crate::wire::openai_chat::OpenAIChatProtocol;
 
 /// Default Together AI API endpoint
 const TOGETHER_API_ENDPOINT: &str = "https://api.together.xyz/v1/chat/completions";
@@ -62,13 +28,11 @@ const TOGETHER_API_ENDPOINT: &str = "https://api.together.xyz/v1/chat/completion
 /// Together AI LLM provider
 pub struct TogetherProvider {
     config: ProviderConfig,
-    client: reqwest::Client,
-    endpoint: String,
+    route: Route,
 }
 
 impl TogetherProvider {
     pub fn new(config: ProviderConfig) -> Result<Self, ProviderError> {
-        // Validate config using provider metadata
         Self::metadata().validate_config(&config)?;
 
         let endpoint = config
@@ -76,14 +40,25 @@ impl TogetherProvider {
             .clone()
             .unwrap_or_else(|| TOGETHER_API_ENDPOINT.to_string());
 
-        // Use shared global client pool
-        let client = shared_client!();
+        let auth: Box<dyn AuthMethod> = Box::new(crate::auth::BearerAuth::new(
+            config
+                .api_key
+                .clone()
+                .ok_or_else(|| ProviderError::auth("Missing API key"))?,
+        ));
 
-        Ok(Self {
-            config,
-            client,
+        let route = Route::new(
             endpoint,
-        })
+            Box::new(OpenAIChatProtocol),
+            Box::new(
+                HttpTransport::new(config.timeout_seconds.unwrap_or(120))
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+            ),
+            auth,
+        )
+        .with_name("together-chat");
+
+        Ok(Self { config, route })
     }
 
     /// Get metadata for this provider
@@ -145,12 +120,8 @@ impl TogetherProvider {
                     cost_tier: 2,
                 },
             ],
-                    model_behavior_profiles: HashMap::new(),
+            model_behavior_profiles: HashMap::new(),
         }
-    }
-
-    fn api_key(&self) -> Result<String, ProviderError> {
-        get_api_key!(self, "TOGETHER_API_KEY")
     }
 }
 
@@ -161,179 +132,43 @@ impl LLMProvider for TogetherProvider {
     }
 
     async fn is_available(&self) -> bool {
-        // Check if API key is available
-        if self.api_key().is_err() {
-            return false;
-        }
-
-        // Try to make a simple request to verify connectivity
-        let api_key = match self.api_key() {
-            Ok(key) => key,
-            Err(_) => return false,
-        };
-
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(5))
-            .build();
-
-        let client = match client {
-            Ok(c) => c,
-            Err(_) => return false,
-        };
-
-        let response = client
-            .get("https://api.together.xyz/v1/models")
-            .header("Authorization", format!("Bearer {}", api_key))
-            .send()
-            .await;
-
-        response.map(|r| r.status().is_success()).unwrap_or(false)
+        self.config
+            .api_key
+            .as_ref()
+            .is_some_and(|k| !k.expose_secret().is_empty())
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        let api_key = self.api_key()?;
+        Ok(vec!["mistralai/Mixtral-8x7B-Instruct-v0.1".to_string()])
+    }
 
-        let response = self
-            .client
-            .get("https://api.together.xyz/v1/models")
-            .header("Authorization", format!("Bearer {}", api_key))
-            .send()
-            .await
-            .map_err(|e| ProviderError::Network(format!("Failed to fetch models: {}", e)))?;
-
-        if !response.status().is_success() {
-            return Err(ProviderError::Api(format!(
-                "Failed to list models: HTTP {}",
-                response.status()
-            )));
-        }
-
-        let models_response: OpenAiModelListResponse = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("Failed to parse models response: {}", e))
-        })?;
-
-        Ok(models_response.data.iter().map(|m| m.id.clone()).collect())
+    fn config(&self) -> Option<&ProviderConfig> {
+        Some(&self.config)
     }
 
     async fn complete(
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let api_key = self.api_key()?;
-        let messages = convert_messages_simple(&request);
-
-        let mut body = serde_json::json!({
-            "model": request.model,
-            "messages": messages,
-            "temperature": request.temperature.unwrap_or(0.7),
-            "max_tokens": request.max_tokens.unwrap_or(4096),
-        });
-        if let Some(rf) = build_openai_response_format(&request.output_config) {
-            body["response_format"] = rf;
-        }
-
-        let req = build_request_with_auth(
-            self.client.post(&self.endpoint),
-            &api_key,
-            self.config.extra_headers.as_ref(),
-        );
-
-        let response = req
-            .json(&body)
-            .send()
+        self.route
+            .execute(&request, None)
             .await
-            .map_err(|e| ProviderError::Network(format!("Failed to send request: {}", e)))?;
-
-        if !response.status().is_success() {
-            let headers = response.headers().clone();
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(map_http_error(
-                status,
-                error_text,
-                &headers,
-                "Together AI",
-                "TOGETHER_API_KEY",
-            ));
-        }
-
-        let together_response: OpenAiCompatibleResponse = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("Failed to parse response: {}", e))
-        })?;
-
-        build_completion_response(&together_response)
+            .map_err(|e| ProviderError::api(e.to_string()))
     }
 
     async fn complete_stream(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.api_key()?;
-        let messages = convert_messages_simple(&request);
+        let stream = self
+            .route
+            .execute_stream(&request, None)
+            .await
+            .map_err(|e| ProviderError::api(e.to_string()))?;
 
-        let request_body = serde_json::json!({
-            "model": request.model,
-            "messages": messages,
-            "temperature": request.temperature.unwrap_or(0.7),
-            "stream": true
-        });
+        let chunk_stream = stream.map(|res| res.map_err(|e| ProviderError::api(e.to_string())));
 
-        let req = build_request_with_auth(
-            self.client.post(&self.endpoint),
-            &api_key,
-            self.config.extra_headers.as_ref(),
-        );
-
-        let response = req.json(&request_body).send().await.map_err(|e| {
-            ProviderError::Network(format!("Failed to connect to Together AI: {}", e))
-        })?;
-
-        if !response.status().is_success() {
-            let headers = response.headers().clone();
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(map_http_error(
-                status,
-                error_text,
-                &headers,
-                "Together AI",
-                "TOGETHER_API_KEY",
-            ));
-        }
-
-        // Convert bytes stream to SSE stream using shared parser
-        let bytes_stream = response.bytes_stream();
-        let line_buffer = SseByteBuffer::new();
-        let sse_state = SseParseState::default();
-        let config = SseParseConfig::minimal();
-
-        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
-            let chunk = match chunk_result {
-                Ok(c) => c,
-                Err(e) => {
-                    return futures::stream::iter(vec![Err(ProviderError::Network(format!(
-                        "Failed to read chunk: {}",
-                        e
-                    )))]);
-                }
-            };
-            let lines = line_buffer.feed_chunk(&chunk);
-            let complete_lines = lines.join("\n");
-            let events = parse_openai_sse_lines(&complete_lines, config, &sse_state);
-            futures::stream::iter(events)
-        });
-
-        Ok(Box::pin(sse_stream))
-    }
-
-    fn config(&self) -> Option<&ProviderConfig> {
-        Some(&self.config)
+        Ok(Box::pin(chunk_stream))
     }
 }
 

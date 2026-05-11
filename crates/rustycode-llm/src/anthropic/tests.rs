@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::provider::{CompletionResponse, LLMProvider, ThinkingBlock};
+use crate::response_debug::ResponseDebugContext;
 use secrecy::SecretString;
 
 use super::helpers::{
@@ -126,8 +127,8 @@ fn test_anthropic_metadata_has_claude4_models() {
 #[test]
 fn test_map_anthropic_error_404_model_not_found() {
     let status = reqwest::StatusCode::from_u16(404).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
-    let error = map_anthropic_error(status, "model does not exist", &headers);
+    let ctx = ResponseDebugContext::default();
+    let error = map_anthropic_error(status, "model does not exist", &ctx);
     match error {
         ProviderError::InvalidModel(msg) => {
             assert!(msg.contains("model does not exist"));
@@ -139,8 +140,8 @@ fn test_map_anthropic_error_404_model_not_found() {
 #[test]
 fn test_map_anthropic_error_502_service_unavailable() {
     let status = reqwest::StatusCode::from_u16(502).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
-    let error = map_anthropic_error(status, "bad gateway", &headers);
+    let ctx = ResponseDebugContext::default();
+    let error = map_anthropic_error(status, "bad gateway", &ctx);
     match error {
         ProviderError::Network(msg) => {
             assert!(msg.contains("service unavailable"));
@@ -153,8 +154,8 @@ fn test_map_anthropic_error_502_service_unavailable() {
 #[test]
 fn test_map_anthropic_error_503_service_unavailable() {
     let status = reqwest::StatusCode::from_u16(503).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
-    let error = map_anthropic_error(status, "service overloaded", &headers);
+    let ctx = ResponseDebugContext::default();
+    let error = map_anthropic_error(status, "service overloaded", &ctx);
     match error {
         ProviderError::Network(msg) => {
             assert!(msg.contains("service unavailable"));
@@ -166,16 +167,16 @@ fn test_map_anthropic_error_503_service_unavailable() {
 #[test]
 fn test_map_anthropic_error_401_auth() {
     let status = reqwest::StatusCode::from_u16(401).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
-    let error = map_anthropic_error(status, "invalid key", &headers);
+    let ctx = ResponseDebugContext::default();
+    let error = map_anthropic_error(status, "invalid key", &ctx);
     assert!(matches!(error, ProviderError::Auth(_)));
 }
 
 #[test]
 fn test_map_anthropic_error_429_rate_limited() {
     let status = reqwest::StatusCode::from_u16(429).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
-    let error = map_anthropic_error(status, "slow down", &headers);
+    let ctx = ResponseDebugContext::default();
+    let error = map_anthropic_error(status, "slow down", &ctx);
     assert!(matches!(
         error,
         ProviderError::RateLimited { retry_delay: None }
@@ -185,13 +186,12 @@ fn test_map_anthropic_error_429_rate_limited() {
 #[test]
 fn test_map_anthropic_structured_error_not_found() {
     let status = reqwest::StatusCode::from_u16(404).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
+    let ctx = ResponseDebugContext::default();
     let error = map_anthropic_structured_error(
         status,
         "not_found_error",
         "model: foo-bar does not exist",
-        None,
-        &headers,
+        &ctx,
     );
     match error {
         ProviderError::InvalidModel(msg) => {
@@ -205,14 +205,9 @@ fn test_map_anthropic_structured_error_not_found() {
 #[test]
 fn test_map_anthropic_structured_error_overloaded() {
     let status = reqwest::StatusCode::from_u16(529).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
-    let error = map_anthropic_structured_error(
-        status,
-        "overloaded_error",
-        "Anthropic is overloaded",
-        None,
-        &headers,
-    );
+    let ctx = ResponseDebugContext::default();
+    let error =
+        map_anthropic_structured_error(status, "overloaded_error", "Anthropic is overloaded", &ctx);
     match error {
         ProviderError::Network(msg) => {
             assert!(msg.contains("overloaded"));
@@ -224,17 +219,16 @@ fn test_map_anthropic_structured_error_overloaded() {
 #[test]
 fn test_map_anthropic_structured_error_with_param() {
     let status = reqwest::StatusCode::from_u16(400).unwrap();
-    let headers = reqwest::header::HeaderMap::new();
+    let ctx = ResponseDebugContext::default();
     let error = map_anthropic_structured_error(
         status,
         "invalid_request_error",
         "max_tokens must be positive",
-        Some("max_tokens"),
-        &headers,
+        &ctx,
     );
     match error {
         ProviderError::Api(msg) => {
-            assert!(msg.contains("parameter: max_tokens"));
+            assert!(msg.contains("max_tokens must be positive"));
         }
         other => panic!("expected Api, got {:?}", other),
     }

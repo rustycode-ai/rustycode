@@ -132,4 +132,56 @@ impl ProviderError {
             Self::RateLimited { .. } | Self::Network(_) | Self::Timeout(_)
         )
     }
+
+    /// Create an API error with optional retry delay.
+    pub fn api_with_retry(
+        status: u16,
+        body: impl Into<String>,
+        retry_delay: Option<std::time::Duration>,
+        _context: &crate::response_debug::ResponseDebugContext,
+    ) -> Self {
+        let body_str = body.into();
+        match status {
+            429 => Self::RateLimited { retry_delay },
+            401 | 403 => Self::Auth(body_str),
+            404 | 410 => {
+                if body_str.contains("not_found") || body_str.contains("model") {
+                    Self::InvalidModel(body_str)
+                } else {
+                    Self::Api(body_str)
+                }
+            }
+            502 | 503 | 504 | 529 => {
+                let msg = format!("service unavailable: {}", body_str);
+                if body_str.contains("overloaded")
+                    || body_str.contains("bad gateway")
+                    || body_str.contains("service unavailable")
+                    || body_str.contains("unavailable")
+                {
+                    Self::Network(msg)
+                } else {
+                    Self::Api(msg)
+                }
+            }
+            400 if body_str.contains("context_length")
+                || (body_str.contains("max_tokens")
+                    && (body_str.contains("limit") || body_str.contains("exceeded"))) =>
+            {
+                Self::ContextLengthExceeded(body_str)
+            }
+            400 if body_str.contains("not_found") => Self::InvalidModel(body_str),
+            400 if body_str.contains("overloaded") => Self::Network(body_str),
+            402 | 433 => Self::CreditsExhausted {
+                details: body_str,
+                top_up_url: None,
+            },
+            _ => {
+                if body_str.contains("overloaded") {
+                    Self::Network(body_str)
+                } else {
+                    Self::Api(body_str)
+                }
+            }
+        }
+    }
 }

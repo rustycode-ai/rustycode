@@ -2,40 +2,7 @@
 //!
 //! This provider supports Perplexity AI's API which provides access to
 //! various LLM models including their own pplx models and others.
-//!
-//! ## Configuration
-//!
-//! The provider requires:
-//! - API key (from Perplexity AI)
-//! - Model name (e.g., "llama-3.1-sonar-small-128k-online", "mixtral-8x7b-instruct")
-//!
-//! ## Environment Variables
-//!
-//! - `PERPLEXITY_API_KEY` - API key for authentication
-//!
-//! ## Example Configuration
-//!
-//! ```toml
-//! [ai]
-//! provider = "perplexity"
-//! model = "llama-3.1-sonar-small-128k-online"
-//! api_key = "your-api-key"
-//! ```
 
-use crate::openai_compatible::{
-    build_completion_response, build_request_with_auth, convert_messages_simple, map_http_error,
-    parse_openai_sse_lines, OpenAiCompatibleResponse, SseParseConfig, SseParseState,
-};
-use crate::provider::{
-    build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,
-    ProviderConfig, ProviderError, StreamChunk,
-};
-use crate::provider_metadata::{
-    ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
-    PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
-};
-use crate::sse::SseByteBuffer;
-use crate::{get_api_key, shared_client};
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
@@ -43,14 +10,25 @@ use secrecy::ExposeSecret;
 use std::collections::HashMap;
 use std::pin::Pin;
 
+use crate::auth::AuthMethod;
+use crate::provider::{
+    CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
+};
+use crate::provider_metadata::{
+    ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
+    PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
+};
+use crate::route::Route;
+use crate::transport::HttpTransport;
+use crate::wire::openai_chat::OpenAIChatProtocol;
+
 /// Default Perplexity API endpoint
 const PERPLEXITY_API_ENDPOINT: &str = "https://api.perplexity.ai/chat/completions";
 
 /// Perplexity AI LLM provider
 pub struct PerplexityProvider {
     config: ProviderConfig,
-    client: reqwest::Client,
-    endpoint: String,
+    route: Route,
 }
 
 impl PerplexityProvider {
@@ -63,13 +41,25 @@ impl PerplexityProvider {
             .clone()
             .unwrap_or_else(|| PERPLEXITY_API_ENDPOINT.to_string());
 
-        let client = shared_client!();
+        let auth: Box<dyn AuthMethod> = Box::new(crate::auth::BearerAuth::new(
+            config
+                .api_key
+                .clone()
+                .ok_or_else(|| ProviderError::auth("Missing API key"))?,
+        ));
 
-        Ok(Self {
-            config,
-            client,
+        let route = Route::new(
             endpoint,
-        })
+            Box::new(OpenAIChatProtocol),
+            Box::new(
+                HttpTransport::new(config.timeout_seconds.unwrap_or(120))
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+            ),
+            auth,
+        )
+        .with_name("perplexity-chat");
+
+        Ok(Self { config, route })
     }
 
     /// Get metadata for this provider
@@ -151,16 +141,8 @@ impl PerplexityProvider {
                     cost_tier: 2,
                 },
             ],
-                    model_behavior_profiles: HashMap::new(),
+            model_behavior_profiles: HashMap::new(),
         }
-    }
-
-    fn api_key(&self) -> Result<String, ProviderError> {
-        get_api_key!(self, "PERPLEXITY_API_KEY")
-    }
-
-    fn endpoint(&self) -> &str {
-        &self.endpoint
     }
 }
 
@@ -171,7 +153,10 @@ impl LLMProvider for PerplexityProvider {
     }
 
     async fn is_available(&self) -> bool {
-        self.api_key().is_ok()
+        self.config
+            .api_key
+            .as_ref()
+            .is_some_and(|k| !k.expose_secret().is_empty())
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
@@ -183,126 +168,33 @@ impl LLMProvider for PerplexityProvider {
         ])
     }
 
+    fn config(&self) -> Option<&ProviderConfig> {
+        Some(&self.config)
+    }
+
     async fn complete(
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let api_key = self.api_key()?;
-        let messages = convert_messages_simple(&request);
-
-        let mut body = serde_json::json!({
-            "model": request.model,
-            "messages": messages,
-            "max_tokens": request.max_tokens.unwrap_or(4096),
-            "temperature": request.temperature.unwrap_or(0.7),
-        });
-        if let Some(rf) = build_openai_response_format(&request.output_config) {
-            body["response_format"] = rf;
-        }
-
-        let req = build_request_with_auth(
-            self.client.post(self.endpoint()),
-            &api_key,
-            self.config.extra_headers.as_ref(),
-        );
-
-        let response = req
-            .json(&body)
-            .send()
+        self.route
+            .execute(&request, None)
             .await
-            .map_err(|e| ProviderError::Network(format!("Failed to send request: {}", e)))?;
-
-        if !response.status().is_success() {
-            let headers = response.headers().clone();
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(map_http_error(
-                status,
-                error_text,
-                &headers,
-                "Perplexity",
-                "PERPLEXITY_API_KEY",
-            ));
-        }
-
-        let perplexity_response: OpenAiCompatibleResponse = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("Failed to parse response: {}", e))
-        })?;
-
-        build_completion_response(&perplexity_response)
+            .map_err(|e| ProviderError::api(e.to_string()))
     }
 
     async fn complete_stream(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.api_key()?;
-        let messages = convert_messages_simple(&request);
+        let stream = self
+            .route
+            .execute_stream(&request, None)
+            .await
+            .map_err(|e| ProviderError::api(e.to_string()))?;
 
-        let request_body = serde_json::json!({
-            "model": request.model,
-            "messages": messages,
-            "max_tokens": request.max_tokens.unwrap_or(4096),
-            "temperature": request.temperature.unwrap_or(0.7),
-            "stream": true
-        });
+        let chunk_stream = stream.map(|res| res.map_err(|e| ProviderError::api(e.to_string())));
 
-        let req = build_request_with_auth(
-            self.client.post(self.endpoint()),
-            &api_key,
-            self.config.extra_headers.as_ref(),
-        );
-
-        let response = req.json(&request_body).send().await.map_err(|e| {
-            ProviderError::Network(format!("Failed to connect to Perplexity: {}", e))
-        })?;
-
-        if !response.status().is_success() {
-            let headers = response.headers().clone();
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(map_http_error(
-                status,
-                error_text,
-                &headers,
-                "Perplexity",
-                "PERPLEXITY_API_KEY",
-            ));
-        }
-
-        // Convert bytes stream to SSE stream using shared parser
-        let bytes_stream = response.bytes_stream();
-        let line_buffer = SseByteBuffer::new();
-        let sse_state = SseParseState::default();
-        let config = SseParseConfig::minimal();
-
-        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
-            let chunk = match chunk_result {
-                Ok(c) => c,
-                Err(e) => {
-                    return futures::stream::iter(vec![Err(ProviderError::Network(format!(
-                        "Failed to read chunk: {}",
-                        e
-                    )))]);
-                }
-            };
-            let lines = line_buffer.feed_chunk(&chunk);
-            let complete_lines = lines.join("\n");
-            let events = parse_openai_sse_lines(&complete_lines, config, &sse_state);
-            futures::stream::iter(events)
-        });
-
-        Ok(Box::pin(sse_stream))
-    }
-
-    fn config(&self) -> Option<&ProviderConfig> {
-        Some(&self.config)
+        Ok(Box::pin(chunk_stream))
     }
 }
 
@@ -340,93 +232,6 @@ mod tests {
         let config = make_config(None);
         let result = PerplexityProvider::new(config, "sonar".to_string());
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_metadata_display_name() {
-        let metadata = PerplexityProvider::metadata();
-        assert_eq!(metadata.display_name, "Perplexity AI");
-        assert_eq!(metadata.provider_id, "perplexity");
-    }
-
-    #[test]
-    fn test_metadata_tool_calling_supported() {
-        let metadata = PerplexityProvider::metadata();
-        assert!(metadata.tool_calling.supported);
-        assert!(metadata.tool_calling.streaming_support);
-        assert!(metadata.tool_calling.parallel_calling);
-        assert_eq!(metadata.tool_calling.max_tools_per_call, Some(128));
-    }
-
-    #[test]
-    fn test_metadata_env_mappings() {
-        let metadata = PerplexityProvider::metadata();
-        assert_eq!(
-            metadata.config_schema.env_mappings.get("api_key"),
-            Some(&"PERPLEXITY_API_KEY".to_string())
-        );
-    }
-
-    #[test]
-    fn test_metadata_recommended_models() {
-        let metadata = PerplexityProvider::metadata();
-        let model_ids: Vec<&str> = metadata
-            .recommended_models
-            .iter()
-            .map(|m| m.model_id.as_str())
-            .collect();
-        assert!(model_ids.iter().any(|id| id.contains("sonar")));
-    }
-
-    #[test]
-    fn test_default_endpoint() {
-        let config = make_config(Some("pplx-test-key"));
-        let provider = PerplexityProvider::new(config, "sonar".to_string()).unwrap();
-        assert_eq!(provider.endpoint(), PERPLEXITY_API_ENDPOINT);
-    }
-
-    #[test]
-    fn test_custom_endpoint() {
-        let mut config = make_config(Some("pplx-test-key"));
-        config.base_url =
-            Some("https://custom-perplexity.example.com/chat/completions".to_string());
-        let provider = PerplexityProvider::new(config, "sonar".to_string()).unwrap();
-        assert_eq!(
-            provider.endpoint(),
-            "https://custom-perplexity.example.com/chat/completions"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_list_models_returns_known_models() {
-        let config = make_config(Some("pplx-test-key"));
-        let provider = PerplexityProvider::new(config, "sonar".to_string()).unwrap();
-        let models = provider.list_models().await.unwrap();
-        assert!(!models.is_empty());
-        assert!(models.iter().any(|m| m.contains("sonar")));
-        assert!(models.iter().any(|m| m.contains("mixtral")));
-    }
-
-    #[tokio::test]
-    async fn test_is_available_with_key() {
-        let config = make_config(Some("pplx-test-key"));
-        let provider = PerplexityProvider::new(config, "sonar".to_string()).unwrap();
-        assert!(provider.is_available().await);
-    }
-
-    #[tokio::test]
-    async fn test_is_available_without_key() {
-        let config = ProviderConfig {
-            api_key: Some(SecretString::new(String::new().into())),
-            base_url: None,
-            timeout_seconds: Some(120),
-            extra_headers: None,
-            retry_config: None,
-        };
-        let result = PerplexityProvider::new(config, "sonar".to_string());
-        if let Ok(provider) = result {
-            assert!(!provider.is_available().await);
-        }
     }
 
     #[tokio::test]

@@ -41,6 +41,7 @@ rustycode-runtime = { path = "../rustycode-runtime" }
 rustycode-protocol = { path = "../rustycode-protocol" }
 rustycode-tui = { path = "../rustycode-tui", default-features = false }
 rustycode-llm = { path = "../rustycode-llm" }
+rustycode-auth = { path = "../rustycode-auth" }
 rustycode-litert = { path = "../rustycode-litert" }
 rustycode-providers = { path = "../rustycode-providers" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }

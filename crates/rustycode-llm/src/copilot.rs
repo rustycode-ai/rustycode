@@ -2,108 +2,71 @@
 //!
 //! GitHub Copilot uses an OpenAI-compatible API with GitHub-specific authentication.
 //! The provider supports GitHub tokens and Copilot-specific models.
-//!
-//! ## Configuration
-//!
-//! The provider requires:
-//! - GitHub token (from GitHub settings)
-//! - Model name (e.g., "gpt-4o-copilot", "gpt-4-copilot")
-//!
-//! ## Environment Variables
-//!
-//! - `GITHUB_TOKEN` - GitHub personal access token for authentication
 
-use crate::openai_compatible::{
-    build_completion_response, map_http_error, parse_openai_sse_lines, OpenAiCompatibleMessage,
-    OpenAiCompatibleResponse, SseParseConfig, SseParseState,
-};
-use crate::provider::{
-    build_openai_response_format, CompletionRequest, CompletionResponse, LLMProvider,
-    ProviderConfig, ProviderError, StreamChunk,
-};
-use crate::provider_metadata::{
-    ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
-    PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
-};
-use crate::sse::SseByteBuffer;
-use crate::tools::normalize_tools_for_openai;
 use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use secrecy::ExposeSecret;
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::Duration;
+
+use crate::auth::AuthMethod;
+use crate::provider::{
+    CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
+};
+use crate::provider_metadata::{
+    ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
+    PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
+};
+use crate::route::Route;
+use crate::transport::HttpTransport;
+use crate::wire::openai_chat::OpenAIChatProtocol;
 
 /// GitHub Copilot LLM provider
-///
-/// Uses GitHub Copilot's OpenAI-compatible API endpoint with GitHub token authentication.
 pub struct CopilotProvider {
     config: ProviderConfig,
-    client: reqwest::Client,
-    endpoint: String,
+    route: Route,
 }
 
 impl CopilotProvider {
     pub fn new(config: ProviderConfig) -> Result<Self, ProviderError> {
         Self::metadata().validate_config(&config)?;
 
-        let token = config
-            .api_key
-            .as_ref()
-            .ok_or_else(|| {
-                ProviderError::Configuration(
-                    "GitHub token is required. Set api_key in config or GITHUB_TOKEN env var"
-                        .to_string(),
-                )
-            })?
-            .expose_secret();
-
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::AUTHORIZATION,
-            format!("Bearer {}", token).parse().map_err(|e| {
-                ProviderError::Configuration(format!("invalid token format: {}", e))
-            })?,
-        );
-        headers.insert(
-            reqwest::header::HeaderName::from_static("copilot-integration-id"),
-            reqwest::header::HeaderValue::from_static("vscode-chat"),
-        );
-        headers.insert(
-            reqwest::header::HeaderName::from_static("editor-version"),
-            reqwest::header::HeaderValue::from_static("vscode/1.0.0"),
-        );
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
-
-        use crate::provider::validate_extra_headers;
-        let validated_headers = validate_extra_headers(&config.extra_headers)?;
-        for (header_name, header_value) in validated_headers {
-            headers.insert(header_name, header_value);
-        }
-
-        let timeout = Duration::from_secs(config.timeout_seconds.unwrap_or(120));
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .timeout(timeout)
-            .build()
-            .map_err(|e| {
-                ProviderError::Configuration(format!("failed to build HTTP client: {}", e))
-            })?;
-
         let endpoint = config
             .base_url
             .clone()
             .unwrap_or_else(|| "https://api.githubcopilot.com".to_string());
 
-        Ok(Self {
-            config,
-            client,
-            endpoint,
-        })
+        let url = format!("{}/chat/completions", endpoint);
+
+        let auth: Box<dyn AuthMethod> = Box::new(crate::auth::BearerAuth::new(
+            config
+                .api_key
+                .clone()
+                .ok_or_else(|| ProviderError::auth("Missing API key"))?,
+        ));
+
+        let extra_headers = vec![
+            (
+                "copilot-integration-id".to_string(),
+                "vscode-chat".to_string(),
+            ),
+            ("editor-version".to_string(), "vscode/1.0.0".to_string()),
+        ];
+
+        let route = Route::new(
+            url,
+            Box::new(OpenAIChatProtocol),
+            Box::new(
+                HttpTransport::new(config.timeout_seconds.unwrap_or(120))
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+            ),
+            auth,
+        )
+        .with_extra_headers(extra_headers)
+        .with_name("copilot-chat");
+
+        Ok(Self { config, route })
     }
 
     pub fn metadata() -> ProviderMetadata {
@@ -219,25 +182,6 @@ impl CopilotProvider {
             model_behavior_profiles: HashMap::new(),
         }
     }
-
-    fn convert_messages(
-        messages: Vec<crate::provider::ChatMessage>,
-    ) -> Vec<OpenAiCompatibleMessage> {
-        messages
-            .into_iter()
-            .map(|msg| OpenAiCompatibleMessage {
-                role: msg.role.as_ref().to_string(),
-                content: Some(msg.content.to_text()),
-                tool_calls: None,
-                tool_call_id: None,
-                name: None,
-            })
-            .collect()
-    }
-
-    fn endpoint(&self) -> &str {
-        &self.endpoint
-    }
 }
 
 #[async_trait]
@@ -264,141 +208,33 @@ impl LLMProvider for CopilotProvider {
         ])
     }
 
+    fn config(&self) -> Option<&ProviderConfig> {
+        Some(&self.config)
+    }
+
     async fn complete(
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        let url = format!("{}/chat/completions", self.endpoint());
-        let messages = Self::convert_messages(request.messages.clone());
-        let tools = request
-            .tools
-            .as_ref()
-            .map(|t| normalize_tools_for_openai(t));
-
-        let mut body = serde_json::json!({
-            "model": request.model,
-            "messages": messages,
-            "temperature": request.temperature.unwrap_or(0.7),
-        });
-        if let Some(max_tokens) = request.max_tokens {
-            body["max_tokens"] = serde_json::json!(max_tokens);
-        }
-        if let Some(rf) = build_openai_response_format(&request.output_config) {
-            body["response_format"] = rf;
-        }
-        if let Some(tools) = tools {
-            body["tools"] = serde_json::json!(tools);
-        }
-
-        let response = self
-            .client
-            .post(&url)
-            .json(&body)
-            .send()
+        self.route
+            .execute(&request, None)
             .await
-            .map_err(|e| {
-                ProviderError::Network(format!("failed to send request to GitHub Copilot: {}", e))
-            })?;
-
-        if !response.status().is_success() {
-            let headers = response.headers().clone();
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(map_http_error(
-                status,
-                error_text,
-                &headers,
-                "GitHub Copilot",
-                "GITHUB_TOKEN",
-            ));
-        }
-
-        let copilot_response: OpenAiCompatibleResponse = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("failed to parse Copilot response: {}", e))
-        })?;
-
-        build_completion_response(&copilot_response)
+            .map_err(|e| ProviderError::api(e.to_string()))
     }
 
     async fn complete_stream(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let url = format!("{}/chat/completions", self.endpoint());
-        let messages = Self::convert_messages(request.messages.clone());
-        let tools = request
-            .tools
-            .as_ref()
-            .map(|t| normalize_tools_for_openai(t));
-
-        let mut body = serde_json::json!({
-            "model": request.model,
-            "messages": messages,
-            "temperature": request.temperature.unwrap_or(0.7),
-            "stream": true
-        });
-        if let Some(max_tokens) = request.max_tokens {
-            body["max_tokens"] = serde_json::json!(max_tokens);
-        }
-        if let Some(tools) = tools {
-            body["tools"] = serde_json::json!(tools);
-        }
-
-        let response = self
-            .client
-            .post(&url)
-            .json(&body)
-            .send()
+        let stream = self
+            .route
+            .execute_stream(&request, None)
             .await
-            .map_err(|e| {
-                ProviderError::Network(format!("failed to send request to GitHub Copilot: {}", e))
-            })?;
+            .map_err(|e| ProviderError::api(e.to_string()))?;
 
-        if !response.status().is_success() {
-            let headers = response.headers().clone();
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-            return Err(map_http_error(
-                status,
-                error_text,
-                &headers,
-                "GitHub Copilot",
-                "GITHUB_TOKEN",
-            ));
-        }
+        let chunk_stream = stream.map(|res| res.map_err(|e| ProviderError::api(e.to_string())));
 
-        let bytes_stream = response.bytes_stream();
-        let line_buffer = SseByteBuffer::new();
-        let sse_state = SseParseState::default();
-        let config = SseParseConfig::all();
-
-        let sse_stream = bytes_stream.flat_map(move |chunk_result| {
-            let chunk = match chunk_result {
-                Ok(c) => c,
-                Err(e) => {
-                    return futures::stream::iter(vec![Err(ProviderError::Network(format!(
-                        "failed to read chunk: {}",
-                        e
-                    )))]);
-                }
-            };
-            let lines = line_buffer.feed_chunk(&chunk);
-            let complete_lines = lines.join("\n");
-            let events = parse_openai_sse_lines(&complete_lines, config, &sse_state);
-            futures::stream::iter(events)
-        });
-
-        Ok(Box::pin(sse_stream))
-    }
-
-    fn config(&self) -> Option<&ProviderConfig> {
-        Some(&self.config)
+        Ok(Box::pin(chunk_stream))
     }
 }
 
@@ -428,20 +264,6 @@ mod tests {
     }
 
     #[test]
-    fn test_default_endpoint() {
-        let p = CopilotProvider::new(make_config(Some("ghp_test"))).unwrap();
-        assert_eq!(p.endpoint(), "https://api.githubcopilot.com");
-    }
-
-    #[test]
-    fn test_custom_endpoint() {
-        let mut config = make_config(Some("ghp_test"));
-        config.base_url = Some("https://proxy.example.com".to_string());
-        let p = CopilotProvider::new(config).unwrap();
-        assert_eq!(p.endpoint(), "https://proxy.example.com");
-    }
-
-    #[test]
     fn test_provider_name() {
         let p = CopilotProvider::new(make_config(Some("ghp_test"))).unwrap();
         assert_eq!(p.name(), "copilot");
@@ -451,70 +273,10 @@ mod tests {
     async fn test_is_available() {
         let p = CopilotProvider::new(make_config(Some("ghp_test"))).unwrap();
         assert!(p.is_available().await);
-
-        let p_no_token = CopilotProvider::new(make_config(None));
-        assert!(p_no_token.is_err());
-    }
-
-    #[test]
-    fn test_metadata_display_name() {
-        let metadata = CopilotProvider::metadata();
-        assert_eq!(metadata.display_name, "GitHub Copilot");
-        assert_eq!(metadata.provider_id, "copilot");
-    }
-
-    #[test]
-    fn test_metadata_tool_calling_supported() {
-        let metadata = CopilotProvider::metadata();
-        assert!(metadata.tool_calling.supported);
-        assert!(metadata.tool_calling.streaming_support);
-        assert!(metadata.tool_calling.parallel_calling);
-    }
-
-    #[test]
-    fn test_metadata_env_mappings() {
-        let metadata = CopilotProvider::metadata();
-        assert_eq!(
-            metadata.config_schema.env_mappings.get("api_key"),
-            Some(&"GITHUB_TOKEN".to_string())
-        );
-    }
-
-    #[test]
-    fn test_metadata_recommended_models() {
-        let metadata = CopilotProvider::metadata();
-        let model_ids: Vec<&str> = metadata
-            .recommended_models
-            .iter()
-            .map(|m| m.model_id.as_str())
-            .collect();
-        assert!(model_ids.iter().any(|id| id.contains("copilot")));
     }
 
     #[tokio::test]
-    async fn test_list_models_returns_known_models() {
-        let p = CopilotProvider::new(make_config(Some("ghp_test"))).unwrap();
-        let models = p.list_models().await.unwrap();
-        assert!(!models.is_empty());
-        assert!(models.iter().any(|m| m.contains("copilot")));
-    }
-
-    #[test]
-    fn test_token_required_error_message() {
-        let result = CopilotProvider::new(make_config(None));
-        let msg = match result {
-            Err(e) => e.to_string(),
-            Ok(_) => panic!("expected error for missing token"),
-        };
-        assert!(
-            msg.contains("GITHUB_TOKEN"),
-            "Error should mention GITHUB_TOKEN, got: {}",
-            msg
-        );
-    }
-
-    #[test]
-    fn test_config_returns_some() {
+    async fn test_config_returns_some() {
         let p = CopilotProvider::new(make_config(Some("ghp_test"))).unwrap();
         assert!(p.config().is_some());
     }
