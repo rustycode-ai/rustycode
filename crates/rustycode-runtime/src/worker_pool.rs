@@ -60,7 +60,7 @@ use anyhow::{Context, Result};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use tokio::sync::{broadcast, mpsc, oneshot, Semaphore};
+use tokio::sync::{broadcast, mpsc, oneshot, watch, Semaphore};
 use tokio::task::JoinHandle;
 use tokio::time::{interval, sleep, timeout};
 use tracing::{debug, info, instrument, warn};
@@ -300,25 +300,49 @@ impl Default for PoolMetrics {
     }
 }
 
-/// Cancellation token for tasks
+/// Cancellation token for tasks.
+///
+/// Uses a `watch` channel internally so that `cancelled()` resolves
+/// immediately if the token has already been cancelled, without races.
 #[derive(Debug, Clone)]
 pub struct CancellationToken {
-    inner: Arc<AtomicBool>,
+    flag: Arc<AtomicBool>,
+    tx: watch::Sender<bool>,
 }
 
 impl CancellationToken {
     pub fn new() -> Self {
+        let (tx, _) = watch::channel(false);
         Self {
-            inner: Arc::new(AtomicBool::new(false)),
+            flag: Arc::new(AtomicBool::new(false)),
+            tx,
         }
     }
 
     pub fn is_cancelled(&self) -> bool {
-        self.inner.load(Ordering::Relaxed)
+        self.flag.load(Ordering::Relaxed)
     }
 
     pub fn cancel(&self) {
-        self.inner.store(true, Ordering::Relaxed);
+        self.flag.store(true, Ordering::Release);
+        let _ = self.tx.send(true);
+    }
+
+    /// Returns a future that resolves when the token is cancelled.
+    ///
+    /// If already cancelled, resolves immediately.
+    /// Race-free: uses a watch channel so even if `cancel()` is called
+    /// between the flag check and awaiting, the notification is not lost.
+    pub async fn cancelled(&self) {
+        if self.flag.load(Ordering::Acquire) {
+            return;
+        }
+        // subscribe() yields the current value, closing the race with cancel().
+        let mut rx = self.tx.subscribe();
+        if *rx.borrow_and_update() {
+            return;
+        }
+        let _ = rx.changed().await;
     }
 }
 
@@ -518,6 +542,7 @@ impl WorkerPool {
                         let task_id = task.id;
                         let priority = task.priority;
 
+                        let abort_handle = task.work.abort_handle();
                         let result = timeout(config.task_timeout, task.work).await;
 
                         match result {
@@ -556,7 +581,8 @@ impl WorkerPool {
                                 debug!("Worker {} task {} cancelled", worker_id, task_id);
                             }
                             Err(_) => {
-                                // Timeout waiting for task completion
+                                // Timeout — abort the underlying task so it stops consuming resources
+                                abort_handle.abort();
                                 metrics.busy_workers.fetch_sub(1, Ordering::Relaxed);
                                 metrics.tasks_failed.fetch_add(1, Ordering::Relaxed);
 
@@ -833,20 +859,86 @@ impl WorkerPool {
         }
     }
 
-    /// Submit a task with a cancellation token
+    /// Submit a task with a cancellation token.
+    ///
+    /// If the cancellation token is triggered before the work completes,
+    /// the task is cancelled and [`TaskError::Cancelled`] is returned.
     pub async fn submit_task_with_cancel<T, F>(
         &self,
         priority: TaskPriority,
         work: F,
-        _cancel_token: CancellationToken,
+        cancel_token: CancellationToken,
     ) -> Result<JoinHandle<TaskResult<T>>>
     where
         T: Send + 'static,
         F: std::future::Future<Output = Result<T>> + Send + 'static,
     {
-        // For now, just submit without cancellation support
-        // Full implementation would integrate the cancellation token
-        self.submit_task(priority, work).await
+        let task_id = self.task_id.fetch_add(1, Ordering::Relaxed);
+        self.metrics.tasks_submitted.fetch_add(1, Ordering::Relaxed);
+
+        let (typed_tx, typed_rx) = oneshot::channel::<TaskResult<T>>();
+        let (boxed_tx, boxed_rx) =
+            oneshot::channel::<TaskResult<Box<dyn std::any::Any + Send + 'static>>>();
+
+        let work_handle: JoinHandle<TaskResult<Box<dyn std::any::Any + Send + 'static>>> =
+            tokio::spawn(async move {
+                tokio::select! {
+                    result = work => {
+                        result
+                            .map(|v| -> Box<dyn std::any::Any + Send + 'static> { Box::new(v) })
+                            .map_err(|e| TaskError::Failed {
+                                retries: 0,
+                                source: e,
+                            })
+                    }
+                    _ = cancel_token.cancelled() => {
+                        Err(TaskError::Cancelled)
+                    }
+                }
+            });
+
+        tokio::spawn(async move {
+            let boxed_result = boxed_rx.await;
+            let typed_result = match boxed_result {
+                Ok(Ok(boxed)) => match (boxed).downcast::<T>() {
+                    Ok(val) => Ok(*val),
+                    Err(_) => Err(TaskError::Failed {
+                        retries: 0,
+                        source: anyhow::anyhow!("type downcast failed"),
+                    }),
+                },
+                Ok(Err(e)) => Err(e),
+                Err(_) => Err(TaskError::Cancelled),
+            };
+            if typed_tx.send(typed_result).is_err() {
+                debug!("Typed task result send failed (receiver dropped)");
+            }
+        });
+
+        let task = Task::new(task_id, priority, work_handle, boxed_tx);
+
+        let send_result = match priority {
+            TaskPriority::High => self.high_queue.send(task).await,
+            TaskPriority::Normal => self.normal_queue.send(task).await,
+            TaskPriority::Low => self.low_queue.send(task).await,
+        };
+
+        if self.task_notify.send(()).is_err() {
+            debug!("Task notify send failed (no active workers)");
+        }
+
+        if let Ok(()) = send_result {
+            debug!(
+                "Task {} submitted with {:?} (cancellable)",
+                task_id, priority
+            );
+            Ok(tokio::spawn(async move {
+                typed_rx.await.map_err(|_| TaskError::Cancelled)?
+            }))
+        } else {
+            self.metrics.tasks_failed.fetch_add(1, Ordering::Relaxed);
+            Err(anyhow::anyhow!(TaskError::QueueFull))
+        }
     }
 
     /// Get current pool metrics

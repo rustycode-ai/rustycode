@@ -79,9 +79,9 @@ pub struct RetryConfig {
 impl Default for RetryConfig {
     fn default() -> Self {
         Self {
-            max_attempts: 3,
+            max_attempts: 5,
             base_delay: Duration::from_millis(100),
-            max_delay: Duration::from_secs(10),
+            max_delay: Duration::from_mins(1),
             multiplier: 2.0,
             jitter_factor: 0.1,
             retry_after_ms: None,
@@ -289,10 +289,14 @@ where
                         // Rate-limited responses need much longer backoff
                         let err_str = error_ref.to_string().to_lowercase();
                         if err_str.contains("rate limit") || err_str.contains("too many requests") {
-                            let min_rate_limit_delay = Duration::from_secs(5);
-                            if delay < min_rate_limit_delay {
-                                delay = min_rate_limit_delay;
-                            }
+                            // Exponential backoff for rate limits: 5s → 10s → 20s → 40s...
+                            let rate_limit_base = Duration::from_secs(5);
+                            let exp = (attempt as u32).saturating_sub(1).min(6);
+                            let exp_delay_ms =
+                                rate_limit_base.as_millis() as u64 * 2u64.saturating_pow(exp);
+                            delay = Duration::from_millis(exp_delay_ms)
+                                .min(config.max_delay)
+                                .max(rate_limit_base);
                         }
                         tracing::warn!(
                             "Attempt {}/{} failed, retrying after {:?}: {}",

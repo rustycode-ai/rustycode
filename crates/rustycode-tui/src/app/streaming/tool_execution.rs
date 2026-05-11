@@ -337,7 +337,6 @@ pub fn snapshot_files_for_undo(
 /// This function extends `execute_tool` with pre and post execution hooks.
 /// Hooks can be used for logging, permission checks, or custom processing.
 ///
-#[allow(clippy::await_holding_lock)]
 pub fn execute_tool_with_hooks(
     cwd: &Path,
     tool_name: &str,
@@ -349,19 +348,23 @@ pub fn execute_tool_with_hooks(
     let _arguments: serde_json::Value = parse_tool_parameters(parameters_json);
 
     // PRE-TOOL HOOK: Check if tool execution should be allowed
+    // Clone the Arc and acquire the read lock INSIDE block_in_place+block_on
+    // to avoid holding a std::sync::RwLock guard across async boundaries (CONC-1).
     let allow_execution = {
-        let registry = match hook_registry.read() {
-            Ok(r) => r,
-            Err(_) => return "Error: Failed to acquire hook registry lock".to_string(),
-        };
+        let registry_for_pre = Arc::clone(hook_registry);
+        let context_owned = context.clone();
+        let tool_name_owned = tool_name.to_string();
 
-        // Run async pre-tool hooks synchronously using the existing tokio runtime
         let action = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(registry.execute_pre_tool_use(
-                context,
-                tool_name,
-                &_arguments,
-            ))
+            tokio::runtime::Handle::current().block_on(async {
+                let registry = match registry_for_pre.read() {
+                    Ok(r) => r,
+                    Err(_) => return Err(anyhow::anyhow!("Failed to acquire hook registry lock")),
+                };
+                registry
+                    .execute_pre_tool_use(&context_owned, &tool_name_owned, &_arguments)
+                    .await
+            })
         });
 
         match action {
@@ -401,9 +404,9 @@ pub fn execute_tool_with_hooks(
     let duration = start_time.elapsed();
 
     // POST-TOOL HOOK: Run synchronously using the existing tokio runtime
-    // (replaces the old pattern of spawning a new thread + tokio Runtime per call)
+    // Read lock is acquired INSIDE block_in_place+block_on to avoid CONC-1.
     {
-        let registry_for_post = hook_registry.clone();
+        let registry_for_post = Arc::clone(hook_registry);
         let tool_name_owned = tool_name.to_string();
         let result_owned = result.clone();
         let context_owned = context.clone();

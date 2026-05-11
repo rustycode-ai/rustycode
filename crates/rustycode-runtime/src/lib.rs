@@ -745,10 +745,9 @@ impl AsyncRuntime {
         let cancel_token = Arc::new(tokio::sync::Mutex::new(false));
         let cancel_token_clone = cancel_token.clone();
 
-        // Spawn a background task to monitor cancellation
         let handle = tokio::spawn(async move {
-            // This would normally wait for a cancellation signal
-            tokio::time::sleep(Duration::from_mins(1)).await;
+            // No auto-timeout: cancellation is driven solely by the caller.
+            std::future::pending::<()>().await;
             *cancel_token_clone.lock().await = true;
         });
 
