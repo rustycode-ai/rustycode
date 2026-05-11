@@ -653,9 +653,60 @@ Phase 8: Documentation                   [░░░░░░░░░░░░�
 
 ---
 
+## Production Hardening Audit (2026-05-11)
+
+**Methodology:** 14 parallel audit agents (8 Wave 1 + 6 Wave 2) scanning for security, panic, concurrency, deadlock, silent failure, error handling, logic, and I/O issues. Followed by 5 MEDIUM-priority audit agents for map_err context, String errors, blocking I/O, unnecessary clones, and Send/Sync violations.
+
+### CRITICAL Fixes (12 items, 4 commits)
+
+| Commit | Category | Fixes |
+|--------|----------|-------|
+| `f6a4ff369` | Security | LSP Content-Length 100MB OOM cap + env injection allowlist (16 prefixes) |
+| `866bc8bcc` | Robustness | Signal handler panic elimination + runtime creation guard |
+| `cfe557786` | Concurrency | Worker pool cancel/abort + CancellationToken + RwLock deadlock fix |
+| `d0d064a4d` | Orchestration | Tool error status propagation + stream handling + phase transition guards |
+
+### HIGH Fixes (7 items, 3 commits)
+
+| Commit | Category | Fixes |
+|--------|----------|-------|
+| `b81841db7` | Leaks | Hooks child kill on timeout + cmd.rs Drop kill() + observation_layer bounded channel |
+| `ddee90e15` | Concurrency | TOCTOU races (token_counter + message_renderer) + await_holding_lock (event_loop) |
+| `59b0c79f7` | I/O | Unbounded file read size guards (read_file.rs + notebook.rs, 50MB cap) |
+
+### MEDIUM Fixes (11 items, 1 commit)
+
+| Commit | Category | Fixes |
+|--------|----------|-------|
+| `b4bb38020` | Error context | 6 `.map_err(\|_\|...)` → `.map_err(\|e\|...)` in validation.rs, bash/tool.rs, cmd.rs |
+| `b4bb38020` | Async I/O | 4 `std::fs` → `tokio::fs` in async paths (response.rs, updater.rs) |
+| `b4bb38020` | Performance | 1 unnecessary `.clone()` removed (middleware.rs post_execute_check) |
+
+### Audit Findings — No Fix Needed
+
+| Finding | Result |
+|---------|--------|
+| Send/Sync violations | ✅ All Rc/RefCell/Cell usage confirmed single-threaded (TUI main thread, thread_local! statics, test-only) |
+| 3 of 4 "unnecessary clones" | ✅ Verified necessary (ownership constraints, public API return types) |
+
+### Deferred
+
+| Finding | Scope | Reason |
+|---------|-------|--------|
+| `rustycode-runtime` String→thiserror | 20+ files | Large refactor; dedicated session recommended |
+
+### Verification
+
+- **Pre-commit hooks**: All commits pass `cargo fmt` + `cargo clippy --workspace -- -D warnings`
+- **Tests**: 523+ tests passing across rustycode-tools, rustycode-tui, rustycode-core
+- **Pre-existing failures**: 4 orchestration isolation tests + 19 git-status tests (environment-dependent, unrelated)
+- **Total commits**: 8 (4 CRITICAL + 3 HIGH + 1 MEDIUM)
+
+---
+
 ## Next Actions
 
-1. **Review & Approve Sprint 9 Plan** ← NOW
-2. **Assign engineer(s)** to Sprint 9 (task contracts & typing)
-3. **Parallelize Sprints 9-10** with 2-3 engineers
+1. **Sprint 10**: Concurrent load test execution & validation
+2. **Sprint 11**: Dependency refactoring (crate splits)
+3. **[DEFERRED]** Migrate `rustycode-runtime` from String errors to thiserror (20+ files)
 4. **Weekly sync:** Track progress, adjust as needed
