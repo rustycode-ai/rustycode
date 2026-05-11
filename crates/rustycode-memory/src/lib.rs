@@ -596,7 +596,7 @@ impl MemoryManager {
     /// Called when a session ends. Records a session note and triggers
     /// consolidation if the memory store is large enough.
     pub fn on_session_end(&mut self, summary: &str, key_learning: &str) -> Result<()> {
-        let today = format_date(SystemTime::now());
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
         self.index.add_session_note(index::SessionNote {
             date: today,
@@ -650,20 +650,6 @@ impl MemoryManager {
         }
         Ok(matches)
     }
-}
-
-/// Format a `SystemTime` as an approximate ISO 8601 date string (YYYY-MM-DD).
-fn format_date(time: SystemTime) -> String {
-    let secs = time
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    let days_since_epoch = secs / 86400;
-    let year = 1970 + (days_since_epoch / 365);
-    let day_of_year = days_since_epoch % 365;
-    let month = (day_of_year / 30).clamp(0, 11) + 1;
-    let day = (day_of_year % 30).clamp(0, 29) + 1;
-    format!("{year:04}-{month:02}-{day:02}")
 }
 
 /// Resolve the shared sessions directory from a memory directory.

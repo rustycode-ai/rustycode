@@ -195,7 +195,15 @@ impl CircuitBreaker {
                 }
             }
             CircuitState::Open => {
-                // Waiting in cooldown, don't record success yet
+                // A success during Open means the endpoint recovered — transition to HalfOpen
+                // so subsequent requests can be tested and close the circuit.
+                info!(
+                    "Circuit {} received success while Open, transitioning to HalfOpen",
+                    self.endpoint
+                );
+                inner.state = CircuitState::HalfOpen;
+                inner.success_count = 1;
+                inner.last_state_change = SystemTime::now();
             }
         }
     }

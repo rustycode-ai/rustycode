@@ -108,6 +108,7 @@ pub async fn with_recovery<F, Fut, T>(
 where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = anyhow::Result<T>>,
+    T: serde::de::DeserializeOwned,
 {
     match strategy {
         RecoveryStrategy::Retry {
@@ -134,10 +135,13 @@ where
             }
             unreachable!()
         }
-        RecoveryStrategy::UseDefault { default_response } => operation().await.map_err(|e| {
-            tracing::warn!("Using default response due to error: {}", e);
-            anyhow::anyhow!("Default: {}", default_response)
-        }),
+        RecoveryStrategy::UseDefault { default_response } => {
+            let _ = operation().await;
+            tracing::warn!("Using default response due to error");
+            serde_json::from_str(default_response).map_err(|e| {
+                anyhow::anyhow!("UseDefault: failed to parse default_response as T: {e}")
+            })
+        }
         RecoveryStrategy::FallbackModel { models } => operation()
             .await
             .map_err(|e| anyhow::anyhow!("Failed (tried fallback models {:?}): {}", models, e)),
