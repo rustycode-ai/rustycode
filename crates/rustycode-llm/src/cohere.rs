@@ -20,176 +20,74 @@
 //! Responses include `tool_calls` with `id`, `type`, and `function` fields.
 //! Tool results are sent as `{ role: "tool", tool_call_id, content }` messages.
 
+use crate::auth::AuthMethod;
 use crate::provider::{
-    CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
+    validate_extra_headers, CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig,
+    ProviderError, StreamChunk,
 };
 use crate::provider_metadata::{
     ConfigField, ConfigFieldType, ConfigSchema, ModelInfo, PromptLength, PromptOptimizations,
     PromptTemplate, ProviderMetadata, ToolCallingMetadata, ToolFormat,
 };
-use crate::retry::extract_retry_after_ms;
+use crate::route::Route;
+use crate::transport::HttpTransport;
+use crate::wire::cohere::CohereProtocol;
+use anyhow::Result;
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use secrecy::ExposeSecret;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::time::Duration;
 
 /// Default Cohere API endpoint (v2 Chat API)
 const COHERE_API_ENDPOINT: &str = "https://api.cohere.ai/v2/chat";
 
-// ── Request types ──
-
-#[derive(Serialize)]
-struct CohereV2Request {
-    model: String,
-    messages: Vec<CohereV2Message>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    max_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    preamble: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<serde_json::Value>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_choice: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
-    stream: bool,
-}
-
-#[derive(Serialize)]
-struct CohereV2Message {
-    role: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    content: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_calls: Option<Vec<CohereV2ToolCall>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tool_call_id: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct CohereV2ToolCall {
-    id: String,
-    r#type: String,
-    function: CohereV2ToolCallFunction,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct CohereV2ToolCallFunction {
-    name: String,
-    arguments: String,
-}
-
-// ── Response types ──
-
-#[derive(Deserialize)]
-struct CohereV2Response {
-    #[serde(default)]
-    message: Option<CohereV2AssistantMessage>,
-    #[serde(default)]
-    finish_reason: Option<String>,
-    #[serde(default)]
-    meta: Option<CohereV2Meta>,
-}
-
-#[derive(Deserialize)]
-struct CohereV2AssistantMessage {
-    #[allow(dead_code)] // Deserialized from API but not directly read
-    #[serde(default)]
-    role: Option<String>,
-    #[serde(default)]
-    content: Vec<CohereV2ContentBlock>,
-    #[serde(default)]
-    tool_plan: Option<String>,
-    #[serde(default)]
-    tool_calls: Option<Vec<CohereV2ToolCall>>,
-}
-
-#[derive(Deserialize)]
-#[serde(tag = "type")]
-enum CohereV2ContentBlock {
-    #[serde(rename = "text")]
-    Text { text: String },
-    #[serde(rename = "document")]
-    Document { document: CohereV2Document },
-}
-
-#[derive(Deserialize)]
-struct CohereV2Document {
-    data: String,
-}
-
-#[derive(Deserialize)]
-struct CohereV2Meta {
-    #[serde(default)]
-    usage: Option<CohereV2Usage>,
-    #[allow(dead_code)]
-    #[serde(default)]
-    api_version: Option<CohereV2ApiVersion>,
-}
-
-#[derive(Deserialize)]
-struct CohereV2Usage {
-    #[allow(dead_code)]
-    #[serde(default)]
-    billed_units: Option<serde_json::Value>,
-    #[serde(default)]
-    tokens: Option<CohereV2TokenUsage>,
-}
-
-#[derive(Deserialize)]
-struct CohereV2TokenUsage {
-    #[serde(default)]
-    input_tokens: Option<u32>,
-    #[serde(default)]
-    output_tokens: Option<u32>,
-}
-
-#[derive(Deserialize)]
-struct CohereV2ApiVersion {
-    #[allow(dead_code)]
-    version: String,
-}
-
 /// Cohere LLM provider
 pub struct CohereProvider {
     config: ProviderConfig,
-    client: reqwest::Client,
+    route: Route,
 }
 
 impl CohereProvider {
     pub fn new(config: ProviderConfig) -> Result<Self, ProviderError> {
         Self::metadata().validate_config(&config)?;
 
-        let timeout_secs = config.timeout_seconds.unwrap_or(180);
+        let endpoint = config
+            .base_url
+            .clone()
+            .unwrap_or_else(|| COHERE_API_ENDPOINT.to_string());
 
-        let mut headers = reqwest::header::HeaderMap::new();
-        headers.insert(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_static("application/json"),
-        );
+        let auth: Box<dyn AuthMethod> = Box::new(crate::auth::BearerAuth::new(
+            config
+                .api_key
+                .clone()
+                .ok_or_else(|| ProviderError::auth("Missing API key"))?,
+        ));
 
-        use crate::provider::validate_extra_headers;
+        let timeout = config.timeout_seconds.unwrap_or(180);
+
         let validated_headers = validate_extra_headers(&config.extra_headers)?;
-        for (header_name, header_value) in validated_headers {
-            headers.insert(header_name, header_value);
-        }
+        let extra_header_pairs: Vec<(String, String)> = validated_headers
+            .into_iter()
+            .map(|(name, value)| (name.to_string(), value.to_str().unwrap_or("").to_string()))
+            .collect();
 
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .timeout(Duration::from_secs(timeout_secs))
-            .connect_timeout(Duration::from_secs(10))
-            .build()
-            .map_err(|e| {
-                ProviderError::Configuration(format!("failed to build HTTP client: {}", e))
-            })?;
+        let route = Route::new(
+            endpoint,
+            Box::new(CohereProtocol),
+            Box::new(
+                HttpTransport::new(timeout)
+                    .map_err(|e| ProviderError::Configuration(e.to_string()))?,
+            ),
+            auth,
+        )
+        .with_name("cohere-chat")
+        .with_extra_headers(extra_header_pairs);
 
-        Ok(Self { config, client })
+        Ok(Self { config, route })
     }
 
+    /// Get metadata for this provider
     pub fn metadata() -> ProviderMetadata {
         ProviderMetadata {
             provider_id: "cohere".to_string(),
@@ -294,318 +192,10 @@ impl CohereProvider {
         }
     }
 
+    /// Return the configured endpoint URL.
+    #[cfg(test)]
     fn endpoint(&self) -> String {
-        self.config
-            .base_url
-            .as_ref()
-            .unwrap_or(&COHERE_API_ENDPOINT.to_string())
-            .clone()
-    }
-
-    fn api_key(&self) -> Result<String, ProviderError> {
-        let config_key = self
-            .config
-            .api_key
-            .as_ref()
-            .map(|k| k.expose_secret().to_string());
-        let env_key = std::env::var("COHERE_API_KEY").ok();
-
-        config_key.or(env_key).ok_or_else(|| {
-            ProviderError::Configuration(
-                "Cohere API key is required. Set api_key in config or COHERE_API_KEY env var"
-                    .to_string(),
-            )
-        })
-    }
-
-    /// Convert internal messages to Cohere v2 format.
-    fn convert_messages(messages: Vec<crate::provider::ChatMessage>) -> Vec<CohereV2Message> {
-        use crate::provider::MessageRole;
-        use rustycode_protocol::message::{ContentBlock, MessageContent};
-
-        let mut result = Vec::new();
-        for msg in messages {
-            let role = match msg.role {
-                MessageRole::User => "user",
-                MessageRole::Assistant => "assistant",
-                MessageRole::System => "system",
-                MessageRole::Tool(_) => "tool",
-            };
-
-            let mut text_parts = Vec::new();
-            let mut tool_calls = Vec::new();
-            let mut tool_call_id = None;
-
-            match &msg.content {
-                MessageContent::Simple(t) => {
-                    text_parts.push(t.clone());
-                }
-                MessageContent::Blocks(blocks) => {
-                    for block in blocks {
-                        match block {
-                            ContentBlock::Text { text, .. } => text_parts.push(text.clone()),
-                            ContentBlock::ToolUse {
-                                id, name, input, ..
-                            } => {
-                                tool_calls.push(CohereV2ToolCall {
-                                    id: id.clone(),
-                                    r#type: "function".to_string(),
-                                    function: CohereV2ToolCallFunction {
-                                        name: name.clone(),
-                                        arguments: serde_json::to_string(input).unwrap_or_default(),
-                                    },
-                                });
-                            }
-                            ContentBlock::ToolResult {
-                                tool_use_id,
-                                content: result_text,
-                                ..
-                            } => {
-                                tool_call_id = Some(tool_use_id.clone());
-                                text_parts.push(result_text.clone());
-                            }
-                            ContentBlock::Thinking { thinking, .. } => {
-                                text_parts.push(thinking.clone());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                _ => {}
-            }
-
-            if let MessageRole::Tool(ref id) = msg.role {
-                tool_call_id = Some(id.clone());
-            }
-
-            // Build content based on role and available data
-            let content = if tool_call_id.is_some() {
-                // Tool results must use document format per Cohere v2 API spec:
-                // { role: "tool", tool_call_id, content: [{ type: "document", document: { data: "..." } }] }
-                let data = if text_parts.is_empty() {
-                    String::new()
-                } else {
-                    text_parts.join("\n")
-                };
-                Some(serde_json::json!([{
-                    "type": "document",
-                    "document": { "data": data }
-                }]))
-            } else if text_parts.is_empty() && !tool_calls.is_empty() {
-                // Assistant with only tool calls, no text content
-                None
-            } else if text_parts.len() == 1 {
-                Some(serde_json::json!(text_parts[0]))
-            } else if !text_parts.is_empty() {
-                Some(serde_json::json!(text_parts.join("\n")))
-            } else {
-                None
-            };
-
-            result.push(CohereV2Message {
-                role: role.to_string(),
-                content,
-                tool_calls: if tool_calls.is_empty() {
-                    None
-                } else {
-                    Some(tool_calls)
-                },
-                tool_call_id,
-            });
-        }
-        result
-    }
-
-    /// Convert tools from Anthropic format to Cohere v2 format.
-    /// Cohere v2 uses the same OpenAI-compatible format: { type: "function", function: { name, description, parameters } }
-    fn convert_tools(tools: &[serde_json::Value]) -> Vec<serde_json::Value> {
-        crate::tools::normalize_tools_for_openai(tools)
-    }
-
-    /// Build the Cohere v2 request from CompletionRequest.
-    fn build_request(&self, request: &CompletionRequest) -> CohereV2Request {
-        let messages = Self::convert_messages(request.messages.clone());
-        let tools = request
-            .tools
-            .as_ref()
-            .filter(|t| !t.is_empty())
-            .map(|t| Self::convert_tools(t));
-
-        CohereV2Request {
-            model: request.model.clone(),
-            messages,
-            max_tokens: request.max_tokens,
-            temperature: request.temperature,
-            preamble: request.system_prompt.clone(),
-            tools,
-            tool_choice: request.tool_choice.clone(),
-            stream: false,
-        }
-    }
-
-    /// Extract content and tool calls from Cohere v2 response.
-    fn extract_response(&self, cohere_resp: CohereV2Response, model: String) -> CompletionResponse {
-        let mut content = String::new();
-
-        if let Some(msg) = &cohere_resp.message {
-            // Extract text content
-            for block in &msg.content {
-                match block {
-                    CohereV2ContentBlock::Text { text } => {
-                        if !content.is_empty() {
-                            content.push('\n');
-                        }
-                        content.push_str(text);
-                    }
-                    CohereV2ContentBlock::Document { document } => {
-                        if !content.is_empty() {
-                            content.push('\n');
-                        }
-                        content.push_str(&document.data);
-                    }
-                }
-            }
-
-            // Prepend tool_plan to content if present
-            if let Some(plan) = &msg.tool_plan {
-                if !plan.is_empty() && !content.is_empty() {
-                    content = format!("{}\n\n{}", plan, content);
-                } else if !plan.is_empty() {
-                    content.clone_from(plan);
-                }
-            }
-
-            // Extract tool calls and embed in content
-            if let Some(calls) = &msg.tool_calls {
-                let tc_json: Vec<serde_json::Value> = calls
-                    .iter()
-                    .map(|tc| {
-                        serde_json::json!({
-                            "id": tc.id,
-                            "type": tc.r#type,
-                            "function": {
-                                "name": tc.function.name,
-                                "arguments": tc.function.arguments,
-                            }
-                        })
-                    })
-                    .collect();
-                let tc_str = serde_json::to_string(&tc_json).unwrap_or_default();
-                if content.is_empty() {
-                    content = tc_str;
-                } else {
-                    content = format!("{content}\n[TOOL_CALLS:{tc_str}]");
-                }
-            }
-        }
-
-        // Build usage
-        let usage = cohere_resp.meta.and_then(|m| m.usage).and_then(|u| {
-            u.tokens.map(|t| {
-                let input = t.input_tokens.unwrap_or(0);
-                let output = t.output_tokens.unwrap_or(0);
-                crate::provider::Usage {
-                    input_tokens: input,
-                    output_tokens: output,
-                    total_tokens: input.saturating_add(output),
-                    cache_read_input_tokens: 0,
-                    cache_creation_input_tokens: 0,
-                    reasoning_tokens: None,
-                }
-            })
-        });
-
-        // Normalize stop reason to Anthropic convention for agent loop compatibility
-        let stop_reason = match cohere_resp.finish_reason.as_deref() {
-            Some("COMPLETE") => Some("end_turn".to_string()),
-            Some("TOOL_CALL") => Some("tool_use".to_string()),
-            Some("MAX_TOKENS") => Some("max_tokens".to_string()),
-            other => other.map(|s| s.to_string()),
-        };
-
-        CompletionResponse {
-            content,
-            model,
-            usage,
-            stop_reason,
-            citations: None,
-            thinking_blocks: None,
-            structured_output: None,
-        }
-    }
-
-    async fn complete_internal(
-        &self,
-        request: &CompletionRequest,
-    ) -> Result<CompletionResponse, ProviderError> {
-        let url = self.endpoint();
-        let api_key = self.api_key()?;
-        let model = request.model.clone();
-        let body = self.build_request(request);
-
-        let response = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| {
-                ProviderError::Network(format!("failed to send request to Cohere: {}", e))
-            })?;
-        let headers = response.headers().clone();
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-
-            return Err(match status.as_u16() {
-                401 => ProviderError::Auth(format!(
-                    "Authentication failed. Check your COHERE_API_KEY env var. {}",
-                    error_text
-                )),
-                404 => ProviderError::InvalidModel(error_text.clone()),
-                429 => ProviderError::RateLimited {
-                    retry_delay: extract_retry_after_ms(&headers).map(Duration::from_millis),
-                },
-                502..=504 => ProviderError::Network(format!(
-                    "Cohere service temporarily unavailable ({}). Please retry in a few seconds.",
-                    error_text
-                )),
-                _ => ProviderError::Api(format!("Cohere API error {}: {}", status, error_text)),
-            });
-        }
-
-        let cohere_response: CohereV2Response = response.json().await.map_err(|e| {
-            ProviderError::Serialization(format!("failed to parse Cohere response: {}", e))
-        })?;
-
-        Ok(self.extract_response(cohere_response, model))
-    }
-
-    fn handle_stream_error(
-        status: u16,
-        error_text: String,
-        headers: &reqwest::header::HeaderMap,
-    ) -> ProviderError {
-        match status {
-            401 => ProviderError::Auth(format!(
-                "Authentication failed. Check your COHERE_API_KEY env var. {}",
-                error_text
-            )),
-            404 => ProviderError::InvalidModel(error_text.clone()),
-            429 => ProviderError::RateLimited {
-                retry_delay: extract_retry_after_ms(headers).map(Duration::from_millis),
-            },
-            502..=504 => ProviderError::Network(format!(
-                "Cohere service temporarily unavailable ({}). Please retry in a few seconds.",
-                error_text
-            )),
-            _ => ProviderError::Api(format!("Cohere API error {}: {}", status, error_text)),
-        }
+        self.route.endpoint.clone()
     }
 }
 
@@ -620,26 +210,10 @@ impl LLMProvider for CohereProvider {
     }
 
     async fn is_available(&self) -> bool {
-        if self.api_key().is_err() {
-            return false;
-        }
-
-        let api_key = match self.api_key() {
-            Ok(key) => key,
-            Err(_) => return false,
-        };
-
-        let response = self
-            .client
-            .get(format!(
-                "{}/models",
-                self.endpoint().replace("/v2/chat", "")
-            ))
-            .header("Authorization", format!("Bearer {}", api_key))
-            .send()
-            .await;
-
-        response.is_ok()
+        self.config
+            .api_key
+            .as_ref()
+            .is_some_and(|k| !k.expose_secret().is_empty())
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
@@ -657,143 +231,25 @@ impl LLMProvider for CohereProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<CompletionResponse, ProviderError> {
-        self.complete_internal(&request).await
+        self.route
+            .execute(&request, None)
+            .await
+            .map_err(|e| ProviderError::api(e.to_string()))
     }
 
     async fn complete_stream(
         &self,
         request: CompletionRequest,
     ) -> Result<Pin<Box<dyn Stream<Item = StreamChunk> + Send>>, ProviderError> {
-        let api_key = self.api_key()?;
-        let endpoint = self.endpoint();
-        let model = request.model.clone();
-
-        let messages = Self::convert_messages(request.messages.clone());
-        let tools = request
-            .tools
-            .as_ref()
-            .filter(|t| !t.is_empty())
-            .map(|t| Self::convert_tools(t));
-
-        let request_body = serde_json::json!({
-            "model": model,
-            "messages": messages,
-            "max_tokens": request.max_tokens.unwrap_or(4096),
-            "temperature": request.temperature.unwrap_or(0.7),
-            "stream": true,
-            "preamble": request.system_prompt,
-            "tools": tools,
-            "tool_choice": request.tool_choice,
-        });
-
-        let response = self
-            .client
-            .post(&endpoint)
-            .header("Authorization", format!("Bearer {}", api_key))
-            .json(&request_body)
-            .send()
+        let stream = self
+            .route
+            .execute_stream(&request, None)
             .await
-            .map_err(|e| {
-                ProviderError::Network(format!("failed to connect to Cohere API: {}", e))
-            })?;
+            .map_err(|e| ProviderError::api(e.to_string()))?;
 
-        let headers = response.headers().clone();
+        let chunk_stream = stream.map(|res| res.map_err(|e| ProviderError::api(e.to_string())));
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "unable to read error".to_string());
-
-            return Err(Self::handle_stream_error(
-                status.as_u16(),
-                error_text,
-                &headers,
-            ));
-        }
-
-        let bytes_stream = response.bytes_stream();
-        let line_buffer = crate::sse::SseByteBuffer::new();
-
-        let sse_stream = bytes_stream.map(move |chunk_result| -> StreamChunk {
-            let chunk = chunk_result
-                .map_err(|e| ProviderError::Network(format!("failed to read chunk: {}", e)))?;
-            let mut chunks = Vec::new();
-
-            let lines = line_buffer.feed_chunk(&chunk);
-            for line in &lines {
-                if line.starts_with("data: ") {
-                    let json_str = line.trim_start_matches("data: ").trim();
-                    if json_str == "[DONE]" {
-                        break;
-                    }
-                    if let Ok(data) = serde_json::from_str::<serde_json::Value>(json_str) {
-                        let event_type = data.get("type").and_then(|t| t.as_str()).unwrap_or("");
-
-                        match event_type {
-                            // v2: content-delta — streaming text tokens
-                            "content-delta" => {
-                                if let Some(delta_text) = data
-                                    .get("delta")
-                                    .and_then(|d| d.get("message"))
-                                    .and_then(|m| m.get("content"))
-                                    .and_then(|c| c.get("text"))
-                                    .and_then(|t| t.as_str())
-                                {
-                                    if !delta_text.is_empty() {
-                                        chunks.push(delta_text.to_string());
-                                    }
-                                }
-                            }
-                            // v2: tool-plan-delta — streaming tool planning text
-                            "tool-plan-delta" => {
-                                if let Some(plan_text) = data
-                                    .get("delta")
-                                    .and_then(|d| d.get("message"))
-                                    .and_then(|m| m.get("tool_plan"))
-                                    .and_then(|t| t.as_str())
-                                {
-                                    if !plan_text.is_empty() {
-                                        chunks.push(plan_text.to_string());
-                                    }
-                                }
-                            }
-                            // v2: tool-call-delta — streaming tool call arguments
-                            "tool-call-delta" => {
-                                if let Some(func_delta) = data
-                                    .get("delta")
-                                    .and_then(|d| d.get("message"))
-                                    .and_then(|m| m.get("tool_calls"))
-                                    .and_then(|tc| tc.get(0))
-                                    .and_then(|tc| tc.get("function"))
-                                    .and_then(|f| f.get("arguments"))
-                                    .and_then(|a| a.as_str())
-                                {
-                                    if !func_delta.is_empty() {
-                                        chunks.push(func_delta.to_string());
-                                    }
-                                }
-                            }
-                            _ => {
-                                // Fallback: v1-style { "text": "..." }
-                                if let Some(text_val) = data.get("text").and_then(|t| t.as_str()) {
-                                    if !text_val.is_empty() {
-                                        chunks.push(text_val.to_string());
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Ok(rustycode_protocol::stream_event::StreamEvent::TextDelta {
-                content: chunks.join(""),
-            })
-        });
-
-        Ok(Box::pin(sse_stream))
+        Ok(Box::pin(chunk_stream))
     }
 }
 
@@ -900,32 +356,29 @@ mod tests {
 
     #[test]
     fn test_cohere_v2_request_serialization() {
-        let request = CohereV2Request {
-            model: "command-r".to_string(),
-            messages: vec![CohereV2Message {
-                role: "user".to_string(),
-                content: Some(serde_json::json!("What is Rust?")),
-                tool_calls: None,
-                tool_call_id: None,
-            }],
-            max_tokens: Some(512),
-            temperature: Some(0.3),
-            preamble: Some("You are a coding assistant".to_string()),
-            tools: None,
-            tool_choice: None,
-            stream: false,
-        };
-        let json = serde_json::to_string(&request).unwrap();
-        assert!(json.contains("\"model\":\"command-r\""));
-        assert!(json.contains("\"preamble\":\"You are a coding assistant\""));
-        // Optional fields should be absent when None
-        assert!(!json.contains("\"tools\""));
-        assert!(!json.contains("\"stream\""));
+        use crate::provider::ChatMessage;
+        use crate::wire::Protocol;
+
+        let protocol = CohereProtocol;
+        let request = CompletionRequest::new("command-r", vec![ChatMessage::user("What is Rust?")])
+            .with_max_tokens(512)
+            .with_temperature(0.3)
+            .with_system_prompt("You are a coding assistant".to_string());
+
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let json_str = serde_json::to_string(&body).unwrap();
+        assert!(json_str.contains("\"model\""));
+        assert!(json_str.contains("\"command-r\""));
+        assert!(json_str.contains("\"preamble\""));
+        assert!(json_str.contains("You are a coding assistant"));
     }
 
     #[test]
     fn test_cohere_v2_response_deserialization_text() {
-        let json = r#"{
+        use crate::wire::Protocol;
+
+        let protocol = CohereProtocol;
+        let json = serde_json::json!({
             "message": {
                 "role": "assistant",
                 "content": [{"type": "text", "text": "Rust is a systems programming language."}]
@@ -937,17 +390,25 @@ mod tests {
                 },
                 "api_version": {"version": "2.0"}
             }
-        }"#;
-        let response: CohereV2Response = serde_json::from_str(json).unwrap();
-        let msg = response.message.unwrap();
-        assert_eq!(msg.content.len(), 1);
-        assert!(msg.tool_calls.is_none());
-        assert_eq!(response.finish_reason, Some("COMPLETE".to_string()));
+        });
+
+        let response = protocol.parse_response(&json).unwrap();
+        assert!(response
+            .content
+            .contains("Rust is a systems programming language."));
+        assert_eq!(response.stop_reason, Some("end_turn".to_string()));
+        assert!(response.usage.is_some());
+        let usage = response.usage.unwrap();
+        assert_eq!(usage.input_tokens, 10);
+        assert_eq!(usage.output_tokens, 20);
     }
 
     #[test]
     fn test_cohere_v2_response_deserialization_with_tool_calls() {
-        let json = r#"{
+        use crate::wire::Protocol;
+
+        let protocol = CohereProtocol;
+        let json = serde_json::json!({
             "message": {
                 "role": "assistant",
                 "content": [],
@@ -972,151 +433,147 @@ mod tests {
                 ]
             },
             "finish_reason": "TOOL_CALL"
-        }"#;
-        let response: CohereV2Response = serde_json::from_str(json).unwrap();
-        let msg = response.message.unwrap();
-        let calls = msg.tool_calls.unwrap();
-        assert_eq!(calls.len(), 2);
-        assert_eq!(calls[0].function.name, "Search");
-        assert_eq!(calls[1].function.name, "Read");
-        assert_eq!(
-            msg.tool_plan,
-            Some("I need to search for information.".to_string())
-        );
+        });
+
+        let response = protocol.parse_response(&json).unwrap();
+        assert!(response.content.contains("Search"));
+        assert!(response.content.contains("Read"));
+        assert!(response.content.contains("call_abc123"));
+        assert!(response.content.contains("call_def456"));
+        assert_eq!(response.stop_reason, Some("tool_use".to_string()));
     }
 
     #[test]
     fn test_extract_response_with_text() {
-        let config = make_config(Some("test-key"));
-        let provider = CohereProvider::new(config).unwrap();
+        use crate::wire::Protocol;
 
-        let cohere_resp = CohereV2Response {
-            message: Some(CohereV2AssistantMessage {
-                role: Some("assistant".to_string()),
-                content: vec![CohereV2ContentBlock::Text {
-                    text: "Hello!".to_string(),
-                }],
-                tool_plan: None,
-                tool_calls: None,
-            }),
-            finish_reason: Some("COMPLETE".to_string()),
-            meta: None,
-        };
+        let protocol = CohereProtocol;
+        let json = serde_json::json!({
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hello!"}]
+            },
+            "finish_reason": "COMPLETE"
+        });
 
-        let result = provider.extract_response(cohere_resp, "command-r".to_string());
-        assert_eq!(result.content, "Hello!");
-        assert_eq!(result.model, "command-r");
+        let response = protocol.parse_response(&json).unwrap();
+        assert_eq!(response.content, "Hello!");
     }
 
     #[test]
     fn test_extract_response_with_tool_calls() {
-        let config = make_config(Some("test-key"));
-        let provider = CohereProvider::new(config).unwrap();
+        use crate::wire::Protocol;
 
-        let cohere_resp = CohereV2Response {
-            message: Some(CohereV2AssistantMessage {
-                role: Some("assistant".to_string()),
-                content: vec![],
-                tool_plan: Some("I need to search.".to_string()),
-                tool_calls: Some(vec![CohereV2ToolCall {
-                    id: "call_123".to_string(),
-                    r#type: "function".to_string(),
-                    function: CohereV2ToolCallFunction {
-                        name: "Search".to_string(),
-                        arguments: r#"{"query":"rust"}"#.to_string(),
-                    },
-                }]),
-            }),
-            finish_reason: Some("TOOL_CALL".to_string()),
-            meta: None,
-        };
+        let protocol = CohereProtocol;
+        let json = serde_json::json!({
+            "message": {
+                "role": "assistant",
+                "content": [],
+                "tool_plan": "I need to search.",
+                "tool_calls": [
+                    {
+                        "id": "call_123",
+                        "type": "function",
+                        "function": {
+                            "name": "Search",
+                            "arguments": "{\"query\":\"rust\"}"
+                        }
+                    }
+                ]
+            },
+            "finish_reason": "TOOL_CALL"
+        });
 
-        let result = provider.extract_response(cohere_resp, "command-r".to_string());
-        assert!(result.content.starts_with("I need to search."));
-        assert!(result.content.contains("Search"));
-        assert!(result.content.contains("call_123"));
+        let response = protocol.parse_response(&json).unwrap();
+        assert!(response.content.contains("I need to search."));
+        assert!(response.content.contains("Search"));
+        assert!(response.content.contains("call_123"));
     }
 
     #[test]
     fn test_convert_messages_simple() {
-        use crate::provider::{ChatMessage, MessageRole};
+        use crate::provider::ChatMessage;
+        use crate::wire::Protocol;
 
-        let messages = vec![
-            ChatMessage {
-                role: MessageRole::User,
-                content: rustycode_protocol::message::MessageContent::Simple("Hello".to_string()),
-            },
-            ChatMessage {
-                role: MessageRole::Assistant,
-                content: rustycode_protocol::message::MessageContent::Simple(
-                    "Hi there!".to_string(),
-                ),
-            },
-        ];
+        let protocol = CohereProtocol;
+        let request = CompletionRequest::new(
+            "test",
+            vec![
+                ChatMessage::user("Hello"),
+                ChatMessage::assistant("Hi there!"),
+            ],
+        );
 
-        let converted = CohereProvider::convert_messages(messages);
-        assert_eq!(converted.len(), 2);
-        assert_eq!(converted[0].role, "user");
-        assert_eq!(converted[1].role, "assistant");
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let messages = body.get("messages").unwrap().as_array().unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0]["role"], "user");
+        assert_eq!(messages[1]["role"], "assistant");
     }
 
     #[test]
     fn test_convert_messages_with_tool_result() {
         use crate::provider::{ChatMessage, MessageRole};
+        use crate::wire::Protocol;
         use rustycode_protocol::message::{ContentBlock, MessageContent};
 
-        let messages = vec![
-            ChatMessage {
-                role: MessageRole::User,
-                content: MessageContent::Blocks(vec![ContentBlock::Text {
-                    text: "What is 2+2?".to_string(),
-                    cache_control: None,
-                }]),
-            },
-            ChatMessage {
-                role: MessageRole::Assistant,
-                content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
-                    id: "call_1".to_string(),
-                    name: "calculator".to_string(),
-                    input: serde_json::json!({"expr": "2+2"}),
-                }]),
-            },
-            ChatMessage {
-                role: MessageRole::Tool("call_1".to_string()),
-                content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
-                    tool_use_id: "call_1".to_string(),
-                    content: "4".to_string(),
-                    is_error: false,
-                }]),
-            },
-        ];
+        let protocol = CohereProtocol;
+        let request = CompletionRequest::new(
+            "test",
+            vec![
+                ChatMessage {
+                    role: MessageRole::User,
+                    content: MessageContent::Blocks(vec![ContentBlock::Text {
+                        text: "What is 2+2?".to_string(),
+                        cache_control: None,
+                    }]),
+                },
+                ChatMessage {
+                    role: MessageRole::Assistant,
+                    content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
+                        id: "call_1".to_string(),
+                        name: "calculator".to_string(),
+                        input: serde_json::json!({"expr": "2+2"}),
+                    }]),
+                },
+                ChatMessage {
+                    role: MessageRole::Tool("call_1".to_string()),
+                    content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                        tool_use_id: "call_1".to_string(),
+                        content: "4".to_string(),
+                        is_error: false,
+                    }]),
+                },
+            ],
+        );
 
-        let converted = CohereProvider::convert_messages(messages);
-        assert_eq!(converted.len(), 3);
+        let body = protocol.serialize_body(&request, None).unwrap();
+        let messages = body.get("messages").unwrap().as_array().unwrap();
+        assert_eq!(messages.len(), 3);
         // Assistant message should have tool_calls
-        assert!(converted[1].tool_calls.is_some());
-        let calls = converted[1].tool_calls.clone().unwrap();
-        assert_eq!(calls[0].function.name, "calculator");
+        assert!(messages[1]["tool_calls"].is_array());
+        let calls = messages[1]["tool_calls"].as_array().unwrap();
+        assert_eq!(calls[0]["function"]["name"], "calculator");
         // Tool result message should have tool_call_id
-        assert_eq!(converted[2].tool_call_id, Some("call_1".to_string()));
-        assert_eq!(converted[2].role, "tool");
+        assert_eq!(messages[2]["tool_call_id"], "call_1");
+        assert_eq!(messages[2]["role"], "tool");
     }
 
     #[test]
     fn test_convert_tools() {
-        let tools = vec![serde_json::json!({
-            "name": "calculator",
-            "description": "Evaluate math expressions",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "expr": {"type": "string"}
-                },
-                "required": ["expr"]
-            }
-        })];
+        use crate::schema::tool_schema::{JsonSchema, ToolSchema};
+        use crate::wire::Protocol;
 
-        let converted = CohereProvider::convert_tools(&tools);
+        let mut properties = std::collections::BTreeMap::new();
+        properties.insert("expr".to_string(), JsonSchema::string("expression"));
+
+        let tools = vec![ToolSchema::new(
+            "calculator",
+            "Evaluate math expressions",
+            JsonSchema::object(properties, vec!["expr".to_string()]),
+        )];
+
+        let converted = CohereProtocol.serialize_tools(&tools);
         assert_eq!(converted.len(), 1);
         assert_eq!(converted[0]["type"], "function");
         assert_eq!(converted[0]["function"]["name"], "calculator");
@@ -1143,7 +600,9 @@ mod tests {
     fn test_get_api_key_from_config() {
         let config = make_config(Some("my-cohere-key"));
         let provider = CohereProvider::new(config).unwrap();
-        let key = provider.api_key().unwrap();
-        assert_eq!(key, "my-cohere-key");
+        let cfg = provider.config().unwrap();
+        assert!(cfg.api_key.is_some());
+        let key = cfg.api_key.as_ref().unwrap();
+        assert_eq!(key.expose_secret(), "my-cohere-key");
     }
 }
