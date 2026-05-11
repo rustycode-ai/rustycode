@@ -4,6 +4,9 @@ use schemars::JsonSchema;
 use serde_json::{json, Value};
 use std::fs;
 
+/// Maximum notebook file size for read/write operations (50 MB)
+const MAX_NOTEBOOK_SIZE: u64 = 50 * 1024 * 1024;
+
 /// Cell type for Jupyter notebook cells.
 #[derive(
     Debug, Clone, serde::Serialize, serde::Deserialize, JsonSchema, Default, PartialEq, Eq,
@@ -64,8 +67,19 @@ rustycode_tools_api::define_tool! {
         let new_source = &params.new_source;
         let cell_type = params.cell_type.as_ref();
 
-        let content =
-            fs::read_to_string(path).with_context(|| format!("Failed to read notebook: {path}"))?;
+        let content = {
+            let file_size = fs::metadata(path)
+                .with_context(|| format!("Failed to stat notebook: {path}"))?
+                .len();
+            if file_size > MAX_NOTEBOOK_SIZE {
+                return Err(anyhow!(
+                    "notebook too large: {} bytes (max {} bytes): {path}",
+                    file_size,
+                    MAX_NOTEBOOK_SIZE
+                ));
+            }
+            fs::read_to_string(path).with_context(|| format!("Failed to read notebook: {path}"))?
+        };
         let mut nb: Value = serde_json::from_str(&content)
             .with_context(|| format!("Failed to parse notebook JSON: {path}"))?;
 

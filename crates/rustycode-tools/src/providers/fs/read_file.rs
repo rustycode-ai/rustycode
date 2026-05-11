@@ -14,6 +14,8 @@ use std::path::Path;
 
 /// Maximum binary file size for read operations (100 MB)
 const MAX_BINARY_SIZE: u64 = 100 * 1024 * 1024;
+/// Maximum file size for text/notebook read operations (50 MB)
+const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024;
 
 const BLOCKED_DEVICE_PATHS: &[&str] = &[
     "/dev/",
@@ -275,6 +277,15 @@ rustycode_tools_api::define_tool! {
         // Notebook files: parse as text regardless of binary setting
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             if ext.eq_ignore_ascii_case("ipynb") {
+                let file_size = fs::metadata(&path)
+                    .with_context(|| format!("stat {}", path.display()))?
+                    .len();
+                if file_size > MAX_FILE_SIZE {
+                    return Err(ToolError::new(
+                        ToolErrorCode::InvalidInput,
+                        format!("file too large: {} bytes (max {} bytes): {}", file_size, MAX_FILE_SIZE, path.display()),
+                    ).into());
+                }
                 let content = std::fs::read_to_string(&path)
                     .with_context(|| format!("read notebook {}", path.display()))?;
                 let parsed = crate::notebook::parse_notebook(&content)?;
@@ -385,6 +396,16 @@ rustycode_tools_api::define_tool! {
             ToolError::io("Failed to open file", e).into()
         })?;
         use std::io::Read;
+
+        let file_size = fs::metadata(&path)
+            .with_context(|| format!("stat {}", path.display()))?
+            .len();
+        if file_size > MAX_FILE_SIZE {
+            return Err(ToolError::new(
+                ToolErrorCode::InvalidInput,
+                format!("file too large: {} bytes (max {} bytes): {}", file_size, MAX_FILE_SIZE, path.display()),
+            ).with_suggestion("Use offset/limit or start_line/end_line to read a range").into());
+        }
 
         let mut probe = [0u8; 8192];
         let probe_len = file.read(&mut probe)?;
