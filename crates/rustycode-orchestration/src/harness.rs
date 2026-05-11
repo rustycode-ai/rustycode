@@ -128,11 +128,10 @@ impl TieredHarness {
 fn run_blocking<F, T, E>(fut: F) -> std::result::Result<T, E>
 where
     F: std::future::Future<Output = std::result::Result<T, E>>,
+    E: From<std::io::Error>,
 {
     let make_run = || -> std::result::Result<T, E> {
-        #[allow(clippy::expect_used)]
-        let rt = tokio::runtime::Runtime::new()
-            .expect("failed to create tokio runtime for tiered execution");
+        let rt = tokio::runtime::Runtime::new()?;
         rt.block_on(fut)
     };
 

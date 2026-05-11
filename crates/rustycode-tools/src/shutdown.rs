@@ -52,16 +52,22 @@ pub fn shutdown_signal() -> Pin<Box<dyn Future<Output = ()> + Send>> {
     {
         Box::pin(async move {
             let ctrl_c = async {
-                tokio::signal::ctrl_c()
-                    .await
-                    .expect("failed to install Ctrl+C handler");
+                if let Err(e) = tokio::signal::ctrl_c().await {
+                    tracing::warn!("Failed to install Ctrl+C handler: {e}");
+                    std::future::pending::<()>().await;
+                }
             };
 
             let terminate = async {
-                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-                    .expect("failed to install SIGTERM handler")
-                    .recv()
-                    .await;
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(mut stream) => {
+                        stream.recv().await;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to install SIGTERM handler: {e}");
+                        std::future::pending::<()>().await;
+                    }
+                }
             };
 
             tokio::select! {
@@ -74,9 +80,10 @@ pub fn shutdown_signal() -> Pin<Box<dyn Future<Output = ()> + Send>> {
     #[cfg(not(unix))]
     {
         Box::pin(async move {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("failed to install Ctrl+C handler");
+            if let Err(e) = tokio::signal::ctrl_c().await {
+                tracing::warn!("Failed to install Ctrl+C handler: {e}");
+                std::future::pending::<()>().await;
+            }
         })
     }
 }
