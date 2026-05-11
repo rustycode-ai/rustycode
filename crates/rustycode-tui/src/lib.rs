@@ -155,6 +155,8 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
     // instead of deadlocking the event loop.
     std::env::set_var("RUSTYCODE_TUI", "1");
 
+    let t0 = std::time::Instant::now();
+
     if let Err(e) = init() {
         tracing::error!("Failed to initialize logging: {}", e);
     } else {
@@ -162,7 +164,9 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
         info_log!("Working directory: {}", cwd.display());
         debug_log!("Log level: {:?}", log_level());
     }
+    info_log!("[PERF] logging init took {}ms", t0.elapsed().as_millis());
 
+    let t1 = std::time::Instant::now();
     use crate::app::TUI;
     use crate::services::agent_mode::AiMode;
 
@@ -172,21 +176,27 @@ pub fn run(cwd: PathBuf, reconfigure: bool, resume: bool) -> Result<()> {
     } else {
         AiMode::Ask
     };
+    info_log!("[PERF] config load took {}ms", t1.elapsed().as_millis());
 
+    let t2 = std::time::Instant::now();
     let (tx, _) = tokio::sync::broadcast::channel(1024);
     let event_receiver = tx.subscribe();
     let mut tui = TUI::new(cwd, initial_mode, reconfigure, event_receiver)?;
+    info_log!("[PERF] TUI::new took {}ms", t2.elapsed().as_millis());
 
+    let t3 = std::time::Instant::now();
     if let Err(e) = tui.init_services() {
         tracing::warn!(
             "Service initialization failed (TUI will run in degraded mode): {}",
             e
         );
     }
+    info_log!("[PERF] init_services took {}ms", t3.elapsed().as_millis());
 
     if resume {
         tui.resume_most_recent_session();
     }
 
+    info_log!("[PERF] total startup took {}ms", t0.elapsed().as_millis());
     tui.run()
 }
