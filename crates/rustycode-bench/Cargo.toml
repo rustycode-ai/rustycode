@@ -18,7 +18,7 @@ real-agent = ["dep:rustycode-agent-runtime", "dep:rustycode-tools-api", "dep:rus
 
 [dependencies]
 anyhow.workspace = true
-regex = "1"
+regex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "rt-multi-thread", "process", "macros", "time", "fs", "io-util"] }
@@ -34,7 +34,7 @@ rustycode-tools = { path = "../rustycode-tools" }
 rustycode-tools-api = { path = "../rustycode-tools-api", optional = true }
 rustycode-orchestration = { path = "../rustycode-orchestration", optional = true }
 rustycode-protocol = { path = "../rustycode-protocol" }
-base64 = "0.22"
+base64.workspace = true
 secrecy.workspace = true
 clap = { workspace = true, features = ["derive"] }
 tracing-subscriber.workspace = true

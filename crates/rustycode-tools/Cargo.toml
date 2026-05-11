@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-base64 = "0.22"
+base64.workspace = true
 chrono.workspace = true
 once_cell.workspace = true
 glob = "0.3"
@@ -31,7 +31,7 @@ notify = "8.0"
 rustycode-tools-api = { path = "../rustycode-tools-api" }
 rustycode-tools-security = { path = "../rustycode-tools-security" }
 rustycode-executable = { path = "../rustycode-executable" }
-async-trait = "0.1"
+async-trait.workspace = true
 rustycode-config = { path = "../rustycode-config" }
 rustycode-lsp = { path = "../rustycode-lsp" }
 rustycode-protocol = { path = "../rustycode-protocol" }
@@ -52,7 +52,7 @@ parking_lot.workspace = true
 uuid.workspace = true
 urlencoding.workspace = true
 ahash = "0.8"
-dashmap = "6"
+dashmap.workspace = true
 dirs.workspace = true
 shellexpand.workspace = true
 tree-sitter = "0.26"

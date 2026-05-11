@@ -10,7 +10,7 @@ repository.workspace = true
 ahash = "0.8"
 anyhow.workspace = true
 chrono.workspace = true
-dashmap = "6"
+dashmap.workspace = true
 rustycode-protocol = { path = "../rustycode-protocol" }
 serde.workspace = true
 serde_json.workspace = true
