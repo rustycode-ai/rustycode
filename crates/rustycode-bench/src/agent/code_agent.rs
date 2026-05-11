@@ -506,31 +506,7 @@ struct ToolUse {
 }
 
 #[cfg(test)]
-fn strip_ansi(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let bytes = s.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == 0x1b && i + 1 < bytes.len() && bytes[i + 1] == b'[' {
-            i += 2;
-            while i < bytes.len() && (bytes[i] >= 0x20 && bytes[i] <= 0x3f) {
-                i += 1;
-            }
-            while i < bytes.len() && (bytes[i] >= 0x20 && bytes[i] <= 0x2f) {
-                i += 1;
-            }
-            if i < bytes.len() && (bytes[i] >= 0x40 && bytes[i] <= 0x7e) {
-                i += 1;
-            }
-        } else if bytes[i] == 0x1b {
-            i += 2;
-        } else {
-            result.push(s.chars().nth(i).unwrap_or('\0'));
-            i += 1;
-        }
-    }
-    result
-}
+use rustycode_protocol::text::strip_ansi_escapes as strip_ansi;
 
 fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {

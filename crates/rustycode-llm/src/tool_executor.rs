@@ -456,8 +456,8 @@ fn parse_tool_call_item(item: &Value) -> Option<ParsedToolCall> {
             .get("arguments")
             .and_then(|a| a.as_str())
             .unwrap_or("{}");
-        let arguments = serde_json::from_str::<Value>(arguments_str)
-            .unwrap_or_else(|_| serde_json::json!({}));
+        let arguments =
+            serde_json::from_str::<Value>(arguments_str).unwrap_or_else(|_| serde_json::json!({}));
         let id = item
             .get("id")
             .and_then(|i| i.as_str())

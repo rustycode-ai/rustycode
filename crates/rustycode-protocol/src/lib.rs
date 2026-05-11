@@ -221,6 +221,10 @@ pub mod crypto;
 
 // Shared frontmatter parsing utilities
 pub mod frontmatter;
+
+// Shared text processing utilities
+pub mod text;
+
 // Re-exports for frontmatter helpers
 pub use frontmatter::{
     normalize_paths, parse_frontmatter_map, split_frontmatter, FrontmatterMap, FrontmatterValue,

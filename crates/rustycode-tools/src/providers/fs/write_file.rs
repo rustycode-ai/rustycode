@@ -18,7 +18,7 @@ struct MismatchDetail {
 fn verify_written(path: &Path, expected: &[u8]) -> Result<(), MismatchDetail> {
     use std::io::Read;
 
-    let mut f = match fs::File::open(path) {
+    let mut f = match open_file_symlink_safe(path) {
         Ok(f) => f,
         Err(_) => {
             return Err(MismatchDetail {
@@ -76,6 +76,18 @@ fn execute_append(
         0
     };
 
+    #[cfg(unix)]
+    let mut file = {
+        use std::os::unix::fs::OpenOptionsExt;
+        fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(path)
+            .with_context(|| format!("Failed to open {path_display} for append"))?
+    };
+
+    #[cfg(not(unix))]
     let mut file = fs::OpenOptions::new()
         .append(true)
         .create(true)

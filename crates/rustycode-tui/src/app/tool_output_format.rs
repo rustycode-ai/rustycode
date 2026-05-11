@@ -1,39 +1,9 @@
 //! Tool output formatting utilities
 
-/// Strip ANSI escape sequences from a string.
-///
-/// Tool outputs (especially bash commands) may contain ANSI color codes
-/// that render as garbage in the ratatui TUI. This strips them so only
-/// the plain text content remains.
-pub fn strip_ansi_escapes(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\x1b' {
-            // Skip ANSI escape sequence: ESC [ ... (letter)
-            if chars.peek() == Some(&'[') {
-                chars.next(); // consume '['
-                              // Skip digits, semicolons, and other parameter bytes
-                while let Some(&next) = chars.peek() {
-                    if next.is_ascii_digit() || next == ';' || next == '?' {
-                        chars.next();
-                    } else {
-                        break;
-                    }
-                }
-                // Consume the final command byte (letter or @)
-                if let Some(&cmd) = chars.peek() {
-                    if cmd.is_ascii_alphabetic() || cmd == '@' {
-                        chars.next();
-                    }
-                }
-            }
-        } else {
-            result.push(c);
-        }
-    }
-    result
-}
+// Re-export the shared ANSI stripping utility from protocol.
+// Tool outputs (especially bash commands) may contain ANSI color codes
+// that render as garbage in the ratatui TUI.
+pub use rustycode_protocol::text::strip_ansi_escapes;
 
 /// Maximum lines to show in collapsed tool output
 const COLLAPSED_PREVIEW_LINES: usize = 3;
