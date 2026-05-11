@@ -1202,7 +1202,7 @@ pub fn build_roster(
         }
     }
 
-    assignments.sort_by(|a, b| b.priority.cmp(&a.priority));
+    assignments.sort_by_key(|b| std::cmp::Reverse(b.priority));
     assignments.truncate(max_size);
     assignments
 }

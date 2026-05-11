@@ -610,10 +610,8 @@ impl OpenAiProvider {
                                         },
                                     });
                                 }
-                                ContentBlock::Thinking { thinking, .. } => {
-                                    if !thinking.is_empty() {
-                                        reasoning_content = Some(thinking.clone());
-                                    }
+                                ContentBlock::Thinking { thinking, .. } if !thinking.is_empty() => {
+                                    reasoning_content = Some(thinking.clone());
                                 }
                                 _ => {} // non-exhaustive
                             }

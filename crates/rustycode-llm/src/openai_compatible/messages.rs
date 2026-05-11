@@ -238,14 +238,12 @@ pub fn convert_messages_to_responses_input(
                                 ContentBlock::Thinking { .. } => {
                                     // Anthropic-style thinking summaries — no OpenAI round-trip needed
                                 }
-                                ContentBlock::RedactedThinking { data } => {
-                                    if !data.is_empty() {
-                                        items.push(ResponsesApiInputItem::Reasoning {
-                                            id: String::new(),
-                                            summary: Vec::new(),
-                                            encrypted_content: Some(data.clone()),
-                                        });
-                                    }
+                                ContentBlock::RedactedThinking { data } if !data.is_empty() => {
+                                    items.push(ResponsesApiInputItem::Reasoning {
+                                        id: String::new(),
+                                        summary: Vec::new(),
+                                        encrypted_content: Some(data.clone()),
+                                    });
                                 }
                                 _ => {}
                             }

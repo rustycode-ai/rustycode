@@ -254,14 +254,8 @@ impl SubstitutionEngine {
         while i < len {
             if i + 1 < len && chars[i] == '$' && chars[i + 1] == '{' {
                 let start = i + 2;
-                let mut end_opt = None;
-                for j in start..len {
-                    if chars[j] == '}' {
-                        end_opt = Some(j);
-                        break;
-                    }
-                }
-                if let Some(end) = end_opt {
+                if let Some(relative_pos) = chars[start..].iter().position(|&c| c == '}') {
+                    let end = start + relative_pos;
                     let var_part: String = chars[start..end].iter().collect();
                     let (var_name, default) =
                         var_part.find(":-").map_or((&var_part[..], None), |pos| {

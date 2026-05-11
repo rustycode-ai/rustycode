@@ -186,13 +186,11 @@ fn convert_messages(messages: &[crate::provider::ChatMessage]) -> Vec<AzureMessa
                                     },
                                 });
                             }
-                            ContentBlock::Thinking { thinking, .. } => {
-                                if !thinking.is_empty() {
-                                    text_parts.push(format!(
-                                        "[prior-reasoning]\n{}\n[/prior-reasoning]",
-                                        thinking
-                                    ));
-                                }
+                            ContentBlock::Thinking { thinking, .. } if !thinking.is_empty() => {
+                                text_parts.push(format!(
+                                    "[prior-reasoning]\n{}\n[/prior-reasoning]",
+                                    thinking
+                                ));
                             }
                             _ => {}
                         }

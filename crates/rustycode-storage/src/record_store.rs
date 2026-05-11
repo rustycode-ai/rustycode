@@ -344,7 +344,7 @@ impl Storage {
                     let captured_at: String = row.get(1)?;
                     let snippet: String = row.get(2)?;
                     Ok(ConversationSearchHit {
-                        session_id: session_id,
+                        session_id,
                         captured_at,
                         snippet,
                     })

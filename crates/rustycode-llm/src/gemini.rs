@@ -330,26 +330,22 @@ impl GeminiProvider {
             let mut parts = Vec::new();
 
             match &msg.content {
-                MessageContent::Simple(text) => {
-                    if !text.is_empty() {
-                        parts.push(GeminiPart {
-                            text: Some(text.clone()),
-                            function_call: None,
-                            function_response: None,
-                        });
-                    }
+                MessageContent::Simple(text) if !text.is_empty() => {
+                    parts.push(GeminiPart {
+                        text: Some(text.clone()),
+                        function_call: None,
+                        function_response: None,
+                    });
                 }
                 MessageContent::Blocks(blocks) => {
                     for block in blocks {
                         match block {
-                            ContentBlock::Text { text, .. } => {
-                                if !text.is_empty() {
-                                    parts.push(GeminiPart {
-                                        text: Some(text.clone()),
-                                        function_call: None,
-                                        function_response: None,
-                                    });
-                                }
+                            ContentBlock::Text { text, .. } if !text.is_empty() => {
+                                parts.push(GeminiPart {
+                                    text: Some(text.clone()),
+                                    function_call: None,
+                                    function_response: None,
+                                });
                             }
                             ContentBlock::ToolUse {
                                 id, name, input, ..
@@ -385,14 +381,12 @@ impl GeminiProvider {
                                     }),
                                 });
                             }
-                            ContentBlock::Thinking { thinking, .. } => {
-                                if !thinking.is_empty() {
-                                    parts.push(GeminiPart {
-                                        text: Some(format!("[thinking] {thinking}")),
-                                        function_call: None,
-                                        function_response: None,
-                                    });
-                                }
+                            ContentBlock::Thinking { thinking, .. } if !thinking.is_empty() => {
+                                parts.push(GeminiPart {
+                                    text: Some(format!("[thinking] {thinking}")),
+                                    function_call: None,
+                                    function_response: None,
+                                });
                             }
                             _ => {}
                         }

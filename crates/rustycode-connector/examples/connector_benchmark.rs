@@ -318,7 +318,7 @@ fn print_comparison(results: &[BenchmarkResults]) {
 
     let available: Vec<_> = results
         .iter()
-        .filter(|r| r.total_time().is_some() && r.total_time().unwrap() > 0)
+        .filter(|r| r.total_time().is_some_and(|t| t > 0))
         .collect();
 
     if available.len() >= 2 {

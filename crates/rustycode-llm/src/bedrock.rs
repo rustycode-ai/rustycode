@@ -187,12 +187,10 @@ fn convert_messages(messages: &[crate::provider::ChatMessage]) -> Vec<BedrockCon
                                     })],
                                 });
                             }
-                            ContentBlock::Thinking { thinking, .. } => {
-                                if !thinking.is_empty() {
+                            ContentBlock::Thinking { thinking, .. } if !thinking.is_empty() => {
                                     parts.push(serde_json::json!({
                                         "text": format!("[prior-reasoning]\n{}\n[/prior-reasoning]", thinking)
                                     }));
-                                }
                             }
                             _ => {}
                         }
