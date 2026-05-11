@@ -8,7 +8,6 @@ use chrono::Utc;
 use rustycode_bus::{EventBus, SessionCompletedEvent, SessionStartedEvent, ToolBlockedEvent};
 use rustycode_config::Config;
 use rustycode_git::GitStatus;
-use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_lsp::LspServerStatus;
 use rustycode_memory::MemoryEntry;
 use rustycode_protocol::{
@@ -24,6 +23,7 @@ use rustycode_storage::{
     Storage,
 };
 use rustycode_tools::{check_tool_permission, ToolContext, ToolInfo, ToolRegistry};
+use rustycode_tools_api::build_canonical_tool_schemas;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -561,24 +561,7 @@ impl Runtime {
         cwd: &Path,
         iteration: usize,
     ) -> Result<crate::headless::HeadlessTaskResult> {
-        let tools_schema: Vec<serde_json::Value> = self
-            .tool_list()
-            .into_iter()
-            .map(|tool| {
-                let mut tool_json = serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.parameters_schema,
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &tool.name,
-                    matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                ) {
-                    tool_json["annotations"] = annotations;
-                }
-                tool_json
-            })
-            .collect();
+        let tools_schema = build_canonical_tool_schemas(&self.tool_list());
 
         // Build system prompt augmented with auto-activated skills
         let system_prompt = self.build_skill_augmented_prompt(task, Some(cwd));
@@ -607,24 +590,7 @@ impl Runtime {
         iteration: usize,
         prior_messages: Option<Vec<rustycode_llm::provider::ChatMessage>>,
     ) -> Result<crate::headless::HeadlessTaskResult> {
-        let tools_schema: Vec<serde_json::Value> = self
-            .tool_list()
-            .into_iter()
-            .map(|tool| {
-                let mut tool_json = serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.parameters_schema,
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &tool.name,
-                    matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                ) {
-                    tool_json["annotations"] = annotations;
-                }
-                tool_json
-            })
-            .collect();
+        let tools_schema = build_canonical_tool_schemas(&self.tool_list());
 
         crate::headless::run_headless_task_core(
             provider,

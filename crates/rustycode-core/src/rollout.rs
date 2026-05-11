@@ -110,6 +110,7 @@ impl RolloutEvent {
 }
 
 /// Records all session events to a JSONL file for replay/inspection.
+/// Also fires analytics events to GA4 when configured.
 ///
 /// Uses an async writer via an mpsc channel so the caller never blocks
 /// on disk I/O.
@@ -118,6 +119,8 @@ pub struct RolloutRecorder {
     sender: mpsc::Sender<RolloutEvent>,
     session_id: String,
     enabled: bool,
+    analytics: Option<rustycode_observability::AnalyticsClient>,
+    analytics_ctx: Option<rustycode_observability::EventContext>,
 }
 
 impl RolloutRecorder {
@@ -127,6 +130,8 @@ impl RolloutRecorder {
                 sender: mpsc::channel(1).0,
                 session_id: session_id.to_string(),
                 enabled: false,
+                analytics: None,
+                analytics_ctx: None,
             });
         }
 
@@ -152,6 +157,8 @@ impl RolloutRecorder {
             sender,
             session_id: session_id.to_string(),
             enabled: true,
+            analytics: None,
+            analytics_ctx: None,
         })
     }
 
@@ -161,7 +168,19 @@ impl RolloutRecorder {
             sender: mpsc::channel(1).0,
             session_id: session_id.to_string(),
             enabled: false,
+            analytics: None,
+            analytics_ctx: None,
         }
+    }
+
+    /// Attach an analytics client for firing GA4 events alongside rollout recording.
+    pub fn set_analytics(
+        &mut self,
+        client: rustycode_observability::AnalyticsClient,
+        ctx: rustycode_observability::EventContext,
+    ) {
+        self.analytics = Some(client);
+        self.analytics_ctx = Some(ctx);
     }
 
     /// Shut down the background writer, flushing any buffered events.
@@ -201,6 +220,13 @@ impl RolloutRecorder {
             model: model.to_string(),
             timestamp: Utc::now(),
         });
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::session_start(),
+            );
+        }
     }
 
     /// Convenience: record a user message.
@@ -226,6 +252,13 @@ impl RolloutRecorder {
             duration_ms,
             timestamp: Utc::now(),
         });
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::llm_request(model, &ctx.provider, true),
+            );
+        }
     }
 
     /// Convenience: record a tool call.
@@ -246,6 +279,13 @@ impl RolloutRecorder {
             duration_ms,
             timestamp: Utc::now(),
         });
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::tool_use(tool_name, success, duration_ms),
+            );
+        }
     }
 
     /// Convenience: record a compaction event.
@@ -256,6 +296,13 @@ impl RolloutRecorder {
             strategy: strategy.to_string(),
             timestamp: Utc::now(),
         });
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::compaction(tokens_before, tokens_after),
+            );
+        }
     }
 
     /// Convenience: record session end.
@@ -265,6 +312,46 @@ impl RolloutRecorder {
             total_tokens,
             timestamp: Utc::now(),
         });
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::session_end(0.0, 0, 0, total_tokens),
+            );
+        }
+    }
+
+    /// Fire an LLM error analytics event.
+    pub fn llm_error(&self, error_type: &str, status_code: Option<u16>, provider: &str) {
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::llm_error(error_type, status_code, provider),
+            );
+        }
+    }
+
+    /// Fire a tool error analytics event.
+    pub fn tool_error(&self, tool_name: &str, error_type: &str) {
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::tool_error(tool_name, error_type),
+            );
+        }
+    }
+
+    /// Fire an app error analytics event.
+    pub fn app_error(&self, error_type: &str, error_message: &str) {
+        if let Some(ctx) = &self.analytics_ctx {
+            rustycode_observability::AnalyticsClient::send_enriched(
+                &self.analytics,
+                ctx,
+                rustycode_observability::analytics::app_error(error_type, error_message),
+            );
+        }
     }
 
     /// Return the session ID.

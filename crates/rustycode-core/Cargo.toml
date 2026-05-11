@@ -38,6 +38,7 @@ rustycode-llm = { path = "../rustycode-llm", default-features = false }
 rustycode-orchestration = { path = "../rustycode-orchestration" }
 rustycode-mcp = { path = "../rustycode-mcp", default-features = false }
 rustycode-shared-runtime = { path = "../rustycode-shared-runtime" }
+rustycode-observability = { path = "../rustycode-observability" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }
 rustycode-session = { path = "../rustycode-session" }
 rustycode-team = { path = "../rustycode-team" }

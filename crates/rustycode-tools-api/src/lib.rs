@@ -7,6 +7,9 @@ use rustycode_protocol::{
 use serde::Serialize;
 use serde_json::Value;
 
+pub mod schema;
+pub mod tool_annotations;
+
 pub use schemars;
 
 /// Capability tags that tools self-declare for profile-based autodiscovery.
@@ -592,6 +595,30 @@ impl ToolInfo {
             is_destructive_default: tool.is_destructive(&Value::Null),
         }
     }
+
+    /// Build canonical Anthropic-format tool schema.
+    ///
+    /// Strips `$schema`/`title`, simplifies nullable union types, and includes
+    /// MCP annotations when present.
+    pub fn to_canonical_schema(&self) -> Value {
+        let clean = schema::strip_schema_metadata(self.parameters_schema.clone());
+        let mut v = serde_json::json!({
+            "name": self.name,
+            "description": self.description,
+            "input_schema": clean,
+        });
+        if let Some(ann) = &self.annotations {
+            if let Ok(val) = serde_json::to_value(ann) {
+                v["annotations"] = val;
+            }
+        }
+        v
+    }
+}
+
+/// Build canonical tool schemas from a slice of [`ToolInfo`].
+pub fn build_canonical_tool_schemas(tools: &[ToolInfo]) -> Vec<Value> {
+    tools.iter().map(ToolInfo::to_canonical_schema).collect()
 }
 
 /// A trait for providing access to tool metadata, allowing decoupling of

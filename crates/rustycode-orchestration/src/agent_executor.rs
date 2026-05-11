@@ -347,23 +347,8 @@ impl AgentSessionExecutor {
     /// Build the tool schemas JSON array from the registry, in the format
     /// expected by [`AgentSession::run()`].
     fn build_tool_schemas(&self) -> Vec<serde_json::Value> {
-        self.tool_registry
-            .list()
-            .into_iter()
-            .map(|info| {
-                let mut schema = serde_json::json!({
-                    "name": info.name,
-                    "description": info.description,
-                    "input_schema": info.parameters_schema,
-                });
-                if let Some(ann) = info.annotations {
-                    if let Ok(val) = serde_json::to_value(ann) {
-                        schema["annotations"] = val;
-                    }
-                }
-                schema
-            })
-            .collect()
+        let tools = self.tool_registry.list();
+        rustycode_tools_api::build_canonical_tool_schemas(&tools)
     }
 }
 

@@ -396,40 +396,28 @@ impl AgentEvents for StreamEventAdapter {
                 ApprovalDecision::Reject("rejected by user".to_string())
             }
             Some(Err(_)) => {
-                // Timeout: only auto-approve safe (read-only) tools.
-                // Dangerous tools must be rejected to prevent silent
-                // approval of destructive operations like `rm -rf`.
-                // Reuse risk already classified above for consistency.
-                let is_safe = matches!(risk, crate::tool_approval::risk::RiskLevel::Safe);
-                if is_safe {
-                    tracing::warn!(
-                        "Tool approval timed out for {}, auto-approving safe tool",
-                        tool_name
-                    );
-                    self.emit(StreamChunk::ApprovalApproved {
-                        tool_id: self
-                            .pending_tool_id
-                            .clone()
-                            .unwrap_or_else(|| "unknown".to_string()),
-                    });
-                    ApprovalDecision::AutoApproved
-                } else {
-                    tracing::warn!(
-                        "Tool approval timed out for {}, auto-rejecting ({:?} risk)",
-                        tool_name,
-                        risk
-                    );
-                    self.emit(StreamChunk::ApprovalRejected {
-                        tool_id: self
-                            .pending_tool_id
-                            .clone()
-                            .unwrap_or_else(|| "unknown".to_string()),
-                    });
-                    self.emit(StreamChunk::Text(
-                        "[Tool execution rejected: approval timed out]\n".to_string(),
-                    ));
-                    ApprovalDecision::Reject(format!("approval timed out ({:?} risk)", risk))
-                }
+                // Timeout: always reject regardless of risk level.
+                // Even safe tools can be problematic if auto-approved without
+                // user awareness (e.g., `ls -la /etc/shadow`, `cat ~/.env`).
+                // The user was away and didn't consent — reject for safety.
+                tracing::warn!(
+                    "Tool approval timed out for {}, rejecting for safety ({:?} risk)",
+                    tool_name,
+                    risk
+                );
+                self.emit(StreamChunk::ApprovalRejected {
+                    tool_id: self
+                        .pending_tool_id
+                        .clone()
+                        .unwrap_or_else(|| "unknown".to_string()),
+                });
+                self.emit(StreamChunk::Text(format!(
+                    "[Tool '{}' rejected: approval timed out after 5 minutes — rejected for safety]\n",
+                    tool_name
+                )));
+                ApprovalDecision::Reject(
+                    "approval timed out after 5 minutes — rejected for safety".to_string(),
+                )
             }
             None => {
                 // No approval channel available (e.g., orchestration forwarding thread).

@@ -9,8 +9,8 @@ use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_tools::ToolRegistry;
+use rustycode_tools_api::build_canonical_tool_schemas;
 
 /// Manages tool registration and MCP server integration for the TUI session.
 ///
@@ -88,24 +88,8 @@ impl ToolManager {
 
         // Agent tool - functional sub-agent backed by AgentSession.
         // Build full tool definitions (name + description + input_schema) for sub-agent.
-        let tools_schema: Vec<serde_json::Value> = tool_registry
-            .list()
-            .iter()
-            .map(|t| {
-                let mut schema = serde_json::json!({
-                    "name": t.name,
-                    "description": t.description,
-                    "input_schema": t.parameters_schema,
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &t.name,
-                    matches!(t.permission, rustycode_tools::ToolPermission::Read),
-                ) {
-                    schema["annotations"] = annotations;
-                }
-                schema
-            })
-            .collect();
+        let tools_list = tool_registry.list();
+        let tools_schema: Vec<serde_json::Value> = build_canonical_tool_schemas(&tools_list);
         let tools_schema_clone = tools_schema.clone();
         let agent_tool = crate::agents::agent_tool::AgentTool::new(
             Arc::clone(provider),

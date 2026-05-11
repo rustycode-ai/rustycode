@@ -188,8 +188,7 @@ impl HistoryManager {
 
     /// Check if the current reverse search has at least one match.
     ///
-    /// When there are no matches, the input state contains a display-only
-    /// "no matches" string that must never be submitted as a message.
+    /// Used by the Enter key handler to decide whether to submit or cancel.
     pub fn has_reverse_search_match(&self) -> bool {
         self.in_reverse_search && !self.reverse_search_matches.is_empty()
     }
@@ -245,14 +244,12 @@ impl HistoryManager {
         self.reverse_search_query.push(c);
         self.update_reverse_search_matches();
 
-        // Show first match or "no matches" message
+        // Show first match, or keep query in input area
+        // (renderer handles "no matches" display in info bar)
         if let Some(match_cmd) = self.reverse_search_matches.first() {
             set_input_from_text(input_state, match_cmd);
         } else {
-            input_state.lines = vec![format!(
-                "(reverse-i-search)`{}': no matches",
-                self.reverse_search_query
-            )];
+            input_state.lines = vec![self.reverse_search_query.clone()];
             input_state.cursor_row = 0;
             input_state.cursor_col = input_state.lines[0].len();
         }
@@ -265,17 +262,11 @@ impl HistoryManager {
             self.update_reverse_search_matches();
 
             // Update display with new matches
+            // (renderer handles "no matches" display in info bar)
             if let Some(match_cmd) = self.reverse_search_matches.first() {
                 set_input_from_text(input_state, match_cmd);
             } else {
-                input_state.lines = vec![if self.reverse_search_query.is_empty() {
-                    "(reverse-i-search)`': searching...".to_string()
-                } else {
-                    format!(
-                        "(reverse-i-search)`{}': no matches",
-                        self.reverse_search_query
-                    )
-                }];
+                input_state.lines = vec![self.reverse_search_query.clone()];
                 input_state.cursor_col = input_state.lines[0].len();
             }
         }
@@ -591,7 +582,9 @@ mod tests {
         let (query, _current, total) = manager.reverse_search_info();
         assert_eq!(query, "xyz");
         assert_eq!(total, 0);
-        assert!(state.all_text().contains("no matches"));
+        // Query text should be preserved in input state (not the display string)
+        assert_eq!(state.all_text(), "xyz");
+        assert!(!manager.has_reverse_search_match());
     }
 
     #[test]

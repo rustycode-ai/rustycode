@@ -90,7 +90,7 @@ impl PromptTemplateEngine {
             .registry
             .render(template_name, context)
             .map_err(|e| anyhow::anyhow!("Failed to render template '{template_name}': {e}"))?;
-        let token_estimate = content.len() / 4; // rough estimate: 4 chars per token
+        let token_estimate = rustycode_protocol::estimate_tokens(&content);
         Ok(RenderedPrompt {
             content,
             template_name: template_name.to_string(),

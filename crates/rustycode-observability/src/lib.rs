@@ -8,8 +8,11 @@
 )]
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::float_cmp,))]
 
+#[cfg(feature = "analytics")]
+pub mod analytics;
 pub mod context;
 pub mod diagnostics;
+pub mod install_id;
 pub mod logging;
 pub mod metrics;
 pub mod metrics_store;
@@ -18,6 +21,7 @@ pub mod rule_tracer;
 // Re-export primary types
 pub use context::{create_context, ExecutionContext, SharedContext};
 pub use diagnostics::{CheckStatus, DiagnosticCheck, DiagnosticReport, DiagnosticSuite};
+pub use install_id::get_or_create_install_id;
 pub use logging::{
     clear_log_context, init_logging, log_context, set_log_context, LogContext, LogLevel,
     GLOBAL_LOG_CONTEXT,
@@ -25,3 +29,6 @@ pub use logging::{
 pub use metrics::{Counter, Gauge, Histogram, HistogramStats, SessionMetrics};
 pub use metrics_store::MetricsStore;
 pub use rule_tracer::{RuleTracer, TraceEntry, TraceLevel};
+
+#[cfg(feature = "analytics")]
+pub use analytics::{AnalyticsClient, EventContext};

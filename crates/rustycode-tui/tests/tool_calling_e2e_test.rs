@@ -115,20 +115,8 @@ fn test_tool_calling_e2e() {
     let tools = tool_registry.list();
     println!("Available tools: {}", tools.len());
 
-    let tool_definitions: Vec<serde_json::Value> = tools
-        .into_iter()
-        .map(|tool| {
-            serde_json::json!({
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": {
-                    "type": "object",
-                    "properties": tool.parameters_schema,
-                    "required": []
-                }
-            })
-        })
-        .collect();
+    let tool_definitions: Vec<serde_json::Value> =
+        rustycode_tools_api::build_canonical_tool_schemas(&tools);
 
     println!("Tool definitions: {}", tool_definitions.len());
 

@@ -87,21 +87,9 @@ fn test_anthropic_request_with_tools() {
 
     // Create tool definitions
     let tool_registry = default_registry();
-    let tool_definitions: Vec<serde_json::Value> = tool_registry
-        .list()
-        .into_iter()
-        .map(|tool| {
-            serde_json::json!({
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": {
-                    "type": "object",
-                    "properties": tool.parameters_schema,
-                    "required": []
-                }
-            })
-        })
-        .collect();
+    let tools_list = tool_registry.list();
+    let tool_definitions: Vec<serde_json::Value> =
+        rustycode_tools_api::build_canonical_tool_schemas(&tools_list);
 
     println!("Tool definitions count: {}", tool_definitions.len());
 

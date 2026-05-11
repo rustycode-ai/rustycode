@@ -364,19 +364,21 @@ mod tests {
 
     #[test]
     fn test_token_estimate() {
+        let hundred_char_desc: String = "word ".repeat(20).trim_end().to_string();
+        let two_hundred_char_code: String = "token ".repeat(40).trim_end().to_string();
         let package = HandoffBuilder::new(
             "t1",
-            "a".repeat(100),
+            &hundred_char_desc,
             ExecutionTier::Musician,
             ExecutionTier::Editor,
         )
-        .with_code_snippet(CodeSnippet::new("f.rs", "b".repeat(200), "relevant"))
+        .with_code_snippet(CodeSnippet::new("f.rs", &two_hundred_char_code, "relevant"))
         .build();
         let estimate = package.token_estimate();
         assert!(estimate > 0);
-        // Rough: 100 + 2 + 200 + 2 = ~304 chars / 4 = ~76 tokens
+        // 20 words (desc) + 1 (task_id "t1") + 40 words (code) + 1 ("f.rs") + 1 ("relevant") = 63
         #[expect(clippy::cast_possible_wrap)]
-        let diff = estimate as i64 - 76;
+        let diff = estimate as i64 - 63;
         assert!(diff.unsigned_abs() < 5);
     }
 

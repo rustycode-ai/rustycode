@@ -12,11 +12,11 @@ use crate::services::file_read_cache::FileReadCache;
 use rustycode_core::integration::{HookContext, HookRegistry};
 use rustycode_guard::codec::{HookInput, HookResult};
 use rustycode_guard::pre_tool;
-use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_orchestration::plan_mode::PlanMode;
 use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::ToolCall;
 use rustycode_tools::ToolExecutor;
+use rustycode_tools_api::build_canonical_tool_schemas;
 
 pub fn execute_tool(
     cwd: &Path,
@@ -97,18 +97,8 @@ pub fn execute_tool(
                     .iter()
                     .find(|tool| tool.name == tool_match.reference.name)
                     .map(|tool| {
-                        let mut schema = serde_json::json!({
-                            "name": tool.name,
-                            "description": tool.description,
-                            "input_schema": tool.parameters_schema,
-                            "defer_loading": false
-                        });
-                        if let Some(annotations) = anthropic_annotations_for_tool_info(
-                            &tool.name,
-                            matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                        ) {
-                            schema["annotations"] = annotations;
-                        }
+                        let mut schema = tool.to_canonical_schema();
+                        schema["defer_loading"] = serde_json::json!(false);
                         schema
                     })
             })

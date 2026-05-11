@@ -3,7 +3,6 @@
 use crate::services::agent_mode::{AgentMode, AiMode};
 use anyhow::Result;
 use rustycode_config::Config;
-use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_llm::ConversationManager;
 use rustycode_memory::MemoryEntry;
 use rustycode_prompt::ModelProvider;
@@ -11,6 +10,7 @@ use rustycode_protocol::tool_names as tn;
 use rustycode_protocol::{Conversation, Message, SessionId};
 use rustycode_storage::memory_metrics::MemoryMetrics;
 use rustycode_tools::ToolRegistry;
+use rustycode_tools_api::build_canonical_tool_schemas;
 #[cfg(feature = "vector-memory")]
 use rustycode_vector_memory::{MemoryResult, VectorMemory};
 
@@ -622,8 +622,8 @@ Unused Memories (candidates for pruning):
         "No parameters defined".to_string()
     }
 
-    /// Generate provider-specific tool schema in JSON format
-    /// This can be used for MCP or for sending tool definitions to LLMs
+    /// Generate tool schema in canonical format for LLM consumption.
+    /// Provider-specific normalization is handled by the LLM provider layer.
     pub fn generate_tool_schema_for_provider(
         &self,
         provider: ModelProvider,
@@ -633,56 +633,14 @@ Unused Memories (candidates for pruning):
         let mut tools_json = Vec::new();
         let tool_search_enabled = self.tool_search_enabled_for_provider(&provider, model_id);
 
-        for tool in tools {
+        for tool in &tools {
             let is_seed_tool = self.is_seed_tool_for_provider(&provider, &tool.name);
-            let tool_schema = if provider.is_anthropic() {
-                let mut schema = serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.parameters_schema,
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &tool.name,
-                    matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                ) {
-                    schema["annotations"] = annotations;
-                }
+            if !tool_search_enabled || is_seed_tool {
+                let mut schema = tool.to_canonical_schema();
                 if tool_search_enabled && !is_seed_tool {
                     schema["defer_loading"] = serde_json::json!(true);
                 }
-                schema
-            } else if provider.is_openai() {
-                serde_json::json!({
-                    "type": "function",
-                    "function": {
-                        "name": tool.name,
-                        "description": tool.description,
-                        "parameters": tool.parameters_schema
-                    }
-                })
-            } else if provider.is_google() {
-                serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.parameters_schema
-                })
-            } else {
-                // Generic / fallback — use Anthropic-style schema
-                let mut schema = serde_json::json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.parameters_schema
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &tool.name,
-                    matches!(tool.permission, rustycode_tools::ToolPermission::Read),
-                ) {
-                    schema["annotations"] = annotations;
-                }
-                schema
-            };
-            if !tool_search_enabled || is_seed_tool {
-                tools_json.push(tool_schema);
+                tools_json.push(schema);
             }
         }
 

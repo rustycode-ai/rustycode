@@ -4,6 +4,32 @@ use schemars::JsonSchema;
 use serde_json::{json, Value};
 use std::fs;
 
+/// Cell type for Jupyter notebook cells.
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, JsonSchema, Default, PartialEq, Eq,
+)]
+pub enum NotebookCellType {
+    #[default]
+    #[serde(rename = "code")]
+    Code,
+    #[serde(rename = "markdown")]
+    Markdown,
+}
+
+/// Edit mode for notebook operations.
+#[derive(
+    Debug, Clone, serde::Serialize, serde::Deserialize, JsonSchema, Default, PartialEq, Eq,
+)]
+pub enum NotebookEditMode {
+    #[default]
+    #[serde(rename = "replace")]
+    Replace,
+    #[serde(rename = "insert")]
+    Insert,
+    #[serde(rename = "delete")]
+    Delete,
+}
+
 #[derive(serde::Deserialize, JsonSchema)]
 pub struct NotebookEditParams {
     /// The absolute path to the Jupyter notebook file to edit
@@ -12,10 +38,10 @@ pub struct NotebookEditParams {
     cell_id: Option<String>,
     /// The new source for the cell
     new_source: String,
-    /// The type of the cell. Defaults to current cell type. Required for edit_mode=insert.
-    cell_type: Option<String>,
-    /// The type of edit to make. Defaults to replace.
-    edit_mode: Option<String>,
+    /// The type of the cell: "code" or "markdown". Defaults to current cell type. Required for edit_mode=insert.
+    cell_type: Option<NotebookCellType>,
+    /// The type of edit to make: "replace" (default), "insert", or "delete".
+    edit_mode: Option<NotebookEditMode>,
 }
 
 rustycode_tools_api::define_tool! {
@@ -33,10 +59,10 @@ rustycode_tools_api::define_tool! {
             return Err(anyhow!("notebook_path must be absolute, got: {path}"));
         }
 
-        let edit_mode = params.edit_mode.as_deref().unwrap_or("replace");
+        let edit_mode = params.edit_mode.unwrap_or_default();
         let cell_id = params.cell_id.as_deref();
         let new_source = &params.new_source;
-        let cell_type = params.cell_type.as_deref();
+        let cell_type = params.cell_type.as_ref();
 
         let content =
             fs::read_to_string(path).with_context(|| format!("Failed to read notebook: {path}"))?;
@@ -49,8 +75,8 @@ rustycode_tools_api::define_tool! {
             .as_array_mut()
             .ok_or_else(|| anyhow!("'cells' is not an array"))?;
 
-        match edit_mode {
-            "replace" => {
+        let result: Result<ToolOutput> = match edit_mode {
+            NotebookEditMode::Replace => {
                 let idx = find_cell_index(cells, cell_id)?;
                 let cell = &mut cells[idx];
                 if let Some(ct) = cell_type {
@@ -63,8 +89,8 @@ rustycode_tools_api::define_tool! {
                     path
                 )))
             }
-            "insert" => {
-                let ct = cell_type.unwrap_or("code");
+            NotebookEditMode::Insert => {
+                let ct = cell_type.cloned().unwrap_or_default();
                 let new_cell = json!({
                     "cell_type": ct,
                     "source": new_source,
@@ -80,11 +106,10 @@ rustycode_tools_api::define_tool! {
                     cells.insert(0, new_cell);
                 }
                 Ok(ToolOutput::text(format!(
-                    "Inserted {} cell in {}",
-                    ct, path
+                    "Inserted {ct:?} cell in {path}"
                 )))
             }
-            "delete" => {
+            NotebookEditMode::Delete => {
                 let idx = find_cell_index(cells, cell_id)?;
                 cells.remove(idx);
                 Ok(ToolOutput::text(format!(
@@ -93,17 +118,15 @@ rustycode_tools_api::define_tool! {
                     path
                 )))
             }
-            _ => Err(anyhow!("Unknown edit_mode: {edit_mode}")),
-        }?;
-
-        // Preserve notebook format: trailing newline
+        };
+        result?;
         let output =
             serde_json::to_string_pretty(&nb).with_context(|| "Failed to serialize notebook")?;
         fs::write(path, format!("{output}\n"))
             .with_context(|| format!("Failed to write notebook: {path}"))?;
 
         Ok(ToolOutput::text(format!(
-            "Successfully edited notebook: {path} (mode: {edit_mode})"
+            "Successfully edited notebook: {path} (mode: {edit_mode:?})"
         )))
     }
 }

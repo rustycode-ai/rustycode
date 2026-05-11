@@ -712,21 +712,8 @@ fn verify_multi_step_transform(workspace: &Path) -> f64 {
 
 /// Build the tool schema array from the registry for `run_headless_task`.
 fn build_tools_schema(tool_registry: &rustycode_tools::ToolRegistry) -> Vec<serde_json::Value> {
-    tool_registry
-        .list()
-        .into_iter()
-        .map(|tool| {
-            serde_json::json!({
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": {
-                    "type": "object",
-                    "properties": tool.parameters_schema,
-                    "required": []
-                }
-            })
-        })
-        .collect()
+    let tools = tool_registry.list();
+    rustycode_tools_api::build_canonical_tool_schemas(&tools)
 }
 
 /// Create the LLM provider from environment variables.

@@ -68,16 +68,8 @@ async fn test_tool_execution_pipeline_with_mock() {
 
     // 4. Verify tool definition formatting
     println!("\nStep 4: Testing tool definition formatting");
-    let tool_definitions: Vec<serde_json::Value> = tools
-        .into_iter()
-        .map(|tool| {
-            serde_json::json!({
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.parameters_schema
-            })
-        })
-        .collect();
+    let tool_definitions: Vec<serde_json::Value> =
+        rustycode_tools_api::build_canonical_tool_schemas(&tools);
 
     println!("✓ Formatted {} tool definitions", tool_definitions.len());
     assert!(!tool_definitions.is_empty());

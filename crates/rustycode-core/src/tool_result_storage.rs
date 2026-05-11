@@ -465,7 +465,7 @@ pub struct CachedResult {
     pub content: String,
     /// When this result was cached
     pub cached_at: Instant,
-    /// Token count estimate (content.len() / 4)
+    /// Token count estimate (word-based via estimate_tokens)
     pub token_count: usize,
     /// Cache key hash (for debugging/inspection)
     pub cache_key: String,

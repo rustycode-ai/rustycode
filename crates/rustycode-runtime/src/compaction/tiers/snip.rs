@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn long_output_truncated_with_count() {
         let tier = SnipTier::new(3);
-        let input = "line 1\nline 2\nline 3\nline 4\nline 5";
+        let input = "word one two three four five six seven\nword eight nine ten eleven twelve thirteen\nword fourteen fifteen sixteen seventeen eighteen\nword nineteen twenty twentyone twentytwo twentythree\nword twentyfour twentyfive twentysix twentyseven twentyeight";
         let msgs = vec![tool_result_msg(input)];
         let result = tier.compact(msgs);
 
@@ -233,7 +233,7 @@ mod tests {
         match content {
             MessageContent::Blocks(blocks) => {
                 if let ContentBlock::ToolResult { content, .. } = &blocks[0] {
-                    assert!(content.starts_with("line 1\nline 2\nline 3"));
+                    assert!(content.starts_with("word one two three"));
                     assert!(content.contains("2 lines truncated"));
                 }
             }
@@ -299,10 +299,13 @@ mod tests {
     #[test]
     fn tokens_removed_estimated() {
         let tier = SnipTier::new(1);
-        // 10 lines, each 100 chars -> ~900 chars removed from lines 2-10.
-        let long_line: String = "x".repeat(100);
+        // 10 lines, each with 20 words -> ~180 words removed from lines 2-10.
+        let long_line: String = (0..20)
+            .map(|i| format!("word{i}"))
+            .collect::<Vec<_>>()
+            .join(" ");
         let input: String = (0..10)
-            .map(|i| format!("{long_line}_{i}"))
+            .map(|i| format!("{long_line} line{i}"))
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -313,7 +316,6 @@ mod tests {
             result.tokens_removed > 0,
             "should report positive tokens_removed when content was trimmed"
         );
-        // Rough check: at least 500 chars removed / 4 = 125 tokens.
         assert!(
             result.tokens_removed >= 100,
             "expected substantial token removal, got {}",

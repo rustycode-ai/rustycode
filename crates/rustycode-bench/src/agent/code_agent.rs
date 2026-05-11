@@ -11,6 +11,7 @@ use rustycode_llm::provider::{ContentBlock, MessageContent, MessageRole};
 use rustycode_protocol::intent::classify_intent;
 use rustycode_protocol::tool_names as tn;
 use rustycode_tools::{ToolContext, ToolRegistry};
+use rustycode_tools_api::schema::build_tool_schemas_with_examples;
 use serde_json::Value;
 
 use super::BenchAgent;
@@ -130,20 +131,14 @@ impl CodeAgent {
 
     // ── Tool schema generation ──────────────────────────────────────────
 
-    /// Build tool schemas from the registry for LLM tool definitions.
+    /// Build tool schemas from the registry in canonical Anthropic format.
+    ///
+    /// Delegates to `rustycode_tools_api::schema` for schema construction,
+    /// metadata stripping, and example injection.
     fn build_tool_schemas() -> Vec<Value> {
         let registry = build_bench_registry();
-        registry
-            .list()
-            .into_iter()
-            .map(|info| {
-                serde_json::json!({
-                    "name": info.name,
-                    "description": info.description,
-                    "input_schema": info.parameters_schema,
-                })
-            })
-            .collect()
+        let tools = registry.list();
+        build_tool_schemas_with_examples(&tools, tool_examples)
     }
 
     // ── Tool execution ────────────────────────────────────────────────
@@ -555,6 +550,24 @@ use rustycode_protocol::text::strip_ansi_escapes as strip_ansi;
 
 fn truncate(s: &str, max_len: usize) -> String {
     rustycode_protocol::text::truncate_with_ellipsis(s, max_len)
+}
+
+/// Input examples for tools where usage is ambiguous from the schema alone.
+///
+/// Only included for tools with non-obvious parameter formats. Simple tools
+/// (Read, Write, Grep, etc.) are self-explanatory from their schemas.
+fn tool_examples(tool_name: &str) -> Option<Vec<Value>> {
+    match tool_name {
+        "ApplyPatch" => Some(vec![serde_json::json!({"type": "input_example", "input": {
+            "patch": "--- a/file.py\n+++ b/file.py\n@@ -1 +1 @@\n-old\n+new"
+        }})]),
+        "Edit" => Some(vec![serde_json::json!({"type": "input_example", "input": {
+            "path": "main.py",
+            "old_string": "x = 1",
+            "new_string": "x = 2"
+        }})]),
+        _ => None,
+    }
 }
 
 // ── BenchAgent impl ──────────────────────────────────────────────────
@@ -1182,6 +1195,92 @@ mod tests {
             !names.contains(&"ask_user"),
             "ask_user should not be registered"
         );
+    }
+
+    #[test]
+    fn build_tool_schemas_examples_only_for_ambiguous_tools() {
+        let schemas = CodeAgent::build_tool_schemas();
+        // Tools with non-obvious usage get examples
+        let apply_patch = schemas
+            .iter()
+            .find(|s| s["name"].as_str() == Some("ApplyPatch"))
+            .expect("ApplyPatch should exist");
+        assert!(
+            apply_patch["examples"].is_array(),
+            "ApplyPatch should have examples"
+        );
+        let edit = schemas
+            .iter()
+            .find(|s| s["name"].as_str() == Some("Edit"))
+            .expect("Edit should exist");
+        assert!(edit["examples"].is_array(), "Edit should have examples");
+
+        // Self-explanatory tools should NOT have examples
+        let bash = schemas
+            .iter()
+            .find(|s| s["name"].as_str() == Some("Bash"))
+            .expect("Bash should exist");
+        assert!(
+            bash.get("examples").is_none(),
+            "Bash should not have examples (self-explanatory)"
+        );
+        let read = schemas
+            .iter()
+            .find(|s| s["name"].as_str() == Some("Read"))
+            .expect("Read should exist");
+        assert!(
+            read.get("examples").is_none(),
+            "Read should not have examples (self-explanatory)"
+        );
+    }
+
+    #[test]
+    fn build_tool_schemas_strips_metadata_and_simplifies_null_types() {
+        let schemas = CodeAgent::build_tool_schemas();
+        // No schema should have $schema or title
+        for schema in &schemas {
+            let input = &schema["input_schema"];
+            assert!(
+                input.get("$schema").is_none(),
+                "{} schema should not have $schema",
+                schema["name"]
+            );
+            assert!(
+                input.get("title").is_none(),
+                "{} schema should not have title",
+                schema["name"]
+            );
+            // No property should have type: ["string", "null"]
+            if let Some(props) = input.get("properties").and_then(|p| p.as_object()) {
+                for (name, prop) in props {
+                    if let Some(arr) = prop.get("type").and_then(|t| t.as_array()) {
+                        assert!(
+                            !arr.iter().any(|v| v.as_str() == Some("null")),
+                            "{}.{name} should not have null in type array",
+                            schema["name"]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn strip_schema_removes_dollar_schema_and_title() {
+        use rustycode_tools_api::schema::strip_schema_metadata;
+        let input = serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "title": "MyParams",
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "count": {"type": ["integer", "null"]}
+            }
+        });
+        let output = strip_schema_metadata(input);
+        assert!(output.get("$schema").is_none());
+        assert!(output.get("title").is_none());
+        assert_eq!(output["properties"]["count"]["type"], "integer");
     }
 
     #[test]

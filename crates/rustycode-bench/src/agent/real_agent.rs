@@ -14,8 +14,8 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
 use rustycode_llm::provider::{ChatMessage, MessageContent, MessageRole};
-use rustycode_llm::tool_annotations::anthropic_annotations_for_tool_info;
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
+use rustycode_tools_api::build_canonical_tool_schemas;
 use rustycode_tools_api::tiers::ToolTier;
 use rustycode_tools_api::ToolPermission;
 use serde_json::{json, Value};
@@ -136,25 +136,8 @@ impl BenchAgent for RealBenchAgent {
 
         // Build registry with real production tools (includes structured thinking via feature gate)
         let registry = build_bench_registry();
-
-        let schemas: Vec<Value> = registry
-            .list()
-            .into_iter()
-            .map(|info| {
-                let mut schema = json!({
-                    "name": info.name,
-                    "description": info.description,
-                    "input_schema": info.parameters_schema,
-                });
-                if let Some(annotations) = anthropic_annotations_for_tool_info(
-                    &info.name,
-                    matches!(info.permission, ToolPermission::Read),
-                ) {
-                    schema["annotations"] = annotations;
-                }
-                schema
-            })
-            .collect();
+        let tools_list = registry.list();
+        let schemas: Vec<Value> = build_canonical_tool_schemas(&tools_list);
 
         let mut observer = BenchObserver::new();
 

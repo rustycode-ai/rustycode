@@ -217,11 +217,11 @@ mod tests {
     fn token_count_estimate() {
         let mut block = test_block();
         let output = block.render();
-        let expected = output.len() / 4;
+        let expected = rustycode_protocol::estimate_tokens(&output);
         assert_eq!(
             block.token_count(),
             expected,
-            "token_count should equal rendered length / 4"
+            "token_count should use estimate_tokens on rendered output"
         );
     }
 
@@ -252,12 +252,12 @@ mod tests {
 
     #[test]
     fn string_zone_token_estimate() {
-        let content = "a".repeat(40);
+        let content: String = "word ".repeat(10).trim_end().to_string();
         let zone = StringZone::new("demo", &content);
         assert_eq!(
             zone.estimated_tokens(),
             10,
-            "40-char string should estimate 10 tokens (len/4)"
+            "10-word string should estimate 10 tokens"
         );
     }
 }

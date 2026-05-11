@@ -420,6 +420,10 @@ pub struct AdvancedConfig {
     #[serde(default)]
     pub telemetry_enabled: bool,
 
+    /// Analytics configuration (GA4). None = use defaults (enabled).
+    #[serde(default)]
+    pub analytics: Option<AnalyticsConfig>,
+
     /// Automatic context compaction configuration
     #[serde(default)]
     pub compaction: Option<CompactionConfig>,
@@ -442,6 +446,51 @@ pub struct AdvancedConfig {
     /// Per-project tool configuration
     #[serde(default)]
     pub project_tools: Option<ProjectTools>,
+}
+
+/// GA4 Analytics configuration.
+///
+/// When `None` in `AdvancedConfig`, analytics defaults to enabled with
+/// the measurement ID baked into the binary. Users opt out by setting
+/// `analytics: { enabled: false }`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalyticsConfig {
+    /// Enable analytics (default: true). Set to false to opt out.
+    #[serde(default = "default_analytics_enabled")]
+    pub enabled: bool,
+
+    /// GA4 Measurement ID (e.g., "G-XXXXXXXXXX").
+    /// When empty, uses the default compiled into the binary.
+    #[serde(default)]
+    pub measurement_id: String,
+
+    /// GA4 API Secret for Measurement Protocol authentication.
+    #[serde(default)]
+    pub api_secret: String,
+
+    /// Custom endpoint override (for testing/proxying).
+    #[serde(default)]
+    pub endpoint: String,
+
+    /// Use GA4 debug endpoint (validates payloads without recording).
+    #[serde(default)]
+    pub debug: bool,
+}
+
+fn default_analytics_enabled() -> bool {
+    true
+}
+
+impl Default for AnalyticsConfig {
+    fn default() -> Self {
+        Self {
+            enabled: default_analytics_enabled(),
+            measurement_id: String::new(),
+            api_secret: String::new(),
+            endpoint: String::new(),
+            debug: false,
+        }
+    }
 }
 
 /// Build system detection

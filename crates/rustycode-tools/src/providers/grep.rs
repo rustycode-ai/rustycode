@@ -83,6 +83,21 @@ fn get_regex_with_flags(
 }
 
 /// Parameters for the grep tool.
+/// Output mode for the Grep tool.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
+pub enum GrepOutputMode {
+    /// Show file paths containing matches (default)
+    #[default]
+    #[serde(rename = "files_with_matches")]
+    FilesWithMatches,
+    /// Show matching lines with context support
+    #[serde(rename = "content")]
+    Content,
+    /// Show match counts per file
+    #[serde(rename = "count")]
+    Count,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default, PartialEq, Eq)]
 pub struct GrepParams {
     /// The regular expression pattern to search for in file contents
@@ -94,9 +109,9 @@ pub struct GrepParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub glob: Option<String>,
     /// Output mode: "content" shows matching lines (supports -A/-B/-C context, -n line numbers, head_limit),
-    /// "files_with_matches" shows file paths, "count" shows match counts. Defaults to "files_with_matches".
+    /// "files_with_matches" shows file paths (default), "count" shows match counts.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub output_mode: Option<String>,
+    pub output_mode: Option<GrepOutputMode>,
     /// Number of lines to show before each match (rg -B). Requires output_mode: "content", ignored otherwise.
     #[serde(rename = "-B", skip_serializing_if = "Option::is_none")]
     pub context_before: Option<u64>,

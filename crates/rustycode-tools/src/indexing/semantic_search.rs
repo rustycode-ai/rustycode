@@ -1121,9 +1121,8 @@ fn format_minimal(project_root: &std::path::Path, results: &[SearchResult]) -> S
     output
 }
 
-/// Estimate token count for output (rough: 1 token ≈ 4 chars for English/code)
 fn estimate_tokens(output: &str) -> usize {
-    output.len() / 4
+    rustycode_protocol::estimate_tokens(output)
 }
 
 #[cfg(test)]
@@ -1353,8 +1352,7 @@ mod tests {
         let test_str = "hello world this is a test";
         let estimated = estimate_tokens(test_str);
 
-        // Should be roughly len/4
-        assert_eq!(estimated, test_str.len() / 4);
+        assert_eq!(estimated, 6);
     }
 
     #[test]
