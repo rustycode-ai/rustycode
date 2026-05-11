@@ -319,7 +319,7 @@ fn parse_tool_item(item: &serde_json::Value) -> Option<ParsedToolCall> {
             .and_then(|a| a.as_str())
             .unwrap_or("{}");
         let arguments = serde_json::from_str::<serde_json::Value>(arguments_str)
-            .unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::default()));
+            .unwrap_or_else(|_| serde_json::json!({}));
         let id = item
             .get("id")
             .and_then(|i| i.as_str())
@@ -335,7 +335,7 @@ fn parse_tool_item(item: &serde_json::Value) -> Option<ParsedToolCall> {
         let raw_arguments = item
             .get("arguments")
             .cloned()
-            .unwrap_or_else(|| serde_json::Value::Object(serde_json::Map::default()));
+            .unwrap_or_else(|| serde_json::json!({}));
         let arguments = match &raw_arguments {
             serde_json::Value::String(s) => {
                 serde_json::from_str::<serde_json::Value>(s).unwrap_or(raw_arguments)

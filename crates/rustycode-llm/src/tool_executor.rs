@@ -76,7 +76,7 @@ impl LLMToolExecutor {
                             let arguments = block
                                 .get("input")
                                 .cloned()
-                                .unwrap_or_else(|| Value::Object(Default::default()));
+                                .unwrap_or_else(|| serde_json::json!({}));
 
                             let id = block
                                 .get("id")
@@ -160,7 +160,7 @@ impl LLMToolExecutor {
                             .unwrap_or("{}");
 
                         let arguments = serde_json::from_str::<Value>(arguments_str)
-                            .unwrap_or_else(|_| Value::Object(Default::default()));
+                            .unwrap_or_else(|_| serde_json::json!({}));
 
                         tool_calls.push(ParsedToolCall {
                             name,
@@ -457,7 +457,7 @@ fn parse_tool_call_item(item: &Value) -> Option<ParsedToolCall> {
             .and_then(|a| a.as_str())
             .unwrap_or("{}");
         let arguments = serde_json::from_str::<Value>(arguments_str)
-            .unwrap_or_else(|_| Value::Object(Default::default()));
+            .unwrap_or_else(|_| serde_json::json!({}));
         let id = item
             .get("id")
             .and_then(|i| i.as_str())
@@ -475,7 +475,7 @@ fn parse_tool_call_item(item: &Value) -> Option<ParsedToolCall> {
         let raw_arguments = item
             .get("arguments")
             .cloned()
-            .unwrap_or_else(|| Value::Object(Default::default()));
+            .unwrap_or_else(|| serde_json::json!({}));
 
         // If arguments is a string, try to parse it as JSON
         let arguments = match &raw_arguments {
