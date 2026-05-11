@@ -418,6 +418,7 @@ impl PowerShellSession {
                         if status.is_none() {
                             tracing::warn!("pwsh child still alive after Ctrl+C, sending kill");
                             let _ = child.kill();
+                            let _ = child.wait();
                         }
                     }
                 }
@@ -529,6 +530,7 @@ impl PowerShellSession {
                                 "pwsh child still alive after Ctrl+C in streaming, killing"
                             );
                             let _ = child.kill();
+                            let _ = child.wait();
                         }
                     }
                 }

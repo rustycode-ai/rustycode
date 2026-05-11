@@ -928,8 +928,24 @@ impl LspClient {
 
 impl Drop for LspClient {
     fn drop(&mut self) {
-        if self.child.is_some() {
-            warn!("LspClient dropped without explicit shutdown");
+        if let Some(child) = self.child.take() {
+            warn!("LspClient dropped without explicit shutdown, killing child process");
+            let mut child = child;
+            let _ = child.start_kill();
+            std::thread::spawn(move || {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build();
+                if let Ok(rt) = rt {
+                    let _ = rt.block_on(child.wait());
+                }
+            });
+        }
+        if let Some(handle) = self.response_reader_task.take() {
+            handle.abort();
+        }
+        if let Some(handle) = self.response_handler_task.take() {
+            handle.abort();
         }
     }
 }

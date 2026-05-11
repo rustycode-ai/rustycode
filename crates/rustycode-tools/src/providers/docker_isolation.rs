@@ -183,10 +183,36 @@ impl DockerIsolation {
         docker_args.push("-c".to_string());
         docker_args.push(command.to_string());
 
-        let output = Command::new("docker")
-            .args(&docker_args)
-            .output()
-            .map_err(|e| anyhow::anyhow!("failed to execute docker: {e}"))?;
+        let timeout = std::time::Duration::from_secs(self.config.timeout_secs);
+        let docker_args_clone = docker_args.clone();
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let handle = std::thread::spawn(move || {
+            let result = Command::new("docker").args(&docker_args_clone).output();
+            let _ = tx.send(result);
+        });
+
+        let output = match rx.recv_timeout(timeout) {
+            Ok(result) => result.map_err(|e| anyhow::anyhow!("failed to execute docker: {e}"))?,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                // Try to stop the container to clean up
+                let _ = Command::new("docker")
+                    .args(["stop", &container_id])
+                    .output();
+                let _ = handle.join();
+                return Ok(IsolatedCommandResult {
+                    stdout: String::new(),
+                    stderr: format!("command timed out after {}s", self.config.timeout_secs),
+                    exit_code: 124,
+                    container_id,
+                    duration_ms: start.elapsed().as_millis(),
+                });
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                let _ = handle.join();
+                return Err(anyhow::anyhow!("docker execution thread panicked"));
+            }
+        };
 
         let duration_ms = start.elapsed().as_millis();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();

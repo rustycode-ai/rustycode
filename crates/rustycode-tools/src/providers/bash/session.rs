@@ -306,6 +306,7 @@ impl BashSession {
                         if status.is_none() {
                             tracing::warn!("bash child still alive after SIGINT, sending kill");
                             let _ = child.kill();
+                            let _ = child.wait();
                         }
                     }
                 }
@@ -438,6 +439,7 @@ impl BashSession {
                                 "bash child still alive after SIGINT in streaming, sending kill"
                             );
                             let _ = child.kill();
+                            let _ = child.wait();
                         }
                     }
                 }
