@@ -317,22 +317,12 @@ fn get_git_toplevel(cwd: &Path) -> Option<PathBuf> {
 
 /// Hash remote URL to create portable project ID
 fn hash_remote_url(url: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(url.as_bytes());
-    let result = hasher.finalize();
-    // Convert first 12 bytes to hex string
-    result[..12].iter().map(|b| format!("{b:02x}")).collect()
+    rustycode_protocol::crypto::sha256_hex(url.as_bytes())[..24].to_string()
 }
 
 /// Hash path to create machine-specific project ID
 fn hash_path(path: &Path) -> String {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(path.to_string_lossy().as_bytes());
-    let result = hasher.finalize();
-    // Convert first 12 bytes to hex string
-    result[..12].iter().map(|b| format!("{b:02x}")).collect()
+    rustycode_protocol::crypto::sha256_hex(path.to_string_lossy().as_bytes())[..24].to_string()
 }
 
 /// Extract project name from remote URL

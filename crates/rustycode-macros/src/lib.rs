@@ -218,7 +218,7 @@ fn extract_description(input: &ItemStruct) -> proc_macro2::TokenStream {
 /// /// Reads from a file system.
 /// struct FSRead;
 ///
-/// assert_eq!(ReadFile::tool_name(), "Read");
+/// assert_eq!(ReadFile::tool_name(), "read_file");
 /// assert_eq!(FSRead::tool_name(), "fs_read");
 /// ```
 fn to_snake_case(input: &str) -> String {

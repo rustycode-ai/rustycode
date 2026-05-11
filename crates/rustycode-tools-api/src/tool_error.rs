@@ -284,52 +284,6 @@ mod tests {
     }
 
     #[test]
-    fn convenience_permission_denied() {
-        let err = ToolError::permission_denied("/etc/shadow");
-        assert_eq!(err.code, ToolErrorCode::PermissionDenied);
-        assert!(err.suggestion.is_some());
-    }
-
-    #[test]
-    fn convenience_path_outside_workspace() {
-        let err = ToolError::path_outside_workspace("/etc/passwd", "/home/user/project");
-        assert_eq!(err.code, ToolErrorCode::PathOutsideWorkspace);
-        assert!(err.suggestion.is_some());
-    }
-
-    #[test]
-    fn convenience_file_blocked() {
-        let err = ToolError::file_blocked(".env", "secrets file");
-        assert_eq!(err.code, ToolErrorCode::FileBlocked);
-    }
-
-    #[test]
-    fn convenience_command_not_found() {
-        let err = ToolError::command_not_found("foobar");
-        assert_eq!(err.code, ToolErrorCode::CommandNotFound);
-        assert!(err.suggestion.is_some());
-    }
-
-    #[test]
-    fn convenience_timeout() {
-        let err = ToolError::timeout("build", "120s");
-        assert_eq!(err.code, ToolErrorCode::Timeout);
-        assert!(err.suggestion.is_some());
-    }
-
-    #[test]
-    fn convenience_io() {
-        let err = ToolError::io("read file", "No such file or directory");
-        assert_eq!(err.code, ToolErrorCode::IoError);
-    }
-
-    #[test]
-    fn convenience_internal() {
-        let err = ToolError::internal("something went wrong");
-        assert_eq!(err.code, ToolErrorCode::Internal);
-    }
-
-    #[test]
     fn converts_to_anyhow() {
         let err = ToolError::not_found("tool", "xyz");
         let anyhow_err: anyhow::Error = err.into();

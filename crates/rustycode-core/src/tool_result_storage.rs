@@ -32,7 +32,6 @@
 //! ```
 
 use lru::LruCache;
-use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -562,17 +561,8 @@ impl ToolResultCache {
 
     /// Compute cache key from tool name and parameters
     pub fn compute_cache_key(tool_name: &str, params: &serde_json::Value) -> String {
-        let mut hasher = Sha256::new();
         let key_string = format!("{}:{}", tool_name, params);
-        hasher.update(key_string.as_bytes());
-        hasher
-            .finalize()
-            .iter()
-            .fold(String::with_capacity(64), |mut acc, byte| {
-                use std::fmt::Write;
-                let _ = write!(acc, "{byte:02x}");
-                acc
-            })
+        rustycode_protocol::crypto::sha256_hex(key_string.as_bytes())
     }
 
     /// Get a cached result if available and not expired

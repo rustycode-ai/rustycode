@@ -435,11 +435,7 @@ impl DiskCache {
     /// Get the file path for a key
     fn get_file_path(&self, key: &CacheKey) -> PathBuf {
         // Use SHA256 hash of key as filename to avoid filesystem issues
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        hasher.update(key.as_bytes());
-        let hash = hasher.finalize();
-        let filename = format!("{:x}.json", hash);
+        let filename = format!("{}.json", rustycode_protocol::crypto::sha256_hex(key.as_bytes()));
         self.cache_dir.join(filename)
     }
 

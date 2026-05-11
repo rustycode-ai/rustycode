@@ -35,7 +35,7 @@ use crate::provider::{
 use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -138,16 +138,7 @@ impl ReplayProvider {
         // Serialize only the messages for matching — model/temperature/etc
         // shouldn't affect replay matching
         let serialized = serde_json::to_string(&request.messages).unwrap_or_default();
-        let mut hasher = Sha256::new();
-        hasher.update(serialized.as_bytes());
-        hasher
-            .finalize()
-            .iter()
-            .fold(String::with_capacity(64), |mut acc, byte| {
-                use std::fmt::Write;
-                let _ = write!(acc, "{byte:02x}");
-                acc
-            })
+        rustycode_protocol::crypto::sha256_hex(serialized.as_bytes())
     }
 
     // ── Persistence ─────────────────────────────────────────────────────

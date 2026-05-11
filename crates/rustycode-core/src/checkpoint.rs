@@ -4,7 +4,6 @@ use std::collections::HashMap;
 use std::time::SystemTime;
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 /// Execution phase at the time of checkpoint creation.
@@ -63,24 +62,18 @@ impl CheckpointSnapshot {
 
     /// Compute a SHA-256 hash over the checkpoint's identifying fields.
     pub fn compute_hash(&self) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(self.id.as_bytes());
-        hasher.update(self.session_id.as_bytes());
-        hasher.update(format!("{:?}", self.phase).as_bytes());
-        hasher.update(format!("{:?}", self.timestamp).as_bytes());
+        let mut data = Vec::new();
+        data.extend_from_slice(self.id.as_bytes());
+        data.extend_from_slice(self.session_id.as_bytes());
+        data.extend_from_slice(format!("{:?}", self.phase).as_bytes());
+        data.extend_from_slice(format!("{:?}", self.timestamp).as_bytes());
         for mem in &self.memory_state {
-            hasher.update(mem.as_bytes());
+            data.extend_from_slice(mem.as_bytes());
         }
         for eff in &self.pending_effects {
-            hasher.update(eff.as_bytes());
+            data.extend_from_slice(eff.as_bytes());
         }
-        let result = hasher.finalize();
-        let mut hex = String::with_capacity(result.len() * 2);
-        for b in &result {
-            use std::fmt::Write;
-            let _ = write!(hex, "{b:02x}");
-        }
-        hex
+        rustycode_protocol::crypto::sha256_hex(&data)
     }
 
     /// Validate the checkpoint: timestamp must not be in the future and memory must be non-empty.

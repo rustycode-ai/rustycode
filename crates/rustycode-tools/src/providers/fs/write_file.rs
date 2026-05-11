@@ -248,18 +248,7 @@ rustycode_tools_api::define_tool! {
         };
 
         let expected_bytes: &[u8] = binary_bytes.as_deref().unwrap_or(content.as_bytes());
-        let pre_hash = {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(expected_bytes);
-            let hash = hasher.finalize();
-            let mut hex = String::with_capacity(8);
-            for b in &hash[..4] {
-                use std::fmt::Write;
-                let _ = write!(hex, "{b:02x}");
-            }
-            hex
-        };
+        let pre_hash = rustycode_protocol::crypto::sha256_hex(expected_bytes)[..8].to_string();
         tracing::debug!(
             "write_file: preparing to write {} bytes to {} (sha256 prefix: {pre_hash})",
             write_size,

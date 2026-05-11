@@ -7,12 +7,13 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context};
-use bollard::container::{
-    Config, CreateContainerOptions, RemoveContainerOptions, StartContainerOptions,
-};
+use bollard::container::LogOutput;
 use bollard::exec::{CreateExecOptions, StartExecOptions, StartExecResults};
-use bollard::image::BuildImageOptions;
-use bollard::models::BuildInfo;
+use bollard::models::{BuildInfo, ContainerCreateBody, HostConfig};
+use bollard::query_parameters::{
+    BuildImageOptions, CreateContainerOptions, DownloadFromContainerOptions,
+    RemoveContainerOptions, StartContainerOptions, UploadToContainerOptions,
+};
 use bollard::Docker;
 
 use super::{BenchEnvironment, ExecResult};
@@ -58,15 +59,15 @@ impl BollardEnvironment {
         let tar_bytes = create_context_tar(&self.dockerfile_dir)?;
 
         let options = BuildImageOptions {
-            dockerfile: "Dockerfile",
-            t: self.image_tag.as_str(),
+            dockerfile: "Dockerfile".to_string(),
+            t: Some(self.image_tag.clone()),
             forcerm: true,
             ..Default::default()
         };
 
-        let mut stream = self
-            .docker
-            .build_image(options, None, Some(tar_bytes.into()));
+        let body = bollard::body_full(bytes::Bytes::from(tar_bytes));
+
+        let mut stream = self.docker.build_image(options, None, Some(body));
 
         use futures::StreamExt;
         while let Some(msg) = stream.next().await {
@@ -79,8 +80,11 @@ impl BollardEnvironment {
                         tracing::debug!("[build] {trimmed}");
                     }
                 }
-                Ok(BuildInfo { error: Some(e), .. }) => {
-                    bail!("Docker build failed: {e}");
+                Ok(BuildInfo {
+                    error_detail: Some(e),
+                    ..
+                }) => {
+                    bail!("Docker build failed: {}", e.message.unwrap_or_default());
                 }
                 Err(e) => {
                     bail!("Docker build stream error: {e}");
@@ -103,10 +107,10 @@ impl BenchEnvironment for BollardEnvironment {
 
         let memory_bytes = parse_memory_to_bytes(&self.memory);
 
-        let config = Config {
+        let config = ContainerCreateBody {
             image: Some(self.image_tag.clone()),
             cmd: Some(vec!["sleep".to_string(), "infinity".to_string()]),
-            host_config: Some(bollard::service::HostConfig {
+            host_config: Some(HostConfig {
                 memory: Some(memory_bytes as i64),
                 nano_cpus: Some((self.cpus as i64) * 1_000_000_000),
                 ..Default::default()
@@ -116,7 +120,7 @@ impl BenchEnvironment for BollardEnvironment {
         };
 
         let create_options = CreateContainerOptions {
-            name: self.container_name.clone(),
+            name: Some(self.container_name.clone()),
             ..Default::default()
         };
 
@@ -129,7 +133,7 @@ impl BenchEnvironment for BollardEnvironment {
         self.container_id = Some(result.id.clone());
 
         self.docker
-            .start_container(&result.id, None::<StartContainerOptions<String>>)
+            .start_container(&result.id, None::<StartContainerOptions>)
             .await
             .context("Failed to start container")?;
 
@@ -157,7 +161,14 @@ impl BenchEnvironment for BollardEnvironment {
                 .await
                 .context("Failed to remove container")?;
 
-            let _ = self.docker.remove_image(&self.image_tag, None, None).await;
+            let _ = self
+                .docker
+                .remove_image(
+                    &self.image_tag,
+                    None::<bollard::query_parameters::RemoveImageOptions>,
+                    None,
+                )
+                .await;
         }
 
         self.container_id = None;
@@ -180,7 +191,7 @@ impl BenchEnvironment for BollardEnvironment {
 
         let exec_config = CreateExecOptions {
             cmd: Some(vec![
-                "Bash".to_string(),
+                "bash".to_string(),
                 "-c".to_string(),
                 command.to_string(),
             ]),
@@ -218,10 +229,10 @@ impl BenchEnvironment for BollardEnvironment {
                         let mut output = output;
                         while let Some(msg) = output.next().await {
                             match msg {
-                                Ok(bollard::container::LogOutput::StdOut { message }) => {
+                                Ok(LogOutput::StdOut { message }) => {
                                     stdout.push_str(&String::from_utf8_lossy(&message));
                                 }
-                                Ok(bollard::container::LogOutput::StdErr { message }) => {
+                                Ok(LogOutput::StdErr { message }) => {
                                     stderr.push_str(&String::from_utf8_lossy(&message));
                                 }
                                 Err(e) => {
@@ -287,7 +298,7 @@ impl BenchEnvironment for BollardEnvironment {
             tar.finish()?;
         }
 
-        let options = bollard::container::UploadToContainerOptions {
+        let options = UploadToContainerOptions {
             path: Path::new(dest)
                 .parent()
                 .map(|p| p.to_string_lossy().to_string())
@@ -295,8 +306,10 @@ impl BenchEnvironment for BollardEnvironment {
             ..Default::default()
         };
 
+        let body = bollard::body_full(bytes::Bytes::from(tar_buf));
+
         self.docker
-            .upload_to_container(id, Some(options), tar_buf.into())
+            .upload_to_container(id, Some(options), body)
             .await
             .context("Failed to upload file to container")?;
 
@@ -309,7 +322,7 @@ impl BenchEnvironment for BollardEnvironment {
             .as_ref()
             .context("Container not started")?;
 
-        let options = bollard::container::DownloadFromContainerOptions::<String> {
+        let options = DownloadFromContainerOptions {
             path: src.to_string(),
         };
 

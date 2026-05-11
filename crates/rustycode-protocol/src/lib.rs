@@ -216,6 +216,9 @@ pub mod compaction;
 // Generic step execution trait
 pub mod execution;
 
+// Shared cryptographic utilities
+pub mod crypto;
+
 // Shared frontmatter parsing utilities
 pub mod frontmatter;
 // Re-exports for frontmatter helpers

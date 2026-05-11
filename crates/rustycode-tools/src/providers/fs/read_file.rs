@@ -8,7 +8,7 @@ use rustycode_tools_api::tool_error::{ToolError, ToolErrorCode};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sha2::{Digest, Sha256};
+
 use std::fs;
 use std::path::Path;
 
@@ -161,16 +161,7 @@ pub fn estimate_complexity(line_count: usize, comment_lines: usize) -> String {
 }
 
 fn compute_hash_prefix(data: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    let hash = hasher.finalize();
-    hash[..4]
-        .iter()
-        .fold(String::with_capacity(8), |mut acc, byte| {
-            use std::fmt::Write;
-            let _ = write!(acc, "{byte:02x}");
-            acc
-        })
+    rustycode_protocol::crypto::sha256_hex(data)[..8].to_string()
 }
 
 fn record_file_read(ctx: &crate::ToolContext, path: &Path, hash_prefix: &str, is_partial: bool) {
@@ -561,16 +552,7 @@ rustycode_tools_api::define_tool! {
         metadata["path"] = json!(path_display);
         metadata["total_bytes"] = json!(total_bytes);
 
-        let mut hasher = Sha256::new();
-        hasher.update(content.as_bytes());
-        let content_hash = hasher
-            .finalize()
-            .iter()
-            .fold(String::with_capacity(64), |mut acc, byte| {
-                use std::fmt::Write;
-                let _ = write!(acc, "{byte:02x}");
-                acc
-            });
+        let content_hash = rustycode_protocol::crypto::sha256_hex(content.as_bytes());
         metadata["content_hash"] = json!(content_hash);
         metadata["shown_bytes"] = json!(output_text.len());
         metadata["binary"] = json!(false);

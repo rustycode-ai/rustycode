@@ -28,6 +28,7 @@ uuid = { workspace = true, features = ["v4"] }
 chrono.workspace = true
 async-trait.workspace = true
 bollard.workspace = true
+bytes.workspace = true
 rustycode-llm = { path = "../rustycode-llm" }
 rustycode-agent-runtime = { path = "../rustycode-agent-runtime", optional = true }
 rustycode-tools = { path = "../rustycode-tools" }

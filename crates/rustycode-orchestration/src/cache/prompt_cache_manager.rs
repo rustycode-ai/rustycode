@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use sha2::{Digest, Sha256};
 
 use super::cache_metrics::CacheMetrics;
 
@@ -193,9 +192,7 @@ impl Default for PromptCacheManager {
 
 /// Compute a SHA-256 hex digest of `input`.
 fn compute_hash(input: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
-    format!("{:x}", hasher.finalize())
+    rustycode_protocol::crypto::sha256_hex(input.as_bytes())
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
