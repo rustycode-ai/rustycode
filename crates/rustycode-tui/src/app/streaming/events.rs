@@ -55,10 +55,25 @@ pub fn handle_stream_event(
         StreamEvent::TurnCompleted { stop_reason } => {
             tracing::debug!("Stream stop reason: {}", stop_reason);
             *in_tool_use = false;
-            // Active tools are now complete
             active_tools.clear();
-            if stream_tx.send(StreamChunk::Done).is_err() {
-                tracing::debug!("Channel closed while sending Done on TurnCompleted");
+            let is_safety = matches!(
+                stop_reason.as_str(),
+                "safety"
+                    | "SAFETY"
+                    | "RECITATION"
+                    | "BLOCKLIST"
+                    | "PROHIBITED_CONTENT"
+                    | "SPII"
+                    | "MALFORMED_FUNCTION_CALL"
+                    | "content_filter"
+            );
+            let chunk = if is_safety {
+                StreamChunk::Stopped { stop_reason }
+            } else {
+                StreamChunk::Done
+            };
+            if stream_tx.send(chunk).is_err() {
+                tracing::debug!("Channel closed while sending completion chunk");
             }
             return Ok(false);
         }

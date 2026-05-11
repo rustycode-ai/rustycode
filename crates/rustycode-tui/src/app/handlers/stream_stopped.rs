@@ -21,7 +21,7 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
 
     if !was_cancelled {
         let user_message = match stop_reason.as_str() {
-            "content_filter" | "SAFETY" | "RECITATION" => {
+            "content_filter" | "safety" | "SAFETY" | "RECITATION" => {
                 "Response filtered by provider's safety policy. \
                  Try rephrasing your request or using a different model."
                     .to_string()

@@ -51,8 +51,21 @@ impl Transport for HttpSseTransport {
             .await
             .context("SSE request failed")?;
 
-        if !response.status().is_success() {
-            let status = response.status();
+        let status = response.status();
+        let ct = response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("unknown");
+        tracing::info!(
+            target: "llm::transport",
+            status = %status,
+            content_type = ct,
+            url,
+            "SSE HTTP response received"
+        );
+
+        if !status.is_success() {
             let error_text = response
                 .text()
                 .await
@@ -66,7 +79,28 @@ impl Transport for HttpSseTransport {
         let sse_stream = bytes_stream.flat_map(move |chunk_result| {
             let lines: Vec<Result<String>> = match chunk_result {
                 Ok(bytes) => {
+                    if bytes.len() < 512 {
+                        tracing::debug!(
+                            target: "llm::transport",
+                            bytes_len = bytes.len(),
+                            raw = %String::from_utf8_lossy(&bytes),
+                            "raw SSE bytes"
+                        );
+                    } else {
+                        tracing::debug!(
+                            target: "llm::transport",
+                            bytes_len = bytes.len(),
+                            "raw SSE bytes (large chunk, content truncated)"
+                        );
+                    }
                     let lines = sse_buffer.feed_chunk(&bytes);
+                    if !lines.is_empty() {
+                        tracing::debug!(
+                            target: "llm::transport",
+                            line_count = lines.len(),
+                            "SSE lines extracted"
+                        );
+                    }
                     lines.into_iter().map(Ok).collect()
                 }
                 Err(e) => {

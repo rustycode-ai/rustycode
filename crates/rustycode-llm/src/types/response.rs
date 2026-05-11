@@ -77,13 +77,13 @@ pub fn normalize_stop_reason(reason: Option<&str>) -> Option<String> {
             "done" => "end_turn",
             // Gemini
             "STOP" => "end_turn",
-            "SAFETY" => "end_turn",
-            "RECITATION" => "end_turn",
+            "SAFETY" => "safety",
+            "RECITATION" => "safety",
             "FUNCTION_CALL" => "tool_use",
-            "BLOCKLIST" => "end_turn",
-            "PROHIBITED_CONTENT" => "end_turn",
-            "SPII" => "end_turn",
-            "MALFORMED_FUNCTION_CALL" => "end_turn",
+            "BLOCKLIST" => "safety",
+            "PROHIBITED_CONTENT" => "safety",
+            "SPII" => "safety",
+            "MALFORMED_FUNCTION_CALL" => "safety",
             // Anthropic — already correct (end_turn, tool_use, max_tokens)
             other => other,
         })

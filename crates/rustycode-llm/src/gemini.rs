@@ -56,6 +56,46 @@ use std::pin::Pin;
 /// Default timeout in seconds for Gemini requests.
 const DEFAULT_TIMEOUT_SECS: u64 = 180;
 
+/// Extract retry delay from a Gemini 429 error response.
+///
+/// Gemini 429 responses contain JSON like:
+/// ```json
+/// {"error":{"code":429,"message":"...retry after 60s...","status":"RESOURCE_EXHAUSTED"}}
+/// ```
+///
+/// This function parses the error text looking for patterns like "retry after Xs",
+/// "retry in X seconds", or "retry in X sec" and returns the extracted duration.
+fn extract_gemini_retry_delay(error_text: &str) -> Option<std::time::Duration> {
+    let message = if let Ok(val) = serde_json::from_str::<serde_json::Value>(error_text) {
+        val.get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(|m| m.as_str())
+            .map(|s| s.to_string())
+    } else {
+        None
+    };
+
+    let search_text = message.as_deref().unwrap_or(error_text);
+    let lower = search_text.to_lowercase();
+
+    for prefix in &["retry after ", "retry in "] {
+        if let Some(pos) = lower.find(prefix) {
+            let after = &lower[pos + prefix.len()..];
+            if let Some(secs) = extract_leading_number(after) {
+                return Some(std::time::Duration::from_secs(secs));
+            }
+        }
+    }
+
+    None
+}
+
+/// Extract a leading integer from a string slice (e.g., "60s..." → 60).
+fn extract_leading_number(s: &str) -> Option<u64> {
+    let num_str: String = s.chars().take_while(|c| c.is_ascii_digit()).collect();
+    num_str.parse().ok()
+}
+
 /// Default base URL for the Gemini API.
 const DEFAULT_BASE_URL: &str = "https://generativelanguage.googleapis.com";
 
@@ -309,7 +349,9 @@ impl LLMProvider for GeminiProvider {
             } else if msg.contains("HTTP error 404") {
                 ProviderError::InvalidModel(msg)
             } else if msg.contains("HTTP error 429") {
-                ProviderError::RateLimited { retry_delay: None }
+                ProviderError::RateLimited {
+                    retry_delay: extract_gemini_retry_delay(&msg),
+                }
             } else if msg.contains("HTTP error 502")
                 || msg.contains("HTTP error 503")
                 || msg.contains("HTTP error 504")
@@ -376,7 +418,9 @@ impl LLMProvider for GeminiProvider {
                 } else if msg.contains("HTTP error 404") {
                     ProviderError::InvalidModel(msg)
                 } else if msg.contains("HTTP error 429") {
-                    ProviderError::RateLimited { retry_delay: None }
+                    ProviderError::RateLimited {
+                        retry_delay: extract_gemini_retry_delay(&msg),
+                    }
                 } else {
                     ProviderError::Api(msg)
                 }

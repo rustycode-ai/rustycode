@@ -239,9 +239,9 @@ impl StreamConfig {
 /// Important: preserves tool_use/tool_result ordering. Anthropic requires
 /// assistant messages with tool_use blocks to be immediately followed by
 /// user messages with tool_result content.
-#[cfg(test)]
 fn fix_conversation_messages(messages: &mut Vec<ChatMessage>) {
     use rustycode_llm::provider::MessageRole;
+    use rustycode_protocol::message::{ContentBlock, MessageContent};
 
     // Remove leading non-system/non-user messages
     while messages
@@ -527,6 +527,8 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
             rx
         }));
 
+    fix_conversation_messages(&mut messages);
+
     let run_future = session.run(
         provider.as_ref(),
         &model,
@@ -540,7 +542,10 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
     let result = match stop_signal {
         Some(stop_flag) => {
             tokio::select! {
-                res = run_future => res.context("AgentSession streaming failed"),
+                res = run_future => res.map_err(|e| {
+                    tracing::error!("AgentSession streaming failed: {e:#}");
+                    e
+                }).context("AgentSession streaming failed"),
                 _ = async {
                     loop {
                         if stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
@@ -554,7 +559,13 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
                 }
             }
         }
-        None => run_future.await.context("AgentSession streaming failed"),
+        None => run_future
+            .await
+            .map_err(|e| {
+                tracing::error!("AgentSession streaming failed: {e:#}");
+                e
+            })
+            .context("AgentSession streaming failed"),
     };
 
     if let Err(err) = result {

@@ -372,8 +372,11 @@ async fn run_loop(
         }
 
         let state = match start_turn_with_retry(provider, &mut messages, request, MAX_RETRIES)
-            .await?
-        {
+            .await
+            .map_err(|e| {
+                tracing::error!("start_turn_with_retry failed: {e:#}");
+                e
+            })? {
             TurnSource::Stream(stream) => {
                 collect_stream_turn(stream, chunk_timeout, events).await?
             }
@@ -739,7 +742,13 @@ async fn start_stream_with_retry(
                         continue;
                     }
                     ErrorClass::Transient if attempt < max_retries => {
-                        let delay_ms = 1000u64 * (1 << attempt);
+                        let is_rate_limit = err_str.to_lowercase().contains("rate limit");
+                        let delay_ms = if is_rate_limit {
+                            let base = 5000u64;
+                            base.saturating_mul(1u64 << attempt).min(60_000)
+                        } else {
+                            1000u64 * (1 << attempt)
+                        };
                         tracing::warn!(
                             "Transient stream error (attempt {}/{}): {e}. Retrying in {delay_ms}ms",
                             attempt + 1,

@@ -1398,7 +1398,10 @@ impl TUI {
                 e
             );
         }
-        crate::info_log!("[PERF] init_services took {}ms", t_init.elapsed().as_millis());
+        crate::info_log!(
+            "[PERF] init_services took {}ms",
+            t_init.elapsed().as_millis()
+        );
 
         if resume {
             self.resume_most_recent_session();
@@ -1408,7 +1411,6 @@ impl TUI {
             "[PERF] total startup took {}ms",
             t_init.elapsed().as_millis()
         );
-
 
         // Cleanup happens automatically when _cleanup_guard goes out of scope
 

@@ -66,7 +66,12 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     }
 
     // Calculate exponential backoff with jitter using RateLimitHandler constants
-    let base_delay_secs = tui.rate_limit.backoff_delay_secs();
+    let server_retry_after = if let StreamError::Provider(ref provider_err) = err {
+        provider_err.retry_delay().map(|d| d.as_secs())
+    } else {
+        None
+    };
+    let base_delay_secs = server_retry_after.unwrap_or_else(|| tui.rate_limit.backoff_delay_secs());
     let jitter = (base_delay_secs as f64 * 0.25) as isize;
     let random_jitter = if jitter > 0 {
         let nanos = SystemTime::now()

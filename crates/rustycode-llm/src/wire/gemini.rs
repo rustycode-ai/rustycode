@@ -196,8 +196,29 @@ impl Protocol for GeminiProtocol {
     }
 
     fn parse_sse_event(&self, data: &str) -> Result<Option<StreamEvent>> {
-        // Gemini SSE sends JSON objects directly
-        let val: Value = serde_json::from_str(data)?;
+        let val: Value = match serde_json::from_str(data) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(
+                    target: "llm::gemini",
+                    error = %e,
+                    data = %data,
+                    "Gemini SSE event is not valid JSON"
+                );
+                return Err(e.into());
+            }
+        };
+
+        if let Some(block_reason) = val
+            .get("promptFeedback")
+            .and_then(|pf| pf.get("blockReason"))
+            .and_then(|r| r.as_str())
+        {
+            tracing::warn!(target: "llm::gemini", block_reason, "Gemini promptFeedback block");
+            return Ok(Some(StreamEvent::TurnCompleted {
+                stop_reason: block_reason.to_string(),
+            }));
+        }
 
         if let Some(candidates) = val.get("candidates").and_then(|c| c.as_array()) {
             if let Some(candidate) = candidates.first() {
@@ -226,6 +247,11 @@ impl Protocol for GeminiProtocol {
 
                 if let Some(finish_reason) = candidate.get("finishReason").and_then(|f| f.as_str())
                 {
+                    tracing::debug!(
+                        target: "llm::gemini",
+                        finish_reason,
+                        "Gemini finishReason received"
+                    );
                     return Ok(Some(StreamEvent::TurnCompleted {
                         stop_reason: finish_reason.to_string(),
                     }));
@@ -242,11 +268,23 @@ impl Protocol for GeminiProtocol {
                 .get("candidatesTokenCount")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
+            tracing::debug!(
+                target: "llm::gemini",
+                input_tokens = input,
+                output_tokens = output,
+                "Gemini usageMetadata"
+            );
             return Ok(Some(StreamEvent::TokenUsage {
                 input_tokens: input,
                 output_tokens: output,
             }));
         }
+
+        tracing::debug!(
+            target: "llm::gemini",
+            keys = ?val.as_object().map(|o| o.keys().collect::<Vec<_>>()),
+            "Gemini SSE event matched no handler → returning None"
+        );
 
         Ok(None)
     }

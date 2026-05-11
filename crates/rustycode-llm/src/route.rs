@@ -250,8 +250,21 @@ impl Route {
                     Ok(line) => {
                         let payload = match line.strip_prefix("data: ") {
                             Some(data) => data,
-                            None => return None,
+                            None => {
+                                tracing::debug!(
+                                    target: "llm::route",
+                                    line = %line,
+                                    "SSE line dropped (no 'data: ' prefix)"
+                                );
+                                return None;
+                            }
                         };
+                        tracing::debug!(
+                            target: "llm::route",
+                            payload_len = payload.len(),
+                            payload = %if payload.len() > 300 { &payload[..300] } else { payload },
+                            "SSE payload before parse"
+                        );
                         let res: Result<Option<StreamEvent>> = protocol.parse_sse_event(payload);
                         res.transpose()
                     }
