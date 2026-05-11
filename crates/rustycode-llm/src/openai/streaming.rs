@@ -4,7 +4,8 @@
 //! - `parse_sse_lines` → `SSEEvent` (legacy TUI path)
 //! - `parse_sse_lines_stream_events` → `StreamEvent` (runtime stream path)
 
-use crate::provider::{ProviderError, SSEEvent, Usage};
+use crate::provider::{ProviderError, Usage};
+use crate::types::streaming::{ContentBlockType, ContentDelta, SSEEvent};
 use rustycode_protocol::stream_event::StreamEvent;
 use std::collections::{HashMap, HashSet};
 
@@ -37,7 +38,7 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                                     if !content_str.is_empty() {
                                         events.push(Ok(SSEEvent::ContentBlockDelta {
                                             index: 0,
-                                            delta: crate::provider::ContentDelta::Text {
+                                            delta: ContentDelta::Text {
                                                 text: content_str.to_string(),
                                             },
                                         }));
@@ -87,12 +88,11 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                                         seen_tool_indices.insert(index);
                                         events.push(Ok(SSEEvent::ContentBlockStart {
                                             index,
-                                            content_block:
-                                                crate::provider::ContentBlockType::ToolUse {
-                                                    id: id.to_string(),
-                                                    name,
-                                                    input: None,
-                                                },
+                                            content_block: ContentBlockType::ToolUse {
+                                                id: id.to_string(),
+                                                name,
+                                                input: None,
+                                            },
                                         }));
                                     }
 
@@ -105,7 +105,7 @@ pub fn parse_sse_lines(lines: &str) -> Vec<Result<SSEEvent, ProviderError>> {
                                         if !partial.is_empty() {
                                             events.push(Ok(SSEEvent::ContentBlockDelta {
                                                 index,
-                                                delta: crate::provider::ContentDelta::PartialJson {
+                                                delta: ContentDelta::PartialJson {
                                                     partial_json: partial.to_string(),
                                                 },
                                             }));

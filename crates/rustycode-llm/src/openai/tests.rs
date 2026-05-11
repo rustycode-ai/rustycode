@@ -1,7 +1,8 @@
 //! Tests for the OpenAI provider.
 
 use super::*;
-use crate::provider::{EffortLevel, LLMProvider, SSEEvent};
+use crate::provider::{EffortLevel, LLMProvider};
+use crate::types::streaming::SSEEvent;
 use secrecy::SecretString;
 
 fn make_config(api_key: Option<&str>) -> ProviderConfig {
