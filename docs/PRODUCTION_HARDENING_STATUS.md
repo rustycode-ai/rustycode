@@ -2,7 +2,7 @@
 
 **Updated:** 2026-05-11  
 **Baseline Plan:** `/docs/PRODUCTION_HARDENING_PLAN.md`  
-**Progress:** 6/15 weeks complete (40%)
+**Progress:** 7/15 weeks complete (47%)
 
 ---
 
@@ -224,6 +224,44 @@
 
 ---
 
+### ✅ Sprint 9: Task Contracts & Typing (Commit TBD)
+
+**Implemented:**
+- `TaskContract` — typed input/output validation with JSON Schema checks + custom semantic validators
+- `TaskDescriptor` — static metadata (name, schemas, timeout, retry policy, tags)
+- `TaskRegistry` — central registry with lookup, input/output validation, and duplicate detection
+- `ContractViolation` — typed errors with machine-readable codes (InvalidInput, InvalidOutput, UnknownTask, Timeout, RetriesExhausted)
+- `RetryPolicy` — configurable retry with fixed or exponential backoff strategies
+- Schema validation: required properties, type checking, non-object rejection
+
+**Files:**
+- `crates/rustycode-protocol/src/task_contract.rs` (new, ~580 lines)
+- `crates/rustycode-protocol/src/lib.rs` (module + re-exports)
+
+**Test coverage:**
+- 25 unit tests covering:
+  - ContractViolation display, codes, constructors
+  - RetryPolicy fixed/exponential backoff, serde roundtrip
+  - TaskDescriptor builder, serde roundtrip
+  - Input validation: ok, missing required, wrong type, not object, non-object schema allows any
+  - Output validation: ok, missing required, wrong type
+  - Custom input validator, dual validators
+  - Registry: register/get, reject duplicate, validate input/output, unknown task, task names, empty
+
+**Verification:**
+- Zero clippy warnings on protocol crate
+- 25/25 tests passing
+- Re-exports verified from lib.rs
+
+**Impact:**
+- ✅ Phase 5 (Orchestration): Typed multi-agent communication contracts
+- Every task crossing an agent boundary can now have schema validation at both ends
+- Mismatches caught at dispatch/completion time, never silently
+
+**Status:** COMPLETE
+
+---
+
 ## Progress by Phase
 
 ```
@@ -231,9 +269,9 @@ Phase 1: Audit & Assessment              [████░░░░░░░░�
 Phase 2: Building (Input Validation)     [██████░░░░░░░░░░] 60% (Sprint 1,2 done)
 Phase 3: Memory (State Isolation)        [█████░░░░░░░░░░░░] 50% (Sprint 3 done)
 Phase 4: Harness (Runtime Safety)        [████████░░░░░░░░] 80% (Sprint 1,7 done)
-Phase 5: Orchestration (Tracing)         [█████████░░░░░░░] 60% (Sprint 4,8 done — 33 spans)
+Phase 5: Orchestration (Tracing)         [██████████░░░░░░] 80% (Sprint 4,8,9 done — 36 spans + contracts)
 Phase 6: God Object Refactoring          [░░░░░░░░░░░░░░░░] 0% (planning only)
-Phase 7: Testing & Verification          [██░░░░░░░░░░░░░░] 15% (Sprint 6,7,8 tests)
+Phase 7: Testing & Verification          [███░░░░░░░░░░░░░] 20% (Sprint 6,7,8,9 tests)
 Phase 8: Documentation                   [░░░░░░░░░░░░░░░░] 0% (pending)
 ```
 
@@ -252,6 +290,7 @@ Phase 8: Documentation                   [░░░░░░░░░░░░�
 | **Harness** | PrivilegeGate trait | f1df7587b | ✅ 3 tests |
 | **Harness** | ExecutionLimits + loop detection | TBD | ✅ 37 tests |
 | **Orchestration** | #[instrument] spans (36 spans, 5 crates) | TBD | ✅ Compiles, 4220+ tests pass |
+| **Orchestration** | Task contracts (TaskContract, TaskRegistry) | TBD | ✅ 25 tests |
 
 ---
 
@@ -533,7 +572,7 @@ Phase 8: Documentation                   [░░░░░░░░░░░░�
 | 6 | 3 | Concurrent load testing | 1 wk | ✅ DONE |
 | 7 | 4 | Execution limits + loop detection | 1 wk | ✅ DONE |
 | 8 | 5 | Full trace propagation (33 spans) | 2 wk | ✅ DONE |
-| 9 | 5 | Task contracts & typing | 1 wk | 🔵 NEXT |
+| 9 | 5 | Task contracts & typing | 1 wk | ✅ DONE |
 | 10 | 7 | Load test execution & validation | 1 wk | 🔵 NEXT |
 | 11 | 6 | Dependency refactoring (crate splits) | 2 wk | 🔵 NEXT |
 | 12 | 7 | Comprehensive testing & coverage | 1 wk | 🔵 NEXT |

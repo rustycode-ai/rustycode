@@ -34,9 +34,10 @@ pub fn select<'a>(
             Some(&candidates[idx])
         }
         RouteSelection::Random => {
-            // Use a simple fast PRNG to avoid rand dependency
-            let idx = counter.fetch_add(1, Ordering::Relaxed) % candidates.len();
-            Some(&candidates[idx])
+            // Simple multiplicative hash for pseudo-random selection (no rand dep)
+            let n = counter.fetch_add(1, Ordering::Relaxed);
+            let hash = n.wrapping_mul(0x9E3779B97F4A7C15) >> 33;
+            Some(&candidates[hash % candidates.len()])
         }
         RouteSelection::LeastLoaded => candidates.iter().min_by_key(|r| r.in_flight()),
     }

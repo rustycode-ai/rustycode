@@ -216,6 +216,9 @@ pub mod compaction;
 // Generic step execution trait
 pub mod execution;
 
+// Typed task contracts for multi-agent communication
+pub mod task_contract;
+
 // Shared cryptographic utilities
 pub mod crypto;
 
@@ -225,6 +228,12 @@ pub mod frontmatter;
 // Shared text processing utilities
 pub mod text;
 pub use text::{estimate_tokens, strip_ansi_escapes, truncate_tool_output, truncate_with_ellipsis};
+
+// Task contract types
+pub use task_contract::{
+    ContractViolation, RetryPolicy, RetryStrategy, TaskContract, TaskDescriptor, TaskRegistry,
+    ValidatorFn, ViolationCode,
+};
 
 // Re-exports for frontmatter helpers
 pub use frontmatter::{
