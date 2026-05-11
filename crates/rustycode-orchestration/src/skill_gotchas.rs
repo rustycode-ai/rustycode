@@ -203,7 +203,7 @@ impl GotchaRegistry {
         } else {
             // No keyword match: return all as general warnings
             let mut all: Vec<&Gotcha> = self.gotchas.iter().collect();
-            all.sort_by(|a, b| b.severity.cmp(&a.severity));
+            all.sort_by_key(|b| std::cmp::Reverse(b.severity));
             all
         }
     }

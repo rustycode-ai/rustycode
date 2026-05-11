@@ -735,10 +735,8 @@ async fn start_stream_with_retry(
                     ErrorClass::StreamingUnsupported => {
                         return Err(anyhow::anyhow!("{e}"));
                     }
-                    ErrorClass::ContextLength => {
-                        if trim_context(messages) {
-                            continue;
-                        }
+                    ErrorClass::ContextLength if trim_context(messages) => {
+                        continue;
                     }
                     ErrorClass::Transient if attempt < max_retries => {
                         let delay_ms = 1000u64 * (1 << attempt);
@@ -781,10 +779,8 @@ async fn start_completion_with_retry(
             Err(e) => {
                 let err_str = format!("{e}");
                 match classify_error(&err_str) {
-                    ErrorClass::ContextLength => {
-                        if trim_context(messages) {
-                            continue;
-                        }
+                    ErrorClass::ContextLength if trim_context(messages) => {
+                        continue;
                     }
                     ErrorClass::Transient if attempt < max_retries => {
                         let delay_ms = 1000u64 * (1 << attempt);

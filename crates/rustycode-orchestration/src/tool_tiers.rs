@@ -146,7 +146,7 @@ impl UsageTracker {
             .iter()
             .map(|(k, e)| (k.as_str(), e.invocations))
             .collect();
-        v.sort_by(|a, b| b.1.cmp(&a.1));
+        v.sort_by_key(|b| std::cmp::Reverse(b.1));
         v.truncate(n);
         v
     }

@@ -109,11 +109,8 @@ impl SseParser {
         match field {
             "event" => self.event_type = value.to_string(),
             "data" => self.data_lines.push(value.to_string()),
-            "id" => {
-                // Per spec: ignore id if it contains null
-                if !value.contains('\0') {
-                    self.last_event_id = Some(value.to_string());
-                }
+            "id" if !value.contains('\0') => {
+                self.last_event_id = Some(value.to_string());
             }
             "retry" => {
                 if let Ok(ms) = value.parse::<u64>() {

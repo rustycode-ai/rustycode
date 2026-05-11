@@ -229,8 +229,8 @@ pub enum WebCommand {
 /// Parse key=value pairs
 pub fn parse_key_value(s: &str) -> Result<(String, String), String> {
     let mut parts = s.splitn(2, '=');
-    let key = parts.next().ok_or("Missing key".to_string())?;
-    let value = parts.next().ok_or("Missing value".to_string())?;
+    let key = parts.next().ok_or_else(|| "Missing key".to_string())?;
+    let value = parts.next().ok_or_else(|| "Missing value".to_string())?;
     Ok((key.to_string(), value.to_string()))
 }
 
@@ -473,71 +473,6 @@ pub enum HarnessCommand {
         #[arg(long)]
         depends_on: Option<String>,
     },
-}
-
-/// Benchmark runner commands for agent evaluation.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-#[allow(clippy::large_enum_variant)]
-pub enum BenchCommand {
-    /// Run benchmark tasks against an agent.
-    #[command(about = "Run benchmark tasks against an agent")]
-    Run {
-        /// Dataset name or `name@version` (searches ~/.cache/harbor/tasks/)
-        #[arg(long)]
-        dataset: Option<String>,
-        /// Direct path to a task or dataset directory
-        #[arg(long)]
-        path: Option<std::path::PathBuf>,
-        /// Agent type: oracle, nop, code (default: oracle)
-        #[arg(long, default_value = "oracle")]
-        agent: String,
-        /// Model to use for code agent (e.g. claude-sonnet-4-6, gpt-4o)
-        #[arg(long, default_value = "claude-sonnet-4-6")]
-        model: String,
-        /// LLM provider: anthropic, openai (default: anthropic)
-        #[arg(long, default_value = "anthropic")]
-        provider: String,
-        /// Number of concurrent trials (default: 1)
-        #[arg(long, default_value_t = 1)]
-        n_concurrent: usize,
-        /// Force rebuild Docker images from Dockerfile
-        #[arg(long)]
-        force_build: bool,
-        /// Remove containers after each trial
-        #[arg(long)]
-        cleanup: bool,
-        /// Job name (default: bench-YYYYMMDD-HHMMSS)
-        #[arg(long)]
-        job_name: Option<String>,
-        /// Directory for job output (default: ./jobs)
-        #[arg(long)]
-        jobs_dir: Option<std::path::PathBuf>,
-        /// Max tool-use turns for code agent (default: 30)
-        #[arg(long, default_value_t = 30)]
-        max_turns: usize,
-        /// Max tokens per LLM response for code agent (default: 16384)
-        #[arg(long, default_value_t = 16_384)]
-        max_tokens: u32,
-        /// Command timeout in seconds for code agent (default: 300)
-        #[arg(long, default_value_t = 300)]
-        timeout: u64,
-        /// Execution environment: native or docker (default: native)
-        #[arg(long, default_value = "native")]
-        env: String,
-        /// Output format: json, csv, markdown (default: pretty terminal output)
-        #[arg(long)]
-        output: Option<String>,
-    },
-    /// Show results from a completed or interrupted benchmark run.
-    #[command(about = "Show results from a benchmark run")]
-    Results {
-        /// Path to the job directory
-        job_dir: std::path::PathBuf,
-    },
-    /// List available datasets in Harbor cache.
-    #[command(about = "List available datasets")]
-    ListDatasets,
 }
 
 /// AST (Adaptive Structured Thinking) pipeline commands

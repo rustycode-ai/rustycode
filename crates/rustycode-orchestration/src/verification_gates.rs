@@ -330,14 +330,12 @@ impl RuleFileVerificationGate {
                     }
                 }
             }
-            "file_exists" => {
-                if !std::path::Path::new(&result.output.trim()).exists() {
-                    let category = Self::parse_error_category(&rule.on_failure);
-                    return Some(VerificationOutcome::Invalid {
-                        reason: format!("Expected file '{}' does not exist", result.output.trim()),
-                        category,
-                    });
-                }
+            "file_exists" if !std::path::Path::new(&result.output.trim()).exists() => {
+                let category = Self::parse_error_category(&rule.on_failure);
+                return Some(VerificationOutcome::Invalid {
+                    reason: format!("Expected file '{}' does not exist", result.output.trim()),
+                    category,
+                });
             }
             "format_validation" => {
                 if let Some(format_type) = &rule.format {

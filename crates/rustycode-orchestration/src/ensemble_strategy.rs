@@ -196,7 +196,7 @@ impl EnsembleStrategy {
 
             workspace
                 .write(
-                    format!("ensemble.subtask.{i}").into(),
+                    format!("ensemble.subtask.{i}"),
                     serde_json::json!({
                         "task": sub,
                         "step_id": step.id,
@@ -264,7 +264,7 @@ impl EnsembleStrategy {
 
             workspace
                 .write(
-                    format!("ensemble.vote.{}", spec.role).into(),
+                    format!("ensemble.vote.{}", spec.role),
                     serde_json::json!({
                         "participant": spec.role,
                         "weight": spec.weight,

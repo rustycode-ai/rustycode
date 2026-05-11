@@ -328,14 +328,13 @@ fn extract_context_summary(messages: &[ChatMessage], turn_ranges: &[(usize, usiz
                         }
                     }
                 }
-                MessageContent::Simple(text) => {
-                    // Check assistant text for tool calls embedded as text
-                    if text.contains(tn::WRITE) || text.contains(tn::EDIT) {
-                        let lower = text.to_lowercase();
-                        if lower.contains("success") || lower.contains("wrote") {
-                            let info: String = text.chars().take(150).collect();
-                            last_success = Some(info);
-                        }
+                MessageContent::Simple(text)
+                    if text.contains(tn::WRITE) || text.contains(tn::EDIT) =>
+                {
+                    let lower = text.to_lowercase();
+                    if lower.contains("success") || lower.contains("wrote") {
+                        let info: String = text.chars().take(150).collect();
+                        last_success = Some(info);
                     }
                 }
                 _ => {}
