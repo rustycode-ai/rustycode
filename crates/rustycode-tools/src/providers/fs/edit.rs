@@ -1153,7 +1153,7 @@ mod tests {
 
         let result = tool.execute(params, &ctx);
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("File not found"), "got: {err}");
+        assert!(err.contains("path not found"), "got: {err}");
         // Should suggest main.rs since it has a similar stem
         assert!(err.contains("Did you mean"), "got: {err}");
         assert!(

@@ -7,6 +7,7 @@ use crate::benchmark::task_evaluator::{
     BenchmarkTask, ComparisonScore, PerformanceScore, QualityScore, TaskEvaluation, TaskEvaluator,
     TaskResult,
 };
+use crate::error::BenchmarkError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -118,7 +119,7 @@ impl BenchmarkHarness {
     pub async fn run_single_task(
         &mut self,
         task: &BenchmarkTask,
-    ) -> Result<TaskEvaluation, String> {
+    ) -> Result<TaskEvaluation, BenchmarkError> {
         let session_id = self
             .current_session_id
             .clone()
@@ -133,7 +134,10 @@ impl BenchmarkHarness {
             Ok(result) => result,
             Err(e) => {
                 error!("Task execution failed: {}", e);
-                return Err(format!("Task execution failed: {}", e));
+                return Err(BenchmarkError::TaskFailed(format!(
+                    "Task execution failed: {}",
+                    e
+                )));
             }
         };
 
@@ -152,7 +156,7 @@ impl BenchmarkHarness {
     }
 
     /// Run all tasks from the task library
-    pub async fn run_task_library(&mut self) -> Result<BenchmarkSession, String> {
+    pub async fn run_task_library(&mut self) -> Result<BenchmarkSession, BenchmarkError> {
         let session_id = uuid::Uuid::new_v4().to_string();
         self.current_session_id = Some(session_id.clone());
 
@@ -230,7 +234,10 @@ impl BenchmarkHarness {
     }
 
     /// Execute a task using RustyCode agent
-    async fn execute_rustycode_task(&self, task: &BenchmarkTask) -> Result<TaskResult, String> {
+    async fn execute_rustycode_task(
+        &self,
+        task: &BenchmarkTask,
+    ) -> Result<TaskResult, BenchmarkError> {
         // This is a mock implementation - in production, this would:
         // 1. Set up a temporary workspace
         // 2. Initialize a RustyCode agent session
@@ -290,7 +297,7 @@ impl BenchmarkHarness {
         &self,
         session_id: &str,
         evaluation: &TaskEvaluation,
-    ) -> Result<(), String> {
+    ) -> Result<(), BenchmarkError> {
         let filename = format!(
             "{}_{}_{}.json",
             session_id,
@@ -301,30 +308,34 @@ impl BenchmarkHarness {
 
         fs::create_dir_all(&self.config.results_directory)
             .await
-            .map_err(|e| format!("Failed to create results directory: {}", e))?;
+            .map_err(|e| {
+                BenchmarkError::SaveFailed(format!("Failed to create results directory: {}", e))
+            })?;
 
-        let json = serde_json::to_string_pretty(evaluation)
-            .map_err(|e| format!("Failed to serialize evaluation: {}", e))?;
+        let json = serde_json::to_string_pretty(evaluation).map_err(|e| {
+            BenchmarkError::SaveFailed(format!("Failed to serialize evaluation: {}", e))
+        })?;
 
-        fs::write(&path, json)
-            .await
-            .map_err(|e| format!("Failed to write result file: {}", e))?;
+        fs::write(&path, json).await.map_err(|e| {
+            BenchmarkError::SaveFailed(format!("Failed to write result file: {}", e))
+        })?;
 
         debug!("Saved task result to {:?}", path);
         Ok(())
     }
 
     /// Save session results to disk
-    async fn save_session_results(&self, session: &BenchmarkSession) -> Result<(), String> {
+    async fn save_session_results(&self, session: &BenchmarkSession) -> Result<(), BenchmarkError> {
         let filename = format!("session_{}.json", session.session_id);
         let path = self.config.results_directory.join(filename);
 
-        let json = serde_json::to_string_pretty(session)
-            .map_err(|e| format!("Failed to serialize session: {}", e))?;
+        let json = serde_json::to_string_pretty(session).map_err(|e| {
+            BenchmarkError::SaveFailed(format!("Failed to serialize session: {}", e))
+        })?;
 
-        fs::write(&path, json)
-            .await
-            .map_err(|e| format!("Failed to write session file: {}", e))?;
+        fs::write(&path, json).await.map_err(|e| {
+            BenchmarkError::SaveFailed(format!("Failed to write session file: {}", e))
+        })?;
 
         info!("Saved session results to {:?}", path);
         Ok(())
@@ -342,7 +353,7 @@ impl BenchmarkHarness {
     }
 
     /// Load historical results for comparison
-    pub async fn load_historical_results(&mut self) -> Result<(), String> {
+    pub async fn load_historical_results(&mut self) -> Result<(), BenchmarkError> {
         let results_dir = &self.config.results_directory;
 
         if !results_dir.exists() {
@@ -350,21 +361,19 @@ impl BenchmarkHarness {
             return Ok(());
         }
 
-        let mut entries = fs::read_dir(results_dir)
-            .await
-            .map_err(|e| format!("Failed to read results directory: {}", e))?;
+        let mut entries = fs::read_dir(results_dir).await.map_err(|e| {
+            BenchmarkError::LoadFailed(format!("Failed to read results directory: {}", e))
+        })?;
 
-        while let Some(entry) = entries
-            .next_entry()
-            .await
-            .map_err(|e| format!("Failed to read directory entry: {}", e))?
-        {
+        while let Some(entry) = entries.next_entry().await.map_err(|e| {
+            BenchmarkError::LoadFailed(format!("Failed to read directory entry: {}", e))
+        })? {
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                let content = fs::read_to_string(&path)
-                    .await
-                    .map_err(|e| format!("Failed to read file {:?}: {}", path, e))?;
+                let content = fs::read_to_string(&path).await.map_err(|e| {
+                    BenchmarkError::LoadFailed(format!("Failed to read file {:?}: {}", path, e))
+                })?;
 
                 // Try to parse as TaskEvaluation
                 if let Ok(evaluation) = serde_json::from_str::<TaskEvaluation>(&content) {

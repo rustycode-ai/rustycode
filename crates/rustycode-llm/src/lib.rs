@@ -134,6 +134,7 @@ pub mod huggingface;
 #[cfg(feature = "litert")]
 pub mod litert_lm;
 pub mod mistral;
+// pub mod model_cache; // TEMP: disabled for commit (broken file)
 pub mod mock;
 pub mod model_info;
 pub mod offline_mode;

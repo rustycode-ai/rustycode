@@ -9,6 +9,7 @@
 //! - Lifecycle hooks and callbacks
 //! - Dependency management
 
+use crate::error::{AgentError, RuntimeError};
 use crate::multi_agent::AgentRole;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -180,31 +181,38 @@ pub enum LifecycleEventType {
 /// Lifecycle hooks for agent customization
 pub trait LifecycleHooks: Send + Sync {
     /// Called when agent is created
-    fn on_create(&self, agent: &AgentInstance) -> Result<(), String>;
+    fn on_create(&self, agent: &AgentInstance) -> Result<(), RuntimeError>;
 
     /// Called when agent is initialized
-    fn on_init(&self, agent: &AgentInstance) -> Result<(), String>;
+    fn on_init(&self, agent: &AgentInstance) -> Result<(), RuntimeError>;
 
     /// Called before state transition
-    fn before_transition(&self, agent: &AgentInstance, new_state: AgentState)
-        -> Result<(), String>;
+    fn before_transition(
+        &self,
+        agent: &AgentInstance,
+        new_state: AgentState,
+    ) -> Result<(), RuntimeError>;
 
     /// Called after state transition
-    fn after_transition(&self, agent: &AgentInstance, old_state: AgentState) -> Result<(), String>;
+    fn after_transition(
+        &self,
+        agent: &AgentInstance,
+        old_state: AgentState,
+    ) -> Result<(), RuntimeError>;
 
     /// Called when agent is terminated
-    fn on_terminate(&self, agent: &AgentInstance) -> Result<(), String>;
+    fn on_terminate(&self, agent: &AgentInstance) -> Result<(), RuntimeError>;
 }
 
 /// Default lifecycle hooks implementation
 pub struct DefaultLifecycleHooks;
 
 impl LifecycleHooks for DefaultLifecycleHooks {
-    fn on_create(&self, _agent: &AgentInstance) -> Result<(), String> {
+    fn on_create(&self, _agent: &AgentInstance) -> Result<(), RuntimeError> {
         Ok(())
     }
 
-    fn on_init(&self, _agent: &AgentInstance) -> Result<(), String> {
+    fn on_init(&self, _agent: &AgentInstance) -> Result<(), RuntimeError> {
         Ok(())
     }
 
@@ -212,7 +220,7 @@ impl LifecycleHooks for DefaultLifecycleHooks {
         &self,
         _agent: &AgentInstance,
         _new_state: AgentState,
-    ) -> Result<(), String> {
+    ) -> Result<(), RuntimeError> {
         Ok(())
     }
 
@@ -220,11 +228,11 @@ impl LifecycleHooks for DefaultLifecycleHooks {
         &self,
         _agent: &AgentInstance,
         _old_state: AgentState,
-    ) -> Result<(), String> {
+    ) -> Result<(), RuntimeError> {
         Ok(())
     }
 
-    fn on_terminate(&self, _agent: &AgentInstance) -> Result<(), String> {
+    fn on_terminate(&self, _agent: &AgentInstance) -> Result<(), RuntimeError> {
         Ok(())
     }
 }
@@ -264,7 +272,7 @@ impl AgentLifecycleManager {
         name: String,
         role: AgentRole,
         dependencies: Vec<String>,
-    ) -> Result<String, String> {
+    ) -> Result<String, RuntimeError> {
         // Check if we can create more agents of this role
         {
             let agents = self.agents.read().await;
@@ -274,10 +282,11 @@ impl AgentLifecycleManager {
                 .count();
 
             if role_count >= self.config.max_agents_per_role {
-                return Err(format!(
-                    "Maximum agents ({}) reached for role {:?}",
-                    self.config.max_agents_per_role, role
-                ));
+                return Err(AgentError::MaxAgentsReached {
+                    max: self.config.max_agents_per_role,
+                    role: format!("{role:?}"),
+                }
+                .into());
             }
         }
 
@@ -286,7 +295,7 @@ impl AgentLifecycleManager {
             .semaphore
             .acquire()
             .await
-            .map_err(|e| format!("Failed to acquire semaphore: {}", e))?;
+            .map_err(|e| AgentError::Custom(format!("Failed to acquire semaphore: {e}")))?;
 
         // Generate agent ID
         let mut counter = self.agent_counter.write().await;
@@ -341,15 +350,17 @@ impl AgentLifecycleManager {
     }
 
     /// Initialize an agent
-    pub async fn initialize_agent(&self, agent_id: &str) -> Result<(), String> {
+    pub async fn initialize_agent(&self, agent_id: &str) -> Result<(), RuntimeError> {
         let agent = self.agent(agent_id).await?;
 
         // Check if we can transition to Initializing first
         if !agent.can_transition_to(AgentState::Initializing) {
-            return Err(format!(
-                "Agent {} cannot transition from {:?} to Initializing",
-                agent_id, agent.state
-            ));
+            return Err(AgentError::InvalidTransition {
+                agent_id: agent_id.to_string(),
+                from: format!("{:?}", agent.state),
+                to: "Initializing".to_string(),
+            }
+            .into());
         }
 
         // Transition to Initializing
@@ -372,10 +383,12 @@ impl AgentLifecycleManager {
         // Now check if we can transition to Ready from Initializing
         let agent = self.agent(agent_id).await?;
         if !agent.can_transition_to(AgentState::Ready) {
-            return Err(format!(
-                "Agent {} cannot transition from {:?} to Ready",
-                agent_id, agent.state
-            ));
+            return Err(AgentError::InvalidTransition {
+                agent_id: agent_id.to_string(),
+                from: format!("{:?}", agent.state),
+                to: "Ready".to_string(),
+            }
+            .into());
         }
 
         // Transition to Ready
@@ -401,12 +414,14 @@ impl AgentLifecycleManager {
     }
 
     /// Get agent by ID
-    pub async fn agent(&self, agent_id: &str) -> Result<AgentInstance, String> {
+    pub async fn agent(&self, agent_id: &str) -> Result<AgentInstance, RuntimeError> {
         let agents = self.agents.read().await;
-        agents
-            .get(agent_id)
-            .cloned()
-            .ok_or_else(|| format!("Agent {} not found", agent_id))
+        agents.get(agent_id).cloned().ok_or_else(|| {
+            AgentError::NotFound {
+                agent_id: agent_id.to_string(),
+            }
+            .into()
+        })
     }
 
     /// Transition agent to new state
@@ -414,16 +429,18 @@ impl AgentLifecycleManager {
         &self,
         agent_id: &str,
         new_state: AgentState,
-    ) -> Result<(), String> {
+    ) -> Result<(), RuntimeError> {
         let agent = self.agent(agent_id).await?;
         let old_state = agent.state;
 
         // Check if transition is valid
         if !agent.can_transition_to(new_state) {
-            return Err(format!(
-                "Invalid state transition from {:?} to {:?}",
-                old_state, new_state
-            ));
+            return Err(AgentError::InvalidTransition {
+                agent_id: agent_id.to_string(),
+                from: format!("{old_state:?}"),
+                to: format!("{new_state:?}"),
+            }
+            .into());
         }
 
         // Call before transition hook
@@ -458,7 +475,7 @@ impl AgentLifecycleManager {
     }
 
     /// Suspend an agent
-    pub async fn suspend_agent(&self, agent_id: &str) -> Result<(), String> {
+    pub async fn suspend_agent(&self, agent_id: &str) -> Result<(), RuntimeError> {
         self.transition_state(agent_id, AgentState::Suspended)
             .await?;
 
@@ -478,7 +495,7 @@ impl AgentLifecycleManager {
     }
 
     /// Resume a suspended agent
-    pub async fn resume_agent(&self, agent_id: &str) -> Result<(), String> {
+    pub async fn resume_agent(&self, agent_id: &str) -> Result<(), RuntimeError> {
         self.transition_state(agent_id, AgentState::Ready).await?;
 
         let _agent = self.agent(agent_id).await?;
@@ -497,17 +514,17 @@ impl AgentLifecycleManager {
     }
 
     /// Terminate an agent
-    pub async fn terminate_agent(&self, agent_id: &str) -> Result<(), String> {
+    pub async fn terminate_agent(&self, agent_id: &str) -> Result<(), RuntimeError> {
         // Check if agent can be terminated
         let agent = self.agent(agent_id).await?;
 
         // Check if any agents depend on this one
         if !agent.dependents.is_empty() {
-            return Err(format!(
-                "Cannot terminate agent {}: {} agents depend on it",
-                agent_id,
-                agent.dependents.len()
-            ));
+            return Err(AgentError::HasDependents {
+                agent_id: agent_id.to_string(),
+                dependent_count: agent.dependents.len(),
+            }
+            .into());
         }
 
         // Special case: if agent is in Creating state, move to Error first
@@ -555,7 +572,7 @@ impl AgentLifecycleManager {
         &self,
         agent_id: &str,
         dependencies: &[String],
-    ) -> Result<(), String> {
+    ) -> Result<(), RuntimeError> {
         let mut agents = self.agents.write().await;
 
         // Add this agent as dependent to its dependencies
@@ -569,7 +586,7 @@ impl AgentLifecycleManager {
     }
 
     /// Remove agent from dependencies
-    async fn remove_dependencies(&self, agent_id: &str) -> Result<(), String> {
+    async fn remove_dependencies(&self, agent_id: &str) -> Result<(), RuntimeError> {
         let mut agents = self.agents.write().await;
 
         // Remove this agent from dependencies' dependent lists
@@ -659,7 +676,7 @@ impl AgentLifecycleManager {
     }
 
     /// Clean up idle agents
-    pub async fn cleanup_idle_agents(&self) -> Result<usize, String> {
+    pub async fn cleanup_idle_agents(&self) -> Result<usize, RuntimeError> {
         let idle_timeout = chrono::Duration::seconds(self.config.agent_idle_timeout_seconds as i64);
         let now = Utc::now();
 
@@ -683,11 +700,14 @@ impl AgentLifecycleManager {
     }
 
     /// Restart a failed agent
-    pub async fn restart_agent(&self, agent_id: &str) -> Result<(), String> {
+    pub async fn restart_agent(&self, agent_id: &str) -> Result<(), RuntimeError> {
         let agent = self.agent(agent_id).await?;
 
         if agent.state != AgentState::Error {
-            return Err(format!("Agent {} is not in Error state", agent_id));
+            return Err(AgentError::NotInErrorState {
+                agent_id: agent_id.to_string(),
+            }
+            .into());
         }
 
         // Check restart count
@@ -698,10 +718,11 @@ impl AgentLifecycleManager {
             .unwrap_or(0);
 
         if restart_count >= self.config.max_restart_attempts {
-            return Err(format!(
-                "Agent {} has exceeded max restart attempts ({})",
-                agent_id, self.config.max_restart_attempts
-            ));
+            return Err(AgentError::MaxRestartAttempts {
+                agent_id: agent_id.to_string(),
+                max_attempts: self.config.max_restart_attempts,
+            }
+            .into());
         }
 
         // Record restart event
@@ -1243,7 +1264,7 @@ mod tests {
             .create_agent("a3".to_string(), AgentRole::Reviewer, vec![])
             .await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Maximum agents"));
+        assert!(result.unwrap_err().contains("maximum agents"));
 
         // Different role should still work
         let a4 = manager
@@ -1269,7 +1290,7 @@ mod tests {
         // Agent is in Creating state, cannot go directly to Ready
         let result = manager.transition_state(&agent_id, AgentState::Ready).await;
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Invalid state transition"));
+        assert!(result.unwrap_err().contains("cannot transition"));
     }
 
     // --- Manager: get_all_agents ---

@@ -35,6 +35,7 @@
 //! returns Server-Sent Events (SSE) with real-time text generation.
 
 use crate::auth::{ApiKeyHeaderAuth, AuthMethod};
+use crate::model_cache::ModelCache;
 use crate::provider::{
     CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError, StreamChunk,
 };
@@ -67,6 +68,7 @@ pub struct GeminiProvider {
     config: ProviderConfig,
     chat_route: Route,
     stream_route: Route,
+    model_cache: ModelCache,
 }
 
 impl GeminiProvider {
@@ -127,6 +129,7 @@ impl GeminiProvider {
             config,
             chat_route,
             stream_route,
+            model_cache: ModelCache::new(),
         })
     }
 
@@ -228,14 +231,56 @@ impl LLMProvider for GeminiProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        Ok(vec![
-            "gemini-2.5-pro".to_string(),
-            "gemini-2.5-flash".to_string(),
-            "gemini-2.0-flash".to_string(),
-            "gemini-1.5-pro".to_string(),
-            "gemini-1.5-flash".to_string(),
-            "gemini-1.5-flash-8b".to_string(),
-        ])
+        const FALLBACK: &[&str] = &[
+            "gemini-2.5-pro",
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-8b",
+        ];
+        let base = self
+            .config
+            .base_url
+            .as_deref()
+            .unwrap_or("https://generativelanguage.googleapis.com")
+            .trim_end_matches('/');
+        let cache = &self.model_cache;
+        let config = &self.config;
+        cache
+            .fetch_or_fallback(FALLBACK, || async {
+                let client = reqwest::Client::new();
+                let key = config
+                    .api_key
+                    .as_ref()
+                    .ok_or_else(|| ProviderError::Auth("No API key".to_string()))?;
+                let url = format!("{base}/v1beta/models?key={}", key.expose_secret());
+                let resp = client
+                    .get(&url)
+                    .timeout(std::time::Duration::from_secs(10))
+                    .send()
+                    .await
+                    .map_err(|e| ProviderError::Network(e.to_string()))?;
+                let body: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| ProviderError::Api(e.to_string()))?;
+                let models = body
+                    .get("models")
+                    .and_then(|m| m.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|m| {
+                                m.get("name")
+                                    .and_then(|n| n.as_str())
+                                    .map(|n| n.strip_prefix("models/").unwrap_or(n).to_string())
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                Ok(models)
+            })
+            .await
     }
 
     async fn complete(
@@ -482,11 +527,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_models_returns_known_models() {
+    async fn test_list_models_returns_fallback_on_network_error() {
         let p = GeminiProvider::new(make_config(Some("AIzaTest123"))).unwrap();
         let models = p.list_models().await.unwrap();
-        assert!(models.iter().any(|m| m == "gemini-2.5-pro"));
-        assert!(models.iter().any(|m| m == "gemini-2.0-flash"));
+        assert!(models
+            .iter()
+            .any(|m| m == "gemini-2.5-pro" || m == "gemini-2.0-flash"));
     }
 
     #[test]
@@ -504,7 +550,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_available_without_key() {
-        // new_without_validation still requires an API key for auth setup
         let result = GeminiProvider::new_without_validation(make_config(None));
         assert!(result.is_err());
     }

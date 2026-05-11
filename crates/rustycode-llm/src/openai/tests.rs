@@ -233,8 +233,9 @@ fn test_is_reasoning_model() {
     assert!(OpenAiProvider::is_reasoning_model("o3"));
     assert!(OpenAiProvider::is_reasoning_model("o3-mini"));
     assert!(OpenAiProvider::is_reasoning_model("o4-mini"));
-    assert!(OpenAiProvider::is_reasoning_model("glm-5.1"));
-    assert!(OpenAiProvider::is_reasoning_model("glm-5"));
+    // GLM models are NOT reasoning models — z.ai uses max_tokens, not max_completion_tokens
+    assert!(!OpenAiProvider::is_reasoning_model("glm-5.1"));
+    assert!(!OpenAiProvider::is_reasoning_model("glm-5"));
     assert!(OpenAiProvider::is_reasoning_model("gpt-5"));
     assert!(OpenAiProvider::is_reasoning_model("gpt-5.2"));
     assert!(OpenAiProvider::is_reasoning_model("gpt-5.1-mini"));
@@ -304,8 +305,9 @@ fn test_build_request_body_glm5_thinking() {
         None,
         None,
     );
-    assert_eq!(body.max_tokens, None);
-    assert_eq!(body.max_completion_tokens, Some(8192));
+    // GLM uses max_tokens (z.ai requires this), NOT max_completion_tokens
+    assert_eq!(body.max_tokens, Some(8192));
+    assert_eq!(body.max_completion_tokens, None);
     let thinking = body
         .thinking
         .as_ref()

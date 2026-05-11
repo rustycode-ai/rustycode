@@ -8,6 +8,7 @@
 //! - Dynamic priority adjustment
 //! - Load balancing across agents
 
+use crate::error::{RuntimeError, TaskError};
 use crate::multi_agent::AgentRole;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

@@ -4,6 +4,7 @@
 //! for tracking RustyCode performance over time.
 
 use crate::benchmark::task_evaluator::{TaskDifficulty, TaskEvaluation};
+use crate::error::BenchmarkError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -212,37 +213,39 @@ impl BenchmarkLeaderboard {
     }
 
     /// Save leaderboard to disk
-    pub async fn save(&self) -> Result<(), String> {
+    pub async fn save(&self) -> Result<(), BenchmarkError> {
         if let Some(parent) = self.storage_path.parent() {
-            fs::create_dir_all(parent)
-                .await
-                .map_err(|e| format!("Failed to create directory: {}", e))?;
+            fs::create_dir_all(parent).await.map_err(|e| {
+                BenchmarkError::SaveFailed(format!("Failed to create directory: {}", e))
+            })?;
         }
 
-        let json = serde_json::to_string_pretty(&self.entries)
-            .map_err(|e| format!("Failed to serialize leaderboard: {}", e))?;
+        let json = serde_json::to_string_pretty(&self.entries).map_err(|e| {
+            BenchmarkError::SaveFailed(format!("Failed to serialize leaderboard: {}", e))
+        })?;
 
-        fs::write(&self.storage_path, json)
-            .await
-            .map_err(|e| format!("Failed to write leaderboard: {}", e))?;
+        fs::write(&self.storage_path, json).await.map_err(|e| {
+            BenchmarkError::SaveFailed(format!("Failed to write leaderboard: {}", e))
+        })?;
 
         info!("Saved leaderboard to {:?}", self.storage_path);
         Ok(())
     }
 
     /// Load leaderboard from disk
-    pub async fn load(&mut self) -> Result<(), String> {
+    pub async fn load(&mut self) -> Result<(), BenchmarkError> {
         if !self.storage_path.exists() {
             debug!("Leaderboard file does not exist, starting fresh");
             return Ok(());
         }
 
-        let content = fs::read_to_string(&self.storage_path)
-            .await
-            .map_err(|e| format!("Failed to read leaderboard: {}", e))?;
+        let content = fs::read_to_string(&self.storage_path).await.map_err(|e| {
+            BenchmarkError::LoadFailed(format!("Failed to read leaderboard: {}", e))
+        })?;
 
-        self.entries = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to deserialize leaderboard: {}", e))?;
+        self.entries = serde_json::from_str(&content).map_err(|e| {
+            BenchmarkError::LoadFailed(format!("Failed to deserialize leaderboard: {}", e))
+        })?;
 
         info!("Loaded leaderboard with {} entries", self.entries.len());
         Ok(())

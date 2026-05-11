@@ -21,6 +21,7 @@
 //! Tool results are sent as `{ role: "tool", tool_call_id, content }` messages.
 
 use crate::auth::AuthMethod;
+use crate::model_cache::ModelCache;
 use crate::provider::{
     validate_extra_headers, CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig,
     ProviderError, StreamChunk,
@@ -46,6 +47,7 @@ const COHERE_API_ENDPOINT: &str = "https://api.cohere.ai/v2/chat";
 pub struct CohereProvider {
     config: ProviderConfig,
     route: Route,
+    model_cache: ModelCache,
 }
 
 impl CohereProvider {
@@ -84,7 +86,11 @@ impl CohereProvider {
         .with_name("cohere-chat")
         .with_extra_headers(extra_header_pairs);
 
-        Ok(Self { config, route })
+        Ok(Self {
+            config,
+            route,
+            model_cache: ModelCache::new(),
+        })
     }
 
     /// Get metadata for this provider
@@ -217,14 +223,55 @@ impl LLMProvider for CohereProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        Ok(vec![
-            "command-a-03-2025".to_string(),
-            "command-r-plus-08-2024".to_string(),
-            "command-r-08-2024".to_string(),
-            "command-r7b-12-2024".to_string(),
-            "command".to_string(),
-            "command-light".to_string(),
-        ])
+        const FALLBACK: &[&str] = &[
+            "command-a-03-2025",
+            "command-r-plus-08-2024",
+            "command-r-08-2024",
+            "command-r7b-12-2024",
+            "command",
+            "command-light",
+        ];
+        let url = self
+            .config
+            .base_url
+            .as_deref()
+            .map(|b| {
+                let base = b.trim_end_matches('/');
+                format!("{base}/../models")
+            })
+            .unwrap_or_else(|| "https://api.cohere.ai/v2/models".to_string());
+        let cache = &self.model_cache;
+        let config = &self.config;
+        cache
+            .fetch_or_fallback(FALLBACK, || async {
+                let client = reqwest::Client::new();
+                let mut req = client.get(&url);
+                if let Some(key) = &config.api_key {
+                    req = req.bearer_auth(key.expose_secret());
+                }
+                let resp = req
+                    .timeout(std::time::Duration::from_secs(10))
+                    .send()
+                    .await
+                    .map_err(|e| ProviderError::Network(e.to_string()))?;
+                let body: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| ProviderError::Api(e.to_string()))?;
+                let models = body
+                    .get("models")
+                    .and_then(|m| m.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|m| {
+                                m.get("name").and_then(|n| n.as_str()).map(String::from)
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                Ok(models)
+            })
+            .await
     }
 
     async fn complete(

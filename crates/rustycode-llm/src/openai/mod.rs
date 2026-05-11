@@ -356,7 +356,14 @@ impl OpenAiProvider {
         base.trim_end_matches('/').to_string()
     }
 
-    /// Check if a model is a reasoning model (o-series, GPT-5.x, or GLM-5.x).
+    /// Check if a model uses OpenAI reasoning-model parameters.
+    ///
+    /// These models send `max_completion_tokens` (not `max_tokens`),
+    /// support `reasoning_effort`, and suppress `temperature`.
+    ///
+    /// GLM models (z.ai) are NOT included — z.ai uses `max_tokens`,
+    /// supports `temperature`, and doesn't support `reasoning_effort`.
+    /// GLM thinking is handled separately via the `thinking` param.
     pub(crate) fn is_reasoning_model(model: &str) -> bool {
         // o-series: o1, o3, o4-mini, etc.
         if model.starts_with('o')
@@ -369,14 +376,6 @@ impl OpenAiProvider {
         }
         // GPT-5.x models support reasoning
         if model.starts_with("gpt-5") {
-            return true;
-        }
-        // GLM reasoning models (z.ai): 4.5, 4.6, 4.7, 5.x all do chain-of-thought
-        if model.starts_with("glm-5")
-            || model.starts_with("glm-4.5")
-            || model.starts_with("glm-4.6")
-            || model.starts_with("glm-4.7")
-        {
             return true;
         }
         false

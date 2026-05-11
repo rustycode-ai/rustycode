@@ -119,8 +119,8 @@ pub(crate) mod tests_common {
         dir
     }
 
-    /// Helper to create a ToolContext from a path
+    /// Helper to create a ToolContext from a path (structured output enabled for tests)
     pub fn create_context(path: &PathBuf) -> ToolContext {
-        ToolContext::new(path)
+        ToolContext::new(path).with_structured_output(true)
     }
 }

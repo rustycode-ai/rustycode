@@ -90,6 +90,9 @@
 //!
 //! The [`agent`] module provides AI-powered autonomous task execution using LLM providers.
 
+pub mod error;
+pub use error::RuntimeError;
+
 pub mod advanced_orchestrator;
 pub mod agent;
 pub mod agent_health;

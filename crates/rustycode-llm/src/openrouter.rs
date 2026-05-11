@@ -9,6 +9,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
 use crate::auth::AuthMethod;
+use crate::model_cache::ModelCache;
 use crate::provider::{
     ApiMode, CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, ProviderError,
     StreamChunk,
@@ -22,6 +23,7 @@ use crate::route_selection::RouteSelection;
 use crate::transport::HttpTransport;
 use crate::wire::openai_chat::OpenAIChatProtocol;
 use crate::wire::openai_responses::OpenAIResponsesProtocol;
+use secrecy::ExposeSecret;
 
 /// OpenRouter LLM provider
 pub struct OpenRouterProvider {
@@ -34,6 +36,7 @@ pub struct OpenRouterProvider {
     selection_counter: AtomicUsize,
     /// Cached result of Responses API availability probe.
     responses_api_supported: Arc<std::sync::Mutex<Option<bool>>>,
+    model_cache: ModelCache,
 }
 
 impl OpenRouterProvider {
@@ -106,6 +109,7 @@ impl OpenRouterProvider {
             route_selection: RouteSelection::First,
             selection_counter: AtomicUsize::new(0),
             responses_api_supported: Arc::new(std::sync::Mutex::new(None)),
+            model_cache: ModelCache::new(),
         })
     }
 
@@ -189,10 +193,51 @@ impl LLMProvider for OpenRouterProvider {
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        Ok(vec![
-            "google/gemma-2-9b:free".into(),
-            "openai/gpt-4o".into(),
-        ])
+        const FALLBACK: &[&str] = &[
+            "google/gemma-2-9b:free",
+            "openai/gpt-4o",
+            "anthropic/claude-sonnet-4-6",
+            "google/gemini-2.5-flash",
+        ];
+        let endpoint = self
+            .config
+            .base_url
+            .as_deref()
+            .unwrap_or("https://openrouter.ai/api/v1")
+            .trim_end_matches('/');
+        let url = format!("{endpoint}/models");
+        let cache = &self.model_cache;
+        let config = &self.config;
+        cache
+            .fetch_or_fallback(FALLBACK, || async {
+                let client = reqwest::Client::new();
+                let mut req = client.get(&url);
+                if let Some(key) = &config.api_key {
+                    req = req.bearer_auth(key.expose_secret());
+                }
+                let resp = req
+                    .timeout(std::time::Duration::from_secs(10))
+                    .send()
+                    .await
+                    .map_err(|e| ProviderError::Network(e.to_string()))?;
+                let body: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| ProviderError::Api(e.to_string()))?;
+                let models = body
+                    .get("data")
+                    .and_then(|d| d.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|m| {
+                                m.get("id").and_then(|id| id.as_str()).map(String::from)
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                Ok(models)
+            })
+            .await
     }
 
     async fn complete(

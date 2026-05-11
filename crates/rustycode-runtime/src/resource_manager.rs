@@ -8,6 +8,7 @@
 //! - Real-time utilization tracking
 //! - Auto-scaling capabilities
 
+use crate::error::{ResourceError, RuntimeError};
 use crate::multi_agent::AgentRole;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -58,59 +59,63 @@ impl ResourcePool {
     }
 
     /// Reserve resources
-    pub fn reserve(&mut self, amount: f64) -> Result<(), String> {
+    pub fn reserve(&mut self, amount: f64) -> Result<(), RuntimeError> {
         if self.has_capacity(amount) {
             self.reserved += amount;
             self.calculate_utilization();
             Ok(())
         } else {
-            Err(format!(
-                "Insufficient capacity: requested {}, available {}",
-                amount, self.available
-            ))
+            Err(ResourceError::InsufficientCapacity {
+                requested: amount,
+                available: self.available,
+            }
+            .into())
         }
     }
 
     /// Allocate reserved resources
-    pub fn allocate(&mut self, amount: f64) -> Result<(), String> {
+    pub fn allocate(&mut self, amount: f64) -> Result<(), RuntimeError> {
         if self.reserved >= amount {
             self.reserved -= amount;
             self.allocated += amount;
             self.calculate_utilization();
             Ok(())
         } else {
-            Err(format!(
-                "Cannot allocate more than reserved: requested {}, reserved {}",
-                amount, self.reserved
-            ))
+            Err(ResourceError::OverAllocation {
+                requested: amount,
+                reserved: self.reserved,
+            }
+            .into())
         }
     }
 
     /// Release allocated resources back to pool
-    pub fn release(&mut self, amount: f64) -> Result<(), String> {
+    pub fn release(&mut self, amount: f64) -> Result<(), RuntimeError> {
         if self.allocated >= amount {
             self.allocated -= amount;
             self.calculate_utilization();
             Ok(())
         } else {
-            Err(format!(
-                "Cannot release more than allocated: requested {}, allocated {}",
-                amount, self.allocated
-            ))
+            Err(ResourceError::OverRelease {
+                requested: amount,
+                allocated: self.allocated,
+            }
+            .into())
         }
     }
 
     /// Cancel a reservation (release reserved resources back to available)
-    pub fn cancel_reservation(&mut self, amount: f64) -> Result<(), String> {
+    pub fn cancel_reservation(&mut self, amount: f64) -> Result<(), RuntimeError> {
         if self.reserved >= amount {
             self.reserved -= amount;
             self.calculate_utilization();
             Ok(())
         } else {
-            Err(format!(
-                "Cannot cancel more than reserved: requested {}, reserved {}",
-                amount, self.reserved
-            ))
+            Err(ResourceError::OverCancel {
+                requested: amount,
+                reserved: self.reserved,
+            }
+            .into())
         }
     }
 }
@@ -293,7 +298,7 @@ impl ResourceManager {
     pub async fn request_resources(
         &self,
         mut request: ResourceRequest,
-    ) -> Result<AllocationDecision, String> {
+    ) -> Result<AllocationDecision, RuntimeError> {
         // Generate request ID if not provided
         if request.request_id.is_empty() {
             let mut counter = self.request_counter.write().await;
@@ -402,13 +407,13 @@ impl ResourceManager {
     }
 
     /// Release allocated resources
-    pub async fn release_resources(&self, request_id: &str) -> Result<(), String> {
+    pub async fn release_resources(&self, request_id: &str) -> Result<(), RuntimeError> {
         // Remove from active allocations
         let request = {
             let mut active = self.active_allocations.write().await;
             active
                 .remove(request_id)
-                .ok_or_else(|| format!("Request {} not found", request_id))?
+                .ok_or_else(|| ResourceError::ReservationNotFound(request_id.to_string()).into())?
         };
 
         // Release resources back to pools
@@ -427,7 +432,7 @@ impl ResourceManager {
         &self,
         allocated: &HashMap<ResourceType, f64>,
         request: &ResourceRequest,
-    ) -> Result<f64, String> {
+    ) -> Result<f64, RuntimeError> {
         let cost_settings = self.cost_settings.read().await;
 
         let duration_hours = request.duration_estimate_ms as f64 / (1000.0 * 60.0 * 60.0);
@@ -574,7 +579,7 @@ impl ResourceManager {
     }
 
     /// Forecast capacity needs
-    pub async fn forecast_capacity(&self) -> Result<Vec<CapacityForecast>, String> {
+    pub async fn forecast_capacity(&self) -> Result<Vec<CapacityForecast>, RuntimeError> {
         if !self.config.enable_capacity_planning {
             return Ok(Vec::new());
         }
@@ -733,7 +738,7 @@ impl ResourceManager {
     }
 
     /// Scale resources based on forecasts
-    pub async fn auto_scale(&self) -> Result<ScaleAction, String> {
+    pub async fn auto_scale(&self) -> Result<ScaleAction, RuntimeError> {
         if !self.config.enable_auto_scaling {
             return Ok(ScaleAction::NoAction);
         }

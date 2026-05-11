@@ -14,6 +14,7 @@
 //! 4. **Merge-Back**: After execution, results are merged back to the main
 //!    branch using the configured [`MergeStrategy`].
 
+use crate::error::ExecutionError;
 use crate::git_worktree::{WorktreeConfig, WorktreeManager, WorktreeType};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -167,12 +168,9 @@ impl std::fmt::Debug for ParallelWorktreeExecutor {
 }
 
 impl ParallelWorktreeExecutor {
-    pub fn new(repo_path: PathBuf, config: ParallelConfig) -> Result<Self, String> {
+    pub fn new(repo_path: PathBuf, config: ParallelConfig) -> Result<Self, ExecutionError> {
         if !repo_path.exists() {
-            return Err(format!(
-                "Repository path does not exist: {}",
-                repo_path.display()
-            ));
+            return Err(ExecutionError::RepoNotFound(repo_path));
         }
 
         let worktree_config = WorktreeConfig {
@@ -180,7 +178,10 @@ impl ParallelWorktreeExecutor {
             ..WorktreeConfig::default()
         };
 
-        let worktree_manager = WorktreeManager::new(repo_path.clone(), worktree_config)?;
+        let worktree_manager =
+            WorktreeManager::new(repo_path.clone(), worktree_config).map_err(|e| {
+                ExecutionError::Custom(format!("Failed to create WorktreeManager: {}", e))
+            })?;
 
         Ok(Self {
             worktree_manager,
@@ -197,7 +198,10 @@ impl ParallelWorktreeExecutor {
     ///
     /// Respects the `max_agents` concurrency limit via a semaphore.
     /// Returns one [`TaskResult`] per task in the same order as the input.
-    pub async fn execute_tasks(&self, tasks: Vec<IsolatedTask>) -> Result<Vec<TaskResult>, String> {
+    pub async fn execute_tasks(
+        &self,
+        tasks: Vec<IsolatedTask>,
+    ) -> Result<Vec<TaskResult>, ExecutionError> {
         if tasks.is_empty() {
             return Ok(Vec::new());
         }
@@ -271,7 +275,7 @@ impl ParallelWorktreeExecutor {
     ///
     /// This is the per-task workhorse used by [`Self::execute_tasks`], but can also
     /// be called directly when you only need one isolated task.
-    pub async fn execute_task(&self, task: &IsolatedTask) -> Result<TaskResult, String> {
+    pub async fn execute_task(&self, task: &IsolatedTask) -> Result<TaskResult, ExecutionError> {
         Ok(Self::run_task_in_worktree(&self.repo_path, &self.config.worktree_prefix, task).await)
     }
 
@@ -279,7 +283,10 @@ impl ParallelWorktreeExecutor {
     ///
     /// Only tasks with status [`TaskExecutionStatus::Completed`] are merged.
     /// The merge strategy is determined by [`ParallelConfig::merge_strategy`].
-    pub async fn merge_results(&self, results: &[TaskResult]) -> Result<MergeReport, String> {
+    pub async fn merge_results(
+        &self,
+        results: &[TaskResult],
+    ) -> Result<MergeReport, ExecutionError> {
         let mut successful = 0usize;
         let mut conflicts = 0usize;
         let mut failed = 0usize;
@@ -465,11 +472,14 @@ impl ParallelWorktreeExecutor {
     ///
     /// This exercises the git operations so tests can verify real commits,
     /// but does not invoke an LLM.
-    async fn simulate_agent(worktree_path: &PathBuf, task: &IsolatedTask) -> Result<(), String> {
+    async fn simulate_agent(
+        worktree_path: &PathBuf,
+        task: &IsolatedTask,
+    ) -> Result<(), ExecutionError> {
         let marker_path = worktree_path.join(".parallel-task");
         tokio::fs::write(&marker_path, &task.prompt)
             .await
-            .map_err(|e| format!("Failed to write marker: {}", e))?;
+            .map_err(|e| ExecutionError::Custom(format!("Failed to write marker: {}", e)))?;
 
         // git add + commit in the worktree
         let add_output = Command::new("git")
@@ -477,12 +487,11 @@ impl ParallelWorktreeExecutor {
             .arg(".parallel-task")
             .current_dir(worktree_path)
             .output()
-            .map_err(|e| format!("git add failed: {}", e))?;
+            .map_err(|e| ExecutionError::GitAddFailed(format!("git add failed: {}", e)))?;
 
         if !add_output.status.success() {
-            return Err(format!(
-                "git add failed: {}",
-                String::from_utf8_lossy(&add_output.stderr)
+            return Err(ExecutionError::GitAddFailed(
+                String::from_utf8_lossy(&add_output.stderr).to_string(),
             ));
         }
 
@@ -492,7 +501,7 @@ impl ParallelWorktreeExecutor {
             .arg(format!("parallel task: {}", task.id))
             .current_dir(worktree_path)
             .output()
-            .map_err(|e| format!("git commit failed: {}", e))?;
+            .map_err(|e| ExecutionError::GitCommitFailed(format!("git commit failed: {}", e)))?;
 
         if !commit_output.status.success() {
             // Not a failure if there is nothing to commit
@@ -500,14 +509,14 @@ impl ParallelWorktreeExecutor {
             if stderr.contains("nothing to commit") {
                 return Ok(());
             }
-            return Err(format!("git commit failed: {}", stderr));
+            return Err(ExecutionError::GitCommitFailed(stderr.to_string()));
         }
 
         Ok(())
     }
 
     /// Merge a branch back into the current HEAD of the main repo.
-    fn merge_branch(&self, branch_name: &str) -> Result<(), String> {
+    fn merge_branch(&self, branch_name: &str) -> Result<(), ExecutionError> {
         let result = match self.config.merge_strategy {
             MergeStrategy::CherryPick => {
                 // Find the commits unique to this branch
@@ -517,12 +526,11 @@ impl ParallelWorktreeExecutor {
                     .arg(format!("HEAD..{}", branch_name))
                     .current_dir(&self.repo_path)
                     .output()
-                    .map_err(|e| format!("git log failed: {}", e))?;
+                    .map_err(|e| ExecutionError::GitLogFailed(format!("git log failed: {}", e)))?;
 
                 if !log_output.status.success() {
-                    return Err(format!(
-                        "git log failed: {}",
-                        String::from_utf8_lossy(&log_output.stderr)
+                    return Err(ExecutionError::GitLogFailed(
+                        String::from_utf8_lossy(&log_output.stderr).to_string(),
                     ));
                 }
 
@@ -538,7 +546,10 @@ impl ParallelWorktreeExecutor {
                         .arg(commit.trim())
                         .current_dir(&self.repo_path)
                         .output()
-                        .map_err(|e| format!("git cherry-pick failed: {}", e))?;
+                        .map_err(|e| ExecutionError::CherryPickConflict {
+                            branch: commit.trim().to_string(),
+                            details: format!("git cherry-pick failed: {}", e),
+                        })?;
 
                     if !cp_output.status.success() {
                         // Abort the cherry-pick to leave the tree clean
@@ -547,11 +558,10 @@ impl ParallelWorktreeExecutor {
                             .arg("--abort")
                             .current_dir(&self.repo_path)
                             .output();
-                        return Err(format!(
-                            "cherry-pick conflict on {}: {}",
-                            commit.trim(),
-                            String::from_utf8_lossy(&cp_output.stderr)
-                        ));
+                        return Err(ExecutionError::CherryPickConflict {
+                            branch: commit.trim().to_string(),
+                            details: String::from_utf8_lossy(&cp_output.stderr).to_string(),
+                        });
                     }
                 }
                 Ok(())
@@ -565,7 +575,9 @@ impl ParallelWorktreeExecutor {
                     .arg(format!("Merge parallel branch {}", branch_name))
                     .current_dir(&self.repo_path)
                     .output()
-                    .map_err(|e| format!("git merge failed: {}", e))?;
+                    .map_err(|e| {
+                        ExecutionError::MergeConflict(format!("git merge failed: {}", e))
+                    })?;
 
                 if output.status.success() {
                     Ok(())
@@ -576,9 +588,8 @@ impl ParallelWorktreeExecutor {
                         .arg("--abort")
                         .current_dir(&self.repo_path)
                         .output();
-                    Err(format!(
-                        "merge conflict: {}",
-                        String::from_utf8_lossy(&output.stderr)
+                    Err(ExecutionError::MergeConflict(
+                        String::from_utf8_lossy(&output.stderr).to_string(),
                     ))
                 }
             }
@@ -596,7 +607,7 @@ impl ParallelWorktreeExecutor {
                     .args(["rev-parse", "--abbrev-ref", "HEAD"])
                     .current_dir(&self.repo_path)
                     .output()
-                    .map_err(|e| format!("git rev-parse failed: {}", e))?;
+                    .map_err(|e| ExecutionError::Custom(format!("git rev-parse failed: {}", e)))?;
                 let current_branch = String::from_utf8_lossy(&current_branch_output.stdout)
                     .trim()
                     .to_string();
@@ -616,12 +627,13 @@ impl ParallelWorktreeExecutor {
                     .arg(branch_name)
                     .current_dir(&self.repo_path)
                     .output()
-                    .map_err(|e| format!("git branch create failed: {}", e))?;
+                    .map_err(|e| {
+                        ExecutionError::TempBranchFailed(format!("git branch create failed: {}", e))
+                    })?;
 
                 if !branch_output.status.success() {
-                    return Err(format!(
-                        "failed to create temp branch: {}",
-                        String::from_utf8_lossy(&branch_output.stderr)
+                    return Err(ExecutionError::TempBranchFailed(
+                        String::from_utf8_lossy(&branch_output.stderr).to_string(),
                     ));
                 }
 
@@ -632,7 +644,9 @@ impl ParallelWorktreeExecutor {
                     .arg(&temp_branch)
                     .current_dir(&self.repo_path)
                     .output()
-                    .map_err(|e| format!("git rebase failed: {}", e))?;
+                    .map_err(|e| {
+                        ExecutionError::RebaseConflict(format!("git rebase failed: {}", e))
+                    })?;
 
                 if output.status.success() {
                     // 4. Switch back to the original branch
@@ -641,7 +655,10 @@ impl ParallelWorktreeExecutor {
                         .arg(&current_branch)
                         .current_dir(&self.repo_path)
                         .output()
-                        .map_err(|e| format!("git checkout failed: {}", e))?;
+                        .map_err(|e| ExecutionError::CheckoutFailed {
+                            branch: current_branch.clone(),
+                            details: format!("git checkout failed: {}", e),
+                        })?;
 
                     if !checkout_output.status.success() {
                         let branch_cleanup = Command::new("git")
@@ -656,11 +673,10 @@ impl ParallelWorktreeExecutor {
                                 e
                             );
                         }
-                        return Err(format!(
-                            "checkout back to '{}' failed: {}",
-                            current_branch,
-                            String::from_utf8_lossy(&checkout_output.stderr)
-                        ));
+                        return Err(ExecutionError::CheckoutFailed {
+                            branch: current_branch,
+                            details: String::from_utf8_lossy(&checkout_output.stderr).to_string(),
+                        });
                     }
 
                     // 5. Fast-forward the original branch to the rebased tip
@@ -670,7 +686,9 @@ impl ParallelWorktreeExecutor {
                         .arg(&temp_branch)
                         .current_dir(&self.repo_path)
                         .output()
-                        .map_err(|e| format!("git ff merge failed: {}", e))?;
+                        .map_err(|e| {
+                            ExecutionError::FastForwardFailed(format!("git ff merge failed: {}", e))
+                        })?;
 
                     // 6. Clean up the temporary branch
                     let _ = Command::new("git")
@@ -683,9 +701,8 @@ impl ParallelWorktreeExecutor {
                     if ff_output.status.success() {
                         Ok(())
                     } else {
-                        Err(format!(
-                            "fast-forward failed: {}",
-                            String::from_utf8_lossy(&ff_output.stderr)
+                        Err(ExecutionError::FastForwardFailed(
+                            String::from_utf8_lossy(&ff_output.stderr).to_string(),
                         ))
                     }
                 } else {
@@ -701,9 +718,8 @@ impl ParallelWorktreeExecutor {
                         .arg(&temp_branch)
                         .current_dir(&self.repo_path)
                         .output();
-                    Err(format!(
-                        "rebase conflict: {}",
-                        String::from_utf8_lossy(&output.stderr)
+                    Err(ExecutionError::RebaseConflict(
+                        String::from_utf8_lossy(&output.stderr).to_string(),
                     ))
                 }
             }

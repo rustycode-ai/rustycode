@@ -5,6 +5,7 @@
 //! - If confidence is below threshold, optionally uses LLM for reclassification
 //! - Tracks classification source and budget constraints
 
+use crate::error::IntentError;
 use rustycode_llm::provider::{ChatMessage, CompletionRequest, LLMProvider};
 use rustycode_protocol::intent::{
     classify_intent_with_confidence, IntentAssessment, IntentCategory,
@@ -158,7 +159,7 @@ impl LlmIntentClassifier {
     async fn llm_classify(
         task: &str,
         provider: &Arc<dyn LLMProvider>,
-    ) -> Result<IntentAssessment, String> {
+    ) -> Result<IntentAssessment, IntentError> {
         let system_prompt = r#"You are an intent classifier. Classify the user's task into one of these categories with a confidence score.
 
 Categories:
@@ -188,13 +189,15 @@ Respond with JSON:
         .await
         {
             Ok(Ok(response)) => Self::parse_llm_response(&response.content),
-            Ok(Err(_)) => Err("LLM call failed".to_string()),
-            Err(_) => Err("LLM call timed out".to_string()),
+            Ok(Err(_)) => Err(IntentError::UnknownCategory("LLM call failed".to_string())),
+            Err(_) => Err(IntentError::UnknownCategory(
+                "LLM call timed out".to_string(),
+            )),
         }
     }
 
     /// Parse LLM's JSON response into category and confidence.
-    fn parse_llm_response(content: &str) -> Result<IntentAssessment, String> {
+    fn parse_llm_response(content: &str) -> Result<IntentAssessment, IntentError> {
         // Try to extract JSON from the response
         let json_str = if let (Some(start), Some(end)) = (content.find('{'), content.rfind('}')) {
             &content[start..=end]

@@ -21,6 +21,7 @@
 //! 2. **Feature Worktrees**: Long-lived worktrees for features
 //! 3. **Cleanup Service**: Automatic cleanup of stale worktrees
 
+use crate::error::WorktreeError;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -153,17 +154,23 @@ impl Default for WorktreeConfig {
 }
 
 impl WorktreeManager {
-    pub fn new(repo_path: PathBuf, config: WorktreeConfig) -> Result<Self, String> {
+    pub fn new(repo_path: PathBuf, config: WorktreeConfig) -> Result<Self, WorktreeError> {
         if !repo_path.exists() {
-            return Err("Repository path does not exist".to_string());
+            return Err(WorktreeError::CreationFailed(
+                "Repository path does not exist".to_string(),
+            ));
         }
 
         let worktrees_dir = repo_path.join(&config.worktrees_dir_name);
 
         // Create worktrees directory if it doesn't exist
         if !worktrees_dir.exists() {
-            std::fs::create_dir_all(&worktrees_dir)
-                .map_err(|e| format!("Failed to create worktrees directory: {}", e))?;
+            std::fs::create_dir_all(&worktrees_dir).map_err(|e| {
+                WorktreeError::CreationFailed(format!(
+                    "Failed to create worktrees directory: {}",
+                    e
+                ))
+            })?;
         }
 
         Ok(Self {
@@ -180,11 +187,13 @@ impl WorktreeManager {
         name: String,
         branch: String,
         worktree_type: WorktreeType,
-    ) -> Result<Worktree, String> {
+    ) -> Result<Worktree, WorktreeError> {
         // Check max concurrent worktrees
         let worktrees = self.worktrees.read().await;
         if worktrees.len() >= self.config.max_concurrent_worktrees {
-            return Err("Maximum concurrent worktrees reached".to_string());
+            return Err(WorktreeError::CreationFailed(
+                "Maximum concurrent worktrees reached".to_string(),
+            ));
         }
         drop(worktrees);
 
@@ -193,7 +202,9 @@ impl WorktreeManager {
 
         // Check if worktree already exists
         if worktree_path.exists() {
-            return Err("Worktree already exists".to_string());
+            return Err(WorktreeError::CreationFailed(
+                "Worktree already exists".to_string(),
+            ));
         }
 
         // Get current commit
@@ -209,11 +220,13 @@ impl WorktreeManager {
             .arg(&commit)
             .current_dir(&self.repo_path)
             .output()
-            .map_err(|e| format!("Failed to execute git worktree add: {}", e))?;
+            .map_err(|e| {
+                WorktreeError::GitError(format!("Failed to execute git worktree add: {}", e))
+            })?;
 
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Failed to create worktree: {}", error));
+            return Err(WorktreeError::CreationFailed(error.to_string()));
         }
 
         let now = Utc::now();
@@ -251,13 +264,14 @@ impl WorktreeManager {
     }
 
     /// Remove a worktree
-    pub async fn remove_worktree(&self, name: &str) -> Result<bool, String> {
+    pub async fn remove_worktree(&self, name: &str) -> Result<bool, WorktreeError> {
         let worktree = {
             let worktrees = self.worktrees.read().await;
             worktrees.get(name).cloned()
         };
 
-        let worktree = worktree.ok_or_else(|| "Worktree not found".to_string())?;
+        let worktree = worktree
+            .ok_or_else(|| WorktreeError::RemovalFailed("Worktree not found".to_string()))?;
 
         // Remove worktree using git
         let output = Command::new("git")
@@ -266,11 +280,13 @@ impl WorktreeManager {
             .arg(&worktree.path)
             .current_dir(&self.repo_path)
             .output()
-            .map_err(|e| format!("Failed to execute git worktree remove: {}", e))?;
+            .map_err(|e| {
+                WorktreeError::GitError(format!("Failed to execute git worktree remove: {}", e))
+            })?;
 
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Failed to remove worktree: {}", error));
+            return Err(WorktreeError::RemovalFailed(error.to_string()));
         }
 
         // Remove from tracking
@@ -281,7 +297,7 @@ impl WorktreeManager {
     }
 
     /// Prune stale worktrees
-    pub async fn prune_worktrees(&self) -> Result<usize, String> {
+    pub async fn prune_worktrees(&self) -> Result<usize, WorktreeError> {
         let pruned = {
             let worktrees = self.worktrees.read().await;
             let now = Utc::now();
@@ -514,16 +530,18 @@ impl WorktreeManager {
     }
 
     /// Get current commit SHA
-    fn get_current_commit(&self) -> Result<String, String> {
+    fn get_current_commit(&self) -> Result<String, WorktreeError> {
         let output = Command::new("git")
             .arg("rev-parse")
             .arg("HEAD")
             .current_dir(&self.repo_path)
             .output()
-            .map_err(|e| format!("Failed to get current commit: {}", e))?;
+            .map_err(|e| WorktreeError::GitError(format!("Failed to get current commit: {}", e)))?;
 
         if !output.status.success() {
-            return Err("Failed to get current commit".to_string());
+            return Err(WorktreeError::GitError(
+                "Failed to get current commit".to_string(),
+            ));
         }
 
         let commit = String::from_utf8_lossy(&output.stdout);
@@ -531,7 +549,7 @@ impl WorktreeManager {
     }
 
     /// Calculate directory size with depth cap to avoid walking huge trees.
-    fn get_directory_size(&self, path: &Path) -> Result<u64, String> {
+    fn get_directory_size(&self, path: &Path) -> Result<u64, WorktreeError> {
         let mut total_size = 0u64;
 
         if path.is_dir() {
