@@ -175,6 +175,13 @@ enum Command {
         #[command(subcommand)]
         command: LearningsCommand,
     },
+    /// Authenticate with an LLM provider (OAuth, device flow, or API key).
+    Login {
+        /// Provider to authenticate with (anthropic, openai, openrouter, copilot, google, ollama)
+        provider: String,
+    },
+    /// Show authentication status for all configured providers.
+    AuthStatus,
     /// Launch the interactive TUI.
     Tui {
         /// Force the configuration wizard to run (even if config exists)
@@ -1112,6 +1119,20 @@ async fn async_main(cli: Cli) -> Result<()> {
         }
         Command::Learnings { command } => {
             execute_learnings_command(&cwd, command, &cli.format)?;
+        }
+        Command::Login { provider } => {
+            let client = rustycode_auth::oauth::DefaultOAuthClient::new();
+            let result = rustycode_auth::login(&provider, &client).await?;
+            let store = rustycode_auth::TokenStore::new();
+            store.store_token(&result.provider_id, &result.token)?;
+            eprintln!(
+                "Logged in to {} via {:?}.",
+                result.provider_id, result.method
+            );
+        }
+        Command::AuthStatus => {
+            let statuses = rustycode_auth::all_providers_status();
+            print!("{}", rustycode_auth::format_status_table(&statuses));
         }
         Command::Ast { command } => commands::ast_cmd::execute(&cwd, command).await?,
         Command::Update {

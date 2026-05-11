@@ -7,6 +7,7 @@
 //! - `GitHub` (Copilot)
 //! - Custom OAuth providers
 
+pub mod auth_status;
 pub mod browser;
 pub mod callback_server;
 pub mod error;
@@ -16,6 +17,9 @@ pub mod oauth;
 pub mod providers;
 pub mod token_store;
 
+pub use auth_status::{
+    all_providers_status, format_status_table, provider_status, CredentialSource, ProviderStatus,
+};
 pub use browser::{is_headless, open_url};
 pub use callback_server::{CallbackResult, CallbackServer};
 pub use error::{AuthError, AuthResult};

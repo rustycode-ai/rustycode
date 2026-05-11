@@ -3,59 +3,16 @@ use futures::Stream;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
-use strum::{AsRefStr, Display, EnumString};
+use strum::{Display, EnumString};
 
 // Re-export message content types and Usage from protocol
 pub use rustycode_protocol::llm::Usage;
 pub use rustycode_protocol::{ContentBlock, ImageSource, MessageContent};
 
-/// Resolve an ImageSource to base64 data.
-///
-/// If the source is already base64, return as-is.
-/// If the source is a file path, read the file and base64-encode it.
-/// If the source is a URL, return None (provider should handle URL passthrough).
-pub fn resolve_image_to_base64(
-    source: &rustycode_protocol::ImageSource,
-) -> Option<(String, String)> {
-    match source.source_type.as_str() {
-        "base64" => Some((source.media_type.clone(), source.data.clone())),
-        "file" => {
-            let path = std::path::Path::new(&source.data);
-            match std::fs::read(path) {
-                Ok(bytes) => {
-                    use base64::{engine::general_purpose::STANDARD, Engine};
-                    let mime = if source.media_type.is_empty() {
-                        match path.extension().and_then(|e| e.to_str()) {
-                            Some("png") => "image/png",
-                            Some("gif") => "image/gif",
-                            Some("webp") => "image/webp",
-                            _ => "image/jpeg",
-                        }
-                        .to_string()
-                    } else {
-                        source.media_type.clone()
-                    };
-                    Some((mime, STANDARD.encode(&bytes)))
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to read image file {}: {}", source.data, e);
-                    None
-                }
-            }
-        }
-        "url" => None,
-        _ => None,
-    }
-}
-
-/// Reference to an Anthropic Agent Skill
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SkillRef {
-    #[serde(rename = "type")]
-    pub skill_type: String,
-    pub skill_id: String,
-    pub version: String,
-}
+// Re-export message types from types/message
+pub use crate::types::message::{
+    resolve_image_to_base64, ApiMode, ChatMessage, MessageRole, ProviderType, SkillRef,
+};
 
 /// Reasoning effort level for Claude API
 ///
@@ -334,21 +291,6 @@ impl ThinkingType {
     }
 }
 
-/// API mode for providers that support multiple endpoints.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ApiMode {
-    /// Try Responses API first, fall back to Chat Completions on failure.
-    /// Caches the result per provider so subsequent requests skip the probe.
-    Auto,
-    /// Chat Completions API (`POST /v1/chat/completions`) — default.
-    ChatCompletions,
-    /// Responses API (`POST /v1/responses`) — HTTP.
-    Responses,
-    /// Responses API via WebSocket (OpenAI only, feature-gated).
-    #[cfg(feature = "ws")]
-    ResponsesWs,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionRequest {
     pub model: String,
@@ -610,131 +552,6 @@ impl CompletionRequest {
             }
         }
         Ok(())
-    }
-}
-
-/// Message role with type-safe variants
-///
-/// This enum prevents typos and enables zero-allocation role handling
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, AsRefStr)]
-#[serde(rename_all = "lowercase")]
-#[strum(serialize_all = "lowercase")]
-#[non_exhaustive]
-pub enum MessageRole {
-    User,
-    Assistant,
-    System,
-    /// For tool/function calling responses
-    Tool(String),
-}
-
-impl MessageRole {
-    /// Create from string (for API responses)
-    pub fn from_role_str(s: &str) -> Result<Self, ProviderError> {
-        match s.to_lowercase().as_str() {
-            "user" => Ok(MessageRole::User),
-            "assistant" => Ok(MessageRole::Assistant),
-            "system" => Ok(MessageRole::System),
-            other if other.starts_with("tool_") || other.starts_with("tool:") => {
-                Ok(MessageRole::Tool(other[5..].to_string()))
-            }
-            _ => Err(ProviderError::Api(format!("unknown message role: {}", s))),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChatMessage {
-    pub role: MessageRole,
-    pub content: MessageContent,
-}
-
-impl ChatMessage {
-    pub fn user(content: impl Into<MessageContent>) -> Self {
-        Self {
-            role: MessageRole::User,
-            content: content.into(),
-        }
-    }
-
-    pub fn assistant(content: impl Into<MessageContent>) -> Self {
-        Self {
-            role: MessageRole::Assistant,
-            content: content.into(),
-        }
-    }
-
-    pub fn system(content: impl Into<MessageContent>) -> Self {
-        Self {
-            role: MessageRole::System,
-            content: content.into(),
-        }
-    }
-
-    pub fn tool(content: impl Into<MessageContent>, tool_name: String) -> Self {
-        Self {
-            role: MessageRole::Tool(tool_name),
-            content: content.into(),
-        }
-    }
-
-    pub fn tool_result(content: String, tool_use_id: String) -> Self {
-        Self::tool_result_with_error(content, tool_use_id, false)
-    }
-
-    /// Create a tool result message with error flag
-    pub fn tool_result_with_error(content: String, tool_use_id: String, is_error: bool) -> Self {
-        Self {
-            role: MessageRole::User,
-            content: MessageContent::blocks(vec![ContentBlock::ToolResult {
-                tool_use_id,
-                content,
-                is_error,
-            }]),
-        }
-    }
-
-    /// Get the text content for backward compatibility
-    pub fn text(&self) -> String {
-        self.content.as_text()
-    }
-
-    /// Check if message contains images
-    pub fn has_images(&self) -> bool {
-        self.content.has_images()
-    }
-}
-
-impl From<rustycode_protocol::Message> for ChatMessage {
-    fn from(msg: rustycode_protocol::Message) -> Self {
-        let role = match msg.role.as_str() {
-            "user" => MessageRole::User,
-            "assistant" => MessageRole::Assistant,
-            "system" => MessageRole::System,
-            other => MessageRole::Tool(other.to_string()),
-        };
-        ChatMessage {
-            role,
-            content: msg.content,
-        }
-    }
-}
-
-impl From<ChatMessage> for rustycode_protocol::Message {
-    fn from(msg: ChatMessage) -> Self {
-        // Convert LLM MessageRole to protocol MessageRole
-        let protocol_role = match &msg.role {
-            MessageRole::User => rustycode_protocol::MessageRole::User,
-            MessageRole::Assistant => rustycode_protocol::MessageRole::Assistant,
-            MessageRole::System => rustycode_protocol::MessageRole::System,
-            MessageRole::Tool(name) => rustycode_protocol::MessageRole::Tool(name.clone()),
-        };
-        rustycode_protocol::Message {
-            role: protocol_role,
-            content: msg.content,
-            timestamp: chrono::Utc::now(),
-            metadata: rustycode_protocol::MessageMetadata::default(),
-        }
     }
 }
 
@@ -1490,6 +1307,56 @@ macro_rules! build_http_client {
     }};
 }
 
+/// Validate an endpoint URL for security and correctness.
+///
+/// Ensures the endpoint uses HTTPS (or HTTP for localhost), does not embed
+/// credentials, and does not include query strings or fragments.
+pub fn validate_endpoint(endpoint: &str) -> anyhow::Result<()> {
+    let url = reqwest::Url::parse(endpoint)?;
+
+    match url.scheme() {
+        "https" => {}
+        "http" if matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "::1")) => {}
+        scheme => anyhow::bail!("unsupported endpoint scheme: {}", scheme),
+    }
+
+    if !url.username().is_empty() || url.password().is_some() {
+        anyhow::bail!("endpoint must not embed credentials");
+    }
+
+    if url.query().is_some() || url.fragment().is_some() {
+        anyhow::bail!("endpoint must not include query strings or fragments");
+    }
+
+    Ok(())
+}
+
+/// Sanitize an error message by redacting sensitive information.
+///
+/// Removes API keys, bearer tokens, and other credentials from error messages
+/// before logging or displaying them to users.
+pub fn sanitize_error_message(message: &str) -> String {
+    static QUERY_SECRET_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    static BEARER_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    static API_KEY_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+
+    let query_secret_re = QUERY_SECRET_RE.get_or_init(|| {
+        regex::Regex::new(r"(?i)([?&](?:key|api[-_]?key|token|access_token)=)[^&\s]+")
+            .expect("valid regex")
+    });
+    let bearer_re = BEARER_RE.get_or_init(|| {
+        regex::Regex::new(r"(?i)(bearer\s+)[A-Za-z0-9._~-]+").expect("valid regex")
+    });
+    let api_key_re = API_KEY_RE
+        .get_or_init(|| regex::Regex::new(r"(?i)(x-api-key[:=]\s*)[^\s,;]+").expect("valid regex"));
+
+    let redacted = query_secret_re.replace_all(message, "$1[REDACTED]");
+    let redacted = bearer_re.replace_all(&redacted, "$1[REDACTED]");
+    api_key_re
+        .replace_all(&redacted, "$1[REDACTED]")
+        .into_owned()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2236,89 +2103,4 @@ mod tests {
         assert!(json.get("container").is_some());
         assert!(json["container"]["skills"].is_array());
     }
-}
-
-/// Supported LLM provider types
-#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum ProviderType {
-    Ollama,
-    OpenAI,
-    Anthropic,
-    Gemini,      // Google Gemini
-    Copilot,     // GitHub Copilot
-    Bedrock,     // AWS Bedrock
-    Azure,       // Azure OpenAI
-    Cohere,      // Cohere
-    Mistral,     // Mistral AI
-    Together,    // Together AI
-    Perplexity,  // Perplexity AI
-    HuggingFace, // Hugging Face Inference API
-    OpenRouter,  // OpenRouter
-    Nvidia,      // NVIDIA NIM API
-    Custom,      // OpenAI-compatible custom provider
-}
-
-impl std::fmt::Display for ProviderType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Ollama => write!(f, "ollama"),
-            Self::OpenAI => write!(f, "openai"),
-            Self::Anthropic => write!(f, "anthropic"),
-            Self::Gemini => write!(f, "gemini"),
-            Self::Copilot => write!(f, "copilot"),
-            Self::Bedrock => write!(f, "bedrock"),
-            Self::Azure => write!(f, "azure"),
-            Self::Cohere => write!(f, "cohere"),
-            Self::Mistral => write!(f, "mistral"),
-            Self::Together => write!(f, "together"),
-            Self::Perplexity => write!(f, "perplexity"),
-            Self::HuggingFace => write!(f, "huggingface"),
-            Self::OpenRouter => write!(f, "openrouter"),
-            Self::Nvidia => write!(f, "nvidia"),
-            Self::Custom => write!(f, "custom"),
-        }
-    }
-}
-
-pub fn validate_endpoint(endpoint: &str) -> anyhow::Result<()> {
-    let url = reqwest::Url::parse(endpoint)?;
-
-    match url.scheme() {
-        "https" => {}
-        "http" if matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "::1")) => {}
-        scheme => anyhow::bail!("unsupported endpoint scheme: {}", scheme),
-    }
-
-    if !url.username().is_empty() || url.password().is_some() {
-        anyhow::bail!("endpoint must not embed credentials");
-    }
-
-    if url.query().is_some() || url.fragment().is_some() {
-        anyhow::bail!("endpoint must not include query strings or fragments");
-    }
-
-    Ok(())
-}
-
-pub fn sanitize_error_message(message: &str) -> String {
-    static QUERY_SECRET_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
-    static BEARER_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
-    static API_KEY_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
-
-    let query_secret_re = QUERY_SECRET_RE.get_or_init(|| {
-        regex::Regex::new(r"(?i)([?&](?:key|api[-_]?key|token|access_token)=)[^&\s]+")
-            .expect("valid regex")
-    });
-    let bearer_re = BEARER_RE.get_or_init(|| {
-        regex::Regex::new(r"(?i)(bearer\s+)[A-Za-z0-9._~-]+").expect("valid regex")
-    });
-    let api_key_re = API_KEY_RE
-        .get_or_init(|| regex::Regex::new(r"(?i)(x-api-key[:=]\s*)[^\s,;]+").expect("valid regex"));
-
-    let redacted = query_secret_re.replace_all(message, "$1[REDACTED]");
-    let redacted = bearer_re.replace_all(&redacted, "$1[REDACTED]");
-    api_key_re
-        .replace_all(&redacted, "$1[REDACTED]")
-        .into_owned()
 }

@@ -485,12 +485,11 @@ fn resolve_api_key(provider_type: &str, file_config: Option<&FileConfig>) -> Opt
         return Some(SecretString::new(key.into()));
     }
 
-    if matches!(provider_type.to_lowercase().as_str(), "copilot" | "github") {
-        let store = rustycode_auth::TokenStore::new();
-        if let Ok(true) = store.is_token_valid("copilot") {
-            if let Ok(token) = store.token("copilot") {
-                return Some(token.access_token);
-            }
+    // Check OS keyring for stored tokens (all providers).
+    let store = rustycode_auth::TokenStore::new();
+    if let Ok(true) = store.is_token_valid(provider_type) {
+        if let Ok(token) = store.token(provider_type) {
+            return Some(token.access_token);
         }
     }
 
