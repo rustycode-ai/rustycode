@@ -654,11 +654,16 @@ impl MessageRenderer {
     pub fn estimate_message_height(&self, message: &Message, content_width: usize) -> usize {
         let key = Self::layout_cache_key(message, content_width);
 
-        if let Ok(cache) = self.layout_cache.read() {
-            if let Some(height) = cache.get(&key) {
-                return height;
-            }
+        // Use a single write lock scope to prevent TOCTOU: another thread
+        // could insert between a read-lock check and a write-lock insert.
+        let cache = self.layout_cache.write().unwrap_or_else(|e| {
+            tracing::warn!("layout_cache rwlock poisoned, recovering: {e}");
+            e.into_inner()
+        });
+        if let Some(height) = cache.get(&key) {
+            return height;
         }
+        drop(cache);
 
         let height = Self::compute_message_height(message, content_width);
 
@@ -744,12 +749,18 @@ impl MessageLayoutCache {
     }
 
     fn insert(&mut self, key: u64, height: usize) {
-        if self.entries.contains_key(&key) {
-            self.order.retain(|existing| *existing != key);
-        }
+        use std::collections::hash_map::Entry;
 
-        self.entries.insert(key, height);
-        self.order.push_back(key);
+        match self.entries.entry(key) {
+            Entry::Occupied(_) => {
+                self.order.retain(|existing| *existing != key);
+                self.order.push_back(key);
+            }
+            Entry::Vacant(entry) => {
+                entry.insert(height);
+                self.order.push_back(key);
+            }
+        }
 
         while self.entries.len() > self.capacity {
             if let Some(oldest) = self.order.pop_front() {

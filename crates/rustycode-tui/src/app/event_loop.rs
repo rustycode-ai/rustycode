@@ -433,7 +433,6 @@ impl TUI {
     }
 
     /// Create a new TUI instance with service integration
-    #[allow(clippy::await_holding_lock)]
     pub fn new(
         cwd: PathBuf,
         ai_mode: AiMode,
@@ -508,21 +507,24 @@ impl TUI {
         let skill_manager = Arc::new(RwLock::new(SkillStateManager::new()));
         let plugin_manager = Arc::new(RwLock::new(PluginManager::default()));
         let plugin_manager_ui = PluginManagerUI::new();
-        // Load skills asynchronously in background
+        // Load skills in background thread — I/O outside the lock, apply under short write lock
         let skill_manager_clone = skill_manager.clone();
         std::thread::spawn(move || {
-            rustycode_shared_runtime::block_on_shared(async {
-                let load_result = {
-                    #[allow(clippy::await_holding_lock)]
-                    let mut manager = skill_manager_clone
-                        .write()
-                        .unwrap_or_else(|e| e.into_inner());
-                    manager.load_skills().await
-                };
-                if let Err(e) = load_result {
-                    tracing::error!("Failed to load skills: {}", e);
-                }
+            let loader = SkillLoader::new();
+            let base_skills = loader.load_all().unwrap_or_else(|e| {
+                tracing::error!("Failed to load skills: {}", e);
+                Vec::new()
             });
+            let skill_states: Vec<_> = base_skills
+                .into_iter()
+                .map(crate::skills::manager::SkillState::from_base)
+                .collect();
+            {
+                let mut manager = skill_manager_clone
+                    .write()
+                    .unwrap_or_else(|e| e.into_inner());
+                manager.skills = skill_states;
+            }
         });
 
         // Initialize hooks registry

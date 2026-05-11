@@ -79,41 +79,35 @@ impl CachedTokenCounter {
     }
 
     /// Count tokens for text, using cache if available.
+    ///
+    /// Performs the check-and-insert under a single lock scope to avoid
+    /// TOCTOU races where another thread could insert the same key between
+    /// the get-check and the insert.
     pub fn count_tokens(&self, text: &str) -> usize {
         let hash = Self::hash_text(text);
 
-        // Check cache first
-        {
-            let cache = self.cache.lock().unwrap_or_else(|e| {
-                tracing::warn!("token_counter mutex poisoned, recovering: {e}");
-                e.into_inner()
-            });
-            if let Some(&count) = cache.get(&hash) {
-                self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                return count;
-            }
+        let mut cache = self.cache.lock().unwrap_or_else(|e| {
+            tracing::warn!("token_counter mutex poisoned, recovering: {e}");
+            e.into_inner()
+        });
+
+        if let Some(&count) = cache.get(&hash) {
+            self.hits.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return count;
         }
 
         self.misses
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let count = self.estimate_tokens_internal(text);
 
-        // Insert with eviction if needed
-        {
-            let mut cache = self.cache.lock().unwrap_or_else(|e| {
-                tracing::warn!("token_counter mutex poisoned, recovering: {e}");
-                e.into_inner()
-            });
-            if cache.len() >= MAX_CACHE_SIZE {
-                // Evict ~25% of entries (simple strategy)
-                let keys_to_remove: Vec<u64> =
-                    cache.keys().take(MAX_CACHE_SIZE / 4).copied().collect();
-                for key in keys_to_remove {
-                    cache.remove(&key);
-                }
+        if cache.len() >= MAX_CACHE_SIZE {
+            // Evict ~25% of entries (simple strategy)
+            let keys_to_remove: Vec<u64> = cache.keys().take(MAX_CACHE_SIZE / 4).copied().collect();
+            for key in keys_to_remove {
+                cache.remove(&key);
             }
-            cache.insert(hash, count);
         }
+        cache.insert(hash, count);
 
         count
     }
