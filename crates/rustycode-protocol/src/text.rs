@@ -37,7 +37,10 @@ mod tests {
 
     #[test]
     fn strip_multiple() {
-        assert_eq!(strip_ansi_escapes("\x1b[1;32mOK\x1b[0m \x1b[33mw\x1b[0m"), "OK w");
+        assert_eq!(
+            strip_ansi_escapes("\x1b[1;32mOK\x1b[0m \x1b[33mw\x1b[0m"),
+            "OK w"
+        );
     }
 
     #[test]
