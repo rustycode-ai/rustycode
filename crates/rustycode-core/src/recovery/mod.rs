@@ -46,8 +46,13 @@
 pub mod checkpoint;
 pub mod classification;
 pub mod config;
+pub mod detector;
 pub mod engine;
 pub mod result;
+pub mod snapshot;
+pub mod snapshot_validator;
+pub mod state_machine;
+pub mod store;
 pub mod strategy;
 pub mod validation;
 
@@ -55,7 +60,12 @@ pub mod validation;
 pub use checkpoint::CheckpointRecovery;
 pub use classification::{ErrorClassification, ErrorClassifier};
 pub use config::{RecoveryConfig, RetryConfig};
+pub use detector::ExecutionCheckpointDetector;
 pub use engine::RecoveryEngine;
 pub use result::{RecoveryLogEntry, RecoveryResult};
+pub use snapshot::{CheckpointSnapshot, ExecutionPhase};
+pub use snapshot_validator::{CheckpointValidator, ValidationReport};
+pub use state_machine::{Recovery, RecoveryState};
+pub use store::CheckpointStore;
 pub use strategy::{ErrorCategory, RecoveryStrategy};
-pub use validation::CheckpointValidator;
+pub use validation::CheckpointValidator as SessionCheckpointValidator;

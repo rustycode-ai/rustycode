@@ -4,6 +4,7 @@ use crate::app::event_loop::TUI;
 use crate::ui::message::Message;
 use anyhow::Result;
 use crossterm::event::{self, Event as CrosstermEvent, KeyCode, KeyModifiers};
+use rustycode_protocol::Op;
 
 /// State for scrolling operations
 #[derive(Debug, Clone)]
@@ -392,19 +393,13 @@ impl TUI {
                     return Ok(());
                 }
 
-                // Handle ? key to open help when input is empty
-                // Must be intercepted here because the InputHandler consumes all
-                // KeyCode::Char events before handle_global_shortcut gets a chance.
-                if key.code == KeyCode::Char('?') && key.modifiers == KeyModifiers::NONE {
-                    let input_is_empty = self.ui.input_handler.state.lines.len() == 1
-                        && self.ui.input_handler.state.lines[0].is_empty();
-                    if input_is_empty && !self.is_any_overlay_open() {
-                        self.ui.help_state.visible = true;
-                        self.ui.help_state.scroll_offset = 0;
-                        self.theme.toast_manager.info("Press Esc to close");
-                        self.sys.dirty = true;
-                        return Ok(());
-                    }
+                // Handle F1 to open help (standard help key, no modifier conflict)
+                if key.code == KeyCode::F(1) && !self.is_any_overlay_open() {
+                    self.ui.help_state.visible = true;
+                    self.ui.help_state.scroll_offset = 0;
+                    self.theme.toast_manager.info("Press Esc to close");
+                    self.sys.dirty = true;
+                    return Ok(());
                 }
 
                 // Handle Space key to toggle message collapse/expand when input is empty
@@ -602,11 +597,11 @@ impl TUI {
         self.panels.tool_panel.reset();
         self.session.active_tools.clear();
 
-        let send_result = self.integration.services.send_message_with_history(
-            message_to_send,
-            Some(history),
-            None,
-        );
+        let send_result = self.integration.services.submit_op(Op::SendMessageFull {
+            content: message_to_send,
+            history: Some(serde_json::to_value(&history).unwrap_or(serde_json::Value::Null)),
+            images: None,
+        });
         if let Err(e) = send_result {
             tracing::error!("Failed to retry message: {}", e);
             self.reset_streaming_state();

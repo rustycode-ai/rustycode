@@ -96,8 +96,6 @@ impl BrutalistRenderer<'_> {
                 } else {
                     "Ctrl+C cancel".to_string()
                 }
-            } else if self.input_mode == InputMode::MultiLine {
-                "Opt+Enter send · Enter newline".to_string()
             } else {
                 "Enter send · Shift+Enter newline".to_string()
             };

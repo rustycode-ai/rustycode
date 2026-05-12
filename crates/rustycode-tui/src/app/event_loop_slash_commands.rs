@@ -40,7 +40,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             let short = model_id.rsplit('/').next().unwrap_or(&model_id);
             self.theme.toast_manager.success(format!("Model: {}", short));
 
-            if let Err(e) = self.integration.services.switch_model(model_id) {
+            if let Err(e) = self.integration.services.submit_op(Op::SwitchModel { model_id }) {
                 tracing::error!("Failed to switch model in services: {}", e);
                 self.add_system_message(format!("⚠️ Failed to update orchestration model: {}", e));
             }
@@ -51,7 +51,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             // handler would trigger auto-continue or queued message on
             // the now-empty conversation.
             if self.session.streaming.is_streaming {
-                self.integration.services.request_stop_stream();
+                self.integration.services.submit_op(Op::StopStream).ok();
                 self.session.streaming.stream_cancelled = true;
             }
             self.reset_conversation_state();
@@ -70,7 +70,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
         } => {
             // Signal background stream to stop before loading new session
             if self.session.streaming.is_streaming {
-                self.integration.services.request_stop_stream();
+                self.integration.services.submit_op(Op::StopStream).ok();
                 self.session.streaming.stream_cancelled = true;
             }
             self.reset_conversation_state();

@@ -102,7 +102,7 @@ impl BrutalistRenderer<'_> {
             ),
             Span::styled(" commands  ", Style::default().fg(colors.muted)),
             Span::styled(
-                "?",
+                "F1",
                 Style::default()
                     .fg(colors.primary)
                     .add_modifier(Modifier::BOLD),

@@ -16,8 +16,8 @@ pub enum InputMode {
     SingleLine,
 
     /// Multi-line mode
-    /// - Enter: Insert newline
-    /// - Option+Enter: Send message
+    /// - Enter: Send message (always-submit model)
+    /// - Shift+Enter / Ctrl+Enter / Alt+Enter: Insert newline
     MultiLine,
 }
 

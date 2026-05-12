@@ -15,8 +15,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use crate::checkpoint_recovery::Recovery;
-use crate::checkpoint_store::CheckpointStore;
+use crate::recovery::{CheckpointStore, Recovery};
 
 /// Maximum messages retained in memory before oldest are evicted.
 const MAX_SESSION_MESSAGES: usize = 1000;
@@ -1124,13 +1123,11 @@ mod tests {
 
     // --- Checkpoint recovery integration tests ---
 
-    use crate::checkpoint::ExecutionPhase;
+    use crate::recovery::ExecutionPhase;
 
-    fn valid_checkpoint_with_effects(
-        effects: Vec<String>,
-    ) -> crate::checkpoint::CheckpointSnapshot {
+    fn valid_checkpoint_with_effects(effects: Vec<String>) -> crate::recovery::CheckpointSnapshot {
         let mut cp =
-            crate::checkpoint::CheckpointSnapshot::generate("test-session", ExecutionPhase::Act);
+            crate::recovery::CheckpointSnapshot::generate("test-session", ExecutionPhase::Act);
         cp.pending_effects = effects;
         cp
     }
@@ -1161,7 +1158,7 @@ mod tests {
     fn restore_from_checkpoint_fails_for_invalid() {
         let mut s = make_session();
         let mut cp =
-            crate::checkpoint::CheckpointSnapshot::generate("test-session", ExecutionPhase::Act);
+            crate::recovery::CheckpointSnapshot::generate("test-session", ExecutionPhase::Act);
         cp.memory_state = Vec::new();
         let id = cp.id.clone();
         let mut store = CheckpointStore::new();

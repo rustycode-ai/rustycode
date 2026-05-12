@@ -4,6 +4,7 @@ use crate::app::event_loop::TUI;
 use crate::ui::input::InputMode;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers};
+use rustycode_protocol::Op;
 
 impl TUI {
     /// Handle global keyboard shortcuts
@@ -108,7 +109,7 @@ impl TUI {
                         self.sys.dirty = true;
                         return Ok(());
                     }
-                    self.integration.services.request_stop_stream();
+                    self.integration.services.submit_op(Op::StopStream).ok();
                     self.session.streaming.stream_cancelled = true;
                     // Let Done handler clean up — then quit on next Ctrl+Q
                     self.add_system_message("Generation stopped - press again to quit".to_string());
@@ -138,7 +139,7 @@ impl TUI {
             (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                 // Cancel/Interrupt - matches Claude Code convention
                 if self.session.streaming.is_streaming {
-                    self.integration.services.request_stop_stream();
+                    self.integration.services.submit_op(Op::StopStream).ok();
                     // Don't set is_streaming=false here — let the StreamChunk::Done
                     // handler do it to avoid race with async stream task.
                     // Mark cancelled so Done handler skips auto-continue.
@@ -481,7 +482,7 @@ impl TUI {
 
                 // Priority 2: Cancel active operations
                 if self.session.streaming.is_streaming {
-                    self.integration.services.request_stop_stream();
+                    self.integration.services.submit_op(Op::StopStream).ok();
                     // Don't set is_streaming=false here — let the StreamChunk::Done
                     // handler do it. Mark cancelled so Done handler skips auto-continue.
                     self.session.streaming.stream_cancelled = true;

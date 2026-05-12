@@ -3,6 +3,7 @@
 use super::CommandContext;
 use super::CommandEffect;
 use anyhow::Result;
+use rustycode_protocol::Op;
 use rustycode_runtime::multi_agent::AgentRoleExt;
 
 /// Handle /agent commands
@@ -309,7 +310,7 @@ pub fn handle_workspace_command(_parts: &[&str], ctx: CommandContext<'_>) -> Res
 pub fn handle_quit_command(_parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
     // Stop any active stream before quitting
     if *ctx.is_streaming {
-        ctx.services.request_stop_stream();
+        ctx.services.submit_op(Op::StopStream).ok();
         *ctx.is_streaming = false;
     }
     *ctx.running = false;

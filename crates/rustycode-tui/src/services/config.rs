@@ -128,7 +128,7 @@ impl Default for TUIConfig {
                 save: vec!["Ctrl+s".to_string()],
                 search: vec!["Ctrl+f".to_string()],
                 theme_switch: vec!["Ctrl+t".to_string()],
-                help: vec!["?".to_string()],
+                help: vec!["F1".to_string()],
                 clear: vec!["Ctrl+l".to_string()],
             },
             ui: UIConfig {

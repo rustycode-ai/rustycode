@@ -51,6 +51,7 @@ use anyhow::{Context, Result};
 use crossterm::event;
 use ratatui::{backend::CrosstermBackend, layout::Rect, Terminal};
 use rustycode_core::integration::HookRegistry;
+use rustycode_protocol::Op;
 use rustycode_tools::ToolRegistry;
 use std::collections::HashSet;
 use std::io::Write;
@@ -1549,7 +1550,7 @@ impl TUI {
 
         // Cleanup: stop any active stream
         if self.session.streaming.is_streaming {
-            self.integration.services.request_stop_stream();
+            self.integration.services.submit_op(Op::StopStream).ok();
             self.session.streaming.stream_cancelled = true;
             // Don't set is_streaming=false here — let the async stream task's
             // Done handler clean up to avoid racing with channel receivers.
@@ -1708,7 +1709,9 @@ impl TUI {
             }
             self.sys.dirty = true;
             self.auto_scroll();
-            self.integration.services.send_message(task)?;
+            self.integration
+                .services
+                .submit_op(Op::SendMessage { content: task })?;
             return Ok(());
         }
 
@@ -1744,7 +1747,9 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.integration.services.send_message(task)?;
+                self.integration
+                    .services
+                    .submit_op(Op::SendMessage { content: task })?;
             }
             return Ok(());
         }
@@ -1774,7 +1779,9 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.integration.services.send_message(task)?;
+                self.integration
+                    .services
+                    .submit_op(Op::SendMessage { content: task })?;
             }
             return Ok(());
         }
@@ -1791,7 +1798,9 @@ impl TUI {
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.integration.services.send_message(task)?;
+                self.integration
+                    .services
+                    .submit_op(Op::SendMessage { content: task })?;
             }
             return Ok(());
         }

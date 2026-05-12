@@ -3,7 +3,7 @@
 //! This module provides the core execution framework for running plans,
 //! including configuration, context management, and step execution.
 
-use crate::checkpoint::{CheckpointSnapshot, ExecutionPhase};
+use crate::recovery::{CheckpointSnapshot, ExecutionPhase};
 use crate::PlanStep;
 use anyhow::{bail, Result};
 use chrono::Utc;

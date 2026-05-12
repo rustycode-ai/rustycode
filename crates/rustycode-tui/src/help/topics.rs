@@ -71,8 +71,8 @@ pub fn all_topics() -> Vec<HelpTopic> {
         HelpTopic {
             title: "Multi-line input".to_string(),
             category: HelpCategory::Editing,
-            content: "Toggle between single-line and multi-line input modes. In multi-line mode, Enter adds new lines, Alt+Enter sends the message.".to_string(),
-            key_bindings: vec!["Alt+Enter".to_string()],
+            content: "Toggle between single-line and multi-line input modes. Enter always submits. Use Shift+Enter, Ctrl+Enter, or Alt+Enter to insert new lines.".to_string(),
+            key_bindings: vec!["Alt+Enter".to_string(), "Shift+Enter".to_string()],
         },
         HelpTopic {
             title: "Clear input".to_string(),
@@ -208,7 +208,7 @@ pub fn all_topics() -> Vec<HelpTopic> {
             title: "Help".to_string(),
             category: HelpCategory::Commands,
             content: "Show this help screen with all available commands and shortcuts.".to_string(),
-            key_bindings: vec!["?".to_string(), "/help".to_string()],
+            key_bindings: vec!["F1".to_string(), "/help".to_string()],
         },
         HelpTopic {
             title: "Save conversation".to_string(),
@@ -305,8 +305,8 @@ pub fn all_topics() -> Vec<HelpTopic> {
         HelpTopic {
             title: "Agent mode".to_string(),
             category: HelpCategory::Settings,
-            content: "Cycle through agent modes (e.g., default, plan, code). Ctrl+M cycles forward, Ctrl+Shift+M cycles backward. Current mode shown in status bar.".to_string(),
-            key_bindings: vec!["Ctrl+M".to_string(), "Ctrl+Shift+M".to_string()],
+            content: "Cycle through agent modes (e.g., default, plan, code). Alt+M cycles forward, Alt+Shift+M cycles backward. Current mode shown in status bar.".to_string(),
+            key_bindings: vec!["Alt+M".to_string(), "Alt+Shift+M".to_string()],
         },
         HelpTopic {
             title: "Toggle UI sections".to_string(),

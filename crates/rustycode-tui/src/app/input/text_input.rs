@@ -6,6 +6,7 @@ use crate::ui::input::InputAction;
 use crate::ui::message_search::SearchEngine;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers};
+use rustycode_protocol::Op;
 
 impl TUI {
     /// Handle search box input
@@ -659,15 +660,15 @@ impl TUI {
             self.session.active_tools.clear();
 
             let send_call_start = std::time::Instant::now();
-            if let Err(e) = self.integration.services.send_message_with_history(
-                message_to_send,
-                Some(history),
-                if image_blocks.is_empty() {
+            if let Err(e) = self.integration.services.submit_op(Op::SendMessageFull {
+                content: message_to_send,
+                history: Some(serde_json::to_value(&history).unwrap_or(serde_json::Value::Null)),
+                images: if image_blocks.is_empty() {
                     None
                 } else {
-                    Some(image_blocks)
+                    Some(serde_json::to_value(&image_blocks).unwrap_or(serde_json::Value::Null))
                 },
-            ) {
+            }) {
                 tracing::error!("Failed to send message: {}", e);
                 self.reset_streaming_state();
                 self.session.active_tools.clear();
