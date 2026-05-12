@@ -20,7 +20,7 @@
 //! let projects = tracker.list_projects();
 //! ```
 
-use crate::app_paths::AppPaths;
+use crate::workspace::paths::AppPaths;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

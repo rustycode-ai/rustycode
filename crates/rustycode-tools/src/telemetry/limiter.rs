@@ -84,10 +84,7 @@ impl RateLimitedTelemetry {
             Self::process_events(receiver, rate_limit_ms, dropped_clone).await;
         });
 
-        Self {
-            sender,
-            dropped,
-        }
+        Self { sender, dropped }
     }
 
     /// Send a span telemetry event.
@@ -105,7 +102,10 @@ impl RateLimitedTelemetry {
         self.send_event(TelemetryEvent::Metric(metric))
     }
 
-    fn send_event(&self, event: TelemetryEvent) -> Result<(), mpsc::error::SendError<TelemetryEvent>> {
+    fn send_event(
+        &self,
+        event: TelemetryEvent,
+    ) -> Result<(), mpsc::error::SendError<TelemetryEvent>> {
         match self.sender.try_send(event) {
             Ok(()) => Ok(()),
             Err(mpsc::error::TrySendError::Full(_)) => {
@@ -113,9 +113,7 @@ impl RateLimitedTelemetry {
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 Ok(())
             }
-            Err(mpsc::error::TrySendError::Closed(e)) => {
-                Err(mpsc::error::SendError(e))
-            }
+            Err(mpsc::error::TrySendError::Closed(e)) => Err(mpsc::error::SendError(e)),
         }
     }
 

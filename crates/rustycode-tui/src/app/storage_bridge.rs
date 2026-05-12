@@ -7,7 +7,7 @@
 use anyhow::Result;
 use rustycode_session::{InteractionSnapshot, RewindStore, ToolCallRecord};
 use rustycode_storage::Storage;
-use rustycode_tools::workspace_checkpoint::{CheckpointStore, WorkspaceCheckpoint};
+use rustycode_tools::workspace::checkpoint::{CheckpointStore, WorkspaceCheckpoint};
 use std::sync::Arc;
 
 /// Implements `CheckpointStore` backed by `Storage` (SQLite).
@@ -47,7 +47,7 @@ impl CheckpointStore for SqlCheckpointStore {
                 .unwrap_or_else(|_| chrono::Utc::now());
             let files_changed = rec.files_json.parse::<usize>().unwrap_or(0);
             result.push(WorkspaceCheckpoint {
-                id: rustycode_tools::workspace_checkpoint::CheckpointId(rec.id),
+                id: rustycode_tools::workspace::checkpoint::CheckpointId(rec.id),
                 commit_hash: rec.commit_sha.unwrap_or_default(),
                 message: rec.label.clone(),
                 created_at,
@@ -145,7 +145,7 @@ impl RewindStore for SqlRewindStore {
 mod tests {
     use super::*;
     use rustycode_session::InteractionId;
-    use rustycode_tools::workspace_checkpoint::CheckpointId;
+    use rustycode_tools::workspace::checkpoint::CheckpointId;
 
     fn test_storage(name: &str) -> Arc<Storage> {
         let db_path = std::env::temp_dir().join(format!(

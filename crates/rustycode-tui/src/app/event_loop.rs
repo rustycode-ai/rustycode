@@ -794,7 +794,8 @@ impl TUI {
         crate::info_log!("init_services starting");
 
         if self.integration.storage.is_none() {
-            let db_path = rustycode_tools::app_paths::AppPaths::data_dir().join("rustycode.db");
+            let db_path =
+                rustycode_tools::workspace::paths::AppPaths::data_dir().join("rustycode.db");
             match rustycode_storage::Storage::open(&db_path) {
                 Ok(s) => {
                     tracing::debug!("Opened storage at {}", db_path.display());

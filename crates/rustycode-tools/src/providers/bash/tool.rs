@@ -450,13 +450,13 @@ rustycode_tools_api::define_tool! {
 
 // ToolStreaming — kept as separate impl since define_tool! does not cover it.
 
-impl crate::streaming::ToolStreaming for BashTool {
+impl crate::telemetry::streaming::ToolStreaming for BashTool {
     fn execute_stream(
         &self,
         params: Value,
         ctx: &ToolContext,
-    ) -> Result<crate::streaming::StreamReceiver> {
-        use crate::streaming::{create_stream_channel, StreamChunk};
+    ) -> Result<crate::telemetry::streaming::StreamReceiver> {
+        use crate::telemetry::streaming::{create_stream_channel, StreamChunk};
 
         crate::check_permission(ToolPermission::Execute, ctx)?;
 

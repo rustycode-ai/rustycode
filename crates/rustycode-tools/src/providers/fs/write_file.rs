@@ -111,7 +111,7 @@ fn execute_append(
     };
 
     let mut output_text = summary;
-    if let Some(formatter_diff) = crate::file_formatter::format_file(path, &ctx.cwd) {
+    if let Some(formatter_diff) = crate::workspace::formatter::format_file(path, &ctx.cwd) {
         output_text.push_str(&formatter_diff);
     }
 
@@ -325,7 +325,7 @@ rustycode_tools_api::define_tool! {
             format!("wrote {path_display} ({bytes} bytes, {lines} lines)\n{diff}");
 
         if binary_bytes.is_none() {
-            if let Some(formatter_diff) = crate::file_formatter::format_file(&path, &ctx.cwd) {
+            if let Some(formatter_diff) = crate::workspace::formatter::format_file(&path, &ctx.cwd) {
                 output_text.push_str(&formatter_diff);
             }
         }

@@ -435,7 +435,7 @@ mod tests {
     fn session_execute_stream_uses_stdout_rx_channel() {
         let temp = tempdir().unwrap();
         let session = BashSession::new(temp.path().to_path_buf()).unwrap();
-        let (sender, receiver) = crate::streaming::create_stream_channel();
+        let (sender, receiver) = crate::telemetry::streaming::create_stream_channel();
         let result = session.execute_stream("echo hello_stream", 10, sender);
         assert!(result.is_ok(), "execute_stream failed: {:?}", result);
         let (exit_code, error) = result.unwrap();
@@ -457,7 +457,7 @@ mod tests {
     fn session_execute_stream_timeout_returns_124() {
         let temp = tempdir().unwrap();
         let session = BashSession::new(temp.path().to_path_buf()).unwrap();
-        let (sender, _receiver) = crate::streaming::create_stream_channel();
+        let (sender, _receiver) = crate::telemetry::streaming::create_stream_channel();
         let result = session.execute_stream("sleep 10", 1, sender);
         assert!(result.is_ok());
         let (exit_code, _error) = result.unwrap();

@@ -3,7 +3,6 @@
 //! Supports inline patch text (preferred) or patch file paths.
 //! Falls back to `git apply --3way` when direct parsing fails.
 
-use crate::file_formatter;
 use crate::line_endings::generate_diff;
 use crate::security::{
     create_file_symlink_safe, open_file_symlink_safe, validate_read_path, validate_write_path,
@@ -383,7 +382,7 @@ fn apply_update(path: &Path, fp: &FilePatch, ctx: &ToolContext) -> Result<String
     let mut output = diff;
 
     // Auto-format if configured.
-    if let Some(formatter_diff) = file_formatter::format_file(path, &ctx.cwd) {
+    if let Some(formatter_diff) = crate::workspace::formatter::format_file(path, &ctx.cwd) {
         output.push_str(&formatter_diff);
     }
 

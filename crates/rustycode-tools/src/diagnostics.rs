@@ -20,7 +20,7 @@
 //! let json = snapshot.to_json_pretty().unwrap();
 //! ```
 
-use crate::app_paths::AppPaths;
+use crate::workspace::paths::AppPaths;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;

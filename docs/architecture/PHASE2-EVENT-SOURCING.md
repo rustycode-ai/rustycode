@@ -680,51 +680,25 @@ impl StateRuntime {
                 forked_from_id: row.get(11)?,
                 workspace_path: row.get(12)?,
                 git_branch: row.get(13)?,
-            })
-        })?.collect::<Result<Vec<_>, _>>()?;
-
-        Ok(threads)
-    }
-
-    /// Search threads by title/task
-    pub fn search_threads(&self, query: &str, limit: usize) -> Result<Vec<ThreadMetadata>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT t.id, t.rollout_path, t.created_at, t.updated_at, t.title, t.task, t.mode, t.status,
-                    t.tokens_used, t.item_count, t.bytes_written, t.forked_from_id, t.workspace_path, t.git_branch
-             FROM threads t
-             JOIN threads_fts f ON t.rowid = f.rowid
-             WHERE threads_fts MATCH ?1
-             ORDER BY t.created_at DESC
-             LIMIT ?2"
-        )?;
-
-        let threads = stmt.query_map(params![query, limit as i64], |row| {
-            // Same mapping as recent_threads
-            ...
-        })?.collect::<Result<Vec<_>, _>>()?;
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
         Ok(threads)
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ThreadMetadata {
-    pub id: String,
-    pub rollout_path: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub title: Option<String>,
-    pub task: Option<String>,
-    pub mode: Option<String>,
-    pub status: Option<String>,
-    pub tokens_used: u64,
-    pub item_count: u64,
-    pub bytes_written: u64,
-    pub forked_from_id: Option<String>,
-    pub workspace_path: Option<String>,
-    pub git_branch: Option<String>,
-}
-```
+### Pending Implementation
+
+The following Phase 2 components are **not yet implemented** (design/prototype phase):
+
+1. **SessionReplayer** - Replay functionality for crash recovery and debugging
+2. **Thread Forking** - Copy parent thread state to new thread with `ForkedFrom` marker
+3. **Backfill System** - Watermark-based batch processing of existing rollouts to populate SQLite
+4. **Compaction** - Group consecutive items to reduce rollout file size by >50%
+
+These can be implemented incrementally as needed based on project priorities.
+
+---
 
 ## Session Replay
 

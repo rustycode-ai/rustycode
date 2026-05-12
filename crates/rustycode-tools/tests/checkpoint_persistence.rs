@@ -12,7 +12,7 @@
 //! are persisted to the database and can be restored in future sessions.
 
 use rustycode_protocol::Session;
-use rustycode_tools::workspace_checkpoint::{
+use rustycode_tools::workspace::checkpoint::{
     CheckpointConfig, CheckpointId, CheckpointManager, RestoreMode, StorageBasedCheckpointStore,
     WorkspaceCheckpoint,
 };

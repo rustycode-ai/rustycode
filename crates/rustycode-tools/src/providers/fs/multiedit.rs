@@ -1,4 +1,3 @@
-use crate::file_formatter;
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
 use crate::{Checkpoint, ToolContext, ToolOutput, ToolPermission, ToolTag};
 use anyhow::{anyhow, Context, Result};
@@ -408,7 +407,8 @@ fn apply_create(
 
     let mut output = format!("Created: {} ({} bytes)", edit.path.display(), content.len());
 
-    if let Some(formatter_diff) = file_formatter::format_file(&edit.path, project_root) {
+    if let Some(formatter_diff) = crate::workspace::formatter::format_file(&edit.path, project_root)
+    {
         output.push_str(&formatter_diff);
     }
 
@@ -487,7 +487,8 @@ fn apply_edit(
 
     let mut output = format!("Edited: {} (replaced 1 occurrence)", edit.path.display());
 
-    if let Some(formatter_diff) = file_formatter::format_file(&edit.path, project_root) {
+    if let Some(formatter_diff) = crate::workspace::formatter::format_file(&edit.path, project_root)
+    {
         output.push_str(&formatter_diff);
     }
 

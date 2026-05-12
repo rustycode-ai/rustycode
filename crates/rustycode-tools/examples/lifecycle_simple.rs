@@ -1,6 +1,8 @@
 //! Simple demonstration of the Lifecycle Hook System
 
-use rustycode_tools::lifecycle::{HookResult, LifecycleEvent, LifecycleHandler, LifecycleHooks};
+use rustycode_tools::telemetry::lifecycle::{
+    HookResult, LifecycleEvent, LifecycleHandler, LifecycleHooks,
+};
 use std::sync::Arc;
 
 /// A custom handler that prints events to stdout

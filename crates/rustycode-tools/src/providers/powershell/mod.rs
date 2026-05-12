@@ -1,0 +1,670 @@
+#![allow(clippy::doc_markdown)]
+
+//! PowerShell (pwsh) tool — persistent session with PS-native protocol.
+//!
+//! Provides a dedicated `pwsh` session separate from `BashTool`, with:
+//! - PowerShell Core (`pwsh`) as the shell binary
+//! - `Write-Output` delimiters and `$LASTEXITCODE` exit codes
+//! - Wall-clock timeouts (no Unix `timeout` command)
+//! - PS-specific boilerplate filtering
+//! - Case-insensitive cmdlet validation
+
+mod filter;
+mod protocol;
+mod session;
+
+use crate::telemetry::streaming::{StreamChunk, StreamReceiver, ToolStreaming};
+use crate::truncation::truncate_bash_output;
+use crate::{Tool, ToolContext, ToolOutput, ToolPermission, ToolTag};
+use anyhow::{anyhow, Result};
+use serde_json::json;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+pub use filter::{filter_ps_boilerplate, is_ps_boilerplate};
+pub use protocol::extract_binary_name;
+pub use session::{detect_ps_version, find_pwsh, probe_pwsh, PSEdition, PowerShellSession};
+
+// Session registry (same pattern as BashSessionRegistry)
+
+struct PSSessionRegistry {
+    sessions: std::sync::Mutex<
+        Option<std::collections::HashMap<PathBuf, Arc<std::sync::Mutex<PowerShellSession>>>>,
+    >,
+    last_access: std::sync::Mutex<Option<std::collections::HashMap<PathBuf, Instant>>>,
+}
+
+const PS_IDLE_TIMEOUT_SECS: u64 = 300;
+
+impl PSSessionRegistry {
+    const fn new() -> Self {
+        Self {
+            sessions: std::sync::Mutex::new(None),
+            last_access: std::sync::Mutex::new(None),
+        }
+    }
+
+    fn ensure_init(&self) {
+        if self
+            .sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_none()
+        {
+            *self
+                .sessions
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                Some(std::collections::HashMap::new());
+            *self
+                .last_access
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                Some(std::collections::HashMap::new());
+        }
+    }
+
+    fn get_or_create(&self, cwd: PathBuf) -> Result<Arc<std::sync::Mutex<PowerShellSession>>> {
+        self.ensure_init();
+
+        {
+            if let Some(ref mut times) = *self
+                .last_access
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+            {
+                times.insert(cwd.clone(), Instant::now());
+            }
+        }
+
+        let sessions_guard = self
+            .sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(ref sessions) = *sessions_guard {
+            if let Some(session) = sessions.get(&cwd) {
+                return Ok(Arc::clone(session));
+            }
+        }
+
+        drop(sessions_guard);
+        let session = Arc::new(std::sync::Mutex::new(PowerShellSession::new(cwd.clone())?));
+
+        let mut sessions_guard = self
+            .sessions
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(ref mut sessions) = *sessions_guard {
+            if let Some(existing) = sessions.get(&cwd) {
+                return Ok(Arc::clone(existing));
+            }
+            sessions.insert(cwd, Arc::clone(&session));
+        }
+
+        Ok(session)
+    }
+
+    fn remove(&self, cwd: &Path) -> Option<Arc<std::sync::Mutex<PowerShellSession>>> {
+        self.ensure_init();
+        let removed = {
+            let mut sessions = self
+                .sessions
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            match sessions.as_mut() {
+                Some(s) => s.remove(cwd),
+                None => None,
+            }
+        };
+        if let Some(ref mut times) = *self
+            .last_access
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+        {
+            times.remove(cwd);
+        }
+        removed
+    }
+
+    fn evict_idle(&self) {
+        self.ensure_init();
+        let now = Instant::now();
+        let to_evict: Vec<PathBuf> = {
+            let times_guard = self
+                .last_access
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            match *times_guard {
+                Some(ref times) => times
+                    .iter()
+                    .filter(|(_, last)| now.duration_since(**last).as_secs() > PS_IDLE_TIMEOUT_SECS)
+                    .map(|(p, _)| p.clone())
+                    .collect(),
+                None => return,
+            }
+        };
+
+        if !to_evict.is_empty() {
+            let mut sessions_guard = self
+                .sessions
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(ref mut sessions) = *sessions_guard {
+                for cwd in &to_evict {
+                    sessions.remove(cwd);
+                }
+            }
+            drop(sessions_guard);
+            let mut times_guard = self
+                .last_access
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(ref mut times) = *times_guard {
+                for cwd in &to_evict {
+                    times.remove(cwd);
+                }
+            }
+        }
+    }
+}
+
+static PS_SESSION_REGISTRY: PSSessionRegistry = PSSessionRegistry::new();
+
+// Rate limiter
+
+struct PSRateLimiter {
+    active: AtomicUsize,
+    max_concurrent: usize,
+}
+
+impl PSRateLimiter {
+    const fn new(max_concurrent: usize) -> Self {
+        Self {
+            active: AtomicUsize::new(0),
+            max_concurrent,
+        }
+    }
+
+    fn try_acquire(&self) -> Result<PSPermit<'_>> {
+        loop {
+            let current = self.active.load(Ordering::Acquire);
+            if current >= self.max_concurrent {
+                return Err(anyhow!("rate limit exceeded"));
+            }
+            if self
+                .active
+                .compare_exchange(current, current + 1, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                return Ok(PSPermit { limiter: self });
+            }
+        }
+    }
+
+    fn active_count(&self) -> usize {
+        self.active.load(Ordering::Acquire)
+    }
+}
+
+struct PSPermit<'a> {
+    limiter: &'a PSRateLimiter,
+}
+
+impl Drop for PSPermit<'_> {
+    fn drop(&mut self) {
+        self.limiter.active.fetch_sub(1, Ordering::Release);
+    }
+}
+
+static PS_RATE_LIMITER: PSRateLimiter = PSRateLimiter::new(4);
+
+// Params
+
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+pub struct PowerShellParams {
+    /// PowerShell command (e.g., 'Get-ChildItem', 'Select-String pattern file.txt', '$env:PATH')
+    command: String,
+    /// If true, restart the PowerShell session before executing the command
+    #[serde(default)]
+    restart: bool,
+    /// Timeout in seconds (default 120s, max 600s)
+    timeout_secs: Option<u64>,
+}
+
+// PowerShellTool via define_tool!
+
+rustycode_tools_api::define_tool! {
+    pub struct PowerShellTool;
+
+    name: "PowerShell",
+    description: "Run PowerShell commands in a persistent session. \
+     Supports PowerShell Core (pwsh 7+, cross-platform) and Windows PowerShell (5.1). \
+     Use PowerShell cmdlets and syntax (e.g., Get-ChildItem, Select-String, $env:PATH). \
+     PowerShell Core supports && and || chain operators; Windows PowerShell 5.1 does not. \
+     Prefer dedicated tools for common operations: read_file/edit_file for file I/O, \
+     grep for searching, glob for file matching. \
+     Use powershell for: .NET operations, Windows-specific tasks, object pipeline processing, \
+     and commands that need PS cmdlets (Get-Content, Invoke-WebRequest, etc.).",
+    permission: ToolPermission::Execute,
+    tags: [ToolTag::Implement, ToolTag::Ops],
+
+    execute(params: PowerShellParams, ctx) {
+        crate::check_permission(ToolPermission::Execute, ctx)?;
+
+        if let Some(gate) = &ctx.plan_gate {
+            gate.check_access(ctx.role, "PowerShell")?;
+        }
+
+        let command = params.command;
+        let restart = params.restart;
+        let timeout_secs = params.timeout_secs.unwrap_or(120).min(600);
+
+        // Validate command safety
+        use crate::security::cross_platform::{
+            allowed_commands, blocked_commands, validate_path_in_workspace, ShellType,
+        };
+        validate_path_in_workspace(&ctx.cwd, &ctx.cwd)?;
+
+        let shell_type = ShellType::PowerShell;
+        let binary_name = extract_binary_name(&command)?;
+        let allowed_commands = allowed_commands(shell_type);
+        if !allowed_commands
+            .iter()
+            .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
+        {
+            anyhow::bail!(
+                "command '{}' is not in allowed list for PowerShell",
+                binary_name
+            );
+        }
+
+        let blocked_commands = blocked_commands(shell_type);
+        if blocked_commands
+            .iter()
+            .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
+        {
+            anyhow::bail!("command '{}' is blocked for security reasons", binary_name);
+        }
+
+        let _permit = PS_RATE_LIMITER.try_acquire().map_err(|_| {
+            anyhow!(
+                "Rate limit exceeded: {} concurrent PowerShell commands already running.",
+                PS_RATE_LIMITER.active_count()
+            )
+        })?;
+
+        let start_time = Instant::now();
+
+        let session = if restart {
+            PS_SESSION_REGISTRY.remove(&ctx.cwd);
+            PS_SESSION_REGISTRY.get_or_create(ctx.cwd.clone())?
+        } else {
+            PS_SESSION_REGISTRY.evict_idle();
+            PS_SESSION_REGISTRY.get_or_create(ctx.cwd.clone())?
+        };
+
+        let command_clone = command.clone();
+        let cwd_clone = ctx.cwd.clone();
+
+        let (stdout, stderr, exit_code) = if let Ok(handle) = tokio::runtime::Handle::try_current()
+        {
+            tokio::task::block_in_place(|| {
+                handle.block_on(async {
+                    let result = tokio::time::timeout(
+                        Duration::from_secs(timeout_secs),
+                        tokio::task::spawn_blocking(move || {
+                            let s = session
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            let alive = s
+                                .child
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .is_some();
+                            if !alive {
+                                drop(s);
+                                drop(session);
+                                PS_SESSION_REGISTRY.remove(&cwd_clone);
+                                let fresh = PS_SESSION_REGISTRY.get_or_create(cwd_clone)?;
+                                let s = fresh
+                                    .lock()
+                                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                                return s.execute(&command_clone, timeout_secs);
+                            }
+                            s.execute(&command_clone, timeout_secs)
+                        }),
+                    )
+                    .await;
+
+                    if result.is_err() {
+                        tracing::warn!(
+                            "pwsh command timed out, evicting session for {:?}",
+                            ctx.cwd
+                        );
+                        PS_SESSION_REGISTRY.remove(&ctx.cwd);
+                    }
+
+                    result
+                        .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
+                        .map_err(|e| anyhow!("command execution failed: {e}"))?
+                })
+            })
+        } else {
+            tokio::runtime::Runtime::new()
+                .map_err(|e| anyhow!("failed to create tokio runtime: {e}"))?
+                .block_on(async {
+                    let cwd_for_evict = ctx.cwd.clone();
+                    let result = tokio::time::timeout(
+                        Duration::from_secs(timeout_secs),
+                        tokio::task::spawn_blocking(move || {
+                            let s = session
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner);
+                            let alive = s
+                                .child
+                                .lock()
+                                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                                .is_some();
+                            if !alive {
+                                drop(s);
+                                drop(session);
+                                PS_SESSION_REGISTRY.remove(&cwd_clone);
+                                let fresh = PS_SESSION_REGISTRY.get_or_create(cwd_clone)?;
+                                let s = fresh
+                                    .lock()
+                                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                                return s.execute(&command_clone, timeout_secs);
+                            }
+                            s.execute(&command_clone, timeout_secs)
+                        }),
+                    )
+                    .await;
+
+                    if result.is_err() {
+                        tracing::warn!(
+                            "pwsh command timed out, evicting session for {:?}",
+                            cwd_for_evict
+                        );
+                        PS_SESSION_REGISTRY.remove(&cwd_for_evict);
+                    }
+
+                    result
+                        .map_err(|_| anyhow!("command timed out after {timeout_secs}s"))?
+                        .map_err(|e| anyhow!("command execution failed: {e}"))?
+                })
+        }?;
+
+        let execution_time = start_time.elapsed();
+
+        let truncated = truncate_bash_output(&stdout, &stderr, exit_code);
+        let output_text = truncated.as_str().to_string();
+
+        let metadata = {
+            let mut meta = truncated.into_metadata();
+            meta["exit_code"] = json!(exit_code);
+            meta["command"] = json!(command);
+            meta["execution_time_ms"] = json!(execution_time.as_millis());
+            meta["timeout_secs"] = json!(timeout_secs);
+            meta["shell"] = json!("PowerShell");
+            if let Some(edition) = session::ps_edition() {
+                meta["ps_edition"] = json!(match edition {
+                    PSEdition::Core => "core",
+                    PSEdition::Desktop => "desktop",
+                });
+            }
+            if let Some(ver) = detect_ps_version() {
+                meta["ps_version"] = json!(ver);
+            }
+            if exit_code != 0 {
+                meta["failed"] = json!(true);
+            }
+            meta
+        };
+
+        Ok(ToolOutput::text(output_text).with_metadata(ctx, || metadata))
+    }
+}
+
+// ToolStreaming — kept as separate impl since define_tool! does not cover it.
+
+impl ToolStreaming for PowerShellTool {
+    fn execute_stream(
+        &self,
+        params: serde_json::Value,
+        ctx: &ToolContext,
+    ) -> Result<StreamReceiver> {
+        use crate::telemetry::streaming::create_stream_channel;
+
+        crate::check_permission(self.permission(), ctx)?;
+
+        if let Some(gate) = &ctx.plan_gate {
+            gate.check_access(ctx.role, self.name())?;
+        }
+
+        let command = params
+            .get("command")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_string();
+
+        let restart = params
+            .get("restart")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+
+        let timeout_secs = params
+            .get("timeout_secs")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(120)
+            .min(600);
+
+        // Validate
+        use crate::security::cross_platform::{allowed_commands, blocked_commands, ShellType};
+        let shell_type = ShellType::PowerShell;
+        let binary_name = extract_binary_name(&command).unwrap_or_default();
+        let allowed_commands = allowed_commands(shell_type);
+        if !allowed_commands
+            .iter()
+            .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
+        {
+            return Err(anyhow!("command not in allowed list for PowerShell"));
+        }
+        let blocked_commands = blocked_commands(shell_type);
+        if blocked_commands
+            .iter()
+            .any(|cmd| cmd.eq_ignore_ascii_case(&binary_name))
+        {
+            return Err(anyhow!("command is blocked for security reasons"));
+        }
+
+        let (sender, receiver) = create_stream_channel();
+
+        let session = if restart {
+            PS_SESSION_REGISTRY.remove(&ctx.cwd);
+            PS_SESSION_REGISTRY.get_or_create(ctx.cwd.clone())?
+        } else {
+            PS_SESSION_REGISTRY.evict_idle();
+            PS_SESSION_REGISTRY.get_or_create(ctx.cwd.clone())?
+        };
+
+        let cwd_for_evict = ctx.cwd.clone();
+
+        // Spawn blocking task for streaming execution
+        let sender_clone = sender.clone();
+        let sender_panic = sender.clone();
+        let _ = std::thread::spawn(move || {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let s = session
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                let alive = s
+                    .child
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .is_some();
+                if !alive {
+                    drop(s);
+                    drop(session);
+                    PS_SESSION_REGISTRY.remove(&cwd_for_evict);
+                    let fresh = match PS_SESSION_REGISTRY.get_or_create(cwd_for_evict) {
+                        Ok(f) => f,
+                        Err(e) => {
+                            let _ = sender_clone.send(StreamChunk::new(format!("Error: {e}\n")));
+                            let _ = sender_clone.send(StreamChunk::done());
+                            return;
+                        }
+                    };
+                    let s = fresh
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let _ = s.execute_stream(&command, timeout_secs, sender_clone);
+                    return;
+                }
+                let _ = s.execute_stream(&command, timeout_secs, sender_clone);
+            }));
+            if let Err(payload) = result {
+                let msg = format!("Panic in streaming thread: {:?}", payload);
+                let _ = sender_panic.send(StreamChunk::error(&msg));
+                let _ = sender_panic.send(StreamChunk::done());
+            }
+        });
+
+        Ok(receiver)
+    }
+}
+
+// Tests
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Tool;
+
+    fn pwsh_available() -> bool {
+        find_pwsh().is_some()
+    }
+
+    #[test]
+    fn test_extract_binary_name_cmdlet() {
+        assert_eq!(
+            extract_binary_name("Get-ChildItem -Path .").unwrap(),
+            "get-childitem"
+        );
+    }
+
+    #[test]
+    fn test_extract_binary_name_alias() {
+        assert_eq!(extract_binary_name("gci -Path .").unwrap(), "gci");
+    }
+
+    #[test]
+    fn test_extract_binary_name_external() {
+        assert_eq!(extract_binary_name("git status").unwrap(), "git");
+    }
+
+    #[test]
+    fn test_extract_binary_name_pipe() {
+        assert_eq!(
+            extract_binary_name("Get-Process | Where-Object { $_.CPU -gt 100 }").unwrap(),
+            "get-process"
+        );
+    }
+
+    #[test]
+    fn test_extract_binary_name_path() {
+        assert_eq!(
+            extract_binary_name("/usr/bin/python3 -c 'hello'").unwrap(),
+            "python3"
+        );
+    }
+
+    #[test]
+    fn test_extract_binary_name_empty() {
+        assert!(extract_binary_name("").is_err());
+        assert!(extract_binary_name("   ").is_err());
+    }
+
+    #[test]
+    fn test_ps_boilerplate_filtering() {
+        assert!(is_ps_boilerplate("PowerShell 7.4.0"));
+        assert!(is_ps_boilerplate("PS C:\\Users> "));
+        assert!(is_ps_boilerplate("Windows PowerShell"));
+        assert!(!is_ps_boilerplate("Hello, World!"));
+        assert!(!is_ps_boilerplate("Get-Process"));
+    }
+
+    #[test]
+    fn test_filter_ps_boilerplate_multiline() {
+        let input = "PowerShell 7.4.0\nHello\nPS C:\\> \nWorld\nWrite-Output '---END---'";
+        let filtered = filter_ps_boilerplate(input);
+        assert_eq!(filtered, "Hello\nWorld");
+    }
+
+    #[test]
+    fn test_find_pwsh() {
+        // This test just verifies the function doesn't panic.
+        // It may return None on systems without pwsh.
+        let _ = find_pwsh();
+    }
+
+    #[test]
+    fn test_tool_name_and_schema() {
+        let tool = PowerShellTool;
+        assert_eq!(tool.name(), "PowerShell");
+        let schema = tool.parameters_schema();
+        assert!(schema["properties"]["command"].is_object());
+        assert!(schema["properties"]["restart"].is_object());
+        assert!(schema["properties"]["timeout_secs"].is_object());
+    }
+
+    #[test]
+    fn test_rate_limiter() {
+        let limiter = PSRateLimiter::new(2);
+        let _p1 = limiter.try_acquire().unwrap();
+        let _p2 = limiter.try_acquire().unwrap();
+        assert!(limiter.try_acquire().is_err());
+        drop(_p1);
+        let _p3 = limiter.try_acquire().unwrap();
+    }
+
+    #[test]
+    fn test_ps_edition_from_binary() {
+        // Verify edition detection doesn't panic
+        let edition = session::ps_edition();
+        if pwsh_available() {
+            assert!(edition.is_some());
+            // pwsh binary should always report Core edition
+            let ed = edition.unwrap();
+            assert_eq!(ed, PSEdition::Core);
+            assert!(ed.supports_chain_operators());
+        }
+    }
+
+    #[test]
+    fn test_edition_desktop_no_chain_operators() {
+        assert!(!PSEdition::Desktop.supports_chain_operators());
+        assert!(PSEdition::Core.supports_chain_operators());
+    }
+
+    #[test]
+    fn test_find_pwsh_cached() {
+        // Calling twice should return the same result (cached via OnceLock)
+        let first = find_pwsh();
+        let second = find_pwsh();
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn test_detect_ps_version() {
+        // Just verify it doesn't panic
+        if pwsh_available() {
+            let ver = detect_ps_version();
+            assert!(ver.is_some());
+            let v = ver.unwrap();
+            // Should look like a version string (e.g., "7.4.0" or "5.1.22")
+            assert!(v.contains('.'), "version should contain a dot: {v}");
+        }
+    }
+}

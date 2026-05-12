@@ -6,7 +6,6 @@ mod matching;
 #[cfg(test)]
 mod tests;
 
-use crate::file_formatter;
 use crate::line_endings::generate_diff;
 use crate::security::{create_file_symlink_safe, open_file_symlink_safe, validate_write_path};
 use crate::{ToolOutput, ToolPermission, ToolTag};
@@ -234,7 +233,7 @@ rustycode_tools_api::define_tool! {
         // Generate diff output
         let path_display = params.file_path.display().to_string();
         let diff = generate_diff(&content, &new_content, &path_display, 30);
-        let formatter_diff = file_formatter::format_file(&validated_path, &ctx.cwd);
+        let formatter_diff = crate::workspace::formatter::format_file(&validated_path, &ctx.cwd);
 
         let output = format_edit_output(&path_display, &diff, formatter_diff);
 

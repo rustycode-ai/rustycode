@@ -143,8 +143,13 @@ pub use hooks::{HookManager, HookProfile, HookTrigger};
 // Example:
 // pub use crate::security::permission::*;
 
+pub mod telemetry;
+pub mod workspace;
+
 // Other legacy modules that haven't been moved yet
-pub mod app_paths;
+pub mod app_paths {
+    pub use crate::workspace::paths::*;
+}
 pub mod browser_pool;
 pub mod checkpoint;
 pub mod compaction;
@@ -155,24 +160,34 @@ pub mod edit_format;
 pub mod egress_detector;
 pub mod executable_integration;
 pub mod executable_search;
-pub mod file_formatter;
+pub mod file_formatter {
+    pub use crate::workspace::formatter::*;
+}
 pub mod file_reference;
-pub mod file_snapshot;
+pub mod file_snapshot {
+    pub use crate::workspace::snapshot::*;
+}
 pub mod file_suggest;
 pub mod guardian;
-pub mod hints_loader;
+pub mod hints_loader {
+    pub use crate::workspace::hints::*;
+}
 pub mod hooks;
 pub mod image;
 pub mod image_detect;
 pub mod json_repair;
 pub mod large_response;
-pub mod lifecycle;
+pub mod lifecycle {
+    pub use crate::telemetry::lifecycle::*;
+}
 pub mod line_endings;
 pub mod log_rotation;
 pub mod markdown_stream;
 pub mod native_tools;
 pub mod notebook;
-pub mod observation_layer;
+pub mod observation_layer {
+    pub use crate::telemetry::observation::*;
+}
 pub mod osv_check;
 pub mod permission_classifier;
 pub mod plan_management;
@@ -184,7 +199,9 @@ pub mod prompt_template;
 pub mod recipes;
 pub mod security_patterns;
 pub mod slash_commands;
-pub mod streaming;
+pub mod streaming {
+    pub use crate::telemetry::streaming::*;
+}
 pub mod structured_output;
 pub mod subprocess;
 pub mod task_retry;
@@ -197,7 +214,9 @@ pub mod token_counter;
 pub mod tool_arg_coercion;
 pub mod transform;
 pub mod truncation;
-pub mod workspace_checkpoint;
+pub mod workspace_checkpoint {
+    pub use crate::workspace::checkpoint::*;
+}
 pub mod yaml_format;
 
 // Modules that require additional dependencies or are conditionally available.
@@ -208,7 +227,9 @@ pub mod code_review;
 // Re-export Checkpoint trait so `crate::Checkpoint` resolves.
 pub use checkpoint::Checkpoint;
 
-pub mod worktree;
+pub mod worktree {
+    pub use crate::workspace::worktree::*;
+}
 
 // Permission functions are now in executor/permission.rs
 pub use executor::{check_permission, check_sandbox_path, check_tool_permission, ToolExecutor};
