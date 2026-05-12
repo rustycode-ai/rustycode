@@ -16,6 +16,7 @@
 //! what changed, what depends on what, and decides for itself.
 
 mod context;
+pub mod event_convert;
 mod intelligence;
 mod session;
 mod tool_exec;

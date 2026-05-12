@@ -4,6 +4,17 @@ use rustycode_llm::provider::{CompletionResponse, StreamChunk};
 use rustycode_protocol::stream_event::StreamEvent;
 use std::time::Duration;
 
+async fn emit_event(
+    event: StreamEvent,
+    events: &mut dyn AgentEvents,
+    event_tx: &tokio::sync::broadcast::Sender<rustycode_protocol::EventMsg>,
+) {
+    events.on_event(event.clone()).await;
+    if let Some(msg) = crate::event_convert::stream_event_to_event_msg(event) {
+        let _ = event_tx.send(msg);
+    }
+}
+
 use crate::session::AgentEvents;
 
 #[derive(Clone, Debug)]
@@ -44,6 +55,7 @@ pub async fn collect_stream_turn(
     mut stream: std::pin::Pin<Box<dyn futures::Stream<Item = StreamChunk> + Send>>,
     chunk_timeout: Duration,
     events: &mut dyn AgentEvents,
+    event_tx: &tokio::sync::broadcast::Sender<rustycode_protocol::EventMsg>,
 ) -> Result<TurnState> {
     let mut state = TurnState::new();
 
@@ -61,7 +73,7 @@ pub async fn collect_stream_turn(
             }
         };
 
-        apply_stream_event(&sse, &mut state, events).await;
+        apply_stream_event(&sse, &mut state, events, event_tx).await;
     }
 
     Ok(state)
@@ -70,6 +82,7 @@ pub async fn collect_stream_turn(
 pub async fn collect_completion_turn(
     response: CompletionResponse,
     events: &mut dyn AgentEvents,
+    event_tx: &tokio::sync::broadcast::Sender<rustycode_protocol::EventMsg>,
 ) -> Result<TurnState> {
     let mut state = TurnState::new();
 
@@ -88,12 +101,15 @@ pub async fn collect_completion_turn(
         state.total_cache_creation_tokens = state
             .total_cache_creation_tokens
             .saturating_add(u64::from(usage.cache_creation_input_tokens));
-        events
-            .on_event(StreamEvent::TokenUsage {
+        emit_event(
+            StreamEvent::TokenUsage {
                 input_tokens: u64::from(usage.input_tokens),
                 output_tokens: u64::from(usage.output_tokens),
-            })
-            .await;
+            },
+            events,
+            event_tx,
+        )
+        .await;
     }
 
     if let Some(thinking_blocks) = &response.thinking_blocks {
@@ -102,20 +118,71 @@ pub async fn collect_completion_turn(
                 continue;
             }
             state.thinking_text.push_str(&block.thinking);
-            events
-                .on_event(StreamEvent::ThinkingDelta {
+            emit_event(
+                StreamEvent::ThinkingDelta {
                     content: block.thinking.clone(),
-                })
-                .await;
+                },
+                events,
+                event_tx,
+            )
+            .await;
         }
     }
 
-    // Parse the completion response content (non-streaming path)
+    let (assistant_text, tool_calls) = parse_completion_content(&response.content);
+    if !assistant_text.is_empty() {
+        state.assistant_text.push_str(&assistant_text);
+        emit_event(
+            StreamEvent::TextDelta {
+                content: assistant_text,
+            },
+            events,
+            event_tx,
+        )
+        .await;
+    }
+
+    for call in tool_calls {
+        let tool_id = call
+            .id
+            .clone()
+            .unwrap_or_else(|| format!("tool-{}", state.tools.len() + 1));
+        let input_json =
+            serde_json::to_string(&call.arguments).unwrap_or_else(|_| call.arguments.to_string());
+
+        state.tools.push(PendingTool {
+            id: tool_id.clone(),
+            name: call.name.clone(),
+            input_json: input_json.clone(),
+        });
+        emit_event(
+            StreamEvent::ToolCallStarted {
+                id: tool_id.clone(),
+                name: call.name.clone(),
+            },
+            events,
+            event_tx,
+        )
+        .await;
+        emit_event(
+            StreamEvent::ToolInputDelta {
+                id: tool_id,
+                chunk: input_json,
+            },
+            events,
+            event_tx,
+        )
+        .await;
+    }
+
+    Ok(state)
+}
+
+fn parse_completion_content(content: &str) -> (String, Vec<ParsedToolCall>) {
     let mut assistant_text = String::new();
     let mut tool_calls = Vec::new();
 
-    // Try to parse as structured content blocks first
-    if let Ok(blocks) = serde_json::from_str::<Vec<serde_json::Value>>(&response.content) {
+    if let Ok(blocks) = serde_json::from_str::<Vec<serde_json::Value>>(content) {
         for block in blocks {
             if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
                 assistant_text.push_str(text);
@@ -136,71 +203,40 @@ pub async fn collect_completion_turn(
             }
         }
     } else {
-        // Fallback: treat entire content as text
-        assistant_text = response.content.clone();
-        // Try to parse tool calls from the text if present
-        tool_calls = parse_tool_calls(&response.content);
+        assistant_text = content.to_string();
+        tool_calls = parse_tool_calls(content);
     }
-    if !assistant_text.is_empty() {
-        state.assistant_text.push_str(&assistant_text);
-        events
-            .on_event(StreamEvent::TextDelta {
-                content: assistant_text,
-            })
-            .await;
-    }
-
-    for call in tool_calls {
-        let tool_id = call
-            .id
-            .clone()
-            .unwrap_or_else(|| format!("tool-{}", state.tools.len() + 1));
-        let input_json =
-            serde_json::to_string(&call.arguments).unwrap_or_else(|_| call.arguments.to_string());
-
-        state.tools.push(PendingTool {
-            id: tool_id.clone(),
-            name: call.name.clone(),
-            input_json: input_json.clone(),
-        });
-        events
-            .on_event(StreamEvent::ToolCallStarted {
-                id: tool_id.clone(),
-                name: call.name.clone(),
-            })
-            .await;
-        events
-            .on_event(StreamEvent::ToolInputDelta {
-                id: tool_id,
-                chunk: input_json,
-            })
-            .await;
-    }
-
-    Ok(state)
+    (assistant_text, tool_calls)
 }
 
 async fn apply_stream_event(
     event: &StreamEvent,
     state: &mut TurnState,
     events: &mut dyn AgentEvents,
+    event_tx: &tokio::sync::broadcast::Sender<rustycode_protocol::EventMsg>,
 ) {
     match event {
         StreamEvent::TextDelta { content } => {
             state.assistant_text.push_str(content);
-            events
-                .on_event(StreamEvent::TextDelta {
+            emit_event(
+                StreamEvent::TextDelta {
                     content: content.clone(),
-                })
-                .await;
+                },
+                events,
+                event_tx,
+            )
+            .await;
         }
         StreamEvent::ThinkingDelta { content } => {
             state.thinking_text.push_str(content);
-            events
-                .on_event(StreamEvent::ThinkingDelta {
+            emit_event(
+                StreamEvent::ThinkingDelta {
                     content: content.clone(),
-                })
-                .await;
+                },
+                events,
+                event_tx,
+            )
+            .await;
         }
         StreamEvent::ToolCallStarted { id, name } => {
             state.tools.push(PendingTool {
@@ -208,12 +244,15 @@ async fn apply_stream_event(
                 name: name.clone(),
                 input_json: String::new(),
             });
-            events
-                .on_event(StreamEvent::ToolCallStarted {
+            emit_event(
+                StreamEvent::ToolCallStarted {
                     id: id.clone(),
                     name: name.clone(),
-                })
-                .await;
+                },
+                events,
+                event_tx,
+            )
+            .await;
         }
         StreamEvent::ToolInputDelta { id, chunk } => {
             if let Some(tool) = state.tools.iter_mut().find(|t| t.id == *id) {
@@ -224,12 +263,15 @@ async fn apply_stream_event(
                     last.input_json.push_str(chunk);
                 }
             }
-            events
-                .on_event(StreamEvent::ToolInputDelta {
+            emit_event(
+                StreamEvent::ToolInputDelta {
                     id: id.clone(),
                     chunk: chunk.clone(),
-                })
-                .await;
+                },
+                events,
+                event_tx,
+            )
+            .await;
         }
         StreamEvent::TokenUsage {
             input_tokens,
@@ -237,12 +279,15 @@ async fn apply_stream_event(
         } => {
             state.total_input_tokens = state.total_input_tokens.saturating_add(*input_tokens);
             state.total_output_tokens = state.total_output_tokens.saturating_add(*output_tokens);
-            events
-                .on_event(StreamEvent::TokenUsage {
+            emit_event(
+                StreamEvent::TokenUsage {
                     input_tokens: *input_tokens,
                     output_tokens: *output_tokens,
-                })
-                .await;
+                },
+                events,
+                event_tx,
+            )
+            .await;
         }
         StreamEvent::TurnCompleted { stop_reason } => {
             state.stop_reason = Some(stop_reason.clone());
@@ -257,6 +302,14 @@ async fn apply_stream_event(
             state.total_cache_creation_tokens = state
                 .total_cache_creation_tokens
                 .saturating_add(*cache_creation_tokens);
+            if let Some(msg) =
+                crate::event_convert::stream_event_to_event_msg(StreamEvent::CacheUsage {
+                    cache_read_tokens: *cache_read_tokens,
+                    cache_creation_tokens: *cache_creation_tokens,
+                })
+            {
+                let _ = event_tx.send(msg);
+            }
         }
         _ => {}
     }
@@ -463,7 +516,9 @@ mod tests {
             content: "Hello".to_string(),
         };
 
-        apply_stream_event(&event, &mut state, &mut collector).await;
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
+        apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
 
         assert_eq!(state.assistant_text, "Hello");
         assert_eq!(collector.events.len(), 1);
@@ -487,8 +542,10 @@ mod tests {
             },
         ];
 
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
         for event in events {
-            apply_stream_event(&event, &mut state, &mut collector).await;
+            apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
         }
 
         assert_eq!(state.assistant_text, "hello");
@@ -520,8 +577,10 @@ mod tests {
             },
         ];
 
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
         for event in events {
-            apply_stream_event(&event, &mut state, &mut collector).await;
+            apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
         }
 
         assert_eq!(state.assistant_text, "AAA");
@@ -538,13 +597,15 @@ mod tests {
     async fn tool_call_started_creates_pending_tool() {
         let mut state = TurnState::new();
         let mut collector = TestEventCollector::new();
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
 
         let event = StreamEvent::ToolCallStarted {
             id: "t1".to_string(),
             name: "Read".to_string(),
         };
 
-        apply_stream_event(&event, &mut state, &mut collector).await;
+        apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
 
         assert_eq!(state.tools.len(), 1);
         assert_eq!(state.tools[0].id, "t1");
@@ -569,13 +630,15 @@ mod tests {
             id: "t1".to_string(),
             name: "Bash".to_string(),
         };
-        apply_stream_event(&start, &mut state, &mut collector).await;
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
+        apply_stream_event(&start, &mut state, &mut collector, &event_tx).await;
 
         let delta = StreamEvent::ToolInputDelta {
             id: "t1".to_string(),
             chunk: r#"{"command":"ls"}"#.to_string(),
         };
-        apply_stream_event(&delta, &mut state, &mut collector).await;
+        apply_stream_event(&delta, &mut state, &mut collector, &event_tx).await;
 
         assert_eq!(state.tools[0].input_json, r#"{"command":"ls"}"#);
     }
@@ -588,7 +651,9 @@ mod tests {
         let event = StreamEvent::TurnCompleted {
             stop_reason: "tool_use".to_string(),
         };
-        apply_stream_event(&event, &mut state, &mut collector).await;
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
+        apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
 
         assert_eq!(state.stop_reason, Some("tool_use".to_string()));
         // TurnCompleted is not forwarded to collector
@@ -604,7 +669,9 @@ mod tests {
             input_tokens: 100,
             output_tokens: 50,
         };
-        apply_stream_event(&event, &mut state, &mut collector).await;
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
+        apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
 
         assert_eq!(state.total_input_tokens, 100);
         assert_eq!(state.total_output_tokens, 50);
@@ -620,7 +687,9 @@ mod tests {
             cache_read_tokens: 500,
             cache_creation_tokens: 200,
         };
-        apply_stream_event(&event, &mut state, &mut collector).await;
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
+        apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
 
         assert_eq!(state.total_cache_read_tokens, 500);
         assert_eq!(state.total_cache_creation_tokens, 200);
@@ -652,9 +721,16 @@ mod tests {
         ];
         let stream = futures::stream::iter(events);
         let mut collector = TestEventCollector::new();
-        let state = collect_stream_turn(Box::pin(stream), Duration::from_secs(30), &mut collector)
-            .await
-            .unwrap();
+        // Create a dummy event_tx for testing (broadcasts will be ignored)
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
+        let state = collect_stream_turn(
+            Box::pin(stream),
+            Duration::from_secs(30),
+            &mut collector,
+            &event_tx,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(state.assistant_text, "Hello");
         assert_eq!(state.tools.len(), 1);

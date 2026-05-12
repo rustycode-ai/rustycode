@@ -7,8 +7,7 @@
 
 use super::cli_args::SkillsCommand;
 use anyhow::{Context, Result};
-use rustycode_config::paths::RustyCodePath;
-use rustycode_tools::skills::{Skill, SkillRegistry};
+use rustycode_skill::manager::SkillManager;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -16,12 +15,11 @@ use std::path::PathBuf;
 pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
     match cmd {
         SkillsCommand::List { detailed } => {
-            let registry = load_skill_registry()?;
-            let skills = registry.list();
+            let mgr = load_skill_manager()?;
+            let skills = mgr.all_definitions();
 
             if skills.is_empty() {
                 println!("No skills found.");
-                println!("\nBuilt-in skills will be available once you run them.");
                 return Ok(());
             }
 
@@ -40,32 +38,22 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
             vars,
             dry_run,
         } => {
-            let mut registry = load_skill_registry()?;
+            let mgr = load_skill_manager()?;
+            
+            // Skill name validation
+            let skill = mgr.definition(&name).ok_or_else(|| {
+                anyhow::anyhow!("Skill '{}' not found. Use 'skills list' to see available skills.", name)
+            })?;
+
+            // Legacy variable substitution logic (kept for compatibility with 'run' command)
             let variables = parse_variables(&vars)?;
-
-            // Check if skill exists
-            if registry.get(&name).is_none() {
-                // Check if it's a built-in skill that hasn't been registered yet
-                let builtin_exists = SkillRegistry::builtin_skills()
-                    .iter()
-                    .any(|s| s.name == name);
-
-                if builtin_exists {
-                    println!("Note: Registering built-in skill '{}'", name);
-                    for skill in SkillRegistry::builtin_skills() {
-                        registry.register(skill);
-                    }
-                } else {
-                    anyhow::bail!(
-                        "Skill '{}' not found. Use 'skills list' to see available skills.",
-                        name
-                    );
-                }
+            let mut rendered_prompt = skill.content.as_deref().unwrap_or(&skill.description).to_string();
+            
+            for (key, value) in variables {
+                rendered_prompt = rendered_prompt.replace(&format!("{{{{{key}}}}}"), &value);
             }
 
-            let resolved = registry.resolve(&name, &variables)?;
-
-            println!("\n{}", resolved.rendered_prompt);
+            println!("\n{}", rendered_prompt);
 
             if dry_run {
                 println!("\n[Dry run mode - not executing]");
@@ -81,14 +69,14 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
                     .context("Failed to create LLM provider")?;
 
                 let config = OrchestrationConfig::default();
-                let model = resolved.skill.model.as_deref().unwrap_or(&model_name);
+                let model = skill.model_override.as_deref().unwrap_or(&model_name);
                 let pipeline =
                     OrchestrationPipeline::with_provider_and_model(config, provider, model);
 
                 let result = pipeline
                     .conduct(
-                        format!("skill-{}", resolved.skill.name),
-                        resolved.rendered_prompt.clone(),
+                        format!("skill-{}", skill.name),
+                        rendered_prompt.clone(),
                     )
                     .await?;
 
@@ -103,95 +91,70 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
             }
 
             // Print skill metadata
-            if let Some(model) = &resolved.skill.model {
+            if let Some(model) = &skill.model_override {
                 println!("\nModel override: {}", model);
             }
-            if let Some(temp) = resolved.skill.temperature {
-                println!("Temperature override: {:.1}", temp);
-            }
-            if !resolved.skill.tools.is_empty() {
-                println!("Tools: {}", resolved.skill.tools.join(", "));
+            if !skill.allowed_tools.is_empty() {
+                println!("Allowed Tools: {}", skill.allowed_tools.join(", "));
             }
         }
         SkillsCommand::Create {
             name,
             description,
             prompt,
-            variables,
+            variables: _,
             output,
         } => {
-            let variables = if let Some(vars_str) = variables {
-                parse_variable_definitions(&vars_str)?
+            // For the new SKILL.md format, we create a directory and a SKILL.md file
+            let output_dir = if let Some(path) = output {
+                PathBuf::from(path).join(&name)
             } else {
-                Vec::new()
+                PathBuf::from(".").join(&name)
             };
 
-            let skill = Skill {
-                name: name.clone(),
-                description,
-                prompt,
-                variables,
-                tools: Vec::new(),
-                model: None,
-                temperature: None,
-            };
+            std::fs::create_dir_all(&output_dir)?;
 
-            let output_path = if let Some(path) = output {
-                PathBuf::from(path)
-            } else {
-                PathBuf::from(".")
-            };
+            let content = format!(
+                "---\nname: {}\ndescription: {}\n---\n\n# {}\n\n{}",
+                name, description, name, prompt
+            );
 
-            let yaml_content = serde_yaml::to_string(&skill)?;
-            std::fs::write(&output_path, yaml_content)?;
+            std::fs::write(output_dir.join("SKILL.md"), content)?;
 
-            println!("Created skill '{}' at {}", name, output_path.display());
+            println!("Created skill '{}' directory at {}", name, output_dir.display());
             println!("\nYou can now run it with:");
             println!("  rustycode skills run {}", name);
         }
         SkillsCommand::Validate { path } => {
             let path_buf = PathBuf::from(&path);
-            let content = std::fs::read_to_string(&path_buf)
-                .map_err(|e| anyhow::anyhow!("Failed to read skill file at {}: {}", path, e))?;
-
-            let extension = path_buf
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or("yaml");
-
-            let skill: Skill = match extension {
-                "yaml" | "yml" => serde_yaml::from_str(&content)?,
-                "toml" => toml::from_str(&content)?,
-                "json" => serde_json::from_str(&content)?,
-                _ => anyhow::bail!("Unsupported file format: {}", extension),
+            let skill_md = if path_buf.is_dir() {
+                path_buf.join("SKILL.md")
+            } else {
+                path_buf
             };
 
-            println!("Skill definition is valid!\n");
-            print_skill(&skill, true);
+            if !skill_md.exists() {
+                anyhow::bail!("Skill file not found at {}", skill_md.display());
+            }
 
-            // Validate prompt template
-            let placeholder_pattern = regex::Regex::new(r"\{\{(\w+)\}\}")
-                .expect("placeholder regex is a valid constant pattern");
-            let placeholders: Vec<_> = placeholder_pattern
-                .find_iter(&skill.prompt)
-                .map(|m| m.as_str().to_string())
-                .collect();
+            // Use the new registry's internal parsing logic for validation
+            // We'll simulate this by creating a registry and loading the file
+            let mut mgr = SkillManager::builder().build()?;
+            // We need to access the registry internally or use load_from_dir
+            if let Some(parent) = skill_md.parent() {
+                 mgr.discover_dynamic(&[], parent);
+            }
 
-            if !placeholders.is_empty() {
-                println!("\nPrompt placeholders found:");
-                for placeholder in &placeholders {
-                    let var_name = placeholder.trim_start_matches("{{").trim_end_matches("}}");
-                    let is_defined = skill.variables.iter().any(|v| v.name == var_name);
-                    let status = if is_defined { "✓" } else { "✗" };
-                    println!("  {} {}", status, placeholder);
+            let name = skill_md.parent()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
 
-                    if !is_defined {
-                        println!(
-                            "    Warning: Variable '{}' is used in prompt but not defined",
-                            var_name
-                        );
-                    }
-                }
+            if let Some(skill) = mgr.definition(&name) {
+                println!("Skill definition is valid!\n");
+                print_skill(skill, true);
+            } else {
+                anyhow::bail!("Failed to validate skill at {}", skill_md.display());
             }
         }
     }
@@ -199,27 +162,19 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
     Ok(())
 }
 
-/// Load skill registry with built-in and custom skills
-fn load_skill_registry() -> Result<SkillRegistry> {
-    let mut registry = SkillRegistry::new();
-
-    // Register built-in skills
-    for skill in SkillRegistry::builtin_skills() {
-        registry.register(skill);
-    }
-
-    // Load custom skills from ~/.rustycode/skills
-    if let Ok(skills_dir) = RustyCodePath::skills_dir() {
-        if skills_dir.exists() {
-            let custom_registry = SkillRegistry::load_from_dir(&skills_dir)?;
-            for skill in custom_registry.list() {
-                let skill = skill.clone();
-                registry.register(skill);
-            }
+/// Load skill manager with bundled and user skills
+fn load_skill_manager() -> Result<SkillManager> {
+    let mut builder = SkillManager::builder();
+    
+    // SkillManager builder automatically handles bundled skills and 
+    // we can specify user skills directory
+    if let Ok(user_dir) = rustycode_config::paths::RustyCodePath::skills_dir() {
+        if user_dir.exists() {
+            builder = builder.user_skills_dir(&user_dir);
         }
     }
 
-    Ok(registry)
+    builder.build()
 }
 
 /// Parse key=value pairs into HashMap
@@ -241,70 +196,21 @@ fn parse_variables(vars: &[String]) -> Result<HashMap<String, String>> {
     Ok(result)
 }
 
-/// Parse variable definitions from "name:description:required" format
-fn parse_variable_definitions(
-    vars_str: &str,
-) -> Result<Vec<rustycode_tools::skills::SkillVariable>> {
-    let mut variables = Vec::new();
-
-    for var_def in vars_str.split(',') {
-        let parts: Vec<&str> = var_def.split(':').collect();
-        if parts.is_empty() || parts[0].is_empty() {
-            continue;
-        }
-
-        let name = parts[0].trim().to_string();
-        let description = if parts.len() > 1 {
-            parts[1].trim().to_string()
-        } else {
-            String::new()
-        };
-        let required = if parts.len() > 2 {
-            parts[2].trim().eq_ignore_ascii_case("true") || parts[2].trim() == "1"
-        } else {
-            false
-        };
-
-        variables.push(rustycode_tools::skills::SkillVariable {
-            name,
-            description,
-            required,
-            default: None,
-        });
-    }
-
-    Ok(variables)
-}
-
 /// Print skill information
-fn print_skill(skill: &Skill, detailed: bool) {
+fn print_skill(skill: &rustycode_skill::types::SkillDefinition, detailed: bool) {
     println!("  {} — {}", skill.name, skill.description);
 
     if detailed {
-        if !skill.variables.is_empty() {
-            println!("    Variables:");
-            for var in &skill.variables {
-                let required_marker = if var.required { "*" } else { "" };
-                println!(
-                    "      - {}{}: {}",
-                    var.name, required_marker, var.description
-                );
-                if let Some(default) = &var.default {
-                    println!("        (default: {})", default);
-                }
-            }
+        println!("    Source: {:?}", skill.source);
+        println!("    Activation: {:?}", skill.activation.mode);
+        println!("    Effort: {:?}", skill.effort);
+
+        if !skill.allowed_tools.is_empty() {
+            println!("    Allowed Tools: {}", skill.allowed_tools.join(", "));
         }
 
-        if !skill.tools.is_empty() {
-            println!("    Tools: {}", skill.tools.join(", "));
-        }
-
-        if let Some(model) = &skill.model {
-            println!("    Model: {}", model);
-        }
-
-        if let Some(temp) = skill.temperature {
-            println!("    Temperature: {:.1}", temp);
+        if let Some(model) = &skill.model_override {
+            println!("    Model Override: {}", model);
         }
 
         println!();

@@ -10,7 +10,7 @@ use rustycode_llm::provider::{
     OutputConfig, StreamChunk,
 };
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
-use rustycode_protocol::{ContentBlock, MessageContent};
+use rustycode_protocol::{ContentBlock, EventMsg, MessageContent};
 use rustycode_tools::ToolRegistry;
 use rustycode_tools_api::MessageSender;
 use std::path::{Path, PathBuf};
@@ -161,10 +161,14 @@ pub struct AgentSession {
     pub hooks: ExpandedHookDispatcher,
     /// Optional message sender for inter-agent communication.
     pub message_sender: Option<Arc<dyn MessageSender>>,
+    /// Broadcast channel for EventMsg emission (Phase 1B dual emission).
+    /// Capacity: 256 events. Subscribers that lag get Lagged notification.
+    event_tx: tokio::sync::broadcast::Sender<EventMsg>,
 }
 
 impl AgentSession {
     pub fn new(config: AgentConfig, cwd: impl Into<PathBuf>) -> Self {
+        let (event_tx, _) = tokio::sync::broadcast::channel(256);
         Self {
             config,
             cwd: cwd.into(),
@@ -172,6 +176,7 @@ impl AgentSession {
             activation: ToolActivationManager::new(),
             hooks: ExpandedHookDispatcher::new(),
             message_sender: None,
+            event_tx,
         }
     }
 
@@ -197,6 +202,24 @@ impl AgentSession {
     pub fn with_message_sender(mut self, sender: Arc<dyn MessageSender>) -> Self {
         self.message_sender = Some(sender);
         self
+    }
+
+    /// Subscribe to EventMsg broadcast.
+    /// Returns a receiver that gets all events emitted during agent turns.
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<EventMsg> {
+        self.event_tx.subscribe()
+    }
+
+    /// Get a reference to the broadcast sender (for wiring recorders, etc.)
+    pub fn event_sender(&self) -> &tokio::sync::broadcast::Sender<EventMsg> {
+        &self.event_tx
+    }
+
+    /// Broadcast an EventMsg to all subscribers.
+    /// Silently ignores send errors (no subscribers is fine).
+    #[allow(dead_code)]
+    pub(crate) fn broadcast_event(&self, msg: EventMsg) {
+        let _ = self.event_tx.send(msg);
     }
 
     /// Run the agent loop to completion.
@@ -238,6 +261,7 @@ impl AgentSession {
             &self.config,
             events,
             self.message_sender.clone(),
+            &self.event_tx,
         )
         .await
     }
@@ -280,6 +304,7 @@ async fn run_loop(
     config: &AgentConfig,
     events: &mut dyn AgentEvents,
     message_sender: Option<Arc<dyn MessageSender>>,
+    event_tx: &tokio::sync::broadcast::Sender<EventMsg>,
 ) -> Result<AgentResult> {
     const MAX_RETRIES: usize = 3;
 
@@ -378,9 +403,11 @@ async fn run_loop(
                 e
             })? {
             TurnSource::Stream(stream) => {
-                collect_stream_turn(stream, chunk_timeout, events).await?
+                collect_stream_turn(stream, chunk_timeout, events, event_tx).await?
             }
-            TurnSource::Completion(response) => collect_completion_turn(response, events).await?,
+            TurnSource::Completion(response) => {
+                collect_completion_turn(response, events, event_tx).await?
+            }
         };
 
         // Accumulate token counts
@@ -437,12 +464,15 @@ async fn run_loop(
             });
 
             // Signal tool execution start
-            events
-                .on_event(StreamEvent::ToolExecStarted {
-                    id: tool.id.clone(),
-                    name: tool.name.clone(),
-                })
-                .await;
+            let stream_event = StreamEvent::ToolExecStarted {
+                id: tool.id.clone(),
+                name: tool.name.clone(),
+            };
+            events.on_event(stream_event.clone()).await;
+            // Phase 1B: Dual emission — broadcast EventMsg alongside callback
+            if let Some(msg) = crate::event_convert::stream_event_to_event_msg(stream_event) {
+                let _ = event_tx.send(msg);
+            }
 
             // Final safety check: is tool allowed?
             if !activation.is_tool_allowed(&tool.name) {
@@ -451,14 +481,19 @@ async fn run_loop(
                     tool.name,
                     activation.current_tier()
                 );
-                events
-                    .on_event(StreamEvent::ToolExecCompleted {
-                        id: tool.id.clone(),
-                        name: tool.name.clone(),
-                        output: msg.clone(),
-                        is_error: true,
-                    })
-                    .await;
+                let stream_event = StreamEvent::ToolExecCompleted {
+                    id: tool.id.clone(),
+                    name: tool.name.clone(),
+                    output: msg.clone(),
+                    is_error: true,
+                };
+                events.on_event(stream_event.clone()).await;
+                // Phase 1B: Dual emission — broadcast EventMsg alongside callback
+                if let Some(event_msg) =
+                    crate::event_convert::stream_event_to_event_msg(stream_event)
+                {
+                    let _ = event_tx.send(event_msg);
+                }
                 tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &msg));
                 continue;
             }
@@ -474,14 +509,19 @@ async fn run_loop(
             let decision = events.on_approval_needed(&tool.name, &input).await;
             if let ApprovalDecision::Reject(reason) = decision {
                 let msg = format!("Tool call rejected: {reason}");
-                events
-                    .on_event(StreamEvent::ToolExecCompleted {
-                        id: tool.id.clone(),
-                        name: tool.name.clone(),
-                        output: msg.clone(),
-                        is_error: true,
-                    })
-                    .await;
+                let stream_event = StreamEvent::ToolExecCompleted {
+                    id: tool.id.clone(),
+                    name: tool.name.clone(),
+                    output: msg.clone(),
+                    is_error: true,
+                };
+                events.on_event(stream_event.clone()).await;
+                // Phase 1B: Dual emission — broadcast EventMsg alongside callback
+                if let Some(event_msg) =
+                    crate::event_convert::stream_event_to_event_msg(stream_event)
+                {
+                    let _ = event_tx.send(event_msg);
+                }
                 tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &msg));
 
                 // Dispatch ToolError hook
@@ -507,14 +547,17 @@ async fn run_loop(
             // Record usage
             activation.record_use(&tool.name, !error_flag);
 
-            events
-                .on_event(StreamEvent::ToolExecCompleted {
-                    id: tool.id.clone(),
-                    name: tool.name.clone(),
-                    output: truncated.clone(),
-                    is_error: error_flag,
-                })
-                .await;
+            let stream_event = StreamEvent::ToolExecCompleted {
+                id: tool.id.clone(),
+                name: tool.name.clone(),
+                output: truncated.clone(),
+                is_error: error_flag,
+            };
+            events.on_event(stream_event.clone()).await;
+            // Phase 1B: Dual emission — broadcast EventMsg alongside callback
+            if let Some(msg) = crate::event_convert::stream_event_to_event_msg(stream_event) {
+                let _ = event_tx.send(msg);
+            }
 
             if error_flag {
                 tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &truncated));
@@ -575,7 +618,12 @@ async fn run_loop(
         serde_json::json!({ "total_turns": result.messages.len() / 2 }),
     ));
 
-    events.on_event(StreamEvent::Done).await;
+    let done_event = StreamEvent::Done;
+    events.on_event(done_event.clone()).await;
+    // Phase 1B: Dual emission — broadcast EventMsg alongside callback
+    if let Some(msg) = crate::event_convert::stream_event_to_event_msg(done_event) {
+        let _ = event_tx.send(msg);
+    }
     events.on_done(&result).await;
     Ok(result)
 }

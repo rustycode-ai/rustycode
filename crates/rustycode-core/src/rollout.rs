@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use tokio::fs::{File, OpenOptions};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
 const CHANNEL_CAPACITY: usize = 1024;
 
@@ -400,6 +401,65 @@ impl RolloutRecorder {
         self.enabled
     }
 
+    /// Spawn a background task that records EventMsg from a broadcast channel.
+    /// Returns a JoinHandle for the background task.
+    ///
+    /// The task consumes EventMsg from the broadcast receiver, converts each to
+    /// a RolloutEvent, and writes it to the rollout file. The task exits when
+    /// the channel closes or a fatal write error occurs.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let recorder = RolloutRecorder::new("session-123", &config).await?;
+    /// let rx = session.subscribe().await?;
+    /// let handle = recorder.spawn_recorder(rx);
+    /// // Handle is cancelled on drop; or await `handle` for clean shutdown
+    /// ```
+    pub fn spawn_recorder(
+        &self,
+        mut rx: tokio::sync::broadcast::Receiver<rustycode_protocol::EventMsg>,
+    ) -> JoinHandle<()> {
+        let session_id = self.session_id.clone();
+        let sender = self.sender.clone();
+        let enabled = self.enabled;
+
+        tokio::spawn(async move {
+            if !enabled {
+                return;
+            }
+            loop {
+                match rx.recv().await {
+                    Ok(msg) => {
+                        if let Some(event) = event_msg_to_rollout_event(msg) {
+                            if sender.send(event).await.is_err() {
+                                tracing::warn!(
+                                    session_id = %session_id,
+                                    "rollout: event dropped (channel full or closed)"
+                                );
+                                break;
+                            }
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::warn!(
+                            session_id = %session_id,
+                            count = n,
+                            "rollout recorder lagged, skipped events"
+                        );
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        tracing::debug!(
+                            session_id = %session_id,
+                            "rollout recorder: channel closed"
+                        );
+                        break;
+                    }
+                }
+            }
+        })
+    }
+
     /// Background writer loop.
     async fn writer_loop(
         mut file: File,
@@ -431,6 +491,190 @@ impl RolloutRecorder {
         if let Err(e) = file.flush().await {
             tracing::warn!("rollout: final flush failed: {e}");
         }
+    }
+}
+
+/// Convert EventMsg to RolloutEvent for persistence.
+///
+/// Returns None for events that should not be persisted (e.g., transient
+/// progress updates). The goal is to record business-logic events for
+/// replay and debugging, not every UI frame.
+fn event_msg_to_rollout_event(msg: rustycode_protocol::EventMsg) -> Option<RolloutEvent> {
+    match msg {
+        // Session lifecycle — always record
+        rustycode_protocol::EventMsg::Done => Some(RolloutEvent::SessionEnd {
+            reason: "done".to_string(),
+            total_tokens: 0,
+            timestamp: Utc::now(),
+        }),
+        rustycode_protocol::EventMsg::Stopped { stop_reason } => Some(RolloutEvent::SessionEnd {
+            reason: format!("stopped: {stop_reason}"),
+            total_tokens: 0,
+            timestamp: Utc::now(),
+        }),
+        rustycode_protocol::EventMsg::Error {
+            kind,
+            message,
+            retryable: _,
+        } => Some(RolloutEvent::SessionEnd {
+            reason: format!("error: {:?}: {message}", kind),
+            total_tokens: 0,
+            timestamp: Utc::now(),
+        }),
+
+        // Tool execution — record calls and results
+        rustycode_protocol::EventMsg::ToolCallStarted {
+            tool_name,
+            tool_id: _,
+            input,
+        } => Some(RolloutEvent::ToolCall {
+            tool_name,
+            input,
+            timestamp: Utc::now(),
+        }),
+        rustycode_protocol::EventMsg::ToolExecCompleted {
+            tool_id: _,
+            tool_name,
+            success,
+            output,
+            output_size: _,
+            duration_ms,
+        } => Some(RolloutEvent::ToolResult {
+            tool_name,
+            output,
+            success,
+            duration_ms,
+            timestamp: Utc::now(),
+        }),
+
+        // Approval events — record user decisions
+        rustycode_protocol::EventMsg::ApprovalApproved { tool_id } => {
+            Some(RolloutEvent::EventEmitted {
+                event: serde_json::json!({"approval_approved": tool_id}),
+                timestamp: Utc::now(),
+            })
+        }
+        rustycode_protocol::EventMsg::ApprovalRejected { tool_id } => {
+            Some(RolloutEvent::EventEmitted {
+                event: serde_json::json!({"approval_rejected": tool_id}),
+                timestamp: Utc::now(),
+            })
+        }
+
+        // Question/answer events — record user interactions
+        rustycode_protocol::EventMsg::QuestionAnswered {
+            question_id,
+            answer,
+        } => Some(RolloutEvent::EventEmitted {
+            event: serde_json::json!({"question_answered": {"question_id": question_id, "answer": answer}}),
+            timestamp: Utc::now(),
+        }),
+
+        // Plan events — record plan lifecycle
+        rustycode_protocol::EventMsg::PlanCreated {
+            plan_id,
+            title,
+            steps,
+        } => Some(RolloutEvent::EventEmitted {
+            event: serde_json::json!({"plan_created": {"plan_id": plan_id, "title": title, "steps": steps}}),
+            timestamp: Utc::now(),
+        }),
+        rustycode_protocol::EventMsg::PlanCompleted {
+            plan_id,
+            success,
+            summary,
+        } => Some(RolloutEvent::EventEmitted {
+            event: serde_json::json!({"plan_completed": {"plan_id": plan_id, "success": success, "summary": summary}}),
+            timestamp: Utc::now(),
+        }),
+
+        // Workspace events — record significant state changes
+        rustycode_protocol::EventMsg::Workspace(
+            rustycode_protocol::WorkspaceEvent::ContextLoaded(s),
+        ) => Some(RolloutEvent::EventEmitted {
+            event: serde_json::json!({"workspace_context_loaded": s}),
+            timestamp: Utc::now(),
+        }),
+        rustycode_protocol::EventMsg::Workspace(rustycode_protocol::WorkspaceEvent::Error(e)) => {
+            Some(RolloutEvent::EventEmitted {
+                event: serde_json::json!({"workspace_error": e}),
+                timestamp: Utc::now(),
+            })
+        }
+
+        // Command events — record slash command results
+        rustycode_protocol::EventMsg::Command(rustycode_protocol::CommandEvent::Success(msg)) => {
+            Some(RolloutEvent::EventEmitted {
+                event: serde_json::json!({"command_success": msg}),
+                timestamp: Utc::now(),
+            })
+        }
+        rustycode_protocol::EventMsg::Command(rustycode_protocol::CommandEvent::Error(msg)) => {
+            Some(RolloutEvent::EventEmitted {
+                event: serde_json::json!({"command_error": msg}),
+                timestamp: Utc::now(),
+            })
+        }
+
+        // Milestone progress — record autonomous sequencing updates
+        rustycode_protocol::EventMsg::MilestoneProgress(progress) => {
+            Some(RolloutEvent::EventEmitted {
+                event: serde_json::to_value(progress).unwrap_or(serde_json::Value::Null),
+                timestamp: Utc::now(),
+            })
+        }
+
+        // Token usage — record for cost tracking
+        rustycode_protocol::EventMsg::TokenUsage {
+            input_tokens,
+            output_tokens,
+            cache_read_tokens,
+            cache_creation_tokens,
+        } => Some(RolloutEvent::EventEmitted {
+            event: serde_json::json!({
+                "token_usage": {
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "cache_read_tokens": cache_read_tokens,
+                    "cache_creation_tokens": cache_creation_tokens,
+                }
+            }),
+            timestamp: Utc::now(),
+        }),
+
+        // Execution trace — record for debugging
+        rustycode_protocol::EventMsg::ExecutionTrace(trace) => Some(RolloutEvent::EventEmitted {
+            event: trace,
+            timestamp: Utc::now(),
+        }),
+
+        // Skip transient events — these are high-frequency UI updates
+        rustycode_protocol::EventMsg::TextDelta { .. }
+        | rustycode_protocol::EventMsg::ThinkingDelta { .. }
+        | rustycode_protocol::EventMsg::ThinkingBlockCompleted { .. }
+        | rustycode_protocol::EventMsg::TurnStarted { .. }
+        | rustycode_protocol::EventMsg::TurnCompleted { .. }
+        | rustycode_protocol::EventMsg::ToolInputDelta { .. }
+        | rustycode_protocol::EventMsg::ToolExecStarted { .. }
+        | rustycode_protocol::EventMsg::ToolExecProgress { .. }
+        | rustycode_protocol::EventMsg::FileSnapshot { .. }
+        | rustycode_protocol::EventMsg::ApprovalRequired { .. }
+        | rustycode_protocol::EventMsg::QuestionRequired { .. }
+        | rustycode_protocol::EventMsg::ExtractTasks { .. }
+        | rustycode_protocol::EventMsg::TasksExtracted { .. }
+        | rustycode_protocol::EventMsg::PlanStepStarted { .. }
+        | rustycode_protocol::EventMsg::PlanStepCompleted { .. }
+        | rustycode_protocol::EventMsg::PlanApprovalRequested { .. }
+        | rustycode_protocol::EventMsg::Workspace(
+            rustycode_protocol::WorkspaceEvent::ScanProgress { .. },
+        )
+        | rustycode_protocol::EventMsg::Workspace(
+            rustycode_protocol::WorkspaceEvent::ScanComplete { .. },
+        )
+        | rustycode_protocol::EventMsg::Workspace(rustycode_protocol::WorkspaceEvent::Notice(_))
+        | rustycode_protocol::EventMsg::SystemMessage(_) => None,
+        // Catch-all for future EventMsg variants (non-exhaustive enum)
+        _ => None,
     }
 }
 
