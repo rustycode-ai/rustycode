@@ -1,4 +1,4 @@
-use crate::executor::manager::{InspectionAction, InspectionResult, ToolCallInfo};
+use crate::executor::inspector::{InspectionAction, InspectionResult, ToolCallInfo};
 use crate::{ToolContext, ToolPermission};
 
 /// Enforces session permission levels on tool calls.
@@ -41,7 +41,7 @@ impl PermissionInspector {
     }
 }
 
-impl crate::executor::manager::ToolInspector for PermissionInspector {
+impl crate::executor::inspector::ToolInspector for PermissionInspector {
     fn name(&self) -> &'static str {
         "permission"
     }
@@ -92,5 +92,59 @@ impl crate::executor::manager::ToolInspector for PermissionInspector {
             inspector_name: "permission".to_string(),
             finding_id: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::executor::inspector::ToolInspector;
+    use serde_json::json;
+
+    fn test_ctx() -> crate::ToolContext {
+        crate::ToolContext::new(std::env::temp_dir())
+    }
+
+    fn make_call(name: &str, args: serde_json::Value) -> ToolCallInfo {
+        ToolCallInfo::new("test-id", name, args)
+    }
+
+    #[test]
+    fn test_permission_inspector_read_only() {
+        let inspector = PermissionInspector::new();
+        let ctx = test_ctx();
+
+        let call = make_call("Read", json!({"path": "/tmp/test.txt"}));
+        let result = inspector.inspect(&call, &[], &ctx);
+
+        assert_eq!(result.action, InspectionAction::Allow);
+    }
+
+    #[test]
+    fn test_permission_inspector_restricted() {
+        let inspector = PermissionInspector::new();
+        let ctx = test_ctx();
+
+        let call = make_call("Bash", json!({"command": "rm -rf /"}));
+        let result = inspector.inspect(&call, &[], &ctx);
+
+        assert!(matches!(
+            result.action,
+            InspectionAction::RequireApproval(_)
+        ));
+    }
+
+    #[test]
+    fn test_permission_inspector_write_restricted() {
+        let inspector = PermissionInspector::new();
+        let ctx = test_ctx();
+
+        let call = make_call("Write", json!({"path": "/tmp/test.txt", "content": "hi"}));
+        let result = inspector.inspect(&call, &[], &ctx);
+
+        assert!(matches!(
+            result.action,
+            InspectionAction::RequireApproval(_)
+        ));
     }
 }

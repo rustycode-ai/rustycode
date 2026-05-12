@@ -1,4 +1,5 @@
-use crate::executor::manager::ToolCallInfo;
+use crate::executor::inspector::{InspectionAction, InspectionResult, ToolCallInfo, ToolInspector};
+use crate::ToolContext;
 
 /// Detects and blocks repetitive tool calls (infinite loop prevention).
 ///
@@ -33,7 +34,7 @@ impl RepetitionInspector {
     }
 }
 
-impl crate::executor::manager::ToolInspector for RepetitionInspector {
+impl ToolInspector for RepetitionInspector {
     fn name(&self) -> &'static str {
         "repetition"
     }
@@ -42,8 +43,8 @@ impl crate::executor::manager::ToolInspector for RepetitionInspector {
         &self,
         call: &ToolCallInfo,
         history: &[ToolCallInfo],
-        _ctx: &crate::ToolContext,
-    ) -> crate::executor::manager::InspectionResult {
+        _ctx: &ToolContext,
+    ) -> InspectionResult {
         // Track total calls per tool
         let mut counts = self
             .call_counts
@@ -59,9 +60,9 @@ impl crate::executor::manager::ToolInspector for RepetitionInspector {
 
         if let Some(max) = self.max_repetitions {
             if consecutive >= max {
-                return crate::executor::manager::InspectionResult {
+                return InspectionResult {
                     request_id: call.id.clone(),
-                    action: crate::executor::manager::InspectionAction::Deny,
+                    action: InspectionAction::Deny,
                     reason: format!(
                         "Tool '{}' repeated {} times consecutively (limit: {}). Possible infinite loop.",
                         call.name, consecutive, max
@@ -74,14 +75,12 @@ impl crate::executor::manager::ToolInspector for RepetitionInspector {
 
             // Warn at 80% of threshold
             if consecutive >= (max * 80 / 100).max(1) {
-                return crate::executor::manager::InspectionResult {
+                return InspectionResult {
                     request_id: call.id.clone(),
-                    action: crate::executor::manager::InspectionAction::RequireApproval(Some(
-                        format!(
-                            "Tool '{}' is repeating ({}x of {} limit)",
-                            call.name, consecutive, max
-                        ),
-                    )),
+                    action: InspectionAction::RequireApproval(Some(format!(
+                        "Tool '{}' is repeating ({}x of {} limit)",
+                        call.name, consecutive, max
+                    ))),
                     reason: format!(
                         "Tool '{}' approaching repetition limit ({}/{})",
                         call.name, consecutive, max
@@ -93,9 +92,9 @@ impl crate::executor::manager::ToolInspector for RepetitionInspector {
             }
         }
 
-        crate::executor::manager::InspectionResult {
+        InspectionResult {
             request_id: call.id.clone(),
-            action: crate::executor::manager::InspectionAction::Allow,
+            action: InspectionAction::Allow,
             reason: format!(
                 "Tool '{}' called {} time(s) total, {} consecutive",
                 call.name, total_calls, consecutive
@@ -111,5 +110,73 @@ impl crate::executor::manager::ToolInspector for RepetitionInspector {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clear();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn test_ctx() -> ToolContext {
+        ToolContext::new(std::env::temp_dir())
+    }
+
+    fn make_call(name: &str, args: serde_json::Value) -> ToolCallInfo {
+        ToolCallInfo::new("test-id", name, args)
+    }
+
+    #[test]
+    fn test_repetition_inspector_allows_normal() {
+        let inspector = RepetitionInspector::new(Some(3));
+        let ctx = test_ctx();
+        let history = vec![];
+
+        let call = make_call("Read", json!({"path": "/tmp/test.txt"}));
+        let result = inspector.inspect(&call, &history, &ctx);
+
+        assert_eq!(result.action, InspectionAction::Allow);
+    }
+
+    #[test]
+    fn test_repetition_inspector_blocks_loop() {
+        let inspector = RepetitionInspector::new(Some(3));
+        let ctx = test_ctx();
+
+        let call = make_call("Read", json!({"path": "/tmp/test.txt"}));
+        let history = vec![call.clone(), call.clone(), call.clone()];
+
+        let result = inspector.inspect(&call, &history, &ctx);
+        assert_eq!(result.action, InspectionAction::Deny);
+        assert!(result.reason.contains("repeated"));
+        assert_eq!(result.finding_id, Some("REP-001".to_string()));
+    }
+
+    #[test]
+    fn test_repetition_inspector_warns_near_limit() {
+        let inspector = RepetitionInspector::new(Some(5));
+        let ctx = test_ctx();
+
+        let call = make_call("Read", json!({"path": "/tmp/test.txt"}));
+        let history = vec![call.clone(), call.clone(), call.clone(), call.clone()];
+
+        let result = inspector.inspect(&call, &history, &ctx);
+        assert!(matches!(
+            result.action,
+            InspectionAction::RequireApproval(_)
+        ));
+    }
+
+    #[test]
+    fn test_repetition_inspector_different_tools_ok() {
+        let inspector = RepetitionInspector::new(Some(2));
+        let ctx = test_ctx();
+
+        let call1 = make_call("Read", json!({"path": "/a"}));
+        let call2 = make_call("Read", json!({"path": "/b"}));
+        let history = vec![call1];
+
+        let result = inspector.inspect(&call2, &history, &ctx);
+        assert_eq!(result.action, InspectionAction::Allow);
     }
 }
