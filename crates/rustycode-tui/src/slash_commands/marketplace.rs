@@ -26,7 +26,7 @@ pub async fn handle_marketplace_command(input: &str) -> Result<Option<String>, S
 
     match subcommand {
         "browse" | "show" => cmd_browse_marketplace(&parts[1..]).await,
-        "Search" => cmd_search_marketplace(&parts[1..]).await,
+        "search" => cmd_search_marketplace(&parts[1..]).await,
         "install" => cmd_install_item(&parts[1..]).await,
         "uninstall" => cmd_uninstall_item(&parts[1..]).await,
         "update" => cmd_update_items(&parts[1..]).await,
@@ -84,11 +84,11 @@ async fn cmd_browse_marketplace(parts: &[&str]) -> Result<Option<String>, String
 
 /// Search marketplace items
 async fn cmd_search_marketplace(parts: &[&str]) -> Result<Option<String>, String> {
-    if parts.len() < 3 {
+    if parts.len() < 2 {
         return Ok(Some("Usage: /marketplace search <query>".to_string()));
     }
 
-    let query = parts[2..].join(" ");
+    let query = parts[1..].join(" ");
     let items = fetch_marketplace_index()
         .await
         .map_err(|e| format!("Failed to fetch marketplace: {}", e))?;
