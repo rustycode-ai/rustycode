@@ -2,7 +2,7 @@
 
 use crate::app::TUI;
 use crate::tool_approval::risk;
-use rustycode_protocol::tool_names as tn;
+use rustycode_protocol::{tool_names as tn, Op};
 
 pub(super) fn handle_approval_request_chunk(
     tui: &mut TUI,
@@ -35,7 +35,10 @@ pub(super) fn handle_approval_request_chunk(
                 tracing::warn!("Yolo auto-approved (DESTRUCTIVE): {}", tool_name);
             }
         }
-        tui.integration.services.send_approval_response(true);
+        tui.integration
+            .services
+            .submit_op(Op::ApproveTool { approved: true })
+            .ok();
         tui.sys.dirty = true;
         return;
     }
@@ -66,7 +69,10 @@ pub(super) fn handle_approval_request_chunk(
         };
 
         if plan_blocked {
-            tui.integration.services.send_approval_response(false);
+            tui.integration
+                .services
+                .submit_op(Op::ApproveTool { approved: false })
+                .ok();
             tui.add_system_message(format!("Plan mode blocked tool: {}", tool_name));
             tui.sys.dirty = true;
             return;
@@ -83,7 +89,10 @@ pub(super) fn handle_approval_request_chunk(
             "TUI approval: {} auto-approved (safe or session-approved)",
             tool_name
         );
-        tui.integration.services.send_approval_response(true);
+        tui.integration
+            .services
+            .submit_op(Op::ApproveTool { approved: true })
+            .ok();
         tui.sys.dirty = true;
         return;
     }
@@ -91,7 +100,10 @@ pub(super) fn handle_approval_request_chunk(
     // Check if tool has been blocked for this session
     if tui.panels.tool_approval.manager.is_blocked(&tool_name) {
         tracing::info!("TUI approval: {} auto-rejected (blocked)", tool_name);
-        tui.integration.services.send_approval_response(false);
+        tui.integration
+            .services
+            .submit_op(Op::ApproveTool { approved: false })
+            .ok();
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
         tui.sys.dirty = true;
         return;
@@ -104,7 +116,10 @@ pub(super) fn handle_approval_request_chunk(
     if tui.panels.tool_approval.awaiting {
         if let Some(req) = tui.panels.tool_approval.pending_requests.front() {
             if req.tool_name == tool_name {
-                tui.integration.services.send_approval_response(true);
+                tui.integration
+                    .services
+                    .submit_op(Op::ApproveTool { approved: true })
+                    .ok();
                 tui.sys.dirty = true;
                 return;
             }

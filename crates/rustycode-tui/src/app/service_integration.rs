@@ -27,7 +27,7 @@ fn send_chunk<T: std::fmt::Debug>(tx: &SyncSender<T>, value: T) {
 }
 
 use crate::app::orchestration_client::OrchestrationClient;
-use rustycode_protocol::ToolCall;
+use rustycode_protocol::{Op, ToolCall};
 
 impl OrchestrationClient for ServiceManager {
     fn request_stop_stream(&self) {
@@ -684,6 +684,72 @@ impl ServiceManager {
 
     pub fn allows_tool(&self, tool_name: &str) -> bool {
         self.agent_mode.allows_tool(tool_name)
+    }
+
+    /// Submit a protocol-level `Op` command for dispatch.
+    ///
+    /// This is the primary TUI → Core boundary: all frontend actions
+    /// should flow through this method rather than calling specific
+    /// ServiceManager methods directly. Matches on the `Op` variant
+    /// and dispatches to the appropriate internal method.
+    pub fn submit_op(&mut self, op: Op) -> Result<()> {
+        match op {
+            Op::SendMessage { content } => self.send_message(content),
+            Op::SendMessageFull {
+                content,
+                history,
+                images,
+            } => {
+                let conversation_history = history
+                    .map(serde_json::from_value)
+                    .transpose()
+                    .context("Failed to deserialize conversation history")?;
+                let image_blocks = images
+                    .map(serde_json::from_value)
+                    .transpose()
+                    .context("Failed to deserialize image blocks")?;
+                self.send_message_with_history(content, conversation_history, image_blocks)
+            }
+            Op::StopStream => {
+                self.request_stop_stream();
+                Ok(())
+            }
+            Op::ApproveTool { approved } => {
+                self.send_approval_response(approved);
+                Ok(())
+            }
+            Op::AnswerQuestion { answer } => {
+                self.send_question_response(answer);
+                Ok(())
+            }
+            Op::SwitchModel { model_id } => self.switch_model(model_id),
+            Op::SetAgentMode { mode } => {
+                let parsed = match mode.to_lowercase().as_str() {
+                    "code" => crate::services::agent_mode::AgentMode::Code,
+                    "architect" => crate::services::agent_mode::AgentMode::Architect,
+                    "debug" => crate::services::agent_mode::AgentMode::Debug,
+                    "review" => crate::services::agent_mode::AgentMode::Review,
+                    "test" => crate::services::agent_mode::AgentMode::Test,
+                    "refactor" => crate::services::agent_mode::AgentMode::Refactor,
+                    "docs" => crate::services::agent_mode::AgentMode::Docs,
+                    _ => return Ok(()),
+                };
+                self.set_agent_mode(parsed);
+                Ok(())
+            }
+            Op::CycleAgentMode { forward } => {
+                if forward {
+                    self.next_agent_mode();
+                } else {
+                    self.prev_agent_mode();
+                }
+                Ok(())
+            }
+            Op::SetEffort { effort } => {
+                self.set_effort(effort);
+                Ok(())
+            }
+        }
     }
 
     /// Spawns a background thread that loads workspace info with progress tracking.
