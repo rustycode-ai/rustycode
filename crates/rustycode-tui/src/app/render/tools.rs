@@ -621,7 +621,7 @@ fn render_tool_result_detail(
 
         // Render output with syntax highlighting via markdown renderer
         let theme = rustycode_ui_core::MessageTheme::default();
-        let rendered = tui
+        let rendered = tui.ui
             .message_renderer
             .render_markdown_content(&display_output, &theme);
 
@@ -629,7 +629,7 @@ fn render_tool_result_detail(
         let max_display_lines = if tui.tool_panel.tool_result_show_full {
             usize::MAX
         } else {
-            (tui.view.viewport_height * 2).max(50)
+            (tui.ui.view.viewport_height * 2).max(50)
         };
         // Clamp scroll offset to prevent unbounded growth from repeated Down presses
         let total_rendered = rendered.len();

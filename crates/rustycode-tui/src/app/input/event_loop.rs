@@ -99,7 +99,7 @@ impl TUI {
                     self.showing_marketplace_browser = false;
                     self.command_palette.show();
                     self.command_palette.state_mut().clear_query();
-                    self.dirty = true;
+                    self.sys.dirty = true;
                     return Ok(());
                 }
                 if self.handle_wizard_input(key)? {
@@ -114,16 +114,16 @@ impl TUI {
                 if self.handle_clarification_input(key)? {
                     return Ok(());
                 }
-                if self.compaction.showing_preview {
+                if self.sys.compaction.showing_preview {
                     return match key.code {
                         KeyCode::Enter => {
                             self.execute_compaction();
                             Ok(())
                         }
                         KeyCode::Esc => {
-                            self.compaction.showing_preview = false;
-                            self.compaction.pending = false;
-                            self.dirty = true;
+                            self.sys.compaction.showing_preview = false;
+                            self.sys.compaction.pending = false;
+                            self.sys.dirty = true;
                             Ok(())
                         }
                         _ => Ok(()),
@@ -137,7 +137,7 @@ impl TUI {
                             self.tool_panel.showing_tool_result = false;
                             self.tool_panel.tool_result_show_full = false;
                             self.tool_panel.tool_result_scroll_offset = 0;
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('f') | KeyCode::Char('F') => {
@@ -145,7 +145,7 @@ impl TUI {
                             self.tool_panel.tool_result_show_full =
                                 !self.tool_panel.tool_result_show_full;
                             self.tool_panel.tool_result_scroll_offset = 0;
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Up => {
@@ -154,7 +154,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Down => {
@@ -163,23 +163,23 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageUp => {
                             self.tool_panel.tool_result_scroll_offset = self
                                 .tool_panel
                                 .tool_result_scroll_offset
-                                .saturating_sub(self.view.viewport_height);
-                            self.dirty = true;
+                                .saturating_sub(self.ui.view.viewport_height);
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageDown => {
                             self.tool_panel.tool_result_scroll_offset = self
                                 .tool_panel
                                 .tool_result_scroll_offset
-                                .saturating_add(self.view.viewport_height);
-                            self.dirty = true;
+                                .saturating_add(self.ui.view.viewport_height);
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('j') => {
@@ -187,7 +187,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('k') => {
@@ -195,7 +195,7 @@ impl TUI {
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -215,51 +215,51 @@ impl TUI {
 
                 // Handle help panel scroll (only when input is empty —
                 // otherwise j/k should go to text input)
-                let input_is_empty_for_help = self.input_handler.state.lines.len() == 1
-                    && self.input_handler.state.lines[0].is_empty();
-                if self.help_state.visible && input_is_empty_for_help {
+                let input_is_empty_for_help = self.ui.input_handler.state.lines.len() == 1
+                    && self.ui.input_handler.state.lines[0].is_empty();
+                if self.ui.help_state.visible && input_is_empty_for_help {
                     match key.code {
                         KeyCode::Up | KeyCode::Char('k') => {
-                            self.help_state.scroll_offset =
-                                self.help_state.scroll_offset.saturating_sub(1);
-                            self.dirty = true;
+                            self.ui.help_state.scroll_offset =
+                                self.ui.help_state.scroll_offset.saturating_sub(1);
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Down | KeyCode::Char('j') => {
-                            self.help_state.scroll_offset =
-                                self.help_state.scroll_offset.saturating_add(1);
-                            self.dirty = true;
+                            self.ui.help_state.scroll_offset =
+                                self.ui.help_state.scroll_offset.saturating_add(1);
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageUp => {
-                            self.help_state.scroll_offset = self
-                                .help_state
+                            self.ui.help_state.scroll_offset = self
+                                .ui.help_state
                                 .scroll_offset
                                 .saturating_sub(crate::app::HELP_SCROLL_STEP);
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::PageDown => {
-                            self.help_state.scroll_offset = self
-                                .help_state
+                            self.ui.help_state.scroll_offset = self
+                                .ui.help_state
                                 .scroll_offset
                                 .saturating_add(crate::app::HELP_SCROLL_STEP);
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Home => {
-                            self.help_state.scroll_offset = 0;
-                            self.dirty = true;
+                            self.ui.help_state.scroll_offset = 0;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::End => {
-                            self.help_state.scroll_offset = usize::MAX;
-                            self.dirty = true;
+                            self.ui.help_state.scroll_offset = usize::MAX;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Esc => {} // Esc handled by global shortcuts
                         _ => {
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                     }
@@ -321,7 +321,7 @@ impl TUI {
                 // to the input handler for the standard readline Ctrl+W (delete word)
                 if key.code == KeyCode::Char('w')
                     && key.modifiers == KeyModifiers::CONTROL
-                    && self.input_handler.state.is_empty()
+                    && self.ui.input_handler.state.is_empty()
                 {
                     self.handle_worker_panel_toggle();
                     return Ok(());
@@ -371,7 +371,7 @@ impl TUI {
 
                 // Handle theme preview input
                 if self.handle_theme_preview_input(key) {
-                    self.dirty = true;
+                    self.sys.dirty = true;
                     return Ok(());
                 }
 
@@ -380,7 +380,7 @@ impl TUI {
                     if let Some(selected) = self.model_selector.take_selected() {
                         self.apply_model_switch(&selected);
                     }
-                    self.dirty = true;
+                    self.sys.dirty = true;
                     return Ok(());
                 }
 
@@ -388,34 +388,34 @@ impl TUI {
                 // Must be intercepted here because the InputHandler consumes all
                 // KeyCode::Char events before handle_global_shortcut gets a chance.
                 if key.code == KeyCode::Char('?') && key.modifiers == KeyModifiers::NONE {
-                    let input_is_empty = self.input_handler.state.lines.len() == 1
-                        && self.input_handler.state.lines[0].is_empty();
+                    let input_is_empty = self.ui.input_handler.state.lines.len() == 1
+                        && self.ui.input_handler.state.lines[0].is_empty();
                     if input_is_empty && !self.is_any_overlay_open() {
-                        self.help_state.visible = true;
-                        self.help_state.scroll_offset = 0;
+                        self.ui.help_state.visible = true;
+                        self.ui.help_state.scroll_offset = 0;
                         self.toast_manager.info("Press Esc to close");
-                        self.dirty = true;
+                        self.sys.dirty = true;
                         return Ok(());
                     }
                 }
 
                 // Handle Space key to toggle message collapse/expand when input is empty
                 if key.code == KeyCode::Char(' ') && key.modifiers == KeyModifiers::NONE {
-                    let input_is_empty = self.input_handler.state.lines.len() == 1
-                        && self.input_handler.state.lines[0].is_empty();
-                    if input_is_empty && !self.messages.is_empty() {
+                    let input_is_empty = self.ui.input_handler.state.lines.len() == 1
+                        && self.ui.input_handler.state.lines[0].is_empty();
+                    if input_is_empty && !self.session.messages.is_empty() {
                         self.toggle_message_collapse();
-                        self.dirty = true;
+                        self.sys.dirty = true;
                         return Ok(());
                     }
                 }
 
                 // Handle Tab to toggle tool/thinking expansion when input is empty
                 if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
-                    let input_is_empty = self.input_handler.state.lines.len() == 1
-                        && self.input_handler.state.lines[0].is_empty();
-                    if input_is_empty && self.view.selected_message < self.messages.len() {
-                        let msg = &mut self.messages[self.view.selected_message];
+                    let input_is_empty = self.ui.input_handler.state.lines.len() == 1
+                        && self.ui.input_handler.state.lines[0].is_empty();
+                    if input_is_empty && self.ui.view.selected_message < self.session.messages.len() {
+                        let msg = &mut self.session.messages[self.ui.view.selected_message];
                         let has_tools = msg.tool_executions.as_ref().is_some_and(|t| !t.is_empty());
                         let has_thinking = msg.thinking.as_ref().is_some_and(|t| !t.is_empty());
 
@@ -444,7 +444,7 @@ impl TUI {
                                         crate::ui::message::ExpansionLevel::Collapsed;
                                 }
                             }
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         } else if has_tools {
                             msg.tools_expansion = match msg.tools_expansion {
@@ -453,33 +453,33 @@ impl TUI {
                                 }
                                 _ => crate::ui::message::ExpansionLevel::Collapsed,
                             };
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         } else if has_thinking {
                             msg.toggle_thinking_expansion();
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                     }
                 }
 
                 // Home/End always jump to top/bottom of messages (Ctrl+A/CtrlE handle cursor)
-                if !self.messages.is_empty() {
+                if !self.session.messages.is_empty() {
                     match key.code {
                         KeyCode::Home => {
                             self.push_undo_position();
-                            self.view.selected_message = 0;
-                            self.view.scroll_offset_line = 0;
-                            self.view.user_scrolled = true;
-                            self.dirty = true;
+                            self.ui.view.selected_message = 0;
+                            self.ui.view.scroll_offset_line = 0;
+                            self.ui.view.user_scrolled = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::End => {
                             self.push_undo_position();
-                            self.view.selected_message = self.messages.len().saturating_sub(1);
-                            self.view.user_scrolled = false;
+                            self.ui.view.selected_message = self.session.messages.len().saturating_sub(1);
+                            self.ui.view.user_scrolled = false;
                             self.auto_scroll();
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(());
                         }
                         _ => {}
@@ -495,8 +495,8 @@ impl TUI {
                                 KeyCode::Char('G') | KeyCode::Char('E') | KeyCode::Char('W')
                             )))
                 {
-                    let input_is_empty = self.input_handler.state.lines.len() == 1
-                        && self.input_handler.state.lines[0].is_empty();
+                    let input_is_empty = self.ui.input_handler.state.lines.len() == 1
+                        && self.ui.input_handler.state.lines[0].is_empty();
                     if input_is_empty {
                         match key.code {
                             KeyCode::Char('j') | KeyCode::Char('k') | KeyCode::Char('g') => {
@@ -513,7 +513,7 @@ impl TUI {
                 }
 
                 // Normal input handling - delegate to input handler
-                let action = self.input_handler.handle_key_event(key.code, key.modifiers);
+                let action = self.ui.input_handler.handle_key_event(key.code, key.modifiers);
                 self.handle_input_action(action, key)?;
             }
             Ok(CrosstermEvent::Paste(content)) => {
@@ -531,11 +531,11 @@ impl TUI {
                 _ => {}
             },
             Ok(CrosstermEvent::Resize(width, height)) => {
-                self.message_renderer.invalidate_cache();
+                self.ui.message_renderer.invalidate_cache();
                 // Don't reset scroll_offset_line to 0, let it stay where it was
                 // and it will be clamped during next render if necessary.
                 self.dismiss_any_overlay();
-                self.dirty = true;
+                self.sys.dirty = true;
                 tracing::debug!("Terminal resized to {}x{}", width, height);
             }
             Ok(_other) => {}
@@ -551,8 +551,8 @@ impl TUI {
                 "Processed input event: event={} elapsed_ms={} dirty={} streaming={} tool_panel={} command_palette={} skill_palette={} provider_selector={}",
                 event_summary.as_deref().unwrap_or("unknown"),
                 input_elapsed.as_millis(),
-                self.dirty,
-                self.streaming.is_streaming,
+                self.sys.dirty,
+                self.session.streaming.is_streaming,
                 self.tool_panel.showing_tool_panel,
                 self.showing_command_palette,
                 self.showing_skill_palette,
@@ -565,43 +565,43 @@ impl TUI {
 
     /// Retry the last sent message
     pub(crate) fn retry_last_message(&mut self, message: String) {
-        if self.streaming.is_streaming {
+        if self.session.streaming.is_streaming {
             tracing::warn!("Already streaming, skipping retry");
             return;
         }
 
         let message_to_send = self.prepare_message_for_send(&message);
-        let _workspace_context = self.workspace_context.clone();
+        let _workspace_context = self.workspace.workspace_context.clone();
         let history = self.build_conversation_history();
 
         // Save message for potential subsequent auto-retries.
         // take_last_message() consumes it, so we must replenish before sending.
-        self.rate_limit.last_message = Some(message.clone());
+        self.integration.rate_limit.last_message = Some(message.clone());
 
         // Set streaming state before send to prevent double-Enter races
-        self.streaming.is_streaming = true;
-        self.streaming.chunks_received = 0;
-        self.streaming.thinking_chunks_received = 0;
-        self.streaming.stream_start_time = Some(std::time::Instant::now());
-        self.streaming.current_stream_content.clear();
-        self.streaming.streaming_render_buffer =
+        self.session.streaming.is_streaming = true;
+        self.session.streaming.chunks_received = 0;
+        self.session.streaming.thinking_chunks_received = 0;
+        self.session.streaming.stream_start_time = Some(std::time::Instant::now());
+        self.session.streaming.current_stream_content.clear();
+        self.session.streaming.streaming_render_buffer =
             crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
         self.tool_panel.reset();
-        self.active_tools.clear();
+        self.session.active_tools.clear();
 
         let send_result =
-            self.services
+            self.integration.services
                 .send_message_with_history(message_to_send, Some(history), None);
         if let Err(e) = send_result {
             tracing::error!("Failed to retry message: {}", e);
             self.reset_streaming_state();
-            self.active_tools.clear();
+            self.session.active_tools.clear();
             self.add_system_message("Retry failed - please try again".to_string());
             self.auto_scroll();
         } else {
             let assistant_msg = Message::assistant(String::new());
-            self.messages.push(assistant_msg);
-            self.dirty = true;
+            self.session.messages.push(assistant_msg);
+            self.sys.dirty = true;
             self.auto_scroll();
         }
     }
@@ -615,7 +615,7 @@ impl TUI {
         use rustycode_tools::{BashTool, Tool, ToolContext, ToolOutput};
         use serde_json::json;
 
-        let cwd = self.services.cwd().to_path_buf();
+        let cwd = self.integration.services.cwd().to_path_buf();
         let tool = BashTool;
 
         let params = json!({"command": cmd});
@@ -637,7 +637,7 @@ impl TUI {
                 );
                 self.auto_scroll();
                 // Store result in shared state for polling by poll_services()
-                let result_store = self.streaming.pending_bash_result.clone();
+                let result_store = self.session.streaming.pending_bash_result.clone();
                 std::thread::spawn(move || {
                     if let Ok(result) = rx.recv_timeout(crate::app::TOOL_RESULT_FALLBACK_TIMEOUT) {
                         let text = match result {
@@ -750,13 +750,13 @@ impl TUI {
     }
 
     pub(crate) fn insert_skill_mention(&mut self, skill_name: &str) {
-        self.input_handler.state.insert_char('@');
+        self.ui.input_handler.state.insert_char('@');
         for c in skill_name.chars() {
-            self.input_handler.state.insert_char(c);
+            self.ui.input_handler.state.insert_char(c);
         }
-        self.input_handler.state.insert_char(' ');
-        self.input_mode = self.input_handler.state.mode;
-        self.dirty = true;
+        self.ui.input_handler.state.insert_char(' ');
+        self.input_mode = self.ui.input_handler.state.mode;
+        self.sys.dirty = true;
     }
 
     // ========================================================================
@@ -768,9 +768,9 @@ impl TUI {
         &mut self,
         tag_type: crate::ui::message_tags::TagType,
     ) -> Result<()> {
-        if self.view.selected_message < self.messages.len() {
+        if self.ui.view.selected_message < self.session.messages.len() {
             let tag = crate::ui::message_tags::Tag::new(tag_type.clone());
-            if self.messages[self.view.selected_message].add_tag(tag) {
+            if self.session.messages[self.ui.view.selected_message].add_tag(tag) {
                 self.add_system_message(format!("Tagged message: {}", tag_type.display_name()));
             } else {
                 self.add_system_message(format!(
@@ -778,7 +778,7 @@ impl TUI {
                     tag_type.display_name()
                 ));
             }
-            self.dirty = true;
+            self.sys.dirty = true;
         }
         Ok(())
     }
@@ -788,8 +788,8 @@ impl TUI {
         &mut self,
         tag_type: &crate::ui::message_tags::TagType,
     ) -> Result<()> {
-        if self.view.selected_message < self.messages.len() {
-            if self.messages[self.view.selected_message].remove_tag_type(tag_type) {
+        if self.ui.view.selected_message < self.session.messages.len() {
+            if self.session.messages[self.ui.view.selected_message].remove_tag_type(tag_type) {
                 self.add_system_message(format!("Removed tag: {}", tag_type.display_name()));
             } else {
                 self.add_system_message(format!(
@@ -797,7 +797,7 @@ impl TUI {
                     tag_type.display_name()
                 ));
             }
-            self.dirty = true;
+            self.sys.dirty = true;
         }
         Ok(())
     }
@@ -805,7 +805,7 @@ impl TUI {
     pub fn set_tag_filter(&mut self, tag_type: Option<crate::ui::message_tags::TagType>) {
         self.tag_filter.set_active(tag_type.clone());
         if let Some(ref tag) = tag_type {
-            let count = self.messages.iter().filter(|m| m.has_tag(tag)).count();
+            let count = self.session.messages.iter().filter(|m| m.has_tag(tag)).count();
             self.add_system_message(format!(
                 "Filtering by tag: {} ({} messages)",
                 tag.display_name(),
@@ -814,7 +814,7 @@ impl TUI {
         } else {
             self.add_system_message("Tag filter cleared - showing all messages".to_string());
         }
-        self.dirty = true;
+        self.sys.dirty = true;
     }
 
     /// Clear the tag filter
@@ -824,13 +824,13 @@ impl TUI {
 
     /// Get the count of messages with a specific tag
     pub fn count_tagged_messages(&self, tag_type: &crate::ui::message_tags::TagType) -> usize {
-        self.messages.iter().filter(|m| m.has_tag(tag_type)).count()
+        self.session.messages.iter().filter(|m| m.has_tag(tag_type)).count()
     }
 
     /// Get all unique tag types in current messages
     pub fn all_tag_types(&self) -> Vec<crate::ui::message_tags::TagType> {
         let mut tag_types = std::collections::HashSet::new();
-        for message in &self.messages {
+        for message in &self.session.messages {
             for tag in message.tags() {
                 tag_types.insert(tag.tag_type.clone());
             }

@@ -6,15 +6,15 @@ use tracing;
 use super::helpers::{complete_stream_cleanup, mark_dirty_and_scroll, reset_streaming_buffer};
 
 pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
-    let was_cancelled = tui.streaming.stream_cancelled;
+    let was_cancelled = tui.session.streaming.stream_cancelled;
     complete_stream_cleanup(tui);
     // Flush buffered content from the render buffer BEFORE replacing it
-    let remaining = tui.streaming.streaming_render_buffer.flush();
+    let remaining = tui.session.streaming.streaming_render_buffer.flush();
     if !remaining.is_empty() {
-        tui.streaming
+        tui.session.streaming
             .current_stream_content
             .reserve(remaining.len());
-        tui.streaming.current_stream_content.push_str(&remaining);
+        tui.session.streaming.current_stream_content.push_str(&remaining);
     }
 
     reset_streaming_buffer(tui);

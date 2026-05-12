@@ -25,7 +25,7 @@ impl TUI {
             }
         }
 
-        self.dirty = true;
+        self.sys.dirty = true;
         Ok(())
     }
 
@@ -36,11 +36,11 @@ impl TUI {
         } else {
             (end, start)
         };
-        let end = end.min(self.messages.len().saturating_sub(1));
+        let end = end.min(self.session.messages.len().saturating_sub(1));
         let start = start.min(end);
 
         let mut conversation = Vec::new();
-        for msg in self.messages.iter().take(end + 1).skip(start) {
+        for msg in self.session.messages.iter().take(end + 1).skip(start) {
             match msg.role {
                 MessageRole::User => {
                     conversation.push(format!("User: {}", msg.content));
@@ -54,7 +54,7 @@ impl TUI {
 
         if conversation.is_empty() {
             self.add_system_message("No conversation text in selection".to_string());
-            self.dirty = true;
+            self.sys.dirty = true;
             return Ok(());
         }
 
@@ -77,13 +77,13 @@ impl TUI {
         } else {
             (end, start, end_pos, start_pos)
         };
-        let end = end.min(self.messages.len().saturating_sub(1));
+        let end = end.min(self.session.messages.len().saturating_sub(1));
         let start = start.min(end);
 
         let mut conversation = Vec::new();
 
         for msg_idx in start..=end {
-            let msg = &self.messages[msg_idx];
+            let msg = &self.session.messages[msg_idx];
             match msg.role {
                 MessageRole::System => continue,
                 MessageRole::User | MessageRole::Assistant => {}
@@ -120,7 +120,7 @@ impl TUI {
 
         if conversation.is_empty() {
             self.add_system_message("No conversation text in selection".to_string());
-            self.dirty = true;
+            self.sys.dirty = true;
             return Ok(());
         }
 
@@ -132,7 +132,7 @@ impl TUI {
         let content = self.session_sidebar.copyable_text();
         if content.trim().is_empty() {
             self.add_system_message("No sidebar text to copy".to_string());
-            self.dirty = true;
+            self.sys.dirty = true;
             return Ok(());
         }
 
@@ -141,8 +141,8 @@ impl TUI {
 
     /// Copy selected message to clipboard
     pub(crate) fn copy_selected_message(&mut self) -> Result<()> {
-        if self.view.selected_message < self.messages.len() {
-            let msg = &self.messages[self.view.selected_message];
+        if self.ui.view.selected_message < self.session.messages.len() {
+            let msg = &self.session.messages[self.ui.view.selected_message];
 
             // Get the message content (without the role prefix)
             let content = msg.content.clone();
@@ -159,7 +159,7 @@ impl TUI {
 
         match last_ai_idx {
             Some(idx) => {
-                let content = self.messages[idx].content.clone();
+                let content = self.session.messages[idx].content.clone();
                 self.copy_text_with_feedback(content, "Copied last AI response")?;
             }
             None => {
@@ -167,14 +167,14 @@ impl TUI {
             }
         }
 
-        self.dirty = true;
+        self.sys.dirty = true;
         Ok(())
     }
 
     /// Copy entire conversation to clipboard (excludes system messages and tool panel)
     pub(crate) fn copy_all_conversation(&mut self) -> Result<()> {
         let content = self
-            .messages
+            .session.messages
             .iter()
             .filter_map(|msg| match msg.role {
                 MessageRole::User => Some(format!("User: {}", msg.content)),
@@ -186,7 +186,7 @@ impl TUI {
 
         if content.is_empty() {
             self.add_system_message("No conversation text to copy".to_string());
-            self.dirty = true;
+            self.sys.dirty = true;
             return Ok(());
         }
 
@@ -194,7 +194,7 @@ impl TUI {
     }
 
     fn message_area_width(&self) -> usize {
-        let area = self.view.messages_area.get();
+        let area = self.ui.view.messages_area.get();
         area.width.saturating_sub(1).max(1) as usize
     }
 
@@ -273,11 +273,11 @@ impl TUI {
 
         // Export as markdown
         let path = exporter
-            .export(&self.messages, ExportFormat::Markdown, options)
+            .export(&self.session.messages, ExportFormat::Markdown, options)
             .context("failed to export conversation as markdown")?;
 
         let msg_count = self
-            .messages
+            .session.messages
             .iter()
             .filter(|m| {
                 matches!(
@@ -302,14 +302,14 @@ impl TUI {
         );
         self.add_system_message(success_msg);
 
-        self.dirty = true;
+        self.sys.dirty = true;
         Ok(())
     }
 
     /// Regenerate the last AI response
     pub(crate) fn regenerate_last_response(&mut self) -> Result<()> {
         // Don't regenerate if we're already streaming
-        if self.streaming.is_streaming {
+        if self.session.streaming.is_streaming {
             self.add_system_message(
                 "⚠️  Cannot regenerate while streaming. Please wait.".to_string(),
             );
@@ -340,44 +340,44 @@ impl TUI {
             }
         };
 
-        let user_prompt = self.messages[user_msg_idx].content.clone();
+        let user_prompt = self.session.messages[user_msg_idx].content.clone();
 
         // Show regeneration started message
         let regen_msg = "🔄 Regenerating response...".to_string();
         self.add_system_message(regen_msg);
 
         // Remove the old AI message
-        self.messages.remove(last_ai_msg_idx);
-        if last_ai_msg_idx < self.view.selected_message {
-            self.view.selected_message = self.view.selected_message.saturating_sub(1);
-        } else if last_ai_msg_idx == self.view.selected_message && !self.messages.is_empty() {
-            self.view.selected_message = self.view.selected_message.min(self.messages.len() - 1);
+        self.session.messages.remove(last_ai_msg_idx);
+        if last_ai_msg_idx < self.ui.view.selected_message {
+            self.ui.view.selected_message = self.ui.view.selected_message.saturating_sub(1);
+        } else if last_ai_msg_idx == self.ui.view.selected_message && !self.session.messages.is_empty() {
+            self.ui.view.selected_message = self.ui.view.selected_message.min(self.session.messages.len() - 1);
         }
 
         // Update dirty flag
-        self.dirty = true;
+        self.sys.dirty = true;
 
         // Send the user prompt again to get a new response
-        let _workspace_context = self.workspace_context.clone();
+        let _workspace_context = self.workspace.workspace_context.clone();
         let history = self.build_conversation_history();
 
         // Set streaming state before send to prevent double-Enter races
-        self.streaming.begin_streaming();
+        self.session.streaming.begin_streaming();
         self.tool_panel.reset();
-        self.active_tools.clear();
+        self.session.active_tools.clear();
 
         if let Err(e) = self
-            .services
+            .integration.services
             .send_message_with_history(user_prompt, Some(history), None)
         {
             tracing::error!("Failed to regenerate response: {}", e);
             self.reset_streaming_state();
-            self.active_tools.clear();
+            self.session.active_tools.clear();
             self.add_system_message(format!("Regeneration failed: {}", e));
         } else {
             // Create empty assistant message for streaming to fill
             let assistant_msg = crate::ui::message::Message::assistant(String::new());
-            self.messages.push(assistant_msg);
+            self.session.messages.push(assistant_msg);
             self.auto_scroll();
         }
 
@@ -386,15 +386,15 @@ impl TUI {
 
     /// Undo the last task extraction
     pub(crate) fn undo_last_extraction(&mut self) -> Result<()> {
-        if let Some((old_tasks, old_todos)) = self.last_extraction.take() {
+        if let Some((old_tasks, old_todos)) = self.workspace.last_extraction.take() {
             // Update workspace tasks
-            self.workspace_tasks.tasks = old_tasks;
-            self.workspace_tasks.todos = old_todos;
+            self.workspace.workspace_tasks.tasks = old_tasks;
+            self.workspace.workspace_tasks.todos = old_todos;
 
             crate::app::tasks::save_tasks_with_storage(
-                &self.workspace_tasks,
+                &self.workspace.workspace_tasks,
                 self.storage.as_deref(),
-                self.services.cwd(),
+                self.integration.services.cwd(),
                 None,
             );
 
@@ -406,7 +406,7 @@ impl TUI {
             self.add_system_message(
                 "✅ Successfully reverted the last task extraction.".to_string(),
             );
-            self.dirty = true;
+            self.sys.dirty = true;
             Ok(())
         } else {
             self.add_system_message("⚠️  No recent task extraction to revert.".to_string());

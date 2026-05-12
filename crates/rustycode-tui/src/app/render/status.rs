@@ -11,7 +11,7 @@ impl PolishedRenderer {
         use ratatui::text::{Line, Span};
         use ratatui::widgets::Paragraph;
 
-        let anim_frame = tui.animator.current_frame();
+        let anim_frame = tui.ui.animator.current_frame();
         let width = area.width as usize;
 
         const MIN_WIDTH_CONTEXT_BAR: usize = 70;
@@ -25,12 +25,12 @@ impl PolishedRenderer {
         let show_task_counts = width >= MIN_WIDTH_TASK_COUNTS;
 
         // Plan-mode banners take priority over other states.
-        let status = if let Some(banner) = tui.plan_mode_banner.as_ref() {
+        let status = if let Some(banner) = tui.session.plan_mode_banner.as_ref() {
             RenderStatus::PlanMode { banner: banner.clone() }
-        } else if tui.streaming.is_streaming {
+        } else if tui.session.streaming.is_streaming {
             RenderStatus::Thinking {
-                chunks_received: tui.streaming.chunks_received,
-                thinking_chunks_received: tui.streaming.thinking_chunks_received,
+                chunks_received: tui.session.streaming.chunks_received,
+                thinking_chunks_received: tui.session.streaming.thinking_chunks_received,
             }
         } else if tui.ast_phase_state.is_active() {
             let ast = &tui.ast_phase_state;
@@ -41,12 +41,12 @@ impl PolishedRenderer {
                 milestones_total: ast.milestones_total,
                 elapsed_ms: ast.total_elapsed_ms,
             }
-        } else if !tui.active_tools.is_empty() {
-            let tool_names: Vec<String> = tui.active_tools.keys().take(3).cloned().collect();
-            let remaining = tui.active_tools.len().saturating_sub(3);
+        } else if !tui.session.active_tools.is_empty() {
+            let tool_names: Vec<String> = tui.session.active_tools.keys().take(3).cloned().collect();
+            let remaining = tui.session.active_tools.len().saturating_sub(3);
 
             RenderStatus::RunningTools {
-                count: tui.active_tools.len(),
+                count: tui.session.active_tools.len(),
                 tool_names,
                 remaining,
             }
@@ -97,7 +97,7 @@ impl PolishedRenderer {
                     ));
                 }
                 let _ = chunks_received;
-                if let Some(dur) = tui.streaming.stream_start_time {
+                if let Some(dur) = tui.session.streaming.stream_start_time {
                     let elapsed = dur.elapsed();
                     if elapsed.as_secs() >= 2 {
                         spans.push(Span::styled(
@@ -106,8 +106,8 @@ impl PolishedRenderer {
                         ));
                     }
                 }
-                if !tui.streaming.current_stream_content.is_empty() {
-                    let words = tui.streaming.current_stream_content.split_whitespace().count();
+                if !tui.session.streaming.current_stream_content.is_empty() {
+                    let words = tui.session.streaming.current_stream_content.split_whitespace().count();
                     if words > 20 {
                         spans.push(Span::styled(
                             format!("· {} words ", words),
@@ -147,7 +147,7 @@ impl PolishedRenderer {
                 }
 
                 // Show running-tool progress bar if available, otherwise latest description.
-                if let Some(tool) = tui.active_tools.values().find(|tool| {
+                if let Some(tool) = tui.session.active_tools.values().find(|tool| {
                     tool.status == crate::ui::message::ToolStatus::Running
                         && (tool.progress_current.is_some()
                             || tool.progress_total.is_some()
@@ -225,7 +225,7 @@ impl PolishedRenderer {
             }
             RenderStatus::Idle => {
                 spans.push(Span::styled("✓ Ready", Style::default().fg(Color::Green)));
-                if let Some(dur) = tui.streaming.last_response_duration {
+                if let Some(dur) = tui.session.streaming.last_response_duration {
                     spans.push(Span::styled(
                         format!(" {}", crate::app::render::brutalist_helpers::format_duration_compact(dur)),
                         Style::default().fg(Color::DarkGray),
@@ -236,7 +236,7 @@ impl PolishedRenderer {
 
         // Turn counter — count user+assistant message pairs
         let turn_count = tui
-            .messages
+            .session.messages
             .iter()
             .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
             .count();
@@ -254,7 +254,7 @@ impl PolishedRenderer {
 
         spans.push(Span::raw(" | "));
 
-        if let Some((scanned, total)) = tui.workspace_scan_progress {
+        if let Some((scanned, total)) = tui.workspace.workspace_scan_progress {
             let pct = if total > 0 {
                 ((scanned as f64 / total as f64 * 100.0).round() as u16).clamp(0, 100)
             } else {
@@ -269,7 +269,7 @@ impl PolishedRenderer {
             spans.push(Span::raw(" | "));
         }
 
-        if let Some(until) = tui.rate_limit.until {
+        if let Some(until) = tui.integration.rate_limit.until {
             let remaining = until.saturating_duration_since(std::time::Instant::now());
             let remaining_secs = remaining.as_secs();
             if remaining_secs > 0 {
@@ -282,13 +282,13 @@ impl PolishedRenderer {
         }
 
         // Rate limit status from API headers (remaining/limit/usage)
-        if tui.rate_limit_tracker.has_data() {
-            let rate_color = if tui.rate_limit_tracker.is_approaching_limit() {
+        if tui.integration.rate_limit_tracker.has_data() {
+            let rate_color = if tui.integration.rate_limit_tracker.is_approaching_limit() {
                 Color::Yellow
             } else {
                 Color::DarkGray
             };
-            if let Some(status) = tui.rate_limit_tracker.format_status() {
+            if let Some(status) = tui.integration.rate_limit_tracker.format_status() {
                 spans.push(Span::styled(status, Style::default().fg(rate_color)));
                 spans.push(Span::raw(" | "));
             }
@@ -303,7 +303,7 @@ impl PolishedRenderer {
             .collect();
 
         let in_progress_tasks = tui
-            .workspace_tasks
+            .workspace.workspace_tasks
             .tasks
             .iter()
             .filter(|t| {
@@ -315,7 +315,7 @@ impl PolishedRenderer {
             .count();
 
         let pending_todos = tui
-            .workspace_tasks
+            .workspace.workspace_tasks
             .todos
             .iter()
             .filter(|t| !matches!(t.status, crate::app::tasks::TodoStatus::Completed | crate::app::tasks::TodoStatus::Cancelled))
@@ -365,7 +365,7 @@ impl PolishedRenderer {
         }
 
         if show_context_bar {
-            let usage_pct = (tui.compaction.context_monitor.usage_percentage() * 100.0) as usize;
+            let usage_pct = (tui.sys.compaction.context_monitor.usage_percentage() * 100.0) as usize;
             spans.push(Span::raw(" | "));
             let token_color = if usage_pct < 50 {
                 Color::Green
@@ -382,8 +382,8 @@ impl PolishedRenderer {
             };
             let (fc, ec) = crate::app::render::brutalist_helpers::PROGRESS_CHARS_CONTEXT;
             let bar = crate::app::render::brutalist_helpers::progress_bar(bar_width, filled, fc, ec);
-            let current_tokens = tui.compaction.context_monitor.current_tokens;
-            let max_tokens = tui.compaction.context_monitor.max_tokens;
+            let current_tokens = tui.sys.compaction.context_monitor.current_tokens;
+            let max_tokens = tui.sys.compaction.context_monitor.max_tokens;
             let display_model = tui
                 .current_model
                 .rsplit('/')
@@ -424,7 +424,7 @@ impl PolishedRenderer {
         }
 
         if show_git_branch {
-            if let Some(branch) = &tui.git_branch {
+            if let Some(branch) = &tui.workspace.git_branch {
                 let display_branch = if crate::unicode::display_width(branch) > 25 {
                     crate::unicode::truncate_display(branch, 25)
                 } else {
@@ -440,14 +440,14 @@ impl PolishedRenderer {
             }
         }
 
-        if tui.view.user_scrolled {
-            let total = tui.view.last_total_lines.get();
+        if tui.ui.view.user_scrolled {
+            let total = tui.ui.view.last_total_lines.get();
             if total > 0 {
-                let safe_viewport = tui.view.viewport_height.max(1);
+                let safe_viewport = tui.ui.view.viewport_height.max(1);
                 let max_scroll = total.saturating_sub(safe_viewport);
                 if max_scroll > 0 {
                     // Clamp offset to valid range (may be stale if messages changed)
-                    let offset = tui.view.scroll_offset_line.min(max_scroll);
+                    let offset = tui.ui.view.scroll_offset_line.min(max_scroll);
                     let pos_label = if offset == 0 {
                         "Top".to_string()
                     } else if offset >= max_scroll {

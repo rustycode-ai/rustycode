@@ -9,16 +9,16 @@ impl TUI {
     /// Add an AI assistant message
     pub fn add_ai_message(&mut self, content: String) {
         let message = Message::assistant(content);
-        self.messages.push(message);
-        self.dirty = true;
+        self.session.messages.push(message);
+        self.sys.dirty = true;
 
         // Mark session recovery dirty for auto-save
         self.mark_session_dirty();
 
         // Auto-scroll to latest message only if user hasn't scrolled up
-        if !self.view.user_scrolled && !self.messages.is_empty() {
-            self.view.selected_message = self.messages.len() - 1;
-            self.view.scroll_offset_line = 0;
+        if !self.ui.view.user_scrolled && !self.session.messages.is_empty() {
+            self.ui.view.selected_message = self.session.messages.len() - 1;
+            self.ui.view.scroll_offset_line = 0;
         }
 
         // Update context monitor and check for auto-compaction
@@ -28,8 +28,8 @@ impl TUI {
     /// Add a system message
     pub fn add_system_message(&mut self, content: String) {
         let message = Message::system(content);
-        self.messages.push(message);
-        self.dirty = true;
+        self.session.messages.push(message);
+        self.sys.dirty = true;
 
         // Mark session recovery dirty for auto-save
         self.mark_session_dirty();
@@ -37,9 +37,9 @@ impl TUI {
         // Only auto-scroll to the new message if the user hasn't scrolled up.
         // Background system messages (auto-approvals, workspace notifications)
         // should not yank the user away from what they're reading.
-        if !self.view.user_scrolled && !self.messages.is_empty() {
-            self.view.selected_message = self.messages.len() - 1;
-            self.view.scroll_offset_line = 0;
+        if !self.ui.view.user_scrolled && !self.session.messages.is_empty() {
+            self.ui.view.selected_message = self.session.messages.len() - 1;
+            self.ui.view.scroll_offset_line = 0;
         }
 
         // Update context monitor and check for auto-compaction
@@ -150,20 +150,20 @@ impl TUI {
 
     /// Add tools to the last AI message
     pub fn add_tools_to_last_message(&mut self, tools: Vec<crate::ui::message::ToolExecution>) {
-        if let Some(last_msg) = self.messages.last_mut() {
+        if let Some(last_msg) = self.session.messages.last_mut() {
             if last_msg.role == crate::ui::message::MessageRole::Assistant {
                 last_msg.tool_executions = Some(tools);
-                self.dirty = true;
+                self.sys.dirty = true;
             }
         }
     }
 
     /// Add thinking to the last AI message
     pub fn add_thinking_to_last_message(&mut self, thinking: String) {
-        if let Some(last_msg) = self.messages.last_mut() {
+        if let Some(last_msg) = self.session.messages.last_mut() {
             if last_msg.role == crate::ui::message::MessageRole::Assistant {
                 last_msg.thinking = Some(thinking);
-                self.dirty = true;
+                self.sys.dirty = true;
             }
         }
     }
@@ -180,42 +180,42 @@ impl TUI {
         // During active streaming, never fight user scroll position.
         // The user is reading earlier content and the overflow indicator
         // gives them a way to jump back down when ready.
-        if self.streaming.is_streaming && self.view.user_scrolled {
+        if self.session.streaming.is_streaming && self.ui.view.user_scrolled {
             return;
         }
 
         // When not streaming, debounce to avoid snapping back immediately
         const SCROLL_DEBOUNCE: std::time::Duration = std::time::Duration::from_secs(2);
-        if self.view.user_scrolled && self.view.last_user_scroll_time.elapsed() < SCROLL_DEBOUNCE {
+        if self.ui.view.user_scrolled && self.ui.view.last_user_scroll_time.elapsed() < SCROLL_DEBOUNCE {
             return;
         }
 
-        self.view.user_scrolled = false;
+        self.ui.view.user_scrolled = false;
         // Set scroll_offset_line to the actual bottom position so that
         // scroll_up_by works correctly from the bottom (instead of jumping to top).
         let max_scroll = self
-            .view
+            .ui.view
             .last_total_lines
             .get()
-            .saturating_sub(self.view.viewport_height.max(1));
-        self.view.scroll_offset_line = max_scroll;
-        if !self.messages.is_empty() {
-            self.view.selected_message = self.messages.len() - 1;
+            .saturating_sub(self.ui.view.viewport_height.max(1));
+        self.ui.view.scroll_offset_line = max_scroll;
+        if !self.session.messages.is_empty() {
+            self.ui.view.selected_message = self.session.messages.len() - 1;
         }
     }
 
     /// Update viewport height (called when terminal is resized)
     pub fn update_viewport_height(&mut self, height: usize) {
-        self.view.viewport_height = height;
+        self.ui.view.viewport_height = height;
         // Clamp scroll_offset_line so it doesn't exceed the new max
         // after a viewport shrink (e.g., terminal resize or sidebar toggle).
         let max_scroll = self
-            .view
+            .ui.view
             .last_total_lines
             .get()
             .saturating_sub(height.max(1));
-        if self.view.scroll_offset_line > max_scroll {
-            self.view.scroll_offset_line = max_scroll;
+        if self.ui.view.scroll_offset_line > max_scroll {
+            self.ui.view.scroll_offset_line = max_scroll;
         }
     }
 
@@ -242,7 +242,7 @@ impl TUI {
 
         let mut messages: Vec<ChatMessage> = Vec::new();
 
-        for msg in self.messages.iter() {
+        for msg in self.session.messages.iter() {
             match msg.role {
                 crate::ui::message::MessageRole::User => {
                     messages.push(ChatMessage::user(msg.content.clone()));
@@ -389,7 +389,7 @@ impl TUI {
 
         // Inject doom loop context as a user-role note so the model sees it.
         // System messages are filtered from history, so we use user role.
-        if let Some(ref note) = self.pending_doom_note {
+        if let Some(ref note) = self.session.pending_doom_note {
             if let Some(last) = result.last_mut() {
                 if last.role == LlmRole::User {
                     let merged = format!("{}\n\n{}", last.text(), note);
@@ -405,14 +405,14 @@ impl TUI {
 
     /// Find the index of the last assistant message, searching from the end.
     pub(crate) fn last_assistant_index(&self) -> Option<usize> {
-        self.messages
+        self.session.messages
             .iter()
             .rposition(|m| m.role == crate::ui::message::MessageRole::Assistant)
     }
 
     /// Get an immutable reference to the last assistant message.
     pub(crate) fn last_assistant_message(&self) -> Option<&Message> {
-        self.messages
+        self.session.messages
             .iter()
             .rev()
             .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
@@ -420,7 +420,7 @@ impl TUI {
 
     /// Get a mutable reference to the last assistant message.
     pub(crate) fn last_assistant_message_mut(&mut self) -> Option<&mut Message> {
-        self.messages
+        self.session.messages
             .iter_mut()
             .rev()
             .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
@@ -446,7 +446,7 @@ impl TUI {
     /// Used during stream cancellation to atomically capture and clear thinking
     /// in a single call, avoiding two separate mutable borrows.
     pub(crate) fn take_last_assistant_thinking(&mut self) -> Option<String> {
-        self.messages
+        self.session.messages
             .iter_mut()
             .rev()
             .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
@@ -462,13 +462,13 @@ impl TUI {
 
     /// Update the context monitor with the current message list and run auto-compaction if needed.
     pub(crate) fn update_context_and_compact(&mut self) {
-        self.compaction.context_monitor.update(&self.messages);
+        self.sys.compaction.context_monitor.update(&self.session.messages);
         self.maybe_auto_compact();
     }
 
     /// Push an empty assistant message (streaming placeholder) and mark the view dirty.
     pub(crate) fn push_empty_assistant_message(&mut self) {
-        self.messages.push(Message::assistant(String::new()));
-        self.dirty = true;
+        self.session.messages.push(Message::assistant(String::new()));
+        self.sys.dirty = true;
     }
 }

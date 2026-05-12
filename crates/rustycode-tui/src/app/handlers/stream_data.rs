@@ -8,32 +8,32 @@ use tracing;
 
 pub(super) fn handle_extract_tasks_chunk(tui: &mut TUI, text: String) {
     // Save current state for undo
-    tui.last_extraction = Some((
-        tui.workspace_tasks.tasks.clone(),
-        tui.workspace_tasks.todos.clone(),
+    tui.workspace.last_extraction = Some((
+        tui.workspace.workspace_tasks.tasks.clone(),
+        tui.workspace.workspace_tasks.todos.clone(),
     ));
 
     // Extract tasks/todos from the provided text
-    let initial_todos = tui.workspace_tasks.todos.len();
-    let initial_tasks = tui.workspace_tasks.tasks.len();
+    let initial_todos = tui.workspace.workspace_tasks.todos.len();
+    let initial_tasks = tui.workspace.workspace_tasks.tasks.len();
 
-    extract_action_items(&text, &mut tui.workspace_tasks);
+    extract_action_items(&text, &mut tui.workspace.workspace_tasks);
 
     let new_todos = tui
-        .workspace_tasks
+        .workspace.workspace_tasks
         .todos
         .len()
         .saturating_sub(initial_todos);
     let new_tasks = tui
-        .workspace_tasks
+        .workspace.workspace_tasks
         .tasks
         .len()
         .saturating_sub(initial_tasks);
 
     crate::app::tasks::save_tasks_with_storage(
-        &tui.workspace_tasks,
+        &tui.workspace.workspace_tasks,
         tui.storage.as_deref(),
-        tui.services.cwd(),
+        tui.integration.services.cwd(),
         None,
     );
 
@@ -107,7 +107,7 @@ pub(super) fn handle_question_request_chunk(
     tui.clarification_panel = crate::ui::clarification::ClarificationPanel::new(vec![question]);
     tui.awaiting_clarification = true;
     tui.add_system_message(format!("❓ AI asks: {}", question_text));
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }
 
 pub(super) fn handle_question_answered_chunk(
@@ -140,7 +140,7 @@ pub(super) fn handle_token_usage_chunk(
     tui.token_budget.last_turn_output_tokens = output_tokens;
 
     // Update context monitor with real API token counts
-    tui.compaction
+    tui.sys.compaction
         .context_monitor
         .update_from_api(input_tokens, &tui.current_model);
 
@@ -169,19 +169,19 @@ pub(super) fn handle_token_usage_chunk(
         tracing::debug!("Cost tracking failed: {}", e);
     }
 
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }
 
 pub(super) fn handle_execution_trace_chunk(tui: &mut TUI, trace: serde_json::Value) {
     tracing::debug!("Received execution trace from orchestration pipeline");
-    tui.execution_trace = Some(trace);
-    tui.dirty = true;
+    tui.session.execution_trace = Some(trace);
+    tui.sys.dirty = true;
     tui.mark_session_dirty();
 }
 
 pub(super) fn handle_system_message_chunk(tui: &mut TUI, msg: String) {
     tui.add_system_message(msg);
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }
 
 pub(super) fn handle_milestone_progress_chunk(
@@ -213,5 +213,5 @@ pub(super) fn handle_milestone_progress_chunk(
         &current_plan_summary,
         &action_hint,
     );
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }

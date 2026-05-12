@@ -6,11 +6,11 @@ use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 impl TUI {
     fn scroll_help_by(&mut self, lines: usize, down: bool) {
         if down {
-            self.help_state.scroll_offset = self.help_state.scroll_offset.saturating_add(lines);
+            self.ui.help_state.scroll_offset = self.ui.help_state.scroll_offset.saturating_add(lines);
         } else {
-            self.help_state.scroll_offset = self.help_state.scroll_offset.saturating_sub(lines);
+            self.ui.help_state.scroll_offset = self.ui.help_state.scroll_offset.saturating_sub(lines);
         }
-        self.dirty = true;
+        self.sys.dirty = true;
     }
 
     fn scroll_tool_result_by(&mut self, lines: usize, down: bool) {
@@ -25,7 +25,7 @@ impl TUI {
                 .tool_result_scroll_offset
                 .saturating_sub(lines);
         }
-        self.dirty = true;
+        self.sys.dirty = true;
     }
 
     /// Handle mouse scroll events with position-aware routing.
@@ -49,7 +49,7 @@ impl TUI {
             return;
         }
 
-        if self.help_state.visible {
+        if self.ui.help_state.visible {
             match mouse.kind {
                 MouseEventKind::ScrollUp => self.scroll_help_by(scroll_speed as usize, false),
                 MouseEventKind::ScrollDown => self.scroll_help_by(scroll_speed as usize, true),
@@ -58,7 +58,7 @@ impl TUI {
             return;
         }
 
-        let sidebar_area = self.sidebar_area.get();
+        let sidebar_area = self.ui.sidebar_area.get();
         let sidebar_valid = sidebar_area.width > 0 && sidebar_area.height > 0;
         let mouse_in_sidebar = sidebar_valid
             && self.session_sidebar.is_visible()
@@ -70,13 +70,13 @@ impl TUI {
                     for _ in 0..scroll_speed {
                         self.session_sidebar.scroll_up();
                     }
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 MouseEventKind::ScrollDown => {
                     for _ in 0..scroll_speed {
                         self.session_sidebar.scroll_down();
                     }
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 _ => {}
             }
@@ -108,38 +108,38 @@ impl TUI {
     }
 
     fn handle_mouse_selection_start(&self, mouse: MouseEvent) {
-        self.view
+        self.ui.view
             .mouse_selection_start
             .set(Some((mouse.column, mouse.row)));
-        self.view.mouse_selection_dragged.set(false);
+        self.ui.view.mouse_selection_dragged.set(false);
     }
 
     fn handle_mouse_selection_drag(&self, mouse: MouseEvent) {
-        if self.view.mouse_selection_start.get().is_some() {
-            self.view.mouse_selection_dragged.set(true);
+        if self.ui.view.mouse_selection_start.get().is_some() {
+            self.ui.view.mouse_selection_dragged.set(true);
         } else {
-            self.view
+            self.ui.view
                 .mouse_selection_start
                 .set(Some((mouse.column, mouse.row)));
         }
     }
 
     fn finish_mouse_selection(&mut self, mouse: MouseEvent) {
-        let Some(start) = self.view.mouse_selection_start.get() else {
+        let Some(start) = self.ui.view.mouse_selection_start.get() else {
             return;
         };
 
         let end = (mouse.column, mouse.row);
-        let dragged = self.view.mouse_selection_dragged.get() || start != end;
-        self.view.mouse_selection_start.set(None);
-        self.view.mouse_selection_dragged.set(false);
+        let dragged = self.ui.view.mouse_selection_dragged.get() || start != end;
+        self.ui.view.mouse_selection_start.set(None);
+        self.ui.view.mouse_selection_dragged.set(false);
 
         if !dragged {
             self.handle_mouse_click(mouse);
             return;
         }
 
-        let sidebar_area = self.sidebar_area.get();
+        let sidebar_area = self.ui.sidebar_area.get();
         if Self::mouse_point_in_area(start, sidebar_area) {
             if let Err(e) = self.copy_sidebar_text() {
                 tracing::error!("Failed to copy sidebar selection: {}", e);
@@ -147,7 +147,7 @@ impl TUI {
             return;
         }
 
-        let message_area = self.view.messages_area.get();
+        let message_area = self.ui.view.messages_area.get();
         if Self::mouse_point_in_area(start, message_area) {
             let start_idx = self.mouse_message_index_at(start.0, start.1);
             let end_idx = self.mouse_message_index_at(end.0, end.1);
@@ -174,14 +174,14 @@ impl TUI {
         let (col, row) = (mouse.column, mouse.row);
 
         // Check if click is on the scroll-to-bottom indicator
-        if self.view.user_scrolled {
-            let msg_area = self.view.messages_area.get();
+        if self.ui.view.user_scrolled {
+            let msg_area = self.ui.view.messages_area.get();
             let bottom_row = msg_area.y + msg_area.height.saturating_sub(1);
             if row == bottom_row && col >= msg_area.x && col < msg_area.x + msg_area.width {
                 // Click on scroll-to-bottom indicator — jump to bottom
-                self.view.user_scrolled = false;
+                self.ui.view.user_scrolled = false;
                 self.auto_scroll();
-                self.dirty = true;
+                self.sys.dirty = true;
                 return;
             }
         }
@@ -193,10 +193,10 @@ impl TUI {
             .find(|(_, rect)| self.point_in_rect((col, row), *rect))
         {
             drop(areas); // Release borrow before mutating messages
-            if msg_idx < self.messages.len() {
+            if msg_idx < self.session.messages.len() {
                 // Update selection so keyboard navigation continues from clicked position
-                self.view.selected_message = msg_idx;
-                let msg = &mut self.messages[msg_idx];
+                self.ui.view.selected_message = msg_idx;
+                let msg = &mut self.session.messages[msg_idx];
                 // Toggle tool expansion for assistant messages with tools
                 // Toggle collapse for all other messages (user and assistant without tools)
                 if msg.role == crate::ui::message::MessageRole::Assistant
@@ -211,7 +211,7 @@ impl TUI {
                 } else {
                     msg.collapsed = !msg.collapsed;
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
             }
         }
     }
@@ -253,28 +253,23 @@ mod tests {
     #[test]
     fn help_scroll_uses_mouse_wheel_direction() {
         let mut tui = TUI::default();
-        tui.help_state.visible = true;
-        tui.help_state.scroll_offset = 10;
+        tui.ui.help_state.visible = true;
+        tui.ui.help_state.scroll_offset = 10;
 
         tui.scroll_help_by(4, false);
-        assert_eq!(tui.help_state.scroll_offset, 6);
+        assert_eq!(tui.ui.help_state.scroll_offset, 6);
 
         tui.scroll_help_by(8, true);
-        assert_eq!(tui.help_state.scroll_offset, 14);
+        assert_eq!(tui.ui.help_state.scroll_offset, 14);
     }
 
     #[test]
     fn transcript_scrolls_when_mouse_is_outside_sidebar() {
-        let mut tui = TUI {
-            view: crate::app::view_state::ViewState {
-                scroll_offset_line: 30,
-                viewport_height: 10,
-                ..crate::app::view_state::ViewState::new()
-            },
-            ..TUI::default()
-        };
-        tui.view.last_total_lines.set(100);
-        tui.sidebar_area.set(Rect {
+        let mut tui = TUI::default();
+        tui.ui.view.scroll_offset_line = 30;
+        tui.ui.view.viewport_height = 10;
+        tui.ui.view.last_total_lines.set(100);
+        tui.ui.sidebar_area.set(Rect {
             x: 0,
             y: 0,
             width: 20,
@@ -290,22 +285,17 @@ mod tests {
 
         tui.handle_mouse_scroll(mouse);
 
-        assert!(tui.view.user_scrolled);
-        assert_eq!(tui.view.scroll_offset_line, 87);
+        assert!(tui.ui.view.user_scrolled);
+        assert_eq!(tui.ui.view.scroll_offset_line, 87);
     }
 
     #[test]
     fn sidebar_consumes_wheel_when_mouse_is_over_it() {
-        let mut tui = TUI {
-            view: crate::app::view_state::ViewState {
-                scroll_offset_line: 30,
-                viewport_height: 10,
-                ..crate::app::view_state::ViewState::new()
-            },
-            ..TUI::default()
-        };
-        tui.view.last_total_lines.set(100);
-        tui.sidebar_area.set(Rect {
+        let mut tui = TUI::default();
+        tui.ui.view.scroll_offset_line = 30;
+        tui.ui.view.viewport_height = 10;
+        tui.ui.view.last_total_lines.set(100);
+        tui.ui.sidebar_area.set(Rect {
             x: 0,
             y: 0,
             width: 20,
@@ -321,7 +311,7 @@ mod tests {
 
         tui.handle_mouse_scroll(mouse);
 
-        assert_eq!(tui.view.scroll_offset_line, 30);
+        assert_eq!(tui.ui.view.scroll_offset_line, 30);
     }
 
     // --- Mouse drag-to-select pipeline tests ---
@@ -338,13 +328,13 @@ mod tests {
 
     /// Helper: set up sidebar and messages areas for area-routing tests.
     fn setup_areas(tui: &mut TUI) {
-        tui.sidebar_area.set(Rect {
+        tui.ui.sidebar_area.set(Rect {
             x: 0,
             y: 0,
             width: 20,
             height: 24,
         });
-        tui.view.messages_area.set(Rect {
+        tui.ui.view.messages_area.set(Rect {
             x: 20,
             y: 0,
             width: 60,
@@ -358,8 +348,8 @@ mod tests {
         let mut tui = TUI::default();
         let mouse = mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5);
         tui.handle_mouse_input(mouse);
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((30, 5)));
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((30, 5)));
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 2. Down then Drag sets dragged=true
@@ -368,8 +358,8 @@ mod tests {
         let mut tui = TUI::default();
         tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 30, 5));
         tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 8));
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((30, 5)));
-        assert!(tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((30, 5)));
+        assert!(tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 3. Full Down+Drag+Up cycle resets state
@@ -382,8 +372,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 8));
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 8));
 
-        assert_eq!(tui.view.mouse_selection_start.get(), None);
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), None);
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 4. Down+Up at same position = click (not drag), state resets
@@ -396,8 +386,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 5));
 
         // State should be clean after Up
-        assert_eq!(tui.view.mouse_selection_start.get(), None);
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), None);
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 5. Orphan Drag (no prior Down) sets start to current position
@@ -409,8 +399,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 15, 10));
 
         // Orphan drag sets start to current position, does not set dragged
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((15, 10)));
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((15, 10)));
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 6. Orphan Up (no prior Down) is a no-op, doesn't crash
@@ -421,8 +411,8 @@ mod tests {
         // Send Up without a preceding Down — should not panic
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 25, 7));
 
-        assert_eq!(tui.view.mouse_selection_start.get(), None);
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), None);
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 7. State is fully reset after complete Down+Drag+Up cycle
@@ -437,8 +427,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 10));
 
         // Verify clean slate
-        assert_eq!(tui.view.mouse_selection_start.get(), None);
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), None);
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 8. Second Down starts fresh after first selection cycle
@@ -455,8 +445,8 @@ mod tests {
         // Second cycle starts at a different position
         tui.handle_mouse_input(mouse_event(MouseEventKind::Down(MouseButton::Left), 45, 2));
 
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((45, 2)));
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((45, 2)));
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 9. Drag within messages area — state resets (message copy attempted)
@@ -471,8 +461,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 30, 10));
 
         // State resets regardless of whether messages existed to copy
-        assert_eq!(tui.view.mouse_selection_start.get(), None);
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), None);
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 10. Drag within sidebar area — state resets (sidebar copy attempted)
@@ -487,8 +477,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 5, 10));
 
         // State resets
-        assert_eq!(tui.view.mouse_selection_start.get(), None);
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), None);
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 11. Drag outside both areas — no-op, state still resets
@@ -511,8 +501,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Up(MouseButton::Left), 100, 55));
 
         // State still resets cleanly
-        assert_eq!(tui.view.mouse_selection_start.get(), None);
-        assert!(!tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), None);
+        assert!(!tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 12. Drag from right-to-left — start stays at original Down position
@@ -525,8 +515,8 @@ mod tests {
         tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 20, 5));
 
         // Start remains at the Down position
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((60, 5)));
-        assert!(tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((60, 5)));
+        assert!(tui.ui.view.mouse_selection_dragged.get());
     }
 
     // 13. Multiple Drag events between Down and Up — all update dragged, start stays
@@ -538,13 +528,13 @@ mod tests {
 
         // Multiple drag events
         tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 6));
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((30, 5)));
-        assert!(tui.view.mouse_selection_dragged.get());
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((30, 5)));
+        assert!(tui.ui.view.mouse_selection_dragged.get());
 
         tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 7));
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((30, 5)));
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((30, 5)));
 
         tui.handle_mouse_input(mouse_event(MouseEventKind::Drag(MouseButton::Left), 30, 8));
-        assert_eq!(tui.view.mouse_selection_start.get(), Some((30, 5)));
+        assert_eq!(tui.ui.view.mouse_selection_start.get(), Some((30, 5)));
     }
 }

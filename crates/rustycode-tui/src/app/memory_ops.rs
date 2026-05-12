@@ -13,13 +13,13 @@ impl TUI {
         use crate::memory::memory_injection::get_injection_summary;
 
         // Skip if auto-memory is not available
-        let auto_memory = match &self.auto_memory {
+        let auto_memory = match &self.sys.auto_memory {
             Some(mem) => mem,
             None => return String::new(),
         };
 
         // Skip if injection is disabled
-        if !self.memory_injection_config.enabled {
+        if !self.sys.memory_injection_config.enabled {
             return String::new();
         }
 
@@ -46,7 +46,7 @@ impl TUI {
         }
 
         // Get injection summary for display
-        get_injection_summary(user_message, &all_memories, &self.memory_injection_config)
+        get_injection_summary(user_message, &all_memories, &self.sys.memory_injection_config)
     }
 
     /// Inject relevant memories into user message if enabled
@@ -57,13 +57,13 @@ impl TUI {
         use crate::memory::memory_injection::{get_injection_summary, inject_memories};
 
         // Skip if auto-memory is not available
-        let auto_memory = match &self.auto_memory {
+        let auto_memory = match &self.sys.auto_memory {
             Some(mem) => mem,
             None => return user_message.to_string(),
         };
 
         // Skip if injection is disabled
-        if !self.memory_injection_config.enabled {
+        if !self.sys.memory_injection_config.enabled {
             return user_message.to_string();
         }
 
@@ -91,11 +91,11 @@ impl TUI {
 
         // Prepare injection
         let enhanced_message =
-            inject_memories(user_message, &all_memories, &self.memory_injection_config);
+            inject_memories(user_message, &all_memories, &self.sys.memory_injection_config);
 
         // Show injection summary to user
         let summary =
-            get_injection_summary(user_message, &all_memories, &self.memory_injection_config);
+            get_injection_summary(user_message, &all_memories, &self.sys.memory_injection_config);
 
         if !summary.is_empty() {
             // Add system message to show injection happened
@@ -124,7 +124,7 @@ impl TUI {
     /// improving context-aware responses.
     ///
     /// Note: Callers should check `is_first_user_message` BEFORE pushing the
-    /// user message to `self.messages`, then pass that flag here.
+    /// user message to `self.session.messages`, then pass that flag here.
     pub(crate) fn inject_shell_history_if_first_message(&self, message: &str) -> String {
         // Try to read shell history
         let shell_history = match self.read_recent_shell_commands(10) {
@@ -209,11 +209,11 @@ impl TUI {
     }
 
     pub(crate) fn maybe_auto_compact(&mut self) {
-        if !self.compaction.compaction_config.auto_compact_enabled {
+        if !self.sys.compaction.compaction_config.auto_compact_enabled {
             return;
         }
 
-        if self
+        if self.sys
             .compaction
             .compaction_config
             .auto_compact_state
@@ -221,7 +221,7 @@ impl TUI {
         {
             tracing::debug!(
                 "Auto-compaction disabled after {} consecutive failures",
-                self.compaction
+                self.sys.compaction
                     .compaction_config
                     .auto_compact_state
                     .consecutive_failures
@@ -230,20 +230,20 @@ impl TUI {
         }
 
         // Only compact when not streaming and user is idle (no active tools)
-        if self.streaming.is_streaming || !self.active_tools.is_empty() {
+        if self.session.streaming.is_streaming || !self.session.active_tools.is_empty() {
             return;
         }
 
-        let effective_max = self.compaction.compaction_config.effective_max_tokens();
+        let effective_max = self.sys.compaction.compaction_config.effective_max_tokens();
         let threshold_tokens =
-            (effective_max as f64 * self.compaction.compaction_config.warning_threshold) as usize;
+            (effective_max as f64 * self.sys.compaction.compaction_config.warning_threshold) as usize;
 
-        if self.compaction.context_monitor.current_tokens >= threshold_tokens {
+        if self.sys.compaction.context_monitor.current_tokens >= threshold_tokens {
             tracing::info!(
                 "Token usage at {:.1}% ({}, / {}), executing auto-compaction",
-                (self.compaction.context_monitor.current_tokens as f64 / effective_max as f64)
+                (self.sys.compaction.context_monitor.current_tokens as f64 / effective_max as f64)
                     * 100.0,
-                self.compaction.context_monitor.current_tokens,
+                self.sys.compaction.context_monitor.current_tokens,
                 effective_max
             );
 
@@ -255,30 +255,30 @@ impl TUI {
     pub(crate) fn execute_compaction(&mut self) {
         use crate::slash_commands::execute_compaction as execute_compaction_fn;
 
-        let strategy = self.compaction.compaction_config.strategy;
+        let strategy = self.sys.compaction.compaction_config.strategy;
 
         tracing::debug!("Executing compaction with strategy: {:?}", strategy);
         self.toast_manager.info("Compacting context...");
 
-        match execute_compaction_fn(self.messages.clone(), strategy) {
+        match execute_compaction_fn(self.session.messages.clone(), strategy) {
             Ok(compacted) => {
-                let old_count = self.messages.len();
+                let old_count = self.session.messages.len();
                 let new_count = compacted.len();
 
-                self.messages = compacted;
+                self.session.messages = compacted;
 
                 // Clamp scroll position to valid range after compaction
                 // (messages were removed, so indices may be stale)
-                if self.view.selected_message >= self.messages.len() {
-                    self.view.selected_message = self.messages.len().saturating_sub(1);
+                if self.ui.view.selected_message >= self.session.messages.len() {
+                    self.ui.view.selected_message = self.session.messages.len().saturating_sub(1);
                 }
-                self.view.scroll_offset_line = 0;
-                self.view.user_scrolled = false;
+                self.ui.view.scroll_offset_line = 0;
+                self.ui.view.user_scrolled = false;
 
-                self.compaction.context_monitor.update(&self.messages);
+                self.sys.compaction.context_monitor.update(&self.session.messages);
                 self.token_budget.last_turn_input_tokens =
-                    self.compaction.context_monitor.current_tokens;
-                self.compaction
+                    self.sys.compaction.context_monitor.current_tokens;
+                self.sys.compaction
                     .compaction_config
                     .auto_compact_state
                     .on_success();
@@ -300,7 +300,7 @@ impl TUI {
                 ));
             }
             Err(e) => {
-                self.compaction
+                self.sys.compaction
                     .compaction_config
                     .auto_compact_state
                     .on_failure();
@@ -311,7 +311,7 @@ impl TUI {
             }
         }
 
-        self.compaction.showing_preview = false;
-        self.compaction.pending = false;
+        self.sys.compaction.showing_preview = false;
+        self.sys.compaction.pending = false;
     }
 }

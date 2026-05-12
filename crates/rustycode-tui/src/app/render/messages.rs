@@ -25,7 +25,7 @@ impl PolishedRenderer {
 
         // If no user/assistant conversation yet, show helpful empty state with context
         // (System messages like "Workspace loaded" don't count as conversation)
-        let has_conversation = tui.messages.iter().any(|m| {
+        let has_conversation = tui.session.messages.iter().any(|m| {
             matches!(
                 m.role,
                 crate::ui::message::MessageRole::User | crate::ui::message::MessageRole::Assistant
@@ -57,7 +57,7 @@ impl PolishedRenderer {
 
             // Context info (claw-code pattern: show model, project, branch)
             let project_name = tui
-                .services
+                .integration.services
                 .cwd()
                 .file_name()
                 .and_then(|n: &std::ffi::OsStr| n.to_str())
@@ -101,7 +101,7 @@ impl PolishedRenderer {
                         "Tab = toggle tools  ·  Ctrl+P tool panel  ·  Ctrl+B sessions",
                         "Ctrl+Q to quit  ·  Ctrl+C to cancel  ·  Esc to stop",
                     ];
-                    let tip_idx = (greeting_idx + tui.animator.current_frame().progress_frame / 20)
+                    let tip_idx = (greeting_idx + tui.ui.animator.current_frame().progress_frame / 20)
                         % TIPS.len();
                     TIPS[tip_idx]
                 },
@@ -144,10 +144,10 @@ impl PolishedRenderer {
         let mut full_estimated_total: usize = 0;
         {
             let mut prev_was_system = false;
-            for msg in &tui.messages {
+            for msg in &tui.session.messages {
                 let is_system = matches!(msg.role, crate::ui::message::MessageRole::System);
                 let separator = if prev_was_system && is_system { 0 } else { 1 };
-                let msg_lines = tui
+                let msg_lines = tui.ui
                     .message_renderer
                     .estimate_message_height(msg, est_content_width)
                     + separator;
@@ -156,21 +156,21 @@ impl PolishedRenderer {
             }
         }
 
-        let estimated_auto_scroll_start = if !tui.view.user_scrolled {
+        let estimated_auto_scroll_start = if !tui.ui.view.user_scrolled {
             full_estimated_total.saturating_sub(safe_viewport_height)
         } else {
-            tui.view.scroll_offset_line
+            tui.ui.view.scroll_offset_line
         };
 
         // Track cumulative estimated lines to skip messages above viewport
         let mut est_cumulative: usize = 0;
         let mut all_above_viewport = true;
-        let use_fast_skip = !tui.view.user_scrolled;
+        let use_fast_skip = !tui.ui.view.user_scrolled;
         // Estimate viewport end to skip messages below it
         let estimated_viewport_end = estimated_auto_scroll_start + safe_viewport_height + 10; // +10 buffer
-        let mut estimated_msg_lines = Vec::with_capacity(tui.messages.len());
+        let mut estimated_msg_lines = Vec::with_capacity(tui.session.messages.len());
 
-        for (msg_idx, msg) in tui.messages.iter().enumerate() {
+        for (msg_idx, msg) in tui.session.messages.iter().enumerate() {
             // Get vertical bar style (determines border color)
             let tc = tui.theme_colors.lock().unwrap_or_else(|e| e.into_inner());
             let (pipe_char, pipe_color) = tc.message_pipe_style(&msg.role);
@@ -179,13 +179,13 @@ impl PolishedRenderer {
             // Fast skip: estimate this message's line count and skip if entirely
             // above the viewport. This avoids expensive markdown rendering for
             // messages the user can't see (especially important in long conversations).
-            let est_msg_lines = tui
+            let est_msg_lines = tui.ui
                 .message_renderer
                 .estimate_message_height(msg, est_content_width);
             estimated_msg_lines.push(est_msg_lines);
             let prev_is_system = msg_idx > 0
                 && matches!(
-                    tui.messages.get(msg_idx - 1),
+                    tui.session.messages.get(msg_idx - 1),
                     Some(m) if matches!(m.role, crate::ui::message::MessageRole::System)
                 );
             let is_system = matches!(msg.role, crate::ui::message::MessageRole::System);
@@ -270,7 +270,7 @@ impl PolishedRenderer {
                 ));
             } else {
                 // Render markdown content
-                let content_lines = tui
+                let content_lines = tui.ui
                     .message_renderer
                     .render_markdown_content(&msg.content, &theme);
 
@@ -348,16 +348,16 @@ impl PolishedRenderer {
             .sum();
         total_lines += separator_count;
 
-        tui.view.last_total_lines.set(full_estimated_total);
+        tui.ui.view.last_total_lines.set(full_estimated_total);
 
         // Ensure viewport_height is at least 1 to avoid division issues
         let safe_viewport_height = viewport_height.max(1);
 
         // Clamp scroll offset to valid range
         let max_scroll = total_lines.saturating_sub(safe_viewport_height);
-        let clamped_scroll = tui.view.scroll_offset_line.min(max_scroll);
+        let clamped_scroll = tui.ui.view.scroll_offset_line.min(max_scroll);
 
-        let start_line = if tui.view.user_scrolled {
+        let start_line = if tui.ui.view.user_scrolled {
             clamped_scroll
         } else {
             total_lines.saturating_sub(safe_viewport_height)
@@ -376,7 +376,7 @@ impl PolishedRenderer {
         {
             let mut offsets = tui.message_line_offsets.borrow_mut();
             offsets.clear();
-            offsets.resize(tui.messages.len(), usize::MAX);
+            offsets.resize(tui.session.messages.len(), usize::MAX);
             let mut acc = 0usize;
             for (chunk_idx, (msg_idx, _, lines, is_system)) in render_chunks.iter().enumerate() {
                 let prev_is_system =
@@ -533,8 +533,8 @@ impl PolishedRenderer {
 
         // Show queued message indicator at bottom when auto-scrolled
         // (dimmed preview of queued message)
-        if !tui.view.user_scrolled {
-            if let Some(queued) = &tui.streaming.queued_message {
+        if !tui.ui.view.user_scrolled {
+            if let Some(queued) = &tui.session.streaming.queued_message {
                 if y_offset < area.height.saturating_sub(2) {
                     const MAX_PREVIEW_WIDTH: usize = 80;
                     let full_width = unicode_width::UnicodeWidthStr::width(queued.as_str());
@@ -584,7 +584,7 @@ impl PolishedRenderer {
 
         // Viewport overflow indicators
         let overflows = total_lines > safe_viewport_height;
-        if overflows && tui.view.user_scrolled && area.height > 2 {
+        if overflows && tui.ui.view.user_scrolled && area.height > 2 {
             let above = start_line;
             let below = total_lines.saturating_sub(start_line + safe_viewport_height);
 
@@ -610,8 +610,8 @@ impl PolishedRenderer {
 
             // Bottom indicator — more prominent, clickable
             if below > 0 && (y_offset as usize) < area.height as usize {
-                let anim_frame = tui.animator.current_frame();
-                let is_streaming = tui.streaming.is_streaming;
+                let anim_frame = tui.ui.animator.current_frame();
+                let is_streaming = tui.session.streaming.is_streaming;
                 // Use a brighter color when streaming to attract attention
                 let indicator_color = if is_streaming {
                     let pulse = (anim_frame.progress_frame / 10).is_multiple_of(2);
@@ -651,9 +651,9 @@ impl PolishedRenderer {
 
         // Turn indicator when viewing a past turn
         // Shows "turn X/Y" when user navigated to a historical message
-        if tui.view.user_scrolled {
+        if tui.ui.view.user_scrolled {
             let total_turns = tui
-                .messages
+                .session.messages
                 .iter()
                 .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
                 .count();
@@ -663,17 +663,17 @@ impl PolishedRenderer {
                 // renders, making selected_message stale. The .min() clamp handles
                 // non-empty cases; the is_empty() check prevents ..=0 panic.
                 let safe_end = tui
-                    .view
+                    .ui.view
                     .selected_message
-                    .min(tui.messages.len().saturating_sub(1));
-                if tui.messages.is_empty() {
+                    .min(tui.session.messages.len().saturating_sub(1));
+                if tui.session.messages.is_empty() {
                     return;
                 }
-                let current_turn = tui.messages[..=safe_end]
+                let current_turn = tui.session.messages[..=safe_end]
                     .iter()
                     .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
                     .count();
-                let is_latest = tui.view.selected_message >= tui.messages.len().saturating_sub(1);
+                let is_latest = tui.ui.view.selected_message >= tui.session.messages.len().saturating_sub(1);
                 if !is_latest && current_turn > 0 {
                     let turn_text =
                         format!(" ◈ turn {}/{} — shift+↓ return ", current_turn, total_turns);
@@ -703,7 +703,7 @@ impl PolishedRenderer {
             if elapsed > std::time::Duration::from_millis(2) {
                 crate::debug_log!(
                     "Polished message render ran long: messages={} render_chunks={} rendered={} skipped_above={} total_lines={} viewport_height={} elapsed_ms={}",
-                    tui.messages.len(),
+                    tui.session.messages.len(),
                     render_chunks.len(),
                     rendered_messages,
                     skipped_above,

@@ -113,225 +113,73 @@ fn install_panic_hook() {
 /// - Animation system (smooth updates)
 /// - Service integration (LLM streaming, tool execution, workspace loading)
 pub struct TUI {
-    // UI Components (plugins)
-    pub(crate) message_renderer: MessageRenderer,
-    pub(crate) input_handler: InputHandler,
-    pub(crate) animator: Animator,
+    // Grouped state sub-structs
+    pub(crate) ui: crate::app::state_model::UIComponents,
+    pub(crate) integration: crate::app::state_model::ServiceIntegrationState,
+    pub(crate) workspace: crate::app::state_model::TaskWorkspaceState,
+    pub(crate) session: crate::app::state_model::InteractionSessionState,
+    pub(crate) sys: crate::app::state_model::SystemState,
+
+    // Remaining flat fields
     pub(crate) event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
-    pub(crate) marketplace_browser: crate::ui::marketplace_browser::MarketplaceBrowser,
-
-    // Service Manager (background tasks)
-    pub(crate) services: ServiceManager,
-
-    // State
-    pub(crate) messages: Vec<Message>,
     pub(crate) _input_state: InputState,
     pub(crate) input_mode: InputMode,
-    pub(crate) running: bool,
-
-    // Viewport and scroll state (grouped in sub-struct)
-    pub(crate) view: crate::app::view_state::ViewState,
-    pub(crate) sidebar_area: std::cell::Cell<Rect>, // store sidebar area for mouse routing
-
-    // Streaming state (grouped in sub-struct)
-    pub(crate) streaming: crate::app::streaming_state::StreamingState,
-    pub(crate) plan_mode_banner: Option<crate::app::plan_mode_ops::PlanModeBanner>,
-    pub(crate) execution_trace: Option<serde_json::Value>,
-
-    // Tool execution tracking
-    pub(crate) active_tools: std::collections::HashMap<String, ToolExecution>,
-
-    // Workspace state
-    pub(crate) workspace_loaded: bool,
-    pub(crate) workspace_context: Option<String>, // Store workspace context for LLM
-    pub(crate) workspace_tasks: WorkspaceTasks,
-    pub(crate) pipeline: crate::app::pipeline::registry::PipelineRegistry,
-    pub(crate) pipeline_ctx: crate::app::pipeline::registry::PipelineContext,
-    // Pipeline cron scheduler (std::sync::mpsc channels, NOT tokio)
-    pub(crate) scheduler_rx: Option<mpsc::Receiver<crate::app::pipeline::ScheduledPhaseEvent>>,
-    pub(crate) active_scheduled_phases: std::collections::HashSet<String>,
-    pub(crate) max_concurrent_phases: usize,
-    pub(crate) last_extraction:
-        Option<(Vec<crate::app::tasks::Task>, Vec<crate::app::tasks::Todo>)>,
-    pub(crate) workspace_scan_progress: Option<(usize, usize)>, // (scanned, total)
-    pub(crate) git_branch: Option<String>,                      // Current git branch for status bar
-
-    // Rate limit handler
-    pub(crate) rate_limit: RateLimitHandler,
-    // Rate limit status tracker (from response headers)
-    pub(crate) rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker,
-
-    // Auto-continue mode - automatically continue working on pending tasks
-    pub(crate) auto_continue: AutoContinueState,
-
-    // Turn-level verification (snapshot before agent turn, diff after)
-    pub(crate) turn_snapshot: Option<crate::app::turn_snapshot::TurnSnapshot>,
-    // Doom loop detector — tracks repetitive tool-call patterns
-    pub(crate) doom_loop: crate::app::doom_loop::DoomLoopDetector,
-    // Carries doom loop context into the next turn's conversation so the model
-    // sees it (system messages are filtered from history; this becomes a user note).
-    pub(crate) pending_doom_note: Option<String>,
-
-    // Active Reasoning Engine budget tracking
-    pub(crate) reasoning_budget:
-        std::sync::Mutex<rustycode_tools::providers::reasoning_types::BudgetState>,
-
-    // Performance: dirty flag - only render when state changes
-    pub(crate) dirty: bool,
-    // Set after external editor returns to force terminal.clear() + full redraw
-    pub(crate) needs_full_redraw: bool,
-
-    // Token compaction (grouped in sub-struct)
-    pub(crate) compaction: crate::app::compaction_state::CompactionState,
-
-    // Auto-memory system
-    pub(crate) auto_memory: Option<Arc<ThreadSafeAutoMemory>>,
-    pub(crate) memory_injection_config: InjectionConfig,
-
-    // Skill palette
-    pub(crate) skill_palette: SkillPalette,
+    pub(crate) tool_approval: crate::app::tool_approval_state::ToolApprovalState,
     pub(crate) skill_manager: Arc<RwLock<SkillStateManager>>,
-    pub(crate) plugin_manager: Arc<RwLock<PluginManager>>,
-    pub(crate) plugin_manager_ui: PluginManagerUI,
     pub(crate) showing_plugin_manager: bool,
     pub(crate) showing_marketplace_browser: bool,
-
-    // Round 2 Features: Help system
-    pub(crate) help_state: HelpState,
-
-    // Tool approval (grouped in sub-struct)
-    pub(crate) tool_approval: crate::app::tool_approval_state::ToolApprovalState,
-
-    // Session start time (for elapsed time display)
     pub(crate) start_time: Instant,
-    // Language server protocol status (LSP)
     pub(crate) lsp: LspStatus,
-    // Message Control Protocol status (MCP)
     pub(crate) mcp: McpStatus,
-
-    // Theme colors for live switching
     pub(crate) theme_colors: Arc<std::sync::Mutex<ThemeColors>>,
-
-    // Theme preview for live theme switching
     pub(crate) theme_preview: ThemePreview,
-
-    // Quick theme switcher
     pub(crate) theme_switcher: ThemeSwitcher,
-
-    // Toast notifications for theme change feedback
     pub(crate) toast_manager: ToastManager,
-
-    // Error display manager for prominent error messages with suggestions
     pub(crate) error_manager: crate::ui::errors::ErrorManager,
     pub(crate) showing_error: bool,
-
-    // Tool panel state
     pub(crate) tool_panel: ToolPanelState,
-
-    // Team agent timeline panel
     pub(crate) team_panel: crate::ui::team_panel::TeamPanel,
-    /// Team mode handler
     pub(crate) team_handler: TeamModeHandler,
-
-    // Worker status panel
     pub(crate) worker_panel: crate::ui::worker_panel::WorkerPanel,
-
-    // AST pipeline phase progress
     pub(crate) ast_phase_state: crate::ui::ast_progress::AstPhaseState,
-
-    // Clarification questions panel
     pub(crate) clarification_panel: crate::ui::clarification::ClarificationPanel,
-    pub(crate) awaiting_clarification: bool, // Whether we're waiting for user answers
-
-    // Command palette for slash commands
+    pub(crate) awaiting_clarification: bool,
     pub(crate) command_palette: CommandPalette,
     pub(crate) showing_command_palette: bool,
     pub(crate) showing_skill_palette: bool,
-
-    // Collapsible sections (Phase 3 polish)
     pub(crate) status_bar_collapsed: bool,
     pub(crate) footer_collapsed: bool,
-
-    // Double-Esc to clear input
     pub(crate) last_esc_press: Option<Instant>,
-
-    // Stashed prompt (Ctrl+S)
     pub(crate) stashed_prompt: Option<String>,
-
-    // Model/Provider selector screens
     pub(crate) model_selector: ModelSelector,
     pub(crate) file_selector: FileSelector,
     pub(crate) showing_provider_selector: bool,
     pub(crate) current_model: String,
     pub(crate) current_effort: String,
-
-    // Session sidebar
     pub(crate) session_sidebar: SessionSidebar,
-
-    // Session recovery (crash detection + auto-save)
     pub(crate) session_recovery:
         Option<crate::app::session_recovery_integration::SessionRecoveryManager>,
-
-    // Message click detection (for collapse/expand)
-    pub(crate) message_areas: std::cell::RefCell<Vec<(usize, Rect)>>, // (message_index, area)
-
-    // Per-message line offsets from last render (for accurate search scroll)
-    pub(crate) message_line_offsets: std::cell::RefCell<Vec<usize>>, // msg_idx -> start line
-
-    // First-run configuration wizard handler
+    pub(crate) message_areas: std::cell::RefCell<Vec<(usize, Rect)>>,
+    pub(crate) message_line_offsets: std::cell::RefCell<Vec<usize>>,
     pub(crate) wizard: WizardHandler,
-
-    // Agent lifecycle management
     pub(crate) agent_manager: AgentManager,
-
-    // TUI Configuration (mouse scroll speed, behavior settings, etc.)
     pub(crate) tui_config: TUIConfig,
-
-    // Keyboard shortcut handler for Vim mode and chord detection
     pub(crate) keyboard_handler: KeyboardShortcutHandler,
-
-    /// Undo stacks for message positions and file edits.
     pub(crate) undo: crate::app::undo_state::UndoState,
-
-    // File finder (Ctrl+O fuzzy file search)
     pub(crate) file_finder: crate::ui::file_finder::FileFinder,
-
-    // Message search state
     pub(crate) search_state: SearchState,
-
-    // Message tag filter state
     pub(crate) tag_filter: TagFilter,
-
-    // Active frame renderer backend
     pub(crate) renderer_mode: RendererMode,
-
-    /// Shared todo state for LLM todo tools (todo_read, todo_write, todo_update)
     pub(crate) todo_state: rustycode_tools::todo::TodoState,
-
-    /// Event bus for reactive todo updates (published by tools, subscribed by TUI)
     pub(crate) todo_event_bus: Option<std::sync::Arc<rustycode_bus::EventBus>>,
-
-    /// Flag set by todo.updated event callback; checked each frame to trigger sync_from_todo_state
     pub(crate) todo_dirty: Arc<AtomicBool>,
-
     pub(crate) storage: Option<std::sync::Arc<rustycode_storage::Storage>>,
-
     pub(crate) tool_manager: crate::services::tool_manager::ToolManager,
     pub(crate) session_manager: crate::services::session_manager::SessionManager,
-
-    // Session token usage and cost tracking (grouped in sub-struct)
     pub(crate) token_budget: crate::app::token_budget::TokenBudget,
-
-    // Hook manager for lifecycle extensibility
     pub(crate) hook_manager: rustycode_tools::hooks::HookManager,
-
-    // Plan mode for plan-first execution gates
     pub(crate) plan_mode: rustycode_orchestration::plan_mode::PlanMode,
-
-    // Task dashboard overlay (Ctrl+T)
     pub(crate) show_task_dashboard: bool,
-
-    // Cached API key warning (computed once, not per-frame)
     pub(crate) api_key_warning: String,
 }
 
@@ -380,10 +228,10 @@ impl TUI {
             match event {
                 rustycode_mcp::protocol::McpEvent::ProgressNotification { progress, message } => {
                     info!("MCP progress: {}% - {:?}", progress * 100.0, message);
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 rustycode_mcp::protocol::McpEvent::ToolsListChanged { .. } => {
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 _ => {}
             }
@@ -397,32 +245,32 @@ impl TUI {
     /// when send fails, or when loading/resuming a session that may have
     /// been saved mid-stream.
     pub(crate) fn reset_streaming_state(&mut self) {
-        self.streaming.reset();
+        self.session.streaming.reset();
         self.ast_phase_state.deactivate();
     }
 
     /// Reset the conversational state that should not survive a load/resume
     /// or a full conversation clear.
     pub(crate) fn reset_conversation_state(&mut self) {
-        self.view.selected_message = 0;
-        self.view.scroll_offset_line = 0;
-        self.view.user_scrolled = false;
-        self.active_tools.clear();
+        self.ui.view.selected_message = 0;
+        self.ui.view.scroll_offset_line = 0;
+        self.ui.view.user_scrolled = false;
+        self.session.active_tools.clear();
         self.session_sidebar.clear_milestone_progress();
         self.tool_panel.reset();
         self.dismiss_any_overlay();
         self.reset_streaming_state();
-        self.streaming.queued_message = None;
+        self.session.streaming.queued_message = None;
         self.stashed_prompt = None;
         self.clear_plan_mode_banner();
-        self.rate_limit.clear();
-        self.auto_continue.reset();
+        self.integration.rate_limit.clear();
+        self.session.auto_continue.reset();
         self.token_budget.reset();
-        self.view.last_total_lines.set(0);
-        self.compaction.context_monitor.current_tokens = 0;
-        self.compaction.context_monitor.needs_compaction = false;
+        self.ui.view.last_total_lines.set(0);
+        self.sys.compaction.context_monitor.current_tokens = 0;
+        self.sys.compaction.context_monitor.needs_compaction = false;
 
-        self.doom_loop.reset();
+        self.session.doom_loop.reset();
         self.undo.clear();
         self.search_state.visible = false;
         self.search_state.matches.clear();
@@ -572,85 +420,95 @@ impl TUI {
         };
 
         Ok(Self {
-            message_renderer: MessageRenderer::new(),
-            input_handler,
-            animator: Animator::new(4, reduced_motion),
+            ui: crate::app::state_model::UIComponents {
+                message_renderer: MessageRenderer::new(),
+                input_handler,
+                animator: Animator::new(4, reduced_motion),
+                marketplace_browser,
+                skill_palette,
+                plugin_manager_ui,
+                help_state: HelpState::new(),
+                sidebar_area: std::cell::Cell::new(Rect::default()),
+                view: crate::app::view_state::ViewState::new(),
+            },
+            integration: crate::app::state_model::ServiceIntegrationState {
+                services,
+                pipeline,
+                pipeline_ctx: {
+                    let (pt, mdl, _) =
+                        rustycode_llm::load_provider_config_from_env().unwrap_or_else(|_| {
+                            (
+                                "anthropic".into(),
+                                "claude-haiku-4-5-20251001".into(),
+                                Default::default(),
+                            )
+                        });
+                    let pipeline_provider =
+                        rustycode_llm::create_provider(&pt, &mdl).unwrap_or_else(|_| {
+                            std::sync::Arc::new(rustycode_llm::mock::MockProvider::from_text(
+                                "mock result",
+                            ))
+                        });
+                    crate::app::pipeline::registry::PipelineContext::new(
+                        pipeline_provider,
+                        rustycode_agent_runtime::AgentConfig::default(),
+                        mdl,
+                        agent_tool_registry,
+                    )
+                },
+                scheduler_rx: None,
+                active_scheduled_phases: std::collections::HashSet::new(),
+                max_concurrent_phases: 3,
+                rate_limit: RateLimitHandler::new(),
+                rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
+            },
+            workspace: crate::app::state_model::TaskWorkspaceState {
+                workspace_loaded: false,
+                workspace_context: None,
+                workspace_tasks: load_tasks(),
+                last_extraction: None,
+                workspace_scan_progress: None,
+                git_branch: None,
+            },
+            session: crate::app::state_model::InteractionSessionState {
+                messages: Vec::new(),
+                streaming: crate::app::streaming_state::StreamingState::new(),
+                plan_mode_banner: None,
+                execution_trace: None,
+                active_tools: std::collections::HashMap::new(),
+                auto_continue: AutoContinueState::from_env(),
+                turn_snapshot: None,
+                doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
+                pending_doom_note: None,
+                reasoning_budget: std::sync::Mutex::new(
+                    rustycode_tools::providers::reasoning_types::BudgetState::default(),
+                ),
+            },
+            sys: crate::app::state_model::SystemState {
+                running: true,
+                dirty: true,
+                needs_full_redraw: false,
+                compaction: crate::app::compaction_state::CompactionState::new(
+                    context_monitor,
+                    compaction_config,
+                ),
+                auto_memory,
+                memory_injection_config,
+                plugin_manager,
+            },
             event_receiver,
-            marketplace_browser,
-            services,
-            messages: Vec::new(),
             _input_state: InputState::new(),
             input_mode: InputMode::SingleLine,
-            running: true,
-            view: crate::app::view_state::ViewState::new(),
-            sidebar_area: std::cell::Cell::new(Rect::default()),
-            streaming: crate::app::streaming_state::StreamingState::new(),
-            plan_mode_banner: None,
-            active_tools: std::collections::HashMap::new(),
-            workspace_loaded: false,
-            workspace_context: None,
-            workspace_tasks: load_tasks(),
-            pipeline,
-            pipeline_ctx: {
-                let (pt, mdl, _) =
-                    rustycode_llm::load_provider_config_from_env().unwrap_or_else(|_| {
-                        (
-                            "anthropic".into(),
-                            "claude-haiku-4-5-20251001".into(),
-                            Default::default(),
-                        )
-                    });
-                let pipeline_provider =
-                    rustycode_llm::create_provider(&pt, &mdl).unwrap_or_else(|_| {
-                        std::sync::Arc::new(rustycode_llm::mock::MockProvider::from_text(
-                            "mock result",
-                        ))
-                    });
-                crate::app::pipeline::registry::PipelineContext::new(
-                    pipeline_provider,
-                    rustycode_agent_runtime::AgentConfig::default(),
-                    mdl,
-                    agent_tool_registry,
-                )
-            },
-            scheduler_rx: None,
-            active_scheduled_phases: std::collections::HashSet::new(),
-            max_concurrent_phases: 3,
-            last_extraction: None,
-            workspace_scan_progress: None,
-            git_branch: None,
-            rate_limit: RateLimitHandler::new(),
-            rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
-            auto_continue: AutoContinueState::from_env(),
-            turn_snapshot: None,
-            doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
-            pending_doom_note: None,
-            execution_trace: None,
-            reasoning_budget: std::sync::Mutex::new(
-                rustycode_tools::providers::reasoning_types::BudgetState::default(),
-            ),
-            dirty: true,
-            needs_full_redraw: false,
-            compaction: crate::app::compaction_state::CompactionState::new(
-                context_monitor,
-                compaction_config,
-            ),
-            theme_colors,
-            auto_memory,
-            memory_injection_config,
-            skill_palette,
-            skill_manager,
-            plugin_manager,
-            plugin_manager_ui,
-            showing_plugin_manager: false,
-            showing_marketplace_browser: false,
-            help_state: HelpState::new(),
             tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
                 ToolApprovalManager::new(),
             ),
+            skill_manager,
+            showing_plugin_manager: false,
+            showing_marketplace_browser: false,
             start_time: Instant::now(),
             lsp: LspStatus::new_forced_refresh(),
             mcp: McpStatus::new_forced_refresh(),
+            theme_colors,
             theme_preview,
             theme_switcher,
             toast_manager,
@@ -678,25 +536,17 @@ impl TUI {
                     crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
                 )
                 .ok(),
-            message_areas: std::cell::RefCell::new(Vec::new()), // Track message areas for click detection
-            message_line_offsets: std::cell::RefCell::new(Vec::new()), // Per-message line offsets
-            agent_manager: AgentManager::new(),
-            // First-run wizard initialization
+            message_areas: std::cell::RefCell::new(Vec::new()),
+            message_line_offsets: std::cell::RefCell::new(Vec::new()),
             wizard: WizardHandler::new(&cwd, reconfigure),
-            // Keyboard shortcut handler for Vim mode (gg chord detection)
+            agent_manager: AgentManager::new(),
             keyboard_handler: KeyboardShortcutHandler::new(tui_config.behavior.vim_enabled),
-            undo: crate::app::undo_state::UndoState::new(),
-            // Message search state
-            search_state: SearchState::new(),
-            // File finder (Ctrl+O)
-            file_finder: crate::ui::file_finder::FileFinder::new(cwd.clone()),
-            // Message tag filter state
-            tag_filter: TagFilter::new(),
-            // TUI configuration
             tui_config,
-            // Brutalist mode from config (new distinctive look)
+            undo: crate::app::undo_state::UndoState::new(),
+            file_finder: crate::ui::file_finder::FileFinder::new(cwd.clone()),
+            search_state: SearchState::new(),
+            tag_filter: TagFilter::new(),
             renderer_mode,
-            // MCP proxy cache (managed by tool_manager)
             todo_state: rustycode_tools::todo::new_todo_state(),
             todo_event_bus: Some(std::sync::Arc::new(rustycode_bus::EventBus::new())),
             todo_dirty: Arc::new(AtomicBool::new(false)),
@@ -708,17 +558,12 @@ impl TUI {
                 )
                 .ok(),
             ),
-            // Team agent timeline panel
             team_panel: crate::ui::team_panel::TeamPanel::new(),
             team_handler: TeamModeHandler::new(),
-            // Worker status panel
             worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
-            // AST pipeline phase progress
             ast_phase_state: crate::ui::ast_progress::AstPhaseState::new(),
-            // Clarification questions panel
             clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
             awaiting_clarification: false,
-            // Session token usage and cost tracking
             token_budget: crate::app::token_budget::TokenBudget::new(),
             hook_manager,
             plan_mode: {
@@ -729,9 +574,7 @@ impl TUI {
                 plan_mode.set_role(AgentRole::Worker);
                 plan_mode
             },
-            // Task dashboard overlay (Ctrl+T)
             show_task_dashboard: false,
-            // Cached API key warning (computed once)
             api_key_warning: Self::compute_api_key_warning(),
         })
     }
@@ -781,114 +624,126 @@ impl TUI {
         let renderer_mode = RendererMode::from_brutalist(TUIConfig::default().ui.brutalist_mode);
 
         Self {
-            message_renderer: MessageRenderer::new(),
-            execution_trace: None,
-            input_handler,
-            animator: Animator::new(4, false),
-            services,
-            messages: Vec::new(),
+            ui: crate::app::state_model::UIComponents {
+                message_renderer: MessageRenderer::new(),
+                input_handler,
+                animator: Animator::new(4, false),
+                marketplace_browser,
+                skill_palette,
+                plugin_manager_ui,
+                help_state: HelpState::new(),
+                sidebar_area: std::cell::Cell::new(Rect::default()),
+                view: crate::app::view_state::ViewState::new(),
+            },
+            integration: crate::app::state_model::ServiceIntegrationState {
+                services,
+                pipeline: {
+                    let mut p = crate::app::pipeline::registry::PipelineRegistry::new();
+                    #[cfg(feature = "browser")]
+                    {
+                        let browser_manager =
+                            Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
+                        p.tool_registry.register(
+                            "browser",
+                            "goto",
+                            Arc::new(
+                                crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
+                                    browser_manager.clone(),
+                                ),
+                            ),
+                        );
+                        p.tool_registry.register(
+                            "browser",
+                            "extract",
+                            Arc::new(
+                                crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
+                                    browser_manager,
+                                ),
+                            ),
+                        );
+                    }
+
+                    p.register_factory(
+                        "rustycode::steps::AgentStep",
+                        Box::new(crate::app::pipeline::steps::agent_factory::AgentStepFactory),
+                    );
+                    p
+                },
+                pipeline_ctx: {
+                    let (pt, mdl, _) =
+                        rustycode_llm::load_provider_config_from_env().unwrap_or_else(|_| {
+                            (
+                                "anthropic".into(),
+                                "claude-haiku-4-5-20251001".into(),
+                                Default::default(),
+                            )
+                        });
+                    let pipeline_provider =
+                        rustycode_llm::create_provider(&pt, &mdl).unwrap_or_else(|_| {
+                            std::sync::Arc::new(rustycode_llm::mock::MockProvider::from_text(
+                                "mock result",
+                            ))
+                        });
+                    crate::app::pipeline::registry::PipelineContext::new(
+                        pipeline_provider,
+                        rustycode_agent_runtime::AgentConfig::default(),
+                        mdl,
+                        crate::app::pipeline::tool_registry::ToolRegistry::new(),
+                    )
+                },
+                scheduler_rx: None,
+                active_scheduled_phases: std::collections::HashSet::new(),
+                max_concurrent_phases: 3,
+                rate_limit: RateLimitHandler::new(),
+                rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
+            },
+            workspace: crate::app::state_model::TaskWorkspaceState {
+                workspace_loaded: false,
+                workspace_context: None,
+                workspace_tasks: load_tasks(),
+                last_extraction: None,
+                workspace_scan_progress: None,
+                git_branch: None,
+            },
+            session: crate::app::state_model::InteractionSessionState {
+                messages: Vec::new(),
+                streaming: crate::app::streaming_state::StreamingState::new(),
+                plan_mode_banner: None,
+                execution_trace: None,
+                active_tools: std::collections::HashMap::new(),
+                auto_continue: AutoContinueState::from_env(),
+                turn_snapshot: None,
+                doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
+                pending_doom_note: None,
+                reasoning_budget: std::sync::Mutex::new(
+                    rustycode_tools::providers::reasoning_types::BudgetState::default(),
+                ),
+            },
+            sys: crate::app::state_model::SystemState {
+                running: true,
+                dirty: true,
+                needs_full_redraw: false,
+                compaction: crate::app::compaction_state::CompactionState::new(
+                    context_monitor,
+                    compaction_config,
+                ),
+                auto_memory,
+                memory_injection_config,
+                plugin_manager,
+            },
+            event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY).1,
             _input_state: InputState::new(),
             input_mode: InputMode::SingleLine,
-            running: true,
-            view: crate::app::view_state::ViewState::new(),
-            sidebar_area: std::cell::Cell::new(Rect::default()),
-            streaming: crate::app::streaming_state::StreamingState::new(),
-            plan_mode_banner: None,
-            active_tools: std::collections::HashMap::new(),
-            workspace_loaded: false,
-            workspace_context: None,
-            workspace_tasks: load_tasks(),
-            pipeline: {
-                let mut p = crate::app::pipeline::registry::PipelineRegistry::new();
-                #[cfg(feature = "browser")]
-                {
-                    let browser_manager =
-                        Arc::new(crate::app::pipeline::browser_manager::BrowserManager::new());
-                    p.tool_registry.register(
-                        "browser",
-                        "goto",
-                        Arc::new(
-                            crate::app::pipeline::tools::browser_tools::BrowserGotoTool::new(
-                                browser_manager.clone(),
-                            ),
-                        ),
-                    );
-                    p.tool_registry.register(
-                        "browser",
-                        "extract",
-                        Arc::new(
-                            crate::app::pipeline::tools::browser_extract::BrowserExtractTool::new(
-                                browser_manager,
-                            ),
-                        ),
-                    );
-                }
-
-                p.register_factory(
-                    "rustycode::steps::AgentStep",
-                    Box::new(crate::app::pipeline::steps::agent_factory::AgentStepFactory),
-                );
-                p
-            },
-            pipeline_ctx: {
-                let (pt, mdl, _) =
-                    rustycode_llm::load_provider_config_from_env().unwrap_or_else(|_| {
-                        (
-                            "anthropic".into(),
-                            "claude-haiku-4-5-20251001".into(),
-                            Default::default(),
-                        )
-                    });
-                let pipeline_provider =
-                    rustycode_llm::create_provider(&pt, &mdl).unwrap_or_else(|_| {
-                        std::sync::Arc::new(rustycode_llm::mock::MockProvider::from_text(
-                            "mock result",
-                        ))
-                    });
-                crate::app::pipeline::registry::PipelineContext::new(
-                    pipeline_provider,
-                    rustycode_agent_runtime::AgentConfig::default(),
-                    mdl,
-                    crate::app::pipeline::tool_registry::ToolRegistry::new(),
-                )
-            },
-            scheduler_rx: None,
-            active_scheduled_phases: std::collections::HashSet::new(),
-            max_concurrent_phases: 3,
-            last_extraction: None,
-            workspace_scan_progress: None,
-            git_branch: None,
-            rate_limit: RateLimitHandler::new(),
-            rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
-            auto_continue: AutoContinueState::from_env(),
-            turn_snapshot: None,
-            doom_loop: crate::app::doom_loop::DoomLoopDetector::new(),
-            pending_doom_note: None,
-            reasoning_budget: std::sync::Mutex::new(
-                rustycode_tools::providers::reasoning_types::BudgetState::default(),
-            ),
-            dirty: true,
-            needs_full_redraw: false,
-            compaction: crate::app::compaction_state::CompactionState::new(
-                context_monitor,
-                compaction_config,
-            ),
-            theme_colors,
-            auto_memory,
-            memory_injection_config,
-            skill_palette,
-            skill_manager: Arc::new(RwLock::new(SkillStateManager::new())),
-            plugin_manager,
-            plugin_manager_ui,
-            showing_plugin_manager: false,
-            showing_marketplace_browser: false,
-            help_state: HelpState::new(),
             tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
                 ToolApprovalManager::new(),
             ),
+            skill_manager: Arc::new(RwLock::new(SkillStateManager::new())),
+            showing_plugin_manager: false,
+            showing_marketplace_browser: false,
             start_time: Instant::now(),
             lsp: LspStatus::new_forced_refresh(),
             mcp: McpStatus::new_forced_refresh(),
+            theme_colors,
             theme_preview,
             theme_switcher,
             toast_manager,
@@ -937,11 +792,8 @@ impl TUI {
             team_handler: TeamModeHandler::new(),
             clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
             awaiting_clarification: false,
-            // Worker panel (sub-agent orchestration)
             worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
-            // AST pipeline phase progress
             ast_phase_state: crate::ui::ast_progress::AstPhaseState::new(),
-            // Session token usage and cost tracking
             token_budget: crate::app::token_budget::TokenBudget::new(),
             hook_manager: rustycode_tools::hooks::HookManager::new(
                 PathBuf::from(".rustycode/hooks"),
@@ -956,12 +808,8 @@ impl TUI {
                 plan_mode.set_role(AgentRole::Worker);
                 plan_mode
             },
-            // Task dashboard overlay (Ctrl+T)
             show_task_dashboard: false,
-            // Cached API key warning
             api_key_warning: String::new(),
-            event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY).1,
-            marketplace_browser,
         }
     }
 
@@ -977,12 +825,12 @@ impl TUI {
                     let storage_arc = std::sync::Arc::new(s);
                     self.storage = Some(storage_arc.clone());
 
-                    let cwd = self.services.cwd();
+                    let cwd = self.integration.services.cwd();
                     let reloaded = load_tasks_from_storage(storage_arc.as_ref(), cwd);
-                    let had_json_data = !self.workspace_tasks.tasks.is_empty()
-                        || !self.workspace_tasks.todos.is_empty();
+                    let had_json_data = !self.workspace.workspace_tasks.tasks.is_empty()
+                        || !self.workspace.workspace_tasks.todos.is_empty();
                     if !reloaded.tasks.is_empty() || !reloaded.todos.is_empty() || !had_json_data {
-                        self.workspace_tasks = reloaded;
+                        self.workspace.workspace_tasks = reloaded;
                     }
                 }
                 Err(e) => {
@@ -1022,21 +870,21 @@ impl TUI {
         // Count tools before moving registry
         let tool_count = tool_registry.list().len();
 
-        self.services
+        self.integration.services
             .start_conversation(config, tool_registry)
             .context("failed to start conversation service")?;
         crate::info_log!(
             "start_conversation OK, pipeline={}",
-            self.services.has_pipeline()
+            self.integration.services.has_pipeline()
         );
-        self.services
+        self.integration.services
             .start_workspace_loading()
             .context("failed to start workspace loading")?;
 
         self.refresh_mcp_status(true);
 
         // Wire shared todo state into service manager so LLM can use todo tools
-        self.services.set_todo_state(self.todo_state.clone());
+        self.integration.services.set_todo_state(self.todo_state.clone());
 
         tracing::info!("Services initialized with {} tools", tool_count);
 
@@ -1080,7 +928,7 @@ impl TUI {
             );
             self.lsp.last_lsp_connected = display_connected;
             self.lsp.last_lsp_servers = lsp_names;
-            self.dirty = true;
+            self.sys.dirty = true;
         }
 
         self.lsp.last_lsp_refresh = Instant::now();
@@ -1178,7 +1026,7 @@ impl TUI {
                 .update_mcp_status(mcp_connected, mcp_servers.clone());
             self.mcp.last_mcp_connected = mcp_connected;
             self.mcp.last_mcp_servers = mcp_servers;
-            self.dirty = true;
+            self.sys.dirty = true;
         }
 
         self.mcp.last_mcp_refresh = Instant::now();
@@ -1193,7 +1041,7 @@ impl TUI {
             .last()
             .map(|tool| format!("{} {}", tool.status.icon(), tool.result_summary));
         self.session_sidebar
-            .update_tool_call_summary(self.active_tools.len(), recent);
+            .update_tool_call_summary(self.session.active_tools.len(), recent);
     }
 
     /// Resume the most recent session from disk.
@@ -1204,11 +1052,11 @@ impl TUI {
         match self.session_manager.find_most_recent_session() {
             Ok(Some(session)) => {
                 self.reset_conversation_state();
-                self.view.scroll_offset_line = session.scroll_position;
-                self.messages = session.messages;
-                self.compaction.context_monitor.update(&self.messages);
-                if !self.messages.is_empty() {
-                    self.view.selected_message = self.messages.len().saturating_sub(1);
+                self.ui.view.scroll_offset_line = session.scroll_position;
+                self.session.messages = session.messages;
+                self.sys.compaction.context_monitor.update(&self.session.messages);
+                if !self.session.messages.is_empty() {
+                    self.ui.view.selected_message = self.session.messages.len().saturating_sub(1);
                 }
 
                 if let Some(ref storage) = self.storage {
@@ -1244,7 +1092,7 @@ impl TUI {
                                 *state = items;
                             }
                             crate::app::tasks::sync_from_todo_state(
-                                &mut self.workspace_tasks,
+                                &mut self.workspace.workspace_tasks,
                                 &self.todo_state,
                             );
                             tracing::info!(
@@ -1273,7 +1121,7 @@ impl TUI {
                     "Resumed session '{}' ({} messages, {} min ago)",
                     display_id, session.message_count, session.age_minutes
                 ));
-                self.dirty = true;
+                self.sys.dirty = true;
                 tracing::info!(
                     "Resumed session {} ({} messages)",
                     session.session_id,
@@ -1294,9 +1142,9 @@ impl TUI {
     fn register_builtin_tools(&self, tool_registry: &mut ToolRegistry) {
         self.tool_manager.register_builtin_tools(
             tool_registry,
-            &self.pipeline_ctx.provider,
-            &self.pipeline_ctx.current_model,
-            self.services.cwd(),
+            &self.integration.pipeline_ctx.provider,
+            &self.integration.pipeline_ctx.current_model,
+            self.integration.services.cwd(),
             &self.skill_manager,
             &self.todo_state,
             self.storage.clone(),
@@ -1359,7 +1207,7 @@ impl TUI {
         })?;
 
         // Set terminal title to project name (for tab identification)
-        if let Some(dir_name) = self.services.cwd().file_name().and_then(|n| n.to_str()) {
+        if let Some(dir_name) = self.integration.services.cwd().file_name().and_then(|n| n.to_str()) {
             // Sanitize: strip control characters to prevent terminal escape injection
             let sanitized: String = dir_name.chars().filter(|c| !c.is_control()).collect();
             // OSC 0 sets the terminal window/tab title
@@ -1486,13 +1334,13 @@ impl TUI {
         let mut frame_count: u32 = 0;
         let mut loop_iterations: u64 = 0;
 
-        while self.running {
+        while self.sys.running {
             loop_iterations += 1;
 
             // Check for shutdown signal (Ctrl+C)
             if shutdown_rx.try_recv().is_ok() {
                 // User requested shutdown
-                self.running = false;
+                self.sys.running = false;
                 break;
             }
 
@@ -1505,10 +1353,10 @@ impl TUI {
 
             // Phase 1: Update animations (only marks dirty when frame actually advances)
             let animation_start = Instant::now();
-            if self.animator.update() {
+            if self.ui.animator.update() {
                 // Only mark dirty if an animation is visible (streaming or active tools)
-                if self.streaming.is_streaming || !self.active_tools.is_empty() {
-                    self.dirty = true;
+                if self.session.streaming.is_streaming || !self.session.active_tools.is_empty() {
+                    self.sys.dirty = true;
                 }
             }
             let animation_elapsed = animation_start.elapsed();
@@ -1516,9 +1364,9 @@ impl TUI {
             // Update session sidebar info
             let sidebar_start = Instant::now();
             self.session_sidebar
-                .update_session_info(self.messages.len(), self.active_tools.len());
+                .update_session_info(self.session.messages.len(), self.session.active_tools.len());
             self.session_sidebar
-                .set_rate_limited(self.rate_limit.until.is_some());
+                .set_rate_limited(self.integration.rate_limit.until.is_some());
             self.refresh_tool_call_summary();
             self.refresh_lsp_status(false);
             self.refresh_mcp_status(false);
@@ -1528,7 +1376,7 @@ impl TUI {
             let toast_start = Instant::now();
             let has_active_toasts = self.toast_manager.tick(delta_ms);
             if has_active_toasts {
-                self.dirty = true; // Mark dirty for animation updates
+                self.sys.dirty = true; // Mark dirty for animation updates
             }
             let toast_elapsed = toast_start.elapsed();
 
@@ -1537,7 +1385,7 @@ impl TUI {
             // after the auto-dismiss timeout (10s). Without this, the error
             // indicator persists indefinitely when no other state changes occur.
             if self.error_manager.is_showing() {
-                self.dirty = true;
+                self.sys.dirty = true;
             }
 
             // Phase 2: Poll async sources (ONE item each)
@@ -1548,17 +1396,17 @@ impl TUI {
 
             if self.todo_dirty.swap(false, Ordering::SeqCst) {
                 if crate::app::tasks::sync_from_todo_state(
-                    &mut self.workspace_tasks,
+                    &mut self.workspace.workspace_tasks,
                     &self.todo_state,
                 ) {
                     crate::app::tasks::save_tasks_with_storage(
-                        &self.workspace_tasks,
+                        &self.workspace.workspace_tasks,
                         self.storage.as_deref(),
-                        self.services.cwd(),
+                        self.integration.services.cwd(),
                         None,
                     );
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
             }
 
             {
@@ -1581,7 +1429,7 @@ impl TUI {
             // Phase 2.5: Update countdowns (rate limit, agents, etc.)
             let countdown_start = Instant::now();
             if self.update_rate_limit_countdown() {
-                self.dirty = true; // Mark dirty if countdown updated
+                self.sys.dirty = true; // Mark dirty if countdown updated
             }
             let countdown_elapsed = countdown_start.elapsed();
 
@@ -1600,9 +1448,9 @@ impl TUI {
             if let Some(ref mut recovery) = self.session_recovery {
                 if recovery.should_auto_save() {
                     let state = recovery.create_state(
-                        &self.messages,
-                        self.view.scroll_offset_line,
-                        self.execution_trace.clone(),
+                        &self.session.messages,
+                        self.ui.view.scroll_offset_line,
+                        self.session.execution_trace.clone(),
                     );
                     if let Err(e) = recovery.save_state(&state) {
                         tracing::warn!("Session auto-save failed: {}", e);
@@ -1623,21 +1471,21 @@ impl TUI {
             let input_poll_elapsed = if elapsed < FRAME_BUDGET_60FPS {
                 // Phase 4: Render (only if dirty)
                 // dirty is set to true when new content arrives, so no need to check is_streaming
-                let should_render = self.dirty || frame_count < 3;
+                let should_render = self.sys.dirty || frame_count < 3;
 
                 if should_render {
                     let render_start = Instant::now();
-                    if self.needs_full_redraw {
+                    if self.sys.needs_full_redraw {
                         terminal
                             .clear()
                             .context("failed to clear terminal for full redraw")?;
-                        self.needs_full_redraw = false;
+                        self.sys.needs_full_redraw = false;
                     }
                     terminal
                         .draw(|f| self.render(f))
                         .context("failed to draw TUI frame")?;
                     frame_count += 1;
-                    self.dirty = false;
+                    self.sys.dirty = false;
                     render_elapsed = render_start.elapsed();
                     rendered = true;
                 }
@@ -1695,23 +1543,23 @@ impl TUI {
                     render_elapsed.as_millis(),
                     input_poll_elapsed.as_millis(),
                     input_handle_elapsed.as_millis(),
-                    self.dirty,
+                    self.sys.dirty,
                     rendered,
                     input_polled,
                     input_handled,
-                    self.messages.len(),
-                    self.active_tools.len(),
-                    self.streaming.is_streaming,
-                    self.view.user_scrolled,
-                    self.view.viewport_height
+                    self.session.messages.len(),
+                    self.session.active_tools.len(),
+                    self.session.streaming.is_streaming,
+                    self.ui.view.user_scrolled,
+                    self.ui.view.viewport_height
                 );
             }
         }
 
         // Cleanup: stop any active stream
-        if self.streaming.is_streaming {
-            self.services.request_stop_stream();
-            self.streaming.stream_cancelled = true;
+        if self.session.streaming.is_streaming {
+            self.integration.services.request_stop_stream();
+            self.session.streaming.stream_cancelled = true;
             // Don't set is_streaming=false here — let the async stream task's
             // Done handler clean up to avoid racing with channel receivers.
         }
@@ -1747,9 +1595,9 @@ impl TUI {
         // Session recovery shutdown: save state and release lock
         if let Some(ref mut recovery) = self.session_recovery {
             let state = recovery.create_state(
-                &self.messages,
-                self.view.scroll_offset_line,
-                self.execution_trace.clone(),
+                &self.session.messages,
+                self.ui.view.scroll_offset_line,
+                self.session.execution_trace.clone(),
             );
             if let Err(e) = recovery.shutdown(&state) {
                 tracing::warn!("Session recovery shutdown failed: {}", e);
@@ -1779,18 +1627,18 @@ impl TUI {
         }
 
         if content.contains('\n') {
-            self.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
+            self.ui.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
         }
-        self.input_handler.state.insert_text_at_cursor(content);
+        self.ui.input_handler.state.insert_text_at_cursor(content);
 
         // Switch to multi-line mode when pasting content with newlines,
         // matching the behavior of the Ctrl+V paste handler.
         if content.contains('\n') {
-            self.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
+            self.ui.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
             self.input_mode = crate::ui::input_state::InputMode::MultiLine;
         }
 
-        self.dirty = true;
+        self.sys.dirty = true;
         Ok(())
     }
 
@@ -1804,7 +1652,7 @@ impl TUI {
         // Handle /cost locally (needs TUI state not in CommandContext)
         if matches!(parts[0], "/cost" | "/usage") {
             self.handle_cost_command();
-            self.dirty = true;
+            self.sys.dirty = true;
             self.auto_scroll();
             return Ok(());
         }
@@ -1827,7 +1675,7 @@ impl TUI {
                         }
                         self.plan_mode
                             .set_role(rustycode_protocol::AgentRole::Worker);
-                        self.services
+                        self.integration.services
                             .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                         self.clear_plan_mode_banner();
                         self.add_system_message(
@@ -1838,7 +1686,7 @@ impl TUI {
                         self.plan_mode.reset();
                         self.plan_mode
                             .set_role(rustycode_protocol::AgentRole::Planner);
-                        self.services
+                        self.integration.services
                             .set_ai_mode(crate::services::agent_mode::AiMode::Plan);
                         self.show_planning_banner("Manual");
                         self.add_system_message(
@@ -1846,7 +1694,7 @@ impl TUI {
                         );
                     }
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 return Ok(());
             }
 
@@ -1856,14 +1704,14 @@ impl TUI {
                 self.plan_mode.reset();
                 self.plan_mode
                     .set_role(rustycode_protocol::AgentRole::Planner);
-                self.services
+                self.integration.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Plan);
                 self.show_planning_banner("Manual");
                 self.add_system_message("Plan mode: switched to planning phase".to_string());
             }
-            self.dirty = true;
+            self.sys.dirty = true;
             self.auto_scroll();
-            self.services.send_message(task)?;
+            self.integration.services.send_message(task)?;
             return Ok(());
         }
 
@@ -1875,17 +1723,17 @@ impl TUI {
 
         // Handle AI mode switching commands
         if matches!(parts[0], "/yolo" | "/auto") {
-            let current_mode = self.services.ai_mode();
+            let current_mode = self.integration.services.ai_mode();
             if matches!(current_mode, crate::services::agent_mode::AiMode::Yolo) {
                 self.exit_plan_mode();
-                self.services
+                self.integration.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                 self.add_system_message(
                     "🔒 YOLO mode deactivated — tools require approval again.".to_string(),
                 );
             } else {
                 self.exit_plan_mode();
-                self.services
+                self.integration.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Yolo);
                 self.add_system_message(
                     "🚀 YOLO mode activated — tools auto-approved, fully autonomous.\n\
@@ -1893,27 +1741,27 @@ impl TUI {
                         .to_string(),
                 );
             }
-            self.dirty = true;
+            self.sys.dirty = true;
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.services.send_message(task)?;
+                self.integration.services.send_message(task)?;
             }
             return Ok(());
         }
 
         if matches!(parts[0], "/act") {
-            let current_mode = self.services.ai_mode();
+            let current_mode = self.integration.services.ai_mode();
             if matches!(current_mode, crate::services::agent_mode::AiMode::Act) {
                 self.exit_plan_mode();
-                self.services
+                self.integration.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                 self.add_system_message(
                     "💬 ACT mode deactivated — tools require approval again.".to_string(),
                 );
             } else {
                 self.exit_plan_mode();
-                self.services
+                self.integration.services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Act);
                 self.add_system_message(
                     "⚡ ACT mode — execute with brief summaries, minimal approval.\n\
@@ -1921,54 +1769,54 @@ impl TUI {
                         .to_string(),
                 );
             }
-            self.dirty = true;
+            self.sys.dirty = true;
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.services.send_message(task)?;
+                self.integration.services.send_message(task)?;
             }
             return Ok(());
         }
 
         if matches!(parts[0], "/ask") {
             self.exit_plan_mode();
-            self.services
+            self.integration.services
                 .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
             self.add_system_message(
                 "💬 ASK mode — tools require approval, full summaries.".to_string(),
             );
-            self.dirty = true;
+            self.sys.dirty = true;
             self.auto_scroll();
             if parts.len() > 1 {
                 let task = parts[1..].join(" ");
-                self.services.send_message(task)?;
+                self.integration.services.send_message(task)?;
             }
             return Ok(());
         }
 
-        if let Some(command_tx) = self.services.command_sender() {
-            let cwd = self.services.cwd().clone();
+        if let Some(command_tx) = self.integration.services.command_sender() {
+            let cwd = self.integration.services.cwd().clone();
             let effect = dispatch_registered_slash_command(
                 input,
                 CommandContext {
                     cwd: &cwd,
                     command_tx,
-                    workspace_tasks: &mut self.workspace_tasks,
-                    messages: &mut self.messages,
-                    current_stream_content: &mut self.streaming.current_stream_content,
-                    is_streaming: &mut self.streaming.is_streaming,
-                    last_extraction: &mut self.last_extraction,
-                    services: &mut self.services,
+                    workspace_tasks: &mut self.workspace.workspace_tasks,
+                    messages: &mut self.session.messages,
+                    current_stream_content: &mut self.session.streaming.current_stream_content,
+                    is_streaming: &mut self.session.streaming.is_streaming,
+                    last_extraction: &mut self.workspace.last_extraction,
+                    services: &mut self.integration.services,
                     agent_manager: &mut self.agent_manager,
-                    memory_injection_config: &mut self.memory_injection_config,
+                    memory_injection_config: &mut self.sys.memory_injection_config,
                     theme_colors: &self.theme_colors,
                     skill_manager: &self.skill_manager,
-                    plugin_manager: &self.plugin_manager,
-                    running: &mut self.running,
-                    context_monitor: &mut self.compaction.context_monitor,
-                    compaction_config: &mut self.compaction.compaction_config,
-                    showing_compaction_preview: &mut self.compaction.showing_preview,
-                    pending_compaction: &mut self.compaction.pending,
+                    plugin_manager: &self.sys.plugin_manager,
+                    running: &mut self.sys.running,
+                    context_monitor: &mut self.sys.compaction.context_monitor,
+                    compaction_config: &mut self.sys.compaction.compaction_config,
+                    showing_compaction_preview: &mut self.sys.compaction.showing_preview,
+                    pending_compaction: &mut self.sys.compaction.pending,
                     file_undo_stack: &mut self.undo,
                     session_input_tokens: self.token_budget.session_input_tokens,
                     session_output_tokens: self.token_budget.session_output_tokens,
@@ -1980,8 +1828,8 @@ impl TUI {
 
             if let Some(effect) = effect {
                 self.apply_slash_command_effect(effect)?;
-                self.view.user_scrolled = false;
-                self.dirty = true;
+                self.ui.view.user_scrolled = false;
+                self.sys.dirty = true;
                 return Ok(());
             }
         }
@@ -1995,7 +1843,7 @@ impl TUI {
             ));
         }
 
-        self.dirty = true;
+        self.sys.dirty = true;
         self.auto_scroll();
         Ok(())
     }
@@ -2015,9 +1863,9 @@ impl TUI {
                     elapsed.as_millis(),
                     frame.area().width,
                     frame.area().height,
-                    self.messages.len(),
-                    self.streaming.is_streaming,
-                    self.dirty
+                    self.session.messages.len(),
+                    self.session.streaming.is_streaming,
+                    self.sys.dirty
                 );
             }
         }
@@ -2034,7 +1882,7 @@ impl TUI {
     pub(crate) fn render_brutalist(&mut self, frame: &mut ratatui::Frame) {
         let debug_enabled = crate::logging::is_debug_enabled();
         let render_start = Instant::now();
-        let input_text = self.input_handler.state.all_text();
+        let input_text = self.ui.input_handler.state.all_text();
         let input_line_count = input_text.lines().count().max(1);
         let input_rows: u16 = if input_line_count > 1 {
             2u16.saturating_add(input_line_count.min(6) as u16)
@@ -2065,8 +1913,8 @@ impl TUI {
                 FrameLayoutSnapshot::from_message_layout(
                     message_area,
                     self.session_sidebar.is_visible(),
-                    self.view.scroll_offset_line,
-                    self.view.user_scrolled,
+                    self.ui.view.scroll_offset_line,
+                    self.ui.view.user_scrolled,
                     total_lines,
                     heights,
                     chain_map,
@@ -2095,9 +1943,9 @@ impl TUI {
                 "Brutalist breakdown: layout_ms={} draw_ms={} messages={} total_lines={} streaming={}",
                 layout_elapsed.as_millis(),
                 draw_elapsed.as_millis(),
-                self.messages.len(),
+                self.session.messages.len(),
                 total_lines,
-                self.streaming.is_streaming
+                self.session.streaming.is_streaming
             );
         }
 
@@ -2182,21 +2030,21 @@ impl TUI {
         }
 
         // Overlay: skill palette
-        if self.skill_palette.is_visible() {
-            self.skill_palette.render(frame, size);
+        if self.ui.skill_palette.is_visible() {
+            self.ui.skill_palette.render(frame, size);
         }
 
         if self.showing_plugin_manager {
             let mut manager = self
-                .plugin_manager
+                .sys.plugin_manager
                 .write()
                 .unwrap_or_else(|e| e.into_inner());
             let _ = manager.reload_from_disk();
-            self.plugin_manager_ui.render(frame, size, &manager);
+            self.ui.plugin_manager_ui.render(frame, size, &manager);
         }
 
         if self.showing_marketplace_browser {
-            self.marketplace_browser.render(frame, size);
+            self.ui.marketplace_browser.render(frame, size);
         }
 
         // Overlay: theme preview
@@ -2206,14 +2054,14 @@ impl TUI {
 
         // Overlay: command palette (Ctrl+K / Ctrl+Shift+P)
         if self.command_palette.is_visible() {
-            let input = self.input_handler.state.all_text();
+            let input = self.ui.input_handler.state.all_text();
             self.command_palette.sync_query_from_input(&input);
             self.command_palette.render(frame, size);
         }
 
         // Overlay: help panel (?)
-        if self.help_state.visible {
-            crate::help::render_help(frame, size, &self.help_state);
+        if self.ui.help_state.visible {
+            crate::help::render_help(frame, size, &self.ui.help_state);
         }
 
         // Overlay: approval dialog (before error display so errors can appear on top)
@@ -2233,7 +2081,7 @@ impl TUI {
         }
 
         // Overlay: compaction preview (while pending)
-        if self.compaction.showing_preview {
+        if self.sys.compaction.showing_preview {
             self.render_compaction_preview(frame, size);
         }
 
@@ -2259,15 +2107,15 @@ impl TUI {
                     "Brutalist render ran long: width={} height={} messages={} total_lines={} heights={} layout_ms={} draw_ms={} total_ms={} streaming={} user_scrolled={} selected_message={}",
                     size.width,
                     size.height,
-                    self.messages.len(),
+                    self.session.messages.len(),
                     total_lines,
                     layout.heights.len(),
                     layout_elapsed.as_millis(),
                     draw_elapsed.as_millis(),
                     total_elapsed.as_millis(),
-                    self.streaming.is_streaming,
-                    self.view.user_scrolled,
-                    self.view.selected_message
+                    self.session.streaming.is_streaming,
+                    self.ui.view.user_scrolled,
+                    self.ui.view.selected_message
                 );
             }
         }
@@ -2310,13 +2158,13 @@ impl TUI {
             &self.current_effort,
             &self.current_model,
         );
-        self.services.set_effort(self.current_effort.clone());
+        self.integration.services.set_effort(self.current_effort.clone());
         self.current_effort.clone()
     }
 
     /// Save command history on exit
     pub(crate) fn save_history(&mut self) {
-        let history = self.input_handler.history();
+        let history = self.ui.input_handler.history();
         crate::services::session_manager::SessionManager::save_history(history);
     }
 }

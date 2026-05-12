@@ -22,10 +22,10 @@ pub(super) fn handle_approval_request_chunk(
         tool_name,
         tool_type,
         risk_level,
-        tui.services.ai_mode()
+        tui.integration.services.ai_mode()
     );
 
-    if tui.services.ai_mode() == crate::services::agent_mode::AiMode::Yolo {
+    if tui.integration.services.ai_mode() == crate::services::agent_mode::AiMode::Yolo {
         match risk_level {
             risk::RiskLevel::Safe => {}
             risk::RiskLevel::Medium | risk::RiskLevel::High => {
@@ -35,8 +35,8 @@ pub(super) fn handle_approval_request_chunk(
                 tracing::warn!("Yolo auto-approved (DESTRUCTIVE): {}", tool_name);
             }
         }
-        tui.services.send_approval_response(true);
-        tui.dirty = true;
+        tui.integration.services.send_approval_response(true);
+        tui.sys.dirty = true;
         return;
     }
 
@@ -66,9 +66,9 @@ pub(super) fn handle_approval_request_chunk(
         };
 
         if plan_blocked {
-            tui.services.send_approval_response(false);
+            tui.integration.services.send_approval_response(false);
             tui.add_system_message(format!("Plan mode blocked tool: {}", tool_name));
-            tui.dirty = true;
+            tui.sys.dirty = true;
             return;
         }
     }
@@ -82,17 +82,17 @@ pub(super) fn handle_approval_request_chunk(
             "TUI approval: {} auto-approved (safe or session-approved)",
             tool_name
         );
-        tui.services.send_approval_response(true);
-        tui.dirty = true;
+        tui.integration.services.send_approval_response(true);
+        tui.sys.dirty = true;
         return;
     }
 
     // Check if tool has been blocked for this session
     if tui.tool_approval.manager.is_blocked(&tool_name) {
         tracing::info!("TUI approval: {} auto-rejected (blocked)", tool_name);
-        tui.services.send_approval_response(false);
+        tui.integration.services.send_approval_response(false);
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
-        tui.dirty = true;
+        tui.sys.dirty = true;
         return;
     }
 
@@ -103,8 +103,8 @@ pub(super) fn handle_approval_request_chunk(
     if tui.tool_approval.awaiting {
         if let Some(req) = tui.tool_approval.pending_requests.front() {
             if req.tool_name == tool_name {
-                tui.services.send_approval_response(true);
-                tui.dirty = true;
+                tui.integration.services.send_approval_response(true);
+                tui.sys.dirty = true;
                 return;
             }
         }
@@ -120,7 +120,7 @@ pub(super) fn handle_approval_request_chunk(
         }),
     );
     if hook_result.should_block {
-        tui.services.send_approval_response(false);
+        tui.integration.services.send_approval_response(false);
         tui.add_system_message(format!(
             "✗ Hook blocked: {} ({})",
             tool_name,
@@ -129,7 +129,7 @@ pub(super) fn handle_approval_request_chunk(
                 .as_deref()
                 .unwrap_or("blocked by hook")
         ));
-        tui.dirty = true;
+        tui.sys.dirty = true;
         return;
     }
 
@@ -145,7 +145,7 @@ pub(super) fn handle_approval_request_chunk(
             diff_scroll: crate::tool_approval::DiffScrollState::default(),
         });
     tui.tool_approval.awaiting = true;
-    tui.dirty = true;
+    tui.sys.dirty = true;
     tracing::warn!(
         "TUI approval: SHOWING PROMPT for {} (risk={:?})",
         tool_name,
@@ -161,7 +161,7 @@ pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
             .record_approval(request.tool_name.clone(), request.state);
         tui.add_system_message(format!("✓ Approved: {}", request.tool_name));
     }
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }
 
 pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, _tool_id: String) {
@@ -169,5 +169,5 @@ pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, _tool_id: String) {
         request.reject();
         tui.add_system_message(format!("✗ Rejected: {}", request.tool_name));
     }
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }

@@ -99,10 +99,10 @@ impl FrameLayoutSnapshot {
 
     /// Apply the snapshot back onto live TUI state in one pass.
     pub(crate) fn apply(&self, tui: &mut TUI) {
-        tui.view.viewport_height = self.message_area.height.max(1) as usize;
-        tui.view.last_total_lines.set(self.total_lines);
-        tui.view.messages_area.set(self.message_area);
-        tui.sidebar_area.set(self.sidebar_area.unwrap_or_default());
+        tui.ui.view.viewport_height = self.message_area.height.max(1) as usize;
+        tui.ui.view.last_total_lines.set(self.total_lines);
+        tui.ui.view.messages_area.set(self.message_area);
+        tui.ui.sidebar_area.set(self.sidebar_area.unwrap_or_default());
 
         {
             let mut offsets = tui.message_line_offsets.borrow_mut();

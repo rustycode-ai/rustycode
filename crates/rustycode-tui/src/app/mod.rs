@@ -6,6 +6,7 @@
 // ── State sub-structs (extracted from TUI god object) ──────────
 pub mod auto_continue_state;
 pub mod compaction_state;
+pub mod state_model;
 pub mod streaming_state;
 pub mod token_budget;
 pub mod tool_panel_state;

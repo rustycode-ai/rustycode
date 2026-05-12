@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "test-server": {
+      "args": [],
+      "command": "/Users/nat/dev/rustycode/mcp-test-server/target/debug/mcp-test-server",
+      "enable_prompts": true,
+      "enable_resources": true,
+      "enable_tools": true,
+      "enabled": true,
+      "name": "MCP Test Server",
+      "server_id": "test-server",
+      "tags": [
+        "test"
+      ]
+    }
+  }
+}

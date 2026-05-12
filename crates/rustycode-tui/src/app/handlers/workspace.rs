@@ -7,13 +7,13 @@ use tracing;
 pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
     match update {
         WorkspaceUpdate::ContextLoaded(context) => {
-            tui.workspace_loaded = true;
-            tui.workspace_context = Some(context.clone()); // Store workspace context!
-            tui.workspace_scan_progress = None; // Clear progress
+            tui.workspace.workspace_loaded = true;
+            tui.workspace.workspace_context = Some(context.clone()); // Store workspace context!
+            tui.workspace.workspace_scan_progress = None; // Clear progress
             tracing::debug!("Workspace context loaded ({} bytes)", context.len());
 
             // Detect git branch for status bar
-            tui.git_branch = std::process::Command::new("git")
+            tui.workspace.git_branch = std::process::Command::new("git")
                 .args(["rev-parse", "--abbrev-ref", "HEAD"])
                 .output()
                 .ok()
@@ -44,7 +44,7 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
             } else {
                 0
             };
-            let old_pct = tui.workspace_scan_progress.map(|(old_scanned, old_total)| {
+            let old_pct = tui.workspace.workspace_scan_progress.map(|(old_scanned, old_total)| {
                 if old_total > 0 {
                     ((old_scanned as f64 / old_total as f64 * 100.0).round() as u16).clamp(0, 100)
                 } else {
@@ -52,14 +52,14 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
                 }
             });
 
-            tui.workspace_scan_progress = Some((scanned, total));
+            tui.workspace.workspace_scan_progress = Some((scanned, total));
 
             // Only force a redraw when the visible progress indicator changes.
             // The scan can emit many raw progress events with the same displayed
             // percentage, and redrawing every one of them causes the startup
             // stutter we were seeing.
             if old_pct != Some(new_pct) {
-                tui.dirty = true;
+                tui.sys.dirty = true;
             }
         }
         WorkspaceUpdate::ScanComplete {
@@ -99,6 +99,6 @@ pub fn handle_slash_command_result(tui: &mut TUI, result: SlashCommandResult) {
             );
         }
     }
-    tui.dirty = true;
+    tui.sys.dirty = true;
     tui.auto_scroll();
 }

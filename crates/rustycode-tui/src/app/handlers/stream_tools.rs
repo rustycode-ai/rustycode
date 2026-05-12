@@ -133,7 +133,7 @@ pub(super) fn handle_tool_start_chunk(
 
     let is_reasoning_start = is_reasoning_tool(&tool_name);
     if is_reasoning_start {
-        let budget_exhausted = match tui.reasoning_budget.lock() {
+        let budget_exhausted = match tui.session.reasoning_budget.lock() {
             Ok(budget) => budget.stop_and_code_active,
             Err(_) => false,
         };
@@ -174,7 +174,7 @@ pub(super) fn handle_tool_start_chunk(
         tui.tool_panel.tool_panel_history.remove(0);
     }
 
-    tui.active_tools.insert(
+    tui.session.active_tools.insert(
         tool_id.clone(),
         new_running_tool(
             tool_id.clone(),
@@ -199,7 +199,7 @@ pub(super) fn handle_tool_start_chunk(
         }
     }
 
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }
 
 pub(super) fn handle_tool_progress_chunk(
@@ -217,7 +217,7 @@ pub(super) fn handle_tool_progress_chunk(
         stage,
         elapsed_ms
     );
-    tui.dirty = true;
+    tui.sys.dirty = true;
 
     // Match by tool_id when available, fall back to tool_name
     let matches_tool = |entry: &ToolExecution| {
@@ -248,7 +248,7 @@ pub(super) fn handle_tool_progress_chunk(
     }
 
     // Also update the ToolExecution in the current message's tool_executions
-    for msg in tui.messages.iter_mut().rev() {
+    for msg in tui.session.messages.iter_mut().rev() {
         if let Some(tools) = &mut msg.tool_executions {
             for tool in tools.iter_mut().rev() {
                 if matches_tool(tool) && tool.status == ToolStatus::Running {
@@ -294,7 +294,7 @@ pub(super) fn handle_tool_complete_chunk(
     };
 
     // Remove from active_tools map using tool_id for accurate matching
-    tui.active_tools.remove(&tool_id);
+    tui.session.active_tools.remove(&tool_id);
     tui.update_terminal_title();
 
     tracing::info!(
@@ -306,7 +306,7 @@ pub(super) fn handle_tool_complete_chunk(
     );
 
     let context_summary = tui
-        .messages
+        .session.messages
         .iter()
         .rev()
         .find_map(|m| {
@@ -382,11 +382,11 @@ pub(super) fn handle_tool_complete_chunk(
     // Auto-scroll when a tool completes so the subsequent response
     // text is visible, but only if the user hasn't deliberately scrolled
     // up to read earlier messages.
-    if !tui.view.user_scrolled {
-        tui.view.scroll_offset_line = 0;
+    if !tui.ui.view.user_scrolled {
+        tui.ui.view.scroll_offset_line = 0;
     }
 
-    tui.dirty = true;
+    tui.sys.dirty = true;
 
     // Toast notification for failed tools so the user notices even
     // when scrolled away from the tool output.
@@ -401,7 +401,7 @@ pub(super) fn handle_tool_complete_chunk(
     let reasoning = is_reasoning_tool(&tool_name);
 
     if success {
-        if let Ok(mut budget) = tui.reasoning_budget.lock() {
+        if let Ok(mut budget) = tui.session.reasoning_budget.lock() {
             if reasoning {
                 let triggered = budget.record_exploration();
                 if triggered {
@@ -420,7 +420,7 @@ pub(super) fn handle_tool_complete_chunk(
 
     // Extract a key argument (file path, command, etc.) for fingerprinting.
     let key_arg = tui
-        .messages
+        .session.messages
         .iter()
         .rev()
         .find_map(|m| {
@@ -443,12 +443,12 @@ pub(super) fn handle_tool_complete_chunk(
             })
         });
     if !reasoning {
-        tui.doom_loop
+        tui.session.doom_loop
             .record(&tool_name, key_arg.as_deref(), success);
     }
 
-    if tui.doom_loop.is_doom_loop() {
-        if let Some(reason) = tui.doom_loop.doom_loop_reason() {
+    if tui.session.doom_loop.is_doom_loop() {
+        if let Some(reason) = tui.session.doom_loop.doom_loop_reason() {
             tui.toast_manager.warning(format!("Doom loop: {}", reason));
         }
     }

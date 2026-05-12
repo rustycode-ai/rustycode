@@ -13,7 +13,7 @@ impl PolishedRenderer {
         area: Rect,
     ) {
         let is_multiline =
-            tui.input_handler.state.mode == crate::ui::input::InputMode::MultiLine;
+            tui.ui.input_handler.state.mode == crate::ui::input::InputMode::MultiLine;
         let (label_area, input_area, hints_area) = self.input_areas(area);
         self.render_input_label(tui, frame, label_area, is_multiline);
         self.render_input_lines(tui, frame, input_area, is_multiline);
@@ -66,9 +66,9 @@ impl PolishedRenderer {
         use ratatui::style::{Color, Style};
         use ratatui::text::Span;
 
-        if tui.streaming.is_streaming {
+        if tui.session.streaming.is_streaming {
             let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-            let anim_frame = tui.animator.current_frame();
+            let anim_frame = tui.ui.animator.current_frame();
             let frame_idx = (anim_frame.progress_frame / 5) % frames.len();
             let msg_idx = anim_frame.progress_frame / 8;
 
@@ -85,7 +85,7 @@ impl PolishedRenderer {
                 ),
                 Span::styled("  Ctrl+C cancel", Style::default().fg(Color::DarkGray)),
             ];
-            spans.push(if tui.streaming.queued_message.is_some() {
+            spans.push(if tui.session.streaming.queued_message.is_some() {
                 Span::styled("  📝 1 queued", Style::default().fg(Color::Rgb(180, 180, 255)))
             } else {
                 Span::styled("  type to queue", Style::default().fg(Color::Rgb(120, 120, 140)))
@@ -101,21 +101,21 @@ impl PolishedRenderer {
                 ),
                 Span::styled(" ", Style::default().fg(Color::DarkGray)),
             ];
-            let img_count = tui.input_handler.state.images.len();
+            let img_count = tui.ui.input_handler.state.images.len();
             if img_count > 0 {
                 spans.push(Span::styled(
                     format!(" 🖼 {} ", img_count),
                     Style::default().fg(Color::Rgb(255, 200, 80)),
                 ));
             }
-            let (rs_query, _rs_match, rs_total) = tui.input_handler.reverse_search_info();
+            let (rs_query, _rs_match, rs_total) = tui.ui.input_handler.reverse_search_info();
             if !rs_query.is_empty() {
                 spans.push(Span::styled(
                     format!(" 🔍 '{}/{} ", rs_query, rs_total),
                     Style::default().fg(Color::Rgb(255, 200, 80)),
                 ));
             } else {
-                let (hist_pos, hist_total) = tui.input_handler.history_position();
+                let (hist_pos, hist_total) = tui.ui.input_handler.history_position();
                 if hist_pos > 0 {
                     spans.push(Span::styled(
                         format!(" 📜 {}/{} ", hist_pos, hist_total),
@@ -123,7 +123,7 @@ impl PolishedRenderer {
                     ));
                 }
             }
-            let char_count: usize = tui.input_handler.state.all_text().chars().count();
+            let char_count: usize = tui.ui.input_handler.state.all_text().chars().count();
             if char_count > Self::CHAR_COUNT_SHOW_THRESHOLD {
                 let count_color = if char_count > Self::CHAR_COUNT_HIGH_THRESHOLD {
                     Color::Red
@@ -168,7 +168,7 @@ impl PolishedRenderer {
     ) -> Vec<ratatui::text::Line<'static>> {
         use ratatui::text::Line;
 
-        let state = &tui.input_handler.state;
+        let state = &tui.ui.input_handler.state;
         let lines = &state.lines;
         let cursor_row = state.cursor_row.min(lines.len().saturating_sub(1));
         let cursor_col = state.cursor_col;
@@ -226,7 +226,7 @@ impl PolishedRenderer {
         // Visible width for text content (area minus prefix and small padding)
         let text_visible = area_width.saturating_sub(prefix_width).saturating_sub(2);
 
-        let state = &tui.input_handler.state;
+        let state = &tui.ui.input_handler.state;
         let has_sel = state.has_selection();
 
         // Apply horizontal scroll offset for the cursor row
@@ -283,7 +283,7 @@ impl PolishedRenderer {
                 // Cursor character + after
                 if let Some(ch) = rest.chars().next() {
                     let after = &rest[ch.len_utf8()..];
-                    let cursor_on = (tui.animator.frame_count() / 2).is_multiple_of(2);
+                    let cursor_on = (tui.ui.animator.frame_count() / 2).is_multiple_of(2);
                     let cursor_style = if cursor_on {
                         Style::default().fg(Color::Black).bg(Color::White)
                     } else {
@@ -293,7 +293,7 @@ impl PolishedRenderer {
                     if !after.is_empty() {
                         spans.push(Span::raw(after.to_string()));
                     }
-                } else if row.is_empty() && !is_multiline && !tui.streaming.is_streaming {
+                } else if row.is_empty() && !is_multiline && !tui.session.streaming.is_streaming {
                     spans.push(self.cursor_span(tui));
                     spans.push(Span::styled(
                         self.input_placeholder(tui),
@@ -312,7 +312,7 @@ impl PolishedRenderer {
 
                 if let Some(ch) = rest.chars().next() {
                     let after = &rest[ch.len_utf8()..];
-                    let cursor_on = (tui.animator.frame_count() / 2).is_multiple_of(2);
+                    let cursor_on = (tui.ui.animator.frame_count() / 2).is_multiple_of(2);
                     let cursor_style = if cursor_on {
                         Style::default().fg(Color::Black).bg(Color::White)
                     } else {
@@ -322,7 +322,7 @@ impl PolishedRenderer {
                     if !after.is_empty() {
                         spans.push(Span::raw(after.to_string()));
                     }
-                } else if row.is_empty() && !is_multiline && !tui.streaming.is_streaming {
+                } else if row.is_empty() && !is_multiline && !tui.session.streaming.is_streaming {
                     spans.push(self.cursor_span(tui));
                     spans.push(Span::styled(
                         self.input_placeholder(tui),
@@ -377,7 +377,7 @@ impl PolishedRenderer {
         use ratatui::style::{Color, Style};
         use ratatui::text::Span;
 
-        let cursor_visible = (tui.animator.frame_count() / 2).is_multiple_of(2);
+        let cursor_visible = (tui.ui.animator.frame_count() / 2).is_multiple_of(2);
         if cursor_visible {
             Span::styled("▏", Style::default().fg(Color::White))
         } else {
@@ -386,9 +386,9 @@ impl PolishedRenderer {
     }
 
     fn input_placeholder(&self, tui: &TUI) -> &'static str {
-        if tui.streaming.is_streaming {
+        if tui.session.streaming.is_streaming {
             ""
-        } else if tui.messages.is_empty() {
+        } else if tui.session.messages.is_empty() {
             " Ask me anything..."
         } else {
             " Message..."
@@ -406,7 +406,7 @@ impl PolishedRenderer {
         use ratatui::text::Line;
         use ratatui::widgets::Paragraph;
 
-        let send_hint = if tui.streaming.is_streaming {
+        let send_hint = if tui.session.streaming.is_streaming {
             "⏎ Queue".to_string()
         } else {
             "⏎ Send".to_string()
@@ -416,7 +416,7 @@ impl PolishedRenderer {
         } else {
             String::new()
         };
-        let scroll_hint = if tui.view.user_scrolled {
+        let scroll_hint = if tui.ui.view.user_scrolled {
             "Home/End = top/bottom".to_string()
         } else {
             String::new()
@@ -442,7 +442,7 @@ impl PolishedRenderer {
         use ratatui::style::{Color, Style};
         use ratatui::text::Span;
 
-        let hints_text = if tui.streaming.is_streaming {
+        let hints_text = if tui.session.streaming.is_streaming {
             "Ctrl+C cancel · ↑↓ scroll"
         } else {
             "Ctrl+A/E nav · Ctrl+U/D scroll · Ctrl+X edit · Ctrl+R search"

@@ -6,30 +6,30 @@ use tracing;
 /// Shared cleanup after a stream ends normally (done or stopped).
 /// Captures duration, completes the query, resets rate limit, and clears active tools.
 pub(super) fn complete_stream_cleanup(tui: &mut TUI) {
-    tui.streaming.is_streaming = false;
-    tui.streaming.stream_cancelled = false;
+    tui.session.streaming.is_streaming = false;
+    tui.session.streaming.stream_cancelled = false;
     tui.update_terminal_title();
-    if let Some(start) = tui.streaming.stream_start_time.take() {
-        tui.streaming.last_response_duration = Some(start.elapsed());
+    if let Some(start) = tui.session.streaming.stream_start_time.take() {
+        tui.session.streaming.last_response_duration = Some(start.elapsed());
     }
-    tui.services.complete_query();
-    tui.rate_limit.retry_count = 0;
-    tui.rate_limit.auto_retry_cancelled = false;
-    tui.active_tools.clear();
+    tui.integration.services.complete_query();
+    tui.integration.rate_limit.retry_count = 0;
+    tui.integration.rate_limit.auto_retry_cancelled = false;
+    tui.session.active_tools.clear();
 }
 
 /// Reset the streaming render buffer and chunk counters.
 pub(super) fn reset_streaming_buffer(tui: &mut TUI) {
-    tui.streaming.streaming_render_buffer =
+    tui.session.streaming.streaming_render_buffer =
         crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
-    tui.streaming.chunks_received = 0;
-    tui.streaming.thinking_chunks_received = 0;
+    tui.session.streaming.chunks_received = 0;
+    tui.session.streaming.thinking_chunks_received = 0;
 }
 
 /// Mark the TUI as dirty and auto-scroll if the user hasn't manually scrolled.
 pub(super) fn mark_dirty_and_scroll(tui: &mut TUI) {
-    tui.dirty = true;
-    if !tui.view.user_scrolled {
+    tui.sys.dirty = true;
+    if !tui.ui.view.user_scrolled {
         tui.auto_scroll();
     }
 }
@@ -55,11 +55,11 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
 
     if last_stream_had_tools {
         // Productive turn — reset iteration counter so the agent can keep going
-        tui.auto_continue.reset_iterations();
+        tui.session.auto_continue.reset_iterations();
     }
 
     // Enforce iteration limit to prevent infinite loops
-    if tui.auto_continue.iterations() >= MAX_AUTO_CONTINUE_ITERATIONS {
+    if tui.session.auto_continue.iterations() >= MAX_AUTO_CONTINUE_ITERATIONS {
         tracing::warn!(
             "Auto-continue stopped after {} iterations (task creation may be outpacing completion)",
             MAX_AUTO_CONTINUE_ITERATIONS
@@ -68,13 +68,13 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
             "Auto-continue stopped after {} iterations. Press Ctrl+Shift+A to resume if needed.",
             MAX_AUTO_CONTINUE_ITERATIONS
         ));
-        tui.auto_continue.disable();
+        tui.session.auto_continue.disable();
         return;
     }
 
     // Stagnation check: if we've had multiple consecutive iterations with no
     // tool use, the agent is likely stuck in a text-only loop. Stop and inform.
-    if !last_stream_had_tools && tui.auto_continue.iterations() >= MAX_STAGNANT_ITERATIONS {
+    if !last_stream_had_tools && tui.session.auto_continue.iterations() >= MAX_STAGNANT_ITERATIONS {
         tracing::warn!(
             "Auto-continue stopped: {} consecutive iterations with no tool use",
             MAX_STAGNANT_ITERATIONS
@@ -84,13 +84,13 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
              Press Enter to continue manually if needed."
                 .to_string(),
         );
-        tui.auto_continue.disable();
+        tui.session.auto_continue.disable();
         return;
     }
 
     // Check for pending or in-progress tasks
     let pending_tasks: Vec<_> = tui
-        .workspace_tasks
+        .workspace.workspace_tasks
         .tasks
         .iter()
         .filter(|t| t.status == TaskStatus::Pending || t.status == TaskStatus::InProgress)
@@ -98,7 +98,7 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
 
     // Check for incomplete todos
     let incomplete_todos: Vec<_> = tui
-        .workspace_tasks
+        .workspace.workspace_tasks
         .todos
         .iter()
         .filter(|t| {
@@ -130,15 +130,15 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
         ctx
     };
 
-    tui.auto_continue.mark_pending();
-    tui.auto_continue.increment_iterations();
+    tui.session.auto_continue.mark_pending();
+    tui.session.auto_continue.increment_iterations();
     let history = tui.build_conversation_history();
 
     // Set streaming state before send to prevent races
-    tui.streaming.begin_streaming();
+    tui.session.streaming.begin_streaming();
 
     if let Err(e) = tui
-        .services
+        .integration.services
         .send_message_with_history(context, Some(history), None)
     {
         tracing::error!("Failed to send auto-continue message: {}", e);
@@ -147,9 +147,9 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
             e
         ));
         tui.reset_streaming_state();
-        tui.active_tools.clear();
-        tui.auto_continue.clear_pending();
-        tui.auto_continue.disable();
+        tui.session.active_tools.clear();
+        tui.session.auto_continue.clear_pending();
+        tui.session.auto_continue.disable();
     } else {
         tui.push_empty_assistant_message();
     }

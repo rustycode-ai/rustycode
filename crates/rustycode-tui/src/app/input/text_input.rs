@@ -17,40 +17,40 @@ impl TUI {
         match (key.code, key.modifiers) {
             (KeyCode::Esc, _) => {
                 self.search_state.clear();
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             (KeyCode::Enter, _) => {
                 // Navigate to next match on Enter
                 self.search_state.next_match();
                 self.scroll_to_current_search_match();
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             (KeyCode::Up, _) => {
                 // Navigate to previous match with Up arrow
                 self.search_state.prev_match();
                 self.scroll_to_current_search_match();
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             (KeyCode::Down, _) => {
                 // Navigate to next match with Down arrow
                 self.search_state.next_match();
                 self.scroll_to_current_search_match();
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                 self.search_state.query.clear();
                 self.refresh_search_matches();
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                 SearchEngine::add_char(&mut self.search_state, c);
                 self.refresh_search_matches();
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             (KeyCode::Backspace, _) => {
                 SearchEngine::backspace(&mut self.search_state);
                 self.refresh_search_matches();
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             _ => {
                 return Ok(true);
@@ -65,7 +65,7 @@ impl TUI {
         let role_filter = self.search_state.role_filter.clone();
         self.search_state.matches = SearchEngine::search(
             &self.search_state.query,
-            &self.messages,
+            &self.session.messages,
             case_sensitive,
             &role_filter,
         );
@@ -89,16 +89,16 @@ impl TUI {
                 self.command_palette.state_mut().clear_query();
                 // Palette text lives in the main input — clear it on dismiss,
                 // otherwise Ctrl+K → type → Esc leaves orphan text.
-                self.input_handler.state.clear();
-                self.input_mode = self.input_handler.state.mode;
-                self.dirty = true;
+                self.ui.input_handler.state.clear();
+                self.input_mode = self.ui.input_handler.state.mode;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Enter, _) => {
                 // Check if the current input text is an exact command match.
                 // If the user typed "/act" exactly, prefer that over the palette's
                 // fuzzy selection (which might be "/compact" for query "act").
-                let typed_text = self.input_handler.state.all_text();
+                let typed_text = self.ui.input_handler.state.all_text();
                 let typed_base = typed_text.split_whitespace().next().unwrap_or(&typed_text);
                 let has_exact_match = crate::app::commands::is_known_slash_command(typed_base);
 
@@ -107,7 +107,7 @@ impl TUI {
                     self.showing_command_palette = false;
                     self.command_palette.hide();
                     self.command_palette.state_mut().clear_query();
-                    self.dirty = true;
+                    self.sys.dirty = true;
                     return Ok(false);
                 }
 
@@ -115,38 +115,38 @@ impl TUI {
                 if let Some(command) = self.command_palette.state().selected_command() {
                     let cmd_name = command.name.clone();
                     let needs_args = !command.argument_hint.is_empty();
-                    self.input_handler.state.clear();
+                    self.ui.input_handler.state.clear();
                     for c in cmd_name.chars() {
-                        self.input_handler.state.insert_char(c);
+                        self.ui.input_handler.state.insert_char(c);
                     }
                     if needs_args {
-                        self.input_handler.state.insert_char(' ');
+                        self.ui.input_handler.state.insert_char(' ');
                         self.command_palette.state_mut().clear_query();
-                        self.dirty = true;
+                        self.sys.dirty = true;
                         self.showing_command_palette = false;
                         self.command_palette.hide();
-                        self.input_mode = self.input_handler.state.mode;
+                        self.input_mode = self.ui.input_handler.state.mode;
                         return Ok(true);
                     }
-                    self.input_mode = self.input_handler.state.mode;
+                    self.input_mode = self.ui.input_handler.state.mode;
                 }
                 // Close palette silently — normal dispatch handles the typed command.
                 // Avoids spurious "No matching command found" before actual dispatch.
                 self.showing_command_palette = false;
                 self.command_palette.hide();
                 self.command_palette.state_mut().clear_query();
-                self.dirty = true;
+                self.sys.dirty = true;
                 // Return false to allow command submission
                 Ok(false)
             }
             (KeyCode::Tab, m) if m.contains(KeyModifiers::CONTROL) => {
                 self.command_palette.state_mut().next_tab();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::BackTab, _) => {
                 self.command_palette.state_mut().prev_tab();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Tab, _) => {
@@ -154,69 +154,69 @@ impl TUI {
                 if let Some(command) = self.command_palette.state().selected_command() {
                     let cmd_name = command.name.clone();
                     let has_hint = !command.argument_hint.is_empty();
-                    self.input_handler.state.clear();
+                    self.ui.input_handler.state.clear();
                     for c in cmd_name.chars() {
-                        self.input_handler.state.insert_char(c);
+                        self.ui.input_handler.state.insert_char(c);
                     }
                     if has_hint {
                         // Add space after command for argument typing
-                        self.input_handler.state.insert_char(' ');
+                        self.ui.input_handler.state.insert_char(' ');
                     }
-                    self.input_mode = self.input_handler.state.mode;
+                    self.input_mode = self.ui.input_handler.state.mode;
                 }
                 self.showing_command_palette = false;
                 self.command_palette.hide();
                 self.command_palette.state_mut().clear_query();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::PageUp, _) => {
                 self.command_palette.state_mut().page_up();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::PageDown, _) => {
                 self.command_palette.state_mut().page_down();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Home, _) => {
                 self.command_palette.state_mut().home();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::End, _) => {
                 self.command_palette.state_mut().end();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Up, _) => {
                 self.command_palette.state_mut().move_up();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Down, _) => {
                 self.command_palette.state_mut().move_down();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Char(c), m) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
-                self.input_handler.state.insert_char(c);
-                let text = self.input_handler.state.all_text();
+                self.ui.input_handler.state.insert_char(c);
+                let text = self.ui.input_handler.state.all_text();
                 self.command_palette.sync_query_from_input(&text);
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
-                self.input_handler.state.backspace();
-                let text = self.input_handler.state.all_text();
+                self.ui.input_handler.state.backspace();
+                let text = self.ui.input_handler.state.all_text();
                 self.command_palette.sync_query_from_input(&text);
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
                 self.command_palette.state_mut().clear_query();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             _ => Ok(false),
@@ -236,23 +236,23 @@ impl TUI {
         match key_code {
             KeyCode::Esc => {
                 self.showing_skill_palette = false;
-                self.skill_palette.close();
-                self.dirty = true;
+                self.ui.skill_palette.close();
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Enter => {
-                if let Some(skill) = self.skill_palette.take_selected() {
+                if let Some(skill) = self.ui.skill_palette.take_selected() {
                     self.insert_skill_mention(&skill.name);
                     self.add_system_message(format!("Selected skill: {}", skill.name));
                 }
                 self.showing_skill_palette = false;
-                self.skill_palette.close();
-                self.dirty = true;
+                self.ui.skill_palette.close();
+                self.sys.dirty = true;
                 Ok(true)
             }
             _ => {
-                if self.skill_palette.handle_key(key) {
-                    self.dirty = true;
+                if self.ui.skill_palette.handle_key(key) {
+                    self.sys.dirty = true;
                 }
                 Ok(true)
             }
@@ -264,7 +264,7 @@ impl TUI {
         let debug_enabled = crate::logging::is_debug_enabled();
         let send_start = std::time::Instant::now();
 
-        if self.streaming.is_streaming {
+        if self.session.streaming.is_streaming {
             let queue_start = std::time::Instant::now();
             let text = lines.join("\n");
 
@@ -319,8 +319,8 @@ impl TUI {
             );
 
             if is_local_command {
-                self.input_handler.state.clear();
-                self.input_mode = self.input_handler.state.mode;
+                self.ui.input_handler.state.clear();
+                self.input_mode = self.ui.input_handler.state.mode;
                 self.handle_slash_command(&text)?;
                 return Ok(());
             }
@@ -330,19 +330,19 @@ impl TUI {
                 let queue_store_start = std::time::Instant::now();
                 let mut replaced = false;
                 let mut clear_elapsed = std::time::Duration::from_micros(0);
-                if self.streaming.queued_message.is_some() {
+                if self.session.streaming.queued_message.is_some() {
                     // Already have a queued message — offer to replace it
-                    self.streaming.queued_message = Some(text);
+                    self.session.streaming.queued_message = Some(text);
                     self.add_system_message("Replaced queued message".to_string());
                     replaced = true;
                 } else {
-                    self.streaming.queued_message = Some(text);
+                    self.session.streaming.queued_message = Some(text);
                     self.add_system_message(
                         "Message queued - will send when generation completes".to_string(),
                     );
                     let clear_start = std::time::Instant::now();
-                    self.input_handler.state.clear();
-                    self.input_mode = self.input_handler.state.mode;
+                    self.ui.input_handler.state.clear();
+                    self.input_mode = self.ui.input_handler.state.mode;
                     clear_elapsed = clear_start.elapsed();
                 }
                 if debug_enabled {
@@ -355,13 +355,13 @@ impl TUI {
                         replaced
                     );
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             return Ok(());
         }
 
         // Check if we're in rate limit state - if so, check if retry is allowed
-        if let Some(until) = self.rate_limit.until {
+        if let Some(until) = self.integration.rate_limit.until {
             let can_retry = until
                 .saturating_duration_since(std::time::Instant::now())
                 .as_secs()
@@ -369,10 +369,10 @@ impl TUI {
 
             if can_retry {
                 // Rate limit expired — clear it and send the new message normally
-                self.rate_limit.clear();
+                self.integration.rate_limit.clear();
             } else {
                 let remaining = self
-                    .rate_limit
+                    .integration.rate_limit
                     .until
                     .map(|t| {
                         t.saturating_duration_since(std::time::Instant::now())
@@ -386,7 +386,7 @@ impl TUI {
         }
 
         let content = lines.join("\n");
-        let has_images = !self.input_handler.state.images.is_empty();
+        let has_images = !self.ui.input_handler.state.images.is_empty();
         if content.trim().is_empty() && !has_images {
             return Ok(());
         }
@@ -402,18 +402,18 @@ impl TUI {
             if let Some(reason) = &hook_result.block_reason {
                 self.add_system_message(format!("Blocked: {reason}"));
             }
-            self.dirty = true;
+            self.sys.dirty = true;
             return Ok(());
         }
 
         // Check if this is the first user message BEFORE pushing (for shell history injection)
         let is_first_user_message = !self
-            .messages
+            .session.messages
             .iter()
             .any(|m| matches!(m.role, crate::ui::message::MessageRole::User));
 
         // Extract images from input state before clearing
-        let attached_images: Vec<_> = self.input_handler.state.images.drain(..).collect();
+        let attached_images: Vec<_> = self.ui.input_handler.state.images.drain(..).collect();
 
         // Validate image temp files exist before attempting to read them
         let mut missing_images = Vec::new();
@@ -471,8 +471,8 @@ impl TUI {
         );
 
         let history_persist_start = std::time::Instant::now();
-        self.input_handler.add_to_history(content.clone());
-        let _ = save_command_history(self.input_handler.history());
+        self.ui.input_handler.add_to_history(content.clone());
+        let _ = save_command_history(self.ui.input_handler.history());
         let history_persist_elapsed = history_persist_start.elapsed();
 
         let injection_summary_start = std::time::Instant::now();
@@ -490,8 +490,8 @@ impl TUI {
         };
 
         let message = crate::ui::message::Message::user(display_content);
-        self.messages.push(message);
-        self.dirty = true;
+        self.session.messages.push(message);
+        self.sys.dirty = true;
         let prepare_elapsed = prepare_start.elapsed();
 
         // Show image attachment notification
@@ -504,14 +504,14 @@ impl TUI {
             ));
         }
 
-        if !self.messages.is_empty() {
-            self.view.selected_message = self.messages.len() - 1;
-            self.view.scroll_offset_line = 0;
-            self.view.user_scrolled = false;
+        if !self.session.messages.is_empty() {
+            self.ui.view.selected_message = self.session.messages.len() - 1;
+            self.ui.view.scroll_offset_line = 0;
+            self.ui.view.user_scrolled = false;
         }
 
-        self.input_handler.state.clear();
-        self.input_mode = self.input_handler.state.mode;
+        self.ui.input_handler.state.clear();
+        self.input_mode = self.ui.input_handler.state.mode;
 
         // Clear search state when sending a message to prevent stale highlighting
         self.search_state.query.clear();
@@ -524,7 +524,7 @@ impl TUI {
                 self.add_system_message(format!("$ {}", cmd));
                 self.execute_bash_command(cmd);
             }
-            self.dirty = true;
+            self.sys.dirty = true;
             self.auto_scroll();
         } else if content.starts_with('/') {
             if content == "/" {
@@ -536,12 +536,12 @@ impl TUI {
                         self.command_palette.hide();
                         self.command_palette.state_mut().clear_query();
                         // Execute the slash command directly (no need to re-enter)
-                        self.input_handler.state.clear();
-                        self.input_mode = self.input_handler.state.mode;
+                        self.ui.input_handler.state.clear();
+                        self.input_mode = self.ui.input_handler.state.mode;
                         if let Err(e) = self.handle_slash_command(&cmd_name) {
                             self.add_system_message(format!("Command failed: {}", e));
                         }
-                        self.dirty = true;
+                        self.sys.dirty = true;
                         return Ok(());
                     }
                 }
@@ -549,7 +549,7 @@ impl TUI {
                 self.showing_command_palette = true;
                 self.command_palette.show();
                 self.command_palette.state_mut().clear_query();
-                self.dirty = true;
+                self.sys.dirty = true;
                 return Ok(());
             }
 
@@ -566,7 +566,7 @@ impl TUI {
                     };
                 self.add_system_message(user_msg.to_string());
             }
-            self.dirty = true;
+            self.sys.dirty = true;
             self.auto_scroll();
         } else {
             let message_to_send = self.prepare_message_for_send(&content);
@@ -575,7 +575,7 @@ impl TUI {
             } else {
                 message_to_send
             };
-            let _workspace_context = self.workspace_context.clone();
+            let _workspace_context = self.workspace.workspace_context.clone();
 
             // Build conversation history from existing messages for multi-turn context
             let history_start = std::time::Instant::now();
@@ -587,8 +587,8 @@ impl TUI {
                     is_first_user_message,
                     history_elapsed.as_millis(),
                     history.len(),
-                    self.messages.len(),
-                    self.messages
+                    self.session.messages.len(),
+                    self.session.messages
                         .iter()
                         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
                         .count()
@@ -645,18 +645,18 @@ impl TUI {
                 Vec::new()
             };
 
-            self.rate_limit.last_message = Some(content.clone());
+            self.integration.rate_limit.last_message = Some(content.clone());
 
             // Set streaming flag BEFORE sending to prevent double-Enter races.
             // If send fails, we clear it below.
-            self.streaming.begin_streaming();
+            self.session.streaming.begin_streaming();
 
             // Clear previous turn's tool history so sidebar doesn't show stale calls.
             self.tool_panel.reset();
-            self.active_tools.clear();
+            self.session.active_tools.clear();
 
             let send_call_start = std::time::Instant::now();
-            if let Err(e) = self.services.send_message_with_history(
+            if let Err(e) = self.integration.services.send_message_with_history(
                 message_to_send,
                 Some(history),
                 if image_blocks.is_empty() {
@@ -667,7 +667,7 @@ impl TUI {
             ) {
                 tracing::error!("Failed to send message: {}", e);
                 self.reset_streaming_state();
-                self.active_tools.clear();
+                self.session.active_tools.clear();
 
                 // Keep the user message visible so they see what they typed.
                 // Just add an error system message below it.
@@ -677,15 +677,15 @@ impl TUI {
                     format!("⚠️  Send failed: {} - press Enter to retry", e)
                 };
                 self.add_system_message(user_msg);
-                self.dirty = true;
+                self.sys.dirty = true;
                 self.auto_scroll();
             } else {
                 let assistant_msg = crate::ui::message::Message::assistant(String::new());
-                self.messages.push(assistant_msg);
-                self.dirty = true;
+                self.session.messages.push(assistant_msg);
+                self.sys.dirty = true;
                 self.auto_scroll();
 
-                self.rate_limit.clear();
+                self.integration.rate_limit.clear();
             }
 
             if debug_enabled {
@@ -695,8 +695,8 @@ impl TUI {
                     history_elapsed.as_millis(),
                     send_call_start.elapsed().as_millis(),
                     send_start.elapsed().as_millis(),
-                    self.messages.len(),
-                    self.messages
+                    self.session.messages.len(),
+                    self.session.messages
                         .iter()
                         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
                         .count(),
@@ -721,26 +721,26 @@ impl TUI {
         match action {
             InputAction::OpenCommandPalette => {
                 self.showing_skill_palette = false;
-                self.skill_palette.close();
+                self.ui.skill_palette.close();
                 self.showing_command_palette = true;
                 self.command_palette.show();
-                let input_text = self.input_handler.state.all_text();
+                let input_text = self.ui.input_handler.state.all_text();
                 self.command_palette.sync_query_from_input(&input_text);
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             InputAction::OpenSkillPalette => {
                 self.showing_command_palette = false;
                 self.command_palette.hide();
                 self.showing_skill_palette = true;
-                self.skill_palette.open();
-                self.dirty = true;
+                self.ui.skill_palette.open();
+                self.sys.dirty = true;
             }
             InputAction::SendMessage(lines) => {
                 self.process_send_message(lines)?;
             }
             InputAction::Consumed => {
-                self.input_mode = self.input_handler.state.mode;
-                self.dirty = true;
+                self.input_mode = self.ui.input_handler.state.mode;
+                self.sys.dirty = true;
             }
             InputAction::Ignored => {
                 self.handle_global_shortcut(key.code, key.modifiers)?;
@@ -748,13 +748,13 @@ impl TUI {
             InputAction::HistoryPrevious | InputAction::HistoryNext => {
                 // History navigation is handled via InputAction::Consumed
                 // in the input handler (Up/Down in single-line mode).
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             InputAction::SearchReverse => {
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             InputAction::RemoveImage(_) => {
-                self.dirty = true;
+                self.sys.dirty = true;
             }
         }
         Ok(())
@@ -782,7 +782,7 @@ mod tests {
         let file_path = temp_dir.join(format!("rustycode_image_only_{}.png", unique));
         fs::write(&file_path, b"not-a-real-png-but-fine-for-base64").unwrap();
 
-        tui.input_handler.state.images.push(ImageAttachment {
+        tui.ui.input_handler.state.images.push(ImageAttachment {
             id: "img-1".to_string(),
             path: PathBuf::from(&file_path),
             mime_type: "image/png".to_string(),
@@ -795,11 +795,11 @@ mod tests {
         tui.process_send_message(vec![String::new()]).unwrap();
 
         assert!(
-            tui.messages.iter().any(|msg| msg.role == MessageRole::User),
+            tui.session.messages.iter().any(|msg| msg.role == MessageRole::User),
             "image-only submission should create a user message"
         );
         assert!(
-            tui.input_handler.state.images.is_empty(),
+            tui.ui.input_handler.state.images.is_empty(),
             "image attachments should be drained when sending"
         );
     }

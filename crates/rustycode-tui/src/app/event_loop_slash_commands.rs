@@ -16,22 +16,22 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
         }
         CommandEffect::ShowHelp => {
             if !self.is_any_overlay_open() {
-                self.help_state.visible = true;
-                self.help_state.scroll_offset = 0;
+                self.ui.help_state.visible = true;
+                self.ui.help_state.scroll_offset = 0;
             }
         }
         CommandEffect::ShowPluginManager => {
             if !self.is_any_overlay_open() {
                 self.showing_plugin_manager = true;
-                self.plugin_manager_ui.show();
+                self.ui.plugin_manager_ui.show();
                 {
                     let mut manager = self
-                        .plugin_manager
+                        .sys.plugin_manager
                         .write()
                         .unwrap_or_else(|e| e.into_inner());
                     let _ = manager.reload_from_disk();
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
             }
         }
         CommandEffect::None => {}
@@ -40,7 +40,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             let short = model_id.rsplit('/').next().unwrap_or(&model_id);
             self.toast_manager.success(format!("Model: {}", short));
 
-            if let Err(e) = self.services.switch_model(model_id) {
+            if let Err(e) = self.integration.services.switch_model(model_id) {
                 tracing::error!("Failed to switch model in services: {}", e);
                 self.add_system_message(format!("⚠️ Failed to update orchestration model: {}", e));
             }
@@ -50,9 +50,9 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             // Without this, the stream thread keeps running and its Done
             // handler would trigger auto-continue or queued message on
             // the now-empty conversation.
-            if self.streaming.is_streaming {
-                self.services.request_stop_stream();
-                self.streaming.stream_cancelled = true;
+            if self.session.streaming.is_streaming {
+                self.integration.services.request_stop_stream();
+                self.session.streaming.stream_cancelled = true;
             }
             self.reset_conversation_state();
             self.add_system_message("Conversation cleared".to_string());
@@ -69,15 +69,15 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
             summary,
         } => {
             // Signal background stream to stop before loading new session
-            if self.streaming.is_streaming {
-                self.services.request_stop_stream();
-                self.streaming.stream_cancelled = true;
+            if self.session.streaming.is_streaming {
+                self.integration.services.request_stop_stream();
+                self.session.streaming.stream_cancelled = true;
             }
             self.reset_conversation_state();
-            self.messages = messages;
-            self.compaction.context_monitor.update(&self.messages);
-            if !self.messages.is_empty() {
-                self.view.selected_message = self.messages.len() - 1;
+            self.session.messages = messages;
+            self.sys.compaction.context_monitor.update(&self.session.messages);
+            if !self.session.messages.is_empty() {
+                self.ui.view.selected_message = self.session.messages.len() - 1;
             }
             self.add_system_message(format!("✓ Loaded session '{}' — {}", name, summary));
         }
@@ -100,7 +100,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
         CommandEffect::RetryLastMessage => {
             // Find the last user message and re-send it
             if let Some(last_user_msg) = self
-                .messages
+                .session.messages
                 .iter()
                 .rev()
                 .find(|m| matches!(m.role, crate::ui::message::MessageRole::User))
@@ -141,7 +141,7 @@ fn spawn_team_orchestrator(&mut self, task: &str) -> Result<()> {
     self.team_panel.set_task(task);
     self.team_panel.visible = true;
     self.team_panel.reset();
-    self.dirty = true;
+    self.sys.dirty = true;
 
     self.add_system_message(format!(
         "🤖 Team mode started: \"{}\"\n   Architect → Builder → Skeptic → Judge → Scalpel\n   Press Ctrl+G to toggle team panel | Esc to cancel",
@@ -172,7 +172,7 @@ pub(crate) fn cancel_team(&mut self) {
         self.team_panel.visible = false;
         self.team_handler.event_rx = None;
         self.team_handler.cancel_token = None;
-        self.dirty = true;
+        self.sys.dirty = true;
     } else {
         self.add_system_message("⚠ No team task is running.".to_string());
     }
@@ -182,7 +182,7 @@ pub(crate) fn cancel_team(&mut self) {
 fn handle_cost_command(&mut self) {
     let total_tokens = self.token_budget.session_input_tokens + self.token_budget.session_output_tokens;
     let turn_count = self
-        .messages
+        .session.messages
         .iter()
         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
         .count();
@@ -215,8 +215,8 @@ fn handle_cost_command(&mut self) {
         self.token_budget.session_output_tokens.to_string()
     };
 
-    let ctx_pct = if self.compaction.context_monitor.max_tokens > 0 {
-        format!("{:.0}%", self.compaction.context_monitor.usage_percentage() * 100.0)
+    let ctx_pct = if self.sys.compaction.context_monitor.max_tokens > 0 {
+        format!("{:.0}%", self.sys.compaction.context_monitor.usage_percentage() * 100.0)
     } else {
         "N/A".to_string()
     };
@@ -261,7 +261,7 @@ fn handle_cost_command(&mut self) {
 /// making it easy to track spending across sessions.
 fn print_session_summary(&self) {
     let turn_count = self
-        .messages
+        .session.messages
         .iter()
         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
         .count();
@@ -309,10 +309,10 @@ fn print_session_summary(&self) {
 /// Update terminal window/tab title so users with many tabs can see at a glance
 /// whether the AI is idle, thinking, or running tools.
 pub(crate) fn update_terminal_title(&self) {
-    if let Some(dir_name) = self.services.cwd().file_name().and_then(|n| n.to_str()) {
+    if let Some(dir_name) = self.integration.services.cwd().file_name().and_then(|n| n.to_str()) {
         let sanitized: String = dir_name.chars().filter(|c| !c.is_control()).collect();
-        let state = if self.streaming.is_streaming {
-            if self.active_tools.is_empty() {
+        let state = if self.session.streaming.is_streaming {
+            if self.session.active_tools.is_empty() {
                 "thinking"
             } else {
                 "tools"
@@ -330,31 +330,31 @@ pub(crate) fn apply_model_switch(&mut self, model: &crate::ui::model_selector::M
     std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", &result.model_id);
     std::env::set_var("RUSTYCODE_PROVIDER_OVERRIDE", &result.provider);
     self.current_model = result.model_id.clone();
-    self.compaction.compaction_config.model_id = Some(result.model_id);
-    self.compaction.context_monitor.max_tokens = self.compaction.compaction_config.effective_max_tokens();
+    self.sys.compaction.compaction_config.model_id = Some(result.model_id);
+    self.sys.compaction.context_monitor.max_tokens = self.sys.compaction.compaction_config.effective_max_tokens();
     self.add_system_message(result.status_message);
     self.model_selector.hide();
-    self.dirty = true;
+    self.sys.dirty = true;
 }
 
 /// Update rate limit countdown message with auto-retry
 fn update_rate_limit_countdown(&mut self) -> bool {
     // Capture message_index BEFORE update_countdown() clears it on expiry.
-    let saved_msg_idx = self.rate_limit.message_index;
+    let saved_msg_idx = self.integration.rate_limit.message_index;
 
     // Use the rate limit handler to update countdown
-    if let Some(new_content) = self.rate_limit.update_countdown() {
+    if let Some(new_content) = self.integration.rate_limit.update_countdown() {
         // Update the countdown message in-place (if index is still valid)
         if let Some(msg_idx) = saved_msg_idx {
-            if let Some(message) = self.messages.get_mut(msg_idx) {
+            if let Some(message) = self.session.messages.get_mut(msg_idx) {
                 message.content = new_content;
-                self.dirty = true;
+                self.sys.dirty = true;
             }
         }
 
         // Check if we should auto-retry (countdown expired, not cancelled)
-        if self.rate_limit.should_auto_retry() {
-            if let Some(last_msg) = self.rate_limit.take_last_message() {
+        if self.integration.rate_limit.should_auto_retry() {
+            if let Some(last_msg) = self.integration.rate_limit.take_last_message() {
                 self.retry_last_message(last_msg);
             }
         }

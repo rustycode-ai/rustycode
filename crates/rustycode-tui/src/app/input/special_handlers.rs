@@ -16,7 +16,7 @@ impl TUI {
         if let Some(ref mut wizard) = self.wizard.wizard {
             match wizard.handle_key_event(key) {
                 crate::ui::wizard::WizardAction::Continue => {
-                    self.dirty = true;
+                    self.sys.dirty = true;
                     // Check if wizard is complete
                     if wizard.step == crate::ui::wizard::WizardStep::Complete {
                         self.wizard.showing_wizard = false;
@@ -24,12 +24,12 @@ impl TUI {
                 }
                 crate::ui::wizard::WizardAction::Finish => {
                     self.wizard.showing_wizard = false;
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 crate::ui::wizard::WizardAction::Quit => {
                     self.wizard.showing_wizard = false;
-                    self.running = false;
-                    self.dirty = true;
+                    self.sys.running = false;
+                    self.sys.dirty = true;
                 }
             }
         }
@@ -52,13 +52,13 @@ impl TUI {
                 | KeyCode::Char('A') => {
                     crate::app::confirmation::deliver(&req_id, true);
                     self.add_system_message("✓ Confirmed action".to_string());
-                    self.dirty = true;
+                    self.sys.dirty = true;
                     Ok(true)
                 }
                 KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
                     crate::app::confirmation::deliver(&req_id, false);
                     self.add_system_message("✗ Cancelled action".to_string());
-                    self.dirty = true;
+                    self.sys.dirty = true;
                     Ok(true)
                 }
                 _ => {
@@ -76,9 +76,9 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Approved,
                     );
-                    self.services.send_approval_response(true);
+                    self.integration.services.send_approval_response(true);
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Char('n') => {
@@ -88,9 +88,9 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Rejected,
                     );
-                    self.services.send_approval_response(false);
+                    self.integration.services.send_approval_response(false);
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Char('N') => {
@@ -103,9 +103,9 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::RejectedAll,
                     );
-                    self.services.send_approval_response(false);
+                    self.integration.services.send_approval_response(false);
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Char('a') | KeyCode::Char('A') => {
@@ -115,16 +115,16 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::ApprovedAll,
                     );
-                    self.services.send_approval_response(true);
+                    self.integration.services.send_approval_response(true);
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Esc => {
                 self.tool_approval.dismiss_current();
-                self.services.send_approval_response(false);
+                self.integration.services.send_approval_response(false);
                 self.add_system_message("⏸️  Approval cancelled".to_string());
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             _ => {
@@ -135,11 +135,11 @@ impl TUI {
                             KeyCode::Down | KeyCode::Char('j') => {
                                 let visible = 10; // approximate visible diff lines
                                 req.scroll_diff_down(visible);
-                                self.dirty = true;
+                                self.sys.dirty = true;
                             }
                             KeyCode::Up | KeyCode::Char('k') => {
                                 req.scroll_diff_up();
-                                self.dirty = true;
+                                self.sys.dirty = true;
                             }
                             _ => {}
                         }
@@ -161,27 +161,27 @@ impl TUI {
                 // Dismiss error
                 self.error_manager.dismiss();
                 self.showing_error = false;
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Char('d') | KeyCode::Char('D') => {
                 // Toggle details
                 self.error_manager.toggle_details();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Esc => {
                 // Also dismiss on Escape
                 self.error_manager.dismiss();
                 self.showing_error = false;
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             _ => {
                 // Any other key dismisses the error (don't trap the user)
                 self.error_manager.dismiss();
                 self.showing_error = false;
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
         }
@@ -226,7 +226,7 @@ impl TUI {
                     };
 
                     // Send answer through the question channel (resumes streaming)
-                    self.services.send_question_response(answer);
+                    self.integration.services.send_question_response(answer);
 
                     // Reset clarification state
                     self.clarification_panel.reset();
@@ -239,26 +239,26 @@ impl TUI {
                             - self.clarification_panel.answered_count()
                     ));
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Up | KeyCode::Char('k') => {
                 // Navigate to previous question
                 self.clarification_panel.select_previous();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 // Navigate to next question
                 self.clarification_panel.select_next();
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Left | KeyCode::Char('h') => {
                 // Navigate options left (for option-based questions)
                 if self.clarification_panel.current_has_options() {
                     self.clarification_panel.select_previous_option();
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 Ok(true)
             }
@@ -266,7 +266,7 @@ impl TUI {
                 // Navigate options right (for option-based questions)
                 if self.clarification_panel.current_has_options() {
                     self.clarification_panel.select_next_option();
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 Ok(true)
             }
@@ -274,7 +274,7 @@ impl TUI {
                 // Tab selects the currently highlighted option
                 if self.clarification_panel.current_has_options() {
                     self.clarification_panel.select_current_option();
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 Ok(true)
             }
@@ -283,7 +283,7 @@ impl TUI {
                 self.clarification_panel.reset();
                 self.awaiting_clarification = false;
                 self.add_system_message("⏸️  Clarification cancelled".to_string());
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Char(c) => {
@@ -293,7 +293,7 @@ impl TUI {
                     let new_answer = format!("{}{}", current_answer, c);
                     self.clarification_panel.set_current_answer(new_answer);
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Backspace => {
@@ -306,7 +306,7 @@ impl TUI {
                         .collect();
                     self.clarification_panel.set_current_answer(new_answer);
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
                 Ok(true)
             }
             _ => {
@@ -336,14 +336,14 @@ impl TUI {
                                 "⚠ Cancelled tool: {}",
                                 self.tool_panel.tool_panel_history[idx].name
                             ));
-                            self.dirty = true;
+                            self.sys.dirty = true;
                             return Ok(true);
                         }
                     }
                 }
                 // If no running tool selected, show message
                 self.add_system_message("⚠ No running tool selected to cancel".to_string());
-                self.dirty = true;
+                self.sys.dirty = true;
                 return Ok(true);
             }
             KeyCode::Esc => {
@@ -352,12 +352,12 @@ impl TUI {
                     self.tool_panel.showing_tool_result = false;
                     self.tool_panel.tool_result_show_full = false;
                     self.tool_panel.tool_panel_selected_index = None;
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 } else {
                     // Close tool panel
                     self.tool_panel.showing_tool_panel = false;
                     self.tool_panel.tool_panel_selected_index = None;
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 return Ok(true);
             }
@@ -366,7 +366,7 @@ impl TUI {
                     let current = self.tool_panel.tool_panel_selected_index.unwrap_or(0);
                     self.tool_panel.tool_panel_selected_index = Some(current.saturating_sub(1));
                     self.tool_panel.showing_tool_result = false;
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 return Ok(true);
             }
@@ -376,7 +376,7 @@ impl TUI {
                     let max_idx = self.tool_panel.tool_panel_history.len().saturating_sub(1);
                     self.tool_panel.tool_panel_selected_index = Some((current + 1).min(max_idx));
                     self.tool_panel.showing_tool_result = false;
-                    self.dirty = true;
+                    self.sys.dirty = true;
                 }
                 return Ok(true);
             }
@@ -391,7 +391,7 @@ impl TUI {
                             self.tool_panel.showing_tool_result = true;
                             self.tool_panel.tool_result_show_full = false;
                             self.tool_panel.tool_result_scroll_offset = 0;
-                            self.dirty = true;
+                            self.sys.dirty = true;
                         }
                     }
                 }
@@ -406,7 +406,7 @@ impl TUI {
     pub(crate) fn handle_sidebar_toggle(&mut self) {
         if self.session_sidebar.is_visible() || !self.is_any_overlay_open() {
             self.session_sidebar.toggle();
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
@@ -415,7 +415,7 @@ impl TUI {
         self.renderer_mode = self.renderer_mode.toggled();
         let mode_name = self.renderer_mode.label();
         self.add_system_message(format!("✓ Switched to {} mode", mode_name));
-        self.dirty = true;
+        self.sys.dirty = true;
     }
 
     /// Handle session navigation (Ctrl+Shift+N/P/S)
@@ -429,7 +429,7 @@ impl TUI {
                 } else {
                     self.add_system_message("⚠ No more sessions".to_string());
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             KeyCode::Char('P') => {
                 if self.session_sidebar.prev_session() {
@@ -439,7 +439,7 @@ impl TUI {
                 } else {
                     self.add_system_message("⚠ No previous sessions".to_string());
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             KeyCode::Char('S') => {
                 if let Some(session_id) = self
@@ -476,17 +476,17 @@ impl TUI {
                             // If we reset first, is_streaming gets cleared and the
                             // background task keeps sending stale chunks that corrupt
                             // the newly loaded session's messages.
-                            let was_streaming = self.streaming.is_streaming;
+                            let was_streaming = self.session.streaming.is_streaming;
                             if was_streaming {
-                                self.services.request_stop_stream();
-                                self.streaming.stream_cancelled = true;
+                                self.integration.services.request_stop_stream();
+                                self.session.streaming.stream_cancelled = true;
                             }
                             // Apply LoadSession effect inline (private method workaround)
                             self.reset_conversation_state();
                             self.undo.clear();
-                            self.messages = messages;
-                            if !self.messages.is_empty() {
-                                self.view.selected_message = self.messages.len() - 1;
+                            self.session.messages = messages;
+                            if !self.session.messages.is_empty() {
+                                self.ui.view.selected_message = self.session.messages.len() - 1;
                             }
                             self.add_system_message(format!(
                                 "Loaded session '{}' — resumed from {} ({} messages)",
@@ -504,7 +504,7 @@ impl TUI {
                 } else {
                     self.add_system_message("No session selected".to_string());
                 }
-                self.dirty = true;
+                self.sys.dirty = true;
             }
             _ => {}
         }
@@ -520,14 +520,14 @@ impl TUI {
             self.search_state.matches.clear();
             self.search_state.current_match_index = 0;
         }
-        self.dirty = true;
+        self.sys.dirty = true;
     }
 
     /// Handle tool panel toggle (Ctrl+P)
     pub(crate) fn handle_tool_panel_toggle(&mut self) {
         if self.tool_panel.showing_tool_panel || !self.is_any_overlay_open() {
             self.tool_panel.showing_tool_panel = !self.tool_panel.showing_tool_panel;
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
@@ -535,7 +535,7 @@ impl TUI {
     pub(crate) fn handle_team_panel_toggle(&mut self) {
         if self.team_panel.visible || !self.is_any_overlay_open() {
             self.team_panel.toggle();
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
@@ -543,14 +543,14 @@ impl TUI {
     pub(crate) fn handle_worker_panel_toggle(&mut self) {
         if self.worker_panel.visible || !self.is_any_overlay_open() {
             self.worker_panel.toggle();
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
     pub(crate) fn handle_task_dashboard_toggle(&mut self) {
         if self.show_task_dashboard || !self.is_any_overlay_open() {
             self.show_task_dashboard = !self.show_task_dashboard;
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
@@ -576,12 +576,12 @@ impl TUI {
             return false;
         }
 
-        let handled = self.plugin_manager_ui.handle_key(key, &self.plugin_manager);
-        if !self.plugin_manager_ui.is_visible() {
+        let handled = self.ui.plugin_manager_ui.handle_key(key, &self.sys.plugin_manager);
+        if !self.ui.plugin_manager_ui.is_visible() {
             self.showing_plugin_manager = false;
         }
         if handled {
-            self.dirty = true;
+            self.sys.dirty = true;
         }
         handled
     }
@@ -592,15 +592,15 @@ impl TUI {
             return false;
         }
 
-        let handled = self.marketplace_browser.handle_key(key);
-        if let Some(action) = self.marketplace_browser.take_pending_action() {
+        let handled = self.ui.marketplace_browser.handle_key(key);
+        if let Some(action) = self.ui.marketplace_browser.take_pending_action() {
             self.handle_marketplace_browser_action(action);
         }
-        if !self.marketplace_browser.is_visible() {
+        if !self.ui.marketplace_browser.is_visible() {
             self.showing_marketplace_browser = false;
         }
         if handled {
-            self.dirty = true;
+            self.sys.dirty = true;
         }
         handled
     }
@@ -609,14 +609,14 @@ impl TUI {
         &mut self,
         action: crate::ui::marketplace_browser::MarketplaceBrowserAction,
     ) {
-        let Some(command_tx) = self.services.command_sender() else {
+        let Some(command_tx) = self.integration.services.command_sender() else {
             self.add_system_message("Marketplace action could not start".to_string());
             return;
         };
 
         match action {
             crate::ui::marketplace_browser::MarketplaceBrowserAction::Install(item_id) => {
-                let Some(item) = self.marketplace_browser.selected_item() else {
+                let Some(item) = self.ui.marketplace_browser.selected_item() else {
                     self.add_system_message(format!("Marketplace item not found: {}", item_id));
                     return;
                 };
@@ -641,7 +641,7 @@ impl TUI {
                 });
             }
             crate::ui::marketplace_browser::MarketplaceBrowserAction::Uninstall(item_id) => {
-                let Some(item) = self.marketplace_browser.selected_item() else {
+                let Some(item) = self.ui.marketplace_browser.selected_item() else {
                     self.add_system_message(format!("Marketplace item not found: {}", item_id));
                     return;
                 };
@@ -666,7 +666,7 @@ impl TUI {
                 });
             }
             crate::ui::marketplace_browser::MarketplaceBrowserAction::Update(item_id) => {
-                let Some(item) = self.marketplace_browser.selected_item() else {
+                let Some(item) = self.ui.marketplace_browser.selected_item() else {
                     self.add_system_message(format!("Marketplace item not found: {}", item_id));
                     return;
                 };
@@ -706,7 +706,7 @@ impl TUI {
     pub(crate) fn handle_file_finder_toggle(&mut self) {
         if self.file_finder.is_visible() || !self.is_any_overlay_open() {
             self.file_finder.toggle();
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
@@ -725,15 +725,15 @@ impl TUI {
             // Insert the selected file path into the input
             let path_str = file.path.to_string_lossy();
             for c in path_str.chars() {
-                self.input_handler.state.insert_char(c);
+                self.ui.input_handler.state.insert_char(c);
             }
-            self.input_handler.state.insert_char(' ');
-            self.input_mode = self.input_handler.state.mode;
+            self.ui.input_handler.state.insert_char(' ');
+            self.input_mode = self.ui.input_handler.state.mode;
             self.file_finder.hide();
             self.add_system_message(format!("Selected: {}", file.path.display()));
         }
 
-        self.dirty = true;
+        self.sys.dirty = true;
         handled
     }
 }

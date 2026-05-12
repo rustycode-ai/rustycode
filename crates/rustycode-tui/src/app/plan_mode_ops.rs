@@ -179,12 +179,12 @@ impl PlanModeBanner {
 impl TUI {
     /// Replace the current plan-mode banner.
     pub(crate) fn set_plan_mode_banner(&mut self, banner: Option<PlanModeBanner>) {
-        if self.plan_mode_banner == banner {
+        if self.session.plan_mode_banner == banner {
             return;
         }
 
-        self.plan_mode_banner = banner;
-        self.dirty = true;
+        self.session.plan_mode_banner = banner;
+        self.sys.dirty = true;
     }
 
     /// Clear any active plan-mode banner.
@@ -262,7 +262,7 @@ impl TUI {
 
     pub(crate) fn is_awaiting_approval(&self) -> bool {
         matches!(
-            self.plan_mode_banner,
+            self.session.plan_mode_banner,
             Some(PlanModeBanner::AwaitingApproval { .. })
         )
     }

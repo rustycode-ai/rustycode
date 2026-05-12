@@ -73,19 +73,19 @@ impl RendererState {
     /// `BrutalistRenderer` call this before they build their own structs.
     pub fn from_tui(tui: &mut TUI, area: Rect) -> Self {
         let project_name = tui
-            .services
+            .integration.services
             .cwd()
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
 
-        let header_status = if let Some(banner) = &tui.plan_mode_banner {
+        let header_status = if let Some(banner) = &tui.session.plan_mode_banner {
             banner.header_status()
         } else if tui.error_manager.is_showing() {
             HeaderStatus::Error
-        } else if tui.streaming.is_streaming {
-            if tui.active_tools.is_empty() {
+        } else if tui.session.streaming.is_streaming {
+            if tui.session.active_tools.is_empty() {
                 HeaderStatus::Thinking
             } else {
                 HeaderStatus::RunningTools
@@ -95,14 +95,14 @@ impl RendererState {
         };
 
         let turn_count = tui
-            .messages
+            .session.messages
             .iter()
             .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
             .count();
 
-        let total_tasks = tui.workspace_tasks.tasks.len();
+        let total_tasks = tui.workspace.workspace_tasks.tasks.len();
         let done_count = tui
-            .workspace_tasks
+            .workspace.workspace_tasks
             .tasks
             .iter()
             .filter(|t| matches!(t.status, crate::app::tasks::TaskStatus::Completed))
@@ -124,22 +124,22 @@ impl RendererState {
         Self {
             area,
             project_name,
-            git_branch: tui.git_branch.clone(),
+            git_branch: tui.workspace.git_branch.clone(),
             current_model,
             header_status,
             turn_count,
-            pending_tools: tui.active_tools.len(),
-            plan_mode_banner: tui.plan_mode_banner.clone(),
+            pending_tools: tui.session.active_tools.len(),
+            plan_mode_banner: tui.session.plan_mode_banner.clone(),
             ai_mode: {
                 use crate::ui::header::AiModeLabel;
-                match tui.services.ai_mode() {
+                match tui.integration.services.ai_mode() {
                     crate::services::agent_mode::AiMode::Ask => AiModeLabel::Ask,
                     crate::services::agent_mode::AiMode::Plan => AiModeLabel::Plan,
                     crate::services::agent_mode::AiMode::Act => AiModeLabel::Act,
                     crate::services::agent_mode::AiMode::Yolo => AiModeLabel::Yolo,
                 }
             },
-            task_count: tui.workspace_tasks.tasks.len(),
+            task_count: tui.workspace.workspace_tasks.tasks.len(),
             task_summary,
             session_secs: tui.start_time.elapsed().as_secs(),
             session_cost: tui.token_budget.session_cost_usd,
@@ -330,10 +330,10 @@ impl PolishedRenderer {
                 sidebar_area = Some(split[1]);
             }
         }
-        tui.sidebar_area.set(sidebar_area.unwrap_or_default());
+        tui.ui.sidebar_area.set(sidebar_area.unwrap_or_default());
 
-        tui.view.viewport_height = message_area.height.max(1) as usize;
-        tui.view.messages_area.set(message_area);
+        tui.ui.view.viewport_height = message_area.height.max(1) as usize;
+        tui.ui.view.messages_area.set(message_area);
 
         let header_bg =
             Block::default().style(Style::default().bg(self.config.chrome_background_color()));
@@ -347,7 +347,7 @@ impl PolishedRenderer {
             .with_turn_count(self.state.turn_count)
             .with_status(self.state.header_status)
             .with_ai_mode(Some(self.state.ai_mode))
-            .with_spinner_frame(tui.animator.current_frame().progress_frame / 5);
+            .with_spinner_frame(tui.ui.animator.current_frame().progress_frame / 5);
         header.render(frame, chunks[0]);
 
         if !tui.status_bar_collapsed {
@@ -386,11 +386,11 @@ impl PolishedRenderer {
                     "Polished render ran long: width={} height={} messages={} message_ms={} total_ms={} streaming={} user_scrolled={}",
                     size.width,
                     size.height,
-                    tui.messages.len(),
+                    tui.session.messages.len(),
                     messages_elapsed.as_millis(),
                     total_elapsed.as_millis(),
-                    tui.streaming.is_streaming,
-                    tui.view.user_scrolled
+                    tui.session.streaming.is_streaming,
+                    tui.ui.view.user_scrolled
                 );
             }
         }
@@ -427,8 +427,8 @@ impl PolishedRenderer {
         if tui.show_task_dashboard {
             use crate::app::task_dashboard::TaskDashboard;
             let dashboard = TaskDashboard::new(
-                &tui.workspace_tasks.tasks,
-                &tui.workspace_tasks.active_agents,
+                &tui.workspace.workspace_tasks.tasks,
+                &tui.workspace.workspace_tasks.active_agents,
             );
             let text = dashboard.render();
             frame.render_widget(Clear, message_area);
@@ -471,21 +471,21 @@ impl PolishedRenderer {
             tui.file_selector.render(frame, size);
         }
 
-        if tui.skill_palette.is_visible() {
-            tui.skill_palette.render(frame, size);
+        if tui.ui.skill_palette.is_visible() {
+            tui.ui.skill_palette.render(frame, size);
         }
 
         if tui.showing_plugin_manager {
             let mut manager = tui
-                .plugin_manager
+                .sys.plugin_manager
                 .write()
                 .unwrap_or_else(|e| e.into_inner());
             let _ = manager.reload_from_disk();
-            tui.plugin_manager_ui.render(frame, size, &manager);
+            tui.ui.plugin_manager_ui.render(frame, size, &manager);
         }
 
         if tui.showing_marketplace_browser {
-            tui.marketplace_browser.render(frame, size);
+            tui.ui.marketplace_browser.render(frame, size);
         }
 
         if tui.theme_preview.is_visible() {
@@ -496,8 +496,8 @@ impl PolishedRenderer {
             tui.command_palette.render(frame, size);
         }
 
-        if tui.help_state.visible {
-            crate::help::render_help(frame, size, &tui.help_state);
+        if tui.ui.help_state.visible {
+            crate::help::render_help(frame, size, &tui.ui.help_state);
         }
 
         if tui.tool_approval.awaiting {
@@ -515,7 +515,7 @@ impl PolishedRenderer {
         }
 
         // Overlay: compaction preview (while pending)
-        if tui.compaction.showing_preview {
+        if tui.sys.compaction.showing_preview {
             tui.render_compaction_preview(frame, size);
         }
 

@@ -31,7 +31,7 @@ impl TUI {
         let mut channel_disconnected = false;
         {
             let mut chunks: Vec<crate::app::async_::StreamChunk> = Vec::new();
-            if let Some(channel) = self.services.stream_channel_mut() {
+            if let Some(channel) = self.integration.services.stream_channel_mut() {
                 for _ in 0..MAX_STREAM_CHUNKS_PER_FRAME {
                     match channel.try_recv_ex() {
                         RecvStatus::Item(chunk) => chunks.push(chunk),
@@ -57,16 +57,16 @@ impl TUI {
 
         // If channel disconnected while streaming, force cleanup to prevent
         // the TUI from being stuck in is_streaming=true forever.
-        if channel_disconnected && self.streaming.is_streaming {
+        if channel_disconnected && self.session.streaming.is_streaming {
             tracing::warn!("Stream channel disconnected without Done — forcing cleanup");
             self.reset_streaming_state();
-            self.active_tools.clear();
-            self.services.complete_query();
+            self.session.active_tools.clear();
+            self.integration.services.complete_query();
             self.update_terminal_title();
             self.add_system_message(
                 "⚠ Stream connection lost unexpectedly. You can retry.".to_string(),
             );
-            self.dirty = true;
+            self.sys.dirty = true;
         }
 
         // Poll tool results — drain up to MAX_TOOL_RESULTS_PER_FRAME per frame
@@ -76,7 +76,7 @@ impl TUI {
         let mut tool_count = 0usize;
         {
             let mut results: Vec<crate::app::async_::ToolResult> = Vec::new();
-            if let Some(channel) = self.services.tool_channel_mut() {
+            if let Some(channel) = self.integration.services.tool_channel_mut() {
                 for _ in 0..MAX_TOOL_RESULTS_PER_FRAME {
                     match channel.try_recv() {
                         Some(result) => results.push(result),
@@ -94,7 +94,7 @@ impl TUI {
         // Poll workspace updates
         let had_workspace = {
             let update = self
-                .services
+                .integration.services
                 .workspace_channel_mut()
                 .and_then(|ch| ch.try_recv());
             match update {
@@ -109,7 +109,7 @@ impl TUI {
         // Poll slash command results
         let had_command = {
             let result = self
-                .services
+                .integration.services
                 .command_channel_mut()
                 .and_then(|ch| ch.try_recv());
             match result {
@@ -145,7 +145,7 @@ impl TUI {
 
         // Poll background bash command result
         let bash_result = {
-            let mut store = self
+            let mut store = self.session
                 .streaming
                 .pending_bash_result
                 .lock()
@@ -167,7 +167,7 @@ impl TUI {
             };
             self.add_system_message(format!("✓ {}", display));
             self.auto_scroll();
-            self.dirty = true;
+            self.sys.dirty = true;
         }
 
         if debug_enabled {
@@ -197,7 +197,7 @@ impl TUI {
                 match rx.try_recv() {
                     Ok(event) => {
                         self.team_panel.handle_event(&event);
-                        self.dirty = true;
+                        self.sys.dirty = true;
 
                         // Collect chat messages for key events (applied after loop
                         // to avoid borrow conflicts with team_panel)
@@ -281,14 +281,14 @@ impl TUI {
 
         // Mark dirty only when worker count or panel visibility changed
         if prev_count != workers.len() || (!workers.is_empty() && self.worker_panel.visible) {
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
     /// Poll pipeline cron scheduler events (drain all available)
     fn poll_scheduler_events(&mut self) {
         // Take the receiver temporarily to avoid borrow conflicts with self
-        let rx = match self.scheduler_rx.take() {
+        let rx = match self.integration.scheduler_rx.take() {
             Some(rx) => rx,
             None => return,
         };
@@ -310,32 +310,32 @@ impl TUI {
 
         // Put the receiver back (unless disconnected)
         if !disconnected {
-            self.scheduler_rx = Some(rx);
+            self.integration.scheduler_rx = Some(rx);
         }
 
         // Process collected events (no borrow conflict now)
         for event in events {
             self.handle_scheduled_phase_event(event);
-            self.dirty = true;
+            self.sys.dirty = true;
         }
     }
 
     fn handle_scheduled_phase_event(&mut self, event: ScheduledPhaseEvent) {
         match event {
             ScheduledPhaseEvent::PhaseReady { phase_id, .. } => {
-                if self.active_scheduled_phases.len() >= self.max_concurrent_phases {
+                if self.integration.active_scheduled_phases.len() >= self.integration.max_concurrent_phases {
                     tracing::warn!(
                         "Scheduler: skipping phase '{}' — concurrency limit ({}) reached",
                         phase_id,
-                        self.max_concurrent_phases
+                        self.integration.max_concurrent_phases
                     );
                     self.add_system_message(format!(
                         "⏳ Scheduled phase '{}' skipped — max concurrent phases ({}) reached",
-                        phase_id, self.max_concurrent_phases
+                        phase_id, self.integration.max_concurrent_phases
                     ));
                     return;
                 }
-                self.active_scheduled_phases.insert(phase_id.clone());
+                self.integration.active_scheduled_phases.insert(phase_id.clone());
                 self.add_system_message(format!("⏰ Scheduled phase '{}' triggered", phase_id));
                 self.auto_scroll();
             }
@@ -343,7 +343,7 @@ impl TUI {
                 phase_id,
                 cron_expr,
             } => {
-                self.active_scheduled_phases.insert(phase_id.clone());
+                self.integration.active_scheduled_phases.insert(phase_id.clone());
                 self.add_system_message(format!(
                     "⏰ Scheduled phase '{}' starting (cron: {})",
                     phase_id, cron_expr
@@ -351,7 +351,7 @@ impl TUI {
                 self.auto_scroll();
             }
             ScheduledPhaseEvent::PhaseCompleted { phase_id, duration } => {
-                self.active_scheduled_phases.remove(&phase_id);
+                self.integration.active_scheduled_phases.remove(&phase_id);
                 self.add_system_message(format!(
                     "✅ Scheduled phase '{}' completed ({:.1}s)",
                     phase_id,
@@ -360,7 +360,7 @@ impl TUI {
                 self.auto_scroll();
             }
             ScheduledPhaseEvent::PhaseFailed { phase_id, error } => {
-                self.active_scheduled_phases.remove(&phase_id);
+                self.integration.active_scheduled_phases.remove(&phase_id);
                 self.add_system_message(format!(
                     "❌ Scheduled phase '{}' failed: {}",
                     phase_id, error
@@ -375,7 +375,7 @@ impl TUI {
                 self.auto_scroll();
             }
             ScheduledPhaseEvent::SchedulerError { phase_id, error } => {
-                self.active_scheduled_phases.remove(&phase_id);
+                self.integration.active_scheduled_phases.remove(&phase_id);
                 self.add_system_message(format!(
                     "❌ Scheduler error for phase '{}': {}",
                     phase_id, error

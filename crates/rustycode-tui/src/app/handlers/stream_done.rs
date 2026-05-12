@@ -14,11 +14,11 @@ use super::helpers::{
 pub(super) fn handle_done_chunk(tui: &mut TUI) {
     let had_stream_content = flush_and_transfer_stream_content(tui);
 
-    let was_cancelled = tui.streaming.stream_cancelled;
+    let was_cancelled = tui.session.streaming.stream_cancelled;
     complete_stream_cleanup(tui);
 
-    let doom_loop_reason = if tui.doom_loop.is_doom_loop() {
-        let reason = tui.doom_loop.doom_loop_reason();
+    let doom_loop_reason = if tui.session.doom_loop.is_doom_loop() {
+        let reason = tui.session.doom_loop.doom_loop_reason();
         if let Some(ref text) = reason {
             tui.add_system_message(format!("Warning: {}", text));
         }
@@ -31,16 +31,16 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     let is_empty_response = !had_stream_content && !was_cancelled;
 
     if !is_empty_response || !had_doom_loop {
-        tui.doom_loop.reset();
-        tui.pending_doom_note = None;
+        tui.session.doom_loop.reset();
+        tui.session.pending_doom_note = None;
     } else {
         // Preserve partial stuck context so the next turn detects repeated
         // patterns faster instead of starting from zero.
-        tui.doom_loop.reduce_for_retry();
+        tui.session.doom_loop.reduce_for_retry();
         // Carry doom loop context into the next turn's conversation as a
         // user-role note (system messages are invisible to the model).
         if let Some(reason) = doom_loop_reason {
-            tui.pending_doom_note = Some(format!(
+            tui.session.pending_doom_note = Some(format!(
                 "[System: Previous turn detected a stuck pattern — {reason}. \
                  Try a different approach or tool.]"
             ));
@@ -52,7 +52,7 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
         );
     }
 
-    if let Some(snap) = tui.turn_snapshot.take() {
+    if let Some(snap) = tui.session.turn_snapshot.take() {
         let cwd = std::env::current_dir().unwrap_or_default();
         let diff = snap.diff(&cwd);
         if !diff.is_empty() {
@@ -70,17 +70,17 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
     // Mark session dirty so the 30-second auto-save persists this turn
     tui.mark_session_dirty();
 
-    tui.auto_continue.clear_pending();
-    if !was_cancelled && tui.auto_continue.is_enabled() {
+    tui.session.auto_continue.clear_pending();
+    if !was_cancelled && tui.session.auto_continue.is_enabled() {
         check_and_trigger_auto_continue(tui);
     }
 
     if !was_cancelled
-        && !tui.auto_continue.is_enabled()
+        && !tui.session.auto_continue.is_enabled()
         && tui.plan_mode.is_enabled()
         && tui.plan_mode.current_phase() == "planning"
         && !tui.is_awaiting_approval()
-        && tui.plan_mode_banner.is_some()
+        && tui.session.plan_mode_banner.is_some()
     {
         let convoy_id = tui
             .plan_mode
@@ -99,22 +99,22 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
 /// Flush render buffer and transfer accumulated stream content into the
 /// assistant message. Returns whether any stream content was transferred.
 fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
-    let remaining = tui.streaming.streaming_render_buffer.flush();
+    let remaining = tui.session.streaming.streaming_render_buffer.flush();
     if !remaining.is_empty() {
-        tui.streaming
+        tui.session.streaming
             .current_stream_content
             .reserve(remaining.len());
-        tui.streaming.current_stream_content.push_str(&remaining);
+        tui.session.streaming.current_stream_content.push_str(&remaining);
     }
 
-    if !tui.streaming.current_stream_content.is_empty() {
+    if !tui.session.streaming.current_stream_content.is_empty() {
         let needs_message = tui.last_assistant_message().is_none();
         if needs_message {
-            tui.messages.push(Message::assistant(String::new()));
+            tui.session.messages.push(Message::assistant(String::new()));
         }
     }
 
-    let final_content = std::mem::take(&mut tui.streaming.current_stream_content);
+    let final_content = std::mem::take(&mut tui.session.streaming.current_stream_content);
     let had_stream_content = !final_content.is_empty();
     if had_stream_content {
         if let Some(msg) = tui.last_assistant_message_mut() {
@@ -138,18 +138,18 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
     if let Some((msg_id, is_empty, no_tools)) = assistant_info {
         if is_empty {
             if no_tools {
-                if let Some(pos) = tui.messages.iter().position(|m| m.id == msg_id) {
-                    tui.messages.remove(pos);
-                    if pos < tui.view.selected_message {
-                        tui.view.selected_message = tui.view.selected_message.saturating_sub(1);
-                    } else if pos == tui.view.selected_message && !tui.messages.is_empty() {
-                        tui.view.selected_message =
-                            tui.view.selected_message.min(tui.messages.len() - 1);
+                if let Some(pos) = tui.session.messages.iter().position(|m| m.id == msg_id) {
+                    tui.session.messages.remove(pos);
+                    if pos < tui.ui.view.selected_message {
+                        tui.ui.view.selected_message = tui.ui.view.selected_message.saturating_sub(1);
+                    } else if pos == tui.ui.view.selected_message && !tui.session.messages.is_empty() {
+                        tui.ui.view.selected_message =
+                            tui.ui.view.selected_message.min(tui.session.messages.len() - 1);
                     }
                 }
                 tracing::warn!(
-                    chunks_received = tui.streaming.chunks_received,
-                    thinking_chunks = tui.streaming.thinking_chunks_received,
+                    chunks_received = tui.session.streaming.chunks_received,
+                    thinking_chunks = tui.session.streaming.thinking_chunks_received,
                     "Empty response from model — no text, no thinking, no tool executions"
                 );
                 tui.add_system_message(
@@ -159,7 +159,7 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
                      • The response was filtered (check debug log for details)"
                         .to_string(),
                 );
-            } else if let Some(last_msg) = tui.messages.iter_mut().rev().find(|m| m.id == msg_id) {
+            } else if let Some(last_msg) = tui.session.messages.iter_mut().rev().find(|m| m.id == msg_id) {
                 tracing::info!(
                     tool_count = last_msg
                         .tool_executions
@@ -180,7 +180,7 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
         return;
     }
     let should_bell = tui
-        .streaming
+        .session.streaming
         .last_response_duration
         .is_some_and(|d| d.as_secs() >= 3);
     if !should_bell {
@@ -192,7 +192,7 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
     );
     let _ = std::io::Write::write_all(&mut std::io::stdout(), b"\x07");
     let duration_str = tui
-        .streaming
+        .session.streaming
         .last_response_duration
         .map(|d| {
             let s = d.as_secs();
@@ -210,23 +210,23 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
 /// Auto-send a queued message if one was waiting, or preserve it on cancellation.
 fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
     if was_cancelled {
-        if tui.streaming.queued_message.is_some() {
+        if tui.session.streaming.queued_message.is_some() {
             tui.add_system_message(
                 "Queued message preserved — it will be sent when ready".to_string(),
             );
         }
         return;
     }
-    let Some(queued) = tui.streaming.queued_message.take() else {
+    let Some(queued) = tui.session.streaming.queued_message.take() else {
         return;
     };
     let auto_send_start = std::time::Instant::now();
     let message_to_send = tui.prepare_message_for_send(&queued);
 
     let user_msg = Message::user(queued.clone());
-    tui.messages.push(user_msg);
-    tui.view.selected_message = tui.messages.len() - 1;
-    tui.view.user_scrolled = false;
+    tui.session.messages.push(user_msg);
+    tui.ui.view.selected_message = tui.session.messages.len() - 1;
+    tui.ui.view.user_scrolled = false;
 
     let prepare_elapsed = auto_send_start.elapsed();
     let history_start = std::time::Instant::now();
@@ -237,23 +237,23 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
             "Queued auto-send history built: elapsed_ms={} history_len={} messages={} user_turns={}",
             history_elapsed.as_millis(),
             history.len(),
-            tui.messages.len(),
-            tui.messages
+            tui.session.messages.len(),
+            tui.session.messages
                 .iter()
             .filter(|m| matches!(m.role, MessageRole::User))
             .count()
         );
     }
-    tui.rate_limit.last_message = Some(queued);
-    tui.streaming.begin_streaming();
+    tui.integration.rate_limit.last_message = Some(queued);
+    tui.session.streaming.begin_streaming();
     let send_start = std::time::Instant::now();
     if let Err(e) = tui
-        .services
+        .integration.services
         .send_message_with_history(message_to_send, Some(history), None)
     {
         tracing::error!("Failed to send queued message: {}", e);
         tui.reset_streaming_state();
-        tui.active_tools.clear();
+        tui.session.active_tools.clear();
         tui.add_system_message(format!("Queued message failed: {}", e));
     } else {
         tui.push_empty_assistant_message();
@@ -265,9 +265,9 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
             history_elapsed.as_millis(),
             send_start.elapsed().as_millis(),
             auto_send_start.elapsed().as_millis(),
-            tui.messages.len()
+            tui.session.messages.len()
         );
     }
-    tui.dirty = true;
+    tui.sys.dirty = true;
     tui.auto_scroll();
 }

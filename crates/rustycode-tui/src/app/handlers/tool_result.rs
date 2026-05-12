@@ -35,14 +35,14 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
     let result_summary = compute_result_summary(&result);
 
     // Pre-extract input_json from messages (immutable borrow) BEFORE any
-    // mutable borrow of tui.messages. ToolComplete may have already removed
+    // mutable borrow of tui.session.messages. ToolComplete may have already removed
     // the entry from active_tools, so we fall back to the message history.
-    let fallback_input_json = tui
+    let fallback_input_json = tui.session
         .active_tools
         .get(&result.id)
         .and_then(|t| t.input_json.clone())
         .or_else(|| {
-            tui.messages.iter().rev().find_map(|m| {
+            tui.session.messages.iter().rev().find_map(|m| {
                 m.tool_executions
                     .as_ref()?
                     .iter()
@@ -52,7 +52,7 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
             })
         });
     let fallback_start_time = tui
-        .active_tools
+        .session.active_tools
         .get(&result.id)
         .map(|t| t.start_time)
         .unwrap_or_else(chrono::Utc::now);
@@ -68,7 +68,7 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
     );
 
     // Remove from active tools
-    tui.active_tools.remove(&result.id);
+    tui.session.active_tools.remove(&result.id);
 
     update_tool_panel_history(
         tui,
@@ -95,7 +95,7 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
         }
     }
 
-    tui.dirty = true;
+    tui.sys.dirty = true;
 }
 
 /// Truncate large tool outputs with temp file fallback for inspection.
@@ -225,7 +225,7 @@ fn update_message_tool_execution(
         }
     }
 
-    if !tui.view.user_scrolled {
+    if !tui.ui.view.user_scrolled {
         tui.auto_scroll();
     }
 }
@@ -240,7 +240,7 @@ fn update_tool_panel_history(
 ) {
     // Look up duration from the message's tool execution that was just updated
     let panel_duration = tui
-        .messages
+        .session.messages
         .last()
         .and_then(|m| m.tool_executions.as_ref())
         .and_then(|tools| tools.iter().rev().find(|t| t.tool_id == result.id))

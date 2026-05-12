@@ -29,7 +29,7 @@ mod scan_progress_tests {
         let tui = create_test_tui();
 
         // Initially, scan progress should be None
-        assert_eq!(tui.workspace_scan_progress, None);
+        assert_eq!(tui.workspace.workspace_scan_progress, None);
     }
 
     #[test]
@@ -46,9 +46,9 @@ mod scan_progress_tests {
         ];
 
         for (scanned, total) in updates {
-            tui.workspace_scan_progress = Some((scanned, total));
+            tui.workspace.workspace_scan_progress = Some((scanned, total));
 
-            if let Some((s, t)) = tui.workspace_scan_progress {
+            if let Some((s, t)) = tui.workspace.workspace_scan_progress {
                 assert_eq!(s, scanned);
                 assert_eq!(t, total);
 
@@ -65,16 +65,16 @@ mod scan_progress_tests {
         let mut tui = create_test_tui();
 
         // Set initial progress
-        tui.workspace_scan_progress = Some((10, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((10, 100)));
+        tui.workspace.workspace_scan_progress = Some((10, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((10, 100)));
 
         // Update to new progress
-        tui.workspace_scan_progress = Some((50, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((50, 100)));
+        tui.workspace.workspace_scan_progress = Some((50, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((50, 100)));
 
         // Update to different total
-        tui.workspace_scan_progress = Some((75, 200));
-        assert_eq!(tui.workspace_scan_progress, Some((75, 200)));
+        tui.workspace.workspace_scan_progress = Some((75, 200));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((75, 200)));
     }
 
     #[test]
@@ -82,12 +82,12 @@ mod scan_progress_tests {
         let mut tui = create_test_tui();
 
         // Set progress
-        tui.workspace_scan_progress = Some((50, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((50, 100)));
+        tui.workspace.workspace_scan_progress = Some((50, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((50, 100)));
 
         // Clear progress
-        tui.workspace_scan_progress = None;
-        assert_eq!(tui.workspace_scan_progress, None);
+        tui.workspace.workspace_scan_progress = None;
+        assert_eq!(tui.workspace.workspace_scan_progress, None);
     }
 
     #[test]
@@ -107,9 +107,9 @@ mod scan_progress_tests {
         ];
 
         for ((scanned, total), expected_pct) in test_cases {
-            tui.workspace_scan_progress = Some((scanned, total));
+            tui.workspace.workspace_scan_progress = Some((scanned, total));
 
-            if let Some((s, t)) = tui.workspace_scan_progress {
+            if let Some((s, t)) = tui.workspace.workspace_scan_progress {
                 let pct = (s as f64 / t as f64 * 100.0) as u8;
                 assert_eq!(pct, expected_pct,
                     "Percentage mismatch for {}/{}: got {}, expected {}",
@@ -137,10 +137,10 @@ mod workspace_update_handler_tests {
         };
 
         // Handle the update (this would normally be called from the event loop)
-        tui.workspace_scan_progress = Some((42, 100));
+        tui.workspace.workspace_scan_progress = Some((42, 100));
 
         // Verify progress was set
-        assert_eq!(tui.workspace_scan_progress, Some((42, 100)));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((42, 100)));
     }
 
     #[test]
@@ -148,16 +148,16 @@ mod workspace_update_handler_tests {
         let mut tui = create_test_tui();
 
         // Set some progress first
-        tui.workspace_scan_progress = Some((75, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((75, 100)));
+        tui.workspace.workspace_scan_progress = Some((75, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((75, 100)));
 
         // Simulate context loaded (which should clear progress)
-        tui.workspace_scan_progress = None;
-        tui.workspace_loaded = true;
+        tui.workspace.workspace_scan_progress = None;
+        tui.workspace.workspace_loaded = true;
 
         // Verify progress was cleared
-        assert_eq!(tui.workspace_scan_progress, None);
-        assert_eq!(tui.workspace_loaded, true);
+        assert_eq!(tui.workspace.workspace_scan_progress, None);
+        assert_eq!(tui.workspace.workspace_loaded, true);
     }
 
     #[test]
@@ -174,13 +174,13 @@ mod workspace_update_handler_tests {
         ];
 
         for (scanned, total) in updates {
-            tui.workspace_scan_progress = Some((scanned, total));
+            tui.workspace.workspace_scan_progress = Some((scanned, total));
 
             // Verify progress is set correctly
-            assert_eq!(tui.workspace_scan_progress, Some((scanned, total)));
+            assert_eq!(tui.workspace.workspace_scan_progress, Some((scanned, total)));
 
             // Verify percentage
-            if let Some((s, t)) = tui.workspace_scan_progress {
+            if let Some((s, t)) = tui.workspace.workspace_scan_progress {
                 let pct = (s as f64 / t as f64 * 100.0) as u8;
                 assert!(pct <= 100, "Percentage should not exceed 100");
                 assert!(pct >= 0, "Percentage should not be negative");
@@ -188,8 +188,8 @@ mod workspace_update_handler_tests {
         }
 
         // Clear progress when done
-        tui.workspace_scan_progress = None;
-        assert_eq!(tui.workspace_scan_progress, None);
+        tui.workspace.workspace_scan_progress = None;
+        assert_eq!(tui.workspace.workspace_scan_progress, None);
     }
 
     #[test]
@@ -207,8 +207,8 @@ mod workspace_update_handler_tests {
         ];
 
         for (scanned, total) in updates {
-            tui.workspace_scan_progress = Some((scanned, total));
-            assert_eq!(tui.workspace_scan_progress, Some((scanned, total)));
+            tui.workspace.workspace_scan_progress = Some((scanned, total));
+            assert_eq!(tui.workspace.workspace_scan_progress, Some((scanned, total)));
         }
     }
 }
@@ -225,21 +225,21 @@ mod integration_tests {
 
         // Simulate concurrent operations
         // 1. Workspace is scanning
-        tui.workspace_scan_progress = Some((25, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((25, 100)));
+        tui.workspace.workspace_scan_progress = Some((25, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((25, 100)));
 
         // 2. LLM is streaming (simulated by setting is_streaming)
         // This should not interfere with scan progress
-        tui.streaming.is_streaming = true;
-        assert_eq!(tui.workspace_scan_progress, Some((25, 100)));
+        tui.session.streaming.is_streaming = true;
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((25, 100)));
 
         // 3. Continue scanning
-        tui.workspace_scan_progress = Some((50, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((50, 100)));
+        tui.workspace.workspace_scan_progress = Some((50, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((50, 100)));
 
         // 4. Scan completes
-        tui.workspace_scan_progress = None;
-        assert_eq!(tui.workspace_scan_progress, None);
+        tui.workspace.workspace_scan_progress = None;
+        assert_eq!(tui.workspace.workspace_scan_progress, None);
     }
 
     #[test]
@@ -247,21 +247,21 @@ mod integration_tests {
         let mut tui = create_test_tui();
 
         // Set scan progress
-        tui.workspace_scan_progress = Some((33, 100));
+        tui.workspace.workspace_scan_progress = Some((33, 100));
 
         // Verify other state fields are not affected
-        assert!(!tui.workspace_loaded);
-        assert_eq!(tui.messages.len(), 0);
-        assert!(!tui.streaming.is_streaming);
+        assert!(!tui.workspace.workspace_loaded);
+        assert_eq!(tui.session.messages.len(), 0);
+        assert!(!tui.session.streaming.is_streaming);
 
         // Set other state
-        tui.workspace_loaded = true;
-        tui.streaming.is_streaming = true;
+        tui.workspace.workspace_loaded = true;
+        tui.session.streaming.is_streaming = true;
 
         // Verify scan progress is preserved
-        assert_eq!(tui.workspace_scan_progress, Some((33, 100)));
-        assert!(tui.workspace_loaded);
-        assert!(tui.streaming.is_streaming);
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((33, 100)));
+        assert!(tui.workspace.workspace_loaded);
+        assert!(tui.session.streaming.is_streaming);
     }
 
     #[test]
@@ -269,21 +269,21 @@ mod integration_tests {
         let mut tui = create_test_tui();
 
         // First scan
-        tui.workspace_scan_progress = Some((10, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((10, 100)));
+        tui.workspace.workspace_scan_progress = Some((10, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((10, 100)));
 
-        tui.workspace_scan_progress = Some((50, 100));
-        tui.workspace_scan_progress = None;
+        tui.workspace.workspace_scan_progress = Some((50, 100));
+        tui.workspace.workspace_scan_progress = None;
 
         // Second scan (re-scan)
-        tui.workspace_scan_progress = Some((20, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((20, 100)));
+        tui.workspace.workspace_scan_progress = Some((20, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((20, 100)));
 
-        tui.workspace_scan_progress = Some((60, 100));
-        tui.workspace_scan_progress = None;
+        tui.workspace.workspace_scan_progress = Some((60, 100));
+        tui.workspace.workspace_scan_progress = None;
 
         // Verify final state
-        assert_eq!(tui.workspace_scan_progress, None);
+        assert_eq!(tui.workspace.workspace_scan_progress, None);
     }
 
     #[test]
@@ -291,10 +291,10 @@ mod integration_tests {
         let mut tui = create_test_tui();
 
         // Edge case: zero scanned
-        tui.workspace_scan_progress = Some((0, 100));
-        assert_eq!(tui.workspace_scan_progress, Some((0, 100)));
+        tui.workspace.workspace_scan_progress = Some((0, 100));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((0, 100)));
 
-        if let Some((s, t)) = tui.workspace_scan_progress {
+        if let Some((s, t)) = tui.workspace.workspace_scan_progress {
             let pct = (s as f64 / t as f64 * 100.0) as u8;
             assert_eq!(pct, 0, "Percentage should be 0 when scanned is 0");
         }
@@ -305,10 +305,10 @@ mod integration_tests {
         let mut tui = create_test_tui();
 
         // Large values (simulating large workspace)
-        tui.workspace_scan_progress = Some((50000, 100000));
-        assert_eq!(tui.workspace_scan_progress, Some((50000, 100000)));
+        tui.workspace.workspace_scan_progress = Some((50000, 100000));
+        assert_eq!(tui.workspace.workspace_scan_progress, Some((50000, 100000)));
 
-        if let Some((s, t)) = tui.workspace_scan_progress {
+        if let Some((s, t)) = tui.workspace.workspace_scan_progress {
             let pct = (s as f64 / t as f64 * 100.0) as u8;
             assert_eq!(pct, 50, "Percentage should be 50%");
         }
@@ -323,9 +323,9 @@ mod integration_tests {
         let total = 100;
 
         for scanned in progress_sequence {
-            tui.workspace_scan_progress = Some((scanned, total));
+            tui.workspace.workspace_scan_progress = Some((scanned, total));
 
-            if let Some((s, t)) = tui.workspace_scan_progress {
+            if let Some((s, t)) = tui.workspace.workspace_scan_progress {
                 let pct = (s as f64 / t as f64 * 100.0) as u8;
                 assert_eq!(pct, scanned as u8);
                 assert!(pct <= 100);
@@ -333,7 +333,7 @@ mod integration_tests {
         }
 
         // Clear on completion
-        tui.workspace_scan_progress = None;
-        assert_eq!(tui.workspace_scan_progress, None);
+        tui.workspace.workspace_scan_progress = None;
+        assert_eq!(tui.workspace.workspace_scan_progress, None);
     }
 }
