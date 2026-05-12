@@ -33,7 +33,17 @@ impl Runtime {
 
     /// Publish session started event
     pub fn publish_session_started(&self, session_id: SessionId, task: String, detail: String) {
-        self.publish_event(SessionStartedEvent::new(session_id, task, detail));
+        self.publish_event(SessionStartedEvent::new(
+            session_id.clone(),
+            task.clone(),
+            detail,
+        ));
+        let _ = self
+            .event_tx
+            .send(rustycode_protocol::EventMsg::SessionStarted {
+                session_id: session_id.to_string(),
+                task,
+            });
     }
 
     /// Publish session completed event
@@ -44,7 +54,18 @@ impl Runtime {
         status: String,
         detail: String,
     ) {
-        self.publish_event(SessionCompletedEvent::new(session_id, task, status, detail));
+        self.publish_event(SessionCompletedEvent::new(
+            session_id.clone(),
+            task,
+            status.clone(),
+            detail,
+        ));
+        let _ = self
+            .event_tx
+            .send(rustycode_protocol::EventMsg::SessionStopped {
+                session_id: session_id.to_string(),
+                reason: status,
+            });
     }
 
     /// Publish tool blocked event
@@ -57,7 +78,18 @@ impl Runtime {
         detail: String,
     ) {
         self.publish_event(ToolBlockedEvent::new(
-            session_id, tool_name, arguments, reason, detail,
+            session_id.clone(),
+            tool_name.clone(),
+            arguments,
+            reason.clone(),
+            detail,
         ));
+        let _ = self
+            .event_tx
+            .send(rustycode_protocol::EventMsg::ToolBlocked {
+                tool_name,
+                tool_id: format!("{}-blocked", session_id), // Synthetic ID for blocked tool
+                reason,
+            });
     }
 }

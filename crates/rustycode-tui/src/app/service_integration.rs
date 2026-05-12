@@ -780,6 +780,13 @@ impl ServiceManager {
                 tracing::info!("Permission mode changed to: {:?}", mode);
                 Ok(())
             }
+            // Ops not yet wired to TUI
+            Op::RetryStep { .. }
+            | Op::SkipStep { .. }
+            | Op::SetStrategy { .. }
+            | Op::QueryMilestoneProgress { .. }
+            | Op::ResumeFromCheckpoint { .. }
+            | Op::ApproveToolEnhanced { .. } => Ok(()),
         }
     }
 

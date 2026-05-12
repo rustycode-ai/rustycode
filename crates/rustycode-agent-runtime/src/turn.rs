@@ -175,6 +175,17 @@ pub async fn collect_completion_turn(
         .await;
     }
 
+    if let Some(stop_reason) = &state.stop_reason {
+        emit_event(
+            StreamEvent::TurnCompleted {
+                stop_reason: stop_reason.clone(),
+            },
+            events,
+            event_tx,
+        )
+        .await;
+    }
+
     Ok(state)
 }
 
@@ -209,6 +220,7 @@ fn parse_completion_content(content: &str) -> (String, Vec<ParsedToolCall>) {
     (assistant_text, tool_calls)
 }
 
+#[allow(clippy::too_many_lines)]
 async fn apply_stream_event(
     event: &StreamEvent,
     state: &mut TurnState,
@@ -291,6 +303,14 @@ async fn apply_stream_event(
         }
         StreamEvent::TurnCompleted { stop_reason } => {
             state.stop_reason = Some(stop_reason.clone());
+            emit_event(
+                StreamEvent::TurnCompleted {
+                    stop_reason: stop_reason.clone(),
+                },
+                events,
+                event_tx,
+            )
+            .await;
         }
         StreamEvent::CacheUsage {
             cache_read_tokens,
@@ -656,8 +676,14 @@ mod tests {
         apply_stream_event(&event, &mut state, &mut collector, &event_tx).await;
 
         assert_eq!(state.stop_reason, Some("tool_use".to_string()));
-        // TurnCompleted is not forwarded to collector
-        assert!(collector.events.is_empty());
+        // TurnCompleted is now forwarded to collector (dual emission)
+        assert_eq!(collector.events.len(), 1);
+        match &collector.events[0] {
+            StreamEvent::TurnCompleted { stop_reason } => {
+                assert_eq!(stop_reason, "tool_use");
+            }
+            other => panic!("Expected TurnCompleted, got {:?}", other),
+        }
     }
 
     #[tokio::test]

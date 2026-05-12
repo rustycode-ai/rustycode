@@ -59,6 +59,37 @@ pub enum Op {
 
     /// Set the reasoning effort level (low/medium/high/xhigh/max).
     SetEffort { effort: String },
+
+    // ── Checkpoints & Step Management ────────────────────────────────────────
+    /// Resume from a specific checkpoint.
+    ResumeFromCheckpoint { checkpoint_id: String },
+
+    /// Retry a failed plan step.
+    RetryStep { step_id: String },
+
+    /// Skip a plan step.
+    SkipStep { step_id: String },
+
+    // ── Orchestration & Strategy ─────────────────────────────────────────────
+    /// Set the orchestration strategy (e.g. "fast", "architect", "ensemble").
+    SetStrategy {
+        strategy: String,
+        config: Option<serde_json::Value>,
+    },
+
+    /// Query progress for a specific milestone.
+    QueryMilestoneProgress { milestone_id: String },
+
+    // ── Enhanced Tool Approval ───────────────────────────────────────────────
+    /// Respond to a tool approval request with optional overrides.
+    ApproveToolEnhanced {
+        tool_id: String,
+        approved: bool,
+        /// Optional modified input for the tool (e.g. user-edited file content).
+        modified_input: Option<serde_json::Value>,
+        /// Optional timeout override in seconds.
+        timeout_override: Option<u64>,
+    },
 }
 
 #[cfg(test)]

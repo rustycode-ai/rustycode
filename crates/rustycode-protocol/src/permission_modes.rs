@@ -221,7 +221,7 @@ pub(crate) fn is_plan_tool(name: &str) -> bool {
 }
 
 /// Whether a tool is read-only (no side effects).
-pub(crate) fn is_read_only_tool(name: &str) -> bool {
+pub fn is_read_only_tool(name: &str) -> bool {
     matches!(
         name,
         tn::READ

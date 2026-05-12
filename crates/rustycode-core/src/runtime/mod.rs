@@ -94,11 +94,14 @@ pub struct Runtime {
     pub tool_cache: Arc<Mutex<ToolResultCache>>,
     pub skill_manager: Arc<Mutex<Option<rustycode_skill::manager::SkillManager>>>,
     pub(crate) active_session_id: Mutex<Option<SessionId>>,
+    /// Unified outbound event channel.
+    event_tx: tokio::sync::broadcast::Sender<rustycode_protocol::EventMsg>,
 }
 
 impl Runtime {
     /// Load runtime from configuration
     pub fn load(cwd: &Path) -> Result<Self> {
+        let (event_tx, _) = tokio::sync::broadcast::channel(1024);
         let config = Config::load(cwd)?;
         let storage = Storage::open(&config.data_dir.join("rustycode.db"))?;
         let mut tools = {
@@ -189,6 +192,7 @@ impl Runtime {
             tool_cache,
             skill_manager: Arc::new(Mutex::new(skill_manager)),
             active_session_id: Mutex::new(None),
+            event_tx,
         })
     }
 
@@ -198,6 +202,7 @@ impl Runtime {
         tools: Arc<ToolRegistry>,
         bus: Arc<EventBus>,
     ) -> Result<Self> {
+        let (event_tx, _) = tokio::sync::broadcast::channel(1024);
         let storage = Storage::open(&config.data_dir.join("rustycode.db"))?;
         let sessions_dir = config.data_dir.join("sessions");
         let tool_cache = Arc::new(Mutex::new(ToolResultCache::new(CacheConfig::default())));
@@ -215,12 +220,28 @@ impl Runtime {
             tool_cache,
             skill_manager: Arc::new(Mutex::new(None)),
             active_session_id: Mutex::new(None),
+            event_tx,
         })
     }
 
     /// Get config reference
     pub fn config(&self) -> &Config {
         &self.config
+    }
+
+    /// Subscribe to the unified outbound event stream.
+    pub fn next_event(&self) -> tokio::sync::broadcast::Receiver<rustycode_protocol::EventMsg> {
+        self.event_tx.subscribe()
+    }
+
+    /// Submit an operation to the core.
+    ///
+    /// This is the single entry point for all frontend commands.
+    /// In Phase 1, this dispatches to existing domain handlers.
+    pub async fn submit(&self, op: rustycode_protocol::Op) -> Result<()> {
+        info!(?op, "Op submitted to runtime");
+        // Logic to be implemented as we migrate domain handlers
+        Ok(())
     }
 
     /// Get event bus reference

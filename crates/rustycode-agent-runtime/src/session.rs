@@ -127,7 +127,7 @@ pub struct AgentResult {
 #[async_trait::async_trait]
 pub trait AgentEvents: Send {
     /// Receive a raw streaming event.
-    async fn on_event(&mut self, event: StreamEvent);
+    async fn on_event(&mut self, _event: StreamEvent) {}
 
     /// Request approval for a tool call. Override to prompt user.
     async fn on_approval_needed(
@@ -354,6 +354,13 @@ async fn run_loop(
 
         tracing::info!("AgentSession turn {}", turn + 1);
 
+        // Phase 1B: Dual emission for turn start
+        let turn_event = StreamEvent::TurnStarted { turn: turn + 1 };
+        events.on_event(turn_event.clone()).await;
+        if let Some(msg) = crate::event_convert::stream_event_to_event_msg(turn_event) {
+            let _ = event_tx.send(msg);
+        }
+
         // Inject structural context from intelligence on turns > 0
         if turn > 0 {
             if let Some(intel) = intelligence {
@@ -505,9 +512,33 @@ async fn run_loop(
                 input.clone(),
             ));
 
+            // Phase 1B: Dual emission for approval request
+            let op_class = if rustycode_protocol::permission_modes::is_read_only_tool(&tool.name) {
+                rustycode_protocol::permission_modes::OperationClass::ReadOnly
+            } else if tool.name == rustycode_protocol::tool_names::WRITE
+                || tool.name == rustycode_protocol::tool_names::EDIT
+            {
+                rustycode_protocol::permission_modes::OperationClass::Write
+            } else {
+                rustycode_protocol::permission_modes::OperationClass::Unknown
+            };
+
+            let _ = event_tx.send(EventMsg::ApprovalRequired {
+                tool_name: tool.name.clone(),
+                tool_id: tool.id.clone(),
+                operation_class: op_class,
+                description: format!("Execute tool: {}", tool.name),
+                diff: None,
+            });
+
             // Approval gate
             let decision = events.on_approval_needed(&tool.name, &input).await;
             if let ApprovalDecision::Reject(reason) = decision {
+                // Phase 1B: Broadcast rejection
+                let _ = event_tx.send(EventMsg::ApprovalRejected {
+                    tool_id: tool.id.clone(),
+                });
+
                 let msg = format!("Tool call rejected: {reason}");
                 let stream_event = StreamEvent::ToolExecCompleted {
                     id: tool.id.clone(),
@@ -532,6 +563,11 @@ async fn run_loop(
                 ));
                 continue;
             }
+
+            // Phase 1B: Broadcast approval
+            let _ = event_tx.send(EventMsg::ApprovalApproved {
+                tool_id: tool.id.clone(),
+            });
 
             // Execute tool with optional message sender for inter-agent communication
             let (raw_output, exec_error) = execute_tool(
@@ -998,6 +1034,14 @@ fn trim_context(messages: &mut Vec<ChatMessage>) -> bool {
 
 // Tests
 
+/// An [`AgentEvents`] implementation that does nothing.
+/// Useful for headless execution or testing where callbacks aren't needed.
+#[allow(dead_code)]
+pub struct NoOpEvents;
+
+#[async_trait::async_trait]
+impl AgentEvents for NoOpEvents {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1163,5 +1207,52 @@ mod tests {
         // Last 6 should be messages 14..20
         assert!(matches!(&msgs[2].content, MessageContent::Simple(s) if s == "msg 14"));
         assert!(matches!(&msgs[7].content, MessageContent::Simple(s) if s == "msg 19"));
+    }
+
+    #[tokio::test]
+    #[allow(clippy::expect_used)]
+    async fn test_event_msg_emission() {
+        use crate::AgentConfig;
+        use rustycode_llm::mock::MockProvider;
+        use rustycode_protocol::EventMsg;
+        use std::path::PathBuf;
+
+        let mut session = AgentSession::new(AgentConfig::default(), PathBuf::from("/tmp"));
+        let mut rx = session.subscribe();
+
+        let provider = MockProvider::from_text("hello world");
+        let tool_registry = rustycode_tools::ToolRegistry::new();
+        let mut events = NoOpEvents;
+
+        let _ = session
+            .run(
+                &provider,
+                "model",
+                "system",
+                vec![],
+                &[],
+                &tool_registry,
+                &mut events,
+            )
+            .await
+            .expect("session run should succeed");
+
+        // Check for expected events
+        let mut event_types = Vec::new();
+        while let Ok(msg) = rx.try_recv() {
+            println!("Test received event: {:?}", msg);
+            match msg {
+                EventMsg::TurnStarted { .. } => event_types.push("TurnStarted"),
+                EventMsg::TextDelta { .. } => event_types.push("TextDelta"),
+                EventMsg::TurnCompleted { .. } => event_types.push("TurnCompleted"),
+                EventMsg::Done => event_types.push("Done"),
+                _ => {}
+            }
+        }
+
+        assert!(event_types.contains(&"TurnStarted"));
+        assert!(event_types.contains(&"TextDelta"));
+        assert!(event_types.contains(&"TurnCompleted"));
+        assert!(event_types.contains(&"Done"));
     }
 }

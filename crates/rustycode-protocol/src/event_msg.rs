@@ -142,6 +142,12 @@ pub enum EventMsg {
     ToolInputDelta { tool_id: String, delta: String },
     /// Tool execution has begun.
     ToolExecStarted { tool_name: String, tool_id: String },
+    /// Tool execution was blocked by policy.
+    ToolBlocked {
+        tool_name: String,
+        tool_id: String,
+        reason: String,
+    },
     /// Tool execution progress update.
     ToolExecProgress {
         tool_id: String,
@@ -171,6 +177,10 @@ pub enum EventMsg {
     },
 
     // ── Session lifecycle ────────────────────────────────────────────────────
+    /// A new core session has started.
+    SessionStarted { session_id: String, task: String },
+    /// A core session has stopped.
+    SessionStopped { session_id: String, reason: String },
     /// Session completed normally.
     Done,
     /// Streaming stopped with a non-normal reason (content filter, safety, etc.).
@@ -254,6 +264,10 @@ pub enum EventMsg {
     /// Workspace context update.
     Workspace(WorkspaceEvent),
 
+    // ── Messages ─────────────────────────────────────────────────────────────
+    /// A new message was added to the conversation history.
+    MessageAdded { role: String, content: String },
+
     // ── Slash commands ───────────────────────────────────────────────────────
     /// Slash command execution result.
     Command(CommandEvent),
@@ -261,6 +275,36 @@ pub enum EventMsg {
     // ── Milestone progress ───────────────────────────────────────────────────
     /// Milestone progress update from autonomous sequencing.
     MilestoneProgress(MilestoneProgress),
+
+    // ── Orchestration & Strategy ─────────────────────────────────────────────
+    /// Orchestration phase transition.
+    PhaseTransition {
+        from: String,
+        to: String,
+        reason: Option<String>,
+    },
+    /// Strategy switch (e.g. from fast to deep reasoning).
+    StrategySwitch {
+        from: String,
+        to: String,
+        reason: String,
+    },
+    /// Quality gate result from an evaluation step.
+    QualityGateResult {
+        gate_name: String,
+        passed: bool,
+        score: Option<f64>,
+        details: String,
+    },
+
+    // ── Memory Operations ────────────────────────────────────────────────────
+    /// Memory operation result.
+    MemoryOperation {
+        op_type: String, // Created, Updated, Deleted, Listed
+        memory_id: String,
+        content: Option<String>,
+        error: Option<String>,
+    },
 }
 
 /// Lightweight plan step description for event messages.
@@ -268,6 +312,152 @@ pub enum EventMsg {
 pub struct PlanStepInfo {
     pub name: String,
     pub description: String,
+}
+
+/// Convert an `EventMsg` back to a `StreamEvent` for consumers that still
+/// process `StreamEvent` internally (e.g. the TUI during Phase 1 migration).
+///
+/// Returns `None` for EventMsg-only variants that have no StreamEvent equivalent
+/// (approval, question, workspace, orchestration, etc.).
+///
+/// Note: Some information is lost in the round-trip (e.g. `input` on ToolCallStarted,
+/// `output_size`/`duration_ms` on ToolExecCompleted, cache tokens merged into TokenUsage).
+pub fn event_msg_to_stream_event(msg: EventMsg) -> Option<crate::stream_event::StreamEvent> {
+    use crate::stream_event::{StreamEvent, StreamPlanStep};
+
+    match msg {
+        EventMsg::TextDelta { delta } => Some(StreamEvent::TextDelta { content: delta }),
+        EventMsg::ThinkingDelta { delta } => Some(StreamEvent::ThinkingDelta { content: delta }),
+        EventMsg::ThinkingBlockCompleted {
+            block_type,
+            signature,
+            data,
+        } => Some(StreamEvent::ThinkingBlockCompleted {
+            block_type,
+            signature,
+            data,
+        }),
+        EventMsg::TurnStarted { turn } => Some(StreamEvent::TurnStarted { turn }),
+        EventMsg::TurnCompleted { stop_reason } => Some(StreamEvent::TurnCompleted { stop_reason }),
+        EventMsg::ToolCallStarted {
+            tool_id, tool_name, ..
+        } => Some(StreamEvent::ToolCallStarted {
+            id: tool_id,
+            name: tool_name,
+        }),
+        EventMsg::ToolInputDelta { tool_id, delta } => Some(StreamEvent::ToolInputDelta {
+            id: tool_id,
+            chunk: delta,
+        }),
+        EventMsg::ToolExecStarted { tool_id, tool_name } => Some(StreamEvent::ToolExecStarted {
+            id: tool_id,
+            name: tool_name,
+        }),
+        EventMsg::ToolExecCompleted {
+            tool_id,
+            tool_name,
+            success,
+            output,
+            ..
+        } => Some(StreamEvent::ToolExecCompleted {
+            id: tool_id,
+            name: tool_name,
+            output,
+            is_error: !success,
+        }),
+        EventMsg::TokenUsage {
+            input_tokens,
+            output_tokens,
+            ..
+        } => Some(StreamEvent::TokenUsage {
+            input_tokens,
+            output_tokens,
+        }),
+        EventMsg::Done => Some(StreamEvent::Done),
+        EventMsg::PlanCreated {
+            plan_id,
+            title,
+            steps,
+        } => Some(StreamEvent::PlanCreated {
+            id: plan_id,
+            title,
+            steps: steps
+                .into_iter()
+                .map(|s| StreamPlanStep {
+                    name: s.name,
+                    description: s.description,
+                })
+                .collect(),
+        }),
+        EventMsg::PlanStepStarted {
+            plan_id,
+            step_index,
+        } => Some(StreamEvent::PlanStepStarted {
+            plan_id,
+            step_index,
+        }),
+        EventMsg::PlanStepCompleted {
+            plan_id,
+            step_index,
+            success,
+            message,
+        } => Some(StreamEvent::PlanStepCompleted {
+            plan_id,
+            step_index,
+            success,
+            message,
+        }),
+        EventMsg::PlanCompleted {
+            plan_id,
+            success,
+            summary,
+        } => Some(StreamEvent::PlanCompleted {
+            plan_id,
+            success,
+            summary,
+        }),
+        EventMsg::PlanApprovalRequested {
+            plan_id,
+            title,
+            steps,
+        } => Some(StreamEvent::PlanApprovalRequested {
+            plan_id,
+            title,
+            steps: steps
+                .into_iter()
+                .map(|s| StreamPlanStep {
+                    name: s.name,
+                    description: s.description,
+                })
+                .collect(),
+        }),
+
+        // EventMsg-only variants — no StreamEvent equivalent
+        EventMsg::ToolBlocked { .. }
+        | EventMsg::ToolExecProgress { .. }
+        | EventMsg::FileSnapshot { .. }
+        | EventMsg::SessionStarted { .. }
+        | EventMsg::SessionStopped { .. }
+        | EventMsg::Stopped { .. }
+        | EventMsg::Error { .. }
+        | EventMsg::ExecutionTrace(_)
+        | EventMsg::SystemMessage(_)
+        | EventMsg::ApprovalRequired { .. }
+        | EventMsg::ApprovalApproved { .. }
+        | EventMsg::ApprovalRejected { .. }
+        | EventMsg::QuestionRequired { .. }
+        | EventMsg::QuestionAnswered { .. }
+        | EventMsg::ExtractTasks { .. }
+        | EventMsg::TasksExtracted { .. }
+        | EventMsg::Workspace(_)
+        | EventMsg::MessageAdded { .. }
+        | EventMsg::Command(_)
+        | EventMsg::MilestoneProgress(_)
+        | EventMsg::PhaseTransition { .. }
+        | EventMsg::StrategySwitch { .. }
+        | EventMsg::QualityGateResult { .. }
+        | EventMsg::MemoryOperation { .. } => None,
+    }
 }
 
 #[cfg(test)]
@@ -360,5 +550,198 @@ mod tests {
         // exhaustively with a catch-all; the `#[non_exhaustive]` attribute
         // ensures new variants can be added without breaking consumers.
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn event_msg_to_stream_event_converts_stream_equivalents() {
+        use crate::stream_event::StreamEvent;
+
+        let cases: Vec<(EventMsg, StreamEvent)> = vec![
+            (
+                EventMsg::TextDelta {
+                    delta: "hello".into(),
+                },
+                StreamEvent::TextDelta {
+                    content: "hello".into(),
+                },
+            ),
+            (
+                EventMsg::ThinkingDelta {
+                    delta: "hmm".into(),
+                },
+                StreamEvent::ThinkingDelta {
+                    content: "hmm".into(),
+                },
+            ),
+            (
+                EventMsg::ThinkingBlockCompleted {
+                    block_type: "thinking".into(),
+                    signature: "sig".into(),
+                    data: "data".into(),
+                },
+                StreamEvent::ThinkingBlockCompleted {
+                    block_type: "thinking".into(),
+                    signature: "sig".into(),
+                    data: "data".into(),
+                },
+            ),
+            (
+                EventMsg::TurnStarted { turn: 3 },
+                StreamEvent::TurnStarted { turn: 3 },
+            ),
+            (
+                EventMsg::TurnCompleted {
+                    stop_reason: "tool_use".into(),
+                },
+                StreamEvent::TurnCompleted {
+                    stop_reason: "tool_use".into(),
+                },
+            ),
+            (
+                EventMsg::ToolCallStarted {
+                    tool_id: "t1".into(),
+                    tool_name: "Bash".into(),
+                    input: serde_json::json!({}),
+                },
+                StreamEvent::ToolCallStarted {
+                    id: "t1".into(),
+                    name: "Bash".into(),
+                },
+            ),
+            (
+                EventMsg::ToolInputDelta {
+                    tool_id: "t1".into(),
+                    delta: r#"{"cmd":"ls"}"#.into(),
+                },
+                StreamEvent::ToolInputDelta {
+                    id: "t1".into(),
+                    chunk: r#"{"cmd":"ls"}"#.into(),
+                },
+            ),
+            (
+                EventMsg::ToolExecStarted {
+                    tool_id: "t1".into(),
+                    tool_name: "Bash".into(),
+                },
+                StreamEvent::ToolExecStarted {
+                    id: "t1".into(),
+                    name: "Bash".into(),
+                },
+            ),
+            (
+                EventMsg::ToolExecCompleted {
+                    tool_id: "t1".into(),
+                    tool_name: "Bash".into(),
+                    success: true,
+                    output: "ok".into(),
+                    output_size: 2,
+                    duration_ms: 100,
+                },
+                StreamEvent::ToolExecCompleted {
+                    id: "t1".into(),
+                    name: "Bash".into(),
+                    output: "ok".into(),
+                    is_error: false,
+                },
+            ),
+            (
+                EventMsg::TokenUsage {
+                    input_tokens: 100,
+                    output_tokens: 50,
+                    cache_read_tokens: 0,
+                    cache_creation_tokens: 0,
+                },
+                StreamEvent::TokenUsage {
+                    input_tokens: 100,
+                    output_tokens: 50,
+                },
+            ),
+            (EventMsg::Done, StreamEvent::Done),
+        ];
+
+        for (msg, expected) in cases {
+            let result = event_msg_to_stream_event(msg).expect("should convert");
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn event_msg_to_stream_event_returns_none_for_msg_only_variants() {
+        let msg_only: Vec<EventMsg> = vec![
+            EventMsg::Stopped {
+                stop_reason: "end_turn".into(),
+            },
+            EventMsg::Error {
+                kind: EventErrorKind::Provider,
+                message: "err".into(),
+                retryable: false,
+            },
+            EventMsg::ApprovalRequired {
+                tool_name: "Write".into(),
+                tool_id: "t1".into(),
+                operation_class: crate::permission_modes::OperationClass::Write,
+                description: "write file".into(),
+                diff: None,
+            },
+            EventMsg::QuestionRequired {
+                question_id: "q1".into(),
+                question_text: "Continue?".into(),
+                header: "Confirm".into(),
+                options: vec![],
+                multi_select: false,
+            },
+            EventMsg::Workspace(WorkspaceEvent::ScanProgress {
+                scanned: 1,
+                total: 10,
+            }),
+            EventMsg::Command(CommandEvent::Success("ok".into())),
+            EventMsg::MilestoneProgress(MilestoneProgress {
+                milestone_id: "m1".into(),
+                milestone_title: "Phase 1".into(),
+                status: "in_progress".into(),
+                plans_total: 3,
+                plans_completed: 1,
+                current_plan_summary: "doing".into(),
+                action_hint: "wait".into(),
+            }),
+        ];
+
+        for msg in msg_only {
+            assert!(
+                event_msg_to_stream_event(msg).is_none(),
+                "EventMsg-only variant should return None"
+            );
+        }
+    }
+
+    #[test]
+    fn event_msg_to_stream_event_plan_roundtrip() {
+        use crate::stream_event::StreamEvent;
+
+        let msg = EventMsg::PlanCreated {
+            plan_id: "p1".into(),
+            title: "My Plan".into(),
+            steps: vec![
+                PlanStepInfo {
+                    name: "Step 1".into(),
+                    description: "Do thing".into(),
+                },
+                PlanStepInfo {
+                    name: "Step 2".into(),
+                    description: "Do other".into(),
+                },
+            ],
+        };
+
+        let result = event_msg_to_stream_event(msg).expect("should convert");
+        match result {
+            StreamEvent::PlanCreated { id, title, steps } => {
+                assert_eq!(id, "p1");
+                assert_eq!(title, "My Plan");
+                assert_eq!(steps.len(), 2);
+                assert_eq!(steps[0].name, "Step 1");
+            }
+            other => panic!("Expected PlanCreated, got {:?}", other),
+        }
     }
 }

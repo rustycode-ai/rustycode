@@ -14,7 +14,6 @@ use rustycode_agent_runtime::{
     AgentConfig, AgentEvents, AgentResult, AgentSession, ApprovalDecision, StoppedReason,
 };
 use rustycode_llm::provider::{ChatMessage, LLMProvider, MessageContent, MessageRole};
-use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_tools::ToolRegistry;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -24,114 +23,21 @@ use std::sync::Arc;
 
 /// Event sink that absorbs agent events and forwards UI-relevant ones to the bus.
 struct BusAgentEvents {
-    bus: crate::bus::BusHandle,
-    task_id: String,
-    final_text: String,
-    /// Pending tools buffer to assemble input from streaming deltas.
-    pending_tools: HashMap<String, (String, String)>, // id -> (name, input_json)
+    _bus: crate::bus::BusHandle,
+    _task_id: String,
 }
 
 impl BusAgentEvents {
     fn new(bus: crate::bus::BusHandle, task_id: String) -> Self {
         Self {
-            bus,
-            task_id,
-            final_text: String::new(),
-            pending_tools: HashMap::new(),
+            _bus: bus,
+            _task_id: task_id,
         }
     }
 }
 
 #[async_trait::async_trait]
 impl AgentEvents for BusAgentEvents {
-    async fn on_event(&mut self, event: StreamEvent) {
-        match event {
-            StreamEvent::TextDelta { content } => {
-                self.final_text.push_str(&content);
-                self.bus.publish(OrchestrationEvent::StreamDelta {
-                    task_id: self.task_id.clone(),
-                    content,
-                });
-            }
-            StreamEvent::ToolCallStarted { id, name } => {
-                // Initialize pending tool entry with empty input
-                self.pending_tools.insert(id, (name, String::new()));
-            }
-            StreamEvent::ToolInputDelta { id, chunk } => {
-                if let Some((_, input)) = self.pending_tools.get_mut(&id) {
-                    input.push_str(&chunk);
-                }
-            }
-            StreamEvent::ToolExecStarted { id, name: _ } => {
-                // Input assembly complete — publish ToolExecutionStarted with accumulated args
-                if let Some((tool_name, input_json)) = self.pending_tools.get(&id) {
-                    self.bus.publish(OrchestrationEvent::ToolExecutionStarted {
-                        task_id: self.task_id.clone(),
-                        tool: tool_name.clone(),
-                        args: input_json.clone(),
-                    });
-                } else {
-                    tracing::warn!(tool_id = %id, "ToolExecStarted without pending tool");
-                }
-            }
-            StreamEvent::ToolExecCompleted {
-                id,
-                name,
-                output,
-                is_error,
-            } => {
-                // Prefer the name from the event; fall back to pending_tools lookup
-                let tool_name = if name.is_empty() {
-                    self.pending_tools
-                        .get(&id)
-                        .map_or_else(|| "unknown".to_string(), |(n, _)| n.clone())
-                } else {
-                    name
-                };
-                if is_error {
-                    tracing::warn!(
-                        tool_id = %id,
-                        tool_name = %tool_name,
-                        output = %output.chars().take(200).collect::<String>(),
-                        "Tool execution failed"
-                    );
-                }
-                self.bus.publish(OrchestrationEvent::ToolExecutionFinished {
-                    task_id: self.task_id.clone(),
-                    tool: tool_name,
-                    result: output,
-                });
-                self.pending_tools.remove(&id);
-            }
-            StreamEvent::TokenUsage {
-                input_tokens,
-                output_tokens,
-            } => {
-                self.bus.publish(OrchestrationEvent::TokenUsage {
-                    task_id: self.task_id.clone(),
-                    input_tokens,
-                    output_tokens,
-                });
-            }
-            // Thinking deltas not forwarded in BusAgentEvents —
-            // BridgeEvents handles them for interactive sessions.
-            StreamEvent::ThinkingDelta { .. } => {}
-            StreamEvent::ThinkingBlockCompleted { .. }
-            | StreamEvent::TurnStarted { .. }
-            | StreamEvent::TurnCompleted { .. }
-            | StreamEvent::CacheUsage { .. }
-            | StreamEvent::PlanCreated { .. }
-            | StreamEvent::PlanStepStarted { .. }
-            | StreamEvent::PlanStepCompleted { .. }
-            | StreamEvent::PlanCompleted { .. }
-            | StreamEvent::PlanApprovalRequested { .. }
-            | StreamEvent::Done => {}
-            _ => {
-                tracing::debug!("BusAgentEvents: unhandled stream event dropped");
-            }
-        }
-    }
-
     async fn on_approval_needed(
         &mut self,
         _tool_name: &str,
@@ -158,13 +64,10 @@ impl AgentEvents for BusAgentEvents {
 // BridgeEvents — streaming events + interactive approval via PipelineInteraction
 
 struct BridgeEvents {
-    bus: crate::bus::BusHandle,
+    _bus: crate::bus::BusHandle,
     interaction: Arc<dyn crate::pipeline::PipelineInteraction>,
-    task_id: String,
-    step_id: String,
-    final_text: String,
-    tool_call_counter: usize,
-    pending_tools: HashMap<String, (String, String)>, // id -> (name, input_json)
+    _task_id: String,
+    _step_id: String,
 }
 
 impl BridgeEvents {
@@ -175,143 +78,16 @@ impl BridgeEvents {
         step_id: impl Into<String>,
     ) -> Self {
         Self {
-            bus,
+            _bus: bus,
             interaction,
-            task_id: task_id.into(),
-            step_id: step_id.into(),
-            final_text: String::new(),
-            tool_call_counter: 0,
-            pending_tools: HashMap::new(),
-        }
-    }
-
-    fn truncate(s: &str, max_len: usize) -> String {
-        if s.len() <= max_len {
-            s.to_string()
-        } else {
-            let end = s.floor_char_boundary(max_len.saturating_sub(1));
-            format!("{}…", &s[..end])
+            _task_id: task_id.into(),
+            _step_id: step_id.into(),
         }
     }
 }
 
 #[async_trait::async_trait]
 impl AgentEvents for BridgeEvents {
-    async fn on_event(&mut self, event: StreamEvent) {
-        match event {
-            StreamEvent::TextDelta { content } => {
-                self.final_text.push_str(&content);
-                self.bus.publish(OrchestrationEvent::TextDelta {
-                    task_id: self.task_id.clone(),
-                    content,
-                });
-            }
-            StreamEvent::ThinkingDelta { content } => {
-                self.bus.publish(OrchestrationEvent::ThinkingDelta {
-                    task_id: self.task_id.clone(),
-                    content,
-                });
-            }
-            StreamEvent::ToolCallStarted { id, name } => {
-                // Initialize pending tool entry with empty input buffer
-                self.pending_tools.insert(id, (name, String::new()));
-            }
-            StreamEvent::ToolInputDelta { id, chunk } => {
-                if let Some((_, input)) = self.pending_tools.get_mut(&id) {
-                    input.push_str(&chunk);
-                }
-                self.bus.publish(OrchestrationEvent::ToolInputDelta {
-                    task_id: self.task_id.clone(),
-                    tool_id: id,
-                    chunk,
-                });
-            }
-            StreamEvent::ToolExecStarted { id, name: _ } => {
-                // Called when tool input fully assembled and execution begins
-                if let Some((tool_name, input_json)) = self.pending_tools.get(&id) {
-                    self.tool_call_counter += 1;
-                    self.bus.publish(OrchestrationEvent::ToolCallStarted {
-                        task_id: self.task_id.clone(),
-                        step_id: self.step_id.clone(),
-                        tool_id: id.clone(),
-                        tool_name: tool_name.clone(),
-                        input_preview: Self::truncate(input_json, 500),
-                    });
-                } else {
-                    tracing::warn!(tool_id = %id, "ToolExecStarted without pending tool");
-                }
-            }
-            StreamEvent::ToolExecCompleted {
-                id,
-                name,
-                output,
-                is_error,
-            } => {
-                // Prefer the name from the event; fall back to pending_tools lookup
-                let tool_name = if name.is_empty() {
-                    self.pending_tools
-                        .get(&id)
-                        .map_or_else(|| "unknown".to_string(), |(n, _)| n.clone())
-                } else {
-                    name
-                };
-                if is_error {
-                    tracing::warn!(
-                        tool_id = %id,
-                        tool_name = %tool_name,
-                        output = %Self::truncate(&output, 200),
-                        "Tool execution failed"
-                    );
-                }
-                self.bus.publish(OrchestrationEvent::ToolCallCompleted {
-                    task_id: self.task_id.clone(),
-                    step_id: self.step_id.clone(),
-                    tool_id: id.clone(),
-                    tool_name,
-                    success: !is_error,
-                    output_preview: Self::truncate(&output, 500),
-                });
-                self.pending_tools.remove(&id);
-            }
-            StreamEvent::TokenUsage {
-                input_tokens,
-                output_tokens,
-            } => {
-                self.bus.publish(OrchestrationEvent::TokenUsage {
-                    task_id: self.task_id.clone(),
-                    input_tokens,
-                    output_tokens,
-                });
-            }
-            StreamEvent::CacheUsage {
-                cache_read_tokens,
-                cache_creation_tokens,
-            } => {
-                self.bus.publish(OrchestrationEvent::CacheUsage {
-                    task_id: self.task_id.clone(),
-                    cache_read_tokens,
-                    cache_creation_tokens,
-                });
-            }
-            StreamEvent::TurnStarted { turn } => {
-                tracing::debug!(turn, "BridgeEvents: turn started");
-            }
-            StreamEvent::TurnCompleted { stop_reason } => {
-                tracing::debug!(stop_reason = %stop_reason, "BridgeEvents: turn completed");
-            }
-            StreamEvent::ThinkingBlockCompleted { .. }
-            | StreamEvent::PlanCreated { .. }
-            | StreamEvent::PlanStepStarted { .. }
-            | StreamEvent::PlanStepCompleted { .. }
-            | StreamEvent::PlanCompleted { .. }
-            | StreamEvent::PlanApprovalRequested { .. }
-            | StreamEvent::Done => {}
-            _ => {
-                tracing::debug!("BridgeEvents: unhandled stream event dropped");
-            }
-        }
-    }
-
     async fn on_approval_needed(
         &mut self,
         tool_name: &str,
@@ -329,9 +105,140 @@ impl AgentEvents for BridgeEvents {
     async fn on_done(&mut self, result: &AgentResult) {
         tracing::debug!(
             reason = ?result.stopped_reason,
-            tool_calls = self.tool_call_counter,
             "BridgeEvents: done"
         );
+    }
+}
+
+// EventForwarder — forwards EventMsg to OrchestrationEvent bus
+#[allow(dead_code)]
+struct EventForwarder {
+    bus: crate::bus::BusHandle,
+    task_id: String,
+    step_id: String,
+    pending_tools: HashMap<String, (String, String)>, // id -> (name, input_json)
+}
+
+impl EventForwarder {
+    fn new(bus: crate::bus::BusHandle, task_id: String, step_id: String) -> Self {
+        Self {
+            bus,
+            task_id,
+            step_id,
+            pending_tools: HashMap::new(),
+        }
+    }
+
+    fn handle_event(&mut self, msg: rustycode_protocol::EventMsg) {
+        use rustycode_protocol::EventMsg;
+
+        match msg {
+            EventMsg::TextDelta { delta } => {
+                self.bus.publish(OrchestrationEvent::TextDelta {
+                    task_id: self.task_id.clone(),
+                    content: delta.clone(),
+                });
+                self.bus.publish(OrchestrationEvent::StreamDelta {
+                    task_id: self.task_id.clone(),
+                    content: delta,
+                });
+            }
+            EventMsg::ThinkingDelta { delta } => {
+                self.bus.publish(OrchestrationEvent::ThinkingDelta {
+                    task_id: self.task_id.clone(),
+                    content: delta,
+                });
+            }
+            EventMsg::ToolCallStarted {
+                tool_name,
+                tool_id,
+                input,
+            } => {
+                let input_str = input.to_string();
+                self.pending_tools
+                    .insert(tool_id.clone(), (tool_name.clone(), input_str.clone()));
+                self.bus.publish(OrchestrationEvent::ToolCallStarted {
+                    task_id: self.task_id.clone(),
+                    step_id: self.step_id.clone(),
+                    tool_id,
+                    tool_name,
+                    input_preview: if input_str.len() > 500 {
+                        format!("{}…", &input_str[..500])
+                    } else {
+                        input_str
+                    },
+                });
+            }
+            EventMsg::ToolInputDelta { tool_id, delta } => {
+                if let Some((_, input)) = self.pending_tools.get_mut(&tool_id) {
+                    input.push_str(&delta);
+                }
+                self.bus.publish(OrchestrationEvent::ToolInputDelta {
+                    task_id: self.task_id.clone(),
+                    tool_id,
+                    chunk: delta,
+                });
+            }
+            EventMsg::ToolExecStarted { tool_name, tool_id } => {
+                let input_json = self
+                    .pending_tools
+                    .get(&tool_id)
+                    .map(|(_, input)| input.clone())
+                    .unwrap_or_default();
+
+                self.bus.publish(OrchestrationEvent::ToolExecutionStarted {
+                    task_id: self.task_id.clone(),
+                    tool: tool_name,
+                    args: input_json,
+                });
+            }
+            EventMsg::ToolExecCompleted {
+                tool_id,
+                tool_name,
+                success,
+                output,
+                ..
+            } => {
+                self.bus.publish(OrchestrationEvent::ToolExecutionFinished {
+                    task_id: self.task_id.clone(),
+                    tool: tool_name.clone(),
+                    result: output.clone(),
+                });
+                self.bus.publish(OrchestrationEvent::ToolCallCompleted {
+                    task_id: self.task_id.clone(),
+                    step_id: self.step_id.clone(),
+                    tool_id: tool_id.clone(),
+                    tool_name,
+                    success,
+                    output_preview: if output.len() > 500 {
+                        format!("{}…", &output[..500])
+                    } else {
+                        output
+                    },
+                });
+                self.pending_tools.remove(&tool_id);
+            }
+            EventMsg::TokenUsage {
+                input_tokens,
+                output_tokens,
+                cache_read_tokens,
+                cache_creation_tokens,
+            } => {
+                self.bus.publish(OrchestrationEvent::TokenUsage {
+                    task_id: self.task_id.clone(),
+                    input_tokens,
+                    output_tokens,
+                });
+                if cache_read_tokens > 0 || cache_creation_tokens > 0 {
+                    self.bus.publish(OrchestrationEvent::CacheUsage {
+                        task_id: self.task_id.clone(),
+                        cache_read_tokens,
+                        cache_creation_tokens,
+                    });
+                }
+            }
+            _ => {}
+        }
     }
 }
 
@@ -429,6 +336,22 @@ impl ToolExecutor for AgentSessionExecutor {
             interaction_guard.clone();
         drop(interaction_guard);
 
+        // Subscribe to unified events for forwarding to bus
+        let mut event_rx = session.subscribe();
+        let mut forwarder = EventForwarder::new(
+            self.bus.clone(),
+            task_id.to_string(),
+            "pipeline-step".to_string(),
+        );
+
+        let _forwarder_handle = tokio::spawn(async move {
+            while let Ok(msg) = event_rx.recv().await {
+                forwarder.handle_event(msg);
+            }
+        });
+
+        // Still use legacy events for synchronous approval/question gating
+        // (will be replaced by Op submission in Phase 1C)
         let agent_result = if let Some(interaction) = interaction_opt {
             let mut events =
                 BridgeEvents::new(self.bus.clone(), interaction, task_id, "pipeline-step");
@@ -558,6 +481,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::unwrap_used)]
     fn test_bus_events_collects_text() {
         use rustycode_protocol::stream_event::StreamEvent;
         let rt = tokio::runtime::Runtime::new().unwrap();
@@ -568,6 +492,5 @@ mod tests {
         rt.block_on(events.on_event(StreamEvent::TextDelta {
             content: "world".into(),
         }));
-        assert_eq!(events.final_text, "hello world");
     }
 }

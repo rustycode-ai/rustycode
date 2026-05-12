@@ -100,12 +100,16 @@ fn browser_tool_adapters(tool_registry: &ToolRegistry) -> Vec<Box<dyn RustyCodeT
 pub struct TuiAgentManager {
     session: Arc<tokio::sync::Mutex<AgentSession>>,
     provider: Arc<dyn rustycode_llm::provider::LLMProvider>,
+    /// Phase 1C shadow mode: broadcast receiver for EventMsg validation.
+    event_rx: tokio::sync::broadcast::Receiver<rustycode_protocol::EventMsg>,
 }
 
 pub struct TuiAgentBridge {
     final_text: String,
     adapter: StreamEventAdapter,
     permission_mode: PermissionMode,
+    /// Phase 1C shadow mode: broadcast receiver for EventMsg validation.
+    event_rx: Option<tokio::sync::broadcast::Receiver<rustycode_protocol::EventMsg>>,
 }
 
 impl TuiAgentBridge {
@@ -114,6 +118,7 @@ impl TuiAgentBridge {
             final_text: String::new(),
             adapter: StreamEventAdapter::new(stream_tx),
             permission_mode: PermissionMode::Default,
+            event_rx: None,
         }
     }
 
@@ -133,6 +138,14 @@ impl TuiAgentBridge {
         self
     }
 
+    pub fn with_event_rx(
+        mut self,
+        event_rx: tokio::sync::broadcast::Receiver<rustycode_protocol::EventMsg>,
+    ) -> Self {
+        self.event_rx = Some(event_rx);
+        self
+    }
+
     pub fn final_text(&self) -> &str {
         &self.final_text
     }
@@ -145,7 +158,39 @@ impl AgentEvents for TuiAgentBridge {
             self.final_text.push_str(content);
         }
 
-        self.adapter.on_event(event).await;
+        // Existing callback flow (authoritative)
+        self.adapter.on_event(event.clone()).await;
+
+        // Phase 1C shadow mode: validate broadcast matches callback
+        if let Some(ref mut rx) = self.event_rx {
+            match rx.try_recv() {
+                Ok(msg) => {
+                    tracing::debug!(
+                        target: "rustycode_tui::shadow",
+                        "EventMsg shadow received: {:?}",
+                        msg
+                    );
+                }
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => {
+                    tracing::debug!(
+                        target: "rustycode_tui::shadow",
+                        "EventMsg shadow: no broadcast event available (may arrive later)"
+                    );
+                }
+                Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => {
+                    tracing::warn!(
+                        target: "rustycode_tui::shadow",
+                        "EventMsg shadow lagged, skipped {n} events"
+                    );
+                }
+                Err(tokio::sync::broadcast::error::TryRecvError::Closed) => {
+                    tracing::debug!(
+                        target: "rustycode_tui::shadow",
+                        "EventMsg shadow channel closed"
+                    );
+                }
+            }
+        }
     }
 
     async fn on_approval_needed(
@@ -176,14 +221,18 @@ impl TuiAgentManager {
     ) -> Self {
         let mut session = AgentSession::new(agent_config, cwd);
         session.activation.promote(ToolTier::Full);
+        // Phase 1C shadow mode: subscribe to EventMsg broadcast
+        let event_rx = session.subscribe();
         Self {
             session: Arc::new(tokio::sync::Mutex::new(session)),
             provider,
+            event_rx,
         }
     }
 
     pub fn create_bridge(&self, stream_tx: SyncSender<StreamChunk>) -> TuiAgentBridge {
-        TuiAgentBridge::new(stream_tx)
+        // Phase 1C shadow mode: pass broadcast receiver to bridge
+        TuiAgentBridge::new(stream_tx).with_event_rx(self.event_rx.resubscribe())
     }
 
     pub async fn run_task<E: AgentEvents>(
