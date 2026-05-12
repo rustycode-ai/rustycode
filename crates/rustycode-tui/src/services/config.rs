@@ -209,7 +209,7 @@ pub fn remap_key(config: &mut TUIConfig, action: String, keys: Vec<String>) -> R
     match action.as_str() {
         "quit" => config.keybindings.quit = keys,
         "save" => config.keybindings.save = keys,
-        "Search" => config.keybindings.search = keys,
+        "search" => config.keybindings.search = keys,
         "theme_switch" => config.keybindings.theme_switch = keys,
         "help" => config.keybindings.help = keys,
         "clear" => config.keybindings.clear = keys,

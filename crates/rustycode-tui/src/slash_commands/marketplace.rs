@@ -49,8 +49,8 @@ async fn cmd_browse_marketplace(parts: &[&str]) -> Result<Option<String>, String
         .await
         .map_err(|e| format!("Failed to fetch marketplace: {}", e))?;
 
-    let (filtered, label) = if parts.len() > 2 {
-        match parts[2] {
+    let (filtered, label) = if parts.len() > 1 {
+        match parts[1] {
             "skills" => (filter_by_type(&items, &ItemType::Skill), "Skills"),
             "tools" => (filter_by_type(&items, &ItemType::Tool), "Tools"),
             "mcp" => (filter_by_type(&items, &ItemType::MCP), "MCP Servers"),
@@ -118,11 +118,11 @@ async fn cmd_search_marketplace(parts: &[&str]) -> Result<Option<String>, String
 
 /// Install a marketplace item
 async fn cmd_install_item(parts: &[&str]) -> Result<Option<String>, String> {
-    if parts.len() < 3 {
+    if parts.len() < 2 {
         return Ok(Some("Usage: /marketplace install <item-id>".to_string()));
     }
 
-    let item_id = parts[2];
+    let item_id = parts[1];
     let items = fetch_marketplace_index()
         .await
         .map_err(|e| format!("Failed to fetch marketplace: {}", e))?;
@@ -161,11 +161,11 @@ async fn cmd_install_item(parts: &[&str]) -> Result<Option<String>, String> {
 
 /// Uninstall a marketplace item
 async fn cmd_uninstall_item(parts: &[&str]) -> Result<Option<String>, String> {
-    if parts.len() < 3 {
+    if parts.len() < 2 {
         return Ok(Some("Usage: /marketplace uninstall <item-id>".to_string()));
     }
 
-    let item_id = parts[2];
+    let item_id = parts[1];
     let items = fetch_marketplace_index()
         .await
         .map_err(|e| format!("Failed to fetch marketplace: {}", e))?;
@@ -192,9 +192,9 @@ async fn cmd_update_items(parts: &[&str]) -> Result<Option<String>, String> {
         .await
         .map_err(|e| format!("Failed to fetch marketplace: {}", e))?;
 
-    if parts.len() > 2 {
+    if parts.len() > 1 {
         // Update specific item
-        let item_id = parts[2];
+        let item_id = parts[1];
         update_item(&items, item_id)
             .await
             .map_err(|e| format!("Failed to update {}: {}", item_id, e))?;
@@ -237,8 +237,8 @@ async fn cmd_list_items(parts: &[&str]) -> Result<Option<String>, String> {
         .await
         .map_err(|e| format!("Failed to fetch marketplace: {}", e))?;
 
-    let (items_to_show, label) = if parts.len() > 2 {
-        match parts[2] {
+    let (items_to_show, label) = if parts.len() > 1 {
+        match parts[1] {
             "all" => (items.clone(), "All"),
             "installed" => (installed_items(&items), "Installed"),
             "updates" => (updatable_items(&items), "Updates Available"),
@@ -265,11 +265,11 @@ async fn cmd_list_items(parts: &[&str]) -> Result<Option<String>, String> {
 
 /// Show item information
 async fn cmd_item_info(parts: &[&str]) -> Result<Option<String>, String> {
-    if parts.len() < 3 {
+    if parts.len() < 2 {
         return Ok(Some("Usage: /marketplace info <item-id>".to_string()));
     }
 
-    let item_id = parts[2];
+    let item_id = parts[1];
     let items = fetch_marketplace_index()
         .await
         .map_err(|e| format!("Failed to fetch marketplace: {}", e))?;
