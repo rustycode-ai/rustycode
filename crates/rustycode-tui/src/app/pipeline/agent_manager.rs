@@ -1,5 +1,6 @@
 use anyhow::Result;
 use rustycode_agent_runtime::{AgentConfig, AgentEvents, AgentResult, AgentSession};
+use rustycode_protocol::permission_modes::PermissionMode;
 use rustycode_protocol::stream_event::{ApprovalDecision, StreamEvent};
 use rustycode_tools_api::tiers::ToolTier;
 use std::path::PathBuf;
@@ -104,6 +105,7 @@ pub struct TuiAgentManager {
 pub struct TuiAgentBridge {
     final_text: String,
     adapter: StreamEventAdapter,
+    permission_mode: PermissionMode,
 }
 
 impl TuiAgentBridge {
@@ -111,16 +113,23 @@ impl TuiAgentBridge {
         Self {
             final_text: String::new(),
             adapter: StreamEventAdapter::new(stream_tx),
+            permission_mode: PermissionMode::Default,
         }
     }
 
-    pub fn with_approval_rx(mut self, approval_rx: Receiver<bool>) -> Self {
+    pub fn with_approval_rx(mut self, approval_rx: Receiver<(String, bool)>) -> Self {
         self.adapter = self.adapter.with_approval_rx(approval_rx);
         self
     }
 
     pub fn with_question_rx(mut self, question_rx: Receiver<String>) -> Self {
         self.adapter = self.adapter.with_question_rx(question_rx);
+        self
+    }
+
+    pub fn with_permission_mode(mut self, mode: PermissionMode) -> Self {
+        self.permission_mode = mode;
+        self.adapter = self.adapter.with_permission_mode(mode);
         self
     }
 

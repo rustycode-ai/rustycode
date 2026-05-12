@@ -71,6 +71,10 @@ pub struct BackgroundServiceRegistry {
     pub tool_channel: Option<BoundedChannel<ToolResult>>,
     pub workspace_channel: Option<BoundedChannel<WorkspaceUpdate>>,
     pub command_channel: Option<BoundedChannel<SlashCommandResult>>,
+    /// Unified event channel (EventMsg) — additive alongside legacy channels.
+    /// Producers can emit EventMsg in parallel with existing typed channels;
+    /// consumers can switch to EventMsg without disrupting legacy paths.
+    pub event_channel: Option<BoundedChannel<rustycode_protocol::EventMsg>>,
 }
 
 pub struct ServiceManager {
@@ -81,7 +85,7 @@ pub struct ServiceManager {
     pub polling_registry: BackgroundServiceRegistry,
 
     /// Channel for approval responses (TUI → streaming thread)
-    approval_tx: Option<std::sync::mpsc::Sender<bool>>,
+    approval_tx: Option<std::sync::mpsc::Sender<(String, bool)>>,
 
     /// Channel for question responses (TUI → streaming thread)
     question_tx: Option<std::sync::mpsc::Sender<String>>,
@@ -129,6 +133,9 @@ pub struct ServiceManager {
 
     /// Hook manager for lifecycle hooks (PermissionRequest, UserPromptSubmit, etc.)
     hook_manager: Option<rustycode_tools::hooks::HookManager>,
+
+    /// Permission mode for tool approval decisions in streaming threads.
+    permission_mode: rustycode_protocol::permission_modes::PermissionMode,
 }
 
 /// Context passed to background streaming threads.
@@ -155,6 +162,8 @@ struct StreamingContext {
     effort: String,
     /// Hook manager for PermissionRequest and other lifecycle hooks.
     hook_manager: Option<rustycode_tools::hooks::HookManager>,
+    /// Permission mode for tool approval decisions in the streaming adapter.
+    permission_mode: rustycode_protocol::permission_modes::PermissionMode,
 }
 
 impl ServiceManager {
@@ -166,6 +175,7 @@ impl ServiceManager {
                 tool_channel: None,
                 workspace_channel: None,
                 command_channel: Some(BoundedChannel::new(100)),
+                event_channel: Some(BoundedChannel::new(200)),
             },
             approval_tx: None,
             question_tx: None,
@@ -184,6 +194,7 @@ impl ServiceManager {
             orchestration_pipeline: None,
             effort: "medium".to_string(),
             hook_manager: None,
+            permission_mode: rustycode_protocol::permission_modes::PermissionMode::Default,
         }
     }
 
@@ -525,6 +536,7 @@ impl ServiceManager {
             image_blocks,
             effort: self.effort.clone(),
             hook_manager: self.hook_manager.clone(),
+            permission_mode: self.permission_mode.clone(),
         };
 
         // 5. Dispatch
@@ -554,7 +566,7 @@ impl ServiceManager {
         ctx: StreamingContext,
         stream_tx: SyncSender<StreamChunk>,
         tools_schema: Vec<serde_json::Value>,
-        approval_rx: std::sync::mpsc::Receiver<bool>,
+        approval_rx: std::sync::mpsc::Receiver<(String, bool)>,
         question_rx: std::sync::mpsc::Receiver<String>,
     ) {
         let stream_tx_panic = stream_tx.clone();
@@ -583,7 +595,8 @@ impl ServiceManager {
                     .orchestration_opt(Some(ctx.orchestration))
                     .image_blocks_opt(ctx.image_blocks)
                     .effort_opt(Some(ctx.effort.clone()))
-                    .hook_manager_opt(ctx.hook_manager);
+                    .hook_manager_opt(ctx.hook_manager)
+                    .permission_mode_opt(Some(ctx.permission_mode));
 
                     stream_llm_response(config).await
                 });
@@ -627,9 +640,9 @@ impl ServiceManager {
     ///
     /// Called by TUI when user responds to an approval request.
     /// `true` = approve, `false` = reject
-    pub fn send_approval_response(&self, approved: bool) {
+    pub fn send_approval_response(&self, tool_id: String, approved: bool) {
         if let Some(ref tx) = self.approval_tx {
-            if let Err(e) = tx.send(approved) {
+            if let Err(e) = tx.send((tool_id, approved)) {
                 tracing::warn!("Failed to send approval response: {}", e);
             }
         } else {
@@ -686,6 +699,19 @@ impl ServiceManager {
         self.agent_mode.allows_tool(tool_name)
     }
 
+    /// Send an `EventMsg` to the unified event channel (non-blocking).
+    ///
+    /// This is the primary Core → TUI boundary: the event loop polls this
+    /// channel via `poll_services()`. Returns `true` if sent successfully,
+    /// `false` if the channel is full or not configured.
+    pub fn send_event(&self, event: rustycode_protocol::EventMsg) -> bool {
+        self.polling_registry
+            .event_channel
+            .as_ref()
+            .and_then(|ch| ch.try_send(event).ok())
+            .is_some()
+    }
+
     /// Submit a protocol-level `Op` command for dispatch.
     ///
     /// This is the primary TUI → Core boundary: all frontend actions
@@ -714,8 +740,8 @@ impl ServiceManager {
                 self.request_stop_stream();
                 Ok(())
             }
-            Op::ApproveTool { approved } => {
-                self.send_approval_response(approved);
+            Op::ApproveTool { tool_id, approved } => {
+                self.send_approval_response(tool_id, approved);
                 Ok(())
             }
             Op::AnswerQuestion { answer } => {
@@ -747,6 +773,11 @@ impl ServiceManager {
             }
             Op::SetEffort { effort } => {
                 self.set_effort(effort);
+                Ok(())
+            }
+            Op::SetPermissionMode { mode } => {
+                self.permission_mode = mode;
+                tracing::info!("Permission mode changed to: {:?}", mode);
                 Ok(())
             }
         }
@@ -931,6 +962,41 @@ impl ServiceManager {
             .command_channel
             .as_ref()
             .map(|c| c.clone_sender())
+    }
+
+    pub fn event_channel_mut(
+        &mut self,
+    ) -> Option<&mut BoundedChannel<rustycode_protocol::EventMsg>> {
+        self.polling_registry.event_channel.as_mut()
+    }
+
+    pub fn event_sender(
+        &self,
+    ) -> Option<std::sync::mpsc::SyncSender<rustycode_protocol::EventMsg>> {
+        self.polling_registry
+            .event_channel
+            .as_ref()
+            .map(|c| c.clone_sender())
+    }
+
+    /// Processes at most ONE EventMsg per frame, ensuring responsiveness.
+    pub fn poll_event_one<F>(&mut self, callback: F) -> Result<bool>
+    where
+        F: FnOnce(rustycode_protocol::EventMsg),
+    {
+        let channel = self
+            .polling_registry
+            .event_channel
+            .as_mut()
+            .context("Event channel not created")?;
+
+        match channel.try_recv() {
+            Some(msg) => {
+                callback(msg);
+                Ok(true)
+            }
+            None => Ok(false),
+        }
     }
 }
 

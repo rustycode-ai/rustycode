@@ -93,6 +93,16 @@ pub enum RolloutEvent {
         total_tokens: u64,
         timestamp: DateTime<Utc>,
     },
+    #[serde(rename = "op_submitted")]
+    OpSubmitted {
+        op: serde_json::Value,
+        timestamp: DateTime<Utc>,
+    },
+    #[serde(rename = "event_emitted")]
+    EventEmitted {
+        event: serde_json::Value,
+        timestamp: DateTime<Utc>,
+    },
 }
 
 impl RolloutEvent {
@@ -104,7 +114,9 @@ impl RolloutEvent {
             | Self::ToolCall { timestamp, .. }
             | Self::ToolResult { timestamp, .. }
             | Self::Compaction { timestamp, .. }
-            | Self::SessionEnd { timestamp, .. } => timestamp,
+            | Self::SessionEnd { timestamp, .. }
+            | Self::OpSubmitted { timestamp, .. }
+            | Self::EventEmitted { timestamp, .. } => timestamp,
         }
     }
 }
@@ -321,6 +333,30 @@ impl RolloutRecorder {
         }
     }
 
+    /// Record a submitted `Op` command (TUI → Core).
+    pub fn op_submitted(&self, op: &rustycode_protocol::Op) {
+        let value = serde_json::to_value(op).unwrap_or_else(|e| {
+            tracing::debug!("rollout: failed to serialize Op: {e}");
+            serde_json::Value::Null
+        });
+        self.record(RolloutEvent::OpSubmitted {
+            op: value,
+            timestamp: Utc::now(),
+        });
+    }
+
+    /// Record an emitted `EventMsg` event (Core → TUI).
+    pub fn event_emitted(&self, event: &rustycode_protocol::EventMsg) {
+        let value = serde_json::to_value(event).unwrap_or_else(|e| {
+            tracing::debug!("rollout: failed to serialize EventMsg: {e}");
+            serde_json::Value::Null
+        });
+        self.record(RolloutEvent::EventEmitted {
+            event: value,
+            timestamp: Utc::now(),
+        });
+    }
+
     /// Fire an LLM error analytics event.
     pub fn llm_error(&self, error_type: &str, status_code: Option<u16>, provider: &str) {
         if let Some(ctx) = &self.analytics_ctx {
@@ -505,6 +541,37 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let events = rt.block_on(read_rollout(&path)).unwrap();
         assert_eq!(events.len(), 2); // malformed line skipped
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn test_op_and_event_recording() {
+        let dir = std::env::temp_dir().join(format!("rollout-op-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let config = RolloutConfig {
+            sessions_dir: dir.clone(),
+            enabled: true,
+            flush_on_every_event: true,
+        };
+
+        let recorder = RolloutRecorder::new("op-test-session", &config)
+            .await
+            .unwrap();
+
+        recorder.op_submitted(&rustycode_protocol::Op::StopStream);
+        recorder.event_emitted(&rustycode_protocol::EventMsg::Done);
+
+        drop(recorder);
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        let file_path = dir.join("op-test-session.jsonl");
+        let events = read_rollout(&file_path).await.unwrap();
+
+        assert_eq!(events.len(), 2);
+        assert!(matches!(&events[0], RolloutEvent::OpSubmitted { .. }));
+        assert!(matches!(&events[1], RolloutEvent::EventEmitted { .. }));
 
         let _ = std::fs::remove_dir_all(&dir);
     }

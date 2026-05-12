@@ -19,7 +19,8 @@ const REASONING_TOOLS: &[&str] = &[
 ];
 
 fn is_reasoning_tool(name: &str) -> bool {
-    REASONING_TOOLS.contains(&name)
+    let name_only = name.split(':').next_back().unwrap_or(name);
+    REASONING_TOOLS.contains(&name_only)
 }
 
 fn new_running_tool(
@@ -84,11 +85,12 @@ pub(super) fn handle_tool_start_chunk(
         input_json.is_some()
     );
 
+    let name_only = tool_name.split(':').next_back().unwrap_or(&tool_name);
     let plan_blocked = match tui.model.plan_mode.is_tool_allowed(&tool_name) {
         Ok(()) => false,
         Err(reason) => {
             const DOC_EXTENSIONS: &[&str] = &[".md", ".txt", ".rst", ".adoc", ".doc", ".docx"];
-            if tool_name == tn::WRITE {
+            if name_only == tn::WRITE {
                 if let Some(path) = input_json
                     .as_ref()
                     .and_then(|v| v.get("path"))

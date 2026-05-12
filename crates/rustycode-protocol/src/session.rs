@@ -225,11 +225,12 @@ pub enum ToolApprovalMode {
 impl ToolApprovalMode {
     /// Check if a given tool requires confirmation under this mode.
     pub fn requires_confirmation_for(&self, tool_name: &str) -> bool {
+        let name_only = tool_name.split(':').next_back().unwrap_or(tool_name);
         match self {
             Self::Auto => false,
             Self::Approve => true,
             Self::Chat => true, // All tools blocked in chat mode
-            Self::SmartApprove => Self::is_sensitive_tool(tool_name),
+            Self::SmartApprove => Self::is_sensitive_tool(name_only),
         }
     }
 

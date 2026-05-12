@@ -5,7 +5,9 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct CronListTool;
 
+
     name: "CronList",
+    namespace: "cron",
     description: r#"List all cron jobs scheduled via cron_create in this session."#,
     permission: ToolPermission::None,
     tags: [ToolTag::Ops],

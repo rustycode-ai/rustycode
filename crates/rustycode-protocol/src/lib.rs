@@ -185,6 +185,9 @@ pub mod agent_protocol;
 // Submission Queue — TUI → Core commands
 pub mod op;
 
+// Unified outbound event messages — Core → TUI (single channel)
+pub mod event_msg;
+
 // Stream events from the agent loop (raw, granular events)
 pub mod stream_event;
 
@@ -260,6 +263,12 @@ pub use event::{EventKind, SessionEvent};
 
 // Op types (TUI → Core commands)
 pub use op::Op;
+
+// EventMsg types (Core → TUI, unified outbound event channel)
+pub use event_msg::{
+    CommandEvent, EventErrorKind, EventMsg, MilestoneProgress, PlanStepInfo, QuestionOption,
+    ToolOutput, WorkspaceEvent,
+};
 
 // Stream event types (raw agent events)
 pub use stream_event::{ApprovalDecision, StreamEvent, StreamPlanStep};

@@ -59,6 +59,7 @@ mod tests {
 
     fn make_request(name: &str) -> ApprovalRequest {
         ApprovalRequest::new(
+            format!("tool-{name}"),
             name.into(),
             crate::tool_approval::risk::ToolType::Bash,
             format!("desc for {name}"),

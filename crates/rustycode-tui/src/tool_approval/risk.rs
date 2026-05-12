@@ -58,7 +58,7 @@ pub fn classify_tool_risk(tool_type: &ToolType, command: &str) -> RiskLevel {
 
         // Bash commands - use SmartApprove for fine-grained analysis
         ToolType::Bash => {
-            use rustycode_tools_security::approve::OperationClass;
+            use rustycode_protocol::permission_modes::OperationClass;
             let sa = rustycode_tools_security::approve::SmartApprove::new();
             match sa.classify("Bash", Some(command)) {
                 OperationClass::ReadOnly => RiskLevel::Safe,

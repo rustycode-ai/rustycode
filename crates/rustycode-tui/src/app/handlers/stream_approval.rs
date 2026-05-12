@@ -7,7 +7,7 @@ use rustycode_protocol::{tool_names as tn, Op};
 pub(super) fn handle_approval_request_chunk(
     tui: &mut TUI,
     tool_name: String,
-    _tool_id: String,
+    tool_id: String,
     description: String,
     diff: Option<String>,
 ) {
@@ -25,60 +25,6 @@ pub(super) fn handle_approval_request_chunk(
         tui.integration.services.ai_mode()
     );
 
-    if tui.integration.services.ai_mode() == crate::services::agent_mode::AiMode::Yolo {
-        match risk_level {
-            risk::RiskLevel::Safe => {}
-            risk::RiskLevel::Medium | risk::RiskLevel::High => {
-                tracing::info!("Yolo auto-approved ({:?}): {}", risk_level, tool_name);
-            }
-            risk::RiskLevel::Dangerous => {
-                tracing::warn!("Yolo auto-approved (DESTRUCTIVE): {}", tool_name);
-            }
-        }
-        tui.integration
-            .services
-            .submit_op(Op::ApproveTool { approved: true })
-            .ok();
-        tui.sys.dirty = true;
-        return;
-    }
-
-    // Plan mode gate: reject tools that are not allowed during planning
-    if tui.model.plan_mode.current_phase() == "planning" {
-        let plan_blocked = match tui.model.plan_mode.is_tool_allowed(&tool_name) {
-            Ok(()) => false,
-            Err(_reason) => {
-                // Allow write_file for doc extensions even in plan mode
-                const DOC_EXTENSIONS: &[&str] = &[".md", ".txt", ".rst", ".adoc", ".doc", ".docx"];
-                if tool_name == tn::WRITE {
-                    if let Some(path) = diff.as_ref().and_then(|d| {
-                        // Try to extract path from diff string like "write_file: path=..."
-                        d.split("path=")
-                            .nth(1)
-                            .and_then(|s| s.split_whitespace().next())
-                    }) {
-                        let lower = path.to_lowercase();
-                        !DOC_EXTENSIONS.iter().any(|ext| lower.ends_with(ext))
-                    } else {
-                        true
-                    }
-                } else {
-                    true
-                }
-            }
-        };
-
-        if plan_blocked {
-            tui.integration
-                .services
-                .submit_op(Op::ApproveTool { approved: false })
-                .ok();
-            tui.add_system_message(format!("Plan mode blocked tool: {}", tool_name));
-            tui.sys.dirty = true;
-            return;
-        }
-    }
-
     if !tui
         .panels
         .tool_approval
@@ -91,7 +37,10 @@ pub(super) fn handle_approval_request_chunk(
         );
         tui.integration
             .services
-            .submit_op(Op::ApproveTool { approved: true })
+            .submit_op(Op::ApproveTool {
+                tool_id: tool_id.clone(),
+                approved: true,
+            })
             .ok();
         tui.sys.dirty = true;
         return;
@@ -102,7 +51,10 @@ pub(super) fn handle_approval_request_chunk(
         tracing::info!("TUI approval: {} auto-rejected (blocked)", tool_name);
         tui.integration
             .services
-            .submit_op(Op::ApproveTool { approved: false })
+            .submit_op(Op::ApproveTool {
+                tool_id: tool_id.clone(),
+                approved: false,
+            })
             .ok();
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
         tui.sys.dirty = true;
@@ -115,10 +67,13 @@ pub(super) fn handle_approval_request_chunk(
     // without one.
     if tui.panels.tool_approval.awaiting {
         if let Some(req) = tui.panels.tool_approval.pending_requests.front() {
-            if req.tool_name == tool_name {
+            if req.tool_id == tool_id || req.tool_name == tool_name {
                 tui.integration
                     .services
-                    .submit_op(Op::ApproveTool { approved: true })
+                    .submit_op(Op::ApproveTool {
+                        tool_id: tool_id.clone(),
+                        approved: true,
+                    })
                     .ok();
                 tui.sys.dirty = true;
                 return;
@@ -138,7 +93,10 @@ pub(super) fn handle_approval_request_chunk(
     if hook_result.should_block {
         tui.integration
             .services
-            .submit_op(Op::ApproveTool { approved: false })
+            .submit_op(Op::ApproveTool {
+                tool_id: tool_id.clone(),
+                approved: false,
+            })
             .ok();
         tui.add_system_message(format!(
             "✗ Hook blocked: {} ({})",
@@ -156,6 +114,7 @@ pub(super) fn handle_approval_request_chunk(
         .tool_approval
         .pending_requests
         .push_back(crate::tool_approval::ApprovalRequest {
+            tool_id,
             tool_name: tool_name.clone(),
             tool_type,
             risk_level,

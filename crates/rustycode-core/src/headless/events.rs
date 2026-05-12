@@ -35,28 +35,25 @@ impl AgentEvents for HeadlessAgentBridge {
         };
 
         match sa.classify(tool_name, Some(&command)) {
-            rustycode_tools_security::approve::OperationClass::ReadOnly => {
+            rustycode_protocol::permission_modes::OperationClass::ReadOnly => {
                 tracing::debug!("Headless auto-approved (read-only): {}", tool_name);
             }
-            rustycode_tools_security::approve::OperationClass::Write => {
+            rustycode_protocol::permission_modes::OperationClass::Write => {
                 tracing::info!(
                     "Headless auto-approved (write): {} {}",
                     tool_name,
                     truncate_cmd(&command, 60)
                 );
             }
-            rustycode_tools_security::approve::OperationClass::Destructive => {
+            rustycode_protocol::permission_modes::OperationClass::Destructive => {
                 tracing::warn!(
                     "Headless auto-approved (DESTRUCTIVE): {} {}",
                     tool_name,
                     truncate_cmd(&command, 60)
                 );
             }
-            rustycode_tools_security::approve::OperationClass::Unknown => {
+            rustycode_protocol::permission_modes::OperationClass::Unknown => {
                 tracing::info!("Headless auto-approved (unknown): {}", tool_name);
-            }
-            _ => {
-                tracing::info!("Headless auto-approved: {}", tool_name);
             }
         }
         ApprovalDecision::AutoApproved

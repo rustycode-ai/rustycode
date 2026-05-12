@@ -6,6 +6,7 @@ rustycode_tools_api::define_tool! {
     pub struct DockerBuildTool;
 
     name: "DockerBuild",
+    namespace: "docker",
     description: r#"Build a Docker image from a Dockerfile
 
 Use this tool to:

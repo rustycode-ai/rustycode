@@ -19,6 +19,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspInsertBeforeSymbolTool;
 
     name: "LspInsertBeforeSymbol",
+    namespace: "lsp",
     description: "Insert text before a symbol (at the beginning of its range)",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],

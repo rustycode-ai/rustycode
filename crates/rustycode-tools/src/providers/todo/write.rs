@@ -5,7 +5,9 @@ use anyhow::anyhow;
 rustycode_tools_api::define_tool! {
     pub struct TodoWriteTool;
 
+
     name: "TodoWrite",
+    namespace: "todo",
     description: r#"Use this tool to create and manage a structured task list for your current coding session. \
 This helps you track progress on complex, multi-step tasks and demonstrate thoroughness to the user. \
 It also helps the user understand the progress of the task and overall progress of their requests.

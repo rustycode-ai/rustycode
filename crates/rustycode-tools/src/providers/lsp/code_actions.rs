@@ -24,6 +24,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspCodeActionsTool;
 
     name: "LspCodeActions",
+    namespace: "lsp",
     description: "Get available code actions and refactorings for a range. Use this to:
 - Find quick fixes for errors and warnings
 - Discover available refactorings

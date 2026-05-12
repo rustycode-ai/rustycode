@@ -6,7 +6,9 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerStopTool;
 
+
     name: "DockerStop",
+    namespace: "docker",
     description: r"Stop one or more running Docker containers
 
 Use this tool to:

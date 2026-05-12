@@ -2,10 +2,11 @@
 
 use crate::app::async_::{SlashCommandResult, WorkspaceUpdate};
 use crate::app::TUI;
+use rustycode_protocol::{CommandEvent, EventMsg, WorkspaceEvent};
 use tracing;
 
 pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
-    match update {
+    let event = match &update {
         WorkspaceUpdate::ContextLoaded(context) => {
             tui.workspace.workspace_loaded = true;
             tui.workspace.workspace_context = Some(context.clone()); // Store workspace context!
@@ -32,15 +33,21 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
                 "Workspace loaded ({} files indexed)",
                 context.lines().count()
             ));
+
+            Some(EventMsg::Workspace(WorkspaceEvent::ContextLoaded(
+                context.clone(),
+            )))
         }
         WorkspaceUpdate::Notice(message) => {
             tracing::info!("Workspace notice: {}", message);
-            tui.add_system_message(message);
+            tui.add_system_message(message.clone());
+
+            Some(EventMsg::Workspace(WorkspaceEvent::Notice(message.clone())))
         }
         WorkspaceUpdate::ScanProgress { scanned, total } => {
             tracing::debug!("Workspace scan: {}/{}", scanned, total);
-            let new_pct = if total > 0 {
-                ((scanned as f64 / total as f64 * 100.0).round() as u16).clamp(0, 100)
+            let new_pct = if *total > 0 {
+                ((*scanned as f64 / *total as f64 * 100.0).round() as u16).clamp(0, 100)
             } else {
                 0
             };
@@ -56,7 +63,7 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
                     }
                 });
 
-            tui.workspace.workspace_scan_progress = Some((scanned, total));
+            tui.workspace.workspace_scan_progress = Some((*scanned, *total));
 
             // Only force a redraw when the visible progress indicator changes.
             // The scan can emit many raw progress events with the same displayed
@@ -65,6 +72,11 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
             if old_pct != Some(new_pct) {
                 tui.sys.dirty = true;
             }
+
+            Some(EventMsg::Workspace(WorkspaceEvent::ScanProgress {
+                scanned: *scanned,
+                total: *total,
+            }))
         }
         WorkspaceUpdate::ScanComplete {
             file_count,
@@ -75,6 +87,11 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
                 file_count,
                 dir_count
             );
+
+            Some(EventMsg::Workspace(WorkspaceEvent::ScanComplete {
+                file_count: *file_count,
+                dir_count: *dir_count,
+            }))
         }
         WorkspaceUpdate::Error(err) => {
             tracing::error!("Workspace loading error: {}", err);
@@ -83,7 +100,13 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
                 "⚠️  Workspace loading issue - some features may be limited".to_string(),
             );
             tui.auto_scroll();
+
+            Some(EventMsg::Workspace(WorkspaceEvent::Error(err.clone())))
         }
+    };
+
+    if let Some(event) = event {
+        tui.integration.services.send_event(event);
     }
 }
 

@@ -485,9 +485,83 @@ pub struct ContextRequirements {
     pub requires_session: bool,
 }
 
+/// Namespaced tool identifier.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct ToolName {
+    pub namespace: String, // "core", "lsp", "web", "mcp", "skill"
+    pub name: String,      // "read_file", "write_file", "bash"
+}
+
+impl ToolName {
+    pub fn new(namespace: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            namespace: namespace.into(),
+            name: name.into(),
+        }
+    }
+
+    pub fn core(name: &str) -> Self {
+        Self::new("core", name)
+    }
+
+    pub fn lsp(name: &str) -> Self {
+        Self::new("lsp", name)
+    }
+
+    pub fn to_display(&self) -> String {
+        format!("{}:{}", self.namespace, self.name)
+    }
+}
+
+impl std::fmt::Display for ToolName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_display())
+    }
+}
+
+impl std::str::FromStr for ToolName {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.split_once(':') {
+            Some((ns, name)) if !ns.is_empty() && !name.is_empty() => Ok(Self::new(ns, name)),
+            _ => Ok(Self::core(s)),
+        }
+    }
+}
+
+impl From<&str> for ToolName {
+    fn from(s: &str) -> Self {
+        s.parse().unwrap_or_else(|_| Self::core(s))
+    }
+}
+
+impl ToolName {
+    /// Parse a flat or namespaced tool name string, applying alias normalization.
+    pub fn from_raw(s: &str) -> Self {
+        let normalized = rustycode_protocol::tool_names::normalize_tool_name(s);
+        normalized
+            .parse()
+            .unwrap_or_else(|_| Self::core(normalized))
+    }
+}
+
+/// A trait for resolving namespaced tools to executors.
+pub trait ToolRouter: Send + Sync {
+    fn resolve(&self, name: &ToolName) -> Option<Arc<dyn Tool>>;
+    fn list_all_infos(&self) -> Vec<ToolInfo>;
+}
+
 /// A single capability the agent can invoke.
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
+
+    /// Namespaced version of the tool name.
+    /// Defaults to the "core" namespace for backward compatibility.
+    fn tool_name(&self) -> ToolName {
+        ToolName::core(self.name())
+    }
+
     fn description(&self) -> &str;
     fn permission(&self) -> ToolPermission {
         ToolPermission::None
@@ -570,6 +644,7 @@ pub trait Tool: Send + Sync {
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ToolInfo {
     pub name: String,
+    pub tool_name: ToolName,
     pub description: String,
     pub parameters_schema: Value,
     pub permission: ToolPermission,
@@ -585,6 +660,7 @@ impl ToolInfo {
     fn from_tool(tool: &dyn Tool) -> Self {
         Self {
             name: tool.name().to_string(),
+            tool_name: tool.tool_name(),
             description: tool.description().to_string(),
             parameters_schema: tool.parameters_schema(),
             permission: tool.permission(),
@@ -643,44 +719,94 @@ pub struct ToolRegistry {
     audit_log: AuditLog,
 }
 
+impl ToolRouter for ToolRegistry {
+    fn resolve(&self, name: &ToolName) -> Option<Arc<dyn Tool>> {
+        // Try namespaced key first
+        if let Some(tool) = self.tools.get(&name.to_display()) {
+            return Some(tool.clone());
+        }
+        // Fallback to searching by name only if namespace is "core"
+        if name.namespace == "core" {
+            if let Some(tool) = self.tools.get(&name.name) {
+                return Some(tool.clone());
+            }
+        }
+        // Last resort: linear search (slow but correct for migration)
+        self.tools
+            .values()
+            .find(|t| t.tool_name() == *name)
+            .cloned()
+    }
+
+    fn list_all_infos(&self) -> Vec<ToolInfo> {
+        self.list()
+    }
+}
+
 impl ToolRegistry {
     pub fn new() -> Self {
         Self::default()
     }
+
     pub fn register(&mut self, tool: impl Tool + 'static) {
-        self.tools.insert(tool.name().to_string(), Arc::new(tool));
+        let tool = Arc::new(tool);
+        self.tools
+            .insert(tool.tool_name().to_display(), tool.clone());
+        // Also register with flat name for backward compatibility if it's in core
+        if tool.tool_name().namespace == "core" {
+            self.tools.insert(tool.name().to_string(), tool);
+        }
     }
+
     /// Register a pre-boxed tool trait object.
     pub fn register_boxed(&mut self, tool: Box<dyn Tool>) {
-        self.tools.insert(tool.name().to_string(), tool.into());
+        let tool: Arc<dyn Tool> = tool.into();
+        self.tools
+            .insert(tool.tool_name().to_display(), tool.clone());
+        // Also register with flat name for backward compatibility if it's in core
+        if tool.tool_name().namespace == "core" {
+            self.tools.insert(tool.name().to_string(), tool);
+        }
     }
+    fn unique_tools(&self) -> Vec<Arc<dyn Tool>> {
+        let mut unique: HashMap<ToolName, Arc<dyn Tool>> = HashMap::new();
+        for tool in self.tools.values() {
+            unique.insert(tool.tool_name(), tool.clone());
+        }
+        unique.into_values().collect()
+    }
+
     pub fn list(&self) -> Vec<ToolInfo> {
         let mut infos: Vec<ToolInfo> = self
-            .tools
-            .values()
+            .unique_tools()
+            .iter()
             .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
-        infos.sort_by(|a, b| a.name.cmp(&b.name));
+        infos.sort_by(|a, b| a.tool_name.to_display().cmp(&b.tool_name.to_display()));
         infos
     }
 
     pub fn list_all_names(&self) -> Vec<String> {
-        let mut names: Vec<String> = self.tools.keys().cloned().collect();
+        let mut names: Vec<String> = self
+            .unique_tools()
+            .iter()
+            .map(|t| t.tool_name().to_display())
+            .collect();
         names.sort();
         names
     }
 
     pub fn list_for_tags(&self, required_tags: &[ToolTag]) -> Vec<ToolInfo> {
         let mut infos: Vec<ToolInfo> = self
-            .tools
-            .values()
+            .unique_tools()
+            .into_iter()
             .filter(|t| {
                 let tool_tags = t.tags();
                 required_tags.iter().any(|rt| tool_tags.contains(rt))
             })
             .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
-        infos.sort_by(|a, b| a.name.cmp(&b.name));
+        infos.sort_by(|a, b| a.tool_name.to_display().cmp(&b.tool_name.to_display()));
         infos
     }
 
@@ -693,12 +819,12 @@ impl ToolRegistry {
     /// The `tool_search` tool is always included regardless of its `defer_loading` setting.
     pub fn list_immediate(&self) -> Vec<ToolInfo> {
         let mut infos: Vec<ToolInfo> = self
-            .tools
-            .values()
+            .unique_tools()
+            .into_iter()
             .filter(|t| t.name() == tool_names::TOOL_SEARCH || t.defer_loading() != Some(true))
             .map(|t| ToolInfo::from_tool(t.as_ref()))
             .collect();
-        infos.sort_by(|a, b| a.name.cmp(&b.name));
+        infos.sort_by(|a, b| a.tool_name.to_display().cmp(&b.tool_name.to_display()));
         infos
     }
 
@@ -706,8 +832,8 @@ impl ToolRegistry {
     /// with an empty `parameters_schema`. The LLM must call `tool_search` to get the full schema.
     pub fn list_deferred_stubs(&self) -> Vec<ToolInfo> {
         let mut infos: Vec<ToolInfo> = self
-            .tools
-            .values()
+            .unique_tools()
+            .into_iter()
             .filter(|t| t.name() != tool_names::TOOL_SEARCH && t.defer_loading() == Some(true))
             .map(|t| {
                 let first_line = t.description().lines().next().unwrap_or("");
@@ -724,7 +850,7 @@ impl ToolRegistry {
                 info
             })
             .collect();
-        infos.sort_by(|a, b| a.name.cmp(&b.name));
+        infos.sort_by(|a, b| a.tool_name.to_display().cmp(&b.tool_name.to_display()));
         infos
     }
     /// Merge MCP (or other external) tools into the registry.
@@ -867,6 +993,7 @@ macro_rules! define_tool {
         pub struct $name:ident;
 
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -884,6 +1011,7 @@ macro_rules! define_tool {
         $crate::__define_tool_impl!(
             $name;
             name: $tool_name,
+            $( namespace: $namespace, )?
             description: $desc,
             $( permission: $perm, )?
             $( tags: [$($tag),*], )?
@@ -902,6 +1030,7 @@ macro_rules! define_tool {
         }
 
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -921,6 +1050,7 @@ macro_rules! define_tool {
         $crate::__define_tool_impl!(
             $name;
             name: $tool_name,
+            $( namespace: $namespace, )?
             description: $desc,
             $( permission: $perm, )?
             $( tags: [$($tag),*], )?
@@ -938,6 +1068,7 @@ macro_rules! define_tool {
         pub struct $name:ident;
 
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -957,6 +1088,7 @@ macro_rules! define_tool {
         $crate::__define_tool_impl!(
             $name;
             name: $tool_name,
+            $( namespace: $namespace, )?
             description: $desc,
             $( permission: $perm, )?
             $( tags: [$($tag),*], )?
@@ -977,6 +1109,7 @@ macro_rules! define_tool {
         }
 
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -998,6 +1131,7 @@ macro_rules! define_tool {
         $crate::__define_tool_impl!(
             $name;
             name: $tool_name,
+            $( namespace: $namespace, )?
             description: $desc,
             $( permission: $perm, )?
             $( tags: [$($tag),*], )?
@@ -1017,6 +1151,7 @@ macro_rules! __define_tool_impl {
     (
         $name:ident;
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -1032,6 +1167,10 @@ macro_rules! __define_tool_impl {
         impl $crate::Tool for $name {
             fn name(&self) -> &'static str {
                 $tool_name
+            }
+
+            fn tool_name(&self) -> $crate::ToolName {
+                $crate::__define_tool_name_impl!($tool_name, $($namespace)?)
             }
 
             fn description(&self) -> &'static str {
@@ -1064,6 +1203,7 @@ macro_rules! __define_tool_impl {
     (
         $name:ident;
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -1079,6 +1219,10 @@ macro_rules! __define_tool_impl {
         impl $crate::Tool for $name {
             fn name(&self) -> &'static str {
                 $tool_name
+            }
+
+            fn tool_name(&self) -> $crate::ToolName {
+                $crate::__define_tool_name_impl!($tool_name, $($namespace)?)
             }
 
             fn description(&self) -> &'static str {
@@ -1112,6 +1256,7 @@ macro_rules! __define_tool_impl {
     (
         $name:ident;
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -1128,6 +1273,10 @@ macro_rules! __define_tool_impl {
         impl $crate::Tool for $name {
             fn name(&self) -> &'static str {
                 $tool_name
+            }
+
+            fn tool_name(&self) -> $crate::ToolName {
+                $crate::__define_tool_name_impl!($tool_name, $($namespace)?)
             }
 
             fn description(&self) -> &'static str {
@@ -1172,6 +1321,7 @@ macro_rules! __define_tool_impl {
     (
         $name:ident;
         name: $tool_name:expr,
+        $( namespace: $namespace:expr, )?
         description: $desc:expr,
         $( permission: $perm:expr, )?
         $( tags: [$($tag:expr),*], )?
@@ -1188,6 +1338,10 @@ macro_rules! __define_tool_impl {
         impl $crate::Tool for $name {
             fn name(&self) -> &'static str {
                 $tool_name
+            }
+
+            fn tool_name(&self) -> $crate::ToolName {
+                $crate::__define_tool_name_impl!($tool_name, $($namespace)?)
             }
 
             fn description(&self) -> &'static str {
@@ -1263,7 +1417,18 @@ macro_rules! __define_tool_output_schema {
 }
 
 #[macro_export]
+macro_rules! __define_tool_name_impl {
+    ($name:expr, ) => {
+        $crate::ToolName::core($name)
+    };
+    ($name:expr, $namespace:expr) => {
+        $crate::ToolName::new($namespace, $name)
+    };
+}
+
+#[macro_export]
 macro_rules! __define_tool_annotations {
+
     ($($read_only:expr)?, $($destructive:expr)?, $($idempotent:expr)?, $($open_world:expr)?) => {
         fn annotations(&self) -> $crate::ToolAnnotations {
             #[allow(unused_mut)]
@@ -1567,6 +1732,7 @@ mod tests {
     #[test]
     fn test_tool_info_serialization() {
         let info = ToolInfo {
+            tool_name: ToolName::core("Read"),
             name: "Read".to_string(),
             description: "Reads a file".to_string(),
             parameters_schema: serde_json::json!({"type": "object"}),
@@ -1845,5 +2011,61 @@ mod tests {
         let log = AuditLog::new(10);
         assert!(log.is_empty());
         assert!(log.snapshot().is_empty());
+    }
+
+    // ── ToolName tests ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_tool_name_from_str_namespaced() {
+        let tn: ToolName = "lsp:Diagnostics".parse().unwrap();
+        assert_eq!(tn.namespace, "lsp");
+        assert_eq!(tn.name, "Diagnostics");
+    }
+
+    #[test]
+    fn test_tool_name_from_str_flat_falls_back_to_core() {
+        let tn: ToolName = "Read".parse().unwrap();
+        assert_eq!(tn.namespace, "core");
+        assert_eq!(tn.name, "Read");
+    }
+
+    #[test]
+    fn test_tool_name_from_str_empty_namespace_falls_back() {
+        let tn: ToolName = ":Read".parse().unwrap();
+        assert_eq!(tn.namespace, "core");
+    }
+
+    #[test]
+    fn test_tool_name_from_str_ref() {
+        let tn = ToolName::from("mcp:my_tool");
+        assert_eq!(tn.namespace, "mcp");
+        assert_eq!(tn.name, "my_tool");
+    }
+
+    #[test]
+    fn test_tool_name_from_raw_normalizes() {
+        let tn = ToolName::from_raw("edit");
+        assert_eq!(tn.namespace, "core");
+        assert_eq!(tn.name, "Edit");
+    }
+
+    #[test]
+    fn test_tool_name_from_raw_passthrough() {
+        let tn = ToolName::from_raw("custom_tool");
+        assert_eq!(tn.namespace, "core");
+        assert_eq!(tn.name, "custom_tool");
+    }
+
+    #[test]
+    fn test_tool_name_from_raw_namespaced() {
+        let tn = ToolName::from_raw("mcp:my_tool");
+        assert_eq!(tn.namespace, "mcp");
+        assert_eq!(tn.name, "my_tool");
+    }
+
+    #[test]
+    fn test_tool_name_display() {
+        assert_eq!(ToolName::core("Read").to_string(), "core:Read");
+        assert_eq!(ToolName::lsp("Diagnostics").to_string(), "lsp:Diagnostics");
     }
 }

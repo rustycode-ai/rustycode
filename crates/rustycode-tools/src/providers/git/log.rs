@@ -6,6 +6,7 @@ rustycode_tools_api::define_tool! {
     pub struct GitLogTool;
 
     name: "GitLog",
+    namespace: "git",
     description: "Show recent git commits.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Ops],

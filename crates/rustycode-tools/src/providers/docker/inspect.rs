@@ -5,7 +5,9 @@ use serde_json::{json, Value};
 rustycode_tools_api::define_tool! {
     pub struct DockerInspectTool;
 
+
     name: "DockerInspect",
+    namespace: "docker",
     description: r"Inspect Docker containers or images
 
 Use this tool to:

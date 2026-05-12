@@ -7,7 +7,9 @@ use std::sync::atomic::Ordering;
 rustycode_tools_api::define_tool! {
     pub struct CronCreateTool;
 
+
     name: "CronCreate",
+    namespace: "cron",
     description: r#"Schedule a prompt to be enqueued at a future time. Use for both recurring schedules and one-shot reminders.
 
 Uses standard 5-field cron in the user's local timezone: minute hour day-of-month month day-of-week. "0 9 * * *" means 9am local — no timezone conversion needed.

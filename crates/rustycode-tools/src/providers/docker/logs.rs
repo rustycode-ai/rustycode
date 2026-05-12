@@ -5,7 +5,9 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerLogsTool;
 
+
     name: "DockerLogs",
+    namespace: "docker",
     description: r"View logs from a Docker container
 
 Use this tool to:

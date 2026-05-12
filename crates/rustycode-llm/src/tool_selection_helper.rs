@@ -322,6 +322,7 @@ pub mod formatters {
 
         fn eager_tool() -> ToolInfo {
             ToolInfo {
+                tool_name: rustycode_tools_api::ToolName::core("Bash"),
                 name: "Bash".to_string(),
                 description: "Run a shell command".to_string(),
                 parameters_schema: serde_json::json!({"type": "object", "properties": {"command": {"type": "string"}}}),
@@ -336,6 +337,7 @@ pub mod formatters {
 
         fn deferred_tool() -> ToolInfo {
             ToolInfo {
+                tool_name: rustycode_tools_api::ToolName::lsp("Hover"),
                 name: "LspHover".to_string(),
                 description: "Show hover info".to_string(),
                 parameters_schema: serde_json::json!({"type": "object", "properties": {"file": {"type": "string"}}}),

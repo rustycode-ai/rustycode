@@ -89,8 +89,8 @@
 use rustycode_protocol::{AgentRole, ToolCall, ToolResult};
 pub use rustycode_tools_api::{
     CancellationToken, FileReadState, MessageSender, PlatformEnv, ProviderCaps, RuntimeEnv, Tool,
-    ToolContext, ToolFilter, ToolGate, ToolInfo, ToolOutput, ToolPermission, ToolProfile,
-    ToolRegistry, ToolSelector, ToolTag,
+    ToolContext, ToolFilter, ToolGate, ToolInfo, ToolName, ToolOutput, ToolPermission, ToolProfile,
+    ToolRegistry, ToolRouter, ToolSelector, ToolTag,
 };
 
 // Modules
@@ -108,12 +108,13 @@ pub use crate::executor::{
     batch::BatchTool,
     cache::{CacheConfig, CacheKey, CacheMetrics, CacheStats, CachedToolResult, ToolCache},
     convoy::ConvoyDispatcher,
-    // Note: DecomposeProblemTool from executor is not re-exported to avoid conflict with providers
+    // Inspectors
     inspector::{
-        BudgetInspector, InspectionAction, InspectionResult, PermissionInspector,
-        RateLimitInspector, RepetitionInspector, SecurityInspector, ToolCallInfo,
-        ToolInspectionManager,
+        BudgetInspector, PermissionInspector, RateLimitInspector, RepetitionInspector,
+        SecurityInspector,
     },
+    // Manager types (moved out of inspector)
+    manager::{InspectionAction, InspectionResult, ToolCallInfo, ToolInspectionManager},
     middleware::{ExecutionMiddleware, MiddlewareConfig, MiddlewareState, PlanModeState},
     task::{SubAgentRunner, TaskTool},
     tool_shim::{

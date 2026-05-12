@@ -27,6 +27,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspInlineSymbolTool;
 
     name: "LspInlineSymbol",
+    namespace: "lsp",
     description: "Inline a symbol definition at its usage sites",
     permission: ToolPermission::Write,
     tags: [ToolTag::Refactor],

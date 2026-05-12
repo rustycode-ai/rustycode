@@ -19,6 +19,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspRenameSymbolTool;
 
     name: "LspRenameSymbol",
+    namespace: "lsp",
     description: "Rename a symbol across the codebase",
     permission: ToolPermission::Write,
     tags: [ToolTag::Refactor],

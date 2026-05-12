@@ -21,6 +21,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspDiagnosticsTool;
 
     name: "LspDiagnostics",
+    namespace: "lsp",
     description: "Check which language servers are available and their status. Use this to verify code intelligence capabilities before using other LSP tools.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore, ToolTag::Implement],

@@ -8,32 +8,8 @@
 
 use std::collections::HashSet;
 
+use rustycode_protocol::permission_modes::OperationClass;
 use rustycode_protocol::tool_names as tn;
-
-/// Classification of a tool operation.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum OperationClass {
-    /// Safe, read-only operation — can auto-approve.
-    ReadOnly,
-    /// Write operation — requires confirmation.
-    Write,
-    /// Destructive operation — requires confirmation with warning.
-    Destructive,
-    /// Could not classify — treat as requiring confirmation.
-    Unknown,
-}
-
-impl std::fmt::Display for OperationClass {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::ReadOnly => write!(f, "read-only"),
-            Self::Write => write!(f, "write"),
-            Self::Destructive => write!(f, "destructive"),
-            Self::Unknown => write!(f, "unknown"),
-        }
-    }
-}
 
 /// Heuristic-based tool operation classifier.
 ///

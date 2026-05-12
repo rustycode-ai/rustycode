@@ -33,6 +33,7 @@ pub struct DiffScrollState {
 /// Tool approval request
 #[derive(Debug, Clone)]
 pub struct ApprovalRequest {
+    pub tool_id: String,
     pub tool_name: String,
     pub tool_type: risk::ToolType,
     pub risk_level: risk::RiskLevel,
@@ -44,6 +45,7 @@ pub struct ApprovalRequest {
 
 impl ApprovalRequest {
     pub fn new(
+        tool_id: String,
         tool_name: String,
         tool_type: risk::ToolType,
         description: String,
@@ -52,6 +54,7 @@ impl ApprovalRequest {
         let risk_level = risk::classify_tool_risk(&tool_type, &command);
 
         Self {
+            tool_id,
             tool_name,
             tool_type,
             risk_level,
@@ -383,6 +386,7 @@ mod tests {
     #[test]
     fn diff_scroll_stops_at_zero() {
         let mut req = ApprovalRequest::new(
+            "tool-1".into(),
             "Edit".into(),
             risk::ToolType::WriteFile,
             "Edit src/main.rs".into(),
@@ -398,6 +402,7 @@ mod tests {
         let content =
             "diff --git a/a.txt b/a.txt\n--- a/a.txt\n+++ b/a.txt\n@@ -1 +1 @@\n-old\n+new";
         let mut req = ApprovalRequest::new(
+            "tool-1".into(),
             "Edit".into(),
             risk::ToolType::WriteFile,
             "Edit".into(),
@@ -417,6 +422,7 @@ mod tests {
     #[test]
     fn has_diff_content_true_for_git_diff() {
         let req = ApprovalRequest::new(
+            "tool-1".into(),
             "Edit".into(),
             risk::ToolType::WriteFile,
             "desc".into(),
@@ -428,6 +434,7 @@ mod tests {
     #[test]
     fn has_diff_content_false_for_plain_command() {
         let req = ApprovalRequest::new(
+            "tool-1".into(),
             "Bash".into(),
             risk::ToolType::Bash,
             "desc".into(),
@@ -439,6 +446,7 @@ mod tests {
     #[test]
     fn approval_panel_size_compact_without_diff() {
         let req = ApprovalRequest::new(
+            "tool-1".into(),
             "Bash".into(),
             risk::ToolType::Bash,
             "desc".into(),
@@ -453,6 +461,7 @@ mod tests {
     #[test]
     fn approval_panel_size_expanded_with_diff() {
         let req = ApprovalRequest::new(
+            "tool-1".into(),
             "Edit".into(),
             risk::ToolType::WriteFile,
             "desc".into(),
@@ -468,6 +477,7 @@ mod tests {
     #[test]
     fn approval_state_checks() {
         let mut req = ApprovalRequest::new(
+            "tool-1".into(),
             "Bash".into(),
             risk::ToolType::Bash,
             "desc".into(),

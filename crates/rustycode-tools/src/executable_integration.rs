@@ -304,6 +304,7 @@ mod tests {
     async fn info_only_callable_returns_error() {
         let callable = InfoOnlyCallable {
             info: rustycode_tools_api::ToolInfo {
+                tool_name: rustycode_tools_api::ToolName::core("test"),
                 name: "test".to_string(),
                 description: "test".to_string(),
                 parameters_schema: serde_json::json!({}),

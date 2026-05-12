@@ -165,7 +165,8 @@ pub(super) fn build_tool_summary_arg(
     tool_name: &str,
     input_json: &serde_json::Value,
 ) -> Option<String> {
-    let lower = tool_name.to_lowercase();
+    let name_only = tool_name.split(':').next_back().unwrap_or(tool_name);
+    let lower = name_only.to_lowercase();
     if lower.contains("bash") || lower.contains("exec") || lower.contains("shell") {
         return input_json.get("command").and_then(|v| v.as_str()).map(|s| {
             if s.len() > TOOL_SUMMARY_MAX_LEN {

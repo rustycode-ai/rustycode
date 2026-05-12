@@ -143,10 +143,11 @@ impl PlanMode {
             return Ok(());
         }
 
+        let name_only = tool.split(':').next_back().unwrap_or(tool);
         let known_to_any_role = self
             .role_tool_matrix
             .values()
-            .any(|tools| tools.contains(tool));
+            .any(|tools| tools.contains(tool) || tools.contains(name_only));
         if !known_to_any_role {
             return Ok(());
         }
@@ -156,14 +157,14 @@ impl PlanMode {
             .get(&role)
             .ok_or(ToolBlockedReason::UnknownRole(role))?;
 
-        if !allowed.contains(tool) {
+        if !allowed.contains(tool) && !allowed.contains(name_only) {
             return Err(ToolBlockedReason::NotAllowedForRole {
                 tool: tool.to_string(),
                 role,
             });
         }
 
-        if self.is_sensitive_tool(tool)
+        if self.is_sensitive_tool(name_only)
             && self.config.require_approval
             && self
                 .current_plan

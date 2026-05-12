@@ -545,6 +545,7 @@ mod tests {
     fn make_test_tools() -> Vec<rustycode_tools::ToolInfo> {
         vec![
             rustycode_tools::ToolInfo {
+                tool_name: rustycode_tools_api::ToolName::core("Read"),
                 name: "Read".to_string(),
                 description: "Read the contents of a file from the filesystem".to_string(),
                 parameters_schema: serde_json::json!({
@@ -565,6 +566,7 @@ mod tests {
                 max_result_size_chars: None,
             },
             rustycode_tools::ToolInfo {
+                tool_name: rustycode_tools_api::ToolName::core("Write"),
                 name: "Write".to_string(),
                 description: "Write content to a file on the filesystem".to_string(),
                 parameters_schema: serde_json::json!({
@@ -589,6 +591,7 @@ mod tests {
                 max_result_size_chars: None,
             },
             rustycode_tools::ToolInfo {
+                tool_name: rustycode_tools_api::ToolName::core("Bash"),
                 name: "Bash".to_string(),
                 description: "Execute a bash command in the terminal".to_string(),
                 parameters_schema: serde_json::json!({

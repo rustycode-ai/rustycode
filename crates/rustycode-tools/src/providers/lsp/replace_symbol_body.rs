@@ -19,6 +19,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspReplaceSymbolBodyTool;
 
     name: "LspReplaceSymbolBody",
+    namespace: "lsp",
     description: "Replace a symbol's body with new content",
     permission: ToolPermission::Write,
     tags: [ToolTag::Implement],

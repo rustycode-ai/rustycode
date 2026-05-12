@@ -5,8 +5,72 @@
 //! - Risk level detection
 //! - Interactive permission prompts
 //! - Permission scope management
+//! - PermissionProfile (Codex-inspired approval levels)
+//! - ToolConfirmationRouter (async confirmation routing)
 
 use serde::{Deserialize, Serialize};
+
+/// Permission profile controlling how tool approval requests are handled.
+///
+/// Inspired by Codex's approval protocol — each profile defines a different
+/// balance between automation and user oversight. The profile is set per-session
+/// and can be changed by the user at runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionProfile {
+    /// Auto-approve tools if the tool+path combination is trusted
+    /// (i.e., the user has previously approved it). Ask for untrusted
+    /// combinations. This is the recommended default.
+    #[default]
+    UnlessTrusted,
+
+    /// Auto-approve all tools; only ask if a tool execution fails.
+    /// Useful for long-running batch operations where you trust the
+    /// agent but want to be notified of problems.
+    OnFailure,
+
+    /// Ask for approval only when a tool explicitly requests it
+    /// (e.g., tools with the `PermissionRequired` flag). All other
+    /// tools auto-approve. Useful for experienced users.
+    OnRequest,
+
+    /// Per-tool risk-level configuration. Each tool can have its own
+    /// approval policy (always ask, auto-approve, block). This is
+    /// the most flexible but requires upfront configuration.
+    Granular,
+
+    /// Always auto-approve every tool without asking (yolo mode).
+    /// Only use in fully trusted environments or CI pipelines.
+    Never,
+}
+
+impl PermissionProfile {
+    /// Returns `true` if this profile should auto-approve safe/trusted tools.
+    pub fn auto_approve_safe(&self) -> bool {
+        matches!(self, Self::UnlessTrusted | Self::Never)
+    }
+
+    /// Returns `true` if this profile allows unconditional auto-approval.
+    pub fn is_unconditional(&self) -> bool {
+        matches!(self, Self::Never)
+    }
+
+    /// Returns `true` if this profile asks the user for approval.
+    pub fn requires_approval(&self) -> bool {
+        !matches!(self, Self::Never)
+    }
+
+    /// Human-readable description of this profile.
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::UnlessTrusted => "Auto-approve trusted tools, ask for untrusted combinations",
+            Self::OnFailure => "Auto-approve everything, ask on failure",
+            Self::OnRequest => "Only ask when the tool requests approval",
+            Self::Granular => "Per-tool risk-level configuration",
+            Self::Never => "Always auto-approve (yolo mode)",
+        }
+    }
+}
 
 /// Permission request for tool execution
 #[derive(Debug, Clone, Serialize, Deserialize)]

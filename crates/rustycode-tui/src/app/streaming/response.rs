@@ -74,7 +74,7 @@ pub struct StreamConfig {
     pub workspace_context: Option<String>,
     pub stop_signal: Option<Arc<AtomicBool>>,
     pub tools_schema: Option<Vec<serde_json::Value>>,
-    pub approval_rx: Option<std::sync::mpsc::Receiver<bool>>,
+    pub approval_rx: Option<std::sync::mpsc::Receiver<(String, bool)>>,
     pub question_rx: Option<std::sync::mpsc::Receiver<String>>,
     pub agent_mode: Option<crate::services::agent_mode::AgentMode>,
     pub file_read_cache: Option<Arc<StdMutex<FileReadCache>>>,
@@ -91,6 +91,7 @@ pub struct StreamConfig {
     pub image_blocks: Option<Vec<rustycode_llm::provider::ContentBlock>>,
     pub effort: Option<String>,
     pub hook_manager: Option<rustycode_tools::hooks::HookManager>,
+    pub permission_mode: Option<rustycode_protocol::permission_modes::PermissionMode>,
 }
 
 impl StreamConfig {
@@ -118,6 +119,7 @@ impl StreamConfig {
             image_blocks: None,
             effort: None,
             hook_manager: None,
+            permission_mode: None,
         }
     }
 
@@ -136,7 +138,10 @@ impl StreamConfig {
         self
     }
 
-    pub fn approval_rx_opt(mut self, rx: Option<std::sync::mpsc::Receiver<bool>>) -> Self {
+    pub fn approval_rx_opt(
+        mut self,
+        rx: Option<std::sync::mpsc::Receiver<(String, bool)>>,
+    ) -> Self {
         self.approval_rx = rx;
         self
     }
@@ -227,6 +232,14 @@ impl StreamConfig {
 
     pub fn hook_manager_opt(mut self, hm: Option<rustycode_tools::hooks::HookManager>) -> Self {
         self.hook_manager = hm;
+        self
+    }
+
+    pub fn permission_mode_opt(
+        mut self,
+        mode: Option<rustycode_protocol::permission_modes::PermissionMode>,
+    ) -> Self {
+        self.permission_mode = mode;
         self
     }
 }
@@ -349,6 +362,7 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         // effort is read via RUSTYCODE_EFFORT_OVERRIDE env var inside AgentConfig::from_env()
         effort: _,
         hook_manager: _,
+        permission_mode,
     } = config;
 
     let _done_guard = DoneGuard::new(stream_tx.clone());
@@ -525,7 +539,11 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         .with_question_rx(question_rx.unwrap_or_else(|| {
             let (_tx, rx) = std::sync::mpsc::channel();
             rx
-        }));
+        }))
+        .with_permission_mode(
+            permission_mode
+                .unwrap_or(rustycode_protocol::permission_modes::PermissionMode::Default),
+        );
 
     fix_conversation_messages(&mut messages);
 

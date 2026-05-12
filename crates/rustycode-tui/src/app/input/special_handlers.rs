@@ -79,7 +79,10 @@ impl TUI {
                     );
                     self.integration
                         .services
-                        .submit_op(Op::ApproveTool { approved: true })
+                        .submit_op(Op::ApproveTool {
+                            tool_id: req.tool_id.clone(),
+                            approved: true,
+                        })
                         .ok();
                 }
                 self.sys.dirty = true;
@@ -94,7 +97,10 @@ impl TUI {
                     );
                     self.integration
                         .services
-                        .submit_op(Op::ApproveTool { approved: false })
+                        .submit_op(Op::ApproveTool {
+                            tool_id: req.tool_id.clone(),
+                            approved: false,
+                        })
                         .ok();
                 }
                 self.sys.dirty = true;
@@ -112,7 +118,10 @@ impl TUI {
                     );
                     self.integration
                         .services
-                        .submit_op(Op::ApproveTool { approved: false })
+                        .submit_op(Op::ApproveTool {
+                            tool_id: req.tool_id.clone(),
+                            approved: false,
+                        })
                         .ok();
                 }
                 self.sys.dirty = true;
@@ -127,17 +136,29 @@ impl TUI {
                     );
                     self.integration
                         .services
-                        .submit_op(Op::ApproveTool { approved: true })
+                        .submit_op(Op::ApproveTool {
+                            tool_id: req.tool_id.clone(),
+                            approved: true,
+                        })
                         .ok();
                 }
                 self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Esc => {
+                let tool_id = self
+                    .panels
+                    .tool_approval
+                    .pending_requests
+                    .front()
+                    .map(|req| req.tool_id.clone());
                 self.panels.tool_approval.dismiss_current();
                 self.integration
                     .services
-                    .submit_op(Op::ApproveTool { approved: false })
+                    .submit_op(Op::ApproveTool {
+                        tool_id: tool_id.unwrap_or_default(),
+                        approved: false,
+                    })
                     .ok();
                 self.add_system_message("⏸️  Approval cancelled".to_string());
                 self.sys.dirty = true;

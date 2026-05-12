@@ -6,6 +6,7 @@ rustycode_tools_api::define_tool! {
     pub struct GitDiffTool;
 
     name: "GitDiff",
+    namespace: "git",
     description: "Show git diff, optionally staged and/or for a specific path.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Ops],

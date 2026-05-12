@@ -5,7 +5,9 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerRunTool;
 
+
     name: "DockerRun",
+    namespace: "docker",
     description: r"Run a Docker container
 
 Use this tool to:

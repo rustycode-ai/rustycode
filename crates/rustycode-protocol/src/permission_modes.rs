@@ -30,6 +30,48 @@ use std::fmt;
 
 use crate::tool_names as tn;
 
+/// Classification of a tool operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperationClass {
+    /// Safe, read-only operation — can auto-approve.
+    ReadOnly,
+    /// Write operation — requires confirmation.
+    Write,
+    /// Destructive operation — requires confirmation with warning.
+    Destructive,
+    /// Could not classify — treat as requiring confirmation.
+    Unknown,
+}
+
+impl fmt::Display for OperationClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ReadOnly => write!(f, "read-only"),
+            Self::Write => write!(f, "write"),
+            Self::Destructive => write!(f, "destructive"),
+            Self::Unknown => write!(f, "unknown"),
+        }
+    }
+}
+
+/// Structured permission strategy (Codex-inspired).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionProfile {
+    /// Auto-approve if tool+path is trusted.
+    UnlessTrusted,
+    /// Auto-approve, ask on failure.
+    OnFailure,
+    /// Ask only when tool explicitly requests it.
+    OnRequest,
+    /// Per-tool risk-level configuration.
+    #[default]
+    Granular,
+    /// Always auto-approve (YOLO mode).
+    Never,
+}
+
 /// Runtime permission mode controlling how tool invocations are approved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

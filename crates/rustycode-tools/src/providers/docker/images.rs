@@ -5,7 +5,9 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerImagesTool;
 
+
     name: "DockerImages",
+    namespace: "docker",
     description: r"List Docker images
 
 Use this tool to:

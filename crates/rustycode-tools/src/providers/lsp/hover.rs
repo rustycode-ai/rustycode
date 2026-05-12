@@ -20,6 +20,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspHoverTool;
 
     name: "LspHover",
+    namespace: "lsp",
     description: "Get type information, documentation, and signature at a specific position. Use when: you need to know the type of a variable, the signature of a function, or the docs for a method. Faster than reading the whole file. Requires: file_path, line, character.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Explore],

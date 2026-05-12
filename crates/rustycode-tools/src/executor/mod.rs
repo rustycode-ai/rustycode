@@ -10,7 +10,10 @@ pub mod convoy;
 pub mod decompose;
 pub mod gate;
 pub mod inspector;
+pub mod manager;
 pub mod middleware;
+pub mod permission;
+pub mod repetition;
 pub mod task;
 pub mod task_state;
 pub mod tool_shim;
@@ -22,9 +25,10 @@ pub use cache::{CacheConfig, CacheKey, CacheMetrics, CacheStats, CachedToolResul
 pub use convoy::ConvoyDispatcher;
 pub use decompose::{DecomposeProblemTool, DecompositionResult, Module};
 pub use inspector::{
-    BudgetInspector, InspectionAction, InspectionResult, PermissionInspector, RateLimitInspector,
-    RepetitionInspector, SecurityInspector, ToolCallInfo, ToolInspectionManager,
+    BudgetInspector, PermissionInspector, RateLimitInspector, RepetitionInspector,
+    SecurityInspector,
 };
+pub use manager::{InspectionAction, InspectionResult, ToolCallInfo, ToolInspectionManager};
 pub use middleware::{ExecutionMiddleware, MiddlewareConfig, MiddlewareState, PlanModeState};
 pub use task::{SubAgentRunner, TaskTool};
 pub use tool_shim::{

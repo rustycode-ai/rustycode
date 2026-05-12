@@ -5,7 +5,9 @@ use serde_json::json;
 rustycode_tools_api::define_tool! {
     pub struct DockerPsTool;
 
+
     name: "DockerPs",
+    namespace: "docker",
     description: r"List Docker containers
 
 Use this tool to:

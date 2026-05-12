@@ -6,6 +6,7 @@ rustycode_tools_api::define_tool! {
     pub struct GitCommitTool;
 
     name: "GitCommit",
+    namespace: "git",
     description: "Stage files and create a git commit with provided message.",
     permission: ToolPermission::Write,
     tags: [ToolTag::Ops],

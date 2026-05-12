@@ -123,15 +123,41 @@ impl TUI {
             }
         };
 
+        // Poll unified EventMsg channel — additive alongside legacy channels.
+        // During migration, producers emit EventMsg in parallel with typed
+        // channels. Once all producers are migrated, the legacy paths above
+        // can be retired.
+        //
+        // Drain up to MAX_EVENT_MSGS_PER_FRAME to match the stream chunk
+        // batch pattern and prevent event backlog during heavy streaming.
+        const MAX_EVENT_MSGS_PER_FRAME: usize = 8;
+        let mut had_event_msg = false;
+        {
+            let mut msgs: Vec<rustycode_protocol::EventMsg> = Vec::new();
+            if let Some(channel) = self.integration.services.event_channel_mut() {
+                for _ in 0..MAX_EVENT_MSGS_PER_FRAME {
+                    match channel.try_recv() {
+                        Some(msg) => msgs.push(msg),
+                        None => break,
+                    }
+                }
+            }
+            for msg in msgs {
+                crate::app::handlers::handle_event_msg(self, msg);
+                had_event_msg = true;
+            }
+        }
+
         // Log if we processed any events (for debugging)
-        if had_stream || had_tool || had_workspace || had_command {
+        if had_stream || had_tool || had_workspace || had_command || had_event_msg {
             crate::debug_log!(
-                "Processed service events: stream={} tool={} tool_count={} workspace={} command={} elapsed_ms={}",
+                "Processed service events: stream={} tool={} tool_count={} workspace={} command={} event_msg={} elapsed_ms={}",
                 had_stream,
                 had_tool,
                 tool_count,
                 had_workspace,
                 had_command,
+                had_event_msg,
                 poll_start.elapsed().as_millis()
             );
         }

@@ -238,7 +238,7 @@ impl ToolProfile {
             ("show", 3),
             ("display", 3),
             // Exploration actions (weight 2)
-            ("find", 2),
+            ("find", 3),
             ("inspect", 2),
             ("search", 2),
             ("list", 2),
@@ -356,7 +356,7 @@ impl ToolProfile {
             .max(ops_score);
 
         // Need minimum score to avoid false positives
-        if max_score < 2 {
+        if max_score < 1 {
             return ToolProfile::All;
         }
 

@@ -35,7 +35,12 @@ pub enum Op {
     /// Respond to a tool approval request.
     ///
     /// `true` = approve execution, `false` = reject.
-    ApproveTool { approved: bool },
+    ApproveTool { tool_id: String, approved: bool },
+
+    /// Set the permission mode for tool approval decisions.
+    SetPermissionMode {
+        mode: crate::permission_modes::PermissionMode,
+    },
 
     /// Answer a question from the agent (ask_user tool).
     AnswerQuestion { answer: String },
@@ -94,8 +99,17 @@ mod tests {
                 images: None,
             },
             Op::StopStream,
-            Op::ApproveTool { approved: true },
-            Op::ApproveTool { approved: false },
+            Op::ApproveTool {
+                tool_id: "tool_1".into(),
+                approved: true,
+            },
+            Op::ApproveTool {
+                tool_id: "tool_1".into(),
+                approved: false,
+            },
+            Op::SetPermissionMode {
+                mode: crate::permission_modes::PermissionMode::Bypass,
+            },
             Op::AnswerQuestion {
                 answer: "yes".into(),
             },

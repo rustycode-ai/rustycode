@@ -26,6 +26,7 @@ rustycode_tools_api::define_tool! {
     pub struct WebSearchTool;
 
     name: "WebSearch",
+    namespace: "web",
     description: r#"Search the web for current information and factual queries.
 
 Use this tool when you need to:

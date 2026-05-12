@@ -5,7 +5,9 @@ use anyhow::anyhow;
 rustycode_tools_api::define_tool! {
     pub struct TodoUpdateTool;
 
+
     name: "TodoUpdate",
+    namespace: "todo",
     description: r#"Update a single todo item's status, title, or activeForm.
 
 Use this to mark tasks in_progress before starting work, and completed when fully done. \

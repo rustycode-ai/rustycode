@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use rustycode_agent_runtime::{AgentEvents, AgentResult, ApprovalDecision};
 use rustycode_core::streaming::ToolCall;
 use rustycode_orchestration::bus::OrchestrationEvent;
+use rustycode_protocol::permission_modes::PermissionMode;
 use rustycode_protocol::stream_event::StreamEvent;
 use rustycode_protocol::tool_names as tn;
 use std::collections::HashMap;
@@ -11,10 +12,11 @@ use std::time::Duration;
 
 pub struct StreamEventAdapter {
     stream_tx: SyncSender<StreamChunk>,
-    approval_rx: Option<Receiver<bool>>,
+    approval_rx: Option<Receiver<(String, bool)>>,
     question_rx: Option<Receiver<String>>,
     active_tools: HashMap<String, ToolCall>,
     pending_tool_id: Option<String>,
+    permission_mode: PermissionMode,
 }
 
 impl StreamEventAdapter {
@@ -25,16 +27,22 @@ impl StreamEventAdapter {
             question_rx: None,
             active_tools: HashMap::new(),
             pending_tool_id: None,
+            permission_mode: PermissionMode::Default,
         }
     }
 
-    pub fn with_approval_rx(mut self, rx: Receiver<bool>) -> Self {
+    pub fn with_approval_rx(mut self, rx: Receiver<(String, bool)>) -> Self {
         self.approval_rx = Some(rx);
         self
     }
 
     pub fn with_question_rx(mut self, rx: Receiver<String>) -> Self {
         self.question_rx = Some(rx);
+        self
+    }
+
+    pub fn with_permission_mode(mut self, mode: PermissionMode) -> Self {
+        self.permission_mode = mode;
         self
     }
 
@@ -366,6 +374,40 @@ impl AgentEvents for StreamEventAdapter {
             }
         );
 
+        // Auto-decide based on permission mode
+        match &self.permission_mode {
+            PermissionMode::Bypass => {
+                tracing::info!("Tool approval: {} auto-approved (Bypass mode)", tool_name);
+                return ApprovalDecision::Approve;
+            }
+            PermissionMode::Auto => {
+                // Auto-approve safe tools, reject dangerous ones
+                if matches!(risk, crate::tool_approval::risk::RiskLevel::Safe) {
+                    tracing::info!(
+                        "Tool approval: {} auto-approved (Auto mode, safe tool)",
+                        tool_name
+                    );
+                    return ApprovalDecision::Approve;
+                } else {
+                    tracing::warn!(
+                        "Tool approval: {} auto-rejected (Auto mode, {:?} risk)",
+                        tool_name,
+                        risk
+                    );
+                    self.emit(StreamChunk::Text(format!(
+                        "[Tool '{}' rejected: Auto mode only allows safe tools]\n",
+                        tool_name
+                    )));
+                    return ApprovalDecision::Reject(format!(
+                        "Auto mode rejected (risk={:?})",
+                        risk
+                    ));
+                }
+            }
+            // Other modes (Default, Plan, AcceptEdits, DontAsk, Bubble) fall through to ask user
+            _ => {}
+        }
+
         // For bash tools, send the raw command (not key=value) so the TUI's
         // SmartApprove can properly classify read-only vs dangerous commands.
         let display_diff = if tool_name == tn::BASH && !bash_command.is_empty() {
@@ -374,50 +416,69 @@ impl AgentEvents for StreamEventAdapter {
             Some(diff)
         };
 
+        let approval_tool_id = tool_id.clone();
+
         self.emit(StreamChunk::ApprovalRequest {
             tool_name: tool_name.to_string(),
-            tool_id,
+            tool_id: approval_tool_id.clone(),
             description: format!("Execute tool: {}", tool_name),
             diff: display_diff,
         });
 
         // Wait for user approval from the TUI side
-        match self
-            .approval_rx
-            .as_ref()
-            .map(|rx| rx.recv_timeout(Duration::from_mins(5)))
-        {
-            Some(Ok(true)) => {
-                tracing::info!("Tool approval: {} approved by user", tool_name);
-                ApprovalDecision::Approve
-            }
-            Some(Ok(false)) => {
-                tracing::info!("Tool approval: {} rejected by user", tool_name);
-                ApprovalDecision::Reject("rejected by user".to_string())
-            }
-            Some(Err(_)) => {
-                // Timeout: always reject regardless of risk level.
-                // Even safe tools can be problematic if auto-approved without
-                // user awareness (e.g., `ls -la /etc/shadow`, `cat ~/.env`).
-                // The user was away and didn't consent — reject for safety.
-                tracing::warn!(
-                    "Tool approval timed out for {}, rejecting for safety ({:?} risk)",
-                    tool_name,
-                    risk
-                );
-                self.emit(StreamChunk::ApprovalRejected {
-                    tool_id: self
-                        .pending_tool_id
-                        .clone()
-                        .unwrap_or_else(|| "unknown".to_string()),
-                });
-                self.emit(StreamChunk::Text(format!(
-                    "[Tool '{}' rejected: approval timed out after 5 minutes — rejected for safety]\n",
-                    tool_name
-                )));
-                ApprovalDecision::Reject(
-                    "approval timed out after 5 minutes — rejected for safety".to_string(),
-                )
+        match self.approval_rx.as_ref() {
+            Some(rx) => {
+                let deadline = std::time::Instant::now() + Duration::from_mins(5);
+                loop {
+                    let now = std::time::Instant::now();
+                    if now >= deadline {
+                        tracing::warn!(
+                            "Tool approval timed out for {}, rejecting for safety ({:?} risk)",
+                            tool_name,
+                            risk
+                        );
+                        self.emit(StreamChunk::ApprovalRejected {
+                            tool_id: tool_id.clone(),
+                        });
+                        self.emit(StreamChunk::Text(format!(
+                            "[Tool '{}' rejected: approval timed out after 5 minutes — rejected for safety]\n",
+                            tool_name
+                        )));
+                        break ApprovalDecision::Reject(
+                            "approval timed out after 5 minutes — rejected for safety".to_string(),
+                        );
+                    }
+
+                    let wait = deadline.saturating_duration_since(now);
+                    match rx.recv_timeout(wait.min(Duration::from_secs(1))) {
+                        Ok((response_tool_id, approved))
+                            if response_tool_id == approval_tool_id =>
+                        {
+                            if approved {
+                                tracing::info!("Tool approval: {} approved by user", tool_name);
+                                break ApprovalDecision::Approve;
+                            }
+                            tracing::info!("Tool approval: {} rejected by user", tool_name);
+                            break ApprovalDecision::Reject("rejected by user".to_string());
+                        }
+                        Ok((_response_tool_id, _approved)) => {
+                            tracing::debug!(
+                                tool_id = %tool_id,
+                                "Ignoring approval response for a different tool"
+                            );
+                        }
+                        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                        Err(_) => {
+                            tracing::warn!(
+                                "Approval channel closed while waiting for {}, rejecting",
+                                tool_name
+                            );
+                            break ApprovalDecision::Reject(
+                                "approval channel closed while waiting for response".to_string(),
+                            );
+                        }
+                    }
+                }
             }
             None => {
                 // No approval channel available (e.g., orchestration forwarding thread).

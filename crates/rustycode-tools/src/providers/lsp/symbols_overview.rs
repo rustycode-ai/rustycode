@@ -23,6 +23,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspGetSymbolsOverviewTool;
 
     name: "LspGetSymbolsOverview",
+    namespace: "lsp",
     description: "Get a compact overview of symbols in a file grouped by kind",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Implement],

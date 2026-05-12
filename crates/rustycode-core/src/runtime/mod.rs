@@ -243,6 +243,7 @@ impl Runtime {
             for mcp_tool in mcp_tools {
                 tools.push(rustycode_tools::ToolInfo {
                     name: mcp_tool.name.clone(),
+                    tool_name: rustycode_tools::ToolName::new("mcp", mcp_tool.name.clone()),
                     description: mcp_tool.description.clone(),
                     parameters_schema: mcp_tool.input_schema.clone(),
                     permission: rustycode_tools::ToolPermission::Execute,

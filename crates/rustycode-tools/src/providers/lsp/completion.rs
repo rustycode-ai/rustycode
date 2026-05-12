@@ -22,6 +22,7 @@ rustycode_tools_api::define_tool! {
     pub struct LspCompletionTool;
 
     name: "LspCompletion",
+    namespace: "lsp",
     description: "Get code completions (suggestions) at a specific position. Use this to see what functions, variables, or keywords are available while typing. Requires file_path, line, and character position.",
     permission: ToolPermission::Read,
     tags: [ToolTag::Debug, ToolTag::Implement],

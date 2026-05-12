@@ -8,6 +8,7 @@ use crate::app::TUI;
 use crate::ui::ast_progress::AST_PHASE_NAMES;
 use crate::ui::message::{ToolExecution, ToolStatus};
 use chrono;
+use rustycode_protocol::EventMsg;
 use std::time::SystemTime;
 use tracing;
 
@@ -98,6 +99,24 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
     }
 
     tui.sys.dirty = true;
+
+    // Emit EventMsg for the unified event channel
+    let (success, output) = match &result.result {
+        ToolOutput::Success(s) => (true, s.clone()),
+        ToolOutput::Error(e) => (false, e.to_string()),
+        ToolOutput::Timeout => (false, "Operation timed out".to_string()),
+    };
+    let output_size = output.len();
+    tui.integration
+        .services
+        .send_event(EventMsg::ToolExecCompleted {
+            tool_id: result.id.clone(),
+            tool_name: result.name.clone(),
+            success,
+            output,
+            output_size,
+            duration_ms: 0, // duration looked up from active_tools in handler above
+        });
 }
 
 /// Truncate large tool outputs with temp file fallback for inspection.
