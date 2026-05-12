@@ -184,7 +184,6 @@ pub mod project_tracker;
 pub mod prompt_template;
 pub mod recipes;
 pub mod security_patterns;
-pub mod skills;
 pub mod slash_commands;
 pub mod streaming;
 pub mod structured_output;

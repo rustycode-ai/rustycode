@@ -47,6 +47,7 @@ rustycode-providers = { path = "../rustycode-providers" }
 rustycode-tools = { path = "../rustycode-tools", default-features = false }
 rustycode-orchestration = { path = "../rustycode-orchestration" }
 rustycode-memory = { path = "../rustycode-memory" }
+rustycode-skill = { path = "../rustycode-skill" }
 rustycode-storage = { path = "../rustycode-storage" }
 rustycode-team = { path = "../rustycode-team" }
 rustycode-vector-memory = { path = "../rustycode-vector-memory", optional = true }

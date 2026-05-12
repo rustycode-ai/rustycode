@@ -39,16 +39,23 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
             dry_run,
         } => {
             let mgr = load_skill_manager()?;
-            
+
             // Skill name validation
             let skill = mgr.definition(&name).ok_or_else(|| {
-                anyhow::anyhow!("Skill '{}' not found. Use 'skills list' to see available skills.", name)
+                anyhow::anyhow!(
+                    "Skill '{}' not found. Use 'skills list' to see available skills.",
+                    name
+                )
             })?;
 
             // Legacy variable substitution logic (kept for compatibility with 'run' command)
             let variables = parse_variables(&vars)?;
-            let mut rendered_prompt = skill.content.as_deref().unwrap_or(&skill.description).to_string();
-            
+            let mut rendered_prompt = skill
+                .content
+                .as_deref()
+                .unwrap_or(&skill.description)
+                .to_string();
+
             for (key, value) in variables {
                 rendered_prompt = rendered_prompt.replace(&format!("{{{{{key}}}}}"), &value);
             }
@@ -74,10 +81,7 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
                     OrchestrationPipeline::with_provider_and_model(config, provider, model);
 
                 let result = pipeline
-                    .conduct(
-                        format!("skill-{}", skill.name),
-                        rendered_prompt.clone(),
-                    )
+                    .conduct(format!("skill-{}", skill.name), rendered_prompt.clone())
                     .await?;
 
                 match result {
@@ -121,7 +125,11 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
 
             std::fs::write(output_dir.join("SKILL.md"), content)?;
 
-            println!("Created skill '{}' directory at {}", name, output_dir.display());
+            println!(
+                "Created skill '{}' directory at {}",
+                name,
+                output_dir.display()
+            );
             println!("\nYou can now run it with:");
             println!("  rustycode skills run {}", name);
         }
@@ -142,10 +150,11 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
             let mut mgr = SkillManager::builder().build()?;
             // We need to access the registry internally or use load_from_dir
             if let Some(parent) = skill_md.parent() {
-                 mgr.discover_dynamic(&[], parent);
+                mgr.discover_dynamic(&[], parent);
             }
 
-            let name = skill_md.parent()
+            let name = skill_md
+                .parent()
                 .and_then(|p| p.file_name())
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| "unknown".to_string());
@@ -165,8 +174,8 @@ pub async fn execute(cmd: SkillsCommand, format: &str) -> Result<()> {
 /// Load skill manager with bundled and user skills
 fn load_skill_manager() -> Result<SkillManager> {
     let mut builder = SkillManager::builder();
-    
-    // SkillManager builder automatically handles bundled skills and 
+
+    // SkillManager builder automatically handles bundled skills and
     // we can specify user skills directory
     if let Ok(user_dir) = rustycode_config::paths::RustyCodePath::skills_dir() {
         if user_dir.exists() {
