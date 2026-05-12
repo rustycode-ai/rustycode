@@ -110,6 +110,10 @@ pub struct TuiAgentBridge {
     permission_mode: PermissionMode,
     /// Phase 1C shadow mode: broadcast receiver for EventMsg validation.
     event_rx: Option<tokio::sync::broadcast::Receiver<rustycode_protocol::EventMsg>>,
+    /// Shadow mode validation counters.
+    shadow_matches: usize,
+    shadow_mismatches: usize,
+    shadow_misses: usize,
 }
 
 impl TuiAgentBridge {
@@ -119,6 +123,9 @@ impl TuiAgentBridge {
             adapter: StreamEventAdapter::new(stream_tx),
             permission_mode: PermissionMode::Default,
             event_rx: None,
+            shadow_matches: 0,
+            shadow_mismatches: 0,
+            shadow_misses: 0,
         }
     }
 
