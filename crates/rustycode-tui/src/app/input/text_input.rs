@@ -10,45 +10,45 @@ use crossterm::event::{KeyCode, KeyModifiers};
 impl TUI {
     /// Handle search box input
     pub(crate) fn handle_search_input(&mut self, key: crossterm::event::KeyEvent) -> Result<bool> {
-        if !self.search_state.visible {
+        if !self.search.search_state.visible {
             return Ok(false);
         }
 
         match (key.code, key.modifiers) {
             (KeyCode::Esc, _) => {
-                self.search_state.clear();
+                self.search.search_state.clear();
                 self.sys.dirty = true;
             }
             (KeyCode::Enter, _) => {
                 // Navigate to next match on Enter
-                self.search_state.next_match();
+                self.search.search_state.next_match();
                 self.scroll_to_current_search_match();
                 self.sys.dirty = true;
             }
             (KeyCode::Up, _) => {
                 // Navigate to previous match with Up arrow
-                self.search_state.prev_match();
+                self.search.search_state.prev_match();
                 self.scroll_to_current_search_match();
                 self.sys.dirty = true;
             }
             (KeyCode::Down, _) => {
                 // Navigate to next match with Down arrow
-                self.search_state.next_match();
+                self.search.search_state.next_match();
                 self.scroll_to_current_search_match();
                 self.sys.dirty = true;
             }
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
-                self.search_state.query.clear();
+                self.search.search_state.query.clear();
                 self.refresh_search_matches();
                 self.sys.dirty = true;
             }
             (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
-                SearchEngine::add_char(&mut self.search_state, c);
+                SearchEngine::add_char(&mut self.search.search_state, c);
                 self.refresh_search_matches();
                 self.sys.dirty = true;
             }
             (KeyCode::Backspace, _) => {
-                SearchEngine::backspace(&mut self.search_state);
+                SearchEngine::backspace(&mut self.search.search_state);
                 self.refresh_search_matches();
                 self.sys.dirty = true;
             }
@@ -61,15 +61,15 @@ impl TUI {
 
     /// Re-run search with current query and reset match position.
     fn refresh_search_matches(&mut self) {
-        let case_sensitive = self.search_state.case_sensitive;
-        let role_filter = self.search_state.role_filter.clone();
-        self.search_state.matches = SearchEngine::search(
-            &self.search_state.query,
+        let case_sensitive = self.search.search_state.case_sensitive;
+        let role_filter = self.search.search_state.role_filter.clone();
+        self.search.search_state.matches = SearchEngine::search(
+            &self.search.search_state.query,
             &self.session.messages,
             case_sensitive,
             &role_filter,
         );
-        SearchEngine::reset_match_position(&mut self.search_state);
+        SearchEngine::reset_match_position(&mut self.search.search_state);
     }
 
     /// Handle command palette navigation
@@ -78,19 +78,19 @@ impl TUI {
         key_code: KeyCode,
         modifiers: KeyModifiers,
     ) -> Result<bool> {
-        if !self.showing_command_palette {
+        if !self.overlays.showing_command_palette {
             return Ok(false);
         }
 
         match (key_code, modifiers) {
             (KeyCode::Esc, _) => {
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.command_palette.state_mut().clear_query();
+                self.overlays.showing_command_palette = false;
+                self.overlays.command_palette.hide();
+                self.overlays.command_palette.state_mut().clear_query();
                 // Palette text lives in the main input — clear it on dismiss,
                 // otherwise Ctrl+K → type → Esc leaves orphan text.
                 self.ui.input_handler.state.clear();
-                self.input_mode = self.ui.input_handler.state.mode;
+                self.sys.input_mode = self.ui.input_handler.state.mode;
                 self.sys.dirty = true;
                 Ok(true)
             }
@@ -104,15 +104,15 @@ impl TUI {
 
                 if has_exact_match {
                     // User typed an exact command name — close palette and submit as-is
-                    self.showing_command_palette = false;
-                    self.command_palette.hide();
-                    self.command_palette.state_mut().clear_query();
+                    self.overlays.showing_command_palette = false;
+                    self.overlays.command_palette.hide();
+                    self.overlays.command_palette.state_mut().clear_query();
                     self.sys.dirty = true;
                     return Ok(false);
                 }
 
                 // Insert selected command into input and submit
-                if let Some(command) = self.command_palette.state().selected_command() {
+                if let Some(command) = self.overlays.command_palette.state().selected_command() {
                     let cmd_name = command.name.clone();
                     let needs_args = !command.argument_hint.is_empty();
                     self.ui.input_handler.state.clear();
@@ -121,37 +121,37 @@ impl TUI {
                     }
                     if needs_args {
                         self.ui.input_handler.state.insert_char(' ');
-                        self.command_palette.state_mut().clear_query();
+                        self.overlays.command_palette.state_mut().clear_query();
                         self.sys.dirty = true;
-                        self.showing_command_palette = false;
-                        self.command_palette.hide();
-                        self.input_mode = self.ui.input_handler.state.mode;
+                        self.overlays.showing_command_palette = false;
+                        self.overlays.command_palette.hide();
+                        self.sys.input_mode = self.ui.input_handler.state.mode;
                         return Ok(true);
                     }
-                    self.input_mode = self.ui.input_handler.state.mode;
+                    self.sys.input_mode = self.ui.input_handler.state.mode;
                 }
                 // Close palette silently — normal dispatch handles the typed command.
                 // Avoids spurious "No matching command found" before actual dispatch.
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.command_palette.state_mut().clear_query();
+                self.overlays.showing_command_palette = false;
+                self.overlays.command_palette.hide();
+                self.overlays.command_palette.state_mut().clear_query();
                 self.sys.dirty = true;
                 // Return false to allow command submission
                 Ok(false)
             }
             (KeyCode::Tab, m) if m.contains(KeyModifiers::CONTROL) => {
-                self.command_palette.state_mut().next_tab();
+                self.overlays.command_palette.state_mut().next_tab();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::BackTab, _) => {
-                self.command_palette.state_mut().prev_tab();
+                self.overlays.command_palette.state_mut().prev_tab();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Tab, _) => {
                 // Insert selected command into input, keep palette for args
-                if let Some(command) = self.command_palette.state().selected_command() {
+                if let Some(command) = self.overlays.command_palette.state().selected_command() {
                     let cmd_name = command.name.clone();
                     let has_hint = !command.argument_hint.is_empty();
                     self.ui.input_handler.state.clear();
@@ -162,60 +162,60 @@ impl TUI {
                         // Add space after command for argument typing
                         self.ui.input_handler.state.insert_char(' ');
                     }
-                    self.input_mode = self.ui.input_handler.state.mode;
+                    self.sys.input_mode = self.ui.input_handler.state.mode;
                 }
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.command_palette.state_mut().clear_query();
+                self.overlays.showing_command_palette = false;
+                self.overlays.command_palette.hide();
+                self.overlays.command_palette.state_mut().clear_query();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::PageUp, _) => {
-                self.command_palette.state_mut().page_up();
+                self.overlays.command_palette.state_mut().page_up();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::PageDown, _) => {
-                self.command_palette.state_mut().page_down();
+                self.overlays.command_palette.state_mut().page_down();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Home, _) => {
-                self.command_palette.state_mut().home();
+                self.overlays.command_palette.state_mut().home();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::End, _) => {
-                self.command_palette.state_mut().end();
+                self.overlays.command_palette.state_mut().end();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Up, _) => {
-                self.command_palette.state_mut().move_up();
+                self.overlays.command_palette.state_mut().move_up();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Down, _) => {
-                self.command_palette.state_mut().move_down();
+                self.overlays.command_palette.state_mut().move_down();
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Char(c), m) if m == KeyModifiers::NONE || m == KeyModifiers::SHIFT => {
                 self.ui.input_handler.state.insert_char(c);
                 let text = self.ui.input_handler.state.all_text();
-                self.command_palette.sync_query_from_input(&text);
+                self.overlays.command_palette.sync_query_from_input(&text);
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Backspace, KeyModifiers::NONE) => {
                 self.ui.input_handler.state.backspace();
                 let text = self.ui.input_handler.state.all_text();
-                self.command_palette.sync_query_from_input(&text);
+                self.overlays.command_palette.sync_query_from_input(&text);
                 self.sys.dirty = true;
                 Ok(true)
             }
             (KeyCode::Char('u'), KeyModifiers::CONTROL) => {
-                self.command_palette.state_mut().clear_query();
+                self.overlays.command_palette.state_mut().clear_query();
                 self.sys.dirty = true;
                 Ok(true)
             }
@@ -229,13 +229,13 @@ impl TUI {
         key_code: KeyCode,
         key: crossterm::event::KeyEvent,
     ) -> Result<bool> {
-        if !self.showing_skill_palette {
+        if !self.overlays.showing_skill_palette {
             return Ok(false);
         }
 
         match key_code {
             KeyCode::Esc => {
-                self.showing_skill_palette = false;
+                self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
                 self.sys.dirty = true;
                 Ok(true)
@@ -245,7 +245,7 @@ impl TUI {
                     self.insert_skill_mention(&skill.name);
                     self.add_system_message(format!("Selected skill: {}", skill.name));
                 }
-                self.showing_skill_palette = false;
+                self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
                 self.sys.dirty = true;
                 Ok(true)
@@ -320,7 +320,7 @@ impl TUI {
 
             if is_local_command {
                 self.ui.input_handler.state.clear();
-                self.input_mode = self.ui.input_handler.state.mode;
+                self.sys.input_mode = self.ui.input_handler.state.mode;
                 self.handle_slash_command(&text)?;
                 return Ok(());
             }
@@ -342,7 +342,7 @@ impl TUI {
                     );
                     let clear_start = std::time::Instant::now();
                     self.ui.input_handler.state.clear();
-                    self.input_mode = self.ui.input_handler.state.mode;
+                    self.sys.input_mode = self.ui.input_handler.state.mode;
                     clear_elapsed = clear_start.elapsed();
                 }
                 if debug_enabled {
@@ -372,7 +372,8 @@ impl TUI {
                 self.integration.rate_limit.clear();
             } else {
                 let remaining = self
-                    .integration.rate_limit
+                    .integration
+                    .rate_limit
                     .until
                     .map(|t| {
                         t.saturating_duration_since(std::time::Instant::now())
@@ -392,7 +393,7 @@ impl TUI {
         }
 
         // Fire UserPromptSubmit hooks — hooks can block submission
-        let hook_result = self.hook_manager.execute_blocking(
+        let hook_result = self.integration.hook_manager.execute_blocking(
             rustycode_tools::hooks::HookTrigger::UserPromptSubmit,
             serde_json::json!({
                 "prompt": &content,
@@ -408,7 +409,8 @@ impl TUI {
 
         // Check if this is the first user message BEFORE pushing (for shell history injection)
         let is_first_user_message = !self
-            .session.messages
+            .session
+            .messages
             .iter()
             .any(|m| matches!(m.role, crate::ui::message::MessageRole::User));
 
@@ -511,11 +513,11 @@ impl TUI {
         }
 
         self.ui.input_handler.state.clear();
-        self.input_mode = self.ui.input_handler.state.mode;
+        self.sys.input_mode = self.ui.input_handler.state.mode;
 
         // Clear search state when sending a message to prevent stale highlighting
-        self.search_state.query.clear();
-        self.search_state.visible = false;
+        self.search.search_state.query.clear();
+        self.search.search_state.visible = false;
 
         if let Some(rest) = content.strip_prefix('!') {
             // Bash mode: execute shell command
@@ -529,15 +531,16 @@ impl TUI {
         } else if content.starts_with('/') {
             if content == "/" {
                 // If palette is showing, pick the highlighted command
-                if self.showing_command_palette {
-                    if let Some(command) = self.command_palette.state().selected_command() {
+                if self.overlays.showing_command_palette {
+                    if let Some(command) = self.overlays.command_palette.state().selected_command()
+                    {
                         let cmd_name = command.name.clone();
-                        self.showing_command_palette = false;
-                        self.command_palette.hide();
-                        self.command_palette.state_mut().clear_query();
+                        self.overlays.showing_command_palette = false;
+                        self.overlays.command_palette.hide();
+                        self.overlays.command_palette.state_mut().clear_query();
                         // Execute the slash command directly (no need to re-enter)
                         self.ui.input_handler.state.clear();
-                        self.input_mode = self.ui.input_handler.state.mode;
+                        self.sys.input_mode = self.ui.input_handler.state.mode;
                         if let Err(e) = self.handle_slash_command(&cmd_name) {
                             self.add_system_message(format!("Command failed: {}", e));
                         }
@@ -546,9 +549,9 @@ impl TUI {
                     }
                 }
                 // No palette or no selection — just show it
-                self.showing_command_palette = true;
-                self.command_palette.show();
-                self.command_palette.state_mut().clear_query();
+                self.overlays.showing_command_palette = true;
+                self.overlays.command_palette.show();
+                self.overlays.command_palette.state_mut().clear_query();
                 self.sys.dirty = true;
                 return Ok(());
             }
@@ -652,7 +655,7 @@ impl TUI {
             self.session.streaming.begin_streaming();
 
             // Clear previous turn's tool history so sidebar doesn't show stale calls.
-            self.tool_panel.reset();
+            self.panels.tool_panel.reset();
             self.session.active_tools.clear();
 
             let send_call_start = std::time::Instant::now();
@@ -720,18 +723,20 @@ impl TUI {
     ) -> Result<()> {
         match action {
             InputAction::OpenCommandPalette => {
-                self.showing_skill_palette = false;
+                self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
-                self.showing_command_palette = true;
-                self.command_palette.show();
+                self.overlays.showing_command_palette = true;
+                self.overlays.command_palette.show();
                 let input_text = self.ui.input_handler.state.all_text();
-                self.command_palette.sync_query_from_input(&input_text);
+                self.overlays
+                    .command_palette
+                    .sync_query_from_input(&input_text);
                 self.sys.dirty = true;
             }
             InputAction::OpenSkillPalette => {
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.showing_skill_palette = true;
+                self.overlays.showing_command_palette = false;
+                self.overlays.command_palette.hide();
+                self.overlays.showing_skill_palette = true;
                 self.ui.skill_palette.open();
                 self.sys.dirty = true;
             }
@@ -739,7 +744,7 @@ impl TUI {
                 self.process_send_message(lines)?;
             }
             InputAction::Consumed => {
-                self.input_mode = self.ui.input_handler.state.mode;
+                self.sys.input_mode = self.ui.input_handler.state.mode;
                 self.sys.dirty = true;
             }
             InputAction::Ignored => {
@@ -795,7 +800,10 @@ mod tests {
         tui.process_send_message(vec![String::new()]).unwrap();
 
         assert!(
-            tui.session.messages.iter().any(|msg| msg.role == MessageRole::User),
+            tui.session
+                .messages
+                .iter()
+                .any(|msg| msg.role == MessageRole::User),
             "image-only submission should create a user message"
         );
         assert!(
@@ -808,23 +816,23 @@ mod tests {
     fn test_command_palette_launcher_shortcuts_open_palette() {
         let mut tui = TUI::new_for_test();
         // Wizard auto-starts when config is missing (CI has no config)
-        tui.wizard.showing_wizard = false;
+        tui.session.wizard.showing_wizard = false;
 
         tui.handle_global_shortcut(KeyCode::Char('k'), KeyModifiers::CONTROL)
             .unwrap();
-        assert!(tui.showing_command_palette);
-        assert!(tui.command_palette.is_visible());
+        assert!(tui.overlays.showing_command_palette);
+        assert!(tui.overlays.command_palette.is_visible());
 
         tui.dismiss_any_overlay();
-        assert!(!tui.showing_command_palette);
-        assert!(!tui.command_palette.is_visible());
+        assert!(!tui.overlays.showing_command_palette);
+        assert!(!tui.overlays.command_palette.is_visible());
 
         tui.handle_global_shortcut(
             KeyCode::Char('P'),
             KeyModifiers::CONTROL | KeyModifiers::SHIFT,
         )
         .unwrap();
-        assert!(tui.showing_command_palette);
-        assert!(tui.command_palette.is_visible());
+        assert!(tui.overlays.showing_command_palette);
+        assert!(tui.overlays.command_palette.is_visible());
     }
 }

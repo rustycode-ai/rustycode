@@ -57,7 +57,8 @@ impl TUI {
 
         let max_scroll = self.begin_manual_scroll();
         self.ui.view.scroll_offset_line = self
-            .ui.view
+            .ui
+            .view
             .scroll_offset_line
             .saturating_add(lines)
             .min(max_scroll);
@@ -72,15 +73,17 @@ impl TUI {
 
     /// Push current position to undo stack with bounded capacity
     pub(crate) fn push_undo_position(&mut self) {
-        self.undo
-            .push_message(self.ui.view.selected_message, self.ui.view.scroll_offset_line);
+        self.session.undo.push_message(
+            self.ui.view.selected_message,
+            self.ui.view.scroll_offset_line,
+        );
     }
 
     /// Pop and restore the last undo position
     ///
     /// Returns true if a position was restored, false if the stack was empty.
     pub(crate) fn pop_undo_position(&mut self) -> bool {
-        if let Some((prev_msg, prev_scroll)) = self.undo.pop_message() {
+        if let Some((prev_msg, prev_scroll)) = self.session.undo.pop_message() {
             if prev_msg < self.session.messages.len() {
                 self.ui.view.selected_message = prev_msg;
                 self.ui.view.scroll_offset_line = prev_scroll;
@@ -100,12 +103,15 @@ impl TUI {
 
     /// Clear message areas (call before rendering)
     pub(crate) fn clear_message_areas(&self) {
-        self.message_areas.borrow_mut().clear();
+        self.search.message_areas.borrow_mut().clear();
     }
 
     /// Register a message area for click detection
     pub(crate) fn register_message_area(&self, msg_index: usize, rect: ratatui::layout::Rect) {
-        self.message_areas.borrow_mut().push((msg_index, rect));
+        self.search
+            .message_areas
+            .borrow_mut()
+            .push((msg_index, rect));
     }
 
     /// Page up (scroll by half viewport height — Vim-style Ctrl+U)
@@ -115,7 +121,11 @@ impl TUI {
         // Half-page scroll (Vim Ctrl+U behavior)
         let scroll_amount = (self.ui.view.viewport_height / 2).max(1);
         let _max_scroll = self.begin_manual_scroll();
-        self.ui.view.scroll_offset_line = self.ui.view.scroll_offset_line.saturating_sub(scroll_amount);
+        self.ui.view.scroll_offset_line = self
+            .ui
+            .view
+            .scroll_offset_line
+            .saturating_sub(scroll_amount);
         self.sys.dirty = true;
     }
 
@@ -127,7 +137,8 @@ impl TUI {
         let scroll_amount = (self.ui.view.viewport_height / 2).max(1);
         let max_scroll = self.begin_manual_scroll();
         self.ui.view.scroll_offset_line = self
-            .ui.view
+            .ui
+            .view
             .scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
@@ -146,7 +157,11 @@ impl TUI {
 
         let scroll_amount = self.ui.view.viewport_height.max(1);
         let _max_scroll = self.begin_manual_scroll();
-        self.ui.view.scroll_offset_line = self.ui.view.scroll_offset_line.saturating_sub(scroll_amount);
+        self.ui.view.scroll_offset_line = self
+            .ui
+            .view
+            .scroll_offset_line
+            .saturating_sub(scroll_amount);
         self.sys.dirty = true;
     }
 
@@ -157,7 +172,8 @@ impl TUI {
         let scroll_amount = self.ui.view.viewport_height.max(1);
         let max_scroll = self.begin_manual_scroll();
         self.ui.view.scroll_offset_line = self
-            .ui.view
+            .ui
+            .view
             .scroll_offset_line
             .saturating_add(scroll_amount)
             .min(max_scroll);
@@ -250,7 +266,7 @@ impl TUI {
     /// Uses actual line offsets from the last render pass to position
     /// accurately. Falls back to a rough estimate if offsets are stale.
     pub(crate) fn scroll_to_current_search_match(&mut self) {
-        if let Some(match_pos) = self.search_state.current_match() {
+        if let Some(match_pos) = self.search.search_state.current_match() {
             let msg_idx = match_pos.message_index;
             if msg_idx < self.session.messages.len() {
                 self.ui.view.selected_message = msg_idx;
@@ -259,7 +275,7 @@ impl TUI {
 
                 // Use actual line offsets from last render, with rough fallback
                 let target_line = {
-                    let offsets = self.message_line_offsets.borrow();
+                    let offsets = self.search.message_line_offsets.borrow();
                     offsets
                         .get(msg_idx)
                         .copied()
@@ -267,7 +283,8 @@ impl TUI {
                         .unwrap_or(msg_idx * 3)
                 };
                 let max_scroll = self
-                    .ui.view
+                    .ui
+                    .view
                     .last_total_lines
                     .get()
                     .saturating_sub(self.ui.view.viewport_height.max(1));
@@ -284,14 +301,17 @@ impl TUI {
         // Find the previous user message before selected_message
         let start = self.ui.view.selected_message;
         for i in (0..start).rev() {
-            if matches!(self.session.messages[i].role, crate::ui::message::MessageRole::User) {
+            if matches!(
+                self.session.messages[i].role,
+                crate::ui::message::MessageRole::User
+            ) {
                 self.ui.view.selected_message = i;
                 self.ui.view.user_scrolled = true;
                 self.ui.view.last_user_scroll_time = std::time::Instant::now();
 
                 // Scroll to show this message
                 let target_line = {
-                    let offsets = self.message_line_offsets.borrow();
+                    let offsets = self.search.message_line_offsets.borrow();
                     offsets
                         .get(i)
                         .copied()
@@ -299,7 +319,8 @@ impl TUI {
                         .unwrap_or(i * 3)
                 };
                 let max_scroll = self
-                    .ui.view
+                    .ui
+                    .view
                     .last_total_lines
                     .get()
                     .saturating_sub(self.ui.view.viewport_height.max(1));
@@ -323,14 +344,17 @@ impl TUI {
         // Find the next user message after selected_message
         let start = self.ui.view.selected_message.saturating_add(1);
         for i in start..self.session.messages.len() {
-            if matches!(self.session.messages[i].role, crate::ui::message::MessageRole::User) {
+            if matches!(
+                self.session.messages[i].role,
+                crate::ui::message::MessageRole::User
+            ) {
                 self.ui.view.selected_message = i;
                 self.ui.view.user_scrolled = true;
                 self.ui.view.last_user_scroll_time = std::time::Instant::now();
 
                 // Scroll to show this message
                 let target_line = {
-                    let offsets = self.message_line_offsets.borrow();
+                    let offsets = self.search.message_line_offsets.borrow();
                     offsets
                         .get(i)
                         .copied()
@@ -338,7 +362,8 @@ impl TUI {
                         .unwrap_or(i * 3)
                 };
                 let max_scroll = self
-                    .ui.view
+                    .ui
+                    .view
                     .last_total_lines
                     .get()
                     .saturating_sub(self.ui.view.viewport_height.max(1));
@@ -425,12 +450,10 @@ mod tests {
     fn brutalist_render_changes_when_scrolled() {
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut tui = TUI {
-            renderer_mode: RendererMode::Brutalist,
-            status_bar_collapsed: true,
-            footer_collapsed: true,
-            ..TUI::default()
-        };
+        let mut tui = TUI::default();
+        tui.sys.renderer_mode = RendererMode::Brutalist;
+        tui.ui.status_bar_collapsed = true;
+        tui.ui.footer_collapsed = true;
         tui.session.messages = (0..18)
             .flat_map(|i| {
                 [
@@ -472,12 +495,10 @@ mod tests {
     fn polished_render_changes_when_scrolled() {
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut tui = TUI {
-            renderer_mode: RendererMode::Polished,
-            status_bar_collapsed: true,
-            footer_collapsed: true,
-            ..TUI::default()
-        };
+        let mut tui = TUI::default();
+        tui.sys.renderer_mode = RendererMode::Polished;
+        tui.ui.status_bar_collapsed = true;
+        tui.ui.footer_collapsed = true;
         tui.session.messages = (0..18)
             .flat_map(|i| {
                 [

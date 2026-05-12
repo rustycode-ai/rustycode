@@ -22,14 +22,14 @@ fn test_tui_creation() {
 fn test_default_tui() {
     let tui = TUI::default();
     assert_eq!(tui.session.messages.len(), 0);
-    assert_eq!(tui.input_mode, InputMode::SingleLine);
+    assert_eq!(tui.sys.input_mode, InputMode::SingleLine);
 }
 
 #[test]
 fn test_reset_conversation_state_clears_milestone_ui() {
     let mut tui = TUI::default();
 
-    tui.session_sidebar.update_milestone_progress(
+    tui.session.session_sidebar.update_milestone_progress(
         "mile_123".to_string(),
         "Auth".to_string(),
         MilestoneStatus::Active,
@@ -49,12 +49,12 @@ fn test_reset_conversation_state_clears_milestone_ui() {
     );
 
     assert!(tui.session.plan_mode_banner.is_some());
-    assert!(tui.session_sidebar.has_milestone_progress());
+    assert!(tui.session.session_sidebar.has_milestone_progress());
 
     tui.reset_conversation_state();
 
     assert!(tui.session.plan_mode_banner.is_none());
-    assert!(!tui.session_sidebar.has_milestone_progress());
+    assert!(!tui.session.session_sidebar.has_milestone_progress());
 }
 
 #[test]

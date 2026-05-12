@@ -36,7 +36,7 @@ use crate::tool_approval::ToolApprovalManager;
 use crate::ui::animator::Animator;
 use crate::ui::command_palette::CommandPalette;
 use crate::ui::file_selector::FileSelector;
-use crate::ui::input::{InputHandler, InputMode, InputState};
+use crate::ui::input::{InputHandler, InputMode};
 use crate::ui::message::{Message, MessageRenderer, ToolExecution};
 use crate::ui::message_search::SearchState;
 use crate::ui::message_tags::TagFilter;
@@ -119,68 +119,12 @@ pub struct TUI {
     pub(crate) workspace: crate::app::state_model::TaskWorkspaceState,
     pub(crate) session: crate::app::state_model::InteractionSessionState,
     pub(crate) sys: crate::app::state_model::SystemState,
-
-    // Remaining flat fields
-    pub(crate) event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
-    pub(crate) _input_state: InputState,
-    pub(crate) input_mode: InputMode,
-    pub(crate) tool_approval: crate::app::tool_approval_state::ToolApprovalState,
-    pub(crate) skill_manager: Arc<RwLock<SkillStateManager>>,
-    pub(crate) showing_plugin_manager: bool,
-    pub(crate) showing_marketplace_browser: bool,
-    pub(crate) start_time: Instant,
-    pub(crate) lsp: LspStatus,
-    pub(crate) mcp: McpStatus,
-    pub(crate) theme_colors: Arc<std::sync::Mutex<ThemeColors>>,
-    pub(crate) theme_preview: ThemePreview,
-    pub(crate) theme_switcher: ThemeSwitcher,
-    pub(crate) toast_manager: ToastManager,
-    pub(crate) error_manager: crate::ui::errors::ErrorManager,
-    pub(crate) showing_error: bool,
-    pub(crate) tool_panel: ToolPanelState,
-    pub(crate) team_panel: crate::ui::team_panel::TeamPanel,
-    pub(crate) team_handler: TeamModeHandler,
-    pub(crate) worker_panel: crate::ui::worker_panel::WorkerPanel,
-    pub(crate) ast_phase_state: crate::ui::ast_progress::AstPhaseState,
-    pub(crate) clarification_panel: crate::ui::clarification::ClarificationPanel,
-    pub(crate) awaiting_clarification: bool,
-    pub(crate) command_palette: CommandPalette,
-    pub(crate) showing_command_palette: bool,
-    pub(crate) showing_skill_palette: bool,
-    pub(crate) status_bar_collapsed: bool,
-    pub(crate) footer_collapsed: bool,
-    pub(crate) last_esc_press: Option<Instant>,
-    pub(crate) stashed_prompt: Option<String>,
-    pub(crate) model_selector: ModelSelector,
-    pub(crate) file_selector: FileSelector,
-    pub(crate) showing_provider_selector: bool,
-    pub(crate) current_model: String,
-    pub(crate) current_effort: String,
-    pub(crate) session_sidebar: SessionSidebar,
-    pub(crate) session_recovery:
-        Option<crate::app::session_recovery_integration::SessionRecoveryManager>,
-    pub(crate) message_areas: std::cell::RefCell<Vec<(usize, Rect)>>,
-    pub(crate) message_line_offsets: std::cell::RefCell<Vec<usize>>,
-    pub(crate) wizard: WizardHandler,
-    pub(crate) agent_manager: AgentManager,
-    pub(crate) tui_config: TUIConfig,
-    pub(crate) keyboard_handler: KeyboardShortcutHandler,
-    pub(crate) undo: crate::app::undo_state::UndoState,
-    pub(crate) file_finder: crate::ui::file_finder::FileFinder,
-    pub(crate) search_state: SearchState,
-    pub(crate) tag_filter: TagFilter,
-    pub(crate) renderer_mode: RendererMode,
-    pub(crate) todo_state: rustycode_tools::todo::TodoState,
-    pub(crate) todo_event_bus: Option<std::sync::Arc<rustycode_bus::EventBus>>,
-    pub(crate) todo_dirty: Arc<AtomicBool>,
-    pub(crate) storage: Option<std::sync::Arc<rustycode_storage::Storage>>,
-    pub(crate) tool_manager: crate::services::tool_manager::ToolManager,
-    pub(crate) session_manager: crate::services::session_manager::SessionManager,
-    pub(crate) token_budget: crate::app::token_budget::TokenBudget,
-    pub(crate) hook_manager: rustycode_tools::hooks::HookManager,
-    pub(crate) plan_mode: rustycode_orchestration::plan_mode::PlanMode,
-    pub(crate) show_task_dashboard: bool,
-    pub(crate) api_key_warning: String,
+    pub(crate) overlays: crate::app::state_model::OverlayState,
+    pub(crate) panels: crate::app::state_model::ToolExecutionPanel,
+    pub(crate) theme: crate::app::state_model::ThemeNotificationState,
+    pub(crate) team: crate::app::state_model::TeamModeState,
+    pub(crate) search: crate::app::state_model::MessageSearchState,
+    pub(crate) model: crate::app::state_model::ProviderModelState,
 }
 
 impl TUI {
@@ -224,7 +168,7 @@ impl TUI {
     }
 
     pub fn poll_mcp_events(&mut self) -> anyhow::Result<()> {
-        while let Ok(event) = self.event_receiver.try_recv() {
+        while let Ok(event) = self.integration.event_receiver.try_recv() {
             match event {
                 rustycode_mcp::protocol::McpEvent::ProgressNotification { progress, message } => {
                     info!("MCP progress: {}% - {:?}", progress * 100.0, message);
@@ -246,7 +190,7 @@ impl TUI {
     /// been saved mid-stream.
     pub(crate) fn reset_streaming_state(&mut self) {
         self.session.streaming.reset();
-        self.ast_phase_state.deactivate();
+        self.panels.ast_phase_state.deactivate();
     }
 
     /// Reset the conversational state that should not survive a load/resume
@@ -256,28 +200,28 @@ impl TUI {
         self.ui.view.scroll_offset_line = 0;
         self.ui.view.user_scrolled = false;
         self.session.active_tools.clear();
-        self.session_sidebar.clear_milestone_progress();
-        self.tool_panel.reset();
+        self.session.session_sidebar.clear_milestone_progress();
+        self.panels.tool_panel.reset();
         self.dismiss_any_overlay();
         self.reset_streaming_state();
         self.session.streaming.queued_message = None;
-        self.stashed_prompt = None;
+        self.ui.stashed_prompt = None;
         self.clear_plan_mode_banner();
         self.integration.rate_limit.clear();
         self.session.auto_continue.reset();
-        self.token_budget.reset();
+        self.model.token_budget.reset();
         self.ui.view.last_total_lines.set(0);
         self.sys.compaction.context_monitor.current_tokens = 0;
         self.sys.compaction.context_monitor.needs_compaction = false;
 
         self.session.doom_loop.reset();
-        self.undo.clear();
-        self.search_state.visible = false;
-        self.search_state.matches.clear();
-        self.search_state.query.clear();
-        self.search_state.current_match_index = 0;
-        self.message_line_offsets.borrow_mut().clear();
-        self.message_areas.borrow_mut().clear();
+        self.session.undo.clear();
+        self.search.search_state.visible = false;
+        self.search.search_state.matches.clear();
+        self.search.search_state.query.clear();
+        self.search.search_state.current_match_index = 0;
+        self.search.message_line_offsets.borrow_mut().clear();
+        self.search.message_areas.borrow_mut().clear();
     }
 
     /// Create a new TUI instance with service integration
@@ -430,21 +374,26 @@ impl TUI {
                 help_state: HelpState::new(),
                 sidebar_area: std::cell::Cell::new(Rect::default()),
                 view: crate::app::view_state::ViewState::new(),
+                keyboard_handler: KeyboardShortcutHandler::new(tui_config.behavior.vim_enabled),
+                tui_config,
+                stashed_prompt: None,
+                status_bar_collapsed: false,
+                footer_collapsed: false,
             },
             integration: crate::app::state_model::ServiceIntegrationState {
                 services,
                 pipeline,
                 pipeline_ctx: {
-                    let (pt, mdl, _) =
-                        rustycode_llm::load_provider_config_from_env().unwrap_or_else(|_| {
+                    let (pt, mdl, _) = rustycode_llm::load_provider_config_from_env()
+                        .unwrap_or_else(|_| {
                             (
                                 "anthropic".into(),
                                 "claude-haiku-4-5-20251001".into(),
                                 Default::default(),
                             )
                         });
-                    let pipeline_provider =
-                        rustycode_llm::create_provider(&pt, &mdl).unwrap_or_else(|_| {
+                    let pipeline_provider = rustycode_llm::create_provider(&pt, &mdl)
+                        .unwrap_or_else(|_| {
                             std::sync::Arc::new(rustycode_llm::mock::MockProvider::from_text(
                                 "mock result",
                             ))
@@ -460,7 +409,25 @@ impl TUI {
                 active_scheduled_phases: std::collections::HashSet::new(),
                 max_concurrent_phases: 3,
                 rate_limit: RateLimitHandler::new(),
-                rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
+                rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(
+                ),
+                lsp: LspStatus::new_forced_refresh(),
+                mcp: McpStatus::new_forced_refresh(),
+                start_time: Instant::now(),
+                event_receiver,
+                todo_state: rustycode_tools::todo::new_todo_state(),
+                todo_event_bus: Some(std::sync::Arc::new(rustycode_bus::EventBus::new())),
+                todo_dirty: Arc::new(AtomicBool::new(false)),
+                storage: None,
+                tool_manager: crate::services::tool_manager::ToolManager::new(),
+                session_manager: crate::services::session_manager::SessionManager::new(
+                    crate::app::session_recovery_integration::SessionRecoveryManager::new(
+                        crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
+                    )
+                    .ok(),
+                ),
+                hook_manager,
+                skill_manager,
             },
             workspace: crate::app::state_model::TaskWorkspaceState {
                 workspace_loaded: false,
@@ -483,6 +450,14 @@ impl TUI {
                 reasoning_budget: std::sync::Mutex::new(
                     rustycode_tools::providers::reasoning_types::BudgetState::default(),
                 ),
+                session_recovery:
+                    crate::app::session_recovery_integration::SessionRecoveryManager::new(
+                        crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
+                    )
+                    .ok(),
+                session_sidebar: SessionSidebar::new(),
+                wizard: WizardHandler::new(&cwd, reconfigure),
+                undo: crate::app::undo_state::UndoState::new(),
             },
             sys: crate::app::state_model::SystemState {
                 running: true,
@@ -495,87 +470,68 @@ impl TUI {
                 auto_memory,
                 memory_injection_config,
                 plugin_manager,
+                input_mode: InputMode::SingleLine,
+                renderer_mode,
             },
-            event_receiver,
-            _input_state: InputState::new(),
-            input_mode: InputMode::SingleLine,
-            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
-                ToolApprovalManager::new(),
-            ),
-            skill_manager,
-            showing_plugin_manager: false,
-            showing_marketplace_browser: false,
-            start_time: Instant::now(),
-            lsp: LspStatus::new_forced_refresh(),
-            mcp: McpStatus::new_forced_refresh(),
-            theme_colors,
-            theme_preview,
-            theme_switcher,
-            toast_manager,
-            error_manager,
-            showing_error: false,
-            tool_panel: ToolPanelState::new(),
-            command_palette,
-            showing_command_palette: false,
-            showing_skill_palette: false,
-            status_bar_collapsed: false,
-            footer_collapsed: false,
-            last_esc_press: None,
-            stashed_prompt: None,
-            model_selector: ModelSelector::with_models(all_available_models()),
-            file_selector: FileSelector::new(Vec::new()),
-            showing_provider_selector: false,
-            current_model: rustycode_llm::load_model_from_config().unwrap_or_else(|e| {
-                tracing::warn!("Failed to load model config: {}", e);
-                String::new()
-            }),
-            current_effort: "medium".to_string(),
-            session_sidebar: SessionSidebar::new(),
-            session_recovery:
-                crate::app::session_recovery_integration::SessionRecoveryManager::new(
-                    crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
-                )
-                .ok(),
-            message_areas: std::cell::RefCell::new(Vec::new()),
-            message_line_offsets: std::cell::RefCell::new(Vec::new()),
-            wizard: WizardHandler::new(&cwd, reconfigure),
-            agent_manager: AgentManager::new(),
-            keyboard_handler: KeyboardShortcutHandler::new(tui_config.behavior.vim_enabled),
-            tui_config,
-            undo: crate::app::undo_state::UndoState::new(),
-            file_finder: crate::ui::file_finder::FileFinder::new(cwd.clone()),
-            search_state: SearchState::new(),
-            tag_filter: TagFilter::new(),
-            renderer_mode,
-            todo_state: rustycode_tools::todo::new_todo_state(),
-            todo_event_bus: Some(std::sync::Arc::new(rustycode_bus::EventBus::new())),
-            todo_dirty: Arc::new(AtomicBool::new(false)),
-            storage: None,
-            tool_manager: crate::services::tool_manager::ToolManager::new(),
-            session_manager: crate::services::session_manager::SessionManager::new(
-                crate::app::session_recovery_integration::SessionRecoveryManager::new(
-                    crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
-                )
-                .ok(),
-            ),
-            team_panel: crate::ui::team_panel::TeamPanel::new(),
-            team_handler: TeamModeHandler::new(),
-            worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
-            ast_phase_state: crate::ui::ast_progress::AstPhaseState::new(),
-            clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
-            awaiting_clarification: false,
-            token_budget: crate::app::token_budget::TokenBudget::new(),
-            hook_manager,
-            plan_mode: {
-                use rustycode_orchestration::plan_mode::{PlanMode, PlanModeConfig};
-                use rustycode_protocol::AgentRole;
+            overlays: crate::app::state_model::OverlayState {
+                command_palette,
+                showing_command_palette: false,
+                model_selector: ModelSelector::with_models(all_available_models()),
+                showing_provider_selector: false,
+                file_selector: FileSelector::new(Vec::new()),
+                showing_error: false,
+                showing_plugin_manager: false,
+                showing_marketplace_browser: false,
+                last_esc_press: None,
+                showing_skill_palette: false,
+            },
+            panels: crate::app::state_model::ToolExecutionPanel {
+                tool_panel: ToolPanelState::new(),
+                ast_phase_state: crate::ui::ast_progress::AstPhaseState::new(),
+                clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
+                awaiting_clarification: false,
+                tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
+                    ToolApprovalManager::new(),
+                ),
+            },
+            theme: crate::app::state_model::ThemeNotificationState {
+                theme_colors,
+                theme_preview,
+                theme_switcher,
+                toast_manager,
+                error_manager,
+            },
+            model: crate::app::state_model::ProviderModelState {
+                current_model: rustycode_llm::load_model_from_config().unwrap_or_else(|e| {
+                    tracing::warn!("Failed to load model config: {}", e);
+                    String::new()
+                }),
+                current_effort: "medium".to_string(),
+                token_budget: crate::app::token_budget::TokenBudget::new(),
+                plan_mode: {
+                    use rustycode_orchestration::plan_mode::{PlanMode, PlanModeConfig};
+                    use rustycode_protocol::AgentRole;
 
-                let mut plan_mode = PlanMode::new(PlanModeConfig::default());
-                plan_mode.set_role(AgentRole::Worker);
-                plan_mode
+                    let mut plan_mode = PlanMode::new(PlanModeConfig::default());
+                    plan_mode.set_role(AgentRole::Worker);
+                    plan_mode
+                },
+                api_key_warning: Self::compute_api_key_warning(),
+                show_task_dashboard: false,
             },
-            show_task_dashboard: false,
-            api_key_warning: Self::compute_api_key_warning(),
+            search: crate::app::state_model::MessageSearchState {
+                search_state: SearchState::new(),
+                file_finder: crate::ui::file_finder::FileFinder::new(cwd.clone()),
+                tag_filter: TagFilter::new(),
+                message_areas: std::cell::RefCell::new(Vec::new()),
+                message_line_offsets: std::cell::RefCell::new(Vec::new()),
+            },
+            team: crate::app::state_model::TeamModeState {
+                team_panel: crate::ui::team_panel::TeamPanel::new(),
+                team_handler: TeamModeHandler::new(),
+                worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
+                agent_manager: AgentManager::new(),
+            },
         })
     }
 
@@ -634,6 +590,11 @@ impl TUI {
                 help_state: HelpState::new(),
                 sidebar_area: std::cell::Cell::new(Rect::default()),
                 view: crate::app::view_state::ViewState::new(),
+                keyboard_handler: KeyboardShortcutHandler::new(false),
+                tui_config: TUIConfig::default(),
+                stashed_prompt: None,
+                status_bar_collapsed: false,
+                footer_collapsed: false,
             },
             integration: crate::app::state_model::ServiceIntegrationState {
                 services,
@@ -670,16 +631,16 @@ impl TUI {
                     p
                 },
                 pipeline_ctx: {
-                    let (pt, mdl, _) =
-                        rustycode_llm::load_provider_config_from_env().unwrap_or_else(|_| {
+                    let (pt, mdl, _) = rustycode_llm::load_provider_config_from_env()
+                        .unwrap_or_else(|_| {
                             (
                                 "anthropic".into(),
                                 "claude-haiku-4-5-20251001".into(),
                                 Default::default(),
                             )
                         });
-                    let pipeline_provider =
-                        rustycode_llm::create_provider(&pt, &mdl).unwrap_or_else(|_| {
+                    let pipeline_provider = rustycode_llm::create_provider(&pt, &mdl)
+                        .unwrap_or_else(|_| {
                             std::sync::Arc::new(rustycode_llm::mock::MockProvider::from_text(
                                 "mock result",
                             ))
@@ -695,7 +656,25 @@ impl TUI {
                 active_scheduled_phases: std::collections::HashSet::new(),
                 max_concurrent_phases: 3,
                 rate_limit: RateLimitHandler::new(),
-                rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(),
+                rate_limit_tracker: crate::services::rate_limit_tracker::RateLimitTracker::default(
+                ),
+                lsp: LspStatus::new_forced_refresh(),
+                mcp: McpStatus::new_forced_refresh(),
+                start_time: Instant::now(),
+                event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY)
+                    .1,
+                todo_state: rustycode_tools::todo::new_todo_state(),
+                todo_event_bus: Some(std::sync::Arc::new(rustycode_bus::EventBus::new())),
+                todo_dirty: Arc::new(AtomicBool::new(false)),
+                storage: None,
+                tool_manager: crate::services::tool_manager::ToolManager::new(),
+                session_manager: crate::services::session_manager::SessionManager::new(None),
+                hook_manager: rustycode_tools::hooks::HookManager::new(
+                    PathBuf::from(".rustycode/hooks"),
+                    rustycode_tools::hooks::HookProfile::Standard,
+                    String::new(),
+                ),
+                skill_manager: Arc::new(RwLock::new(SkillStateManager::new())),
             },
             workspace: crate::app::state_model::TaskWorkspaceState {
                 workspace_loaded: false,
@@ -718,6 +697,14 @@ impl TUI {
                 reasoning_budget: std::sync::Mutex::new(
                     rustycode_tools::providers::reasoning_types::BudgetState::default(),
                 ),
+                session_recovery:
+                    crate::app::session_recovery_integration::SessionRecoveryManager::new(
+                        crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
+                    )
+                    .ok(),
+                session_sidebar: SessionSidebar::new(),
+                wizard: WizardHandler::new(&PathBuf::from("."), false),
+                undo: crate::app::undo_state::UndoState::new(),
             },
             sys: crate::app::state_model::SystemState {
                 running: true,
@@ -730,86 +717,68 @@ impl TUI {
                 auto_memory,
                 memory_injection_config,
                 plugin_manager,
+                input_mode: InputMode::SingleLine,
+                renderer_mode,
             },
-            event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY).1,
-            _input_state: InputState::new(),
-            input_mode: InputMode::SingleLine,
-            tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
-                ToolApprovalManager::new(),
-            ),
-            skill_manager: Arc::new(RwLock::new(SkillStateManager::new())),
-            showing_plugin_manager: false,
-            showing_marketplace_browser: false,
-            start_time: Instant::now(),
-            lsp: LspStatus::new_forced_refresh(),
-            mcp: McpStatus::new_forced_refresh(),
-            theme_colors,
-            theme_preview,
-            theme_switcher,
-            toast_manager,
-            error_manager,
-            showing_error: false,
-            tool_panel: ToolPanelState::new(),
-            last_esc_press: None,
-            stashed_prompt: None,
-            command_palette,
-            showing_command_palette: false,
-            showing_skill_palette: false,
-            status_bar_collapsed: false,
-            footer_collapsed: false,
-            model_selector: ModelSelector::with_models(all_available_models()),
-            file_selector: FileSelector::new(Vec::new()),
-            showing_provider_selector: false,
-            current_model: rustycode_llm::load_model_from_config().unwrap_or_else(|e| {
-                tracing::warn!("Failed to load model config: {}", e);
-                String::new()
-            }),
-            current_effort: "medium".to_string(),
-            session_sidebar: SessionSidebar::new(),
-            session_recovery:
-                crate::app::session_recovery_integration::SessionRecoveryManager::new(
-                    crate::app::session_recovery_integration::SessionRecoveryConfig::default(),
-                )
-                .ok(),
-            message_areas: std::cell::RefCell::new(Vec::new()),
-            message_line_offsets: std::cell::RefCell::new(Vec::new()),
-            agent_manager: AgentManager::new(),
-            wizard: WizardHandler::new(&PathBuf::from("."), false),
-            tui_config: TUIConfig::default(),
-            keyboard_handler: KeyboardShortcutHandler::new(false),
-            undo: crate::app::undo_state::UndoState::new(),
-            file_finder: crate::ui::file_finder::FileFinder::new(PathBuf::from(".")),
-            search_state: SearchState::new(),
-            tag_filter: TagFilter::new(),
-            renderer_mode,
-            todo_state: rustycode_tools::todo::new_todo_state(),
-            todo_event_bus: Some(std::sync::Arc::new(rustycode_bus::EventBus::new())),
-            todo_dirty: Arc::new(AtomicBool::new(false)),
-            storage: None,
-            tool_manager: crate::services::tool_manager::ToolManager::new(),
-            session_manager: crate::services::session_manager::SessionManager::new(None),
-            team_panel: crate::ui::team_panel::TeamPanel::new(),
-            team_handler: TeamModeHandler::new(),
-            clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
-            awaiting_clarification: false,
-            worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
-            ast_phase_state: crate::ui::ast_progress::AstPhaseState::new(),
-            token_budget: crate::app::token_budget::TokenBudget::new(),
-            hook_manager: rustycode_tools::hooks::HookManager::new(
-                PathBuf::from(".rustycode/hooks"),
-                rustycode_tools::hooks::HookProfile::Standard,
-                String::new(),
-            ),
-            plan_mode: {
-                use rustycode_orchestration::plan_mode::{PlanMode, PlanModeConfig};
-                use rustycode_protocol::AgentRole;
+            overlays: crate::app::state_model::OverlayState {
+                command_palette,
+                showing_command_palette: false,
+                model_selector: ModelSelector::with_models(all_available_models()),
+                showing_provider_selector: false,
+                file_selector: FileSelector::new(Vec::new()),
+                showing_error: false,
+                showing_plugin_manager: false,
+                showing_marketplace_browser: false,
+                last_esc_press: None,
+                showing_skill_palette: false,
+            },
+            panels: crate::app::state_model::ToolExecutionPanel {
+                tool_panel: ToolPanelState::new(),
+                ast_phase_state: crate::ui::ast_progress::AstPhaseState::new(),
+                clarification_panel: crate::ui::clarification::ClarificationPanel::hidden(),
+                awaiting_clarification: false,
+                tool_approval: crate::app::tool_approval_state::ToolApprovalState::new(
+                    ToolApprovalManager::new(),
+                ),
+            },
+            theme: crate::app::state_model::ThemeNotificationState {
+                theme_colors,
+                theme_preview,
+                theme_switcher,
+                toast_manager,
+                error_manager,
+            },
+            model: crate::app::state_model::ProviderModelState {
+                current_model: rustycode_llm::load_model_from_config().unwrap_or_else(|e| {
+                    tracing::warn!("Failed to load model config: {}", e);
+                    String::new()
+                }),
+                current_effort: "medium".to_string(),
+                token_budget: crate::app::token_budget::TokenBudget::new(),
+                plan_mode: {
+                    use rustycode_orchestration::plan_mode::{PlanMode, PlanModeConfig};
+                    use rustycode_protocol::AgentRole;
 
-                let mut plan_mode = PlanMode::new(PlanModeConfig::default());
-                plan_mode.set_role(AgentRole::Worker);
-                plan_mode
+                    let mut plan_mode = PlanMode::new(PlanModeConfig::default());
+                    plan_mode.set_role(AgentRole::Worker);
+                    plan_mode
+                },
+                api_key_warning: String::new(),
+                show_task_dashboard: false,
             },
-            show_task_dashboard: false,
-            api_key_warning: String::new(),
+            search: crate::app::state_model::MessageSearchState {
+                search_state: SearchState::new(),
+                file_finder: crate::ui::file_finder::FileFinder::new(PathBuf::from(".")),
+                tag_filter: TagFilter::new(),
+                message_areas: std::cell::RefCell::new(Vec::new()),
+                message_line_offsets: std::cell::RefCell::new(Vec::new()),
+            },
+            team: crate::app::state_model::TeamModeState {
+                team_panel: crate::ui::team_panel::TeamPanel::new(),
+                team_handler: TeamModeHandler::new(),
+                worker_panel: crate::ui::worker_panel::WorkerPanel::new(),
+                agent_manager: AgentManager::new(),
+            },
         }
     }
 
@@ -817,13 +786,13 @@ impl TUI {
     pub fn init_services(&mut self) -> Result<()> {
         crate::info_log!("init_services starting");
 
-        if self.storage.is_none() {
+        if self.integration.storage.is_none() {
             let db_path = rustycode_tools::app_paths::AppPaths::data_dir().join("rustycode.db");
             match rustycode_storage::Storage::open(&db_path) {
                 Ok(s) => {
                     tracing::debug!("Opened storage at {}", db_path.display());
                     let storage_arc = std::sync::Arc::new(s);
-                    self.storage = Some(storage_arc.clone());
+                    self.integration.storage = Some(storage_arc.clone());
 
                     let cwd = self.integration.services.cwd();
                     let reloaded = load_tasks_from_storage(storage_arc.as_ref(), cwd);
@@ -849,8 +818,8 @@ impl TUI {
         // Register built-in tools - these are essential for AI coding assistant functionality
         self.register_builtin_tools(&mut tool_registry);
 
-        if let Some(ref bus) = self.todo_event_bus {
-            let dirty_flag = self.todo_dirty.clone();
+        if let Some(ref bus) = self.integration.todo_event_bus {
+            let dirty_flag = self.integration.todo_dirty.clone();
             use rustycode_shared_runtime::SHARED_RUNTIME;
             let _sub_handle =
                 SHARED_RUNTIME.block_on(bus.subscribe_callback("todo.updated", move |_event| {
@@ -870,21 +839,25 @@ impl TUI {
         // Count tools before moving registry
         let tool_count = tool_registry.list().len();
 
-        self.integration.services
+        self.integration
+            .services
             .start_conversation(config, tool_registry)
             .context("failed to start conversation service")?;
         crate::info_log!(
             "start_conversation OK, pipeline={}",
             self.integration.services.has_pipeline()
         );
-        self.integration.services
+        self.integration
+            .services
             .start_workspace_loading()
             .context("failed to start workspace loading")?;
 
         self.refresh_mcp_status(true);
 
         // Wire shared todo state into service manager so LLM can use todo tools
-        self.integration.services.set_todo_state(self.todo_state.clone());
+        self.integration
+            .services
+            .set_todo_state(self.integration.todo_state.clone());
 
         tracing::info!("Services initialized with {} tools", tool_count);
 
@@ -893,7 +866,7 @@ impl TUI {
 
     /// Refresh sidebar LSP status from discovery.
     fn refresh_lsp_status(&mut self, force: bool) -> bool {
-        if !force && self.lsp.last_lsp_refresh.elapsed() < REFRESH_COOLDOWN {
+        if !force && self.integration.lsp.last_lsp_refresh.elapsed() < REFRESH_COOLDOWN {
             return false;
         }
 
@@ -917,32 +890,32 @@ impl TUI {
         let display_connected = any_running;
 
         let changed = force
-            || display_connected != self.lsp.last_lsp_connected
-            || lsp_names != self.lsp.last_lsp_servers;
+            || display_connected != self.integration.lsp.last_lsp_connected
+            || lsp_names != self.integration.lsp.last_lsp_servers;
 
         if changed {
-            self.session_sidebar.update_lsp_status(
+            self.session.session_sidebar.update_lsp_status(
                 display_connected,
                 lsp_names.clone(),
                 std::collections::HashMap::new(),
             );
-            self.lsp.last_lsp_connected = display_connected;
-            self.lsp.last_lsp_servers = lsp_names;
+            self.integration.lsp.last_lsp_connected = display_connected;
+            self.integration.lsp.last_lsp_servers = lsp_names;
             self.sys.dirty = true;
         }
 
-        self.lsp.last_lsp_refresh = Instant::now();
+        self.integration.lsp.last_lsp_refresh = Instant::now();
         changed
     }
 
     /// Refresh sidebar MCP status from the live proxy cache and config discovery.
     fn refresh_mcp_status(&mut self, force: bool) -> bool {
-        if !force && self.mcp.last_mcp_refresh.elapsed() < REFRESH_COOLDOWN {
+        if !force && self.integration.mcp.last_mcp_refresh.elapsed() < REFRESH_COOLDOWN {
             return false;
         }
 
         let connected_servers: HashSet<String> =
-            if let Some(mcp_proxies) = self.tool_manager.mcp_proxies() {
+            if let Some(mcp_proxies) = self.integration.tool_manager.mcp_proxies() {
                 let proxies = mcp_proxies.clone();
                 rustycode_shared_runtime::SHARED_RUNTIME.block_on(async move {
                     let proxies = proxies.read().await;
@@ -1005,7 +978,7 @@ impl TUI {
             }
         }
 
-        if mcp_servers.is_empty() && self.tool_manager.mcp_proxies().is_some() {
+        if mcp_servers.is_empty() && self.integration.tool_manager.mcp_proxies().is_some() {
             mcp_servers.push(McpServerStatus {
                 name: "No MCP servers configured".to_string(),
                 state: McpServerState::Configured,
@@ -1018,29 +991,32 @@ impl TUI {
             .any(|server| matches!(server.state, McpServerState::Connected));
 
         let changed = force
-            || mcp_connected != self.mcp.last_mcp_connected
-            || mcp_servers != self.mcp.last_mcp_servers;
+            || mcp_connected != self.integration.mcp.last_mcp_connected
+            || mcp_servers != self.integration.mcp.last_mcp_servers;
 
         if changed {
-            self.session_sidebar
+            self.session
+                .session_sidebar
                 .update_mcp_status(mcp_connected, mcp_servers.clone());
-            self.mcp.last_mcp_connected = mcp_connected;
-            self.mcp.last_mcp_servers = mcp_servers;
+            self.integration.mcp.last_mcp_connected = mcp_connected;
+            self.integration.mcp.last_mcp_servers = mcp_servers;
             self.sys.dirty = true;
         }
 
-        self.mcp.last_mcp_refresh = Instant::now();
+        self.integration.mcp.last_mcp_refresh = Instant::now();
         changed
     }
 
     /// Refresh sidebar tool call summary from the current tool history.
     fn refresh_tool_call_summary(&mut self) {
         let recent = self
+            .panels
             .tool_panel
             .tool_panel_history
             .last()
             .map(|tool| format!("{} {}", tool.status.icon(), tool.result_summary));
-        self.session_sidebar
+        self.session
+            .session_sidebar
             .update_tool_call_summary(self.session.active_tools.len(), recent);
     }
 
@@ -1049,17 +1025,20 @@ impl TUI {
     /// Called when `--resume` flag is passed on the CLI. Finds the most
     /// recently saved session and loads its messages/scroll state.
     pub fn resume_most_recent_session(&mut self) {
-        match self.session_manager.find_most_recent_session() {
+        match self.integration.session_manager.find_most_recent_session() {
             Ok(Some(session)) => {
                 self.reset_conversation_state();
                 self.ui.view.scroll_offset_line = session.scroll_position;
                 self.session.messages = session.messages;
-                self.sys.compaction.context_monitor.update(&self.session.messages);
+                self.sys
+                    .compaction
+                    .context_monitor
+                    .update(&self.session.messages);
                 if !self.session.messages.is_empty() {
                     self.ui.view.selected_message = self.session.messages.len().saturating_sub(1);
                 }
 
-                if let Some(ref storage) = self.storage {
+                if let Some(ref storage) = self.integration.storage {
                     match storage.todos(&session.session_id) {
                         Ok(db_todos) if !db_todos.is_empty() => {
                             let items: Vec<rustycode_tools::todo::TodoItem> = db_todos
@@ -1088,16 +1067,20 @@ impl TUI {
                                     active_form: None,
                                 })
                                 .collect();
-                            if let Ok(mut state) = self.todo_state.lock() {
+                            if let Ok(mut state) = self.integration.todo_state.lock() {
                                 *state = items;
                             }
                             crate::app::tasks::sync_from_todo_state(
                                 &mut self.workspace.workspace_tasks,
-                                &self.todo_state,
+                                &self.integration.todo_state,
                             );
                             tracing::info!(
                                 "Restored {} todos for session {}",
-                                self.todo_state.lock().map(|s| s.len()).unwrap_or(0),
+                                self.integration
+                                    .todo_state
+                                    .lock()
+                                    .map(|s| s.len())
+                                    .unwrap_or(0),
                                 session.session_id
                             );
                         }
@@ -1140,21 +1123,21 @@ impl TUI {
 
     /// Register all built-in tools for AI coding assistant functionality
     fn register_builtin_tools(&self, tool_registry: &mut ToolRegistry) {
-        self.tool_manager.register_builtin_tools(
+        self.integration.tool_manager.register_builtin_tools(
             tool_registry,
             &self.integration.pipeline_ctx.provider,
             &self.integration.pipeline_ctx.current_model,
             self.integration.services.cwd(),
-            &self.skill_manager,
-            &self.todo_state,
-            self.storage.clone(),
-            self.todo_event_bus.clone(),
+            &self.integration.skill_manager,
+            &self.integration.todo_state,
+            self.integration.storage.clone(),
+            self.integration.todo_event_bus.clone(),
         );
     }
 
     /// Load tools from configured MCP servers
     fn load_mcp_tools(&mut self, tool_registry: &mut ToolRegistry) {
-        self.tool_manager.load_mcp_tools(tool_registry);
+        self.integration.tool_manager.load_mcp_tools(tool_registry);
     }
 
     /// Run the TUI main loop
@@ -1207,7 +1190,13 @@ impl TUI {
         })?;
 
         // Set terminal title to project name (for tab identification)
-        if let Some(dir_name) = self.integration.services.cwd().file_name().and_then(|n| n.to_str()) {
+        if let Some(dir_name) = self
+            .integration
+            .services
+            .cwd()
+            .file_name()
+            .and_then(|n| n.to_str())
+        {
             // Sanitize: strip control characters to prevent terminal escape injection
             let sanitized: String = dir_name.chars().filter(|c| !c.is_control()).collect();
             // OSC 0 sets the terminal window/tab title
@@ -1264,7 +1253,7 @@ impl TUI {
 
         let mut startup_notes: Vec<String> = Vec::new();
 
-        if let Some(ref recovery) = self.session_recovery {
+        if let Some(ref recovery) = self.session.session_recovery {
             if let Err(e) = recovery.init_session() {
                 tracing::warn!("Session recovery init failed: {}", e);
             }
@@ -1363,9 +1352,11 @@ impl TUI {
 
             // Update session sidebar info
             let sidebar_start = Instant::now();
-            self.session_sidebar
+            self.session
+                .session_sidebar
                 .update_session_info(self.session.messages.len(), self.session.active_tools.len());
-            self.session_sidebar
+            self.session
+                .session_sidebar
                 .set_rate_limited(self.integration.rate_limit.until.is_some());
             self.refresh_tool_call_summary();
             self.refresh_lsp_status(false);
@@ -1374,7 +1365,7 @@ impl TUI {
 
             // Update toast animations
             let toast_start = Instant::now();
-            let has_active_toasts = self.toast_manager.tick(delta_ms);
+            let has_active_toasts = self.theme.toast_manager.tick(delta_ms);
             if has_active_toasts {
                 self.sys.dirty = true; // Mark dirty for animation updates
             }
@@ -1384,7 +1375,7 @@ impl TUI {
             // the next render can check is_showing() and clear the error overlay
             // after the auto-dismiss timeout (10s). Without this, the error
             // indicator persists indefinitely when no other state changes occur.
-            if self.error_manager.is_showing() {
+            if self.theme.error_manager.is_showing() {
                 self.sys.dirty = true;
             }
 
@@ -1394,14 +1385,14 @@ impl TUI {
                 .context("failed to poll background services")?;
             self.poll_mcp_events()?;
 
-            if self.todo_dirty.swap(false, Ordering::SeqCst) {
+            if self.integration.todo_dirty.swap(false, Ordering::SeqCst) {
                 if crate::app::tasks::sync_from_todo_state(
                     &mut self.workspace.workspace_tasks,
-                    &self.todo_state,
+                    &self.integration.todo_state,
                 ) {
                     crate::app::tasks::save_tasks_with_storage(
                         &self.workspace.workspace_tasks,
-                        self.storage.as_deref(),
+                        self.integration.storage.as_deref(),
                         self.integration.services.cwd(),
                         None,
                     );
@@ -1435,17 +1426,17 @@ impl TUI {
 
             // Update running agents
             let agents_start = Instant::now();
-            self.agent_manager.update_running_agents();
+            self.team.agent_manager.update_running_agents();
 
             // Periodic cleanup: remove completed/failed agents older than 1 hour
             // and cap total terminal agents at 50
-            self.agent_manager.cleanup_old_agents(3600);
-            self.agent_manager.cleanup_excess_agents(50);
+            self.team.agent_manager.cleanup_old_agents(3600);
+            self.team.agent_manager.cleanup_excess_agents(50);
             let agents_elapsed = agents_start.elapsed();
 
             // Session auto-save (every 30s when dirty)
             let autosave_start = Instant::now();
-            if let Some(ref mut recovery) = self.session_recovery {
+            if let Some(ref mut recovery) = self.session.session_recovery {
                 if recovery.should_auto_save() {
                     let state = recovery.create_state(
                         &self.session.messages,
@@ -1565,7 +1556,7 @@ impl TUI {
         }
 
         // Shutdown MCP servers to prevent orphaned child processes
-        if let Some(mcp_proxies) = self.tool_manager.mcp_proxies() {
+        if let Some(mcp_proxies) = self.integration.tool_manager.mcp_proxies() {
             let proxies = mcp_proxies.clone();
             // Spawn a small tokio runtime for async cleanup since we're in sync context.
             let _ = std::thread::spawn(move || {
@@ -1593,7 +1584,7 @@ impl TUI {
         self.save_history();
 
         // Session recovery shutdown: save state and release lock
-        if let Some(ref mut recovery) = self.session_recovery {
+        if let Some(ref mut recovery) = self.session.session_recovery {
             let state = recovery.create_state(
                 &self.session.messages,
                 self.ui.view.scroll_offset_line,
@@ -1635,7 +1626,7 @@ impl TUI {
         // matching the behavior of the Ctrl+V paste handler.
         if content.contains('\n') {
             self.ui.input_handler.state.mode = crate::ui::input_state::InputMode::MultiLine;
-            self.input_mode = crate::ui::input_state::InputMode::MultiLine;
+            self.sys.input_mode = crate::ui::input_state::InputMode::MultiLine;
         }
 
         self.sys.dirty = true;
@@ -1665,17 +1656,19 @@ impl TUI {
             };
 
             if task_text.is_none() {
-                let current = self.plan_mode.current_phase();
+                let current = self.model.plan_mode.current_phase();
                 match current {
                     "planning" => {
-                        if let Err(e) = self.plan_mode.approve() {
+                        if let Err(e) = self.model.plan_mode.approve() {
                             tracing::warn!("Plan approval failed: {}", e);
                             self.add_system_message(format!("Plan approval failed: {}", e));
                             return Ok(());
                         }
-                        self.plan_mode
+                        self.model
+                            .plan_mode
                             .set_role(rustycode_protocol::AgentRole::Worker);
-                        self.integration.services
+                        self.integration
+                            .services
                             .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                         self.clear_plan_mode_banner();
                         self.add_system_message(
@@ -1683,10 +1676,12 @@ impl TUI {
                         );
                     }
                     _ => {
-                        self.plan_mode.reset();
-                        self.plan_mode
+                        self.model.plan_mode.reset();
+                        self.model
+                            .plan_mode
                             .set_role(rustycode_protocol::AgentRole::Planner);
-                        self.integration.services
+                        self.integration
+                            .services
                             .set_ai_mode(crate::services::agent_mode::AiMode::Plan);
                         self.show_planning_banner("Manual");
                         self.add_system_message(
@@ -1699,12 +1694,14 @@ impl TUI {
             }
 
             let task = task_text.unwrap_or_default();
-            let current = self.plan_mode.current_phase();
+            let current = self.model.plan_mode.current_phase();
             if current != "planning" {
-                self.plan_mode.reset();
-                self.plan_mode
+                self.model.plan_mode.reset();
+                self.model
+                    .plan_mode
                     .set_role(rustycode_protocol::AgentRole::Planner);
-                self.integration.services
+                self.integration
+                    .services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Plan);
                 self.show_planning_banner("Manual");
                 self.add_system_message("Plan mode: switched to planning phase".to_string());
@@ -1726,14 +1723,16 @@ impl TUI {
             let current_mode = self.integration.services.ai_mode();
             if matches!(current_mode, crate::services::agent_mode::AiMode::Yolo) {
                 self.exit_plan_mode();
-                self.integration.services
+                self.integration
+                    .services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                 self.add_system_message(
                     "🔒 YOLO mode deactivated — tools require approval again.".to_string(),
                 );
             } else {
                 self.exit_plan_mode();
-                self.integration.services
+                self.integration
+                    .services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Yolo);
                 self.add_system_message(
                     "🚀 YOLO mode activated — tools auto-approved, fully autonomous.\n\
@@ -1754,14 +1753,16 @@ impl TUI {
             let current_mode = self.integration.services.ai_mode();
             if matches!(current_mode, crate::services::agent_mode::AiMode::Act) {
                 self.exit_plan_mode();
-                self.integration.services
+                self.integration
+                    .services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
                 self.add_system_message(
                     "💬 ACT mode deactivated — tools require approval again.".to_string(),
                 );
             } else {
                 self.exit_plan_mode();
-                self.integration.services
+                self.integration
+                    .services
                     .set_ai_mode(crate::services::agent_mode::AiMode::Act);
                 self.add_system_message(
                     "⚡ ACT mode — execute with brief summaries, minimal approval.\n\
@@ -1780,7 +1781,8 @@ impl TUI {
 
         if matches!(parts[0], "/ask") {
             self.exit_plan_mode();
-            self.integration.services
+            self.integration
+                .services
                 .set_ai_mode(crate::services::agent_mode::AiMode::Ask);
             self.add_system_message(
                 "💬 ASK mode — tools require approval, full summaries.".to_string(),
@@ -1807,22 +1809,22 @@ impl TUI {
                     is_streaming: &mut self.session.streaming.is_streaming,
                     last_extraction: &mut self.workspace.last_extraction,
                     services: &mut self.integration.services,
-                    agent_manager: &mut self.agent_manager,
+                    agent_manager: &mut self.team.agent_manager,
                     memory_injection_config: &mut self.sys.memory_injection_config,
-                    theme_colors: &self.theme_colors,
-                    skill_manager: &self.skill_manager,
+                    theme_colors: &self.theme.theme_colors,
+                    skill_manager: &self.integration.skill_manager,
                     plugin_manager: &self.sys.plugin_manager,
                     running: &mut self.sys.running,
                     context_monitor: &mut self.sys.compaction.context_monitor,
                     compaction_config: &mut self.sys.compaction.compaction_config,
                     showing_compaction_preview: &mut self.sys.compaction.showing_preview,
                     pending_compaction: &mut self.sys.compaction.pending,
-                    file_undo_stack: &mut self.undo,
-                    session_input_tokens: self.token_budget.session_input_tokens,
-                    session_output_tokens: self.token_budget.session_output_tokens,
-                    session_cost_usd: self.token_budget.session_cost_usd,
-                    current_model: self.current_model.clone(),
-                    session_start: self.start_time,
+                    file_undo_stack: &mut self.session.undo,
+                    session_input_tokens: self.model.token_budget.session_input_tokens,
+                    session_output_tokens: self.model.token_budget.session_output_tokens,
+                    session_cost_usd: self.model.token_budget.session_cost_usd,
+                    current_model: self.model.current_model.clone(),
+                    session_start: self.integration.start_time,
                 },
             )?;
 
@@ -1852,7 +1854,7 @@ impl TUI {
     pub(crate) fn render(&mut self, frame: &mut ratatui::Frame) {
         let debug_enabled = crate::logging::is_debug_enabled();
         let render_start = Instant::now();
-        let renderer = self.renderer_mode;
+        let renderer = self.sys.renderer_mode;
         crate::app::renderer::FrameRenderer::render(renderer, self, frame);
         if debug_enabled {
             let elapsed = render_start.elapsed();
@@ -1891,8 +1893,8 @@ impl TUI {
         };
 
         let size = frame.area();
-        let header_rows: u16 = if self.status_bar_collapsed { 0 } else { 1 };
-        let footer_rows: u16 = if self.footer_collapsed { 0 } else { 1 };
+        let header_rows: u16 = if self.ui.status_bar_collapsed { 0 } else { 1 };
+        let footer_rows: u16 = if self.ui.footer_collapsed { 0 } else { 1 };
         let fixed_rows = header_rows + footer_rows + input_rows;
         let main_height = size.height.saturating_sub(fixed_rows);
         let message_area = Rect {
@@ -1912,7 +1914,7 @@ impl TUI {
             (
                 FrameLayoutSnapshot::from_message_layout(
                     message_area,
-                    self.session_sidebar.is_visible(),
+                    self.session.session_sidebar.is_visible(),
                     self.ui.view.scroll_offset_line,
                     self.ui.view.user_scrolled,
                     total_lines,
@@ -1950,45 +1952,47 @@ impl TUI {
         }
 
         if let Some(sidebar_area) = layout.sidebar_area {
-            self.session_sidebar.render(frame, sidebar_area);
+            self.session.session_sidebar.render(frame, sidebar_area);
         }
 
         // Overlay panels on top of brutalist UI
 
         // Worker status panel overlay (Ctrl+W)
-        if self.worker_panel.visible {
+        if self.team.worker_panel.visible {
             let panel_width = 50u16.min(size.width.saturating_sub(10));
             let panel_height = 15u16.min(size.height.saturating_sub(4));
             let x = size.width.saturating_sub(panel_width);
             let y = 2u16;
             let panel_area = Rect::new(x, y, panel_width, panel_height);
             frame.render_widget(ratatui::widgets::Clear, panel_area);
-            self.worker_panel.render(panel_area, frame.buffer_mut());
+            self.team
+                .worker_panel
+                .render(panel_area, frame.buffer_mut());
         }
 
         // Team agent timeline overlay (Ctrl+G)
-        if self.team_panel.visible {
+        if self.team.team_panel.visible {
             let panel_width = 60u16.min(size.width.saturating_sub(10));
             let panel_height = 20u16.min(size.height.saturating_sub(4));
             let x = size.width.saturating_sub(panel_width);
             let y = 2u16;
             let panel_area = Rect::new(x, y, panel_width, panel_height);
             frame.render_widget(ratatui::widgets::Clear, panel_area);
-            frame.render_widget(self.team_panel.clone(), panel_area);
+            frame.render_widget(self.team.team_panel.clone(), panel_area);
         }
 
         // Overlay: clarification panel (when AI asks a question)
-        if self.awaiting_clarification && self.clarification_panel.visible {
+        if self.panels.awaiting_clarification && self.panels.clarification_panel.visible {
             let panel_height = 15u16.min(size.height.saturating_sub(4));
             let panel_width = (size.width * 3 / 4).min(60);
             let panel_area =
                 crate::app::render::shared::centered_rect(panel_width, panel_height, size);
             frame.render_widget(ratatui::widgets::Clear, panel_area);
-            frame.render_widget(self.clarification_panel.clone(), panel_area);
+            frame.render_widget(self.panels.clarification_panel.clone(), panel_area);
         }
 
         // Overlay: search box (position at bottom of message area, not over footer)
-        if self.search_state.visible {
+        if self.search.search_state.visible {
             let search_area = Rect {
                 x: size.x,
                 y: header_rows,
@@ -1999,7 +2003,7 @@ impl TUI {
         }
 
         // Tool panel overlay (Ctrl+P) - over message area
-        if self.tool_panel.showing_tool_panel {
+        if self.panels.tool_panel.showing_tool_panel {
             let tool_area = Rect {
                 x: size.x,
                 y: header_rows,
@@ -2010,23 +2014,23 @@ impl TUI {
         }
 
         // Overlay: provider selector
-        if self.showing_provider_selector {
+        if self.overlays.showing_provider_selector {
             crate::app::renderer::render_provider_selector(frame);
         }
 
         // Overlay: file finder
-        if self.file_finder.is_visible() {
-            self.file_finder.render(frame, size);
+        if self.search.file_finder.is_visible() {
+            self.search.file_finder.render(frame, size);
         }
 
         // Overlay: model selector (Alt+P)
-        if self.model_selector.is_visible() {
-            self.model_selector.render(frame, size);
+        if self.overlays.model_selector.is_visible() {
+            self.overlays.model_selector.render(frame, size);
         }
 
         // Overlay: file selector (@)
-        if self.file_selector.is_visible() {
-            self.file_selector.render(frame, size);
+        if self.overlays.file_selector.is_visible() {
+            self.overlays.file_selector.render(frame, size);
         }
 
         // Overlay: skill palette
@@ -2034,29 +2038,30 @@ impl TUI {
             self.ui.skill_palette.render(frame, size);
         }
 
-        if self.showing_plugin_manager {
+        if self.overlays.showing_plugin_manager {
             let mut manager = self
-                .sys.plugin_manager
+                .sys
+                .plugin_manager
                 .write()
                 .unwrap_or_else(|e| e.into_inner());
             let _ = manager.reload_from_disk();
             self.ui.plugin_manager_ui.render(frame, size, &manager);
         }
 
-        if self.showing_marketplace_browser {
+        if self.overlays.showing_marketplace_browser {
             self.ui.marketplace_browser.render(frame, size);
         }
 
         // Overlay: theme preview
-        if self.theme_preview.is_visible() {
-            self.theme_preview.render(frame, size);
+        if self.theme.theme_preview.is_visible() {
+            self.theme.theme_preview.render(frame, size);
         }
 
         // Overlay: command palette (Ctrl+K / Ctrl+Shift+P)
-        if self.command_palette.is_visible() {
+        if self.overlays.command_palette.is_visible() {
             let input = self.ui.input_handler.state.all_text();
-            self.command_palette.sync_query_from_input(&input);
-            self.command_palette.render(frame, size);
+            self.overlays.command_palette.sync_query_from_input(&input);
+            self.overlays.command_palette.render(frame, size);
         }
 
         // Overlay: help panel (?)
@@ -2065,8 +2070,8 @@ impl TUI {
         }
 
         // Overlay: approval dialog (before error display so errors can appear on top)
-        if self.tool_approval.awaiting {
-            if let Some(req) = self.tool_approval.pending_requests.front() {
+        if self.panels.tool_approval.awaiting {
+            if let Some(req) = self.panels.tool_approval.pending_requests.front() {
                 let (panel_height, panel_width) =
                     crate::tool_approval::approval_panel_size(req, size);
                 let panel_area =
@@ -2076,8 +2081,8 @@ impl TUI {
         }
 
         // Overlay: error display
-        if self.error_manager.is_showing() {
-            self.error_manager.render(frame, size);
+        if self.theme.error_manager.is_showing() {
+            self.theme.error_manager.render(frame, size);
         }
 
         // Overlay: compaction preview (while pending)
@@ -2086,18 +2091,24 @@ impl TUI {
         }
 
         // Overlay: first-run wizard (covers entire screen)
-        if self.wizard.showing_wizard {
-            if let Some(ref mut wizard) = self.wizard.wizard {
+        if self.session.wizard.showing_wizard {
+            if let Some(ref mut wizard) = self.session.wizard.wizard {
                 frame.render_widget(ratatui::widgets::Clear, size);
                 wizard.render(frame, size);
             }
         }
 
         // Overlay: toast notifications (topmost — always visible)
-        self.toast_manager.render(
+        self.theme.toast_manager.render(
             frame,
             size,
-            Some(&self.theme_colors.lock().unwrap_or_else(|e| e.into_inner())),
+            Some(
+                &self
+                    .theme
+                    .theme_colors
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()),
+            ),
         );
 
         if debug_enabled {
@@ -2154,12 +2165,14 @@ impl TUI {
     }
 
     pub(crate) fn cycle_effort_level(&mut self) -> String {
-        self.current_effort = crate::services::provider_manager::cycle_effort_level(
-            &self.current_effort,
-            &self.current_model,
+        self.model.current_effort = crate::services::provider_manager::cycle_effort_level(
+            &self.model.current_effort,
+            &self.model.current_model,
         );
-        self.integration.services.set_effort(self.current_effort.clone());
-        self.current_effort.clone()
+        self.integration
+            .services
+            .set_effort(self.model.current_effort.clone());
+        self.model.current_effort.clone()
     }
 
     /// Save command history on exit
