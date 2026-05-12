@@ -32,8 +32,8 @@ impl PolishedRenderer {
                 chunks_received: tui.session.streaming.chunks_received,
                 thinking_chunks_received: tui.session.streaming.thinking_chunks_received,
             }
-        } else if tui.ast_phase_state.is_active() {
-            let ast = &tui.ast_phase_state;
+        } else if tui.panels.ast_phase_state.is_active() {
+            let ast = &tui.panels.ast_phase_state;
             RenderStatus::AstPhase {
                 phase: ast.phase.clone(),
                 phase_index: ast.phase_index,
@@ -186,7 +186,7 @@ impl PolishedRenderer {
             } => {
                 let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
                 let frame_idx = (anim_frame.progress_frame / 5) % frames.len();
-                let ast_color = tui.ast_phase_state.status_color();
+                let ast_color = tui.panels.ast_phase_state.status_color();
 
                 spans.push(Span::styled(
                     format!("{} AST ", frames[frame_idx]),
@@ -296,7 +296,7 @@ impl PolishedRenderer {
 
         // Input mode and agent mode are already shown in the input area — skip here
 
-        let agents = tui.agent_manager.agents();
+        let agents = tui.team.agent_manager.agents();
         let running_agents: Vec<_> = agents
             .iter()
             .filter(|a| matches!(a.status, crate::agents::AgentStatus::Running))
@@ -385,7 +385,7 @@ impl PolishedRenderer {
             let current_tokens = tui.sys.compaction.context_monitor.current_tokens;
             let max_tokens = tui.sys.compaction.context_monitor.max_tokens;
             let display_model = tui
-                .current_model
+                .model.current_model
                 .rsplit('/')
                 .next()
                 .map(|s| {
@@ -395,7 +395,7 @@ impl PolishedRenderer {
                         s
                     }
                 })
-                .unwrap_or(&tui.current_model);
+                .unwrap_or(&tui.model.current_model);
             spans.push(Span::styled(bar, Style::default().fg(token_color)));
             spans.push(Span::raw(" "));
             if width >= 100 && max_tokens > 0 {
@@ -411,13 +411,13 @@ impl PolishedRenderer {
             }
         }
 
-        if show_cost && tui.token_budget.session_cost_usd > 0.0 {
-            let cost_str = if tui.token_budget.session_cost_usd < 0.01 {
-                format!("${:.4}", tui.token_budget.session_cost_usd)
-            } else if tui.token_budget.session_cost_usd < 1.0 {
-                format!("${:.3}", tui.token_budget.session_cost_usd)
+        if show_cost && tui.model.token_budget.session_cost_usd > 0.0 {
+            let cost_str = if tui.model.token_budget.session_cost_usd < 0.01 {
+                format!("${:.4}", tui.model.token_budget.session_cost_usd)
+            } else if tui.model.token_budget.session_cost_usd < 1.0 {
+                format!("${:.3}", tui.model.token_budget.session_cost_usd)
             } else {
-                format!("${:.2}", tui.token_budget.session_cost_usd)
+                format!("${:.2}", tui.model.token_budget.session_cost_usd)
             };
             spans.push(Span::raw(" "));
             spans.push(Span::styled(cost_str, Style::default().fg(Color::Yellow)));
@@ -465,11 +465,11 @@ impl PolishedRenderer {
             }
         }
 
-        if tui.team_handler.event_rx.is_some() {
+        if tui.team.team_handler.event_rx.is_some() {
             spans.push(Span::raw(" "));
             let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
             let frame_idx = (anim_frame.progress_frame / 5) % frames.len();
-            let active_agent = tui.team_panel.active_agent_name();
+            let active_agent = tui.team.team_panel.active_agent_name();
             if let Some(agent) = active_agent {
                 let display_agent = if agent.len() > 15 {
                     format!("{}…", &agent[..agent.floor_char_boundary(14)])
@@ -480,7 +480,7 @@ impl PolishedRenderer {
                     format!(
                         "{}TEAM {}{}",
                         frames[frame_idx],
-                        tui.team_panel.current_turn(),
+                        tui.team.team_panel.current_turn(),
                         display_agent
                     ),
                     Style::default()
@@ -492,9 +492,9 @@ impl PolishedRenderer {
                     format!(
                         "{}TEAM T:{}/{} Tr:{:.0}%",
                         frames[frame_idx],
-                        tui.team_panel.current_turn(),
-                        tui.team_panel.max_turns(),
-                        tui.team_panel.trust_value() * 100.0,
+                        tui.team.team_panel.current_turn(),
+                        tui.team.team_panel.max_turns(),
+                        tui.team.team_panel.trust_value() * 100.0,
                     ),
                     Style::default().fg(Color::Cyan),
                 ));

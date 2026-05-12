@@ -162,7 +162,7 @@
 
         // Collect matches for this message, capped
         let matches: Vec<_> = tui
-            .search_state
+            .search.search_state
             .matches
             .iter()
             .filter(|m| m.message_index == message_index)
@@ -185,7 +185,7 @@
         }
 
         // Pre-compute current match for fast comparison
-        let current_match = tui.search_state.current_match();
+        let current_match = tui.search.search_state.current_match();
 
         let mut highlighted_lines = Vec::with_capacity(lines.len());
         let mut byte_offset = 0;

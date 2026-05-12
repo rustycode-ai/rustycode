@@ -189,7 +189,7 @@ impl TUI {
 
     /// Clear any active plan-mode banner.
     pub(crate) fn clear_plan_mode_banner(&mut self) {
-        self.session_sidebar.clear_milestone_progress();
+        self.session.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(None);
     }
 
@@ -197,13 +197,13 @@ impl TUI {
     /// return to normal AiMode::Ask. Called when switching to any non-plan mode
     /// (`/ask`, `/act`, `/yolo`) so that plan-mode tool restrictions don't linger.
     pub(crate) fn exit_plan_mode(&mut self) {
-        self.plan_mode.reset();
+        self.model.plan_mode.reset();
         self.clear_plan_mode_banner();
     }
 
     /// Show that planning mode is active for a specific convoy.
     pub(crate) fn show_planning_banner(&mut self, convoy_id: &str) {
-        self.session_sidebar.clear_milestone_progress();
+        self.session.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::Planning {
             convoy_id: convoy_id.to_string(),
             action_hint: "Building strategy...".to_string(),
@@ -212,19 +212,20 @@ impl TUI {
 
     /// Show that a plan is ready for review.
     pub(crate) fn show_approval_banner(&mut self, convoy_id: &str, plan_summary: &str) {
-        self.session_sidebar.clear_milestone_progress();
+        self.session.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::AwaitingApproval {
             convoy_id: convoy_id.to_string(),
             plan_summary: plan_summary.to_string(),
             action_hint: "Review and approve plan to proceed.".to_string(),
         }));
-        self.toast_manager
+        self.theme
+            .toast_manager
             .info(format!("[{}] Plan ready for review", convoy_id));
     }
 
     /// Show that a plan has been approved.
     pub(crate) fn show_plan_approved_banner(&mut self, convoy_id: &str) {
-        self.session_sidebar.clear_milestone_progress();
+        self.session.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::PlanApproved {
             convoy_id: convoy_id.to_string(),
             action_hint: "Plan approved. Starting execution...".to_string(),
@@ -233,7 +234,7 @@ impl TUI {
 
     /// Show active execution status for a convoy task.
     pub(crate) fn show_executing_banner(&mut self, convoy_id: &str, current_task: &str) {
-        self.session_sidebar.clear_milestone_progress();
+        self.session.session_sidebar.clear_milestone_progress();
         self.set_plan_mode_banner(Some(PlanModeBanner::Executing {
             convoy_id: convoy_id.to_string(),
             current_task: current_task.to_string(),

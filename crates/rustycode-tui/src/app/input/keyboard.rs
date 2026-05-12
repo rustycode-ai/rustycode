@@ -21,12 +21,12 @@ impl TUI {
                 && modifiers.contains(KeyModifiers::SHIFT))
         {
             if !self.is_any_overlay_open() {
-                self.showing_command_palette = true;
-                self.showing_skill_palette = false;
-                self.showing_plugin_manager = false;
-                self.showing_marketplace_browser = false;
-                self.command_palette.show();
-                self.command_palette.state_mut().clear_query();
+                self.overlays.showing_command_palette = true;
+                self.overlays.showing_skill_palette = false;
+                self.overlays.showing_plugin_manager = false;
+                self.overlays.showing_marketplace_browser = false;
+                self.overlays.command_palette.show();
+                self.overlays.command_palette.state_mut().clear_query();
                 self.sys.dirty = true;
             }
             return Ok(());
@@ -37,15 +37,16 @@ impl TUI {
             && modifiers.contains(KeyModifiers::SHIFT)
         {
             if !self.is_any_overlay_open() {
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.showing_skill_palette = false;
+                self.overlays.showing_command_palette = false;
+                self.overlays.command_palette.hide();
+                self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
-                self.showing_plugin_manager = true;
+                self.overlays.showing_plugin_manager = true;
                 self.ui.plugin_manager_ui.show();
                 {
                     let mut manager = self
-                        .sys.plugin_manager
+                        .sys
+                        .plugin_manager
                         .write()
                         .unwrap_or_else(|e| e.into_inner());
                     let _ = manager.reload_from_disk();
@@ -60,13 +61,13 @@ impl TUI {
             && modifiers.contains(KeyModifiers::ALT)
         {
             if !self.is_any_overlay_open() {
-                self.showing_command_palette = false;
-                self.command_palette.hide();
-                self.showing_skill_palette = false;
+                self.overlays.showing_command_palette = false;
+                self.overlays.command_palette.hide();
+                self.overlays.showing_skill_palette = false;
                 self.ui.skill_palette.close();
-                self.showing_plugin_manager = false;
+                self.overlays.showing_plugin_manager = false;
                 self.ui.plugin_manager_ui.hide();
-                self.showing_marketplace_browser = true;
+                self.overlays.showing_marketplace_browser = true;
                 self.ui.marketplace_browser.open();
                 self.sys.dirty = true;
             }
@@ -120,8 +121,8 @@ impl TUI {
                 if !self.session.streaming.is_streaming && !input_is_empty =>
             {
                 // Ctrl+D with text in input: dismiss overlay if showing one, otherwise do nothing
-                if self.tool_panel.showing_tool_result {
-                    self.tool_panel.showing_tool_result = false;
+                if self.panels.tool_panel.showing_tool_result {
+                    self.panels.tool_panel.showing_tool_result = false;
                     self.sys.dirty = true;
                 }
                 return Ok(());
@@ -148,7 +149,8 @@ impl TUI {
                     // the thinking text (avoids showing stale content).
                     if let Some(thinking) = self.take_last_assistant_thinking() {
                         if !self.session.streaming.current_stream_content.is_empty()
-                            && self.session.streaming.current_stream_content.trim() == thinking.trim()
+                            && self.session.streaming.current_stream_content.trim()
+                                == thinking.trim()
                         {
                             self.session.streaming.current_stream_content.clear();
                         }
@@ -199,7 +201,7 @@ impl TUI {
                                 ));
                             }
                             self.ui.input_handler.state.clear();
-                            self.input_mode = self.ui.input_handler.state.mode;
+                            self.sys.input_mode = self.ui.input_handler.state.mode;
                         } else {
                             // No overlays and empty input — show quit hint
                             self.add_system_message("Press Ctrl+Q to quit".to_string());
@@ -211,11 +213,11 @@ impl TUI {
             // Ctrl+Shift+S: Toggle skill palette
             #[allow(unreachable_patterns)]
             (KeyCode::Char('S'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
-                if !self.is_any_overlay_open() || self.showing_skill_palette {
-                    self.showing_command_palette = false;
-                    self.command_palette.hide();
-                    self.showing_skill_palette = !self.showing_skill_palette;
-                    if self.showing_skill_palette {
+                if !self.is_any_overlay_open() || self.overlays.showing_skill_palette {
+                    self.overlays.showing_command_palette = false;
+                    self.overlays.command_palette.hide();
+                    self.overlays.showing_skill_palette = !self.overlays.showing_skill_palette;
+                    if self.overlays.showing_skill_palette {
                         self.ui.skill_palette.open();
                     } else {
                         self.ui.skill_palette.close();
@@ -240,9 +242,12 @@ impl TUI {
             (KeyCode::Char('E'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 if let Err(e) = self.export_conversation() {
                     tracing::error!("Failed to export conversation: {}", e);
-                    self.toast_manager.error(format!("Export failed: {}", e));
+                    self.theme
+                        .toast_manager
+                        .error(format!("Export failed: {}", e));
                 } else {
-                    self.toast_manager
+                    self.theme
+                        .toast_manager
                         .success("Exported conversation to file".to_string());
                 }
                 self.sys.dirty = true;
@@ -256,18 +261,20 @@ impl TUI {
             (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                 // Stash/unstash current input prompt
                 let current_text = self.ui.input_handler.state.all_text();
-                if let Some(stashed) = self.stashed_prompt.take() {
+                if let Some(stashed) = self.ui.stashed_prompt.take() {
                     // Restore stashed prompt (bulk set instead of char-by-char)
                     self.ui.input_handler.state.set_text(&stashed);
-                    self.input_mode = self.ui.input_handler.state.mode;
-                    self.toast_manager
+                    self.sys.input_mode = self.ui.input_handler.state.mode;
+                    self.theme
+                        .toast_manager
                         .success("📝 Restored stashed prompt".to_string());
                 } else if !current_text.trim().is_empty() {
                     // Stash current prompt
-                    self.stashed_prompt = Some(current_text.clone());
+                    self.ui.stashed_prompt = Some(current_text.clone());
                     self.ui.input_handler.state.clear();
-                    self.input_mode = self.ui.input_handler.state.mode;
-                    self.toast_manager
+                    self.sys.input_mode = self.ui.input_handler.state.mode;
+                    self.theme
+                        .toast_manager
                         .success("📝 Prompt stashed - press Ctrl+S again to restore".to_string());
                 }
                 self.sys.dirty = true;
@@ -316,12 +323,16 @@ impl TUI {
             // Note: Ctrl+B is handled in event_loop_input.rs (sidebar toggle)
             // Note: Ctrl+F is handled in event_loop_input.rs (search toggle)
             // Line-by-line scroll with Up/Down when input empty (Claude Code pattern)
-            (KeyCode::Up, KeyModifiers::NONE) if input_is_empty && !self.session.messages.is_empty() => {
+            (KeyCode::Up, KeyModifiers::NONE)
+                if input_is_empty && !self.session.messages.is_empty() =>
+            {
                 self.push_undo_position();
                 self.scroll_up();
                 self.sys.dirty = true;
             }
-            (KeyCode::Down, KeyModifiers::NONE) if input_is_empty && !self.session.messages.is_empty() => {
+            (KeyCode::Down, KeyModifiers::NONE)
+                if input_is_empty && !self.session.messages.is_empty() =>
+            {
                 self.push_undo_position();
                 self.scroll_down();
                 self.sys.dirty = true;
@@ -409,9 +420,9 @@ impl TUI {
             // Ctrl+Shift+H: Toggle UI section visibility (status bar / footer)
             (KeyCode::Char('h'), KeyModifiers::CONTROL | KeyModifiers::SHIFT) => {
                 // Toggle both status bar and footer together for maximum screen real estate
-                let new_state = !self.status_bar_collapsed;
-                self.status_bar_collapsed = new_state;
-                self.footer_collapsed = new_state;
+                let new_state = !self.ui.status_bar_collapsed;
+                self.ui.status_bar_collapsed = new_state;
+                self.ui.footer_collapsed = new_state;
                 if new_state {
                     self.add_system_message(
                         "📐 UI sections collapsed - more space for messages".to_string(),
@@ -431,7 +442,7 @@ impl TUI {
                             let trimmed = edited.trim();
                             if !trimmed.is_empty() && trimmed != current_text.trim() {
                                 self.ui.input_handler.state.set_text(trimmed);
-                                self.input_mode = self.ui.input_handler.state.mode;
+                                self.sys.input_mode = self.ui.input_handler.state.mode;
                                 self.add_system_message(
                                     "📝 Loaded from editor - press Enter to send".to_string(),
                                 );
@@ -491,11 +502,13 @@ impl TUI {
                     return Ok(());
                 }
                 // Cancel team orchestrator if running
-                if self.team_handler.is_running() {
+                if self.team.team_handler.is_running() {
                     self.cancel_team();
                     return Ok(());
                 }
-                if self.integration.rate_limit.until.is_some() && !self.integration.rate_limit.auto_retry_cancelled {
+                if self.integration.rate_limit.until.is_some()
+                    && !self.integration.rate_limit.auto_retry_cancelled
+                {
                     self.integration.rate_limit.auto_retry_cancelled = true;
                     if let Some(msg_idx) = self.integration.rate_limit.message_index {
                         if let Some(msg) = self.session.messages.get_mut(msg_idx) {
@@ -513,8 +526,8 @@ impl TUI {
                 }
 
                 // Priority 3: Switch to single-line display mode (without destroying content)
-                if self.input_mode == InputMode::MultiLine {
-                    self.input_mode = InputMode::SingleLine;
+                if self.sys.input_mode == InputMode::MultiLine {
+                    self.sys.input_mode = InputMode::SingleLine;
                     self.ui.input_handler.state.mode = InputMode::SingleLine;
                     self.sys.dirty = true;
                     return Ok(());
@@ -522,71 +535,75 @@ impl TUI {
 
                 // Priority 4: Double-Esc to clear input (only when nothing else is open)
                 let now = std::time::Instant::now();
-                if let Some(last_esc) = self.last_esc_press {
+                if let Some(last_esc) = self.overlays.last_esc_press {
                     if now.duration_since(last_esc).as_millis()
                         < crate::app::KEYBOARD_CHORD_TIMEOUT.as_millis()
                     {
                         // Double-Esc: clear input
                         self.ui.input_handler.state.clear();
-                        self.input_mode = self.ui.input_handler.state.mode;
-                        self.last_esc_press = None;
+                        self.sys.input_mode = self.ui.input_handler.state.mode;
+                        self.overlays.last_esc_press = None;
                         self.sys.dirty = true;
                         return Ok(());
                     }
                 }
-                self.last_esc_press = Some(now);
+                self.overlays.last_esc_press = Some(now);
             }
             // REMOVED: '?' key handler moved to event_loop.rs (early intercept before InputHandler)
             (KeyCode::Char('t'), KeyModifiers::CONTROL) => {
-                if !self.is_any_overlay_open() || self.theme_preview.is_visible() {
-                    self.theme_preview.toggle();
+                if !self.is_any_overlay_open() || self.theme.theme_preview.is_visible() {
+                    self.theme.theme_preview.toggle();
                     self.sys.dirty = true;
                 }
             }
             (KeyCode::Char('t'), KeyModifiers::ALT) => {
-                if let Some(theme) = self.theme_switcher.next_theme() {
-                    self.toast_manager.success(format!("Theme: {}", theme.name));
+                if let Some(theme) = self.theme.theme_switcher.next_theme() {
+                    self.theme
+                        .toast_manager
+                        .success(format!("Theme: {}", theme.name));
                 }
                 self.sys.dirty = true;
                 self.auto_scroll();
             }
             (KeyCode::Char('T'), KeyModifiers::ALT | KeyModifiers::SHIFT) => {
-                if let Some(theme) = self.theme_switcher.prev() {
-                    self.toast_manager.success(format!("Theme: {}", theme.name));
+                if let Some(theme) = self.theme.theme_switcher.prev() {
+                    self.theme
+                        .toast_manager
+                        .success(format!("Theme: {}", theme.name));
                 }
                 self.sys.dirty = true;
                 self.auto_scroll();
             }
             // Vim keybindings (when enabled and input is not focused)
             (KeyCode::Char('j'), KeyModifiers::NONE)
-                if self.tui_config.behavior.vim_enabled && input_is_empty =>
+                if self.ui.tui_config.behavior.vim_enabled && input_is_empty =>
             {
                 // Push current position to undo stack before moving
                 self.push_undo_position();
 
-                let action = self.keyboard_handler.handle_vim_key('j');
+                let action = self.ui.keyboard_handler.handle_vim_key('j');
                 if action == crate::app::keyboard_shortcuts::KeyboardAction::MoveDown {
                     self.scroll_down();
                     self.sys.dirty = true;
                 }
             }
             (KeyCode::Char('k'), KeyModifiers::NONE)
-                if self.tui_config.behavior.vim_enabled && input_is_empty =>
+                if self.ui.tui_config.behavior.vim_enabled && input_is_empty =>
             {
                 // Push current position to undo stack before moving
                 self.push_undo_position();
 
-                let action = self.keyboard_handler.handle_vim_key('k');
+                let action = self.ui.keyboard_handler.handle_vim_key('k');
                 if action == crate::app::keyboard_shortcuts::KeyboardAction::MoveUp {
                     self.scroll_up();
                     self.sys.dirty = true;
                 }
             }
             (KeyCode::Char('g'), KeyModifiers::NONE)
-                if self.tui_config.behavior.vim_enabled && input_is_empty =>
+                if self.ui.tui_config.behavior.vim_enabled && input_is_empty =>
             {
                 // Handle 'g' for gg chord detection
-                let action = self.keyboard_handler.handle_vim_key('g');
+                let action = self.ui.keyboard_handler.handle_vim_key('g');
                 if action == crate::app::keyboard_shortcuts::KeyboardAction::JumpToStart {
                     // Push current position to undo stack before jumping
                     self.push_undo_position();
@@ -600,13 +617,13 @@ impl TUI {
                 }
             }
             (KeyCode::Char('G'), KeyModifiers::SHIFT)
-                if self.tui_config.behavior.vim_enabled && input_is_empty =>
+                if self.ui.tui_config.behavior.vim_enabled && input_is_empty =>
             {
                 // Jump to end (Vim: shift+G = capital G)
                 // Push current position to undo stack before jumping
                 self.push_undo_position();
 
-                let action = self.keyboard_handler.handle_vim_key('G');
+                let action = self.ui.keyboard_handler.handle_vim_key('G');
                 if action == crate::app::keyboard_shortcuts::KeyboardAction::JumpToEnd
                     && !self.session.messages.is_empty()
                 {
@@ -619,7 +636,7 @@ impl TUI {
             }
             (KeyCode::Char('p'), KeyModifiers::ALT) => {
                 if !self.is_any_overlay_open() {
-                    self.model_selector.show();
+                    self.overlays.model_selector.show();
                     self.sys.dirty = true;
                 }
             }
@@ -660,20 +677,20 @@ impl TUI {
     /// Persistent panels (sidebar, worker panel, team panel, tool panel) are
     /// excluded since they don't block modal interactions.
     pub(crate) fn is_any_overlay_open(&self) -> bool {
-        self.wizard.showing_wizard
-            || !self.tool_approval.pending_requests.is_empty()
-            || self.showing_error
-            || self.awaiting_clarification
+        self.session.wizard.showing_wizard
+            || !self.panels.tool_approval.pending_requests.is_empty()
+            || self.overlays.showing_error
+            || self.panels.awaiting_clarification
             || self.sys.compaction.showing_preview
-            || self.model_selector.is_visible()
-            || self.showing_provider_selector
-            || self.showing_command_palette
-            || self.showing_skill_palette
-            || self.showing_plugin_manager
-            || self.showing_marketplace_browser
-            || self.file_finder.is_visible()
-            || self.search_state.visible
-            || self.theme_preview.is_visible()
+            || self.overlays.model_selector.is_visible()
+            || self.overlays.showing_provider_selector
+            || self.overlays.showing_command_palette
+            || self.overlays.showing_skill_palette
+            || self.overlays.showing_plugin_manager
+            || self.overlays.showing_marketplace_browser
+            || self.search.file_finder.is_visible()
+            || self.search.search_state.visible
+            || self.theme.theme_preview.is_visible()
             || self.ui.help_state.visible
     }
 
@@ -682,18 +699,18 @@ impl TUI {
     /// Used by both Ctrl+C and Esc to ensure consistent overlay dismissal.
     /// Order matches the Esc handler priority.
     pub(crate) fn dismiss_any_overlay(&mut self) -> bool {
-        if self.wizard.showing_wizard {
-            self.wizard.showing_wizard = false;
+        if self.session.wizard.showing_wizard {
+            self.session.wizard.showing_wizard = false;
             return true;
         }
-        if self.tool_panel.showing_tool_result {
-            self.tool_panel.showing_tool_result = false;
-            self.tool_panel.tool_result_scroll_offset = 0;
+        if self.panels.tool_panel.showing_tool_result {
+            self.panels.tool_panel.showing_tool_result = false;
+            self.panels.tool_panel.tool_result_scroll_offset = 0;
             return true;
         }
-        if self.awaiting_clarification && self.clarification_panel.visible {
-            self.clarification_panel.visible = false;
-            self.awaiting_clarification = false;
+        if self.panels.awaiting_clarification && self.panels.clarification_panel.visible {
+            self.panels.clarification_panel.visible = false;
+            self.panels.awaiting_clarification = false;
             self.sys.dirty = true;
             return true;
         }
@@ -703,88 +720,88 @@ impl TUI {
             self.sys.dirty = true;
             return true;
         }
-        if self.error_manager.is_showing() {
-            self.error_manager.dismiss();
-            self.showing_error = false;
+        if self.theme.error_manager.is_showing() {
+            self.theme.error_manager.dismiss();
+            self.overlays.showing_error = false;
             self.sys.dirty = true;
             return true;
         }
-        if self.model_selector.is_visible() {
-            self.model_selector.hide();
+        if self.overlays.model_selector.is_visible() {
+            self.overlays.model_selector.hide();
             self.sys.dirty = true;
             return true;
         }
-        if self.showing_provider_selector {
-            self.showing_provider_selector = false;
+        if self.overlays.showing_provider_selector {
+            self.overlays.showing_provider_selector = false;
             self.sys.dirty = true;
             return true;
         }
-        if self.showing_command_palette {
-            self.showing_command_palette = false;
-            self.command_palette.hide();
-            self.command_palette.state_mut().clear_query();
+        if self.overlays.showing_command_palette {
+            self.overlays.showing_command_palette = false;
+            self.overlays.command_palette.hide();
+            self.overlays.command_palette.state_mut().clear_query();
             // Clear input to prevent palette search text from leaking into main input
             self.ui.input_handler.state.clear();
-            self.input_mode = self.ui.input_handler.state.mode;
+            self.sys.input_mode = self.ui.input_handler.state.mode;
             self.sys.dirty = true;
             return true;
         }
-        if self.showing_skill_palette {
-            self.showing_skill_palette = false;
+        if self.overlays.showing_skill_palette {
+            self.overlays.showing_skill_palette = false;
             self.ui.skill_palette.close();
             self.sys.dirty = true;
             return true;
         }
-        if self.showing_plugin_manager {
-            self.showing_plugin_manager = false;
+        if self.overlays.showing_plugin_manager {
+            self.overlays.showing_plugin_manager = false;
             self.ui.plugin_manager_ui.hide();
             self.sys.dirty = true;
             return true;
         }
-        if self.showing_marketplace_browser {
-            self.showing_marketplace_browser = false;
+        if self.overlays.showing_marketplace_browser {
+            self.overlays.showing_marketplace_browser = false;
             self.ui.marketplace_browser.close();
             self.sys.dirty = true;
             return true;
         }
-        if self.file_finder.is_visible() {
-            self.file_finder.hide();
+        if self.search.file_finder.is_visible() {
+            self.search.file_finder.hide();
             self.sys.dirty = true;
             return true;
         }
-        if self.search_state.visible {
-            self.search_state.visible = false;
-            self.search_state.query.clear();
+        if self.search.search_state.visible {
+            self.search.search_state.visible = false;
+            self.search.search_state.query.clear();
             self.sys.dirty = true;
             return true;
         }
-        if self.tool_panel.showing_tool_panel {
-            self.tool_panel.showing_tool_panel = false;
+        if self.panels.tool_panel.showing_tool_panel {
+            self.panels.tool_panel.showing_tool_panel = false;
             self.sys.dirty = true;
             return true;
         }
-        if self.worker_panel.visible {
-            self.worker_panel.visible = false;
+        if self.team.worker_panel.visible {
+            self.team.worker_panel.visible = false;
             self.sys.dirty = true;
             return true;
         }
-        if self.team_panel.visible {
-            self.team_panel.visible = false;
+        if self.team.team_panel.visible {
+            self.team.team_panel.visible = false;
             self.sys.dirty = true;
             return true;
         }
-        if self.show_task_dashboard {
-            self.show_task_dashboard = false;
+        if self.model.show_task_dashboard {
+            self.model.show_task_dashboard = false;
             self.sys.dirty = true;
             return true;
         }
-        if self.session_sidebar.is_visible() {
-            self.session_sidebar.hide();
+        if self.session.session_sidebar.is_visible() {
+            self.session.session_sidebar.hide();
             self.sys.dirty = true;
             return true;
         }
-        if self.theme_preview.is_visible() {
-            self.theme_preview.hide();
+        if self.theme.theme_preview.is_visible() {
+            self.theme.theme_preview.hide();
             self.sys.dirty = true;
             return true;
         }

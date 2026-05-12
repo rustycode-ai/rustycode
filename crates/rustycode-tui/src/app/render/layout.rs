@@ -102,10 +102,12 @@ impl FrameLayoutSnapshot {
         tui.ui.view.viewport_height = self.message_area.height.max(1) as usize;
         tui.ui.view.last_total_lines.set(self.total_lines);
         tui.ui.view.messages_area.set(self.message_area);
-        tui.ui.sidebar_area.set(self.sidebar_area.unwrap_or_default());
+        tui.ui
+            .sidebar_area
+            .set(self.sidebar_area.unwrap_or_default());
 
         {
-            let mut offsets = tui.message_line_offsets.borrow_mut();
+            let mut offsets = tui.search.message_line_offsets.borrow_mut();
             offsets.clear();
             offsets.extend_from_slice(&self.message_line_offsets);
         }

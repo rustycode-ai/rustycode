@@ -7,7 +7,7 @@
         use ratatui::text::{Line, Span};
         use ratatui::widgets::{Block, Clear, Paragraph};
 
-        if !tui.search_state.visible {
+        if !tui.search.search_state.visible {
             return;
         }
 
@@ -32,7 +32,7 @@
         ));
 
         // Query text (truncate if too long for the bar)
-        let query = &tui.search_state.query;
+        let query = &tui.search.search_state.query;
         let remaining_width = area.width as usize;
         // Reserve space for: "Search> " (8) + cursor (1) + match info (~15) + help (~30) = ~54
         let max_query = remaining_width.saturating_sub(54).max(10);
@@ -51,13 +51,13 @@
         spans.push(Span::styled("│", Style::default().fg(Color::Cyan)));
 
         // Match count
-        let match_info = if tui.search_state.match_count() == 0 {
+        let match_info = if tui.search.search_state.match_count() == 0 {
             " no matches".to_string()
         } else {
             format!(
                 " {}/{}",
-                tui.search_state.current_match_number(),
-                tui.search_state.match_count()
+                tui.search.search_state.current_match_number(),
+                tui.search.search_state.match_count()
             )
         };
         spans.push(Span::styled(match_info, Style::default().fg(Color::Gray)));

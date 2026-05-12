@@ -18,11 +18,12 @@ mod tests {
         let mut tui = create_test_tui();
 
         // Simulate that QuestionRequest already set awaiting_clarification
-        tui.awaiting_clarification = true;
-        tui.session.streaming.current_stream_content = "What format? How should I proceed?".to_string();
+        tui.panels.awaiting_clarification = true;
+        tui.session.streaming.current_stream_content =
+            "What format? How should I proceed?".to_string();
 
         // Manually test the guard logic (extracted from StreamChunk::Done handler)
-        let should_detect = !tui.awaiting_clarification;
+        let should_detect = !tui.panels.awaiting_clarification;
         assert!(
             !should_detect,
             "Should skip detection when awaiting_clarification is true"
@@ -32,7 +33,7 @@ mod tests {
         let initial_msg_count = tui.session.messages.len();
 
         // Simulate the guard check
-        if !tui.awaiting_clarification {
+        if !tui.panels.awaiting_clarification {
             tui.add_system_message("❓ The AI has some clarification questions".to_string());
         }
 
@@ -49,11 +50,11 @@ mod tests {
         // when awaiting_clarification is false
         let mut tui = create_test_tui();
 
-        tui.awaiting_clarification = false;
+        tui.panels.awaiting_clarification = false;
         tui.session.streaming.current_stream_content = "What format do you prefer?".to_string();
 
         // The guard should allow detection
-        let should_detect = !tui.awaiting_clarification;
+        let should_detect = !tui.panels.awaiting_clarification;
         assert!(
             should_detect,
             "Should detect when awaiting_clarification is false"
@@ -65,13 +66,16 @@ mod tests {
         // Verify that QuestionRequest chunk sets awaiting_clarification
         let mut tui = create_test_tui();
 
-        assert!(!tui.awaiting_clarification, "Initial state should be false");
+        assert!(
+            !tui.panels.awaiting_clarification,
+            "Initial state should be false"
+        );
 
         // Simulate what QuestionRequest handler does
-        tui.awaiting_clarification = true;
+        tui.panels.awaiting_clarification = true;
 
         assert!(
-            tui.awaiting_clarification,
+            tui.panels.awaiting_clarification,
             "Should be true after QuestionRequest"
         );
     }
@@ -83,8 +87,8 @@ mod tests {
         let _question_content = "What is your preferred format?";
 
         // Step 1: Simulate QuestionRequest handling
-        tui.awaiting_clarification = true;
-        let after_question_request = tui.awaiting_clarification;
+        tui.panels.awaiting_clarification = true;
+        let after_question_request = tui.panels.awaiting_clarification;
 
         // Step 2: Simulate Done handler guard check
         let should_skip_detection = after_question_request;
@@ -112,7 +116,7 @@ mod tests {
     fn test_handle_stream_chunk_done_without_clarification() {
         let mut tui = create_test_tui();
         tui.session.streaming.current_stream_content = "I will implement the feature.".to_string();
-        tui.awaiting_clarification = false;
+        tui.panels.awaiting_clarification = false;
 
         let initial_msg_count = tui.session.messages.len();
 
@@ -134,7 +138,7 @@ mod tests {
     fn test_handle_stream_chunk_done_with_clarification_not_awaiting() {
         let mut tui = create_test_tui();
         tui.session.streaming.current_stream_content = "What format do you prefer?".to_string();
-        tui.awaiting_clarification = false;
+        tui.panels.awaiting_clarification = false;
 
         // Simulate Done handler - with questions and not awaiting
         let questions = crate::ui::detect_questions(&tui.session.streaming.current_stream_content);
@@ -142,7 +146,7 @@ mod tests {
         assert!(!questions.is_empty(), "Questions should be detected");
 
         // The guard would allow setting up clarification
-        let should_setup = !tui.awaiting_clarification;
+        let should_setup = !tui.panels.awaiting_clarification;
         assert!(should_setup, "Should set up clarification panel");
     }
 
@@ -185,11 +189,13 @@ mod tests {
 
         // Verify only tool-2's entry was updated in panel history
         let tool1 = tui
+            .panels
             .tool_panel
             .tool_panel_history
             .iter()
             .find(|e| e.tool_id == "tool-1");
         let tool2 = tui
+            .panels
             .tool_panel
             .tool_panel_history
             .iter()
@@ -247,7 +253,8 @@ mod tests {
         });
 
         let active_start = tui
-            .session.active_tools
+            .session
+            .active_tools
             .get("tool-x")
             .map(|t| t.start_time)
             .expect("tool should be in active_tools");
@@ -338,7 +345,8 @@ mod tests {
 
         // Verify: exactly 2 messages (1 assistant + 1 system), no duplicate
         let assistant_count = tui
-            .session.messages
+            .session
+            .messages
             .iter()
             .filter(|m| m.role == MessageRole::Assistant)
             .count();
@@ -349,7 +357,8 @@ mod tests {
 
         // Verify: assistant message has the partial content
         let assistant = tui
-            .session.messages
+            .session
+            .messages
             .iter()
             .find(|m| m.role == MessageRole::Assistant)
             .expect("assistant message should exist");
@@ -360,7 +369,10 @@ mod tests {
 
         // Verify: system message still exists
         assert!(
-            tui.session.messages.iter().any(|m| m.role == MessageRole::System),
+            tui.session
+                .messages
+                .iter()
+                .any(|m| m.role == MessageRole::System),
             "system message should still be present"
         );
 
@@ -404,7 +416,8 @@ mod tests {
 
         // After Done: content should transfer to assistant message
         let assistant = tui
-            .session.messages
+            .session
+            .messages
             .iter()
             .find(|m| m.role == MessageRole::Assistant);
         assert!(

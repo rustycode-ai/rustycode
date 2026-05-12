@@ -109,10 +109,10 @@ impl PolishedRenderer {
             )]));
 
             // Check if API key is missing and show a warning (cached in TUI struct)
-            if !tui.api_key_warning.is_empty() {
+            if !tui.model.api_key_warning.is_empty() {
                 lines.push(Line::raw(""));
                 lines.push(Line::from(vec![ratatui::text::Span::styled(
-                    format!("  {}", tui.api_key_warning),
+                    format!("  {}", tui.model.api_key_warning),
                     Style::default().fg(Color::Rgb(255, 200, 80)),
                 )]));
             }
@@ -172,7 +172,7 @@ impl PolishedRenderer {
 
         for (msg_idx, msg) in tui.session.messages.iter().enumerate() {
             // Get vertical bar style (determines border color)
-            let tc = tui.theme_colors.lock().unwrap_or_else(|e| e.into_inner());
+            let tc = tui.theme.theme_colors.lock().unwrap_or_else(|e| e.into_inner());
             let (pipe_char, pipe_color) = tc.message_pipe_style(&msg.role);
             drop(tc);
 
@@ -281,7 +281,7 @@ impl PolishedRenderer {
                     .collect();
 
                 // Apply search highlighting if search is active
-                if !tui.search_state.query.is_empty() {
+                if !tui.search.search_state.query.is_empty() {
                     lines = apply_search_highlighting(tui, &lines, msg_idx);
                 }
 
@@ -374,7 +374,7 @@ impl PolishedRenderer {
         // Key: indexed by msg_idx (message index), not chunk position,
         // and accounts for line wrapping (div_ceil) to match scroll coordinates.
         {
-            let mut offsets = tui.message_line_offsets.borrow_mut();
+            let mut offsets = tui.search.message_line_offsets.borrow_mut();
             offsets.clear();
             offsets.resize(tui.session.messages.len(), usize::MAX);
             let mut acc = 0usize;

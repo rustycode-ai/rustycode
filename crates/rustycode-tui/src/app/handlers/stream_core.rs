@@ -35,10 +35,14 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
         // Append safe content to current stream content only.
         // The assistant message's .content is set atomically in
         // StreamChunk::Done to avoid text duplication.
-        tui.session.streaming
+        tui.session
+            .streaming
             .current_stream_content
             .reserve(renderable.len());
-        tui.session.streaming.current_stream_content.push_str(&renderable);
+        tui.session
+            .streaming
+            .current_stream_content
+            .push_str(&renderable);
 
         tui.session.streaming.is_streaming = true;
         tui.session.streaming.chunks_received += 1;
@@ -46,7 +50,7 @@ fn handle_text_chunk(tui: &mut TUI, text: String) {
         if tui.session.streaming.chunks_received == 1 {
             tui.update_terminal_title();
         }
-        if tui.renderer_mode.is_brutalist() {
+        if tui.sys.renderer_mode.is_brutalist() {
             mark_dirty_and_scroll(tui);
         }
     } else {
@@ -180,8 +184,8 @@ pub fn handle_stream_chunk(tui: &mut TUI, chunk: StreamChunk) {
             cache_read_tokens,
             cache_creation_tokens,
         } => {
-            tui.token_budget.session_cache_read_tokens += cache_read_tokens;
-            tui.token_budget.session_cache_creation_tokens += cache_creation_tokens;
+            tui.model.token_budget.session_cache_read_tokens += cache_read_tokens;
+            tui.model.token_budget.session_cache_creation_tokens += cache_creation_tokens;
         }
         StreamChunk::ExecutionTrace(trace) => handle_execution_trace_chunk(tui, trace),
         StreamChunk::SystemMessage(msg) => handle_system_message_chunk(tui, msg),

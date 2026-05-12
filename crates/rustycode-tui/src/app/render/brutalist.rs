@@ -64,10 +64,10 @@ impl TUI {
         // Context length estimate = last prompt_tokens + last output_tokens.
         // prompt_tokens includes full history; output_tokens is the response that
         // will be appended to the next request's prompt.
-        if self.token_budget.last_turn_input_tokens > 0 {
-            context_usage.update(self.token_budget.last_turn_input_tokens, self.token_budget.last_turn_output_tokens);
+        if self.model.token_budget.last_turn_input_tokens > 0 {
+            context_usage.update(self.model.token_budget.last_turn_input_tokens, self.model.token_budget.last_turn_output_tokens);
         } else {
-            context_usage.update(self.token_budget.session_input_tokens, 0);
+            context_usage.update(self.model.token_budget.session_input_tokens, 0);
         }
         context_usage.set_limit(self.sys.compaction.context_monitor.max_tokens);
 
@@ -109,9 +109,9 @@ impl TUI {
             .is_streaming(self.session.streaming.is_streaming)
             .scroll(self.ui.view.scroll_offset_line, self.ui.view.user_scrolled)
             .selection(self.ui.view.selected_message, self.ui.view.viewport_height)
-            .theme(self.theme_colors.clone())
+            .theme(self.theme.theme_colors.clone())
             .statuses(bs.agent_status, bs.auto_memory_status)
-            .input_mode(self.input_mode)
+            .input_mode(self.sys.input_mode)
             .rate_limit(self.integration.rate_limit.until)
             .streaming_state(
                 self.session.streaming.chunks_received,
@@ -121,15 +121,15 @@ impl TUI {
             .context_usage(bs.context_usage)
             .tool_status(bs.active_tool_count, bs.active_tool_display)
             .session_info(
-                self.token_budget.session_cost_usd,
-                self.token_budget.session_input_tokens,
-                self.token_budget.session_output_tokens,
-                self.token_budget.session_cache_read_tokens,
-                self.token_budget.last_turn_input_tokens,
-                &self.current_model,
+                self.model.token_budget.session_cost_usd,
+                self.model.token_budget.session_input_tokens,
+                self.model.token_budget.session_output_tokens,
+                self.model.token_budget.session_cache_read_tokens,
+                self.model.token_budget.last_turn_input_tokens,
+                &self.model.current_model,
             )
-            .warnings(self.api_key_warning.clone())
-            .collapsed(self.status_bar_collapsed, self.footer_collapsed)
+            .warnings(self.model.api_key_warning.clone())
+            .collapsed(self.ui.status_bar_collapsed, self.ui.footer_collapsed)
             .input_state(
                 bs.input_line_count,
                 self.session.streaming.queued_message.is_some(),
@@ -140,11 +140,11 @@ impl TUI {
             .reverse_search(reverse_query, reverse_match, reverse_total)
             .history_browsing(hist_pos, hist_total)
             .search(
-                self.search_state.query.clone(),
-                self.search_state.matches.clone(),
-                self.search_state.current_match_index,
+                self.search.search_state.query.clone(),
+                self.search.search_state.matches.clone(),
+                self.search.search_state.current_match_index,
             )
-            .session_start(Some(self.start_time))
+            .session_start(Some(self.integration.start_time))
             .cursor_position(
                 self.ui.input_handler.state.cursor_col,
                 self.ui.input_handler.state.cursor_row,

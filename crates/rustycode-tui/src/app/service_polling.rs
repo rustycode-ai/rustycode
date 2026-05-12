@@ -94,7 +94,8 @@ impl TUI {
         // Poll workspace updates
         let had_workspace = {
             let update = self
-                .integration.services
+                .integration
+                .services
                 .workspace_channel_mut()
                 .and_then(|ch| ch.try_recv());
             match update {
@@ -109,7 +110,8 @@ impl TUI {
         // Poll slash command results
         let had_command = {
             let result = self
-                .integration.services
+                .integration
+                .services
                 .command_channel_mut()
                 .and_then(|ch| ch.try_recv());
             match result {
@@ -145,7 +147,8 @@ impl TUI {
 
         // Poll background bash command result
         let bash_result = {
-            let mut store = self.session
+            let mut store = self
+                .session
                 .streaming
                 .pending_bash_result
                 .lock()
@@ -190,13 +193,13 @@ impl TUI {
 
     /// Poll team events from the orchestrator
     fn poll_team_events(&mut self) {
-        if let Some(ref mut rx) = self.team_handler.event_rx {
+        if let Some(ref mut rx) = self.team.team_handler.event_rx {
             let mut team_messages: Vec<String> = Vec::new();
             // Drain all available team events (they're small and cheap to process)
             loop {
                 match rx.try_recv() {
                     Ok(event) => {
-                        self.team_panel.handle_event(&event);
+                        self.team.team_panel.handle_event(&event);
                         self.sys.dirty = true;
 
                         // Collect chat messages for key events (applied after loop
@@ -247,7 +250,7 @@ impl TUI {
                     Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
                     Err(tokio::sync::broadcast::error::TryRecvError::Closed) => {
                         // Channel closed — orchestrator finished
-                        self.team_handler.event_rx = None;
+                        self.team.team_handler.event_rx = None;
                         break;
                     }
                     Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => {
@@ -269,18 +272,18 @@ impl TUI {
 
         // Skip polling if the worker panel isn't visible and there are no active agents
         // This avoids needless global_worker_registry() calls every frame
-        if !self.worker_panel.visible && self.agent_manager.agents().is_empty() {
+        if !self.team.worker_panel.visible && self.team.agent_manager.agents().is_empty() {
             return;
         }
 
         let registry = global_worker_registry();
         let workers = registry.list();
 
-        let prev_count = self.worker_panel.total_workers();
-        self.worker_panel.update_from_workers(&workers);
+        let prev_count = self.team.worker_panel.total_workers();
+        self.team.worker_panel.update_from_workers(&workers);
 
         // Mark dirty only when worker count or panel visibility changed
-        if prev_count != workers.len() || (!workers.is_empty() && self.worker_panel.visible) {
+        if prev_count != workers.len() || (!workers.is_empty() && self.team.worker_panel.visible) {
             self.sys.dirty = true;
         }
     }
@@ -323,7 +326,9 @@ impl TUI {
     fn handle_scheduled_phase_event(&mut self, event: ScheduledPhaseEvent) {
         match event {
             ScheduledPhaseEvent::PhaseReady { phase_id, .. } => {
-                if self.integration.active_scheduled_phases.len() >= self.integration.max_concurrent_phases {
+                if self.integration.active_scheduled_phases.len()
+                    >= self.integration.max_concurrent_phases
+                {
                     tracing::warn!(
                         "Scheduler: skipping phase '{}' — concurrency limit ({}) reached",
                         phase_id,
@@ -335,7 +340,9 @@ impl TUI {
                     ));
                     return;
                 }
-                self.integration.active_scheduled_phases.insert(phase_id.clone());
+                self.integration
+                    .active_scheduled_phases
+                    .insert(phase_id.clone());
                 self.add_system_message(format!("⏰ Scheduled phase '{}' triggered", phase_id));
                 self.auto_scroll();
             }
@@ -343,7 +350,9 @@ impl TUI {
                 phase_id,
                 cron_expr,
             } => {
-                self.integration.active_scheduled_phases.insert(phase_id.clone());
+                self.integration
+                    .active_scheduled_phases
+                    .insert(phase_id.clone());
                 self.add_system_message(format!(
                     "⏰ Scheduled phase '{}' starting (cron: {})",
                     phase_id, cron_expr

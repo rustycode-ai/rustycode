@@ -84,7 +84,7 @@ pub(super) fn handle_tool_start_chunk(
         input_json.is_some()
     );
 
-    let plan_blocked = match tui.plan_mode.is_tool_allowed(&tool_name) {
+    let plan_blocked = match tui.model.plan_mode.is_tool_allowed(&tool_name) {
         Ok(()) => false,
         Err(reason) => {
             const DOC_EXTENSIONS: &[&str] = &[".md", ".txt", ".rst", ".adoc", ".doc", ".docx"];
@@ -114,6 +114,7 @@ pub(super) fn handle_tool_start_chunk(
 
     if plan_blocked {
         let convoy_id = tui
+            .model
             .plan_mode
             .current_plan()
             .map(|p| p.id.clone())
@@ -123,7 +124,7 @@ pub(super) fn handle_tool_start_chunk(
         return;
     }
 
-    let hooks_dir = tui.hook_manager.hooks_dir().to_path_buf();
+    let hooks_dir = tui.integration.hook_manager.hooks_dir().to_path_buf();
     let ctx = serde_json::json!({"tool_name": &tool_name, "tool_id": &tool_id});
     spawn_hook(
         hooks_dir,
@@ -164,14 +165,17 @@ pub(super) fn handle_tool_start_chunk(
     };
 
     let panel_summary = format!("{}...", tool_name);
-    tui.tool_panel.tool_panel_history.push(new_running_tool(
-        tool_id.clone(),
-        tool_name.clone(),
-        input_json.clone(),
-        panel_summary,
-    ));
-    if tui.tool_panel.tool_panel_history.len() > 50 {
-        tui.tool_panel.tool_panel_history.remove(0);
+    tui.panels
+        .tool_panel
+        .tool_panel_history
+        .push(new_running_tool(
+            tool_id.clone(),
+            tool_name.clone(),
+            input_json.clone(),
+            panel_summary,
+        ));
+    if tui.panels.tool_panel.tool_panel_history.len() > 50 {
+        tui.panels.tool_panel.tool_panel_history.remove(0);
     }
 
     tui.session.active_tools.insert(
@@ -229,7 +233,7 @@ pub(super) fn handle_tool_progress_chunk(
     };
 
     // Update tool panel history entries for this tool (show progress)
-    for entry in tui.tool_panel.tool_panel_history.iter_mut().rev() {
+    for entry in tui.panels.tool_panel.tool_panel_history.iter_mut().rev() {
         if matches_tool(entry) && entry.status == ToolStatus::Running {
             let preview = output_preview.as_deref().unwrap_or("");
             if !preview.is_empty() {
@@ -306,7 +310,8 @@ pub(super) fn handle_tool_complete_chunk(
     );
 
     let context_summary = tui
-        .session.messages
+        .session
+        .messages
         .iter()
         .rev()
         .find_map(|m| {
@@ -364,7 +369,7 @@ pub(super) fn handle_tool_complete_chunk(
         }
     }
 
-    for entry in tui.tool_panel.tool_panel_history.iter_mut().rev() {
+    for entry in tui.panels.tool_panel.tool_panel_history.iter_mut().rev() {
         if entry.tool_id == tool_id {
             entry.status = if success {
                 ToolStatus::Complete
@@ -391,7 +396,9 @@ pub(super) fn handle_tool_complete_chunk(
     // Toast notification for failed tools so the user notices even
     // when scrolled away from the tool output.
     if !success {
-        tui.toast_manager.warning(format!("{} failed", tool_name));
+        tui.theme
+            .toast_manager
+            .warning(format!("{} failed", tool_name));
     }
 
     // Doom loop detection: record tool result for pattern analysis.
@@ -405,7 +412,7 @@ pub(super) fn handle_tool_complete_chunk(
             if reasoning {
                 let triggered = budget.record_exploration();
                 if triggered {
-                    tui.toast_manager.warning(
+                    tui.theme.toast_manager.warning(
                         "Reasoning budget exhausted — STOP_AND_CODE activated".to_string(),
                     );
                 }
@@ -420,7 +427,8 @@ pub(super) fn handle_tool_complete_chunk(
 
     // Extract a key argument (file path, command, etc.) for fingerprinting.
     let key_arg = tui
-        .session.messages
+        .session
+        .messages
         .iter()
         .rev()
         .find_map(|m| {
@@ -443,18 +451,21 @@ pub(super) fn handle_tool_complete_chunk(
             })
         });
     if !reasoning {
-        tui.session.doom_loop
+        tui.session
+            .doom_loop
             .record(&tool_name, key_arg.as_deref(), success);
     }
 
     if tui.session.doom_loop.is_doom_loop() {
         if let Some(reason) = tui.session.doom_loop.doom_loop_reason() {
-            tui.toast_manager.warning(format!("Doom loop: {}", reason));
+            tui.theme
+                .toast_manager
+                .warning(format!("Doom loop: {}", reason));
         }
     }
 
     let post_ctx = serde_json::json!({"tool_name": &tool_name, "success": success});
-    let post_dir = tui.hook_manager.hooks_dir().to_path_buf();
+    let post_dir = tui.integration.hook_manager.hooks_dir().to_path_buf();
     spawn_hook(
         post_dir,
         rustycode_tools::hooks::HookTrigger::PostToolUse,

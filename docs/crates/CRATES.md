@@ -277,7 +277,16 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ---
 
-## Layer 7: Integration & Support (17 crates)
+## Layer 7: Integration & Support (19 crates)
+
+### rustycode-tools-security
+**Purpose:** Tool security validation, permission management, and sandboxing integration
+**Modules:** approve, cross_platform, patterns, permission, permission_store, sandbox, trust, validation
+**Key Types:** PermissionSet, TrustLevel, ApprovalPolicy
+**Features:** Cross-platform permission checks, sandbox policy enforcement, pattern-based security rules
+**Dependencies:** rustycode-protocol, rustycode-tools-api, rustycode-sandbox, regex, tokio
+**Used By:** rustycode-tools (security gate in execution pipeline)
+**See Also:** [README](../../crates/rustycode-tools-security/README.md)
 
 ### rustycode-tools-registry
 **Purpose:** Tool registry and discovery system  
@@ -346,6 +355,14 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 **Features:** Local LLM inference via LiteRT
 **Dependencies:** tokio, rustycode-llm
 **See Also:** [README](../../crates/rustycode-litert/README.md)
+
+### rustycode-ringbuf
+**Purpose:** Bounded SPSC (single-producer single-consumer) ring buffer for async data streaming
+**Key Types:** RingBuffer, Producer, Consumer
+**Features:** Split Producer/Consumer handles via Arc, lock-free SPSC, fixed-capacity bounded buffer
+**Dependencies:** (no external deps beyond std)
+**Used By:** rustycode-tui, streaming subsystems
+**See Also:** [README](../../crates/rustycode-ringbuf/README.md)
 
 ### rustycode-agent-runtime
 **Purpose:** Shared thin LLM↔tool loop (no heuristics, no behavioral injection)
@@ -550,7 +567,7 @@ Comprehensive reference for all major crates in the RustyCode workspace, organiz
 
 ---
 
-**Last Updated:** 2026-05-04  
-**Total Documented Crates:** 47  
-**Layers:** 8  
-**Major Components:** 47
+**Last Updated:** 2026-05-12
+**Total Documented Crates:** 49
+**Layers:** 8
+**Major Components:** 49

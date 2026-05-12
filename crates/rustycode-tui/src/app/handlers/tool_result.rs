@@ -37,7 +37,8 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
     // Pre-extract input_json from messages (immutable borrow) BEFORE any
     // mutable borrow of tui.session.messages. ToolComplete may have already removed
     // the entry from active_tools, so we fall back to the message history.
-    let fallback_input_json = tui.session
+    let fallback_input_json = tui
+        .session
         .active_tools
         .get(&result.id)
         .and_then(|t| t.input_json.clone())
@@ -52,7 +53,8 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
             })
         });
     let fallback_start_time = tui
-        .session.active_tools
+        .session
+        .active_tools
         .get(&result.id)
         .map(|t| t.start_time)
         .unwrap_or_else(chrono::Utc::now);
@@ -240,7 +242,8 @@ fn update_tool_panel_history(
 ) {
     // Look up duration from the message's tool execution that was just updated
     let panel_duration = tui
-        .session.messages
+        .session
+        .messages
         .last()
         .and_then(|m| m.tool_executions.as_ref())
         .and_then(|tools| tools.iter().rev().find(|t| t.tool_id == result.id))
@@ -248,6 +251,7 @@ fn update_tool_panel_history(
 
     // Find the running entry for this tool and update it in-place
     let updated_existing = tui
+        .panels
         .tool_panel
         .tool_panel_history
         .iter_mut()
@@ -278,9 +282,9 @@ fn update_tool_panel_history(
             progress_total: None,
             progress_description: None,
         };
-        tui.tool_panel.tool_panel_history.push(tool_entry);
-        if tui.tool_panel.tool_panel_history.len() > 50 {
-            tui.tool_panel.tool_panel_history.remove(0);
+        tui.panels.tool_panel.tool_panel_history.push(tool_entry);
+        if tui.panels.tool_panel.tool_panel_history.len() > 50 {
+            tui.panels.tool_panel.tool_panel_history.remove(0);
         }
     }
 }
@@ -300,18 +304,23 @@ fn update_ast_phase_state(tui: &mut TUI, result: &ToolResult) {
                 let next_needed = parsed["next_thought_needed"].as_bool().unwrap_or(true);
                 let confidence = parsed["confidence"].as_u64().unwrap_or(0) as usize;
 
-                if !tui.ast_phase_state.is_active() {
-                    tui.ast_phase_state
-                        .activate(phase_name, phase_num, "Structured thinking");
+                if !tui.panels.ast_phase_state.is_active() {
+                    tui.panels.ast_phase_state.activate(
+                        phase_name,
+                        phase_num,
+                        "Structured thinking",
+                    );
                 } else {
-                    tui.ast_phase_state.phase = phase_name.to_string();
-                    tui.ast_phase_state.phase_index = phase_num;
+                    tui.panels.ast_phase_state.phase = phase_name.to_string();
+                    tui.panels.ast_phase_state.phase_index = phase_num;
                 }
                 // Use confidence as progress indicator (0-100 maps to phase completion)
-                tui.ast_phase_state.update_milestones(confidence, 100);
+                tui.panels
+                    .ast_phase_state
+                    .update_milestones(confidence, 100);
 
                 if !next_needed {
-                    tui.ast_phase_state.complete();
+                    tui.panels.ast_phase_state.complete();
                 }
 
                 // Surface loop warning as a system message
@@ -329,7 +338,7 @@ fn update_ast_phase_state(tui: &mut TUI, result: &ToolResult) {
             }
         }
         ToolOutput::Error(_) | ToolOutput::Timeout => {
-            tui.ast_phase_state.deactivate();
+            tui.panels.ast_phase_state.deactivate();
         }
     }
 }

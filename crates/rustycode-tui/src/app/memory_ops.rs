@@ -46,7 +46,11 @@ impl TUI {
         }
 
         // Get injection summary for display
-        get_injection_summary(user_message, &all_memories, &self.sys.memory_injection_config)
+        get_injection_summary(
+            user_message,
+            &all_memories,
+            &self.sys.memory_injection_config,
+        )
     }
 
     /// Inject relevant memories into user message if enabled
@@ -90,12 +94,18 @@ impl TUI {
         }
 
         // Prepare injection
-        let enhanced_message =
-            inject_memories(user_message, &all_memories, &self.sys.memory_injection_config);
+        let enhanced_message = inject_memories(
+            user_message,
+            &all_memories,
+            &self.sys.memory_injection_config,
+        );
 
         // Show injection summary to user
-        let summary =
-            get_injection_summary(user_message, &all_memories, &self.sys.memory_injection_config);
+        let summary = get_injection_summary(
+            user_message,
+            &all_memories,
+            &self.sys.memory_injection_config,
+        );
 
         if !summary.is_empty() {
             // Add system message to show injection happened
@@ -213,7 +223,8 @@ impl TUI {
             return;
         }
 
-        if self.sys
+        if self
+            .sys
             .compaction
             .compaction_config
             .auto_compact_state
@@ -221,7 +232,8 @@ impl TUI {
         {
             tracing::debug!(
                 "Auto-compaction disabled after {} consecutive failures",
-                self.sys.compaction
+                self.sys
+                    .compaction
                     .compaction_config
                     .auto_compact_state
                     .consecutive_failures
@@ -235,8 +247,9 @@ impl TUI {
         }
 
         let effective_max = self.sys.compaction.compaction_config.effective_max_tokens();
-        let threshold_tokens =
-            (effective_max as f64 * self.sys.compaction.compaction_config.warning_threshold) as usize;
+        let threshold_tokens = (effective_max as f64
+            * self.sys.compaction.compaction_config.warning_threshold)
+            as usize;
 
         if self.sys.compaction.context_monitor.current_tokens >= threshold_tokens {
             tracing::info!(
@@ -258,7 +271,7 @@ impl TUI {
         let strategy = self.sys.compaction.compaction_config.strategy;
 
         tracing::debug!("Executing compaction with strategy: {:?}", strategy);
-        self.toast_manager.info("Compacting context...");
+        self.theme.toast_manager.info("Compacting context...");
 
         match execute_compaction_fn(self.session.messages.clone(), strategy) {
             Ok(compacted) => {
@@ -275,10 +288,14 @@ impl TUI {
                 self.ui.view.scroll_offset_line = 0;
                 self.ui.view.user_scrolled = false;
 
-                self.sys.compaction.context_monitor.update(&self.session.messages);
-                self.token_budget.last_turn_input_tokens =
+                self.sys
+                    .compaction
+                    .context_monitor
+                    .update(&self.session.messages);
+                self.model.token_budget.last_turn_input_tokens =
                     self.sys.compaction.context_monitor.current_tokens;
-                self.sys.compaction
+                self.sys
+                    .compaction
                     .compaction_config
                     .auto_compact_state
                     .on_success();
@@ -294,19 +311,21 @@ impl TUI {
                     "💾 Context compacted: {} → {} messages",
                     old_count, new_count
                 ));
-                self.toast_manager.success(format!(
+                self.theme.toast_manager.success(format!(
                     "Context compacted: {} → {} messages",
                     old_count, new_count
                 ));
             }
             Err(e) => {
-                self.sys.compaction
+                self.sys
+                    .compaction
                     .compaction_config
                     .auto_compact_state
                     .on_failure();
                 tracing::error!("Compaction failed: {}", e);
                 self.add_system_message(format!("⚠ Compaction failed: {}", e));
-                self.toast_manager
+                self.theme
+                    .toast_manager
                     .error(format!("Compaction failed: {}", e));
             }
         }

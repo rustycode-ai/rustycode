@@ -90,7 +90,8 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
 
     // Check for pending or in-progress tasks
     let pending_tasks: Vec<_> = tui
-        .workspace.workspace_tasks
+        .workspace
+        .workspace_tasks
         .tasks
         .iter()
         .filter(|t| t.status == TaskStatus::Pending || t.status == TaskStatus::InProgress)
@@ -98,7 +99,8 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
 
     // Check for incomplete todos
     let incomplete_todos: Vec<_> = tui
-        .workspace.workspace_tasks
+        .workspace
+        .workspace_tasks
         .todos
         .iter()
         .filter(|t| {
@@ -138,7 +140,8 @@ pub(super) fn check_and_trigger_auto_continue(tui: &mut TUI) {
     tui.session.streaming.begin_streaming();
 
     if let Err(e) = tui
-        .integration.services
+        .integration
+        .services
         .send_message_with_history(context, Some(history), None)
     {
         tracing::error!("Failed to send auto-continue message: {}", e);

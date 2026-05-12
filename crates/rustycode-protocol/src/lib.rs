@@ -182,6 +182,9 @@ pub mod team;
 // Agent communication protocol
 pub mod agent_protocol;
 
+// Submission Queue — TUI → Core commands
+pub mod op;
+
 // Stream events from the agent loop (raw, granular events)
 pub mod stream_event;
 
@@ -254,6 +257,9 @@ pub use plan::{Plan, PlanStatus, PlanStep, StepStatus, StepToolExecution};
 
 // Event types
 pub use event::{EventKind, SessionEvent};
+
+// Op types (TUI → Core commands)
+pub use op::Op;
 
 // Stream event types (raw agent events)
 pub use stream_event::{ApprovalDecision, StreamEvent, StreamPlanStep};

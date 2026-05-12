@@ -71,7 +71,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     } else {
         None
     };
-    let base_delay_secs = server_retry_after.unwrap_or_else(|| tui.integration.rate_limit.backoff_delay_secs());
+    let base_delay_secs =
+        server_retry_after.unwrap_or_else(|| tui.integration.rate_limit.backoff_delay_secs());
     let jitter = (base_delay_secs as f64 * 0.25) as isize;
     let random_jitter = if jitter > 0 {
         let nanos = SystemTime::now()
@@ -85,7 +86,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     let delay_secs = (base_delay_secs as isize + random_jitter).max(1) as u64;
 
     // Set rate limit countdown with exponential backoff
-    tui.integration.rate_limit.until = Some(std::time::Instant::now() + Duration::from_secs(delay_secs));
+    tui.integration.rate_limit.until =
+        Some(std::time::Instant::now() + Duration::from_secs(delay_secs));
 
     // Remove previous retry message if exists
     if let Some(prev_idx) = tui.integration.rate_limit.message_index.take() {
@@ -94,7 +96,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
                 if msg.content.contains("Retrying now") || msg.content.contains("Auto-retrying") {
                     tui.session.messages.remove(prev_idx);
                     if prev_idx < tui.ui.view.selected_message {
-                        tui.ui.view.selected_message = tui.ui.view.selected_message.saturating_sub(1);
+                        tui.ui.view.selected_message =
+                            tui.ui.view.selected_message.saturating_sub(1);
                     }
                 }
             }
@@ -122,7 +125,8 @@ pub(super) fn handle_error_chunk(tui: &mut TUI, err: StreamError) {
     tui.integration.rate_limit.auto_retry_cancelled = false;
 
     // Increment retry count for next exponential backoff
-    tui.integration.rate_limit.retry_count = tui.integration.rate_limit.retry_count.saturating_add(1);
+    tui.integration.rate_limit.retry_count =
+        tui.integration.rate_limit.retry_count.saturating_add(1);
 
     tui.auto_scroll();
 

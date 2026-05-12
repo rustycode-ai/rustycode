@@ -19,7 +19,9 @@ impl TUI {
             }
             Err(e) => {
                 tracing::error!("Failed to copy clipboard payload: {}", e);
-                self.toast_manager.error(format!("Failed to copy: {}", e));
+                self.theme
+                    .toast_manager
+                    .error(format!("Failed to copy: {}", e));
                 self.add_system_message(format!("[X] Failed to copy: {}", e));
                 return Err(e);
             }
@@ -102,7 +104,7 @@ impl TUI {
                 end,
                 start_pos,
                 end_pos,
-                &self.message_areas,
+                &self.search.message_areas,
             );
 
             if selected_lines.is_empty() {
@@ -129,7 +131,7 @@ impl TUI {
 
     /// Copy the sidebar contents to clipboard.
     pub(crate) fn copy_sidebar_text(&mut self) -> Result<()> {
-        let content = self.session_sidebar.copyable_text();
+        let content = self.session.session_sidebar.copyable_text();
         if content.trim().is_empty() {
             self.add_system_message("No sidebar text to copy".to_string());
             self.sys.dirty = true;
@@ -174,7 +176,8 @@ impl TUI {
     /// Copy entire conversation to clipboard (excludes system messages and tool panel)
     pub(crate) fn copy_all_conversation(&mut self) -> Result<()> {
         let content = self
-            .session.messages
+            .session
+            .messages
             .iter()
             .filter_map(|msg| match msg.role {
                 MessageRole::User => Some(format!("User: {}", msg.content)),
@@ -277,7 +280,8 @@ impl TUI {
             .context("failed to export conversation as markdown")?;
 
         let msg_count = self
-            .session.messages
+            .session
+            .messages
             .iter()
             .filter(|m| {
                 matches!(
@@ -290,7 +294,8 @@ impl TUI {
 
         tracing::debug!("Exported {} messages to {}", msg_count, path.display());
 
-        self.toast_manager
+        self.theme
+            .toast_manager
             .success(format!("✓ Exported {} messages", msg_count));
 
         let success_msg = format!(
@@ -350,8 +355,14 @@ impl TUI {
         self.session.messages.remove(last_ai_msg_idx);
         if last_ai_msg_idx < self.ui.view.selected_message {
             self.ui.view.selected_message = self.ui.view.selected_message.saturating_sub(1);
-        } else if last_ai_msg_idx == self.ui.view.selected_message && !self.session.messages.is_empty() {
-            self.ui.view.selected_message = self.ui.view.selected_message.min(self.session.messages.len() - 1);
+        } else if last_ai_msg_idx == self.ui.view.selected_message
+            && !self.session.messages.is_empty()
+        {
+            self.ui.view.selected_message = self
+                .ui
+                .view
+                .selected_message
+                .min(self.session.messages.len() - 1);
         }
 
         // Update dirty flag
@@ -363,12 +374,13 @@ impl TUI {
 
         // Set streaming state before send to prevent double-Enter races
         self.session.streaming.begin_streaming();
-        self.tool_panel.reset();
+        self.panels.tool_panel.reset();
         self.session.active_tools.clear();
 
-        if let Err(e) = self
-            .integration.services
-            .send_message_with_history(user_prompt, Some(history), None)
+        if let Err(e) =
+            self.integration
+                .services
+                .send_message_with_history(user_prompt, Some(history), None)
         {
             tracing::error!("Failed to regenerate response: {}", e);
             self.reset_streaming_state();
@@ -393,7 +405,7 @@ impl TUI {
 
             crate::app::tasks::save_tasks_with_storage(
                 &self.workspace.workspace_tasks,
-                self.storage.as_deref(),
+                self.integration.storage.as_deref(),
                 self.integration.services.cwd(),
                 None,
             );

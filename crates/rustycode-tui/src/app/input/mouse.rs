@@ -6,21 +6,25 @@ use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
 impl TUI {
     fn scroll_help_by(&mut self, lines: usize, down: bool) {
         if down {
-            self.ui.help_state.scroll_offset = self.ui.help_state.scroll_offset.saturating_add(lines);
+            self.ui.help_state.scroll_offset =
+                self.ui.help_state.scroll_offset.saturating_add(lines);
         } else {
-            self.ui.help_state.scroll_offset = self.ui.help_state.scroll_offset.saturating_sub(lines);
+            self.ui.help_state.scroll_offset =
+                self.ui.help_state.scroll_offset.saturating_sub(lines);
         }
         self.sys.dirty = true;
     }
 
     fn scroll_tool_result_by(&mut self, lines: usize, down: bool) {
         if down {
-            self.tool_panel.tool_result_scroll_offset = self
+            self.panels.tool_panel.tool_result_scroll_offset = self
+                .panels
                 .tool_panel
                 .tool_result_scroll_offset
                 .saturating_add(lines);
         } else {
-            self.tool_panel.tool_result_scroll_offset = self
+            self.panels.tool_panel.tool_result_scroll_offset = self
+                .panels
                 .tool_panel
                 .tool_result_scroll_offset
                 .saturating_sub(lines);
@@ -34,9 +38,9 @@ impl TUI {
     /// The sidebar is visible by default, so it must only consume wheel input when the
     /// cursor is actually over the sidebar area.
     pub(crate) fn handle_mouse_scroll(&mut self, mouse: MouseEvent) {
-        let scroll_speed = self.tui_config.behavior.mouse_scroll_speed();
+        let scroll_speed = self.ui.tui_config.behavior.mouse_scroll_speed();
 
-        if self.tool_panel.showing_tool_result {
+        if self.panels.tool_panel.showing_tool_result {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
                     self.scroll_tool_result_by(scroll_speed as usize, false);
@@ -61,20 +65,20 @@ impl TUI {
         let sidebar_area = self.ui.sidebar_area.get();
         let sidebar_valid = sidebar_area.width > 0 && sidebar_area.height > 0;
         let mouse_in_sidebar = sidebar_valid
-            && self.session_sidebar.is_visible()
+            && self.session.session_sidebar.is_visible()
             && Self::mouse_point_in_area((mouse.column, mouse.row), sidebar_area);
 
         if mouse_in_sidebar {
             match mouse.kind {
                 MouseEventKind::ScrollUp => {
                     for _ in 0..scroll_speed {
-                        self.session_sidebar.scroll_up();
+                        self.session.session_sidebar.scroll_up();
                     }
                     self.sys.dirty = true;
                 }
                 MouseEventKind::ScrollDown => {
                     for _ in 0..scroll_speed {
-                        self.session_sidebar.scroll_down();
+                        self.session.session_sidebar.scroll_down();
                     }
                     self.sys.dirty = true;
                 }
@@ -100,7 +104,8 @@ impl TUI {
     }
 
     fn mouse_message_index_at(&self, col: u16, row: u16) -> Option<usize> {
-        self.message_areas
+        self.search
+            .message_areas
             .borrow()
             .iter()
             .find(|(_, rect)| Self::mouse_point_in_area((col, row), *rect))
@@ -108,7 +113,8 @@ impl TUI {
     }
 
     fn handle_mouse_selection_start(&self, mouse: MouseEvent) {
-        self.ui.view
+        self.ui
+            .view
             .mouse_selection_start
             .set(Some((mouse.column, mouse.row)));
         self.ui.view.mouse_selection_dragged.set(false);
@@ -118,7 +124,8 @@ impl TUI {
         if self.ui.view.mouse_selection_start.get().is_some() {
             self.ui.view.mouse_selection_dragged.set(true);
         } else {
-            self.ui.view
+            self.ui
+                .view
                 .mouse_selection_start
                 .set(Some((mouse.column, mouse.row)));
         }
@@ -187,7 +194,7 @@ impl TUI {
         }
 
         // Find which message was clicked
-        let areas = self.message_areas.borrow();
+        let areas = self.search.message_areas.borrow();
         if let Some(&(msg_idx, _)) = areas
             .iter()
             .find(|(_, rect)| self.point_in_rect((col, row), *rect))
@@ -235,19 +242,22 @@ mod tests {
     #[test]
     fn tool_result_scroll_uses_mouse_wheel_direction() {
         let mut tui = TUI {
-            tool_panel: crate::app::tool_panel_state::ToolPanelState {
-                showing_tool_result: true,
-                tool_result_scroll_offset: 10,
-                ..Default::default()
+            panels: crate::app::state_model::ToolExecutionPanel {
+                tool_panel: crate::app::tool_panel_state::ToolPanelState {
+                    showing_tool_result: true,
+                    tool_result_scroll_offset: 10,
+                    ..Default::default()
+                },
+                ..TUI::default().panels
             },
             ..TUI::default()
         };
 
         tui.scroll_tool_result_by(3, false);
-        assert_eq!(tui.tool_panel.tool_result_scroll_offset, 7);
+        assert_eq!(tui.panels.tool_panel.tool_result_scroll_offset, 7);
 
         tui.scroll_tool_result_by(5, true);
-        assert_eq!(tui.tool_panel.tool_result_scroll_offset, 12);
+        assert_eq!(tui.panels.tool_panel.tool_result_scroll_offset, 12);
     }
 
     #[test]

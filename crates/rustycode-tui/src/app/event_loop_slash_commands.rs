@@ -22,7 +22,7 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
         }
         CommandEffect::ShowPluginManager => {
             if !self.is_any_overlay_open() {
-                self.showing_plugin_manager = true;
+                self.overlays.showing_plugin_manager = true;
                 self.ui.plugin_manager_ui.show();
                 {
                     let mut manager = self
@@ -36,9 +36,9 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
         }
         CommandEffect::None => {}
         CommandEffect::ModelSwitch { model_id } => {
-            self.current_model = model_id.clone();
+            self.model.current_model = model_id.clone();
             let short = model_id.rsplit('/').next().unwrap_or(&model_id);
-            self.toast_manager.success(format!("Model: {}", short));
+            self.theme.toast_manager.success(format!("Model: {}", short));
 
             if let Err(e) = self.integration.services.switch_model(model_id) {
                 tracing::error!("Failed to switch model in services: {}", e);
@@ -135,12 +135,12 @@ fn spawn_team_orchestrator(&mut self, task: &str) -> Result<()> {
 
     // Get cancel token for cooperative cancellation
     let cancel_token = orchestrator.cancel_token();
-    self.team_handler.cancel_token = Some(cancel_token);
+    self.team.team_handler.cancel_token = Some(cancel_token);
 
     // Show the team panel
-    self.team_panel.set_task(task);
-    self.team_panel.visible = true;
-    self.team_panel.reset();
+    self.team.team_panel.set_task(task);
+    self.team.team_panel.visible = true;
+    self.team.team_panel.reset();
     self.sys.dirty = true;
 
     self.add_system_message(format!(
@@ -149,7 +149,7 @@ fn spawn_team_orchestrator(&mut self, task: &str) -> Result<()> {
     ));
 
     // Store the receiver for polling in the event loop
-    self.team_handler.event_rx = Some(event_rx);
+    self.team.team_handler.event_rx = Some(event_rx);
 
     // Spawn the orchestrator on a background thread
     let task_owned = task.to_string();
@@ -166,12 +166,12 @@ fn spawn_team_orchestrator(&mut self, task: &str) -> Result<()> {
 
 /// Cancel a running team orchestrator, Shows a summary and hides the panel.
 pub(crate) fn cancel_team(&mut self) {
-    if let Some(token) = &self.team_handler.cancel_token {
+    if let Some(token) = &self.team.team_handler.cancel_token {
         token.store(true, std::sync::atomic::Ordering::SeqCst);
         self.add_system_message("⏹ Team task cancelled.".to_string());
-        self.team_panel.visible = false;
-        self.team_handler.event_rx = None;
-        self.team_handler.cancel_token = None;
+        self.team.team_panel.visible = false;
+        self.team.team_handler.event_rx = None;
+        self.team.team_handler.cancel_token = None;
         self.sys.dirty = true;
     } else {
         self.add_system_message("⚠ No team task is running.".to_string());
@@ -180,19 +180,19 @@ pub(crate) fn cancel_team(&mut self) {
 
 /// Show session cost and usage summary
 fn handle_cost_command(&mut self) {
-    let total_tokens = self.token_budget.session_input_tokens + self.token_budget.session_output_tokens;
+    let total_tokens = self.model.token_budget.session_input_tokens + self.model.token_budget.session_output_tokens;
     let turn_count = self
         .session.messages
         .iter()
         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
         .count();
 
-    let cost_str = if self.token_budget.session_cost_usd < 0.001 {
+    let cost_str = if self.model.token_budget.session_cost_usd < 0.001 {
         "negligible".to_string()
-    } else if self.token_budget.session_cost_usd < 0.01 {
-        format!("${:.4}", self.token_budget.session_cost_usd)
+    } else if self.model.token_budget.session_cost_usd < 0.01 {
+        format!("${:.4}", self.model.token_budget.session_cost_usd)
     } else {
-        format!("${:.2}", self.token_budget.session_cost_usd)
+        format!("${:.2}", self.model.token_budget.session_cost_usd)
     };
 
     let token_str = if total_tokens >= 1_000_000 {
@@ -203,16 +203,16 @@ fn handle_cost_command(&mut self) {
         total_tokens.to_string()
     };
 
-    let input_str = if self.token_budget.session_input_tokens >= 1_000 {
-        format!("{:.1}k", self.token_budget.session_input_tokens as f64 / 1_000.0)
+    let input_str = if self.model.token_budget.session_input_tokens >= 1_000 {
+        format!("{:.1}k", self.model.token_budget.session_input_tokens as f64 / 1_000.0)
     } else {
-        self.token_budget.session_input_tokens.to_string()
+        self.model.token_budget.session_input_tokens.to_string()
     };
 
-    let output_str = if self.token_budget.session_output_tokens >= 1_000 {
-        format!("{:.1}k", self.token_budget.session_output_tokens as f64 / 1_000.0)
+    let output_str = if self.model.token_budget.session_output_tokens >= 1_000 {
+        format!("{:.1}k", self.model.token_budget.session_output_tokens as f64 / 1_000.0)
     } else {
-        self.token_budget.session_output_tokens.to_string()
+        self.model.token_budget.session_output_tokens.to_string()
     };
 
     let ctx_pct = if self.sys.compaction.context_monitor.max_tokens > 0 {
@@ -222,22 +222,22 @@ fn handle_cost_command(&mut self) {
     };
 
     let model_display = self
-        .current_model
+        .model.current_model
         .rsplit('/')
         .next()
-        .unwrap_or(&self.current_model)
+        .unwrap_or(&self.model.current_model)
         .to_string();
 
     let summary = format!(
         "Session Usage ({} turns, {}):\n  Tokens: {} total ({} in / {} out)\n  Context: {} used\n  Cost: {} ({})\n  API calls: {}",
         turn_count, model_display, token_str, input_str, output_str, ctx_pct, cost_str,
-        if self.token_budget.session_cost_usd > 0.0 { "estimated" } else { "free/local model" },
-        self.token_budget.cost_tracker.calls_count(),
+        if self.model.token_budget.session_cost_usd > 0.0 { "estimated" } else { "free/local model" },
+        self.model.token_budget.cost_tracker.calls_count(),
     );
 
     let mut full_summary = summary;
 
-    let by_tool = self.token_budget.cost_tracker.costs_by_tool();
+    let by_tool = self.model.token_budget.cost_tracker.costs_by_tool();
     if !by_tool.is_empty() {
         let tool_breakdown: Vec<String> = by_tool
             .iter()
@@ -265,12 +265,12 @@ fn print_session_summary(&self) {
         .iter()
         .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
         .count();
-    let total_tokens = self.token_budget.session_input_tokens + self.token_budget.session_output_tokens;
+    let total_tokens = self.model.token_budget.session_input_tokens + self.model.token_budget.session_output_tokens;
     let model = self
-        .current_model
+        .model.current_model
         .rsplit('/')
         .next()
-        .unwrap_or(&self.current_model);
+        .unwrap_or(&self.model.current_model);
 
     let fmt = |n: usize| -> String {
         if n >= 1_000_000 {
@@ -282,10 +282,10 @@ fn print_session_summary(&self) {
         }
     };
 
-    let cost = if self.token_budget.session_cost_usd > 0.01 {
-        format!("${:.2}", self.token_budget.session_cost_usd)
-    } else if self.token_budget.session_cost_usd > 0.0 {
-        format!("${:.4}", self.token_budget.session_cost_usd)
+    let cost = if self.model.token_budget.session_cost_usd > 0.01 {
+        format!("${:.2}", self.model.token_budget.session_cost_usd)
+    } else if self.model.token_budget.session_cost_usd > 0.0 {
+        format!("${:.4}", self.model.token_budget.session_cost_usd)
     } else {
         "free".to_string()
     };
@@ -296,8 +296,8 @@ fn print_session_summary(&self) {
             "\n  Session: {} turns, {} tokens ({} in / {} out), {}, model: {}",
             turn_count,
             fmt(total_tokens),
-            fmt(self.token_budget.session_input_tokens),
-            fmt(self.token_budget.session_output_tokens),
+            fmt(self.model.token_budget.session_input_tokens),
+            fmt(self.model.token_budget.session_output_tokens),
             cost,
             model
         );
@@ -329,11 +329,11 @@ pub(crate) fn apply_model_switch(&mut self, model: &crate::ui::model_selector::M
     let result = crate::services::provider_manager::compute_model_switch(model);
     std::env::set_var("RUSTYCODE_MODEL_OVERRIDE", &result.model_id);
     std::env::set_var("RUSTYCODE_PROVIDER_OVERRIDE", &result.provider);
-    self.current_model = result.model_id.clone();
+    self.model.current_model = result.model_id.clone();
     self.sys.compaction.compaction_config.model_id = Some(result.model_id);
     self.sys.compaction.context_monitor.max_tokens = self.sys.compaction.compaction_config.effective_max_tokens();
     self.add_system_message(result.status_message);
-    self.model_selector.hide();
+    self.overlays.model_selector.hide();
     self.sys.dirty = true;
 }
 

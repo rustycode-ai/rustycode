@@ -11,7 +11,7 @@ RustyCode is an AI-powered autonomous development framework built in Rust. It pr
 **Install page**: https://rustycode-ai.github.io/
 **License**: MIT
 **Rust Edition**: 2021
-**Current Release**: v0.3.0
+**Current Release**: v0.4.0
 **Minimum Rust Version**: See `Cargo.toml` (MSRV not formally specified; use latest stable)
 
 ## Architecture Status

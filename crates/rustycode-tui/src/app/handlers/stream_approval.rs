@@ -41,8 +41,8 @@ pub(super) fn handle_approval_request_chunk(
     }
 
     // Plan mode gate: reject tools that are not allowed during planning
-    if tui.plan_mode.current_phase() == "planning" {
-        let plan_blocked = match tui.plan_mode.is_tool_allowed(&tool_name) {
+    if tui.model.plan_mode.current_phase() == "planning" {
+        let plan_blocked = match tui.model.plan_mode.is_tool_allowed(&tool_name) {
             Ok(()) => false,
             Err(_reason) => {
                 // Allow write_file for doc extensions even in plan mode
@@ -74,6 +74,7 @@ pub(super) fn handle_approval_request_chunk(
     }
 
     if !tui
+        .panels
         .tool_approval
         .manager
         .requires_approval(&tool_name, risk_level)
@@ -88,7 +89,7 @@ pub(super) fn handle_approval_request_chunk(
     }
 
     // Check if tool has been blocked for this session
-    if tui.tool_approval.manager.is_blocked(&tool_name) {
+    if tui.panels.tool_approval.manager.is_blocked(&tool_name) {
         tracing::info!("TUI approval: {} auto-rejected (blocked)", tool_name);
         tui.integration.services.send_approval_response(false);
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
@@ -100,8 +101,8 @@ pub(super) fn handle_approval_request_chunk(
     // a duplicate request (race condition / retry). Auto-approve to avoid
     // deadlock — the provider is waiting for a response and won't proceed
     // without one.
-    if tui.tool_approval.awaiting {
-        if let Some(req) = tui.tool_approval.pending_requests.front() {
+    if tui.panels.tool_approval.awaiting {
+        if let Some(req) = tui.panels.tool_approval.pending_requests.front() {
             if req.tool_name == tool_name {
                 tui.integration.services.send_approval_response(true);
                 tui.sys.dirty = true;
@@ -111,7 +112,7 @@ pub(super) fn handle_approval_request_chunk(
     }
 
     // PermissionRequest hook: allow hooks to deny before showing approval dialog.
-    let hook_result = tui.hook_manager.execute_blocking(
+    let hook_result = tui.integration.hook_manager.execute_blocking(
         rustycode_tools::hooks::HookTrigger::PermissionRequest,
         serde_json::json!({
             "tool_name": tool_name,
@@ -133,7 +134,8 @@ pub(super) fn handle_approval_request_chunk(
         return;
     }
 
-    tui.tool_approval
+    tui.panels
+        .tool_approval
         .pending_requests
         .push_back(crate::tool_approval::ApprovalRequest {
             tool_name: tool_name.clone(),
@@ -144,7 +146,7 @@ pub(super) fn handle_approval_request_chunk(
             state: crate::tool_approval::ApprovalState::Pending,
             diff_scroll: crate::tool_approval::DiffScrollState::default(),
         });
-    tui.tool_approval.awaiting = true;
+    tui.panels.tool_approval.awaiting = true;
     tui.sys.dirty = true;
     tracing::warn!(
         "TUI approval: SHOWING PROMPT for {} (risk={:?})",
@@ -154,9 +156,10 @@ pub(super) fn handle_approval_request_chunk(
 }
 
 pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.tool_approval.pop_next() {
+    if let Some(mut request) = tui.panels.tool_approval.pop_next() {
         request.approve();
-        tui.tool_approval
+        tui.panels
+            .tool_approval
             .manager
             .record_approval(request.tool_name.clone(), request.state);
         tui.add_system_message(format!("✓ Approved: {}", request.tool_name));
@@ -165,7 +168,7 @@ pub(super) fn handle_approval_approved_chunk(tui: &mut TUI, _tool_id: String) {
 }
 
 pub(super) fn handle_approval_rejected_chunk(tui: &mut TUI, _tool_id: String) {
-    if let Some(mut request) = tui.tool_approval.pop_next() {
+    if let Some(mut request) = tui.panels.tool_approval.pop_next() {
         request.reject();
         tui.add_system_message(format!("✗ Rejected: {}", request.tool_name));
     }

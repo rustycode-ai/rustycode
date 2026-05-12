@@ -11,10 +11,14 @@ pub(super) fn handle_stopped_chunk(tui: &mut TUI, stop_reason: String) {
     // Flush buffered content from the render buffer BEFORE replacing it
     let remaining = tui.session.streaming.streaming_render_buffer.flush();
     if !remaining.is_empty() {
-        tui.session.streaming
+        tui.session
+            .streaming
             .current_stream_content
             .reserve(remaining.len());
-        tui.session.streaming.current_stream_content.push_str(&remaining);
+        tui.session
+            .streaming
+            .current_stream_content
+            .push_str(&remaining);
     }
 
     reset_streaming_buffer(tui);

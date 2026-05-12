@@ -93,12 +93,12 @@ impl TUI {
                         && key.modifiers.contains(KeyModifiers::CONTROL)
                         && key.modifiers.contains(KeyModifiers::SHIFT));
                 if is_cmd_palette_shortcut && !self.is_any_overlay_open() {
-                    self.showing_command_palette = true;
-                    self.showing_skill_palette = false;
-                    self.showing_plugin_manager = false;
-                    self.showing_marketplace_browser = false;
-                    self.command_palette.show();
-                    self.command_palette.state_mut().clear_query();
+                    self.overlays.showing_command_palette = true;
+                    self.overlays.showing_skill_palette = false;
+                    self.overlays.showing_plugin_manager = false;
+                    self.overlays.showing_marketplace_browser = false;
+                    self.overlays.command_palette.show();
+                    self.overlays.command_palette.state_mut().clear_query();
                     self.sys.dirty = true;
                     return Ok(());
                 }
@@ -130,27 +130,28 @@ impl TUI {
                     };
                 }
                 // Dismiss tool result overlay before global shortcuts can intercept
-                if self.tool_panel.showing_tool_result {
+                if self.panels.tool_panel.showing_tool_result {
                     match key.code {
                         KeyCode::Esc | KeyCode::Enter => {
                             // Close detail view and return to tool panel
-                            self.tool_panel.showing_tool_result = false;
-                            self.tool_panel.tool_result_show_full = false;
-                            self.tool_panel.tool_result_scroll_offset = 0;
+                            self.panels.tool_panel.showing_tool_result = false;
+                            self.panels.tool_panel.tool_result_show_full = false;
+                            self.panels.tool_panel.tool_result_scroll_offset = 0;
                             self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Char('f') | KeyCode::Char('F') => {
                             // Toggle between truncated and full output
-                            self.tool_panel.tool_result_show_full =
-                                !self.tool_panel.tool_result_show_full;
-                            self.tool_panel.tool_result_scroll_offset = 0;
+                            self.panels.tool_panel.tool_result_show_full =
+                                !self.panels.tool_panel.tool_result_show_full;
+                            self.panels.tool_panel.tool_result_scroll_offset = 0;
                             self.sys.dirty = true;
                             return Ok(());
                         }
                         KeyCode::Up => {
                             // Scroll up in tool result overlay
-                            self.tool_panel.tool_result_scroll_offset = self
+                            self.panels.tool_panel.tool_result_scroll_offset = self
+                                .panels
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
@@ -159,7 +160,8 @@ impl TUI {
                         }
                         KeyCode::Down => {
                             // Scroll down in tool result overlay
-                            self.tool_panel.tool_result_scroll_offset = self
+                            self.panels.tool_panel.tool_result_scroll_offset = self
+                                .panels
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
@@ -167,7 +169,8 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::PageUp => {
-                            self.tool_panel.tool_result_scroll_offset = self
+                            self.panels.tool_panel.tool_result_scroll_offset = self
+                                .panels
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(self.ui.view.viewport_height);
@@ -175,7 +178,8 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::PageDown => {
-                            self.tool_panel.tool_result_scroll_offset = self
+                            self.panels.tool_panel.tool_result_scroll_offset = self
+                                .panels
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(self.ui.view.viewport_height);
@@ -183,7 +187,8 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::Char('j') => {
-                            self.tool_panel.tool_result_scroll_offset = self
+                            self.panels.tool_panel.tool_result_scroll_offset = self
+                                .panels
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_add(crate::app::TOOL_RESULT_SCROLL_STEP);
@@ -191,7 +196,8 @@ impl TUI {
                             return Ok(());
                         }
                         KeyCode::Char('k') => {
-                            self.tool_panel.tool_result_scroll_offset = self
+                            self.panels.tool_panel.tool_result_scroll_offset = self
+                                .panels
                                 .tool_panel
                                 .tool_result_scroll_offset
                                 .saturating_sub(crate::app::TOOL_RESULT_SCROLL_STEP);
@@ -233,7 +239,8 @@ impl TUI {
                         }
                         KeyCode::PageUp => {
                             self.ui.help_state.scroll_offset = self
-                                .ui.help_state
+                                .ui
+                                .help_state
                                 .scroll_offset
                                 .saturating_sub(crate::app::HELP_SCROLL_STEP);
                             self.sys.dirty = true;
@@ -241,7 +248,8 @@ impl TUI {
                         }
                         KeyCode::PageDown => {
                             self.ui.help_state.scroll_offset = self
-                                .ui.help_state
+                                .ui
+                                .help_state
                                 .scroll_offset
                                 .saturating_add(crate::app::HELP_SCROLL_STEP);
                             self.sys.dirty = true;
@@ -334,7 +342,7 @@ impl TUI {
                 }
 
                 // Handle tool panel navigation
-                if self.tool_panel.showing_tool_panel && self.handle_tool_panel_input(key)? {
+                if self.panels.tool_panel.showing_tool_panel && self.handle_tool_panel_input(key)? {
                     return Ok(());
                 }
 
@@ -377,7 +385,7 @@ impl TUI {
 
                 // Handle model selector input
                 if self.handle_model_selector_input(key) {
-                    if let Some(selected) = self.model_selector.take_selected() {
+                    if let Some(selected) = self.overlays.model_selector.take_selected() {
                         self.apply_model_switch(&selected);
                     }
                     self.sys.dirty = true;
@@ -393,7 +401,7 @@ impl TUI {
                     if input_is_empty && !self.is_any_overlay_open() {
                         self.ui.help_state.visible = true;
                         self.ui.help_state.scroll_offset = 0;
-                        self.toast_manager.info("Press Esc to close");
+                        self.theme.toast_manager.info("Press Esc to close");
                         self.sys.dirty = true;
                         return Ok(());
                     }
@@ -414,7 +422,8 @@ impl TUI {
                 if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
                     let input_is_empty = self.ui.input_handler.state.lines.len() == 1
                         && self.ui.input_handler.state.lines[0].is_empty();
-                    if input_is_empty && self.ui.view.selected_message < self.session.messages.len() {
+                    if input_is_empty && self.ui.view.selected_message < self.session.messages.len()
+                    {
                         let msg = &mut self.session.messages[self.ui.view.selected_message];
                         let has_tools = msg.tool_executions.as_ref().is_some_and(|t| !t.is_empty());
                         let has_thinking = msg.thinking.as_ref().is_some_and(|t| !t.is_empty());
@@ -476,7 +485,8 @@ impl TUI {
                         }
                         KeyCode::End => {
                             self.push_undo_position();
-                            self.ui.view.selected_message = self.session.messages.len().saturating_sub(1);
+                            self.ui.view.selected_message =
+                                self.session.messages.len().saturating_sub(1);
                             self.ui.view.user_scrolled = false;
                             self.auto_scroll();
                             self.sys.dirty = true;
@@ -487,7 +497,7 @@ impl TUI {
                 }
 
                 // Handle Vim navigation keys BEFORE text input (j/k/g/G when input empty)
-                if self.tui_config.behavior.vim_enabled
+                if self.ui.tui_config.behavior.vim_enabled
                     && (key.modifiers == KeyModifiers::NONE
                         || (key.modifiers == KeyModifiers::SHIFT
                             && matches!(
@@ -513,7 +523,10 @@ impl TUI {
                 }
 
                 // Normal input handling - delegate to input handler
-                let action = self.ui.input_handler.handle_key_event(key.code, key.modifiers);
+                let action = self
+                    .ui
+                    .input_handler
+                    .handle_key_event(key.code, key.modifiers);
                 self.handle_input_action(action, key)?;
             }
             Ok(CrosstermEvent::Paste(content)) => {
@@ -553,10 +566,10 @@ impl TUI {
                 input_elapsed.as_millis(),
                 self.sys.dirty,
                 self.session.streaming.is_streaming,
-                self.tool_panel.showing_tool_panel,
-                self.showing_command_palette,
-                self.showing_skill_palette,
-                self.showing_provider_selector
+                self.panels.tool_panel.showing_tool_panel,
+                self.overlays.showing_command_palette,
+                self.overlays.showing_skill_palette,
+                self.overlays.showing_provider_selector
             );
         }
 
@@ -586,12 +599,14 @@ impl TUI {
         self.session.streaming.current_stream_content.clear();
         self.session.streaming.streaming_render_buffer =
             crate::app::streaming_render_buffer::StreamingRenderBuffer::new();
-        self.tool_panel.reset();
+        self.panels.tool_panel.reset();
         self.session.active_tools.clear();
 
-        let send_result =
-            self.integration.services
-                .send_message_with_history(message_to_send, Some(history), None);
+        let send_result = self.integration.services.send_message_with_history(
+            message_to_send,
+            Some(history),
+            None,
+        );
         if let Err(e) = send_result {
             tracing::error!("Failed to retry message: {}", e);
             self.reset_streaming_state();
@@ -755,7 +770,7 @@ impl TUI {
             self.ui.input_handler.state.insert_char(c);
         }
         self.ui.input_handler.state.insert_char(' ');
-        self.input_mode = self.ui.input_handler.state.mode;
+        self.sys.input_mode = self.ui.input_handler.state.mode;
         self.sys.dirty = true;
     }
 
@@ -803,9 +818,14 @@ impl TUI {
     }
 
     pub fn set_tag_filter(&mut self, tag_type: Option<crate::ui::message_tags::TagType>) {
-        self.tag_filter.set_active(tag_type.clone());
+        self.search.tag_filter.set_active(tag_type.clone());
         if let Some(ref tag) = tag_type {
-            let count = self.session.messages.iter().filter(|m| m.has_tag(tag)).count();
+            let count = self
+                .session
+                .messages
+                .iter()
+                .filter(|m| m.has_tag(tag))
+                .count();
             self.add_system_message(format!(
                 "Filtering by tag: {} ({} messages)",
                 tag.display_name(),
@@ -824,7 +844,11 @@ impl TUI {
 
     /// Get the count of messages with a specific tag
     pub fn count_tagged_messages(&self, tag_type: &crate::ui::message_tags::TagType) -> usize {
-        self.session.messages.iter().filter(|m| m.has_tag(tag_type)).count()
+        self.session
+            .messages
+            .iter()
+            .filter(|m| m.has_tag(tag_type))
+            .count()
     }
 
     /// Get all unique tag types in current messages

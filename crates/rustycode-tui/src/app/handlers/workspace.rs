@@ -44,13 +44,17 @@ pub fn handle_workspace_update(tui: &mut TUI, update: WorkspaceUpdate) {
             } else {
                 0
             };
-            let old_pct = tui.workspace.workspace_scan_progress.map(|(old_scanned, old_total)| {
-                if old_total > 0 {
-                    ((old_scanned as f64 / old_total as f64 * 100.0).round() as u16).clamp(0, 100)
-                } else {
-                    0
-                }
-            });
+            let old_pct = tui
+                .workspace
+                .workspace_scan_progress
+                .map(|(old_scanned, old_total)| {
+                    if old_total > 0 {
+                        ((old_scanned as f64 / old_total as f64 * 100.0).round() as u16)
+                            .clamp(0, 100)
+                    } else {
+                        0
+                    }
+                });
 
             tui.workspace.workspace_scan_progress = Some((scanned, total));
 

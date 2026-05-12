@@ -56,7 +56,7 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
         let cwd = std::env::current_dir().unwrap_or_default();
         let diff = snap.diff(&cwd);
         if !diff.is_empty() {
-            tui.toast_manager.info(diff.summary());
+            tui.theme.toast_manager.info(diff.summary());
         }
     }
 
@@ -77,12 +77,13 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
 
     if !was_cancelled
         && !tui.session.auto_continue.is_enabled()
-        && tui.plan_mode.is_enabled()
-        && tui.plan_mode.current_phase() == "planning"
+        && tui.model.plan_mode.is_enabled()
+        && tui.model.plan_mode.current_phase() == "planning"
         && !tui.is_awaiting_approval()
         && tui.session.plan_mode_banner.is_some()
     {
         let convoy_id = tui
+            .model
             .plan_mode
             .current_plan()
             .map(|p| p.id.clone())
@@ -101,10 +102,14 @@ pub(super) fn handle_done_chunk(tui: &mut TUI) {
 fn flush_and_transfer_stream_content(tui: &mut TUI) -> bool {
     let remaining = tui.session.streaming.streaming_render_buffer.flush();
     if !remaining.is_empty() {
-        tui.session.streaming
+        tui.session
+            .streaming
             .current_stream_content
             .reserve(remaining.len());
-        tui.session.streaming.current_stream_content.push_str(&remaining);
+        tui.session
+            .streaming
+            .current_stream_content
+            .push_str(&remaining);
     }
 
     if !tui.session.streaming.current_stream_content.is_empty() {
@@ -141,10 +146,16 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
                 if let Some(pos) = tui.session.messages.iter().position(|m| m.id == msg_id) {
                     tui.session.messages.remove(pos);
                     if pos < tui.ui.view.selected_message {
-                        tui.ui.view.selected_message = tui.ui.view.selected_message.saturating_sub(1);
-                    } else if pos == tui.ui.view.selected_message && !tui.session.messages.is_empty() {
                         tui.ui.view.selected_message =
-                            tui.ui.view.selected_message.min(tui.session.messages.len() - 1);
+                            tui.ui.view.selected_message.saturating_sub(1);
+                    } else if pos == tui.ui.view.selected_message
+                        && !tui.session.messages.is_empty()
+                    {
+                        tui.ui.view.selected_message = tui
+                            .ui
+                            .view
+                            .selected_message
+                            .min(tui.session.messages.len() - 1);
                     }
                 }
                 tracing::warn!(
@@ -159,7 +170,13 @@ pub(super) fn handle_empty_stream_response(tui: &mut TUI) {
                      • The response was filtered (check debug log for details)"
                         .to_string(),
                 );
-            } else if let Some(last_msg) = tui.session.messages.iter_mut().rev().find(|m| m.id == msg_id) {
+            } else if let Some(last_msg) = tui
+                .session
+                .messages
+                .iter_mut()
+                .rev()
+                .find(|m| m.id == msg_id)
+            {
                 tracing::info!(
                     tool_count = last_msg
                         .tool_executions
@@ -180,7 +197,8 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
         return;
     }
     let should_bell = tui
-        .session.streaming
+        .session
+        .streaming
         .last_response_duration
         .is_some_and(|d| d.as_secs() >= 3);
     if !should_bell {
@@ -192,7 +210,8 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
     );
     let _ = std::io::Write::write_all(&mut std::io::stdout(), b"\x07");
     let duration_str = tui
-        .session.streaming
+        .session
+        .streaming
         .last_response_duration
         .map(|d| {
             let s = d.as_secs();
@@ -203,7 +222,8 @@ fn ring_completion_bell(tui: &mut TUI, was_cancelled: bool) {
             }
         })
         .unwrap_or_default();
-    tui.toast_manager
+    tui.theme
+        .toast_manager
         .success(format!("Response complete ({})", duration_str));
 }
 
@@ -247,9 +267,10 @@ fn send_queued_message(tui: &mut TUI, was_cancelled: bool) {
     tui.integration.rate_limit.last_message = Some(queued);
     tui.session.streaming.begin_streaming();
     let send_start = std::time::Instant::now();
-    if let Err(e) = tui
-        .integration.services
-        .send_message_with_history(message_to_send, Some(history), None)
+    if let Err(e) =
+        tui.integration
+            .services
+            .send_message_with_history(message_to_send, Some(history), None)
     {
         tracing::error!("Failed to send queued message: {}", e);
         tui.reset_streaming_state();

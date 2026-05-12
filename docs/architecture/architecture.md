@@ -12,18 +12,17 @@ RustyCode is an AI-powered coding assistant built with a "Rust-First" philosophy
 
 ## Crate Architecture
 
-| Crate | Responsibility |
-|-------|----------------|
-| `rustycode-protocol` | Shared DTOs and event types |
-| `rustycode-bus` | Type-safe, asynchronous event bus |
-| `rustycode-id` | Time-sortable, compact identifiers |
-| `rustycode-tools` | Compile-time and runtime tool systems |
-| `rustycode-config` | Layered configuration discovery |
-| `rustycode-storage` | SQLite persistence for sessions and events |
-| `rustycode-runtime` | Async orchestration and session management |
-| `rustycode-core` | Core logic and context assembly |
-| `rustycode-cli` | Terminal entrypoint |
-| `rustycode-tui` | Terminal User Interface |
+> For the full crate catalog (49 crates across 8 layers), see [docs/crates/CRATES.md](../crates/CRATES.md).
+
+| Layer | Crates | Responsibility |
+|-------|--------|----------------|
+| Binaries | `rustycode-cli`, `rustycode-tui`, `rustycode-orchestration` | Entry points and structured reasoning |
+| Core Infra | `rustycode-protocol`, `rustycode-core`, `rustycode-llm`, `rustycode-tools`, `rustycode-bus`, `rustycode-storage`, `rustycode-config`, `rustycode-git`, `rustycode-session` | Shared types, LLM, tools, events, persistence |
+| Execution | `rustycode-agents`, `rustycode-execution`, `rustycode-runtime`, `rustycode-skill`, `rustycode-bench`, `rustycode-team` | Agents, orchestration, benchmarking |
+| Observability | `rustycode-observability`, `rustycode-memory`, `rustycode-lsp`, `rustycode-prompt` | Metrics, context, language servers, templating |
+| Security | `rustycode-guard`, `rustycode-auth`, `rustycode-providers`, `rustycode-tools-security` | Auth, permissions, sandbox, provider metadata |
+| Protocol | `rustycode-acp`, `rustycode-mcp` | IDE and Claude integration protocols |
+| Support | +15 crates | Ring buffer, UI core, macros, examples, etc. |
 
 ## Key Subsystems
 

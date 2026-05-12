@@ -186,7 +186,9 @@ impl TUI {
 
         // When not streaming, debounce to avoid snapping back immediately
         const SCROLL_DEBOUNCE: std::time::Duration = std::time::Duration::from_secs(2);
-        if self.ui.view.user_scrolled && self.ui.view.last_user_scroll_time.elapsed() < SCROLL_DEBOUNCE {
+        if self.ui.view.user_scrolled
+            && self.ui.view.last_user_scroll_time.elapsed() < SCROLL_DEBOUNCE
+        {
             return;
         }
 
@@ -194,7 +196,8 @@ impl TUI {
         // Set scroll_offset_line to the actual bottom position so that
         // scroll_up_by works correctly from the bottom (instead of jumping to top).
         let max_scroll = self
-            .ui.view
+            .ui
+            .view
             .last_total_lines
             .get()
             .saturating_sub(self.ui.view.viewport_height.max(1));
@@ -210,7 +213,8 @@ impl TUI {
         // Clamp scroll_offset_line so it doesn't exceed the new max
         // after a viewport shrink (e.g., terminal resize or sidebar toggle).
         let max_scroll = self
-            .ui.view
+            .ui
+            .view
             .last_total_lines
             .get()
             .saturating_sub(height.max(1));
@@ -405,14 +409,16 @@ impl TUI {
 
     /// Find the index of the last assistant message, searching from the end.
     pub(crate) fn last_assistant_index(&self) -> Option<usize> {
-        self.session.messages
+        self.session
+            .messages
             .iter()
             .rposition(|m| m.role == crate::ui::message::MessageRole::Assistant)
     }
 
     /// Get an immutable reference to the last assistant message.
     pub(crate) fn last_assistant_message(&self) -> Option<&Message> {
-        self.session.messages
+        self.session
+            .messages
             .iter()
             .rev()
             .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
@@ -420,7 +426,8 @@ impl TUI {
 
     /// Get a mutable reference to the last assistant message.
     pub(crate) fn last_assistant_message_mut(&mut self) -> Option<&mut Message> {
-        self.session.messages
+        self.session
+            .messages
             .iter_mut()
             .rev()
             .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
@@ -446,7 +453,8 @@ impl TUI {
     /// Used during stream cancellation to atomically capture and clear thinking
     /// in a single call, avoiding two separate mutable borrows.
     pub(crate) fn take_last_assistant_thinking(&mut self) -> Option<String> {
-        self.session.messages
+        self.session
+            .messages
             .iter_mut()
             .rev()
             .find(|m| m.role == crate::ui::message::MessageRole::Assistant)
@@ -455,20 +463,25 @@ impl TUI {
 
     /// Mark the session recovery state as dirty so the auto-save timer persists it.
     pub(crate) fn mark_session_dirty(&mut self) {
-        if let Some(ref mut recovery) = self.session_recovery {
+        if let Some(ref mut recovery) = self.session.session_recovery {
             recovery.mark_dirty();
         }
     }
 
     /// Update the context monitor with the current message list and run auto-compaction if needed.
     pub(crate) fn update_context_and_compact(&mut self) {
-        self.sys.compaction.context_monitor.update(&self.session.messages);
+        self.sys
+            .compaction
+            .context_monitor
+            .update(&self.session.messages);
         self.maybe_auto_compact();
     }
 
     /// Push an empty assistant message (streaming placeholder) and mark the view dirty.
     pub(crate) fn push_empty_assistant_message(&mut self) {
-        self.session.messages.push(Message::assistant(String::new()));
+        self.session
+            .messages
+            .push(Message::assistant(String::new()));
         self.sys.dirty = true;
     }
 }

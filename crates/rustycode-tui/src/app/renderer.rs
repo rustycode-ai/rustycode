@@ -73,7 +73,8 @@ impl RendererState {
     /// `BrutalistRenderer` call this before they build their own structs.
     pub fn from_tui(tui: &mut TUI, area: Rect) -> Self {
         let project_name = tui
-            .integration.services
+            .integration
+            .services
             .cwd()
             .file_name()
             .and_then(|n| n.to_str())
@@ -82,7 +83,7 @@ impl RendererState {
 
         let header_status = if let Some(banner) = &tui.session.plan_mode_banner {
             banner.header_status()
-        } else if tui.error_manager.is_showing() {
+        } else if tui.theme.error_manager.is_showing() {
             HeaderStatus::Error
         } else if tui.session.streaming.is_streaming {
             if tui.session.active_tools.is_empty() {
@@ -95,14 +96,16 @@ impl RendererState {
         };
 
         let turn_count = tui
-            .session.messages
+            .session
+            .messages
             .iter()
             .filter(|m| matches!(m.role, crate::ui::message::MessageRole::User))
             .count();
 
         let total_tasks = tui.workspace.workspace_tasks.tasks.len();
         let done_count = tui
-            .workspace.workspace_tasks
+            .workspace
+            .workspace_tasks
             .tasks
             .iter()
             .filter(|t| matches!(t.status, crate::app::tasks::TaskStatus::Completed))
@@ -114,11 +117,12 @@ impl RendererState {
         };
 
         let current_model = tui
+            .model
             .current_model
             .rsplit('/')
             .next()
             .map(|s| s.strip_prefix("claude-").unwrap_or(s))
-            .unwrap_or(&tui.current_model)
+            .unwrap_or(&tui.model.current_model)
             .to_string();
 
         Self {
@@ -141,10 +145,10 @@ impl RendererState {
             },
             task_count: tui.workspace.workspace_tasks.tasks.len(),
             task_summary,
-            session_secs: tui.start_time.elapsed().as_secs(),
-            session_cost: tui.token_budget.session_cost_usd,
-            status_bar_collapsed: tui.status_bar_collapsed,
-            footer_collapsed: tui.footer_collapsed,
+            session_secs: tui.integration.start_time.elapsed().as_secs(),
+            session_cost: tui.model.token_budget.session_cost_usd,
+            status_bar_collapsed: tui.ui.status_bar_collapsed,
+            footer_collapsed: tui.ui.footer_collapsed,
         }
     }
 }
@@ -270,8 +274,8 @@ impl PolishedRenderer {
         let render_start = std::time::Instant::now();
         let layout = RendererLayout::build(
             self.state.area,
-            tui.status_bar_collapsed,
-            tui.footer_collapsed,
+            tui.ui.status_bar_collapsed,
+            tui.ui.footer_collapsed,
             &self.config,
         );
         let size = layout.size;
@@ -292,8 +296,8 @@ impl PolishedRenderer {
 
         // Auto-collapse chrome on very small terminals
         if size.height < self.config.collapse_chrome_below_height {
-            tui.status_bar_collapsed = true;
-            tui.footer_collapsed = true;
+            tui.ui.status_bar_collapsed = true;
+            tui.ui.footer_collapsed = true;
         }
 
         // If there are any pending confirmation requests from background tasks,
@@ -319,7 +323,7 @@ impl PolishedRenderer {
 
         let mut message_area = chunks[2];
         let mut sidebar_area = None;
-        if tui.session_sidebar.is_visible() && message_area.width > 100 {
+        if tui.session.session_sidebar.is_visible() && message_area.width > 100 {
             let sidebar_width = (message_area.width / 3).clamp(24, 34);
             if message_area.width > sidebar_width {
                 let split = Layout::default()
@@ -350,7 +354,7 @@ impl PolishedRenderer {
             .with_spinner_frame(tui.ui.animator.current_frame().progress_frame / 5);
         header.render(frame, chunks[0]);
 
-        if !tui.status_bar_collapsed {
+        if !tui.ui.status_bar_collapsed {
             self.render_status(tui, frame, chunks[1]);
         }
 
@@ -359,7 +363,7 @@ impl PolishedRenderer {
         let messages_elapsed = messages_start.elapsed();
         self.render_input(tui, frame, chunks[3]);
 
-        if !tui.footer_collapsed {
+        if !tui.ui.footer_collapsed {
             let footer_bg =
                 Block::default().style(Style::default().bg(self.config.chrome_background_color()));
             frame.render_widget(footer_bg, chunks[4]);
@@ -376,7 +380,7 @@ impl PolishedRenderer {
         self.render_overlays(tui, frame, size, chunks, message_area);
 
         if let Some(sidebar_area) = sidebar_area {
-            tui.session_sidebar.render(frame, sidebar_area);
+            tui.session.session_sidebar.render(frame, sidebar_area);
         }
 
         if crate::logging::is_debug_enabled() {
@@ -406,25 +410,25 @@ impl PolishedRenderer {
         message_area: Rect,
     ) {
         // Overlay: search box (over message area - chunks[2])
-        if tui.search_state.visible {
+        if tui.search.search_state.visible {
             render_search_box(tui, frame, message_area);
         }
 
-        if tui.tool_panel.showing_tool_panel {
+        if tui.panels.tool_panel.showing_tool_panel {
             render_tool_panel(tui, frame, message_area);
         }
 
         // Worker status panel overlay (Ctrl+W) - right side overlay
-        if tui.worker_panel.visible {
+        if tui.team.worker_panel.visible {
             render_worker_panel(tui, frame, message_area);
         }
 
-        if tui.team_panel.visible {
+        if tui.team.team_panel.visible {
             frame.render_widget(Clear, message_area);
-            frame.render_widget(tui.team_panel.clone(), message_area);
+            frame.render_widget(tui.team.team_panel.clone(), message_area);
         }
 
-        if tui.show_task_dashboard {
+        if tui.model.show_task_dashboard {
             use crate::app::task_dashboard::TaskDashboard;
             let dashboard = TaskDashboard::new(
                 &tui.workspace.workspace_tasks.tasks,
@@ -446,62 +450,63 @@ impl PolishedRenderer {
             frame.render_widget(paragraph, message_area);
         }
 
-        if tui.awaiting_clarification && tui.clarification_panel.visible {
+        if tui.panels.awaiting_clarification && tui.panels.clarification_panel.visible {
             let panel_height = 15u16.min(size.height.saturating_sub(4));
             let panel_width = (size.width * 3 / 4).min(60);
             let panel_area = centered_rect(panel_width, panel_height, size);
             frame.render_widget(Clear, panel_area);
-            frame.render_widget(tui.clarification_panel.clone(), panel_area);
+            frame.render_widget(tui.panels.clarification_panel.clone(), panel_area);
         }
 
         // Overlay: provider selector
-        if tui.showing_provider_selector {
+        if tui.overlays.showing_provider_selector {
             render_provider_selector(frame);
         }
 
-        if tui.file_finder.is_visible() {
-            tui.file_finder.render(frame, size);
+        if tui.search.file_finder.is_visible() {
+            tui.search.file_finder.render(frame, size);
         }
 
-        if tui.model_selector.is_visible() {
-            tui.model_selector.render(frame, size);
+        if tui.overlays.model_selector.is_visible() {
+            tui.overlays.model_selector.render(frame, size);
         }
 
-        if tui.file_selector.is_visible() {
-            tui.file_selector.render(frame, size);
+        if tui.overlays.file_selector.is_visible() {
+            tui.overlays.file_selector.render(frame, size);
         }
 
         if tui.ui.skill_palette.is_visible() {
             tui.ui.skill_palette.render(frame, size);
         }
 
-        if tui.showing_plugin_manager {
+        if tui.overlays.showing_plugin_manager {
             let mut manager = tui
-                .sys.plugin_manager
+                .sys
+                .plugin_manager
                 .write()
                 .unwrap_or_else(|e| e.into_inner());
             let _ = manager.reload_from_disk();
             tui.ui.plugin_manager_ui.render(frame, size, &manager);
         }
 
-        if tui.showing_marketplace_browser {
+        if tui.overlays.showing_marketplace_browser {
             tui.ui.marketplace_browser.render(frame, size);
         }
 
-        if tui.theme_preview.is_visible() {
-            tui.theme_preview.render(frame, size);
+        if tui.theme.theme_preview.is_visible() {
+            tui.theme.theme_preview.render(frame, size);
         }
 
-        if tui.command_palette.is_visible() {
-            tui.command_palette.render(frame, size);
+        if tui.overlays.command_palette.is_visible() {
+            tui.overlays.command_palette.render(frame, size);
         }
 
         if tui.ui.help_state.visible {
             crate::help::render_help(frame, size, &tui.ui.help_state);
         }
 
-        if tui.tool_approval.awaiting {
-            if let Some(req) = tui.tool_approval.pending_requests.front() {
+        if tui.panels.tool_approval.awaiting {
+            if let Some(req) = tui.panels.tool_approval.pending_requests.front() {
                 let (panel_height, panel_width) =
                     crate::tool_approval::approval_panel_size(req, size);
                 let panel_area = centered_rect(panel_width, panel_height, size);
@@ -509,9 +514,9 @@ impl PolishedRenderer {
             }
         }
 
-        if tui.error_manager.is_showing() {
+        if tui.theme.error_manager.is_showing() {
             frame.render_widget(Clear, size);
-            tui.error_manager.render(frame, size);
+            tui.theme.error_manager.render(frame, size);
         }
 
         // Overlay: compaction preview (while pending)
@@ -519,17 +524,22 @@ impl PolishedRenderer {
             tui.render_compaction_preview(frame, size);
         }
 
-        if tui.wizard.showing_wizard {
-            if let Some(ref mut wizard) = tui.wizard.wizard {
+        if tui.session.wizard.showing_wizard {
+            if let Some(ref mut wizard) = tui.session.wizard.wizard {
                 frame.render_widget(Clear, size);
                 wizard.render(frame, size);
             }
         }
 
-        tui.toast_manager.render(
+        tui.theme.toast_manager.render(
             frame,
             size,
-            Some(&tui.theme_colors.lock().unwrap_or_else(|e| e.into_inner())),
+            Some(
+                &tui.theme
+                    .theme_colors
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner()),
+            ),
         );
     }
 }
