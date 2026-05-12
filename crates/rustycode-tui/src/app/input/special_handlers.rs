@@ -5,6 +5,7 @@
 use crate::app::event_loop::TUI;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
+use rustycode_protocol::Op;
 
 impl TUI {
     /// Handle wizard input
@@ -76,7 +77,10 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Approved,
                     );
-                    self.integration.services.send_approval_response(true);
+                    self.integration
+                        .services
+                        .submit_op(Op::ApproveTool { approved: true })
+                        .ok();
                 }
                 self.sys.dirty = true;
                 Ok(true)
@@ -88,7 +92,10 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::Rejected,
                     );
-                    self.integration.services.send_approval_response(false);
+                    self.integration
+                        .services
+                        .submit_op(Op::ApproveTool { approved: false })
+                        .ok();
                 }
                 self.sys.dirty = true;
                 Ok(true)
@@ -103,7 +110,10 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::RejectedAll,
                     );
-                    self.integration.services.send_approval_response(false);
+                    self.integration
+                        .services
+                        .submit_op(Op::ApproveTool { approved: false })
+                        .ok();
                 }
                 self.sys.dirty = true;
                 Ok(true)
@@ -115,14 +125,20 @@ impl TUI {
                         req.tool_name.clone(),
                         crate::tool_approval::ApprovalState::ApprovedAll,
                     );
-                    self.integration.services.send_approval_response(true);
+                    self.integration
+                        .services
+                        .submit_op(Op::ApproveTool { approved: true })
+                        .ok();
                 }
                 self.sys.dirty = true;
                 Ok(true)
             }
             KeyCode::Esc => {
                 self.panels.tool_approval.dismiss_current();
-                self.integration.services.send_approval_response(false);
+                self.integration
+                    .services
+                    .submit_op(Op::ApproveTool { approved: false })
+                    .ok();
                 self.add_system_message("⏸️  Approval cancelled".to_string());
                 self.sys.dirty = true;
                 Ok(true)
@@ -228,7 +244,10 @@ impl TUI {
                     };
 
                     // Send answer through the question channel (resumes streaming)
-                    self.integration.services.send_question_response(answer);
+                    self.integration
+                        .services
+                        .submit_op(Op::AnswerQuestion { answer })
+                        .ok();
 
                     // Reset clarification state
                     self.panels.clarification_panel.reset();
@@ -502,7 +521,7 @@ impl TUI {
                             // the newly loaded session's messages.
                             let was_streaming = self.session.streaming.is_streaming;
                             if was_streaming {
-                                self.integration.services.request_stop_stream();
+                                self.integration.services.submit_op(Op::StopStream).ok();
                                 self.session.streaming.stream_cancelled = true;
                             }
                             // Apply LoadSession effect inline (private method workaround)
