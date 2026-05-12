@@ -116,6 +116,7 @@ pub fn handle_tool_result(tui: &mut TUI, result: ToolResult) {
             output,
             output_size,
             duration_ms: 0, // duration looked up from active_tools in handler above
+            exit_code: None,
         });
 }
 

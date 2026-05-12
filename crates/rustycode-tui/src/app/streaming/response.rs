@@ -526,11 +526,20 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         tool_registry.unwrap_or_else(|| std::sync::Arc::new(rustycode_tools::ToolRegistry::new()));
     let tools_schema = tools_schema.unwrap_or_default();
     let agent_config = rustycode_agent_runtime::AgentConfig::from_env();
-    let mut session = rustycode_agent_runtime::AgentSession::new(agent_config, cwd);
+
+    // Phase 1A: Setup unified channels
+    let (op_tx, op_rx) = tokio::sync::mpsc::unbounded_channel();
+    let mut session =
+        rustycode_agent_runtime::AgentSession::new(agent_config, cwd).with_op_receiver(op_rx);
+
+    // Subscribe to EventMsg broadcast BEFORE running
+    let mut event_rx = session.subscribe();
+
     // Interactive TUI needs all tools — default tier (6 hardcoded names) filters everything out
     session
         .activation
         .promote(rustycode_tools_api::tiers::ToolTier::Full);
+
     let mut bridge = crate::app::pipeline::agent_manager::TuiAgentBridge::new(stream_tx.clone())
         .with_approval_rx(approval_rx.unwrap_or_else(|| {
             let (_tx, rx) = std::sync::mpsc::channel();
@@ -546,6 +555,22 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
         );
 
     fix_conversation_messages(&mut messages);
+
+    // Phase 1D: Spawn broadcast handler task
+    // This task converts broadcast EventMsgs into TUI StreamChunks
+    let _stream_tx_clone = stream_tx.clone();
+    let mut adapter = bridge.take_adapter();
+    let mut _stop_flag_clone = stop_signal.clone();
+
+    let _broadcast_handler = tokio::spawn(async move {
+        while let Ok(msg) = event_rx.recv().await {
+            adapter.on_event_msg(msg);
+
+            // If Done is received, we're finished
+            // Note: Done is also sent by session.run() ending
+        }
+        adapter
+    });
 
     let run_future = session.run(
         provider.as_ref(),
@@ -567,13 +592,18 @@ async fn stream_llm_response_agent(config: StreamConfig) -> Result<()> {
                 _ = async {
                     loop {
                         if stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                            // Phase 1C: Dispatch StopStream Op to the core
+                            let _ = op_tx.send(rustycode_protocol::Op::StopStream);
                             break;
                         }
                         tokio::time::sleep(Duration::from_millis(50)).await;
                     }
                 } => {
-                    tracing::info!("Streaming cancelled by user");
-                    return Ok(());
+                    tracing::info!("Streaming cancelled by user via Op::StopStream");
+                    // After sending StopStream, we still need to wait for the future
+                    // But since it was already moved into the select!, we need a different approach
+                    // For now, return an error to indicate cancellation
+                    Err(anyhow::anyhow!("Streaming cancelled by user"))
                 }
             }
         }

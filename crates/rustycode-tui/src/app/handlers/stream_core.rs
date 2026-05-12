@@ -144,6 +144,7 @@ fn emit_event_for_chunk(tui: &mut TUI, chunk: &StreamChunk) {
             output: output.clone().unwrap_or_default(),
             output_size: *output_size,
             duration_ms: *duration_ms,
+            exit_code: None,
         },
 
         // ── Approval ─────────────────────────────────────────────────────

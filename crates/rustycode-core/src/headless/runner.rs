@@ -34,6 +34,7 @@ pub async fn run_headless_task(
         tool_registry,
         None,
         None,
+        None,
     )
     .await?
     .final_text)
@@ -56,6 +57,9 @@ pub async fn run_headless_task_core(
     tool_registry: &ToolRegistry,
     prior_messages: Option<Vec<ChatMessage>>,
     system_prompt_override: Option<&str>,
+    op_tx_callback: Option<
+        Box<dyn FnOnce(tokio::sync::mpsc::UnboundedSender<rustycode_protocol::Op>) + Send>,
+    >,
 ) -> Result<HeadlessTaskResult> {
     let dir_listing = if let Ok(mut entries) = tokio::fs::read_dir(cwd).await {
         let mut names = Vec::new();
@@ -156,7 +160,14 @@ pub async fn run_headless_task_core(
 
     let config = rustycode_agent_runtime::AgentConfig::from_env();
     let mut events = crate::headless::events::HeadlessAgentBridge::new();
-    let mut session = rustycode_agent_runtime::AgentSession::new(config, cwd.to_path_buf());
+    let (op_tx, op_rx) = tokio::sync::mpsc::unbounded_channel();
+
+    if let Some(callback) = op_tx_callback {
+        callback(op_tx);
+    }
+
+    let mut session = rustycode_agent_runtime::AgentSession::new(config, cwd.to_path_buf())
+        .with_op_receiver(op_rx);
     let system_prompt = if let Some(override_prompt) = system_prompt_override {
         override_prompt.to_string()
     } else if iteration > 1 {

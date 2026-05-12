@@ -94,6 +94,15 @@ pub struct Runtime {
     pub tool_cache: Arc<Mutex<ToolResultCache>>,
     pub skill_manager: Arc<Mutex<Option<rustycode_skill::manager::SkillManager>>>,
     pub(crate) active_session_id: Mutex<Option<SessionId>>,
+    /// Track active session command channels for `submit(Op)`.
+    pub(crate) active_ops: Arc<
+        Mutex<
+            std::collections::HashMap<
+                SessionId,
+                tokio::sync::mpsc::UnboundedSender<rustycode_protocol::Op>,
+            >,
+        >,
+    >,
     /// Unified outbound event channel.
     event_tx: tokio::sync::broadcast::Sender<rustycode_protocol::EventMsg>,
 }
@@ -192,6 +201,7 @@ impl Runtime {
             tool_cache,
             skill_manager: Arc::new(Mutex::new(skill_manager)),
             active_session_id: Mutex::new(None),
+            active_ops: Arc::new(Mutex::new(std::collections::HashMap::new())),
             event_tx,
         })
     }
@@ -220,6 +230,7 @@ impl Runtime {
             tool_cache,
             skill_manager: Arc::new(Mutex::new(None)),
             active_session_id: Mutex::new(None),
+            active_ops: Arc::new(Mutex::new(std::collections::HashMap::new())),
             event_tx,
         })
     }
@@ -237,11 +248,41 @@ impl Runtime {
     /// Submit an operation to the core.
     ///
     /// This is the single entry point for all frontend commands.
-    /// In Phase 1, this dispatches to existing domain handlers.
+    /// In Phase 1, this dispatches to active agent sessions via their `Op` channel.
     pub async fn submit(&self, op: rustycode_protocol::Op) -> Result<()> {
         info!(?op, "Op submitted to runtime");
-        // Logic to be implemented as we migrate domain handlers
-        Ok(())
+
+        let session_id = {
+            let guard = self
+                .active_session_id
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Active session lock poisoned"))?;
+            guard.clone()
+        };
+
+        if let Some(id) = session_id {
+            let guard = self
+                .active_ops
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Active ops lock poisoned"))?;
+            if let Some(tx) = guard.get(&id) {
+                tx.send(op)
+                    .map_err(|_| anyhow::anyhow!("Failed to send Op to active session {}", id))?;
+                return Ok(());
+            }
+        }
+
+        // Fallback or global operations
+        match op {
+            rustycode_protocol::Op::StopStream => {
+                // If no active session found, nothing to stop
+                Ok(())
+            }
+            _ => {
+                warn!(?op, "Op submitted but no active session found to handle it");
+                Ok(())
+            }
+        }
     }
 
     /// Get event bus reference

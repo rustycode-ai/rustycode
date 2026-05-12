@@ -53,6 +53,101 @@ impl StreamEventAdapter {
         }
     }
 
+    pub fn on_event_msg(&mut self, event: rustycode_protocol::EventMsg) {
+        match event {
+            rustycode_protocol::EventMsg::TextDelta { delta } => {
+                self.emit(StreamChunk::Text(delta));
+            }
+            rustycode_protocol::EventMsg::ThinkingDelta { delta } => {
+                self.emit(StreamChunk::Thinking(delta));
+            }
+            rustycode_protocol::EventMsg::TurnStarted { turn, .. } => {
+                self.emit(StreamChunk::SystemMessage(format!("Turn {turn} started")));
+            }
+            rustycode_protocol::EventMsg::ToolCallStarted {
+                tool_id, tool_name, ..
+            } => {
+                self.pending_tool_id = Some(tool_id.clone());
+                self.active_tools.insert(
+                    tool_id.clone(),
+                    ToolCall::new(tool_id, tool_name, String::new()),
+                );
+            }
+            rustycode_protocol::EventMsg::ToolInputDelta { tool_id, delta } => {
+                if let Some(tool) = self.active_tools.get_mut(&tool_id) {
+                    tool.push_json(&delta);
+                }
+            }
+            rustycode_protocol::EventMsg::ToolExecStarted {
+                tool_id,
+                tool_name: _,
+            } => {
+                if let Some(tool) = self.active_tools.get(&tool_id) {
+                    self.emit(StreamChunk::ToolStart {
+                        tool_name: tool.name.clone(),
+                        tool_id,
+                        input_json: tool.partial_json.clone(),
+                    });
+                }
+            }
+            rustycode_protocol::EventMsg::ToolExecCompleted {
+                tool_id,
+                tool_name,
+                success,
+                output,
+                ..
+            } => {
+                let duration_ms = self
+                    .active_tools
+                    .remove(&tool_id)
+                    .map(|t| t.elapsed_ms())
+                    .unwrap_or(0);
+                self.emit(StreamChunk::ToolComplete {
+                    tool_name,
+                    tool_id,
+                    duration_ms,
+                    success,
+                    output_size: output.len(),
+                    output: Some(output),
+                });
+            }
+            rustycode_protocol::EventMsg::TokenUsage {
+                input_tokens,
+                output_tokens,
+                ..
+            } => {
+                self.emit(StreamChunk::TokenUsage {
+                    input_tokens: input_tokens as usize,
+                    output_tokens: output_tokens as usize,
+                    cache_read_tokens: 0,
+                    cache_creation_tokens: 0,
+                });
+            }
+            rustycode_protocol::EventMsg::Done => {
+                self.emit(StreamChunk::Done);
+            }
+            rustycode_protocol::EventMsg::ApprovalRequired {
+                tool_name,
+                tool_id,
+                description,
+                ..
+            } => {
+                self.emit(StreamChunk::ApprovalRequest {
+                    tool_name,
+                    tool_id,
+                    description,
+                    diff: None, // could be added to EventMsg
+                });
+            }
+            rustycode_protocol::EventMsg::ApprovalRejected { tool_id } => {
+                self.emit(StreamChunk::ApprovalRejected { tool_id });
+            }
+            _ => {
+                // Ignore other events for now
+            }
+        }
+    }
+
     pub fn on_orchestration_event(&mut self, event: OrchestrationEvent) {
         match event {
             OrchestrationEvent::TextDelta { content, .. }

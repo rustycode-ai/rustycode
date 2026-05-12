@@ -82,6 +82,8 @@ impl TUI {
                         .submit_op(Op::ApproveTool {
                             tool_id: req.tool_id.clone(),
                             approved: true,
+                            modified_input: None,
+                            timeout_override: None,
                         })
                         .ok();
                 }
@@ -100,6 +102,8 @@ impl TUI {
                         .submit_op(Op::ApproveTool {
                             tool_id: req.tool_id.clone(),
                             approved: false,
+                            modified_input: None,
+                            timeout_override: None,
                         })
                         .ok();
                 }
@@ -121,6 +125,8 @@ impl TUI {
                         .submit_op(Op::ApproveTool {
                             tool_id: req.tool_id.clone(),
                             approved: false,
+                            modified_input: None,
+                            timeout_override: None,
                         })
                         .ok();
                 }
@@ -139,6 +145,8 @@ impl TUI {
                         .submit_op(Op::ApproveTool {
                             tool_id: req.tool_id.clone(),
                             approved: true,
+                            modified_input: None,
+                            timeout_override: None,
                         })
                         .ok();
                 }
@@ -158,6 +166,8 @@ impl TUI {
                     .submit_op(Op::ApproveTool {
                         tool_id: tool_id.unwrap_or_default(),
                         approved: false,
+                        modified_input: None,
+                        timeout_override: None,
                     })
                     .ok();
                 self.add_system_message("⏸️  Approval cancelled".to_string());

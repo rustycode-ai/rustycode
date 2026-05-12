@@ -56,20 +56,54 @@ pub async fn collect_stream_turn(
     chunk_timeout: Duration,
     events: &mut dyn AgentEvents,
     event_tx: &tokio::sync::broadcast::Sender<rustycode_protocol::EventMsg>,
+    op_rx: &mut Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
 ) -> Result<TurnState> {
     let mut state = TurnState::new();
 
     loop {
-        let sse = match tokio::time::timeout(chunk_timeout, stream.next()).await {
-            Ok(Some(Ok(ev))) => ev,
-            Ok(Some(Err(e))) => {
-                tracing::warn!("Mid-stream error: {e}. Ending turn early.");
-                break;
+        let sse = if let Some(ref mut rx) = op_rx {
+            tokio::select! {
+                res = tokio::time::timeout(chunk_timeout, stream.next()) => {
+                    match res {
+                        Ok(Some(Ok(ev))) => ev,
+                        Ok(Some(Err(e))) => {
+                            tracing::warn!("Mid-stream error: {e}. Ending turn early.");
+                            break;
+                        }
+                        Ok(None) => break,
+                        Err(_) => {
+                            tracing::warn!("Stream chunk timeout. Ending turn early.");
+                            break;
+                        }
+                    }
+                }
+                Some(op) = rx.recv() => {
+                    match op {
+                        rustycode_protocol::Op::StopStream => {
+                            tracing::info!("AgentSession received StopStream Op. Ending turn early.");
+                            state.stop_reason = Some("cancelled".to_string());
+                            let _ = event_tx.send(rustycode_protocol::EventMsg::Stopped { stop_reason: "user_request".to_string() });
+                            break;
+                        }
+                        _ => {
+                            // In Phase 1, other ops might not be handled here
+                            continue;
+                        }
+                    }
+                }
             }
-            Ok(None) => break,
-            Err(_) => {
-                tracing::warn!("Stream chunk timeout. Ending turn early.");
-                break;
+        } else {
+            match tokio::time::timeout(chunk_timeout, stream.next()).await {
+                Ok(Some(Ok(ev))) => ev,
+                Ok(Some(Err(e))) => {
+                    tracing::warn!("Mid-stream error: {e}. Ending turn early.");
+                    break;
+                }
+                Ok(None) => break,
+                Err(_) => {
+                    tracing::warn!("Stream chunk timeout. Ending turn early.");
+                    break;
+                }
             }
         };
 
@@ -754,6 +788,7 @@ mod tests {
             Duration::from_secs(30),
             &mut collector,
             &event_tx,
+            &mut None,
         )
         .await
         .unwrap();

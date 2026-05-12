@@ -40,6 +40,8 @@ pub(super) fn handle_approval_request_chunk(
             .submit_op(Op::ApproveTool {
                 tool_id: tool_id.clone(),
                 approved: true,
+                modified_input: None,
+                timeout_override: None,
             })
             .ok();
         tui.sys.dirty = true;
@@ -54,6 +56,8 @@ pub(super) fn handle_approval_request_chunk(
             .submit_op(Op::ApproveTool {
                 tool_id: tool_id.clone(),
                 approved: false,
+                modified_input: None,
+                timeout_override: None,
             })
             .ok();
         tui.add_system_message(format!("✗ Auto-rejected (blocked): {}", tool_name));
@@ -73,6 +77,8 @@ pub(super) fn handle_approval_request_chunk(
                     .submit_op(Op::ApproveTool {
                         tool_id: tool_id.clone(),
                         approved: true,
+                        modified_input: None,
+                        timeout_override: None,
                     })
                     .ok();
                 tui.sys.dirty = true;
@@ -96,6 +102,8 @@ pub(super) fn handle_approval_request_chunk(
             .submit_op(Op::ApproveTool {
                 tool_id: tool_id.clone(),
                 approved: false,
+                modified_input: None,
+                timeout_override: None,
             })
             .ok();
         tui.add_system_message(format!(

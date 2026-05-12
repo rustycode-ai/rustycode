@@ -164,6 +164,8 @@ pub struct AgentSession {
     /// Broadcast channel for EventMsg emission (Phase 1B dual emission).
     /// Capacity: 256 events. Subscribers that lag get Lagged notification.
     event_tx: tokio::sync::broadcast::Sender<EventMsg>,
+    /// Inbound command receiver (Op).
+    op_rx: Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
 }
 
 impl AgentSession {
@@ -177,6 +179,7 @@ impl AgentSession {
             hooks: ExpandedHookDispatcher::new(),
             message_sender: None,
             event_tx,
+            op_rx: None,
         }
     }
 
@@ -201,6 +204,15 @@ impl AgentSession {
     /// Attach a message sender for inter-agent communication.
     pub fn with_message_sender(mut self, sender: Arc<dyn MessageSender>) -> Self {
         self.message_sender = Some(sender);
+        self
+    }
+
+    /// Attach an inbound command receiver (Op).
+    pub fn with_op_receiver(
+        mut self,
+        op_rx: tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>,
+    ) -> Self {
+        self.op_rx = Some(op_rx);
         self
     }
 
@@ -233,6 +245,8 @@ impl AgentSession {
         tool_registry: &ToolRegistry,
         events: &mut dyn AgentEvents,
     ) -> Result<AgentResult> {
+        let mut op_rx = self.op_rx.take();
+
         // Enrich system prompt with repo map if intelligence is available
         #[allow(clippy::option_if_let_else)]
         let enriched_system = match self.intelligence.as_ref() {
@@ -247,7 +261,7 @@ impl AgentSession {
             None => system.to_string(),
         };
 
-        run_loop(
+        let result = run_loop(
             provider,
             model,
             &enriched_system,
@@ -262,8 +276,14 @@ impl AgentSession {
             events,
             self.message_sender.clone(),
             &self.event_tx,
+            &mut op_rx,
         )
-        .await
+        .await;
+
+        // Restore op_rx if it was taken and session is still alive
+        self.op_rx = op_rx;
+
+        result
     }
 }
 
@@ -305,6 +325,7 @@ async fn run_loop(
     events: &mut dyn AgentEvents,
     message_sender: Option<Arc<dyn MessageSender>>,
     event_tx: &tokio::sync::broadcast::Sender<EventMsg>,
+    op_rx: &mut Option<tokio::sync::mpsc::UnboundedReceiver<rustycode_protocol::Op>>,
 ) -> Result<AgentResult> {
     const MAX_RETRIES: usize = 3;
 
@@ -410,7 +431,7 @@ async fn run_loop(
                 e
             })? {
             TurnSource::Stream(stream) => {
-                collect_stream_turn(stream, chunk_timeout, events, event_tx).await?
+                collect_stream_turn(stream, chunk_timeout, events, event_tx, op_rx).await?
             }
             TurnSource::Completion(response) => {
                 collect_completion_turn(response, events, event_tx).await?
@@ -488,19 +509,24 @@ async fn run_loop(
                     tool.name,
                     activation.current_tier()
                 );
+                let exec_msg = EventMsg::ToolExecCompleted {
+                    tool_id: tool.id.clone(),
+                    tool_name: tool.name.clone(),
+                    success: false,
+                    output: msg.clone(),
+                    output_size: msg.len(),
+                    duration_ms: 0,
+                    exit_code: None,
+                };
+                let _ = event_tx.send(exec_msg);
+
                 let stream_event = StreamEvent::ToolExecCompleted {
                     id: tool.id.clone(),
                     name: tool.name.clone(),
                     output: msg.clone(),
                     is_error: true,
                 };
-                events.on_event(stream_event.clone()).await;
-                // Phase 1B: Dual emission — broadcast EventMsg alongside callback
-                if let Some(event_msg) =
-                    crate::event_convert::stream_event_to_event_msg(stream_event)
-                {
-                    let _ = event_tx.send(event_msg);
-                }
+                events.on_event(stream_event).await;
                 tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &msg));
                 continue;
             }
@@ -523,6 +549,7 @@ async fn run_loop(
                 rustycode_protocol::permission_modes::OperationClass::Unknown
             };
 
+            // Phase 1D: Approval gate (prefers Op channel, falls back to legacy callback)
             let _ = event_tx.send(EventMsg::ApprovalRequired {
                 tool_name: tool.name.clone(),
                 tool_id: tool.id.clone(),
@@ -530,9 +557,33 @@ async fn run_loop(
                 description: format!("Execute tool: {}", tool.name),
                 diff: None,
             });
-
-            // Approval gate
-            let decision = events.on_approval_needed(&tool.name, &input).await;
+            let decision = if let Some(ref mut rx) = op_rx {
+                loop {
+                    match rx.recv().await {
+                        Some(rustycode_protocol::Op::ApproveTool {
+                            tool_id, approved, ..
+                        }) if tool_id == tool.id => {
+                            if approved {
+                                break ApprovalDecision::Approve;
+                            }
+                            break ApprovalDecision::Reject("rejected by user".to_string());
+                        }
+                        Some(rustycode_protocol::Op::StopStream) => {
+                            tracing::info!("Stream cancelled while awaiting approval");
+                            break ApprovalDecision::Reject("cancelled".to_string());
+                        }
+                        Some(_) => {
+                            // Other ops ignored while awaiting approval
+                        }
+                        None => {
+                            tracing::warn!("Op channel closed while awaiting approval");
+                            break ApprovalDecision::Reject("channel closed".to_string());
+                        }
+                    }
+                }
+            } else {
+                events.on_approval_needed(&tool.name, &input).await
+            };
             if let ApprovalDecision::Reject(reason) = decision {
                 // Phase 1B: Broadcast rejection
                 let _ = event_tx.send(EventMsg::ApprovalRejected {
@@ -540,19 +591,24 @@ async fn run_loop(
                 });
 
                 let msg = format!("Tool call rejected: {reason}");
+                let exec_msg = EventMsg::ToolExecCompleted {
+                    tool_id: tool.id.clone(),
+                    tool_name: tool.name.clone(),
+                    success: false,
+                    output: msg.clone(),
+                    output_size: msg.len(),
+                    duration_ms: 0,
+                    exit_code: None,
+                };
+                let _ = event_tx.send(exec_msg);
+
                 let stream_event = StreamEvent::ToolExecCompleted {
                     id: tool.id.clone(),
                     name: tool.name.clone(),
                     output: msg.clone(),
                     is_error: true,
                 };
-                events.on_event(stream_event.clone()).await;
-                // Phase 1B: Dual emission — broadcast EventMsg alongside callback
-                if let Some(event_msg) =
-                    crate::event_convert::stream_event_to_event_msg(stream_event)
-                {
-                    let _ = event_tx.send(event_msg);
-                }
+                events.on_event(stream_event).await;
                 tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &msg));
 
                 // Dispatch ToolError hook
@@ -570,18 +626,30 @@ async fn run_loop(
             });
 
             // Execute tool with optional message sender for inter-agent communication
-            let (raw_output, exec_error) = execute_tool(
+            let result = execute_tool(
                 cwd,
                 &tool.name,
                 &tool.input_json,
                 tool_registry,
                 message_sender.clone(),
             );
-            let truncated = truncate_tool_output(&raw_output, config.max_tool_result_bytes);
-            let error_flag = exec_error;
+            let truncated = truncate_tool_output(&result.output, config.max_tool_result_bytes);
+            let error_flag = !result.success;
 
             // Record usage
             activation.record_use(&tool.name, !error_flag);
+
+            // Phase 1B: Dual emission — broadcast EventMsg alongside callback
+            let exec_msg = EventMsg::ToolExecCompleted {
+                tool_id: tool.id.clone(),
+                tool_name: tool.name.clone(),
+                success: result.success,
+                output: truncated.clone(),
+                output_size: truncated.len(),
+                duration_ms: 0,
+                exit_code: result.exit_code,
+            };
+            let _ = event_tx.send(exec_msg);
 
             let stream_event = StreamEvent::ToolExecCompleted {
                 id: tool.id.clone(),
@@ -589,11 +657,7 @@ async fn run_loop(
                 output: truncated.clone(),
                 is_error: error_flag,
             };
-            events.on_event(stream_event.clone()).await;
-            // Phase 1B: Dual emission — broadcast EventMsg alongside callback
-            if let Some(msg) = crate::event_convert::stream_event_to_event_msg(stream_event) {
-                let _ = event_tx.send(msg);
-            }
+            events.on_event(stream_event).await;
 
             if error_flag {
                 tool_result_blocks.push(ContentBlock::tool_error(&tool.id, &truncated));
@@ -601,7 +665,10 @@ async fn run_loop(
                 let _ = hooks.dispatch(&LifecycleEvent::new(
                     LifecycleHook::ToolError,
                     &tool.name,
-                    serde_json::json!({ "error": "execution_failed" }),
+                    serde_json::json!({
+                        "error": "execution_failed",
+                        "exit_code": result.exit_code,
+                    }),
                 ));
             } else {
                 tool_result_blocks.push(ContentBlock::tool_result(&tool.id, &truncated));
@@ -609,7 +676,10 @@ async fn run_loop(
                 let _ = hooks.dispatch(&LifecycleEvent::new(
                     LifecycleHook::PostToolUse,
                     &tool.name,
-                    serde_json::json!({ "output_len": truncated.len() }),
+                    serde_json::json!({
+                        "output_len": truncated.len(),
+                        "exit_code": result.exit_code,
+                    }),
                 ));
             }
         }

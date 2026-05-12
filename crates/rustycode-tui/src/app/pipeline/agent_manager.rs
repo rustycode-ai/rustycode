@@ -153,6 +153,12 @@ impl TuiAgentBridge {
         self
     }
 
+    pub fn take_adapter(&mut self) -> StreamEventAdapter {
+        // Replace with a dummy adapter that doesn't send anything
+        let (tx, _rx) = std::sync::mpsc::sync_channel(1);
+        std::mem::replace(&mut self.adapter, StreamEventAdapter::new(tx))
+    }
+
     pub fn final_text(&self) -> &str {
         &self.final_text
     }
@@ -166,38 +172,8 @@ impl AgentEvents for TuiAgentBridge {
         }
 
         // Existing callback flow (authoritative)
-        self.adapter.on_event(event.clone()).await;
-
-        // Phase 1C shadow mode: validate broadcast matches callback
-        if let Some(ref mut rx) = self.event_rx {
-            match rx.try_recv() {
-                Ok(msg) => {
-                    tracing::debug!(
-                        target: "rustycode_tui::shadow",
-                        "EventMsg shadow received: {:?}",
-                        msg
-                    );
-                }
-                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => {
-                    tracing::debug!(
-                        target: "rustycode_tui::shadow",
-                        "EventMsg shadow: no broadcast event available (may arrive later)"
-                    );
-                }
-                Err(tokio::sync::broadcast::error::TryRecvError::Lagged(n)) => {
-                    tracing::warn!(
-                        target: "rustycode_tui::shadow",
-                        "EventMsg shadow lagged, skipped {n} events"
-                    );
-                }
-                Err(tokio::sync::broadcast::error::TryRecvError::Closed) => {
-                    tracing::debug!(
-                        target: "rustycode_tui::shadow",
-                        "EventMsg shadow channel closed"
-                    );
-                }
-            }
-        }
+        // If adapter was taken, this will go to the dummy adapter (no-op)
+        self.adapter.on_event(event).await;
     }
 
     async fn on_approval_needed(

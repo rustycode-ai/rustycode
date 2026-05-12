@@ -96,10 +96,16 @@ pub fn stream_event_to_event_msg(event: StreamEvent) -> Option<EventMsg> {
                 output,
                 output_size,
                 duration_ms: 0,
+                exit_code: None,
             })
         }
 
-        StreamEvent::TurnStarted { turn } => Some(EventMsg::TurnStarted { turn }),
+        StreamEvent::TurnStarted { turn } => Some(EventMsg::TurnStarted {
+            turn,
+            turn_id: format!("turn-{}", turn),
+            thinking_enabled: false,
+            phase: None,
+        }),
 
         StreamEvent::TokenUsage {
             input_tokens,
@@ -279,8 +285,9 @@ mod tests {
                 success,
                 output,
                 output_size,
-                duration_ms
-            } if tool_id == "tool_1" && tool_name == "Bash" && success && output == "success" && output_size == 7 && duration_ms == 0
+                duration_ms,
+                exit_code
+            } if tool_id == "tool_1" && tool_name == "Bash" && success && output == "success" && output_size == 7 && duration_ms == 0 && exit_code.is_none()
         ));
     }
 
@@ -303,7 +310,14 @@ mod tests {
     fn turn_started_conversion() {
         let event = StreamEvent::TurnStarted { turn: 5 };
         let msg = stream_event_to_event_msg(event).expect("conversion should return Some");
-        assert!(matches!(msg, EventMsg::TurnStarted { turn } if turn == 5));
+        assert!(matches!(
+            msg,
+            EventMsg::TurnStarted {
+                turn,
+                turn_id,
+                ..
+            } if turn == 5 && turn_id == "turn-5"
+        ));
     }
 
     #[test]

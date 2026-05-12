@@ -1,5 +1,5 @@
 use rustycode_protocol::tool_names as tn;
-use rustycode_protocol::ToolCall;
+use rustycode_protocol::{ToolCall, ToolResult};
 use rustycode_tools::{ToolContext, ToolRegistry};
 use rustycode_tools_api::MessageSender;
 use std::path::Path;
@@ -12,13 +12,15 @@ pub fn execute_tool(
     tool_json: &str,
     tool_registry: &ToolRegistry,
     message_sender: Option<Arc<dyn MessageSender>>,
-) -> (String, bool) {
+) -> ToolResult {
     let resolved_name = normalize_tool_name(tool_name);
     let args: serde_json::Value = match serde_json::from_str(tool_json) {
         Ok(v) => v,
         Err(e) => {
-            let msg = format!("Error: Failed to parse tool arguments: {e}");
-            return (msg, true);
+            return ToolResult::error(
+                "agent",
+                format!("Error: Failed to parse tool arguments: {e}"),
+            );
         }
     };
 
@@ -32,16 +34,8 @@ pub fn execute_tool(
     if let Some(sender) = message_sender {
         ctx = ctx.with_message_sender(sender);
     }
-    let result = tool_registry.execute(&call, &ctx);
 
-    if result.success {
-        (result.output, false)
-    } else {
-        let msg = result
-            .error
-            .unwrap_or_else(|| "Error executing tool".to_string());
-        (msg, true)
-    }
+    tool_registry.execute(&call, &ctx)
 }
 
 /// Truncate tool output to fit within budget, preserving pagination info in the tail.

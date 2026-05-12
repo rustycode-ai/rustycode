@@ -170,6 +170,7 @@ pub fn handle_event_msg(tui: &mut TUI, msg: EventMsg) {
             output,
             output_size,
             duration_ms,
+            ..
         } => handle_tool_complete_chunk(
             tui,
             tool_name,

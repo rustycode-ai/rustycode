@@ -539,6 +539,7 @@ fn event_msg_to_rollout_event(msg: rustycode_protocol::EventMsg) -> Option<Rollo
             output,
             output_size: _,
             duration_ms,
+            ..
         } => Some(RolloutEvent::ToolResult {
             tool_name,
             output,

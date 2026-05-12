@@ -5,7 +5,6 @@ use rustycode_git::GitStatus;
 use rustycode_lsp::LspServerStatus;
 use rustycode_protocol::{ContextPlan, Session, SessionId};
 use rustycode_skill::Skill;
-use rustycode_tools_api::build_canonical_tool_schemas;
 use std::path::Path;
 
 use super::{RunReport, Runtime};
@@ -121,12 +120,21 @@ impl Runtime {
         cwd: &Path,
         iteration: usize,
     ) -> Result<crate::headless::HeadlessTaskResult> {
-        let tools_schema = build_canonical_tool_schemas(&self.tool_list());
+        let tools_schema = rustycode_tools_api::build_canonical_tool_schemas(&self.tool_list());
 
         // Build system prompt augmented with auto-activated skills
         let system_prompt = self.build_skill_augmented_prompt(task, Some(cwd));
 
-        crate::headless::run_headless_task_core(
+        let session_id = if let Ok(guard) = self.active_session_id.lock() {
+            guard.clone()
+        } else {
+            None
+        };
+
+        let active_ops = self.active_ops.clone();
+        let session_id_reg = session_id.clone();
+
+        let result = crate::headless::run_headless_task_core(
             provider,
             model,
             &tools_schema,
@@ -136,8 +144,24 @@ impl Runtime {
             &self.tools,
             None,
             Some(&system_prompt),
+            Some(Box::new(move |tx| {
+                if let Some(id) = session_id_reg {
+                    if let Ok(mut guard) = active_ops.lock() {
+                        guard.insert(id, tx);
+                    }
+                }
+            })),
         )
-        .await
+        .await;
+
+        // Cleanup
+        if let Some(id) = session_id {
+            if let Ok(mut guard) = self.active_ops.lock() {
+                guard.remove(&id);
+            }
+        }
+
+        result
     }
 
     /// Run headless agent with prior conversation messages for retry continuation.
@@ -150,9 +174,18 @@ impl Runtime {
         iteration: usize,
         prior_messages: Option<Vec<rustycode_llm::provider::ChatMessage>>,
     ) -> Result<crate::headless::HeadlessTaskResult> {
-        let tools_schema = build_canonical_tool_schemas(&self.tool_list());
+        let tools_schema = rustycode_tools_api::build_canonical_tool_schemas(&self.tool_list());
 
-        crate::headless::run_headless_task_core(
+        let session_id = if let Ok(guard) = self.active_session_id.lock() {
+            guard.clone()
+        } else {
+            None
+        };
+
+        let active_ops = self.active_ops.clone();
+        let session_id_reg = session_id.clone();
+
+        let result = crate::headless::run_headless_task_core(
             provider,
             model,
             &tools_schema,
@@ -162,7 +195,23 @@ impl Runtime {
             &self.tools,
             prior_messages,
             None,
+            Some(Box::new(move |tx| {
+                if let Some(id) = session_id_reg {
+                    if let Ok(mut guard) = active_ops.lock() {
+                        guard.insert(id, tx);
+                    }
+                }
+            })),
         )
-        .await
+        .await;
+
+        // Cleanup
+        if let Some(id) = session_id {
+            if let Ok(mut guard) = self.active_ops.lock() {
+                guard.remove(&id);
+            }
+        }
+
+        result
     }
 }

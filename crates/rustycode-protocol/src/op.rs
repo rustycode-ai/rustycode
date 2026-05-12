@@ -32,10 +32,18 @@ pub enum Op {
     /// Request cooperative cancellation of the active stream.
     StopStream,
 
-    /// Respond to a tool approval request.
+    /// Respond to a tool approval request with optional overrides.
     ///
-    /// `true` = approve execution, `false` = reject.
-    ApproveTool { tool_id: String, approved: bool },
+    /// `approved` = true: execute tool.
+    /// `approved` = false: reject execution.
+    ApproveTool {
+        tool_id: String,
+        approved: bool,
+        /// Optional modified input for the tool (e.g. user-edited file content).
+        modified_input: Option<serde_json::Value>,
+        /// Optional timeout override in seconds.
+        timeout_override: Option<u64>,
+    },
 
     /// Set the permission mode for tool approval decisions.
     SetPermissionMode {
@@ -79,17 +87,6 @@ pub enum Op {
 
     /// Query progress for a specific milestone.
     QueryMilestoneProgress { milestone_id: String },
-
-    // ── Enhanced Tool Approval ───────────────────────────────────────────────
-    /// Respond to a tool approval request with optional overrides.
-    ApproveToolEnhanced {
-        tool_id: String,
-        approved: bool,
-        /// Optional modified input for the tool (e.g. user-edited file content).
-        modified_input: Option<serde_json::Value>,
-        /// Optional timeout override in seconds.
-        timeout_override: Option<u64>,
-    },
 }
 
 #[cfg(test)]
@@ -133,10 +130,14 @@ mod tests {
             Op::ApproveTool {
                 tool_id: "tool_1".into(),
                 approved: true,
+                modified_input: None,
+                timeout_override: None,
             },
             Op::ApproveTool {
                 tool_id: "tool_1".into(),
                 approved: false,
+                modified_input: None,
+                timeout_override: None,
             },
             Op::SetPermissionMode {
                 mode: crate::permission_modes::PermissionMode::Bypass,

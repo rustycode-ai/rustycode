@@ -1,6 +1,6 @@
 //! Executor module — tool dispatch, caching, batching, and inspection.
 //!
-// ~6400 LOC across 11 files.
+// ~6400 LOC across 12 files.
 
 pub mod auto_tool;
 pub mod batch;
@@ -8,6 +8,7 @@ pub mod batch_state;
 pub mod cache;
 pub mod convoy;
 pub mod decompose;
+pub mod executor;
 pub mod gate;
 pub mod inspector;
 pub mod manager;
@@ -25,6 +26,7 @@ pub use batch::BatchTool;
 pub use cache::{CacheConfig, CacheKey, CacheMetrics, CacheStats, CachedToolResult, ToolCache};
 pub use convoy::ConvoyDispatcher;
 pub use decompose::{DecomposeProblemTool, DecompositionResult, Module};
+pub use executor::ToolExecutor;
 pub use inspector::{
     BudgetInspector, EgressInspector, InspectionAction, InspectionResult, OsvInspector,
     PermissionInspector, RateLimitInspector, RepetitionInspector, SecurityInspector, ToolCallInfo,
@@ -32,6 +34,7 @@ pub use inspector::{
 };
 pub use manager::ToolInspectionManager;
 pub use middleware::{ExecutionMiddleware, MiddlewareConfig, MiddlewareState, PlanModeState};
+pub use permission::{check_permission, check_sandbox_path, check_tool_permission};
 pub use task::{SubAgentRunner, TaskTool};
 pub use tool_shim::{
     extract_tool_calls, extract_tool_calls_with_config, format_tools_for_prompt,

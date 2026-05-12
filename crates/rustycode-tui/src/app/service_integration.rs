@@ -740,7 +740,9 @@ impl ServiceManager {
                 self.request_stop_stream();
                 Ok(())
             }
-            Op::ApproveTool { tool_id, approved } => {
+            Op::ApproveTool {
+                tool_id, approved, ..
+            } => {
                 self.send_approval_response(tool_id, approved);
                 Ok(())
             }
@@ -785,8 +787,7 @@ impl ServiceManager {
             | Op::SkipStep { .. }
             | Op::SetStrategy { .. }
             | Op::QueryMilestoneProgress { .. }
-            | Op::ResumeFromCheckpoint { .. }
-            | Op::ApproveToolEnhanced { .. } => Ok(()),
+            | Op::ResumeFromCheckpoint { .. } => Ok(()),
         }
     }
 

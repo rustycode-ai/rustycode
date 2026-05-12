@@ -127,7 +127,16 @@ pub enum EventMsg {
         data: String,
     },
     /// A new agent turn has started.
-    TurnStarted { turn: usize },
+    TurnStarted {
+        /// Monotonic turn number (1-based).
+        turn: usize,
+        /// Unique ID for this turn (UUID or timestamp-based).
+        turn_id: String,
+        /// Whether reasoning/thinking is enabled for this turn.
+        thinking_enabled: bool,
+        /// Current execution phase (Explore/Plan/Act), if in orchestration.
+        phase: Option<crate::execution_phase::ExecutionPhase>,
+    },
     /// LLM turn ended with a stop reason.
     TurnCompleted { stop_reason: String },
 
@@ -163,6 +172,8 @@ pub enum EventMsg {
         output: String,
         output_size: usize,
         duration_ms: u64,
+        /// Process exit code if applicable.
+        exit_code: Option<i32>,
     },
     /// File snapshot before a write operation (for undo).
     FileSnapshot { batch: Vec<(String, String)> },
@@ -337,7 +348,7 @@ pub fn event_msg_to_stream_event(msg: EventMsg) -> Option<crate::stream_event::S
             signature,
             data,
         }),
-        EventMsg::TurnStarted { turn } => Some(StreamEvent::TurnStarted { turn }),
+        EventMsg::TurnStarted { turn, .. } => Some(StreamEvent::TurnStarted { turn }),
         EventMsg::TurnCompleted { stop_reason } => Some(StreamEvent::TurnCompleted { stop_reason }),
         EventMsg::ToolCallStarted {
             tool_id, tool_name, ..
@@ -586,7 +597,12 @@ mod tests {
                 },
             ),
             (
-                EventMsg::TurnStarted { turn: 3 },
+                EventMsg::TurnStarted {
+                    turn: 3,
+                    turn_id: "turn_3".into(),
+                    thinking_enabled: false,
+                    phase: None,
+                },
                 StreamEvent::TurnStarted { turn: 3 },
             ),
             (
@@ -636,6 +652,7 @@ mod tests {
                     output: "ok".into(),
                     output_size: 2,
                     duration_ms: 100,
+                    exit_code: Some(0),
                 },
                 StreamEvent::ToolExecCompleted {
                     id: "t1".into(),

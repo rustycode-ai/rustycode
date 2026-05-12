@@ -4,16 +4,11 @@
 //!
 //! ```text
 //! Interface (TUI / CLI / Bench)
-//!      │ implements AgentEvents
+//!      │
 //! AgentSession::run()          ← this crate
-//!      │ uses
+//!      │  uses
 //! LLMProvider + ToolRegistry + CodeIntelligence
 //! ```
-//!
-//! The loop has no heuristics. No nudges. No behavioral injection.
-//! The model drives behavior; the loop enforces hard limits only.
-//! `CodeIntelligence` provides structural reality — the model sees
-//! what changed, what depends on what, and decides for itself.
 
 mod context;
 pub mod event_convert;
