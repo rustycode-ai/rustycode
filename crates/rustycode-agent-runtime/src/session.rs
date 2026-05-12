@@ -693,7 +693,14 @@ async fn run_loop(
             content: MessageContent::Blocks(tool_result_blocks),
         });
 
-        if state.stop_reason.as_deref() == Some("end_turn") {
+        // Phase 1B: Ensure TurnCompleted is emitted if not already sent by provider
+        if state.stop_reason.is_none() {
+            let _ = event_tx.send(EventMsg::TurnCompleted {
+                stop_reason: "end_turn".to_string(),
+            });
+        }
+
+        if state.stop_reason.as_deref() == Some("end_turn") || state.stop_reason.is_none() {
             tracing::info!("Agent finished: end_turn");
             stopped_reason = StoppedReason::NoToolCalls;
             break;
