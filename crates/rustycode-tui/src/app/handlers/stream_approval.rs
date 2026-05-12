@@ -136,7 +136,10 @@ pub(super) fn handle_approval_request_chunk(
         }),
     );
     if hook_result.should_block {
-        tui.integration.services.send_approval_response(false);
+        tui.integration
+            .services
+            .submit_op(Op::ApproveTool { approved: false })
+            .ok();
         tui.add_system_message(format!(
             "✗ Hook blocked: {} ({})",
             tool_name,
