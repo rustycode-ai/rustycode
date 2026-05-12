@@ -6,21 +6,17 @@
 //! # Example
 //!
 //! ```rust
-//! use rustycode_core::recovery::CheckpointValidator;
-//! use rustycode_protocol::session::{SessionSnapshot, SessionState};
+//! use rustycode_core::recovery::{CheckpointValidator, ExecutionPhase};
 //!
 //! let validator = CheckpointValidator::new()
 //!     .with_max_age(std::time::Duration::from_secs(3600));
 //!
-//! let snapshot = SessionSnapshot::new(
-//!     "cp_123".into(),
-//!     chrono::Utc::now().to_rfc3339(),
-//!     3,
-//!     SessionState::Active,
-//!     "working".into(),
+//! let snapshot = rustycode_core::recovery::CheckpointSnapshot::generate(
+//!     "session-123",
+//!     ExecutionPhase::Plan,
 //! );
 //!
-//! let report = validator.validate_complete(&snapshot).expect("validation failed");
+//! let report = validator.validate_complete(&snapshot);
 //! assert!(report.is_valid);
 //! ```
 

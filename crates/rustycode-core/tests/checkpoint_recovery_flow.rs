@@ -11,8 +11,7 @@
 //! operation detection.
 
 use anyhow::Result;
-use rustycode_core::checkpoint_detector::ExecutionCheckpointDetector;
-use rustycode_core::recovery::CheckpointRecovery;
+use rustycode_core::recovery::{CheckpointRecovery, ExecutionCheckpointDetector};
 use std::fs;
 use tempfile::TempDir;
 

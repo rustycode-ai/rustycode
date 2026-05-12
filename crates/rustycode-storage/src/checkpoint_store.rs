@@ -41,7 +41,7 @@ pub enum ExecutionPhase {
 
 /// Snapshot of session state captured at a specific execution phase.
 ///
-/// Mirrors [`rustycode_core::checkpoint::CheckpointSnapshot`] to avoid a
+/// Mirrors [`rustycode_core::recovery::CheckpointSnapshot`] to avoid a
 /// cyclic dependency between `rustycode-storage` and `rustycode-core`.
 /// The two types are kept wire-compatible (same serde representation).
 #[derive(Clone, Debug, Serialize, Deserialize)]

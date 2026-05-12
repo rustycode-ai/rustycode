@@ -53,7 +53,7 @@ impl ValidationReport {
 /// # Examples
 ///
 /// ```
-/// use rustycode_core::recovery::snapshot_validator::CheckpointValidator;
+/// use rustycode_core::recovery::CheckpointValidator;
 /// use std::time::Duration;
 ///
 /// let validator = CheckpointValidator::new()
