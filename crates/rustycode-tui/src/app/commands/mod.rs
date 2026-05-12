@@ -90,6 +90,8 @@ pub struct CommandContext<'a> {
     pub current_model: String,
     /// Session start time
     pub session_start: std::time::Instant,
+    /// Shared MCP server manager
+    pub mcp_manager: std::sync::Arc<tokio::sync::RwLock<rustycode_mcp::McpServerManager>>,
 }
 
 /// Result of executing a command
@@ -126,6 +128,8 @@ pub enum CommandEffect {
     RetryLastMessage,
     /// No output needed
     None,
+    /// Switch to MCP Mode UI
+    SwitchToMcpMode,
 }
 
 type SlashHandler = fn(&[&str], CommandContext<'_>) -> Result<CommandEffect>;

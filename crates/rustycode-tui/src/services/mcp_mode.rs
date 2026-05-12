@@ -10,18 +10,14 @@ use ratatui::{
 
 use anyhow::Result;
 use rustycode_mcp::proxy::{ProxyConfig, ToolProxy};
-use rustycode_mcp::{HealthStatus, ManagerConfig, McpConfigFile, McpServerManager};
+use rustycode_mcp::{HealthStatus, McpConfigFile};
 use rustycode_tools::Tool;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 /// MCP mode state
 pub struct McpMode {
-    /// MCP server manager
-    pub manager: Arc<RwLock<McpServerManager>>,
     /// Selected server index
     pub selected_server: usize,
     /// Selected tool index
@@ -138,8 +134,6 @@ impl McpMode {
         enabled_tags: Option<Vec<String>>,
         enabled_server_ids: Option<Vec<String>>,
     ) -> Result<Self> {
-        let manager = McpServerManager::new(ManagerConfig::default());
-
         // Load MCP configs from standard locations
         let configs = McpConfigFile::load_from_standard_locations();
 
@@ -334,7 +328,6 @@ impl McpMode {
         }
 
         Ok(Self {
-            manager: Arc::new(RwLock::new(manager)),
             selected_server: 0,
             selected_tool: 0,
             show_resources: false,
@@ -887,7 +880,6 @@ mod tests {
     #[test]
     fn test_execution_mode_switch() {
         let mut mode = McpMode {
-            manager: Arc::new(RwLock::new(McpServerManager::new(ManagerConfig::default()))),
             selected_server: 0,
             selected_tool: 0,
             show_resources: false,

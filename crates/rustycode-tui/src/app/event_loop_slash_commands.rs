@@ -110,6 +110,15 @@ fn apply_slash_command_effect(&mut self, effect: CommandEffect) -> Result<()> {
                 }
             }
         }
+        CommandEffect::SwitchToMcpMode => {
+            // Delegate to the existing MCP Mode entry point.
+            // The async SlashCommandResult handler in the event loop
+            // will receive the sentinel and switch the view.
+            self.add_system_message(
+                "MCP Mode: Press Esc to close. Type 'list' for servers, 'status' for connection info."
+                    .to_string(),
+            );
+        }
     }
 
     Ok(())

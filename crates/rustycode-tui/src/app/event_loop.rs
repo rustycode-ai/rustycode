@@ -414,6 +414,9 @@ impl TUI {
                 ),
                 lsp: LspStatus::new_forced_refresh(),
                 mcp: McpStatus::new_forced_refresh(),
+                mcp_manager: std::sync::Arc::new(tokio::sync::RwLock::new(
+                    rustycode_mcp::McpServerManager::new(rustycode_mcp::ManagerConfig::default()),
+                )),
                 start_time: Instant::now(),
                 event_receiver,
                 todo_state: rustycode_tools::todo::new_todo_state(),
@@ -661,6 +664,9 @@ impl TUI {
                 ),
                 lsp: LspStatus::new_forced_refresh(),
                 mcp: McpStatus::new_forced_refresh(),
+                mcp_manager: std::sync::Arc::new(tokio::sync::RwLock::new(
+                    rustycode_mcp::McpServerManager::new(rustycode_mcp::ManagerConfig::default()),
+                )),
                 start_time: Instant::now(),
                 event_receiver: tokio::sync::broadcast::channel(crate::app::EVENT_CHANNEL_CAPACITY)
                     .1,
@@ -1834,6 +1840,7 @@ impl TUI {
                     session_cost_usd: self.model.token_budget.session_cost_usd,
                     current_model: self.model.current_model.clone(),
                     session_start: self.integration.start_time,
+                    mcp_manager: self.integration.mcp_manager.clone(),
                 },
             )?;
 

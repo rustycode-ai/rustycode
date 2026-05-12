@@ -310,28 +310,43 @@ pub fn handle_skill_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<C
 
 /// Handle /mcp command
 pub fn handle_mcp_command(parts: &[&str], ctx: CommandContext<'_>) -> Result<CommandEffect> {
-    // Check if this is a subcommand or just opening MCP mode
-    if parts.len() < 2 || parts[1] == "open" {
+    if parts.len() < 2 {
         return Ok(CommandEffect::SystemMessage(
-            "MCP Mode: Press Esc to close. Type 'list' for servers, 'status' for connection info."
-                .to_string(),
+            "Use /mcp help for available commands".to_string(),
         ));
     }
 
+    // Let "open" pass through to mcp.rs which returns SwitchToMcpMode sentinel
     let input = parts.join(" ");
     let input_clone = input.clone();
     let tx = ctx.command_tx;
+    let mcp_manager = ctx.mcp_manager.clone();
 
-    // Spawn thread with its own runtime for MCP commands
     std::thread::spawn(move || {
-        let result = rustycode_shared_runtime::block_on_shared(
-            crate::slash_commands::mcp::handle_mcp_command(&input_clone),
-        );
+        let result = rustycode_shared_runtime::block_on_shared(async {
+            tokio::time::timeout(
+                std::time::Duration::from_secs(30),
+                crate::slash_commands::mcp::handle_mcp_command(&input_clone, &mcp_manager),
+            )
+            .await
+            .unwrap_or_else(|_| Err("MCP command timed out (30s)".to_string()))
+        });
+
         match result {
             Ok(Some(output)) => {
-                let _ = tx.send(crate::app::async_::SlashCommandResult::Success(output));
+                if output == "SWITCH_TO_MCP_MODE" {
+                    let _ = tx.send(crate::app::async_::SlashCommandResult::Success(
+                        "Switching to MCP Mode...".to_string(),
+                    ));
+                } else {
+                    let _ = tx.send(crate::app::async_::SlashCommandResult::Success(output));
+                }
             }
-            Ok(None) => {}
+            Ok(None) => {
+                let _ = tx.send(crate::app::async_::SlashCommandResult::Success(
+                    "Command completed (no output)".to_string(),
+                ));
+            }
             Err(e) => {
                 let _ = tx.send(crate::app::async_::SlashCommandResult::Error(format!(
                     "MCP error: {}",

@@ -79,6 +79,7 @@ pub(crate) struct ServiceIntegrationState {
     pub(crate) rate_limit_tracker: RateLimitTracker,
     pub(crate) lsp: crate::app::lsp_status::LspStatus,
     pub(crate) mcp: crate::app::mcp_status::McpStatus,
+    pub(crate) mcp_manager: std::sync::Arc<tokio::sync::RwLock<rustycode_mcp::McpServerManager>>,
     pub(crate) start_time: std::time::Instant,
     pub(crate) event_receiver: tokio::sync::broadcast::Receiver<rustycode_mcp::protocol::McpEvent>,
     pub(crate) todo_state: rustycode_tools::todo::TodoState,
