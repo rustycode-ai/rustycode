@@ -62,7 +62,7 @@ impl Default for Metadata {
 /// # Example
 ///
 /// ```
-/// use rustycode_core::context_prio::{ContextItem, Priority};
+/// use rustycode_core::context::{ContextItem, Priority};
 ///
 /// let item = ContextItem::new("file content", Priority::High)
 ///     .with_metadata("path", "src/main.rs");

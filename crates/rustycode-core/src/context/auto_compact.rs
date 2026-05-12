@@ -5,9 +5,9 @@
 // single compact context item, preserving essential information while freeing
 // token budget.
 
-use crate::context_management::compression::{CompressionResult, CompressionStrategy};
-use crate::context_management::window::ContextWindow;
-use crate::context_prio::{ContextItem, Priority};
+use super::compression::{CompressionResult, CompressionStrategy};
+use super::window::ContextWindow;
+use super::{ContextItem, Priority};
 use crate::error::{CoreError, Result};
 use chrono::Utc;
 use std::time::Instant;
@@ -186,7 +186,7 @@ pub async fn auto_compact_with_threshold(
                 e
             );
             let fallback_target = (window.max_tokens() as f64 * POST_COMPACT_TARGET) as usize;
-            let r = crate::context_management::compression::compress_context(
+            let r = super::compression::compress_context(
                 window,
                 CompressionStrategy::OldestFirst,
                 fallback_target,
@@ -352,8 +352,8 @@ async fn compact_with_llm(
 
 #[cfg(test)]
 mod tests {
+    use super::Priority;
     use super::*;
-    use crate::context_prio::Priority;
     use futures::Stream;
     use rustycode_llm::provider::{
         CompletionRequest, CompletionResponse, LLMProvider, ProviderConfig, Usage,

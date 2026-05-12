@@ -1,6 +1,6 @@
 //! Input handling module
 
-pub mod event_loop;
+pub mod handler;
 pub mod keyboard;
 pub mod mouse;
 pub mod special_handlers;

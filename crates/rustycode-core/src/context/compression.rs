@@ -3,7 +3,7 @@
 use crate::error::{CoreError, Result};
 use tracing::{debug, info};
 
-use crate::context_management::window::ContextWindow;
+use super::window::ContextWindow;
 
 /// Strategy for compressing context when it exceeds capacity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
@@ -287,7 +287,7 @@ fn compress_hybrid(window: &mut ContextWindow, target_reduction: usize) -> Compr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context_prio::Priority;
+    use crate::context::Priority;
 
     fn create_test_window(max_tokens: usize) -> ContextWindow {
         let mut window = ContextWindow::new(max_tokens);

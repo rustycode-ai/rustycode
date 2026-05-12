@@ -137,8 +137,7 @@ pub mod agent;
 pub mod build_detection;
 // Checkpoint modules consolidated into recovery/ (Phase 3)
 pub mod context;
-pub mod context_management;
-pub mod context_prio;
+// context_management and context_prio consolidated into context/ (Phase 4)
 pub mod deadlock;
 pub mod edit_history;
 pub mod error;

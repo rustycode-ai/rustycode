@@ -5,11 +5,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-use crate::context_management::{
+use super::{
     compression::{compress_context, CompressionStrategy},
     window::ContextWindow,
 };
-use crate::context_prio::{select_best, ContextItem, SortStrategy};
+use super::{select_best, ContextItem, SortStrategy};
 
 /// Metrics tracking for context assembly operations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -148,7 +148,7 @@ impl ContextAssembler {
         }
 
         // Sort content by strategy
-        crate::context_prio::sort_by(optimized.content_mut(), self.sort_strategy);
+        super::sort_by(optimized.content_mut(), self.sort_strategy);
 
         optimized.metadata.assembly_count += 1;
         if self.track_quality {
@@ -182,7 +182,7 @@ impl ContextAssembler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::context_prio::Priority;
+    use crate::context::Priority;
 
     #[test]
     fn test_assembler_creation() {

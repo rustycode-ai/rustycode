@@ -1,7 +1,7 @@
 // ── Context Pruner ─────────────────────────────────────────────────────────────
 
-use crate::context_management::window::ContextWindow;
-use crate::context_prio::Priority;
+use super::window::ContextWindow;
+use super::Priority;
 use std::cmp::Ordering;
 
 /// Removes low-value content from context windows.
@@ -125,8 +125,8 @@ impl ContextPruner {
 
 #[cfg(test)]
 mod tests {
+    use super::Priority;
     use super::*;
-    use crate::context_prio::Priority;
 
     fn create_test_window(max_tokens: usize) -> ContextWindow {
         let mut window = ContextWindow::new(max_tokens);

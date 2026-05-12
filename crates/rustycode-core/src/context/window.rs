@@ -4,7 +4,7 @@ use crate::error::{CoreError, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::context_prio::{ContextItem, Priority};
+use super::{ContextItem, Priority};
 
 // ... (keep the rest of the file contents as is, but use the new Result)
 
@@ -18,7 +18,7 @@ use crate::context_prio::{ContextItem, Priority};
 /// # Example
 ///
 /// ```
-/// use rustycode_core::context_management::ContextWindow;
+/// use rustycode_core::context::ContextWindow;
 ///
 /// // Create a 200k token window (Claude 3.5 Sonnet)
 /// let mut window = ContextWindow::new(200_000);

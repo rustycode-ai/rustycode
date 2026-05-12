@@ -13,8 +13,8 @@
 // This example demonstrates how to use the context budgeting system
 // to optimize token usage while maintaining high-value context.
 
+use rustycode_core::context::{select_best, sort_by, ContextItem, Priority, SortStrategy};
 use rustycode_core::context::{ContextBudget, TokenCounter};
-use rustycode_core::context_prio::{select_best, sort_by, ContextItem, Priority, SortStrategy};
 
 fn main() -> anyhow::Result<()> {
     println!("╔════════════════════════════════════════════════════════════════╗");

@@ -22,9 +22,9 @@ pub mod renderer;
 pub mod render {
     pub mod brutalist_helpers;
     pub mod brutalist_renderer;
-    pub mod event_loop;
     pub mod layout;
     pub mod shared;
+    pub mod viewport;
 }
 pub mod streaming_render_buffer;
 

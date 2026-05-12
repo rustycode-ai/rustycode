@@ -404,12 +404,14 @@ impl BrutalistRenderer<'_> {
                 width: area.width,
                 height: 1,
             };
+            let above_text = format!(
+                "  ▲ {} message{} above",
+                start_idx,
+                if start_idx != 1 { "s" } else { "" }
+            );
+            let padded = format!("{:<width$}", above_text, width = area.width as usize);
             let indicator = Paragraph::new(Line::from(vec![Span::styled(
-                format!(
-                    "  ▲ {} message{} above",
-                    start_idx,
-                    if start_idx != 1 { "s" } else { "" }
-                ),
+                padded,
                 Style::default()
                     .fg(Color::Rgb(80, 80, 100))
                     .add_modifier(Modifier::DIM),
@@ -433,12 +435,14 @@ impl BrutalistRenderer<'_> {
             } else {
                 Color::Rgb(80, 80, 100)
             };
+            let below_text = format!(
+                "  ▼ {} message{} below",
+                messages_below,
+                if messages_below != 1 { "s" } else { "" }
+            );
+            let padded = format!("{:<width$}", below_text, width = area.width as usize);
             let indicator = Paragraph::new(Line::from(vec![Span::styled(
-                format!(
-                    "  ▼ {} message{} below",
-                    messages_below,
-                    if messages_below != 1 { "s" } else { "" }
-                ),
+                padded,
                 Style::default().fg(pulse_color).add_modifier(Modifier::DIM),
             )]));
             frame.render_widget(indicator, indicator_area);
