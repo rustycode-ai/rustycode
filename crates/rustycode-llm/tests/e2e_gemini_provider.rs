@@ -115,8 +115,8 @@ fn test_gemini_provider_name() {
     assert_eq!(provider.name(), "gemini");
 }
 
-#[test]
-fn test_gemini_list_models() {
+#[tokio::test]
+async fn test_gemini_list_models() {
     let config = ProviderConfig {
         api_key: Some(SecretString::new("AIzaTestKey".to_string().into())),
         base_url: None,
@@ -126,7 +126,7 @@ fn test_gemini_list_models() {
     };
 
     let provider = GeminiProvider::new(config).unwrap();
-    let models = futures::executor::block_on(provider.list_models()).unwrap();
+    let models = provider.list_models().await.unwrap();
 
     assert!(!models.is_empty());
     assert!(models.iter().any(|m| m.contains("gemini")));
