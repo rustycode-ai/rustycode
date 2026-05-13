@@ -249,7 +249,10 @@ fn compress_truncate_low_value(
 
         if idx < window.content().len() {
             let tokens = window.content()[idx].token_count;
-            window.remove(idx).ok();
+            if let Err(e) = window.remove(idx) {
+                tracing::warn!(idx, "compress: failed to remove item: {e}");
+                continue;
+            }
             saved += tokens;
             removed += 1;
         }

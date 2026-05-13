@@ -237,6 +237,10 @@ enum Command {
         #[command(subcommand)]
         command: AstCommand,
     },
+    /// Explore code structure (experimental)
+    Outline {
+        file: PathBuf,
+    },
     /// Self-update to the latest release.
     Update {
         /// Check for updates without installing
@@ -1135,6 +1139,14 @@ async fn async_main(cli: Cli) -> Result<()> {
             print!("{}", rustycode_auth::format_status_table(&statuses));
         }
         Command::Ast { command } => commands::ast_cmd::execute(&cwd, command).await?,
+        Command::Outline { file } => {
+            let content = std::fs::read_to_string(&file)?;
+            let outline = rustycode_tools::indexing::symbols::extract_file(&file, &content);
+            println!(
+                "{}",
+                rustycode_tools::indexing::symbols::renderers::render_llm_outline(&outline.symbols)
+            );
+        }
         Command::Update {
             check,
             nightly,

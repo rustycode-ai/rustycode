@@ -221,7 +221,10 @@ pub fn world(x: i32) -> i32 {
         assert_eq!(Lang::from_ext("js"), Some(Lang::JavaScript));
         assert_eq!(Lang::from_ext("ts"), Some(Lang::TypeScript));
         assert_eq!(Lang::from_ext("go"), Some(Lang::Go));
-        assert_eq!(Lang::from_ext("java"), None);
+        assert_eq!(Lang::from_ext("java"), Some(Lang::Java));
+        assert_eq!(Lang::from_ext("cpp"), Some(Lang::Cpp));
+        assert_eq!(Lang::from_ext("scala"), Some(Lang::Scala));
+        assert_eq!(Lang::from_ext("unknown"), None);
     }
 
     #[test]

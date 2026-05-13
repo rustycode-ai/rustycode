@@ -1,7 +1,6 @@
 // ── Context Prioritization Scoring Functions ───────────────────────────────────
 
-#[allow(unused_imports)]
-use super::types::{ContextItem, Priority};
+use super::types::ContextItem;
 use std::cmp::Ordering;
 
 /// Strategy for sorting context items.
@@ -162,6 +161,7 @@ pub fn frequency_score(usage_count: usize) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use super::super::types::Priority;
     use super::*;
     use chrono::Utc;
 

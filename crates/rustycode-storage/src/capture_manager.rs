@@ -148,7 +148,10 @@ impl SessionCaptureManager {
 
     /// Get the count of active sessions
     pub fn active_session_count(&self) -> usize {
-        self.active_captures.lock().map_or(0, |c| c.len())
+        self.active_captures
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .len()
     }
 
     /// Get a session summary by session ID

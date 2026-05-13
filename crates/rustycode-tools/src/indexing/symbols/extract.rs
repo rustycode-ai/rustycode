@@ -2,20 +2,34 @@ use crate::indexing::symbols::languages::Lang;
 use crate::indexing::symbols::tree_sitter::{parse_with_regex, parse_with_treesitter};
 use rustycode_protocol::code_symbol::FileOutline;
 use std::path::{Path, PathBuf};
+use tracing::info_span;
 use tree_sitter::Parser;
 use walkdir::WalkDir;
 
 pub fn extract_file(path: &Path, content: &str) -> FileOutline {
+    let span = info_span!("extract_file", path = %path.display());
+    let _enter = span.enter();
+
+    let start = std::time::Instant::now();
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     let lang = Lang::from_ext(ext);
 
-    match lang {
+    let outline = match lang {
         Some(l) => {
             let mut parser = Parser::new();
             parse_with_treesitter(&mut parser, l, path, content)
         }
         None => parse_with_regex(path, content),
-    }
+    };
+
+    let elapsed = start.elapsed();
+    tracing::info!(
+        symbol_count = outline.symbols.len(),
+        latency_ms = elapsed.as_millis(),
+        "Extracted symbols"
+    );
+
+    outline
 }
 
 pub fn collect_source_files(root: &Path) -> anyhow::Result<Vec<PathBuf>> {

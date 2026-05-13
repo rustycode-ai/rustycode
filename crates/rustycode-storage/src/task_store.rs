@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 use crate::Storage;
@@ -162,7 +162,7 @@ impl Storage {
                     created_at: parse_datetime(row.get::<_, String>(2)?),
                 })
             })
-            .ok();
+            .optional()?;
         Ok(project)
     }
 
@@ -369,7 +369,7 @@ impl Storage {
                     completed_at: row.get::<_, Option<String>>(11)?.map(parse_datetime),
                 })
             })
-            .ok();
+            .optional()?;
         Ok(task)
     }
 

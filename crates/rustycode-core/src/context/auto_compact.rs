@@ -321,7 +321,9 @@ async fn compact_with_llm(
     // Remove old items in reverse order to preserve indices.
     for &idx in old_indices.iter().rev() {
         if idx < window.content().len() {
-            window.remove(idx).ok();
+            if let Err(e) = window.remove(idx) {
+                tracing::warn!(idx, "auto_compact: failed to remove item: {e}");
+            }
         }
     }
 

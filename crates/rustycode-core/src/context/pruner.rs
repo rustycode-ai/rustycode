@@ -90,7 +90,9 @@ impl ContextPruner {
 
         // Remove in reverse order to avoid index shifting
         for idx in indices_to_remove.into_iter().rev() {
-            window.remove(idx).ok();
+            if let Err(e) = window.remove(idx) {
+                tracing::warn!(idx, "prune_by_criteria: failed to remove item: {e}");
+            }
         }
 
         original_len - window.content().len()
@@ -113,7 +115,10 @@ impl ContextPruner {
                 .map(|(idx, _)| idx);
 
             if let Some(idx) = min_idx {
-                window.remove(idx).ok();
+                if let Err(e) = window.remove(idx) {
+                    tracing::warn!(idx, "prune_to_fit: failed to remove item: {e}");
+                    break;
+                }
             } else {
                 break;
             }

@@ -10,7 +10,6 @@ pub fn extract_rust_symbols_ts(
     _imports: &mut Vec<String>,
 ) {
     let mut cursor = root.walk();
-
     for child in root.children(&mut cursor) {
         if let Some(sym) = extract_rust_node(&child, source) {
             symbols.push(sym);
@@ -28,7 +27,16 @@ fn extract_rust_node(node: &Node, source: &str) -> Option<CodeSymbol> {
         "impl_item" => extract_rust_impl(node, source),
         "mod_item" => rust_named_symbol(node, source, SymbolKind::Module),
         "macro_definition" => rust_macro_symbol(node, source),
-        _ => None,
+        // If not a top-level item, recurse to find them
+        _ => {
+            let mut cursor = node.walk();
+            for child in node.children(&mut cursor) {
+                if let Some(sym) = extract_rust_node(&child, source) {
+                    return Some(sym);
+                }
+            }
+            None
+        }
     }
 }
 
@@ -67,7 +75,7 @@ fn extract_rust_impl(impl_node: &Node, source: &str) -> Option<CodeSymbol> {
             sym.children.push(child_sym);
         }
     }
-
+    
     Some(sym)
 }
 

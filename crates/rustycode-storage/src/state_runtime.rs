@@ -7,7 +7,7 @@ use anyhow::Result;
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 /// Thread metadata derived from rollout files.
 #[derive(Debug, Clone)]
@@ -98,7 +98,7 @@ impl StateRuntime {
 
     /// Initialize database schema with all tables, indexes, and triggers.
     fn init_schema(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         conn.execute_batch(
             r"
             BEGIN;
@@ -228,7 +228,7 @@ impl StateRuntime {
         git_branch: Option<&str>,
     ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         conn.execute(
             "INSERT INTO threads (id, rollout_path, created_at, updated_at, task, mode, status, workspace_path, git_branch)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'executing', ?7, ?8)",
@@ -255,7 +255,7 @@ impl StateRuntime {
         tokens_delta: i64,
     ) -> Result<()> {
         let now = Utc::now().to_rfc3339();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         conn.execute(
             "UPDATE threads
              SET updated_at = ?1,
@@ -271,7 +271,7 @@ impl StateRuntime {
     /// Update thread title.
     pub fn update_thread_title(&self, thread_id: &str, title: &str) -> Result<()> {
         let now = Utc::now().to_rfc3339();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         conn.execute(
             "UPDATE threads SET title = ?1, updated_at = ?2 WHERE id = ?3",
             params![title, now, thread_id],
@@ -282,7 +282,7 @@ impl StateRuntime {
     /// Mark thread as completed.
     pub fn complete_thread(&self, thread_id: &str, final_token_count: u64) -> Result<()> {
         let now = Utc::now().to_rfc3339();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         conn.execute(
             "UPDATE threads SET status = 'completed', updated_at = ?1, tokens_used = ?2 WHERE id = ?3",
             params![now, final_token_count as i64, thread_id],
@@ -293,7 +293,7 @@ impl StateRuntime {
     /// Mark thread as errored.
     pub fn error_thread(&self, thread_id: &str) -> Result<()> {
         let now = Utc::now().to_rfc3339();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         conn.execute(
             "UPDATE threads SET status = 'error', updated_at = ?1 WHERE id = ?2",
             params![now, thread_id],
@@ -303,7 +303,7 @@ impl StateRuntime {
 
     /// Get recent threads.
     pub fn recent_threads(&self, limit: usize) -> Result<Vec<ThreadMetadata>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         let mut stmt = conn.prepare(
             "SELECT id, rollout_path, created_at, updated_at, title, task, mode, status,
                     tokens_used, item_count, bytes_written, forked_from_id, workspace_path, git_branch
@@ -338,7 +338,7 @@ impl StateRuntime {
 
     /// Search threads by title/task using FTS.
     pub fn search_threads(&self, query: &str, limit: usize) -> Result<Vec<ThreadMetadata>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         let mut stmt = conn.prepare(
             "SELECT t.id, t.rollout_path, t.created_at, t.updated_at, t.title, t.task, t.mode, t.status,
                     t.tokens_used, t.item_count, t.bytes_written, t.forked_from_id, t.workspace_path, t.git_branch
@@ -375,7 +375,7 @@ impl StateRuntime {
 
     /// Get a specific thread by ID.
     pub fn get_thread(&self, thread_id: &str) -> Result<Option<ThreadMetadata>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         let mut stmt = conn.prepare(
             "SELECT id, rollout_path, created_at, updated_at, title, task, mode, status,
                     tokens_used, item_count, bytes_written, forked_from_id, workspace_path, git_branch
@@ -409,7 +409,7 @@ impl StateRuntime {
 
     /// Delete a thread by ID.
     pub fn delete_thread(&self, thread_id: &str) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(PoisonError::into_inner);
         conn.execute("DELETE FROM threads WHERE id = ?1", params![thread_id])?;
         Ok(())
     }
