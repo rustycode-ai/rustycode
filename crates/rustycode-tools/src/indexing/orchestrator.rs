@@ -21,7 +21,7 @@ impl IndexOrchestrator {
     pub fn new(root: PathBuf) -> Result<Self> {
         Ok(Self {
             code_index: Arc::new(Mutex::new(CodeIndex::new(root.clone()))),
-            repo_map: Arc::new(Mutex::new(RepoMap::build(root.clone(), 4000)?)),
+            repo_map: Arc::new(Mutex::new(RepoMap::build(&root, 4000)?)),
             hashes: Arc::new(Mutex::new(HashMap::new())),
             root,
         })

@@ -1,17 +1,33 @@
-(function_item
-  name: (identifier) @symbol.name) @symbol.kind.function
+(struct_item name: (type_identifier) @symbol.name) @symbol.kind.struct
+(enum_item name: (type_identifier) @symbol.name) @symbol.kind.enum
+(trait_item name: (type_identifier) @symbol.name) @symbol.kind.trait
+(macro_definition name: (identifier) @symbol.name) @symbol.kind.macro
 
-(impl_item
-  type: (_) @symbol.name) @symbol.kind.impl
+;; Catch functions first
+(function_item name: (identifier) @symbol.name) @symbol.kind.function
 
-(struct_item
-  name: (type_identifier) @symbol.name) @symbol.kind.struct
+;; Override functions inside impl blocks to be methods
+(impl_item 
+  (function_item name: (identifier) @symbol.name) @symbol.kind.method)
 
-(enum_item
-  name: (type_identifier) @symbol.name) @symbol.kind.enum
+(impl_item @symbol.kind.impl)
 
-(trait_item
-  name: (type_identifier) @symbol.name) @symbol.kind.trait
+;; Support for modules (nested structure)
+(mod_item name: (identifier) @symbol.name) @symbol.kind.module
 
-(function_signature_item
-  name: (identifier) @symbol.name) @symbol.kind.function
+;; Constants
+(const_item name: (identifier) @symbol.name) @symbol.kind.constant
+
+;; Type aliases
+(type_item name: (type_identifier) @symbol.name) @symbol.kind.type
+
+;; Imports
+(use_declaration argument: (_) @import)
+
+;; Capture macro invocations as symbols (useful for DSLs and large macros)
+(macro_invocation 
+  macro: (identifier) @symbol.name) @symbol.kind.macro
+
+;; Doc comments
+((line_comment) @symbol.doc)
+((block_comment) @symbol.doc)

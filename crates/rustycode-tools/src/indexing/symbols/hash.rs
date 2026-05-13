@@ -6,7 +6,13 @@ pub fn compute_structural_hash(outline: &FileOutline) -> String {
     for symbol in &outline.symbols {
         hash_symbol_recursive(symbol, &mut hasher);
     }
-    format!("{:02x}", hasher.finalize())
+    let hash_bytes = hasher.finalize();
+    let mut hex = String::with_capacity(hash_bytes.len() * 2);
+    for b in hash_bytes {
+        use std::fmt::Write;
+        write!(hex, "{:02x}", b).unwrap();
+    }
+    hex
 }
 
 fn hash_symbol_recursive(symbol: &CodeSymbol, hasher: &mut impl Digest) {
