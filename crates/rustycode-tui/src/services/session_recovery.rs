@@ -1,7 +1,7 @@
 //! Session Recovery and Crash Detection
 
 use crate::ui::message::Message;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
@@ -162,8 +162,17 @@ impl SessionPersistence {
         let session_dir = self.base_dir.join(&state.session_id);
         fs::create_dir_all(&session_dir)?;
 
-        // Serialize state to JSON
-        let json = serde_json::to_string_pretty(state)?;
+        // Serialize state to JSON on a thread with a large stack (8MB)
+        // to avoid stack overflow when serializing large session state
+        // (10k+ messages produce deeply nested JSON that overflows default stacks).
+        let state_clone = state.clone();
+        let json = std::thread::Builder::new()
+            .name("session-save".into())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(move || serde_json::to_string_pretty(&state_clone))
+            .context("Failed to spawn session save thread")?
+            .join()
+            .map_err(|_| anyhow!("Session save thread panicked"))??;
 
         // Write to temporary file
         let state_path = session_dir.join("state.json");
@@ -183,7 +192,11 @@ impl SessionPersistence {
         Ok(())
     }
 
-    /// Load session state from disk
+    /// Load session state from disk.
+    ///
+    /// Deserialization runs on a dedicated thread with an 8MB stack to avoid
+    /// stack overflow when loading large sessions (10k+ messages produce deeply
+    /// nested JSON that overflows the default thread stack).
     pub fn load_state(&self, session_id: &str) -> Result<SessionState> {
         let state_path = self.base_dir.join(session_id).join("state.json");
 
@@ -192,7 +205,14 @@ impl SessionPersistence {
         }
 
         let json = fs::read_to_string(&state_path)?;
-        let state: SessionState = serde_json::from_str(&json)?;
+
+        let state = std::thread::Builder::new()
+            .name("session-load".into())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(move || serde_json::from_str::<SessionState>(&json))
+            .context("Failed to spawn session load thread")?
+            .join()
+            .map_err(|_| anyhow!("Session load thread panicked"))??;
 
         // Validate before returning
         state.validate()?;

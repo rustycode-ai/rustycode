@@ -15,6 +15,17 @@ pub(crate) fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     }
 }
 
+/// Get relative path for display, falling back to absolute if not under project root
+fn get_display_path(
+    file_path: &std::path::Path,
+    project_root: &std::path::Path,
+) -> std::path::Display {
+    file_path
+        .strip_prefix(project_root)
+        .unwrap_or(file_path)
+        .display()
+}
+
 /// Determine if auto-compact should be used based on query characteristics
 pub(crate) fn should_auto_compact(query: &str, top_k: usize) -> bool {
     // Auto-compact for large result sets
@@ -62,12 +73,7 @@ pub(crate) fn format_compact(
 
     // Results - single line each
     for result in results {
-        let rel_path = result
-            .chunk
-            .file_path
-            .strip_prefix(project_root)
-            .unwrap_or(&result.chunk.file_path)
-            .display();
+        let rel_path = get_display_path(&result.chunk.file_path, project_root);
 
         // file:line (score) symbol | preview
         output.push_str(&format!(
@@ -124,12 +130,7 @@ pub(crate) fn format_full(
     ));
 
     for result in results.iter() {
-        let rel_path = result
-            .chunk
-            .file_path
-            .strip_prefix(project_root)
-            .unwrap_or(&result.chunk.file_path)
-            .display();
+        let rel_path = get_display_path(&result.chunk.file_path, project_root);
 
         output.push_str(&format!(
             "\u{1f4c4} **{}:{}-{}** (score: {:.2})\n",
@@ -175,12 +176,7 @@ pub(crate) fn format_minimal(project_root: &std::path::Path, results: &[SearchRe
     let mut output = String::new();
 
     for result in results {
-        let rel_path = result
-            .chunk
-            .file_path
-            .strip_prefix(project_root)
-            .unwrap_or(&result.chunk.file_path)
-            .display();
+        let rel_path = get_display_path(&result.chunk.file_path, project_root);
 
         output.push_str(&format!(
             "{}:{} ({:.2})",

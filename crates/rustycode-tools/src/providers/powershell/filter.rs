@@ -9,7 +9,7 @@ pub fn is_ps_boilerplate(trimmed: &str) -> bool {
         || trimmed.starts_with("Windows PowerShell")
         || trimmed.starts_with("PS ")
         || trimmed.contains("> Write-Host")
-        || trimmed.contains(">> ")
+        || trimmed == ">>"
         // Delimiter and exit-code query echoed back
         || trimmed.contains("Write-Output '---END---'")
         || trimmed.contains("Write-Output $LASTEXITCODE")

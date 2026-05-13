@@ -470,6 +470,11 @@ async fn run_loop(
         // No tool calls — task complete
         if state.tools.is_empty() {
             tracing::info!("Agent finished: no tool calls");
+            if state.stop_reason.is_none() {
+                let _ = event_tx.send(EventMsg::TurnCompleted {
+                    stop_reason: "end_turn".to_string(),
+                });
+            }
             stopped_reason = StoppedReason::NoToolCalls;
             break;
         }

@@ -803,47 +803,55 @@ impl ServiceManager {
         // Spawn background task for workspace loading with progress tracking
         let tx_final = workspace_channel.clone_sender();
         let last_reported_pct_for_thread = last_reported_pct.clone();
-        thread::spawn(move || {
-            // Create progress callback that sends updates through the channel
-            let progress_callback: workspace_context::ScanProgressCallback =
-                Box::new(move |scanned: usize, total: usize| {
-                    let pct = if total > 0 {
-                        ((scanned as f64 / total as f64) * 100.0).round() as u16
-                    } else {
-                        0
-                    }
-                    .clamp(0, 100);
+        let _ = std::thread::Builder::new()
+            .name("workspace-loader".into())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(move || {
+                // Create progress callback that sends updates through the channel
+                let progress_callback: workspace_context::ScanProgressCallback =
+                    Box::new(move |scanned: usize, total: usize| {
+                        let pct = if total > 0 {
+                            ((scanned as f64 / total as f64) * 100.0).round() as u16
+                        } else {
+                            0
+                        }
+                        .clamp(0, 100);
 
-                    let mut last_pct = last_reported_pct_for_thread
-                        .lock()
-                        .unwrap_or_else(|e| e.into_inner());
-                    let should_report =
-                        *last_pct == 0 || pct == 100 || pct >= last_pct.saturating_add(10);
+                        let mut last_pct = last_reported_pct_for_thread
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        let should_report =
+                            *last_pct == 0 || pct == 100 || pct >= last_pct.saturating_add(10);
 
-                    if should_report {
-                        *last_pct = pct;
-                        send_chunk(&tx, WorkspaceUpdate::ScanProgress { scanned, total });
-                    }
-                });
+                        if should_report {
+                            *last_pct = pct;
+                            send_chunk(&tx, WorkspaceUpdate::ScanProgress { scanned, total });
+                        }
+                    });
 
-            // Load workspace context with progress tracking
-            let context = workspace_context::load_workspace_context_with_progress(
-                &cwd,
-                10,
-                20,
-                Some(progress_callback),
-            );
-
-            // Send final context loaded message
-            send_chunk(&tx_final, WorkspaceUpdate::ContextLoaded(context));
-
-            if let Some((filename, _)) = workspace_context::find_project_instruction_file(&cwd) {
-                send_chunk(
-                    &tx_final,
-                    WorkspaceUpdate::Notice(format!("Loaded {} from the workspace root", filename)),
+                // Load workspace context with progress tracking
+                let context = workspace_context::load_workspace_context_with_progress(
+                    &cwd,
+                    10,
+                    20,
+                    Some(progress_callback),
                 );
-            }
-        });
+
+                // Send final context loaded message
+                send_chunk(&tx_final, WorkspaceUpdate::ContextLoaded(context));
+
+                if let Some((filename, _)) = workspace_context::find_project_instruction_file(&cwd)
+                {
+                    send_chunk(
+                        &tx_final,
+                        WorkspaceUpdate::Notice(format!(
+                            "Loaded {} from the workspace root",
+                            filename
+                        )),
+                    );
+                }
+            })
+            .expect("failed to spawn workspace-loader thread");
 
         self.polling_registry.workspace_channel = Some(workspace_channel);
 
