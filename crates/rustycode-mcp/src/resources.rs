@@ -718,4 +718,28 @@ mod tests {
         let rot = ResourceOrTemplate::Template(&template);
         assert!(rot.mime_type().is_none());
     }
+
+    /// Regression test: match_uri_template with a template that produces an
+    /// invalid regex pattern must return None instead of panicking.
+    /// Before commit c758fb036 the regex compilation failure was silently
+    /// swallowed with `.ok()`; the fix adds a `tracing::warn!` log.
+    #[test]
+    fn test_match_uri_template_invalid_regex_returns_none() {
+        let result = match_uri_template("file://test", "file://[invalid");
+        assert!(
+            result.is_none(),
+            "invalid regex template should return None, not panic"
+        );
+    }
+
+    /// Regression test: regex_escape handles edge cases that could produce
+    /// invalid regex patterns when combined with template parameter replacement.
+    #[test]
+    fn test_match_uri_template_unbalanced_braces() {
+        let result = match_uri_template("file://test", "file://{unclosed");
+        assert!(
+            result.is_none(),
+            "template with unclosed brace should return None, not panic"
+        );
+    }
 }

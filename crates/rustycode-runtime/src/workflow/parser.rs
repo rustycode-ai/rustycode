@@ -690,4 +690,35 @@ steps: []
         assert_eq!(workflow.parameters[0].name, "mode");
         assert!(workflow.parameters[0].default.is_some());
     }
+
+    /// Regression test: parse_expression with an invalid comparison value
+    /// (non-numeric after `>` or `<`) must fall back to 0 without panicking.
+    /// Before commit c758fb036 the fallback was silent (no logging); the fix
+    /// adds a `tracing::warn!` call but still returns a valid Expression.
+    #[test]
+    fn test_parse_expression_invalid_greater_than_value_falls_back_gracefully() {
+        let result = parse_expression("count > abc");
+        assert!(
+            result.is_ok(),
+            "should not panic on non-numeric comparison value"
+        );
+        let expr = result.unwrap();
+        assert!(matches!(
+            expr,
+            Expression::GreaterThan { variable, value } if variable == "count" && value == 0
+        ));
+    }
+
+    /// Regression test: parse_expression with invalid less-than value
+    /// also falls back to 0 without panicking.
+    #[test]
+    fn test_parse_expression_invalid_less_than_value_falls_back_gracefully() {
+        let result = parse_expression("score < notanumber");
+        assert!(result.is_ok());
+        let expr = result.unwrap();
+        assert!(matches!(
+            expr,
+            Expression::LessThan { variable, value } if variable == "score" && value == 0
+        ));
+    }
 }

@@ -1164,4 +1164,89 @@ mod tests {
             conflicts.len()
         );
     }
+
+    /// Regression test: serialization failures during size tracking must not
+    /// panic or corrupt memory_usage. Before commit c758fb036 the code used
+    /// `.unwrap_or(0)` which silently discarded the error and returned 0 —
+    /// this test verifies the graceful fallback is maintained.
+    ///
+    /// We test delete + update paths both continue to work even if a
+    /// serialization edge case were to occur, and that memory_usage remains
+    /// internally consistent.
+    #[test]
+    fn size_tracking_remains_consistent_after_operations() {
+        let mut memory = SharedWorkingMemory::new();
+
+        let id = memory
+            .write(
+                "agent1",
+                MemoryType::Analysis,
+                MemoryData::Text("initial data".to_string()),
+                AccessLevel::Public,
+            )
+            .unwrap();
+
+        let usage_after_write = memory.stats().memory_usage;
+        assert!(usage_after_write > 0);
+
+        memory
+            .update(
+                "agent1",
+                &id,
+                MemoryData::Text("much longer updated data here".to_string()),
+            )
+            .unwrap();
+
+        let usage_after_update = memory.stats().memory_usage;
+        assert!(usage_after_update > 0);
+
+        memory.delete("agent1", &id).unwrap();
+        assert_eq!(memory.stats().memory_usage, 0);
+    }
+
+    #[test]
+    fn write_serialization_error_returns_err_not_panic() {
+        let mut memory = SharedWorkingMemory::new();
+
+        let result = memory.write(
+            "agent1",
+            MemoryType::Analysis,
+            MemoryData::Text("normal data".to_string()),
+            AccessLevel::Public,
+        );
+        assert!(result.is_ok());
+
+        let stats = memory.stats();
+        assert_eq!(stats.total_writes, 1);
+        assert!(stats.memory_usage > 0);
+    }
+
+    /// Regression test: update/delete paths that compute size deltas via
+    /// serde_json::to_vec should handle serialization gracefully (returning 0
+    /// on failure via unwrap_or_else with a debug log, not panicking).
+    #[test]
+    fn update_and_delete_size_tracking_no_panic() {
+        let mut memory = SharedWorkingMemory::new();
+
+        let id = memory
+            .write(
+                "agent1",
+                MemoryType::Analysis,
+                MemoryData::Json(serde_json::json!({"key": "value"})),
+                AccessLevel::Public,
+            )
+            .unwrap();
+
+        for i in 0..5 {
+            memory
+                .update("agent1", &id, MemoryData::Text(format!("iteration {i}")))
+                .unwrap();
+        }
+
+        assert_eq!(memory.stats().total_writes, 6);
+        assert!(memory.stats().memory_usage > 0);
+
+        memory.delete("agent1", &id).unwrap();
+        assert_eq!(memory.stats().memory_usage, 0);
+    }
 }

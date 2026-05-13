@@ -260,4 +260,63 @@ mod tests {
         let json = serde_json::to_string(&result).unwrap();
         assert!(serde_json::from_str::<serde_json::Value>(&json).is_ok());
     }
+
+    /// Regression test: HookInput with missing hook_event_name defaults to
+    /// PreToolUse without panicking. Before commit c758fb036 the event type
+    /// defaulted silently; the fix adds a tracing::warn log.
+    #[test]
+    fn test_hook_input_conversion_missing_event_defaults_to_pre_tool_use() {
+        let input = HookInput {
+            session_id: Some("sess_123".to_string()),
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({"command": "ls"}),
+            cwd: Some("/tmp".to_string()),
+            hook_event_name: None,
+        };
+
+        let proto: rustycode_protocol::HookInput = input.into();
+        assert_eq!(proto.session_id, "sess_123");
+        assert_eq!(proto.cwd, "/tmp");
+        assert_eq!(proto.tool_name.unwrap(), "Bash");
+        assert!(matches!(
+            proto.event,
+            rustycode_protocol::HookEvent::PreToolUse
+        ));
+    }
+
+    /// Regression test: HookInput with an unknown event type also defaults to
+    /// PreToolUse without panicking.
+    #[test]
+    fn test_hook_input_conversion_unknown_event_defaults_to_pre_tool_use() {
+        let input = HookInput {
+            session_id: Some("sess_456".to_string()),
+            tool_name: "read".to_string(),
+            tool_input: serde_json::json!({}),
+            cwd: Some("/home".to_string()),
+            hook_event_name: Some("UnknownEvent".to_string()),
+        };
+
+        let proto: rustycode_protocol::HookInput = input.into();
+        assert!(matches!(
+            proto.event,
+            rustycode_protocol::HookEvent::PreToolUse
+        ));
+    }
+
+    /// Regression test: HookInput with missing session_id and cwd uses empty
+    /// strings instead of panicking. Before the fix these defaulted silently.
+    #[test]
+    fn test_hook_input_conversion_missing_session_and_cwd_uses_defaults() {
+        let input = HookInput {
+            session_id: None,
+            tool_name: "Bash".to_string(),
+            tool_input: serde_json::json!({}),
+            cwd: None,
+            hook_event_name: Some("PreToolUse".to_string()),
+        };
+
+        let proto: rustycode_protocol::HookInput = input.into();
+        assert_eq!(proto.session_id, "");
+        assert_eq!(proto.cwd, "");
+    }
 }

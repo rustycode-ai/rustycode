@@ -1322,4 +1322,56 @@ mod tests {
         assert!(handle.join().unwrap());
         config.set_global_yes(false);
     }
+
+    /// Regression test: Select with default_index exceeding options length must
+    /// return an error in non-interactive mode, not panic with index-out-of-bounds.
+    ///
+    /// Before commit c758fb036 the code used `options[index]` directly which
+    /// panics when `default_index >= options.len()`. The fix uses
+    /// `options.get(index).ok_or_else(...)`.
+    #[test]
+    fn test_select_default_index_out_of_bounds_returns_error() {
+        let config = PromptConfig::new();
+        config.set_global_yes(true);
+
+        // 2 options, but default_index = 99 — way out of range
+        let select = Select::<&str>::new("Pick")
+            .option("A", "a")
+            .option("B", "b")
+            .with_default(99)
+            .with_config(config);
+
+        let result = select.prompt();
+        assert!(
+            result.is_err(),
+            "expected Err for out-of-bounds default_index, got Ok"
+        );
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
+        assert!(
+            err.to_string().contains("99"),
+            "error message should mention the invalid index"
+        );
+    }
+
+    /// Regression test: Select with default_index == options.len() (one-past-end)
+    /// must also return an error, not panic.
+    #[test]
+    fn test_select_default_index_at_boundary_returns_error() {
+        let config = PromptConfig::new();
+        config.set_global_yes(true);
+
+        // 2 options (indices 0,1), default_index = 2 is out of bounds
+        let select = Select::<&str>::new("Pick")
+            .option("A", "a")
+            .option("B", "b")
+            .with_default(2)
+            .with_config(config);
+
+        let result = select.prompt();
+        assert!(
+            result.is_err(),
+            "expected Err for default_index == len(), got Ok"
+        );
+    }
 }
